@@ -40,11 +40,11 @@ AP-1.1 berührt diese bestehenden Dateien **nicht semantisch**. Es fügt nur die
 
 Pflichtenheft Anhang B pinnt `electron-vite ^2.3.0`. Das Tool bedient drei Bundles aus einer einzigen Config:
 
-| Bundle | Quelle | Ziel | Entry | Tsconfig |
-|---|---|---|---|---|
-| **main** | `src/main/` | `out/main/index.js` | `src/main/index.ts` | `tsconfig.node.json` |
-| **preload** | `src/preload/` | `out/preload/index.js` | `src/preload/index.ts` | `tsconfig.node.json` |
-| **renderer** | `src/renderer/` | `out/renderer/` | `src/renderer/index.html` | `tsconfig.web.json` |
+| Bundle       | Quelle          | Ziel                   | Entry                     | Tsconfig             |
+| ------------ | --------------- | ---------------------- | ------------------------- | -------------------- |
+| **main**     | `src/main/`     | `out/main/index.js`    | `src/main/index.ts`       | `tsconfig.node.json` |
+| **preload**  | `src/preload/`  | `out/preload/index.js` | `src/preload/index.ts`    | `tsconfig.node.json` |
+| **renderer** | `src/renderer/` | `out/renderer/`        | `src/renderer/index.html` | `tsconfig.web.json`  |
 
 `pnpm dev` startet alle drei mit HMR (Renderer hot-reload, Main/Preload Neustart bei Änderung).
 
@@ -64,11 +64,13 @@ In `electron.vite.config.ts` und beiden tsconfigs identisch:
 ### TypeScript: drei Konfigurationen via Project References
 
 **`tsconfig.json` (Root, Referenz-Hub):**
+
 - `references: [{ path: './tsconfig.node.json' }, { path: './tsconfig.web.json' }]`
 - `files: []` — selbst kompiliert nichts
 - `compilerOptions`: nur `baseUrl` + `paths` (Quelle für ESLint und IDE)
 
 **`tsconfig.node.json` (main + preload + shared + Configs):**
+
 - `include`: `src/main/**/*`, `src/preload/**/*`, `src/shared/**/*`, `electron.vite.config.ts`, `vitest.workspace.ts`, `drizzle.config.ts` (Configs nur als TS-Files; `eslint.config.js` wird nicht type-checked, da `allowJs` aus bleibt)
 - `target: ES2022`, `module: ESNext`, `moduleResolution: Bundler`
 - `strict: true`, `noUncheckedIndexedAccess: true`, `noImplicitOverride: true`, `exactOptionalPropertyTypes: true`, `verbatimModuleSyntax: true`
@@ -76,6 +78,7 @@ In `electron.vite.config.ts` und beiden tsconfigs identisch:
 - `composite: true`, `outDir: '.tsbuildinfo-node'`
 
 **`tsconfig.web.json` (renderer):**
+
 - `include`: `src/renderer/**/*`, `src/shared/**/*`, `src/preload/index.d.ts`
 - Gleicher strict-Stack
 - `lib: ['ES2022', 'DOM', 'DOM.Iterable']`, `jsx: 'react-jsx'`
@@ -93,11 +96,7 @@ export default defineWorkspace([
   {
     test: {
       name: 'node',
-      include: [
-        'src/main/**/*.test.ts',
-        'src/preload/**/*.test.ts',
-        'src/shared/**/*.test.ts',
-      ],
+      include: ['src/main/**/*.test.ts', 'src/preload/**/*.test.ts', 'src/shared/**/*.test.ts'],
       environment: 'node',
     },
   },
@@ -164,6 +163,7 @@ DevDeps: `vitest@^2.1.8`, `@vitest/coverage-v8@^2.1.8`, `jsdom@^25`, `@testing-l
 ### TypeDoc
 
 **`typedoc.json`:**
+
 - `entryPoints`: `['src/main/index.ts', 'src/preload/index.ts', 'src/shared/index.ts']`
 - `entryPointStrategy: 'expand'` — TypeDoc folgt Imports
 - `out: 'docs/api'`
@@ -246,26 +246,26 @@ Renderer ruft beim Mount defensiv `window.api?.auth?.status()` mit try/catch auf
 
 ### `package.json` Scripts (Endstand)
 
-| Script | Befehl | Zweck |
-|---|---|---|
-| `dev` | `electron-vite dev` | Dev-Server mit HMR |
-| `build` | `electron-vite build` | Production-Build |
-| `start` | `electron-vite preview` | Production-Build lokal testen |
-| `test` | `vitest run` | Test-Lauf beider Workspaces |
-| `test:watch` | `vitest` | Watch-Modus |
-| `test:cov` | `vitest run --coverage` | Mit Coverage-Report |
-| `lint` | `eslint .` | Lint ohne Auto-Fix |
-| `lint:fix` | `eslint . --fix` | Lint mit Auto-Fix |
-| `format` | `prettier --write .` | Prettier über alles |
-| `format:check` | `prettier --check .` | Prettier-Check |
-| `typecheck` | `tsc -b` | Type-Check beide References |
-| `doc` | `typedoc` | API-Doku → `docs/api/` |
-| `doc:watch` | `typedoc --watch` | Doc-Watch |
-| `prepare` | `husky` | Husky-Setup |
-| `db:generate` | `drizzle-kit generate` | [vorhanden] |
-| `db:studio` | `drizzle-kit studio` | [vorhanden] |
-| `db:check` | `drizzle-kit check` | [vorhanden] |
-| `postinstall` | `electron-rebuild -f` | Native Module für Electron neu bauen (argon2) |
+| Script         | Befehl                  | Zweck                                         |
+| -------------- | ----------------------- | --------------------------------------------- |
+| `dev`          | `electron-vite dev`     | Dev-Server mit HMR                            |
+| `build`        | `electron-vite build`   | Production-Build                              |
+| `start`        | `electron-vite preview` | Production-Build lokal testen                 |
+| `test`         | `vitest run`            | Test-Lauf beider Workspaces                   |
+| `test:watch`   | `vitest`                | Watch-Modus                                   |
+| `test:cov`     | `vitest run --coverage` | Mit Coverage-Report                           |
+| `lint`         | `eslint .`              | Lint ohne Auto-Fix                            |
+| `lint:fix`     | `eslint . --fix`        | Lint mit Auto-Fix                             |
+| `format`       | `prettier --write .`    | Prettier über alles                           |
+| `format:check` | `prettier --check .`    | Prettier-Check                                |
+| `typecheck`    | `tsc -b`                | Type-Check beide References                   |
+| `doc`          | `typedoc`               | API-Doku → `docs/api/`                        |
+| `doc:watch`    | `typedoc --watch`       | Doc-Watch                                     |
+| `prepare`      | `husky`                 | Husky-Setup                                   |
+| `db:generate`  | `drizzle-kit generate`  | [vorhanden]                                   |
+| `db:studio`    | `drizzle-kit studio`    | [vorhanden]                                   |
+| `db:check`     | `drizzle-kit check`     | [vorhanden]                                   |
+| `postinstall`  | `electron-rebuild -f`   | Native Module für Electron neu bauen (argon2) |
 
 ## Definition of Done
 
@@ -297,14 +297,14 @@ Diese Anpassungen werden **nicht** im AP-1.1-Spec selbst beschlossen — sie wan
 
 ## Risiken & Mitigations
 
-| # | Risiko | Mitigation |
-|---|---|---|
-| 1 | Electron 42 + electron-vite 2.3: electron-vite 2.x wurde primär gegen Electron 33 getestet. Mögliche ESM-Inkompatibilität im Main-Prozess. | Frühe Smoke-Aktion in der Implementierung: blanker `electron-vite create` Smoke-Test mit Electron 42. Falls bricht: entweder electron-vite 3-Beta oder Electron auf 33 zurück. Entscheidung ad hoc, im Implementierungs-Plan als Gate. |
-| 2 | `@node-rs/argon2` (in AuthService importiert) hat native Bindings, die für die Electron-Node-Version neu gebaut werden müssen. | `electron-rebuild` als devDep + `postinstall`-Script. |
-| 3 | Flat-Config-ESLint-Plugins für React teils noch in Migration. | Versionen im Plan exakt fixieren: `typescript-eslint@^8`, `eslint-plugin-react@^7.35`, `eslint-plugin-react-hooks@^5`. Fallback: `@eslint/compat`'s `fixupConfigRules`. |
-| 4 | `pnpm typecheck` im pre-commit kann auf langsamen Rechnern >15s dauern. | `composite: true` für incremental builds. Erstlauf ~10s, Folgeläufe <2s. Eskalation: typecheck in pre-push verschieben. |
-| 5 | Renderer-Smoke-Test braucht `window.api`-Mock. | `setupTests.ts` füllt `globalThis.window.api` mit no-op Stubs. |
-| 6 | Anhang A hat kein `tests/manual/` — Konflikt mit AP-1.1-Wortlaut. | Pragmatisch: Ordner mit README anlegen, Diff für v1.2-Pflichtenheft dokumentieren. |
+| #   | Risiko                                                                                                                                     | Mitigation                                                                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Electron 42 + electron-vite 2.3: electron-vite 2.x wurde primär gegen Electron 33 getestet. Mögliche ESM-Inkompatibilität im Main-Prozess. | Frühe Smoke-Aktion in der Implementierung: blanker `electron-vite create` Smoke-Test mit Electron 42. Falls bricht: entweder electron-vite 3-Beta oder Electron auf 33 zurück. Entscheidung ad hoc, im Implementierungs-Plan als Gate. |
+| 2   | `@node-rs/argon2` (in AuthService importiert) hat native Bindings, die für die Electron-Node-Version neu gebaut werden müssen.             | `electron-rebuild` als devDep + `postinstall`-Script.                                                                                                                                                                                  |
+| 3   | Flat-Config-ESLint-Plugins für React teils noch in Migration.                                                                              | Versionen im Plan exakt fixieren: `typescript-eslint@^8`, `eslint-plugin-react@^7.35`, `eslint-plugin-react-hooks@^5`. Fallback: `@eslint/compat`'s `fixupConfigRules`.                                                                |
+| 4   | `pnpm typecheck` im pre-commit kann auf langsamen Rechnern >15s dauern.                                                                    | `composite: true` für incremental builds. Erstlauf ~10s, Folgeläufe <2s. Eskalation: typecheck in pre-push verschieben.                                                                                                                |
+| 5   | Renderer-Smoke-Test braucht `window.api`-Mock.                                                                                             | `setupTests.ts` füllt `globalThis.window.api` mit no-op Stubs.                                                                                                                                                                         |
+| 6   | Anhang A hat kein `tests/manual/` — Konflikt mit AP-1.1-Wortlaut.                                                                          | Pragmatisch: Ordner mit README anlegen, Diff für v1.2-Pflichtenheft dokumentieren.                                                                                                                                                     |
 
 ## Out of Scope für AP-1.1
 
@@ -323,35 +323,35 @@ Diese Anpassungen werden **nicht** im AP-1.1-Spec selbst beschlossen — sie wan
 
 **devDependencies (neu, mit gepinnten Ranges):**
 
-| Paket | Range | Rolle |
-|---|---|---|
-| `electron-vite` | ^2.3.0 | Build-Tooling |
-| `vite` | ^5.4.0 | (transitiv via electron-vite, aber explizit gepinnt für Lock) |
-| `electron-rebuild` | ^3.2.9 | Native Module neu bauen |
-| `typescript` | ^5.6.3 | strict mode |
-| `@types/node` | ^22 | Node-Typen für main/preload |
-| `react` | ^18.3.1 | UI |
-| `react-dom` | ^18.3.1 | UI |
-| `@types/react` | ^18.3 | React-Typen |
-| `@types/react-dom` | ^18.3 | React-DOM-Typen |
-| `@vitejs/plugin-react` | ^4.3 | React-Plugin für Renderer-Build |
-| `vitest` | ^2.1.8 | Test-Runner |
-| `@vitest/coverage-v8` | ^2.1.8 | Coverage |
-| `jsdom` | ^25 | DOM-Environment für Renderer-Tests |
-| `@testing-library/react` | ^16 | Renderer-Test-Utils |
-| `@testing-library/jest-dom` | ^6 | DOM-Matcher |
-| `eslint` | ^9.15 | Linter |
-| `@eslint/js` | ^9.15 | ESLint Basis-Configs |
-| `typescript-eslint` | ^8.16 | TS-ESLint (flat-config) |
-| `eslint-plugin-react` | ^7.37 | React-Lint-Regeln |
-| `eslint-plugin-react-hooks` | ^5.0 | Hook-Regeln (flat-config-bereit) |
-| `eslint-plugin-react-refresh` | ^0.4 | Refresh-Regeln |
-| `eslint-config-prettier` | ^9.1 | Prettier-Integration |
-| `prettier` | ^3.3 | Formatter |
-| `husky` | ^9.1 | Git-Hooks |
-| `lint-staged` | ^15.2 | Staged-File-Linter |
-| `typedoc` | ^0.26 | Code-Doku |
-| `globals` | ^15 | ESLint-Globals-Set |
+| Paket                         | Range   | Rolle                                                         |
+| ----------------------------- | ------- | ------------------------------------------------------------- |
+| `electron-vite`               | ^2.3.0  | Build-Tooling                                                 |
+| `vite`                        | ^5.4.0  | (transitiv via electron-vite, aber explizit gepinnt für Lock) |
+| `electron-rebuild`            | ^3.2.9  | Native Module neu bauen                                       |
+| `typescript`                  | ^5.6.3  | strict mode                                                   |
+| `@types/node`                 | ^22     | Node-Typen für main/preload                                   |
+| `react`                       | ^18.3.1 | UI                                                            |
+| `react-dom`                   | ^18.3.1 | UI                                                            |
+| `@types/react`                | ^18.3   | React-Typen                                                   |
+| `@types/react-dom`            | ^18.3   | React-DOM-Typen                                               |
+| `@vitejs/plugin-react`        | ^4.3    | React-Plugin für Renderer-Build                               |
+| `vitest`                      | ^2.1.8  | Test-Runner                                                   |
+| `@vitest/coverage-v8`         | ^2.1.8  | Coverage                                                      |
+| `jsdom`                       | ^25     | DOM-Environment für Renderer-Tests                            |
+| `@testing-library/react`      | ^16     | Renderer-Test-Utils                                           |
+| `@testing-library/jest-dom`   | ^6      | DOM-Matcher                                                   |
+| `eslint`                      | ^9.15   | Linter                                                        |
+| `@eslint/js`                  | ^9.15   | ESLint Basis-Configs                                          |
+| `typescript-eslint`           | ^8.16   | TS-ESLint (flat-config)                                       |
+| `eslint-plugin-react`         | ^7.37   | React-Lint-Regeln                                             |
+| `eslint-plugin-react-hooks`   | ^5.0    | Hook-Regeln (flat-config-bereit)                              |
+| `eslint-plugin-react-refresh` | ^0.4    | Refresh-Regeln                                                |
+| `eslint-config-prettier`      | ^9.1    | Prettier-Integration                                          |
+| `prettier`                    | ^3.3    | Formatter                                                     |
+| `husky`                       | ^9.1    | Git-Hooks                                                     |
+| `lint-staged`                 | ^15.2   | Staged-File-Linter                                            |
+| `typedoc`                     | ^0.26   | Code-Doku                                                     |
+| `globals`                     | ^15     | ESLint-Globals-Set                                            |
 
 **Bestehende devDeps:** `drizzle-kit`, `electron`, `tsx` bleiben (Electron-Version aber bestätigt: ^42.0.0).
 
