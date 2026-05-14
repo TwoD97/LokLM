@@ -14,4 +14,17 @@ Each ADR should include the following sections:
 - **Decision** — what we chose
 - **Consequences** — what becomes easier, what becomes harder
 
+Decisions should reference, where useful, **production deployments** that have made the same call (Bitwarden/Vaultwarden, 1Password, age, Signal, AWS KMS, …) — concrete prior art is worth more than abstract justification.
+
 Referenced from [Pflichtenheft](../../Pflichtenheft_LokLM.md) §1.5 as `[ADR-NNNN]`.
+
+## Index
+
+| #    | Titel                                                                                          | Status   |
+| ---- | ---------------------------------------------------------------------------------------------- | -------- |
+| 0001 | [Argon2id als Passwort-/Passphrase-KDF](0001-argon2id-password-kdf.md)                         | accepted |
+| 0002 | [Envelope-Encryption: DEK + KEK-Wrapping mit AES-256-GCM](0002-envelope-encryption-aes-gcm.md) | accepted |
+
+## Verwandte Dokumente
+
+- [Third-Party Licenses](../licenses.md) — Attribution- und Lizenz-Inventar aller direkten Abhängigkeiten. ADRs nennen Pakete im Kontext einer Entscheidung; dort steht die vollständige Liste mit Versionen, Lizenzen und Copyright-Inhabern.
