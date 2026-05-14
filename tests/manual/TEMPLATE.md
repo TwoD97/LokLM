@@ -16,12 +16,12 @@ Es wird geprüft, ob ein Benutzer sich erfolgreich registrieren kann.
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| E-Mail | testuser@example.com |
-| Benutzername | testuser01 |
-| Passwort | Test1234! |
-| Sonstiges | - |
+| Feld         | Wert                 |
+| ------------ | -------------------- |
+| E-Mail       | testuser@example.com |
+| Benutzername | testuser01           |
+| Passwort     | Test1234!            |
+| Sonstiges    | -                    |
 
 ## Schritte
 

@@ -2,17 +2,17 @@
 
 ## Test-Info
 
-| Feld | Wert |
-|---|---|
-| Status | Nicht durchgeführt |
-| Ergebnis | Offen |
-| Bereich | Authentifizierung / Wiederherstellung |
-| Arbeitspaket | AP-2.1 |
-| Priorität | Hoch |
-| Datum |  |
-| Tester | dominik.furlan@lbs4.salzburg.at |
-| Betriebssystem |  |
-| App-Version / Build |  |
+| Feld                | Wert                                  |
+| ------------------- | ------------------------------------- |
+| Status              | Nicht durchgeführt                    |
+| Ergebnis            | Offen                                 |
+| Bereich             | Authentifizierung / Wiederherstellung |
+| Arbeitspaket        | AP-2.1                                |
+| Priorität           | Hoch                                  |
+| Datum               |                                       |
+| Tester              | dominik.furlan@lbs4.salzburg.at       |
+| Betriebssystem      |                                       |
+| App-Version / Build |                                       |
 
 ## Ziel
 
@@ -29,12 +29,12 @@ Es wird geprüft, ob ein Benutzer den Zugang über einen gültigen Recovery-Code
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| E-Mail | testuser@example.com |
-| Recovery-Code | TEST-RECOVERY-CODE |
-| Neues Passwort | NeuesTest1234! |
-| Neues Passwort bestätigen | NeuesTest1234! |
+| Feld                      | Wert                 |
+| ------------------------- | -------------------- |
+| E-Mail                    | testuser@example.com |
+| Recovery-Code             | TEST-RECOVERY-CODE   |
+| Neues Passwort            | NeuesTest1234!       |
+| Neues Passwort bestätigen | NeuesTest1234!       |
 
 ## Schritte
 
@@ -64,18 +64,18 @@ Es wird geprüft, ob ein Benutzer den Zugang über einen gültigen Recovery-Code
 
 ## Ergebnis nach Durchführung
 
-| Prüfpunkte | Ergebnis |
-|---|---|
-| Wiederherstellungsseite erreichbar? | Offen |
-| E-Mail-Adresse akzeptiert? | Offen |
-| Recovery-Code akzeptiert? | Offen |
-| Neues Passwort akzeptiert? | Offen |
-| Passwortänderung erfolgreich? | Offen |
-| Erfolgsmeldung sichtbar? | Offen |
-| Login mit neuem Passwort möglich? | Offen |
-| Benutzerbereich sichtbar? | Offen |
-| Alter Recovery-Code danach ungültig? | Offen |
-| Fehlermeldungen aufgetreten? | Offen |
+| Prüfpunkte                           | Ergebnis |
+| ------------------------------------ | -------- |
+| Wiederherstellungsseite erreichbar?  | Offen    |
+| E-Mail-Adresse akzeptiert?           | Offen    |
+| Recovery-Code akzeptiert?            | Offen    |
+| Neues Passwort akzeptiert?           | Offen    |
+| Passwortänderung erfolgreich?        | Offen    |
+| Erfolgsmeldung sichtbar?             | Offen    |
+| Login mit neuem Passwort möglich?    | Offen    |
+| Benutzerbereich sichtbar?            | Offen    |
+| Alter Recovery-Code danach ungültig? | Offen    |
+| Fehlermeldungen aufgetreten?         | Offen    |
 
 ## Notizen
 

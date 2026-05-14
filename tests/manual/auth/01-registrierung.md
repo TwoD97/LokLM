@@ -2,17 +2,17 @@
 
 ## Test-Info
 
-| Feld | Wert |
-|---|---|
-| Status | Nicht durchgeführt |
-| Ergebnis | Offen |
-| Bereich | Authentifizierung |
-| Arbeitspaket | AP-2.1 |
-| Priorität | Hoch |
-| Datum |  |
-| Tester |  |
-| Betriebssystem |  |
-| App-Version / Build |  |
+| Feld                | Wert               |
+| ------------------- | ------------------ |
+| Status              | Nicht durchgeführt |
+| Ergebnis            | Offen              |
+| Bereich             | Authentifizierung  |
+| Arbeitspaket        | AP-2.1             |
+| Priorität           | Hoch               |
+| Datum               |                    |
+| Tester              |                    |
+| Betriebssystem      |                    |
+| App-Version / Build |                    |
 
 ## Ziel
 
@@ -27,12 +27,12 @@ Es wird geprüft, ob ein neuer Benutzer erfolgreich registriert werden kann.
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| E-Mail | dominik.furlan@lbs4.salzburg.at |
-| Benutzername | Dominik Furlan |
-| Passwort | Test12345! |
-| Passwort bestätigen | Test12345! |
+| Feld                | Wert                            |
+| ------------------- | ------------------------------- |
+| E-Mail              | dominik.furlan@lbs4.salzburg.at |
+| Benutzername        | Dominik Furlan                  |
+| Passwort            | Test12345!                      |
+| Passwort bestätigen | Test12345!                      |
 
 ## Schritte
 
@@ -54,13 +54,13 @@ Es wird geprüft, ob ein neuer Benutzer erfolgreich registriert werden kann.
 
 ## Ergebnis nach Durchführung
 
-| Prüfpunkte | Ergebnis |
-|---|---|
-| Registrierung erfolgreich? | Offen |
-| Erfolgsmeldung sichtbar? | Offen |
-| Benutzer in Datenbank gespeichert? | Offen |
-| Weiterleitung korrekt? | Offen |
-| Fehlermeldungen aufgetreten? | Offen |
+| Prüfpunkte                         | Ergebnis |
+| ---------------------------------- | -------- |
+| Registrierung erfolgreich?         | Offen    |
+| Erfolgsmeldung sichtbar?           | Offen    |
+| Benutzer in Datenbank gespeichert? | Offen    |
+| Weiterleitung korrekt?             | Offen    |
+| Fehlermeldungen aufgetreten?       | Offen    |
 
 ## Notizen
 
