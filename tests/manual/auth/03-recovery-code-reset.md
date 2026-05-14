@@ -32,9 +32,9 @@ Es wird geprüft, ob ein Benutzer den Zugang über einen gültigen Recovery-Code
 | Feld | Wert |
 |---|---|
 | E-Mail | testuser@example.com |
-| Recovery-Code | TEST-RECOVERY-CODE |
-| Neues Passwort | NeuesTest1234! |
-| Neues Passwort bestätigen | NeuesTest1234! |
+| Recovery-Code | erzogen erdloch krebs muffel hinfort fasching grill neubau atelier anmachen jacht kentern mickrig liege ausufern flapsig erkunden befugnis |
+| Neues Passwort | NeuesTest12345! |
+| Neues Passwort bestätigen | NeuesTest12345! |
 
 ## Schritte
 
