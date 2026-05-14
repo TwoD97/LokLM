@@ -7,7 +7,7 @@ afterEach(() => {
   cleanup()
 })
 
-const stub = {
+const stub: Api = {
   auth: {
     status: () =>
       Promise.resolve({
@@ -17,13 +17,21 @@ const stub = {
         remainingRecoveryCodes: 0,
         recoveryLang: null,
       }),
-    register: () => Promise.resolve(undefined),
-    login: () => Promise.resolve(undefined),
-    logout: () => Promise.resolve(undefined),
-    lock: () => Promise.resolve(undefined),
-    reset: () => Promise.resolve(undefined),
+    register: () => Promise.resolve({ passphrase: Array(18).fill('test') as string[] }),
+    login: () => Promise.resolve({ ok: true as const }),
+    logout: () => Promise.resolve(),
+    lock: () => Promise.resolve(),
+    reset: () =>
+      Promise.resolve({ ok: true as const, passphrase: Array(18).fill('test') as string[] }),
     onState: () => () => undefined,
   },
-} satisfies Api
+  window: {
+    minimize: () => Promise.resolve(),
+    toggleMaximize: () => Promise.resolve(),
+    close: () => Promise.resolve(),
+    isMaximized: () => Promise.resolve(false),
+    onMaximizedChange: () => () => undefined,
+  },
+}
 
 window.api = stub

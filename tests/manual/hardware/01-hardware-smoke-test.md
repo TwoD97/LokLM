@@ -2,18 +2,18 @@
 
 ## Test-Info
 
-| Feld | Wert |
-|---|---|
-| Status | Nicht durchgeführt |
-| Ergebnis | Offen |
-| Bereich | Hardware / Systemstart |
-| Arbeitspaket | AP-? |
-| Priorität | Hoch |
-| Datum |  |
-| Tester | dominik.furlan@lbs4.salzburg.at |
-| Betriebssystem |  |
-| App-Version / Build |  |
-| Gerät / Hardware |  |
+| Feld                | Wert                            |
+| ------------------- | ------------------------------- |
+| Status              | Nicht durchgeführt              |
+| Ergebnis            | Offen                           |
+| Bereich             | Hardware / Systemstart          |
+| Arbeitspaket        | AP-?                            |
+| Priorität           | Hoch                            |
+| Datum               |                                 |
+| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Betriebssystem      |                                 |
+| App-Version / Build |                                 |
+| Gerät / Hardware    |                                 |
 
 ## Ziel
 
@@ -30,16 +30,16 @@ Es wird geprüft, ob die Anwendung auf der vorgesehenen Hardware grundsätzlich 
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| Gerät | z. B. Laptop, Desktop-PC, Mini-PC |
-| CPU |  |
-| RAM |  |
-| GPU |  |
-| Speicherplatz frei |  |
-| Betriebssystem |  |
-| App-Version / Build |  |
-| Testbenutzer | testuser@example.com |
+| Feld                | Wert                              |
+| ------------------- | --------------------------------- |
+| Gerät               | z. B. Laptop, Desktop-PC, Mini-PC |
+| CPU                 |                                   |
+| RAM                 |                                   |
+| GPU                 |                                   |
+| Speicherplatz frei  |                                   |
+| Betriebssystem      |                                   |
+| App-Version / Build |                                   |
+| Testbenutzer        | testuser@example.com              |
 
 ## Schritte
 
@@ -71,20 +71,20 @@ Es wird geprüft, ob die Anwendung auf der vorgesehenen Hardware grundsätzlich 
 
 ## Ergebnis nach Durchführung
 
-| Prüfpunkte | Ergebnis |
-|---|---|
-| Gerät startet fehlerfrei? | Offen |
-| Betriebssystem benutzbar? | Offen |
-| Anwendung startet? | Offen |
-| Oberfläche wird korrekt angezeigt? | Offen |
-| Login funktioniert? | Offen |
-| Chatbereich erreichbar? | Offen |
-| Testnachricht absendbar? | Offen |
-| Antwort wird geladen? | Offen |
-| Keine Abstürze? | Offen |
-| Anwendung erneut startbar? | Offen |
-| Auffällige Performance-Probleme? | Offen |
-| Fehlermeldungen aufgetreten? | Offen |
+| Prüfpunkte                         | Ergebnis |
+| ---------------------------------- | -------- |
+| Gerät startet fehlerfrei?          | Offen    |
+| Betriebssystem benutzbar?          | Offen    |
+| Anwendung startet?                 | Offen    |
+| Oberfläche wird korrekt angezeigt? | Offen    |
+| Login funktioniert?                | Offen    |
+| Chatbereich erreichbar?            | Offen    |
+| Testnachricht absendbar?           | Offen    |
+| Antwort wird geladen?              | Offen    |
+| Keine Abstürze?                    | Offen    |
+| Anwendung erneut startbar?         | Offen    |
+| Auffällige Performance-Probleme?   | Offen    |
+| Fehlermeldungen aufgetreten?       | Offen    |
 
 ## Notizen
 

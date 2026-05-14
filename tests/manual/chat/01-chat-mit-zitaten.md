@@ -2,17 +2,17 @@
 
 ## Test-Info
 
-| Feld | Wert |
-|---|---|
-| Status | Nicht durchgeführt |
-| Ergebnis | Offen |
-| Bereich | Chat / Quellen |
-| Arbeitspaket | AP-? |
-| Priorität | Hoch |
-| Datum |  |
-| Tester | dominik.furlan@lbs4.salzburg.at |
-| Betriebssystem |  |
-| App-Version / Build |  |
+| Feld                | Wert                            |
+| ------------------- | ------------------------------- |
+| Status              | Nicht durchgeführt              |
+| Ergebnis            | Offen                           |
+| Bereich             | Chat / Quellen                  |
+| Arbeitspaket        | AP-?                            |
+| Priorität           | Hoch                            |
+| Datum               |                                 |
+| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Betriebssystem      |                                 |
+| App-Version / Build |                                 |
 
 ## Ziel
 
@@ -29,12 +29,12 @@ Es wird geprüft, ob der Benutzer eine Chat-Nachricht senden kann, eine Antwort 
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| Testfrage | Was steht im Pflichtenheft zu manuellen Testszenarien? |
-| Erwartete Quelle | Pflichtenheft / Testdokumentation |
-| Benutzerkonto | testuser@example.com |
-| Besonderheit | Antwort soll mindestens ein Zitat oder eine Quellenangabe enthalten |
+| Feld             | Wert                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| Testfrage        | Was steht im Pflichtenheft zu manuellen Testszenarien?              |
+| Erwartete Quelle | Pflichtenheft / Testdokumentation                                   |
+| Benutzerkonto    | testuser@example.com                                                |
+| Besonderheit     | Antwort soll mindestens ein Zitat oder eine Quellenangabe enthalten |
 
 ## Schritte
 
@@ -64,17 +64,17 @@ Es wird geprüft, ob der Benutzer eine Chat-Nachricht senden kann, eine Antwort 
 
 ## Ergebnis nach Durchführung
 
-| Prüfpunkte | Ergebnis |
-|---|---|
-| Chatbereich erreichbar? | Offen |
-| Nachricht absendbar? | Offen |
-| Antwort wird vollständig geladen? | Offen |
-| Antwort passt zur Frage? | Offen |
-| Zitat/Quelle sichtbar? | Offen |
-| Zitat/Quelle anklickbar? | Offen |
-| Richtige Quelle wird geöffnet? | Offen |
-| Rückkehr zum Chat funktioniert? | Offen |
-| Fehlermeldungen aufgetreten? | Offen |
+| Prüfpunkte                        | Ergebnis |
+| --------------------------------- | -------- |
+| Chatbereich erreichbar?           | Offen    |
+| Nachricht absendbar?              | Offen    |
+| Antwort wird vollständig geladen? | Offen    |
+| Antwort passt zur Frage?          | Offen    |
+| Zitat/Quelle sichtbar?            | Offen    |
+| Zitat/Quelle anklickbar?          | Offen    |
+| Richtige Quelle wird geöffnet?    | Offen    |
+| Rückkehr zum Chat funktioniert?   | Offen    |
+| Fehlermeldungen aufgetreten?      | Offen    |
 
 ## Notizen
 
