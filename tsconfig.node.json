@@ -35,5 +35,5 @@
     "vitest.workspace.ts",
     "drizzle.config.ts"
   ],
-  "exclude": ["src/main/services/**", "node_modules", "out", "dist"]
+  "exclude": ["node_modules", "out", "dist"]
 }

@@ -2,17 +2,17 @@
 
 ## Test-Info
 
-| Feld | Wert |
-|---|---|
-| Status | Nicht durchgeführt |
-| Ergebnis | Offen |
-| Bereich | Authentifizierung |
-| Arbeitspaket | AP-2.1 |
-| Priorität | Hoch |
-| Datum |  |
-| Tester | dominik.furlan@lbs4.salzburg.at  |
-| Betriebssystem |  |
-| App-Version / Build |  |
+| Feld                | Wert                            |
+| ------------------- | ------------------------------- |
+| Status              | Nicht durchgeführt              |
+| Ergebnis            | Offen                           |
+| Bereich             | Authentifizierung               |
+| Arbeitspaket        | AP-2.1                          |
+| Priorität           | Hoch                            |
+| Datum               |                                 |
+| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Betriebssystem      |                                 |
+| App-Version / Build |                                 |
 
 ## Ziel
 
@@ -28,10 +28,10 @@ Es wird geprüft, ob sich ein bestehender Benutzer erfolgreich einloggen und wie
 
 ## Testdaten
 
-| Feld | Wert |
-|---|---|
-| E-Mail | dominik.furlan@lbs4.salzburg.at |
-| Passwort | Test12345! |
+| Feld     | Wert                            |
+| -------- | ------------------------------- |
+| E-Mail   | dominik.furlan@lbs4.salzburg.at |
+| Passwort | Test12345!                      |
 
 ## Schritte
 
@@ -53,14 +53,14 @@ Es wird geprüft, ob sich ein bestehender Benutzer erfolgreich einloggen und wie
 
 ## Ergebnis nach Durchführung
 
-| Prüfpunkte | Ergebnis |
-|---|---|
-| Login-Seite erreichbar? | Offen |
-| Login mit gültigen Daten erfolgreich? | Offen |
-| Benutzerbereich sichtbar? | Offen |
-| Logout erfolgreich? | Offen |
-| Weiterleitung nach Logout korrekt? | Offen |
-| Fehlermeldungen aufgetreten? | Offen |
+| Prüfpunkte                            | Ergebnis |
+| ------------------------------------- | -------- |
+| Login-Seite erreichbar?               | Offen    |
+| Login mit gültigen Daten erfolgreich? | Offen    |
+| Benutzerbereich sichtbar?             | Offen    |
+| Logout erfolgreich?                   | Offen    |
+| Weiterleitung nach Logout korrekt?    | Offen    |
+| Fehlermeldungen aufgetreten?          | Offen    |
 
 ## Notizen
 
