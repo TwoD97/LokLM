@@ -14,31 +14,30 @@ import {
 } from '../../../shared/authHelpers'
 import type { AuthStatus, LoginResult, ResetResult } from '../../../shared/authTypes'
 
-// Single-file vault layout (v4):
+// vault layout v4 , one file on disk:
 //
 //   MAGIC          8 bytes   "LOKLM04\0"
 //   HEADER_LEN     4 bytes   big-endian uint32
-//   HEADER_JSON    N bytes   UTF-8 JSON — AuthHeader (wrapped DEKs, salts, displayName)
+//   HEADER_JSON    N bytes   utf-8 json , AuthHeader (wrapped DEKs , salts , displayName)
 //   BODY_NONCE    12 bytes   AES-GCM nonce for the snapshot ciphertext
 //   BODY_TAG      16 bytes   AES-GCM auth tag
 //   BODY_CIPHER   rest       AES-256-GCM(DEK) of the pglite tar dump
 //
-// Why one file?
-//   * The wrapped DEK and its ciphertext live or die together. Two files mean a
-//     deleted/quarantined header makes the snapshot unrecoverable even with the
-//     correct password or recovery phrase. One file collapses that failure
-//     mode: either the vault is intact and unlockable, or it's gone.
-//   * Atomic rename of one path keeps header and body in sync by construction.
-//   * Backups are one file to copy.
+// why one file: wrapped DEK and ciphertext live or die together. if the
+// header gets deleted or quarantined the snapshot is gone even with the
+// right password or passphrase , so splitting them gains nothing and adds
+// a failure mode. one file means either the vault is fine or its gone ,
+// nothing in between. atomic rename keeps header and body in sync , and
+// backups are just one file to copy.
 //
-// Crypto layering (unchanged from v3):
-//   * DEK (32 random bytes) encrypts the snapshot body.
-//   * The DEK is wrapped twice (AES-256-GCM) under independent KEKs derived
-//     from (a) the password and (b) an 18-word BIP-39-style passphrase.
-//   * Each KEK = argon2id(secret, salt, 32-byte raw output).
-//   * DEK is constant for the install. Password reset re-wraps it under fresh
-//     KEKs and re-encrypts the snapshot body under the same DEK with a new
-//     nonce — original library content survives the recovery flow.
+// crypto layers (same as v3):
+//   - DEK , 32 random bytes , encrypts the snapshot body
+//   - DEK is wrapped twice with AES-256-GCM under two independent KEKs ,
+//     one from the password , one from an 18-word BIP-39 style passphrase
+//   - each KEK = argon2id(secret , salt , 32 byte raw output)
+//   - DEK stays the same for the whole install. on password reset we just
+//     re-wrap it under fresh KEKs and re-encrypt the body with a new nonce ,
+//     so library content survives the recovery flow.
 interface AuthHeader {
   version: 4
   displayName: string
@@ -71,7 +70,7 @@ export type { AuthStatus, LoginResult, ResetResult }
 
 const ARGON_OPTS = {
   type: argon2.argon2id,
-  memoryCost: 65536, // 64 MiB — Pflichtenheft 3.1.1
+  memoryCost: 65536, // 64 MiB , per Pflichtenheft 3.1.1
   timeCost: 3,
   parallelism: 4,
   hashLength: 32,
@@ -81,34 +80,34 @@ const ARGON_OPTS = {
 const AES_ALGO = 'aes-256-gcm' as const
 const AES_NONCE_BYTES = 12
 const AES_TAG_BYTES = 16
-const VAULT_MAGIC = Buffer.from('LOKLM04\0') // 8 bytes — bump when on-disk layout changes
+const VAULT_MAGIC = Buffer.from('LOKLM04\0') // 8 bytes , bump when the on-disk layout changes
 const HEADER_LEN_BYTES = 4
 const HEADER_OFFSET = VAULT_MAGIC.length + HEADER_LEN_BYTES
 
 const DEK_BYTES = 32
 const KEK_SALT_BYTES = 32
 
-// Pflichtenheft 3.1.2: 5 fails → 5 min lockout, in-memory only.
+// Pflichtenheft 3.1.2 , 5 fails → 5 min lockout , in-memory only.
 const MAX_FAIL_ATTEMPTS = 5
 const FAIL_LOCKOUT_MS = 5 * 60 * 1000
 
-// Pflichtenheft 3.1.4: 15 min default inactivity lock.
+// Pflichtenheft 3.1.4 , 15 min default inactivity lock.
 const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000
 
 /**
- * AuthService owns the boot-time auth state, the encrypted vault lifecycle,
- * and the in-memory DEK. The Database instance only exists between
+ * AuthService owns the boot-time auth state , the encrypted vault lifecycle ,
+ * and the in-memory DEK. the Database instance only exists between
  * login()/register() and lock()/logout().
  *
- * Files under userData/:
- *   loklm.vault   — one file: header (wrapped DEKs + metadata) + AES-GCM(DEK)(pglite tar dump)
+ * files under userData/:
+ *   loklm.vault   one file , header (wrapped DEKs + metadata) + AES-GCM(DEK)(pglite tar dump)
  */
 export class AuthService {
   private readonly vaultFilePath: string
   private cache: AuthHeader | null = null
   private cacheLoaded = false
 
-  // Live session state — only populated between login()/register() and lock().
+  // live session state , only set between login()/register() and lock().
   private dek: Buffer | null = null
   private database: Database | null = null
   private lastActivity = Date.now()
@@ -116,7 +115,7 @@ export class AuthService {
   private inactivityTimer: NodeJS.Timeout | null = null
   private onLockCallback: (() => void) | null = null
 
-  // Brute-force tracker for the login flow.
+  // brute-force tracker for login.
   private failures: number[] = []
 
   constructor(userDataDir: string) {
@@ -124,7 +123,7 @@ export class AuthService {
   }
 
   // -------------------------------------------------------------------------
-  // Public surface
+  // public surface
   // -------------------------------------------------------------------------
 
   async status(): Promise<AuthStatus> {
@@ -171,7 +170,7 @@ export class AuthService {
     const passwordWrappedDek = wrapKey(passwordKek, dek)
     passwordKek.fill(0)
 
-    // One recovery entry, derived from the canonicalized passphrase.
+    // one recovery entry , derived from the canonicalized passphrase.
     const wordlist = getWordlist(input.recoveryLang)
     const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
     const recoverySalt = randomBytes(KEK_SALT_BYTES)
@@ -222,8 +221,8 @@ export class AuthService {
       return { ok: false, reason: 'bad_password' }
     }
 
-    // DEK is in hand. Decrypt the body. With single-file vaults, header and
-    // body live together so any failure here means physical file corruption,
+    // got the DEK , now decrypt the body. with single-file vaults the header
+    // and body live together so any failure here is just file corruption ,
     // not an auth/snapshot drift.
     const snapshotBlob = decryptBody(vault.body, dek)
     if (snapshotBlob == null) {
@@ -252,7 +251,7 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
-    // Same effect as lock — single-user app has no notion of switching identities.
+    // same as lock , single-user app , no identity switching here.
     await this.lock()
   }
 
@@ -264,7 +263,7 @@ export class AuthService {
 
     validatePassword(input.newPassword)
 
-    // Early reject: bad shape / unknown words → no argon2, no rate-limit hit.
+    // early reject on bad shape / unknown words , so we dont burn argon2 or a rate-limit slot.
     const wordlist = getWordlist(vault.header.recoveryLang)
     const words = normalisePassphraseShared(input.passphrase).split(' ')
     const check = validatePassphraseShared(words, wordlist)
@@ -290,8 +289,8 @@ export class AuthService {
       return { ok: false, reason: 'bad_code' }
     }
 
-    // Re-wrap the same DEK under a new password-KEK and mint a fresh
-    // passphrase (same recoveryLang as registered).
+    // re-wrap the same DEK under a new password-KEK and mint a fresh
+    // passphrase , same recoveryLang as at registration.
     const newPasswordSalt = randomBytes(KEK_SALT_BYTES)
     const newPasswordKek = await deriveKEK(input.newPassword, Buffer.from(newPasswordSalt))
     const newPasswordWrappedDek = wrapKey(newPasswordKek, dek)
@@ -331,10 +330,10 @@ export class AuthService {
   }
 
   // -------------------------------------------------------------------------
-  // Session helpers used by the IPC layer
+  // session helpers used by the IPC layer
   // -------------------------------------------------------------------------
 
-  /** Returns the live Database, or throws when the session is locked. */
+  /** returns the live Database , throws when the session is locked. */
   requireDatabase(): Database {
     if (!this.database) {
       throw new Error('locked')
@@ -366,7 +365,7 @@ export class AuthService {
   }
 
   // -------------------------------------------------------------------------
-  // Internal helpers
+  // internal helpers
   // -------------------------------------------------------------------------
 
   private async loadHeader(): Promise<AuthHeader | null> {
@@ -458,14 +457,14 @@ export class AuthService {
   }
 
   private async seedAuthTables(db: Database, header: AuthHeader): Promise<void> {
-    // Pflichtenheft 4.2 expects users + recovery_codes rows in the DB. The
-    // bootstrap source-of-truth still lives in the vault header — these rows
-    // are schema-compliance copies, kept in sync at register/reset. The SQL
-    // password_hash column gets an opaque marker; verification always goes
-    // through the wrapped-DEK unwrap, never through the SQL row.
+    // Pflichtenheft 4.2 wants users + recovery_codes rows in the DB. real
+    // source of truth still lives in the vault header , these rows are just
+    // schema-compliance copies kept in sync on register/reset. the SQL
+    // password_hash column gets a placeholder , we never compare against it ,
+    // verification always goes through the wrapped-DEK unwrap.
     await db.replaceAuthRows({
       displayName: header.displayName,
-      passwordHash: '$wrapped-dek$', // placeholder — never compared against
+      passwordHash: '$wrapped-dek$', // placeholder , never compared against
       recoveryHashes: header.recoveryEntries.map((r) => ({
         hash: '$wrapped-dek$',
         createdAt: r.createdAt,
@@ -481,7 +480,7 @@ export class AuthService {
       try {
         await db.close()
       } catch {
-        /* ignore close races */
+        /* swallow close races , nothing we can do here */
       }
     }
   }
@@ -496,7 +495,7 @@ export class AuthService {
   private startInactivityTimer(): void {
     this.stopInactivityTimer()
     this.lastActivity = Date.now()
-    // Tick every 30s — granularity is fine, we just need expiry detection.
+    // tick every 30s , granularity is fine , we just need to spot expiry.
     this.inactivityTimer = setInterval(() => {
       if (!this.isUnlocked()) return
       const idle = Date.now() - this.lastActivity
@@ -529,12 +528,12 @@ export class AuthService {
 }
 
 // ---------------------------------------------------------------------------
-// Crypto helpers
+// crypto helpers
 // ---------------------------------------------------------------------------
 
 async function deriveKEK(secret: string, salt: Buffer): Promise<Buffer> {
-  // argon2id raw output IS the KEK. Wrong-secret detection happens at the
-  // AES-GCM auth-tag check during unwrap — no separate verifier needed.
+  // argon2id raw output IS the KEK. wrong-secret detection comes from the
+  // AES-GCM auth-tag failing during unwrap , no separate verifier needed.
   return argon2.hash(secret, { ...ARGON_OPTS, salt })
 }
 
@@ -576,15 +575,15 @@ function decryptBody(body: EncryptedBody, dek: Buffer): Blob | null {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers (module-private)
+// helpers (module-private)
 // ---------------------------------------------------------------------------
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000)
 }
 
-// AuthService delegates these to the shared module so the unit tests can
-// exercise them without spinning up node:crypto / argon2 / pglite.
+// AuthService delegates these to the shared module so the unit tests can hit
+// them without spinning up node:crypto / argon2 / pglite.
 function validatePassword(pw: string): void {
   validatePasswordShared(pw)
 }

@@ -5,7 +5,7 @@ import { App } from './App'
 describe('App (smoke)', () => {
   it('renders the LokLM brand', () => {
     render(<App />)
-    // Brand appears in both the titlebar and the in-content header.
+    // brand shows up in both the titlebar and the in-content header.
     expect(screen.getAllByText('LokLM').length).toBeGreaterThan(0)
   })
 

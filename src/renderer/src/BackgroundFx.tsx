@@ -1,8 +1,8 @@
 /**
- * Fixed-position layer behind everything: four large, heavily-blurred gradient
- * blobs that drift on long, offset CSS keyframe loops. The auth-card sits on
- * top with backdrop-filter, picking up these colours through the glass. Purely
- * decorative; `prefers-reduced-motion` neutralises the animation via the
+ * fixed-position layer behind everything , four big heavily-blurred gradient
+ * blobs that drift on long offset CSS keyframe loops. the auth-card sits on
+ * top with backdrop-filter and picks up these colours through the glass.
+ * purely decorative , `prefers-reduced-motion` kills the animation via the
  * global rule in styles.css.
  */
 export function BackgroundFx(): JSX.Element {
