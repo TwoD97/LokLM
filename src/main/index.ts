@@ -59,7 +59,7 @@ function registerIpc(): void {
     return result
   })
 
-  // Frameless-window controls — React titlebar calls these.
+  // frameless-window controls , React titlebar calls these.
   ipcMain.handle('window:minimize', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.minimize()
   })
@@ -97,7 +97,7 @@ function createMainWindow(): BrowserWindow {
     },
   })
 
-  // Mirror the OS maximize/unmaximize state to the renderer so the React
+  // mirror the OS maximize/unmaximize state to the renderer so the React
   // titlebar can swap the maximize <-> restore icon.
   window.on('maximize', () => window.webContents.send('window:maximized', true))
   window.on('unmaximize', () => window.webContents.send('window:maximized', false))
@@ -132,8 +132,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// Persist the encrypted snapshot before the process exits. before-quit fires
-// before windows close, which is when we still have a chance to do async work.
+// persist the encrypted snapshot before the process exits. before-quit fires
+// before the windows close , so we still have a chance to do async work here.
 app.on('before-quit', (event) => {
   if (didFinalPersist || !authService) return
   if (!authService.isUnlocked()) {
@@ -144,7 +144,7 @@ app.on('before-quit', (event) => {
   void authService
     .persistSnapshotIfUnlocked()
     .catch(() => {
-      /* swallow — exit anyway, snapshot stays at last good state */
+      /* swallow , we exit anyway and the snapshot stays at the last good state */
     })
     .finally(() => {
       didFinalPersist = true

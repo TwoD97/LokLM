@@ -9,35 +9,35 @@ import { recoveryTable, userTable } from './schema'
 export type Db = PgliteDatabase<typeof schema>
 
 function resolveMigrationsFolder(): string {
-  // Packaged build ships the ./drizzle folder via electron-builder's
-  // extraResources so it lands under process.resourcesPath. In dev,
-  // app.getAppPath() resolves to the repo root.
+  // packaged build ships the ./drizzle folder via electron-builder's
+  // extraResources so it lands under process.resourcesPath. in dev ,
+  // app.getAppPath() points at the repo root.
   const base = app.isPackaged ? process.resourcesPath : app.getAppPath()
   return path.join(base, 'drizzle')
 }
 
 /**
- * Owns the PGlite + Drizzle pair for a single unlocked session.
+ * owns the PGlite + Drizzle pair for one unlocked session.
  *
- * The DB is in-memory because durable persistence is the encrypted snapshot
- * (`pgdata.snapshot.enc`), not a directory on disk. On login the snapshot is
- * decrypted, fed into `loadDataDir`, and PGlite picks up where the previous
- * session left off. On lock/logout, AuthService calls `dump()`, encrypts the
- * result, and writes it back.
+ * the DB is in-memory because durable persistence is the encrypted snapshot
+ * inside the vault file , not a directory on disk. on login the snapshot is
+ * decrypted , fed into `loadDataDir` , and PGlite picks up where the previous
+ * session left off. on lock/logout AuthService calls `dump()` , encrypts the
+ * result , and writes it back.
  */
 export class Database {
   private constructor(
     private readonly client: PGlite,
     private readonly drizzleDb: Db,
-  ) { }
+  ) {}
 
   /**
-   * Creates an in-memory PGlite instance. If `loadFromBlob` is provided, the
+   * creates an in-memory PGlite instance. if `loadFromBlob` is provided , the
    * blob (a previous `dump()` output) seeds the data directory before
-   * migrations run. Migrations are idempotent — running them on a restored
-   * snapshot is a no-op when the schema hasn't moved.
+   * migrations run. migrations are idempotent so running them on a restored
+   * snapshot is a no-op when the schema hasnt moved.
    *
-   * @param _dataDir reserved; pass `undefined` (in-memory is the only supported mode)
+   * @param _dataDir reserved , pass `undefined` (in-memory is the only mode we support)
    * @param loadFromBlob optional snapshot blob from a previous `dump()`
    */
   static async create(_dataDir: string | undefined, loadFromBlob?: Blob): Promise<Database> {
@@ -48,7 +48,7 @@ export class Database {
     return new Database(client, drizzleDb)
   }
 
-  /** Serialises the live DB to a tar Blob ready for AES-GCM encryption. */
+  /** serialises the live DB to a tar Blob , ready for AES-GCM encryption. */
   async dump(): Promise<Blob> {
     return this.client.dumpDataDir()
   }
@@ -63,11 +63,11 @@ export class Database {
   }
 
   /**
-   * Re-seeds the `users` + `recovery_codes` rows from the auth.json source of
-   * truth. AuthService calls this on register/reset so the SQL side stays in
-   * sync with the wrapped-DEK envelopes. The `passwordHash` / `codeHash`
-   * columns store a placeholder marker — verification always goes through the
-   * wrapped-DEK unwrap, never through the SQL row.
+   * re-seeds the `users` + `recovery_codes` rows from the vault header (the
+   * real source of truth). AuthService calls this on register/reset so the
+   * SQL side stays in sync with the wrapped-DEK envelopes. the `passwordHash`
+   * / `codeHash` columns just store a placeholder , we never verify against
+   * them , always through the wrapped-DEK unwrap.
    */
   async replaceAuthRows(input: {
     displayName: string
