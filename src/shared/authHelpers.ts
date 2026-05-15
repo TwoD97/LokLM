@@ -14,7 +14,7 @@ export function countCharacterClasses(pw: string): number {
   return [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].reduce((n, re) => (re.test(pw) ? n + 1 : n), 0)
 }
 
-// Passphrase helpers (replacing legacy recovery codes)
+// passphrase helpers (replacing the old recovery codes)
 
 import { WORDLIST_DE } from './passPhraseWords/wordlist-de'
 import { WORDLIST_EN } from './passPhraseWords/wordlist-en'
@@ -28,10 +28,10 @@ export function getWordlist(lang: WordlistLang): readonly string[] {
 export const PASSPHRASE_WORDS = 18
 
 /**
- * Sample `count` words uniformly from `wordlist` using `randomBytes`.
+ * sample `count` words uniformly from `wordlist` using `randomBytes`.
  *
- * Modulo bias note: wordlist length is 2048 = 2^11. We consume 2 bytes per
- * word and mask to 11 bits — bias-free regardless of the byte source.
+ * modulo bias note , wordlist length is 2048 = 2^11. we consume 2 bytes per
+ * word and mask to 11 bits , so its bias-free no matter the byte source.
  */
 export function generatePassphrase(
   wordlist: readonly string[],
