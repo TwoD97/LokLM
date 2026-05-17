@@ -110,10 +110,10 @@ jobs:
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          /tmp/mc.exe alias set release "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe" "release/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe.sha256" "release/loklm-installers/v${V}/"
-          /tmp/mc.exe ls "release/loklm-installers/v${V}/"
+          /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   bump-and-redeploy:
     name: Bump manifest + redeploy website
