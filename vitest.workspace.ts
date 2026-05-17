@@ -8,6 +8,13 @@ const aliases = {
   '@renderer': resolve(__dirname, 'src/renderer/src'),
 }
 
+// vier projects:
+//   - node          : unit-tests neben source unter src/main , preload , shared
+//   - web           : renderer unit-tests , jsdom
+//   - integration   : tests/integration/** , node env , mehrere module zusammen
+//   - tx            : tests/tx/** , node env , db- und vault-round-trips
+// e2e läuft NICHT über vitest sondern über playwright (tests/e2e/*.spec.ts).
+
 export default defineWorkspace([
   {
     resolve: { alias: aliases },
@@ -26,6 +33,24 @@ export default defineWorkspace([
       environment: 'jsdom',
       setupFiles: ['./src/renderer/src/setupTests.ts'],
       globals: false,
+    },
+  },
+  {
+    resolve: { alias: aliases },
+    test: {
+      name: 'integration',
+      include: ['tests/integration/**/*.test.ts'],
+      environment: 'node',
+      testTimeout: 30_000,
+    },
+  },
+  {
+    resolve: { alias: aliases },
+    test: {
+      name: 'tx',
+      include: ['tests/tx/**/*.test.ts'],
+      environment: 'node',
+      testTimeout: 60_000,
     },
   },
 ])
