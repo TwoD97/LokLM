@@ -99,9 +99,8 @@ jobs:
       - name: Install mc
         shell: bash
         run: |
-          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
-          chmod +x /tmp/mc
-          /tmp/mc --version | head -1
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe --version | head -1
 
       - name: Upload to minio
         shell: bash
@@ -111,10 +110,10 @@ jobs:
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          /tmp/mc alias set release "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-Setup-${V}.exe" "release/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-Setup-${V}.exe.sha256" "release/loklm-installers/v${V}/"
-          /tmp/mc ls "release/loklm-installers/v${V}/"
+          /tmp/mc.exe alias set release "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe" "release/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe.sha256" "release/loklm-installers/v${V}/"
+          /tmp/mc.exe ls "release/loklm-installers/v${V}/"
 
   bump-and-redeploy:
     name: Bump manifest + redeploy website
