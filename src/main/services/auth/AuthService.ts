@@ -195,7 +195,6 @@ export class AuthService {
 
     this.dek = dek
     this.database = await Database.create(undefined)
-    await this.seedAuthTables(this.database, header)
     const body = await this.encryptCurrentDb(dek)
     await this.writeVault(header, body)
     this.cache = header
@@ -319,7 +318,6 @@ export class AuthService {
     const snapshotBlob = decryptBody(vault.body, dek)
     this.dek = dek
     this.database = await Database.create(undefined, snapshotBlob ?? undefined)
-    await this.seedAuthTables(this.database, newHeader)
     const newBody = await this.encryptCurrentDb(dek)
     await this.writeVault(newHeader, newBody)
     this.cache = newHeader
@@ -454,23 +452,6 @@ export class AuthService {
     const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
     const tag = cipher.getAuthTag()
     return { nonce, tag, ciphertext }
-  }
-
-  private async seedAuthTables(db: Database, header: AuthHeader): Promise<void> {
-    // Pflichtenheft 4.2 wants users + recovery_codes rows in the DB. real
-    // source of truth still lives in the vault header , these rows are just
-    // schema-compliance copies kept in sync on register/reset. the SQL
-    // password_hash column gets a placeholder , we never compare against it ,
-    // verification always goes through the wrapped-DEK unwrap.
-    await db.replaceAuthRows({
-      displayName: header.displayName,
-      passwordHash: '$wrapped-dek$', // placeholder , never compared against
-      recoveryHashes: header.recoveryEntries.map((r) => ({
-        hash: '$wrapped-dek$',
-        createdAt: r.createdAt,
-        usedAt: r.usedAt,
-      })),
-    })
   }
 
   private async shutdownDatabase(): Promise<void> {
