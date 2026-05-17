@@ -18,26 +18,26 @@ export interface Release {
 }
 
 export const currentRelease: Release = {
-  version: '0.1.1',
+  version: '0.1.2',
   releasedAt: '2026-05-17',
   assets: [
     {
       platform: 'windows',
-      file: 'LokLM-Setup-0.1.1.exe',
-      sizeBytes: 107609763,
-      sha256: '1eb3b8dd5ec2f90e2882e9927405970eeac58775273154340aaa5714b2a01e17',
+      file: 'LokLM-Setup-0.1.2.exe',
+      sizeBytes: 0,
+      sha256: '',
       available: true,
     },
     {
       platform: 'macos',
-      file: 'LokLM-0.1.1.dmg',
+      file: 'LokLM-0.1.2.dmg',
       sizeBytes: 0,
       sha256: '',
       available: false,
     },
     {
       platform: 'linux',
-      file: 'LokLM-0.1.1.AppImage',
+      file: 'LokLM-0.1.2.AppImage',
       sizeBytes: 0,
       sha256: '',
       available: false,
