@@ -97,6 +97,7 @@
       "!**/node_modules/**/*.map"
     ],
     "asar": true,
+    "publish": null,
     "win": {
       "target": [
         {
