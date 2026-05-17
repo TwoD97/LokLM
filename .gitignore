@@ -149,3 +149,4 @@ docs/api/
 .tsbuildinfo-node/
 .tsbuildinfo-web/
 models/
+LokLM.zip

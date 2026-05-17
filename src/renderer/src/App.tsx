@@ -117,7 +117,49 @@ export function App(): JSX.Element {
       <TitleBar />
       <main className="app">
         <header className="app__header" aria-label="LokLM">
-          <p className="app__brand">LokLM</p>
+          <div className="app__brand-row">
+            <svg
+              className="app__mark"
+              viewBox="0 0 64 64"
+              width="40"
+              height="40"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="14"
+                y="22"
+                width="36"
+                height="30"
+                rx="2"
+                stroke="#F6F4EF"
+                strokeWidth="3"
+                opacity="0.4"
+              />
+              <rect
+                x="11"
+                y="17"
+                width="36"
+                height="30"
+                rx="2"
+                stroke="#F6F4EF"
+                strokeWidth="3"
+                opacity="0.7"
+              />
+              <rect
+                x="8"
+                y="12"
+                width="36"
+                height="30"
+                rx="2"
+                fill="#0B1B2B"
+                stroke="#F6F4EF"
+                strokeWidth="3"
+              />
+              <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
+            </svg>
+            <p className="app__brand">LokLM</p>
+          </div>
           <p className="app__sub">Lokaler KI-Wissensassistent</p>
         </header>
         {content}
