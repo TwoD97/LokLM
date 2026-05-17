@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -86,7 +86,8 @@
     "appId": "com.loklm.desktop",
     "productName": "LokLM",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "resources"
     },
     "files": [
       "out/**/*",
