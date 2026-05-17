@@ -5,6 +5,12 @@ import { AuthService } from './services/auth/AuthService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+function brandAsset(file: string): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, file)
+    : join(__dirname, '../..', 'resources', file)
+}
+
 let authService: AuthService | null = null
 let didFinalPersist = false
 
@@ -87,8 +93,9 @@ function createMainWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'LokLM',
+    icon: brandAsset(process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     frame: false,
-    backgroundColor: '#0e1116',
+    backgroundColor: '#0B1B2B',
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
@@ -120,6 +127,7 @@ function createMainWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+  if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
   registerIpc()
   createMainWindow()
 
