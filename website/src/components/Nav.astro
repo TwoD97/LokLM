@@ -8,10 +8,15 @@ const lang = getLangFromUrl(Astro.url)
 
 <header class="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-bg-0)]/70 backdrop-blur-xl">
   <nav class="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
-    <a href={lang === 'de' ? '/' : '/en/'} class="flex items-center gap-2 group">
-      <span class="inline-grid place-items-center w-7 h-7 rounded-md bg-gradient-to-br from-[color:var(--color-accent-hover)] to-[color:var(--color-accent-active)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_12px_rgba(59,130,246,0.35)]">
-        <span class="text-white text-sm font-bold leading-none">L</span>
-      </span>
+    <a href={lang === 'de' ? '/' : '/en/'} class="flex items-center gap-2.5 group">
+      <img
+        src="/brand/mark-on-dark.svg"
+        alt=""
+        width="28"
+        height="28"
+        class="w-7 h-7 transition-transform duration-200 group-hover:-translate-y-0.5"
+        aria-hidden="true"
+      />
       <span class="mono uppercase tracking-[0.14em] text-xs text-[color:var(--color-fg-1)] group-hover:text-[color:var(--color-fg-0)] transition-colors">
         LokLM
       </span>

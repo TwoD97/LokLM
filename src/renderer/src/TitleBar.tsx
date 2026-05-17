@@ -13,22 +13,38 @@ export function TitleBar(): JSX.Element {
     <div className="titlebar" role="presentation">
       <div className="titlebar__brand-group">
         <span className="titlebar__logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="14" height="14">
-            <defs>
-              <linearGradient id="tb-grad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#60a5fa" />
-                <stop offset="100%" stopColor="#3b82f6" />
-              </linearGradient>
-            </defs>
-            <rect x="3" y="3" width="18" height="18" rx="5" fill="url(#tb-grad)" opacity="0.9" />
-            <path
-              d="M8 8.5 v7 h7.5"
-              fill="none"
-              stroke="#0e1116"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <svg viewBox="0 0 64 64" width="16" height="16" fill="none">
+            <rect
+              x="14"
+              y="22"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              strokeWidth="3"
+              opacity="0.4"
             />
+            <rect
+              x="11"
+              y="17"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              strokeWidth="3"
+              opacity="0.7"
+            />
+            <rect
+              x="8"
+              y="12"
+              width="36"
+              height="30"
+              rx="2"
+              fill="#0B1B2B"
+              stroke="#F6F4EF"
+              strokeWidth="3"
+            />
+            <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
           </svg>
         </span>
         <span className="titlebar__brand">LokLM</span>

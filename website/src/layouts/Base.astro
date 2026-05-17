@@ -21,6 +21,8 @@ const lang = getLangFromUrl(Astro.url)
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/app-paper.svg" />
+    <link rel="mask-icon" href="/brand/mark-mono.svg" color="#0B1B2B" />
     <link rel="preconnect" href="https://rsms.me/" />
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
 
@@ -30,7 +32,10 @@ const lang = getLangFromUrl(Astro.url)
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#0e1116" />
+    <meta property="og:image" content="/brand/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/brand/og.png" />
+    <meta name="theme-color" content="#0B1B2B" />
   </head>
   <body class="min-h-screen relative">
     <BackgroundFx />
