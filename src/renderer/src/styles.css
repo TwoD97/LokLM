@@ -23,6 +23,12 @@
   --error-border: rgba(248, 81, 73, 0.35);
   --success: #3fb950;
 
+  --brand-ink: #0b1b2b;
+  --brand-paper: #f6f4ef;
+  --brand-paper-deep: #edeae2;
+  --brand-blue: #1f4fb8;
+  --brand-cyan: #7dd3fc;
+
   --ring: 0 0 0 3px rgba(59, 130, 246, 0.35);
 
   --radius-sm: 6px;
@@ -124,16 +130,16 @@ body {
   position: absolute;
   inset: 0;
   background-image:
-    /* Subtle noise via repeated tiny radial dots — much smaller payload than an SVG noise filter. */
-    radial-gradient(rgba(255, 255, 255, 0.018) 1px,
-      transparent 1px);
+    /* Subtle noise via repeated tiny radial dots — much smaller payload than an SVG noise filter. */ radial-gradient(
+    rgba(255, 255, 255, 0.018) 1px,
+    transparent 1px
+  );
   background-size: 3px 3px;
   mix-blend-mode: overlay;
   opacity: 0.6;
 }
 
 @keyframes blob-drift-a {
-
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -149,7 +155,6 @@ body {
 }
 
 @keyframes blob-drift-b {
-
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -165,7 +170,6 @@ body {
 }
 
 @keyframes blob-drift-c {
-
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -177,7 +181,6 @@ body {
 }
 
 @keyframes blob-drift-d {
-
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -221,7 +224,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 1px 2px rgba(59, 130, 246, 0.4));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 .titlebar__brand {
@@ -305,8 +308,20 @@ body {
   animation: fadeIn 400ms var(--ease) both;
 }
 
+.app__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.15rem;
+}
+
+.app__mark {
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
 .app__brand {
-  margin: 0 0 0.15rem;
+  margin: 0;
   font-size: 1.85rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -350,10 +365,12 @@ body {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.18) 0%,
-      rgba(255, 255, 255, 0.02) 35%,
-      rgba(124, 58, 237, 0.12) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.02) 35%,
+    rgba(124, 58, 237, 0.12) 100%
+  );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -363,7 +380,7 @@ body {
   z-index: 1;
 }
 
-.auth-card>* {
+.auth-card > * {
   position: relative;
   z-index: 2;
 }
@@ -393,10 +410,12 @@ body {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 30% 30%,
-      var(--accent-hover),
-      var(--accent) 70%,
-      var(--accent-active));
+  background: radial-gradient(
+    circle at 30% 30%,
+    var(--accent-hover),
+    var(--accent) 70%,
+    var(--accent-active)
+  );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 8px 24px rgba(59, 130, 246, 0.35),
@@ -547,11 +566,11 @@ button.link--centered {
   /* let inputs/textareas shrink in grid cell */
 }
 
-.auth-steps__body>.auth-card__field {
+.auth-steps__body > .auth-card__field {
   margin-bottom: 0.85rem;
 }
 
-.auth-steps__body>.auth-card__field:last-child {
+.auth-steps__body > .auth-card__field:last-child {
   margin-bottom: 0;
 }
 
@@ -600,7 +619,6 @@ button.link--centered {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -691,8 +709,8 @@ button.link--centered {
   padding: 0;
 }
 
-.auth-card__field>span,
-.auth-card__field>legend {
+.auth-card__field > span,
+.auth-card__field > legend {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1065,7 +1083,6 @@ button.link:hover:not(:disabled)::after {
 }
 
 @keyframes shake {
-
   0%,
   100% {
     transform: translateX(0);
@@ -1083,7 +1100,6 @@ button.link:hover:not(:disabled)::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
