@@ -24,8 +24,8 @@ export const currentRelease: Release = {
     {
       platform: 'windows',
       file: 'LokLM-Setup-0.1.0.exe',
-      sizeBytes: 0,
-      sha256: '',
+      sizeBytes: 107607277,
+      sha256: 'fd0727f3d2a885c47e5a38382c8ef4e1d9e7c0beeea407499264e6dd445f8226',
       available: true,
     },
     {
