@@ -1,0 +1,51 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+const title = t(lang, 'hero.title')
+---
+
+<section class="relative pt-20 pb-24 sm:pt-28 sm:pb-32">
+  <div class="mx-auto max-w-6xl px-6 text-center">
+    <span class="section-eyebrow animate-[fade-in-up_400ms_ease-out_both]">
+      {t(lang, 'hero.eyebrow')}
+    </span>
+
+    <h1
+      class="mt-2 text-4xl sm:text-6xl font-bold tracking-tight leading-[1.05] gradient-text whitespace-pre-line animate-[fade-in-up_500ms_ease-out_100ms_both]"
+    >
+      {title}
+    </h1>
+
+    <p
+      class="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-[color:var(--color-fg-2)] leading-relaxed animate-[fade-in-up_500ms_ease-out_200ms_both]"
+    >
+      {t(lang, 'hero.subtitle')}
+    </p>
+
+    <div
+      class="mt-9 flex flex-wrap justify-center gap-3 animate-[fade-in-up_500ms_ease-out_300ms_both]"
+    >
+      <a href="#download" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12" />
+          <path d="m6 9 6 6 6-6" />
+          <path d="M5 21h14" />
+        </svg>
+        {t(lang, 'hero.cta.download')}
+      </a>
+      <a href="#features" class="btn-ghost">
+        {t(lang, 'hero.cta.learn')}
+      </a>
+    </div>
+
+    <div
+      class="mt-10 flex flex-wrap justify-center gap-2 animate-[fade-in-up_500ms_ease-out_400ms_both]"
+    >
+      <span class="pill">{t(lang, 'hero.badge.offline')}</span>
+      <span class="pill">{t(lang, 'hero.badge.encrypted')}</span>
+      <span class="pill">{t(lang, 'hero.badge.opensource')}</span>
+    </div>
+  </div>
+</section>

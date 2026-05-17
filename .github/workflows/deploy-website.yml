@@ -1,0 +1,104 @@
+name: Deploy website
+
+# push auf main mit änderung unter website/ , oder manuell.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+# keine zwei deploys parallel auf den gleichen webroot.
+concurrency:
+  group: deploy-website
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks (typecheck + astro check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            website/pnpm-lock.yaml
+
+      - name: Install website deps
+        working-directory: website
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - name: Astro check
+        working-directory: website
+        run: pnpm check
+
+      - name: Build website (smoke)
+        working-directory: website
+        env:
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL || 'https://downloads.loklm.example' }}
+        run: pnpm build
+
+  deploy:
+    name: Build + deploy to Hetzner
+    needs: checks
+    runs-on: ubuntu-latest
+    # nur bei push auf main oder manuellem dispatch , nicht bei PRs.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            website/pnpm-lock.yaml
+
+      - name: Install website deps
+        working-directory: website
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - name: Build website
+        working-directory: website
+        env:
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+        run: pnpm build
+
+      - name: Set up SSH
+        env:
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Rsync dist to Hetzner
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_PATH: ${{ secrets.HETZNER_PATH }}
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            website/dist/ \
+            "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

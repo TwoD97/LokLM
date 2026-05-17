@@ -1,0 +1,44 @@
+name: Checks
+
+# läuft auf PRs und auf jeden push außer main , main hat eigenen deploy workflow.
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  website:
+    name: Website (astro check + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            website/pnpm-lock.yaml
+
+      - name: Install website deps
+        working-directory: website
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - name: Astro check
+        working-directory: website
+        run: pnpm check
+
+      - name: Build
+        working-directory: website
+        env:
+          PUBLIC_INSTALLER_BASE_URL: https://downloads.loklm.example
+        run: pnpm build

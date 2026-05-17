@@ -1,0 +1,30 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { languages, type Lang } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+const targetHref: Record<Lang, string> = {
+  de: '/',
+  en: '/en/',
+}
+---
+
+<div class="flex items-center gap-1 text-sm">
+  {
+    (Object.keys(languages) as Lang[]).map((code) => (
+      <a
+        href={targetHref[code]}
+        class:list={[
+          'px-2 py-1 rounded-md transition-colors mono uppercase tracking-wider text-xs',
+          code === lang
+            ? 'text-fg-0 bg-white/5'
+            : 'text-fg-2 hover:text-fg-0 hover:bg-white/5',
+        ]}
+        aria-current={code === lang ? 'page' : undefined}
+      >
+        {code}
+      </a>
+    ))
+  }
+</div>
