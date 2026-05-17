@@ -1,0 +1,43 @@
+---
+import '~/styles/global.css'
+import BackgroundFx from '~/components/BackgroundFx.astro'
+import Nav from '~/components/Nav.astro'
+import Footer from '~/components/Footer.astro'
+import { getLangFromUrl } from '~/i18n/utils'
+
+interface Props {
+  title: string
+  description: string
+}
+
+const { title, description } = Astro.props
+const lang = getLangFromUrl(Astro.url)
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#0e1116" />
+  </head>
+  <body class="min-h-screen relative">
+    <BackgroundFx />
+    <div class="relative z-10">
+      <Nav />
+      <slot />
+      <Footer />
+    </div>
+  </body>
+</html>

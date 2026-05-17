@@ -1,0 +1,28 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+const year = new Date().getFullYear()
+---
+
+<footer class="relative z-10 mt-32 border-t border-[color:var(--color-border)]">
+  <div class="mx-auto max-w-6xl px-6 py-10 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between text-sm text-[color:var(--color-fg-2)]">
+    <div>
+      <p class="text-[color:var(--color-fg-1)]">{t(lang, 'footer.tagline')}</p>
+      <p class="text-xs mt-1">{t(lang, 'footer.authors')}</p>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <a href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank" class="hover:text-[color:var(--color-fg-0)] transition-colors">
+        {t(lang, 'footer.repo')}
+      </a>
+      <span class="text-[color:var(--color-fg-3)]">·</span>
+      <a href="https://github.com/TwoD97/LokLM/blob/main/LICENSE" rel="noopener" target="_blank" class="hover:text-[color:var(--color-fg-0)] transition-colors">
+        MIT
+      </a>
+      <span class="text-[color:var(--color-fg-3)]">·</span>
+      <span class="text-[color:var(--color-fg-3)]">© {year}</span>
+    </div>
+  </div>
+</footer>
