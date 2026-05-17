@@ -1,0 +1,258 @@
+{
+  "size": "tiny",
+  "generator": "agent-batch:claude-opus-4-7",
+  "generatedAt": "2026-05-17T20:36:12.566Z",
+  "chunker": "fixed-512-64",
+  "chunks": [
+    {
+      "id": "distractor-00001::0",
+      "docId": "distractor-00001",
+      "text": "Die Wiener Kaffeehauskultur reicht in ihren Anfängen bis in das späte 17. Jahrhundert zurück und entstand in einem politisch wie wirtschaftlich aufgeladenen Umfeld nach der Zweiten Wiener Türkenbelagerung von 1683. Die zähen Säcke mit grünen Kaffeebohnen, die das osmanische Heer auf seinem überstürzten Rückzug zurückließ, sind in der populären Überlieferung der Ausgangspunkt der Wiener Kaffeetradition, auch wenn die historische Forschung längst belegt hat, dass der Kaffee bereits zuvor über armenische und g"
+    },
+    {
+      "id": "distractor-00001::1",
+      "docId": "distractor-00001",
+      "text": "belegt hat, dass der Kaffee bereits zuvor über armenische und griechische Händler in die Stadt gelangte. Als erster konzessionierter Kaffeesieder gilt der Armenier Johannes Theodat, der 1685 das kaiserliche Privileg erhielt, in Wien das türkische Getränk auszuschenken. In den folgenden Jahrzehnten entstanden im Inneren der Stadt zahlreiche kleine Schankstuben, in denen das schwarze, ungesüßte Getränk zunächst nur einer wohlhabenden männlichen Klientel zugänglich war.\n\nIm Laufe des 18. Jahrhunderts veränder"
+    },
+    {
+      "id": "distractor-00001::2",
+      "docId": "distractor-00001",
+      "text": "Klientel zugänglich war.\n\nIm Laufe des 18. Jahrhunderts veränderte sich der Charakter dieser Häuser grundlegend. Aus den engen, rauchgeschwängerten Stuben wurden repräsentative Etablissements, in denen Zeitungen auflagen, Billardtische standen und Kartenspiele wie Tarock oder Whist gepflegt wurden. Mit dem Aufstieg des Bürgertums im Vormärz und der biedermeierlichen Geselligkeitskultur entwickelte sich das Kaffeehaus zu einem zentralen Ort des städtischen Lebens. Die liberalen Reformen nach 1848 brachten ei"
+    },
+    {
+      "id": "distractor-00001::3",
+      "docId": "distractor-00001",
+      "text": "städtischen Lebens. Die liberalen Reformen nach 1848 brachten eine deutliche Lockerung der Konzessionspflicht und ermöglichten eine starke Ausweitung des Angebots. In dieser Phase entstand jene Architektur, die bis heute prägend ist: hohe Räume mit stuckverzierten Decken, Marmortische auf gusseisernen Untergestellen, Thonet-Stühle aus gebogenem Buchenholz, samtbezogene Logen entlang der Wände, vergoldete Spiegel und Lüster aus geschliffenem Kristall. Die Wiener Stadterweiterung und der Bau der Ringstraße ab"
+    },
+    {
+      "id": "distractor-00001::4",
+      "docId": "distractor-00001",
+      "text": "stall. Die Wiener Stadterweiterung und der Bau der Ringstraße ab 1857 schufen die räumlichen Voraussetzungen für eine neue Generation großer Häuser wie das Café Central, das Café Landtmann oder das Café Schwarzenberg, die alle in unmittelbarer Nähe zu den neuen Repräsentationsbauten der Monarchie gelegen waren.\n\nDas späte 19. und frühe 20. Jahrhundert gilt gemeinhin als die klassische Epoche der Wiener Kaffeehauskultur. Im Café Griensteidl an der Ecke zum Michaelerplatz versammelte sich die literarische Gru"
+    },
+    {
+      "id": "distractor-00001::5",
+      "docId": "distractor-00001",
+      "text": "er Ecke zum Michaelerplatz versammelte sich die literarische Gruppe Jung-Wien um Hermann Bahr, zu der Arthur Schnitzler, Hugo von Hofmannsthal, Felix Salten, Peter Altenberg und Karl Kraus gehörten. Als das Haus 1897 abgerissen wurde, wechselten viele dieser Schriftsteller in das nahe gelegene Café Central, in dessen hoher Halle mit den achteckigen Pfeilern Peter Altenberg eine feste Adresse hatte; eine Postkarte mit dem Vermerk Café Central genügte, um ihn dort zu erreichen. Auch die Schachspieler hatten i"
+    },
+    {
+      "id": "distractor-00001::6",
+      "docId": "distractor-00001",
+      "text": "nügte, um ihn dort zu erreichen. Auch die Schachspieler hatten ihren Stammplatz, ebenso die Anhänger der jeweils tagespolitisch verhandelten Schulen, von den Austromarxisten bis zu den ungarischen Emigranten um die Revolution von 1919. Im Café Herrenhof, im Café Museum mit der nüchternen Einrichtung von Adolf Loos, im Café Hawelka, das später in der Nachkriegszeit zum Treffpunkt der Wiener Gruppe wurde, oder im Café Sperl in der Gumpendorfer Straße verdichtete sich ein Lebensstil, der das Kaffeehaus als ver"
+    },
+    {
+      "id": "distractor-00001::7",
+      "docId": "distractor-00001",
+      "text": "raße verdichtete sich ein Lebensstil, der das Kaffeehaus als verlängertes Wohnzimmer, Arbeitszimmer und Diskussionssalon zugleich nutzte.\n\nDas Sortiment, das in diesen Häusern angeboten wird, ist im deutschsprachigen Raum einzigartig differenziert. Die klassische Wiener Kaffeekarte unterscheidet zwischen dem kleinen und dem großen Schwarzen, dem kleinen und großen Braunen, der Melange aus halb Espresso und halb aufgeschäumter Milch, dem Verlängerten, dem mit Schlagobers gekrönten Einspänner im Henkelglas, d"
+    },
+    {
+      "id": "distractor-00001::8",
+      "docId": "distractor-00001",
+      "text": "erten, dem mit Schlagobers gekrönten Einspänner im Henkelglas, der Kapuziner genannten kleinen schwarzen Variante mit einem Tropfen Sahne, dem Franziskaner, dem Fiaker mit einem Schuss Rum sowie zahlreichen weiteren Spezialitäten wie dem Maria Theresia mit Orangenlikör oder dem Mokka gespritzt. Traditionell wird jeder Kaffee mit einem Glas Wasser serviert, das auf einem kleinen silbernen Tablett steht und während des Aufenthalts regelmäßig nachgereicht wird. Diese Geste gilt als Ausdruck der Selbstverständl"
+    },
+    {
+      "id": "distractor-00001::9",
+      "docId": "distractor-00001",
+      "text": "gereicht wird. Diese Geste gilt als Ausdruck der Selbstverständlichkeit, mit der Gäste über Stunden hinweg an einem Tisch sitzen können, ohne zu weiteren Konsumationen genötigt zu werden. Die Mehlspeisenkultur ergänzt das Getränkeangebot um Klassiker wie den Apfelstrudel, die Sachertorte, die Esterházyschnitte, den Kaiserschmarrn, den Topfenstrudel, die Buchteln und den Gugelhupf, die in vielen Häusern in eigenen Konditoreien hergestellt werden.\n\nDie soziale Funktion des Kaffeehauses ist über die Jahrhunder"
+    },
+    {
+      "id": "distractor-00001::10",
+      "docId": "distractor-00001",
+      "text": ".\n\nDie soziale Funktion des Kaffeehauses ist über die Jahrhunderte hinweg auffallend stabil geblieben. Es diente und dient als halböffentlicher Raum, in dem Privates und Öffentliches einander durchdringen. Anwälte empfingen ihre Klienten zwischen zwei Verhandlungen, Geschäftsleute schlossen Verträge ab, Beamte verbrachten Mittagspausen, Künstler arbeiteten an Manuskripten, und Studenten bereiteten Prüfungen vor. Die unausgesprochene Übereinkunft, dass eine einzige Konsumation einen ganzen Vormittag rechtfer"
+    },
+    {
+      "id": "distractor-00001::11",
+      "docId": "distractor-00001",
+      "text": "t, dass eine einzige Konsumation einen ganzen Vormittag rechtfertigt, machte das Kaffeehaus zu einem Ort des unangestrengten Aufenthalts, der mit dem typisch wienerischen Begriff des Sich-Niederlassens umschrieben wird. Der Kellner im Frack, traditionell als Herr Ober angesprochen, gehört zu diesem Setting ebenso wie der Zeitungsständer mit den in Holzhalter gespannten Tageszeitungen aus Wien, Budapest, Prag, Berlin und Paris. Dieser internationale Pressedienst war im Vielvölkerstaat der Habsburgermonarchie"
+    },
+    {
+      "id": "distractor-00001::12",
+      "docId": "distractor-00001",
+      "text": "nale Pressedienst war im Vielvölkerstaat der Habsburgermonarchie ein wesentliches Element und verlieh den Häusern den Charakter halboffener Nachrichtenredaktionen.\n\nIn der Zwischenkriegszeit geriet die Kaffeehauskultur unter wirtschaftlichen und politischen Druck. Der Zerfall der Monarchie hatte die zuvor selbstverständliche Kundschaft aus der Beamten-, Offiziers- und Hofgesellschaft drastisch verkleinert; die Hyperinflation der frühen zwanziger Jahre, die Weltwirtschaftskrise nach 1929 und schließlich der"
+    },
+    {
+      "id": "distractor-00001::13",
+      "docId": "distractor-00001",
+      "text": "r Jahre, die Weltwirtschaftskrise nach 1929 und schließlich der Anschluss 1938 zerstörten viele der gewachsenen Strukturen. Zahlreiche jüdische Eigentümer und Stammgäste wurden vertrieben oder ermordet, die literarischen Zirkel der Vorkriegszeit existierten nicht mehr. In den ersten Jahren nach 1945 herrschte materielle Not, viele Häuser hatten Bombenschäden, die Kaffeebohnen waren rationiert und wurden teilweise durch Ersatzgetränke aus Zichorie oder Gerste gestreckt. Erst mit dem Staatsvertrag 1955 und de"
+    },
+    {
+      "id": "distractor-00001::14",
+      "docId": "distractor-00001",
+      "text": "ie oder Gerste gestreckt. Erst mit dem Staatsvertrag 1955 und dem einsetzenden wirtschaftlichen Aufschwung kehrte schrittweise eine neue Form der Kaffeehauskultur zurück, die sich nun an die Erinnerung an die Vorkriegszeit anlehnte und zugleich von der Konkurrenz amerikanischer Espressobars und später internationaler Ketten herausgefordert wurde.\n\nSeit den späten siebziger Jahren erlebt die Wiener Kaffeehauskultur eine Phase der bewussten Pflege und Inszenierung. Restaurierungen historischer Häuser, ein wac"
+    },
+    {
+      "id": "distractor-00001::15",
+      "docId": "distractor-00001",
+      "text": "e und Inszenierung. Restaurierungen historischer Häuser, ein wachsendes touristisches Interesse und die Aufnahme der Wiener Kaffeehauskultur in das nationale Verzeichnis des immateriellen Kulturerbes der UNESCO im Jahr 2011 haben zu einer neuen Sichtbarkeit beigetragen. Gleichzeitig hat sich das Bild der Gäste verschoben: Wo früher Stammgäste über Jahrzehnte denselben Tisch belegten, finden sich heute häufiger Reisende mit Stadtplänen und Laptops auf der Suche nach Steckdosen. Die Häuser reagieren unterschi"
+    },
+    {
+      "id": "distractor-00001::16",
+      "docId": "distractor-00001",
+      "text": "ps auf der Suche nach Steckdosen. Die Häuser reagieren unterschiedlich auf diese Verschiebung, manche halten am klassischen Service mit gebundenen Speisekarten und Stoffservietten fest, andere öffnen sich für moderne Röstprofile, Pour-over-Verfahren und vegane Mehlspeisen. Trotz dieser Veränderungen bleibt das Wiener Kaffeehaus ein eigenständiger Typus, der sich von der Pariser Brasserie, dem Berliner Café und der italienischen Bar deutlich unterscheidet, weil er den Aufenthalt selbst zum eigentlichen Inhal"
+    },
+    {
+      "id": "distractor-00001::17",
+      "docId": "distractor-00001",
+      "text": "erscheidet, weil er den Aufenthalt selbst zum eigentlichen Inhalt des Besuchs erhebt und nicht den Konsum eines bestimmten Produkts in den Mittelpunkt stellt."
+    },
+    {
+      "id": "distractor-00002::0",
+      "docId": "distractor-00002",
+      "text": "Ein elektrisches Gitarrenpedal mit Verzerrungsschaltung gehört zu jenen Effektgeräten, die das Audiosignal einer elektrischen Gitarre vor dem Verstärker bewusst nichtlinear bearbeiten, um Obertöne hinzuzufügen und den Klang zu komprimieren. Das Eingangssignal einer typischen Single-Coil- oder Humbucker-Tonabnehmerspule liegt in einer Größenordnung von einigen Hundert Millivolt Spitze-Spitze, wenn der Saitenanschlag stark ausgeführt wird, und sinkt im Ausklang einer Note auf wenige Millivolt ab. Bevor dieses"
+    },
+    {
+      "id": "distractor-00002::1",
+      "docId": "distractor-00002",
+      "text": "nkt im Ausklang einer Note auf wenige Millivolt ab. Bevor dieses Signal verzerrt werden kann, muss es daher in der Regel verstärkt werden. Dies geschieht in den meisten Schaltungen durch einen Operationsverstärker oder durch eine diskrete Transistorstufe, die das Signal um den Faktor zehn bis hundert anhebt und dabei den Arbeitspunkt so wählt, dass die Eingangsimpedanz gegenüber der hochohmigen Quelle der Pickups groß genug bleibt, üblicherweise im Bereich von einigen Hundert Kiloohm bis zu einem Megaohm. E"
+    },
+    {
+      "id": "distractor-00002::2",
+      "docId": "distractor-00002",
+      "text": "e im Bereich von einigen Hundert Kiloohm bis zu einem Megaohm. Ein zu niedriger Eingangswiderstand würde die Resonanzspitze der Tonabnehmer bedämpfen und dem Klang Brillanz nehmen.\n\nIm Zentrum der eigentlichen Verzerrungserzeugung steht in vielen klassischen Pedalen ein als Übersteuerer geschalteter Operationsverstärker, dessen Rückkopplungspfad mit zwei antiparallel geschalteten Halbleiterdioden verbunden ist. Sobald die Signalspannung am Ausgang einen Wert nahe der Schwellspannung der Dioden überschreitet"
+    },
+    {
+      "id": "distractor-00002::3",
+      "docId": "distractor-00002",
+      "text": "ang einen Wert nahe der Schwellspannung der Dioden überschreitet, beginnen diese zu leiten und begrenzen die Aussteuerung. Dadurch entsteht das charakteristische weiche oder harte Clipping. Bei Verwendung von Siliziumdioden mit einer Schwellspannung von etwa 0,6 Volt entstehen scharfe Kanten in der Wellenform und ein obertonreiches, leicht aggressiv klingendes Spektrum, das vor allem in Distortion-Schaltungen bevorzugt wird. Germaniumdioden mit einer Schwellspannung um 0,3 Volt erzeugen einen weicheren Über"
+    },
+    {
+      "id": "distractor-00002::4",
+      "docId": "distractor-00002",
+      "text": "einer Schwellspannung um 0,3 Volt erzeugen einen weicheren Übergang und werden in vintage-orientierten Overdrive-Pedalen geschätzt. Leuchtdioden, deren Schwellspannung je nach Halbleitermaterial zwischen 1,6 und 3,3 Volt liegt, lassen größere Aussteuerung zu, bevor sie limitieren, und erzeugen ein offeneres, weniger komprimiertes Klangbild. In einigen Designs werden asymmetrische Anordnungen verwendet, in denen auf einer Halbwelle zwei Dioden in Reihe liegen und auf der anderen nur eine. Diese Asymmetrie f"
+    },
+    {
+      "id": "distractor-00002::5",
+      "docId": "distractor-00002",
+      "text": "in Reihe liegen und auf der anderen nur eine. Diese Asymmetrie führt zu einem höheren Anteil geradzahliger Harmonischer, die als wärmer und röhrenähnlicher empfunden werden.\n\nEine klassische Variante dieses Prinzips findet sich im sogenannten Tube Screamer, der 1979 entwickelt wurde und seither als Referenz für mild übersteuernde Pedale gilt. Hier wird ein Operationsverstärker vom Typ JRC 4558 als nicht invertierender Verstärker betrieben, dessen Verstärkungsfaktor durch ein Potentiometer im Rückkopplungspf"
+    },
+    {
+      "id": "distractor-00002::6",
+      "docId": "distractor-00002",
+      "text": "en Verstärkungsfaktor durch ein Potentiometer im Rückkopplungspfad zwischen etwa eins und einem mittleren zweistelligen Wert einstellbar ist. Parallel zum Rückkopplungswiderstand liegen zwei Siliziumdioden, die das Signal symmetrisch begrenzen. Bemerkenswert ist, dass die Dioden hier nicht den gesamten Signalpfad clippen, sondern lediglich die Rückkopplung. Dadurch addiert sich der gesamte unbeschnittene Anteil bis zur Diodenschwelle linear hinzu, was den weichen, körnigen Charakter des Pedals erzeugt. Ein"
+    },
+    {
+      "id": "distractor-00002::7",
+      "docId": "distractor-00002",
+      "text": "zu, was den weichen, körnigen Charakter des Pedals erzeugt. Ein zweiter Operationsverstärker arbeitet anschließend als aktiver Klangregler in Form eines abgewandelten Baxandall- oder Tonestack-Filters und stellt die Höhenanhebung sowie die Mittenbetonung ein, für die der Tube Screamer berühmt ist.\n\nAndere Schaltungen, etwa der weit verbreitete Big Muff, verzichten auf eine einzelne Diodenklemmstufe im Rückkopplungspfad und setzen stattdessen zwei aufeinanderfolgende Transistorstufen ein, in denen jeweils ei"
+    },
+    {
+      "id": "distractor-00002::8",
+      "docId": "distractor-00002",
+      "text": "ei aufeinanderfolgende Transistorstufen ein, in denen jeweils ein Diodenpaar parallel zum Ausgang gegen Masse arbeitet. Diese sogenannte Hard-Clipping-Anordnung erzeugt durch das mehrfache Übersteuern und nachträgliche Tiefpassfiltern einen sehr dichten, fast sustained Sound, der bei höchster Einstellung kaum noch die Dynamik der einzelnen Anschläge erkennen lässt. Die Klangregelung im Big Muff besteht aus einem ungewöhnlichen passiven Filter, in dem ein Tiefpass und ein Hochpass gegeneinander geschaltet si"
+    },
+    {
+      "id": "distractor-00002::9",
+      "docId": "distractor-00002",
+      "text": "in dem ein Tiefpass und ein Hochpass gegeneinander geschaltet sind und über ein einziges Potentiometer ineinander übergeblendet werden. Diese Topologie bewirkt eine ausgeprägte Mittensenke um etwa ein Kilohertz, die das Pedal in dichten Bandarrangements besonders durchsetzungsfähig macht, sofern der Mix entsprechend gestaltet ist.\n\nDie Frequenzformung in einem Verzerrungspedal beginnt jedoch nicht erst nach dem Clipping. Bereits am Eingang findet sich häufig ein Hochpassfilter mit einer Grenzfrequenz im Ber"
+    },
+    {
+      "id": "distractor-00002::10",
+      "docId": "distractor-00002",
+      "text": "et sich häufig ein Hochpassfilter mit einer Grenzfrequenz im Bereich von 700 bis 900 Hertz, der die tiefen Frequenzen vor der Übersteuerung absenkt. Dies ist wichtig, weil sehr tiefe Anteile bei harter Verzerrung zu Intermodulationsverzerrungen führen würden, die als unsauber und matschig empfunden werden. Nach dem Clipping folgt ein Tiefpass, der die durch das Begrenzen entstandenen hochfrequenten Obertöne oberhalb von etwa drei bis fünf Kilohertz bedämpft, um die Aggressivität zu zähmen und das Signal an"
+    },
+    {
+      "id": "distractor-00002::11",
+      "docId": "distractor-00002",
+      "text": "ertz bedämpft, um die Aggressivität zu zähmen und das Signal an die Wiedergabecharakteristik einer typischen Gitarrenlautsprecher-Box anzupassen, deren Übertragungsbereich oberhalb von etwa fünf Kilohertz ohnehin steil abfällt. Diese kombinierte Vor- und Nachfilterung ist entscheidend für den finalen Klang und unterscheidet hochwertige Designs von klanglich harten oder dünn wirkenden Schaltungen.\n\nDie Bauteilauswahl spielt eine größere Rolle, als es die rein rechnerische Analyse vermuten lässt. Folienkonden"
+    },
+    {
+      "id": "distractor-00002::12",
+      "docId": "distractor-00002",
+      "text": "ls es die rein rechnerische Analyse vermuten lässt. Folienkondensatoren aus Polyester oder Polypropylen werden im Signalweg gegenüber Keramikkondensatoren bevorzugt, weil Letztere durch ihren spannungsabhängigen Kapazitätswert leichte zusätzliche Verzerrungen einbringen, die in Audioanwendungen meist unerwünscht sind. Elektrolytkondensatoren werden bevorzugt in Koppelpfaden eingesetzt, wo große Kapazitäten bei geringer Bauform erforderlich sind, jedoch achtet man darauf, sie korrekt zu polarisieren, da der"
+    },
+    {
+      "id": "distractor-00002::13",
+      "docId": "distractor-00002",
+      "text": ", jedoch achtet man darauf, sie korrekt zu polarisieren, da der Arbeitspunkt der nachfolgenden Stufe in der Regel auf eine positive Bias-Spannung gezogen wird. Metallfilmwiderstände werden Kohleschichtwiderständen vorgezogen, da sie ein geringeres thermisches Rauschen aufweisen, was in Schaltungen mit hoher Vorverstärkung hörbar werden kann. Die Auswahl der Operationsverstärker selbst ist Gegenstand anhaltender Debatten, da unterschiedliche Typen wie der TL072, der NE5532, der OP07 oder eben der JRC 4558 ve"
+    },
+    {
+      "id": "distractor-00002::14",
+      "docId": "distractor-00002",
+      "text": "en wie der TL072, der NE5532, der OP07 oder eben der JRC 4558 verschiedene Slew-Rates, Rauschpegel und Sättigungseigenschaften aufweisen. Während die meisten dieser Unterschiede in linearen Audioanwendungen kaum messbar sind, werden sie in einer übersteuernden Schaltung deutlicher, weil das gesamte Verhalten von der nichtlinearen Reaktion in Übersteuerungsgrenzen lebt.\n\nDie Stromversorgung eines Verzerrungspedals erfolgt typischerweise über eine Neun-Volt-Blockbatterie oder ein entsprechendes Netzteil. Da d"
+    },
+    {
+      "id": "distractor-00002::15",
+      "docId": "distractor-00002",
+      "text": "e Neun-Volt-Blockbatterie oder ein entsprechendes Netzteil. Da die meisten Operationsverstärker für Audioanwendungen eine symmetrische Versorgung benötigen würden, wird in einfachen Pedalen mit einem Spannungsteiler aus zwei gleichen Widerständen eine virtuelle Masse auf der halben Versorgungsspannung erzeugt, gegen die das Signal referenziert wird. Diese Bias-Spannung wird mit einem Kondensator gegen Masse gepuffert, um Brummeinstreuungen aus der Versorgung zu unterdrücken. Hochwertige Designs verwenden zu"
+    },
+    {
+      "id": "distractor-00002::16",
+      "docId": "distractor-00002",
+      "text": "der Versorgung zu unterdrücken. Hochwertige Designs verwenden zusätzliche Filterstufen oder integrierte Spannungsregler, die eine stabile interne Versorgung garantieren und das Pedal unempfindlich gegen variierende Eingangsspannungen machen. Die Umschaltung zwischen Bypass und Effektsignal erfolgt in modernen Geräten meist über einen mechanischen Fußschalter mit drei Polen und zwei Schaltebenen, der das Eingangssignal entweder direkt zum Ausgang durchschaltet oder durch die Effektschaltung leitet. Wichtig i"
+    },
+    {
+      "id": "distractor-00002::17",
+      "docId": "distractor-00002",
+      "text": "g durchschaltet oder durch die Effektschaltung leitet. Wichtig ist dabei, dass im Bypass-Zustand der Eingang der Effektschaltung gegen Masse gezogen wird, um Plopp-Geräusche durch springende Bias-Spannungen zu vermeiden, sobald der Fußschalter geschlossen wird."
+    },
+    {
+      "id": "distractor-00003::0",
+      "docId": "distractor-00003",
+      "text": "Die Pflege von Obstbäumen im Hochsommer entscheidet maßgeblich über die Qualität des späteren Ertrags und über die langfristige Gesundheit des Bestands. In den Monaten Juli und August befinden sich die meisten Kern- und Steinobstarten in einer Phase intensiven Fruchtwachstums, in der die Bäume sowohl Wasser als auch Assimilate aus den Blättern in die heranreifenden Früchte einlagern. Gleichzeitig sind die Triebe noch aktiv und konkurrieren mit den Früchten um die verfügbaren Ressourcen. Wer in dieser Zeit d"
+    },
+    {
+      "id": "distractor-00003::1",
+      "docId": "distractor-00003",
+      "text": "den Früchten um die verfügbaren Ressourcen. Wer in dieser Zeit die richtigen Maßnahmen ergreift, kann die Fruchtgröße steuern, die Zuckerausbildung fördern und Krankheiten frühzeitig eindämmen.\n\nDie Bewässerung ist im Hochsommer der zentrale Faktor, insbesondere bei jungen Bäumen, die noch kein tiefreichendes Wurzelwerk ausgebildet haben. Während etablierte Apfel- oder Birnenbäume in den meisten Lagen Mitteleuropas auch in trockenen Perioden ohne zusätzliche Bewässerung auskommen, sollten in den ersten drei"
+    },
+    {
+      "id": "distractor-00003::2",
+      "docId": "distractor-00003",
+      "text": "ne zusätzliche Bewässerung auskommen, sollten in den ersten drei bis fünf Standjahren regelmäßig zehn bis zwanzig Liter Wasser pro Quadratmeter Baumscheibe gegeben werden, sobald der Boden bis in eine Tiefe von etwa zwanzig Zentimetern trocken ist. Entscheidend ist nicht die Häufigkeit, sondern die Wassermenge, die in einem Gießgang zugeführt wird. Häufige, oberflächliche Wassergaben verleiten die Wurzeln dazu, in den oberen Bodenschichten zu bleiben, wo sie bei Trockenheit besonders gefährdet sind. Tiefe,"
+    },
+    {
+      "id": "distractor-00003::3",
+      "docId": "distractor-00003",
+      "text": "leiben, wo sie bei Trockenheit besonders gefährdet sind. Tiefe, aber seltenere Bewässerung fördert dagegen ein robustes Wurzelsystem. Bei Steinobstarten wie Süßkirsche, Sauerkirsche oder Pflaume kann eine plötzliche reichliche Wassergabe kurz vor der Reife zum Aufplatzen der Früchte führen, weshalb in dieser Phase eine kontinuierliche, gleichmäßige Wasserversorgung wichtiger ist als punktuelle starke Gaben. Bei Hochsommerhitze hat sich die Bewässerung in den frühen Morgenstunden bewährt, da die Verdunstungs"
+    },
+    {
+      "id": "distractor-00003::4",
+      "docId": "distractor-00003",
+      "text": "sserung in den frühen Morgenstunden bewährt, da die Verdunstungsverluste dann geringer sind und die Blätter im Tagesverlauf abtrocknen können, was Pilzinfektionen vorbeugt.\n\nEng mit der Bewässerung verknüpft ist das Mulchen der Baumscheibe. Eine fünf bis zehn Zentimeter dicke Schicht aus organischem Material wie angetrocknetem Rasenschnitt, Stroh, Laub des Vorjahres oder gehäckselten Stauden reduziert die Verdunstung aus dem Boden um bis zu siebzig Prozent, hält die Bodentemperatur stabil und unterdrückt da"
+    },
+    {
+      "id": "distractor-00003::5",
+      "docId": "distractor-00003",
+      "text": "bzig Prozent, hält die Bodentemperatur stabil und unterdrückt das Aufkommen konkurrierender Beikräuter. Beim Mulchen ist darauf zu achten, dass das Material den Stamm nicht direkt berührt, da dauerhafte Feuchtigkeit an der Rinde Fäulnis fördern und den Befall durch den Obstbaumkrebs begünstigen kann. Ein freier Ring von etwa zehn Zentimetern um den Stamm sollte daher unbedingt eingehalten werden. Mit der Zeit zersetzt sich das Mulchmaterial und reichert den Boden mit Humus an, wodurch sich die Wasserspeiche"
+    },
+    {
+      "id": "distractor-00003::6",
+      "docId": "distractor-00003",
+      "text": "reichert den Boden mit Humus an, wodurch sich die Wasserspeicherfähigkeit langfristig verbessert. Frisch gemähter Rasenschnitt sollte vor dem Aufbringen kurz anwelken, da er sonst zu einer kompakten, luftundurchlässigen Schicht zusammenklebt und Fäulnisprozesse in Gang setzen kann.\n\nDer Sommerschnitt verfolgt andere Ziele als der Winterschnitt und sollte daher in seiner Intensität deutlich zurückhaltender ausgeführt werden. Während im Winter vor allem die Grundstruktur der Krone gestaltet und das Triebwach"
+    },
+    {
+      "id": "distractor-00003::7",
+      "docId": "distractor-00003",
+      "text": "or allem die Grundstruktur der Krone gestaltet und das Triebwachstum für die folgende Saison angeregt wird, geht es im Sommer darum, überzählige Wassertriebe zu entfernen, die Belichtung der Früchte zu verbessern und das Wachstum zu beruhigen. Steile, dicht stehende Konkurrenztriebe an den Leitästen werden auf wenige Zentimeter zurückgeschnitten oder bei jungen Trieben mit der Hand ausgerissen, was eine bessere Wundheilung ergibt als ein Schnitt mit der Schere. Beim Apfel- und Birnbaum lässt sich der Juni-"
+    },
+    {
+      "id": "distractor-00003::8",
+      "docId": "distractor-00003",
+      "text": "t mit der Schere. Beim Apfel- und Birnbaum lässt sich der Juni- und Julischnitt nutzen, um das Verhältnis von Blattmasse zu Fruchtmasse zu optimieren. Zu dichte Belaubung in den Bereichen mit reifenden Früchten wird gezielt ausgelichtet, sodass Licht bis zu den Früchten gelangt und die Ausfärbung der Schale gefördert wird. Bei Süßkirschen empfiehlt sich der Schnitt unmittelbar nach der Ernte, weil die Wunden zu dieser Zeit am besten verheilen und das Risiko einer Infektion durch die Schrotschusskrankheit od"
+    },
+    {
+      "id": "distractor-00003::9",
+      "docId": "distractor-00003",
+      "text": "nd das Risiko einer Infektion durch die Schrotschusskrankheit oder die Bakterienkrankheit der Steinobstarten geringer ist als im Winter. Pflaumen und Zwetschen werden ebenfalls bevorzugt im Sommer geschnitten, da sie in der kühlen Saison stark zum Gummifluss neigen.\n\nSchädlinge treten im Hochsommer in vielfältiger Form auf und erfordern eine genaue Beobachtung des Bestands. Der Apfelwickler, dessen Raupen die typischen Wurmstiche in den Früchten verursachen, fliegt in zwei Generationen, wobei die zweite Gen"
+    },
+    {
+      "id": "distractor-00003::10",
+      "docId": "distractor-00003",
+      "text": "n verursachen, fliegt in zwei Generationen, wobei die zweite Generation im Juli und August aktiv ist. Pheromonfallen helfen, den Flugverlauf zu überwachen und den optimalen Zeitpunkt für eine Behandlung mit Granuloseviruspräparaten zu bestimmen, die als spezifisches biologisches Mittel gegen den Apfelwickler eingesetzt werden. Blattläuse, insbesondere die Mehlige Apfelblattlaus und die Grüne Apfelblattlaus, schwächen die Bäume durch das Aussaugen von Pflanzensaft und scheiden Honigtau aus, auf dem sich Rußt"
+    },
+    {
+      "id": "distractor-00003::11",
+      "docId": "distractor-00003",
+      "text": "en von Pflanzensaft und scheiden Honigtau aus, auf dem sich Rußtaupilze ansiedeln. In gut strukturierten Hausgärten regulieren Marienkäfer, Florfliegen, Ohrwürmer und Schlupfwespen die Blattlauspopulationen in der Regel ausreichend, sodass chemische Eingriffe selten notwendig sind. Spinnmilben werden in heißen, trockenen Sommern problematisch und zeigen sich durch eine fein gesprenkelte Aufhellung der Blattoberseiten sowie feine Gespinste auf der Blattunterseite. Eine kräftige Bewässerung des Laubs in den M"
+    },
+    {
+      "id": "distractor-00003::12",
+      "docId": "distractor-00003",
+      "text": "er Blattunterseite. Eine kräftige Bewässerung des Laubs in den Morgenstunden senkt die Population deutlich, weil die Tiere trockenes Mikroklima bevorzugen. An Steinobstarten ist die Kirschessigfliege seit ihrem Auftreten ab den frühen 2010er Jahren zum Hauptproblem geworden. Sie befällt im Gegensatz zu anderen Essigfliegen unbeschädigte reife Früchte und legt ihre Eier mit einem gezahnten Legestachel direkt unter die Fruchthaut. Engmaschige Netze über den Bäumen, eine kurze Reifephase durch frühe Sorten und"
+    },
+    {
+      "id": "distractor-00003::13",
+      "docId": "distractor-00003",
+      "text": "ze über den Bäumen, eine kurze Reifephase durch frühe Sorten und eine sofortige Beerntung sind die wichtigsten Gegenmaßnahmen.\n\nPilzkrankheiten gedeihen besonders unter feucht-warmen Bedingungen. Der Apfelschorf, hervorgerufen durch den Pilz Venturia inaequalis, zeigt sich als olivgrüne, später schwarzbraune Flecken auf Blättern und Früchten. Eine vorbeugende Wirkung haben luftige Kronen, regelmäßige Auflichtungen und das Auflesen und Entfernen befallenen Falllaubs im Herbst. Der Echte Mehltau befällt vor a"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+Retrieval-Systeme werden mit einer kleinen Menge etablierter Metriken bewertet.
+Die Wahl der Metrik hängt davon ab, ob das System pro Anfrage einen oder
+mehrere relevante Treffer haben kann, ob die Reihenfolge der Treffer wichtig
+ist und ob ein graduelles Relevanz-Konzept vorliegt oder nur eine binäre
+Unterscheidung zwischen relevant und nicht relevant. Für die meisten
+praxisnahen RAG-Anwendungen reicht ein Single-Relevant-Setting mit binärer
+Relevanz aus.
+
+Die einfachste Metrik ist Recall@K. Sie misst den Anteil der Anfragen, bei denen
+die korrekte Antwort in den ersten K zurückgegebenen Ergebnissen enthalten ist.
+Recall@1 ist streng und gibt nur dann Punkt, wenn die richtige Antwort
+unmittelbar an erster Stelle steht. Recall@10 ist großzügig, weil das nach-
+geschaltete Sprachmodell ohnehin meist die Top-K Chunks vollständig in den
+Prompt-Kontext einfügt und damit auch ein Chunk an Stelle sieben noch
+beantwortend wirken kann. In der Praxis berichten viele Studien Recall@1,
+Recall@5 und Recall@10 nebeneinander, um die Auflösung der Metrik über
+verschiedene Toleranzschwellen sichtbar zu machen.
+
+Der Mean Reciprocal Rank, kurz MRR, berücksichtigt zusätzlich die Position der
+korrekten Antwort. Steht sie auf Platz eins, ist der Beitrag dieser Anfrage 1,0.
+Auf Platz zwei nur noch 0,5. Auf Platz zehn 0,1. Über alle Anfragen gemittelt
+ergibt sich eine Zahl zwischen null und eins, die ein gutes Gesamtbild von
+Position und Trefferquote liefert. MRR ist sensitiv für die Spitze des
+Rankings, was in RAG-Anwendungen oft erwünscht ist, weil das Sprachmodell
+typischerweise die ersten paar Chunks am stärksten gewichtet.
+
+Normalized Discounted Cumulative Gain, abgekürzt nDCG@K, ist eine weitere
+positions-sensitive Metrik. Sie verwendet einen logarithmischen Discount für
+spätere Plätze und normalisiert das Ergebnis durch den idealen Wert. Konkret
+wird der Gewinn an jeder Position als Relevanz dividiert durch den Logarithmus
+der Position plus eins definiert, summiert und durch den Idealfall geteilt.
+Für Single-Relevant-Datasets, also Datasets mit genau einem korrekten Treffer
+pro Anfrage, entartet nDCG zu einer Variante des MRR mit anderem Discount.
+Bei Multi-Relevant-Datasets, in denen mehrere Chunks korrekte Antworten
+enthalten können, ist nDCG die bessere Wahl, weil es alle relevanten Treffer
+gewichtet einbezieht.
+
+Precision@K ist im Information-Retrieval traditionell wichtig, in modernen
+RAG-Evaluationen aber weniger gebräuchlich. Precision@K misst den Anteil der
+relevanten Ergebnisse unter den ersten K. Bei Single-Relevant-Datasets ist
+das mathematisch identisch zu Recall@K geteilt durch K und damit redundant.
+Bei Multi-Relevant ist Precision@K eigenständig informativ und sollte
+zusammen mit Recall@K berichtet werden.
+
+Hit Rate ist eine sehr grobe Metrik, die nur prüft, ob mindestens ein
+relevanter Treffer in den Top-K vorhanden ist, unabhängig von Position oder
+Anzahl. In Single-Relevant-Datasets ist Hit Rate identisch zu Recall@K und
+fügt keinen Mehrwert hinzu. In Multi-Relevant ist sie unterspezifisch und
+wird selten allein berichtet.
+
+Mean Average Precision, kurz MAP, ist die klassische Aggregationsmetrik im
+Information-Retrieval. Sie mittelt die Precision an jeder Position, an der ein
+relevanter Treffer steht, über alle Anfragen. MAP belohnt sowohl die Anzahl
+relevanter Treffer in den oberen Rängen als auch ihre Konzentration weit oben.
+Für RAG ist MAP weniger gebräuchlich, weil RAG häufig nur den ersten oder die
+ersten wenigen Treffer wirklich nutzt.
+
+Wichtig bei allen Metriken ist die Vergleichbarkeit über Läufe hinweg. Das
+gleiche Dataset muss verwendet werden, die gleiche Sortierung der Anfragen,
+und zufällige Komponenten wie Sampling-Temperatur eines Rerankers müssen
+entweder deterministisch gesetzt oder über mehrere Läufe gemittelt werden.
+Eine reproduzierbare Eval-Pipeline schreibt für jeden Lauf den genauen
+Dataset-Hash, die Modellversionen, die Konfiguration und die Random-Seeds in
+den Report. Ohne diese Metadaten sind zwei Reports nicht vertrauenswürdig
+vergleichbar.
+
+Statistische Signifikanz wird in Retrieval-Evaluationen häufig vernachlässigt,
+ist aber wichtig. Eine Verbesserung von Recall@10 von 0,82 auf 0,83 kann
+innerhalb der Streuung sein, ein scheinbarer Sieg eines Modells über ein
+anderes also ein Artefakt. Bootstrap-Resampling über die Anfragen liefert
+einfach interpretierbare Konfidenzintervalle. Ein paarweiser Test wie
+Wilcoxon-Signed-Rank ist robuster als ein t-Test, weil die Verteilung der
+Metriken über Anfragen typischerweise nicht normalverteilt ist.
+
+Die Eval-Dataset-Größe ist ein eigenes Thema. Faustregeln aus der Forschung
+nennen 200 bis 500 Anfragen als Mindestgröße für stabile Vergleiche zwischen
+Modellen. Mit weniger als 100 Anfragen sind die Konfidenzintervalle so breit,
+dass viele Vergleiche nicht signifikant unterscheidbar sind. Synthetische
+Generierung erlaubt es, leicht auf einige tausend Anfragen hochzuskalieren,
+ohne dass der Annotationsaufwand explodiert. Eine sinnvolle Strategie ist eine
+Kern-Trainings- und Eval-Menge mit manueller Annotation und eine größere
+Hold-out-Menge mit synthetischer Generierung, um Trends zu sehen.
+
+Domänen-spezifische Eval-Datasets sind oft die einzige aussagekräftige
+Möglichkeit. Ein RAG-System, das auf juristischen Texten gut performt, kann auf
+medizinischen Texten dramatisch schlechter sein, und umgekehrt. Generische
+Benchmarks wie BEIR liefern eine erste Orientierung, sind aber für ein
+spezifisches Produkt nur begrenzt aussagekräftig. Die Pflicht-Übung beim
+Aufbau eines RAG-Systems ist deshalb, einen kleinen aber repräsentativen
+domänen-spezifischen Eval-Datensatz zu pflegen und ihn bei jeder
+Modell-Änderung mitlaufen zu lassen.
+
+Eine besondere Falle bei synthetischen Datasets ist das sogenannte
+Trivial-Match-Problem. Wenn das generierende Modell die Frage zu nah am
+Originaltext formuliert, also zum Beispiel ganze Phrasen aus dem Chunk
+übernimmt, wird die Retrieval-Aufgabe trivial einfach. Ein BM25 würde solche
+Fragen perfekt beantworten, ohne dass das ein realistisches Signal für die
+Qualität der Vektor-Embeddings wäre. Gegenmaßnahmen sind unter anderem das
+explizite Auffordern des Generators, Paraphrasen zu nutzen, die Verwendung
+unterschiedlicher Modelle für Generation und Retrieval-Test, und ein
+nachträgliches Aussortieren zu nah am Original liegender Fragen über einen
+String-Ähnlichkeitsfilter.
+
+Eine weitere Falle ist die Verzerrung durch das generierende Modell. Wenn
+GPT-4 die Fragen erzeugt, bevorzugt es bestimmte Formulierungsmuster, die
+sich später beim Retrieval-Test günstig oder ungünstig auf bestimmte
+Embedding-Modelle auswirken. Wenn das Embedding-Modell ebenfalls aus der
+gleichen Familie kommt, ist ein Vorteil zu erwarten, der bei einem unabhängigen
+Modell nicht reproduzierbar wäre. Saubere Evaluationen verwenden ein
+generierendes Modell, das von keinem der getesteten Embedding-Modelle abstammt.
+
+Eval-Reports sollten neben den aggregierten Zahlen auch Beispiele der
+schlechtesten Fälle enthalten. Welche Anfragen wurden falsch beantwortet?
+Welche Chunks wurden statt der richtigen Antwort hoch gerankt? Dieses
+qualitative Material ist oft wichtiger als die aggregierten Zahlen, weil es
+konkrete Anhaltspunkte für Verbesserungen liefert. Eine Visualisierung der
+Verteilung der Metriken pro Anfrage, zum Beispiel als Histogramm der MRR-Werte,
+zeigt zudem, ob ein scheinbar guter Durchschnitt von wenigen sehr guten oder
+sehr schlechten Fällen getragen wird.
