@@ -26,6 +26,24 @@ export const ui = {
     'marquee.eyebrow': 'Unser Stack',
     'marquee.title': 'Auf den Schultern der Open-Source-Community gebaut',
 
+    'why.eyebrow': 'Warum',
+    'why.title': 'Lokale KI ist mühsam.\nWir machen sie zugänglich.',
+    'why.subtitle':
+      'Modelle vergleichen, RAG-Pipelines bauen, Inference lokal aufsetzen, Daten verschlüsseln — das ist eine Menge Arbeit, bevor du die erste Frage stellst. LokLM nimmt dir diesen Teil ab.',
+    'why.problem.title': 'Der harte Weg',
+    'why.problem.item1': 'Modelle finden, evaluieren und quantisieren',
+    'why.problem.item2': 'RAG-Pipeline bauen — Chunking, Embeddings, Retrieval, Reranking',
+    'why.problem.item3': 'Inference-Stack lokal aufsetzen (llama.cpp, GPU/CPU, Quant-Level)',
+    'why.problem.item4': 'Vault verschlüsseln, Schlüssel verwalten, Backups planen',
+    'why.problem.item5': 'Aktuelle RAG-Forschung verfolgen und nachziehen',
+    'why.solution.title': 'Mit LokLM',
+    'why.solution.tagline': 'Installieren. Dokumente ablegen. Fragen stellen.',
+    'why.solution.body':
+      'Modellauswahl, Pipeline-Tuning und Verschlüsselung haben wir im Hintergrund erledigt. Du brauchst kein ML-Engineer zu sein, um deine eigenen Dokumente mit einer lokalen KI zu befragen.',
+    'why.stat.install': 'Installieren',
+    'why.stat.import': 'Importieren',
+    'why.stat.ask': 'Fragen',
+
     'features.title': 'Was LokLM kann',
     'features.subtitle':
       'Eine Desktop-Anwendung für alle, die Antworten mit verlässlichen Quellen brauchen — ohne ihre Daten aus der Hand zu geben.',
@@ -91,6 +109,24 @@ export const ui = {
 
     'marquee.eyebrow': 'Our stack',
     'marquee.title': 'Standing on the shoulders of the open-source community',
+
+    'why.eyebrow': 'Why',
+    'why.title': 'Local AI is hard.\nWe make it usable.',
+    'why.subtitle':
+      'Comparing models, building RAG pipelines, running inference locally, encrypting data — that is a lot of work before you can ask the first question. LokLM takes that part off your hands.',
+    'why.problem.title': 'The hard way',
+    'why.problem.item1': 'Find, evaluate, and quantize models',
+    'why.problem.item2': 'Build a RAG pipeline — chunking, embeddings, retrieval, reranking',
+    'why.problem.item3': 'Set up a local inference stack (llama.cpp, GPU/CPU, quant levels)',
+    'why.problem.item4': 'Encrypt the vault, manage keys, plan backups',
+    'why.problem.item5': 'Track current RAG research and keep up',
+    'why.solution.title': 'With LokLM',
+    'why.solution.tagline': 'Install. Drop in documents. Ask.',
+    'why.solution.body':
+      'We handled model selection, pipeline tuning, and encryption under the hood. You do not need to be an ML engineer to query your own documents with a local AI.',
+    'why.stat.install': 'Install',
+    'why.stat.import': 'Import',
+    'why.stat.ask': 'Ask',
 
     'features.title': 'What LokLM does',
     'features.subtitle':
