@@ -1,0 +1,117 @@
+LokLM ist eine lokale Desktop-Anwendung für wissensbasierte Recherche. Sie läuft
+als Electron-App auf Windows, macOS und Linux. Alle Modelle und Daten bleiben
+auf dem Gerät des Nutzers, es gibt keine Cloud-Komponente im Hot Path. Die
+Anwendung ist auf Studierende, Wissenschaftler und Fachpraktiker zugeschnitten,
+die mit eigenen Dokumentbeständen arbeiten und eine private, nachvollziehbare
+Antwort-Generierung mit Quellenverifikation benötigen.
+
+Die Prozess-Architektur folgt dem Standard-Modell von Electron. Es gibt einen
+Hauptprozess auf Node.js-Basis, der die Lebenszyklen der Fenster verwaltet, die
+Authentifizierung durchführt und sämtliche Datei- und Datenbankzugriffe kapselt.
+Daneben läuft ein Renderer-Prozess auf Chromium-Basis, der die Benutzeroberfläche
+mit React darstellt. Zwischen beiden vermittelt ein Preload-Skript, das eine
+schmale, typisierte API über contextBridge in den Renderer projiziert. Sandbox
+und contextIsolation sind aktiviert, nodeIntegration ist deaktiviert. Der
+Renderer hat keinen direkten Zugriff auf das Dateisystem oder Node-APIs.
+
+Der Authentifizierungs-Layer basiert auf einer einzelnen verschlüsselten
+Vault-Datei namens loklm.vault. Diese Datei liegt im Benutzerverzeichnis der
+Anwendung und enthält im Header zwei gewrappte Datenverschlüsselungs-Keys,
+abgekürzt DEK. Der erste DEK ist unter dem Nutzer-Passwort gewrappt, der
+zweite unter einer achtzehn Wörter langen BIP-39-ähnlichen Passphrase. Das
+Recovery funktioniert über die Passphrase, ohne dass die App den Inhalt der
+Datenbank verliert. Bei einem Passwort-Reset bleibt der DEK selbst gleich,
+nur die Wrapping-Schlüssel werden neu abgeleitet.
+
+Die Schlüssel-Ableitung verwendet Argon2id mit 64 MiB Speicher, drei Iterationen
+und Parallelität vier. Die hashLength beträgt 32 Byte und liefert direkt den
+KEK ohne weitere Reduktion. Der KEK existiert nur im Speicher und wird nach
+dem Wrap- bzw. Unwrap-Vorgang sofort mit Nullen überschrieben. Der Body der
+Vault-Datei wird mit AES-256-GCM verschlüsselt. Die Nonce ist zwölf Byte lang,
+der Auth-Tag sechzehn Byte. Bei jeder Persistierung wird eine frische Nonce
+mit kryptographisch sicherem Zufall erzeugt.
+
+Die Datenbank ist eine in-memory PGlite-Instanz. PGlite ist ein voller
+PostgreSQL-Build, der via WebAssembly im Node-Prozess läuft und keine
+externen Dienste benötigt. Beim Sperren der App wird die Datenbank in einen
+Tar-Dump serialisiert, dieser Tar-Dump wird unter dem DEK mit AES-GCM
+verschlüsselt und in den Body der Vault-Datei geschrieben. Beim Entsperren
+geschieht der umgekehrte Weg: Body entschlüsseln, Tar-Dump in eine frische
+PGlite-Instanz laden, weiter arbeiten.
+
+Die Anti-Brute-Force-Mechanik ist in zwei Stufen umgesetzt. Nach fünf
+aufeinanderfolgenden Fehlversuchen aktiviert sich eine Sperre für fünf Minuten.
+Diese Sperre wird ausschließlich im Speicher gehalten und überlebt einen
+Neustart der Anwendung nicht. Das ist eine bewusste Designentscheidung, weil
+ein persistenter Lockout in einer lokalen Anwendung leicht umgangen werden
+könnte und stattdessen nur den legitimen Nutzer schikaniert. Die zweite Stufe
+ist eine Inaktivitäts-Sperre, die nach fünfzehn Minuten ohne Eingabe greift
+und den Zustand zurück in die Vault-Datei schreibt.
+
+Das Datenmodell ist bewusst minimal gehalten. Es gibt keine SQL-Tabelle für
+Benutzer oder Recovery-Codes. Die einzige Quelle der Wahrheit für die
+Authentifizierung ist der Header der Vault-Datei. Wenn später echte Anwendungs-
+Tabellen für Dokumente, Embeddings, Chats und Zitate hinzukommen, werden diese
+über Drizzle-ORM auf der PGlite-Instanz aufgesetzt. Migrationen werden via
+drizzle-kit generiert und beim Hochfahren angewendet, falls die Schema-Version
+in der Vault älter ist als die mitgelieferten Migrationen.
+
+Das Frontend ist mit React achtzehn aufgebaut. Die wichtigsten Views sind
+LoginView, RegisterView, ResetView und UnlockedView. Während der Registrierung
+wird die generierte Passphrase einmalig im PassphraseReveal-Component
+angezeigt. Der Benutzer muss bestätigen, sie notiert zu haben, bevor er
+weitergeht. Es gibt keine Möglichkeit, die Passphrase später erneut anzuzeigen,
+weil sie nur in Form der abgeleiteten Wrapping-Keys gespeichert wird, nicht im
+Klartext.
+
+Die Titelleiste ist eigenständig in React umgesetzt und ersetzt die native
+Fensterdekoration. Über IPC-Aufrufe an den Hauptprozess kann der Renderer die
+Aktionen minimize, toggleMaximize und close auslösen. Der Hauptprozess sendet
+maximize- und unmaximize-Events zurück, damit die React-Titelleiste die
+Symbole zwischen Maximieren und Wiederherstellen wechseln kann.
+
+Die IPC-Schnittstelle ist eng definiert. Auth-Operationen sind auth:status,
+auth:register, auth:login, auth:logout, auth:lock und auth:reset. Jede
+Operation ist im Preload typisiert exponiert und gibt strukturierte
+Ergebnisse zurück. Erfolgsfälle haben ok: true, Fehlerfälle ok: false mit
+einer reason aus einer geschlossenen Enum, zum Beispiel no_user, bad_password,
+rate_limited oder broken_vault. Der Renderer darf keine eigene Authentifizierung
+vornehmen und keine Krypto-Operationen direkt ausführen.
+
+Beim Beenden der App wird über das before-quit-Event die Vault-Datei noch einmal
+persistiert, falls die App entsperrt ist und seit dem letzten Lock geänderte
+Daten in der in-memory-DB liegen. Das Event wird mit preventDefault aufgehalten,
+die Persistierung läuft asynchron, danach wird app.quit erneut aufgerufen.
+Auf diese Weise gehen Änderungen zwischen letztem Lock und Beenden nicht
+verloren, ohne dass kontinuierliches Auto-Save-Verhalten nötig wäre.
+
+Die Buildkette nutzt electron-vite mit drei Sub-Builds: main, preload und
+renderer. TypeScript wird über Project References in tsconfig.node.json und
+tsconfig.web.json getrennt, damit die Type-Welten von Node und Browser nicht
+miteinander kollidieren. Aliase wie @main, @preload, @shared und @renderer
+sind in allen drei Sub-Builds, in der Test-Workspace-Konfiguration und in den
+tsconfig-Dateien identisch gespiegelt.
+
+Die Auslieferung erfolgt aktuell als signiertes installierbares Paket pro
+Betriebssystem. Updates werden noch nicht automatisch über einen Auto-Updater
+verteilt, sondern manuell durch einen neuen Download. Sobald ein Auto-Updater
+hinzukommt, wird er als optionaler Service über IPC angebunden und respektiert
+die lokal-zuerst-Maxime: keine Telemetrie, kein Versand von Inhalten an externe
+Dienste, nur ein periodischer HTTPS-Check gegen einen Versions-Endpunkt.
+
+Die Quellenverifikation ist das namensgebende Feature von LokLM. Jede
+generierte Antwort des Sprachmodells muss auf nachvollziehbare Chunks aus den
+Nutzer-Dokumenten verweisen. Im Frontend werden diese Verweise als
+anklickbare Zitate dargestellt, die beim Klicken den entsprechenden Abschnitt
+im Original-Dokument öffnen. Wenn die Antwort keine Zitate enthält, signalisiert
+die App das deutlich und unterscheidet zwischen einer parametrischen Antwort
+des Modells und einer dokumentgestützten Antwort.
+
+Die Sicherheits-Threats, gegen die das Modell ausgelegt ist, sind klar
+abgegrenzt. Geschützt wird gegen Diebstahl der Vault-Datei, gegen unbefugten
+Zugriff auf das laufende Gerät bei abwesendem Nutzer, gegen Brute-Force-Angriffe
+gegen das Passwort und gegen den Verlust eines vergessenen Passworts mittels
+Passphrase. Nicht geschützt wird gegen aktive Malware mit Kernel-Rechten auf
+dem Gerät, gegen physikalische Memory-Dumps eines entsperrten Systems oder
+gegen Angriffe auf die Anzeige-Pipeline wie Screen-Scraping durch andere
+Programme. Diese Grenzen sind im Pflichtenheft explizit dokumentiert.
