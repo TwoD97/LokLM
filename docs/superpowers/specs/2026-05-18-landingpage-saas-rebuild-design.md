@@ -66,11 +66,15 @@ Screenshot to capture: chat thread on a real document set, with a citation pill 
 
 Thin horizontal band, immediately after hero, no section padding.
 
-- GitHub stars badge — live from `https://img.shields.io/github/stars/TwoD97/LokLM?style=flat&color=...` styled to match the theme, or fetch at build time and inject as plain text (preferred — no external image dependency on every page load).
-- Contributor avatars: small row, lazy-loaded from GitHub API at build time (the Astro build can call `https://api.github.com/repos/TwoD97/LokLM/contributors` and emit static `<img>` tags).
-- "MIT · Open source · Code on GitHub" trust ribbon — plain text with mono accent. Avoid words like "audited" that imply a formal audit which hasn't happened.
+Three pieces, side by side on desktop, stacked on mobile:
 
-If GitHub star count or contributors list cannot be fetched at build (rate limit, offline build), section degrades gracefully to a static "Open source · MIT licence" strip.
+- **GitHub stars (live, build-time fetched)** — call `https://api.github.com/repos/TwoD97/LokLM` during the Astro build, extract `stargazers_count`, render as plain text with a star glyph: `★ 142 stars on GitHub`. Number is hard-coded into the built HTML, so there is no runtime fetch and no rate-limit risk for visitors.
+- **Contributor avatars (live, build-time fetched)** — call `https://api.github.com/repos/TwoD97/LokLM/contributors`, take the top 8, emit a row of static `<img>` tags pointing at the contributor avatar URLs (with `loading="lazy" decoding="async"`). Each avatar is a circle linked to the contributor's GitHub profile. A `+N more` chip at the end if the list exceeds 8.
+- **MIT trust badge** — static text `MIT · Open source · Code on GitHub` with the LokLM repo link.
+
+Build-time fetch is implemented in a helper `website/src/lib/github.ts`. The helper caches the response to `website/.cache/github.json` between builds so we don't hammer the GitHub API in development. The cache file is gitignored.
+
+Graceful degradation: if both API calls fail at build time (network down, rate limit, or running offline), the section renders just the MIT trust badge — no broken star count, no missing avatars. This is implemented with a try/catch around each fetch returning a sensible default. Avoid words like "audited" that would imply a formal audit which hasn't happened.
 
 ### 3. Open-source stack marquee (KEPT)
 
@@ -202,9 +206,14 @@ Current footer is one row. Expand to a 4-column grid above the existing bottom r
 - **Product**: Features (#features), Download (#download), Changelog (link to GitHub releases), Roadmap (link to GitHub project)
 - **Developers**: Repository, License (MIT), Architecture (#security), Contributing (link to CONTRIBUTING.md if it exists, else GitHub issues)
 - **Community**: GitHub Discussions, Issues
-- **Legal**: Imprint, Privacy (a short page that says "we don't collect anything — here's why and how to verify")
+- **Legal**: Imprint, Privacy
 
-The legal column requires a new `/imprint` and `/privacy` page in both languages. Out of scope for this rebuild if it stretches scope — can be follow-up.
+The Legal column requires new pages, shipped with this rebuild:
+
+- `/imprint` (and `/en/imprint`) — basic Austrian Impressumspflicht content (operator name, address, contact, responsible-for-content). Single Astro page reusing the `Base` layout. Copy lives in i18n keys (`imprint.*`).
+- `/privacy` (and `/en/privacy`) — short page explaining that the landingpage collects nothing: no analytics, no cookies, no tracking, no third-party scripts. Lists the only outbound calls (GitHub avatar images, font self-hosted) and confirms the LokLM app itself is described under `#security`. Copy lives in i18n keys (`privacy.*`).
+
+Both pages get included in the sitemap (`@astrojs/sitemap` already handles new routes automatically) and pick up the same nav/footer.
 
 Bottom row stays as it is.
 
@@ -263,7 +272,6 @@ Screenshots are captured against a real demo vault populated with non-personal d
 - Pricing page (LokLM is MIT/free).
 - Newsletter signup, email capture.
 - Analytics. The "no telemetry" claim on the page means no analytics on the landingpage either.
-- Imprint/Privacy sub-pages — listed in Footer for completeness but their content is a separate task.
 - Comparison table — dropped intentionally per positioning principle.
 
 ## Implementation order (rough sequence)
@@ -278,11 +286,12 @@ Screenshots are captured against a real demo vault populated with non-personal d
 8. FAQ
 9. FinalCTA
 10. Footer expansion
-11. Whole-page polish pass: spacing, mobile, motion, reduced-motion
+11. Imprint + Privacy pages (both locales)
+12. Whole-page polish pass: spacing, mobile, motion, reduced-motion
 
 Existing kept sections (marquee, why, feature grid, download) get a polish-only pass interleaved.
 
-## Open questions for review
+## Resolved questions
 
-- Whether to fetch GitHub stars/contributors at build (preferred — zero runtime cost) or skip the live numbers and use static "MIT · Open source" text. Build-time fetch can fail on network/rate-limit so we need graceful fallback either way.
-- Whether the Footer Legal column ships with this rebuild or in a follow-up — depends on whether you want stub imprint/privacy pages now.
+- **GitHub social proof**: live build-time fetch for both star count and contributor avatars, with the MIT badge alongside both. Graceful degradation to MIT-only on fetch failure.
+- **Footer Legal column**: shipped with this rebuild — new `/imprint` and `/privacy` pages, both languages, listed in the Legal footer column.
