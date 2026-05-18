@@ -1,0 +1,135 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+import ProductWindow from './ProductWindow.astro'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface DeepDive {
+  eyebrowKey: UIKey
+  titleKey: UIKey
+  bodyKey: UIKey
+  ctaKey: UIKey
+  ctaHref: string
+  altKey: UIKey
+  image2x: string
+  image1x: string
+}
+
+const deepdives: DeepDive[] = [
+  {
+    eyebrowKey: 'deepdive.citations.eyebrow',
+    titleKey: 'deepdive.citations.title',
+    bodyKey: 'deepdive.citations.body',
+    ctaKey: 'deepdive.citations.cta',
+    ctaHref: '#security',
+    altKey: 'deepdive.citations.alt',
+    image2x: '/screenshots/deepdive-citation.webp',
+    image1x: '/screenshots/deepdive-citation@1x.webp',
+  },
+  {
+    eyebrowKey: 'deepdive.vault.eyebrow',
+    titleKey: 'deepdive.vault.title',
+    bodyKey: 'deepdive.vault.body',
+    ctaKey: 'deepdive.vault.cta',
+    ctaHref: '#security',
+    altKey: 'deepdive.vault.alt',
+    image2x: '/screenshots/deepdive-vault.webp',
+    image1x: '/screenshots/deepdive-vault@1x.webp',
+  },
+  {
+    eyebrowKey: 'deepdive.offline.eyebrow',
+    titleKey: 'deepdive.offline.title',
+    bodyKey: 'deepdive.offline.body',
+    ctaKey: 'deepdive.offline.cta',
+    ctaHref: '#security',
+    altKey: 'deepdive.offline.alt',
+    image2x: '/screenshots/deepdive-offline.webp',
+    image1x: '/screenshots/deepdive-offline@1x.webp',
+  },
+]
+---
+
+<section class="deepdive">
+  <div class="deepdive__inner">
+    {deepdives.map((d, i) => (
+      <article class:list={['deepdive__row', i % 2 === 1 && 'deepdive__row--reverse']}>
+        <div class="deepdive__text">
+          <span class="section-eyebrow">{t(lang, d.eyebrowKey)}</span>
+          <h2 class="deepdive__title">{t(lang, d.titleKey)}</h2>
+          <p class="deepdive__body">{t(lang, d.bodyKey)}</p>
+          <a class="deepdive__cta" href={d.ctaHref}>
+            {t(lang, d.ctaKey)}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+        <div class="deepdive__visual">
+          <ProductWindow>
+            <picture>
+              <source srcset={d.image2x} media="(min-width: 769px)" />
+              <img src={d.image1x} alt={t(lang, d.altKey)} width="1200" height="800" loading="lazy" decoding="async" />
+            </picture>
+          </ProductWindow>
+        </div>
+      </article>
+    ))}
+  </div>
+</section>
+
+<style>
+  .deepdive { padding: 5rem 0; }
+  @media (min-width: 768px) { .deepdive { padding: 7rem 0; } }
+
+  .deepdive__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: grid;
+    gap: 5rem;
+  }
+  @media (min-width: 900px) { .deepdive__inner { gap: 7rem; } }
+
+  .deepdive__row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .deepdive__row { grid-template-columns: 1fr 1fr; gap: 4rem; }
+    .deepdive__row--reverse .deepdive__text { order: 2; }
+    .deepdive__row--reverse .deepdive__visual { order: 1; }
+  }
+
+  .deepdive__title {
+    margin-top: 0.5rem;
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-fg-0);
+    letter-spacing: -0.02em;
+  }
+  @media (min-width: 640px) { .deepdive__title { font-size: 2.25rem; } }
+
+  .deepdive__body {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    line-height: 1.65;
+    font-size: 1rem;
+  }
+
+  .deepdive__cta {
+    margin-top: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-accent-hover);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: color 180ms ease, gap 180ms ease;
+  }
+  .deepdive__cta:hover { color: var(--color-fg-0); gap: 0.6rem; }
+</style>

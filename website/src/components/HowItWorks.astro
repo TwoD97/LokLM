@@ -1,0 +1,169 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+import ProductWindow from './ProductWindow.astro'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface Step {
+  num: string
+  labelKey: UIKey
+  titleKey: UIKey
+  bodyKey: UIKey
+  altKey: UIKey
+  image2x: string
+  image1x: string
+}
+
+const steps: Step[] = [
+  {
+    num: '01',
+    labelKey: 'how.step1.label',
+    titleKey: 'how.step1.title',
+    bodyKey: 'how.step1.body',
+    altKey: 'how.step1.alt',
+    image2x: '/screenshots/step1-import.webp',
+    image1x: '/screenshots/step1-import@1x.webp',
+  },
+  {
+    num: '02',
+    labelKey: 'how.step2.label',
+    titleKey: 'how.step2.title',
+    bodyKey: 'how.step2.body',
+    altKey: 'how.step2.alt',
+    image2x: '/screenshots/step2-ask.webp',
+    image1x: '/screenshots/step2-ask@1x.webp',
+  },
+  {
+    num: '03',
+    labelKey: 'how.step3.label',
+    titleKey: 'how.step3.title',
+    bodyKey: 'how.step3.body',
+    altKey: 'how.step3.alt',
+    image2x: '/screenshots/step3-verify.webp',
+    image1x: '/screenshots/step3-verify@1x.webp',
+  },
+]
+---
+
+<section id="how" class="how">
+  <div class="how__inner">
+    <div class="how__head">
+      <span class="section-eyebrow">{t(lang, 'how.eyebrow')}</span>
+      <h2 class="section-title gradient-text">{t(lang, 'how.title')}</h2>
+      <p class="how__sub">{t(lang, 'how.subtitle')}</p>
+    </div>
+
+    <ol class="how__steps">
+      {steps.map((step, i) => (
+        <li class:list={['how__step', i % 2 === 1 && 'how__step--reverse']}>
+          <span class="how__num" aria-hidden="true">{step.num}</span>
+          <div class="how__text">
+            <span class="how__label">{t(lang, step.labelKey)}</span>
+            <h3 class="how__title">{t(lang, step.titleKey)}</h3>
+            <p class="how__body">{t(lang, step.bodyKey)}</p>
+          </div>
+          <div class="how__visual">
+            <ProductWindow>
+              <picture>
+                <source srcset={step.image2x} media="(min-width: 769px)" />
+                <img src={step.image1x} alt={t(lang, step.altKey)} width="1200" height="800" loading="lazy" decoding="async" />
+              </picture>
+            </ProductWindow>
+          </div>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .how {
+    position: relative;
+    padding: 5rem 0;
+  }
+  @media (min-width: 768px) {
+    .how { padding: 7rem 0; }
+  }
+
+  .how__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .how__head { max-width: 36rem; margin-bottom: 4rem; }
+  .how__sub {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    line-height: 1.6;
+    font-size: 1rem;
+  }
+
+  .how__steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 4rem;
+  }
+  @media (min-width: 900px) {
+    .how__steps { gap: 6rem; }
+  }
+
+  .how__step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .how__step {
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+    }
+    .how__step--reverse .how__text { order: 2; }
+    .how__step--reverse .how__visual { order: 1; }
+  }
+
+  .how__num {
+    position: absolute;
+    top: -3rem;
+    left: 0;
+    font-family: var(--font-mono);
+    font-size: 7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-fg-1);
+    opacity: 0.06;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .how__text { position: relative; z-index: 1; }
+  .how__label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-hover);
+    margin-bottom: 0.75rem;
+  }
+  .how__title {
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--color-fg-0);
+    letter-spacing: -0.01em;
+  }
+  @media (min-width: 640px) {
+    .how__title { font-size: 2rem; }
+  }
+  .how__body {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    line-height: 1.65;
+  }
+</style>

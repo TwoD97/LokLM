@@ -1,0 +1,84 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+---
+
+<section class="final-cta">
+  <div class="final-cta__glow" aria-hidden="true"></div>
+  <div class="final-cta__inner">
+    <span class="section-eyebrow">{t(lang, 'finalcta.eyebrow')}</span>
+    <h2 class="final-cta__title">
+      {t(lang, 'finalcta.title')}{' '}
+      <span class="gradient-accent">{t(lang, 'finalcta.titleAccent')}</span>
+    </h2>
+
+    <a href="#download" class="btn-primary final-cta__btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v12" /><path d="m6 9 6 6 6-6" /><path d="M5 21h14" />
+      </svg>
+      {t(lang, 'finalcta.cta')}
+    </a>
+
+    <a href="#download" class="final-cta__other mono">{t(lang, 'finalcta.otherPlatforms')} &rarr;</a>
+  </div>
+</section>
+
+<style>
+  .final-cta {
+    position: relative;
+    padding: 6rem 0;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .final-cta__glow {
+    position: absolute;
+    left: 50%;
+    bottom: -10vmax;
+    width: 60vmax;
+    height: 60vmax;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.25), transparent 55%);
+    filter: blur(30px);
+    pointer-events: none;
+  }
+
+  .final-cta__inner {
+    position: relative;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .final-cta__title {
+    margin-top: 0.5rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--color-fg-0);
+  }
+  @media (min-width: 640px) {
+    .final-cta__title { font-size: 3.5rem; }
+  }
+
+  .final-cta__btn {
+    margin-top: 2.5rem;
+    font-size: 1rem;
+    padding: 0.85rem 1.75rem;
+  }
+
+  .final-cta__other {
+    display: block;
+    margin-top: 1.5rem;
+    color: var(--color-fg-3);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+  .final-cta__other:hover { color: var(--color-fg-0); }
+</style>
