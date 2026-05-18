@@ -8,7 +8,7 @@ interface StackItem {
   name: string
   url: string
   slug?: string
-  glyph?: 'llama' | 'argon'
+  glyph?: 'llama' | 'argon' | 'pglite'
 }
 
 const stack: StackItem[] = [
@@ -16,7 +16,7 @@ const stack: StackItem[] = [
   { name: 'llama.cpp', url: 'https://github.com/ggml-org/llama.cpp', glyph: 'llama' },
   { name: 'Argon2', url: 'https://github.com/P-H-C/phc-winner-argon2', glyph: 'argon' },
   { name: 'Drizzle ORM', url: 'https://orm.drizzle.team', slug: 'drizzle' },
-  { name: 'PGlite', url: 'https://pglite.dev', slug: 'electricsql' },
+  { name: 'PGlite', url: 'https://pglite.dev', glyph: 'pglite' },
   { name: 'Electron', url: 'https://www.electronjs.org', slug: 'electron' },
   { name: 'Astro', url: 'https://astro.build', slug: 'astro' },
   { name: 'Vite', url: 'https://vite.dev', slug: 'vite' },
@@ -75,6 +75,13 @@ const track = [...stack, ...stack]
                 <path d="M12 2 3 7v10l9 5 9-5V7z" />
                 <path d="M9 16V10l3-2 3 2v6" />
                 <path d="M9 13h6" />
+              </svg>
+            )}
+            {item.glyph === 'pglite' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="7" ry="2.5" />
+                <path d="M5 5v14c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V5" />
+                <path d="m13.5 9-3 5h2.5l-1 3.5" />
               </svg>
             )}
             <span>{item.name}</span>
