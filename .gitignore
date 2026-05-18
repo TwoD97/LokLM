@@ -150,17 +150,3 @@ docs/api/
 .tsbuildinfo-web/
 models/
 LokLM.zip
-
-# Test-Artefakte
-tests/e2e/.playwright-report/
-tests/e2e/test-results/
-playwright/.cache/
-tests/evals/report/
-
-# library-distractors: tiny + small werden committed (initial test-set),
-# medium/large werden lokal gebaut
-tests/evals/data/libraries/medium.json
-tests/evals/data/libraries/large.json
-
-# staging für library-aufbau
-tests/evals/data/staging/

@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -14,6 +14,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "package:win": "electron-builder --win nsis",
+    "package:linux": "electron-builder --linux AppImage",
+    "package:mac": "electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -53,6 +56,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
+    "electron-builder": "^25.1.8",
     "@eslint/js": "^9.16.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -89,6 +93,66 @@
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2"
+  },
+  "build": {
+    "appId": "com.loklm.desktop",
+    "productName": "LokLM",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      "!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/**/*.d.ts",
+      "!**/node_modules/**/*.map"
+    ],
+    "asar": true,
+    "publish": null,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "LokLM-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "artifactName": "LokLM-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "LokLM-${version}.${ext}"
+    }
   },
   "pnpm": {
     "onlyBuiltDependencies": [
