@@ -32,6 +32,44 @@ const stub: Api = {
     isMaximized: () => Promise.resolve(false),
     onMaximizedChange: () => () => undefined,
   },
+  workspaces: {
+    list: () => Promise.resolve([]),
+    create: (name: string) =>
+      Promise.resolve({ id: 1, name, createdAt: Math.floor(Date.now() / 1000) }),
+    rename: () => Promise.resolve(),
+    delete: () => Promise.resolve(),
+  },
+  documents: {
+    list: () => Promise.resolve([]),
+    import: (workspaceId: number, sourcePath: string) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId,
+        title: sourcePath,
+        sourcePath,
+        mimeType: null,
+        byteSize: null,
+        status: 'pending' as const,
+        chunkCount: 0,
+        tokenCount: 0,
+        addedAt: Math.floor(Date.now() / 1000),
+      }),
+    delete: () => Promise.resolve(),
+    reindex: (id: number) =>
+      Promise.resolve({
+        id,
+        workspaceId: 1,
+        title: 'stub',
+        sourcePath: '/stub',
+        mimeType: null,
+        byteSize: null,
+        status: 'pending' as const,
+        chunkCount: 0,
+        tokenCount: 0,
+        addedAt: Math.floor(Date.now() / 1000),
+      }),
+    onIndexProgress: () => () => undefined,
+  },
 }
 
 window.api = stub

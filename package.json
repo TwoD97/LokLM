@@ -56,7 +56,6 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
-    "electron-builder": "^25.1.8",
     "@eslint/js": "^9.16.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -68,6 +67,7 @@
     "@vitest/coverage-v8": "^2.1.8",
     "drizzle-kit": "^0.31.10",
     "electron": "^42.0.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^9.1.0",
@@ -92,7 +92,8 @@
     "@electric-sql/pglite": "^0.4.5",
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "pdf-parse": "^2.4.5"
   },
   "build": {
     "appId": "com.loklm.desktop",

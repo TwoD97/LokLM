@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
+import type { Document, Workspace, IndexProgress } from '../shared/documents'
 
 const api = {
   auth: {
@@ -35,6 +36,28 @@ const api = {
       ipcRenderer.on('window:maximized', listener)
       return () => {
         ipcRenderer.removeListener('window:maximized', listener)
+      }
+    },
+  },
+  workspaces: {
+    list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspaces:list'),
+    create: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspaces:create', name),
+    rename: (id: number, name: string): Promise<void> =>
+      ipcRenderer.invoke('workspaces:rename', id, name),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
+  },
+  documents: {
+    list: (workspaceId: number): Promise<Document[]> =>
+      ipcRenderer.invoke('documents:list', workspaceId),
+    import: (workspaceId: number, sourcePath: string): Promise<Document> =>
+      ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
+    reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, p: IndexProgress): void => cb(p)
+      ipcRenderer.on('indexing:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('indexing:progress', listener)
       }
     },
   },
