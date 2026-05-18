@@ -1,23 +1,23 @@
 import { PGlite } from '@electric-sql/pglite'
-import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite'
+import { vector } from '@electric-sql/pglite/vector'
+import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '@main/db/schema'
+import { type Db } from '@main/db/database'
+import { runMigrations } from '@main/db/migrate'
 
 // geteilte PGlite + drizzle für alle tx-tests in einem prozess.
 // initialisierung passiert in setupDb , teardown in teardownDb.
 // jeder einzelne test läuft in einer eigenen tx die am ende rollbackt ,
 // damit nichts zwischen tests leaked.
-//
-// migrations: sobald reale tabellen landen , hier `await migrate(db , { migrationsFolder: ... })`
-// nach dem `drizzle(...)` aufruf einbauen.
 
 let client: PGlite | null = null
-let db: PgliteDatabase<typeof schema> | null = null
+let db: Db | null = null
 
 export async function setupDb(): Promise<void> {
-  client = new PGlite()
+  client = new PGlite({ extensions: { vector } })
   await client.waitReady
   db = drizzle(client, { schema })
-  // TODO: migrate(db , { migrationsFolder: 'drizzle' }) sobald schema nicht mehr leer
+  await runMigrations(db)
 }
 
 export async function teardownDb(): Promise<void> {
@@ -26,7 +26,7 @@ export async function teardownDb(): Promise<void> {
   db = null
 }
 
-export type Tx = Parameters<Parameters<PgliteDatabase<typeof schema>['transaction']>[0]>[0]
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 /**
  * führt den callback in einer transaktion aus und rollbackt am ende immer.

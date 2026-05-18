@@ -2,6 +2,9 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
+import { WorkspaceService } from './services/documents/WorkspaceService'
+import { DocumentService } from './services/documents/DocumentService'
+import { ImportError } from './services/documents/types'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -20,6 +23,18 @@ function getAuth(): AuthService {
     authService.setOnLock(() => broadcastAuthState())
   }
   return authService
+}
+
+let workspaceService: WorkspaceService | null = null
+let documentService: DocumentService | null = null
+
+function getWorkspaceService(): WorkspaceService {
+  workspaceService ??= new WorkspaceService(getAuth())
+  return workspaceService
+}
+function getDocumentService(): DocumentService {
+  documentService ??= new DocumentService(getAuth())
+  return documentService
 }
 
 function broadcastAuthState(): void {
@@ -82,6 +97,51 @@ function registerIpc(): void {
     'window:isMaximized',
     (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false,
   )
+
+  // workspaces
+  ipcMain.handle('workspaces:list', async () => getWorkspaceService().list())
+  ipcMain.handle('workspaces:create', async (_e, name: string) =>
+    getWorkspaceService().create(name),
+  )
+  ipcMain.handle('workspaces:rename', async (_e, id: number, name: string) =>
+    getWorkspaceService().rename(id, name),
+  )
+  ipcMain.handle('workspaces:delete', async (_e, id: number) => getWorkspaceService().delete(id))
+
+  // documents
+  ipcMain.handle('documents:list', async (_e, workspaceId: number) => {
+    return getAuth().requireDatabase().documents().listDocumentsByWorkspace(workspaceId)
+  })
+  ipcMain.handle('documents:import', async (e, workspaceId: number, sourcePath: string) => {
+    try {
+      return await getDocumentService().importFile({
+        workspaceId,
+        sourcePath,
+        sender: e.sender,
+      })
+    } catch (err) {
+      if (err instanceof ImportError) {
+        // surface code so renderer can localize
+        throw new Error(`${err.code}: ${err.message}`)
+      }
+      throw err
+    }
+  })
+  ipcMain.handle('documents:delete', async (_e, id: number) => {
+    await getAuth().requireDatabase().documents().deleteDocument(id)
+  })
+  ipcMain.handle('documents:reindex', async (e, id: number) => {
+    await getAuth().requireDatabase().documents().reindexDocument(id)
+    // re-import using the existing source path to repopulate chunks via the
+    // normal background indexing flow.
+    const doc = await getAuth().requireDatabase().documents().getDocument(id)
+    if (!doc) throw new Error(`Document ${id} not found`)
+    return getDocumentService().importFile({
+      workspaceId: doc.workspaceId,
+      sourcePath: doc.sourcePath,
+      sender: e.sender,
+    })
+  })
 }
 
 function createMainWindow(): BrowserWindow {
