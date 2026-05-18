@@ -1,0 +1,1309 @@
+{
+  "generator": "agent-batch:claude-opus-4-7",
+  "generatedAt": "2026-05-17T20:43:09.742Z",
+  "chunker": "fixed-512-64",
+  "chunks": [
+    {
+      "id": "eval-metriken::0",
+      "docId": "eval-metriken",
+      "text": "Retrieval-Systeme werden mit einer kleinen Menge etablierter Metriken bewertet.\nDie Wahl der Metrik hängt davon ab, ob das System pro Anfrage einen oder\nmehrere relevante Treffer haben kann, ob die Reihenfolge der Treffer wichtig\nist und ob ein graduelles Relevanz-Konzept vorliegt oder nur eine binäre\nUnterscheidung zwischen relevant und nicht relevant. Für die meisten\npraxisnahen RAG-Anwendungen reicht ein Single-Relevant-Setting mit binärer\nRelevanz aus.\n\nDie einfachste Metrik ist Recall@K. Sie misst den"
+    },
+    {
+      "id": "eval-metriken::1",
+      "docId": "eval-metriken",
+      "text": "elevanz aus.\n\nDie einfachste Metrik ist Recall@K. Sie misst den Anteil der Anfragen, bei denen\ndie korrekte Antwort in den ersten K zurückgegebenen Ergebnissen enthalten ist.\nRecall@1 ist streng und gibt nur dann Punkt, wenn die richtige Antwort\nunmittelbar an erster Stelle steht. Recall@10 ist großzügig, weil das nach-\ngeschaltete Sprachmodell ohnehin meist die Top-K Chunks vollständig in den\nPrompt-Kontext einfügt und damit auch ein Chunk an Stelle sieben noch\nbeantwortend wirken kann. In der Praxis beric"
+    },
+    {
+      "id": "eval-metriken::2",
+      "docId": "eval-metriken",
+      "text": "Stelle sieben noch\nbeantwortend wirken kann. In der Praxis berichten viele Studien Recall@1,\nRecall@5 und Recall@10 nebeneinander, um die Auflösung der Metrik über\nverschiedene Toleranzschwellen sichtbar zu machen.\n\nDer Mean Reciprocal Rank, kurz MRR, berücksichtigt zusätzlich die Position der\nkorrekten Antwort. Steht sie auf Platz eins, ist der Beitrag dieser Anfrage 1,0.\nAuf Platz zwei nur noch 0,5. Auf Platz zehn 0,1. Über alle Anfragen gemittelt\nergibt sich eine Zahl zwischen null und eins, die ein gute"
+    },
+    {
+      "id": "eval-metriken::3",
+      "docId": "eval-metriken",
+      "text": "ttelt\nergibt sich eine Zahl zwischen null und eins, die ein gutes Gesamtbild von\nPosition und Trefferquote liefert. MRR ist sensitiv für die Spitze des\nRankings, was in RAG-Anwendungen oft erwünscht ist, weil das Sprachmodell\ntypischerweise die ersten paar Chunks am stärksten gewichtet.\n\nNormalized Discounted Cumulative Gain, abgekürzt nDCG@K, ist eine weitere\npositions-sensitive Metrik. Sie verwendet einen logarithmischen Discount für\nspätere Plätze und normalisiert das Ergebnis durch den idealen Wert. Kon"
+    },
+    {
+      "id": "eval-metriken::4",
+      "docId": "eval-metriken",
+      "text": "Plätze und normalisiert das Ergebnis durch den idealen Wert. Konkret\nwird der Gewinn an jeder Position als Relevanz dividiert durch den Logarithmus\nder Position plus eins definiert, summiert und durch den Idealfall geteilt.\nFür Single-Relevant-Datasets, also Datasets mit genau einem korrekten Treffer\npro Anfrage, entartet nDCG zu einer Variante des MRR mit anderem Discount.\nBei Multi-Relevant-Datasets, in denen mehrere Chunks korrekte Antworten\nenthalten können, ist nDCG die bessere Wahl, weil es alle relev"
+    },
+    {
+      "id": "eval-metriken::5",
+      "docId": "eval-metriken",
+      "text": "enthalten können, ist nDCG die bessere Wahl, weil es alle relevanten Treffer\ngewichtet einbezieht.\n\nPrecision@K ist im Information-Retrieval traditionell wichtig, in modernen\nRAG-Evaluationen aber weniger gebräuchlich. Precision@K misst den Anteil der\nrelevanten Ergebnisse unter den ersten K. Bei Single-Relevant-Datasets ist\ndas mathematisch identisch zu Recall@K geteilt durch K und damit redundant.\nBei Multi-Relevant ist Precision@K eigenständig informativ und sollte\nzusammen mit Recall@K berichtet werden"
+    },
+    {
+      "id": "eval-metriken::6",
+      "docId": "eval-metriken",
+      "text": "dig informativ und sollte\nzusammen mit Recall@K berichtet werden.\n\nHit Rate ist eine sehr grobe Metrik, die nur prüft, ob mindestens ein\nrelevanter Treffer in den Top-K vorhanden ist, unabhängig von Position oder\nAnzahl. In Single-Relevant-Datasets ist Hit Rate identisch zu Recall@K und\nfügt keinen Mehrwert hinzu. In Multi-Relevant ist sie unterspezifisch und\nwird selten allein berichtet.\n\nMean Average Precision, kurz MAP, ist die klassische Aggregationsmetrik im\nInformation-Retrieval. Sie mittelt die Preci"
+    },
+    {
+      "id": "eval-metriken::7",
+      "docId": "eval-metriken",
+      "text": "gregationsmetrik im\nInformation-Retrieval. Sie mittelt die Precision an jeder Position, an der ein\nrelevanter Treffer steht, über alle Anfragen. MAP belohnt sowohl die Anzahl\nrelevanter Treffer in den oberen Rängen als auch ihre Konzentration weit oben.\nFür RAG ist MAP weniger gebräuchlich, weil RAG häufig nur den ersten oder die\nersten wenigen Treffer wirklich nutzt.\n\nWichtig bei allen Metriken ist die Vergleichbarkeit über Läufe hinweg. Das\ngleiche Dataset muss verwendet werden, die gleiche Sortierung der"
+    },
+    {
+      "id": "eval-metriken::8",
+      "docId": "eval-metriken",
+      "text": "leiche Dataset muss verwendet werden, die gleiche Sortierung der Anfragen,\nund zufällige Komponenten wie Sampling-Temperatur eines Rerankers müssen\nentweder deterministisch gesetzt oder über mehrere Läufe gemittelt werden.\nEine reproduzierbare Eval-Pipeline schreibt für jeden Lauf den genauen\nDataset-Hash, die Modellversionen, die Konfiguration und die Random-Seeds in\nden Report. Ohne diese Metadaten sind zwei Reports nicht vertrauenswürdig\nvergleichbar.\n\nStatistische Signifikanz wird in Retrieval-Evaluatio"
+    },
+    {
+      "id": "eval-metriken::9",
+      "docId": "eval-metriken",
+      "text": "gleichbar.\n\nStatistische Signifikanz wird in Retrieval-Evaluationen häufig vernachlässigt,\nist aber wichtig. Eine Verbesserung von Recall@10 von 0,82 auf 0,83 kann\ninnerhalb der Streuung sein, ein scheinbarer Sieg eines Modells über ein\nanderes also ein Artefakt. Bootstrap-Resampling über die Anfragen liefert\neinfach interpretierbare Konfidenzintervalle. Ein paarweiser Test wie\nWilcoxon-Signed-Rank ist robuster als ein t-Test, weil die Verteilung der\nMetriken über Anfragen typischerweise nicht normalverteil"
+    },
+    {
+      "id": "eval-metriken::10",
+      "docId": "eval-metriken",
+      "text": "ng der\nMetriken über Anfragen typischerweise nicht normalverteilt ist.\n\nDie Eval-Dataset-Größe ist ein eigenes Thema. Faustregeln aus der Forschung\nnennen 200 bis 500 Anfragen als Mindestgröße für stabile Vergleiche zwischen\nModellen. Mit weniger als 100 Anfragen sind die Konfidenzintervalle so breit,\ndass viele Vergleiche nicht signifikant unterscheidbar sind. Synthetische\nGenerierung erlaubt es, leicht auf einige tausend Anfragen hochzuskalieren,\nohne dass der Annotationsaufwand explodiert. Eine sinnvolle"
+    },
+    {
+      "id": "eval-metriken::11",
+      "docId": "eval-metriken",
+      "text": "ren,\nohne dass der Annotationsaufwand explodiert. Eine sinnvolle Strategie ist eine\nKern-Trainings- und Eval-Menge mit manueller Annotation und eine größere\nHold-out-Menge mit synthetischer Generierung, um Trends zu sehen.\n\nDomänen-spezifische Eval-Datasets sind oft die einzige aussagekräftige\nMöglichkeit. Ein RAG-System, das auf juristischen Texten gut performt, kann auf\nmedizinischen Texten dramatisch schlechter sein, und umgekehrt. Generische\nBenchmarks wie BEIR liefern eine erste Orientierung, sind aber"
+    },
+    {
+      "id": "eval-metriken::12",
+      "docId": "eval-metriken",
+      "text": "e\nBenchmarks wie BEIR liefern eine erste Orientierung, sind aber für ein\nspezifisches Produkt nur begrenzt aussagekräftig. Die Pflicht-Übung beim\nAufbau eines RAG-Systems ist deshalb, einen kleinen aber repräsentativen\ndomänen-spezifischen Eval-Datensatz zu pflegen und ihn bei jeder\nModell-Änderung mitlaufen zu lassen.\n\nEine besondere Falle bei synthetischen Datasets ist das sogenannte\nTrivial-Match-Problem. Wenn das generierende Modell die Frage zu nah am\nOriginaltext formuliert, also zum Beispiel ganze Ph"
+    },
+    {
+      "id": "eval-metriken::13",
+      "docId": "eval-metriken",
+      "text": "ge zu nah am\nOriginaltext formuliert, also zum Beispiel ganze Phrasen aus dem Chunk\nübernimmt, wird die Retrieval-Aufgabe trivial einfach. Ein BM25 würde solche\nFragen perfekt beantworten, ohne dass das ein realistisches Signal für die\nQualität der Vektor-Embeddings wäre. Gegenmaßnahmen sind unter anderem das\nexplizite Auffordern des Generators, Paraphrasen zu nutzen, die Verwendung\nunterschiedlicher Modelle für Generation und Retrieval-Test, und ein\nnachträgliches Aussortieren zu nah am Original liegender"
+    },
+    {
+      "id": "eval-metriken::14",
+      "docId": "eval-metriken",
+      "text": "nd ein\nnachträgliches Aussortieren zu nah am Original liegender Fragen über einen\nString-Ähnlichkeitsfilter.\n\nEine weitere Falle ist die Verzerrung durch das generierende Modell. Wenn\nGPT-4 die Fragen erzeugt, bevorzugt es bestimmte Formulierungsmuster, die\nsich später beim Retrieval-Test günstig oder ungünstig auf bestimmte\nEmbedding-Modelle auswirken. Wenn das Embedding-Modell ebenfalls aus der\ngleichen Familie kommt, ist ein Vorteil zu erwarten, der bei einem unabhängigen\nModell nicht reproduzierbar wäre"
+    },
+    {
+      "id": "eval-metriken::15",
+      "docId": "eval-metriken",
+      "text": "ten, der bei einem unabhängigen\nModell nicht reproduzierbar wäre. Saubere Evaluationen verwenden ein\ngenerierendes Modell, das von keinem der getesteten Embedding-Modelle abstammt.\n\nEval-Reports sollten neben den aggregierten Zahlen auch Beispiele der\nschlechtesten Fälle enthalten. Welche Anfragen wurden falsch beantwortet?\nWelche Chunks wurden statt der richtigen Antwort hoch gerankt? Dieses\nqualitative Material ist oft wichtiger als die aggregierten Zahlen, weil es\nkonkrete Anhaltspunkte für Verbesserunge"
+    },
+    {
+      "id": "eval-metriken::16",
+      "docId": "eval-metriken",
+      "text": "gierten Zahlen, weil es\nkonkrete Anhaltspunkte für Verbesserungen liefert. Eine Visualisierung der\nVerteilung der Metriken pro Anfrage, zum Beispiel als Histogramm der MRR-Werte,\nzeigt zudem, ob ein scheinbar guter Durchschnitt von wenigen sehr guten oder\nsehr schlechten Fällen getragen wird."
+    },
+    {
+      "id": "loklm-architektur::0",
+      "docId": "loklm-architektur",
+      "text": "LokLM ist eine lokale Desktop-Anwendung für wissensbasierte Recherche. Sie läuft\nals Electron-App auf Windows, macOS und Linux. Alle Modelle und Daten bleiben\nauf dem Gerät des Nutzers, es gibt keine Cloud-Komponente im Hot Path. Die\nAnwendung ist auf Studierende, Wissenschaftler und Fachpraktiker zugeschnitten,\ndie mit eigenen Dokumentbeständen arbeiten und eine private, nachvollziehbare\nAntwort-Generierung mit Quellenverifikation benötigen.\n\nDie Prozess-Architektur folgt dem Standard-Modell von Electron."
+    },
+    {
+      "id": "loklm-architektur::1",
+      "docId": "loklm-architektur",
+      "text": "Die Prozess-Architektur folgt dem Standard-Modell von Electron. Es gibt einen\nHauptprozess auf Node.js-Basis, der die Lebenszyklen der Fenster verwaltet, die\nAuthentifizierung durchführt und sämtliche Datei- und Datenbankzugriffe kapselt.\nDaneben läuft ein Renderer-Prozess auf Chromium-Basis, der die Benutzeroberfläche\nmit React darstellt. Zwischen beiden vermittelt ein Preload-Skript, das eine\nschmale, typisierte API über contextBridge in den Renderer projiziert. Sandbox\nund contextIsolation sind aktiviert"
+    },
+    {
+      "id": "loklm-architektur::2",
+      "docId": "loklm-architektur",
+      "text": "Renderer projiziert. Sandbox\nund contextIsolation sind aktiviert, nodeIntegration ist deaktiviert. Der\nRenderer hat keinen direkten Zugriff auf das Dateisystem oder Node-APIs.\n\nDer Authentifizierungs-Layer basiert auf einer einzelnen verschlüsselten\nVault-Datei namens loklm.vault. Diese Datei liegt im Benutzerverzeichnis der\nAnwendung und enthält im Header zwei gewrappte Datenverschlüsselungs-Keys,\nabgekürzt DEK. Der erste DEK ist unter dem Nutzer-Passwort gewrappt, der\nzweite unter einer achtzehn Wörter la"
+    },
+    {
+      "id": "loklm-architektur::3",
+      "docId": "loklm-architektur",
+      "text": "zer-Passwort gewrappt, der\nzweite unter einer achtzehn Wörter langen BIP-39-ähnlichen Passphrase. Das\nRecovery funktioniert über die Passphrase, ohne dass die App den Inhalt der\nDatenbank verliert. Bei einem Passwort-Reset bleibt der DEK selbst gleich,\nnur die Wrapping-Schlüssel werden neu abgeleitet.\n\nDie Schlüssel-Ableitung verwendet Argon2id mit 64 MiB Speicher, drei Iterationen\nund Parallelität vier. Die hashLength beträgt 32 Byte und liefert direkt den\nKEK ohne weitere Reduktion. Der KEK existiert nur"
+    },
+    {
+      "id": "loklm-architektur::4",
+      "docId": "loklm-architektur",
+      "text": "rt direkt den\nKEK ohne weitere Reduktion. Der KEK existiert nur im Speicher und wird nach\ndem Wrap- bzw. Unwrap-Vorgang sofort mit Nullen überschrieben. Der Body der\nVault-Datei wird mit AES-256-GCM verschlüsselt. Die Nonce ist zwölf Byte lang,\nder Auth-Tag sechzehn Byte. Bei jeder Persistierung wird eine frische Nonce\nmit kryptographisch sicherem Zufall erzeugt.\n\nDie Datenbank ist eine in-memory PGlite-Instanz. PGlite ist ein voller\nPostgreSQL-Build, der via WebAssembly im Node-Prozess läuft und keine\nexte"
+    },
+    {
+      "id": "loklm-architektur::5",
+      "docId": "loklm-architektur",
+      "text": "-Build, der via WebAssembly im Node-Prozess läuft und keine\nexternen Dienste benötigt. Beim Sperren der App wird die Datenbank in einen\nTar-Dump serialisiert, dieser Tar-Dump wird unter dem DEK mit AES-GCM\nverschlüsselt und in den Body der Vault-Datei geschrieben. Beim Entsperren\ngeschieht der umgekehrte Weg: Body entschlüsseln, Tar-Dump in eine frische\nPGlite-Instanz laden, weiter arbeiten.\n\nDie Anti-Brute-Force-Mechanik ist in zwei Stufen umgesetzt. Nach fünf\naufeinanderfolgenden Fehlversuchen aktiviert s"
+    },
+    {
+      "id": "loklm-architektur::6",
+      "docId": "loklm-architektur",
+      "text": "esetzt. Nach fünf\naufeinanderfolgenden Fehlversuchen aktiviert sich eine Sperre für fünf Minuten.\nDiese Sperre wird ausschließlich im Speicher gehalten und überlebt einen\nNeustart der Anwendung nicht. Das ist eine bewusste Designentscheidung, weil\nein persistenter Lockout in einer lokalen Anwendung leicht umgangen werden\nkönnte und stattdessen nur den legitimen Nutzer schikaniert. Die zweite Stufe\nist eine Inaktivitäts-Sperre, die nach fünfzehn Minuten ohne Eingabe greift\nund den Zustand zurück in die Vault"
+    },
+    {
+      "id": "loklm-architektur::7",
+      "docId": "loklm-architektur",
+      "text": "Minuten ohne Eingabe greift\nund den Zustand zurück in die Vault-Datei schreibt.\n\nDas Datenmodell ist bewusst minimal gehalten. Es gibt keine SQL-Tabelle für\nBenutzer oder Recovery-Codes. Die einzige Quelle der Wahrheit für die\nAuthentifizierung ist der Header der Vault-Datei. Wenn später echte Anwendungs-\nTabellen für Dokumente, Embeddings, Chats und Zitate hinzukommen, werden diese\nüber Drizzle-ORM auf der PGlite-Instanz aufgesetzt. Migrationen werden via\ndrizzle-kit generiert und beim Hochfahren angewend"
+    },
+    {
+      "id": "loklm-architektur::8",
+      "docId": "loklm-architektur",
+      "text": "en werden via\ndrizzle-kit generiert und beim Hochfahren angewendet, falls die Schema-Version\nin der Vault älter ist als die mitgelieferten Migrationen.\n\nDas Frontend ist mit React achtzehn aufgebaut. Die wichtigsten Views sind\nLoginView, RegisterView, ResetView und UnlockedView. Während der Registrierung\nwird die generierte Passphrase einmalig im PassphraseReveal-Component\nangezeigt. Der Benutzer muss bestätigen, sie notiert zu haben, bevor er\nweitergeht. Es gibt keine Möglichkeit, die Passphrase später ern"
+    },
+    {
+      "id": "loklm-architektur::9",
+      "docId": "loklm-architektur",
+      "text": "weitergeht. Es gibt keine Möglichkeit, die Passphrase später erneut anzuzeigen,\nweil sie nur in Form der abgeleiteten Wrapping-Keys gespeichert wird, nicht im\nKlartext.\n\nDie Titelleiste ist eigenständig in React umgesetzt und ersetzt die native\nFensterdekoration. Über IPC-Aufrufe an den Hauptprozess kann der Renderer die\nAktionen minimize, toggleMaximize und close auslösen. Der Hauptprozess sendet\nmaximize- und unmaximize-Events zurück, damit die React-Titelleiste die\nSymbole zwischen Maximieren und Wiederh"
+    },
+    {
+      "id": "loklm-architektur::10",
+      "docId": "loklm-architektur",
+      "text": "ie React-Titelleiste die\nSymbole zwischen Maximieren und Wiederherstellen wechseln kann.\n\nDie IPC-Schnittstelle ist eng definiert. Auth-Operationen sind auth:status,\nauth:register, auth:login, auth:logout, auth:lock und auth:reset. Jede\nOperation ist im Preload typisiert exponiert und gibt strukturierte\nErgebnisse zurück. Erfolgsfälle haben ok: true, Fehlerfälle ok: false mit\neiner reason aus einer geschlossenen Enum, zum Beispiel no_user, bad_password,\nrate_limited oder broken_vault. Der Renderer darf kein"
+    },
+    {
+      "id": "loklm-architektur::11",
+      "docId": "loklm-architektur",
+      "text": "password,\nrate_limited oder broken_vault. Der Renderer darf keine eigene Authentifizierung\nvornehmen und keine Krypto-Operationen direkt ausführen.\n\nBeim Beenden der App wird über das before-quit-Event die Vault-Datei noch einmal\npersistiert, falls die App entsperrt ist und seit dem letzten Lock geänderte\nDaten in der in-memory-DB liegen. Das Event wird mit preventDefault aufgehalten,\ndie Persistierung läuft asynchron, danach wird app.quit erneut aufgerufen.\nAuf diese Weise gehen Änderungen zwischen letztem"
+    },
+    {
+      "id": "loklm-architektur::12",
+      "docId": "loklm-architektur",
+      "text": "ut aufgerufen.\nAuf diese Weise gehen Änderungen zwischen letztem Lock und Beenden nicht\nverloren, ohne dass kontinuierliches Auto-Save-Verhalten nötig wäre.\n\nDie Buildkette nutzt electron-vite mit drei Sub-Builds: main, preload und\nrenderer. TypeScript wird über Project References in tsconfig.node.json und\ntsconfig.web.json getrennt, damit die Type-Welten von Node und Browser nicht\nmiteinander kollidieren. Aliase wie @main, @preload, @shared und @renderer\nsind in allen drei Sub-Builds, in der Test-Workspace"
+    },
+    {
+      "id": "loklm-architektur::13",
+      "docId": "loklm-architektur",
+      "text": "d @renderer\nsind in allen drei Sub-Builds, in der Test-Workspace-Konfiguration und in den\ntsconfig-Dateien identisch gespiegelt.\n\nDie Auslieferung erfolgt aktuell als signiertes installierbares Paket pro\nBetriebssystem. Updates werden noch nicht automatisch über einen Auto-Updater\nverteilt, sondern manuell durch einen neuen Download. Sobald ein Auto-Updater\nhinzukommt, wird er als optionaler Service über IPC angebunden und respektiert\ndie lokal-zuerst-Maxime: keine Telemetrie, kein Versand von Inhalten an e"
+    },
+    {
+      "id": "loklm-architektur::14",
+      "docId": "loklm-architektur",
+      "text": "-zuerst-Maxime: keine Telemetrie, kein Versand von Inhalten an externe\nDienste, nur ein periodischer HTTPS-Check gegen einen Versions-Endpunkt.\n\nDie Quellenverifikation ist das namensgebende Feature von LokLM. Jede\ngenerierte Antwort des Sprachmodells muss auf nachvollziehbare Chunks aus den\nNutzer-Dokumenten verweisen. Im Frontend werden diese Verweise als\nanklickbare Zitate dargestellt, die beim Klicken den entsprechenden Abschnitt\nim Original-Dokument öffnen. Wenn die Antwort keine Zitate enthält, signal"
+    },
+    {
+      "id": "loklm-architektur::15",
+      "docId": "loklm-architektur",
+      "text": "l-Dokument öffnen. Wenn die Antwort keine Zitate enthält, signalisiert\ndie App das deutlich und unterscheidet zwischen einer parametrischen Antwort\ndes Modells und einer dokumentgestützten Antwort.\n\nDie Sicherheits-Threats, gegen die das Modell ausgelegt ist, sind klar\nabgegrenzt. Geschützt wird gegen Diebstahl der Vault-Datei, gegen unbefugten\nZugriff auf das laufende Gerät bei abwesendem Nutzer, gegen Brute-Force-Angriffe\ngegen das Passwort und gegen den Verlust eines vergessenen Passworts mittels\nPassphr"
+    },
+    {
+      "id": "loklm-architektur::16",
+      "docId": "loklm-architektur",
+      "text": "nd gegen den Verlust eines vergessenen Passworts mittels\nPassphrase. Nicht geschützt wird gegen aktive Malware mit Kernel-Rechten auf\ndem Gerät, gegen physikalische Memory-Dumps eines entsperrten Systems oder\ngegen Angriffe auf die Anzeige-Pipeline wie Screen-Scraping durch andere\nProgramme. Diese Grenzen sind im Pflichtenheft explizit dokumentiert."
+    },
+    {
+      "id": "rag-grundlagen::0",
+      "docId": "rag-grundlagen",
+      "text": "Retrieval Augmented Generation, kurz RAG, kombiniert ein generatives Sprachmodell\nmit einem externen Wissensspeicher. Das Verfahren wurde populär gemacht, weil\nreine Sprachmodelle ohne externen Zugriff keine aktuellen Fakten kennen, keine\nnachvollziehbaren Quellen liefern und durch parametrisches Wissen leicht zu\nplausiblen aber falschen Aussagen verleitet werden. RAG adressiert diese drei\nSchwächen gleichzeitig, indem es vor jeder Antwort einen Retrieval-Schritt\neinschiebt, der relevante Dokumentstellen in"
+    },
+    {
+      "id": "rag-grundlagen::1",
+      "docId": "rag-grundlagen",
+      "text": "n Retrieval-Schritt\neinschiebt, der relevante Dokumentstellen ins Kontextfenster des Modells holt.\n\nDer Speicher wird vorbereitet, indem Dokumente in kleinere Abschnitte zerlegt\nund über ein Embedding-Modell in Vektoren überführt werden. Diese Vektoren\nwerden in einer Vektordatenbank gespeichert. Die Datenbank kann eine\nspezialisierte Lösung wie Qdrant, Pinecone oder Weaviate sein, oder eine\nErweiterung einer klassischen relationalen Datenbank wie pgvector in\nPostgreSQL. Für lokale Anwendungen reicht häufig"
+    },
+    {
+      "id": "rag-grundlagen::2",
+      "docId": "rag-grundlagen",
+      "text": "wie pgvector in\nPostgreSQL. Für lokale Anwendungen reicht häufig ein einfacher Index im\nArbeitsspeicher, sofern die Korpusgröße im niedrigen Millionenbereich an\nChunks bleibt.\n\nZum Beantwortungszeitpunkt wird die Nutzerfrage ebenfalls eingebettet und die\nähnlichsten Vektoren werden zurückgegeben. Üblich ist eine erste Stufe mit\nTop-K-Retrieval anhand der Kosinus-Ähnlichkeit, gefolgt von einer optionalen\nReranking-Stufe mit einem Cross-Encoder, der Frage und Kandidat gemeinsam\nbewertet. Die ausgewählten Chun"
+    },
+    {
+      "id": "rag-grundlagen::3",
+      "docId": "rag-grundlagen",
+      "text": "der Frage und Kandidat gemeinsam\nbewertet. Die ausgewählten Chunks werden zusammen mit der Frage in einen\nPrompt eingefügt, der das Sprachmodell anweist, ausschließlich auf Basis der\ngelieferten Belege zu antworten und Quellen zu nennen.\n\nDie Chunk-Größe beeinflusst die Retrieval-Qualität erheblich. Sehr kleine\nChunks haben präzise Treffer, aber wenig Kontext für das nachgeschaltete\nSprachmodell. Sehr große Chunks haben viel Kontext, aber das Ähnlichkeits-Signal\nverwässert, weil eine spezifische Frage mit e"
+    },
+    {
+      "id": "rag-grundlagen::4",
+      "docId": "rag-grundlagen",
+      "text": "hnlichkeits-Signal\nverwässert, weil eine spezifische Frage mit einem langen Abschnitt vermischt\nwird, dessen Großteil mit der Frage nichts zu tun hat. Übliche Werte liegen\nzwischen 256 und 1024 Tokens mit einer Überlappung von zehn bis zwanzig\nProzent. Die Überlappung verhindert, dass eine zentrale Information genau an\neiner Chunk-Grenze abgeschnitten wird.\n\nEs gibt drei verbreitete Chunking-Strategien. Erstens das feste Token-Fenster,\ndas einen Text in gleichgroße Abschnitte zerschneidet, unabhängig von de"
+    },
+    {
+      "id": "rag-grundlagen::5",
+      "docId": "rag-grundlagen",
+      "text": "n Text in gleichgroße Abschnitte zerschneidet, unabhängig von der\ninhaltlichen Struktur. Zweitens das satz- oder absatzweise Chunking, das an\nsyntaktischen Grenzen schneidet und damit die Lesbarkeit der Chunks für das\nSprachmodell verbessert. Drittens das semantische Chunking, das die\nEmbeddings benachbarter Sätze vergleicht und immer dann eine neue Chunk-Grenze\nsetzt, wenn die Ähnlichkeit unter einen Schwellenwert fällt. Semantisches\nChunking ist aufwändiger, liefert aber häufig die besten Retrieval-Result"
+    },
+    {
+      "id": "rag-grundlagen::6",
+      "docId": "rag-grundlagen",
+      "text": "ist aufwändiger, liefert aber häufig die besten Retrieval-Resultate.\n\nEmbedding-Modelle unterscheiden sich in mehreren Dimensionen. Die wichtigsten\nsind die Vektor-Dimensionalität, die Sprach-Abdeckung, die maximale\nSequenzlänge und der Trainings-Korpus. Modelle wie all-MiniLM-L6-v2 sind klein\nund schnell, mit 384-dimensionalen Vektoren und englisch-zentriertem Training.\nbge-base-en und bge-small-en sind moderne Open-Source-Modelle aus China mit\nsehr guter Performance auf englischen Benchmarks. nomic-embed-"
+    },
+    {
+      "id": "rag-grundlagen::7",
+      "docId": "rag-grundlagen",
+      "text": "t\nsehr guter Performance auf englischen Benchmarks. nomic-embed-text ist ein\n8192-Token-fähiges Modell, das für lange Dokumente geeignet ist. Für\nmehrsprachige Anwendungen, einschließlich Deutsch, sind multilingual-e5,\nLaBSE oder die multilingualen BGE-Varianten geeignet.\n\nReranker arbeiten typischerweise auf Cross-Encoder-Basis. Im Gegensatz zu\nBi-Encoder-Embeddings, die Frage und Kandidat getrennt einbetten und die\nVektoren über Ähnlichkeit vergleichen, leitet ein Cross-Encoder beide Texte\ngemeinsam durch"
+    },
+    {
+      "id": "rag-grundlagen::8",
+      "docId": "rag-grundlagen",
+      "text": "ergleichen, leitet ein Cross-Encoder beide Texte\ngemeinsam durch ein einzelnes Modell und gibt einen direkten Relevanz-Score\naus. Modelle wie bge-reranker-base, ms-marco-MiniLM-L-12 oder die größeren\nVarianten von Cohere und Mixedbread erhöhen die nDCG-Werte gegenüber reinen\nBi-Encoder-Embeddings deutlich, kosten aber Inferenz-Zeit pro Kandidat.\nEine pragmatische Pipeline retrieved zunächst die Top-100 oder Top-200\nKandidaten mit dem Bi-Encoder und rerankt diese dann mit einem Cross-Encoder\nzur finalen Top-"
+    },
+    {
+      "id": "rag-grundlagen::9",
+      "docId": "rag-grundlagen",
+      "text": "und rerankt diese dann mit einem Cross-Encoder\nzur finalen Top-10.\n\nDie Prompt-Architektur für die Generation muss drei Dinge leisten. Erstens\nmuss sie das Modell anweisen, nur auf Basis der gelieferten Chunks zu\nantworten und bei fehlender Information explizit zu sagen, dass keine Antwort\nmöglich ist. Zweitens muss sie eine klare Form für Zitate vorgeben, damit die\nAntwort automatisch in eine UI mit anklickbaren Belegen überführt werden\nkann. Drittens muss sie das Modell davon abhalten, externes parametri"
+    },
+    {
+      "id": "rag-grundlagen::10",
+      "docId": "rag-grundlagen",
+      "text": "Drittens muss sie das Modell davon abhalten, externes parametrisches\nWissen einzustreuen, ohne es als solches zu kennzeichnen.\n\nEin typisches Antwortformat ist eine Liste von Aussagen, jede mit einer\nQuellenangabe in eckigen Klammern, gefolgt von einer Bibliografie am Ende.\nDas Modell soll lernen, dass jede Aussage mit mindestens einer Quelle belegt\nsein muss und dass es bei mehrdeutigen oder widersprüchlichen Belegen die\nSpannung explizit ausdrücken soll, statt eine der beiden Quellen einfach zu\nignoriere"
+    },
+    {
+      "id": "rag-grundlagen::11",
+      "docId": "rag-grundlagen",
+      "text": "drücken soll, statt eine der beiden Quellen einfach zu\nignorieren.\n\nDie Evaluierung eines RAG-Systems unterscheidet zwischen Retrieval-Qualität\nund Generations-Qualität. Retrieval-Qualität misst, ob die relevanten Chunks\nunter den Top-K landen. Generations-Qualität misst, ob die finale Antwort\nkorrekt, vollständig, gut belegt und sprachlich angemessen ist. Beide\nQualitäten sind nicht unabhängig: wenn das Retrieval die falschen Chunks\nliefert, kann auch die beste Generation keine korrekte Antwort produzieren"
+    },
+    {
+      "id": "rag-grundlagen::12",
+      "docId": "rag-grundlagen",
+      "text": "ann auch die beste Generation keine korrekte Antwort produzieren,\nund wenn die Generation halluziniert, helfen auch perfekte Chunks wenig.\n\nDaten für die Retrieval-Evaluierung lassen sich auf drei Wegen beschaffen.\nErstens manuelle Annotation: ein Mensch liest Dokumente und formuliert\nFragen, deren Antwort er per Hand auf bestimmte Chunks abbildet. Zweitens\nexistierende Benchmarks wie BEIR oder MTEB, die viele englische Datensätze\nfür Retrieval bereitstellen. Drittens synthetische Generierung: ein\nleistungs"
+    },
+    {
+      "id": "rag-grundlagen::13",
+      "docId": "rag-grundlagen",
+      "text": "bereitstellen. Drittens synthetische Generierung: ein\nleistungsfähiges Sprachmodell bekommt einen Chunk und wird gebeten, Fragen\nzu erzeugen, die durch diesen Chunk beantwortet werden. Die synthetische\nGenerierung ist die einzige Methode, die skaliert und gleichzeitig domänen-\nspezifisch ist, hat aber den Nachteil, dass sie die Verzerrungen des\ngenerierenden Modells in den Evaluierungs-Korpus einschleppt.\n\nHybrid-Retrieval kombiniert dichte Vektorsuche mit klassischer lexikalischer\nSuche wie BM25. Die beid"
+    },
+    {
+      "id": "rag-grundlagen::14",
+      "docId": "rag-grundlagen",
+      "text": "ktorsuche mit klassischer lexikalischer\nSuche wie BM25. Die beiden Verfahren machen unterschiedliche Fehler:\nVektorsuche versteht Synonyme und Paraphrasen, scheitert aber an exakten\nBezeichnern, seltenen Eigennamen und Zahlen. BM25 ist umgekehrt sehr stark\nbei exakten Treffern und versagt bei Paraphrasen. Eine gewichtete oder\nreziproke Rang-Fusion der beiden Treffer-Listen ist häufig besser als jedes\nVerfahren einzeln. In der Praxis ist die Gewichtung domänenabhängig und sollte\nauf einem repräsentativen Eva"
+    },
+    {
+      "id": "rag-grundlagen::15",
+      "docId": "rag-grundlagen",
+      "text": "ichtung domänenabhängig und sollte\nauf einem repräsentativen Eval-Datensatz kalibriert werden.\n\nDie Persistierung der Vektorindex-Struktur ist ein eigenes Thema. Naive\nImplementierungen vergleichen die Anfrage-Vektor mit jedem Korpus-Vektor und\nsind damit linear in der Korpusgröße. Approximierte Nearest-Neighbor-Strukturen\nwie HNSW, IVF oder Scalar-Quantization beschleunigen die Suche auf\nlogarithmisch oder konstant-amortisiert, kosten aber Genauigkeit und\nSpeicher beim Index-Aufbau. Für lokale Anwendungen"
+    },
+    {
+      "id": "rag-grundlagen::16",
+      "docId": "rag-grundlagen",
+      "text": "auigkeit und\nSpeicher beim Index-Aufbau. Für lokale Anwendungen mit wenigen hunderttausend\nChunks ist eine reine Brute-Force-Suche meist schnell genug, sodass die\nKomplexität eines ANN-Index nicht gerechtfertigt ist.\n\nDie Aktualisierung des Korpus ist häufig unterschätzt. Wenn ein Dokument\ngeändert wird, müssen alle seine Chunks aus dem Index entfernt und neu\neingefügt werden. Eine reine Append-Strategie führt schnell zu veralteten\nTreffern und sinkender Retrieval-Qualität. Eine saubere Implementierung\nverw"
+    },
+    {
+      "id": "rag-grundlagen::17",
+      "docId": "rag-grundlagen",
+      "text": "sinkender Retrieval-Qualität. Eine saubere Implementierung\nverwaltet pro Dokument einen Hash, vergleicht diesen vor jedem Indexierungs-\nschritt und löscht veraltete Chunks zuverlässig. Bei großen Korpora lohnt sich\nein delta-basierter Re-Index, der nur die geänderten Dokumente neu verarbeitet,\nnicht den ganzen Bestand."
+    }
+  ],
+  "questions": [
+    {
+      "chunkId": "eval-metriken::0",
+      "question": "Wovon hängt es ab, welche Kennzahl zur Bewertung eines Suchsystems passend ist?"
+    },
+    {
+      "chunkId": "eval-metriken::0",
+      "question": "Welche Form von Relevanzunterscheidung genügt laut Text für die meisten realen RAG-Einsätze?"
+    },
+    {
+      "chunkId": "eval-metriken::0",
+      "question": "Mit wie vielen verschiedenen Bewertungsgrößen wird das Abrufen typischerweise beurteilt?"
+    },
+    {
+      "chunkId": "eval-metriken::0",
+      "question": "Welche Annahme über die Anzahl korrekter Treffer pro Suchanfrage ist im erwähnten Standardfall gegeben?"
+    },
+    {
+      "chunkId": "eval-metriken::0",
+      "question": "Was ist laut dem Abschnitt die unkomplizierteste Bewertungsgröße im Retrieval?"
+    },
+    {
+      "chunkId": "eval-metriken::1",
+      "question": "Was genau quantifiziert die Kennzahl, die den Anteil der Suchanfragen mit korrektem Treffer in den obersten K Resultaten betrachtet?"
+    },
+    {
+      "chunkId": "eval-metriken::1",
+      "question": "Warum kann ein Dokument auf Platz sieben in der Trefferliste trotzdem zu einer korrekten Antwort führen?"
+    },
+    {
+      "chunkId": "eval-metriken::1",
+      "question": "Welcher Wert für K führt zu einer besonders strikten Bewertung, die nur den vordersten Platz akzeptiert?"
+    },
+    {
+      "chunkId": "eval-metriken::1",
+      "question": "Welche Komponente bekommt im typischen RAG-Aufbau die obersten Trefferdokumente zur Verarbeitung gereicht?"
+    },
+    {
+      "chunkId": "eval-metriken::1",
+      "question": "Wie wird im Text die Bewertung mit Schwellwert zehn charakterisiert?"
+    },
+    {
+      "chunkId": "eval-metriken::2",
+      "question": "Welchen Beitrag liefert eine Suchanfrage zum mittleren Kehrwert-Rang, wenn die gesuchte Antwort an dritter Stelle nicht, sondern an zweiter Stelle erscheint?"
+    },
+    {
+      "chunkId": "eval-metriken::2",
+      "question": "Welche drei Toleranzstufen werden häufig parallel angegeben, um die Wirkung der Bewertungsgröße über verschiedene Abschnittstiefen zu zeigen?"
+    },
+    {
+      "chunkId": "eval-metriken::2",
+      "question": "In welchem Wertebereich bewegt sich der gemittelte Kehrwert-Rang nach der Aggregation über sämtliche Anfragen?"
+    },
+    {
+      "chunkId": "eval-metriken::2",
+      "question": "Welcher Zahlenwert entsteht beim Kehrwert-Rang, wenn das gesuchte Ergebnis auf der zehnten Position landet?"
+    },
+    {
+      "chunkId": "eval-metriken::2",
+      "question": "Was zeichnet die Kennzahl mit dem reziproken Rang im Vergleich zur reinen Trefferquote zusätzlich aus?"
+    },
+    {
+      "chunkId": "eval-metriken::3",
+      "question": "Warum eignet sich der mittlere reziproke Rang besonders gut für Retrieval-Augmented-Generation-Systeme?"
+    },
+    {
+      "chunkId": "eval-metriken::3",
+      "question": "Welche Art mathematischer Abwertung wird bei nDCG für tiefer liegende Positionen eingesetzt?"
+    },
+    {
+      "chunkId": "eval-metriken::3",
+      "question": "Wodurch wird das Ergebnis bei der normalisierten Kennzahl mit kumuliertem Gewinn am Ende skaliert?"
+    },
+    {
+      "chunkId": "eval-metriken::3",
+      "question": "Welche Eigenschaft beschreibt der Text als zentral für den mittleren reziproken Rang in Bezug auf das obere Ranking?"
+    },
+    {
+      "chunkId": "eval-metriken::3",
+      "question": "Welche Teile der Antwort werden vom Sprachmodell beim Erzeugen einer Antwort im Allgemeinen stärker beachtet?"
+    },
+    {
+      "chunkId": "eval-metriken::4",
+      "question": "Wie wird der Gewinn an einer einzelnen Trefferposition in der Formel für die nDCG berechnet?"
+    },
+    {
+      "chunkId": "eval-metriken::4",
+      "question": "Wozu degeneriert die nDCG-Bewertung in Datensätzen mit nur einer einzigen korrekten Antwort pro Anfrage?"
+    },
+    {
+      "chunkId": "eval-metriken::4",
+      "question": "In welchem Szenario empfiehlt der Text bevorzugt die nDCG-Bewertung statt einfacherer Alternativen?"
+    },
+    {
+      "chunkId": "eval-metriken::4",
+      "question": "Welche zwei Operationen werden bei der nDCG nach der Berechnung der einzelnen Positions-Gewinne durchgeführt?"
+    },
+    {
+      "chunkId": "eval-metriken::4",
+      "question": "Wodurch unterscheidet sich die degenerierte nDCG vom klassischen mittleren reziproken Rang?"
+    },
+    {
+      "chunkId": "eval-metriken::5",
+      "question": "Mit welcher anderen Kennzahl deckt sich Precision@K mathematisch, wenn jede Anfrage nur eine richtige Antwort besitzt?"
+    },
+    {
+      "chunkId": "eval-metriken::5",
+      "question": "Wann sollte laut Text Precision@K nicht isoliert, sondern zusammen mit Recall@K dargestellt werden?"
+    },
+    {
+      "chunkId": "eval-metriken::5",
+      "question": "In welcher historischen Disziplin galt Precision@K traditionell als sehr wichtige Größe?"
+    },
+    {
+      "chunkId": "eval-metriken::5",
+      "question": "Warum wird Precision@K bei Single-Relevant-Datensätzen als überflüssig eingestuft?"
+    },
+    {
+      "chunkId": "eval-metriken::5",
+      "question": "Wie wird die Stellung von Precision@K innerhalb moderner Retrieval-Augmented-Generation-Auswertungen beschrieben?"
+    },
+    {
+      "chunkId": "eval-metriken::6",
+      "question": "Was untersucht die als Hit Rate bezeichnete Kennzahl genau in einer Trefferliste?"
+    },
+    {
+      "chunkId": "eval-metriken::6",
+      "question": "Warum bringt Hit Rate in Datensätzen mit nur einem korrekten Treffer keinen zusätzlichen Erkenntnisgewinn?"
+    },
+    {
+      "chunkId": "eval-metriken::6",
+      "question": "Wie wird die Aussagekraft der Hit Rate in Szenarien mit mehreren relevanten Antworten beurteilt?"
+    },
+    {
+      "chunkId": "eval-metriken::6",
+      "question": "In welcher Fachdisziplin gilt der Mean Average Precision als die klassische zusammenfassende Bewertungsgröße?"
+    },
+    {
+      "chunkId": "eval-metriken::6",
+      "question": "Welche Aspekte einer Trefferliste werden von der Hit-Rate-Bewertung bewusst nicht berücksichtigt?"
+    },
+    {
+      "chunkId": "eval-metriken::7",
+      "question": "An welchen Stellen einer Trefferliste wird die Genauigkeit beim Mean Average Precision konkret ausgewertet?"
+    },
+    {
+      "chunkId": "eval-metriken::7",
+      "question": "Welche zwei Aspekte werden vom Mean Average Precision gleichzeitig positiv bewertet?"
+    },
+    {
+      "chunkId": "eval-metriken::7",
+      "question": "Warum gilt der Mean Average Precision für Retrieval-Augmented-Generation-Pipelines als eher zweitrangig?"
+    },
+    {
+      "chunkId": "eval-metriken::7",
+      "question": "Welche Voraussetzung muss zur Sicherstellung der Vergleichbarkeit zwischen mehreren Evaluations-Durchläufen erfüllt sein?"
+    },
+    {
+      "chunkId": "eval-metriken::7",
+      "question": "Welcher Aggregations-Schritt führt im Mean Average Precision die Werte verschiedener Anfragen zusammen?"
+    },
+    {
+      "chunkId": "eval-metriken::8",
+      "question": "Wie sollte mit zufälligen Einflussgrößen wie der Sampling-Temperatur eines Rerankers laut Text umgegangen werden?"
+    },
+    {
+      "chunkId": "eval-metriken::8",
+      "question": "Welche fünf Angaben gehören laut Text in den Bericht eines reproduzierbaren Evaluations-Laufs?"
+    },
+    {
+      "chunkId": "eval-metriken::8",
+      "question": "Welche Fingerprint-artige Kennung des Datensatzes muss in jedem Durchlauf-Protokoll festgehalten werden?"
+    },
+    {
+      "chunkId": "eval-metriken::8",
+      "question": "Welchen Status besitzen zwei Berichte ohne hinterlegte Metadaten in Bezug auf ihren Vergleich miteinander?"
+    },
+    {
+      "chunkId": "eval-metriken::8",
+      "question": "Welcher Aspekt wird laut Text in Retrieval-Evaluationen oft übersehen, ist aber dennoch von Bedeutung?"
+    },
+    {
+      "chunkId": "eval-metriken::9",
+      "question": "Warum kann ein Anstieg von Recall@10 um einen Hundertstel-Punkt irreführend wirken?"
+    },
+    {
+      "chunkId": "eval-metriken::9",
+      "question": "Welches Resampling-Verfahren wird vorgeschlagen, um leicht deutbare Konfidenzbereiche zu erhalten?"
+    },
+    {
+      "chunkId": "eval-metriken::9",
+      "question": "Welcher paarweise Signifikanztest gilt laut Text als widerstandsfähiger als der t-Test?"
+    },
+    {
+      "chunkId": "eval-metriken::9",
+      "question": "Aus welchem Grund eignet sich der t-Test schlechter für Retrieval-Auswertungen?"
+    },
+    {
+      "chunkId": "eval-metriken::9",
+      "question": "Welcher Aspekt der Evaluation wird laut Text in der Praxis oft übersehen?"
+    },
+    {
+      "chunkId": "eval-metriken::10",
+      "question": "Welche Spannbreite an Anfragen empfehlen Forschungs-Faustregeln als Untergrenze für belastbare Modellvergleiche?"
+    },
+    {
+      "chunkId": "eval-metriken::10",
+      "question": "Ab welcher Anfragenzahl werden die Konfidenzintervalle so groß, dass kaum noch Unterschiede statistisch trennbar sind?"
+    },
+    {
+      "chunkId": "eval-metriken::10",
+      "question": "Welcher praktische Vorteil ergibt sich aus synthetisch erzeugten Eval-Fragen hinsichtlich des Aufwands?"
+    },
+    {
+      "chunkId": "eval-metriken::10",
+      "question": "Bis in welche Größenordnung lässt sich ein Eval-Set mittels automatischer Fragegenerierung problemlos vergrößern?"
+    },
+    {
+      "chunkId": "eval-metriken::10",
+      "question": "Welche statistische Eigenschaft der Metrik-Verteilung über Anfragen wird im Text als typisch beschrieben?"
+    },
+    {
+      "chunkId": "eval-metriken::11",
+      "question": "Wie sieht die empfohlene Aufteilung zwischen handgepflegtem und automatisch erzeugtem Eval-Material aus?"
+    },
+    {
+      "chunkId": "eval-metriken::11",
+      "question": "Wozu dient laut Text die größere, automatisch erzeugte Hold-out-Menge?"
+    },
+    {
+      "chunkId": "eval-metriken::11",
+      "question": "Warum reichen allgemeine Retrieval-Benchmarks für ein konkretes Produkt nicht aus?"
+    },
+    {
+      "chunkId": "eval-metriken::11",
+      "question": "Welches Beispiel illustriert die starke Domänenabhängigkeit der Retrieval-Qualität?"
+    },
+    {
+      "chunkId": "eval-metriken::11",
+      "question": "Welche Rolle spielen Benchmarks wie BEIR im Aufbau eines RAG-Systems?"
+    },
+    {
+      "chunkId": "eval-metriken::12",
+      "question": "Was sollte laut Text bei jeder Veränderung der eingesetzten Modelle mitlaufen?"
+    },
+    {
+      "chunkId": "eval-metriken::12",
+      "question": "Wie wird der Effekt bezeichnet, wenn eine generierte Frage sprachlich zu eng am Quelltext bleibt?"
+    },
+    {
+      "chunkId": "eval-metriken::12",
+      "question": "Welcher Charakter wird der Eigenpflege eines fachgebietsnahen Bewertungsdatensatzes zugeschrieben?"
+    },
+    {
+      "chunkId": "eval-metriken::12",
+      "question": "Welche Eigenschaften soll der selbst gepflegte Eval-Datensatz vereinen?"
+    },
+    {
+      "chunkId": "eval-metriken::12",
+      "question": "Wodurch wird das Trivial-Match-Problem konkret ausgelöst?"
+    },
+    {
+      "chunkId": "eval-metriken::13",
+      "question": "Welches klassische lexikalische Retrieval-Verfahren würde von wörtlich übernommenen Frageformulierungen besonders profitieren?"
+    },
+    {
+      "chunkId": "eval-metriken::13",
+      "question": "Warum verfälscht eine zu nah am Original liegende Frage die Aussagekraft eines Embedding-Tests?"
+    },
+    {
+      "chunkId": "eval-metriken::13",
+      "question": "Welche Anweisung an das Generator-Modell wird als Gegenmittel genannt?"
+    },
+    {
+      "chunkId": "eval-metriken::13",
+      "question": "Warum sollte für die Fragenerstellung ein anderes Modell als für den Retrieval-Test eingesetzt werden?"
+    },
+    {
+      "chunkId": "eval-metriken::13",
+      "question": "Welcher automatisierte Filtermechanismus kann zu wörtlich übernommene Fragen nachträglich entfernen?"
+    },
+    {
+      "chunkId": "eval-metriken::14",
+      "question": "Welche Art von Verzerrung droht, wenn ein einzelnes Modell die Bewertungs-Fragen produziert?"
+    },
+    {
+      "chunkId": "eval-metriken::14",
+      "question": "Welches konkrete Modell wird als Beispiel für einen Fragen-Generator genannt?"
+    },
+    {
+      "chunkId": "eval-metriken::14",
+      "question": "In welchem Fall ist mit einem unfairen Vorteil eines Embedding-Modells zu rechnen?"
+    },
+    {
+      "chunkId": "eval-metriken::14",
+      "question": "Welche Rolle spielen bevorzugte Formulierungsmuster eines Generators im Retrieval-Test?"
+    },
+    {
+      "chunkId": "eval-metriken::14",
+      "question": "Warum lässt sich ein solcher Vorteil bei einem fremden Embedding-Modell nicht reproduzieren?"
+    },
+    {
+      "chunkId": "eval-metriken::15",
+      "question": "Welche Eigenschaft sollte das fragenerzeugende Modell relativ zu den getesteten Embedding-Modellen besitzen?"
+    },
+    {
+      "chunkId": "eval-metriken::15",
+      "question": "Welche zwei Arten von Inhalten gehören laut Text gleichermaßen in einen Eval-Report?"
+    },
+    {
+      "chunkId": "eval-metriken::15",
+      "question": "Welche beispielhaften Fragen werden vorgeschlagen, um schlechte Treffer zu analysieren?"
+    },
+    {
+      "chunkId": "eval-metriken::15",
+      "question": "Warum kann qualitatives Material wichtiger sein als die zusammengefassten Kennzahlen?"
+    },
+    {
+      "chunkId": "eval-metriken::15",
+      "question": "Was kennzeichnet eine als sauber bezeichnete Evaluierungs-Konfiguration in Bezug auf Modellverwandtschaft?"
+    },
+    {
+      "chunkId": "eval-metriken::16",
+      "question": "Welche grafische Darstellung wird empfohlen, um die Streuung der MRR-Werte sichtbar zu machen?"
+    },
+    {
+      "chunkId": "eval-metriken::16",
+      "question": "Wozu liefert das qualitative Begleitmaterial laut Text konkrete Hinweise?"
+    },
+    {
+      "chunkId": "eval-metriken::16",
+      "question": "Welches Risiko macht eine Verteilungs-Visualisierung sichtbar, das ein bloßer Mittelwert verdeckt?"
+    },
+    {
+      "chunkId": "eval-metriken::16",
+      "question": "Worauf bezieht sich die vorgeschlagene Verteilungs-Anzeige pro Anfrage?"
+    },
+    {
+      "chunkId": "eval-metriken::16",
+      "question": "Welche Metrik wird explizit als geeignet für die Histogramm-Darstellung genannt?"
+    },
+    {
+      "chunkId": "loklm-architektur::0",
+      "question": "Auf welchem Framework basiert die Desktop-Anwendung für Recherche?"
+    },
+    {
+      "chunkId": "loklm-architektur::0",
+      "question": "Welche Betriebssysteme werden von der Anwendung unterstützt?"
+    },
+    {
+      "chunkId": "loklm-architektur::0",
+      "question": "Wo verbleiben Modelle und Nutzerdaten bei der Verarbeitung?"
+    },
+    {
+      "chunkId": "loklm-architektur::0",
+      "question": "An welche Zielgruppen richtet sich die Software primär?"
+    },
+    {
+      "chunkId": "loklm-architektur::0",
+      "question": "Welches Feature ermöglicht es Nutzern, Antworten auf ihre Quellen zurückzuführen?"
+    },
+    {
+      "chunkId": "loklm-architektur::1",
+      "question": "Auf welcher Laufzeitumgebung basiert der Hauptprozess der Anwendung?"
+    },
+    {
+      "chunkId": "loklm-architektur::1",
+      "question": "Welche Aufgaben übernimmt der Node-basierte Prozess in der Architektur?"
+    },
+    {
+      "chunkId": "loklm-architektur::1",
+      "question": "Mit welcher Bibliothek wird die Oberfläche im Chromium-Prozess gerendert?"
+    },
+    {
+      "chunkId": "loklm-architektur::1",
+      "question": "Welche Komponente vermittelt eine typisierte Schnittstelle zwischen den beiden Prozessen?"
+    },
+    {
+      "chunkId": "loklm-architektur::1",
+      "question": "Mit welchem Mechanismus wird die API in den Renderer eingeschleust?"
+    },
+    {
+      "chunkId": "loklm-architektur::2",
+      "question": "Welche Electron-Optionen sind für die Isolierung des Renderers eingeschaltet?"
+    },
+    {
+      "chunkId": "loklm-architektur::2",
+      "question": "Welche Electron-Option ist im Renderer abgeschaltet, um Node-APIs zu blockieren?"
+    },
+    {
+      "chunkId": "loklm-architektur::2",
+      "question": "Wie heißt die einzelne verschlüsselte Datei, in der Authentifizierungsdaten liegen?"
+    },
+    {
+      "chunkId": "loklm-architektur::2",
+      "question": "Wie viele gewrappte Datenverschlüsselungs-Keys enthält der Header der Vault?"
+    },
+    {
+      "chunkId": "loklm-architektur::2",
+      "question": "Mit welchem Geheimnis ist der erste DEK in der Vault eingehüllt?"
+    },
+    {
+      "chunkId": "loklm-architektur::3",
+      "question": "Wie viele Wörter hat die Recovery-Passphrase, die den zweiten DEK schützt?"
+    },
+    {
+      "chunkId": "loklm-architektur::3",
+      "question": "An welchem Standard orientiert sich das Wortlisten-Format der Wiederherstellungs-Passphrase?"
+    },
+    {
+      "chunkId": "loklm-architektur::3",
+      "question": "Was passiert mit dem DEK, wenn ein Nutzer sein Passwort zurücksetzt?"
+    },
+    {
+      "chunkId": "loklm-architektur::3",
+      "question": "Welches Key-Derivation-Verfahren wird für die Ableitung der Wrapping-Keys eingesetzt?"
+    },
+    {
+      "chunkId": "loklm-architektur::3",
+      "question": "Wie viel Arbeitsspeicher konsumiert die KDF-Konfiguration pro Ableitung?"
+    },
+    {
+      "chunkId": "loklm-architektur::4",
+      "question": "Wie viele Byte lang ist der direkt aus der KDF erzeugte KEK?"
+    },
+    {
+      "chunkId": "loklm-architektur::4",
+      "question": "Wie wird der KEK nach seiner Verwendung im RAM unschädlich gemacht?"
+    },
+    {
+      "chunkId": "loklm-architektur::4",
+      "question": "Welches Verschlüsselungsverfahren sichert den Inhalt der Vault-Datei?"
+    },
+    {
+      "chunkId": "loklm-architektur::4",
+      "question": "Welche Länge hat die für jede Speicherung neu generierte Nonce in Byte?"
+    },
+    {
+      "chunkId": "loklm-architektur::4",
+      "question": "Welche eingebettete Postgres-Variante kommt als Datenbank zum Einsatz?"
+    },
+    {
+      "chunkId": "loklm-architektur::5",
+      "question": "Über welche Technologie wird der Postgres-Build im Node-Prozess ausgeführt?"
+    },
+    {
+      "chunkId": "loklm-architektur::5",
+      "question": "In welches Format wird die Datenbank beim Sperren der App exportiert?"
+    },
+    {
+      "chunkId": "loklm-architektur::5",
+      "question": "Mit welchem Schlüssel wird der Datenbank-Dump beim Lock-Vorgang chiffriert?"
+    },
+    {
+      "chunkId": "loklm-architektur::5",
+      "question": "Was geschieht beim Entsperren mit dem entschlüsselten Tar-Dump?"
+    },
+    {
+      "chunkId": "loklm-architektur::5",
+      "question": "Nach wie vielen falschen Anmeldeversuchen wird die erste Schutzstufe aktiv?"
+    },
+    {
+      "chunkId": "loklm-architektur::6",
+      "question": "Wie lange dauert die temporäre Sperre nach mehrfacher Fehleingabe an?"
+    },
+    {
+      "chunkId": "loklm-architektur::6",
+      "question": "Warum überdauert die Anmelde-Sperre keinen Neustart der Anwendung?"
+    },
+    {
+      "chunkId": "loklm-architektur::6",
+      "question": "Welches Argument spricht laut Dokument gegen einen dauerhaften Lockout in lokalen Apps?"
+    },
+    {
+      "chunkId": "loklm-architektur::6",
+      "question": "Nach wie vielen Minuten ohne Interaktion greift die automatische Inaktivitäts-Sperre?"
+    },
+    {
+      "chunkId": "loklm-architektur::6",
+      "question": "Was wird beim Auslösen der Inaktivitäts-Sperre persistiert?"
+    },
+    {
+      "chunkId": "loklm-architektur::7",
+      "question": "Warum verzichtet das Datenmodell auf eine eigene Benutzer-Tabelle in SQL?"
+    },
+    {
+      "chunkId": "loklm-architektur::7",
+      "question": "Was bildet laut Dokument die alleinige Wahrheitsquelle für die Anmeldung?"
+    },
+    {
+      "chunkId": "loklm-architektur::7",
+      "question": "Welche Inhalte sollen später in eigenen Tabellen auf PGlite verwaltet werden?"
+    },
+    {
+      "chunkId": "loklm-architektur::7",
+      "question": "Welches ORM wird für die kommenden Anwendungs-Tabellen eingesetzt?"
+    },
+    {
+      "chunkId": "loklm-architektur::7",
+      "question": "Welches Werkzeug erzeugt die Datenbank-Migrationen?"
+    },
+    {
+      "chunkId": "loklm-architektur::8",
+      "question": "Wann genau werden ausstehende Migrationen auf die Datenbank angewendet?"
+    },
+    {
+      "chunkId": "loklm-architektur::8",
+      "question": "Auf welche Hauptversion von React setzt die Oberfläche auf?"
+    },
+    {
+      "chunkId": "loklm-architektur::8",
+      "question": "Welche Hauptansichten gibt es im Frontend neben der UnlockedView?"
+    },
+    {
+      "chunkId": "loklm-architektur::8",
+      "question": "In welcher Komponente wird die generierte Wiederherstellungs-Passphrase einmalig dargestellt?"
+    },
+    {
+      "chunkId": "loklm-architektur::8",
+      "question": "Was muss der Nutzer während der Registrierung quittieren, bevor er fortfahren kann?"
+    },
+    {
+      "chunkId": "loklm-architektur::9",
+      "question": "Warum lässt sich die einmal generierte Passphrase im Nachhinein nicht mehr im Klartext einsehen?"
+    },
+    {
+      "chunkId": "loklm-architektur::9",
+      "question": "In welcher abgeleiteten Form werden die Recovery-Wörter intern abgelegt?"
+    },
+    {
+      "chunkId": "loklm-architektur::9",
+      "question": "Wodurch wird die übliche Betriebssystem-Fensterdekoration in der Anwendung ersetzt?"
+    },
+    {
+      "chunkId": "loklm-architektur::9",
+      "question": "Welche drei Fensteraktionen kann die Oberfläche per Interprozesskommunikation an den Backend-Prozess delegieren?"
+    },
+    {
+      "chunkId": "loklm-architektur::9",
+      "question": "Warum schickt der Hauptprozess Benachrichtigungen über Maximieren und Wiederherstellen an die Oberfläche zurück?"
+    },
+    {
+      "chunkId": "loklm-architektur::10",
+      "question": "Welche sechs Operationen umfasst die Authentifizierungs-Schnittstelle zwischen Frontend und Backend?"
+    },
+    {
+      "chunkId": "loklm-architektur::10",
+      "question": "An welcher Stelle der Anwendung werden die Typen der Auth-Aufrufe öffentlich gemacht?"
+    },
+    {
+      "chunkId": "loklm-architektur::10",
+      "question": "Welches Feld signalisiert in Antworten der Auth-Schnittstelle einen erfolgreichen Ablauf?"
+    },
+    {
+      "chunkId": "loklm-architektur::10",
+      "question": "Welche konkreten Fehlergründe werden in der geschlossenen Aufzählung für misslungene Authentifizierung genannt?"
+    },
+    {
+      "chunkId": "loklm-architektur::10",
+      "question": "Wie wird zwischen den beiden Symbol-Zuständen der eigenen Titelleiste umgeschaltet?"
+    },
+    {
+      "chunkId": "loklm-architektur::11",
+      "question": "Welche kryptographischen Aufgaben darf der Renderer-Prozess nicht selbst übernehmen?"
+    },
+    {
+      "chunkId": "loklm-architektur::11",
+      "question": "Über welches Lebenszyklus-Ereignis wird vor dem Schließen der Anwendung noch einmal in die Vault geschrieben?"
+    },
+    {
+      "chunkId": "loklm-architektur::11",
+      "question": "Welche Voraussetzung muss erfüllt sein, damit beim Beenden überhaupt ein zusätzlicher Persistierungsvorgang erfolgt?"
+    },
+    {
+      "chunkId": "loklm-architektur::11",
+      "question": "Mit welcher Methode wird der unmittelbare Anwendungsabbruch beim Beenden zunächst gestoppt?"
+    },
+    {
+      "chunkId": "loklm-architektur::11",
+      "question": "Welcher Aufruf schließt den Beendigungsablauf nach dem asynchronen Sichern endgültig ab?"
+    },
+    {
+      "chunkId": "loklm-architektur::12",
+      "question": "Welches Designprinzip macht eine ständige automatische Speicherung im laufenden Betrieb überflüssig?"
+    },
+    {
+      "chunkId": "loklm-architektur::12",
+      "question": "In welche drei Teil-Builds gliedert das Bundler-Werkzeug der Anwendung den Übersetzungsvorgang?"
+    },
+    {
+      "chunkId": "loklm-architektur::12",
+      "question": "Welcher Mechanismus von TypeScript wird genutzt, um Node- und Browser-Typen sauber zu trennen?"
+    },
+    {
+      "chunkId": "loklm-architektur::12",
+      "question": "Welche TypeScript-Konfigurationsdateien verteilen die Typwelten auf Backend- und Frontend-Seite?"
+    },
+    {
+      "chunkId": "loklm-architektur::12",
+      "question": "Welche vier Import-Kürzel werden quer durch das Projekt verwendet, um Pfade abzukürzen?"
+    },
+    {
+      "chunkId": "loklm-architektur::13",
+      "question": "An welchen Stellen außerhalb der Sub-Builds müssen die Import-Aliase ebenfalls identisch hinterlegt sein?"
+    },
+    {
+      "chunkId": "loklm-architektur::13",
+      "question": "In welcher Form wird die Software derzeit pro Plattform an Nutzer ausgeliefert?"
+    },
+    {
+      "chunkId": "loklm-architektur::13",
+      "question": "Auf welchem Weg erhalten Anwender momentan eine neue Version der Anwendung?"
+    },
+    {
+      "chunkId": "loklm-architektur::13",
+      "question": "Welche Eigenschaft soll ein zukünftiger Update-Dienst bezüglich der Anbindung an den Hauptprozess haben?"
+    },
+    {
+      "chunkId": "loklm-architektur::13",
+      "question": "Welches Grundprinzip darf ein späterer Auto-Update-Mechanismus nicht verletzen?"
+    },
+    {
+      "chunkId": "loklm-architektur::14",
+      "question": "Welche konkrete Form von Netzwerkverkehr bleibt einem späteren Update-Dienst ausdrücklich erlaubt?"
+    },
+    {
+      "chunkId": "loklm-architektur::14",
+      "question": "Worauf bezieht sich der Name des Programms inhaltlich-funktional?"
+    },
+    {
+      "chunkId": "loklm-architektur::14",
+      "question": "Welche Anforderung wird an die Belege jeder Modell-Antwort gestellt?"
+    },
+    {
+      "chunkId": "loklm-architektur::14",
+      "question": "Wie werden die Quellenverweise im Frontend interaktiv aufbereitet?"
+    },
+    {
+      "chunkId": "loklm-architektur::14",
+      "question": "Was geschieht, wenn der Benutzer auf einen Quellenverweis in der Oberfläche klickt?"
+    },
+    {
+      "chunkId": "loklm-architektur::15",
+      "question": "Wie reagiert die Anwendung, wenn eine erzeugte Antwort ohne Belegstellen zurückkommt?"
+    },
+    {
+      "chunkId": "loklm-architektur::15",
+      "question": "Welche zwei Antworttypen werden den Nutzern gegenüber visuell voneinander abgegrenzt?"
+    },
+    {
+      "chunkId": "loklm-architektur::15",
+      "question": "Welches Angriffsszenario rund um die gespeicherte Tresordatei wird durch das Sicherheitsmodell adressiert?"
+    },
+    {
+      "chunkId": "loklm-architektur::15",
+      "question": "Welche Situation am laufenden Gerät bei Abwesenheit des Eigentümers wird vom Schutzkonzept abgedeckt?"
+    },
+    {
+      "chunkId": "loklm-architektur::15",
+      "question": "Welches Verfahren wird im Bedrohungsmodell explizit als systematisches Durchprobieren von Passwörtern adressiert?"
+    },
+    {
+      "chunkId": "loklm-architektur::16",
+      "question": "Mit welchem Mittel kann ein verlorenes Passwort laut Sicherheitsmodell wiederhergestellt werden?"
+    },
+    {
+      "chunkId": "loklm-architektur::16",
+      "question": "Welche Art von hochprivilegierter Schadsoftware liegt explizit außerhalb des Schutzversprechens?"
+    },
+    {
+      "chunkId": "loklm-architektur::16",
+      "question": "Welches Angriffsszenario auf den Arbeitsspeicher einer bereits entsperrten Sitzung wird nicht abgewehrt?"
+    },
+    {
+      "chunkId": "loklm-architektur::16",
+      "question": "Welcher Angriff über die Bildschirm-Darstellung durch fremde Programme bleibt außerhalb des Schutzumfangs?"
+    },
+    {
+      "chunkId": "loklm-architektur::16",
+      "question": "Wo sind die akzeptierten Schutzgrenzen des Systems verbindlich festgehalten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::0",
+      "question": "Welche Abkürzung wird für die Kopplung eines generativen Modells mit einem externen Wissensspeicher verwendet?"
+    },
+    {
+      "chunkId": "rag-grundlagen::0",
+      "question": "Welche drei Defizite reiner Sprachmodelle ohne externen Zugriff werden hier genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::0",
+      "question": "Warum neigen Sprachmodelle ohne Anbindung an externe Daten zu falschen, aber überzeugend klingenden Antworten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::0",
+      "question": "An welcher Stelle im Antwortprozess wird laut Text der Suchvorgang vor der Generierung eingefügt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::0",
+      "question": "Was hat dazu beigetragen, dass dieses Verfahren in der Praxis bekannt wurde?"
+    },
+    {
+      "chunkId": "rag-grundlagen::1",
+      "question": "In welche Form werden die Textstücke umgewandelt, bevor sie im Suchspeicher abgelegt werden?"
+    },
+    {
+      "chunkId": "rag-grundlagen::1",
+      "question": "Welche spezialisierten Produkte werden als Optionen für die Speicherung der Vektoren genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::1",
+      "question": "Welche Erweiterung für eine herkömmliche relationale Datenbank wird als Alternative aufgeführt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::1",
+      "question": "Was geschieht mit den Dokumenten als ersten Schritt der Aufbereitung des Wissensspeichers?"
+    },
+    {
+      "chunkId": "rag-grundlagen::1",
+      "question": "Welches relationale Datenbanksystem wird in Verbindung mit einer Vektor-Erweiterung erwähnt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::2",
+      "question": "Bis zu welcher Größenordnung an Textsegmenten genügt bei lokalen Installationen ein Index, der nur im Hauptspeicher liegt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::2",
+      "question": "Welches Ähnlichkeitsmaß wird bei der ersten Sucheinstufung typischerweise eingesetzt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::2",
+      "question": "Wie wird die Nutzerfrage behandelt, bevor sie mit den gespeicherten Daten verglichen wird?"
+    },
+    {
+      "chunkId": "rag-grundlagen::2",
+      "question": "Welcher Modelltyp wird in der zweiten, optionalen Stufe des Sucheinprozesses genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::2",
+      "question": "Worin besteht der Unterschied zwischen den beiden Stufen beim Auffinden relevanter Inhalte?"
+    },
+    {
+      "chunkId": "rag-grundlagen::3",
+      "question": "Was sind die Nachteile, wenn die Textabschnitte sehr klein gewählt werden?"
+    },
+    {
+      "chunkId": "rag-grundlagen::3",
+      "question": "Warum verschlechtert sich das Ähnlichkeitssignal bei überdimensionierten Textabschnitten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::3",
+      "question": "Welche zwei Forderungen muss der finale Prompt an das antwortgebende Modell stellen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::3",
+      "question": "Welchen Faktor beeinflusst die Größe der Textsegmente laut diesem Abschnitt maßgeblich?"
+    },
+    {
+      "chunkId": "rag-grundlagen::3",
+      "question": "In welcher Form gelangen die gefundenen Belege gemeinsam mit der Anfrage zum Sprachmodell?"
+    },
+    {
+      "chunkId": "rag-grundlagen::4",
+      "question": "In welchem Bereich liegen die typischen Token-Längen für einen Textabschnitt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::4",
+      "question": "Welcher prozentuale Überlapp zwischen aufeinanderfolgenden Abschnitten gilt als üblich?"
+    },
+    {
+      "chunkId": "rag-grundlagen::4",
+      "question": "Welchen Zweck erfüllt es, dass benachbarte Abschnitte sich inhaltlich überschneiden?"
+    },
+    {
+      "chunkId": "rag-grundlagen::4",
+      "question": "Was ist die Kernidee der ersten der drei vorgestellten Strategien zum Zerteilen von Texten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::4",
+      "question": "Wie viele unterschiedliche Vorgehensweisen zum Zerteilen von Texten werden insgesamt aufgezählt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::5",
+      "question": "Welche Variante des Zerteilens orientiert sich an grammatikalischen Einheiten des Textes?"
+    },
+    {
+      "chunkId": "rag-grundlagen::5",
+      "question": "Welchen Vorteil bringt das Schneiden entlang syntaktischer Grenzen für das nachgelagerte Modell?"
+    },
+    {
+      "chunkId": "rag-grundlagen::5",
+      "question": "Wann wird beim inhaltsbasierten Verfahren eine neue Trennstelle eingefügt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::5",
+      "question": "Welche Eigenschaft macht das semantische Verfahren gegenüber den anderen aufwendiger?"
+    },
+    {
+      "chunkId": "rag-grundlagen::5",
+      "question": "Was wird beim semantischen Zerteilen zwischen benachbarten Sätzen miteinander verglichen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::6",
+      "question": "Welche Vektorgröße besitzt das als klein und schnell beschriebene Modell?"
+    },
+    {
+      "chunkId": "rag-grundlagen::6",
+      "question": "Aus welchem Land stammen die als modern und open-source bezeichneten bge-Modelle?"
+    },
+    {
+      "chunkId": "rag-grundlagen::6",
+      "question": "Welche vier Merkmale werden zur Unterscheidung der Embedding-Modelle hervorgehoben?"
+    },
+    {
+      "chunkId": "rag-grundlagen::6",
+      "question": "Auf welche Sprache ist das Training von all-MiniLM-L6-v2 vorwiegend ausgerichtet?"
+    },
+    {
+      "chunkId": "rag-grundlagen::6",
+      "question": "Welches kleine, geschwindigkeitsorientierte Modell wird namentlich genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::7",
+      "question": "Welches Modell wird wegen seiner Eignung für sehr lange Eingaben mit 8192 Tokens hervorgehoben?"
+    },
+    {
+      "chunkId": "rag-grundlagen::7",
+      "question": "Welche Modelle werden für deutschsprachige bzw. mehrsprachige Anwendungsfälle empfohlen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::7",
+      "question": "Wie verarbeitet ein Bi-Encoder Frage und Kandidatentext im Gegensatz zum Cross-Encoder?"
+    },
+    {
+      "chunkId": "rag-grundlagen::7",
+      "question": "Auf welcher Architekturform basieren die zur Nachsortierung eingesetzten Modelle in der Regel?"
+    },
+    {
+      "chunkId": "rag-grundlagen::7",
+      "question": "Wodurch werden die Vektoren bei einem getrennt einbettenden Encoder schließlich miteinander in Beziehung gesetzt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::8",
+      "question": "Welche Anbieter werden neben den kostenfreien Varianten für leistungsstärkere Reranker genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::8",
+      "question": "Welche Metrik wird im Text als positiv beeinflusst durch den Einsatz eines Cross-Encoders genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::8",
+      "question": "Welche Größenordnung an Vorab-Kandidaten holt sich eine empfohlene zweistufige Pipeline in der ersten Stufe?"
+    },
+    {
+      "chunkId": "rag-grundlagen::8",
+      "question": "Welcher Nachteil entsteht durch die Verwendung eines Cross-Encoders je untersuchtem Kandidaten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::8",
+      "question": "Welches Open-Source-Modell wird als Beispiel für eine kompakte MiniLM-Variante zur Neubewertung genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::9",
+      "question": "Auf wie viele Treffer wird das Ergebnis am Ende der zweistufigen Pipeline mit Cross-Encoder reduziert?"
+    },
+    {
+      "chunkId": "rag-grundlagen::9",
+      "question": "Welche drei Anforderungen muss die Prompt-Gestaltung fuer den Generierungsschritt erfuellen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::9",
+      "question": "Wie soll das Sprachmodell reagieren, wenn die uebergebenen Textstellen keine Antwort hergeben?"
+    },
+    {
+      "chunkId": "rag-grundlagen::9",
+      "question": "Warum ist eine klar definierte Zitatform im Prompt notwendig?"
+    },
+    {
+      "chunkId": "rag-grundlagen::9",
+      "question": "Was soll im Prompt verhindert werden, wenn das Modell sein eigenes Trainingswissen einbringt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::10",
+      "question": "In welchem Klammertyp wird laut Beschreibung typischerweise die Quellenreferenz hinter einer Aussage notiert?"
+    },
+    {
+      "chunkId": "rag-grundlagen::10",
+      "question": "Wo im strukturierten Antwortformat soll die Liste der verwendeten Quellen erscheinen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::10",
+      "question": "Wie viele Belege muss eine einzelne Aussage in dem beschriebenen Format mindestens haben?"
+    },
+    {
+      "chunkId": "rag-grundlagen::10",
+      "question": "Was soll das Sprachmodell tun, wenn die gefundenen Belege sich gegenseitig widersprechen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::10",
+      "question": "Welches Verhalten gegenueber widerspruechlichen Quellen wird im Antwortformat ausdruecklich abgelehnt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::11",
+      "question": "In welche zwei Qualitaetsdimensionen wird die Bewertung eines RAG-Systems aufgeteilt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::11",
+      "question": "Was genau prueft die Retrieval-Qualitaet bei einem RAG-System?"
+    },
+    {
+      "chunkId": "rag-grundlagen::11",
+      "question": "Welche vier Eigenschaften werden bei der Bewertung der Generations-Qualitaet beruecksichtigt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::11",
+      "question": "Warum koennen die beiden Qualitaetsarten nicht isoliert voneinander betrachtet werden?"
+    },
+    {
+      "chunkId": "rag-grundlagen::11",
+      "question": "Welche Auswirkung hat ein fehlerhaftes Retrieval auf die nachgelagerte Antwortgenerierung?"
+    },
+    {
+      "chunkId": "rag-grundlagen::12",
+      "question": "Welches Problem bleibt bestehen, selbst wenn die abgerufenen Chunks inhaltlich passend sind?"
+    },
+    {
+      "chunkId": "rag-grundlagen::12",
+      "question": "Welche drei Beschaffungswege fuer Eval-Daten zur Retrieval-Bewertung werden genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::12",
+      "question": "Was umfasst die manuelle Annotation als erste Methode zur Datenerhebung?"
+    },
+    {
+      "chunkId": "rag-grundlagen::12",
+      "question": "Welche zwei englischsprachigen Benchmark-Sammlungen werden als zweite Quelle erwaehnt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::12",
+      "question": "Was ist die dritte angesprochene Methode zur Gewinnung von Eval-Daten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::13",
+      "question": "Welche Aufgabe wird einem leistungsfaehigen Sprachmodell bei der synthetischen Datenerzeugung gestellt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::13",
+      "question": "Welchen Vorteil bietet die synthetische Eval-Datenerzeugung gegenueber den anderen Verfahren?"
+    },
+    {
+      "chunkId": "rag-grundlagen::13",
+      "question": "Welcher Nachteil ist bei automatisch generierten Eval-Datensaetzen zu beachten?"
+    },
+    {
+      "chunkId": "rag-grundlagen::13",
+      "question": "Welches Verfahren wird mit der dichten Vektorsuche im hybriden Ansatz verknuepft?"
+    },
+    {
+      "chunkId": "rag-grundlagen::13",
+      "question": "Welche zwei Eigenschaften zeichnen die synthetische Generierung gleichzeitig aus?"
+    },
+    {
+      "chunkId": "rag-grundlagen::14",
+      "question": "Bei welchen Inhalten zeigt die Vektorsuche typischerweise Schwaechen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::14",
+      "question": "In welchen Faellen liefert die rein lexikalische Suche besonders gute Treffer?"
+    },
+    {
+      "chunkId": "rag-grundlagen::14",
+      "question": "Welche Staerke besitzt die Vektorsuche im Vergleich zu BM25?"
+    },
+    {
+      "chunkId": "rag-grundlagen::14",
+      "question": "Welche zwei Verfahren werden zur Zusammenfuehrung der beiden Ergebnislisten genannt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::14",
+      "question": "Wovon haengt die geeignete Wichtung zwischen den beiden Suchverfahren ab?"
+    },
+    {
+      "chunkId": "rag-grundlagen::15",
+      "question": "Worauf sollte die Gewichtung zwischen den beiden Suchverfahren abgestimmt werden?"
+    },
+    {
+      "chunkId": "rag-grundlagen::15",
+      "question": "Welches Laufzeitverhalten zeigen einfache Implementierungen der Vektorsuche bezogen auf die Korpusgroesse?"
+    },
+    {
+      "chunkId": "rag-grundlagen::15",
+      "question": "Wie geht eine naive Suchimplementierung mit dem Anfrage-Vektor um?"
+    },
+    {
+      "chunkId": "rag-grundlagen::15",
+      "question": "Welche drei beispielhaften Strukturen fuer approximative Nachbarsuche werden aufgezaehlt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::15",
+      "question": "Welche Nachteile haben ANN-Verfahren trotz schnellerer Suche?"
+    },
+    {
+      "chunkId": "rag-grundlagen::16",
+      "question": "Bis zu welcher ungefaehren Chunk-Anzahl wird eine vollstaendige Brute-Force-Suche lokal als ausreichend bezeichnet?"
+    },
+    {
+      "chunkId": "rag-grundlagen::16",
+      "question": "Warum lohnt sich bei kleineren lokalen Korpora der Einsatz eines ANN-Index meist nicht?"
+    },
+    {
+      "chunkId": "rag-grundlagen::16",
+      "question": "Welcher Aspekt rund um den Korpus wird laut Text oft unterschaetzt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::16",
+      "question": "Was muss mit den Chunks eines Dokuments geschehen, sobald dessen Inhalt veraendert wurde?"
+    },
+    {
+      "chunkId": "rag-grundlagen::16",
+      "question": "Welche Folgen hat es, wenn man neue Inhalte einfach an den Index anhaengt, ohne alte zu entfernen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::17",
+      "question": "Welche Pruefsumme wird in einer sauberen Indexierung pro Dokument gefuehrt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::17",
+      "question": "Wann genau wird der gespeicherte Dokument-Hash mit dem aktuellen verglichen?"
+    },
+    {
+      "chunkId": "rag-grundlagen::17",
+      "question": "Welche Operation folgt, wenn der Vergleich der Hashes eine Aenderung anzeigt?"
+    },
+    {
+      "chunkId": "rag-grundlagen::17",
+      "question": "Welches Indexierungsverfahren ist bei sehr grossen Datenbestaenden besonders sinnvoll?"
+    },
+    {
+      "chunkId": "rag-grundlagen::17",
+      "question": "Was unterscheidet ein delta-basiertes Re-Indexieren vom vollstaendigen Neuaufbau?"
+    }
+  ]
+}
