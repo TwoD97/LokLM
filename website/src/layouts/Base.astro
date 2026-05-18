@@ -1,9 +1,11 @@
 ---
+import '@fontsource-variable/inter'
 import '~/styles/global.css'
 import BackgroundFx from '~/components/BackgroundFx.astro'
 import Nav from '~/components/Nav.astro'
 import Footer from '~/components/Footer.astro'
 import { getLangFromUrl } from '~/i18n/utils'
+import interLatinFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
 
 interface Props {
   title: string
@@ -23,8 +25,7 @@ const lang = getLangFromUrl(Astro.url)
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/app-paper.svg" />
     <link rel="mask-icon" href="/brand/mark-mono.svg" color="#0B1B2B" />
-    <link rel="preconnect" href="https://rsms.me/" />
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="preload" href={interLatinFont} as="font" type="font/woff2" crossorigin />
 
     <title>{title}</title>
     <meta name="description" content={description} />

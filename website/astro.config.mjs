@@ -6,6 +6,7 @@ export default defineConfig({
   trailingSlash: 'never',
   build: {
     assets: 'assets',
+    inlineStylesheets: 'always',
   },
   i18n: {
     defaultLocale: 'de',
