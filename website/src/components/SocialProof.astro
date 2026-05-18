@@ -1,0 +1,139 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+import { fetchGitHubData } from '~/lib/github'
+
+const lang = getLangFromUrl(Astro.url)
+const data = await fetchGitHubData('TwoD97/LokLM')
+
+const moreLabel = (n: number) => t(lang, 'social.contributorsMore').replace('{n}', String(n))
+---
+
+<section class="social-proof" aria-label="Social proof">
+  <div class="social-proof__inner">
+    {data.stars !== null && (
+      <a class="social-proof__chip" href="https://github.com/TwoD97/LokLM/stargazers" rel="noopener" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z" />
+        </svg>
+        <span class="social-proof__chip-num">{data.stars.toLocaleString()}</span>
+        <span class="social-proof__chip-label">{t(lang, 'social.stars')}</span>
+      </a>
+    )}
+
+    {data.contributors.length > 0 && (
+      <div class="social-proof__contrib">
+        <span class="social-proof__label">{t(lang, 'social.contributors')}</span>
+        <ul class="social-proof__avatars">
+          {data.contributors.map((c) => (
+            <li>
+              <a href={c.profileUrl} rel="noopener" target="_blank" title={c.login}>
+                <img src={c.avatarUrl} alt={c.login} width="28" height="28" loading="lazy" decoding="async" />
+              </a>
+            </li>
+          ))}
+          {data.extraContributors > 0 && (
+            <li class="social-proof__more">{moreLabel(data.extraContributors)}</li>
+          )}
+        </ul>
+      </div>
+    )}
+
+    <a class="social-proof__trust" href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank">
+      {t(lang, 'social.trust')}
+    </a>
+  </div>
+</section>
+
+<style>
+  .social-proof {
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .social-proof__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem 2rem;
+    color: var(--color-fg-2);
+    font-size: 0.85rem;
+  }
+
+  .social-proof__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-fg-1);
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+  .social-proof__chip:hover { color: var(--color-fg-0); }
+  .social-proof__chip svg { color: var(--color-accent-hover); }
+
+  .social-proof__chip-num {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--color-fg-0);
+  }
+  .social-proof__chip-label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+  }
+
+  .social-proof__contrib {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .social-proof__label {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+  }
+
+  .social-proof__avatars {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+  .social-proof__avatars li { margin-left: -6px; }
+  .social-proof__avatars li:first-child { margin-left: 0; }
+  .social-proof__avatars img {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--color-bg-0);
+    display: block;
+  }
+  .social-proof__more {
+    margin-left: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-fg-3);
+  }
+
+  .social-proof__trust {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-fg-2);
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+  .social-proof__trust:hover { color: var(--color-fg-0); }
+</style>

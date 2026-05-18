@@ -1,0 +1,108 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface Q { qKey: UIKey; aKey: UIKey }
+
+const questions: Q[] = [
+  { qKey: 'faq.q1.q', aKey: 'faq.q1.a' },
+  { qKey: 'faq.q2.q', aKey: 'faq.q2.a' },
+  { qKey: 'faq.q3.q', aKey: 'faq.q3.a' },
+  { qKey: 'faq.q4.q', aKey: 'faq.q4.a' },
+  { qKey: 'faq.q5.q', aKey: 'faq.q5.a' },
+  { qKey: 'faq.q6.q', aKey: 'faq.q6.a' },
+  { qKey: 'faq.q7.q', aKey: 'faq.q7.a' },
+  { qKey: 'faq.q8.q', aKey: 'faq.q8.a' },
+]
+---
+
+<section class="faq">
+  <div class="faq__inner">
+    <div class="faq__head">
+      <span class="section-eyebrow">{t(lang, 'faq.eyebrow')}</span>
+      <h2 class="section-title gradient-text">{t(lang, 'faq.title')}</h2>
+    </div>
+
+    <div class="faq__cols">
+      {questions.map((q) => (
+        <details class="faq__item">
+          <summary>
+            <span>{t(lang, q.qKey)}</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <p>{t(lang, q.aKey)}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq { padding: 5rem 0; }
+  @media (min-width: 768px) { .faq { padding: 7rem 0; } }
+
+  .faq__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .faq__head { max-width: 36rem; margin-bottom: 3rem; }
+
+  .faq__cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  @media (min-width: 900px) {
+    .faq__cols { grid-template-columns: 1fr 1fr; gap: 0.75rem 1.5rem; }
+  }
+
+  .faq__item {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.015);
+    overflow: hidden;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  .faq__item[open] {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: var(--color-border-strong);
+  }
+
+  .faq__item summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--color-fg-0);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .faq__item summary::-webkit-details-marker { display: none; }
+
+  .faq__item summary svg {
+    color: var(--color-fg-3);
+    flex-shrink: 0;
+    transition: transform 200ms ease, color 180ms ease;
+  }
+  .faq__item[open] summary svg {
+    transform: rotate(180deg);
+    color: var(--color-accent-hover);
+  }
+
+  .faq__item p {
+    padding: 0 1.25rem 1.25rem;
+    color: var(--color-fg-2);
+    line-height: 1.65;
+    font-size: 0.95rem;
+    margin: 0;
+  }
+</style>
