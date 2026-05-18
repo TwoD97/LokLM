@@ -19,13 +19,13 @@ export interface Release {
 
 export const currentRelease: Release = {
   version: '0.1.2',
-  releasedAt: '2026-05-17',
+  releasedAt: '2026-05-18',
   assets: [
     {
       platform: 'windows',
       file: 'LokLM-Setup-0.1.2.exe',
-      sizeBytes: 107608870,
-      sha256: 'f18dd8da2dafe129fd7ae715f6bfc77f19d57cc36554bd441a21733d846e85dd',
+      sizeBytes: 107609093,
+      sha256: 'fe776aa57edd679784a08abd43210285db7699e3657a886b19796a30407ef53e',
       available: true,
     },
     {
