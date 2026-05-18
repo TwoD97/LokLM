@@ -23,6 +23,9 @@ export const ui = {
     'hero.badge.encrypted': 'Lokale Verschlüsselung',
     'hero.badge.opensource': 'Open Source · MIT',
 
+    'marquee.eyebrow': 'Unser Stack',
+    'marquee.title': 'Auf den Schultern der Open-Source-Community gebaut',
+
     'features.title': 'Was LokLM kann',
     'features.subtitle':
       'Eine Desktop-Anwendung für alle, die Antworten mit verlässlichen Quellen brauchen — ohne ihre Daten aus der Hand zu geben.',
@@ -85,6 +88,9 @@ export const ui = {
     'hero.badge.offline': '100% offline',
     'hero.badge.encrypted': 'Local encryption',
     'hero.badge.opensource': 'Open source · MIT',
+
+    'marquee.eyebrow': 'Our stack',
+    'marquee.title': 'Standing on the shoulders of the open-source community',
 
     'features.title': 'What LokLM does',
     'features.subtitle':
