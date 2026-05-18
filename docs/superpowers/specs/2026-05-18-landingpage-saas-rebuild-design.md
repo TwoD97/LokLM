@@ -68,7 +68,7 @@ Thin horizontal band, immediately after hero, no section padding.
 
 - GitHub stars badge — live from `https://img.shields.io/github/stars/TwoD97/LokLM?style=flat&color=...` styled to match the theme, or fetch at build time and inject as plain text (preferred — no external image dependency on every page load).
 - Contributor avatars: small row, lazy-loaded from GitHub API at build time (the Astro build can call `https://api.github.com/repos/TwoD97/LokLM/contributors` and emit static `<img>` tags).
-- "MIT · Open source · Audited code" trust ribbon — plain text with mono accent.
+- "MIT · Open source · Code on GitHub" trust ribbon — plain text with mono accent. Avoid words like "audited" that imply a formal audit which hasn't happened.
 
 If GitHub star count or contributors list cannot be fetched at build (rate limit, offline build), section degrades gracefully to a static "Open source · MIT licence" strip.
 
