@@ -72,22 +72,13 @@ jobs:
         shell: bash
         run: pnpm models:embedder && pnpm models:medium
 
-      - name: Prepare signing cert (wenn secret gesetzt)
-        shell: bash
-        env:
-          WINDOWS_CERT_PFX_BASE64: ${{ secrets.WINDOWS_CERT_PFX_BASE64 }}
-        run: |
-          if [ -z "$WINDOWS_CERT_PFX_BASE64" ]; then
-            echo "kein WINDOWS_CERT_PFX_BASE64 , build wird unsigned"
-            exit 0
-          fi
-          echo "$WINDOWS_CERT_PFX_BASE64" | base64 -d > "$RUNNER_TEMP/cert.pfx"
-          echo "CSC_LINK=$RUNNER_TEMP/cert.pfx" >> "$GITHUB_ENV"
-          echo "cert gefunden , build wird signiert"
-
-      - name: Package (NSIS)
-        env:
-          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      # v0.2.x ships Windows as a ZIP statt NSIS , weil makensis.exe (32-bit)
+      # die ~5.5 GB compressed payload nicht mmappen kann (out-of-address-space
+      # error: "failed creating mmap of loklm-x64.nsis.7z"). ZIP umgeht das
+      # komplett , user lädt das archive , entpackt es , startet LokLM.exe.
+      # Installer-wizard + start-menu kommen in v0.3 via nsis-web oder split-
+      # payload zurück. Signing-cert step entfällt für zip.
+      - name: Package (ZIP)
         run: pnpm package:win
 
       - name: Compute sha256 + size
@@ -95,16 +86,16 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          EXE="release/LokLM-Setup-${V}.exe"
-          if [ ! -f "$EXE" ]; then
-            echo "expected artefact missing: $EXE"; ls -la release/; exit 1
+          ZIP="release/LokLM-${V}-win-x64.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "expected artefact missing: $ZIP"; ls -la release/; exit 1
           fi
-          SHA=$(sha256sum "$EXE" | awk '{print $1}')
-          SIZE=$(stat -c%s "$EXE")
-          echo "$SHA  $(basename "$EXE")" > "${EXE}.sha256"
+          SHA=$(sha256sum "$ZIP" | awk '{print $1}')
+          SIZE=$(stat -c%s "$ZIP")
+          echo "$SHA  $(basename "$ZIP")" > "${ZIP}.sha256"
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "built $EXE , size=$SIZE sha256=$SHA"
+          echo "built $ZIP , size=$SIZE sha256=$SHA"
 
       - name: Install mc
         shell: bash
@@ -121,8 +112,8 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:

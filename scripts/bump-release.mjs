@@ -59,7 +59,10 @@ console.log(`patched releases.ts , version=${version} platform=${platform} sha25
 function assetFileName(p, v) {
   switch (p) {
     case 'windows':
-      return `LokLM-Setup-${v}.exe`
+      // v0.2.x: zip statt nsis (makensis 32-bit mmap-limit hat unsere ~6 GB
+      // bundled payload nicht gepackt). landingpage download-component zeigt
+      // jetzt "ZIP herunterladen" für windows , user entpackt + startet LokLM.exe.
+      return `LokLM-${v}-win-x64.zip`
     case 'macos':
       return `LokLM-${v}.dmg`
     case 'linux':
