@@ -1,7 +1,18 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import type { Api } from '@preload/index'
+
+// pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
+// Stub the module so any test that transitively imports PdfPagePreview doesn't
+// blow up — no test currently exercises an actual PDF render path.
+vi.mock('pdfjs-dist', () => ({
+  GlobalWorkerOptions: { workerSrc: '' },
+  getDocument: () => ({
+    promise: Promise.reject(new Error('pdfjs-dist mocked in tests')),
+  }),
+}))
+vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
 
 afterEach(() => {
   cleanup()
