@@ -18,14 +18,14 @@ export interface Release {
 }
 
 export const currentRelease: Release = {
-  version: '0.2.1',
+  version: '0.2.3',
   releasedAt: '2026-05-19',
   assets: [
     {
       platform: 'windows',
-      file: 'LokLM-0.2.1-win-x64.zip',
-      sizeBytes: 8747896064,
-      sha256: 'a7d86fd2d4e5078abdb87c483df80394a1ce6441f74f5d97b15a84be8312c816',
+      file: 'LokLM-Setup-0.2.3-win-x64.exe',
+      sizeBytes: 393408476,
+      sha256: '2ee2c23736765ceefc5b6be3ecc94a33b395acbe40f4a81057eecf2af023ce0a',
       available: true,
     },
     {
@@ -37,9 +37,9 @@ export const currentRelease: Release = {
     },
     {
       platform: 'linux',
-      file: 'LokLM-0.2.1.AppImage',
-      sizeBytes: 8753171885,
-      sha256: 'bc8a1f9b7e61088a366bc653f95298a0cd2e44c0706de5bfe3053c28fb4c3d12',
+      file: 'LokLM-0.2.3.AppImage',
+      sizeBytes: 524976865,
+      sha256: '379c7f6516eb9efead1516f35d5bac807d3cf0f51378c24f6a7f554d8aac237b',
       available: true,
     },
   ],
