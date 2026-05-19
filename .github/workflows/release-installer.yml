@@ -1,7 +1,11 @@
 name: Release installer
 
-# baut den electron-installer für eine version , lädt ihn nach minio , patcht
+# baut den electron-installer für eine version , lädt ihn nach bunny storage
+# (primary, fronted vom CDN) und minio (manual backup mirror) , patcht
 # releases.ts + re-deployt die website mit aktualisiertem manifest.
+# backup-URL-pattern bei CDN-ausfall:
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-<V>-win-x64.zip
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-<V>.AppImage
 on:
   push:
     tags: ['v*']
@@ -22,7 +26,7 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build .exe + upload to minio
+    name: Build .exe + upload to bunny + minio
     runs-on: windows-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -97,13 +101,30 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $ZIP , size=$SIZE sha256=$SHA"
 
+      - name: Upload to Bunny Storage (primary , served via CDN)
+        shell: bash
+        env:
+          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
+          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          FILE="release/LokLM-${V}-win-x64.zip"
+          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
       - name: Install mc
         shell: bash
         run: |
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe --version | head -1
 
-      - name: Upload to minio
+      - name: Upload to minio (backup mirror)
         shell: bash
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -117,7 +138,7 @@ jobs:
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:
-    name: Build AppImage + upload to minio
+    name: Build AppImage + upload to bunny + minio
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -175,13 +196,29 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $APP , size=$SIZE sha256=$SHA"
 
+      - name: Upload to Bunny Storage (primary , served via CDN)
+        env:
+          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
+          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          FILE="release/LokLM-${V}.AppImage"
+          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
       - name: Install mc
         run: |
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x /tmp/mc
           /tmp/mc --version | head -1
 
-      - name: Upload to minio
+      - name: Upload to minio (backup mirror)
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
@@ -275,3 +312,18 @@ jobs:
       - name: Clean up SSH key
         if: always()
         run: rm -f ~/.ssh/deploy_key
+
+      - name: Record backup URLs in run summary
+        env:
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+        run: |
+          V="${{ needs.build-windows.outputs.version }}"
+          {
+            echo "## Release v${V} — mirrors"
+            echo ""
+            echo "**Primary (CDN):** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
+            echo ""
+            echo "**Backup (minio , manual fallback):**"
+            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}-win-x64.zip"
+            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}.AppImage"
+          } >> "$GITHUB_STEP_SUMMARY"
