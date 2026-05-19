@@ -135,6 +135,44 @@ export class DocumentsRepo {
     }))
     await this.db.insert(chunks).values(rows)
   }
+
+  async countChunksMissingEmbedding(workspaceId: number): Promise<number> {
+    const r = await this.db.execute(sql`
+      SELECT count(*)::int AS n
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+       WHERE d.workspace_id = ${workspaceId} AND c.embedding IS NULL
+    `)
+    return (r.rows as { n: number }[])[0]?.n ?? 0
+  }
+
+  async listChunksMissingEmbedding(
+    workspaceId: number,
+    limit: number,
+  ): Promise<Array<{ id: number; text: string }>> {
+    const r = await this.db.execute(sql`
+      SELECT c.id, c.text
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+       WHERE d.workspace_id = ${workspaceId} AND c.embedding IS NULL
+       ORDER BY c.id
+       LIMIT ${limit}
+    `)
+    return r.rows as Array<{ id: number; text: string }>
+  }
+
+  async setChunkEmbedding(chunkId: number, vector: number[]): Promise<void> {
+    const lit = '[' + vector.join(',') + ']'
+    await this.db.execute(sql`UPDATE chunks SET embedding = ${lit}::vector WHERE id = ${chunkId}`)
+  }
+
+  async ensureVectorIndex(): Promise<void> {
+    await this.db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_chunks_hnsw
+        ON chunks USING hnsw (embedding vector_cosine_ops)
+        WITH (m = 16, ef_construction = 64)
+    `)
+  }
 }
 
 export class WorkspacesRepo {

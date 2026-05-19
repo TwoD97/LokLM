@@ -5,6 +5,8 @@ import { AuthService } from './services/auth/AuthService'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
 import { ImportError } from './services/documents/types'
+import { EmbeddingService } from './services/embeddings/EmbeddingService'
+import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -20,20 +22,77 @@ let didFinalPersist = false
 function getAuth(): AuthService {
   if (!authService) {
     authService = new AuthService(app.getPath('userData'))
-    authService.setOnLock(() => broadcastAuthState())
+    authService.setOnLock(() => {
+      resetSessionServices()
+      broadcastAuthState()
+    })
   }
   return authService
 }
 
+function resetSessionServices(): void {
+  // The backfill service captures a Database reference at construction;
+  // after lock/logout that reference is stale, so drop the singleton and
+  // let the next caller rebuild it against the live Database.
+  //
+  // workspaceService + documentService stay cached because they hold AuthService
+  // only and re-resolve the Database lazily on each call. embeddingService is
+  // deliberately kept too — the GGUF takes seconds to reload, so warming it
+  // across a lock cycle is the right UX. Re-evaluate this if EmbeddingService
+  // ever grows session-scoped state.
+  backfillService = null
+}
+
+async function scheduleBackfillForAllWorkspaces(): Promise<void> {
+  // Best-effort fire-and-forget per workspace. If the embedder GGUF is
+  // missing or fails to load, the backfill service silently records 'failed'
+  // for each workspace and the user can retry from the settings panel later.
+  // Catches inside so a single rejection doesn't break the for-loop.
+  const wss = await getAuth().requireDatabase().workspaces().list()
+  const svc = getBackfillService()
+  for (const ws of wss) {
+    void svc.run(ws.id).catch(() => undefined)
+  }
+}
+
 let workspaceService: WorkspaceService | null = null
 let documentService: DocumentService | null = null
+let embeddingService: EmbeddingService | null = null
+let backfillService: EmbeddingBackfillService | null = null
 
 function getWorkspaceService(): WorkspaceService {
   workspaceService ??= new WorkspaceService(getAuth())
   return workspaceService
 }
+
+function getEmbeddingService(): EmbeddingService {
+  if (!embeddingService) {
+    embeddingService = new EmbeddingService()
+    embeddingService.subscribe((status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('embedder:status', status)
+        } catch {
+          /* ignore */
+        }
+      }
+    })
+  }
+  return embeddingService
+}
+
+function getBackfillService(): EmbeddingBackfillService {
+  if (!backfillService) {
+    backfillService = new EmbeddingBackfillService(
+      getAuth().requireDatabase(),
+      getEmbeddingService(),
+    )
+  }
+  return backfillService
+}
+
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth())
+  documentService ??= new DocumentService(getAuth(), getEmbeddingService())
   return documentService
 }
 
@@ -54,23 +113,29 @@ function registerIpc(): void {
     async (_e, input: { displayName: string; password: string; recoveryLang: 'de' | 'en' }) => {
       const result = await getAuth().register(input)
       broadcastAuthState()
+      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
       return result
     },
   )
 
   ipcMain.handle('auth:login', async (_e, input: { password: string }) => {
     const result = await getAuth().login(input.password)
-    if (result.ok) broadcastAuthState()
+    if (result.ok) {
+      broadcastAuthState()
+      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+    }
     return result
   })
 
   ipcMain.handle('auth:logout', async () => {
     await getAuth().logout()
+    resetSessionServices()
     broadcastAuthState()
   })
 
   ipcMain.handle('auth:lock', async () => {
     await getAuth().lock()
+    resetSessionServices()
     broadcastAuthState()
   })
 
@@ -141,6 +206,26 @@ function registerIpc(): void {
       sourcePath: doc.sourcePath,
       sender: e.sender,
     })
+  })
+
+  // embedder
+  ipcMain.handle('embedder:status', async () => getEmbeddingService().getStatus())
+  ipcMain.handle('embedder:info', async () => getEmbeddingService().info())
+  ipcMain.handle('embedder:reload', async () => {
+    await getEmbeddingService().unload()
+    await getEmbeddingService().ensureReady()
+    return getEmbeddingService().info()
+  })
+  ipcMain.handle('embedder:setPlacement', async (_e, choice: 'auto' | 'cpu' | 'gpu') => {
+    getEmbeddingService().setPlacement(choice)
+  })
+
+  // backfill
+  ipcMain.handle('embedder:backfillStatus', async (_e, workspaceId: number) =>
+    getBackfillService().status(workspaceId),
+  )
+  ipcMain.handle('embedder:runBackfill', async (_e, workspaceId: number) => {
+    await getBackfillService().run(workspaceId)
   })
 }
 

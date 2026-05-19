@@ -70,6 +70,57 @@ const stub: Api = {
       }),
     onIndexProgress: () => () => undefined,
   },
+  embedder: {
+    status: () =>
+      Promise.resolve({
+        kind: 'embedder' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+      }),
+    info: () =>
+      Promise.resolve({
+        kind: 'embedder' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        resolvedPlacement: null,
+        placementChoice: 'auto' as const,
+        placementReason: null,
+      }),
+    reload: () =>
+      Promise.resolve({
+        kind: 'embedder' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        resolvedPlacement: null,
+        placementChoice: 'auto' as const,
+        placementReason: null,
+      }),
+    setPlacement: () => Promise.resolve(),
+    backfillStatus: (workspaceId: number) =>
+      Promise.resolve({
+        workspaceId,
+        state: 'idle' as const,
+        done: 0,
+        total: 0,
+        message: null,
+      }),
+    runBackfill: () => Promise.resolve(),
+    onStatus: () => () => undefined,
+    onBackfillStatus: () => () => undefined,
+  },
 }
 
 window.api = stub

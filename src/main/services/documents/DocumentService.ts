@@ -1,8 +1,10 @@
 import { basename, extname } from 'node:path'
 import { statSync } from 'node:fs'
+import { sql } from 'drizzle-orm'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { Document } from '../../db/schema'
+import type { EmbeddingService } from '../embeddings/EmbeddingService'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
 import { chunkPages, type Chunk } from './chunker'
@@ -20,7 +22,10 @@ export interface ImportInput {
 }
 
 export class DocumentService {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly embedder?: EmbeddingService,
+  ) {}
 
   async importFile(input: ImportInput): Promise<Document> {
     if (!isSupported(input.sourcePath)) {
@@ -94,8 +99,17 @@ export class DocumentService {
       if (input.chunkOverlap !== undefined) chunkOpts.overlap = input.chunkOverlap
       const out: Chunk[] = chunkPages(parsed.pages, chunkOpts)
 
-      // Spec 1: embedding phase is a no-op. Spec 2 wires BGE-M3 here.
+      // Embed first, persist second. Order matters: we need the chunk text
+      // available for embedPassages before the DB row exists, so we batch the
+      // forward pass over `out` then map vectors back to inserted rows by
+      // ordinal. embedder is optional — DocumentService is constructed without
+      // one in unit tests + the auth-flow integration paths, so the embedding
+      // phase silently degrades to a no-op (Spec 1 behaviour).
       send('embedding', 3)
+      let vectors: Array<number[] | null> | null = null
+      if (this.embedder && (await this.embedder.ensureReady())) {
+        vectors = await this.embedder.embedPassages(out.map((c) => c.text))
+      }
 
       send('persisting', 4)
       await repo.persistChunks(
@@ -108,6 +122,25 @@ export class DocumentService {
           tokenCount: estimateTokens(c.text),
         })),
       )
+      if (vectors) {
+        // chunks were just inserted; fetch their ids by document_id + ordinal
+        // and write embeddings. one round-trip to get the id map, then one
+        // UPDATE per non-null vector — fine at PAGE-sized batches.
+        const db = this.auth.requireDatabase().db
+        const rows = await db.execute(sql`
+          SELECT id, ordinal FROM chunks WHERE document_id = ${doc.id} ORDER BY ordinal
+        `)
+        const byOrdinal = new Map<number, number>(
+          (rows.rows as { id: number; ordinal: number }[]).map((r) => [r.ordinal, r.id]),
+        )
+        for (let i = 0; i < out.length; i++) {
+          const v = vectors[i]
+          const ord = out[i]?.ordinal
+          if (v == null || ord == null) continue
+          const id = byOrdinal.get(ord)
+          if (id != null) await repo.setChunkEmbedding(id, v)
+        }
+      }
       await repo.setDocumentStatus(doc.id, 'ready')
       send('done', 4)
     } catch (err) {

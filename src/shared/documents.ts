@@ -28,3 +28,30 @@ export interface IndexProgress {
   total: number
   error?: string
 }
+
+export type EmbedderState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
+
+export interface EmbedderStatus {
+  kind: 'embedder'
+  state: EmbedderState
+  modelPath: string | null
+  modelName: string | null
+  loadProgress: number | null
+  message: string | null
+}
+
+export interface EmbedderInfo extends EmbedderStatus {
+  bundledModelPath: string
+  bundledModelExists: boolean
+  resolvedPlacement: 'cpu' | 'gpu' | null
+  placementChoice: 'auto' | 'cpu' | 'gpu'
+  placementReason: string | null
+}
+
+export interface BackfillStatus {
+  workspaceId: number
+  state: 'idle' | 'running' | 'done' | 'failed'
+  done: number
+  total: number
+  message: string | null
+}
