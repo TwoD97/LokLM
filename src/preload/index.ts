@@ -17,6 +17,8 @@ import type {
   LlmProfileChoice,
   AnswerOptions,
   StreamEvent,
+  Conversation,
+  ConversationWithMessages,
 } from '../shared/documents'
 
 const api = {
@@ -76,6 +78,15 @@ const api = {
         ipcRenderer.removeListener('indexing:progress', listener)
       }
     },
+  },
+  conversations: {
+    list: (workspaceId: number): Promise<Conversation[]> =>
+      ipcRenderer.invoke('conversations:list', workspaceId),
+    create: (workspaceId: number, title?: string): Promise<Conversation> =>
+      ipcRenderer.invoke('conversations:create', workspaceId, title),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('conversations:delete', id),
+    getWithMessages: (id: number): Promise<ConversationWithMessages> =>
+      ipcRenderer.invoke('conversations:getWithMessages', id),
   },
   embedder: {
     status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),

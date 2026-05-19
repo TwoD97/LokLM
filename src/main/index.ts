@@ -268,6 +268,23 @@ function registerIpc(): void {
     })
   })
 
+  // conversations
+  ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>
+    getAuth().requireDatabase().conversations().list(workspaceId),
+  )
+  ipcMain.handle('conversations:create', async (_e, workspaceId: number, title?: string) =>
+    getAuth()
+      .requireDatabase()
+      .conversations()
+      .create(workspaceId, title ?? null),
+  )
+  ipcMain.handle('conversations:delete', async (_e, id: number) => {
+    await getAuth().requireDatabase().conversations().delete(id)
+  })
+  ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
+    getAuth().requireDatabase().conversations().getWithMessages(id),
+  )
+
   // embedder
   ipcMain.handle('embedder:status', async () => getEmbeddingService().getStatus())
   ipcMain.handle('embedder:info', async () => getEmbeddingService().info())
@@ -340,6 +357,20 @@ function registerIpc(): void {
     ) => {
       const ctrl = new AbortController()
       activeStreams.set(streamId, ctrl)
+      const conversations =
+        opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
+
+      // Persist the user message up-front so chat history is intact even if
+      // the stream errors or the renderer disconnects mid-flight.
+      if (conversations && opts.conversationId != null) {
+        await conversations.appendMessage(opts.conversationId, 'user', query)
+      }
+
+      const tokenBuffer: string[] = []
+      const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
+      let refused = false
+      let refusalMessage: string | null = null
+
       try {
         const stream = getQAService().answer(workspaceId, query, opts)
         for await (const ev of stream) {
@@ -349,6 +380,32 @@ function registerIpc(): void {
           } catch {
             ctrl.abort()
             break
+          }
+          if (ev.type === 'token') tokenBuffer.push(ev.text)
+          else if (ev.type === 'citation')
+            citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
+          else if (ev.type === 'refusal') {
+            refused = true
+            refusalMessage = ev.message
+          }
+        }
+
+        // Persist the assistant turn. Refusal short-circuits to an empty
+        // citations list with the refusal text as the assistant's content —
+        // resume of the conversation later sees an intact timeline.
+        if (conversations && opts.conversationId != null && !ctrl.signal.aborted) {
+          if (refused && refusalMessage != null) {
+            await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
+          } else if (tokenBuffer.length > 0) {
+            const assistantContent = tokenBuffer.join('')
+            const asst = await conversations.appendMessage(
+              opts.conversationId,
+              'assistant',
+              assistantContent,
+            )
+            if (citations.length > 0) {
+              await conversations.persistCitations(asst.id, citations)
+            }
           }
         }
       } finally {
