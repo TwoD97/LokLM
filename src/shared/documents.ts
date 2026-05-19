@@ -237,3 +237,15 @@ export interface ChunkWithContext {
   pageTo: number | null
   isTarget: boolean
 }
+
+/** Renderer-visible source-document metadata for a single chunk. The renderer
+ *  uses this to decide whether to render a PDF page preview, markdown, or
+ *  plain monospace text in the SourceViewer. */
+export interface ChunkSource {
+  documentId: number
+  title: string
+  mimeType: string | null
+  /** Absolute path on disk — only displayed, never used to load bytes
+   *  (renderer must go through documents.readDocumentBytes for that). */
+  sourcePath: string
+}

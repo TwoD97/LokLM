@@ -5,7 +5,10 @@ import type { RetrievalHit, StreamEvent, AnswerOptions } from '../../../shared/d
 import { REFUSAL_TEXT } from '../llm/prompt'
 
 const DEFAULT_TOP_K = 8
-const DEFAULT_REFUSAL_THRESHOLD = 0.3
+// RRF fuses 1/(60+rank) scores so even strong matches sit around 0.03–0.05.
+// The score gate is here purely to catch the empty-pool case; we rely on the
+// LLM itself to decline when the retrieved chunks don't actually answer.
+const DEFAULT_REFUSAL_THRESHOLD = 0
 
 /**
  * Streaming RAG entry-point. Pipeline:

@@ -150,6 +150,18 @@ export class DocumentsRepo {
     return row
   }
 
+  async getDocumentByChunkId(chunkId: number): Promise<Document | undefined> {
+    const r = await this.db.execute(sql`
+      SELECT d.*
+        FROM documents d
+        JOIN chunks   c ON c.document_id = d.id
+       WHERE c.id = ${chunkId}
+       LIMIT 1
+    `)
+    const row = (r.rows as unknown as Document[])[0]
+    return row
+  }
+
   async deleteDocument(id: number): Promise<void> {
     await this.db.delete(documents).where(eq(documents.id, id))
   }

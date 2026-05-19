@@ -23,6 +23,17 @@
   flex-direction: column;
   gap: 12px;
 }
+.chat__message-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chat__metrics {
+  font-size: 11px;
+  opacity: 0.5;
+  font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  padding: 0 4px;
+}
 .chat__input-wrap {
   border-top: 1px solid #1f2a3a;
   padding: 12px 20px;

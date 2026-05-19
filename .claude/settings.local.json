@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm rebuild *)",
+      "Bash(node install.js)",
+      "Bash(pnpm add *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit --no-verify -m ' *)"
+    ]
+  }
+}

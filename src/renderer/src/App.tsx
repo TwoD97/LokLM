@@ -53,6 +53,16 @@ export function App(): JSX.Element {
     return () => off()
   }, [refresh])
 
+  if (phase.kind === 'unlocked') {
+    return (
+      <>
+        <BackgroundFx />
+        <TitleBar />
+        <AppShell />
+      </>
+    )
+  }
+
   let content: JSX.Element
   if (phase.kind === 'loading') {
     content = (
@@ -101,8 +111,6 @@ export function App(): JSX.Element {
         onAcknowledge={() => setPhase({ kind: 'unlocked' })}
       />
     )
-  } else if (phase.kind === 'unlocked') {
-    content = <AppShell />
   } else {
     content = (
       <section className="auth-card">

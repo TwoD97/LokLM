@@ -76,10 +76,31 @@ async function parsePdf(filePath: string): Promise<ParsedDocument> {
   const parser = new PDFParse({ data: new Uint8Array(buf) })
   try {
     const result = await parser.getText()
-    const pages: PageText[] = result.pages.map((p) => ({ num: p.num, text: p.text }))
+    const pages: PageText[] = result.pages.map((p) => ({
+      num: p.num,
+      text: normalizePdfPageText(p.text),
+    }))
     const fullText = pages.map((p) => p.text).join('\n\n')
     return { kind: 'pdf', pages, fullText }
   } finally {
     await parser.destroy()
   }
+}
+
+// PDFs often render dot/underscore/dash "leaders" between TOC entries and page
+// numbers. They carry no information but blow up chunk size, harm embeddings,
+// and make chunk previews unreadable. We also clean up other repeated-glyph
+// runs that the extractor preserves verbatim.
+function normalizePdfPageText(text: string): string {
+  let out = text
+  // Dot leaders: 4+ dots optionally separated by spaces/tabs (keeps real ellipses "...").
+  out = out.replace(/(?:[ \t]*\.){4,}[ \t]*/g, ' ')
+  // Underscore / dash leaders: 4+ in a row (often used for form fields).
+  out = out.replace(/_{4,}/g, ' ')
+  out = out.replace(/-{4,}/g, ' ')
+  // Collapse runs of horizontal whitespace, but keep newlines intact.
+  out = out.replace(/[ \t]{2,}/g, ' ')
+  // Trim trailing spaces on each line so the cleanup is visible in previews.
+  out = out.replace(/[ \t]+\n/g, '\n')
+  return out
 }

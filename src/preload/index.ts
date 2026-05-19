@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
 import type {
@@ -20,6 +20,7 @@ import type {
   Conversation,
   ConversationWithMessages,
   ChunkWithContext,
+  ChunkSource,
 } from '../shared/documents'
 
 const api = {
@@ -68,6 +69,8 @@ const api = {
   documents: {
     list: (workspaceId: number): Promise<Document[]> =>
       ipcRenderer.invoke('documents:list', workspaceId),
+    getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+    pickFiles: (): Promise<string[]> => ipcRenderer.invoke('documents:pickFiles'),
     import: (workspaceId: number, sourcePath: string): Promise<Document> =>
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
@@ -78,6 +81,10 @@ const api = {
       after?: number,
     ): Promise<ChunkWithContext[]> =>
       ipcRenderer.invoke('documents:getChunkWithContext', chunkId, before ?? 1, after ?? 1),
+    getSourceForChunk: (chunkId: number): Promise<ChunkSource | null> =>
+      ipcRenderer.invoke('documents:getSourceForChunk', chunkId),
+    readDocumentBytes: (documentId: number): Promise<Uint8Array | null> =>
+      ipcRenderer.invoke('documents:readDocumentBytes', documentId),
     onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, p: IndexProgress): void => cb(p)
       ipcRenderer.on('indexing:progress', listener)

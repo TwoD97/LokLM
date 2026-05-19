@@ -239,6 +239,56 @@ body {
   flex: 1;
 }
 
+.titlebar__status {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.titlebar__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--fg-3);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4) inset;
+  transition:
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.titlebar__dot--idle,
+.titlebar__dot--unloaded {
+  background: var(--fg-3);
+}
+
+.titlebar__dot--loading {
+  background: #f0b429;
+  box-shadow: 0 0 6px rgba(240, 180, 41, 0.7);
+  animation: titlebar-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.titlebar__dot--ready {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
+}
+
+.titlebar__dot--failed {
+  background: var(--error);
+  box-shadow: 0 0 6px rgba(248, 81, 73, 0.6);
+}
+
+@keyframes titlebar-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .titlebar__controls {
   display: flex;
   align-items: stretch;

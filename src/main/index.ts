@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
@@ -174,6 +174,9 @@ function registerIpc(): void {
       const result = await getAuth().register(input)
       broadcastAuthState()
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+      void getLlamaService()
+        .autoLoad()
+        .catch(() => undefined)
       return result
     },
   )
@@ -183,6 +186,9 @@ function registerIpc(): void {
     if (result.ok) {
       broadcastAuthState()
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+      void getLlamaService()
+        .autoLoad()
+        .catch(() => undefined)
     }
     return result
   })
@@ -237,6 +243,23 @@ function registerIpc(): void {
   ipcMain.handle('documents:list', async (_e, workspaceId: number) => {
     return getAuth().requireDatabase().documents().listDocumentsByWorkspace(workspaceId)
   })
+  ipcMain.handle('documents:pickFiles', async (e) => {
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Dokumente',
+          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+        },
+        { name: 'Alle Dateien', extensions: ['*'] },
+      ],
+    }
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
+    return result.canceled ? [] : result.filePaths
+  })
   ipcMain.handle('documents:import', async (e, workspaceId: number, sourcePath: string) => {
     try {
       return await getDocumentService().importFile({
@@ -273,6 +296,30 @@ function registerIpc(): void {
     async (_e, chunkId: number, before: number = 1, after: number = 1) =>
       getAuth().requireDatabase().documents().getChunkWithContext(chunkId, before, after),
   )
+
+  ipcMain.handle('documents:getSourceForChunk', async (_e, chunkId: number) => {
+    const doc = await getAuth().requireDatabase().documents().getDocumentByChunkId(chunkId)
+    if (!doc) return null
+    return {
+      documentId: doc.id,
+      title: doc.title,
+      mimeType: doc.mimeType,
+      sourcePath: doc.sourcePath,
+    }
+  })
+
+  // Returns raw bytes for a PDF document so the renderer can display the page
+  // via pdfjs. We gate this on mime-type/extension so it can't be used to
+  // exfiltrate arbitrary files; the caller must know a valid document id.
+  ipcMain.handle('documents:readDocumentBytes', async (_e, documentId: number) => {
+    const doc = await getAuth().requireDatabase().documents().getDocument(documentId)
+    if (!doc) return null
+    const isPdf = doc.mimeType === 'application/pdf' || /\.pdf$/i.test(doc.sourcePath)
+    if (!isPdf) return null
+    const { readFile } = await import('node:fs/promises')
+    const buf = await readFile(doc.sourcePath)
+    return new Uint8Array(buf)
+  })
 
   // conversations
   ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>

@@ -1,28 +1,38 @@
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w, 48px) 1fr;
-  height: calc(100vh - 32px);
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
   transition: grid-template-columns 200ms ease;
 }
 .app-shell--expanded {
   --sidebar-w: 260px;
 }
 .app-shell__sidebar {
+  display: flex;
   background: #0b1726;
   border-right: 1px solid #1f2a3a;
-  overflow-y: auto;
   overflow-x: hidden;
+  min-height: 0;
 }
 .app-shell__main {
   overflow-y: auto;
   overflow-x: hidden;
 }
 .sidebar__rail {
+  flex: 0 0 48px;
+  width: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 8px 0;
   gap: 4px;
+  border-right: 1px solid #1f2a3a;
+  overflow-y: auto;
 }
 .sidebar__rail-btn {
   width: 36px;
@@ -45,9 +55,17 @@
   background: #16263b;
 }
 .sidebar__expanded {
+  flex: 1;
+  min-width: 0;
   padding: 12px;
-  width: 260px;
+  overflow-y: auto;
   box-sizing: border-box;
+}
+.sidebar__expanded-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 .sidebar__section-label {
   font-size: 11px;

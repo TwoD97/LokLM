@@ -49,12 +49,17 @@ export function AppShell(): JSX.Element {
         onPeek={setPeeking}
       />
       <main className="app-shell__main">
-        {activeView === 'library' && <LibraryView />}
+        {activeWorkspaceId == null && (
+          <div style={{ padding: 40, opacity: 0.6 }}>Create or select a workspace first.</div>
+        )}
+        {activeView === 'library' && activeWorkspaceId != null && (
+          <LibraryView
+            workspaceId={activeWorkspaceId}
+            workspaceName={workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? ''}
+          />
+        )}
         {activeView === 'chat' && activeWorkspaceId != null && (
           <ChatView workspaceId={activeWorkspaceId} />
-        )}
-        {activeView === 'chat' && activeWorkspaceId == null && (
-          <div style={{ padding: 40, opacity: 0.6 }}>Create or select a workspace first.</div>
         )}
       </main>
     </div>
