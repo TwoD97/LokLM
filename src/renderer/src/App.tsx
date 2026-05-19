@@ -4,7 +4,7 @@ import { LoginView } from './auth/LoginView'
 import { PassphraseReveal } from './auth/PassphraseReveal'
 import { RegisterView } from './auth/RegisterView'
 import { ResetView } from './auth/ResetView'
-import { UnlockedView } from './auth/UnlockedView'
+import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
 
@@ -101,8 +101,8 @@ export function App(): JSX.Element {
         onAcknowledge={() => setPhase({ kind: 'unlocked' })}
       />
     )
-  } else if (phase.kind === 'unlocked' && status) {
-    content = <UnlockedView status={status} onLocked={() => setPhase({ kind: 'login' })} />
+  } else if (phase.kind === 'unlocked') {
+    content = <AppShell />
   } else {
     content = (
       <section className="auth-card">

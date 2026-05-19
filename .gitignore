@@ -150,3 +150,7 @@ docs/api/
 .tsbuildinfo-web/
 models/
 LokLM.zip
+
+docs/superpowers/
+docs/work/
+.superpowers

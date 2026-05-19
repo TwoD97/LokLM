@@ -1,0 +1,144 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface Case {
+  icon: 'lawyer' | 'researcher' | 'consultant' | 'developer'
+  labelKey: UIKey
+  questionKey: UIKey
+  outcomeKey: UIKey
+}
+
+const cases: Case[] = [
+  { icon: 'lawyer', labelKey: 'usecase.lawyer.label', questionKey: 'usecase.lawyer.question', outcomeKey: 'usecase.lawyer.outcome' },
+  { icon: 'researcher', labelKey: 'usecase.researcher.label', questionKey: 'usecase.researcher.question', outcomeKey: 'usecase.researcher.outcome' },
+  { icon: 'consultant', labelKey: 'usecase.consultant.label', questionKey: 'usecase.consultant.question', outcomeKey: 'usecase.consultant.outcome' },
+  { icon: 'developer', labelKey: 'usecase.developer.label', questionKey: 'usecase.developer.question', outcomeKey: 'usecase.developer.outcome' },
+]
+---
+
+<section class="cases">
+  <div class="cases__inner">
+    <div class="cases__head">
+      <span class="section-eyebrow">{t(lang, 'usecase.eyebrow')}</span>
+      <h2 class="section-title gradient-text">{t(lang, 'usecase.title')}</h2>
+      <p class="cases__sub">{t(lang, 'usecase.subtitle')}</p>
+    </div>
+
+    <ul class="cases__grid">
+      {cases.map((c) => (
+        <li class="cases__card glass">
+          <div class="cases__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              {c.icon === 'lawyer' && (
+                <>
+                  <path d="M3 21h18" />
+                  <path d="M12 3v18" />
+                  <path d="M6 8h12" />
+                  <path d="m4 12 2-4 2 4" />
+                  <path d="m16 12 2-4 2 4" />
+                </>
+              )}
+              {c.icon === 'researcher' && (
+                <>
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.3-4.3" />
+                </>
+              )}
+              {c.icon === 'consultant' && (
+                <>
+                  <rect x="3" y="7" width="18" height="13" rx="2" />
+                  <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M3 13h18" />
+                </>
+              )}
+              {c.icon === 'developer' && (
+                <>
+                  <path d="m10 16-4-4 4-4" />
+                  <path d="m14 8 4 4-4 4" />
+                </>
+              )}
+            </svg>
+          </div>
+          <span class="cases__label">{t(lang, c.labelKey)}</span>
+          <p class="cases__q">&ldquo;{t(lang, c.questionKey)}&rdquo;</p>
+          <p class="cases__o">&rarr; {t(lang, c.outcomeKey)}</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .cases { padding: 5rem 0; }
+  @media (min-width: 768px) { .cases { padding: 7rem 0; } }
+
+  .cases__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .cases__head { max-width: 36rem; margin-bottom: 3rem; }
+  .cases__sub {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    line-height: 1.6;
+  }
+
+  .cases__grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) {
+    .cases__grid { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  }
+
+  .cases__card {
+    padding: 1.75rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .cases__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--color-accent-hover);
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .cases__label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    margin-bottom: 0.75rem;
+  }
+
+  .cases__q {
+    color: var(--color-fg-0);
+    font-size: 1.05rem;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  .cases__o {
+    margin-top: 0.75rem;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+</style>

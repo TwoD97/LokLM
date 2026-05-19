@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -14,9 +14,10 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "electron-builder --win nsis",
-    "package:linux": "electron-builder --linux AppImage",
-    "package:mac": "electron-builder --mac dmg",
+    "prepackage:check-models": "node scripts/check-bundled-models.mjs",
+    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win nsis",
+    "package:linux": "pnpm prepackage:check-models && electron-vite build && electron-builder --linux AppImage",
+    "package:mac": "pnpm prepackage:check-models && electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -41,6 +42,12 @@
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
     "postinstall": "electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\"",
+    "models": "node scripts/download-models.mjs",
+    "models:embedder": "node scripts/download-models.mjs embedder",
+    "models:lite": "node scripts/download-models.mjs lite",
+    "models:medium": "node scripts/download-models.mjs medium",
+    "models:pro": "node scripts/download-models.mjs pro",
+    "models:all": "node scripts/download-models.mjs all",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
@@ -56,7 +63,6 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
-    "electron-builder": "^25.1.8",
     "@eslint/js": "^9.16.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -68,6 +74,7 @@
     "@vitest/coverage-v8": "^2.1.8",
     "drizzle-kit": "^0.31.10",
     "electron": "^42.0.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "eslint": "^9.16.0",
     "eslint-config-prettier": "^9.1.0",
@@ -92,7 +99,11 @@
     "@electric-sql/pglite": "^0.4.5",
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "node-llama-cpp": "^3.18.1",
+    "pdf-parse": "^2.4.5",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "build": {
     "appId": "com.loklm.desktop",
@@ -111,6 +122,23 @@
     ],
     "asar": true,
     "publish": null,
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      },
+      {
+        "from": "drizzle",
+        "to": "drizzle"
+      },
+      {
+        "from": "src/main/db/migrations",
+        "to": "migrations"
+      }
+    ],
     "win": {
       "target": [
         {
@@ -159,7 +187,8 @@
       "argon2",
       "esbuild",
       "electron",
-      "@electron/rebuild"
+      "@electron/rebuild",
+      "node-llama-cpp"
     ],
     "overrides": {
       "esbuild": "0.25.12"
