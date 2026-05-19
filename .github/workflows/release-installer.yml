@@ -62,6 +62,16 @@ jobs:
       - name: Build (electron-vite)
         run: pnpm build
 
+      # v0.2+ bundelt die GGUFs (BGE-M3 embedder + Qwen3-8B medium-llm) in den
+      # installer. Auf dem CI-runner liegt keine models/ , also vor dem package-
+      # step herunterladen. Lokale builds auf dem build-server skippen das ,
+      # weil dort die modelle dauerhaft auf disk liegen (siehe scripts/check-
+      # bundled-models.mjs , das checkt die anwesenheit und gibt eine klare
+      # fehlermeldung wenn etwas fehlt).
+      - name: Download bundled models (embedder + medium llm)
+        shell: bash
+        run: pnpm models:embedder && pnpm models:medium
+
       - name: Prepare signing cert (wenn secret gesetzt)
         shell: bash
         env:
@@ -115,9 +125,86 @@ jobs:
           /tmp/mc.exe cp "release/LokLM-Setup-${V}.exe.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
+  build-linux:
+    name: Build AppImage + upload to minio
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      sha256: ${{ steps.hash.outputs.sha256 }}
+      size: ${{ steps.hash.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version (tag oder dispatch-input)
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (electron-vite)
+        run: pnpm build
+
+      - name: Download bundled models (embedder + medium llm)
+        run: pnpm models:embedder && pnpm models:medium
+
+      - name: Package (AppImage)
+        run: pnpm package:linux
+
+      - name: Compute sha256 + size
+        id: hash
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          APP="release/LokLM-${V}.AppImage"
+          if [ ! -f "$APP" ]; then
+            echo "expected artefact missing: $APP"; ls -la release/; exit 1
+          fi
+          SHA=$(sha256sum "$APP" | awk '{print $1}')
+          SIZE=$(stat -c%s "$APP")
+          echo "$SHA  $(basename "$APP")" > "${APP}.sha256"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "built $APP , size=$SIZE sha256=$SHA"
+
+      - name: Install mc
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x /tmp/mc
+          /tmp/mc --version | head -1
+
+      - name: Upload to minio
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc cp "release/LokLM-${V}.AppImage" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-${V}.AppImage.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc ls "s3target/loklm-installers/v${V}/"
+
   bump-and-redeploy:
     name: Bump manifest + redeploy website
-    needs: build-windows
+    needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -135,13 +222,21 @@ jobs:
             pnpm-lock.yaml
             website/pnpm-lock.yaml
 
-      - name: Patch releases.ts
+      - name: Patch releases.ts (windows)
         run: |
           node scripts/bump-release.mjs \
             "${{ needs.build-windows.outputs.version }}" \
             windows \
             "${{ needs.build-windows.outputs.sha256 }}" \
             "${{ needs.build-windows.outputs.size }}"
+
+      - name: Patch releases.ts (linux)
+        run: |
+          node scripts/bump-release.mjs \
+            "${{ needs.build-linux.outputs.version }}" \
+            linux \
+            "${{ needs.build-linux.outputs.sha256 }}" \
+            "${{ needs.build-linux.outputs.size }}"
 
       - name: Install website deps
         working-directory: website
@@ -183,7 +278,7 @@ jobs:
             exit 0
           fi
           git add website/src/data/releases.ts
-          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows asset"
+          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux assets"
           git push origin main
 
       - name: Clean up SSH key
