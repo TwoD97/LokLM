@@ -1,17 +1,9 @@
 import type { ChunkRow, Database, SearchHit } from '../../db/database'
 import type { EmbeddingService } from '../embeddings/EmbeddingService'
+import type { LlamaService } from '../llm/LlamaService'
 import type { RerankerService } from './RerankerService'
 import { fuseRrf } from './rrf'
 import { applyTitleBoost, applyShortChunkPenalty, applyRecencyBoost } from './heuristics'
-
-// LlamaService isn't ported yet (lands in Plan 2C). Forward-declare the
-// minimal interface RetrievalService needs for multi-query expansion. When
-// 2C lands, replace this with the real import from '../llm/LlamaService'.
-interface LlamaServiceLike {
-  isReady(): boolean
-  complete(prompt: string, opts?: { maxTokens?: number; temperature?: number }): Promise<string>
-}
-type LlamaService = LlamaServiceLike
 
 export interface RetrievalHit {
   chunk_id: number
@@ -242,7 +234,7 @@ export class RetrievalService {
         `Produce 2 paraphrases of the user's search query that retain the original meaning ` +
         `but use different vocabulary so a keyword index can find them. Output strictly two ` +
         `lines, one paraphrase per line, no preamble.\n\nQuery: ${query}\n\nParaphrases:`
-      const raw = await this.llama.complete(prompt)
+      const raw = await this.llama.generateRaw(prompt)
       const lines = raw
         .split(/\r?\n/)
         .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())

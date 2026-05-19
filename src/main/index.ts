@@ -9,6 +9,8 @@ import { EmbeddingService } from './services/embeddings/EmbeddingService'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
+import { LlamaService } from './services/llm/LlamaService'
+import { QAService } from './services/qa/QAService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -43,6 +45,7 @@ function resetSessionServices(): void {
   // reload, so warming them across a lock cycle is the right UX.
   backfillService = null
   retrievalService = null
+  qaService = null
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
@@ -63,6 +66,8 @@ let embeddingService: EmbeddingService | null = null
 let backfillService: EmbeddingBackfillService | null = null
 let rerankerService: RerankerService | null = null
 let retrievalService: RetrievalService | null = null
+let llamaService: LlamaService | null = null
+let qaService: QAService | null = null
 
 function getWorkspaceService(): WorkspaceService {
   workspaceService ??= new WorkspaceService(getAuth())
@@ -95,6 +100,29 @@ function getBackfillService(): EmbeddingBackfillService {
   return backfillService
 }
 
+function getLlamaService(): LlamaService {
+  if (!llamaService) {
+    llamaService = new LlamaService()
+    llamaService.subscribe((status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('llm:status', status)
+        } catch {
+          /* ignore */
+        }
+      }
+    })
+  }
+  return llamaService
+}
+
+function getQAService(): QAService {
+  if (!qaService) {
+    qaService = new QAService(getAuth().requireDatabase(), getRetrievalService(), getLlamaService())
+  }
+  return qaService
+}
+
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
     rerankerService = new RerankerService()
@@ -117,8 +145,7 @@ function getRetrievalService(): RetrievalService {
       getAuth().requireDatabase(),
       getEmbeddingService(),
       getRerankerService(),
-      // LlamaService not yet available — Plan 2C wires it in
-      undefined,
+      getLlamaService(),
     )
   }
   return retrievalService
@@ -283,6 +310,54 @@ function registerIpc(): void {
   })
   ipcMain.handle('reranker:setPlacement', async (_e, choice: 'auto' | 'cpu' | 'gpu') => {
     getRerankerService().setPlacement(choice)
+  })
+
+  // llm
+  ipcMain.handle('llm:status', async () => getLlamaService().getStatus())
+  ipcMain.handle('llm:info', async () => getLlamaService().systemInfo())
+  ipcMain.handle('llm:reload', async () => {
+    await getLlamaService().unload()
+    await getLlamaService().autoLoad()
+    return getLlamaService().systemInfo()
+  })
+  ipcMain.handle(
+    'llm:setProfile',
+    async (_e, choice: import('../shared/documents').LlmProfileChoice) => {
+      getLlamaService().setSelectedProfile(choice)
+    },
+  )
+
+  // chat streaming — one stream per (sender, streamId); caller assigns id
+  const activeStreams = new Map<string, AbortController>()
+  ipcMain.handle(
+    'chat:stream',
+    async (
+      e,
+      streamId: string,
+      workspaceId: number,
+      query: string,
+      opts: import('../shared/documents').AnswerOptions = {},
+    ) => {
+      const ctrl = new AbortController()
+      activeStreams.set(streamId, ctrl)
+      try {
+        const stream = getQAService().answer(workspaceId, query, opts)
+        for await (const ev of stream) {
+          if (ctrl.signal.aborted) break
+          try {
+            e.sender.send(`chat:stream-event:${streamId}`, ev)
+          } catch {
+            ctrl.abort()
+            break
+          }
+        }
+      } finally {
+        activeStreams.delete(streamId)
+      }
+    },
+  )
+  ipcMain.handle('chat:cancel', async (_e, streamId: string) => {
+    activeStreams.get(streamId)?.abort()
   })
 }
 
