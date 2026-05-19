@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0B1B2B"/>
+
+  <g opacity="0.06">
+    <circle cx="120" cy="540" r="280" fill="#7DD3FC"/>
+    <circle cx="1080" cy="120" r="220" fill="#1F4FB8"/>
+  </g>
+
+  <g transform="translate(96 175) scale(4.2)">
+    <rect x="14" y="22" width="36" height="30" rx="2" stroke="#F6F4EF" stroke-width="3" opacity="0.4"/>
+    <rect x="11" y="17" width="36" height="30" rx="2" stroke="#F6F4EF" stroke-width="3" opacity="0.7"/>
+    <rect x="8" y="12" width="36" height="30" rx="2" fill="#0B1B2B" stroke="#F6F4EF" stroke-width="3"/>
+    <circle cx="38" cy="20" r="2.6" fill="#7DD3FC"/>
+    <path d="M14 22 H32 M14 28 H30 M14 34 H26" stroke="#F6F4EF" stroke-width="1.8" stroke-linecap="round" opacity="0.55"/>
+  </g>
+
+  <g font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Consolas, monospace" fill="#7DD3FC">
+    <text x="445" y="220" font-size="22" font-weight="600" letter-spacing="6">LOCAL  ·  OFFLINE  ·  OPEN SOURCE</text>
+  </g>
+
+  <g font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" fill="#F6F4EF">
+    <text x="443" y="340" font-size="120" font-weight="700" letter-spacing="-4">
+      <tspan font-weight="600">Lok</tspan><tspan font-weight="500">LM</tspan>
+    </text>
+    <text x="445" y="410" font-size="34" font-weight="400" fill="#B6BEC9">Query your own documents — fully offline.</text>
+  </g>
+
+  <g font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Consolas, monospace" fill="#6E7681">
+    <text x="445" y="510" font-size="18" letter-spacing="2">github.com/TwoD97/LokLM  ·  MIT</text>
+  </g>
+</svg>

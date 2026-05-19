@@ -1,0 +1,40 @@
+---
+import LangSwitch from './LangSwitch.astro'
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+---
+
+<header class="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-bg-0)]/70 backdrop-blur-xl">
+  <nav class="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
+    <a href={lang === 'de' ? '/' : '/en/'} class="flex items-center gap-2.5 group">
+      <img
+        src="/brand/mark-on-dark.svg"
+        alt=""
+        width="28"
+        height="28"
+        class="w-7 h-7 transition-transform duration-200 group-hover:-translate-y-0.5"
+        aria-hidden="true"
+      />
+      <span class="mono uppercase tracking-[0.14em] text-xs text-[color:var(--color-fg-1)] group-hover:text-[color:var(--color-fg-0)] transition-colors">
+        LokLM
+      </span>
+    </a>
+
+    <div class="flex items-center gap-1 text-sm">
+      <a href="#features" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+        {t(lang, 'nav.features')}
+      </a>
+      <a href="#download" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+        {t(lang, 'nav.download')}
+      </a>
+      <a href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+        {t(lang, 'nav.github')}
+      </a>
+      <div class="ml-2 pl-2 border-l border-[color:var(--color-border)]">
+        <LangSwitch />
+      </div>
+    </div>
+  </nav>
+</header>

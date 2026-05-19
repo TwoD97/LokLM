@@ -1,0 +1,124 @@
+Retrieval Augmented Generation, kurz RAG, kombiniert ein generatives Sprachmodell
+mit einem externen Wissensspeicher. Das Verfahren wurde populär gemacht, weil
+reine Sprachmodelle ohne externen Zugriff keine aktuellen Fakten kennen, keine
+nachvollziehbaren Quellen liefern und durch parametrisches Wissen leicht zu
+plausiblen aber falschen Aussagen verleitet werden. RAG adressiert diese drei
+Schwächen gleichzeitig, indem es vor jeder Antwort einen Retrieval-Schritt
+einschiebt, der relevante Dokumentstellen ins Kontextfenster des Modells holt.
+
+Der Speicher wird vorbereitet, indem Dokumente in kleinere Abschnitte zerlegt
+und über ein Embedding-Modell in Vektoren überführt werden. Diese Vektoren
+werden in einer Vektordatenbank gespeichert. Die Datenbank kann eine
+spezialisierte Lösung wie Qdrant, Pinecone oder Weaviate sein, oder eine
+Erweiterung einer klassischen relationalen Datenbank wie pgvector in
+PostgreSQL. Für lokale Anwendungen reicht häufig ein einfacher Index im
+Arbeitsspeicher, sofern die Korpusgröße im niedrigen Millionenbereich an
+Chunks bleibt.
+
+Zum Beantwortungszeitpunkt wird die Nutzerfrage ebenfalls eingebettet und die
+ähnlichsten Vektoren werden zurückgegeben. Üblich ist eine erste Stufe mit
+Top-K-Retrieval anhand der Kosinus-Ähnlichkeit, gefolgt von einer optionalen
+Reranking-Stufe mit einem Cross-Encoder, der Frage und Kandidat gemeinsam
+bewertet. Die ausgewählten Chunks werden zusammen mit der Frage in einen
+Prompt eingefügt, der das Sprachmodell anweist, ausschließlich auf Basis der
+gelieferten Belege zu antworten und Quellen zu nennen.
+
+Die Chunk-Größe beeinflusst die Retrieval-Qualität erheblich. Sehr kleine
+Chunks haben präzise Treffer, aber wenig Kontext für das nachgeschaltete
+Sprachmodell. Sehr große Chunks haben viel Kontext, aber das Ähnlichkeits-Signal
+verwässert, weil eine spezifische Frage mit einem langen Abschnitt vermischt
+wird, dessen Großteil mit der Frage nichts zu tun hat. Übliche Werte liegen
+zwischen 256 und 1024 Tokens mit einer Überlappung von zehn bis zwanzig
+Prozent. Die Überlappung verhindert, dass eine zentrale Information genau an
+einer Chunk-Grenze abgeschnitten wird.
+
+Es gibt drei verbreitete Chunking-Strategien. Erstens das feste Token-Fenster,
+das einen Text in gleichgroße Abschnitte zerschneidet, unabhängig von der
+inhaltlichen Struktur. Zweitens das satz- oder absatzweise Chunking, das an
+syntaktischen Grenzen schneidet und damit die Lesbarkeit der Chunks für das
+Sprachmodell verbessert. Drittens das semantische Chunking, das die
+Embeddings benachbarter Sätze vergleicht und immer dann eine neue Chunk-Grenze
+setzt, wenn die Ähnlichkeit unter einen Schwellenwert fällt. Semantisches
+Chunking ist aufwändiger, liefert aber häufig die besten Retrieval-Resultate.
+
+Embedding-Modelle unterscheiden sich in mehreren Dimensionen. Die wichtigsten
+sind die Vektor-Dimensionalität, die Sprach-Abdeckung, die maximale
+Sequenzlänge und der Trainings-Korpus. Modelle wie all-MiniLM-L6-v2 sind klein
+und schnell, mit 384-dimensionalen Vektoren und englisch-zentriertem Training.
+bge-base-en und bge-small-en sind moderne Open-Source-Modelle aus China mit
+sehr guter Performance auf englischen Benchmarks. nomic-embed-text ist ein
+8192-Token-fähiges Modell, das für lange Dokumente geeignet ist. Für
+mehrsprachige Anwendungen, einschließlich Deutsch, sind multilingual-e5,
+LaBSE oder die multilingualen BGE-Varianten geeignet.
+
+Reranker arbeiten typischerweise auf Cross-Encoder-Basis. Im Gegensatz zu
+Bi-Encoder-Embeddings, die Frage und Kandidat getrennt einbetten und die
+Vektoren über Ähnlichkeit vergleichen, leitet ein Cross-Encoder beide Texte
+gemeinsam durch ein einzelnes Modell und gibt einen direkten Relevanz-Score
+aus. Modelle wie bge-reranker-base, ms-marco-MiniLM-L-12 oder die größeren
+Varianten von Cohere und Mixedbread erhöhen die nDCG-Werte gegenüber reinen
+Bi-Encoder-Embeddings deutlich, kosten aber Inferenz-Zeit pro Kandidat.
+Eine pragmatische Pipeline retrieved zunächst die Top-100 oder Top-200
+Kandidaten mit dem Bi-Encoder und rerankt diese dann mit einem Cross-Encoder
+zur finalen Top-10.
+
+Die Prompt-Architektur für die Generation muss drei Dinge leisten. Erstens
+muss sie das Modell anweisen, nur auf Basis der gelieferten Chunks zu
+antworten und bei fehlender Information explizit zu sagen, dass keine Antwort
+möglich ist. Zweitens muss sie eine klare Form für Zitate vorgeben, damit die
+Antwort automatisch in eine UI mit anklickbaren Belegen überführt werden
+kann. Drittens muss sie das Modell davon abhalten, externes parametrisches
+Wissen einzustreuen, ohne es als solches zu kennzeichnen.
+
+Ein typisches Antwortformat ist eine Liste von Aussagen, jede mit einer
+Quellenangabe in eckigen Klammern, gefolgt von einer Bibliografie am Ende.
+Das Modell soll lernen, dass jede Aussage mit mindestens einer Quelle belegt
+sein muss und dass es bei mehrdeutigen oder widersprüchlichen Belegen die
+Spannung explizit ausdrücken soll, statt eine der beiden Quellen einfach zu
+ignorieren.
+
+Die Evaluierung eines RAG-Systems unterscheidet zwischen Retrieval-Qualität
+und Generations-Qualität. Retrieval-Qualität misst, ob die relevanten Chunks
+unter den Top-K landen. Generations-Qualität misst, ob die finale Antwort
+korrekt, vollständig, gut belegt und sprachlich angemessen ist. Beide
+Qualitäten sind nicht unabhängig: wenn das Retrieval die falschen Chunks
+liefert, kann auch die beste Generation keine korrekte Antwort produzieren,
+und wenn die Generation halluziniert, helfen auch perfekte Chunks wenig.
+
+Daten für die Retrieval-Evaluierung lassen sich auf drei Wegen beschaffen.
+Erstens manuelle Annotation: ein Mensch liest Dokumente und formuliert
+Fragen, deren Antwort er per Hand auf bestimmte Chunks abbildet. Zweitens
+existierende Benchmarks wie BEIR oder MTEB, die viele englische Datensätze
+für Retrieval bereitstellen. Drittens synthetische Generierung: ein
+leistungsfähiges Sprachmodell bekommt einen Chunk und wird gebeten, Fragen
+zu erzeugen, die durch diesen Chunk beantwortet werden. Die synthetische
+Generierung ist die einzige Methode, die skaliert und gleichzeitig domänen-
+spezifisch ist, hat aber den Nachteil, dass sie die Verzerrungen des
+generierenden Modells in den Evaluierungs-Korpus einschleppt.
+
+Hybrid-Retrieval kombiniert dichte Vektorsuche mit klassischer lexikalischer
+Suche wie BM25. Die beiden Verfahren machen unterschiedliche Fehler:
+Vektorsuche versteht Synonyme und Paraphrasen, scheitert aber an exakten
+Bezeichnern, seltenen Eigennamen und Zahlen. BM25 ist umgekehrt sehr stark
+bei exakten Treffern und versagt bei Paraphrasen. Eine gewichtete oder
+reziproke Rang-Fusion der beiden Treffer-Listen ist häufig besser als jedes
+Verfahren einzeln. In der Praxis ist die Gewichtung domänenabhängig und sollte
+auf einem repräsentativen Eval-Datensatz kalibriert werden.
+
+Die Persistierung der Vektorindex-Struktur ist ein eigenes Thema. Naive
+Implementierungen vergleichen die Anfrage-Vektor mit jedem Korpus-Vektor und
+sind damit linear in der Korpusgröße. Approximierte Nearest-Neighbor-Strukturen
+wie HNSW, IVF oder Scalar-Quantization beschleunigen die Suche auf
+logarithmisch oder konstant-amortisiert, kosten aber Genauigkeit und
+Speicher beim Index-Aufbau. Für lokale Anwendungen mit wenigen hunderttausend
+Chunks ist eine reine Brute-Force-Suche meist schnell genug, sodass die
+Komplexität eines ANN-Index nicht gerechtfertigt ist.
+
+Die Aktualisierung des Korpus ist häufig unterschätzt. Wenn ein Dokument
+geändert wird, müssen alle seine Chunks aus dem Index entfernt und neu
+eingefügt werden. Eine reine Append-Strategie führt schnell zu veralteten
+Treffern und sinkender Retrieval-Qualität. Eine saubere Implementierung
+verwaltet pro Dokument einen Hash, vergleicht diesen vor jedem Indexierungs-
+schritt und löscht veraltete Chunks zuverlässig. Bei großen Korpora lohnt sich
+ein delta-basierter Re-Index, der nur die geänderten Dokumente neu verarbeitet,
+nicht den ganzen Bestand.

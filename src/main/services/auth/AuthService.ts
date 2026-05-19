@@ -1,8 +1,8 @@
 import { promises as fs } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from 'node:crypto'
-import { hashRaw as argonHashRaw, Algorithm } from '@node-rs/argon2'
-import { Database } from '../db/database'
+import argon2 from 'argon2'
+import { Database } from '../../db/database'
 import {
   generatePassphrase as generatePassphraseShared,
   normalisePassphrase as normalisePassphraseShared,
@@ -11,27 +11,39 @@ import {
   getWordlist,
   PASSPHRASE_WORDS,
   type WordlistLang,
-} from '../../shared/authHelpers'
+} from '../../../shared/authHelpers'
+import type { AuthStatus, LoginResult, ResetResult } from '../../../shared/authTypes'
 
-// auth.json — bootstrap material for unlocking the encrypted snapshot.
-// Lives outside the encrypted snapshot itself: salts, verifier-free wrapped
-// keys, no password material.
+// vault layout v4 , one file on disk:
 //
-// Crypto layering (v3):
-//   * DEK (32 random bytes) is the key that actually encrypts the snapshot.
-//   * The DEK is wrapped (AES-256-GCM) under two independent KEKs:
-//       - one KEK derived from the password
-//       - one KEK derived from an 18-word BIP-39-style passphrase
-//   * Each KEK = argon2id(secret, salt, 32-byte raw output).
-//   * The DEK never changes for the lifetime of the install. Password reset
-//     re-wraps the DEK under a new password-KEK and a fresh passphrase-KEK —
-//     the snapshot ciphertext is untouched, so the library survives a recovery flow.
-interface AuthFile {
-  version: 3
+//   MAGIC          8 bytes   "LOKLM04\0"
+//   HEADER_LEN     4 bytes   big-endian uint32
+//   HEADER_JSON    N bytes   utf-8 json , AuthHeader (wrapped DEKs , salts , displayName)
+//   BODY_NONCE    12 bytes   AES-GCM nonce for the snapshot ciphertext
+//   BODY_TAG      16 bytes   AES-GCM auth tag
+//   BODY_CIPHER   rest       AES-256-GCM(DEK) of the pglite tar dump
+//
+// why one file: wrapped DEK and ciphertext live or die together. if the
+// header gets deleted or quarantined the snapshot is gone even with the
+// right password or passphrase , so splitting them gains nothing and adds
+// a failure mode. one file means either the vault is fine or its gone ,
+// nothing in between. atomic rename keeps header and body in sync , and
+// backups are just one file to copy.
+//
+// crypto layers (same as v3):
+//   - DEK , 32 random bytes , encrypts the snapshot body
+//   - DEK is wrapped twice with AES-256-GCM under two independent KEKs ,
+//     one from the password , one from an 18-word BIP-39 style passphrase
+//   - each KEK = argon2id(secret , salt , 32 byte raw output)
+//   - DEK stays the same for the whole install. on password reset we just
+//     re-wrap it under fresh KEKs and re-encrypt the body with a new nonce ,
+//     so library content survives the recovery flow.
+interface AuthHeader {
+  version: 4
   displayName: string
   passwordSalt: string // base64(32) — KEK derivation salt for password
   passwordWrappedDek: WrappedKey // DEK encrypted under password-KEK
-  recoveryEntries: RecoveryEntry[] // length 1 in v3
+  recoveryEntries: RecoveryEntry[] // length 1 in v4
   recoveryLang: WordlistLang
   createdAt: number
 }
@@ -48,61 +60,54 @@ interface WrappedKey {
   ciphertext: string // base64(32 + 16) — DEK + GCM auth tag
 }
 
-export type AuthStatus = {
-  registered: boolean
-  locked: boolean
-  displayName: string | null
-  remainingRecoveryCodes: number // 0 or 1
-  recoveryLang: WordlistLang | null
+interface EncryptedBody {
+  nonce: Buffer // 12 bytes
+  tag: Buffer // 16 bytes
+  ciphertext: Buffer
 }
 
-export type LoginResult =
-  | { ok: true }
-  | { ok: false; reason: 'no_user' | 'bad_password' | 'rate_limited'; retryAfterMs?: number }
-
-export type ResetResult =
-  | { ok: true; passphrase: string[] }
-  | { ok: false; reason: 'no_user' | 'bad_code' | 'rate_limited'; retryAfterMs?: number }
+export type { AuthStatus, LoginResult, ResetResult }
 
 const ARGON_OPTS = {
-  algorithm: Algorithm.Argon2id as const,
-  memoryCost: 65536, // 64 MiB — Pflichtenheft 3.1.1
+  type: argon2.argon2id,
+  memoryCost: 65536, // 64 MiB , per Pflichtenheft 3.1.1
   timeCost: 3,
   parallelism: 4,
-  outputLen: 32,
+  hashLength: 32,
+  raw: true as const,
 }
 
 const AES_ALGO = 'aes-256-gcm' as const
 const AES_NONCE_BYTES = 12
 const AES_TAG_BYTES = 16
-const SNAPSHOT_MAGIC = Buffer.from('LOKLM02\0') // 8 bytes — bumps with auth.json schema
+const VAULT_MAGIC = Buffer.from('LOKLM04\0') // 8 bytes , bump when the on-disk layout changes
+const HEADER_LEN_BYTES = 4
+const HEADER_OFFSET = VAULT_MAGIC.length + HEADER_LEN_BYTES
 
 const DEK_BYTES = 32
 const KEK_SALT_BYTES = 32
 
-// Pflichtenheft 3.1.2: 5 fails → 5 min lockout, in-memory only.
+// Pflichtenheft 3.1.2 , 5 fails → 5 min lockout , in-memory only.
 const MAX_FAIL_ATTEMPTS = 5
 const FAIL_LOCKOUT_MS = 5 * 60 * 1000
 
-// Pflichtenheft 3.1.4: 15 min default inactivity lock.
+// Pflichtenheft 3.1.4 , 15 min default inactivity lock.
 const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000
 
 /**
- * AuthService owns the boot-time auth state, the encrypted-snapshot lifecycle,
- * and the in-memory DEK. The Database instance only exists between
+ * AuthService owns the boot-time auth state , the encrypted vault lifecycle ,
+ * and the in-memory DEK. the Database instance only exists between
  * login()/register() and lock()/logout().
  *
- * Files under userData/:
- *   auth.json              — wrapped DEK envelopes (password + recovery codes)
- *   pgdata.snapshot.enc    — AES-256-GCM(DEK) of the pglite tar dump
+ * files under userData/:
+ *   loklm.vault   one file , header (wrapped DEKs + metadata) + AES-GCM(DEK)(pglite tar dump)
  */
 export class AuthService {
-  private readonly authFilePath: string
-  private readonly snapshotFilePath: string
-  private cache: AuthFile | null = null
+  private readonly vaultFilePath: string
+  private cache: AuthHeader | null = null
   private cacheLoaded = false
 
-  // Live session state — only populated between login()/register() and lock().
+  // live session state , only set between login()/register() and lock().
   private dek: Buffer | null = null
   private database: Database | null = null
   private lastActivity = Date.now()
@@ -110,20 +115,19 @@ export class AuthService {
   private inactivityTimer: NodeJS.Timeout | null = null
   private onLockCallback: (() => void) | null = null
 
-  // Brute-force tracker for the login flow.
+  // brute-force tracker for login.
   private failures: number[] = []
 
   constructor(userDataDir: string) {
-    this.authFilePath = join(userDataDir, 'auth.json')
-    this.snapshotFilePath = join(userDataDir, 'pgdata.snapshot.enc')
+    this.vaultFilePath = join(userDataDir, 'loklm.vault')
   }
 
   // -------------------------------------------------------------------------
-  // Public surface
+  // public surface
   // -------------------------------------------------------------------------
 
   async status(): Promise<AuthStatus> {
-    const a = await this.loadAuth()
+    const a = await this.loadHeader()
     if (!a) {
       return {
         registered: false,
@@ -147,7 +151,7 @@ export class AuthService {
     password: string
     recoveryLang: WordlistLang
   }): Promise<{ passphrase: string[] }> {
-    if (await this.loadAuth()) {
+    if (await this.loadHeader()) {
       throw new Error('A user is already registered on this installation.')
     }
     if (input.recoveryLang !== 'de' && input.recoveryLang !== 'en') {
@@ -166,7 +170,7 @@ export class AuthService {
     const passwordWrappedDek = wrapKey(passwordKek, dek)
     passwordKek.fill(0)
 
-    // One recovery entry, derived from the canonicalized passphrase.
+    // one recovery entry , derived from the canonicalized passphrase.
     const wordlist = getWordlist(input.recoveryLang)
     const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
     const recoverySalt = randomBytes(KEK_SALT_BYTES)
@@ -179,8 +183,8 @@ export class AuthService {
     }
     recoveryKek.fill(0)
 
-    const auth: AuthFile = {
-      version: 3,
+    const header: AuthHeader = {
+      version: 4,
       displayName,
       passwordSalt: passwordSalt.toString('base64'),
       passwordWrappedDek,
@@ -188,27 +192,27 @@ export class AuthService {
       recoveryLang: input.recoveryLang,
       createdAt: nowSec(),
     }
-    await this.writeAuth(auth)
-    this.cache = auth
 
     this.dek = dek
     this.database = await Database.create(undefined)
-    await this.seedAuthTables(this.database, auth)
-    await this.persistSnapshot()
+    const body = await this.encryptCurrentDb(dek)
+    await this.writeVault(header, body)
+    this.cache = header
+    this.cacheLoaded = true
     this.startInactivityTimer()
     return { passphrase }
   }
 
   async login(password: string): Promise<LoginResult> {
-    const auth = await this.loadAuth()
-    if (!auth) return { ok: false, reason: 'no_user' }
+    const vault = await this.readVault()
+    if (!vault) return { ok: false, reason: 'no_user' }
 
     const cooldown = this.cooldownRemainingMs()
     if (cooldown > 0) return { ok: false, reason: 'rate_limited', retryAfterMs: cooldown }
 
-    const passwordSalt = Buffer.from(auth.passwordSalt, 'base64')
+    const passwordSalt = Buffer.from(vault.header.passwordSalt, 'base64')
     const passwordKek = await deriveKEK(password, Buffer.from(passwordSalt))
-    const dek = unwrapKey(passwordKek, auth.passwordWrappedDek)
+    const dek = unwrapKey(passwordKek, vault.header.passwordWrappedDek)
     passwordKek.fill(0)
 
     if (!dek) {
@@ -216,29 +220,19 @@ export class AuthService {
       return { ok: false, reason: 'bad_password' }
     }
 
-    // DEK is in hand. Decrypt the snapshot if one exists; otherwise we land
-    // in a recovery-from-no-snapshot branch (e.g. process died between
-    // register and first persist) and rebuild from auth.json.
-    const snapshotBlob = await this.readAndDecryptSnapshot(dek)
-    if (snapshotBlob === 'mismatch') {
-      // DEK unwrap succeeded so the password is right — but the snapshot tag
-      // disagrees. The snapshot file is corrupt / from a different DEK.
-      // Don't punish the user with a "bad password" message; surface the
-      // distinct failure so they can act on it.
+    // got the DEK , now decrypt the body. with single-file vaults the header
+    // and body live together so any failure here is just file corruption ,
+    // not an auth/snapshot drift.
+    const snapshotBlob = decryptBody(vault.body, dek)
+    if (snapshotBlob == null) {
       dek.fill(0)
       throw new Error(
-        'Snapshot file is unreadable — auth.json and pgdata.snapshot.enc are out of sync.',
+        'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
       )
     }
 
     this.dek = dek
-    this.database = await Database.create(undefined, snapshotBlob ?? undefined)
-    if (snapshotBlob == null) {
-      // No snapshot yet — happens once if the previous register() crashed
-      // between writing auth.json and the first snapshot. Re-seed and persist.
-      await this.seedAuthTables(this.database, auth)
-      await this.persistSnapshot()
-    }
+    this.database = await Database.create(undefined, snapshotBlob)
     this.failures = []
     this.startInactivityTimer()
     return { ok: true }
@@ -256,29 +250,29 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
-    // Same effect as lock — single-user app has no notion of switching identities.
+    // same as lock , single-user app , no identity switching here.
     await this.lock()
   }
 
   async reset(input: { passphrase: string; newPassword: string }): Promise<ResetResult> {
-    const auth = await this.loadAuth()
-    if (!auth) return { ok: false, reason: 'no_user' }
+    const vault = await this.readVault()
+    if (!vault) return { ok: false, reason: 'no_user' }
     const cooldown = this.cooldownRemainingMs()
     if (cooldown > 0) return { ok: false, reason: 'rate_limited', retryAfterMs: cooldown }
 
     validatePassword(input.newPassword)
 
-    // Early reject: bad shape / unknown words → no argon2, no rate-limit hit.
-    const wordlist = getWordlist(auth.recoveryLang)
+    // early reject on bad shape / unknown words , so we dont burn argon2 or a rate-limit slot.
+    const wordlist = getWordlist(vault.header.recoveryLang)
     const words = normalisePassphraseShared(input.passphrase).split(' ')
     const check = validatePassphraseShared(words, wordlist)
     if (!check.ok) return { ok: false, reason: 'bad_code' }
 
     let dek: Buffer | null = null
     let matchedIdx = -1
-    for (let i = 0; i < auth.recoveryEntries.length; i++) {
-      const entry = auth.recoveryEntries[i]
-      if (entry.usedAt != null) continue
+    for (let i = 0; i < vault.header.recoveryEntries.length; i++) {
+      const entry = vault.header.recoveryEntries[i]
+      if (!entry || entry.usedAt != null) continue
       const salt = Buffer.from(entry.salt, 'base64')
       const kek = await deriveKEK(words.join(' '), salt)
       const candidate = unwrapKey(kek, entry.wrappedDek)
@@ -294,8 +288,8 @@ export class AuthService {
       return { ok: false, reason: 'bad_code' }
     }
 
-    // Re-wrap the same DEK under a new password-KEK and mint a fresh
-    // passphrase (same recoveryLang as registered).
+    // re-wrap the same DEK under a new password-KEK and mint a fresh
+    // passphrase , same recoveryLang as at registration.
     const newPasswordSalt = randomBytes(KEK_SALT_BYTES)
     const newPasswordKek = await deriveKEK(input.newPassword, Buffer.from(newPasswordSalt))
     const newPasswordWrappedDek = wrapKey(newPasswordKek, dek)
@@ -312,29 +306,32 @@ export class AuthService {
     }
     newRecoveryKek.fill(0)
 
-    auth.passwordSalt = newPasswordSalt.toString('base64')
-    auth.passwordWrappedDek = newPasswordWrappedDek
-    auth.recoveryEntries[matchedIdx].usedAt = nowSec()
-    auth.recoveryEntries = [newEntry]
-    await this.writeAuth(auth)
-    this.cache = auth
+    const newHeader: AuthHeader = {
+      ...vault.header,
+      passwordSalt: newPasswordSalt.toString('base64'),
+      passwordWrappedDek: newPasswordWrappedDek,
+      recoveryEntries: [newEntry],
+    }
+    const usedEntry = vault.header.recoveryEntries[matchedIdx]
+    if (usedEntry) usedEntry.usedAt = nowSec()
 
-    const snapshotBlob = await this.readAndDecryptSnapshot(dek)
-    const useBlob = snapshotBlob === 'mismatch' ? undefined : (snapshotBlob ?? undefined)
+    const snapshotBlob = decryptBody(vault.body, dek)
     this.dek = dek
-    this.database = await Database.create(undefined, useBlob)
-    await this.seedAuthTables(this.database, auth)
-    await this.persistSnapshot()
+    this.database = await Database.create(undefined, snapshotBlob ?? undefined)
+    const newBody = await this.encryptCurrentDb(dek)
+    await this.writeVault(newHeader, newBody)
+    this.cache = newHeader
+    this.cacheLoaded = true
     this.failures = []
     this.startInactivityTimer()
     return { ok: true, passphrase: newPassphrase }
   }
 
   // -------------------------------------------------------------------------
-  // Session helpers used by the IPC layer
+  // session helpers used by the IPC layer
   // -------------------------------------------------------------------------
 
-  /** Returns the live Database, or throws when the session is locked. */
+  /** returns the live Database , throws when the session is locked. */
   requireDatabase(): Database {
     if (!this.database) {
       throw new Error('locked')
@@ -366,104 +363,95 @@ export class AuthService {
   }
 
   // -------------------------------------------------------------------------
-  // Internal helpers
+  // internal helpers
   // -------------------------------------------------------------------------
 
-  private async loadAuth(): Promise<AuthFile | null> {
+  private async loadHeader(): Promise<AuthHeader | null> {
     if (this.cacheLoaded) return this.cache
-    try {
-      const raw = await fs.readFile(this.authFilePath, 'utf8')
-      const parsed = JSON.parse(raw) as AuthFile
-      if (parsed.version !== 3) {
-        throw new Error(
-          `auth.json version ${parsed.version} is not supported by this build. Delete ${this.authFilePath} to start over.`,
-        )
-      }
-      this.cache = parsed
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-        this.cache = null
-      } else {
-        throw err
-      }
-    }
+    const vault = await this.readVault()
+    this.cache = vault?.header ?? null
     this.cacheLoaded = true
     return this.cache
   }
 
-  private async writeAuth(auth: AuthFile): Promise<void> {
-    await fs.mkdir(dirname(this.authFilePath), { recursive: true })
-    const tmp = this.authFilePath + '.tmp'
-    await fs.writeFile(tmp, JSON.stringify(auth, null, 2), { encoding: 'utf8', mode: 0o600 })
-    await fs.rename(tmp, this.authFilePath)
-  }
-
-  private async persistSnapshot(): Promise<void> {
-    if (!this.database || !this.dek) {
-      throw new Error('persistSnapshot called without a live session')
-    }
-    const blob = await this.database.dump()
-    const plaintext = Buffer.from(await blob.arrayBuffer())
-    const nonce = randomBytes(AES_NONCE_BYTES)
-    const cipher = createCipheriv(AES_ALGO, this.dek, nonce)
-    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
-    const tag = cipher.getAuthTag()
-    const out = Buffer.concat([SNAPSHOT_MAGIC, nonce, tag, ciphertext])
-
-    const tmp = this.snapshotFilePath + '.tmp'
-    await fs.mkdir(dirname(this.snapshotFilePath), { recursive: true })
-    await fs.writeFile(tmp, out, { mode: 0o600 })
-    await fs.rename(tmp, this.snapshotFilePath)
-  }
-
-  /**
-   * Reads + decrypts the snapshot. Returns:
-   *   Blob       — restored tar payload, ready for PGlite.loadDataDir
-   *   null       — no snapshot file yet (first login after register that crashed before save)
-   *   'mismatch' — snapshot exists but auth tag failed (drifted from this DEK)
-   */
-  private async readAndDecryptSnapshot(dek: Buffer): Promise<Blob | null | 'mismatch'> {
+  private async readVault(): Promise<{ header: AuthHeader; body: EncryptedBody } | null> {
     let raw: Buffer
     try {
-      raw = await fs.readFile(this.snapshotFilePath)
+      raw = await fs.readFile(this.vaultFilePath)
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return null
       throw err
     }
-    if (raw.length < SNAPSHOT_MAGIC.length + AES_NONCE_BYTES + AES_TAG_BYTES) return 'mismatch'
-    const magic = raw.subarray(0, SNAPSHOT_MAGIC.length)
-    if (!timingSafeEqual(magic, SNAPSHOT_MAGIC)) return 'mismatch'
-    const nonce = raw.subarray(SNAPSHOT_MAGIC.length, SNAPSHOT_MAGIC.length + AES_NONCE_BYTES)
-    const tag = raw.subarray(
-      SNAPSHOT_MAGIC.length + AES_NONCE_BYTES,
-      SNAPSHOT_MAGIC.length + AES_NONCE_BYTES + AES_TAG_BYTES,
-    )
-    const ciphertext = raw.subarray(SNAPSHOT_MAGIC.length + AES_NONCE_BYTES + AES_TAG_BYTES)
-    try {
-      const decipher = createDecipheriv(AES_ALGO, dek, nonce)
-      decipher.setAuthTag(tag)
-      const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()])
-      return new Blob([new Uint8Array(plaintext)])
-    } catch {
-      return 'mismatch'
+    if (raw.length < HEADER_OFFSET) {
+      throw new Error(`Vault file at ${this.vaultFilePath} is truncated (too short for header).`)
     }
+    const magic = raw.subarray(0, VAULT_MAGIC.length)
+    if (!timingSafeEqual(magic, VAULT_MAGIC)) {
+      throw new Error(
+        `Vault file at ${this.vaultFilePath} is not a LokLM v4 vault. Delete it to start over, or restore from a backup.`,
+      )
+    }
+    const headerLen = raw.readUInt32BE(VAULT_MAGIC.length)
+    const bodyOffset = HEADER_OFFSET + headerLen
+    if (raw.length < bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES) {
+      throw new Error(`Vault file at ${this.vaultFilePath} is truncated (header.len=${headerLen}).`)
+    }
+    const headerJson = raw.subarray(HEADER_OFFSET, bodyOffset).toString('utf8')
+    let header: AuthHeader
+    try {
+      header = JSON.parse(headerJson) as AuthHeader
+    } catch {
+      throw new Error(`Vault header is not valid JSON in ${this.vaultFilePath}.`)
+    }
+    if (header.version !== 4) {
+      throw new Error(
+        `Vault header version ${header.version} is not supported by this build. Delete ${this.vaultFilePath} to start over.`,
+      )
+    }
+    const nonce = raw.subarray(bodyOffset, bodyOffset + AES_NONCE_BYTES)
+    const tag = raw.subarray(
+      bodyOffset + AES_NONCE_BYTES,
+      bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES,
+    )
+    const ciphertext = raw.subarray(bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES)
+    return { header, body: { nonce, tag, ciphertext } }
   }
 
-  private async seedAuthTables(db: Database, auth: AuthFile): Promise<void> {
-    // Pflichtenheft 4.2 expects users + recovery_codes rows in the DB. The
-    // bootstrap source-of-truth still lives in auth.json — these rows are
-    // schema-compliance copies, kept in sync at register/reset. The SQL
-    // password_hash column gets a random opaque marker; verification always
-    // goes through the wrapped-DEK unwrap, never through the SQL row.
-    await db.replaceAuthRows({
-      displayName: auth.displayName,
-      passwordHash: '$wrapped-dek$', // placeholder — never compared against
-      recoveryHashes: auth.recoveryEntries.map((r) => ({
-        hash: '$wrapped-dek$',
-        createdAt: r.createdAt,
-        usedAt: r.usedAt,
-      })),
-    })
+  private async writeVault(header: AuthHeader, body: EncryptedBody): Promise<void> {
+    const headerJson = Buffer.from(JSON.stringify(header), 'utf8')
+    const headerLen = Buffer.alloc(HEADER_LEN_BYTES)
+    headerLen.writeUInt32BE(headerJson.length, 0)
+    const out = Buffer.concat([
+      VAULT_MAGIC,
+      headerLen,
+      headerJson,
+      body.nonce,
+      body.tag,
+      body.ciphertext,
+    ])
+    await fs.mkdir(dirname(this.vaultFilePath), { recursive: true })
+    const tmp = this.vaultFilePath + '.tmp'
+    await fs.writeFile(tmp, out, { mode: 0o600 })
+    await fs.rename(tmp, this.vaultFilePath)
+  }
+
+  private async persistSnapshot(): Promise<void> {
+    if (!this.database || !this.dek || !this.cache) {
+      throw new Error('persistSnapshot called without a live session')
+    }
+    const body = await this.encryptCurrentDb(this.dek)
+    await this.writeVault(this.cache, body)
+  }
+
+  private async encryptCurrentDb(dek: Buffer): Promise<EncryptedBody> {
+    if (!this.database) throw new Error('encryptCurrentDb called without a live database')
+    const blob = await this.database.dump()
+    const plaintext = Buffer.from(await blob.arrayBuffer())
+    const nonce = randomBytes(AES_NONCE_BYTES)
+    const cipher = createCipheriv(AES_ALGO, dek, nonce)
+    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
+    const tag = cipher.getAuthTag()
+    return { nonce, tag, ciphertext }
   }
 
   private async shutdownDatabase(): Promise<void> {
@@ -473,7 +461,7 @@ export class AuthService {
       try {
         await db.close()
       } catch {
-        /* ignore close races */
+        /* swallow close races , nothing we can do here */
       }
     }
   }
@@ -488,7 +476,7 @@ export class AuthService {
   private startInactivityTimer(): void {
     this.stopInactivityTimer()
     this.lastActivity = Date.now()
-    // Tick every 30s — granularity is fine, we just need expiry detection.
+    // tick every 30s , granularity is fine , we just need to spot expiry.
     this.inactivityTimer = setInterval(() => {
       if (!this.isUnlocked()) return
       const idle = Date.now() - this.lastActivity
@@ -511,6 +499,7 @@ export class AuthService {
     this.failures = this.failures.filter((t) => now - t < FAIL_LOCKOUT_MS)
     if (this.failures.length < MAX_FAIL_ATTEMPTS) return 0
     const oldest = this.failures[0]
+    if (oldest === undefined) return 0
     return FAIL_LOCKOUT_MS - (now - oldest)
   }
 
@@ -520,13 +509,13 @@ export class AuthService {
 }
 
 // ---------------------------------------------------------------------------
-// Crypto helpers
+// crypto helpers
 // ---------------------------------------------------------------------------
 
 async function deriveKEK(secret: string, salt: Buffer): Promise<Buffer> {
-  // argon2id raw output IS the KEK. Wrong-secret detection happens at the
-  // AES-GCM auth-tag check during unwrap — no separate verifier needed.
-  return argonHashRaw(secret, { ...ARGON_OPTS, salt })
+  // argon2id raw output IS the KEK. wrong-secret detection comes from the
+  // AES-GCM auth-tag failing during unwrap , no separate verifier needed.
+  return argon2.hash(secret, { ...ARGON_OPTS, salt })
 }
 
 function wrapKey(kek: Buffer, dek: Buffer): WrappedKey {
@@ -555,18 +544,29 @@ function unwrapKey(kek: Buffer, wrapped: WrappedKey): Buffer | null {
   }
 }
 
+function decryptBody(body: EncryptedBody, dek: Buffer): Blob | null {
+  try {
+    const decipher = createDecipheriv(AES_ALGO, dek, body.nonce)
+    decipher.setAuthTag(body.tag)
+    const plaintext = Buffer.concat([decipher.update(body.ciphertext), decipher.final()])
+    return new Blob([new Uint8Array(plaintext)])
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Helpers (module-private)
+// helpers (module-private)
 // ---------------------------------------------------------------------------
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000)
 }
 
-// AuthService delegates these to the shared module so the unit tests can
-// exercise them without spinning up node:crypto / argon2 / pglite.
+// AuthService delegates these to the shared module so the unit tests can hit
+// them without spinning up node:crypto / argon2 / pglite.
 function validatePassword(pw: string): void {
   validatePasswordShared(pw)
 }
 
-export type { AuthFile, RecoveryEntry, WrappedKey }
+export type { AuthHeader, RecoveryEntry, WrappedKey }

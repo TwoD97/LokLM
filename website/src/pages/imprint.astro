@@ -1,0 +1,78 @@
+---
+import Base from '~/layouts/Base.astro'
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+---
+
+<Base title={`${t(lang, 'imprint.title')} — LokLM`} description={t(lang, 'imprint.description')}>
+  <main class="legal">
+    <div class="legal__inner">
+      <span class="section-eyebrow">{t(lang, 'imprint.title')}</span>
+      <h1 class="legal__title gradient-text">{t(lang, 'imprint.title')}</h1>
+      <p class="legal__lead">{t(lang, 'imprint.description')}</p>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'imprint.operatorTitle')}</h2>
+        <p>{t(lang, 'imprint.operator')}</p>
+      </section>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'imprint.contactTitle')}</h2>
+        <p><a href={`mailto:${t(lang, 'imprint.contact')}`}>{t(lang, 'imprint.contact')}</a></p>
+      </section>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'imprint.responsibleTitle')}</h2>
+        <p>{t(lang, 'imprint.responsible')}</p>
+      </section>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'imprint.purposeTitle')}</h2>
+        <p>{t(lang, 'imprint.purpose')}</p>
+      </section>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .legal { padding: 6rem 0 8rem; }
+  .legal__inner {
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .legal__title {
+    margin-top: 0.5rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .legal__lead {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  .legal__section { margin-top: 2.5rem; }
+  .legal__section h2 {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-hover);
+    margin-bottom: 0.5rem;
+  }
+  .legal__section p {
+    color: var(--color-fg-1);
+    line-height: 1.6;
+  }
+  .legal__section a {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+    text-decoration-color: rgba(96, 165, 250, 0.4);
+  }
+  .legal__section a:hover { color: var(--color-fg-0); }
+</style>

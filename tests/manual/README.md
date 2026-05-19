@@ -1,22 +1,29 @@
-# Manual Test Scenarios
+# Manuelle Testszenarien
 
-This directory hosts the manual test scenarios referenced in
-[Pflichtenheft](../../Pflichtenheft_LokLM.md) §8.3 (Manuelle Test-Szenarien).
+Dieser Ordner enthält die manuellen Testszenarien, die im
+[Pflichtenheft](../../Pflichtenheft_LokLM.md) §8.3 (Manuelle Test-Szenarien)
+beschrieben sind.
 
-Automated unit and integration tests live **co-located** with their source
-modules as `*.test.ts` / `*.test.tsx` (per Anhang A convention). This folder
-is reserved for runbooks that a human walks through against a built binary —
-typically end-to-end flows like first-time registration, recovery-code reset,
-chat-stream + citation click-through, and multi-hardware smoke runs.
+Automatisierte Unit- und Integrationstests liegen direkt bei den jeweiligen
+Quellcode-Modulen als `*.test.ts` oder `*.test.tsx` Dateien
+(gemäß Konvention aus Anhang A).
+
+Dieser Ordner ist ausschließlich für Testanleitungen gedacht, die ein Mensch
+Schritt für Schritt an einer gebauten/lauffähigen Version des Programms ausführt.
+
+Typische Beispiele sind:
+
+- erste Registrierung eines neuen Benutzers
+- Login und Logout
+- Zurücksetzen über Recovery-Code
+- Chat-Nachricht senden und Antwort prüfen
+- Quellen/Zitate anklicken und prüfen
+- Smoke-Test auf unterschiedlicher Hardware
 
 ## Format
 
-One markdown file per scenario, named `<NN>-<short-slug>.md`. Each file should
-include:
+Für jedes Testszenario wird eine eigene Markdown-Datei angelegt.
 
-- **Vorbedingung** — what state the app must be in before running
-- **Schritte** — numbered steps the tester executes
-- **Erwartet** — observable outcomes for each step
-- **Notizen** — known caveats, screenshots, or hardware-specific behaviour
+Dateiname:
 
-The first scenario will be added with AP-2.1 (Authentifizierung).
+`<NN>-<kurzer-name>.md`

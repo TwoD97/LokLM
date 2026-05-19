@@ -1,0 +1,114 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface Feature {
+  icon: string
+  titleKey: UIKey
+  bodyKey: UIKey
+}
+
+const features: Feature[] = [
+  {
+    icon: 'offline',
+    titleKey: 'features.offline.title',
+    bodyKey: 'features.offline.body',
+  },
+  {
+    icon: 'sources',
+    titleKey: 'features.sources.title',
+    bodyKey: 'features.sources.body',
+  },
+  {
+    icon: 'formats',
+    titleKey: 'features.formats.title',
+    bodyKey: 'features.formats.body',
+  },
+  {
+    icon: 'crypto',
+    titleKey: 'features.crypto.title',
+    bodyKey: 'features.crypto.body',
+  },
+  {
+    icon: 'local',
+    titleKey: 'features.local.title',
+    bodyKey: 'features.local.body',
+  },
+  {
+    icon: 'opensource',
+    titleKey: 'features.opensource.title',
+    bodyKey: 'features.opensource.body',
+  },
+]
+---
+
+<section id="features" class="relative py-12 sm:py-16">
+  <div class="mx-auto max-w-6xl px-6">
+    <div>
+      <span class="section-eyebrow">{t(lang, 'features.moreEyebrow')}</span>
+    </div>
+
+    <ul class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {
+        features.map((feature) => (
+          <li class="glass rounded-[14px] p-6 transition-colors hover:border-white/15">
+            <div class="w-9 h-9 rounded-md grid place-items-center bg-[rgba(59,130,246,0.1)] border border-[rgba(59,130,246,0.3)] text-[color:var(--color-accent-hover)] mb-4">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                {feature.icon === 'offline' && (
+                  <>
+                    <path d="M2 12h20" />
+                    <path d="M12 2a10 10 0 1 0 10 10" />
+                    <path d="m4 4 16 16" />
+                  </>
+                )}
+                {feature.icon === 'sources' && (
+                  <>
+                    <path d="M15 3h6v6" />
+                    <path d="M10 14 21 3" />
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  </>
+                )}
+                {feature.icon === 'formats' && (
+                  <>
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                    <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+                    <path d="M9 13h6" />
+                    <path d="M9 17h6" />
+                  </>
+                )}
+                {feature.icon === 'crypto' && (
+                  <>
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </>
+                )}
+                {feature.icon === 'local' && (
+                  <>
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8" />
+                    <path d="M12 17v4" />
+                  </>
+                )}
+                {feature.icon === 'opensource' && (
+                  <>
+                    <path d="m18 16 4-4-4-4" />
+                    <path d="m6 8-4 4 4 4" />
+                    <path d="m14.5 4-5 16" />
+                  </>
+                )}
+              </svg>
+            </div>
+            <h3 class="text-base font-semibold text-[color:var(--color-fg-0)] mb-2">
+              {t(lang, feature.titleKey)}
+            </h3>
+            <p class="text-sm text-[color:var(--color-fg-2)] leading-relaxed">
+              {t(lang, feature.bodyKey)}
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

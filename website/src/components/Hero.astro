@@ -1,0 +1,120 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+import ProductWindow from './ProductWindow.astro'
+
+const lang = getLangFromUrl(Astro.url)
+const heroTitle = t(lang, 'hero.title')
+---
+
+<section class="hero">
+  <div class="hero__inner">
+    <div class="hero__text animate-[fade-in-up_500ms_ease-out_both]">
+      <span class="section-eyebrow">{t(lang, 'hero.eyebrow')}</span>
+      <h1 class="hero__title gradient-text whitespace-pre-line">{heroTitle}</h1>
+      <p class="hero__sub">{t(lang, 'hero.subtitle')}</p>
+
+      <div class="hero__ctas">
+        <a href="#download" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12" /><path d="m6 9 6 6 6-6" /><path d="M5 21h14" />
+          </svg>
+          {t(lang, 'hero.cta.download')}
+        </a>
+        <a href="#how" class="btn-ghost">{t(lang, 'hero.cta.learn')}</a>
+      </div>
+
+      <div class="hero__pills">
+        <span class="pill">{t(lang, 'hero.badge.offline')}</span>
+        <span class="pill">{t(lang, 'hero.badge.encrypted')}</span>
+        <span class="pill">{t(lang, 'hero.badge.opensource')}</span>
+      </div>
+    </div>
+
+    <div class="hero__visual animate-[fade-in-up_700ms_ease-out_200ms_both]">
+      <ProductWindow label="Lease Agreement.pdf · LokLM" glow={true} tilt={true} class="hero__window">
+        <picture>
+          <source srcset="/screenshots/hero-chat.webp" media="(min-width: 769px)" />
+          <img src="/screenshots/hero-chat@1x.webp" alt={t(lang, 'how.step3.alt')} width="1400" height="900" decoding="async" fetchpriority="high" />
+        </picture>
+      </ProductWindow>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 5rem 0 6rem;
+  }
+  @media (min-width: 768px) {
+    .hero { padding: 6rem 0 8rem; }
+  }
+
+  .hero__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .hero__inner {
+      grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+      gap: 2rem;
+    }
+  }
+
+  .hero__title {
+    margin-top: 0.5rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  @media (min-width: 640px) {
+    .hero__title { font-size: 3.5rem; }
+  }
+
+  .hero__sub {
+    margin-top: 1.25rem;
+    color: var(--color-fg-2);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 36rem;
+  }
+  @media (min-width: 640px) {
+    .hero__sub { font-size: 1.125rem; }
+  }
+
+  .hero__ctas {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero__pills {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .hero__visual {
+    position: relative;
+    width: 100%;
+  }
+  @media (min-width: 900px) {
+    .hero__visual {
+      margin-right: -10rem;
+    }
+  }
+
+  .hero__window {
+    width: 100%;
+  }
+</style>
