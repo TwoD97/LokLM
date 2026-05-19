@@ -8,6 +8,10 @@ import type {
   EmbedderStatus,
   EmbedderInfo,
   BackfillStatus,
+  RerankerStatus,
+  RerankerInfo,
+  RetrievalHit,
+  RetrievalOptions,
 } from '../shared/documents'
 
 const api = {
@@ -90,6 +94,29 @@ const api = {
       ipcRenderer.on('embedder:backfillStatus', listener)
       return () => {
         ipcRenderer.removeListener('embedder:backfillStatus', listener)
+      }
+    },
+  },
+  search: {
+    hybrid: (
+      workspaceId: number,
+      query: string,
+      topK: number,
+      opts?: RetrievalOptions,
+    ): Promise<RetrievalHit[]> =>
+      ipcRenderer.invoke('search:hybrid', workspaceId, query, topK, opts ?? {}),
+  },
+  reranker: {
+    status: (): Promise<RerankerStatus> => ipcRenderer.invoke('reranker:status'),
+    info: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:info'),
+    reload: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:reload'),
+    setPlacement: (choice: 'auto' | 'cpu' | 'gpu'): Promise<void> =>
+      ipcRenderer.invoke('reranker:setPlacement', choice),
+    onStatus: (cb: (s: RerankerStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: RerankerStatus): void => cb(s)
+      ipcRenderer.on('reranker:status', listener)
+      return () => {
+        ipcRenderer.removeListener('reranker:status', listener)
       }
     },
   },

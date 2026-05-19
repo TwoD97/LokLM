@@ -88,6 +88,37 @@ export interface NewChunkInput {
   tokenCount: number
 }
 
+export interface ChunkRow {
+  id: number
+  document_id: number
+  ordinal: number
+  text: string
+  token_count: number | null
+  page_from: number | null
+  page_to: number | null
+}
+
+export interface SearchHit {
+  chunk_id: number
+  document_id: number
+  document_title: string
+  ordinal: number
+  page_from: number | null
+  page_to: number | null
+  text: string
+  score: number
+  added_at?: number | null
+}
+
+export interface ChunkSearchOptions {
+  /** When non-empty, retrieval is constrained to this document_id set.
+   *  Empty/null = workspace-wide. NotebookLM-style focus. */
+  activeDocumentIds?: number[] | null
+  /** Cap each document at this many chunks in the candidate pool via
+   *  ROW_NUMBER(). Stops content-dense docs from monopolising the pool. */
+  perDocK?: number
+}
+
 export class DocumentsRepo {
   constructor(private readonly db: DbHandle) {}
 
@@ -172,6 +203,201 @@ export class DocumentsRepo {
         ON chunks USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64)
     `)
+  }
+
+  async searchChunks(
+    workspaceId: number,
+    query: string,
+    topK: number,
+    opts: ChunkSearchOptions = {},
+  ): Promise<SearchHit[]> {
+    const cleaned = query.trim()
+    if (!cleaned) return []
+    const activeIds =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
+    const perDocK = opts.perDocK && opts.perDocK > 0 ? opts.perDocK : null
+    const activeLit = activeIds == null ? null : '{' + activeIds.join(',') + '}'
+
+    // plainto_tsquery → AND-of-terms is too strict on natural queries; the
+    // '&' → '|' replace turns it into OR so common words don't kill the
+    // match set. ts_rank_cd already rewards chunks that hit more terms, so
+    // OR + rank gives recall + ordering. Bilingual: union the german and
+    // english queries.
+    const r = await this.db.execute(sql`
+      WITH q AS (
+        SELECT
+          NULLIF(replace(plainto_tsquery('german',  ${cleaned})::text, '&', '|'), '')::tsquery AS qg,
+          NULLIF(replace(plainto_tsquery('english', ${cleaned})::text, '&', '|'), '')::tsquery AS qe
+      ),
+      qq AS (
+        SELECT COALESCE(qg, ''::tsquery) || COALESCE(qe, ''::tsquery) AS query FROM q
+      ),
+      hits AS (
+        SELECT
+          c.id          AS chunk_id,
+          c.document_id AS document_id,
+          d.title       AS document_title,
+          c.ordinal     AS ordinal,
+          c.page_from   AS page_from,
+          c.page_to     AS page_to,
+          c.text        AS text,
+          ts_rank_cd(c.text_search, qq.query) AS score,
+          d.added_at    AS added_at
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        CROSS JOIN qq
+        WHERE qq.query::text <> ''
+          AND c.text_search @@ qq.query
+          AND d.workspace_id = ${workspaceId}
+          AND d.status = 'ready'
+          AND (${activeLit}::int[] IS NULL OR c.document_id = ANY(${activeLit}::int[]))
+      ),
+      ranked AS (
+        SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY document_id
+                 ORDER BY score DESC
+               ) AS doc_rank
+          FROM hits
+      )
+      SELECT chunk_id, document_id, document_title, ordinal,
+             page_from, page_to, text, score, added_at
+        FROM ranked
+       WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
+       ORDER BY score DESC
+       LIMIT ${topK}
+    `)
+    return r.rows as unknown as SearchHit[]
+  }
+
+  async searchChunksByVector(
+    workspaceId: number,
+    embedding: number[],
+    topK: number,
+    opts: ChunkSearchOptions = {},
+  ): Promise<SearchHit[]> {
+    if (embedding.length === 0) return []
+    const lit = '[' + embedding.join(',') + ']'
+    const activeIds =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
+    const perDocK = opts.perDocK && opts.perDocK > 0 ? opts.perDocK : null
+    const activeLit = activeIds == null ? null : '{' + activeIds.join(',') + '}'
+
+    if (perDocK === null && activeIds === null) {
+      // fast path — HNSW drives ORDER BY + LIMIT directly
+      const r = await this.db.execute(sql`
+        SELECT
+          c.id          AS chunk_id,
+          c.document_id AS document_id,
+          d.title       AS document_title,
+          c.ordinal     AS ordinal,
+          c.page_from   AS page_from,
+          c.page_to     AS page_to,
+          c.text        AS text,
+          (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
+          d.added_at    AS added_at
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        WHERE c.embedding IS NOT NULL
+          AND d.workspace_id = ${workspaceId}
+          AND d.status = 'ready'
+        ORDER BY c.embedding <=> ${lit}::vector ASC
+        LIMIT ${topK}
+      `)
+      return r.rows as unknown as SearchHit[]
+    }
+
+    // per-doc cap branch — window-fn defeats the HNSW plan but enforces fairness
+    const r = await this.db.execute(sql`
+      WITH ranked AS (
+        SELECT
+          c.id          AS chunk_id,
+          c.document_id AS document_id,
+          d.title       AS document_title,
+          c.ordinal     AS ordinal,
+          c.page_from   AS page_from,
+          c.page_to     AS page_to,
+          c.text        AS text,
+          (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
+          d.added_at    AS added_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY c.document_id
+            ORDER BY c.embedding <=> ${lit}::vector ASC
+          ) AS doc_rank
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        WHERE c.embedding IS NOT NULL
+          AND d.workspace_id = ${workspaceId}
+          AND d.status = 'ready'
+          AND (${activeLit}::int[] IS NULL OR c.document_id = ANY(${activeLit}::int[]))
+      )
+      SELECT chunk_id, document_id, document_title, ordinal,
+             page_from, page_to, text, score, added_at
+        FROM ranked
+       WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
+       ORDER BY score DESC
+       LIMIT ${topK}
+    `)
+    return r.rows as unknown as SearchHit[]
+  }
+
+  async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
+    const r = await this.db.execute(sql`
+      SELECT id, document_id, ordinal, text, token_count, page_from, page_to
+        FROM chunks
+       WHERE document_id = ${documentId}
+       ORDER BY ordinal
+    `)
+    return r.rows as unknown as ChunkRow[]
+  }
+
+  /**
+   * Returns a Map<document_id, chunk_count> for the given document ids.
+   * Used by RetrievalService.expandSmallDocs to decide whether a document
+   * qualifies for whole-doc expansion.
+   */
+  async getChunkCounts(documentIds: number[]): Promise<Map<number, number>> {
+    if (documentIds.length === 0) return new Map()
+    const lit = '{' + documentIds.join(',') + '}'
+    const r = await this.db.execute(sql`
+      SELECT document_id, count(*)::int AS cnt
+        FROM chunks
+       WHERE document_id = ANY(${lit}::int[])
+       GROUP BY document_id
+    `)
+    const map = new Map<number, number>()
+    for (const row of r.rows as Array<{ document_id: number; cnt: number }>) {
+      map.set(row.document_id, row.cnt)
+    }
+    return map
+  }
+
+  /**
+   * Returns neighbour chunks within ±radius ordinals of each seed position.
+   * Seeds are (documentId, ordinal) pairs. Results are ordered by
+   * document_id, ordinal so the caller can interleave them adjacently.
+   * Used by RetrievalService.expandNeighbours.
+   */
+  async getNeighbourChunks(
+    seeds: Array<{ documentId: number; ordinal: number }>,
+    radius: number,
+  ): Promise<ChunkRow[]> {
+    if (seeds.length === 0 || radius <= 0) return []
+    // Build a VALUES list so we can join in a single query rather than N
+    // individual round-trips. Each seed becomes (document_id, ordinal).
+    const valueParts = seeds.map((s) => `(${s.documentId}, ${s.ordinal})`).join(', ')
+    const r = await this.db.execute(sql`
+      WITH seeds(doc_id, ord) AS (
+        VALUES ${sql.raw(valueParts)}
+      )
+      SELECT DISTINCT c.id, c.document_id, c.ordinal, c.text,
+                      c.token_count, c.page_from, c.page_to
+        FROM chunks c
+        JOIN seeds s ON c.document_id = s.doc_id
+       WHERE c.ordinal BETWEEN s.ord - ${radius} AND s.ord + ${radius}
+       ORDER BY c.document_id, c.ordinal
+    `)
+    return r.rows as unknown as ChunkRow[]
   }
 }
 
