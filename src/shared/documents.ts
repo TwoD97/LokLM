@@ -226,3 +226,14 @@ export interface ConversationWithMessages {
   conversation: Conversation
   messages: Array<Message & { citations: Citation[] }>
 }
+
+export interface ChunkWithContext {
+  id: number
+  documentId: number
+  ordinal: number
+  text: string
+  tokenCount: number | null
+  pageFrom: number | null
+  pageTo: number | null
+  isTarget: boolean
+}

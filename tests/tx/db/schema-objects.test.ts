@@ -107,4 +107,33 @@ describe('schema-objects: triggers + function + procedure', () => {
       expect((r.rows as { ok: number }[]).length).toBe(1)
     })
   })
+
+  it('DocumentsRepo.getChunkWithContext returns target + ±1 neighbours with camelCase fields', async () => {
+    await withTransaction(async (tx) => {
+      const wsR = await tx.execute(sql`INSERT INTO workspaces (name) VALUES ('ws1') RETURNING id`)
+      const wsId = (wsR.rows as { id: number }[])[0]!.id
+      const docR = await tx.execute(
+        sql`INSERT INTO documents (workspace_id, title, source_path) VALUES (${wsId}, 'd.md', '/d') RETURNING id`,
+      )
+      const docId = (docR.rows as { id: number }[])[0]!.id
+      const chunkIds: number[] = []
+      for (let i = 0; i < 5; i++) {
+        const cr = await tx.execute(sql`
+          INSERT INTO chunks (document_id, ordinal, text, token_count)
+          VALUES (${docId}, ${i}, ${`chunk ${i}`}, 1) RETURNING id
+        `)
+        chunkIds.push((cr.rows as { id: number }[])[0]!.id)
+      }
+      const targetId = chunkIds[2]!
+      const { DocumentsRepo } = await import('@main/db/database')
+      const repo = new DocumentsRepo(tx as never)
+      const out = await repo.getChunkWithContext(targetId, 1, 1)
+      expect(out).toHaveLength(3)
+      expect(out.map((r) => r.ordinal)).toEqual([1, 2, 3])
+      const target = out.find((r) => r.isTarget)
+      expect(target?.ordinal).toBe(2)
+      expect(target).toHaveProperty('documentId', docId)
+      expect(target).toHaveProperty('tokenCount', 1)
+    })
+  })
 })

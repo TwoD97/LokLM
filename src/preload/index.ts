@@ -19,6 +19,7 @@ import type {
   StreamEvent,
   Conversation,
   ConversationWithMessages,
+  ChunkWithContext,
 } from '../shared/documents'
 
 const api = {
@@ -71,6 +72,12 @@ const api = {
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
     reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    getChunkWithContext: (
+      chunkId: number,
+      before?: number,
+      after?: number,
+    ): Promise<ChunkWithContext[]> =>
+      ipcRenderer.invoke('documents:getChunkWithContext', chunkId, before ?? 1, after ?? 1),
     onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, p: IndexProgress): void => cb(p)
       ipcRenderer.on('indexing:progress', listener)

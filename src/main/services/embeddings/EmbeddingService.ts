@@ -60,6 +60,11 @@ const EMBED_CONTEXT_SIZE = 2048
 const SANITIZE_MAX_CHARS = 6000
 
 function modelsDir(): string {
+  // Under vitest the electron `app` import is undefined; fall back to cwd-
+  // relative `models/` so integration tests can resolve the bundled GGUFs.
+  if (!app || typeof app.isPackaged !== 'boolean') {
+    return join(process.cwd(), 'models')
+  }
   const root = app.isPackaged ? process.resourcesPath : app.getAppPath()
   return join(root, 'models')
 }
