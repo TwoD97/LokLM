@@ -4,7 +4,7 @@ import { LoginView } from './auth/LoginView'
 import { PassphraseReveal } from './auth/PassphraseReveal'
 import { RegisterView } from './auth/RegisterView'
 import { ResetView } from './auth/ResetView'
-import { LibraryView } from './library/LibraryView'
+import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
 
@@ -102,7 +102,7 @@ export function App(): JSX.Element {
       />
     )
   } else if (phase.kind === 'unlocked') {
-    content = <LibraryView />
+    content = <AppShell />
   } else {
     content = (
       <section className="auth-card">

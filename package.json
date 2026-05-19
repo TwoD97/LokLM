@@ -96,7 +96,9 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "node-llama-cpp": "^3.18.1",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "build": {
     "appId": "com.loklm.desktop",
