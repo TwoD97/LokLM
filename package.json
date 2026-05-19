@@ -41,6 +41,8 @@
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
     "postinstall": "electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\"",
+    "models": "node scripts/download-models.mjs",
+    "models:embedder": "node scripts/download-models.mjs embedder",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
@@ -93,6 +95,7 @@
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "node-llama-cpp": "^3.18.1",
     "pdf-parse": "^2.4.5"
   },
   "build": {
@@ -160,7 +163,8 @@
       "argon2",
       "esbuild",
       "electron",
-      "@electron/rebuild"
+      "@electron/rebuild",
+      "node-llama-cpp"
     ],
     "overrides": {
       "esbuild": "0.25.12"

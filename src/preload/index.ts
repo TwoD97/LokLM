@@ -1,7 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
-import type { Document, Workspace, IndexProgress } from '../shared/documents'
+import type {
+  Document,
+  Workspace,
+  IndexProgress,
+  EmbedderStatus,
+  EmbedderInfo,
+  BackfillStatus,
+} from '../shared/documents'
 
 const api = {
   auth: {
@@ -58,6 +65,31 @@ const api = {
       ipcRenderer.on('indexing:progress', listener)
       return () => {
         ipcRenderer.removeListener('indexing:progress', listener)
+      }
+    },
+  },
+  embedder: {
+    status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),
+    info: (): Promise<EmbedderInfo> => ipcRenderer.invoke('embedder:info'),
+    reload: (): Promise<EmbedderInfo> => ipcRenderer.invoke('embedder:reload'),
+    setPlacement: (choice: 'auto' | 'cpu' | 'gpu'): Promise<void> =>
+      ipcRenderer.invoke('embedder:setPlacement', choice),
+    backfillStatus: (workspaceId: number): Promise<BackfillStatus> =>
+      ipcRenderer.invoke('embedder:backfillStatus', workspaceId),
+    runBackfill: (workspaceId: number): Promise<void> =>
+      ipcRenderer.invoke('embedder:runBackfill', workspaceId),
+    onStatus: (cb: (s: EmbedderStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: EmbedderStatus): void => cb(s)
+      ipcRenderer.on('embedder:status', listener)
+      return () => {
+        ipcRenderer.removeListener('embedder:status', listener)
+      }
+    },
+    onBackfillStatus: (cb: (s: BackfillStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: BackfillStatus): void => cb(s)
+      ipcRenderer.on('embedder:backfillStatus', listener)
+      return () => {
+        ipcRenderer.removeListener('embedder:backfillStatus', listener)
       }
     },
   },

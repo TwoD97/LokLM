@@ -97,4 +97,14 @@ describe('schema-objects: triggers + function + procedure', () => {
       expect(row.token_count).toBe(0)
     })
   })
+
+  it('idx_chunks_hnsw exists after migrations', async () => {
+    await withTransaction(async (tx) => {
+      const r = await tx.execute(sql`
+        SELECT 1 AS ok FROM pg_indexes
+         WHERE indexname = 'idx_chunks_hnsw' AND tablename = 'chunks'
+      `)
+      expect((r.rows as { ok: number }[]).length).toBe(1)
+    })
+  })
 })
