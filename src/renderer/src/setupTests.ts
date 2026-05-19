@@ -70,6 +70,33 @@ const stub: Api = {
       }),
     onIndexProgress: () => () => undefined,
   },
+  conversations: {
+    list: () => Promise.resolve([]),
+    create: (workspaceId: number, title?: string) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId,
+        title: title ?? null,
+        activeDocumentIds: [] as number[],
+        createdAt: Math.floor(Date.now() / 1000),
+        lastActivityAt: Math.floor(Date.now() / 1000),
+        messageCount: 0,
+      }),
+    delete: () => Promise.resolve(),
+    getWithMessages: (id: number) =>
+      Promise.resolve({
+        conversation: {
+          id,
+          workspaceId: 1,
+          title: null,
+          activeDocumentIds: [] as number[],
+          createdAt: Math.floor(Date.now() / 1000),
+          lastActivityAt: Math.floor(Date.now() / 1000),
+          messageCount: 0,
+        },
+        messages: [],
+      }),
+  },
   embedder: {
     status: () =>
       Promise.resolve({

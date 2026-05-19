@@ -69,6 +69,10 @@ export class Database {
   workspaces(): WorkspacesRepo {
     return new WorkspacesRepo(this.db)
   }
+
+  conversations(): ConversationsRepo {
+    return new ConversationsRepo(this.db)
+  }
 }
 
 export { schema }
@@ -398,6 +402,281 @@ export class DocumentsRepo {
        ORDER BY c.document_id, c.ordinal
     `)
     return r.rows as unknown as ChunkRow[]
+  }
+}
+
+export interface PersistCitationInput {
+  doc_id: number
+  chunk_id: number
+  score?: number | null
+}
+
+export class ConversationsRepo {
+  constructor(private readonly db: DbHandle) {}
+
+  async create(
+    workspaceId: number,
+    title?: string | null,
+  ): Promise<{
+    id: number
+    workspaceId: number
+    title: string | null
+    activeDocumentIds: number[]
+    createdAt: number
+    lastActivityAt: number
+    messageCount: number
+  }> {
+    const inserted = await this.db.execute(sql`
+      INSERT INTO conversations (workspace_id, title)
+      VALUES (${workspaceId}, ${title ?? null})
+      RETURNING id, workspace_id, title, active_document_ids, created_at
+    `)
+    const row = (
+      inserted.rows as unknown as Array<{
+        id: number
+        workspace_id: number
+        title: string | null
+        active_document_ids: number[] | null
+        created_at: number
+      }>
+    )[0]!
+    return {
+      id: row.id,
+      workspaceId: row.workspace_id,
+      title: row.title,
+      activeDocumentIds: row.active_document_ids ?? [],
+      createdAt: row.created_at,
+      lastActivityAt: row.created_at,
+      messageCount: 0,
+    }
+  }
+
+  async list(workspaceId: number): Promise<
+    Array<{
+      id: number
+      workspaceId: number
+      title: string | null
+      activeDocumentIds: number[]
+      createdAt: number
+      lastActivityAt: number
+      messageCount: number
+    }>
+  > {
+    const r = await this.db.execute(sql`
+      SELECT c.id, c.workspace_id, c.title, c.active_document_ids, c.created_at,
+             COALESCE(MAX(m.created_at), c.created_at) AS last_activity_at,
+             COUNT(m.id)::INT AS message_count
+        FROM conversations c
+        LEFT JOIN messages m ON m.conversation_id = c.id
+       WHERE c.workspace_id = ${workspaceId}
+       GROUP BY c.id
+       ORDER BY last_activity_at DESC, c.id DESC
+    `)
+    return (
+      r.rows as unknown as Array<{
+        id: number
+        workspace_id: number
+        title: string | null
+        active_document_ids: number[] | null
+        created_at: number
+        last_activity_at: number
+        message_count: number
+      }>
+    ).map((row) => ({
+      id: row.id,
+      workspaceId: row.workspace_id,
+      title: row.title,
+      activeDocumentIds: row.active_document_ids ?? [],
+      createdAt: row.created_at,
+      lastActivityAt: row.last_activity_at,
+      messageCount: row.message_count,
+    }))
+  }
+
+  async delete(id: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM conversations WHERE id = ${id}`)
+  }
+
+  async appendMessage(
+    conversationId: number,
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+  ): Promise<{
+    id: number
+    conversationId: number
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    createdAt: number
+  }> {
+    if (role !== 'user' && role !== 'assistant' && role !== 'system') {
+      throw new Error(`appendMessage: invalid role "${role}"`)
+    }
+    const r = await this.db.execute(sql`
+      INSERT INTO messages (conversation_id, role, content)
+      VALUES (${conversationId}, ${role}, ${content})
+      RETURNING id, conversation_id, role, content, created_at
+    `)
+    const row = (
+      r.rows as unknown as Array<{
+        id: number
+        conversation_id: number
+        role: 'user' | 'assistant' | 'system'
+        content: string
+        created_at: number
+      }>
+    )[0]!
+    return {
+      id: row.id,
+      conversationId: row.conversation_id,
+      role: row.role,
+      content: row.content,
+      createdAt: row.created_at,
+    }
+  }
+
+  async persistCitations(messageId: number, items: PersistCitationInput[]): Promise<void> {
+    if (items.length === 0) return
+    for (const it of items) {
+      await this.db.execute(sql`
+        INSERT INTO citations (message_id, chunk_id, document_id, score)
+        VALUES (${messageId}, ${it.chunk_id}, ${it.doc_id}, ${it.score ?? null})
+      `)
+    }
+  }
+
+  async getWithMessages(conversationId: number): Promise<{
+    conversation: {
+      id: number
+      workspaceId: number
+      title: string | null
+      activeDocumentIds: number[]
+      createdAt: number
+      lastActivityAt: number
+      messageCount: number
+    }
+    messages: Array<{
+      id: number
+      conversationId: number
+      role: 'user' | 'assistant' | 'system'
+      content: string
+      createdAt: number
+      citations: Array<{
+        id: number
+        messageId: number
+        chunkId: number
+        documentId: number
+        score: number | null
+        spanStart: number | null
+        spanEnd: number | null
+        createdAt: number
+      }>
+    }>
+  }> {
+    const cRow = await this.db.execute(sql`
+      SELECT c.id, c.workspace_id, c.title, c.active_document_ids, c.created_at,
+             COALESCE(MAX(m.created_at), c.created_at) AS last_activity_at,
+             COUNT(m.id)::INT AS message_count
+        FROM conversations c
+        LEFT JOIN messages m ON m.conversation_id = c.id
+       WHERE c.id = ${conversationId}
+       GROUP BY c.id
+    `)
+    const conv = (
+      cRow.rows as unknown as Array<{
+        id: number
+        workspace_id: number
+        title: string | null
+        active_document_ids: number[] | null
+        created_at: number
+        last_activity_at: number
+        message_count: number
+      }>
+    )[0]
+    if (!conv) throw new Error(`Conversation ${conversationId} not found`)
+
+    const mRows = await this.db.execute(sql`
+      SELECT id, conversation_id, role, content, created_at
+        FROM messages WHERE conversation_id = ${conversationId}
+       ORDER BY created_at ASC, id ASC
+    `)
+
+    type CitationRow = {
+      id: number
+      messageId: number
+      chunkId: number
+      documentId: number
+      score: number | null
+      spanStart: number | null
+      spanEnd: number | null
+      createdAt: number
+    }
+
+    const messages = (
+      mRows.rows as unknown as Array<{
+        id: number
+        conversation_id: number
+        role: 'user' | 'assistant' | 'system'
+        content: string
+        created_at: number
+      }>
+    ).map((m) => ({
+      id: m.id,
+      conversationId: m.conversation_id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.created_at,
+      citations: [] as CitationRow[],
+    }))
+
+    if (messages.length > 0) {
+      const ids = messages.map((m) => m.id)
+      const idLit = '{' + ids.join(',') + '}'
+      const citRows = await this.db.execute(sql`
+        SELECT id, message_id, chunk_id, document_id, score, span_start, span_end, created_at
+          FROM citations
+         WHERE message_id = ANY(${idLit}::int[])
+         ORDER BY id ASC
+      `)
+      const byMessage = new Map<number, CitationRow[]>()
+      for (const m of messages) byMessage.set(m.id, [])
+      for (const c of citRows.rows as unknown as Array<{
+        id: number
+        message_id: number
+        chunk_id: number
+        document_id: number
+        score: number | null
+        span_start: number | null
+        span_end: number | null
+        created_at: number
+      }>) {
+        const list = byMessage.get(c.message_id)
+        if (!list) continue
+        list.push({
+          id: c.id,
+          messageId: c.message_id,
+          chunkId: c.chunk_id,
+          documentId: c.document_id,
+          score: c.score,
+          spanStart: c.span_start,
+          spanEnd: c.span_end,
+          createdAt: c.created_at,
+        })
+      }
+      for (const m of messages) m.citations = byMessage.get(m.id) ?? []
+    }
+
+    return {
+      conversation: {
+        id: conv.id,
+        workspaceId: conv.workspace_id,
+        title: conv.title,
+        activeDocumentIds: conv.active_document_ids ?? [],
+        createdAt: conv.created_at,
+        lastActivityAt: conv.last_activity_at,
+        messageCount: conv.message_count,
+      },
+      messages,
+    }
   }
 }
 

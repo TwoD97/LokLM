@@ -161,6 +161,10 @@ export interface AnswerOptions {
   rerank?: boolean
   multiQuery?: boolean
   activeDocumentIds?: number[] | null
+  /** When set, the chat:stream handler persists the user message before
+   *  streaming, then persists the assistant message + citations on `done`
+   *  (or on `refusal`, with citations=[]). Errors are not persisted. */
+  conversationId?: number
 }
 
 export interface AnswerResult {
@@ -183,4 +187,42 @@ export interface RetrievalOptions {
   shortChunkMinChars?: number
   recencyBoostFactor?: number
   recencyBoostWindowMs?: number
+}
+
+// Conversation / message / citation shapes mirror src/main/db/schema.ts but
+// live in src/shared so the renderer can import them safely.
+export interface Conversation {
+  id: number
+  workspaceId: number
+  title: string | null
+  activeDocumentIds: number[]
+  createdAt: number
+  lastActivityAt: number
+  messageCount: number
+}
+
+export type MessageRole = 'user' | 'assistant' | 'system'
+
+export interface Message {
+  id: number
+  conversationId: number
+  role: MessageRole
+  content: string
+  createdAt: number
+}
+
+export interface Citation {
+  id: number
+  messageId: number
+  chunkId: number
+  documentId: number
+  score: number | null
+  spanStart: number | null
+  spanEnd: number | null
+  createdAt: number
+}
+
+export interface ConversationWithMessages {
+  conversation: Conversation
+  messages: Array<Message & { citations: Citation[] }>
 }
