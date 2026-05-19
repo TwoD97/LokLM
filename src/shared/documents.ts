@@ -55,3 +55,50 @@ export interface BackfillStatus {
   total: number
   message: string | null
 }
+
+export type RerankerState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
+
+export interface RerankerStatus {
+  kind: 'reranker'
+  state: RerankerState
+  modelPath: string | null
+  modelName: string | null
+  loadProgress: number | null
+  message: string | null
+}
+
+export interface RerankerInfo extends RerankerStatus {
+  bundledModelPath: string
+  bundledModelExists: boolean
+  resolvedPlacement: 'cpu' | 'gpu' | null
+  placementChoice: 'auto' | 'cpu' | 'gpu'
+  placementReason: string | null
+}
+
+export interface RetrievalHit {
+  chunk_id: number
+  document_id: number
+  document_title: string
+  ordinal: number
+  page_from: number | null
+  page_to: number | null
+  text: string
+  score: number
+  origin?: 'primary' | 'neighbour' | 'whole_doc'
+}
+
+export interface RetrievalOptions {
+  multiQuery?: boolean
+  rerank?: boolean
+  documentDiversity?: boolean
+  wholeDocFallback?: boolean
+  wholeDocThreshold?: number
+  neighbourRadius?: number
+  activeDocumentIds?: number[] | null
+  perDocCandidateCap?: number
+  titleBoostFactor?: number
+  shortChunkPenalty?: number
+  shortChunkMinChars?: number
+  recencyBoostFactor?: number
+  recencyBoostWindowMs?: number
+}

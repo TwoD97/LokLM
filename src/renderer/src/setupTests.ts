@@ -121,6 +121,50 @@ const stub: Api = {
     onStatus: () => () => undefined,
     onBackfillStatus: () => () => undefined,
   },
+  search: {
+    hybrid: () => Promise.resolve([]),
+  },
+  reranker: {
+    status: () =>
+      Promise.resolve({
+        kind: 'reranker' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+      }),
+    info: () =>
+      Promise.resolve({
+        kind: 'reranker' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        resolvedPlacement: null,
+        placementChoice: 'auto' as const,
+        placementReason: null,
+      }),
+    reload: () =>
+      Promise.resolve({
+        kind: 'reranker' as const,
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        loadProgress: null,
+        message: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        resolvedPlacement: null,
+        placementChoice: 'auto' as const,
+        placementReason: null,
+      }),
+    setPlacement: () => Promise.resolve(),
+    onStatus: () => () => undefined,
+  },
 }
 
 window.api = stub

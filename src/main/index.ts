@@ -7,6 +7,8 @@ import { DocumentService } from './services/documents/DocumentService'
 import { ImportError } from './services/documents/types'
 import { EmbeddingService } from './services/embeddings/EmbeddingService'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
+import { RerankerService } from './services/retrieval/RerankerService'
+import { RetrievalService } from './services/retrieval/RetrievalService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -31,16 +33,16 @@ function getAuth(): AuthService {
 }
 
 function resetSessionServices(): void {
-  // The backfill service captures a Database reference at construction;
-  // after lock/logout that reference is stale, so drop the singleton and
-  // let the next caller rebuild it against the live Database.
+  // The backfill + retrieval services capture a Database reference at
+  // construction; after lock/logout that reference is stale, so drop both
+  // singletons and let the next caller rebuild against the live Database.
   //
   // workspaceService + documentService stay cached because they hold AuthService
-  // only and re-resolve the Database lazily on each call. embeddingService is
-  // deliberately kept too — the GGUF takes seconds to reload, so warming it
-  // across a lock cycle is the right UX. Re-evaluate this if EmbeddingService
-  // ever grows session-scoped state.
+  // only and re-resolve the Database lazily on each call. embeddingService +
+  // rerankerService are deliberately kept too — the GGUFs take seconds to
+  // reload, so warming them across a lock cycle is the right UX.
   backfillService = null
+  retrievalService = null
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
@@ -59,6 +61,8 @@ let workspaceService: WorkspaceService | null = null
 let documentService: DocumentService | null = null
 let embeddingService: EmbeddingService | null = null
 let backfillService: EmbeddingBackfillService | null = null
+let rerankerService: RerankerService | null = null
+let retrievalService: RetrievalService | null = null
 
 function getWorkspaceService(): WorkspaceService {
   workspaceService ??= new WorkspaceService(getAuth())
@@ -89,6 +93,35 @@ function getBackfillService(): EmbeddingBackfillService {
     )
   }
   return backfillService
+}
+
+function getRerankerService(): RerankerService {
+  if (!rerankerService) {
+    rerankerService = new RerankerService()
+    rerankerService.subscribe((status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('reranker:status', status)
+        } catch {
+          /* ignore */
+        }
+      }
+    })
+  }
+  return rerankerService
+}
+
+function getRetrievalService(): RetrievalService {
+  if (!retrievalService) {
+    retrievalService = new RetrievalService(
+      getAuth().requireDatabase(),
+      getEmbeddingService(),
+      getRerankerService(),
+      // LlamaService not yet available — Plan 2C wires it in
+      undefined,
+    )
+  }
+  return retrievalService
 }
 
 function getDocumentService(): DocumentService {
@@ -226,6 +259,30 @@ function registerIpc(): void {
   )
   ipcMain.handle('embedder:runBackfill', async (_e, workspaceId: number) => {
     await getBackfillService().run(workspaceId)
+  })
+
+  // retrieval (programmatic API; eval harness consumes this in 2C)
+  ipcMain.handle(
+    'search:hybrid',
+    async (
+      _e,
+      workspaceId: number,
+      query: string,
+      topK: number,
+      opts: import('../shared/documents').RetrievalOptions = {},
+    ) => getRetrievalService().search(workspaceId, query, topK, opts),
+  )
+
+  // reranker
+  ipcMain.handle('reranker:status', async () => getRerankerService().getStatus())
+  ipcMain.handle('reranker:info', async () => getRerankerService().info())
+  ipcMain.handle('reranker:reload', async () => {
+    await getRerankerService().unload()
+    await getRerankerService().ensureReady()
+    return getRerankerService().info()
+  })
+  ipcMain.handle('reranker:setPlacement', async (_e, choice: 'auto' | 'cpu' | 'gpu') => {
+    getRerankerService().setPlacement(choice)
   })
 }
 
