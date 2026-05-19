@@ -15,7 +15,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "prepackage:check-models": "node scripts/check-bundled-models.mjs",
-    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win nsis",
+    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win zip",
     "package:linux": "pnpm prepackage:check-models && electron-vite build && electron-builder --linux AppImage",
     "package:mac": "pnpm prepackage:check-models && electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
@@ -142,19 +142,13 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "zip",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "LokLM-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "deleteAppDataOnUninstall": false
+      "artifactName": "LokLM-${version}-win-x64.${ext}"
     },
     "linux": {
       "target": [
