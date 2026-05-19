@@ -154,3 +154,10 @@ LokLM.zip
 docs/superpowers/
 docs/work/
 .superpowers
+
+# Capture-screenshots intermediate PNGs (regeneratable via scripts/capture-screenshots.mjs)
+tests/e2e/screenshots/output/
+
+# Playwright trace / HTML report artifacts
+tests/e2e/test-results/
+tests/e2e/.playwright-report/
