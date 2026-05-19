@@ -151,4 +151,6 @@ docs/api/
 models/
 LokLM.zip
 
-.superpowers/
+docs/superpowers/
+docs/work/
+.superpowers
