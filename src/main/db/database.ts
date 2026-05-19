@@ -345,6 +345,49 @@ export class DocumentsRepo {
     return r.rows as unknown as SearchHit[]
   }
 
+  async getChunkWithContext(
+    chunkId: number,
+    before: number,
+    after: number,
+  ): Promise<
+    Array<{
+      id: number
+      documentId: number
+      ordinal: number
+      text: string
+      tokenCount: number | null
+      pageFrom: number | null
+      pageTo: number | null
+      isTarget: boolean
+    }>
+  > {
+    const r = await this.db.execute(sql`
+      SELECT id, document_id, ordinal, text, token_count, page_from, page_to, is_target
+        FROM get_chunk_with_context(${chunkId}, ${before}, ${after})
+    `)
+    return (
+      r.rows as Array<{
+        id: number
+        document_id: number
+        ordinal: number
+        text: string
+        token_count: number | null
+        page_from: number | null
+        page_to: number | null
+        is_target: boolean
+      }>
+    ).map((row) => ({
+      id: row.id,
+      documentId: row.document_id,
+      ordinal: row.ordinal,
+      text: row.text,
+      tokenCount: row.token_count,
+      pageFrom: row.page_from,
+      pageTo: row.page_to,
+      isTarget: row.is_target,
+    }))
+  }
+
   async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
     const r = await this.db.execute(sql`
       SELECT id, document_id, ordinal, text, token_count, page_from, page_to

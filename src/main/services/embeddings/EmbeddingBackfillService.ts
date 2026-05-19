@@ -163,11 +163,14 @@ export class EmbeddingBackfillService {
         /* ignore */
       }
     }
-    for (const win of BrowserWindow.getAllWindows()) {
-      try {
-        win.webContents.send('embedder:backfillStatus', s)
-      } catch {
-        /* ignore */
+    // BrowserWindow is undefined under vitest; skip broadcast in that path
+    if (typeof BrowserWindow?.getAllWindows === 'function') {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('embedder:backfillStatus', s)
+        } catch {
+          /* ignore */
+        }
       }
     }
   }

@@ -5,6 +5,7 @@ import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
 import { ConversationList } from './ConversationList'
 import { ConfirmModal } from './ConfirmModal'
+import { SourceViewer } from './SourceViewer'
 import './chat.css'
 
 type LocalMessage =
@@ -22,6 +23,7 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null)
+  const [sourceViewer, setSourceViewer] = useState<{ chunkId: number } | null>(null)
 
   const refresh = useCallback(async () => {
     const list = await window.api.conversations.list(workspaceId)
@@ -132,13 +134,9 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
       ? (conversations.find((c) => c.id === currentId)?.title ?? `Conversation #${currentId}`)
       : 'New chat'
 
-  const onCitationClick = useCallback(
-    ({ documentId, chunkId }: { documentId: number; chunkId: number }) => {
-      // SourceViewer wiring lands in Plan 3c. For now, log so the click is observable.
-      console.log('citation click', { documentId, chunkId })
-    },
-    [],
-  )
+  const onCitationClick = useCallback(({ chunkId }: { documentId: number; chunkId: number }) => {
+    setSourceViewer({ chunkId })
+  }, [])
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', height: '100%' }}>
@@ -161,6 +159,13 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         <MessageList messages={messages} onCitationClick={onCitationClick} />
         <ChatInput onSend={(t) => void onSend(t)} busy={busy} onCancel={onCancel} />
       </section>
+      {sourceViewer && (
+        <SourceViewer
+          chunkId={sourceViewer.chunkId}
+          documentTitle={null}
+          onClose={() => setSourceViewer(null)}
+        />
+      )}
       {confirmDelete && (
         <ConfirmModal
           title="Delete conversation?"

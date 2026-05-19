@@ -268,6 +268,12 @@ function registerIpc(): void {
     })
   })
 
+  ipcMain.handle(
+    'documents:getChunkWithContext',
+    async (_e, chunkId: number, before: number = 1, after: number = 1) =>
+      getAuth().requireDatabase().documents().getChunkWithContext(chunkId, before, after),
+  )
+
   // conversations
   ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>
     getAuth().requireDatabase().conversations().list(workspaceId),

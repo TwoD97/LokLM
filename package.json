@@ -14,9 +14,10 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "electron-builder --win nsis",
-    "package:linux": "electron-builder --linux AppImage",
-    "package:mac": "electron-builder --mac dmg",
+    "prepackage:check-models": "node scripts/check-bundled-models.mjs",
+    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win nsis",
+    "package:linux": "pnpm prepackage:check-models && electron-vite build && electron-builder --linux AppImage",
+    "package:mac": "pnpm prepackage:check-models && electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -43,6 +44,10 @@
     "postinstall": "electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\"",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
+    "models:lite": "node scripts/download-models.mjs lite",
+    "models:medium": "node scripts/download-models.mjs medium",
+    "models:pro": "node scripts/download-models.mjs pro",
+    "models:all": "node scripts/download-models.mjs all",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
@@ -117,6 +122,23 @@
     ],
     "asar": true,
     "publish": null,
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      },
+      {
+        "from": "drizzle",
+        "to": "drizzle"
+      },
+      {
+        "from": "src/main/db/migrations",
+        "to": "migrations"
+      }
+    ],
     "win": {
       "target": [
         {

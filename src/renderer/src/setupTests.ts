@@ -68,6 +68,7 @@ const stub: Api = {
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
       }),
+    getChunkWithContext: () => Promise.resolve([] as Array<never>),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
