@@ -1,6 +1,26 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
+import type {
+  Document,
+  Workspace,
+  IndexProgress,
+  EmbedderStatus,
+  EmbedderInfo,
+  BackfillStatus,
+  RerankerStatus,
+  RerankerInfo,
+  RetrievalHit,
+  RetrievalOptions,
+  ModelStatus,
+  SystemInfo,
+  LlmProfileChoice,
+  AnswerOptions,
+  StreamEvent,
+  Conversation,
+  ConversationWithMessages,
+  ChunkWithContext,
+} from '../shared/documents'
 
 const api = {
   auth: {
@@ -35,6 +55,122 @@ const api = {
       ipcRenderer.on('window:maximized', listener)
       return () => {
         ipcRenderer.removeListener('window:maximized', listener)
+      }
+    },
+  },
+  workspaces: {
+    list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspaces:list'),
+    create: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspaces:create', name),
+    rename: (id: number, name: string): Promise<void> =>
+      ipcRenderer.invoke('workspaces:rename', id, name),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
+  },
+  documents: {
+    list: (workspaceId: number): Promise<Document[]> =>
+      ipcRenderer.invoke('documents:list', workspaceId),
+    import: (workspaceId: number, sourcePath: string): Promise<Document> =>
+      ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
+    reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    getChunkWithContext: (
+      chunkId: number,
+      before?: number,
+      after?: number,
+    ): Promise<ChunkWithContext[]> =>
+      ipcRenderer.invoke('documents:getChunkWithContext', chunkId, before ?? 1, after ?? 1),
+    onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, p: IndexProgress): void => cb(p)
+      ipcRenderer.on('indexing:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('indexing:progress', listener)
+      }
+    },
+  },
+  conversations: {
+    list: (workspaceId: number): Promise<Conversation[]> =>
+      ipcRenderer.invoke('conversations:list', workspaceId),
+    create: (workspaceId: number, title?: string): Promise<Conversation> =>
+      ipcRenderer.invoke('conversations:create', workspaceId, title),
+    delete: (id: number): Promise<void> => ipcRenderer.invoke('conversations:delete', id),
+    getWithMessages: (id: number): Promise<ConversationWithMessages> =>
+      ipcRenderer.invoke('conversations:getWithMessages', id),
+  },
+  embedder: {
+    status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),
+    info: (): Promise<EmbedderInfo> => ipcRenderer.invoke('embedder:info'),
+    reload: (): Promise<EmbedderInfo> => ipcRenderer.invoke('embedder:reload'),
+    setPlacement: (choice: 'auto' | 'cpu' | 'gpu'): Promise<void> =>
+      ipcRenderer.invoke('embedder:setPlacement', choice),
+    backfillStatus: (workspaceId: number): Promise<BackfillStatus> =>
+      ipcRenderer.invoke('embedder:backfillStatus', workspaceId),
+    runBackfill: (workspaceId: number): Promise<void> =>
+      ipcRenderer.invoke('embedder:runBackfill', workspaceId),
+    onStatus: (cb: (s: EmbedderStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: EmbedderStatus): void => cb(s)
+      ipcRenderer.on('embedder:status', listener)
+      return () => {
+        ipcRenderer.removeListener('embedder:status', listener)
+      }
+    },
+    onBackfillStatus: (cb: (s: BackfillStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: BackfillStatus): void => cb(s)
+      ipcRenderer.on('embedder:backfillStatus', listener)
+      return () => {
+        ipcRenderer.removeListener('embedder:backfillStatus', listener)
+      }
+    },
+  },
+  search: {
+    hybrid: (
+      workspaceId: number,
+      query: string,
+      topK: number,
+      opts?: RetrievalOptions,
+    ): Promise<RetrievalHit[]> =>
+      ipcRenderer.invoke('search:hybrid', workspaceId, query, topK, opts ?? {}),
+  },
+  reranker: {
+    status: (): Promise<RerankerStatus> => ipcRenderer.invoke('reranker:status'),
+    info: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:info'),
+    reload: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:reload'),
+    setPlacement: (choice: 'auto' | 'cpu' | 'gpu'): Promise<void> =>
+      ipcRenderer.invoke('reranker:setPlacement', choice),
+    onStatus: (cb: (s: RerankerStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: RerankerStatus): void => cb(s)
+      ipcRenderer.on('reranker:status', listener)
+      return () => {
+        ipcRenderer.removeListener('reranker:status', listener)
+      }
+    },
+  },
+  llm: {
+    status: (): Promise<ModelStatus> => ipcRenderer.invoke('llm:status'),
+    info: (): Promise<SystemInfo> => ipcRenderer.invoke('llm:info'),
+    reload: (): Promise<SystemInfo> => ipcRenderer.invoke('llm:reload'),
+    setProfile: (choice: LlmProfileChoice): Promise<void> =>
+      ipcRenderer.invoke('llm:setProfile', choice),
+    onStatus: (cb: (s: ModelStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: ModelStatus): void => cb(s)
+      ipcRenderer.on('llm:status', listener)
+      return () => {
+        ipcRenderer.removeListener('llm:status', listener)
+      }
+    },
+  },
+  chat: {
+    stream: (
+      streamId: string,
+      workspaceId: number,
+      query: string,
+      opts?: AnswerOptions,
+    ): Promise<void> => ipcRenderer.invoke('chat:stream', streamId, workspaceId, query, opts ?? {}),
+    cancel: (streamId: string): Promise<void> => ipcRenderer.invoke('chat:cancel', streamId),
+    onEvent: (streamId: string, cb: (ev: StreamEvent) => void): (() => void) => {
+      const channel = `chat:stream-event:${streamId}`
+      const listener = (_e: IpcRendererEvent, ev: StreamEvent): void => cb(ev)
+      ipcRenderer.on(channel, listener)
+      return () => {
+        ipcRenderer.removeListener(channel, listener)
       }
     },
   },

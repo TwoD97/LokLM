@@ -53,4 +53,12 @@ export default defineWorkspace([
       testTimeout: 60_000,
     },
   },
+  {
+    resolve: { alias: aliases },
+    test: {
+      name: 'unit',
+      include: ['tests/unit/**/*.test.ts'],
+      environment: 'node',
+    },
+  },
 ])

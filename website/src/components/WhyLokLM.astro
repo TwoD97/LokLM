@@ -45,27 +45,12 @@ const problemKeys: UIKey[] = [
 
       <div class="why-col why-col--solution glass">
         <p class="why-col__label why-col__label--accent">{t(lang, 'why.solution.title')}</p>
-        <p class="text-xl sm:text-2xl font-semibold leading-snug text-[color:var(--color-fg-0)] mb-4">
-          {t(lang, 'why.solution.tagline')}
+        <p class="text-xl sm:text-2xl font-semibold leading-snug mb-4">
+          <span class="gradient-accent">{t(lang, 'why.solution.tagline')}</span>
         </p>
         <p class="text-[color:var(--color-fg-1)] leading-relaxed">
           {t(lang, 'why.solution.body')}
         </p>
-
-        <div class="mt-6 pt-6 border-t border-white/5 grid grid-cols-3 gap-3 text-center">
-          <div>
-            <p class="why-stat">1</p>
-            <p class="why-stat__label">{t(lang, 'why.stat.install')}</p>
-          </div>
-          <div>
-            <p class="why-stat">2</p>
-            <p class="why-stat__label">{t(lang, 'why.stat.import')}</p>
-          </div>
-          <div>
-            <p class="why-stat">3</p>
-            <p class="why-stat__label">{t(lang, 'why.stat.ask')}</p>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -99,22 +84,5 @@ const problemKeys: UIKey[] = [
   .why-icon--minus {
     color: var(--color-fg-3);
     opacity: 0.7;
-  }
-
-  .why-stat {
-    font-family: var(--font-mono);
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-accent-hover);
-    line-height: 1;
-  }
-
-  .why-stat__label {
-    margin-top: 0.4rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-fg-2);
-    font-family: var(--font-mono);
   }
 </style>

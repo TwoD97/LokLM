@@ -59,7 +59,7 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
     >
       <div
         class="absolute inset-0 pointer-events-none opacity-40"
-        style="background: radial-gradient(circle at 80% 0%, rgba(59,130,246,0.18), transparent 50%);"
+        style="background: radial-gradient(circle at 90% -10%, rgba(96, 165, 250, 0.28), transparent 55%);"
       >
       </div>
 
@@ -182,22 +182,9 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
       </div>
 
       <p class="relative mt-6 text-sm text-[color:var(--color-fg-2)] leading-relaxed flex items-start gap-2">
-        <svg
-          class="mt-0.5 flex-shrink-0"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
+        <span class="mono text-[0.7rem] uppercase tracking-wider text-[color:var(--color-fg-3)] flex-shrink-0 mt-1 px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.06]">
+          info
+        </span>
         <span>{t(lang, 'download.notice')}</span>
       </p>
 
