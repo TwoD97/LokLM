@@ -165,6 +165,63 @@ const stub: Api = {
     setPlacement: () => Promise.resolve(),
     onStatus: () => () => undefined,
   },
+  llm: {
+    status: () =>
+      Promise.resolve({
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        gpu: null,
+        loadProgress: null,
+        message: null,
+        profile: null,
+      }),
+    info: () =>
+      Promise.resolve({
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        gpu: null,
+        loadProgress: null,
+        message: null,
+        profile: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        totalMemGB: 0,
+        recommendedProfile: 'lite' as const,
+        selectedProfile: 'auto' as const,
+        profiles: [],
+        resources: null,
+        lastLlmPlan: null,
+        selectedContext: 'auto' as const,
+      }),
+    reload: () =>
+      Promise.resolve({
+        state: 'idle' as const,
+        modelPath: null,
+        modelName: null,
+        gpu: null,
+        loadProgress: null,
+        message: null,
+        profile: null,
+        bundledModelPath: '',
+        bundledModelExists: false,
+        totalMemGB: 0,
+        recommendedProfile: 'lite' as const,
+        selectedProfile: 'auto' as const,
+        profiles: [],
+        resources: null,
+        lastLlmPlan: null,
+        selectedContext: 'auto' as const,
+      }),
+    setProfile: () => Promise.resolve(),
+    onStatus: () => () => undefined,
+  },
+  chat: {
+    stream: () => Promise.resolve(),
+    cancel: () => Promise.resolve(),
+    onEvent: () => () => undefined,
+  },
 }
 
 window.api = stub

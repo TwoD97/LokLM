@@ -87,6 +87,88 @@ export interface RetrievalHit {
   origin?: 'primary' | 'neighbour' | 'whole_doc'
 }
 
+// ---------------------------------------------------------------------------
+// LLM / LlamaService shared types — renderer + preload + main must agree.
+// ---------------------------------------------------------------------------
+
+export type ModelState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
+
+export type LlmProfileName = 'lite' | 'full' | 'xl'
+export type LlmProfileChoice = 'auto' | LlmProfileName
+
+export interface ModelStatus {
+  state: ModelState
+  modelPath: string | null
+  modelName: string | null
+  gpu: string | null
+  loadProgress: number | null // 0..1 during loading, null otherwise
+  message: string | null
+  profile: LlmProfileName | null
+}
+
+export interface AvailableProfile {
+  name: LlmProfileName
+  displayName: string
+  filename: string | null // null if no GGUF on disk for this profile
+  contextSize: number
+  minTotalMemGB: number
+}
+
+export type LlmContextChoice = 'auto' | number
+
+export interface SystemInfo extends ModelStatus {
+  bundledModelPath: string
+  bundledModelExists: boolean
+  totalMemGB: number
+  recommendedProfile: LlmProfileName
+  selectedProfile: LlmProfileChoice
+  profiles: AvailableProfile[]
+  /** What the planner saw at the most recent autoLoad/loadModel call.
+   *  Null until a load has happened. UI surfaces this so the user can see
+   *  what auto-fit decided and why.
+   *  (SystemResources is a main-process type; serialised to plain object over IPC.) */
+  resources: unknown | null
+  /** The last context-size plan, with its rationale.
+   *  (LlmPlan is a main-process type; serialised to plain object over IPC.) */
+  lastLlmPlan: unknown | null
+  /** Currently active context-size choice — 'auto' or a pinned number. */
+  selectedContext: LlmContextChoice
+}
+
+export type RefusalReason = 'no_hits' | 'below_threshold'
+
+export type StreamEvent =
+  | { type: 'token'; text: string }
+  | { type: 'citation'; doc_id: number; chunk_id: number; score: number }
+  | {
+      type: 'refusal'
+      reason: RefusalReason
+      message: string
+      suggestions: Array<{ doc_id: number; title: string; score: number }>
+    }
+  | { type: 'error'; message: string }
+  | {
+      type: 'done'
+      full_text: string
+      citations: Array<{ doc_id: number; chunk_id: number; score: number }>
+    }
+
+export interface AnswerOptions {
+  topK?: number
+  refusalThreshold?: number
+  language?: 'de' | 'en'
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  rerank?: boolean
+  multiQuery?: boolean
+  activeDocumentIds?: number[] | null
+}
+
+export interface AnswerResult {
+  answer: string
+  citations: Array<{ doc_id: number; chunk_id: number; score: number }>
+  refused: boolean
+}
+
 export interface RetrievalOptions {
   multiQuery?: boolean
   rerank?: boolean

@@ -12,6 +12,11 @@ import type {
   RerankerInfo,
   RetrievalHit,
   RetrievalOptions,
+  ModelStatus,
+  SystemInfo,
+  LlmProfileChoice,
+  AnswerOptions,
+  StreamEvent,
 } from '../shared/documents'
 
 const api = {
@@ -117,6 +122,37 @@ const api = {
       ipcRenderer.on('reranker:status', listener)
       return () => {
         ipcRenderer.removeListener('reranker:status', listener)
+      }
+    },
+  },
+  llm: {
+    status: (): Promise<ModelStatus> => ipcRenderer.invoke('llm:status'),
+    info: (): Promise<SystemInfo> => ipcRenderer.invoke('llm:info'),
+    reload: (): Promise<SystemInfo> => ipcRenderer.invoke('llm:reload'),
+    setProfile: (choice: LlmProfileChoice): Promise<void> =>
+      ipcRenderer.invoke('llm:setProfile', choice),
+    onStatus: (cb: (s: ModelStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: ModelStatus): void => cb(s)
+      ipcRenderer.on('llm:status', listener)
+      return () => {
+        ipcRenderer.removeListener('llm:status', listener)
+      }
+    },
+  },
+  chat: {
+    stream: (
+      streamId: string,
+      workspaceId: number,
+      query: string,
+      opts?: AnswerOptions,
+    ): Promise<void> => ipcRenderer.invoke('chat:stream', streamId, workspaceId, query, opts ?? {}),
+    cancel: (streamId: string): Promise<void> => ipcRenderer.invoke('chat:cancel', streamId),
+    onEvent: (streamId: string, cb: (ev: StreamEvent) => void): (() => void) => {
+      const channel = `chat:stream-event:${streamId}`
+      const listener = (_e: IpcRendererEvent, ev: StreamEvent): void => cb(ev)
+      ipcRenderer.on(channel, listener)
+      return () => {
+        ipcRenderer.removeListener(channel, listener)
       }
     },
   },
