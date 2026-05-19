@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -41,7 +41,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\"",
+    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",

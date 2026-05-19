@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
-import { ImportError, type ParsedDocument, type PageText } from './types'
+import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
+import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
 
 // extension whitelist — verbatim from MVP (Notebook-LoLM). docx is intentionally
 // out so isSupported returns false; parseFile throws ImportError('unsupported')
@@ -51,6 +52,7 @@ export function isSupported(filePath: string): boolean {
 export async function parseFile(filePath: string): Promise<ParsedDocument> {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.pdf') return parsePdf(filePath)
+  if (ext === '.md' || ext === '.markdown') return parseMarkdown(filePath)
   if (TEXT_EXTS.has(ext)) return parsePlainText(filePath)
   throw new ImportError(`Unsupported file type: ${basename(filePath)}`, 'unsupported', filePath)
 }
@@ -64,10 +66,25 @@ async function parsePlainText(filePath: string): Promise<ParsedDocument> {
   }
 }
 
+async function parseMarkdown(filePath: string): Promise<ParsedDocument> {
+  const raw = await readFile(filePath, 'utf-8')
+  const sections = parseMarkdownSections(raw)
+  // fullText / pages remain populated (with frontmatter stripped) so callers
+  // that don't care about structure (e.g. full-text export) still work.
+  const fullText = stripFrontmatter(raw)
+  return {
+    kind: 'markdown',
+    sections,
+    pages: [{ num: 1, text: fullText }],
+    fullText,
+  }
+}
+
 async function parsePdf(filePath: string): Promise<ParsedDocument> {
   // pdf-parse v2 ESM/CJS interop: dynamic import sidesteps potential typings issues.
   const { PDFParse } = (await import('pdf-parse')) as unknown as {
     PDFParse: new (opts: { data: Uint8Array }) => {
+      load(): Promise<PdfDoc>
       getText(): Promise<{ pages: { num: number; text: string }[] }>
       destroy(): Promise<void>
     }
@@ -75,16 +92,76 @@ async function parsePdf(filePath: string): Promise<ParsedDocument> {
   const buf = await readFile(filePath)
   const parser = new PDFParse({ data: new Uint8Array(buf) })
   try {
-    const result = await parser.getText()
+    // Load the pdfjs doc explicitly so we can extract the bookmark outline
+    // alongside the text. pdf-parse caches the doc, so this isn't a re-parse.
+    const doc = await parser.load()
+    const [result, sections] = await Promise.all([parser.getText(), extractPdfOutline(doc)])
     const pages: PageText[] = result.pages.map((p) => ({
       num: p.num,
       text: normalizePdfPageText(p.text),
     }))
     const fullText = pages.map((p) => p.text).join('\n\n')
-    return { kind: 'pdf', pages, fullText }
+    return { kind: 'pdf', pages, fullText, sections }
   } finally {
     await parser.destroy()
   }
+}
+
+/** Minimal slice of pdfjs's PDFDocumentProxy that we actually use here.
+ *  Avoids importing pdfjs-dist's full types in the main process. */
+interface PdfDoc {
+  numPages: number
+  getOutline(): Promise<PdfOutlineItem[] | null>
+  getPageIndex(ref: { num: number; gen: number }): Promise<number>
+}
+
+interface PdfOutlineItem {
+  title: string
+  /** pdfjs destination — first element is the page ref when the destination
+   *  is explicit; named destinations (strings) need an extra lookup and are
+   *  intentionally skipped for now. */
+  dest: unknown
+  items?: PdfOutlineItem[]
+}
+
+/** Flatten the bookmark tree into a page-sorted list of (headingPath, pageStart)
+ *  records. Named destinations and unresolvable refs are silently dropped — a
+ *  partial outline is strictly better than no outline at all. */
+async function extractPdfOutline(doc: PdfDoc): Promise<PdfSection[]> {
+  let outline: PdfOutlineItem[] | null = null
+  try {
+    outline = await doc.getOutline()
+  } catch {
+    return []
+  }
+  if (!outline || outline.length === 0) return []
+
+  const sections: PdfSection[] = []
+
+  const walk = async (items: PdfOutlineItem[], path: string[]): Promise<void> => {
+    for (const item of items) {
+      const title = (item.title ?? '').trim()
+      if (title.length === 0) continue
+      const headingPath = [...path, title]
+      const ref = Array.isArray(item.dest) ? (item.dest[0] as unknown) : null
+      if (ref && typeof ref === 'object' && 'num' in ref && 'gen' in ref) {
+        try {
+          const pageIndex = await doc.getPageIndex(ref as { num: number; gen: number })
+          sections.push({ headingPath, pageStart: pageIndex + 1 })
+        } catch {
+          // unresolvable destination, skip but still recurse into children
+        }
+      }
+      if (item.items && item.items.length > 0) await walk(item.items, headingPath)
+    }
+  }
+
+  await walk(outline, [])
+  // Sort by pageStart so the chunk tagger can scan linearly. Stable order
+  // matters: when two bookmarks land on the same page, the deeper one (added
+  // later by the recursive walk) wins for chunks on that page.
+  sections.sort((a, b) => a.pageStart - b.pageStart || a.headingPath.length - b.headingPath.length)
+  return sections
 }
 
 // PDFs often render dot/underscore/dash "leaders" between TOC entries and page

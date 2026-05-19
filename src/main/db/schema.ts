@@ -76,6 +76,11 @@ export const chunks = pgTable(
     tokenCount: integer('token_count'),
     pageFrom: integer('page_from'),
     pageTo: integer('page_to'),
+    // For markdown-indexed documents we store the hierarchical heading path
+    // (["1. Introduction", "Why Markdown"]) so citations can render section
+    // breadcrumbs instead of falling back to page numbers (which don't exist
+    // for plain markdown). Null for PDFs and unstructured text.
+    headingPath: jsonb('heading_path').$type<string[]>(),
     embedding: vector('embedding', { dimensions: 1024 }),
     textSearch: tsvector('text_search'),
   },
@@ -106,6 +111,14 @@ export const messages = pgTable(
       .references(() => conversations.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     content: text('content').notNull(),
+    // Stream metrics captured from the renderer's view of the assistant turn:
+    // ttftMs = time-to-first-token (ms) from user submit to first token event,
+    // tokensPerSec = average rate over the streaming window,
+    // tokenCount = number of token events delivered. Null for user/system rows
+    // and for assistant rows that never streamed (e.g. legacy refusals).
+    ttftMs: integer('ttft_ms'),
+    tokensPerSec: real('tokens_per_sec'),
+    tokenCount: integer('token_count'),
     createdAt: bigint('created_at', { mode: 'number' })
       .notNull()
       .default(sql`(EXTRACT(EPOCH FROM NOW())::BIGINT)`),

@@ -7,7 +7,7 @@ import type { Document } from '../../db/schema'
 import type { EmbeddingService } from '../embeddings/EmbeddingService'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
-import { chunkPages, type Chunk } from './chunker'
+import { chunkPages, chunkMarkdown, tagChunksWithSections, type Chunk } from './chunker'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
@@ -97,7 +97,19 @@ export class DocumentService {
       const chunkOpts: Parameters<typeof chunkPages>[1] = {}
       if (input.chunkSize !== undefined) chunkOpts.maxChars = input.chunkSize
       if (input.chunkOverlap !== undefined) chunkOpts.overlap = input.chunkOverlap
-      const out: Chunk[] = chunkPages(parsed.pages, chunkOpts)
+      // Markdown gets section-aware chunking so citations can render breadcrumbs
+      // ("§ Introduction › Why MD") rather than the meaningless "p. 1" we'd
+      // otherwise emit for a single-page markdown ParsedDocument. PDFs use
+      // page-based chunking, then we overlay the bookmark outline (when the
+      // author shipped one) so citations get both "§ Chapter 2" AND "p. 14".
+      let out: Chunk[]
+      if (parsed.kind === 'markdown') {
+        out = chunkMarkdown(parsed.sections, chunkOpts)
+      } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {
+        out = tagChunksWithSections(chunkPages(parsed.pages, chunkOpts), parsed.sections)
+      } else {
+        out = chunkPages(parsed.pages, chunkOpts)
+      }
 
       // Embed first, persist second. Order matters: we need the chunk text
       // available for embedPassages before the DB row exists, so we batch the
@@ -120,6 +132,7 @@ export class DocumentService {
           pageFrom: c.pageFrom,
           pageTo: c.pageTo,
           tokenCount: estimateTokens(c.text),
+          headingPath: c.headingPath,
         })),
       )
       if (vectors) {

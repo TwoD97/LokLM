@@ -298,13 +298,18 @@ function registerIpc(): void {
   )
 
   ipcMain.handle('documents:getSourceForChunk', async (_e, chunkId: number) => {
-    const doc = await getAuth().requireDatabase().documents().getDocumentByChunkId(chunkId)
+    const repo = getAuth().requireDatabase().documents()
+    const [doc, headingPath] = await Promise.all([
+      repo.getDocumentByChunkId(chunkId),
+      repo.getChunkHeadingPath(chunkId),
+    ])
     if (!doc) return null
     return {
       documentId: doc.id,
       title: doc.title,
       mimeType: doc.mimeType,
       sourcePath: doc.sourcePath,
+      headingPath,
     }
   })
 
@@ -337,6 +342,27 @@ function registerIpc(): void {
   ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
     getAuth().requireDatabase().conversations().getWithMessages(id),
   )
+
+  // Generate a chat title from the first user/assistant exchange. Idempotent
+  // by design — the renderer fires this once on the first round-trip; if the
+  // conversation already has a non-null title we leave it alone so a future
+  // manual rename is preserved. Returns the title that ended up on the row
+  // (existing or freshly generated, or null if the model couldn't produce
+  // anything usable).
+  ipcMain.handle('conversations:generateTitle', async (_e, id: number): Promise<string | null> => {
+    const repo = getAuth().requireDatabase().conversations()
+    const data = await repo.getWithMessages(id)
+    if (data.conversation.title != null && data.conversation.title.trim().length > 0) {
+      return data.conversation.title
+    }
+    const firstUser = data.messages.find((m) => m.role === 'user')
+    const firstAssistant = data.messages.find((m) => m.role === 'assistant')
+    if (!firstUser || !firstAssistant) return null
+    const title = await getLlamaService().generateTitle(firstUser.content, firstAssistant.content)
+    if (!title) return null
+    await repo.setTitle(id, title)
+    return title
+  })
 
   // embedder
   ipcMain.handle('embedder:status', async () => getEmbeddingService().getStatus())
@@ -423,6 +449,12 @@ function registerIpc(): void {
       const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
       let refused = false
       let refusalMessage: string | null = null
+      // Timing for stream metrics. streamStart marks when we begin pulling
+      // from QAService.answer (after the user message is persisted),
+      // firstTokenTime is set on the first 'token' event delivered to the UI.
+      const streamStart = performance.now()
+      let firstTokenTime: number | null = null
+      let tokenCount = 0
 
       try {
         const stream = getQAService().answer(workspaceId, query, opts)
@@ -434,8 +466,11 @@ function registerIpc(): void {
             ctrl.abort()
             break
           }
-          if (ev.type === 'token') tokenBuffer.push(ev.text)
-          else if (ev.type === 'citation')
+          if (ev.type === 'token') {
+            tokenBuffer.push(ev.text)
+            if (firstTokenTime == null) firstTokenTime = performance.now()
+            tokenCount += 1
+          } else if (ev.type === 'citation')
             citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
           else if (ev.type === 'refusal') {
             refused = true
@@ -451,10 +486,15 @@ function registerIpc(): void {
             await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
           } else if (tokenBuffer.length > 0) {
             const assistantContent = tokenBuffer.join('')
+            const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
+            const elapsedSinceFirst =
+              firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
+            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
             const asst = await conversations.appendMessage(
               opts.conversationId,
               'assistant',
               assistantContent,
+              { ttftMs, tokensPerSec, tokenCount },
             )
             if (citations.length > 0) {
               await conversations.persistCitations(asst.id, citations)

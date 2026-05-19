@@ -8,7 +8,25 @@
       "Bash(git commit -m ' *)",
       "Bash(git checkout *)",
       "Bash(git add *)",
-      "Bash(git commit --no-verify -m ' *)"
+      "Bash(git commit --no-verify -m ' *)",
+      "Bash(findstr /i \"^electron@\")",
+      "PowerShell($elec = 'node_modules/.pnpm/electron@42.0.0/node_modules/electron'; \"path.txt exists: $\\(Test-Path \"$elec/path.txt\"\\)\"; if \\(Test-Path \"$elec/path.txt\"\\) { \"  contents: $\\(Get-Content \"$elec/path.txt\"\\)\" }; \"dist exists:     $\\(Test-Path \"$elec/dist\"\\)\"; if \\(Test-Path \"$elec/dist\"\\) { \"  files: $\\(\\(Get-ChildItem \"$elec/dist\" | Measure-Object\\).Count\\)\" }; \"exe exists:      $\\(Test-Path \"$elec/dist/electron.exe\"\\)\"; ''; 'symlink at node_modules/electron:'; Get-Item node_modules/electron | Format-List Name, Target, LinkType)",
+      "PowerShell($elec = 'node_modules/.pnpm/electron@42.0.0/node_modules/electron'; \"path.txt: $\\(Test-Path \"$elec/path.txt\"\\)\"; \"dist:     $\\(Test-Path \"$elec/dist\"\\)\"; \"install.js: $\\(Test-Path \"$elec/install.js\"\\)\"; \"package.json scripts:\"; \\(Get-Content \"$elec/package.json\" -Raw | ConvertFrom-Json\\).scripts | Format-List)",
+      "PowerShell(node node_modules/.pnpm/electron@42.0.0/node_modules/electron/install.js)",
+      "PowerShell($elec = 'node_modules/.pnpm/electron@42.0.0/node_modules/electron'; \"path.txt: $\\(Test-Path \"$elec/path.txt\"\\)\"; if \\(Test-Path \"$elec/path.txt\"\\) { \"  -> $\\(Get-Content \"$elec/path.txt\"\\)\" }; \"dist:     $\\(Test-Path \"$elec/dist\"\\)\"; \"exe:      $\\(Test-Path \"$elec/dist/electron.exe\"\\)\")",
+      "Bash(xargs grep -l \"page_from\\\\|pageFrom\")",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm test:unit)",
+      "Bash(pnpm test:tx)",
+      "Bash(git stash *)",
+      "Bash(pnpm test:integration)",
+      "Bash(node -e \"const p = require\\('pdf-parse'\\); console.log\\('exports:', Object.keys\\(p\\)\\); const PDFParse = p.PDFParse; console.log\\('proto:', Object.getOwnPropertyNames\\(PDFParse.prototype\\).filter\\(n => n !== 'constructor'\\)\\);\")",
+      "Bash(node --input-type=module -e \"import { PDFParse } from 'pdf-parse'; import { readFileSync } from 'node:fs'; const buf = readFileSync\\('tests/unit/fixtures/sample.pdf'\\); const p = new PDFParse\\({ data: new Uint8Array\\(buf\\) }\\); const info = await p.getInfo\\(\\); console.log\\('info keys:', Object.keys\\(info\\)\\); console.log\\('outline?', JSON.stringify\\(info.outline ?? info.metadata ?? null, null, 2\\).slice\\(0, 500\\)\\); await p.destroy\\(\\);\")",
+      "Bash(node --input-type=module -e \"import { PDFParse } from 'pdf-parse'; import { readFileSync } from 'node:fs'; const buf = readFileSync\\('tests/unit/fixtures/sample.pdf'\\); const p = new PDFParse\\({ data: new Uint8Array\\(buf\\) }\\); const info = await p.getInfo\\(\\); console.log\\('total:', info.total\\); console.log\\('pages[0] keys:', info.pages && info.pages[0] ? Object.keys\\(info.pages[0]\\) : 'no pages'\\); console.log\\('pages[0]:', JSON.stringify\\(info.pages?.[0], null, 2\\).slice\\(0, 400\\)\\); console.log\\('outline len:', info.outline?.length\\); console.log\\('flattened:'\\); function walk\\(items, depth=0\\) { for \\(const it of items\\) { console.log\\(' '.repeat\\(depth*2\\), it.title, 'destRef=', it.dest?.[0]\\); walk\\(it.items ?? [], depth+1\\); } } walk\\(info.outline ?? []\\); await p.destroy\\(\\);\")",
+      "Bash(node --input-type=module -e \"import { PDFParse } from 'pdf-parse'; import { readFileSync } from 'node:fs'; const buf = readFileSync\\('tests/unit/fixtures/sample.pdf'\\); const p = new PDFParse\\({ data: new Uint8Array\\(buf\\) }\\); const info = await p.getInfo\\(\\); console.log\\('pages exists?', !!info.pages, 'is array?', Array.isArray\\(info.pages\\), 'length:', info.pages?.length\\); console.log\\('outline len:', info.outline?.length || 0\\); console.log\\('first outline:', JSON.stringify\\(info.outline?.[0], null, 2\\)?.slice\\(0, 600\\)\\); await p.destroy\\(\\);\")",
+      "Bash(node --input-type=module -e \"import { PDFParse } from 'pdf-parse'; import { readFileSync } from 'node:fs'; const buf = readFileSync\\('tests/unit/fixtures/sample.pdf'\\); const p = new PDFParse\\({ data: new Uint8Array\\(buf\\) }\\); const doc = await p.load\\(\\); console.log\\('doc kind:', typeof doc, doc.constructor?.name\\); console.log\\('proto methods:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(doc\\)\\)\\); console.log\\('numPages:', doc.numPages\\); if \\(typeof doc.getPageIndex === 'function' && doc.getOutline\\) { const outline = await doc.getOutline\\(\\); console.log\\('outline \\(raw\\):', JSON.stringify\\(outline, \\(k,v\\) => k === 'items' ? '['+v.length+']' : v, 2\\).slice\\(0, 800\\)\\); for \\(const item of outline.slice\\(0, 3\\)\\) { const idx = await doc.getPageIndex\\(item.dest[0]\\); console.log\\('title=', item.title, ' page=', idx + 1\\); } } await p.destroy\\(\\);\")",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

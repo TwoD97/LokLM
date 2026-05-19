@@ -807,6 +807,35 @@ export class LlamaService {
     }
   }
 
+  /**
+   * Generate a short chat title from the first user/assistant exchange.
+   * Returns null when the model isn't loaded or the response is unusable —
+   * the caller should fall back to the default "Conversation #N" label.
+   */
+  async generateTitle(
+    userMessage: string,
+    assistantMessage: string,
+    opts: { abortSignal?: AbortSignal } = {},
+  ): Promise<string | null> {
+    if (!this.isReady()) return null
+    // Cap the inputs so a very long first turn doesn't blow the prompt.
+    const u = truncate(userMessage, 1200)
+    const a = truncate(assistantMessage, 1200)
+    const langWord = this.language === 'de' ? 'Deutsch' : 'English'
+    const prompt =
+      `Erstelle einen kurzen, prägnanten Titel (3 bis 6 Wörter) für dieses Gespräch in ${langWord}.\n` +
+      `Antworte nur mit dem Titel selbst — keine Anführungszeichen, kein Punkt am Ende, keine Einleitung.\n\n` +
+      `Benutzer: ${u}\n\n` +
+      `Assistent: ${a}\n\n` +
+      `Titel:`
+    try {
+      const raw = await this.generateRaw(prompt, opts)
+      return cleanTitle(raw)
+    } catch {
+      return null
+    }
+  }
+
   private async askFallback(
     question: string,
     hits: RetrievalHit[],
@@ -825,6 +854,35 @@ export class LlamaService {
 }
 
 // ---------------------------------------------------------------------------
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s
+  return `${s.slice(0, max).trim()}…`
+}
+
+/**
+ * Clean a raw LLM title response: drop quotes/punctuation/preambles the model
+ * tends to add despite instructions, keep the first line, and cap the length.
+ * Returns null when nothing usable remains.
+ */
+function cleanTitle(raw: string): string | null {
+  let s = raw.trim()
+  if (!s) return null
+  // Take the first non-empty line — sometimes the model adds an explanation.
+  const firstLine = s.split(/\r?\n/).find((line) => line.trim().length > 0)
+  if (!firstLine) return null
+  s = firstLine.trim()
+  // Drop leading "Title:" / "Titel:" preambles.
+  s = s.replace(/^(title|titel)\s*[:\-–—]\s*/i, '')
+  // Strip wrapping quotes (straight or curly).
+  s = s.replace(/^["'“”„‘’«»]+|["'“”„‘’«»]+$/g, '')
+  // Drop trailing punctuation the model likes to add.
+  s = s.replace(/[.。!?！？\s]+$/u, '').trim()
+  if (!s) return null
+  // Cap length so it fits in the sidebar without breaking layout.
+  if (s.length > 64) s = `${s.slice(0, 63).trimEnd()}…`
+  return s
+}
 
 function describeGpu(llama: unknown): string | null {
   const obj = llama as { gpu?: string }
