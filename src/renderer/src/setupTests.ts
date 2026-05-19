@@ -112,6 +112,7 @@ const stub: Api = {
         },
         messages: [],
       }),
+    generateTitle: () => Promise.resolve(null),
   },
   embedder: {
     status: () =>

@@ -13,6 +13,7 @@ const baseHit = (overrides: Partial<SearchHit> = {}): SearchHit => ({
   ordinal: 0,
   page_from: 1,
   page_to: 1,
+  heading_path: null,
   text: 'some passage text here that is long enough to escape the short penalty by a clear margin',
   score: 1.0,
   ...overrides,

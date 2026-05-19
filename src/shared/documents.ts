@@ -82,6 +82,9 @@ export interface RetrievalHit {
   ordinal: number
   page_from: number | null
   page_to: number | null
+  /** Hierarchical heading breadcrumb for markdown chunks (e.g. ["Intro", "Why MD"]).
+   *  Null for PDFs and unstructured text. */
+  heading_path: string[] | null
   text: string
   score: number
   origin?: 'primary' | 'neighbour' | 'whole_doc'
@@ -161,6 +164,12 @@ export interface AnswerOptions {
   rerank?: boolean
   multiQuery?: boolean
   activeDocumentIds?: number[] | null
+  /** Rewrite the new question into a standalone retrieval query using the
+   *  prior turns in `history` before running retrieval. Fixes follow-ups
+   *  like "gibt noch was dazu?" that have no topical keywords and would
+   *  otherwise return zero relevant chunks. No-op when history is empty or
+   *  the LLM is not loaded. */
+  contextualize?: boolean
   /** When set, the chat:stream handler persists the user message before
    *  streaming, then persists the assistant message + citations on `done`
    *  (or on `refusal`, with citations=[]). Errors are not persisted. */
@@ -209,6 +218,11 @@ export interface Message {
   role: MessageRole
   content: string
   createdAt: number
+  /** Stream metrics captured at persistence time for assistant turns; null on
+   *  user/system rows and on legacy/refusal assistant rows that never streamed. */
+  ttftMs: number | null
+  tokensPerSec: number | null
+  tokenCount: number | null
 }
 
 export interface Citation {
@@ -248,4 +262,7 @@ export interface ChunkSource {
   /** Absolute path on disk — only displayed, never used to load bytes
    *  (renderer must go through documents.readDocumentBytes for that). */
   sourcePath: string
+  /** Heading breadcrumb for the specific chunk this was fetched for. Null for
+   *  PDFs and chunks indexed before markdown-aware chunking landed. */
+  headingPath: string[] | null
 }

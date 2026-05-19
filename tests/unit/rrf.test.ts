@@ -10,6 +10,7 @@ function hit(chunkId: number, score: number, docId = 1): SearchHit {
     ordinal: chunkId,
     page_from: 1,
     page_to: 1,
+    heading_path: null,
     text: `chunk ${chunkId}`,
     score,
   }

@@ -82,17 +82,51 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  /* Isolate so mix-blend-mode children don't fall back to software rendering. */
+  isolation: isolate;
+  /* Force a GPU compositing layer for the whole bg — sharper at 4K, no jitter. */
+  transform: translate3d(0, 0, 0);
+  /* Cursor parallax inputs — pushed in from JS, [-1, 1]. */
+  --mx: 0;
+  --my: 0;
+}
+
+/* Each blob lives inside a parallax layer so the cursor-follow translate
+   composes with the blob's own keyframe drift (separate elements = separate
+   transform stacks). */
+.bgfx__layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transition: transform 600ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.bgfx__layer--1 {
+  transform: translate3d(calc(var(--mx) * 28px), calc(var(--my) * 22px), 0);
+}
+.bgfx__layer--2 {
+  transform: translate3d(calc(var(--mx) * -42px), calc(var(--my) * 26px), 0);
+}
+.bgfx__layer--3 {
+  transform: translate3d(calc(var(--mx) * 20px), calc(var(--my) * -34px), 0);
+}
+.bgfx__layer--4 {
+  transform: translate3d(calc(var(--mx) * -52px), calc(var(--my) * -28px), 0);
 }
 
 .bgfx__blob {
   position: absolute;
   display: block;
-  width: 42vmax;
-  height: 42vmax;
+  width: 70vmax;
+  height: 70vmax;
   border-radius: 50%;
-  filter: blur(110px);
+  /* Blur scales with the viewport — at 1080p ~130px, at 4K ~250px — so the
+     soft falloff stays visually proportional instead of looking crisp+banded
+     on hi-dpi displays. */
+  filter: blur(clamp(120px, 12vmax, 280px));
   opacity: 0.55;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
   mix-blend-mode: screen;
 }
 
@@ -131,12 +165,20 @@ body {
   inset: 0;
   background-image:
     /* Subtle noise via repeated tiny radial dots — much smaller payload than an SVG noise filter. */ radial-gradient(
-    rgba(255, 255, 255, 0.018) 1px,
+    rgba(255, 255, 255, 0.014) 1px,
     transparent 1px
   );
-  background-size: 3px 3px;
+  background-size: 4px 4px;
   mix-blend-mode: overlay;
-  opacity: 0.6;
+  opacity: 0.35;
+}
+
+/* On hi-dpi displays the 1-px noise dots become visibly aliased against the
+   moving blobs — they read as "pixelation". Drop the grain there. */
+@media (min-resolution: 1.5dppx) {
+  .bgfx__grain {
+    display: none;
+  }
 }
 
 @keyframes blob-drift-a {
@@ -194,6 +236,43 @@ body {
 ::selection {
   background: var(--accent-glow);
   color: var(--fg-0);
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-3);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--accent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ── Titlebar ──────────────────────────────────────────────────────────── */

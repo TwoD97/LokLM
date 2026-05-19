@@ -233,6 +233,8 @@ export class AuthService {
 
     this.dek = dek
     this.database = await Database.create(undefined, snapshotBlob)
+    this.cache = vault.header
+    this.cacheLoaded = true
     this.failures = []
     this.startInactivityTimer()
     return { ok: true }

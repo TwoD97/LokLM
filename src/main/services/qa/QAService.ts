@@ -41,6 +41,15 @@ export class QAService {
     const threshold = opts.refusalThreshold ?? DEFAULT_REFUSAL_THRESHOLD
     const language = opts.language ?? detectLanguage(query)
 
+    // ---- 0. contextualize the retrieval query against prior turns ----
+    // The LLM still sees the user's literal question in the prompt; only the
+    // text fed to BM25/dense/rerank is rewritten. Failures fall back to the
+    // raw query so a flaky LLM never blocks an answer.
+    const retrievalQuery =
+      opts.contextualize === true && opts.history && opts.history.length > 0
+        ? await contextualizeQuery(this.llama, opts.history, query)
+        : query
+
     // ---- 1. retrieve ----
     let hits: RetrievalHit[] = []
     try {
@@ -49,7 +58,7 @@ export class QAService {
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
       if (opts.activeDocumentIds !== undefined)
         searchOpts.activeDocumentIds = opts.activeDocumentIds
-      hits = await this.retrieval.search(workspaceId, query, topK, searchOpts)
+      hits = await this.retrieval.search(workspaceId, retrievalQuery, topK, searchOpts)
     } catch (err) {
       yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
       return
@@ -127,6 +136,73 @@ export class QAService {
 const SLEEP_SENTINEL = Symbol('sleep')
 function sleep(ms: number): Promise<typeof SLEEP_SENTINEL> {
   return new Promise((r) => setTimeout(() => r(SLEEP_SENTINEL), ms))
+}
+
+// Cap the history we send to the rewriter — recent turns carry the topic;
+// older ones mostly add noise and risk overflowing the small generation we
+// want here.
+const CONTEXTUALIZE_MAX_TURNS = 6
+const CONTEXTUALIZE_PER_TURN_CHARS = 600
+
+/** Minimal surface of LlamaService that the rewriter needs. Defined locally
+ *  so the helper can be unit-tested without instantiating LlamaService. */
+export interface ContextualizerLLM {
+  isReady(): boolean
+  generateRaw(prompt: string): Promise<string>
+}
+
+/**
+ * Rewrite a follow-up question into a standalone search query using prior
+ * conversation turns. Returns the original `query` unchanged if the LLM is
+ * unavailable, the rewrite errors, or the rewrite comes back empty/too long.
+ *
+ * Exported for unit tests; QAService.answer calls it via the local
+ * `contextualizeQuery` symbol.
+ */
+export async function contextualizeQuery(
+  llama: ContextualizerLLM,
+  history: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>,
+  query: string,
+): Promise<string> {
+  if (!llama.isReady() || history.length === 0) return query
+  const recent = history.slice(-CONTEXTUALIZE_MAX_TURNS)
+  const lines = recent.map((m) => {
+    const role = m.role === 'user' ? 'User' : 'Assistant'
+    const text =
+      m.content.length > CONTEXTUALIZE_PER_TURN_CHARS
+        ? m.content.slice(0, CONTEXTUALIZE_PER_TURN_CHARS) + '…'
+        : m.content
+    return `${role}: ${text}`
+  })
+  const prompt =
+    `You are rewriting a follow-up question into a standalone search query for a document-retrieval system.\n` +
+    `Use the conversation to resolve pronouns and "more / also / again" references. Keep the user's language. ` +
+    `Output ONLY the rewritten query on a single line — no quotes, no preamble, no explanation. ` +
+    `If the question is already standalone, return it unchanged.\n\n` +
+    `Conversation:\n${lines.join('\n')}\n\n` +
+    `Follow-up question: ${query}\n\n` +
+    `Standalone query:`
+  try {
+    const raw = await llama.generateRaw(prompt)
+    const cleaned = cleanRewrite(raw)
+    if (!cleaned) return query
+    // Guard: if the model returned a multi-paragraph essay, fall back —
+    // something went wrong with the instruction-following.
+    if (cleaned.length > 400) return query
+    return cleaned
+  } catch {
+    return query
+  }
+}
+
+function cleanRewrite(raw: string): string {
+  // Take the first non-empty line, strip surrounding quotes/markdown markers.
+  const firstLine = raw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .find((s) => s.length > 0)
+  if (!firstLine) return ''
+  return firstLine.replace(/^[`'"\s]+|[`'"\s]+$/g, '').replace(/^(query|search):\s*/i, '')
 }
 
 function uniqueByDoc(hits: RetrievalHit[], limit: number): RetrievalHit[] {

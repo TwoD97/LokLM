@@ -101,6 +101,8 @@ const api = {
     delete: (id: number): Promise<void> => ipcRenderer.invoke('conversations:delete', id),
     getWithMessages: (id: number): Promise<ConversationWithMessages> =>
       ipcRenderer.invoke('conversations:getWithMessages', id),
+    generateTitle: (id: number): Promise<string | null> =>
+      ipcRenderer.invoke('conversations:generateTitle', id),
   },
   embedder: {
     status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),
