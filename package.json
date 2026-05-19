@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -14,10 +14,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "prepackage:check-models": "node scripts/check-bundled-models.mjs",
-    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win zip",
-    "package:linux": "pnpm prepackage:check-models && electron-vite build && electron-builder --linux AppImage",
-    "package:mac": "pnpm prepackage:check-models && electron-vite build && electron-builder --mac dmg",
+    "package:win": "electron-vite build && electron-builder --win nsis",
+    "package:linux": "electron-vite build && electron-builder --linux AppImage",
+    "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -123,14 +122,8 @@
     ],
     "asar": true,
     "publish": null,
+    "npmRebuild": false,
     "extraResources": [
-      {
-        "from": "models",
-        "to": "models",
-        "filter": [
-          "**/*.gguf"
-        ]
-      },
       {
         "from": "drizzle",
         "to": "drizzle"
@@ -143,13 +136,23 @@
     "win": {
       "target": [
         {
-          "target": "zip",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "LokLM-${version}-win-x64.${ext}"
+      "artifactName": "LokLM-Setup-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LokLM",
+      "deleteAppDataOnUninstall": false
     },
     "linux": {
       "target": [

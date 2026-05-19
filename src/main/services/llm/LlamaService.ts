@@ -1,6 +1,4 @@
-import { app } from 'electron'
-import { join } from 'node:path'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { totalmem } from 'node:os'
 import {
   ResourcePlanner,
@@ -8,6 +6,7 @@ import {
   type LlmPlan,
   type SystemResources,
 } from '../embeddings/ResourcePlanner'
+import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
 import type {
@@ -138,20 +137,8 @@ export const LLM_PROFILES: LlmProfile[] = [
   },
 ]
 
-/**
- * Models directory shared with the embedder.
- *  - Dev: <project>/models/
- *  - Packaged: <resources>/models/  (electron-builder copies via extraResources)
- */
-function modelsDir(): string {
-  // Under vitest the electron `app` import is undefined; fall back to cwd-
-  // relative `models/` so integration tests can resolve the bundled GGUFs.
-  if (!app || typeof app.isPackaged !== 'boolean') {
-    return join(process.cwd(), 'models')
-  }
-  const root = app.isPackaged ? process.resourcesPath : app.getAppPath()
-  return join(root, 'models')
-}
+// Models directory resolution moved to ../models/paths.ts so the LLM, embedder
+// and reranker services all agree on where to look. See the policy doc there.
 
 export function totalMemGB(): number {
   return totalmem() / (1024 * 1024 * 1024)
@@ -177,14 +164,7 @@ export function recommendedProfile(): LlmProfileName {
  * what to load.
  */
 export function discoverProfiles(): AvailableProfile[] {
-  const dir = modelsDir()
-  let entries: string[] = []
-  try {
-    if (existsSync(dir)) entries = readdirSync(dir)
-  } catch {
-    /* fall through with empty list */
-  }
-  const ggufs = entries.filter((f) => f.toLowerCase().endsWith('.gguf'))
+  const ggufs = listVisibleGgufs().map((g) => g.name)
   return LLM_PROFILES.map((p) => {
     const match = ggufs.find((f) => p.filenamePatterns.some((re) => re.test(f)))
     return {
@@ -295,7 +275,7 @@ export class LlamaService {
     const resolved = this.resolveSelectedPath(profiles, recommended)
     return {
       ...this.status,
-      bundledModelPath: resolved ?? join(modelsDir()),
+      bundledModelPath: resolved ?? getModelSearchDirs()[0]!,
       bundledModelExists: resolved !== null,
       totalMemGB: Math.round(totalMemGB() * 10) / 10,
       recommendedProfile: recommended,
@@ -365,7 +345,7 @@ export class LlamaService {
     if (!res) return recommendedProfile()
     const enriched = LLM_PROFILES.map((p) => {
       const d = profiles.find((x) => x.name === p.name)
-      const path = d?.filename ? join(modelsDir(), d.filename) : null
+      const path = d?.filename ? resolveModelFile(d.filename) : null
       return {
         name: p.name,
         minTotalMemGB: p.minTotalMemGB,
@@ -395,7 +375,7 @@ export class LlamaService {
     if (this.selectedChoice === 'auto') {
       const enriched = LLM_PROFILES.map((p) => {
         const d = profiles.find((x) => x.name === p.name)
-        const path = d?.filename ? join(modelsDir(), d.filename) : null
+        const path = d?.filename ? resolveModelFile(d.filename) : null
         return {
           name: p.name,
           minTotalMemGB: p.minTotalMemGB,
@@ -415,7 +395,7 @@ export class LlamaService {
         modelPath: null,
         modelName: null,
         profile: null,
-        message: `No LLM GGUF found in ${modelsDir()}. Drop a Qwen3-4B or Qwen3-8B .gguf there.`,
+        message: `No LLM GGUF found in ${getModelSearchDirs()[0]}. Drop a Qwen3-4B or Qwen3-8B .gguf there.`,
       })
       return
     }
@@ -434,7 +414,12 @@ export class LlamaService {
     const order = [preferred, ...profiles.filter((p) => p.name !== preferred).map((p) => p.name)]
     for (const name of order) {
       const p = profiles.find((x) => x.name === name)
-      if (p && p.filename) return join(modelsDir(), p.filename)
+      if (p && p.filename) {
+        // resolveModelFile walks every search dir so a file present only in
+        // the legacy `resourcesPath/models` (pre-v0.2.2 bundle) still loads.
+        const abs = resolveModelFile(p.filename)
+        if (abs) return abs
+      }
     }
     return null
   }

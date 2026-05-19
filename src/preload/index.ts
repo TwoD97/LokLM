@@ -21,7 +21,21 @@ import type {
   ConversationWithMessages,
   ChunkWithContext,
   ChunkSource,
+  ModelsStatus,
 } from '../shared/documents'
+
+/** Mirrors `DownloadEvent` in src/main/services/models/ModelDownloader.ts —
+ *  duplicated here to avoid pulling main-process types into the preload's
+ *  module graph. Renderer + main must stay in sync; type-test in
+ *  `tests/unit/model-download-types.test.ts` enforces this. */
+export interface ModelDownloadEvent {
+  id: string
+  phase: 'downloading' | 'verifying' | 'complete' | 'error' | 'cancelled'
+  bytesReceived: number
+  totalBytes: number
+  bytesPerSec: number | null
+  message: string | null
+}
 
 const api = {
   auth: {
@@ -103,6 +117,19 @@ const api = {
       ipcRenderer.invoke('conversations:getWithMessages', id),
     generateTitle: (id: number): Promise<string | null> =>
       ipcRenderer.invoke('conversations:generateTitle', id),
+  },
+  models: {
+    status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),
+    download: (id: string): Promise<void> => ipcRenderer.invoke('models:download', id),
+    cancel: (id: string): Promise<void> => ipcRenderer.invoke('models:cancel', id),
+    onProgress: async (cb: (ev: ModelDownloadEvent) => void): Promise<() => void> => {
+      const channel = await ipcRenderer.invoke('models:subscribeProgress')
+      const listener = (_e: IpcRendererEvent, ev: ModelDownloadEvent): void => cb(ev)
+      ipcRenderer.on(channel, listener)
+      return () => {
+        ipcRenderer.removeListener(channel, listener)
+      }
+    },
   },
   embedder: {
     status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),
