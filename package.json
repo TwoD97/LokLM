@@ -102,6 +102,7 @@
     "drizzle-orm": "^0.45.2",
     "node-llama-cpp": "^3.18.1",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.7.284",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },

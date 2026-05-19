@@ -41,6 +41,8 @@ const stub: Api = {
   },
   documents: {
     list: () => Promise.resolve([]),
+    getPathForFile: () => '',
+    pickFiles: () => Promise.resolve([] as string[]),
     import: (workspaceId: number, sourcePath: string) =>
       Promise.resolve({
         id: 1,
@@ -69,6 +71,8 @@ const stub: Api = {
         addedAt: Math.floor(Date.now() / 1000),
       }),
     getChunkWithContext: () => Promise.resolve([] as Array<never>),
+    getSourceForChunk: () => Promise.resolve(null),
+    readDocumentBytes: () => Promise.resolve(null),
     onIndexProgress: () => () => undefined,
   },
   conversations: {

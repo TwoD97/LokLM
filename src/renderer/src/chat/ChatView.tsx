@@ -8,9 +8,21 @@ import { ConfirmModal } from './ConfirmModal'
 import { SourceViewer } from './SourceViewer'
 import './chat.css'
 
+type StreamMetrics = {
+  ttftMs: number | null
+  tokensPerSec: number | null
+  tokenCount: number
+}
+
 type LocalMessage =
   | { role: 'user'; content: string }
-  | { role: 'assistant'; content: string; streaming: boolean; isRefusal?: boolean }
+  | {
+      role: 'assistant'
+      content: string
+      streaming: boolean
+      isRefusal?: boolean
+      metrics?: StreamMetrics
+    }
 
 type Props = {
   workspaceId: number
@@ -63,10 +75,18 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         setCurrentId(convId)
         await refresh()
       }
+      const sendTime = performance.now()
+      let firstTokenTime: number | null = null
+      let tokenCount = 0
       setMessages((prev) => [
         ...prev,
         { role: 'user', content: text },
-        { role: 'assistant', content: '', streaming: true },
+        {
+          role: 'assistant',
+          content: '',
+          streaming: true,
+          metrics: { ttftMs: null, tokensPerSec: null, tokenCount: 0 },
+        },
       ])
       const streamId = crypto.randomUUID()
       setActiveStreamId(streamId)
@@ -76,7 +96,16 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
           const last = next[next.length - 1]
           if (!last || last.role !== 'assistant') return prev
           if (ev.type === 'token') {
-            next[next.length - 1] = { ...last, content: last.content + ev.text }
+            if (firstTokenTime == null) firstTokenTime = performance.now()
+            tokenCount += 1
+            const ttftMs = firstTokenTime - sendTime
+            const elapsedSinceFirst = (performance.now() - firstTokenTime) / 1000
+            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
+            next[next.length - 1] = {
+              ...last,
+              content: last.content + ev.text,
+              metrics: { ttftMs, tokensPerSec, tokenCount },
+            }
           } else if (ev.type === 'refusal') {
             next[next.length - 1] = {
               ...last,
@@ -100,8 +129,8 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         await window.api.chat.stream(streamId, workspaceId, text, {
           conversationId: convId,
           history: messages.map((m) => ({ role: m.role, content: m.content })),
+          rerank: true,
         })
-        await openConversation(convId)
       } finally {
         offEvent()
         setActiveStreamId(null)

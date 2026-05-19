@@ -1,11 +1,57 @@
 import { useEffect, useState } from 'react'
+import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
+
+type DotState = EmbedderState | RerankerState | ModelState
+
+function dotLabel(label: string, state: DotState, message: string | null): string {
+  const base = `${label}: ${state}`
+  return message ? `${base} — ${message}` : base
+}
 
 export function TitleBar(): JSX.Element {
   const [maximized, setMaximized] = useState(false)
+  const [embedder, setEmbedder] = useState<{ state: EmbedderState; message: string | null }>({
+    state: 'idle',
+    message: null,
+  })
+  const [reranker, setReranker] = useState<{ state: RerankerState; message: string | null }>({
+    state: 'idle',
+    message: null,
+  })
+  const [llm, setLlm] = useState<{ state: ModelState; message: string | null }>({
+    state: 'idle',
+    message: null,
+  })
 
   useEffect(() => {
     void window.api.window.isMaximized().then(setMaximized)
     const off = window.api.window.onMaximizedChange(setMaximized)
+    return () => off()
+  }, [])
+
+  useEffect(() => {
+    void window.api.embedder
+      .status()
+      .then((s) => setEmbedder({ state: s.state, message: s.message }))
+    const off = window.api.embedder.onStatus((s) =>
+      setEmbedder({ state: s.state, message: s.message }),
+    )
+    return () => off()
+  }, [])
+
+  useEffect(() => {
+    void window.api.reranker
+      .status()
+      .then((s) => setReranker({ state: s.state, message: s.message }))
+    const off = window.api.reranker.onStatus((s) =>
+      setReranker({ state: s.state, message: s.message }),
+    )
+    return () => off()
+  }, [])
+
+  useEffect(() => {
+    void window.api.llm.status().then((s) => setLlm({ state: s.state, message: s.message }))
+    const off = window.api.llm.onStatus((s) => setLlm({ state: s.state, message: s.message }))
     return () => off()
   }, [])
 
@@ -48,6 +94,27 @@ export function TitleBar(): JSX.Element {
           </svg>
         </span>
         <span className="titlebar__brand">LokLM</span>
+      </div>
+
+      <div className="titlebar__status" aria-label="Modellstatus">
+        <span
+          className={`titlebar__dot titlebar__dot--${llm.state}`}
+          role="img"
+          aria-label={dotLabel('LLM', llm.state, llm.message)}
+          title={dotLabel('LLM', llm.state, llm.message)}
+        />
+        <span
+          className={`titlebar__dot titlebar__dot--${embedder.state}`}
+          role="img"
+          aria-label={dotLabel('Embedder', embedder.state, embedder.message)}
+          title={dotLabel('Embedder', embedder.state, embedder.message)}
+        />
+        <span
+          className={`titlebar__dot titlebar__dot--${reranker.state}`}
+          role="img"
+          aria-label={dotLabel('Reranker', reranker.state, reranker.message)}
+          title={dotLabel('Reranker', reranker.state, reranker.message)}
+        />
       </div>
 
       <div className="titlebar__spacer" />

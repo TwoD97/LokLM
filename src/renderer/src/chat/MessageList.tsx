@@ -1,9 +1,21 @@
 import { useEffect, useRef } from 'react'
 import { MessageBubble } from './MessageBubble'
 
+type StreamMetrics = {
+  ttftMs: number | null
+  tokensPerSec: number | null
+  tokenCount: number
+}
+
 type LocalMessage =
   | { role: 'user'; content: string }
-  | { role: 'assistant'; content: string; streaming: boolean; isRefusal?: boolean }
+  | {
+      role: 'assistant'
+      content: string
+      streaming: boolean
+      isRefusal?: boolean
+      metrics?: StreamMetrics
+    }
 
 type Props = {
   messages: LocalMessage[]
@@ -28,13 +40,21 @@ export function MessageList({ messages, onCitationClick }: Props): JSX.Element {
   return (
     <div className="chat__messages" ref={ref}>
       {messages.map((m, i) => (
-        <MessageBubble
-          key={i}
-          role={m.role}
-          content={m.content}
-          {...(m.role === 'assistant' && m.isRefusal ? { isRefusal: true } : {})}
-          onCitationClick={onCitationClick}
-        />
+        <div key={i} className="chat__message-row">
+          <MessageBubble
+            role={m.role}
+            content={m.content}
+            {...(m.role === 'assistant' && m.isRefusal ? { isRefusal: true } : {})}
+            onCitationClick={onCitationClick}
+          />
+          {m.role === 'assistant' && m.metrics && m.metrics.ttftMs != null && (
+            <div className="chat__metrics">
+              TTFT {(m.metrics.ttftMs / 1000).toFixed(2)} s
+              {m.metrics.tokensPerSec != null && <> · {m.metrics.tokensPerSec.toFixed(1)} tok/s</>}
+              <> · {m.metrics.tokenCount} tok</>
+            </div>
+          )}
+        </div>
       ))}
     </div>
   )
