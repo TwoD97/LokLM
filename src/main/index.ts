@@ -11,6 +11,8 @@ import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
+import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
+import { checkAll as checkModelsAvailability } from './services/models/availability'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -68,6 +70,12 @@ let rerankerService: RerankerService | null = null
 let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
+let modelDownloader: ModelDownloader | null = null
+
+function getModelDownloader(): ModelDownloader {
+  modelDownloader ??= new ModelDownloader()
+  return modelDownloader
+}
 
 function getWorkspaceService(): WorkspaceService {
   workspaceService ??= new WorkspaceService(getAuth())
@@ -362,6 +370,31 @@ function registerIpc(): void {
     if (!title) return null
     await repo.setTitle(id, title)
     return title
+  })
+
+  // models — manifest-driven download + availability
+  ipcMain.handle('models:status', async () => checkModelsAvailability())
+  ipcMain.handle('models:download', async (_e, id: string) => {
+    await getModelDownloader().download(id)
+  })
+  ipcMain.handle('models:cancel', async (_e, id: string) => {
+    getModelDownloader().cancel(id)
+  })
+  // Subscribe to download progress events. Returns the channel name the
+  // renderer should listen on; the preload bridge attaches a listener and
+  // exposes an unsubscribe function.
+  ipcMain.handle('models:subscribeProgress', async (e): Promise<string> => {
+    const channel = `models:progress:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const off = getModelDownloader().onProgress((ev: DownloadEvent) => {
+      try {
+        if (!e.sender.isDestroyed()) e.sender.send(channel, ev)
+      } catch {
+        /* renderer torn down — drop the event */
+      }
+    })
+    // Clean up the listener when the renderer goes away.
+    e.sender.once('destroyed', off)
+    return channel
   })
 
   // embedder

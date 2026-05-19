@@ -94,6 +94,39 @@ export interface RetrievalHit {
 // LLM / LlamaService shared types — renderer + preload + main must agree.
 // ---------------------------------------------------------------------------
 
+/** Status of a single model from the download manifest. Renderer uses this
+ *  to decide whether to show the first-launch download UI. */
+export interface ModelAvailability {
+  /** Stable id from the manifest (filename without `.gguf`). */
+  id: string
+  label: string
+  description: string
+  kind: 'llm' | 'embedder' | 'reranker'
+  filename: string
+  /** Expected size in bytes from the manifest. */
+  sizeBytes: number
+  /** Whether this model is required for the app to function. */
+  required: boolean
+  /** Resolved absolute path if the file is on disk; null otherwise. */
+  resolvedPath: string | null
+  /** True when the file exists AND its size is within tolerance of the
+   *  manifest size. False for missing or partial files. */
+  present: boolean
+  /** Actual on-disk size in bytes (null when missing). */
+  actualSizeBytes: number | null
+}
+
+export interface ModelsStatus {
+  /** Where freshly-downloaded files land. Renderer surfaces this in
+   *  troubleshooting/dev banners; not needed for the happy path. */
+  downloadDir: string
+  models: ModelAvailability[]
+  /** Convenience: true when every `required: true` entry is `present: true`. */
+  allRequiredReady: boolean
+}
+
+// ---------------------------------------------------------------------------
+
 export type ModelState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
 
 export type LlmProfileName = 'lite' | 'full' | 'xl'

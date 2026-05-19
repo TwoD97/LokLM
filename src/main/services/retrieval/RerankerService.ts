@@ -1,12 +1,12 @@
-import { app } from 'electron'
-import { join } from 'node:path'
 import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   ResourcePlanner,
   ggufWeightBytes,
   type Placement,
   type PlacementChoice,
 } from '../embeddings/ResourcePlanner'
+import { getModelSearchDirs, resolveModelFile } from '../models/paths'
 
 /**
  * Cross-encoder reranker on top of BM25 + dense retrieval. Pipeline:
@@ -34,41 +34,37 @@ export type { Placement, PlacementChoice }
 
 const RERANK_CONTEXT_SIZE = 1024
 
-function modelsDir(): string {
-  // Under vitest the electron `app` import is undefined; fall back to cwd-
-  // relative `models/` so integration tests can resolve the bundled GGUFs.
-  if (!app || typeof app.isPackaged !== 'boolean') {
-    return join(process.cwd(), 'models')
-  }
-  const root = app.isPackaged ? process.resourcesPath : app.getAppPath()
-  return join(root, 'models')
-}
-
 export function bundledRerankerPath(): string {
-  return join(modelsDir(), BUNDLED_RERANKER_FILE)
+  return join(getModelSearchDirs()[0]!, BUNDLED_RERANKER_FILE)
 }
 
 /** Resolve a reranker GGUF on disk. Returns null when none is present. */
 export function resolveRerankerPath(): string | null {
   const override = process.env.LOKLM_RERANKER_PATH
   if (override && existsSync(override)) return override
-  const preferred = bundledRerankerPath()
-  if (existsSync(preferred)) return preferred
-  const dir = modelsDir()
-  if (!existsSync(dir)) return null
-  let entries: string[] = []
-  try {
-    entries = readdirSync(dir)
-  } catch {
-    return null
+
+  const canonical = resolveModelFile(BUNDLED_RERANKER_FILE)
+  if (canonical) return canonical
+
+  // Fallback: any *reranker*.gguf that isn't obviously an LLM/embedder. Walk
+  // each search dir explicitly so a bad match in one dir doesn't block a
+  // valid one in the next.
+  for (const dir of getModelSearchDirs()) {
+    if (!existsSync(dir)) continue
+    let entries: string[] = []
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    const candidates = entries
+      .filter((f) => f.toLowerCase().endsWith('.gguf'))
+      .filter((f) => /reranker/i.test(f))
+      .filter((f) => !NON_RERANKER_PATTERNS.some((re) => re.test(f)))
+      .sort()
+    if (candidates.length > 0) return join(dir, candidates[0]!)
   }
-  const candidates = entries
-    .filter((f) => f.toLowerCase().endsWith('.gguf'))
-    .filter((f) => /reranker/i.test(f))
-    .filter((f) => !NON_RERANKER_PATTERNS.some((re) => re.test(f)))
-    .sort()
-  if (candidates.length === 0) return null
-  return join(dir, candidates[0]!)
+  return null
 }
 
 export class RerankerService {
@@ -161,7 +157,7 @@ export class RerankerService {
         modelPath: bundledRerankerPath(),
         modelName: BUNDLED_RERANKER_FILE,
         message:
-          `No reranker GGUF found in ${modelsDir()}. Drop a *reranker*.gguf there ` +
+          `No reranker GGUF found in ${getModelSearchDirs()[0]}. Drop a *reranker*.gguf there ` +
           `(e.g. ${BUNDLED_RERANKER_FILE}). Reranking disabled — RRF retrieval still works.`,
       })
       return false

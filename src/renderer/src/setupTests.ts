@@ -114,6 +114,17 @@ const stub: Api = {
       }),
     generateTitle: () => Promise.resolve(null),
   },
+  models: {
+    status: () =>
+      Promise.resolve({
+        downloadDir: '/tmp/models',
+        models: [] as Array<never>,
+        allRequiredReady: true,
+      }),
+    download: () => Promise.resolve(),
+    cancel: () => Promise.resolve(),
+    onProgress: () => Promise.resolve(() => undefined),
+  },
   embedder: {
     status: () =>
       Promise.resolve({

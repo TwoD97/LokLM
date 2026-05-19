@@ -1,12 +1,12 @@
-import { app } from 'electron'
-import { join } from 'node:path'
 import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   ResourcePlanner,
   ggufWeightBytes,
   type PlacementChoice,
   type Placement,
 } from './ResourcePlanner'
+import { getModelSearchDirs, resolveModelFile } from '../models/paths'
 
 /**
  * Preferred filename — what we ship in the bundled installer if available.
@@ -59,49 +59,46 @@ const EMBED_CONTEXT_SIZE = 2048
  */
 const SANITIZE_MAX_CHARS = 6000
 
-function modelsDir(): string {
-  // Under vitest the electron `app` import is undefined; fall back to cwd-
-  // relative `models/` so integration tests can resolve the bundled GGUFs.
-  if (!app || typeof app.isPackaged !== 'boolean') {
-    return join(process.cwd(), 'models')
-  }
-  const root = app.isPackaged ? process.resourcesPath : app.getAppPath()
-  return join(root, 'models')
-}
-
 export function bundledEmbedderPath(): string {
-  return join(modelsDir(), BUNDLED_EMBEDDER_FILE)
+  // Returns the *primary* on-disk location of the canonical embedder file.
+  // Used by status reporting; the real load path goes through
+  // `resolveEmbedderPath()` which walks all search dirs.
+  return join(getModelSearchDirs()[0]!, BUNDLED_EMBEDDER_FILE)
 }
 
 /**
  * Pick the embedder GGUF to load. Order of preference:
  *   1. $LOKLM_EMBEDDER_PATH if set (absolute override for power users)
- *   2. The exact bundled filename (BUNDLED_EMBEDDER_FILE)
- *   3. Any other *embed*.gguf in models/ (excluding obvious LLMs)
+ *   2. The canonical filename (BUNDLED_EMBEDDER_FILE) in any search dir
+ *   3. Any other *embed*.gguf in any search dir (excluding obvious LLMs)
  * Returns null if nothing usable is on disk.
  */
 export function resolveEmbedderPath(): string | null {
   const override = process.env.LOKLM_EMBEDDER_PATH
   if (override && existsSync(override)) return override
 
-  const preferred = bundledEmbedderPath()
-  if (existsSync(preferred)) return preferred
+  const canonical = resolveModelFile(BUNDLED_EMBEDDER_FILE)
+  if (canonical) return canonical
 
-  const dir = modelsDir()
-  if (!existsSync(dir)) return null
-  let entries: string[] = []
-  try {
-    entries = readdirSync(dir)
-  } catch {
-    return null
+  // Fallback: any *embed*.gguf that isn't obviously an LLM. Walk each search
+  // dir explicitly so a blocked match in dir 1 doesn't prevent dir 2 from
+  // contributing a valid candidate.
+  for (const dir of getModelSearchDirs()) {
+    if (!existsSync(dir)) continue
+    let entries: string[] = []
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    const candidates = entries
+      .filter((f) => f.toLowerCase().endsWith('.gguf'))
+      .filter((f) => /embed/i.test(f))
+      .filter((f) => !NON_EMBEDDER_PATTERNS.some((re) => re.test(f)))
+      .sort()
+    if (candidates.length > 0) return join(dir, candidates[0]!)
   }
-  const candidates = entries
-    .filter((f) => f.toLowerCase().endsWith('.gguf'))
-    .filter((f) => /embed/i.test(f))
-    .filter((f) => !NON_EMBEDDER_PATTERNS.some((re) => re.test(f)))
-    .sort() // stable choice across runs
-  if (candidates.length === 0) return null
-  return join(dir, candidates[0]!)
+  return null
 }
 
 export class EmbeddingService {
@@ -211,7 +208,7 @@ export class EmbeddingService {
         state: 'failed',
         modelPath: expected,
         modelName: BUNDLED_EMBEDDER_FILE,
-        message: `No embedder GGUF found in ${join(modelsDir())}. Drop a *embed*.gguf file there (e.g. ${BUNDLED_EMBEDDER_FILE}, arctic-embed-l, multilingual-e5-large). Vector search disabled — keyword search still works.`,
+        message: `No embedder GGUF found in ${getModelSearchDirs()[0]}. Drop a *embed*.gguf file there (e.g. ${BUNDLED_EMBEDDER_FILE}, arctic-embed-l, multilingual-e5-large). Vector search disabled — keyword search still works.`,
       })
       return false
     }
