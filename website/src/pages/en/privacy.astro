@@ -1,0 +1,75 @@
+---
+import Base from '~/layouts/Base.astro'
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+---
+
+<Base title={`${t(lang, 'privacy.title')} — LokLM`} description={t(lang, 'privacy.description')}>
+  <main class="legal">
+    <div class="legal__inner">
+      <span class="section-eyebrow">{t(lang, 'privacy.title')}</span>
+      <h1 class="legal__title gradient-text">{t(lang, 'privacy.title')}</h1>
+      <p class="legal__lead">{t(lang, 'privacy.description')}</p>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'privacy.summaryTitle')}</h2>
+        <p>{t(lang, 'privacy.summary')}</p>
+      </section>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'privacy.outboundTitle')}</h2>
+        <ul>
+          <li>{t(lang, 'privacy.outbound.font')}</li>
+          <li>{t(lang, 'privacy.outbound.avatars')}</li>
+          <li>{t(lang, 'privacy.outbound.downloads')}</li>
+        </ul>
+      </section>
+
+      <section class="legal__section">
+        <h2>{t(lang, 'privacy.appTitle')}</h2>
+        <p>{t(lang, 'privacy.app')}</p>
+      </section>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .legal { padding: 6rem 0 8rem; }
+  .legal__inner {
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .legal__title {
+    margin-top: 0.5rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .legal__lead {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  .legal__section { margin-top: 2.5rem; }
+  .legal__section h2 {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-hover);
+    margin-bottom: 0.5rem;
+  }
+  .legal__section p { color: var(--color-fg-1); line-height: 1.6; }
+  .legal__section ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+    color: var(--color-fg-1);
+    line-height: 1.6;
+  }
+  .legal__section li { margin-top: 0.4rem; }
+</style>

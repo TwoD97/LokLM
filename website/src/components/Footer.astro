@@ -1,0 +1,141 @@
+---
+import { getLangFromUrl, localisedPath } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+const year = new Date().getFullYear()
+
+const repoUrl = 'https://github.com/TwoD97/LokLM'
+---
+
+<footer class="footer">
+  <div class="footer__cols">
+    <div class="footer__col">
+      <p class="footer__heading">{t(lang, 'footer.col.product')}</p>
+      <ul>
+        <li><a href={localisedPath(lang, '/') + '#features'}>{t(lang, 'footer.col.product.features')}</a></li>
+        <li><a href={localisedPath(lang, '/') + '#download'}>{t(lang, 'footer.col.product.download')}</a></li>
+        <li><a href={`${repoUrl}/releases`} rel="noopener" target="_blank">{t(lang, 'footer.col.product.changelog')}</a></li>
+        <li><a href={`${repoUrl}/projects`} rel="noopener" target="_blank">{t(lang, 'footer.col.product.roadmap')}</a></li>
+      </ul>
+    </div>
+
+    <div class="footer__col">
+      <p class="footer__heading">{t(lang, 'footer.col.devs')}</p>
+      <ul>
+        <li><a href={repoUrl} rel="noopener" target="_blank">{t(lang, 'footer.col.devs.repo')}</a></li>
+        <li><a href={`${repoUrl}/blob/main/LICENSE`} rel="noopener" target="_blank">{t(lang, 'footer.col.devs.license')}</a></li>
+        <li><a href={localisedPath(lang, '/') + '#security'}>{t(lang, 'footer.col.devs.architecture')}</a></li>
+        <li><a href={`${repoUrl}/blob/main/CONTRIBUTING.md`} rel="noopener" target="_blank">{t(lang, 'footer.col.devs.contributing')}</a></li>
+      </ul>
+    </div>
+
+    <div class="footer__col">
+      <p class="footer__heading">{t(lang, 'footer.col.community')}</p>
+      <ul>
+        <li><a href={`${repoUrl}/discussions`} rel="noopener" target="_blank">{t(lang, 'footer.col.community.discussions')}</a></li>
+        <li><a href={`${repoUrl}/issues`} rel="noopener" target="_blank">{t(lang, 'footer.col.community.issues')}</a></li>
+      </ul>
+    </div>
+
+    <div class="footer__col">
+      <p class="footer__heading">{t(lang, 'footer.col.legal')}</p>
+      <ul>
+        <li><a href={localisedPath(lang, '/imprint')}>{t(lang, 'footer.col.legal.imprint')}</a></li>
+        <li><a href={localisedPath(lang, '/privacy')}>{t(lang, 'footer.col.legal.privacy')}</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer__bottom">
+    <div>
+      <p class="footer__tagline">{t(lang, 'footer.tagline')}</p>
+      <p class="footer__authors">{t(lang, 'footer.authors')}</p>
+    </div>
+
+    <div class="footer__bottom-links">
+      <a href={repoUrl} rel="noopener" target="_blank">{t(lang, 'footer.repo')}</a>
+      <span class="footer__sep">·</span>
+      <a href={`${repoUrl}/blob/main/LICENSE`} rel="noopener" target="_blank">MIT</a>
+      <span class="footer__sep">·</span>
+      <span>&copy; {year}</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    position: relative;
+    z-index: 10;
+    margin-top: 8rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .footer__cols {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 2.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .footer__cols { grid-template-columns: repeat(4, 1fr); gap: 3rem 2rem; }
+  }
+
+  .footer__col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .footer__heading {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    margin-bottom: 1rem;
+  }
+
+  .footer__col a {
+    color: var(--color-fg-2);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 180ms ease;
+  }
+  .footer__col a:hover { color: var(--color-fg-0); }
+
+  .footer__bottom {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 2.5rem;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--color-fg-2);
+  }
+  @media (min-width: 640px) { .footer__bottom { flex-direction: row; align-items: center; } }
+
+  .footer__tagline { color: var(--color-fg-1); }
+  .footer__authors { font-size: 0.75rem; margin-top: 0.25rem; }
+
+  .footer__bottom-links {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .footer__bottom-links a {
+    color: var(--color-fg-2);
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+  .footer__bottom-links a:hover { color: var(--color-fg-0); }
+  .footer__sep { color: var(--color-fg-3); }
+</style>

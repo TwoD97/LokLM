@@ -1,0 +1,88 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t, type UIKey } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+const problemKeys: UIKey[] = [
+  'why.problem.item1',
+  'why.problem.item2',
+  'why.problem.item3',
+  'why.problem.item4',
+  'why.problem.item5',
+]
+---
+
+<section id="why" class="relative py-20 sm:py-24">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="max-w-2xl">
+      <span class="section-eyebrow">{t(lang, 'why.eyebrow')}</span>
+      <h2 class="section-title gradient-text whitespace-pre-line">
+        {t(lang, 'why.title')}
+      </h2>
+      <p class="mt-4 text-[color:var(--color-fg-2)] text-base sm:text-lg leading-relaxed">
+        {t(lang, 'why.subtitle')}
+      </p>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 relative">
+      <div class="why-col why-col--problem">
+        <p class="why-col__label">{t(lang, 'why.problem.title')}</p>
+        <ul class="space-y-3">
+          {
+            problemKeys.map((key) => (
+              <li class="flex items-start gap-3 text-[color:var(--color-fg-2)]">
+                <svg class="why-icon why-icon--minus mt-0.5 flex-shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12h8" />
+                </svg>
+                <span class="leading-relaxed text-[0.95rem]">{t(lang, key)}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div class="why-col why-col--solution glass">
+        <p class="why-col__label why-col__label--accent">{t(lang, 'why.solution.title')}</p>
+        <p class="text-xl sm:text-2xl font-semibold leading-snug mb-4">
+          <span class="gradient-accent">{t(lang, 'why.solution.tagline')}</span>
+        </p>
+        <p class="text-[color:var(--color-fg-1)] leading-relaxed">
+          {t(lang, 'why.solution.body')}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .why-col {
+    padding: 1.75rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .why-col--problem {
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .why-col__label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    margin-bottom: 1.25rem;
+  }
+
+  .why-col__label--accent {
+    color: var(--color-accent-hover);
+  }
+
+  .why-icon--minus {
+    color: var(--color-fg-3);
+    opacity: 0.7;
+  }
+</style>

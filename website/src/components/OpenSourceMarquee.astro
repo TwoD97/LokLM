@@ -1,0 +1,186 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+
+interface StackItem {
+  name: string
+  url: string
+  slug?: string
+  glyph?: 'llama' | 'argon' | 'pglite'
+}
+
+const stack: StackItem[] = [
+  { name: 'Hugging Face', url: 'https://huggingface.co', slug: 'huggingface' },
+  { name: 'llama.cpp', url: 'https://github.com/ggml-org/llama.cpp', glyph: 'llama' },
+  { name: 'Argon2', url: 'https://github.com/P-H-C/phc-winner-argon2', glyph: 'argon' },
+  { name: 'Drizzle ORM', url: 'https://orm.drizzle.team', slug: 'drizzle' },
+  { name: 'PGlite', url: 'https://pglite.dev', glyph: 'pglite' },
+  { name: 'Electron', url: 'https://www.electronjs.org', slug: 'electron' },
+  { name: 'Astro', url: 'https://astro.build', slug: 'astro' },
+  { name: 'Vite', url: 'https://vite.dev', slug: 'vite' },
+  { name: 'Tailwind CSS', url: 'https://tailwindcss.com', slug: 'tailwindcss' },
+  { name: 'TypeScript', url: 'https://www.typescriptlang.org', slug: 'typescript' },
+  { name: 'Node.js', url: 'https://nodejs.org', slug: 'nodedotjs' },
+  { name: 'pnpm', url: 'https://pnpm.io', slug: 'pnpm' },
+  { name: 'Vitest', url: 'https://vitest.dev', slug: 'vitest' },
+]
+
+const track = [...stack, ...stack]
+---
+
+<section id="stack" class="relative py-10 sm:py-12" aria-label={t(lang, 'marquee.eyebrow')}>
+  <div class="mx-auto max-w-6xl px-6 text-center mb-8">
+    <span class="section-eyebrow">{t(lang, 'marquee.eyebrow')}</span>
+    <p class="text-sm sm:text-base text-[color:var(--color-fg-2)]">
+      {t(lang, 'marquee.title')}
+    </p>
+  </div>
+
+  <div class="marquee" role="list">
+    <div class="marquee__track">
+      {
+        track.map((item, idx) => (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="marquee__item"
+            role="listitem"
+            aria-hidden={idx >= stack.length ? 'true' : undefined}
+            tabindex={idx >= stack.length ? -1 : undefined}
+          >
+            {item.slug && (
+              <img
+                src={`https://cdn.simpleicons.org/${item.slug}/ffffff`}
+                alt=""
+                width="18"
+                height="18"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+            {item.glyph === 'llama' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 21c0-3 1-5 2-6.5C7.5 13 6 11 6 8.5 6 6 7.5 4 9.5 4c1 0 1.7.4 2.2 1" />
+                <path d="M13 5c.5-.6 1.2-1 2.2-1 2 0 3.8 2 3.8 4.5 0 2.5-1.5 4.5-3 6 1 1.5 2 3.5 2 6.5" />
+                <path d="M9 9h.01" />
+                <path d="M15 9h.01" />
+                <path d="M10 14c1.3.7 2.7.7 4 0" />
+              </svg>
+            )}
+            {item.glyph === 'argon' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2 3 7v10l9 5 9-5V7z" />
+                <path d="M9 16V10l3-2 3 2v6" />
+                <path d="M9 13h6" />
+              </svg>
+            )}
+            {item.glyph === 'pglite' && (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="7" ry="2.5" />
+                <path d="M5 5v14c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V5" />
+                <path d="m13.5 9-3 5h2.5l-1 3.5" />
+              </svg>
+            )}
+            <span>{item.name}</span>
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .marquee {
+    position: relative;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 8%,
+      #000 92%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+  }
+
+  .marquee__track {
+    display: flex;
+    gap: 0.75rem;
+    width: max-content;
+    padding: 0.25rem 0;
+    animation: marquee-scroll 55s linear infinite;
+  }
+
+  .marquee:hover .marquee__track,
+  .marquee:focus-within .marquee__track {
+    animation-play-state: paused;
+  }
+
+  .marquee__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg-1);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease,
+      transform 180ms ease;
+    text-decoration: none;
+  }
+
+  .marquee__item img,
+  .marquee__item svg {
+    opacity: 0.55;
+    transition:
+      opacity 180ms ease,
+      filter 180ms ease;
+    flex-shrink: 0;
+  }
+
+  .marquee__item:hover {
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: var(--color-fg-0);
+    transform: translateY(-1px);
+  }
+
+  .marquee__item:hover img,
+  .marquee__item:hover svg {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.45));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+
+    .marquee__track {
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: none;
+    }
+  }
+
+  @keyframes marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+</style>

@@ -1,0 +1,277 @@
+name: Release installer
+
+# baut den electron-installer für eine version , lädt ihn nach minio , patcht
+# releases.ts + re-deployt die website mit aktualisiertem manifest.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version ohne v-prefix , z.b. 0.1.0'
+        required: true
+        type: string
+
+# nur eine release-pipeline pro version gleichzeitig.
+concurrency:
+  group: release-installer-${{ github.event.inputs.version || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build .exe + upload to minio
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      sha256: ${{ steps.hash.outputs.sha256 }}
+      size: ${{ steps.hash.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version (tag oder dispatch-input)
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          PKG_V=$(node -p "require('./package.json').version")
+          if [ "$V" != "$PKG_V" ]; then
+            echo "::warning::workflow version $V != package.json $PKG_V , artefakt wird $V haben"
+          fi
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (electron-vite)
+        run: pnpm build
+
+      # v0.2+ bundelt die GGUFs (BGE-M3 embedder + Qwen3-8B medium-llm) in den
+      # installer. Auf dem CI-runner liegt keine models/ , also vor dem package-
+      # step herunterladen. Lokale builds auf dem build-server skippen das ,
+      # weil dort die modelle dauerhaft auf disk liegen (siehe scripts/check-
+      # bundled-models.mjs , das checkt die anwesenheit und gibt eine klare
+      # fehlermeldung wenn etwas fehlt).
+      - name: Download bundled models (embedder + medium llm)
+        shell: bash
+        run: pnpm models:embedder && pnpm models:medium
+
+      # v0.2.x ships Windows as a ZIP statt NSIS , weil makensis.exe (32-bit)
+      # die ~5.5 GB compressed payload nicht mmappen kann (out-of-address-space
+      # error: "failed creating mmap of loklm-x64.nsis.7z"). ZIP umgeht das
+      # komplett , user lädt das archive , entpackt es , startet LokLM.exe.
+      # Installer-wizard + start-menu kommen in v0.3 via nsis-web oder split-
+      # payload zurück. Signing-cert step entfällt für zip.
+      - name: Package (ZIP)
+        run: pnpm package:win
+
+      - name: Compute sha256 + size
+        id: hash
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          ZIP="release/LokLM-${V}-win-x64.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "expected artefact missing: $ZIP"; ls -la release/; exit 1
+          fi
+          SHA=$(sha256sum "$ZIP" | awk '{print $1}')
+          SIZE=$(stat -c%s "$ZIP")
+          echo "$SHA  $(basename "$ZIP")" > "${ZIP}.sha256"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "built $ZIP , size=$SIZE sha256=$SHA"
+
+      - name: Install mc
+        shell: bash
+        run: |
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe --version | head -1
+
+      - name: Upload to minio
+        shell: bash
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
+
+  build-linux:
+    name: Build AppImage + upload to minio
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      sha256: ${{ steps.hash.outputs.sha256 }}
+      size: ${{ steps.hash.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version (tag oder dispatch-input)
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (electron-vite)
+        run: pnpm build
+
+      - name: Download bundled models (embedder + medium llm)
+        run: pnpm models:embedder && pnpm models:medium
+
+      - name: Package (AppImage)
+        run: pnpm package:linux
+
+      - name: Compute sha256 + size
+        id: hash
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          APP="release/LokLM-${V}.AppImage"
+          if [ ! -f "$APP" ]; then
+            echo "expected artefact missing: $APP"; ls -la release/; exit 1
+          fi
+          SHA=$(sha256sum "$APP" | awk '{print $1}')
+          SIZE=$(stat -c%s "$APP")
+          echo "$SHA  $(basename "$APP")" > "${APP}.sha256"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "built $APP , size=$SIZE sha256=$SHA"
+
+      - name: Install mc
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x /tmp/mc
+          /tmp/mc --version | head -1
+
+      - name: Upload to minio
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc cp "release/LokLM-${V}.AppImage" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-${V}.AppImage.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc ls "s3target/loklm-installers/v${V}/"
+
+  bump-and-redeploy:
+    name: Bump manifest + redeploy website
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            website/pnpm-lock.yaml
+
+      - name: Patch releases.ts (windows)
+        run: |
+          node scripts/bump-release.mjs \
+            "${{ needs.build-windows.outputs.version }}" \
+            windows \
+            "${{ needs.build-windows.outputs.sha256 }}" \
+            "${{ needs.build-windows.outputs.size }}"
+
+      - name: Patch releases.ts (linux)
+        run: |
+          node scripts/bump-release.mjs \
+            "${{ needs.build-linux.outputs.version }}" \
+            linux \
+            "${{ needs.build-linux.outputs.sha256 }}" \
+            "${{ needs.build-linux.outputs.size }}"
+
+      - name: Install website deps
+        working-directory: website
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - name: Build website
+        working-directory: website
+        env:
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+        run: pnpm build
+
+      - name: Set up SSH
+        env:
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Rsync dist to Hetzner
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_PATH: ${{ secrets.HETZNER_PATH }}
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            website/dist/ \
+            "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
+
+      - name: Commit manifest bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet website/src/data/releases.ts; then
+            echo "manifest unverändert , skip commit"
+            exit 0
+          fi
+          git add website/src/data/releases.ts
+          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux assets"
+          git push origin main
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

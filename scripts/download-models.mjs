@@ -32,11 +32,11 @@ const MODELS_DIR = resolve(__dirname, '..', 'models')
 const MODELS = [
   {
     tier: 'embedder',
-    purpose: 'Embedder — Snowflake arctic-embed-l-v2.0 (Q8_0)',
-    filename: 'snowflake-arctic-embed-l-v2.0-q8_0.gguf',
-    url: 'https://huggingface.co/Casual-Autopsy/snowflake-arctic-embed-l-v2.0-gguf/resolve/main/snowflake-arctic-embed-l-v2.0-q8_0.gguf',
-    sizeGB: 0.6,
-    skipPattern: /embed/i,
+    purpose: 'Embedder — BGE-M3 (Q4_K_M)',
+    filename: 'bge-m3-Q4_K_M.gguf',
+    url: 'https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf',
+    sizeGB: 0.75,
+    skipPattern: /bge[-_]?m3/i,
   },
   {
     tier: 'embedder',

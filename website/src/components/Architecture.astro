@@ -1,0 +1,182 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+import { t } from '~/i18n/ui'
+
+const lang = getLangFromUrl(Astro.url)
+---
+
+<section id="security" class="arch">
+  <div class="arch__inner">
+    <div class="arch__head">
+      <span class="section-eyebrow">{t(lang, 'security.eyebrow')}</span>
+      <h2 class="section-title gradient-text">{t(lang, 'security.title')}</h2>
+      <p class="arch__sub">{t(lang, 'security.subtitle')}</p>
+    </div>
+
+    <div class="arch__diagram glass" role="img" aria-label={t(lang, 'security.title')}>
+      <svg viewBox="0 0 920 480" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g class="arch-node">
+          <rect x="40" y="80" width="180" height="60" rx="10" />
+          <text x="130" y="115" text-anchor="middle">{t(lang, 'security.label.documents')}</text>
+        </g>
+        <g class="arch-node">
+          <rect x="270" y="80" width="180" height="60" rx="10" />
+          <text x="360" y="115" text-anchor="middle">{t(lang, 'security.label.index')}</text>
+        </g>
+        <g class="arch-node">
+          <rect x="500" y="80" width="180" height="60" rx="10" />
+          <text x="590" y="115" text-anchor="middle">{t(lang, 'security.label.model')}</text>
+        </g>
+        <g class="arch-node arch-node--final">
+          <rect x="730" y="80" width="150" height="60" rx="10" />
+          <text x="805" y="115" text-anchor="middle">{t(lang, 'security.label.answer')}</text>
+        </g>
+
+        <g class="arch-node arch-node--vault">
+          <rect x="270" y="240" width="410" height="60" rx="10" />
+          <text x="475" y="275" text-anchor="middle">{t(lang, 'security.label.vault')}</text>
+        </g>
+
+        <g class="arch-link">
+          <path d="M 220 110 L 270 110" />
+          <path d="M 450 110 L 500 110" />
+          <path d="M 680 110 L 730 110" />
+          <path d="M 360 140 L 360 240" />
+          <path d="M 590 140 L 590 240" />
+        </g>
+
+        <line x1="0" y1="380" x2="920" y2="380" class="arch-boundary" />
+        <text x="460" y="410" text-anchor="middle" class="arch-boundary-label">
+          ↓ {t(lang, 'security.label.boundary')} ↓
+        </text>
+        <g class="arch-cloud">
+          <ellipse cx="460" cy="450" rx="120" ry="18" />
+          <text x="460" y="455" text-anchor="middle">{t(lang, 'security.label.cloud')}</text>
+        </g>
+      </svg>
+
+      <ul class="arch__callouts">
+        <li><span class="arch__bullet" aria-hidden="true">✓</span>{t(lang, 'security.callout.argon')}</li>
+        <li><span class="arch__bullet" aria-hidden="true">✓</span>{t(lang, 'security.callout.aes')}</li>
+        <li><span class="arch__bullet" aria-hidden="true">✓</span>{t(lang, 'security.callout.phrase')}</li>
+        <li><span class="arch__bullet" aria-hidden="true">✓</span>{t(lang, 'security.callout.telemetry')}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .arch { padding: 5rem 0; }
+  @media (min-width: 768px) { .arch { padding: 7rem 0; } }
+
+  .arch__inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .arch__head { max-width: 36rem; margin-bottom: 3rem; }
+  .arch__sub {
+    margin-top: 1rem;
+    color: var(--color-fg-2);
+    line-height: 1.6;
+  }
+
+  .arch__diagram {
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    display: grid;
+    gap: 2rem;
+  }
+  @media (min-width: 900px) {
+    .arch__diagram { grid-template-columns: 2fr 1fr; }
+  }
+
+  .arch__diagram svg {
+    width: 100%;
+    height: auto;
+    font-family: var(--font-mono);
+  }
+
+  .arch-node rect {
+    fill: rgba(255, 255, 255, 0.04);
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+  }
+  .arch-node text {
+    fill: var(--color-fg-0);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .arch-node--final rect {
+    fill: rgba(59, 130, 246, 0.1);
+    stroke: rgba(59, 130, 246, 0.45);
+  }
+  .arch-node--vault rect {
+    fill: rgba(167, 139, 250, 0.08);
+    stroke: rgba(167, 139, 250, 0.35);
+  }
+
+  .arch-link path {
+    fill: none;
+    stroke: var(--color-fg-3);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+  }
+
+  .arch-boundary {
+    stroke: var(--color-fg-3);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 6;
+    opacity: 0.6;
+  }
+  .arch-boundary-label {
+    fill: var(--color-fg-3);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .arch-cloud ellipse {
+    fill: rgba(255, 255, 255, 0.02);
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+  .arch-cloud text {
+    fill: var(--color-fg-3);
+    font-size: 11px;
+    font-style: italic;
+  }
+
+  .arch__callouts {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    align-content: center;
+    gap: 1rem;
+    font-size: 0.95rem;
+    color: var(--color-fg-1);
+  }
+  .arch__callouts li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    line-height: 1.4;
+  }
+  .arch__bullet {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+</style>
