@@ -8,7 +8,12 @@ function dotLabel(label: string, state: DotState, message: string | null): strin
   return message ? `${base} — ${message}` : base
 }
 
-export function TitleBar(): JSX.Element {
+type TitleBarProps = {
+  onOpenSettings?: () => void
+  unlocked?: boolean
+}
+
+export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {}): JSX.Element {
   const [maximized, setMaximized] = useState(false)
   const [embedder, setEmbedder] = useState<{ state: EmbedderState; message: string | null }>({
     state: 'idle',
@@ -120,6 +125,17 @@ export function TitleBar(): JSX.Element {
       <div className="titlebar__spacer" />
 
       <div className="titlebar__controls">
+        {unlocked && onOpenSettings && (
+          <button
+            type="button"
+            className="titlebar__btn titlebar__btn--icon"
+            aria-label="Settings"
+            title="Settings"
+            onClick={onOpenSettings}
+          >
+            ⚙
+          </button>
+        )}
         <button
           type="button"
           className="titlebar__btn"
