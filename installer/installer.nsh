@@ -64,11 +64,18 @@
 
 ; ════════════════════════════════════════════════════════════════════════════
 ;  Page 2 — License (reads from repo-root LICENSE)
+;
+;  After MUI_PAGE_LICENSE auto-undefs MUI_PAGE_CUSTOMFUNCTION_SHOW, we
+;  re-define it pointing at DirectoryPageShow so the next page in e-b's
+;  template (MUI_PAGE_DIRECTORY) picks up our directory-page SHOW callback.
+;  Doing the define here (not top-level) avoids a "macro already defined"
+;  collision with customWelcomePage which runs earlier.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro licensePage
     !define MUI_PAGE_CUSTOMFUNCTION_SHOW LicensePageShow
     !insertmacro MUI_PAGE_LICENSE "${PROJECT_DIR}\LICENSE"
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
   !macroend
 
   Function LicensePageShow
@@ -77,10 +84,12 @@
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Page 3 — Install directory (stock MUI_PAGE_DIRECTORY, just darkened)
+;  Page 3 — Install directory (stock MUI_PAGE_DIRECTORY, darkened via SHOW)
+;
+;  The MUI_PAGE_CUSTOMFUNCTION_SHOW define is set at the tail of licensePage
+;  (above) so it activates just before e-b inserts MUI_PAGE_DIRECTORY.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
-  !define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
   Function DirectoryPageShow
     Call ApplyDarkTheme
   FunctionEnd
