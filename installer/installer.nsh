@@ -22,17 +22,16 @@ Var CreateDesktopShortcut
 Var CreateStartMenuShortcut
 Var EnableAutostart
 
-; ── Hook: customHeader — runs once at the top of the generated installer.nsi ──
-!macro customHeader
+; ── Hook: customInit — runs inside the installer's .onInit function ──
+;
+; customHeader is inserted at the global script scope (outside any section
+; or function) and only accepts directives like !define, Var, Function.
+; Executable commands like StrCpy must live in customInit (inside .onInit).
+!macro customInit
   ; Defaults: shortcuts on, autostart off
   StrCpy $CreateDesktopShortcut "1"
   StrCpy $CreateStartMenuShortcut "1"
   StrCpy $EnableAutostart "0"
-!macroend
-
-; ── Hook: customInit — runs in .onInit ──
-!macro customInit
-  ; Placeholder. No special init beyond what electron-builder provides.
 !macroend
 
 ; ── Hook: customDirectoryPage — extends MUI_PAGE_DIRECTORY with checkboxes ──
