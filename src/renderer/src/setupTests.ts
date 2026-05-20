@@ -230,6 +230,8 @@ const stub: Api = {
         loadProgress: null,
         message: null,
         profile: null,
+        source: 'bundled' as const,
+        fallback: { active: false, reason: null },
       }),
     info: () =>
       Promise.resolve({
@@ -240,6 +242,8 @@ const stub: Api = {
         loadProgress: null,
         message: null,
         profile: null,
+        source: 'bundled' as const,
+        fallback: { active: false, reason: null },
         bundledModelPath: '',
         bundledModelExists: false,
         totalMemGB: 0,
@@ -259,6 +263,8 @@ const stub: Api = {
         loadProgress: null,
         message: null,
         profile: null,
+        source: 'bundled' as const,
+        fallback: { active: false, reason: null },
         bundledModelPath: '',
         bundledModelExists: false,
         totalMemGB: 0,

@@ -140,6 +140,12 @@ export interface ModelStatus {
   loadProgress: number | null // 0..1 during loading, null otherwise
   message: string | null
   profile: LlmProfileName | null
+  /** Which provider source produced this status — drives the chat header pill. */
+  source: 'bundled' | 'ollama'
+  /** Active when the registry fell back from Ollama to bundled mid-request.
+   *  `reason` is the underlying error message for surfacing in the UI; cleared
+   *  naturally on the next clean status broadcast. */
+  fallback: { active: boolean; reason: string | null }
 }
 
 export interface AvailableProfile {

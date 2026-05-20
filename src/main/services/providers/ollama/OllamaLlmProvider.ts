@@ -104,6 +104,8 @@ export class OllamaLlmProvider implements LlmProvider {
       loadProgress: null,
       message: null,
       profile: null,
+      source: 'ollama',
+      fallback: { active: false, reason: null },
     }
   }
 }
