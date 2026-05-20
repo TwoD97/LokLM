@@ -1,0 +1,45 @@
+{"chunkId":"eval-metriken::0","question":"Wovon hängt es ab, welche Kennzahl zur Bewertung eines Suchsystems passend ist?"}
+{"chunkId":"eval-metriken::0","question":"Welche Form von Relevanzunterscheidung genügt laut Text für die meisten realen RAG-Einsätze?"}
+{"chunkId":"eval-metriken::0","question":"Mit wie vielen verschiedenen Bewertungsgrößen wird das Abrufen typischerweise beurteilt?"}
+{"chunkId":"eval-metriken::0","question":"Welche Annahme über die Anzahl korrekter Treffer pro Suchanfrage ist im erwähnten Standardfall gegeben?"}
+{"chunkId":"eval-metriken::0","question":"Was ist laut dem Abschnitt die unkomplizierteste Bewertungsgröße im Retrieval?"}
+{"chunkId":"eval-metriken::1","question":"Was genau quantifiziert die Kennzahl, die den Anteil der Suchanfragen mit korrektem Treffer in den obersten K Resultaten betrachtet?"}
+{"chunkId":"eval-metriken::1","question":"Warum kann ein Dokument auf Platz sieben in der Trefferliste trotzdem zu einer korrekten Antwort führen?"}
+{"chunkId":"eval-metriken::1","question":"Welcher Wert für K führt zu einer besonders strikten Bewertung, die nur den vordersten Platz akzeptiert?"}
+{"chunkId":"eval-metriken::1","question":"Welche Komponente bekommt im typischen RAG-Aufbau die obersten Trefferdokumente zur Verarbeitung gereicht?"}
+{"chunkId":"eval-metriken::1","question":"Wie wird im Text die Bewertung mit Schwellwert zehn charakterisiert?"}
+{"chunkId":"eval-metriken::2","question":"Welchen Beitrag liefert eine Suchanfrage zum mittleren Kehrwert-Rang, wenn die gesuchte Antwort an dritter Stelle nicht, sondern an zweiter Stelle erscheint?"}
+{"chunkId":"eval-metriken::2","question":"Welche drei Toleranzstufen werden häufig parallel angegeben, um die Wirkung der Bewertungsgröße über verschiedene Abschnittstiefen zu zeigen?"}
+{"chunkId":"eval-metriken::2","question":"In welchem Wertebereich bewegt sich der gemittelte Kehrwert-Rang nach der Aggregation über sämtliche Anfragen?"}
+{"chunkId":"eval-metriken::2","question":"Welcher Zahlenwert entsteht beim Kehrwert-Rang, wenn das gesuchte Ergebnis auf der zehnten Position landet?"}
+{"chunkId":"eval-metriken::2","question":"Was zeichnet die Kennzahl mit dem reziproken Rang im Vergleich zur reinen Trefferquote zusätzlich aus?"}
+{"chunkId":"eval-metriken::3","question":"Warum eignet sich der mittlere reziproke Rang besonders gut für Retrieval-Augmented-Generation-Systeme?"}
+{"chunkId":"eval-metriken::3","question":"Welche Art mathematischer Abwertung wird bei nDCG für tiefer liegende Positionen eingesetzt?"}
+{"chunkId":"eval-metriken::3","question":"Wodurch wird das Ergebnis bei der normalisierten Kennzahl mit kumuliertem Gewinn am Ende skaliert?"}
+{"chunkId":"eval-metriken::3","question":"Welche Eigenschaft beschreibt der Text als zentral für den mittleren reziproken Rang in Bezug auf das obere Ranking?"}
+{"chunkId":"eval-metriken::3","question":"Welche Teile der Antwort werden vom Sprachmodell beim Erzeugen einer Antwort im Allgemeinen stärker beachtet?"}
+{"chunkId":"eval-metriken::4","question":"Wie wird der Gewinn an einer einzelnen Trefferposition in der Formel für die nDCG berechnet?"}
+{"chunkId":"eval-metriken::4","question":"Wozu degeneriert die nDCG-Bewertung in Datensätzen mit nur einer einzigen korrekten Antwort pro Anfrage?"}
+{"chunkId":"eval-metriken::4","question":"In welchem Szenario empfiehlt der Text bevorzugt die nDCG-Bewertung statt einfacherer Alternativen?"}
+{"chunkId":"eval-metriken::4","question":"Welche zwei Operationen werden bei der nDCG nach der Berechnung der einzelnen Positions-Gewinne durchgeführt?"}
+{"chunkId":"eval-metriken::4","question":"Wodurch unterscheidet sich die degenerierte nDCG vom klassischen mittleren reziproken Rang?"}
+{"chunkId":"eval-metriken::5","question":"Mit welcher anderen Kennzahl deckt sich Precision@K mathematisch, wenn jede Anfrage nur eine richtige Antwort besitzt?"}
+{"chunkId":"eval-metriken::5","question":"Wann sollte laut Text Precision@K nicht isoliert, sondern zusammen mit Recall@K dargestellt werden?"}
+{"chunkId":"eval-metriken::5","question":"In welcher historischen Disziplin galt Precision@K traditionell als sehr wichtige Größe?"}
+{"chunkId":"eval-metriken::5","question":"Warum wird Precision@K bei Single-Relevant-Datensätzen als überflüssig eingestuft?"}
+{"chunkId":"eval-metriken::5","question":"Wie wird die Stellung von Precision@K innerhalb moderner Retrieval-Augmented-Generation-Auswertungen beschrieben?"}
+{"chunkId":"eval-metriken::6","question":"Was untersucht die als Hit Rate bezeichnete Kennzahl genau in einer Trefferliste?"}
+{"chunkId":"eval-metriken::6","question":"Warum bringt Hit Rate in Datensätzen mit nur einem korrekten Treffer keinen zusätzlichen Erkenntnisgewinn?"}
+{"chunkId":"eval-metriken::6","question":"Wie wird die Aussagekraft der Hit Rate in Szenarien mit mehreren relevanten Antworten beurteilt?"}
+{"chunkId":"eval-metriken::6","question":"In welcher Fachdisziplin gilt der Mean Average Precision als die klassische zusammenfassende Bewertungsgröße?"}
+{"chunkId":"eval-metriken::6","question":"Welche Aspekte einer Trefferliste werden von der Hit-Rate-Bewertung bewusst nicht berücksichtigt?"}
+{"chunkId":"eval-metriken::7","question":"An welchen Stellen einer Trefferliste wird die Genauigkeit beim Mean Average Precision konkret ausgewertet?"}
+{"chunkId":"eval-metriken::7","question":"Welche zwei Aspekte werden vom Mean Average Precision gleichzeitig positiv bewertet?"}
+{"chunkId":"eval-metriken::7","question":"Warum gilt der Mean Average Precision für Retrieval-Augmented-Generation-Pipelines als eher zweitrangig?"}
+{"chunkId":"eval-metriken::7","question":"Welche Voraussetzung muss zur Sicherstellung der Vergleichbarkeit zwischen mehreren Evaluations-Durchläufen erfüllt sein?"}
+{"chunkId":"eval-metriken::7","question":"Welcher Aggregations-Schritt führt im Mean Average Precision die Werte verschiedener Anfragen zusammen?"}
+{"chunkId":"eval-metriken::8","question":"Wie sollte mit zufälligen Einflussgrößen wie der Sampling-Temperatur eines Rerankers laut Text umgegangen werden?"}
+{"chunkId":"eval-metriken::8","question":"Welche fünf Angaben gehören laut Text in den Bericht eines reproduzierbaren Evaluations-Laufs?"}
+{"chunkId":"eval-metriken::8","question":"Welche Fingerprint-artige Kennung des Datensatzes muss in jedem Durchlauf-Protokoll festgehalten werden?"}
+{"chunkId":"eval-metriken::8","question":"Welchen Status besitzen zwei Berichte ohne hinterlegte Metadaten in Bezug auf ihren Vergleich miteinander?"}
+{"chunkId":"eval-metriken::8","question":"Welcher Aspekt wird laut Text in Retrieval-Evaluationen oft übersehen, ist aber dennoch von Bedeutung?"}

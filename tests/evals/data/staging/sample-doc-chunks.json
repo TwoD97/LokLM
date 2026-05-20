@@ -1,0 +1,265 @@
+{
+  "chunker": "fixed-512-64",
+  "chunks": [
+    {
+      "id": "eval-metriken::0",
+      "docId": "eval-metriken",
+      "text": "Retrieval-Systeme werden mit einer kleinen Menge etablierter Metriken bewertet.\nDie Wahl der Metrik hängt davon ab, ob das System pro Anfrage einen oder\nmehrere relevante Treffer haben kann, ob die Reihenfolge der Treffer wichtig\nist und ob ein graduelles Relevanz-Konzept vorliegt oder nur eine binäre\nUnterscheidung zwischen relevant und nicht relevant. Für die meisten\npraxisnahen RAG-Anwendungen reicht ein Single-Relevant-Setting mit binärer\nRelevanz aus.\n\nDie einfachste Metrik ist Recall@K. Sie misst den"
+    },
+    {
+      "id": "eval-metriken::1",
+      "docId": "eval-metriken",
+      "text": "elevanz aus.\n\nDie einfachste Metrik ist Recall@K. Sie misst den Anteil der Anfragen, bei denen\ndie korrekte Antwort in den ersten K zurückgegebenen Ergebnissen enthalten ist.\nRecall@1 ist streng und gibt nur dann Punkt, wenn die richtige Antwort\nunmittelbar an erster Stelle steht. Recall@10 ist großzügig, weil das nach-\ngeschaltete Sprachmodell ohnehin meist die Top-K Chunks vollständig in den\nPrompt-Kontext einfügt und damit auch ein Chunk an Stelle sieben noch\nbeantwortend wirken kann. In der Praxis beric"
+    },
+    {
+      "id": "eval-metriken::2",
+      "docId": "eval-metriken",
+      "text": "Stelle sieben noch\nbeantwortend wirken kann. In der Praxis berichten viele Studien Recall@1,\nRecall@5 und Recall@10 nebeneinander, um die Auflösung der Metrik über\nverschiedene Toleranzschwellen sichtbar zu machen.\n\nDer Mean Reciprocal Rank, kurz MRR, berücksichtigt zusätzlich die Position der\nkorrekten Antwort. Steht sie auf Platz eins, ist der Beitrag dieser Anfrage 1,0.\nAuf Platz zwei nur noch 0,5. Auf Platz zehn 0,1. Über alle Anfragen gemittelt\nergibt sich eine Zahl zwischen null und eins, die ein gute"
+    },
+    {
+      "id": "eval-metriken::3",
+      "docId": "eval-metriken",
+      "text": "ttelt\nergibt sich eine Zahl zwischen null und eins, die ein gutes Gesamtbild von\nPosition und Trefferquote liefert. MRR ist sensitiv für die Spitze des\nRankings, was in RAG-Anwendungen oft erwünscht ist, weil das Sprachmodell\ntypischerweise die ersten paar Chunks am stärksten gewichtet.\n\nNormalized Discounted Cumulative Gain, abgekürzt nDCG@K, ist eine weitere\npositions-sensitive Metrik. Sie verwendet einen logarithmischen Discount für\nspätere Plätze und normalisiert das Ergebnis durch den idealen Wert. Kon"
+    },
+    {
+      "id": "eval-metriken::4",
+      "docId": "eval-metriken",
+      "text": "Plätze und normalisiert das Ergebnis durch den idealen Wert. Konkret\nwird der Gewinn an jeder Position als Relevanz dividiert durch den Logarithmus\nder Position plus eins definiert, summiert und durch den Idealfall geteilt.\nFür Single-Relevant-Datasets, also Datasets mit genau einem korrekten Treffer\npro Anfrage, entartet nDCG zu einer Variante des MRR mit anderem Discount.\nBei Multi-Relevant-Datasets, in denen mehrere Chunks korrekte Antworten\nenthalten können, ist nDCG die bessere Wahl, weil es alle relev"
+    },
+    {
+      "id": "eval-metriken::5",
+      "docId": "eval-metriken",
+      "text": "enthalten können, ist nDCG die bessere Wahl, weil es alle relevanten Treffer\ngewichtet einbezieht.\n\nPrecision@K ist im Information-Retrieval traditionell wichtig, in modernen\nRAG-Evaluationen aber weniger gebräuchlich. Precision@K misst den Anteil der\nrelevanten Ergebnisse unter den ersten K. Bei Single-Relevant-Datasets ist\ndas mathematisch identisch zu Recall@K geteilt durch K und damit redundant.\nBei Multi-Relevant ist Precision@K eigenständig informativ und sollte\nzusammen mit Recall@K berichtet werden"
+    },
+    {
+      "id": "eval-metriken::6",
+      "docId": "eval-metriken",
+      "text": "dig informativ und sollte\nzusammen mit Recall@K berichtet werden.\n\nHit Rate ist eine sehr grobe Metrik, die nur prüft, ob mindestens ein\nrelevanter Treffer in den Top-K vorhanden ist, unabhängig von Position oder\nAnzahl. In Single-Relevant-Datasets ist Hit Rate identisch zu Recall@K und\nfügt keinen Mehrwert hinzu. In Multi-Relevant ist sie unterspezifisch und\nwird selten allein berichtet.\n\nMean Average Precision, kurz MAP, ist die klassische Aggregationsmetrik im\nInformation-Retrieval. Sie mittelt die Preci"
+    },
+    {
+      "id": "eval-metriken::7",
+      "docId": "eval-metriken",
+      "text": "gregationsmetrik im\nInformation-Retrieval. Sie mittelt die Precision an jeder Position, an der ein\nrelevanter Treffer steht, über alle Anfragen. MAP belohnt sowohl die Anzahl\nrelevanter Treffer in den oberen Rängen als auch ihre Konzentration weit oben.\nFür RAG ist MAP weniger gebräuchlich, weil RAG häufig nur den ersten oder die\nersten wenigen Treffer wirklich nutzt.\n\nWichtig bei allen Metriken ist die Vergleichbarkeit über Läufe hinweg. Das\ngleiche Dataset muss verwendet werden, die gleiche Sortierung der"
+    },
+    {
+      "id": "eval-metriken::8",
+      "docId": "eval-metriken",
+      "text": "leiche Dataset muss verwendet werden, die gleiche Sortierung der Anfragen,\nund zufällige Komponenten wie Sampling-Temperatur eines Rerankers müssen\nentweder deterministisch gesetzt oder über mehrere Läufe gemittelt werden.\nEine reproduzierbare Eval-Pipeline schreibt für jeden Lauf den genauen\nDataset-Hash, die Modellversionen, die Konfiguration und die Random-Seeds in\nden Report. Ohne diese Metadaten sind zwei Reports nicht vertrauenswürdig\nvergleichbar.\n\nStatistische Signifikanz wird in Retrieval-Evaluatio"
+    },
+    {
+      "id": "eval-metriken::9",
+      "docId": "eval-metriken",
+      "text": "gleichbar.\n\nStatistische Signifikanz wird in Retrieval-Evaluationen häufig vernachlässigt,\nist aber wichtig. Eine Verbesserung von Recall@10 von 0,82 auf 0,83 kann\ninnerhalb der Streuung sein, ein scheinbarer Sieg eines Modells über ein\nanderes also ein Artefakt. Bootstrap-Resampling über die Anfragen liefert\neinfach interpretierbare Konfidenzintervalle. Ein paarweiser Test wie\nWilcoxon-Signed-Rank ist robuster als ein t-Test, weil die Verteilung der\nMetriken über Anfragen typischerweise nicht normalverteil"
+    },
+    {
+      "id": "eval-metriken::10",
+      "docId": "eval-metriken",
+      "text": "ng der\nMetriken über Anfragen typischerweise nicht normalverteilt ist.\n\nDie Eval-Dataset-Größe ist ein eigenes Thema. Faustregeln aus der Forschung\nnennen 200 bis 500 Anfragen als Mindestgröße für stabile Vergleiche zwischen\nModellen. Mit weniger als 100 Anfragen sind die Konfidenzintervalle so breit,\ndass viele Vergleiche nicht signifikant unterscheidbar sind. Synthetische\nGenerierung erlaubt es, leicht auf einige tausend Anfragen hochzuskalieren,\nohne dass der Annotationsaufwand explodiert. Eine sinnvolle"
+    },
+    {
+      "id": "eval-metriken::11",
+      "docId": "eval-metriken",
+      "text": "ren,\nohne dass der Annotationsaufwand explodiert. Eine sinnvolle Strategie ist eine\nKern-Trainings- und Eval-Menge mit manueller Annotation und eine größere\nHold-out-Menge mit synthetischer Generierung, um Trends zu sehen.\n\nDomänen-spezifische Eval-Datasets sind oft die einzige aussagekräftige\nMöglichkeit. Ein RAG-System, das auf juristischen Texten gut performt, kann auf\nmedizinischen Texten dramatisch schlechter sein, und umgekehrt. Generische\nBenchmarks wie BEIR liefern eine erste Orientierung, sind aber"
+    },
+    {
+      "id": "eval-metriken::12",
+      "docId": "eval-metriken",
+      "text": "e\nBenchmarks wie BEIR liefern eine erste Orientierung, sind aber für ein\nspezifisches Produkt nur begrenzt aussagekräftig. Die Pflicht-Übung beim\nAufbau eines RAG-Systems ist deshalb, einen kleinen aber repräsentativen\ndomänen-spezifischen Eval-Datensatz zu pflegen und ihn bei jeder\nModell-Änderung mitlaufen zu lassen.\n\nEine besondere Falle bei synthetischen Datasets ist das sogenannte\nTrivial-Match-Problem. Wenn das generierende Modell die Frage zu nah am\nOriginaltext formuliert, also zum Beispiel ganze Ph"
+    },
+    {
+      "id": "eval-metriken::13",
+      "docId": "eval-metriken",
+      "text": "ge zu nah am\nOriginaltext formuliert, also zum Beispiel ganze Phrasen aus dem Chunk\nübernimmt, wird die Retrieval-Aufgabe trivial einfach. Ein BM25 würde solche\nFragen perfekt beantworten, ohne dass das ein realistisches Signal für die\nQualität der Vektor-Embeddings wäre. Gegenmaßnahmen sind unter anderem das\nexplizite Auffordern des Generators, Paraphrasen zu nutzen, die Verwendung\nunterschiedlicher Modelle für Generation und Retrieval-Test, und ein\nnachträgliches Aussortieren zu nah am Original liegender"
+    },
+    {
+      "id": "eval-metriken::14",
+      "docId": "eval-metriken",
+      "text": "nd ein\nnachträgliches Aussortieren zu nah am Original liegender Fragen über einen\nString-Ähnlichkeitsfilter.\n\nEine weitere Falle ist die Verzerrung durch das generierende Modell. Wenn\nGPT-4 die Fragen erzeugt, bevorzugt es bestimmte Formulierungsmuster, die\nsich später beim Retrieval-Test günstig oder ungünstig auf bestimmte\nEmbedding-Modelle auswirken. Wenn das Embedding-Modell ebenfalls aus der\ngleichen Familie kommt, ist ein Vorteil zu erwarten, der bei einem unabhängigen\nModell nicht reproduzierbar wäre"
+    },
+    {
+      "id": "eval-metriken::15",
+      "docId": "eval-metriken",
+      "text": "ten, der bei einem unabhängigen\nModell nicht reproduzierbar wäre. Saubere Evaluationen verwenden ein\ngenerierendes Modell, das von keinem der getesteten Embedding-Modelle abstammt.\n\nEval-Reports sollten neben den aggregierten Zahlen auch Beispiele der\nschlechtesten Fälle enthalten. Welche Anfragen wurden falsch beantwortet?\nWelche Chunks wurden statt der richtigen Antwort hoch gerankt? Dieses\nqualitative Material ist oft wichtiger als die aggregierten Zahlen, weil es\nkonkrete Anhaltspunkte für Verbesserunge"
+    },
+    {
+      "id": "eval-metriken::16",
+      "docId": "eval-metriken",
+      "text": "gierten Zahlen, weil es\nkonkrete Anhaltspunkte für Verbesserungen liefert. Eine Visualisierung der\nVerteilung der Metriken pro Anfrage, zum Beispiel als Histogramm der MRR-Werte,\nzeigt zudem, ob ein scheinbar guter Durchschnitt von wenigen sehr guten oder\nsehr schlechten Fällen getragen wird."
+    },
+    {
+      "id": "loklm-architektur::0",
+      "docId": "loklm-architektur",
+      "text": "LokLM ist eine lokale Desktop-Anwendung für wissensbasierte Recherche. Sie läuft\nals Electron-App auf Windows, macOS und Linux. Alle Modelle und Daten bleiben\nauf dem Gerät des Nutzers, es gibt keine Cloud-Komponente im Hot Path. Die\nAnwendung ist auf Studierende, Wissenschaftler und Fachpraktiker zugeschnitten,\ndie mit eigenen Dokumentbeständen arbeiten und eine private, nachvollziehbare\nAntwort-Generierung mit Quellenverifikation benötigen.\n\nDie Prozess-Architektur folgt dem Standard-Modell von Electron."
+    },
+    {
+      "id": "loklm-architektur::1",
+      "docId": "loklm-architektur",
+      "text": "Die Prozess-Architektur folgt dem Standard-Modell von Electron. Es gibt einen\nHauptprozess auf Node.js-Basis, der die Lebenszyklen der Fenster verwaltet, die\nAuthentifizierung durchführt und sämtliche Datei- und Datenbankzugriffe kapselt.\nDaneben läuft ein Renderer-Prozess auf Chromium-Basis, der die Benutzeroberfläche\nmit React darstellt. Zwischen beiden vermittelt ein Preload-Skript, das eine\nschmale, typisierte API über contextBridge in den Renderer projiziert. Sandbox\nund contextIsolation sind aktiviert"
+    },
+    {
+      "id": "loklm-architektur::2",
+      "docId": "loklm-architektur",
+      "text": "Renderer projiziert. Sandbox\nund contextIsolation sind aktiviert, nodeIntegration ist deaktiviert. Der\nRenderer hat keinen direkten Zugriff auf das Dateisystem oder Node-APIs.\n\nDer Authentifizierungs-Layer basiert auf einer einzelnen verschlüsselten\nVault-Datei namens loklm.vault. Diese Datei liegt im Benutzerverzeichnis der\nAnwendung und enthält im Header zwei gewrappte Datenverschlüsselungs-Keys,\nabgekürzt DEK. Der erste DEK ist unter dem Nutzer-Passwort gewrappt, der\nzweite unter einer achtzehn Wörter la"
+    },
+    {
+      "id": "loklm-architektur::3",
+      "docId": "loklm-architektur",
+      "text": "zer-Passwort gewrappt, der\nzweite unter einer achtzehn Wörter langen BIP-39-ähnlichen Passphrase. Das\nRecovery funktioniert über die Passphrase, ohne dass die App den Inhalt der\nDatenbank verliert. Bei einem Passwort-Reset bleibt der DEK selbst gleich,\nnur die Wrapping-Schlüssel werden neu abgeleitet.\n\nDie Schlüssel-Ableitung verwendet Argon2id mit 64 MiB Speicher, drei Iterationen\nund Parallelität vier. Die hashLength beträgt 32 Byte und liefert direkt den\nKEK ohne weitere Reduktion. Der KEK existiert nur"
+    },
+    {
+      "id": "loklm-architektur::4",
+      "docId": "loklm-architektur",
+      "text": "rt direkt den\nKEK ohne weitere Reduktion. Der KEK existiert nur im Speicher und wird nach\ndem Wrap- bzw. Unwrap-Vorgang sofort mit Nullen überschrieben. Der Body der\nVault-Datei wird mit AES-256-GCM verschlüsselt. Die Nonce ist zwölf Byte lang,\nder Auth-Tag sechzehn Byte. Bei jeder Persistierung wird eine frische Nonce\nmit kryptographisch sicherem Zufall erzeugt.\n\nDie Datenbank ist eine in-memory PGlite-Instanz. PGlite ist ein voller\nPostgreSQL-Build, der via WebAssembly im Node-Prozess läuft und keine\nexte"
+    },
+    {
+      "id": "loklm-architektur::5",
+      "docId": "loklm-architektur",
+      "text": "-Build, der via WebAssembly im Node-Prozess läuft und keine\nexternen Dienste benötigt. Beim Sperren der App wird die Datenbank in einen\nTar-Dump serialisiert, dieser Tar-Dump wird unter dem DEK mit AES-GCM\nverschlüsselt und in den Body der Vault-Datei geschrieben. Beim Entsperren\ngeschieht der umgekehrte Weg: Body entschlüsseln, Tar-Dump in eine frische\nPGlite-Instanz laden, weiter arbeiten.\n\nDie Anti-Brute-Force-Mechanik ist in zwei Stufen umgesetzt. Nach fünf\naufeinanderfolgenden Fehlversuchen aktiviert s"
+    },
+    {
+      "id": "loklm-architektur::6",
+      "docId": "loklm-architektur",
+      "text": "esetzt. Nach fünf\naufeinanderfolgenden Fehlversuchen aktiviert sich eine Sperre für fünf Minuten.\nDiese Sperre wird ausschließlich im Speicher gehalten und überlebt einen\nNeustart der Anwendung nicht. Das ist eine bewusste Designentscheidung, weil\nein persistenter Lockout in einer lokalen Anwendung leicht umgangen werden\nkönnte und stattdessen nur den legitimen Nutzer schikaniert. Die zweite Stufe\nist eine Inaktivitäts-Sperre, die nach fünfzehn Minuten ohne Eingabe greift\nund den Zustand zurück in die Vault"
+    },
+    {
+      "id": "loklm-architektur::7",
+      "docId": "loklm-architektur",
+      "text": "Minuten ohne Eingabe greift\nund den Zustand zurück in die Vault-Datei schreibt.\n\nDas Datenmodell ist bewusst minimal gehalten. Es gibt keine SQL-Tabelle für\nBenutzer oder Recovery-Codes. Die einzige Quelle der Wahrheit für die\nAuthentifizierung ist der Header der Vault-Datei. Wenn später echte Anwendungs-\nTabellen für Dokumente, Embeddings, Chats und Zitate hinzukommen, werden diese\nüber Drizzle-ORM auf der PGlite-Instanz aufgesetzt. Migrationen werden via\ndrizzle-kit generiert und beim Hochfahren angewend"
+    },
+    {
+      "id": "loklm-architektur::8",
+      "docId": "loklm-architektur",
+      "text": "en werden via\ndrizzle-kit generiert und beim Hochfahren angewendet, falls die Schema-Version\nin der Vault älter ist als die mitgelieferten Migrationen.\n\nDas Frontend ist mit React achtzehn aufgebaut. Die wichtigsten Views sind\nLoginView, RegisterView, ResetView und UnlockedView. Während der Registrierung\nwird die generierte Passphrase einmalig im PassphraseReveal-Component\nangezeigt. Der Benutzer muss bestätigen, sie notiert zu haben, bevor er\nweitergeht. Es gibt keine Möglichkeit, die Passphrase später ern"
+    },
+    {
+      "id": "loklm-architektur::9",
+      "docId": "loklm-architektur",
+      "text": "weitergeht. Es gibt keine Möglichkeit, die Passphrase später erneut anzuzeigen,\nweil sie nur in Form der abgeleiteten Wrapping-Keys gespeichert wird, nicht im\nKlartext.\n\nDie Titelleiste ist eigenständig in React umgesetzt und ersetzt die native\nFensterdekoration. Über IPC-Aufrufe an den Hauptprozess kann der Renderer die\nAktionen minimize, toggleMaximize und close auslösen. Der Hauptprozess sendet\nmaximize- und unmaximize-Events zurück, damit die React-Titelleiste die\nSymbole zwischen Maximieren und Wiederh"
+    },
+    {
+      "id": "loklm-architektur::10",
+      "docId": "loklm-architektur",
+      "text": "ie React-Titelleiste die\nSymbole zwischen Maximieren und Wiederherstellen wechseln kann.\n\nDie IPC-Schnittstelle ist eng definiert. Auth-Operationen sind auth:status,\nauth:register, auth:login, auth:logout, auth:lock und auth:reset. Jede\nOperation ist im Preload typisiert exponiert und gibt strukturierte\nErgebnisse zurück. Erfolgsfälle haben ok: true, Fehlerfälle ok: false mit\neiner reason aus einer geschlossenen Enum, zum Beispiel no_user, bad_password,\nrate_limited oder broken_vault. Der Renderer darf kein"
+    },
+    {
+      "id": "loklm-architektur::11",
+      "docId": "loklm-architektur",
+      "text": "password,\nrate_limited oder broken_vault. Der Renderer darf keine eigene Authentifizierung\nvornehmen und keine Krypto-Operationen direkt ausführen.\n\nBeim Beenden der App wird über das before-quit-Event die Vault-Datei noch einmal\npersistiert, falls die App entsperrt ist und seit dem letzten Lock geänderte\nDaten in der in-memory-DB liegen. Das Event wird mit preventDefault aufgehalten,\ndie Persistierung läuft asynchron, danach wird app.quit erneut aufgerufen.\nAuf diese Weise gehen Änderungen zwischen letztem"
+    },
+    {
+      "id": "loklm-architektur::12",
+      "docId": "loklm-architektur",
+      "text": "ut aufgerufen.\nAuf diese Weise gehen Änderungen zwischen letztem Lock und Beenden nicht\nverloren, ohne dass kontinuierliches Auto-Save-Verhalten nötig wäre.\n\nDie Buildkette nutzt electron-vite mit drei Sub-Builds: main, preload und\nrenderer. TypeScript wird über Project References in tsconfig.node.json und\ntsconfig.web.json getrennt, damit die Type-Welten von Node und Browser nicht\nmiteinander kollidieren. Aliase wie @main, @preload, @shared und @renderer\nsind in allen drei Sub-Builds, in der Test-Workspace"
+    },
+    {
+      "id": "loklm-architektur::13",
+      "docId": "loklm-architektur",
+      "text": "d @renderer\nsind in allen drei Sub-Builds, in der Test-Workspace-Konfiguration und in den\ntsconfig-Dateien identisch gespiegelt.\n\nDie Auslieferung erfolgt aktuell als signiertes installierbares Paket pro\nBetriebssystem. Updates werden noch nicht automatisch über einen Auto-Updater\nverteilt, sondern manuell durch einen neuen Download. Sobald ein Auto-Updater\nhinzukommt, wird er als optionaler Service über IPC angebunden und respektiert\ndie lokal-zuerst-Maxime: keine Telemetrie, kein Versand von Inhalten an e"
+    },
+    {
+      "id": "loklm-architektur::14",
+      "docId": "loklm-architektur",
+      "text": "-zuerst-Maxime: keine Telemetrie, kein Versand von Inhalten an externe\nDienste, nur ein periodischer HTTPS-Check gegen einen Versions-Endpunkt.\n\nDie Quellenverifikation ist das namensgebende Feature von LokLM. Jede\ngenerierte Antwort des Sprachmodells muss auf nachvollziehbare Chunks aus den\nNutzer-Dokumenten verweisen. Im Frontend werden diese Verweise als\nanklickbare Zitate dargestellt, die beim Klicken den entsprechenden Abschnitt\nim Original-Dokument öffnen. Wenn die Antwort keine Zitate enthält, signal"
+    },
+    {
+      "id": "loklm-architektur::15",
+      "docId": "loklm-architektur",
+      "text": "l-Dokument öffnen. Wenn die Antwort keine Zitate enthält, signalisiert\ndie App das deutlich und unterscheidet zwischen einer parametrischen Antwort\ndes Modells und einer dokumentgestützten Antwort.\n\nDie Sicherheits-Threats, gegen die das Modell ausgelegt ist, sind klar\nabgegrenzt. Geschützt wird gegen Diebstahl der Vault-Datei, gegen unbefugten\nZugriff auf das laufende Gerät bei abwesendem Nutzer, gegen Brute-Force-Angriffe\ngegen das Passwort und gegen den Verlust eines vergessenen Passworts mittels\nPassphr"
+    },
+    {
+      "id": "loklm-architektur::16",
+      "docId": "loklm-architektur",
+      "text": "nd gegen den Verlust eines vergessenen Passworts mittels\nPassphrase. Nicht geschützt wird gegen aktive Malware mit Kernel-Rechten auf\ndem Gerät, gegen physikalische Memory-Dumps eines entsperrten Systems oder\ngegen Angriffe auf die Anzeige-Pipeline wie Screen-Scraping durch andere\nProgramme. Diese Grenzen sind im Pflichtenheft explizit dokumentiert."
+    },
+    {
+      "id": "rag-grundlagen::0",
+      "docId": "rag-grundlagen",
+      "text": "Retrieval Augmented Generation, kurz RAG, kombiniert ein generatives Sprachmodell\nmit einem externen Wissensspeicher. Das Verfahren wurde populär gemacht, weil\nreine Sprachmodelle ohne externen Zugriff keine aktuellen Fakten kennen, keine\nnachvollziehbaren Quellen liefern und durch parametrisches Wissen leicht zu\nplausiblen aber falschen Aussagen verleitet werden. RAG adressiert diese drei\nSchwächen gleichzeitig, indem es vor jeder Antwort einen Retrieval-Schritt\neinschiebt, der relevante Dokumentstellen in"
+    },
+    {
+      "id": "rag-grundlagen::1",
+      "docId": "rag-grundlagen",
+      "text": "n Retrieval-Schritt\neinschiebt, der relevante Dokumentstellen ins Kontextfenster des Modells holt.\n\nDer Speicher wird vorbereitet, indem Dokumente in kleinere Abschnitte zerlegt\nund über ein Embedding-Modell in Vektoren überführt werden. Diese Vektoren\nwerden in einer Vektordatenbank gespeichert. Die Datenbank kann eine\nspezialisierte Lösung wie Qdrant, Pinecone oder Weaviate sein, oder eine\nErweiterung einer klassischen relationalen Datenbank wie pgvector in\nPostgreSQL. Für lokale Anwendungen reicht häufig"
+    },
+    {
+      "id": "rag-grundlagen::2",
+      "docId": "rag-grundlagen",
+      "text": "wie pgvector in\nPostgreSQL. Für lokale Anwendungen reicht häufig ein einfacher Index im\nArbeitsspeicher, sofern die Korpusgröße im niedrigen Millionenbereich an\nChunks bleibt.\n\nZum Beantwortungszeitpunkt wird die Nutzerfrage ebenfalls eingebettet und die\nähnlichsten Vektoren werden zurückgegeben. Üblich ist eine erste Stufe mit\nTop-K-Retrieval anhand der Kosinus-Ähnlichkeit, gefolgt von einer optionalen\nReranking-Stufe mit einem Cross-Encoder, der Frage und Kandidat gemeinsam\nbewertet. Die ausgewählten Chun"
+    },
+    {
+      "id": "rag-grundlagen::3",
+      "docId": "rag-grundlagen",
+      "text": "der Frage und Kandidat gemeinsam\nbewertet. Die ausgewählten Chunks werden zusammen mit der Frage in einen\nPrompt eingefügt, der das Sprachmodell anweist, ausschließlich auf Basis der\ngelieferten Belege zu antworten und Quellen zu nennen.\n\nDie Chunk-Größe beeinflusst die Retrieval-Qualität erheblich. Sehr kleine\nChunks haben präzise Treffer, aber wenig Kontext für das nachgeschaltete\nSprachmodell. Sehr große Chunks haben viel Kontext, aber das Ähnlichkeits-Signal\nverwässert, weil eine spezifische Frage mit e"
+    },
+    {
+      "id": "rag-grundlagen::4",
+      "docId": "rag-grundlagen",
+      "text": "hnlichkeits-Signal\nverwässert, weil eine spezifische Frage mit einem langen Abschnitt vermischt\nwird, dessen Großteil mit der Frage nichts zu tun hat. Übliche Werte liegen\nzwischen 256 und 1024 Tokens mit einer Überlappung von zehn bis zwanzig\nProzent. Die Überlappung verhindert, dass eine zentrale Information genau an\neiner Chunk-Grenze abgeschnitten wird.\n\nEs gibt drei verbreitete Chunking-Strategien. Erstens das feste Token-Fenster,\ndas einen Text in gleichgroße Abschnitte zerschneidet, unabhängig von de"
+    },
+    {
+      "id": "rag-grundlagen::5",
+      "docId": "rag-grundlagen",
+      "text": "n Text in gleichgroße Abschnitte zerschneidet, unabhängig von der\ninhaltlichen Struktur. Zweitens das satz- oder absatzweise Chunking, das an\nsyntaktischen Grenzen schneidet und damit die Lesbarkeit der Chunks für das\nSprachmodell verbessert. Drittens das semantische Chunking, das die\nEmbeddings benachbarter Sätze vergleicht und immer dann eine neue Chunk-Grenze\nsetzt, wenn die Ähnlichkeit unter einen Schwellenwert fällt. Semantisches\nChunking ist aufwändiger, liefert aber häufig die besten Retrieval-Result"
+    },
+    {
+      "id": "rag-grundlagen::6",
+      "docId": "rag-grundlagen",
+      "text": "ist aufwändiger, liefert aber häufig die besten Retrieval-Resultate.\n\nEmbedding-Modelle unterscheiden sich in mehreren Dimensionen. Die wichtigsten\nsind die Vektor-Dimensionalität, die Sprach-Abdeckung, die maximale\nSequenzlänge und der Trainings-Korpus. Modelle wie all-MiniLM-L6-v2 sind klein\nund schnell, mit 384-dimensionalen Vektoren und englisch-zentriertem Training.\nbge-base-en und bge-small-en sind moderne Open-Source-Modelle aus China mit\nsehr guter Performance auf englischen Benchmarks. nomic-embed-"
+    },
+    {
+      "id": "rag-grundlagen::7",
+      "docId": "rag-grundlagen",
+      "text": "t\nsehr guter Performance auf englischen Benchmarks. nomic-embed-text ist ein\n8192-Token-fähiges Modell, das für lange Dokumente geeignet ist. Für\nmehrsprachige Anwendungen, einschließlich Deutsch, sind multilingual-e5,\nLaBSE oder die multilingualen BGE-Varianten geeignet.\n\nReranker arbeiten typischerweise auf Cross-Encoder-Basis. Im Gegensatz zu\nBi-Encoder-Embeddings, die Frage und Kandidat getrennt einbetten und die\nVektoren über Ähnlichkeit vergleichen, leitet ein Cross-Encoder beide Texte\ngemeinsam durch"
+    },
+    {
+      "id": "rag-grundlagen::8",
+      "docId": "rag-grundlagen",
+      "text": "ergleichen, leitet ein Cross-Encoder beide Texte\ngemeinsam durch ein einzelnes Modell und gibt einen direkten Relevanz-Score\naus. Modelle wie bge-reranker-base, ms-marco-MiniLM-L-12 oder die größeren\nVarianten von Cohere und Mixedbread erhöhen die nDCG-Werte gegenüber reinen\nBi-Encoder-Embeddings deutlich, kosten aber Inferenz-Zeit pro Kandidat.\nEine pragmatische Pipeline retrieved zunächst die Top-100 oder Top-200\nKandidaten mit dem Bi-Encoder und rerankt diese dann mit einem Cross-Encoder\nzur finalen Top-"
+    },
+    {
+      "id": "rag-grundlagen::9",
+      "docId": "rag-grundlagen",
+      "text": "und rerankt diese dann mit einem Cross-Encoder\nzur finalen Top-10.\n\nDie Prompt-Architektur für die Generation muss drei Dinge leisten. Erstens\nmuss sie das Modell anweisen, nur auf Basis der gelieferten Chunks zu\nantworten und bei fehlender Information explizit zu sagen, dass keine Antwort\nmöglich ist. Zweitens muss sie eine klare Form für Zitate vorgeben, damit die\nAntwort automatisch in eine UI mit anklickbaren Belegen überführt werden\nkann. Drittens muss sie das Modell davon abhalten, externes parametri"
+    },
+    {
+      "id": "rag-grundlagen::10",
+      "docId": "rag-grundlagen",
+      "text": "Drittens muss sie das Modell davon abhalten, externes parametrisches\nWissen einzustreuen, ohne es als solches zu kennzeichnen.\n\nEin typisches Antwortformat ist eine Liste von Aussagen, jede mit einer\nQuellenangabe in eckigen Klammern, gefolgt von einer Bibliografie am Ende.\nDas Modell soll lernen, dass jede Aussage mit mindestens einer Quelle belegt\nsein muss und dass es bei mehrdeutigen oder widersprüchlichen Belegen die\nSpannung explizit ausdrücken soll, statt eine der beiden Quellen einfach zu\nignoriere"
+    },
+    {
+      "id": "rag-grundlagen::11",
+      "docId": "rag-grundlagen",
+      "text": "drücken soll, statt eine der beiden Quellen einfach zu\nignorieren.\n\nDie Evaluierung eines RAG-Systems unterscheidet zwischen Retrieval-Qualität\nund Generations-Qualität. Retrieval-Qualität misst, ob die relevanten Chunks\nunter den Top-K landen. Generations-Qualität misst, ob die finale Antwort\nkorrekt, vollständig, gut belegt und sprachlich angemessen ist. Beide\nQualitäten sind nicht unabhängig: wenn das Retrieval die falschen Chunks\nliefert, kann auch die beste Generation keine korrekte Antwort produzieren"
+    },
+    {
+      "id": "rag-grundlagen::12",
+      "docId": "rag-grundlagen",
+      "text": "ann auch die beste Generation keine korrekte Antwort produzieren,\nund wenn die Generation halluziniert, helfen auch perfekte Chunks wenig.\n\nDaten für die Retrieval-Evaluierung lassen sich auf drei Wegen beschaffen.\nErstens manuelle Annotation: ein Mensch liest Dokumente und formuliert\nFragen, deren Antwort er per Hand auf bestimmte Chunks abbildet. Zweitens\nexistierende Benchmarks wie BEIR oder MTEB, die viele englische Datensätze\nfür Retrieval bereitstellen. Drittens synthetische Generierung: ein\nleistungs"
+    },
+    {
+      "id": "rag-grundlagen::13",
+      "docId": "rag-grundlagen",
+      "text": "bereitstellen. Drittens synthetische Generierung: ein\nleistungsfähiges Sprachmodell bekommt einen Chunk und wird gebeten, Fragen\nzu erzeugen, die durch diesen Chunk beantwortet werden. Die synthetische\nGenerierung ist die einzige Methode, die skaliert und gleichzeitig domänen-\nspezifisch ist, hat aber den Nachteil, dass sie die Verzerrungen des\ngenerierenden Modells in den Evaluierungs-Korpus einschleppt.\n\nHybrid-Retrieval kombiniert dichte Vektorsuche mit klassischer lexikalischer\nSuche wie BM25. Die beid"
+    },
+    {
+      "id": "rag-grundlagen::14",
+      "docId": "rag-grundlagen",
+      "text": "ktorsuche mit klassischer lexikalischer\nSuche wie BM25. Die beiden Verfahren machen unterschiedliche Fehler:\nVektorsuche versteht Synonyme und Paraphrasen, scheitert aber an exakten\nBezeichnern, seltenen Eigennamen und Zahlen. BM25 ist umgekehrt sehr stark\nbei exakten Treffern und versagt bei Paraphrasen. Eine gewichtete oder\nreziproke Rang-Fusion der beiden Treffer-Listen ist häufig besser als jedes\nVerfahren einzeln. In der Praxis ist die Gewichtung domänenabhängig und sollte\nauf einem repräsentativen Eva"
+    },
+    {
+      "id": "rag-grundlagen::15",
+      "docId": "rag-grundlagen",
+      "text": "ichtung domänenabhängig und sollte\nauf einem repräsentativen Eval-Datensatz kalibriert werden.\n\nDie Persistierung der Vektorindex-Struktur ist ein eigenes Thema. Naive\nImplementierungen vergleichen die Anfrage-Vektor mit jedem Korpus-Vektor und\nsind damit linear in der Korpusgröße. Approximierte Nearest-Neighbor-Strukturen\nwie HNSW, IVF oder Scalar-Quantization beschleunigen die Suche auf\nlogarithmisch oder konstant-amortisiert, kosten aber Genauigkeit und\nSpeicher beim Index-Aufbau. Für lokale Anwendungen"
+    },
+    {
+      "id": "rag-grundlagen::16",
+      "docId": "rag-grundlagen",
+      "text": "auigkeit und\nSpeicher beim Index-Aufbau. Für lokale Anwendungen mit wenigen hunderttausend\nChunks ist eine reine Brute-Force-Suche meist schnell genug, sodass die\nKomplexität eines ANN-Index nicht gerechtfertigt ist.\n\nDie Aktualisierung des Korpus ist häufig unterschätzt. Wenn ein Dokument\ngeändert wird, müssen alle seine Chunks aus dem Index entfernt und neu\neingefügt werden. Eine reine Append-Strategie führt schnell zu veralteten\nTreffern und sinkender Retrieval-Qualität. Eine saubere Implementierung\nverw"
+    },
+    {
+      "id": "rag-grundlagen::17",
+      "docId": "rag-grundlagen",
+      "text": "sinkender Retrieval-Qualität. Eine saubere Implementierung\nverwaltet pro Dokument einen Hash, vergleicht diesen vor jedem Indexierungs-\nschritt und löscht veraltete Chunks zuverlässig. Bei großen Korpora lohnt sich\nein delta-basierter Re-Index, der nur die geänderten Dokumente neu verarbeitet,\nnicht den ganzen Bestand."
+    }
+  ]
+}
