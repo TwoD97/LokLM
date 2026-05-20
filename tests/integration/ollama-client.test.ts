@@ -88,6 +88,43 @@ describe('OllamaClient', () => {
     expect(out).toEqual(['qwen3:8b', 'nomic-embed-text'])
   })
 
+  it('does not time out a stream after headers arrive', async () => {
+    let resolveStream: (() => void) | null = null
+    const gate = new Promise<void>((res) => {
+      resolveStream = res
+    })
+    const stream = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('{"a":1}\n'))
+        // Hold the stream open — simulate a slow LLM response.
+        gate.then(() => {
+          ctrl.enqueue(new TextEncoder().encode('{"a":2}\n'))
+          ctrl.close()
+        })
+      },
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(stream, { status: 200 })) as never
+    const c = new OllamaClient({
+      baseUrl: 'http://localhost:11434',
+      bearerToken: null,
+      timeoutMs: 50,
+    })
+    const out: unknown[] = []
+    const gen = c.postNdjson<{ a: number }>('/api/chat', {})
+    // Read first chunk
+    const first = await gen.next()
+    out.push(first.value)
+    // Wait longer than timeoutMs — the stream timer should be cleared, so this is fine.
+    await new Promise((res) => setTimeout(res, 120))
+    // Release the second chunk
+    ;(resolveStream as (() => void) | null)?.()
+    const second = await gen.next()
+    if (!second.done) out.push(second.value)
+    const final = await gen.next()
+    expect(out).toEqual([{ a: 1 }, { a: 2 }])
+    expect(final.done).toBe(true)
+  })
+
   it('OllamaError is detectable by instanceof', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 500 })) as never
     const c = new OllamaClient({

@@ -44,7 +44,7 @@ export class OllamaClient {
    * Yields parsed objects until the stream ends or signal aborts.
    */
   async *postNdjson<T>(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<T> {
-    const res = await this.request('POST', path, body, signal, /* stream */ true)
+    const res = await this.request('POST', path, body, signal)
     if (!res.body) throw new OllamaError('server', 'empty body')
     const reader = res.body.getReader()
     const decoder = new TextDecoder('utf-8')
@@ -79,7 +79,6 @@ export class OllamaClient {
     path: string,
     body?: unknown,
     signal?: AbortSignal,
-    stream = false,
   ): Promise<Response> {
     const url = this.cfg.baseUrl.replace(/\/+$/, '') + path
     const headers: Record<string, string> = { 'content-type': 'application/json' }
@@ -107,7 +106,7 @@ export class OllamaClient {
       }
       throw new OllamaError('network', err instanceof Error ? err.message : String(err))
     } finally {
-      if (!stream) clearTimeout(timer)
+      clearTimeout(timer)
       if (signal) signal.removeEventListener('abort', onUserAbort)
     }
 
