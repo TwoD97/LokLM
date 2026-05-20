@@ -229,7 +229,9 @@ export class RetrievalService {
         return this.db
           .documents()
           .searchChunksByVector(workspaceId, Array.from(vec), candidateK, searchOpts)
-      } catch {
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[retrieval] embedder failed, falling back to BM25-only:', err)
         return []
       }
     })()
@@ -272,7 +274,9 @@ export class RetrievalService {
     let scores: number[]
     try {
       scores = await reranker.rerank(query, docs)
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[retrieval] reranker failed, keeping RRF order:', err)
       return hits
     }
     if (scores.length !== hits.length) return hits
