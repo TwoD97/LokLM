@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
+import type { UserSettings } from '../shared/settings'
 import type {
   Document,
   Workspace,
@@ -155,6 +156,10 @@ const api = {
         ipcRenderer.removeListener('embedder:backfillStatus', listener)
       }
     },
+    trySwitchSource: (source: 'bundled' | 'ollama') =>
+      ipcRenderer.invoke('embedder:trySwitchSource', source) as Promise<
+        { ok: true; identity: string } | { ok: false; kind: string; message?: string }
+      >,
   },
   search: {
     hybrid: (
@@ -207,6 +212,34 @@ const api = {
       ipcRenderer.on(channel, listener)
       return () => {
         ipcRenderer.removeListener(channel, listener)
+      }
+    },
+  },
+  settings: {
+    get: (): Promise<UserSettings> => ipcRenderer.invoke('settings:get'),
+    update: (patch: unknown): Promise<UserSettings> => ipcRenderer.invoke('settings:update', patch),
+    getAvatar: (): Promise<number[] | null> => ipcRenderer.invoke('settings:getAvatar'),
+    setAvatar: (bytes: number[] | null): Promise<void> =>
+      ipcRenderer.invoke('settings:setAvatar', bytes),
+    setDisplayName: (name: string): Promise<void> =>
+      ipcRenderer.invoke('settings:setDisplayName', name),
+  },
+  ollama: {
+    probe: (cfg: { baseUrl: string; bearerToken: string | null; timeoutMs: number }) =>
+      ipcRenderer.invoke('ollama:probe', cfg) as Promise<
+        | { ok: true; version: string; models: string[] }
+        | { ok: false; kind: string; message: string }
+      >,
+  },
+  providers: {
+    onFallback: (cb: (ev: { kind: 'llm' | 'reranker'; reason: string }) => void): (() => void) => {
+      const listener = (
+        _e: IpcRendererEvent,
+        ev: { kind: 'llm' | 'reranker'; reason: string },
+      ): void => cb(ev)
+      ipcRenderer.on('provider:fallback', listener)
+      return () => {
+        ipcRenderer.removeListener('provider:fallback', listener)
       }
     },
   },

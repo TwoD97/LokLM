@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import type { Api } from '@preload/index'
+import { DEFAULT_SETTINGS } from '../../shared/settings'
 
 // pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
 // Stub the module so any test that transitively imports PdfPagePreview doesn't
@@ -175,6 +176,7 @@ const stub: Api = {
     runBackfill: () => Promise.resolve(),
     onStatus: () => () => undefined,
     onBackfillStatus: () => () => undefined,
+    trySwitchSource: () => Promise.resolve({ ok: true as const, identity: 'stub' }),
   },
   search: {
     hybrid: () => Promise.resolve([]),
@@ -282,6 +284,19 @@ const stub: Api = {
     stream: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
     onEvent: () => () => undefined,
+  },
+  settings: {
+    get: () => Promise.resolve(DEFAULT_SETTINGS),
+    update: () => Promise.resolve(DEFAULT_SETTINGS),
+    getAvatar: () => Promise.resolve(null),
+    setAvatar: () => Promise.resolve(),
+    setDisplayName: () => Promise.resolve(),
+  },
+  ollama: {
+    probe: () => Promise.resolve({ ok: true as const, version: '0.0.0', models: [] as string[] }),
+  },
+  providers: {
+    onFallback: () => () => undefined,
   },
 }
 
