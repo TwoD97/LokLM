@@ -37,6 +37,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "installer:assets": "node installer/assets/export.mjs",
     "typecheck": "tsc -b",
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
