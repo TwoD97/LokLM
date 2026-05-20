@@ -148,9 +148,21 @@ Pflichtenheft_LokLM.md
 docs/api/
 .tsbuildinfo-node/
 .tsbuildinfo-web/
-models/
+# Top-level GGUF cache only — leave src/**/models/ alone (those are TS modules).
+/models/
 LokLM.zip
 
 docs/superpowers/
 docs/work/
 .superpowers
+claude
+.claude/
+
+# Capture-screenshots intermediate PNGs (regeneratable via scripts/capture-screenshots.mjs)
+tests/e2e/screenshots/output/
+
+# Playwright trace / HTML report artifacts
+tests/e2e/test-results/
+tests/e2e/.playwright-report/
+
+release

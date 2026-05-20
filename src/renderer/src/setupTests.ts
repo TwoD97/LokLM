@@ -1,7 +1,18 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import type { Api } from '@preload/index'
+
+// pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
+// Stub the module so any test that transitively imports PdfPagePreview doesn't
+// blow up — no test currently exercises an actual PDF render path.
+vi.mock('pdfjs-dist', () => ({
+  GlobalWorkerOptions: { workerSrc: '' },
+  getDocument: () => ({
+    promise: Promise.reject(new Error('pdfjs-dist mocked in tests')),
+  }),
+}))
+vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
 
 afterEach(() => {
   cleanup()
@@ -41,6 +52,8 @@ const stub: Api = {
   },
   documents: {
     list: () => Promise.resolve([]),
+    getPathForFile: () => '',
+    pickFiles: () => Promise.resolve([] as string[]),
     import: (workspaceId: number, sourcePath: string) =>
       Promise.resolve({
         id: 1,
@@ -69,6 +82,8 @@ const stub: Api = {
         addedAt: Math.floor(Date.now() / 1000),
       }),
     getChunkWithContext: () => Promise.resolve([] as Array<never>),
+    getSourceForChunk: () => Promise.resolve(null),
+    readDocumentBytes: () => Promise.resolve(null),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
@@ -97,6 +112,18 @@ const stub: Api = {
         },
         messages: [],
       }),
+    generateTitle: () => Promise.resolve(null),
+  },
+  models: {
+    status: () =>
+      Promise.resolve({
+        downloadDir: '/tmp/models',
+        models: [] as Array<never>,
+        allRequiredReady: true,
+      }),
+    download: () => Promise.resolve(),
+    cancel: () => Promise.resolve(),
+    onProgress: () => Promise.resolve(() => undefined),
   },
   embedder: {
     status: () =>

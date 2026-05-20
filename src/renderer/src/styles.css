@@ -82,17 +82,51 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  /* Isolate so mix-blend-mode children don't fall back to software rendering. */
+  isolation: isolate;
+  /* Force a GPU compositing layer for the whole bg — sharper at 4K, no jitter. */
+  transform: translate3d(0, 0, 0);
+  /* Cursor parallax inputs — pushed in from JS, [-1, 1]. */
+  --mx: 0;
+  --my: 0;
+}
+
+/* Each blob lives inside a parallax layer so the cursor-follow translate
+   composes with the blob's own keyframe drift (separate elements = separate
+   transform stacks). */
+.bgfx__layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transition: transform 600ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.bgfx__layer--1 {
+  transform: translate3d(calc(var(--mx) * 28px), calc(var(--my) * 22px), 0);
+}
+.bgfx__layer--2 {
+  transform: translate3d(calc(var(--mx) * -42px), calc(var(--my) * 26px), 0);
+}
+.bgfx__layer--3 {
+  transform: translate3d(calc(var(--mx) * 20px), calc(var(--my) * -34px), 0);
+}
+.bgfx__layer--4 {
+  transform: translate3d(calc(var(--mx) * -52px), calc(var(--my) * -28px), 0);
 }
 
 .bgfx__blob {
   position: absolute;
   display: block;
-  width: 42vmax;
-  height: 42vmax;
+  width: 70vmax;
+  height: 70vmax;
   border-radius: 50%;
-  filter: blur(110px);
+  /* Blur scales with the viewport — at 1080p ~130px, at 4K ~250px — so the
+     soft falloff stays visually proportional instead of looking crisp+banded
+     on hi-dpi displays. */
+  filter: blur(clamp(120px, 12vmax, 280px));
   opacity: 0.55;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
   mix-blend-mode: screen;
 }
 
@@ -131,12 +165,20 @@ body {
   inset: 0;
   background-image:
     /* Subtle noise via repeated tiny radial dots — much smaller payload than an SVG noise filter. */ radial-gradient(
-    rgba(255, 255, 255, 0.018) 1px,
+    rgba(255, 255, 255, 0.014) 1px,
     transparent 1px
   );
-  background-size: 3px 3px;
+  background-size: 4px 4px;
   mix-blend-mode: overlay;
-  opacity: 0.6;
+  opacity: 0.35;
+}
+
+/* On hi-dpi displays the 1-px noise dots become visibly aliased against the
+   moving blobs — they read as "pixelation". Drop the grain there. */
+@media (min-resolution: 1.5dppx) {
+  .bgfx__grain {
+    display: none;
+  }
 }
 
 @keyframes blob-drift-a {
@@ -196,6 +238,43 @@ body {
   color: var(--fg-0);
 }
 
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-3);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--accent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ── Titlebar ──────────────────────────────────────────────────────────── */
 .titlebar {
   -webkit-app-region: drag;
@@ -237,6 +316,56 @@ body {
 
 .titlebar__spacer {
   flex: 1;
+}
+
+.titlebar__status {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.titlebar__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--fg-3);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4) inset;
+  transition:
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.titlebar__dot--idle,
+.titlebar__dot--unloaded {
+  background: var(--fg-3);
+}
+
+.titlebar__dot--loading {
+  background: #f0b429;
+  box-shadow: 0 0 6px rgba(240, 180, 41, 0.7);
+  animation: titlebar-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.titlebar__dot--ready {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
+}
+
+.titlebar__dot--failed {
+  background: var(--error);
+  box-shadow: 0 0 6px rgba(248, 81, 73, 0.6);
+}
+
+@keyframes titlebar-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .titlebar__controls {
@@ -1097,6 +1226,133 @@ button.link:hover:not(:disabled)::after {
   80% {
     transform: translateX(4px);
   }
+}
+
+/* ── First-launch model download card ─────────────────────────────────── */
+.models-card {
+  max-width: 620px;
+  width: 100%;
+  margin: 0 auto;
+}
+.models-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+.models-card__intro {
+  margin: 0 0 1.25rem;
+  color: var(--fg-1);
+  line-height: 1.55;
+}
+.models-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.models-list__row {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  transition: border-color var(--t-fast) var(--ease);
+}
+.models-list__row--downloading {
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.models-list__row--complete {
+  border-color: rgba(63, 185, 80, 0.45);
+}
+.models-list__row--error {
+  border-color: rgba(248, 81, 73, 0.55);
+}
+.models-list__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.models-list__label {
+  font-weight: 600;
+}
+.models-list__size {
+  font-size: 12px;
+  color: var(--fg-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.models-list__desc {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--fg-2);
+  line-height: 1.45;
+}
+.models-list__bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.models-list__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  transition: width 220ms var(--ease);
+}
+.models-list__row--complete .models-list__bar-fill {
+  background: linear-gradient(90deg, #2ea043, var(--success));
+}
+.models-list__row--error .models-list__bar-fill {
+  background: linear-gradient(90deg, #b8302a, var(--error));
+}
+.models-list__status {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--fg-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.models-list__error {
+  color: var(--error);
+}
+.models-card__actions {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+.models-card__actions button {
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent-active);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.models-card__actions button:hover {
+  background: var(--accent-hover);
+}
+.models-card__actions button.ghost {
+  background: transparent;
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+}
+.models-card__actions button.ghost:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.models-card__progress {
+  margin: 4px 0 4px;
+  font-size: 12px;
+  color: var(--fg-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.models-card__path {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.models-card__path code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
 }
 
 @media (prefers-reduced-motion: reduce) {

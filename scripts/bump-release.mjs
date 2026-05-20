@@ -59,10 +59,10 @@ console.log(`patched releases.ts , version=${version} platform=${platform} sha25
 function assetFileName(p, v) {
   switch (p) {
     case 'windows':
-      // v0.2.x: zip statt nsis (makensis 32-bit mmap-limit hat unsere ~6 GB
-      // bundled payload nicht gepackt). landingpage download-component zeigt
-      // jetzt "ZIP herunterladen" für windows , user entpackt + startet LokLM.exe.
-      return `LokLM-${v}-win-x64.zip`
+      // v0.2.2+ : nsis installer , slim ~375 MB ohne bundled GGUFs (die holt
+      // der first-launch downloader). filename matched die artifactName in
+      // package.json (build.win.artifactName = "LokLM-Setup-${version}-...").
+      return `LokLM-Setup-${v}-win-x64.exe`
     case 'macos':
       return `LokLM-${v}.dmg`
     case 'linux':

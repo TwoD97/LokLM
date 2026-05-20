@@ -1,7 +1,14 @@
 name: Release installer
 
-# baut den electron-installer für eine version , lädt ihn nach minio , patcht
+# baut den electron-installer für eine version , lädt ihn nach bunny storage
+# (primary, fronted vom CDN) und minio (manual backup mirror) , patcht
 # releases.ts + re-deployt die website mit aktualisiertem manifest.
+# v0.2.2+ : windows ist nsis statt zip , GGUFs werden NICHT mehr gebundled
+# (first-launch downloader holt sie in userData/models). slim installer
+# ~375 MB statt ~6 GB.
+# backup-URL-pattern bei CDN-ausfall:
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-<V>-win-x64.exe
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-<V>.AppImage
 on:
   push:
     tags: ['v*']
@@ -22,7 +29,7 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build .exe + upload to minio
+    name: Build .exe + upload to bunny + minio
     runs-on: windows-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -62,23 +69,16 @@ jobs:
       - name: Build (electron-vite)
         run: pnpm build
 
-      # v0.2+ bundelt die GGUFs (BGE-M3 embedder + Qwen3-8B medium-llm) in den
-      # installer. Auf dem CI-runner liegt keine models/ , also vor dem package-
-      # step herunterladen. Lokale builds auf dem build-server skippen das ,
-      # weil dort die modelle dauerhaft auf disk liegen (siehe scripts/check-
-      # bundled-models.mjs , das checkt die anwesenheit und gibt eine klare
-      # fehlermeldung wenn etwas fehlt).
-      - name: Download bundled models (embedder + medium llm)
-        shell: bash
-        run: pnpm models:embedder && pnpm models:medium
+      # v0.2.2+ : keine GGUFs mehr im installer. Der first-launch downloader
+      # (src/main/services/models/ModelDownloader.ts) holt embedder + reranker
+      # + LLM nach %APPDATA%\loklm\models\ via SHA256-verifizierten HTTP-pulls
+      # gegen die URLs in src/main/services/models/manifest.ts. CI braucht die
+      # GGUFs daher nicht mehr , spart ~6 GB download pro run.
 
-      # v0.2.x ships Windows as a ZIP statt NSIS , weil makensis.exe (32-bit)
-      # die ~5.5 GB compressed payload nicht mmappen kann (out-of-address-space
-      # error: "failed creating mmap of loklm-x64.nsis.7z"). ZIP umgeht das
-      # komplett , user lädt das archive , entpackt es , startet LokLM.exe.
-      # Installer-wizard + start-menu kommen in v0.3 via nsis-web oder split-
-      # payload zurück. Signing-cert step entfällt für zip.
-      - name: Package (ZIP)
+      - name: Package (NSIS)
+        # makensis 32-bit ist nicht mehr ein problem , weil die payload jetzt
+        # ~200 MB ist (kein bundling). npmRebuild=false in package.json
+        # umgeht @electron/rebuild (alle native deps sind N-API prebuilt).
         run: pnpm package:win
 
       - name: Compute sha256 + size
@@ -86,16 +86,33 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          ZIP="release/LokLM-${V}-win-x64.zip"
-          if [ ! -f "$ZIP" ]; then
-            echo "expected artefact missing: $ZIP"; ls -la release/; exit 1
+          EXE="release/LokLM-Setup-${V}-win-x64.exe"
+          if [ ! -f "$EXE" ]; then
+            echo "expected artefact missing: $EXE"; ls -la release/; exit 1
           fi
-          SHA=$(sha256sum "$ZIP" | awk '{print $1}')
-          SIZE=$(stat -c%s "$ZIP")
-          echo "$SHA  $(basename "$ZIP")" > "${ZIP}.sha256"
+          SHA=$(sha256sum "$EXE" | awk '{print $1}')
+          SIZE=$(stat -c%s "$EXE")
+          echo "$SHA  $(basename "$EXE")" > "${EXE}.sha256"
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "built $ZIP , size=$SIZE sha256=$SHA"
+          echo "built $EXE , size=$SIZE sha256=$SHA"
+
+      - name: Upload to Bunny Storage (primary , served via CDN)
+        shell: bash
+        env:
+          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
+          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          FILE="release/LokLM-Setup-${V}-win-x64.exe"
+          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
 
       - name: Install mc
         shell: bash
@@ -103,7 +120,7 @@ jobs:
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe --version | head -1
 
-      - name: Upload to minio
+      - name: Upload to minio (backup mirror)
         shell: bash
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -112,12 +129,12 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-${V}-win-x64.zip.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:
-    name: Build AppImage + upload to minio
+    name: Build AppImage + upload to bunny + minio
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -153,9 +170,7 @@ jobs:
       - name: Build (electron-vite)
         run: pnpm build
 
-      - name: Download bundled models (embedder + medium llm)
-        run: pnpm models:embedder && pnpm models:medium
-
+      # v0.2.2+ : keine GGUFs gebundled — first-launch downloader holt sie.
       - name: Package (AppImage)
         run: pnpm package:linux
 
@@ -175,13 +190,29 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $APP , size=$SIZE sha256=$SHA"
 
+      - name: Upload to Bunny Storage (primary , served via CDN)
+        env:
+          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
+          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          FILE="release/LokLM-${V}.AppImage"
+          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
       - name: Install mc
         run: |
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x /tmp/mc
           /tmp/mc --version | head -1
 
-      - name: Upload to minio
+      - name: Upload to minio (backup mirror)
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
@@ -275,3 +306,18 @@ jobs:
       - name: Clean up SSH key
         if: always()
         run: rm -f ~/.ssh/deploy_key
+
+      - name: Record backup URLs in run summary
+        env:
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+        run: |
+          V="${{ needs.build-windows.outputs.version }}"
+          {
+            echo "## Release v${V} — mirrors"
+            echo ""
+            echo "**Primary (CDN):** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
+            echo ""
+            echo "**Backup (minio , manual fallback):**"
+            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-${V}-win-x64.exe"
+            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}.AppImage"
+          } >> "$GITHUB_STEP_SUMMARY"

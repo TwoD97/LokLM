@@ -18,6 +18,7 @@ const hit = (id: number, text: string, title = 'doc.md'): RetrievalHit => ({
   ordinal: 0,
   page_from: 1,
   page_to: 1,
+  heading_path: null,
   text,
   score: 1.0,
 })
@@ -61,6 +62,20 @@ describe('buildPrompt', () => {
     const h = { ...hit(7, 'text'), page_from: 42 }
     const out = buildPrompt('q', [h])
     expect(out).toContain('p.42')
+  })
+
+  it('renders § breadcrumb instead of page when heading_path is set (markdown)', () => {
+    const h = { ...hit(7, 'text'), page_from: null, heading_path: ['Intro', 'Why'] }
+    const out = buildPrompt('q', [h])
+    expect(out).toContain('§ Intro › Why')
+    expect(out).not.toMatch(/p\.\d/)
+  })
+
+  it('renders both § and page when PDF has bookmarks', () => {
+    const h = { ...hit(7, 'text'), page_from: 12, heading_path: ['Chapter 2'] }
+    const out = buildPrompt('q', [h])
+    expect(out).toContain('§ Chapter 2')
+    expect(out).toContain('p.12')
   })
 })
 

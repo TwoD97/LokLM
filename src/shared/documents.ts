@@ -82,6 +82,9 @@ export interface RetrievalHit {
   ordinal: number
   page_from: number | null
   page_to: number | null
+  /** Hierarchical heading breadcrumb for markdown chunks (e.g. ["Intro", "Why MD"]).
+   *  Null for PDFs and unstructured text. */
+  heading_path: string[] | null
   text: string
   score: number
   origin?: 'primary' | 'neighbour' | 'whole_doc'
@@ -89,6 +92,39 @@ export interface RetrievalHit {
 
 // ---------------------------------------------------------------------------
 // LLM / LlamaService shared types — renderer + preload + main must agree.
+// ---------------------------------------------------------------------------
+
+/** Status of a single model from the download manifest. Renderer uses this
+ *  to decide whether to show the first-launch download UI. */
+export interface ModelAvailability {
+  /** Stable id from the manifest (filename without `.gguf`). */
+  id: string
+  label: string
+  description: string
+  kind: 'llm' | 'embedder' | 'reranker'
+  filename: string
+  /** Expected size in bytes from the manifest. */
+  sizeBytes: number
+  /** Whether this model is required for the app to function. */
+  required: boolean
+  /** Resolved absolute path if the file is on disk; null otherwise. */
+  resolvedPath: string | null
+  /** True when the file exists AND its size is within tolerance of the
+   *  manifest size. False for missing or partial files. */
+  present: boolean
+  /** Actual on-disk size in bytes (null when missing). */
+  actualSizeBytes: number | null
+}
+
+export interface ModelsStatus {
+  /** Where freshly-downloaded files land. Renderer surfaces this in
+   *  troubleshooting/dev banners; not needed for the happy path. */
+  downloadDir: string
+  models: ModelAvailability[]
+  /** Convenience: true when every `required: true` entry is `present: true`. */
+  allRequiredReady: boolean
+}
+
 // ---------------------------------------------------------------------------
 
 export type ModelState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
@@ -161,6 +197,12 @@ export interface AnswerOptions {
   rerank?: boolean
   multiQuery?: boolean
   activeDocumentIds?: number[] | null
+  /** Rewrite the new question into a standalone retrieval query using the
+   *  prior turns in `history` before running retrieval. Fixes follow-ups
+   *  like "gibt noch was dazu?" that have no topical keywords and would
+   *  otherwise return zero relevant chunks. No-op when history is empty or
+   *  the LLM is not loaded. */
+  contextualize?: boolean
   /** When set, the chat:stream handler persists the user message before
    *  streaming, then persists the assistant message + citations on `done`
    *  (or on `refusal`, with citations=[]). Errors are not persisted. */
@@ -209,6 +251,11 @@ export interface Message {
   role: MessageRole
   content: string
   createdAt: number
+  /** Stream metrics captured at persistence time for assistant turns; null on
+   *  user/system rows and on legacy/refusal assistant rows that never streamed. */
+  ttftMs: number | null
+  tokensPerSec: number | null
+  tokenCount: number | null
 }
 
 export interface Citation {
@@ -236,4 +283,19 @@ export interface ChunkWithContext {
   pageFrom: number | null
   pageTo: number | null
   isTarget: boolean
+}
+
+/** Renderer-visible source-document metadata for a single chunk. The renderer
+ *  uses this to decide whether to render a PDF page preview, markdown, or
+ *  plain monospace text in the SourceViewer. */
+export interface ChunkSource {
+  documentId: number
+  title: string
+  mimeType: string | null
+  /** Absolute path on disk — only displayed, never used to load bytes
+   *  (renderer must go through documents.readDocumentBytes for that). */
+  sourcePath: string
+  /** Heading breadcrumb for the specific chunk this was fetched for. Null for
+   *  PDFs and chunks indexed before markdown-aware chunking landed. */
+  headingPath: string[] | null
 }
