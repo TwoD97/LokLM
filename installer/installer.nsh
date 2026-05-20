@@ -75,11 +75,47 @@
 !macroend
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Section 4: REUSABLE HELPERS — dark-theme any MUI page's header strip
-;  Used by the MUI default pages (License, InstFiles) so their headers
-;  match our custom pages instead of staying default-white.
+;  Section 4: REUSABLE HELPERS
+;
+;  DarkenChrome — paints the outer wizard frame dark on every page:
+;    $HWNDPARENT — outer dialog background
+;    1028        — page panel under the header
+;    1029        — branding text label at bottom-left
+;    1256        — header panel background
+;
+;  DarkenHeader — sets dark colors on the page-header text controls and
+;  writes the per-page title / subtitle. Use on MUI inner pages (License,
+;  Setup) that have a header strip.
+;
+;  HideHeader — fully hides the MUI header strip (welcome page only).
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
+
+  !macro DarkenChrome
+    ; Outer dialog frame
+    SetCtlColors $HWNDPARENT ${LM_FG_0} ${LM_BG_0}
+
+    ; Page panel under the header (the area that holds our content)
+    GetDlgItem $0 $HWNDPARENT 1028
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
+    ${EndIf}
+
+    ; Branding text "LokLM x.y.z" at the bottom-left
+    GetDlgItem $0 $HWNDPARENT 1256
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
+    ${EndIf}
+
+    GetDlgItem $0 $HWNDPARENT 1029
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
+    ${EndIf}
+
+    ; Force a paint pass so the new colors take effect immediately
+    System::Call "User32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  !macroend
+
   !macro DarkenHeader TITLE SUBTITLE
     GetDlgItem $0 $HWNDPARENT 1037
     SendMessage $0 ${WM_SETTEXT} 0 "STR:${TITLE}"
@@ -90,9 +126,6 @@
     SetCtlColors $0 ${LM_FG_2} ${LM_BG_1}
 
     GetDlgItem $0 $HWNDPARENT 1039
-    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
-
-    GetDlgItem $0 $HWNDPARENT 1256
     SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
   !macroend
 
@@ -120,6 +153,7 @@
   !macroend
 
   Function WelcomePageCreate
+    !insertmacro DarkenChrome
     !insertmacro HideHeader
 
     nsDialogs::Create 1018
@@ -180,6 +214,7 @@
   !macroend
 
   Function LicensePageShow
+    !insertmacro DarkenChrome
     !insertmacro DarkenHeader "${LM_PAGE2_TITLE}" "${LM_PAGE2_SUBTITLE}"
 
     ; License text edit control (MUI control id 1006)
@@ -206,6 +241,7 @@
   !macroend
 
   Function SetupPageCreate
+    !insertmacro DarkenChrome
     !insertmacro DarkenHeader "${LM_PAGE3_TITLE}" "${LM_PAGE3_SUBTITLE}"
 
     nsDialogs::Create 1018
