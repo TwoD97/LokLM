@@ -15,12 +15,16 @@
 !define LM_ACCENT    0xF6823B  ; #3b82f6 -- accent
 
 ; ── Globals for checkbox state ──
-Var DesktopShortcutCheckbox
-Var StartMenuShortcutCheckbox
-Var AutostartCheckbox
-Var CreateDesktopShortcut
-Var CreateStartMenuShortcut
-Var EnableAutostart
+; Installer-only: the uninstaller pass doesn't touch these and NSIS treats
+; unused vars as an error (warning 6001 promoted by electron-builder).
+!ifndef BUILD_UNINSTALLER
+  Var DesktopShortcutCheckbox
+  Var StartMenuShortcutCheckbox
+  Var AutostartCheckbox
+  Var CreateDesktopShortcut
+  Var CreateStartMenuShortcut
+  Var EnableAutostart
+!endif
 
 ; ── Hook: customInit — runs inside the installer's .onInit function ──
 ;
