@@ -1,353 +1,50 @@
-; LokLM custom NSIS include — v6: app-style dark theme, design-only changes
+; LokLM minimal NSIS include — Installer-Chrome ist auf das Nötigste reduziert.
 ;
-; Design-only update: dark backgrounds and brand colors matching the LokLM
-; app's design tokens. Page flow + functionality unchanged from v5.
+; Architektur-Entscheidung (Migrationsplan vom 2026-05-20):
+; Polish lebt im <FirstRunWizard /> React-Component innerhalb der App, nicht
+; in NSIS. Dieser Installer macht ausschließlich was NSIS gut kann:
+;   - Files extrahieren (electron-builder Default)
+;   - Desktop-/Start-Menü-Shortcuts (electron-builder Config)
+;   - Uninstaller-Registry-Eintrag (electron-builder Default)
 ;
-; Where to edit what:
-;   - All user-facing strings:  Section 1 (lines ~26–46)
-;   - All colors:               Section 2 (lines ~48–60)
-;   - Page layouts:             Sections 4–6 (one block per page)
-;   - Install behavior:         Section 7 (customInstall / customUnInstall)
+; Custom-Hooks die wir behalten:
+;   - customInstall   — räumt Shortcuts auf, falls in First-Run-Wizard abgewählt
+;   - customUnInstall — räumt Autostart-Eintrag auf den der Wizard ggf. setzt
+;
+; Alle vorher hier definierten Wizard-Pages (Welcome, License, Setup) sind
+; in den FirstRunWizard gewandert — siehe src/renderer/src/firstrun/.
 
-!include "nsDialogs.nsh"
 !include "LogicLib.nsh"
-!include "WinMessages.nsh"
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Section 1: USER-FACING STRINGS — edit text here, in one place
-; ════════════════════════════════════════════════════════════════════════════
-!define LM_BRAND_NAME       "LokLM"
-!define LM_TAGLINE          "Lokaler KI-Wissensassistent"
-
-!define LM_PAGE1_HEADING    "Willkommen"
-!define LM_PAGE1_BODY       "Dieser Assistent installiert LokLM ${VERSION} auf Ihrem Computer.$\r$\n$\r$\nLokLM läuft vollständig lokal — keine Cloud, keine Telemetrie. Ihre Dokumente bleiben auf Ihrem Gerät."
-!define LM_PAGE1_HINT       "Klicken Sie auf $\"Weiter$\", um fortzufahren."
-
-!define LM_PAGE2_TITLE      "Lizenzvereinbarung"
-!define LM_PAGE2_SUBTITLE   "MIT-Lizenz — bitte vor der Installation prüfen"
-
-!define LM_PAGE3_TITLE      "Optionen"
-!define LM_PAGE3_SUBTITLE   "Verknüpfungen und Startverhalten konfigurieren"
-!define LM_PAGE3_SECTION1   "Verknüpfungen"
-!define LM_PAGE3_OPT1       "Desktop-Verknüpfung erstellen"
-!define LM_PAGE3_OPT2       "Startmenü-Verknüpfung erstellen"
-!define LM_PAGE3_SECTION2   "Beim Windows-Start"
-!define LM_PAGE3_OPT3       "LokLM mit Windows starten"
-!define LM_PAGE3_HINT       "Empfohlen für tägliche Nutzung."
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 2: COLORS — mirrors src/renderer/src/styles.css tokens
-;  Note: SetCtlColors uses BGR (reverse of hex). Each pair below shows the
-;  app's CSS hex on the right.
-; ════════════════════════════════════════════════════════════════════════════
-!define LM_BG_0      0x16110E  ; #0e1116 — page background (bg-0)
-!define LM_BG_1      0x221B16  ; #161b22 — header strip / surfaces (bg-1)
-!define LM_BG_2      0x2F261F  ; #1f262f — input bg (bg-2)
-!define LM_FG_0      0xF3EDE6  ; #e6edf3 — primary text (fg-0)
-!define LM_FG_1      0xC9BEB6  ; #b6bec9 — secondary text (fg-1)
-!define LM_FG_2      0x9E948B  ; #8b949e — tertiary text (fg-2)
-!define LM_ACCENT    0xF6823B  ; #3b82f6 — accent blue
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 3: STATE + FONTS — declared once at the top
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-  Var Dialog
-  Var OptDesktopCheckbox
-  Var OptStartMenuCheckbox
-  Var OptAutostartCheckbox
-  Var CreateDesktopShortcut
-  Var CreateStartMenuShortcut
-  Var EnableAutostart
-  Var FontHeading
-  Var FontBody
-!endif
-
-!macro customInit
-  StrCpy $CreateDesktopShortcut "1"
-  StrCpy $CreateStartMenuShortcut "1"
-  StrCpy $EnableAutostart "0"
-
-  StrCpy $INSTDIR "$LOCALAPPDATA\${LM_BRAND_NAME}"
-
-  CreateFont $FontHeading "Segoe UI" 16 700
-  CreateFont $FontBody "Segoe UI" 9 400
-!macroend
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 4: REUSABLE HELPERS
+;  customInstall — räumt Shortcuts auf, falls First-Run sie deaktiviert hat
 ;
-;  DarkenChrome — paints the outer wizard frame dark on every page:
-;    $HWNDPARENT — outer dialog background
-;    1028        — page panel under the header
-;    1029        — branding text label at bottom-left
-;    1256        — header panel background
+;  electron-builder erstellt Desktop + Start-Menü-Shortcuts standardmäßig
+;  (per build.nsis.createDesktopShortcut / createStartMenuShortcut).
+;  Der First-Run-Wizard schreibt $CreateDesktopShortcut / $CreateStartMenuShortcut
+;  als Registry-Werte; wir lesen die hier zurück und löschen ggf. wieder.
 ;
-;  DarkenHeader — sets dark colors on the page-header text controls and
-;  writes the per-page title / subtitle. Use on MUI inner pages (License,
-;  Setup) that have a header strip.
-;
-;  HideHeader — fully hides the MUI header strip (welcome page only).
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-
-  !macro DarkenChrome
-    ; Outer dialog frame
-    SetCtlColors $HWNDPARENT ${LM_FG_0} ${LM_BG_0}
-
-    ; Page panel under the header (the area that holds our content)
-    GetDlgItem $0 $HWNDPARENT 1028
-    ${If} $0 != 0
-      SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
-    ${EndIf}
-
-    ; Branding text "LokLM x.y.z" at the bottom-left
-    GetDlgItem $0 $HWNDPARENT 1256
-    ${If} $0 != 0
-      SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
-    ${EndIf}
-
-    GetDlgItem $0 $HWNDPARENT 1029
-    ${If} $0 != 0
-      SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
-    ${EndIf}
-
-    ; Force a paint pass so the new colors take effect immediately
-    System::Call "User32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
-  !macroend
-
-  !macro DarkenHeader TITLE SUBTITLE
-    GetDlgItem $0 $HWNDPARENT 1037
-    SendMessage $0 ${WM_SETTEXT} 0 "STR:${TITLE}"
-    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
-
-    GetDlgItem $0 $HWNDPARENT 1038
-    SendMessage $0 ${WM_SETTEXT} 0 "STR:${SUBTITLE}"
-    SetCtlColors $0 ${LM_FG_2} ${LM_BG_1}
-
-    GetDlgItem $0 $HWNDPARENT 1039
-    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
-  !macroend
-
-  !macro HideHeader
-    GetDlgItem $0 $HWNDPARENT 1037
-    ShowWindow $0 0
-    GetDlgItem $0 $HWNDPARENT 1038
-    ShowWindow $0 0
-    GetDlgItem $0 $HWNDPARENT 1039
-    ShowWindow $0 0
-    GetDlgItem $0 $HWNDPARENT 1256
-    ShowWindow $0 0
-    GetDlgItem $0 $HWNDPARENT 1028
-    ShowWindow $0 0
-  !macroend
-!endif
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 5: WELCOME PAGE
-;  Full-bleed dark page (no MUI header). Brand mark + tagline + intro body.
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-  !macro customWelcomePage
-    Page custom WelcomePageCreate
-  !macroend
-
-  Function WelcomePageCreate
-    !insertmacro DarkenChrome
-    !insertmacro HideHeader
-
-    nsDialogs::Create 1018
-    Pop $Dialog
-    ${If} $Dialog == error
-      Abort
-    ${EndIf}
-    SetCtlColors $Dialog ${LM_FG_0} ${LM_BG_0}
-
-    ; Brand row — accent-colored wordmark
-    ${NSD_CreateLabel} 28u 28u 280u 24u "${LM_BRAND_NAME}"
-    Pop $0
-    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontHeading 0
-
-    ; Tagline (tertiary text)
-    ${NSD_CreateLabel} 28u 54u 280u 12u "${LM_TAGLINE}"
-    Pop $0
-    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    ; Thin accent-tinted divider
-    ${NSD_CreateLabel} 28u 80u 280u 1u ""
-    Pop $0
-    SetCtlColors $0 ${LM_BG_2} ${LM_BG_2}
-
-    ; Welcome heading (primary text, heading font)
-    ${NSD_CreateLabel} 28u 100u 280u 18u "${LM_PAGE1_HEADING}"
-    Pop $0
-    SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontHeading 0
-
-    ; Body paragraph (secondary text)
-    ${NSD_CreateLabel} 28u 124u 280u 60u "${LM_PAGE1_BODY}"
-    Pop $0
-    SetCtlColors $0 ${LM_FG_1} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    ; Continuation hint (tertiary)
-    ${NSD_CreateLabel} 28u 196u 280u 12u "${LM_PAGE1_HINT}"
-    Pop $0
-    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    nsDialogs::Show
-  FunctionEnd
-!endif
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 6a: LICENSE PAGE
-;  MUI_PAGE_LICENSE for body rendering. SHOW callback darkens the header
-;  strip and recolors the license text area to match the app palette.
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-  !macro licensePage
-    !define MUI_PAGE_CUSTOMFUNCTION_SHOW LicensePageShow
-    !insertmacro MUI_PAGE_LICENSE "${PROJECT_DIR}\LICENSE"
-  !macroend
-
-  Function LicensePageShow
-    !insertmacro DarkenChrome
-    !insertmacro DarkenHeader "${LM_PAGE2_TITLE}" "${LM_PAGE2_SUBTITLE}"
-
-    ; License text edit control (MUI control id 1006)
-    GetDlgItem $0 $HWNDPARENT 1006
-    ${If} $0 != 0
-      SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
-    ${EndIf}
-
-    ; "Please review the licence agreement..." label above the text (id 1040)
-    GetDlgItem $0 $HWNDPARENT 1040
-    ${If} $0 != 0
-      SetCtlColors $0 ${LM_FG_1} ${LM_BG_0}
-    ${EndIf}
-  FunctionEnd
-!endif
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 6b: SETUP PAGE
-;  Dark page body with accent-colored section labels and dark checkboxes.
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-  !macro customPageAfterChangeDir
-    Page custom SetupPageCreate SetupPageLeave
-  !macroend
-
-  Function SetupPageCreate
-    !insertmacro DarkenChrome
-    !insertmacro DarkenHeader "${LM_PAGE3_TITLE}" "${LM_PAGE3_SUBTITLE}"
-
-    nsDialogs::Create 1018
-    Pop $Dialog
-    ${If} $Dialog == error
-      Abort
-    ${EndIf}
-    SetCtlColors $Dialog ${LM_FG_0} ${LM_BG_0}
-
-    ; ── Section 1: Verknüpfungen — accent header + checkboxes ──
-    ${NSD_CreateLabel} 8u 12u 290u 12u "${LM_PAGE3_SECTION1}"
-    Pop $0
-    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    ${NSD_CreateCheckbox} 16u 32u 280u 12u "${LM_PAGE3_OPT1}"
-    Pop $OptDesktopCheckbox
-    SetCtlColors $OptDesktopCheckbox ${LM_FG_0} ${LM_BG_0}
-    SendMessage $OptDesktopCheckbox ${WM_SETFONT} $FontBody 0
-    ${If} $CreateDesktopShortcut == "1"
-      ${NSD_Check} $OptDesktopCheckbox
-    ${EndIf}
-
-    ${NSD_CreateCheckbox} 16u 48u 280u 12u "${LM_PAGE3_OPT2}"
-    Pop $OptStartMenuCheckbox
-    SetCtlColors $OptStartMenuCheckbox ${LM_FG_0} ${LM_BG_0}
-    SendMessage $OptStartMenuCheckbox ${WM_SETFONT} $FontBody 0
-    ${If} $CreateStartMenuShortcut == "1"
-      ${NSD_Check} $OptStartMenuCheckbox
-    ${EndIf}
-
-    ; Subtle divider between sections
-    ${NSD_CreateLabel} 8u 72u 290u 1u ""
-    Pop $0
-    SetCtlColors $0 ${LM_BG_2} ${LM_BG_2}
-
-    ; ── Section 2: Autostart ──
-    ${NSD_CreateLabel} 8u 84u 290u 12u "${LM_PAGE3_SECTION2}"
-    Pop $0
-    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    ${NSD_CreateCheckbox} 16u 104u 280u 12u "${LM_PAGE3_OPT3}"
-    Pop $OptAutostartCheckbox
-    SetCtlColors $OptAutostartCheckbox ${LM_FG_0} ${LM_BG_0}
-    SendMessage $OptAutostartCheckbox ${WM_SETFONT} $FontBody 0
-    ${If} $EnableAutostart == "1"
-      ${NSD_Check} $OptAutostartCheckbox
-    ${EndIf}
-
-    ; Hint below autostart
-    ${NSD_CreateLabel} 16u 120u 290u 12u "${LM_PAGE3_HINT}"
-    Pop $0
-    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
-    SendMessage $0 ${WM_SETFONT} $FontBody 0
-
-    nsDialogs::Show
-  FunctionEnd
-
-  Function SetupPageLeave
-    ${If} $OptDesktopCheckbox != 0
-      ${NSD_GetState} $OptDesktopCheckbox $0
-      ${If} $0 == ${BST_CHECKED}
-        StrCpy $CreateDesktopShortcut "1"
-      ${Else}
-        StrCpy $CreateDesktopShortcut "0"
-      ${EndIf}
-    ${EndIf}
-
-    ${If} $OptStartMenuCheckbox != 0
-      ${NSD_GetState} $OptStartMenuCheckbox $0
-      ${If} $0 == ${BST_CHECKED}
-        StrCpy $CreateStartMenuShortcut "1"
-      ${Else}
-        StrCpy $CreateStartMenuShortcut "0"
-      ${EndIf}
-    ${EndIf}
-
-    ${If} $OptAutostartCheckbox != 0
-      ${NSD_GetState} $OptAutostartCheckbox $0
-      ${If} $0 == ${BST_CHECKED}
-        StrCpy $EnableAutostart "1"
-      ${Else}
-        StrCpy $EnableAutostart "0"
-      ${EndIf}
-    ${EndIf}
-  FunctionEnd
-!endif
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Section 7: INSTALL / UNINSTALL HOOKS — unchanged behavior
+;  TODO Denys: Falls First-Run-Wizard die Toggles vor dem ersten Hook-Run
+;  setzt, dann sind diese Vars beim ersten Install noch leer und nichts
+;  passiert hier — Default-Verhalten von electron-builder gilt. Beim zweiten
+;  Install (Update) werden die Toggles korrekt ausgewertet.
 ; ════════════════════════════════════════════════════════════════════════════
 !macro customInstall
-  ${If} $CreateDesktopShortcut == "0"
-    Delete "$DESKTOP\${LM_BRAND_NAME}.lnk"
+  ReadRegStr $0 HKCU "Software\LokLM\Setup" "DesktopShortcut"
+  ${If} $0 == "0"
+    Delete "$DESKTOP\LokLM.lnk"
   ${EndIf}
 
-  ${If} $CreateStartMenuShortcut == "0"
-    Delete "$SMPROGRAMS\${LM_BRAND_NAME}.lnk"
-  ${EndIf}
-
-  ${If} $EnableAutostart == "1"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${LM_BRAND_NAME}" "$INSTDIR\${LM_BRAND_NAME}.exe"
+  ReadRegStr $0 HKCU "Software\LokLM\Setup" "StartMenuShortcut"
+  ${If} $0 == "0"
+    Delete "$SMPROGRAMS\LokLM.lnk"
   ${EndIf}
 !macroend
 
+; ════════════════════════════════════════════════════════════════════════════
+;  customUnInstall — räumt Autostart + Setup-Settings auf
+; ════════════════════════════════════════════════════════════════════════════
 !macro customUnInstall
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${LM_BRAND_NAME}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "LokLM"
+  DeleteRegKey HKCU "Software\LokLM\Setup"
 !macroend
