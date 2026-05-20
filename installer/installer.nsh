@@ -1,99 +1,164 @@
-; LokLM custom NSIS include — dark theme + combined dir/options page
+; LokLM custom NSIS include — dark theme + branded wizard pages
 ;
 ; Hooks into electron-builder's NSIS template via documented !macro names.
 ; See: https://www.electron.build/configuration/nsis
 
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
+!include "WinMessages.nsh"
 
 ; ── Color tokens (BGR for SetCtlColors; mirrors src/renderer/src/styles.css) ──
 !define LM_BG_0      0x16110E  ; #0e1116 -- page background
 !define LM_BG_1      0x221B16  ; #161b22 -- secondary surface
 !define LM_BG_2      0x2F261F  ; #1f262f -- input bg
 !define LM_FG_0      0xF3EDE6  ; #e6edf3 -- primary text
+!define LM_FG_1      0xC9BEB6  ; #b6bec9 -- secondary text
 !define LM_FG_2      0x9E948B  ; #8b949e -- tertiary text
-!define LM_ACCENT    0xF6823B  ; #3b82f6 -- accent
+!define LM_ACCENT    0xF6823B  ; #3b82f6 -- accent blue
 
-; ── Globals for checkbox state ──
-; Installer-only: the uninstaller pass doesn't touch these and NSIS treats
-; unused vars as an error (warning 6001 promoted by electron-builder).
+; ── Installer-only globals (uninstaller pass would warn 6001 on unused vars) ──
 !ifndef BUILD_UNINSTALLER
-  Var DesktopShortcutCheckbox
-  Var StartMenuShortcutCheckbox
-  Var AutostartCheckbox
+  Var OptDesktopCheckbox
+  Var OptStartMenuCheckbox
+  Var OptAutostartCheckbox
   Var CreateDesktopShortcut
   Var CreateStartMenuShortcut
   Var EnableAutostart
+
+  ; Holds the EnumChildWindows callback pointer once initialized.
+  Var DarkenCallbackPtr
 !endif
 
-; ── Hook: customInit — runs inside the installer's .onInit function ──
-;
-; customHeader is inserted at the global script scope (outside any section
-; or function) and only accepts directives like !define, Var, Function.
-; Executable commands like StrCpy must live in customInit (inside .onInit).
+; ════════════════════════════════════════════════════════════════════════════
+;  customInit — runs inside the installer's .onInit
+; ════════════════════════════════════════════════════════════════════════════
 !macro customInit
-  ; Defaults: shortcuts on, autostart off
   StrCpy $CreateDesktopShortcut "1"
   StrCpy $CreateStartMenuShortcut "1"
   StrCpy $EnableAutostart "0"
+
+  ; Allocate the EnumChildWindows callback once. NSIS's System plugin builds a
+  ; native function pointer that wraps our DarkenChildProc NSIS function.
+  GetFunctionAddress $0 DarkenChildProc
+  System::Call "User32::EnumChildWindows(p, p, p) i"
+  System::Get '(p .R0, p .R1) i.r2'
+  Pop $DarkenCallbackPtr
 !macroend
 
-; ── Hook: customDirectoryPage — extends MUI_PAGE_DIRECTORY with checkboxes ──
-;
-; electron-builder respects MUI_PAGE_CUSTOMFUNCTION_SHOW/LEAVE if we define
-; them before its template inserts the page. The functions below add 3
-; checkboxes BELOW the existing directory controls on the same page.
-;
-; IMPORTANT: electron-builder compiles this script twice — once for the
-; installer and once for the uninstaller (with BUILD_UNINSTALLER defined).
-; The MUI_PAGE_CUSTOMFUNCTION_* defines are global, so without this guard
-; they would leak into MUI_UNPAGE_WELCOME (the first uninstaller page) and
-; NSIS would error with "Call must be used with function names starting
-; with un. in the uninstall section". The guard scopes the defines + their
-; backing functions to the installer pass only.
+; ════════════════════════════════════════════════════════════════════════════
+;  Page 1 — Welcome (uses installerSidebar BMP automatically)
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  !define MUI_WELCOMEPAGE_TITLE "Willkommen zum LokLM Setup"
+  !define MUI_WELCOMEPAGE_TEXT "Dieser Assistent installiert LokLM ${VERSION} auf Ihrem Computer.$\r$\n$\r$\nLokLM ist Ihr lokaler KI-Wissensassistent mit Quellenverifikation — keine Cloud, keine Telemetrie.$\r$\n$\r$\nKlicken Sie auf Weiter, um fortzufahren."
+
+  !macro customWelcomePage
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW WelcomePageShow
+    !insertmacro MUI_PAGE_WELCOME
+  !macroend
+
+  Function WelcomePageShow
+    Call ApplyDarkTheme
+  FunctionEnd
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
+;  Page 2 — License (reads from repo-root LICENSE)
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  !macro licensePage
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW LicensePageShow
+    !insertmacro MUI_PAGE_LICENSE "${PROJECT_DIR}\LICENSE"
+  !macroend
+
+  Function LicensePageShow
+    Call ApplyDarkTheme
+  FunctionEnd
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
+;  Page 3 — Install directory (stock MUI_PAGE_DIRECTORY, just darkened)
+; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
-  !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
-
   Function DirectoryPageShow
-    ${NSD_CreateCheckbox} 20u 110u 280u 12u "Create desktop shortcut"
-    Pop $DesktopShortcutCheckbox
-    SetCtlColors $DesktopShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
+    Call ApplyDarkTheme
+  FunctionEnd
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
+;  Page 4 — Options (separate page after directory: shortcuts + autostart)
+;
+;  electron-builder inserts this whenever we define customPageAfterChangeDir.
+;  Building it ourselves gives full control over coordinates and theming.
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  !macro customPageAfterChangeDir
+    Page custom OptionsPageCreate OptionsPageLeave
+  !macroend
+
+  Function OptionsPageCreate
+    !insertmacro MUI_HEADER_TEXT "Optionen" "Wählen Sie die Verknüpfungen und das Startverhalten aus."
+
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
+
+    ; Section header
+    ${NSD_CreateLabel} 0 0 100% 12u "Verknüpfungen"
+    Pop $1
+    SetCtlColors $1 ${LM_ACCENT} transparent
+    SendMessage $1 ${WM_SETFONT} $mui.Header.Text.Font 0
+
+    ${NSD_CreateCheckbox} 8u 16u 280u 12u "Desktop-Verknüpfung erstellen"
+    Pop $OptDesktopCheckbox
     ${If} $CreateDesktopShortcut == "1"
-      ${NSD_Check} $DesktopShortcutCheckbox
+      ${NSD_Check} $OptDesktopCheckbox
     ${EndIf}
 
-    ${NSD_CreateCheckbox} 20u 124u 280u 12u "Create Start Menu shortcut"
-    Pop $StartMenuShortcutCheckbox
-    SetCtlColors $StartMenuShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
+    ${NSD_CreateCheckbox} 8u 32u 280u 12u "Startmenü-Verknüpfung erstellen"
+    Pop $OptStartMenuCheckbox
     ${If} $CreateStartMenuShortcut == "1"
-      ${NSD_Check} $StartMenuShortcutCheckbox
+      ${NSD_Check} $OptStartMenuCheckbox
     ${EndIf}
 
-    ${NSD_CreateCheckbox} 20u 138u 280u 12u "Launch LokLM at Windows startup"
-    Pop $AutostartCheckbox
-    SetCtlColors $AutostartCheckbox ${LM_FG_0} ${LM_BG_0}
+    ; Spacer + second section
+    ${NSD_CreateLabel} 0 56u 100% 12u "Beim Windows-Start"
+    Pop $1
+    SetCtlColors $1 ${LM_ACCENT} transparent
+
+    ${NSD_CreateCheckbox} 8u 72u 280u 12u "LokLM mit Windows starten"
+    Pop $OptAutostartCheckbox
     ${If} $EnableAutostart == "1"
-      ${NSD_Check} $AutostartCheckbox
+      ${NSD_Check} $OptAutostartCheckbox
     ${EndIf}
+
+    ${NSD_CreateLabel} 8u 88u 280u 24u "Empfohlen für Power-User. Sie können dies jederzeit in den App-Einstellungen ändern."
+    Pop $1
+    SetCtlColors $1 ${LM_FG_2} transparent
+
+    Call ApplyDarkTheme
+    nsDialogs::Show
   FunctionEnd
 
-  Function DirectoryPageLeave
-    ${NSD_GetState} $DesktopShortcutCheckbox $0
+  Function OptionsPageLeave
+    ${NSD_GetState} $OptDesktopCheckbox $0
     ${If} $0 == ${BST_CHECKED}
       StrCpy $CreateDesktopShortcut "1"
     ${Else}
       StrCpy $CreateDesktopShortcut "0"
     ${EndIf}
 
-    ${NSD_GetState} $StartMenuShortcutCheckbox $0
+    ${NSD_GetState} $OptStartMenuCheckbox $0
     ${If} $0 == ${BST_CHECKED}
       StrCpy $CreateStartMenuShortcut "1"
     ${Else}
       StrCpy $CreateStartMenuShortcut "0"
     ${EndIf}
 
-    ${NSD_GetState} $AutostartCheckbox $0
+    ${NSD_GetState} $OptAutostartCheckbox $0
     ${If} $0 == ${BST_CHECKED}
       StrCpy $EnableAutostart "1"
     ${Else}
@@ -102,13 +167,63 @@
   FunctionEnd
 !endif
 
-; ── Hook: customInstall — runs inside the install section ──
-!macro customInstall
-  ; Honor checkbox states (override electron-builder defaults where needed).
-  ; electron-builder already creates desktop + start menu shortcuts by default
-  ; based on package.json build.nsis.createDesktopShortcut / createStartMenuShortcut.
-  ; If user UNCHECKED them in our custom UI, remove what e-b created.
+; ════════════════════════════════════════════════════════════════════════════
+;  Dark-theming helper: enumerates child windows of the current page dialog
+;  and applies LokLM colors based on each control's class.
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  Function ApplyDarkTheme
+    ; Inner page dialog = first "#32770" child of $HWNDPARENT
+    FindWindow $0 "#32770" "" $HWNDPARENT
+    ${If} $0 == 0
+      Return
+    ${EndIf}
 
+    ; Repaint the dialog itself with our dark background.
+    SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
+
+    ; Walk every descendant and apply per-class colors.
+    System::Call "User32::EnumChildWindows(p r0, p $DarkenCallbackPtr, p 0)"
+
+    ; Force a repaint so the new colors take effect immediately.
+    System::Call "User32::InvalidateRect(p r0, p 0, i 1)"
+    System::Call "User32::UpdateWindow(p r0)"
+  FunctionEnd
+
+  Function DarkenChildProc
+    ; Stack: hwnd lParam   →   returns 1 to continue enumeration
+    Pop $0  ; lParam (unused)
+    Pop $1  ; hwnd
+
+    ; Get class name (max 32 chars; enough for "Button", "Edit", "Static", etc.)
+    System::Call "User32::GetClassNameW(p r1, w .r2, i 32) i"
+
+    ${If} $2 == "Static"
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_0}
+    ${ElseIf} $2 == "Button"
+      ; Native push-buttons can't be cleanly recolored (owner-drawn paint).
+      ; Checkboxes and radios still pick up colors though.
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_0}
+    ${ElseIf} $2 == "Edit"
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_2}
+    ${ElseIf} $2 == "RichEdit20W"
+      ; License text panel
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
+    ${ElseIf} $2 == "RICHEDIT50W"
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
+    ${ElseIf} $2 == "SysListView32"
+      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
+    ${EndIf}
+
+    ; Continue enumeration
+    Push 1
+  FunctionEnd
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
+;  customInstall — honor checkbox state from the options page
+; ════════════════════════════════════════════════════════════════════════════
+!macro customInstall
   ${If} $CreateDesktopShortcut == "0"
     Delete "$DESKTOP\LokLM.lnk"
   ${EndIf}
@@ -117,14 +232,11 @@
     Delete "$SMPROGRAMS\LokLM.lnk"
   ${EndIf}
 
-  ; Autostart: write HKCU Run key only if checked.
   ${If} $EnableAutostart == "1"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "LokLM" "$INSTDIR\LokLM.exe"
   ${EndIf}
 !macroend
 
-; ── Hook: customUnInstall — runs inside the uninstall section ──
 !macro customUnInstall
-  ; Clean up the autostart key if it exists.
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "LokLM"
 !macroend
