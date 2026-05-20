@@ -40,59 +40,64 @@ Var EnableAutostart
 ; electron-builder respects MUI_PAGE_CUSTOMFUNCTION_SHOW/LEAVE if we define
 ; them before its template inserts the page. The functions below add 3
 ; checkboxes BELOW the existing directory controls on the same page.
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
+;
+; IMPORTANT: electron-builder compiles this script twice — once for the
+; installer and once for the uninstaller (with BUILD_UNINSTALLER defined).
+; The MUI_PAGE_CUSTOMFUNCTION_* defines are global, so without this guard
+; they would leak into MUI_UNPAGE_WELCOME (the first uninstaller page) and
+; NSIS would error with "Call must be used with function names starting
+; with un. in the uninstall section". The guard scopes the defines + their
+; backing functions to the installer pass only.
+!ifndef BUILD_UNINSTALLER
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
+  !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
 
-Function DirectoryPageShow
-  ; Apply dark colors to dialog + child controls
-  GetDlgItem $0 $HWNDPARENT 0 ; (no-op, kept for symmetry)
+  Function DirectoryPageShow
+    ${NSD_CreateCheckbox} 20u 110u 280u 12u "Create desktop shortcut"
+    Pop $DesktopShortcutCheckbox
+    SetCtlColors $DesktopShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
+    ${If} $CreateDesktopShortcut == "1"
+      ${NSD_Check} $DesktopShortcutCheckbox
+    ${EndIf}
 
-  ; Add the three checkboxes via nsDialogs onto the directory page's dialog.
-  ; The page dialog HWND is HWNDPARENT in this context.
-  ${NSD_CreateCheckbox} 20u 110u 280u 12u "Create desktop shortcut"
-  Pop $DesktopShortcutCheckbox
-  SetCtlColors $DesktopShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
-  ${If} $CreateDesktopShortcut == "1"
-    ${NSD_Check} $DesktopShortcutCheckbox
-  ${EndIf}
+    ${NSD_CreateCheckbox} 20u 124u 280u 12u "Create Start Menu shortcut"
+    Pop $StartMenuShortcutCheckbox
+    SetCtlColors $StartMenuShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
+    ${If} $CreateStartMenuShortcut == "1"
+      ${NSD_Check} $StartMenuShortcutCheckbox
+    ${EndIf}
 
-  ${NSD_CreateCheckbox} 20u 124u 280u 12u "Create Start Menu shortcut"
-  Pop $StartMenuShortcutCheckbox
-  SetCtlColors $StartMenuShortcutCheckbox ${LM_FG_0} ${LM_BG_0}
-  ${If} $CreateStartMenuShortcut == "1"
-    ${NSD_Check} $StartMenuShortcutCheckbox
-  ${EndIf}
+    ${NSD_CreateCheckbox} 20u 138u 280u 12u "Launch LokLM at Windows startup"
+    Pop $AutostartCheckbox
+    SetCtlColors $AutostartCheckbox ${LM_FG_0} ${LM_BG_0}
+    ${If} $EnableAutostart == "1"
+      ${NSD_Check} $AutostartCheckbox
+    ${EndIf}
+  FunctionEnd
 
-  ${NSD_CreateCheckbox} 20u 138u 280u 12u "Launch LokLM at Windows startup"
-  Pop $AutostartCheckbox
-  SetCtlColors $AutostartCheckbox ${LM_FG_0} ${LM_BG_0}
-  ${If} $EnableAutostart == "1"
-    ${NSD_Check} $AutostartCheckbox
-  ${EndIf}
-FunctionEnd
+  Function DirectoryPageLeave
+    ${NSD_GetState} $DesktopShortcutCheckbox $0
+    ${If} $0 == ${BST_CHECKED}
+      StrCpy $CreateDesktopShortcut "1"
+    ${Else}
+      StrCpy $CreateDesktopShortcut "0"
+    ${EndIf}
 
-Function DirectoryPageLeave
-  ${NSD_GetState} $DesktopShortcutCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $CreateDesktopShortcut "1"
-  ${Else}
-    StrCpy $CreateDesktopShortcut "0"
-  ${EndIf}
+    ${NSD_GetState} $StartMenuShortcutCheckbox $0
+    ${If} $0 == ${BST_CHECKED}
+      StrCpy $CreateStartMenuShortcut "1"
+    ${Else}
+      StrCpy $CreateStartMenuShortcut "0"
+    ${EndIf}
 
-  ${NSD_GetState} $StartMenuShortcutCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $CreateStartMenuShortcut "1"
-  ${Else}
-    StrCpy $CreateStartMenuShortcut "0"
-  ${EndIf}
-
-  ${NSD_GetState} $AutostartCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $EnableAutostart "1"
-  ${Else}
-    StrCpy $EnableAutostart "0"
-  ${EndIf}
-FunctionEnd
+    ${NSD_GetState} $AutostartCheckbox $0
+    ${If} $0 == ${BST_CHECKED}
+      StrCpy $EnableAutostart "1"
+    ${Else}
+      StrCpy $EnableAutostart "0"
+    ${EndIf}
+  FunctionEnd
+!endif
 
 ; ── Hook: customInstall — runs inside the install section ──
 !macro customInstall
