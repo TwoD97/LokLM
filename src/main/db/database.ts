@@ -223,9 +223,24 @@ export class DocumentsRepo {
     return r.rows as Array<{ id: number; text: string }>
   }
 
-  async setChunkEmbedding(chunkId: number, vector: number[]): Promise<void> {
+  async setChunkEmbedding(chunkId: number, vector: number[], identity: string): Promise<void> {
     const lit = '[' + vector.join(',') + ']'
-    await this.db.execute(sql`UPDATE chunks SET embedding = ${lit}::vector WHERE id = ${chunkId}`)
+    await this.db.execute(sql`
+      UPDATE chunks
+         SET embedding = ${lit}::vector, embedder_identity = ${identity}
+       WHERE id = ${chunkId}
+    `)
+  }
+
+  /** Nulls out the embedding for every chunk whose stored identity differs from `keep`. */
+  async purgeEmbeddingsNotMatching(workspaceId: number, keep: string): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE chunks SET embedding = NULL
+       WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedder_identity <> ${keep}
+      RETURNING id
+    `)
+    return r.rows.length
   }
 
   async ensureVectorIndex(): Promise<void> {

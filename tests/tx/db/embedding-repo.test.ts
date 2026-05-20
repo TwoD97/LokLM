@@ -30,7 +30,7 @@ describe('DocumentsRepo embedding methods (tx)', () => {
       expect(await repo.countChunksMissingEmbedding(ws!.id)).toBe(2)
       const written = await tx.execute(sql`SELECT id FROM chunks ORDER BY ordinal`)
       const ids = (written.rows as { id: number }[]).map((r) => r.id)
-      await repo.setChunkEmbedding(ids[0]!, vec(1))
+      await repo.setChunkEmbedding(ids[0]!, vec(1), 'bundled:bge-m3')
       expect(await repo.countChunksMissingEmbedding(ws!.id)).toBe(1)
     })
   })
@@ -91,9 +91,9 @@ describe('DocumentsRepo embedding methods (tx)', () => {
       const rows = await tx.execute(sql`SELECT id FROM chunks ORDER BY ordinal`)
       const ids = (rows.rows as { id: number }[]).map((r) => r.id)
       const repo = new DocumentsRepo(tx as never)
-      await repo.setChunkEmbedding(ids[0]!, vec(1))
-      await repo.setChunkEmbedding(ids[1]!, vec(2))
-      await repo.setChunkEmbedding(ids[2]!, vec(99))
+      await repo.setChunkEmbedding(ids[0]!, vec(1), 'bundled:bge-m3')
+      await repo.setChunkEmbedding(ids[1]!, vec(2), 'bundled:bge-m3')
+      await repo.setChunkEmbedding(ids[2]!, vec(99), 'bundled:bge-m3')
       const q = vec(2)
       const lit = '[' + q.join(',') + ']'
       const r = await tx.execute(sql`

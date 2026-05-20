@@ -125,12 +125,14 @@ export class DocumentService {
       // with embedding=NULL — the backfill service picks them up later.
       send('embedding', 3)
       let vectors: Float32Array[] | null = null
+      let activeIdentity: string | null = null
       if (this.registry) {
         const embedder = this.registry.embedder()
         await embedder.ensureReady()
         if (embedder.isReady()) {
           try {
             vectors = await embedder.embed(out.map((c) => c.text))
+            activeIdentity = embedder.identity()
           } catch (err) {
             // eslint-disable-next-line no-console
             console.warn(
@@ -154,7 +156,7 @@ export class DocumentService {
           headingPath: c.headingPath,
         })),
       )
-      if (vectors) {
+      if (vectors && activeIdentity) {
         // chunks were just inserted; fetch their ids by document_id + ordinal
         // and write embeddings. one round-trip to get the id map, then one
         // UPDATE per non-null vector — fine at PAGE-sized batches.
@@ -170,7 +172,7 @@ export class DocumentService {
           const ord = out[i]?.ordinal
           if (v == null || ord == null) continue
           const id = byOrdinal.get(ord)
-          if (id != null) await repo.setChunkEmbedding(id, Array.from(v))
+          if (id != null) await repo.setChunkEmbedding(id, Array.from(v), activeIdentity)
         }
       }
       await repo.setDocumentStatus(doc.id, 'ready')

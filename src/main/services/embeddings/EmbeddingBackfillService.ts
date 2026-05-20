@@ -65,6 +65,19 @@ export class EmbeddingBackfillService {
       return
     }
 
+    // Identity round-trip: before processing missing-embedding rows, null out
+    // any pre-existing vectors that were produced by a *different* embedder.
+    // This way a user who switches embedders (bundled ↔ ollama, or swaps the
+    // ollama model) gets a clean re-embed instead of mixed-identity vectors
+    // poisoning cosine search. The same backfill loop below then refills the
+    // NULLs we just punched.
+    const activeIdentity = embedder.identity()
+    const purged = await this.db.documents().purgeEmbeddingsNotMatching(workspaceId, activeIdentity)
+    if (purged > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(`[backfill] purged ${purged} stale chunks (identity != ${activeIdentity})`)
+    }
+
     const total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
     if (total === 0) {
       this.update({ workspaceId, state: 'done', done: 0, total: 0, message: null })
@@ -111,7 +124,7 @@ export class EmbeddingBackfillService {
             const row = batch[i]
             if (!v || !row) continue
             try {
-              await this.db.documents().setChunkEmbedding(row.id, Array.from(v))
+              await this.db.documents().setChunkEmbedding(row.id, Array.from(v), activeIdentity)
               madeProgress++
             } catch (err) {
               // Most likely a pgvector dimension mismatch (the model was
