@@ -15,6 +15,15 @@ vi.mock('pdfjs-dist', () => ({
 }))
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
 
+// jsdom doesn't implement URL.createObjectURL/revokeObjectURL — stub them so
+// components that produce blob URLs (e.g. Avatar) can render in tests.
+if (typeof URL.createObjectURL !== 'function') {
+  URL.createObjectURL = (): string => 'blob:stub'
+}
+if (typeof URL.revokeObjectURL !== 'function') {
+  URL.revokeObjectURL = (): void => undefined
+}
+
 afterEach(() => {
   cleanup()
 })
