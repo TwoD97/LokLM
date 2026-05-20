@@ -1,12 +1,38 @@
+import { useEffect, useState } from 'react'
+import type { ModelStatus } from '@shared/documents'
+
 type Props = {
   title: string
   onDelete: (() => void) | null
 }
 
 export function ChatHeader({ title, onDelete }: Props): JSX.Element {
+  // Subscribe to LLM status so we can surface which provider produced the
+  // current model state. The TitleBar already owns the colored status dot;
+  // here we just append a small text label next to the title so users in the
+  // chat view can see at a glance whether they're talking to Ollama or the
+  // bundled engine (and whether a runtime fallback flipped them back).
+  const [status, setStatus] = useState<Pick<ModelStatus, 'source' | 'fallback'> | null>(null)
+  useEffect(() => {
+    void window.api.llm.status().then((s) => setStatus({ source: s.source, fallback: s.fallback }))
+    const off = window.api.llm.onStatus((s) =>
+      setStatus({ source: s.source, fallback: s.fallback }),
+    )
+    return () => off()
+  }, [])
+
   return (
     <header className="chat__header">
       <span className="chat__header-title">{title}</span>
+      {status && status.source === 'ollama' && (
+        <span
+          className="chat__header-source"
+          style={{ marginLeft: 8, color: '#9fb3cc', fontSize: 12 }}
+          title={status.fallback?.reason ?? undefined}
+        >
+          {status.fallback?.active ? 'via Ollama → bundled (fallback)' : 'via Ollama'}
+        </span>
+      )}
       {onDelete && (
         <button
           type="button"

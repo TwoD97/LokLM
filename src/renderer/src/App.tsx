@@ -9,6 +9,7 @@ import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
 import { ModelDownloadView } from './models/ModelDownloadView'
 import { SettingsModal } from './settings/SettingsModal'
+import { FallbackToast } from './settings/FallbackToast'
 
 type Phase =
   | { kind: 'loading' }
@@ -82,6 +83,7 @@ export function App(): JSX.Element {
         <TitleBar unlocked onOpenSettings={() => setSettingsOpen(true)} />
         <AppShell />
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <FallbackToast onOpenSettings={() => setSettingsOpen(true)} />
       </>
     )
   }
