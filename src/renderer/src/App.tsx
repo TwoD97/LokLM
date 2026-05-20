@@ -8,6 +8,7 @@ import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
 import { ModelDownloadView } from './models/ModelDownloadView'
+import { SettingsModal } from './settings/SettingsModal'
 
 type Phase =
   | { kind: 'loading' }
@@ -34,6 +35,7 @@ function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
 export function App(): JSX.Element {
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -77,8 +79,9 @@ export function App(): JSX.Element {
     return (
       <>
         <BackgroundFx />
-        <TitleBar />
+        <TitleBar unlocked onOpenSettings={() => setSettingsOpen(true)} />
         <AppShell />
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </>
     )
   }
