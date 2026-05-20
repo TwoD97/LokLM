@@ -1,6 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { execFile } from 'node:child_process'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 import { AuthService } from './services/auth/AuthService'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
@@ -13,13 +16,123 @@ import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
+import type { SetupOptions, SetupStatus } from '../shared/setupTypes'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const execFileAsync = promisify(execFile)
+
+const SETUP_REGISTRY_KEY = 'HKCU\\Software\\LokLM\\Setup'
+const RUN_REGISTRY_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+
+const DEFAULT_SETUP_OPTIONS: SetupOptions = {
+  createDesktopShortcut: true,
+  createStartMenuShortcut: true,
+  enableAutostart: false,
+}
 
 function brandAsset(file: string): string {
   return app.isPackaged
     ? join(process.resourcesPath, file)
     : join(__dirname, '../..', 'resources', file)
+}
+
+function setupStatePath(): string {
+  return join(app.getPath('userData'), 'setup.json')
+}
+
+function normalizeSetupOptions(input: Partial<SetupOptions> | null | undefined): SetupOptions {
+  return {
+    createDesktopShortcut:
+      input?.createDesktopShortcut ?? DEFAULT_SETUP_OPTIONS.createDesktopShortcut,
+    createStartMenuShortcut:
+      input?.createStartMenuShortcut ?? DEFAULT_SETUP_OPTIONS.createStartMenuShortcut,
+    enableAutostart: input?.enableAutostart ?? DEFAULT_SETUP_OPTIONS.enableAutostart,
+  }
+}
+
+async function readSetupStatus(): Promise<SetupStatus> {
+  try {
+    const raw = await readFile(setupStatePath(), 'utf8')
+    const parsed = JSON.parse(raw) as Partial<SetupStatus>
+    return {
+      firstRunDone: parsed.firstRunDone === true,
+      options: parsed.options ? normalizeSetupOptions(parsed.options) : null,
+    }
+  } catch {
+    return { firstRunDone: false, options: null }
+  }
+}
+
+async function writeSetupStatus(status: SetupStatus): Promise<void> {
+  const file = setupStatePath()
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, JSON.stringify(status, null, 2), 'utf8')
+}
+
+function regExe(): string {
+  return process.env['SystemRoot']
+    ? join(process.env['SystemRoot'], 'System32', 'reg.exe')
+    : 'reg.exe'
+}
+
+async function writeRegistryValue(key: string, name: string, value: string): Promise<void> {
+  await execFileAsync(regExe(), ['add', key, '/v', name, '/t', 'REG_SZ', '/d', value, '/f'], {
+    windowsHide: true,
+  })
+}
+
+async function deleteRegistryValue(key: string, name: string): Promise<void> {
+  try {
+    await execFileAsync(regExe(), ['delete', key, '/v', name, '/f'], { windowsHide: true })
+  } catch {
+    /* value may not exist */
+  }
+}
+
+async function applyWindowsSetupOptions(options: SetupOptions): Promise<void> {
+  await writeRegistryValue(
+    SETUP_REGISTRY_KEY,
+    'DesktopShortcut',
+    options.createDesktopShortcut ? '1' : '0',
+  ).catch(() => undefined)
+  await writeRegistryValue(
+    SETUP_REGISTRY_KEY,
+    'StartMenuShortcut',
+    options.createStartMenuShortcut ? '1' : '0',
+  ).catch(() => undefined)
+
+  if (!app.isPackaged) return
+
+  if (!options.createDesktopShortcut) {
+    await rm(join(app.getPath('desktop'), 'LokLM.lnk'), { force: true }).catch(() => undefined)
+  }
+  if (!options.createStartMenuShortcut) {
+    await rm(
+      join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'LokLM.lnk'),
+      { force: true },
+    ).catch(() => undefined)
+  }
+
+  if (options.enableAutostart) {
+    await writeRegistryValue(RUN_REGISTRY_KEY, 'LokLM', `"${process.execPath}"`).catch(
+      () => undefined,
+    )
+  } else {
+    await deleteRegistryValue(RUN_REGISTRY_KEY, 'LokLM')
+  }
+}
+
+async function saveSetupOptions(input: SetupOptions): Promise<SetupOptions> {
+  const options = normalizeSetupOptions(input)
+  if (process.platform === 'win32') {
+    await applyWindowsSetupOptions(options)
+  } else if (app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: options.enableAutostart })
+  }
+
+  const current = await readSetupStatus()
+  await writeSetupStatus({ firstRunDone: current.firstRunDone, options })
+  return options
 }
 
 let authService: AuthService | null = null
@@ -174,6 +287,13 @@ function broadcastAuthState(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle('setup:status', async () => readSetupStatus())
+  ipcMain.handle('setup:saveOptions', async (_e, input: SetupOptions) => saveSetupOptions(input))
+  ipcMain.handle('setup:markFirstRunDone', async () => {
+    const current = await readSetupStatus()
+    await writeSetupStatus({ ...current, firstRunDone: true })
+  })
+
   ipcMain.handle('auth:status', async () => getAuth().status())
 
   ipcMain.handle(

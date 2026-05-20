@@ -23,6 +23,7 @@ import type {
   ChunkSource,
   ModelsStatus,
 } from '../shared/documents'
+import type { SetupOptions, SetupStatus } from '../shared/setupTypes'
 
 /** Mirrors `DownloadEvent` in src/main/services/models/ModelDownloader.ts —
  *  duplicated here to avoid pulling main-process types into the preload's
@@ -130,6 +131,12 @@ const api = {
         ipcRenderer.removeListener(channel, listener)
       }
     },
+  },
+  setup: {
+    status: (): Promise<SetupStatus> => ipcRenderer.invoke('setup:status'),
+    saveOptions: (options: SetupOptions): Promise<SetupOptions> =>
+      ipcRenderer.invoke('setup:saveOptions', options),
+    markFirstRunDone: (): Promise<void> => ipcRenderer.invoke('setup:markFirstRunDone'),
   },
   embedder: {
     status: (): Promise<EmbedderStatus> => ipcRenderer.invoke('embedder:status'),

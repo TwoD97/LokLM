@@ -8,10 +8,12 @@ import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
 import { ModelDownloadView } from './models/ModelDownloadView'
+import { FirstRunWizard } from './firstrun/FirstRunWizard'
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
+  | { kind: 'firstrun' }
   | { kind: 'models' }
   | { kind: 'register' }
   | { kind: 'login' }
@@ -34,27 +36,44 @@ function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
 export function App(): JSX.Element {
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
+  const [firstRunCompleted, setFirstRunCompleted] = useState(false)
 
-  const refresh = useCallback(async () => {
-    try {
-      const [s, models] = await Promise.all([window.api.auth.status(), window.api.models.status()])
-      setStatus(s)
-      setPhase((current) => {
-        // Required GGUFs missing? Show the downloader first — register/login
-        // would just lead to a broken chat anyway.
-        if (!models.allRequiredReady) return { kind: 'models' }
-        return pickPhaseFromStatus(s, current)
-      })
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      setPhase({ kind: 'error', message })
-    }
-  }, [])
+  const refresh = useCallback(
+    async (opts?: { skipFirstRun?: boolean }) => {
+      try {
+        const [s, models, setup] = await Promise.all([
+          window.api.auth.status(),
+          window.api.models.status(),
+          window.api.setup.status(),
+        ])
+        setStatus(s)
+        setPhase((current) => {
+          const skipFirstRun = opts?.skipFirstRun === true || firstRunCompleted
+          if (!skipFirstRun && !s.registered && !setup.firstRunDone) {
+            return { kind: 'firstrun' }
+          }
+          // Required GGUFs missing? Show the downloader first — register/login
+          // would just lead to a broken chat anyway.
+          if (!models.allRequiredReady) return { kind: 'models' }
+          return pickPhaseFromStatus(s, current)
+        })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        setPhase({ kind: 'error', message })
+      }
+    },
+    [firstRunCompleted],
+  )
 
   // Called by ModelDownloadView once all required models are on disk. Re-runs
   // the full refresh so the next phase falls out of the existing auth logic.
   const onModelsReady = useCallback(() => {
     void refresh()
+  }, [refresh])
+
+  const onFirstRunComplete = useCallback(() => {
+    setFirstRunCompleted(true)
+    void refresh({ skipFirstRun: true })
   }, [refresh])
 
   useEffect(() => {
@@ -66,7 +85,7 @@ export function App(): JSX.Element {
         // background auth state change yank them out. `refresh()` is the only
         // path that's allowed to transition OUT of the models phase, and it
         // does so explicitly after re-checking `models:status`.
-        if (current.kind === 'models') return current
+        if (current.kind === 'models' || current.kind === 'firstrun') return current
         return pickPhaseFromStatus(s, current)
       })
     })
@@ -90,6 +109,8 @@ export function App(): JSX.Element {
         <p>Lade …</p>
       </section>
     )
+  } else if (phase.kind === 'firstrun') {
+    content = <FirstRunWizard onComplete={onFirstRunComplete} />
   } else if (phase.kind === 'models') {
     content = <ModelDownloadView onReady={onModelsReady} />
   } else if (phase.kind === 'error') {

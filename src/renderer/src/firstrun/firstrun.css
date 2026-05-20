@@ -1,0 +1,415 @@
+/* ============================================================================
+   FirstRunWizard styles — extends .auth-card pattern from styles.css
+   ============================================================================ */
+
+.firstrun-card {
+  max-width: 640px;
+  width: 100%;
+  margin: 2rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Step indicator (top dots row) ─────────────────────────────────────── */
+
+.firstrun-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.firstrun-steps::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.firstrun-step-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.firstrun-step-dot__num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  color: var(--fg-2);
+  transition:
+    background var(--t-mid) var(--ease),
+    border-color var(--t-mid) var(--ease),
+    color var(--t-mid) var(--ease);
+}
+
+.firstrun-step-dot__label {
+  color: var(--fg-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.firstrun-step-dot--active .firstrun-step-dot__num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.firstrun-step-dot--active .firstrun-step-dot__label {
+  color: var(--fg-0);
+}
+
+.firstrun-step-dot--done .firstrun-step-dot__num {
+  background: rgba(63, 185, 80, 0.15);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* ── Step body container ───────────────────────────────────────────────── */
+
+.firstrun-step {
+  min-height: 320px;
+  animation: fadeInUp 320ms var(--ease) both;
+}
+
+.firstrun-step-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fg-0);
+}
+
+.firstrun-step-sub {
+  margin: 0 0 1.5rem;
+  color: var(--fg-2);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+/* ── Welcome step ──────────────────────────────────────────────────────── */
+
+.firstrun-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.firstrun-eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+}
+
+.firstrun-title {
+  margin: 0.15rem 0 0.4rem;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--brand-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.firstrun-lead {
+  margin: 0 0 1.5rem;
+  color: var(--fg-1);
+  font-size: 1rem;
+}
+
+.firstrun-feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.firstrun-feature-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--fg-1);
+}
+
+.firstrun-feature-list strong {
+  color: var(--fg-0);
+  font-weight: 600;
+}
+
+.firstrun-feature__dot {
+  flex-shrink: 0;
+  margin-top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.firstrun-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--fg-2);
+  font-style: italic;
+}
+
+/* ── License step ──────────────────────────────────────────────────────── */
+
+.firstrun-license__body {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  font-family: 'Consolas', ui-monospace, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--fg-1);
+  white-space: pre-wrap;
+}
+
+.firstrun-license__body:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* ── Options step ──────────────────────────────────────────────────────── */
+
+.firstrun-options__section {
+  margin-bottom: 1.4rem;
+}
+
+.firstrun-options__section:last-child {
+  margin-bottom: 0;
+}
+
+.firstrun-options__section-title {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.firstrun-options__hint {
+  margin: 0.5rem 0 0 1.85rem;
+  font-size: 0.82rem;
+  color: var(--fg-2);
+  line-height: 1.45;
+}
+
+/* ── Toggle (shared by License + Options) ──────────────────────────────── */
+
+.firstrun-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.firstrun-toggle:last-child {
+  margin-bottom: 0;
+}
+
+.firstrun-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+.firstrun-toggle input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.firstrun-toggle span {
+  font-size: 0.92rem;
+  color: var(--fg-0);
+  user-select: none;
+}
+
+/* ── Models step ───────────────────────────────────────────────────────── */
+
+.firstrun-models__embed {
+  /* The embedded ModelDownloadView brings its own layout; this just gives
+     it room to breathe. */
+  margin-top: 0.5rem;
+}
+
+/* ── Finish step ───────────────────────────────────────────────────────── */
+
+.firstrun-finish {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.firstrun-finish__badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0.5rem 0 1.25rem;
+  color: var(--success);
+  background: rgba(63, 185, 80, 0.12);
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
+  animation: fadeInUp 420ms var(--ease) both;
+}
+
+.firstrun-finish__summary {
+  width: 100%;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.firstrun-finish__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  margin: 0;
+}
+
+.firstrun-finish__row dt {
+  font-size: 0.85rem;
+  color: var(--fg-1);
+  margin: 0;
+}
+
+.firstrun-finish__row dd {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.firstrun-finish__row dd.is-on {
+  color: var(--success);
+}
+
+.firstrun-finish__row dd.is-off {
+  color: var(--fg-2);
+}
+
+/* ── Footer (Back / Next buttons) ──────────────────────────────────────── */
+
+.firstrun-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.firstrun-footer__spacer {
+  flex: 1;
+}
+
+.firstrun-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 38px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.firstrun-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.firstrun-btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.firstrun-btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.firstrun-btn--primary:active:not(:disabled) {
+  background: var(--accent-active);
+  transform: translateY(0);
+}
+
+.firstrun-btn--primary:disabled {
+  background: rgba(59, 130, 246, 0.35);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.firstrun-btn--secondary {
+  background: var(--bg-elev);
+  border-color: var(--border);
+  color: var(--fg-1);
+}
+
+.firstrun-btn--secondary:hover {
+  border-color: var(--border-strong);
+  color: var(--fg-0);
+}

@@ -1,0 +1,31 @@
+{
+  "appId": "com.loklm.installer",
+  "productName": "LokLM Installer",
+  "directories": {
+    "app": "installer-ui",
+    "output": "release/installer",
+    "buildResources": "resources"
+  },
+  "files": ["**/*"],
+  "asar": true,
+  "npmRebuild": false,
+  "extraResources": [
+    {
+      "from": "release/win-unpacked",
+      "to": "payload/win-unpacked"
+    },
+    {
+      "from": "resources/icon.ico",
+      "to": "icon.ico"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "dir",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "resources/icon.ico"
+  }
+}

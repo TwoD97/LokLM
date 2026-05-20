@@ -14,7 +14,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "electron-vite build && pnpm installer:assets && electron-builder --win nsis",
+    "package:win": "pnpm package:win:payload && pnpm package:win:installer",
+    "package:win:payload": "electron-vite build && electron-builder --win dir",
+    "package:win:installer": "electron-builder --config installer-ui/electron-builder.json --win dir",
     "package:linux": "electron-vite build && electron-builder --linux AppImage",
     "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
@@ -36,10 +38,8 @@
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint:nsis": "makensis /CMDHELP installer/installer.nsh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "installer:assets": "node installer/assets/export.mjs",
     "typecheck": "tsc -b",
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
@@ -62,10 +62,6 @@
     ],
     "*.{json,md,yml,yaml,css,html}": [
       "prettier --write"
-    ],
-    "installer/assets/*.svg": [
-      "node installer/assets/export.mjs",
-      "git add installer/installer-sidebar.bmp installer/installer-header.bmp installer/uninstaller-sidebar.bmp"
     ]
   },
   "devDependencies": {
@@ -145,24 +141,13 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "LokLM-Setup-${version}-win-x64.${ext}"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "LokLM",
-      "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false,
-      "include": "installer/installer.nsh",
-      "installerHeader": "installer/installer-header.bmp"
+      "artifactName": "LokLM-${version}-win-x64.${ext}"
     },
     "linux": {
       "target": [
