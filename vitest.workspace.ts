@@ -63,4 +63,13 @@ export default defineWorkspace([
       environment: 'node',
     },
   },
+  {
+    resolve: { alias: aliases },
+    test: {
+      name: 'installer',
+      include: ['tests/installer/export.test.ts', 'tests/installer/artifact.test.ts'],
+      environment: 'node',
+      testTimeout: 30_000,
+    },
+  },
 ])
