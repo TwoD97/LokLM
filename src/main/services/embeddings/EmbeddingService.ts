@@ -16,6 +16,13 @@ import { getModelSearchDirs, resolveModelFile } from '../models/paths'
  */
 export const BUNDLED_EMBEDDER_FILE = 'bge-m3-Q4_K_M.gguf'
 export const EMBEDDING_DIM = 1024
+/**
+ * Identity string written to chunks.embedder_identity for vectors produced by
+ * the bundled BGE-M3 embedder. Must match the DEFAULT on that column so
+ * existing rows keep round-tripping cleanly when the provider layer is wired
+ * up. Update both together if the bundled embedder ever changes.
+ */
+export const BUNDLED_EMBEDDER_IDENTITY = 'bundled:bge-m3'
 
 /**
  * Files in `models/` that are *not* embedders — excluded from auto-discovery
