@@ -1,24 +1,20 @@
-; LokLM custom NSIS include — v5: no dark theme, clean default Windows wizard
+; LokLM custom NSIS include — v6: app-style dark theme, design-only changes
 ;
-; Per user request: drop all background painting. Use system-default colors
-; throughout. Keep:
-;   - modular text (all strings as !define at the top, editable in one place)
-;   - clean layout (welcome heading, sections, hints)
-;   - branded bitmaps (sidebar on Finish, header on inner pages — via package.json)
+; Design-only update: dark backgrounds and brand colors matching the LokLM
+; app's design tokens. Page flow + functionality unchanged from v5.
 ;
-; Page flow:
-;   1. Welcome   — clean default page with brand heading + intro
-;   2. License   — MUI_PAGE_LICENSE (system default rendering)
-;   3. Setup     — checkboxes for shortcuts + autostart
-;   4. InstFiles — MUI default
-;   5. Finish    — MUI default with sidebar BMP
+; Where to edit what:
+;   - All user-facing strings:  Section 1 (lines ~26–46)
+;   - All colors:               Section 2 (lines ~48–60)
+;   - Page layouts:             Sections 4–6 (one block per page)
+;   - Install behavior:         Section 7 (customInstall / customUnInstall)
 
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 !include "WinMessages.nsh"
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  USER-FACING STRINGS — edit these in one place
+;  Section 1: USER-FACING STRINGS — edit text here, in one place
 ; ════════════════════════════════════════════════════════════════════════════
 !define LM_BRAND_NAME       "LokLM"
 !define LM_TAGLINE          "Lokaler KI-Wissensassistent"
@@ -40,7 +36,20 @@
 !define LM_PAGE3_HINT       "Empfohlen für tägliche Nutzung."
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Installer-only state
+;  Section 2: COLORS — mirrors src/renderer/src/styles.css tokens
+;  Note: SetCtlColors uses BGR (reverse of hex). Each pair below shows the
+;  app's CSS hex on the right.
+; ════════════════════════════════════════════════════════════════════════════
+!define LM_BG_0      0x16110E  ; #0e1116 — page background (bg-0)
+!define LM_BG_1      0x221B16  ; #161b22 — header strip / surfaces (bg-1)
+!define LM_BG_2      0x2F261F  ; #1f262f — input bg (bg-2)
+!define LM_FG_0      0xF3EDE6  ; #e6edf3 — primary text (fg-0)
+!define LM_FG_1      0xC9BEB6  ; #b6bec9 — secondary text (fg-1)
+!define LM_FG_2      0x9E948B  ; #8b949e — tertiary text (fg-2)
+!define LM_ACCENT    0xF6823B  ; #3b82f6 — accent blue
+
+; ════════════════════════════════════════════════════════════════════════════
+;  Section 3: STATE + FONTS — declared once at the top
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   Var Dialog
@@ -54,9 +63,6 @@
   Var FontBody
 !endif
 
-; ════════════════════════════════════════════════════════════════════════════
-;  customInit — runs inside .onInit
-; ════════════════════════════════════════════════════════════════════════════
 !macro customInit
   StrCpy $CreateDesktopShortcut "1"
   StrCpy $CreateStartMenuShortcut "1"
@@ -69,7 +75,44 @@
 !macroend
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Page 1 — Welcome
+;  Section 4: REUSABLE HELPERS — dark-theme any MUI page's header strip
+;  Used by the MUI default pages (License, InstFiles) so their headers
+;  match our custom pages instead of staying default-white.
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  !macro DarkenHeader TITLE SUBTITLE
+    GetDlgItem $0 $HWNDPARENT 1037
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:${TITLE}"
+    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+
+    GetDlgItem $0 $HWNDPARENT 1038
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:${SUBTITLE}"
+    SetCtlColors $0 ${LM_FG_2} ${LM_BG_1}
+
+    GetDlgItem $0 $HWNDPARENT 1039
+    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+
+    GetDlgItem $0 $HWNDPARENT 1256
+    SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+  !macroend
+
+  !macro HideHeader
+    GetDlgItem $0 $HWNDPARENT 1037
+    ShowWindow $0 0
+    GetDlgItem $0 $HWNDPARENT 1038
+    ShowWindow $0 0
+    GetDlgItem $0 $HWNDPARENT 1039
+    ShowWindow $0 0
+    GetDlgItem $0 $HWNDPARENT 1256
+    ShowWindow $0 0
+    GetDlgItem $0 $HWNDPARENT 1028
+    ShowWindow $0 0
+  !macroend
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
+;  Section 5: WELCOME PAGE
+;  Full-bleed dark page (no MUI header). Brand mark + tagline + intro body.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro customWelcomePage
@@ -77,35 +120,48 @@
   !macroend
 
   Function WelcomePageCreate
+    !insertmacro HideHeader
+
     nsDialogs::Create 1018
     Pop $Dialog
     ${If} $Dialog == error
       Abort
     ${EndIf}
+    SetCtlColors $Dialog ${LM_FG_0} ${LM_BG_0}
 
-    ; Brand mark — heading
+    ; Brand row — accent-colored wordmark
     ${NSD_CreateLabel} 28u 28u 280u 24u "${LM_BRAND_NAME}"
     Pop $0
+    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontHeading 0
 
-    ; Tagline
+    ; Tagline (tertiary text)
     ${NSD_CreateLabel} 28u 54u 280u 12u "${LM_TAGLINE}"
     Pop $0
+    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
-    ; Welcome heading
-    ${NSD_CreateLabel} 28u 96u 280u 18u "${LM_PAGE1_HEADING}"
+    ; Thin accent-tinted divider
+    ${NSD_CreateLabel} 28u 80u 280u 1u ""
     Pop $0
+    SetCtlColors $0 ${LM_BG_2} ${LM_BG_2}
+
+    ; Welcome heading (primary text, heading font)
+    ${NSD_CreateLabel} 28u 100u 280u 18u "${LM_PAGE1_HEADING}"
+    Pop $0
+    SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontHeading 0
 
-    ; Body paragraph
-    ${NSD_CreateLabel} 28u 120u 280u 60u "${LM_PAGE1_BODY}"
+    ; Body paragraph (secondary text)
+    ${NSD_CreateLabel} 28u 124u 280u 60u "${LM_PAGE1_BODY}"
     Pop $0
+    SetCtlColors $0 ${LM_FG_1} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
-    ; Continuation hint
+    ; Continuation hint (tertiary)
     ${NSD_CreateLabel} 28u 196u 280u 12u "${LM_PAGE1_HINT}"
     Pop $0
+    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
     nsDialogs::Show
@@ -113,16 +169,36 @@
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Page 2 — License (MUI default rendering)
+;  Section 6a: LICENSE PAGE
+;  MUI_PAGE_LICENSE for body rendering. SHOW callback darkens the header
+;  strip and recolors the license text area to match the app palette.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro licensePage
+    !define MUI_PAGE_CUSTOMFUNCTION_SHOW LicensePageShow
     !insertmacro MUI_PAGE_LICENSE "${PROJECT_DIR}\LICENSE"
   !macroend
+
+  Function LicensePageShow
+    !insertmacro DarkenHeader "${LM_PAGE2_TITLE}" "${LM_PAGE2_SUBTITLE}"
+
+    ; License text edit control (MUI control id 1006)
+    GetDlgItem $0 $HWNDPARENT 1006
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+    ${EndIf}
+
+    ; "Please review the licence agreement..." label above the text (id 1040)
+    GetDlgItem $0 $HWNDPARENT 1040
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_1} ${LM_BG_0}
+    ${EndIf}
+  FunctionEnd
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Page 3 — Setup (shortcut + autostart checkboxes)
+;  Section 6b: SETUP PAGE
+;  Dark page body with accent-colored section labels and dark checkboxes.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro customPageAfterChangeDir
@@ -130,26 +206,24 @@
   !macroend
 
   Function SetupPageCreate
-    ; Set the MUI page header text (inline since MUI_HEADER_TEXT isn't
-    ; available when our nsh is parsed by e-b)
-    GetDlgItem $0 $HWNDPARENT 1037
-    SendMessage $0 ${WM_SETTEXT} 0 "STR:${LM_PAGE3_TITLE}"
-    GetDlgItem $0 $HWNDPARENT 1038
-    SendMessage $0 ${WM_SETTEXT} 0 "STR:${LM_PAGE3_SUBTITLE}"
+    !insertmacro DarkenHeader "${LM_PAGE3_TITLE}" "${LM_PAGE3_SUBTITLE}"
 
     nsDialogs::Create 1018
     Pop $Dialog
     ${If} $Dialog == error
       Abort
     ${EndIf}
+    SetCtlColors $Dialog ${LM_FG_0} ${LM_BG_0}
 
-    ; ── Section 1: Verknüpfungen ──
+    ; ── Section 1: Verknüpfungen — accent header + checkboxes ──
     ${NSD_CreateLabel} 8u 12u 290u 12u "${LM_PAGE3_SECTION1}"
     Pop $0
+    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
     ${NSD_CreateCheckbox} 16u 32u 280u 12u "${LM_PAGE3_OPT1}"
     Pop $OptDesktopCheckbox
+    SetCtlColors $OptDesktopCheckbox ${LM_FG_0} ${LM_BG_0}
     SendMessage $OptDesktopCheckbox ${WM_SETFONT} $FontBody 0
     ${If} $CreateDesktopShortcut == "1"
       ${NSD_Check} $OptDesktopCheckbox
@@ -157,25 +231,35 @@
 
     ${NSD_CreateCheckbox} 16u 48u 280u 12u "${LM_PAGE3_OPT2}"
     Pop $OptStartMenuCheckbox
+    SetCtlColors $OptStartMenuCheckbox ${LM_FG_0} ${LM_BG_0}
     SendMessage $OptStartMenuCheckbox ${WM_SETFONT} $FontBody 0
     ${If} $CreateStartMenuShortcut == "1"
       ${NSD_Check} $OptStartMenuCheckbox
     ${EndIf}
 
-    ; ── Section 2: Autostart ──
-    ${NSD_CreateLabel} 8u 80u 290u 12u "${LM_PAGE3_SECTION2}"
+    ; Subtle divider between sections
+    ${NSD_CreateLabel} 8u 72u 290u 1u ""
     Pop $0
+    SetCtlColors $0 ${LM_BG_2} ${LM_BG_2}
+
+    ; ── Section 2: Autostart ──
+    ${NSD_CreateLabel} 8u 84u 290u 12u "${LM_PAGE3_SECTION2}"
+    Pop $0
+    SetCtlColors $0 ${LM_ACCENT} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
-    ${NSD_CreateCheckbox} 16u 100u 280u 12u "${LM_PAGE3_OPT3}"
+    ${NSD_CreateCheckbox} 16u 104u 280u 12u "${LM_PAGE3_OPT3}"
     Pop $OptAutostartCheckbox
+    SetCtlColors $OptAutostartCheckbox ${LM_FG_0} ${LM_BG_0}
     SendMessage $OptAutostartCheckbox ${WM_SETFONT} $FontBody 0
     ${If} $EnableAutostart == "1"
       ${NSD_Check} $OptAutostartCheckbox
     ${EndIf}
 
-    ${NSD_CreateLabel} 16u 116u 290u 12u "${LM_PAGE3_HINT}"
+    ; Hint below autostart
+    ${NSD_CreateLabel} 16u 120u 290u 12u "${LM_PAGE3_HINT}"
     Pop $0
+    SetCtlColors $0 ${LM_FG_2} ${LM_BG_0}
     SendMessage $0 ${WM_SETFONT} $FontBody 0
 
     nsDialogs::Show
@@ -212,7 +296,7 @@
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Install / Uninstall hooks
+;  Section 7: INSTALL / UNINSTALL HOOKS — unchanged behavior
 ; ════════════════════════════════════════════════════════════════════════════
 !macro customInstall
   ${If} $CreateDesktopShortcut == "0"
