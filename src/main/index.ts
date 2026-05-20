@@ -605,6 +605,29 @@ function registerIpc(): void {
     },
   )
 
+  // Embedder source switch — probe-before-commit. The candidate provider is
+  // probed with a one-token embed; only on success do we flip the registry +
+  // persist the new source. The renderer is responsible for kicking off any
+  // re-index flow after the embedderIdentity changes.
+  ipcMain.handle('embedder:trySwitchSource', async (_e, source: 'bundled' | 'ollama') => {
+    const reg = getProviderRegistry()
+    const target = reg.candidateEmbedder(source)
+    if (!target) return { ok: false as const, kind: 'not-configured' as const }
+    try {
+      await target.embed(['probe'])
+    } catch (err) {
+      const e = err as { kind?: string; message?: string }
+      return {
+        ok: false as const,
+        kind: (e.kind as string | undefined) ?? 'unknown',
+        message: e.message ?? 'unknown',
+      }
+    }
+    reg.setEmbedderSource(source)
+    await getSettingsService().update({ advanced: { embedder: { source } } })
+    return { ok: true as const, identity: target.identity() }
+  })
+
   // chat streaming — one stream per (sender, streamId); caller assigns id
   const activeStreams = new Map<string, AbortController>()
   ipcMain.handle(
