@@ -87,9 +87,13 @@ type DbHandle = Pick<Db, 'select' | 'insert' | 'update' | 'delete' | 'execute'>
 export interface NewChunkInput {
   ordinal: number
   text: string
-  pageFrom: number
-  pageTo: number
+  /** PDFs set this to the source page; markdown chunks leave it null. */
+  pageFrom: number | null
+  pageTo: number | null
   tokenCount: number
+  /** Markdown sections store their breadcrumb here (["1. Intro", "Why MD"]).
+   *  PDFs and unstructured text leave this null. */
+  headingPath?: string[] | null
 }
 
 export interface ChunkRow {
@@ -100,6 +104,7 @@ export interface ChunkRow {
   token_count: number | null
   page_from: number | null
   page_to: number | null
+  heading_path: string[] | null
 }
 
 export interface SearchHit {
@@ -109,6 +114,7 @@ export interface SearchHit {
   ordinal: number
   page_from: number | null
   page_to: number | null
+  heading_path: string[] | null
   text: string
   score: number
   added_at?: number | null
@@ -150,6 +156,16 @@ export class DocumentsRepo {
     return row
   }
 
+  async getDocumentByChunkId(chunkId: number): Promise<Document | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(documents)
+      .innerJoin(chunks, eq(chunks.documentId, documents.id))
+      .where(eq(chunks.id, chunkId))
+      .limit(1)
+    return row?.documents
+  }
+
   async deleteDocument(id: number): Promise<void> {
     await this.db.delete(documents).where(eq(documents.id, id))
   }
@@ -167,8 +183,19 @@ export class DocumentsRepo {
       pageFrom: c.pageFrom,
       pageTo: c.pageTo,
       tokenCount: c.tokenCount,
+      headingPath: c.headingPath ?? null,
     }))
     await this.db.insert(chunks).values(rows)
+  }
+
+  /** Fetch just the heading_path for a chunk — used by the source viewer to
+   *  render markdown citations as breadcrumbs. */
+  async getChunkHeadingPath(chunkId: number): Promise<string[] | null> {
+    const r = await this.db.execute(sql`
+      SELECT heading_path FROM chunks WHERE id = ${chunkId} LIMIT 1
+    `)
+    const row = (r.rows as Array<{ heading_path: string[] | null }>)[0]
+    return row?.heading_path ?? null
   }
 
   async countChunksMissingEmbedding(workspaceId: number): Promise<number> {
@@ -238,15 +265,16 @@ export class DocumentsRepo {
       ),
       hits AS (
         SELECT
-          c.id          AS chunk_id,
-          c.document_id AS document_id,
-          d.title       AS document_title,
-          c.ordinal     AS ordinal,
-          c.page_from   AS page_from,
-          c.page_to     AS page_to,
-          c.text        AS text,
+          c.id           AS chunk_id,
+          c.document_id  AS document_id,
+          d.title        AS document_title,
+          c.ordinal      AS ordinal,
+          c.page_from    AS page_from,
+          c.page_to      AS page_to,
+          c.heading_path AS heading_path,
+          c.text         AS text,
           ts_rank_cd(c.text_search, qq.query) AS score,
-          d.added_at    AS added_at
+          d.added_at     AS added_at
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         CROSS JOIN qq
@@ -265,7 +293,7 @@ export class DocumentsRepo {
           FROM hits
       )
       SELECT chunk_id, document_id, document_title, ordinal,
-             page_from, page_to, text, score, added_at
+             page_from, page_to, heading_path, text, score, added_at
         FROM ranked
        WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
        ORDER BY score DESC
@@ -291,15 +319,16 @@ export class DocumentsRepo {
       // fast path — HNSW drives ORDER BY + LIMIT directly
       const r = await this.db.execute(sql`
         SELECT
-          c.id          AS chunk_id,
-          c.document_id AS document_id,
-          d.title       AS document_title,
-          c.ordinal     AS ordinal,
-          c.page_from   AS page_from,
-          c.page_to     AS page_to,
-          c.text        AS text,
+          c.id           AS chunk_id,
+          c.document_id  AS document_id,
+          d.title        AS document_title,
+          c.ordinal      AS ordinal,
+          c.page_from    AS page_from,
+          c.page_to      AS page_to,
+          c.heading_path AS heading_path,
+          c.text         AS text,
           (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
-          d.added_at    AS added_at
+          d.added_at     AS added_at
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         WHERE c.embedding IS NOT NULL
@@ -315,15 +344,16 @@ export class DocumentsRepo {
     const r = await this.db.execute(sql`
       WITH ranked AS (
         SELECT
-          c.id          AS chunk_id,
-          c.document_id AS document_id,
-          d.title       AS document_title,
-          c.ordinal     AS ordinal,
-          c.page_from   AS page_from,
-          c.page_to     AS page_to,
-          c.text        AS text,
+          c.id           AS chunk_id,
+          c.document_id  AS document_id,
+          d.title        AS document_title,
+          c.ordinal      AS ordinal,
+          c.page_from    AS page_from,
+          c.page_to      AS page_to,
+          c.heading_path AS heading_path,
+          c.text         AS text,
           (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
-          d.added_at    AS added_at,
+          d.added_at     AS added_at,
           ROW_NUMBER() OVER (
             PARTITION BY c.document_id
             ORDER BY c.embedding <=> ${lit}::vector ASC
@@ -336,7 +366,7 @@ export class DocumentsRepo {
           AND (${activeLit}::int[] IS NULL OR c.document_id = ANY(${activeLit}::int[]))
       )
       SELECT chunk_id, document_id, document_title, ordinal,
-             page_from, page_to, text, score, added_at
+             page_from, page_to, heading_path, text, score, added_at
         FROM ranked
        WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
        ORDER BY score DESC
@@ -390,7 +420,7 @@ export class DocumentsRepo {
 
   async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
     const r = await this.db.execute(sql`
-      SELECT id, document_id, ordinal, text, token_count, page_from, page_to
+      SELECT id, document_id, ordinal, text, token_count, page_from, page_to, heading_path
         FROM chunks
        WHERE document_id = ${documentId}
        ORDER BY ordinal
@@ -438,7 +468,7 @@ export class DocumentsRepo {
         VALUES ${sql.raw(valueParts)}
       )
       SELECT DISTINCT c.id, c.document_id, c.ordinal, c.text,
-                      c.token_count, c.page_from, c.page_to
+                      c.token_count, c.page_from, c.page_to, c.heading_path
         FROM chunks c
         JOIN seeds s ON c.document_id = s.doc_id
        WHERE c.ordinal BETWEEN s.ord - ${radius} AND s.ord + ${radius}
@@ -494,6 +524,14 @@ export class ConversationsRepo {
     }
   }
 
+  /** Idempotent title-set. The caller decides whether to skip when a title is
+   *  already present (auto-naming does, manual rename wouldn't). */
+  async setTitle(id: number, title: string | null): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE conversations SET title = ${title} WHERE id = ${id}
+    `)
+  }
+
   async list(workspaceId: number): Promise<
     Array<{
       id: number
@@ -544,20 +582,27 @@ export class ConversationsRepo {
     conversationId: number,
     role: 'user' | 'assistant' | 'system',
     content: string,
+    metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
   ): Promise<{
     id: number
     conversationId: number
     role: 'user' | 'assistant' | 'system'
     content: string
     createdAt: number
+    ttftMs: number | null
+    tokensPerSec: number | null
+    tokenCount: number | null
   }> {
     if (role !== 'user' && role !== 'assistant' && role !== 'system') {
       throw new Error(`appendMessage: invalid role "${role}"`)
     }
+    const ttftMs = metrics?.ttftMs ?? null
+    const tokensPerSec = metrics?.tokensPerSec ?? null
+    const tokenCount = metrics?.tokenCount ?? null
     const r = await this.db.execute(sql`
-      INSERT INTO messages (conversation_id, role, content)
-      VALUES (${conversationId}, ${role}, ${content})
-      RETURNING id, conversation_id, role, content, created_at
+      INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count)
+      VALUES (${conversationId}, ${role}, ${content}, ${ttftMs}, ${tokensPerSec}, ${tokenCount})
+      RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count
     `)
     const row = (
       r.rows as unknown as Array<{
@@ -566,6 +611,9 @@ export class ConversationsRepo {
         role: 'user' | 'assistant' | 'system'
         content: string
         created_at: number
+        ttft_ms: number | null
+        tokens_per_sec: number | null
+        token_count: number | null
       }>
     )[0]!
     return {
@@ -574,6 +622,9 @@ export class ConversationsRepo {
       role: row.role,
       content: row.content,
       createdAt: row.created_at,
+      ttftMs: row.ttft_ms,
+      tokensPerSec: row.tokens_per_sec,
+      tokenCount: row.token_count,
     }
   }
 
@@ -603,6 +654,9 @@ export class ConversationsRepo {
       role: 'user' | 'assistant' | 'system'
       content: string
       createdAt: number
+      ttftMs: number | null
+      tokensPerSec: number | null
+      tokenCount: number | null
       citations: Array<{
         id: number
         messageId: number
@@ -638,7 +692,8 @@ export class ConversationsRepo {
     if (!conv) throw new Error(`Conversation ${conversationId} not found`)
 
     const mRows = await this.db.execute(sql`
-      SELECT id, conversation_id, role, content, created_at
+      SELECT id, conversation_id, role, content, created_at,
+             ttft_ms, tokens_per_sec, token_count
         FROM messages WHERE conversation_id = ${conversationId}
        ORDER BY created_at ASC, id ASC
     `)
@@ -661,6 +716,9 @@ export class ConversationsRepo {
         role: 'user' | 'assistant' | 'system'
         content: string
         created_at: number
+        ttft_ms: number | null
+        tokens_per_sec: number | null
+        token_count: number | null
       }>
     ).map((m) => ({
       id: m.id,
@@ -668,6 +726,9 @@ export class ConversationsRepo {
       role: m.role,
       content: m.content,
       createdAt: m.created_at,
+      ttftMs: m.ttft_ms,
+      tokensPerSec: m.tokens_per_sec,
+      tokenCount: m.token_count,
       citations: [] as CitationRow[],
     }))
 

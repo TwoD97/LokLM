@@ -12,6 +12,9 @@ export interface RetrievalHit {
   ordinal: number
   page_from: number | null
   page_to: number | null
+  /** Hierarchical heading breadcrumb for markdown chunks. Null for PDFs and
+   *  unstructured text. Renderer formats as "§ A › B" for citations. */
+  heading_path: string[] | null
   text: string
   score: number
   /** Why this hit ended up in the result set — useful for the renderer to
@@ -451,6 +454,7 @@ function chunkToSearchHit(c: ChunkRow, title: string, score: number): SearchHit 
     ordinal: c.ordinal,
     page_from: c.page_from,
     page_to: c.page_to,
+    heading_path: c.heading_path,
     text: c.text,
     score,
   }
@@ -464,6 +468,7 @@ function toHit(item: HitWithOrigin): RetrievalHit {
     ordinal: item.hit.ordinal,
     page_from: item.hit.page_from,
     page_to: item.hit.page_to,
+    heading_path: item.hit.heading_path,
     text: item.hit.text,
     score: item.hit.score,
     origin: item.origin,

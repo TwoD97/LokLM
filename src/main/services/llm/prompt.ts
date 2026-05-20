@@ -66,14 +66,7 @@ export function buildPrompt(
   if (hits.length === 0) {
     sections.push('Context: (none)')
   } else {
-    const ctx = hits
-      .map(
-        (h) =>
-          `[doc:${h.document_id}, chunk:${h.chunk_id}] (${h.document_title}${
-            h.page_from != null ? `, p.${h.page_from}` : ''
-          })\n${h.text}`,
-      )
-      .join('\n\n---\n\n')
+    const ctx = hits.map((h) => `${formatHitHeader(h)}\n${h.text}`).join('\n\n---\n\n')
     sections.push(`Context:\n${ctx}`)
   }
 
@@ -94,12 +87,34 @@ export function renderFallback(
   const body = hits
     .map((h) => {
       const snippet = condense(h.text, 240)
-      const loc =
-        h.page_from != null ? (lang === 'de' ? `, S. ${h.page_from}` : `, p. ${h.page_from}`) : ''
+      const loc = formatHitLocation(h, lang)
       return `• ${snippet} [doc:${h.document_id}, chunk:${h.chunk_id}] (${h.document_title}${loc})`
     })
     .join('\n')
   return intro + body
+}
+
+/** Header line for a single retrieval hit in the LLM context block. Prefers
+ *  the heading breadcrumb (markdown) over the page number (PDFs/text) because
+ *  it gives the model — and the user reading the citation — a far more
+ *  meaningful provenance label. */
+function formatHitHeader(h: RetrievalHit): string {
+  const loc = formatHitLocation(h, 'en')
+  return `[doc:${h.document_id}, chunk:${h.chunk_id}] (${h.document_title}${loc})`
+}
+
+function formatHitLocation(h: RetrievalHit, lang: ResponseLanguage): string {
+  const headingPart =
+    h.heading_path && h.heading_path.length > 0 ? `§ ${h.heading_path.join(' › ')}` : null
+  const pagePart =
+    h.page_from != null ? (lang === 'de' ? `S. ${h.page_from}` : `p.${h.page_from}`) : null
+  // PDFs with bookmarks emit both — heading first (topical), page second
+  // (positional). Markdown produces only the heading; PDFs without bookmarks
+  // only the page. Both null → empty string.
+  if (headingPart && pagePart) return `, ${headingPart}, ${pagePart}`
+  if (headingPart) return `, ${headingPart}`
+  if (pagePart) return `, ${pagePart}`
+  return ''
 }
 
 export function condense(text: string, max: number): string {

@@ -36,44 +36,37 @@ export function Sidebar({
       onMouseEnter={() => !pinned && onPeek(true)}
       onMouseLeave={() => !pinned && onPeek(false)}
     >
-      {!expanded ? (
-        <div className="sidebar__rail">
-          <button
-            className={`sidebar__rail-btn ${activeView === 'library' ? 'sidebar__rail-btn--active' : ''}`}
-            onClick={() => onViewChange('library')}
-            aria-label="Library"
-            title="Library"
-          >
-            📚
-          </button>
-          <button
-            className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
-            onClick={() => onViewChange('chat')}
-            aria-label="Chat"
-            title="Chat"
-          >
-            💬
-          </button>
-          <button
-            className="sidebar__rail-btn"
-            onClick={onTogglePin}
-            aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-            title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-          >
-            {pinned ? '📌' : '📍'}
-          </button>
-        </div>
-      ) : (
+      <div className="sidebar__rail">
+        <button
+          className={`sidebar__rail-btn ${activeView === 'library' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('library')}
+          aria-label="Library"
+          title="Library"
+        >
+          📚
+        </button>
+        <button
+          className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('chat')}
+          aria-label="Chat"
+          title="Chat"
+        >
+          💬
+        </button>
+      </div>
+      {expanded && (
         <div className="sidebar__expanded">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong style={{ fontSize: 13 }}>Workspaces</strong>
+          <div className="sidebar__expanded-header">
+            <span className="sidebar__section-label" style={{ margin: 0 }}>
+              Workspaces
+            </span>
             <button
-              className="sidebar__pin sidebar__rail-btn"
+              className="sidebar__rail-btn"
               onClick={onTogglePin}
               aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
               title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
             >
-              {pinned ? '📌' : '📍'}
+              {pinned ? '«' : '»'}
             </button>
           </div>
           {workspaces.map((w) => (
@@ -110,24 +103,6 @@ export function Sidebar({
               }}
             />
           </form>
-
-          {activeWorkspaceId != null && (
-            <>
-              <div className="sidebar__section-label">View</div>
-              <button
-                className={`sidebar__nav-btn ${activeView === 'library' ? 'sidebar__nav-btn--active' : ''}`}
-                onClick={() => onViewChange('library')}
-              >
-                📚 Library
-              </button>
-              <button
-                className={`sidebar__nav-btn ${activeView === 'chat' ? 'sidebar__nav-btn--active' : ''}`}
-                onClick={() => onViewChange('chat')}
-              >
-                💬 Chat
-              </button>
-            </>
-          )}
         </div>
       )}
     </aside>

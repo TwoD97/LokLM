@@ -1,6 +1,4 @@
-import { app } from 'electron'
-import { join } from 'node:path'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { totalmem } from 'node:os'
 import {
   ResourcePlanner,
@@ -8,6 +6,7 @@ import {
   type LlmPlan,
   type SystemResources,
 } from '../embeddings/ResourcePlanner'
+import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
 import type {
@@ -138,20 +137,8 @@ export const LLM_PROFILES: LlmProfile[] = [
   },
 ]
 
-/**
- * Models directory shared with the embedder.
- *  - Dev: <project>/models/
- *  - Packaged: <resources>/models/  (electron-builder copies via extraResources)
- */
-function modelsDir(): string {
-  // Under vitest the electron `app` import is undefined; fall back to cwd-
-  // relative `models/` so integration tests can resolve the bundled GGUFs.
-  if (!app || typeof app.isPackaged !== 'boolean') {
-    return join(process.cwd(), 'models')
-  }
-  const root = app.isPackaged ? process.resourcesPath : app.getAppPath()
-  return join(root, 'models')
-}
+// Models directory resolution moved to ../models/paths.ts so the LLM, embedder
+// and reranker services all agree on where to look. See the policy doc there.
 
 export function totalMemGB(): number {
   return totalmem() / (1024 * 1024 * 1024)
@@ -177,14 +164,7 @@ export function recommendedProfile(): LlmProfileName {
  * what to load.
  */
 export function discoverProfiles(): AvailableProfile[] {
-  const dir = modelsDir()
-  let entries: string[] = []
-  try {
-    if (existsSync(dir)) entries = readdirSync(dir)
-  } catch {
-    /* fall through with empty list */
-  }
-  const ggufs = entries.filter((f) => f.toLowerCase().endsWith('.gguf'))
+  const ggufs = listVisibleGgufs().map((g) => g.name)
   return LLM_PROFILES.map((p) => {
     const match = ggufs.find((f) => p.filenamePatterns.some((re) => re.test(f)))
     return {
@@ -295,7 +275,7 @@ export class LlamaService {
     const resolved = this.resolveSelectedPath(profiles, recommended)
     return {
       ...this.status,
-      bundledModelPath: resolved ?? join(modelsDir()),
+      bundledModelPath: resolved ?? getModelSearchDirs()[0]!,
       bundledModelExists: resolved !== null,
       totalMemGB: Math.round(totalMemGB() * 10) / 10,
       recommendedProfile: recommended,
@@ -365,7 +345,7 @@ export class LlamaService {
     if (!res) return recommendedProfile()
     const enriched = LLM_PROFILES.map((p) => {
       const d = profiles.find((x) => x.name === p.name)
-      const path = d?.filename ? join(modelsDir(), d.filename) : null
+      const path = d?.filename ? resolveModelFile(d.filename) : null
       return {
         name: p.name,
         minTotalMemGB: p.minTotalMemGB,
@@ -395,7 +375,7 @@ export class LlamaService {
     if (this.selectedChoice === 'auto') {
       const enriched = LLM_PROFILES.map((p) => {
         const d = profiles.find((x) => x.name === p.name)
-        const path = d?.filename ? join(modelsDir(), d.filename) : null
+        const path = d?.filename ? resolveModelFile(d.filename) : null
         return {
           name: p.name,
           minTotalMemGB: p.minTotalMemGB,
@@ -415,7 +395,7 @@ export class LlamaService {
         modelPath: null,
         modelName: null,
         profile: null,
-        message: `No LLM GGUF found in ${modelsDir()}. Drop a Qwen3-4B or Qwen3-8B .gguf there.`,
+        message: `No LLM GGUF found in ${getModelSearchDirs()[0]}. Drop a Qwen3-4B or Qwen3-8B .gguf there.`,
       })
       return
     }
@@ -434,7 +414,12 @@ export class LlamaService {
     const order = [preferred, ...profiles.filter((p) => p.name !== preferred).map((p) => p.name)]
     for (const name of order) {
       const p = profiles.find((x) => x.name === name)
-      if (p && p.filename) return join(modelsDir(), p.filename)
+      if (p && p.filename) {
+        // resolveModelFile walks every search dir so a file present only in
+        // the legacy `resourcesPath/models` (pre-v0.2.2 bundle) still loads.
+        const abs = resolveModelFile(p.filename)
+        if (abs) return abs
+      }
     }
     return null
   }
@@ -807,6 +792,35 @@ export class LlamaService {
     }
   }
 
+  /**
+   * Generate a short chat title from the first user/assistant exchange.
+   * Returns null when the model isn't loaded or the response is unusable —
+   * the caller should fall back to the default "Conversation #N" label.
+   */
+  async generateTitle(
+    userMessage: string,
+    assistantMessage: string,
+    opts: { abortSignal?: AbortSignal } = {},
+  ): Promise<string | null> {
+    if (!this.isReady()) return null
+    // Cap the inputs so a very long first turn doesn't blow the prompt.
+    const u = truncate(userMessage, 1200)
+    const a = truncate(assistantMessage, 1200)
+    const langWord = this.language === 'de' ? 'Deutsch' : 'English'
+    const prompt =
+      `Erstelle einen kurzen, prägnanten Titel (3 bis 6 Wörter) für dieses Gespräch in ${langWord}.\n` +
+      `Antworte nur mit dem Titel selbst — keine Anführungszeichen, kein Punkt am Ende, keine Einleitung.\n\n` +
+      `Benutzer: ${u}\n\n` +
+      `Assistent: ${a}\n\n` +
+      `Titel:`
+    try {
+      const raw = await this.generateRaw(prompt, opts)
+      return cleanTitle(raw)
+    } catch {
+      return null
+    }
+  }
+
   private async askFallback(
     question: string,
     hits: RetrievalHit[],
@@ -825,6 +839,35 @@ export class LlamaService {
 }
 
 // ---------------------------------------------------------------------------
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s
+  return `${s.slice(0, max).trim()}…`
+}
+
+/**
+ * Clean a raw LLM title response: drop quotes/punctuation/preambles the model
+ * tends to add despite instructions, keep the first line, and cap the length.
+ * Returns null when nothing usable remains.
+ */
+function cleanTitle(raw: string): string | null {
+  let s = raw.trim()
+  if (!s) return null
+  // Take the first non-empty line — sometimes the model adds an explanation.
+  const firstLine = s.split(/\r?\n/).find((line) => line.trim().length > 0)
+  if (!firstLine) return null
+  s = firstLine.trim()
+  // Drop leading "Title:" / "Titel:" preambles.
+  s = s.replace(/^(title|titel)\s*[:\-–—]\s*/i, '')
+  // Strip wrapping quotes (straight or curly).
+  s = s.replace(/^["'“”„‘’«»]+|["'“”„‘’«»]+$/g, '')
+  // Drop trailing punctuation the model likes to add.
+  s = s.replace(/[.。!?！？\s]+$/u, '').trim()
+  if (!s) return null
+  // Cap length so it fits in the sidebar without breaking layout.
+  if (s.length > 64) s = `${s.slice(0, 63).trimEnd()}…`
+  return s
+}
 
 function describeGpu(llama: unknown): string | null {
   const obj = llama as { gpu?: string }

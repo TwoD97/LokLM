@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -14,10 +14,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "prepackage:check-models": "node scripts/check-bundled-models.mjs",
-    "package:win": "pnpm prepackage:check-models && electron-vite build && electron-builder --win zip",
-    "package:linux": "pnpm prepackage:check-models && electron-vite build && electron-builder --linux AppImage",
-    "package:mac": "pnpm prepackage:check-models && electron-vite build && electron-builder --mac dmg",
+    "package:win": "electron-vite build && electron-builder --win nsis",
+    "package:linux": "electron-vite build && electron-builder --linux AppImage",
+    "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -41,7 +40,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\"",
+    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",
@@ -102,6 +101,7 @@
     "drizzle-orm": "^0.45.2",
     "node-llama-cpp": "^3.18.1",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.7.284",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
@@ -122,14 +122,8 @@
     ],
     "asar": true,
     "publish": null,
+    "npmRebuild": false,
     "extraResources": [
-      {
-        "from": "models",
-        "to": "models",
-        "filter": [
-          "**/*.gguf"
-        ]
-      },
       {
         "from": "drizzle",
         "to": "drizzle"
@@ -142,13 +136,23 @@
     "win": {
       "target": [
         {
-          "target": "zip",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "LokLM-${version}-win-x64.${ext}"
+      "artifactName": "LokLM-Setup-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LokLM",
+      "deleteAppDataOnUninstall": false
     },
     "linux": {
       "target": [

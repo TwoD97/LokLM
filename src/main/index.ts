@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
@@ -11,6 +11,8 @@ import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
+import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
+import { checkAll as checkModelsAvailability } from './services/models/availability'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -68,6 +70,12 @@ let rerankerService: RerankerService | null = null
 let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
+let modelDownloader: ModelDownloader | null = null
+
+function getModelDownloader(): ModelDownloader {
+  modelDownloader ??= new ModelDownloader()
+  return modelDownloader
+}
 
 function getWorkspaceService(): WorkspaceService {
   workspaceService ??= new WorkspaceService(getAuth())
@@ -174,6 +182,9 @@ function registerIpc(): void {
       const result = await getAuth().register(input)
       broadcastAuthState()
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+      void getLlamaService()
+        .autoLoad()
+        .catch(() => undefined)
       return result
     },
   )
@@ -183,6 +194,9 @@ function registerIpc(): void {
     if (result.ok) {
       broadcastAuthState()
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+      void getLlamaService()
+        .autoLoad()
+        .catch(() => undefined)
     }
     return result
   })
@@ -237,6 +251,23 @@ function registerIpc(): void {
   ipcMain.handle('documents:list', async (_e, workspaceId: number) => {
     return getAuth().requireDatabase().documents().listDocumentsByWorkspace(workspaceId)
   })
+  ipcMain.handle('documents:pickFiles', async (e) => {
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Dokumente',
+          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+        },
+        { name: 'Alle Dateien', extensions: ['*'] },
+      ],
+    }
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
+    return result.canceled ? [] : result.filePaths
+  })
   ipcMain.handle('documents:import', async (e, workspaceId: number, sourcePath: string) => {
     try {
       return await getDocumentService().importFile({
@@ -274,6 +305,35 @@ function registerIpc(): void {
       getAuth().requireDatabase().documents().getChunkWithContext(chunkId, before, after),
   )
 
+  ipcMain.handle('documents:getSourceForChunk', async (_e, chunkId: number) => {
+    const repo = getAuth().requireDatabase().documents()
+    const [doc, headingPath] = await Promise.all([
+      repo.getDocumentByChunkId(chunkId),
+      repo.getChunkHeadingPath(chunkId),
+    ])
+    if (!doc) return null
+    return {
+      documentId: doc.id,
+      title: doc.title,
+      mimeType: doc.mimeType,
+      sourcePath: doc.sourcePath,
+      headingPath,
+    }
+  })
+
+  // Returns raw bytes for a PDF document so the renderer can display the page
+  // via pdfjs. We gate this on mime-type/extension so it can't be used to
+  // exfiltrate arbitrary files; the caller must know a valid document id.
+  ipcMain.handle('documents:readDocumentBytes', async (_e, documentId: number) => {
+    const doc = await getAuth().requireDatabase().documents().getDocument(documentId)
+    if (!doc) return null
+    const isPdf = doc.mimeType === 'application/pdf' || /\.pdf$/i.test(doc.sourcePath)
+    if (!isPdf) return null
+    const { readFile } = await import('node:fs/promises')
+    const buf = await readFile(doc.sourcePath)
+    return new Uint8Array(buf)
+  })
+
   // conversations
   ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>
     getAuth().requireDatabase().conversations().list(workspaceId),
@@ -290,6 +350,52 @@ function registerIpc(): void {
   ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
     getAuth().requireDatabase().conversations().getWithMessages(id),
   )
+
+  // Generate a chat title from the first user/assistant exchange. Idempotent
+  // by design — the renderer fires this once on the first round-trip; if the
+  // conversation already has a non-null title we leave it alone so a future
+  // manual rename is preserved. Returns the title that ended up on the row
+  // (existing or freshly generated, or null if the model couldn't produce
+  // anything usable).
+  ipcMain.handle('conversations:generateTitle', async (_e, id: number): Promise<string | null> => {
+    const repo = getAuth().requireDatabase().conversations()
+    const data = await repo.getWithMessages(id)
+    if (data.conversation.title != null && data.conversation.title.trim().length > 0) {
+      return data.conversation.title
+    }
+    const firstUser = data.messages.find((m) => m.role === 'user')
+    const firstAssistant = data.messages.find((m) => m.role === 'assistant')
+    if (!firstUser || !firstAssistant) return null
+    const title = await getLlamaService().generateTitle(firstUser.content, firstAssistant.content)
+    if (!title) return null
+    await repo.setTitle(id, title)
+    return title
+  })
+
+  // models — manifest-driven download + availability
+  ipcMain.handle('models:status', async () => checkModelsAvailability())
+  ipcMain.handle('models:download', async (_e, id: string) => {
+    await getModelDownloader().download(id)
+  })
+  ipcMain.handle('models:cancel', async (_e, id: string) => {
+    getModelDownloader().cancel(id)
+  })
+  // Subscribe to download progress events. Returns the channel name the
+  // renderer should listen on; the preload bridge attaches a listener and
+  // exposes an unsubscribe function.
+  ipcMain.handle('models:subscribeProgress', async (e): Promise<string> => {
+    const channel = `models:progress:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const off = getModelDownloader().onProgress((ev: DownloadEvent) => {
+      try {
+        if (!e.sender.isDestroyed()) e.sender.send(channel, ev)
+      } catch {
+        /* renderer torn down — drop the event */
+      }
+    })
+    // Clean up the listener when the renderer goes away.
+    e.sender.once('destroyed', off)
+    return channel
+  })
 
   // embedder
   ipcMain.handle('embedder:status', async () => getEmbeddingService().getStatus())
@@ -376,6 +482,12 @@ function registerIpc(): void {
       const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
       let refused = false
       let refusalMessage: string | null = null
+      // Timing for stream metrics. streamStart marks when we begin pulling
+      // from QAService.answer (after the user message is persisted),
+      // firstTokenTime is set on the first 'token' event delivered to the UI.
+      const streamStart = performance.now()
+      let firstTokenTime: number | null = null
+      let tokenCount = 0
 
       try {
         const stream = getQAService().answer(workspaceId, query, opts)
@@ -387,8 +499,11 @@ function registerIpc(): void {
             ctrl.abort()
             break
           }
-          if (ev.type === 'token') tokenBuffer.push(ev.text)
-          else if (ev.type === 'citation')
+          if (ev.type === 'token') {
+            tokenBuffer.push(ev.text)
+            if (firstTokenTime == null) firstTokenTime = performance.now()
+            tokenCount += 1
+          } else if (ev.type === 'citation')
             citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
           else if (ev.type === 'refusal') {
             refused = true
@@ -404,10 +519,15 @@ function registerIpc(): void {
             await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
           } else if (tokenBuffer.length > 0) {
             const assistantContent = tokenBuffer.join('')
+            const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
+            const elapsedSinceFirst =
+              firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
+            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
             const asst = await conversations.appendMessage(
               opts.conversationId,
               'assistant',
               assistantContent,
+              { ttftMs, tokensPerSec, tokenCount },
             )
             if (citations.length > 0) {
               await conversations.persistCitations(asst.id, citations)

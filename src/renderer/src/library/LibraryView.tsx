@@ -1,32 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Document, Workspace, IndexProgress } from '@shared/documents'
-import { WorkspaceSidebar } from './WorkspaceSidebar'
+import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
 import './library.css'
 
-export function LibraryView(): JSX.Element {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [activeId, setActiveId] = useState<number | null>(null)
+type Props = {
+  workspaceId: number
+  workspaceName: string
+}
+
+export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element {
   const [docs, setDocs] = useState<Document[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
-
-  const refreshWorkspaces = useCallback(async () => {
-    const ws = await window.api.workspaces.list()
-    setWorkspaces(ws)
-    setActiveId((current) => current ?? (ws.length > 0 ? (ws[0]?.id ?? null) : null))
-  }, [])
 
   const refreshDocs = useCallback(async (id: number) => {
     setDocs(await window.api.documents.list(id))
   }, [])
 
   useEffect(() => {
-    void refreshWorkspaces()
-  }, [refreshWorkspaces])
-
-  useEffect(() => {
-    if (activeId != null) void refreshDocs(activeId)
-  }, [activeId, refreshDocs])
+    void refreshDocs(workspaceId)
+  }, [workspaceId, refreshDocs])
 
   useEffect(() => {
     const off = window.api.documents.onIndexProgress((p) => {
@@ -36,81 +28,75 @@ export function LibraryView(): JSX.Element {
         return next
       })
       if (p.phase === 'done' || p.phase === 'failed') {
-        if (activeId != null) void refreshDocs(activeId)
+        void refreshDocs(workspaceId)
       }
     })
     return () => off()
-  }, [activeId, refreshDocs])
-
-  const onCreateWorkspace = useCallback(
-    async (name: string) => {
-      const ws = await window.api.workspaces.create(name)
-      await refreshWorkspaces()
-      setActiveId(ws.id)
-    },
-    [refreshWorkspaces],
-  )
+  }, [workspaceId, refreshDocs])
 
   const onImport = useCallback(
     async (paths: string[]) => {
-      if (activeId == null) return
       for (const p of paths) {
         try {
-          await window.api.documents.import(activeId, p)
+          await window.api.documents.import(workspaceId, p)
         } catch (err) {
           console.error('import failed', err)
         }
       }
-      void refreshDocs(activeId)
+      void refreshDocs(workspaceId)
     },
-    [activeId, refreshDocs],
+    [workspaceId, refreshDocs],
   )
 
   const onDelete = useCallback(
     async (id: number) => {
       await window.api.documents.delete(id)
-      if (activeId != null) void refreshDocs(activeId)
+      void refreshDocs(workspaceId)
     },
-    [activeId, refreshDocs],
+    [workspaceId, refreshDocs],
   )
 
   const onReindex = useCallback(
     async (id: number) => {
       await window.api.documents.reindex(id)
-      if (activeId != null) void refreshDocs(activeId)
+      void refreshDocs(workspaceId)
     },
-    [activeId, refreshDocs],
+    [workspaceId, refreshDocs],
   )
 
   return (
     <div className="library">
-      <WorkspaceSidebar
-        workspaces={workspaces}
-        activeId={activeId}
-        onSelect={setActiveId}
-        onCreate={(name) => void onCreateWorkspace(name)}
+      <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
+      <DropZone
+        onFiles={(paths) => void onImport(paths)}
+        onPick={async () => {
+          const paths = await window.api.documents.pickFiles()
+          if (paths.length > 0) void onImport(paths)
+        }}
       />
-      <main className="library__main">
-        <h1 style={{ margin: '8px 0 4px' }}>
-          {workspaces.find((w) => w.id === activeId)?.name ?? '—'}
-        </h1>
-        <DropZone onFiles={(paths) => void onImport(paths)} />
-        <DocumentTable
-          docs={docs}
-          progress={progress}
-          onDelete={(id) => void onDelete(id)}
-          onReindex={(id) => void onReindex(id)}
-        />
-      </main>
+      <DocumentTable
+        docs={docs}
+        progress={progress}
+        onDelete={(id) => void onDelete(id)}
+        onReindex={(id) => void onReindex(id)}
+      />
     </div>
   )
 }
 
-function DropZone({ onFiles }: { onFiles: (paths: string[]) => void }): JSX.Element {
+function DropZone({
+  onFiles,
+  onPick,
+}: {
+  onFiles: (paths: string[]) => void
+  onPick: () => void
+}): JSX.Element {
   const [over, setOver] = useState(false)
   return (
-    <div
+    <button
+      type="button"
       className={`library__drop ${over ? 'library__drop--over' : ''}`}
+      onClick={onPick}
       onDragOver={(e) => {
         e.preventDefault()
         setOver(true)
@@ -120,12 +106,12 @@ function DropZone({ onFiles }: { onFiles: (paths: string[]) => void }): JSX.Elem
         e.preventDefault()
         setOver(false)
         const files = Array.from(e.dataTransfer.files)
-          .map((f) => (f as unknown as { path: string }).path)
+          .map((f) => window.api.documents.getPathForFile(f))
           .filter(Boolean)
         onFiles(files)
       }}
     >
-      Dateien hierher ziehen, um zu importieren.
-    </div>
+      Klicken zum Auswählen – oder Dateien hierher ziehen.
+    </button>
   )
 }

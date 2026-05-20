@@ -1,10 +1,14 @@
-import type { PageText } from './types'
+import type { MarkdownSection, PageText, PdfSection } from './types'
 
 export interface Chunk {
   text: string
   ordinal: number
-  pageFrom: number
-  pageTo: number
+  /** PDFs and text files set these to the source page; markdown chunks leave
+   *  them null and use `headingPath` instead. */
+  pageFrom: number | null
+  pageTo: number | null
+  /** Hierarchical heading breadcrumb. Populated only by chunkMarkdown. */
+  headingPath: string[] | null
 }
 
 export interface ChunkOptions {
@@ -28,10 +32,103 @@ export function chunkPages(pages: PageText[], opts: Partial<ChunkOptions> = {}):
     for (const text of merged) {
       const trimmed = text.trim()
       if (trimmed.length === 0) continue
-      chunks.push({ text: trimmed, ordinal: ordinal++, pageFrom: page.num, pageTo: page.num })
+      chunks.push({
+        text: trimmed,
+        ordinal: ordinal++,
+        pageFrom: page.num,
+        pageTo: page.num,
+        headingPath: null,
+      })
     }
   }
   return chunks
+}
+
+/**
+ * Section-aware markdown chunking.
+ *
+ *  - Each markdown section (heading + body) becomes one chunk when it fits
+ *    within `maxChars`. Section boundaries are NEVER crossed: this is what
+ *    lets the LLM cite a specific heading rather than "p. 5".
+ *  - Sections larger than `maxChars` are split with the same separator
+ *    cascade as PDFs — but each piece inherits the full `headingPath`, so
+ *    citations remain accurate even when a long section is fragmented.
+ *  - Adjacent sections are NOT merged. A short "Introduction" followed by
+ *    "Conclusion" stays two chunks, because mixing two unrelated breadcrumbs
+ *    into one chunk would lie about provenance.
+ *  - The chunk text retains the section heading line as a soft prefix
+ *    (`# Heading\\n\\n<body>`) so the embedding picks up the topical signal.
+ */
+export function chunkMarkdown(
+  sections: MarkdownSection[],
+  opts: Partial<ChunkOptions> = {},
+): Chunk[] {
+  const maxChars = opts.maxChars ?? DEFAULT.maxChars
+  const overlap = opts.overlap ?? DEFAULT.overlap
+  const chunks: Chunk[] = []
+  let ordinal = 0
+
+  for (const section of sections) {
+    const lastHeading = section.headingPath[section.headingPath.length - 1] ?? null
+    const headingPrefix = lastHeading ? `# ${lastHeading}\n\n` : ''
+    const body = section.text.trim()
+    if (body.length === 0) continue
+    const full = headingPrefix + body
+
+    if (full.length <= maxChars) {
+      chunks.push({
+        text: full,
+        ordinal: ordinal++,
+        pageFrom: null,
+        pageTo: null,
+        headingPath: section.headingPath.length > 0 ? [...section.headingPath] : null,
+      })
+      continue
+    }
+
+    // Oversized section: split the body (NOT the heading prefix — we re-add
+    // it to the first piece only so we don't bloat every chunk for one
+    // mega-section). Subsequent pieces still carry the same headingPath,
+    // which is what citations care about.
+    const pieces = mergeWithOverlap(splitText(body, maxChars), maxChars, overlap)
+    for (let i = 0; i < pieces.length; i++) {
+      const piece = pieces[i]!.trim()
+      if (piece.length === 0) continue
+      const text = i === 0 && headingPrefix.length > 0 ? headingPrefix + piece : piece
+      chunks.push({
+        text,
+        ordinal: ordinal++,
+        pageFrom: null,
+        pageTo: null,
+        headingPath: section.headingPath.length > 0 ? [...section.headingPath] : null,
+      })
+    }
+  }
+  return chunks
+}
+
+/**
+ *  Tag PDF chunks (produced by chunkPages) with the deepest bookmark whose
+ *  pageStart is <= chunk.pageFrom. Citations then render the section
+ *  breadcrumb alongside the page number.
+ *
+ *  Sections must already be sorted by pageStart (extractPdfOutline does this).
+ *  We scan linearly per chunk — fine for typical bookmark counts (<200).
+ *  Chunks falling before the first bookmark keep `headingPath: null`, which
+ *  is correct: they belong to no advertised section.
+ */
+export function tagChunksWithSections(chunks: Chunk[], sections: PdfSection[]): Chunk[] {
+  if (sections.length === 0) return chunks
+  return chunks.map((c) => {
+    if (c.pageFrom == null) return c
+    let current: PdfSection | null = null
+    for (const s of sections) {
+      if (s.pageStart > c.pageFrom) break
+      current = s
+    }
+    if (!current) return c
+    return { ...c, headingPath: [...current.headingPath] }
+  })
 }
 
 function splitText(text: string, maxChars: number, sepIndex = 0): string[] {

@@ -17,13 +17,21 @@ describe('AppShell', () => {
   it('pin button toggles expanded state', async () => {
     const { container } = render(<AppShell />)
     await waitFor(() => container.querySelector('.app-shell'))
-    const pinBtn = screen.getByLabelText(/pin sidebar/i)
+
+    const sidebar = container.querySelector('.app-shell__sidebar') as HTMLElement
+    fireEvent.mouseEnter(sidebar)
+
+    const pinBtn = await screen.findByLabelText(/pin sidebar/i)
     fireEvent.click(pinBtn)
+    fireEvent.mouseLeave(sidebar)
     await waitFor(() => {
       expect(container.querySelector('.app-shell--expanded')).not.toBeNull()
     })
-    const unpin = screen.getByLabelText(/unpin sidebar/i)
+
+    fireEvent.mouseEnter(sidebar)
+    const unpin = await screen.findByLabelText(/unpin sidebar/i)
     fireEvent.click(unpin)
+    fireEvent.mouseLeave(sidebar)
     await waitFor(() => {
       expect(container.querySelector('.app-shell--expanded')).toBeNull()
     })
