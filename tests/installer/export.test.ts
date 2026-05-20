@@ -3,6 +3,10 @@ import { exportSvgToBmp } from '../../installer/assets/export.mjs'
 import { readFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 describe('exportSvgToBmp', () => {
   let outDir: string
@@ -26,16 +30,24 @@ describe('exportSvgToBmp', () => {
 
     const buf = await readFile(out)
 
+    // BMP file header: 'BM' magic at offset 0
     expect(buf[0]).toBe(0x42)
     expect(buf[1]).toBe(0x4d)
 
+    // DIB header size at offset 14 — BMP3 (BITMAPINFOHEADER) is 40 bytes
     const dibHeaderSize = buf.readUInt32LE(14)
     expect(dibHeaderSize).toBe(40)
 
+    // Width at offset 18
     expect(buf.readInt32LE(18)).toBe(164)
+
+    // Height at offset 22
     expect(buf.readInt32LE(22)).toBe(314)
 
+    // Bit depth at offset 28 — must be 24bpp (no alpha)
     expect(buf.readUInt16LE(28)).toBe(24)
+
+    // Compression mode at offset 30 — must be 0 (BI_RGB, uncompressed)
     expect(buf.readUInt32LE(30)).toBe(0)
 
     const expectedMin = 164 * 314 * 3
@@ -44,19 +56,39 @@ describe('exportSvgToBmp', () => {
   })
 
   it('substitutes __VERSION__ from package.json before rendering', async () => {
-    const out = path.join(outDir, 'real.bmp')
+    const outWith = path.join(outDir, 'with-version.bmp')
+    const outWithout = path.join(outDir, 'without-version.bmp')
+
     await exportSvgToBmp({
       svgPath: path.resolve(__dirname, '../../installer/assets/sidebar.svg'),
-      outPath: out,
+      outPath: outWith,
       width: 164,
       height: 314,
       versionToken: '9.9.9-test',
     })
 
-    const buf = await readFile(out)
-    expect(buf[0]).toBe(0x42)
-    expect(buf[1]).toBe(0x4d)
-    expect(buf.length).toBeGreaterThan(164 * 314 * 3)
+    await exportSvgToBmp({
+      svgPath: path.resolve(__dirname, '../../installer/assets/sidebar.svg'),
+      outPath: outWithout,
+      width: 164,
+      height: 314,
+      // no versionToken — should leave __VERSION__ literal in the rendered SVG
+    })
+
+    const bufWith = await readFile(outWith)
+    const bufWithout = await readFile(outWithout)
+
+    // Both must be valid BMPs
+    expect(bufWith[0]).toBe(0x42)
+    expect(bufWith[1]).toBe(0x4d)
+    expect(bufWithout[0]).toBe(0x42)
+    expect(bufWithout[1]).toBe(0x4d)
+
+    // The two renderings must differ in the pixel area (different rendered text)
+    // BMP file header is the same 54 bytes; skip past it.
+    const pixelsWith = bufWith.slice(54)
+    const pixelsWithout = bufWithout.slice(54)
+    expect(pixelsWith.equals(pixelsWithout)).toBe(false)
   })
 
   it('produces a 150x57 BMP3 from a header-shaped SVG', async () => {
@@ -69,10 +101,14 @@ describe('exportSvgToBmp', () => {
     })
 
     const buf = await readFile(out)
+    // BMP file header: 'BM' magic at offset 0
     expect(buf[0]).toBe(0x42)
     expect(buf[1]).toBe(0x4d)
+    // Width at offset 18
     expect(buf.readInt32LE(18)).toBe(150)
+    // Height at offset 22
     expect(buf.readInt32LE(22)).toBe(57)
+    // Bit depth at offset 28 — must be 24bpp (no alpha)
     expect(buf.readUInt16LE(28)).toBe(24)
   })
 })

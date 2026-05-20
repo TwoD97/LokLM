@@ -423,7 +423,7 @@ git commit -m "installer , add failing tier-1 exporter test + vitest project"
 import sharp from 'sharp'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -534,7 +534,7 @@ export async function exportAll() {
 }
 
 // CLI entry guard
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   exportAll().catch((err) => {
     console.error(err)
     process.exit(1)
