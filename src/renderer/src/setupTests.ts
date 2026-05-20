@@ -35,6 +35,7 @@ const stub: Api = {
     reset: () =>
       Promise.resolve({ ok: true as const, passphrase: Array(18).fill('test') as string[] }),
     onState: () => () => undefined,
+    onLoginProgress: () => () => undefined,
   },
   window: {
     minimize: () => Promise.resolve(),

@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
-import type { AuthStatus, LoginResult, RegisterResult, ResetResult } from '../shared/authTypes'
+import type {
+  AuthLoginProgressEvent,
+  AuthStatus,
+  LoginResult,
+  RegisterResult,
+  ResetResult,
+} from '../shared/authTypes'
 import type {
   Document,
   Workspace,
@@ -57,6 +63,18 @@ const api = {
       ipcRenderer.on('auth:state', listener)
       return () => {
         ipcRenderer.removeListener('auth:state', listener)
+      }
+    },
+    /**
+     * Subscribe to login progress events. The LoginView uses this to swap
+     * the spinner label between the argon2-KDF , body-decrypt , and PGlite-
+     * restore phases so a slow login no longer looks like a frozen UI.
+     */
+    onLoginProgress: (cb: (ev: AuthLoginProgressEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, ev: AuthLoginProgressEvent): void => cb(ev)
+      ipcRenderer.on('auth:login-progress', listener)
+      return () => {
+        ipcRenderer.removeListener('auth:login-progress', listener)
       }
     },
   },
