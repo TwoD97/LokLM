@@ -131,7 +131,12 @@ export class DocumentService {
         if (embedder.isReady()) {
           try {
             vectors = await embedder.embed(out.map((c) => c.text))
-          } catch {
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              '[documents] embedder failed during indexing, chunks will need backfill:',
+              err,
+            )
             vectors = null
           }
         }
