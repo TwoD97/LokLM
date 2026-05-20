@@ -23,6 +23,7 @@
     "test:cov": "vitest run --coverage",
     "test:unit": "vitest run --project node --project web",
     "test:installer": "vitest run --project installer",
+    "test:installer:e2e": "vitest run --project installer-e2e",
     "test:integration": "vitest run --project integration",
     "test:tx": "vitest run --project tx",
     "pretest:e2e": "pnpm build",

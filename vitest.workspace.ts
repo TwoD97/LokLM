@@ -72,4 +72,13 @@ export default defineWorkspace([
       testTimeout: 30_000,
     },
   },
+  {
+    resolve: { alias: aliases },
+    test: {
+      name: 'installer-e2e',
+      include: ['tests/installer/e2e.test.ts'],
+      environment: 'node',
+      testTimeout: 10 * 60 * 1000,
+    },
+  },
 ])
