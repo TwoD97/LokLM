@@ -24,52 +24,80 @@
   Var CreateDesktopShortcut
   Var CreateStartMenuShortcut
   Var EnableAutostart
-
-  ; Holds the EnumChildWindows callback pointer once initialized.
-  Var DarkenCallbackPtr
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
 ;  customInit — runs inside the installer's .onInit
+;  Only safe NSIS commands here; no System::Call experiments.
 ; ════════════════════════════════════════════════════════════════════════════
 !macro customInit
   StrCpy $CreateDesktopShortcut "1"
   StrCpy $CreateStartMenuShortcut "1"
   StrCpy $EnableAutostart "0"
-
-  ; Allocate the EnumChildWindows callback once. NSIS's System plugin builds a
-  ; native function pointer that wraps our DarkenChildProc NSIS function.
-  GetFunctionAddress $0 DarkenChildProc
-  System::Call "User32::EnumChildWindows(p, p, p) i"
-  System::Get '(p .R0, p .R1) i.r2'
-  Pop $DarkenCallbackPtr
 !macroend
 
 ; ════════════════════════════════════════════════════════════════════════════
+;  ApplyHeaderColors — dark the MUI header strip on the current page
+;
+;  MUI page header controls have well-known IDs:
+;    1037 = title label
+;    1038 = subtitle label
+;    1039 = background panel under header
+;    1256 = icon area background
+;  SetCtlColors on those gives us a dark header on every inner page.
+;  Page body (text fields, labels, buttons) keeps native Windows colors —
+;  trying to recolor every child control across all MUI pages requires
+;  EnumChildWindows + a callback proxy, which is fragile in NSIS. We accept
+;  the limit and lean on the dark header + branded bitmaps for "vibe".
+; ════════════════════════════════════════════════════════════════════════════
+!ifndef BUILD_UNINSTALLER
+  Function ApplyHeaderColors
+    ; Header background panel
+    GetDlgItem $0 $HWNDPARENT 1039
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+    ${EndIf}
+
+    ; Header title (top)
+    GetDlgItem $0 $HWNDPARENT 1037
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_0} ${LM_BG_1}
+    ${EndIf}
+
+    ; Header subtitle (smaller)
+    GetDlgItem $0 $HWNDPARENT 1038
+    ${If} $0 != 0
+      SetCtlColors $0 ${LM_FG_2} ${LM_BG_1}
+    ${EndIf}
+
+    ; Force a repaint of the header area
+    System::Call "User32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  FunctionEnd
+!endif
+
+; ════════════════════════════════════════════════════════════════════════════
 ;  Page 1 — Welcome (uses installerSidebar BMP automatically)
+;
+;  The welcome page has its own layout (no header strip) — the sidebar BMP
+;  fills the left panel automatically because we set
+;  MUI_WELCOMEFINISHPAGE_BITMAP via package.json installerSidebar config.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !define MUI_WELCOMEPAGE_TITLE "Willkommen zum LokLM Setup"
   !define MUI_WELCOMEPAGE_TEXT "Dieser Assistent installiert LokLM ${VERSION} auf Ihrem Computer.$\r$\n$\r$\nLokLM ist Ihr lokaler KI-Wissensassistent mit Quellenverifikation — keine Cloud, keine Telemetrie.$\r$\n$\r$\nKlicken Sie auf Weiter, um fortzufahren."
 
   !macro customWelcomePage
-    !define MUI_PAGE_CUSTOMFUNCTION_SHOW WelcomePageShow
     !insertmacro MUI_PAGE_WELCOME
   !macroend
-
-  Function WelcomePageShow
-    Call ApplyDarkTheme
-  FunctionEnd
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
 ;  Page 2 — License (reads from repo-root LICENSE)
 ;
-;  After MUI_PAGE_LICENSE auto-undefs MUI_PAGE_CUSTOMFUNCTION_SHOW, we
-;  re-define it pointing at DirectoryPageShow so the next page in e-b's
-;  template (MUI_PAGE_DIRECTORY) picks up our directory-page SHOW callback.
-;  Doing the define here (not top-level) avoids a "macro already defined"
-;  collision with customWelcomePage which runs earlier.
+;  After MUI_PAGE_LICENSE consumes MUI_PAGE_CUSTOMFUNCTION_SHOW (set inside
+;  the macro), we re-define it for the next page (MUI_PAGE_DIRECTORY).
+;  Doing the directory-page define HERE (not top-level) avoids a "macro
+;  already defined" collision with customWelcomePage which runs earlier.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro licensePage
@@ -79,27 +107,21 @@
   !macroend
 
   Function LicensePageShow
-    Call ApplyDarkTheme
+    Call ApplyHeaderColors
   FunctionEnd
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
-;  Page 3 — Install directory (stock MUI_PAGE_DIRECTORY, darkened via SHOW)
-;
-;  The MUI_PAGE_CUSTOMFUNCTION_SHOW define is set at the tail of licensePage
-;  (above) so it activates just before e-b inserts MUI_PAGE_DIRECTORY.
+;  Page 3 — Install directory (stock MUI_PAGE_DIRECTORY, header darkened)
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   Function DirectoryPageShow
-    Call ApplyDarkTheme
+    Call ApplyHeaderColors
   FunctionEnd
 !endif
 
 ; ════════════════════════════════════════════════════════════════════════════
 ;  Page 4 — Options (separate page after directory: shortcuts + autostart)
-;
-;  electron-builder inserts this whenever we define customPageAfterChangeDir.
-;  Building it ourselves gives full control over coordinates and theming.
 ; ════════════════════════════════════════════════════════════════════════════
 !ifndef BUILD_UNINSTALLER
   !macro customPageAfterChangeDir
@@ -107,9 +129,7 @@
   !macroend
 
   Function OptionsPageCreate
-    ; Set the MUI page header text directly (MUI_HEADER_TEXT macro isn't
-    ; available here because electron-builder includes us before MUI2.nsh).
-    ; Control IDs 1037/1038 are the MUI header title/subtitle labels.
+    ; Inline equivalent of MUI_HEADER_TEXT (MUI macro isn't available here).
     GetDlgItem $0 $HWNDPARENT 1037
     SendMessage $0 ${WM_SETTEXT} 0 "STR:Optionen"
     GetDlgItem $0 $HWNDPARENT 1038
@@ -121,7 +141,7 @@
       Abort
     ${EndIf}
 
-    ; Section header
+    ; Section header — Verknüpfungen
     ${NSD_CreateLabel} 0 0 100% 12u "Verknüpfungen"
     Pop $1
     SetCtlColors $1 ${LM_ACCENT} transparent
@@ -138,7 +158,7 @@
       ${NSD_Check} $OptStartMenuCheckbox
     ${EndIf}
 
-    ; Spacer + second section
+    ; Spacer + second section — Autostart
     ${NSD_CreateLabel} 0 56u 100% 12u "Beim Windows-Start"
     Pop $1
     SetCtlColors $1 ${LM_ACCENT} transparent
@@ -153,7 +173,7 @@
     Pop $1
     SetCtlColors $1 ${LM_FG_2} transparent
 
-    Call ApplyDarkTheme
+    Call ApplyHeaderColors
     nsDialogs::Show
   FunctionEnd
 
@@ -178,59 +198,6 @@
     ${Else}
       StrCpy $EnableAutostart "0"
     ${EndIf}
-  FunctionEnd
-!endif
-
-; ════════════════════════════════════════════════════════════════════════════
-;  Dark-theming helper: enumerates child windows of the current page dialog
-;  and applies LokLM colors based on each control's class.
-; ════════════════════════════════════════════════════════════════════════════
-!ifndef BUILD_UNINSTALLER
-  Function ApplyDarkTheme
-    ; Inner page dialog = first "#32770" child of $HWNDPARENT
-    FindWindow $0 "#32770" "" $HWNDPARENT
-    ${If} $0 == 0
-      Return
-    ${EndIf}
-
-    ; Repaint the dialog itself with our dark background.
-    SetCtlColors $0 ${LM_FG_0} ${LM_BG_0}
-
-    ; Walk every descendant and apply per-class colors.
-    System::Call "User32::EnumChildWindows(p r0, p $DarkenCallbackPtr, p 0)"
-
-    ; Force a repaint so the new colors take effect immediately.
-    System::Call "User32::InvalidateRect(p r0, p 0, i 1)"
-    System::Call "User32::UpdateWindow(p r0)"
-  FunctionEnd
-
-  Function DarkenChildProc
-    ; Stack: hwnd lParam   →   returns 1 to continue enumeration
-    Pop $0  ; lParam (unused)
-    Pop $1  ; hwnd
-
-    ; Get class name (max 32 chars; enough for "Button", "Edit", "Static", etc.)
-    System::Call "User32::GetClassNameW(p r1, w .r2, i 32) i"
-
-    ${If} $2 == "Static"
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_0}
-    ${ElseIf} $2 == "Button"
-      ; Native push-buttons can't be cleanly recolored (owner-drawn paint).
-      ; Checkboxes and radios still pick up colors though.
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_0}
-    ${ElseIf} $2 == "Edit"
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_2}
-    ${ElseIf} $2 == "RichEdit20W"
-      ; License text panel
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
-    ${ElseIf} $2 == "RICHEDIT50W"
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
-    ${ElseIf} $2 == "SysListView32"
-      SetCtlColors $1 ${LM_FG_0} ${LM_BG_1}
-    ${EndIf}
-
-    ; Continue enumeration
-    Push 1
   FunctionEnd
 !endif
 
