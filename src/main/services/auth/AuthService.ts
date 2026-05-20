@@ -329,6 +329,21 @@ export class AuthService {
     return { ok: true, passphrase: newPassphrase }
   }
 
+  /**
+   * Mutates the in-memory AuthHeader displayName and re-persists the vault.
+   * Throws on invalid input. No-op when locked.
+   */
+  async setDisplayName(name: string): Promise<void> {
+    const trimmed = name.trim()
+    if (trimmed.length === 0 || trimmed.length > 40) {
+      throw new Error('displayName must be 1–40 chars after trim')
+    }
+    if (!this.isUnlocked()) return
+    if (!this.cache) throw new Error('vault header not loaded')
+    this.cache.displayName = trimmed
+    await this.persistSnapshot()
+  }
+
   // -------------------------------------------------------------------------
   // session helpers used by the IPC layer
   // -------------------------------------------------------------------------
