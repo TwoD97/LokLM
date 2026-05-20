@@ -7,83 +7,32 @@ import {
   type Placement,
 } from './ResourcePlanner'
 import { getModelSearchDirs, resolveModelFile } from '../models/paths'
-import { ModelLoadLock } from '../concurrency/ModelLoadLock'
+import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
-/**
- * Preferred filename — what we ship in the bundled installer if available.
- * Auto-discovery (see resolveEmbedderPath) falls back to any other file in
- * `models/` matching *embed*.gguf, so users can drop in alternative embedders
- * (arctic-embed-l, multilingual-e5-large, etc.) without code changes.
- */
 export const BUNDLED_EMBEDDER_FILE = 'bge-m3-Q4_K_M.gguf'
 export const EMBEDDING_DIM = 1024
 
-/**
- * Files in `models/` that are *not* embedders — excluded from auto-discovery
- * so we don't accidentally pick the LLM as the embedder.
- */
 const NON_EMBEDDER_PATTERNS = [/qwen/i, /llama/i, /mistral/i, /phi/i, /gemma/i, /reranker/i]
 
-// EmbedderState / EmbedderStatus / EmbedderInfo are the canonical shapes that
-// also travel over IPC to the renderer. Single source of truth lives in
-// src/shared/documents.ts so renderer + preload + service all agree.
 import type { EmbedderState, EmbedderStatus, EmbedderInfo } from '../../../shared/documents'
 export type { EmbedderState, EmbedderStatus, EmbedderInfo }
 
-/**
- * BGE-M3 uses no prefix for either retrieval queries or passages (unlike
- * arctic-embed which wanted `query: ` on the query side). Keep these
- * constants colocated so the convention is obvious if we swap models —
- * e.g. arctic needs `QUERY_PREFIX = 'query: '`, e5 needs `'query: '` /
- * `'passage: '`.
- */
 const QUERY_PREFIX = ''
 const PASSAGE_PREFIX = ''
-
-/**
- * Hard upper bound for tokens fed to the embedder per call. BGE-M3
- * supports 8192. The chunker emits ≤2000 chars (~500 tokens) for normal
- * paragraph text, but a single dense chunk in a Wochenbuch / table / code
- * block can tokenise to 1500+. 2048 tokens with the SANITIZE_MAX_CHARS cap
- * below means we never feed more than ~75% of the window — leaves room for
- * tokeniser surprises (umlauts, emoji, weird PDF residue) without silently
- * truncating useful text.
- */
 const EMBED_CONTEXT_SIZE = 2048
-
-/**
- * Truncation cap on input before tokenising. Conservative ratio: ~3 chars
- * per token for German + fat chunks, so 6 000 chars ≈ 2 000 tokens — sits
- * under the 2 048-token context with a safety margin. The original 8 000
- * regularly overflowed dense chunks ("Embedder returned no usable vectors"
- * during backfill).
- */
 const SANITIZE_MAX_CHARS = 6000
 
 export function bundledEmbedderPath(): string {
-  // Returns the *primary* on-disk location of the canonical embedder file.
-  // Used by status reporting; the real load path goes through
-  // `resolveEmbedderPath()` which walks all search dirs.
   return join(getModelSearchDirs()[0]!, BUNDLED_EMBEDDER_FILE)
 }
 
-/**
- * Pick the embedder GGUF to load. Order of preference:
- *   1. $LOKLM_EMBEDDER_PATH if set (absolute override for power users)
- *   2. The canonical filename (BUNDLED_EMBEDDER_FILE) in any search dir
- *   3. Any other *embed*.gguf in any search dir (excluding obvious LLMs)
- * Returns null if nothing usable is on disk.
- */
 export function resolveEmbedderPath(): string | null {
-  const override = process.env.LOKLM_EMBEDDER_PATH
+  const override = process.env['LOKLM_EMBEDDER_PATH']
   if (override && existsSync(override)) return override
 
   const canonical = resolveModelFile(BUNDLED_EMBEDDER_FILE)
   if (canonical) return canonical
 
-  // Fallback: any *embed*.gguf that isn't obviously an LLM. Walk each search
-  // dir explicitly so a blocked match in dir 1 doesn't prevent dir 2 from
-  // contributing a valid candidate.
   for (const dir of getModelSearchDirs()) {
     if (!existsSync(dir)) continue
     let entries: string[] = []
@@ -103,8 +52,6 @@ export function resolveEmbedderPath(): string | null {
 }
 
 export class EmbeddingService {
-  private model: unknown = null
-  private context: unknown = null
   private status: EmbedderStatus = {
     kind: 'embedder',
     state: 'idle',
@@ -115,22 +62,20 @@ export class EmbeddingService {
   }
   private listeners: Array<(s: EmbedderStatus) => void> = []
   private loadPromise: Promise<void> | null = null
-  // Default to CPU: BGE-M3 Q4 (~280 MB) runs comfortably on CPU and
-  // returns query embeddings in well under a second, so keeping it off
-  // the GPU leaves all VRAM for the LLM (which is what actually benefits
-  // from acceleration). 'gpu' / 'auto' remain available via setPlacement
-  // for users who explicitly want to flip it.
   private placement: PlacementChoice = 'cpu'
-  /** Resolved placement of the most recent load. Surfaced for the UI. */
   private lastResolvedPlacement: Placement | null = null
-  /** Reason string from the last planner decision — surfaced in status. */
   private lastReason: string | null = null
   private planner: ResourcePlanner
-  private lock: ModelLoadLock
+  private client: ModelsWorkerClient | null
 
-  constructor(opts: { planner?: ResourcePlanner; lock?: ModelLoadLock } = {}) {
+  constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
-    this.lock = opts.lock ?? new ModelLoadLock()
+    this.client = opts.client ?? null
+    if (this.client) {
+      this.client.setStatusListener('embedder', (patch) => {
+        this.setStatus(patch as Partial<EmbedderStatus>)
+      })
+    }
   }
 
   setPlacement(p: PlacementChoice): void {
@@ -144,8 +89,6 @@ export class EmbeddingService {
   resolvedPlacement(): Placement | null {
     return this.lastResolvedPlacement
   }
-
-  // ---- status / introspection ----
 
   subscribe(cb: (s: EmbedderStatus) => void): () => void {
     this.listeners.push(cb)
@@ -182,22 +125,13 @@ export class EmbeddingService {
   }
 
   isReady(): boolean {
-    return this.status.state === 'ready' && this.context !== null
+    return this.status.state === 'ready'
   }
 
   isAvailable(): boolean {
-    // True iff a model file exists or is already loaded — false here means
-    // callers should silently fall back to BM25-only paths.
     return resolveEmbedderPath() !== null || this.isReady()
   }
 
-  // ---- lifecycle ----
-
-  /**
-   * Lazy load: idempotent, dedupes concurrent callers via loadPromise.
-   * Returns true if ready after the call, false if model file missing or
-   * load failed (caller should fall back to BM25-only).
-   */
   async ensureReady(): Promise<boolean> {
     if (this.isReady()) return true
     if (this.loadPromise) {
@@ -231,100 +165,45 @@ export class EmbeddingService {
   }
 
   async loadModel(modelPath: string): Promise<void> {
-    await this.unload()
-    this.setStatus({
-      state: 'loading',
-      modelPath,
-      modelName: modelPath.split(/[\\/]/).pop() ?? BUNDLED_EMBEDDER_FILE,
-      loadProgress: 0,
-      message: 'Waiting for load slot…',
-    })
-
-    // Cross-service serialisation: never run the embedder's native init at the
-    // same time as the LLM's or the reranker's. Reduces VRAM thrash on tight
-    // machines and keeps load progress messages legible.
-    const release = await this.lock.acquire('embedder')
-    try {
-      this.setStatus({ message: 'Initialising embedder backend…' })
-      // Decide CPU vs GPU before initing the backend. 'auto' consults the
-      // planner against current free VRAM (which already accounts for the
-      // LLM if it loaded first); 'cpu' / 'gpu' short-circuit.
-      const resources = await this.planner.refresh()
-      const weightsBytes = ggufWeightBytes(modelPath)
-      const plan = this.planner.planAux({
-        weightsBytes,
-        resources,
-        userChoice: this.placement,
-        // freeVramGB already reflects whatever the LLM consumed earlier
-        // because node-llama-cpp's getVramState reads the live driver.
-        estimatedFreeVramGB: resources.freeVramGB,
-      })
-      this.lastResolvedPlacement = plan.placement
-      this.lastReason = plan.reason
-
-      const lib = await import('node-llama-cpp')
-      const llama = await initLlamaForEmbedding(
-        lib,
-        (msg) => this.setStatus({ message: msg }),
-        plan.placement === 'cpu',
+    if (!this.client) {
+      throw new Error(
+        'EmbeddingService.loadModel requires a ModelsWorkerClient (in-process loads are gone).',
       )
-      this.setStatus({ message: `Loading embedder weights (${plan.placement}: ${plan.reason})…` })
-
-      const model = await llama.loadModel({
+    }
+    try {
+      const result = await this.client.embedderLoad({
         modelPath,
-        onLoadProgress: (p: number) => this.setStatus({ loadProgress: p }),
+        placement: this.placement,
+        weightsBytes: ggufWeightBytes(modelPath),
+        contextSize: EMBED_CONTEXT_SIZE,
       })
-      this.setStatus({ message: 'Creating embedding context…', loadProgress: 1 })
-      const context = await (
-        model as {
-          createEmbeddingContext: (opts?: { contextSize?: number }) => Promise<unknown>
-        }
-      ).createEmbeddingContext({ contextSize: EMBED_CONTEXT_SIZE })
-
-      void llama
-      this.model = model
-      this.context = context
-      this.setStatus({
-        state: 'ready',
-        loadProgress: null,
-        message: 'Embedder ready.',
-      })
+      this.lastResolvedPlacement = result.resolvedPlacement
+      this.lastReason = result.reason
+      void result.resources
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      await this.unload()
-      this.setStatus({
-        state: 'failed',
-        loadProgress: null,
-        message: msg,
-      })
+      this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
-    } finally {
-      release()
     }
   }
 
   async unload(): Promise<void> {
-    try {
-      if (this.context && hasDispose(this.context)) await this.context.dispose()
-      if (this.model && hasDispose(this.model)) await this.model.dispose()
-    } catch {
-      /* ignore */
-    }
-    this.context = null
-    this.model = null
-    if (this.status.state === 'ready') {
-      this.setStatus({ state: 'unloaded', message: 'Embedder unloaded.' })
+    if (this.client) {
+      try {
+        await this.client.embedderUnload()
+      } catch {
+        /* worker status push reflects reality */
+      }
     }
   }
-
-  // ---- embedding ----
 
   async embedQuery(text: string): Promise<number[] | null> {
     if (!(await this.ensureReady())) return null
     const cleaned = sanitize(text)
     if (cleaned.length === 0) return null
     try {
-      return await this.embedRaw(QUERY_PREFIX + cleaned)
+      const vecs = await this.client!.embedderEmbed([QUERY_PREFIX + cleaned])
+      return vecs[0] ?? null
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[embedder] embedQuery failed:', err)
@@ -335,91 +214,22 @@ export class EmbeddingService {
   async embedPassages(texts: string[]): Promise<Array<number[] | null>> {
     if (texts.length === 0) return []
     if (!(await this.ensureReady())) return texts.map(() => null)
-    const out: Array<number[] | null> = []
-    for (let i = 0; i < texts.length; i++) {
-      const raw = texts[i]!
+    const prepared = texts.map((raw) => {
       const cleaned = sanitize(raw)
-      // Empty-after-sanitize means the chunk was pure whitespace (PDF page
-      // break, table residue). Don't waste a forward pass — the embedder
-      // either rejects empty input or returns a zero vector either way.
-      if (cleaned.length === 0) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[embedder] skipped passage #${i}: empty after sanitize (${raw.length} raw chars)`,
-        )
-        out.push(null)
-        continue
-      }
-      try {
-        out.push(await this.embedRaw(PASSAGE_PREFIX + cleaned))
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        // eslint-disable-next-line no-console
-        console.warn(`[embedder] failed passage #${i} (${cleaned.length} chars): ${msg}`)
-        out.push(null)
-      }
+      return cleaned.length === 0 ? '' : PASSAGE_PREFIX + cleaned
+    })
+    try {
+      return await this.client!.embedderEmbed(prepared)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[embedder] embedPassages failed:', err)
+      return texts.map(() => null)
     }
-    return out
-  }
-
-  private async embedRaw(text: string): Promise<number[]> {
-    const ctx = this.context as {
-      getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
-    }
-    const result = await ctx.getEmbeddingFor(text)
-    const v = result.vector
-    return Array.from(v)
   }
 }
 
 // ---------------------------------------------------------------------------
 
 function sanitize(text: string): string {
-  // node-llama-cpp tokenizes raw text; just collapse whitespace and trim.
-  // Keep this cheap — heavy normalization belongs in the chunker.
-  // SANITIZE_MAX_CHARS sits under EMBED_CONTEXT_SIZE in tokens with
-  // headroom; see the comment on those constants for the math.
   return text.replace(/\s+/g, ' ').trim().slice(0, SANITIZE_MAX_CHARS)
-}
-
-function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
-  return (
-    typeof o === 'object' &&
-    o !== null &&
-    typeof (o as { dispose?: unknown }).dispose === 'function'
-  )
-}
-
-/**
- * Same backend selection as LlamaService — embedder runs on the same llama
- * binary, so accept the same env override. `forceCpu` (driven by the user
- * setting) overrides the default `auto` so the embedder leaves the GPU to
- * the LLM. An explicit LLAMA_GPU=cuda|vulkan|metal still wins over the
- * setting — power-user override beats UI toggle.
- */
-async function initLlamaForEmbedding(
-  lib: typeof import('node-llama-cpp'),
-  onMessage: (msg: string) => void,
-  forceCpu: boolean,
-): Promise<Awaited<ReturnType<typeof import('node-llama-cpp').getLlama>>> {
-  const pinned = (process.env.LLAMA_GPU ?? '').toLowerCase()
-  type Gpu = 'cuda' | 'vulkan' | 'metal' | 'auto' | false
-  const order: Gpu[] = (() => {
-    if (pinned === 'cpu' || pinned === 'false') return [false]
-    if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
-    if (forceCpu) return [false]
-    return ['auto']
-  })()
-
-  let lastErr: unknown = null
-  for (const gpu of order) {
-    try {
-      onMessage(`Initialising embedder backend (${gpu === false ? 'cpu' : gpu})…`)
-      return await lib.getLlama({ gpu })
-    } catch (err) {
-      lastErr = err
-      console.warn(`[embedder] ${gpu} init failed, trying next:`, err)
-    }
-  }
-  throw lastErr ?? new Error('No embedder backend could be initialised')
 }

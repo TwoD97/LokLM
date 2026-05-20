@@ -22,10 +22,41 @@
 
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { app } from 'electron'
+import { createRequire } from 'node:module'
+
+/**
+ * Lazy-load electron's `app` via CJS require — the ESM named-import
+ *   `import { app } from 'electron'`
+ * crashes at module-load when run outside the electron runtime (e.g. raw
+ * `tsx tests/evals/sweep.ts`, vitest in some configurations, or any plain
+ * node script importing this file transitively). CJS require on the same
+ * package returns the executable-path string instead of throwing — so we
+ * can detect the non-electron context and fall back to dev behavior.
+ *
+ * Cached after first call; the electron `app` object is a process-wide
+ * singleton anyway so caching is safe.
+ */
+type ElectronApp = {
+  isPackaged: boolean
+  getPath: (name: string) => string
+}
+
+let cachedApp: ElectronApp | null | undefined = undefined
+function getAppOrNull(): ElectronApp | null {
+  if (cachedApp !== undefined) return cachedApp
+  try {
+    const localRequire = createRequire(import.meta.url)
+    const mod = localRequire('electron') as { app?: ElectronApp }
+    cachedApp = mod && typeof mod === 'object' && mod.app ? mod.app : null
+  } catch {
+    cachedApp = null
+  }
+  return cachedApp
+}
 
 /** Where the first-launch downloader writes. Always writable; safe to mkdir. */
 export function getDownloadTargetDir(): string {
+  const app = getAppOrNull()
   if (!app || typeof app.isPackaged !== 'boolean') {
     // Vitest / scripts without an electron app — match the dev behavior so
     // tooling that imports this module from a node context still works.
@@ -41,6 +72,7 @@ export function getDownloadTargetDir(): string {
  * userData directory may not exist yet on first launch.
  */
 export function getModelSearchDirs(): string[] {
+  const app = getAppOrNull()
   if (!app || typeof app.isPackaged !== 'boolean') {
     return [join(process.cwd(), 'models')]
   }

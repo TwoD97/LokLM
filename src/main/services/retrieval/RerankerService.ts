@@ -7,30 +7,14 @@ import {
   type PlacementChoice,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, resolveModelFile } from '../models/paths'
-import { ModelLoadLock } from '../concurrency/ModelLoadLock'
+import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
-/**
- * Cross-encoder reranker on top of BM25 + dense retrieval. Pipeline:
- *   1. RetrievalService gathers top-K with RRF fusion (cheap)
- *   2. RerankerService scores each (query, chunk) pair (expensive but sharp)
- *   3. Caller takes the top-N reranked hits
- *
- * Lifecycle mirrors EmbeddingService — lazy-load on first use, idempotent
- * `ensureReady`, optional (degrades silently to "no rerank" if the model
- * file is missing). Same pattern keeps the surfacing in ModelStatusBanner
- * uniform.
- */
 export const BUNDLED_RERANKER_FILE = 'bge-reranker-v2-m3-Q4_K_M.gguf'
 
 const NON_RERANKER_PATTERNS = [/qwen/i, /llama/i, /mistral/i, /phi/i, /gemma/i, /embed/i]
 
-// RerankerState / RerankerStatus / RerankerInfo are the canonical shapes that
-// also travel over IPC to the renderer. Single source of truth lives in
-// src/shared/documents.ts so renderer + preload + service all agree.
 import type { RerankerState, RerankerStatus, RerankerInfo } from '../../../shared/documents'
 export type { RerankerState, RerankerStatus, RerankerInfo }
-// Placement / PlacementChoice are kept locally re-exported from ResourcePlanner
-// — they're not renderer-visible so no need to push to shared.
 export type { Placement, PlacementChoice }
 
 const RERANK_CONTEXT_SIZE = 1024
@@ -39,17 +23,13 @@ export function bundledRerankerPath(): string {
   return join(getModelSearchDirs()[0]!, BUNDLED_RERANKER_FILE)
 }
 
-/** Resolve a reranker GGUF on disk. Returns null when none is present. */
 export function resolveRerankerPath(): string | null {
-  const override = process.env.LOKLM_RERANKER_PATH
+  const override = process.env['LOKLM_RERANKER_PATH']
   if (override && existsSync(override)) return override
 
   const canonical = resolveModelFile(BUNDLED_RERANKER_FILE)
   if (canonical) return canonical
 
-  // Fallback: any *reranker*.gguf that isn't obviously an LLM/embedder. Walk
-  // each search dir explicitly so a bad match in one dir doesn't block a
-  // valid one in the next.
   for (const dir of getModelSearchDirs()) {
     if (!existsSync(dir)) continue
     let entries: string[] = []
@@ -69,8 +49,6 @@ export function resolveRerankerPath(): string | null {
 }
 
 export class RerankerService {
-  private model: unknown = null
-  private context: unknown = null
   private status: RerankerStatus = {
     kind: 'reranker',
     state: 'idle',
@@ -85,11 +63,16 @@ export class RerankerService {
   private lastResolvedPlacement: Placement | null = null
   private lastReason: string | null = null
   private planner: ResourcePlanner
-  private lock: ModelLoadLock
+  private client: ModelsWorkerClient | null
 
-  constructor(opts: { planner?: ResourcePlanner; lock?: ModelLoadLock } = {}) {
+  constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
-    this.lock = opts.lock ?? new ModelLoadLock()
+    this.client = opts.client ?? null
+    if (this.client) {
+      this.client.setStatusListener('reranker', (patch) => {
+        this.setStatus(patch as Partial<RerankerStatus>)
+      })
+    }
   }
 
   setPlacement(p: PlacementChoice): void {
@@ -139,7 +122,7 @@ export class RerankerService {
   }
 
   isReady(): boolean {
-    return this.status.state === 'ready' && this.context !== null
+    return this.status.state === 'ready'
   }
 
   isAvailable(): boolean {
@@ -180,131 +163,47 @@ export class RerankerService {
   }
 
   async loadModel(modelPath: string): Promise<void> {
-    await this.unload()
-    this.setStatus({
-      state: 'loading',
-      modelPath,
-      modelName: modelPath.split(/[\\/]/).pop() ?? BUNDLED_RERANKER_FILE,
-      loadProgress: 0,
-      message: 'Waiting for load slot…',
-    })
-    // Serialise heavy native init across LLM / embedder / reranker.
-    const release = await this.lock.acquire('reranker')
-    try {
-      this.setStatus({ message: 'Initialising reranker backend…' })
-      const resources = await this.planner.refresh()
-      const weightsBytes = ggufWeightBytes(modelPath)
-      const plan = this.planner.planAux({
-        weightsBytes,
-        resources,
-        userChoice: this.placement,
-        estimatedFreeVramGB: resources.freeVramGB,
-      })
-      this.lastResolvedPlacement = plan.placement
-      this.lastReason = plan.reason
-
-      const lib = await import('node-llama-cpp')
-      const llama = await initLlamaForReranking(
-        lib,
-        (msg) => this.setStatus({ message: msg }),
-        plan.placement === 'cpu',
+    if (!this.client) {
+      throw new Error(
+        'RerankerService.loadModel requires a ModelsWorkerClient (in-process loads are gone).',
       )
-      this.setStatus({
-        message: `Loading reranker weights (${plan.placement}: ${plan.reason})…`,
-      })
-      const model = await llama.loadModel({
+    }
+    try {
+      const result = await this.client.rerankerLoad({
         modelPath,
-        onLoadProgress: (p: number) => this.setStatus({ loadProgress: p }),
+        placement: this.placement,
+        weightsBytes: ggufWeightBytes(modelPath),
+        contextSize: RERANK_CONTEXT_SIZE,
       })
-      this.setStatus({ message: 'Creating ranking context…', loadProgress: 1 })
-      const context = await (
-        model as {
-          createRankingContext: (opts?: { contextSize?: number }) => Promise<unknown>
-        }
-      ).createRankingContext({ contextSize: RERANK_CONTEXT_SIZE })
-      this.model = model
-      this.context = context
-      this.setStatus({ state: 'ready', loadProgress: null, message: 'Reranker ready.' })
+      this.lastResolvedPlacement = result.resolvedPlacement
+      this.lastReason = result.reason
+      void result.resources
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      await this.unload()
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
-    } finally {
-      release()
     }
   }
 
   async unload(): Promise<void> {
-    try {
-      if (this.context && hasDispose(this.context)) await this.context.dispose()
-      if (this.model && hasDispose(this.model)) await this.model.dispose()
-    } catch {
-      /* ignore */
-    }
-    this.context = null
-    this.model = null
-    if (this.status.state === 'ready') {
-      this.setStatus({ state: 'unloaded', message: 'Reranker unloaded.' })
+    if (this.client) {
+      try {
+        await this.client.rerankerUnload()
+      } catch {
+        /* worker status push reflects reality */
+      }
     }
   }
 
-  /**
-   * Score N (query, document) pairs in one pass. Returns a parallel array of
-   * scores in [0,1]; on failure (or when the reranker is unavailable) returns
-   * null so the caller can fall back to the original RRF order without a
-   * second code path.
-   */
   async rank(query: string, documents: string[]): Promise<number[] | null> {
     if (documents.length === 0) return []
     if (!(await this.ensureReady())) return null
     try {
-      const ctx = this.context as {
-        rankAll: (q: string, docs: string[]) => Promise<number[]>
-      }
-      const scores = await ctx.rankAll(query, documents)
-      return Array.from(scores)
+      return await this.client!.rerankerRank(query, documents)
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn('[reranker] rank failed, falling back to RRF order:', err)
+      console.warn('[reranker] rank failed:', err)
       return null
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-
-function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
-  return (
-    typeof o === 'object' &&
-    o !== null &&
-    typeof (o as { dispose?: unknown }).dispose === 'function'
-  )
-}
-
-async function initLlamaForReranking(
-  lib: typeof import('node-llama-cpp'),
-  onMessage: (msg: string) => void,
-  forceCpu: boolean,
-): Promise<Awaited<ReturnType<typeof import('node-llama-cpp').getLlama>>> {
-  const pinned = (process.env.LLAMA_GPU ?? '').toLowerCase()
-  type Gpu = 'cuda' | 'vulkan' | 'metal' | 'auto' | false
-  const order: Gpu[] = (() => {
-    if (pinned === 'cpu' || pinned === 'false') return [false]
-    if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
-    if (forceCpu) return [false]
-    return ['auto']
-  })()
-  let lastErr: unknown = null
-  for (const gpu of order) {
-    try {
-      onMessage(`Initialising reranker backend (${gpu === false ? 'cpu' : gpu})…`)
-      return await lib.getLlama({ gpu })
-    } catch (err) {
-      lastErr = err
-      // eslint-disable-next-line no-console
-      console.warn(`[reranker] ${gpu} init failed, trying next:`, err)
-    }
-  }
-  throw lastErr ?? new Error('No backend could be initialised for the reranker')
 }

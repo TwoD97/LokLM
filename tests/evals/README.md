@@ -102,14 +102,118 @@ Welcher Provider greift, steuert eine env oder ein CLI-Flag — siehe
 
 ## Scripts
 
-| Befehl                                                  | Was er tut                                            |
-| ------------------------------------------------------- | ----------------------------------------------------- |
-| `pnpm evals:generate`                                   | Sample-docs → synthetisches dataset.json. Idempotent. |
-| `pnpm evals:run`                                        | Alle aktivierten Configs gegen das aktuelle dataset.  |
-| `pnpm evals:run -- --config bge`                        | Nur eine bestimmte Config.                            |
-| `pnpm evals:run -- --library data/libraries/small.json` | Eval mit einer geladenen Distractor-Library.          |
-| `pnpm evals:build-library -- --size tiny`               | Distractor-Library bauen , siehe `scale/README.md`.   |
-| `pnpm evals:scale`                                      | Scaling-Report über alle vorhandenen Library-Stufen.  |
+| Befehl                                                  | Was er tut                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| `pnpm evals:generate`                                   | Sample-docs → synthetisches dataset.json. Idempotent.      |
+| `pnpm evals:run`                                        | Retrieval-only run mit `defaultConfigs()` (fake-stubs).    |
+| `pnpm evals:run -- --config bge`                        | Nur eine bestimmte Config.                                 |
+| `pnpm evals:run -- --library data/libraries/small.json` | Eval mit einer geladenen Distractor-Library.               |
+| `pnpm evals:sweep`                                      | Sweep-Run mit echten Bridges + TTFT + Resource-Samples.    |
+| `pnpm evals:sweep -- --no-llm`                          | Sweep ohne LLM-load (retrieval-quality only).              |
+| `pnpm evals:sweep -- --limit 10`                        | Schneller smoke-run mit nur 10 Fragen pro Config.          |
+| `pnpm evals:sweep -- --iterations 12`                   | Grid-search , läuft die ersten N punkte aus gridConfigs(). |
+| `pnpm evals:sweep -- --iterations 12 --judge`           | Grid-search + LLM-as-judge scoring (XL-profil lokal).      |
+| `pnpm evals:build-library -- --size tiny`               | Distractor-Library bauen , siehe `scale/README.md`.        |
+| `pnpm evals:scale`                                      | Scaling-Report über alle vorhandenen Library-Stufen.       |
+
+## Sweep , Fine-Tuning-Workflow
+
+Der `evals:sweep`-runner ist für RAG-Fine-Tuning gebaut. Anders als
+`evals:run` (das nur Retrieval-Quality misst) zerlegt sweep den TTFT in
+sechs Phasen und sammelt nebenher Resource-Time-Series (RSS / VRAM / CPU).
+
+### Output-Layout
+
+Pro Sweep-Run entsteht ein versioniertes Folder unter `report/runs/`:
+
+```
+report/runs/<stamp>_<git-sha>[_dirty]/
+  env.json                        # CPU / RAM / OS / git / env vars
+  dataset.json                    # path + sha256-hash des verwendeten datasets
+  summary.md                      # vergleichstabelle aller configs
+  summary.json                    # maschinen-lesbare variante
+  configs/<config-name>/
+    result.json                   # aggregierte stats (recall, MRR, phased TTFT)
+    per-question.jsonl            # eine zeile pro frage , phasen + LLM-output
+    resource-samples.jsonl        # rss / vram / cpu / heap , alle 250ms
+```
+
+Folders werden nie überschrieben. Der git-sha + dirty-flag im namen
+verhindert dass ein dirty-run heimlich als clean-baseline gilt.
+
+### TTFT-Phasen
+
+Die 6 Phasen die der `PhasedTimer` (perf.ts) misst:
+
+| Phase            | Was es ist                                                       | Wo's wirklich weh tut  |
+| ---------------- | ---------------------------------------------------------------- | ---------------------- |
+| `queryEmbed`     | Embedder forward pass auf der frage                              | CPU embedder ~50-100ms |
+| `retrieve`       | BM25 + dense cosine + sort + slice                               | trivial , <5ms         |
+| `rerank`         | Cross-encoder über top-K kandidaten , 0 wenn `topKToRerank=0`    | CPU 0.5-2s pro pass    |
+| `promptAssemble` | `evalChunksToHits` + LLM-side `buildPrompt`                      | trivial                |
+| `prefill`        | LLM-side prompt-processing bis erstes onChunk (= TTFT-dominante) | **CPU killer**         |
+| `firstDecode`    | reserviert , aktuell 0 (s. LlmBridge.ts kommentar)               | —                      |
+
+`ttftMs = sum(queryEmbed, retrieve, rerank, promptAssemble, prefill, firstDecode)`.
+`fullResponseMs` ist die wandzeit bis `ask()` resolved.
+
+### Configs editieren
+
+`pipeline/configs.ts` enthält drei config-quellen:
+
+- `defaultConfigs()` → fake-stubs , kein LLM-load , für quick CI-tauglichen smoke.
+- `sweepConfigs()` → echte Bridges (Embedder/Reranker/LLM) , das ist die
+  liste die `pnpm evals:sweep` standardmäßig läuft.
+- `gridConfigs()` → cartesian product über (rerank-topK × chunks-to-LLM × …).
+  `pnpm evals:sweep --iterations N` schneidet die ersten N punkte ab.
+
+Hinzufügen einer config: einfach unten anhängen. Für ganze achsen-vergleiche
+gibt's den `cartesian()`-helper unten in der datei. Wichtig: bridges sind
+teuer zu laden (LLM ~10-60s) , daher dieselbe `LlmBridge`-instanz über
+mehrere configs hinweg wiederverwenden — der sweep-runner dedupliziert
+warm()-calls über instanz-identität.
+
+### Grid-search + LLM-as-judge , Iterations-Workflow
+
+`gridConfigs()` definiert ein cartesian product über die billigen-zu-ändernden
+achsen (rerank-topK , chunks-to-LLM , optional chunk-size). Teure achsen
+(LLM-profil , embedder-placement) liegen außerhalb der grid-schleife — die
+sollen über separate sweep-runs verglichen werden , sonst frisst load-time
+die laufzeit.
+
+Mit `--judge` lädt der runner zusätzlich ein XL-profil-modell (Nemotron 3
+Nano 30B-A3B per default LLM_PROFILES) als bewerter und scored jede
+generierte antwort entlang dreier achsen:
+
+- **correctness** , vs. ground-truth chunk
+- **groundedness** , basiert die antwort auf den gelieferten chunks
+- **helpfulness** , verständlich + direkt + nicht zu lang
+
+Der mittelwert (0..1) fließt in den composite-score:
+
+```
+composite = 2 × judge.score + 1 × recall@5 − 0.5 × (TTFT_p50_ms / 1000)
+```
+
+Höher = besser. `ranking.md` im run-dir sortiert configs danach , kürzeste
+TTFT bei akzeptabler quality gewinnt also bei standard-gewichten. Gewichte
+sind in [judge/Judge.ts](./judge/Judge.ts) (`compositeScore`) überschreibbar.
+
+Praktischer workflow:
+
+```bash
+# baseline mit allen 12 grid-punkten + judge
+pnpm evals:sweep -- --iterations 12 --judge --limit 30
+
+# winner identifizieren: ranking.md anschauen , top-3 namen merken
+# fokus-sweep auf die nähe des winners (manuell configs.ts anpassen)
+pnpm evals:sweep -- --configs sweep --judge
+```
+
+**Achtung CPU-only**: XL-judge auf CPU ist langsam (~5-30s pro frage). Bei
+100 fragen × 12 grid-punkten = ~3-12 stunden judge-zeit. Für quick-iterationen
+mit `--limit 10` runter , oder ohne `--judge` laufen lassen und composite-
+score fällt auf recall+TTFT zurück.
 
 ## Status
 

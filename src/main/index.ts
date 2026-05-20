@@ -13,8 +13,8 @@ import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
-import { ModelLoadLock } from './services/concurrency/ModelLoadLock'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
+import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -38,6 +38,10 @@ function getAuth(): AuthService {
       resetSessionServices()
       broadcastAuthState()
     })
+    // Pause the inactivity auto-lock while a model download is in flight —
+    // multi-GB GGUFs take longer than the 15 min idle window and the user
+    // sitting at the download view would otherwise get locked mid-transfer.
+    authService.setInactivityGuard(() => getModelDownloader().hasAnyActive())
   }
   return authService
 }
@@ -78,12 +82,13 @@ let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let modelDownloader: ModelDownloader | null = null
 
-// Shared infrastructure for the three model services: one VRAM probe powers
-// every placement decision , one mutex ensures the heavy GGUF load operations
-// never run in parallel (no two backends initialising at once , no thrashing
-// fight for VRAM on a tight machine).
+// Shared infrastructure for the three model services. The planner stays on
+// main for its cheap pure helpers ; the worker owns its own planner instance
+// for the live VRAM probe (which used to block main during getLlama init).
+// Load serialisation moved into the worker too , a FIFO mutex there guards
+// the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
-const sharedLoadLock = new ModelLoadLock()
+const modelsWorker = new ModelsWorkerClient()
 // Post-login warmup runs on a small delay so the renderer can mount the main
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
@@ -121,7 +126,7 @@ function getWorkspaceService(): WorkspaceService {
 
 function getEmbeddingService(): EmbeddingService {
   if (!embeddingService) {
-    embeddingService = new EmbeddingService({ planner: sharedPlanner, lock: sharedLoadLock })
+    embeddingService = new EmbeddingService({ planner: sharedPlanner, client: modelsWorker })
     embeddingService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -147,7 +152,7 @@ function getBackfillService(): EmbeddingBackfillService {
 
 function getLlamaService(): LlamaService {
   if (!llamaService) {
-    llamaService = new LlamaService({ planner: sharedPlanner, lock: sharedLoadLock })
+    llamaService = new LlamaService({ planner: sharedPlanner, client: modelsWorker })
     llamaService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -170,7 +175,7 @@ function getQAService(): QAService {
 
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
-    rerankerService = new RerankerService({ planner: sharedPlanner, lock: sharedLoadLock })
+    rerankerService = new RerankerService({ planner: sharedPlanner, client: modelsWorker })
     rerankerService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -557,14 +562,19 @@ function registerIpc(): void {
           }
         }
 
-        // Persist the assistant turn. Refusal short-circuits to an empty
-        // citations list with the refusal text as the assistant's content —
-        // resume of the conversation later sees an intact timeline.
-        if (conversations && opts.conversationId != null && !ctrl.signal.aborted) {
+        // Persist the assistant turn. Even on cancel (user clicked stop, or
+        // the renderer disconnected mid-stream) we still write whatever tokens
+        // we got — losing the partial answer is worse than persisting a
+        // truncated one. Refusal short-circuits to a fixed message.
+        if (conversations && opts.conversationId != null) {
           if (refused && refusalMessage != null) {
             await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
           } else if (tokenBuffer.length > 0) {
-            const assistantContent = tokenBuffer.join('')
+            const interrupted = ctrl.signal.aborted
+            const body = tokenBuffer.join('')
+            const assistantContent = interrupted
+              ? `${body}\n\n_[Antwort wurde unterbrochen]_`
+              : body
             const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
             const elapsedSinceFirst =
               firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
@@ -632,15 +642,33 @@ function createMainWindow(): BrowserWindow {
   return window
 }
 
-void app.whenReady().then(() => {
-  if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
-  registerIpc()
-  createMainWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+// Only one process is allowed to touch the encrypted vault at a time. Two
+// instances would race on loklm.vault.tmp during persistSnapshot and could
+// rename a mixed-content tmp over the real vault , producing an AES-GCM tag
+// failure on the next login that recovery codes can't fix. The lock also
+// matters in dev , where `electron-vite dev` can be started twice by mistake.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const wins = BrowserWindow.getAllWindows()
+    const first = wins[0]
+    if (first) {
+      if (first.isMinimized()) first.restore()
+      first.focus()
+    }
   })
-})
+
+  void app.whenReady().then(() => {
+    if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+    registerIpc()
+    createMainWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
