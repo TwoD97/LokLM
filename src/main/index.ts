@@ -17,6 +17,10 @@ import { ProviderRegistry } from './services/providers/Registry'
 import { BundledLlmProvider } from './services/providers/bundled/BundledLlmProvider'
 import { BundledEmbedderProvider } from './services/providers/bundled/BundledEmbedderProvider'
 import { BundledRerankerProvider } from './services/providers/bundled/BundledRerankerProvider'
+import { OllamaClient } from './services/providers/ollama/OllamaClient'
+import { OllamaLlmProvider } from './services/providers/ollama/OllamaLlmProvider'
+import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedderProvider'
+import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
 import { SettingsService } from './services/settings/SettingsService'
 import type { UserSettings } from '../shared/settings'
 
@@ -158,13 +162,49 @@ function getSettingsService(): SettingsService {
   return settingsService
 }
 
-// Stub for Task 16. The intent is to read the hydrated UserSettings and apply
-// them to the live ProviderRegistry / bundled services (placement, profile,
-// Ollama wiring). For Task 14 we just need the call site to compile so the
-// post-login hydration sequence is in place.
-async function applySettings(settings: UserSettings): Promise<void> {
-  // Task 16 will fill this in — for now, just a no-op so the call site compiles.
-  void settings
+// Reads hydrated UserSettings and applies them to the live ProviderRegistry +
+// bundled services. Called after settings:update and once at login/register
+// after hydration. NOTE: embedder source is NOT changed here — flipping the
+// embedder requires a probe-then-commit flow via embedder:trySwitchSource so
+// the re-index gate stays consistent (see Task 15 + Task 17).
+async function applySettings(s: UserSettings): Promise<void> {
+  const reg = getProviderRegistry()
+
+  // Push basic settings to bundled LLM:
+  getLlamaService().setSelectedProfile(s.basic.llmProfile)
+  getLlamaService().setLanguage(s.basic.language)
+  // (LLM context-size choice is a per-load setting — applied at next loadModel.)
+  getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
+
+  // Push placement choices:
+  getEmbeddingService().setPlacement(s.advanced.embedder.placement)
+  getRerankerService().setPlacement(s.advanced.reranker.placement)
+
+  // Rebuild Ollama providers from the current config (best-effort — no probe here).
+  const o = s.advanced.ollama
+  const haveOllama = Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+  if (haveOllama) {
+    const client = new OllamaClient({
+      baseUrl: o.baseUrl,
+      bearerToken: o.bearerToken,
+      timeoutMs: o.requestTimeoutMs,
+    })
+    reg.replaceOllama({
+      llm: new OllamaLlmProvider(client, o.llmModel!),
+      embedder: new OllamaEmbedderProvider(client, o.embedderModel!, null),
+      reranker: new OllamaRerankerProvider(client, o.rerankerModel!),
+    })
+  } else {
+    reg.replaceOllama({ llm: null, embedder: null, reranker: null })
+  }
+
+  // Switch sources only if Ollama providers are actually built; otherwise stay bundled.
+  reg.setLlmSource(haveOllama && s.advanced.llm.source === 'ollama' ? 'ollama' : 'bundled')
+  reg.setRerankerSource(
+    haveOllama && s.advanced.reranker.source === 'ollama' ? 'ollama' : 'bundled',
+  )
+  // Embedder source flips are gated by the re-index flow — main does NOT change
+  // embedder source from settings:update. Task 17's dedicated handler does it.
 }
 
 function getLlamaService(): LlamaService {
@@ -521,6 +561,47 @@ function registerIpc(): void {
     'llm:setProfile',
     async (_e, choice: import('../shared/documents').LlmProfileChoice) => {
       getLlamaService().setSelectedProfile(choice)
+    },
+  )
+
+  // settings
+  ipcMain.handle('settings:get', async () => getSettingsService().get())
+  ipcMain.handle('settings:update', async (_e, patch: unknown) => {
+    await getSettingsService().update(patch as never)
+    await applySettings(getSettingsService().get())
+    return getSettingsService().get()
+  })
+  ipcMain.handle('settings:getAvatar', async () => {
+    const bytes = await getSettingsService().getAvatar()
+    return bytes ? Array.from(bytes) : null
+  })
+  ipcMain.handle('settings:setAvatar', async (_e, bytes: number[] | null) => {
+    await getSettingsService().setAvatar(bytes ? Uint8Array.from(bytes) : null)
+  })
+  ipcMain.handle('settings:setDisplayName', async (_e, name: string) => {
+    await getAuth().setDisplayName(name)
+    broadcastAuthState()
+  })
+
+  // ollama probe — UI uses this to validate the user's baseUrl/token before
+  // committing the full settings:update. Returns the version + model list on
+  // success so the dropdowns can populate.
+  ipcMain.handle(
+    'ollama:probe',
+    async (_e, cfg: { baseUrl: string; bearerToken: string | null; timeoutMs: number }) => {
+      const c = new OllamaClient(cfg)
+      try {
+        const version = await c.version()
+        const models = await c.listModels()
+        return { ok: true as const, version, models }
+      } catch (err) {
+        const e = err as { kind?: string; message?: string }
+        return {
+          ok: false as const,
+          kind: e.kind ?? 'unknown',
+          message: e.message ?? 'unknown',
+        }
+      }
     },
   )
 
