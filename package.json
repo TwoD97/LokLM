@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "electron-vite build && electron-builder --win nsis",
+    "package:win": "electron-vite build && pnpm installer:assets && electron-builder --win nsis",
     "package:linux": "electron-vite build && electron-builder --linux AppImage",
     "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
@@ -60,6 +60,10 @@
     ],
     "*.{json,md,yml,yaml,css,html}": [
       "prettier --write"
+    ],
+    "installer/assets/*.svg": [
+      "node installer/assets/export.mjs",
+      "git add installer/installer-sidebar.bmp installer/installer-header.bmp installer/uninstaller-sidebar.bmp"
     ]
   },
   "devDependencies": {
@@ -155,7 +159,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "LokLM",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "installer/installer.nsh",
+      "installerSidebar": "installer/installer-sidebar.bmp",
+      "uninstallerSidebar": "installer/uninstaller-sidebar.bmp",
+      "installerHeader": "installer/installer-header.bmp"
     },
     "linux": {
       "target": [
