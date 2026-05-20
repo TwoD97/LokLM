@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { Document } from '../../db/schema'
-import type { EmbeddingService } from '../embeddings/EmbeddingService'
+import type { ProviderRegistry } from '../providers/Registry'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
 import { chunkPages, chunkMarkdown, tagChunksWithSections, type Chunk } from './chunker'
@@ -24,7 +24,7 @@ export interface ImportInput {
 export class DocumentService {
   constructor(
     private readonly auth: AuthService,
-    private readonly embedder?: EmbeddingService,
+    private readonly registry?: ProviderRegistry,
   ) {}
 
   async importFile(input: ImportInput): Promise<Document> {
@@ -112,15 +112,29 @@ export class DocumentService {
       }
 
       // Embed first, persist second. Order matters: we need the chunk text
-      // available for embedPassages before the DB row exists, so we batch the
+      // available for embed() before the DB row exists, so we batch the
       // forward pass over `out` then map vectors back to inserted rows by
-      // ordinal. embedder is optional — DocumentService is constructed without
-      // one in unit tests + the auth-flow integration paths, so the embedding
-      // phase silently degrades to a no-op (Spec 1 behaviour).
+      // ordinal. The registry is optional — DocumentService is constructed
+      // without one in unit tests + the auth-flow integration paths, so the
+      // embedding phase silently degrades to a no-op (Spec 1 behaviour).
+      //
+      // The provider contract throws on failure (no embedder model on disk,
+      // Ollama unreachable, per-passage embed error). Where the old
+      // EmbeddingService returned per-item nulls, the provider throws once
+      // for the batch; we catch and leave vectors=null so chunks persist
+      // with embedding=NULL — the backfill service picks them up later.
       send('embedding', 3)
-      let vectors: Array<number[] | null> | null = null
-      if (this.embedder && (await this.embedder.ensureReady())) {
-        vectors = await this.embedder.embedPassages(out.map((c) => c.text))
+      let vectors: Float32Array[] | null = null
+      if (this.registry) {
+        const embedder = this.registry.embedder()
+        await embedder.ensureReady()
+        if (embedder.isReady()) {
+          try {
+            vectors = await embedder.embed(out.map((c) => c.text))
+          } catch {
+            vectors = null
+          }
+        }
       }
 
       send('persisting', 4)
@@ -151,7 +165,7 @@ export class DocumentService {
           const ord = out[i]?.ordinal
           if (v == null || ord == null) continue
           const id = byOrdinal.get(ord)
-          if (id != null) await repo.setChunkEmbedding(id, v)
+          if (id != null) await repo.setChunkEmbedding(id, Array.from(v))
         }
       }
       await repo.setDocumentStatus(doc.id, 'ready')

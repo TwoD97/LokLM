@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import type { Database } from '../../db/database'
-import type { EmbeddingService } from './EmbeddingService'
+import type { ProviderRegistry } from '../providers/Registry'
 import type { BackfillStatus } from '../../../shared/documents'
 
 // re-export so callers in main process can keep importing from this file.
@@ -23,7 +23,7 @@ export class EmbeddingBackfillService {
 
   constructor(
     private readonly db: Database,
-    private readonly embedder: EmbeddingService,
+    private readonly registry: ProviderRegistry,
   ) {}
 
   subscribe(cb: (s: BackfillStatus) => void): () => void {
@@ -49,8 +49,12 @@ export class EmbeddingBackfillService {
     const existing = this.active.get(workspaceId)
     if (existing && existing.state === 'running') return
 
-    const ok = await this.embedder.ensureReady()
-    if (!ok) {
+    const embedder = this.registry.embedder()
+    // ensureReady is void on the provider contract; probe readiness via
+    // isReady() to keep the "no embedder model — skip backfill" branch that
+    // the bundled embedder used to flag via a `false` return.
+    await embedder.ensureReady()
+    if (!embedder.isReady()) {
       this.update({
         workspaceId,
         state: 'failed',
@@ -90,24 +94,35 @@ export class EmbeddingBackfillService {
       for (;;) {
         const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, PAGE)
         if (batch.length === 0) break
-        const vectors = await this.embedder.embedPassages(batch.map((b) => b.text))
+        // Provider.embed throws on failure (where the old EmbeddingService
+        // returned per-item nulls). Treat any throw as "made no progress for
+        // this batch" so the runaway-loop guard catches a broken embedder
+        // after 2 consecutive empty passes.
+        let vectors: Float32Array[] | null
+        try {
+          vectors = await embedder.embed(batch.map((b) => b.text))
+        } catch {
+          vectors = null
+        }
         let madeProgress = 0
-        for (let i = 0; i < batch.length; i++) {
-          const v = vectors[i]
-          const row = batch[i]
-          if (!v || !row) continue
-          try {
-            await this.db.documents().setChunkEmbedding(row.id, v)
-            madeProgress++
-          } catch (err) {
-            // Most likely a pgvector dimension mismatch (the model was
-            // swapped after the column type was set). Surface it once and
-            // bail — re-trying every batch would just spam logs.
-            throw new Error(
-              `Failed to write embedding for chunk ${row.id}: ${
-                err instanceof Error ? err.message : String(err)
-              }`,
-            )
+        if (vectors) {
+          for (let i = 0; i < batch.length; i++) {
+            const v = vectors[i]
+            const row = batch[i]
+            if (!v || !row) continue
+            try {
+              await this.db.documents().setChunkEmbedding(row.id, Array.from(v))
+              madeProgress++
+            } catch (err) {
+              // Most likely a pgvector dimension mismatch (the model was
+              // swapped after the column type was set). Surface it once and
+              // bail — re-trying every batch would just spam logs.
+              throw new Error(
+                `Failed to write embedding for chunk ${row.id}: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              )
+            }
           }
         }
         if (madeProgress === 0) {

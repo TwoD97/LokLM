@@ -1,6 +1,7 @@
 import type { Database } from '../../db/database'
 import type { RetrievalService } from '../retrieval/RetrievalService'
-import type { LlamaService } from '../llm/LlamaService'
+import type { ProviderRegistry } from '../providers/Registry'
+import type { AskOptions } from '../llm/LlamaService'
 import type { RetrievalHit, StreamEvent, AnswerOptions } from '../../../shared/documents'
 import { REFUSAL_TEXT } from '../llm/prompt'
 
@@ -28,7 +29,7 @@ export class QAService {
   constructor(
     private readonly db: Database,
     private readonly retrieval: RetrievalService,
-    private readonly llama: LlamaService,
+    private readonly registry: ProviderRegistry,
   ) {}
 
   async *answer(
@@ -47,7 +48,7 @@ export class QAService {
     // raw query so a flaky LLM never blocks an answer.
     const retrievalQuery =
       opts.contextualize === true && opts.history && opts.history.length > 0
-        ? await contextualizeQuery(this.llama, opts.history, query)
+        ? await contextualizeQuery(this.registry.llm(), opts.history, query)
         : query
 
     // ---- 1. retrieve ----
@@ -98,11 +99,11 @@ export class QAService {
 
     let collectedFull = ''
     try {
-      const askOpts: Parameters<LlamaService['ask']>[2] = {
+      const askOpts: AskOptions = {
         onChunk: collector,
       }
       if (opts.history) askOpts.conversationHistory = opts.history
-      const askPromise = this.llama.ask(query, hits, askOpts)
+      const askPromise = this.registry.llm().ask(query, hits, askOpts)
       // drain the queue while ask is still running
       while (true) {
         if (queue.length > 0) {
@@ -145,10 +146,13 @@ const CONTEXTUALIZE_MAX_TURNS = 6
 const CONTEXTUALIZE_PER_TURN_CHARS = 600
 
 /** Minimal surface of LlamaService that the rewriter needs. Defined locally
- *  so the helper can be unit-tested without instantiating LlamaService. */
+ *  so the helper can be unit-tested without instantiating LlamaService. The
+ *  generateRaw signature matches LlmProvider so a ProviderRegistry.llm() is
+ *  structurally assignable here; the existing unit-test fakes pass a vi.fn
+ *  which accepts arbitrary extra args. */
 export interface ContextualizerLLM {
   isReady(): boolean
-  generateRaw(prompt: string): Promise<string>
+  generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string>
 }
 
 /**
@@ -183,7 +187,7 @@ export async function contextualizeQuery(
     `Follow-up question: ${query}\n\n` +
     `Standalone query:`
   try {
-    const raw = await llama.generateRaw(prompt)
+    const raw = await llama.generateRaw(prompt, {})
     const cleaned = cleanRewrite(raw)
     if (!cleaned) return query
     // Guard: if the model returned a multi-paragraph essay, fall back —
