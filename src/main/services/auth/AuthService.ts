@@ -109,16 +109,23 @@ const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000
  */
 export class AuthService {
   private readonly vaultFilePath: string
-  private cache: AuthHeader | null = null
-  private cacheLoaded = false
 
   // live session state , only set between login()/register() and lock().
+  // liveHeader doubles as a "is the vault on disk?" answer for status() while
+  // a session is open , so we don't reread 10 MB on every renderer state push.
+  // when no session is live, status() always hits disk fresh , otherwise a
+  // deleted/quarantined vault would keep showing the login screen forever.
   private dek: Buffer | null = null
   private database: Database | null = null
+  private liveHeader: AuthHeader | null = null
   private lastActivity = Date.now()
   private inactivityMs = DEFAULT_INACTIVITY_MS
   private inactivityTimer: NodeJS.Timeout | null = null
   private onLockCallback: (() => void) | null = null
+  // Optional guard the auto-lock timer consults before firing. Returning true
+  // suppresses the lock and resets the idle clock — used to pause auto-lock
+  // while a long background task (e.g. a multi-GB model download) is running.
+  private inactivityGuard: (() => boolean) | null = null
 
   // brute-force tracker for login.
   private failures: number[] = []
@@ -202,8 +209,7 @@ export class AuthService {
     this.database = await Database.create(undefined)
     const body = await this.encryptCurrentDb(dek)
     await this.writeVault(header, body)
-    this.cache = header
-    this.cacheLoaded = true
+    this.liveHeader = header
     this.startInactivityTimer()
     return { passphrase }
   }
@@ -251,8 +257,7 @@ export class AuthService {
     emit('restoring')
     this.dek = dek
     this.database = await Database.create(undefined, snapshotBlob)
-    this.cache = vault.header
-    this.cacheLoaded = true
+    this.liveHeader = vault.header
     this.failures = []
     this.startInactivityTimer()
     emit('ready')
@@ -267,6 +272,7 @@ export class AuthService {
       await this.shutdownDatabase()
       this.zeroKey()
       this.stopInactivityTimer()
+      this.liveHeader = null
     }
   }
 
@@ -341,8 +347,7 @@ export class AuthService {
     this.database = await Database.create(undefined, snapshotBlob ?? undefined)
     const newBody = await this.encryptCurrentDb(dek)
     await this.writeVault(newHeader, newBody)
-    this.cache = newHeader
-    this.cacheLoaded = true
+    this.liveHeader = newHeader
     this.failures = []
     this.startInactivityTimer()
     return { ok: true, passphrase: newPassphrase }
@@ -377,6 +382,13 @@ export class AuthService {
     this.onLockCallback = cb
   }
 
+  /** Install a guard that, while it returns true, suppresses the inactivity
+   *  auto-lock. The idle clock is reset on each skipped tick so locking
+   *  resumes from a fresh 15 min the moment the guard returns false again. */
+  setInactivityGuard(guard: (() => boolean) | null): void {
+    this.inactivityGuard = guard
+  }
+
   async persistSnapshotIfUnlocked(): Promise<void> {
     if (this.dek && this.database) {
       await this.persistSnapshot()
@@ -388,11 +400,12 @@ export class AuthService {
   // -------------------------------------------------------------------------
 
   private async loadHeader(): Promise<AuthHeader | null> {
-    if (this.cacheLoaded) return this.cache
+    // during a live session the header is fixed in memory , no need to re-read.
+    // when locked we always hit disk so a vault that got deleted/quarantined
+    // outside the app stops being reported as "registered".
+    if (this.liveHeader) return this.liveHeader
     const vault = await this.readVault()
-    this.cache = vault?.header ?? null
-    this.cacheLoaded = true
-    return this.cache
+    return vault?.header ?? null
   }
 
   private async readVault(): Promise<{ header: AuthHeader; body: EncryptedBody } | null> {
@@ -457,11 +470,11 @@ export class AuthService {
   }
 
   private async persistSnapshot(): Promise<void> {
-    if (!this.database || !this.dek || !this.cache) {
+    if (!this.database || !this.dek || !this.liveHeader) {
       throw new Error('persistSnapshot called without a live session')
     }
     const body = await this.encryptCurrentDb(this.dek)
-    await this.writeVault(this.cache, body)
+    await this.writeVault(this.liveHeader, body)
   }
 
   private async encryptCurrentDb(dek: Buffer): Promise<EncryptedBody> {
@@ -500,6 +513,12 @@ export class AuthService {
     // tick every 30s , granularity is fine , we just need to spot expiry.
     this.inactivityTimer = setInterval(() => {
       if (!this.isUnlocked()) return
+      // Guard active (e.g. a model download in flight) — touch activity so we
+      // start the idle window fresh once the guard clears, and skip locking.
+      if (this.inactivityGuard?.()) {
+        this.lastActivity = Date.now()
+        return
+      }
       const idle = Date.now() - this.lastActivity
       if (idle >= this.inactivityMs) {
         void this.lock().then(() => this.onLockCallback?.())

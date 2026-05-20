@@ -16,7 +16,12 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/main/index.ts') },
+        // modelsWorker is a sibling entry — utilityProcess.fork loads it from
+        // out/main/modelsWorker.js at runtime (see ModelsWorkerClient).
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          modelsWorker: resolve(__dirname, 'src/main/services/workers/modelsWorker.ts'),
+        },
       },
     },
   },

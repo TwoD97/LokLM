@@ -30,6 +30,7 @@
     "test:all": "pnpm test && pnpm test:e2e",
     "evals:generate": "tsx tests/evals/synth/generate-dataset.ts",
     "evals:run": "tsx tests/evals/run.ts",
+    "evals:sweep": "tsx tests/evals/sweep.ts",
     "evals:build-library": "tsx tests/evals/scale/build-library.ts",
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
     "lint": "eslint .",
