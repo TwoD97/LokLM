@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Database } from '../../db/database'
-import { SettingsService } from './SettingsService'
-import { DEFAULT_SETTINGS } from '../../../shared/settings'
+import { Database } from '@main/db/database'
+import { SettingsService } from '@main/services/settings/SettingsService'
+import { DEFAULT_SETTINGS } from '@shared/settings'
 
 describe('SettingsService', () => {
   let db: Database
