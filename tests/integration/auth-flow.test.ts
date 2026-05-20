@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
+import type { AuthLoginStage } from '@shared/authTypes'
 
 // integration: AuthService gegen ein echtes tmp userData-verzeichnis. ohne
 // IPC und ohne BrowserWindow , aber mit echter argon2-derivation und echtem
@@ -60,6 +61,39 @@ describe('AuthService (integration)', () => {
     const result = await auth.login('wrong-password!')
     expect(result.ok).toBe(false)
     expect(auth.isUnlocked()).toBe(false)
+  }, 20_000)
+
+  it('login emits progress stages in order (deriving , decrypting , restoring , ready)', async () => {
+    await auth.register({
+      displayName: 'Test User',
+      password: 'Test12345!',
+      recoveryLang: 'de',
+    })
+    await auth.lock()
+
+    const stages: AuthLoginStage[] = []
+    const result = await auth.login('Test12345!', {
+      onProgress: (s) => stages.push(s),
+    })
+    expect(result.ok).toBe(true)
+    expect(stages).toEqual(['deriving', 'decrypting', 'restoring', 'ready'])
+  }, 20_000)
+
+  it('login progress reports only "deriving" before a bad password short-circuits', async () => {
+    await auth.register({
+      displayName: 'Test User',
+      password: 'Test12345!',
+      recoveryLang: 'de',
+    })
+    await auth.lock()
+
+    const stages: AuthLoginStage[] = []
+    const result = await auth.login('wrong-password!', {
+      onProgress: (s) => stages.push(s),
+    })
+    expect(result.ok).toBe(false)
+    // KDF ran (so "deriving" emitted) , unwrap failed , no decrypt/restore.
+    expect(stages).toEqual(['deriving'])
   }, 20_000)
 
   // weitere flows als ausgangspunkt:

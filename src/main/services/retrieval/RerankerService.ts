@@ -7,6 +7,7 @@ import {
   type PlacementChoice,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, resolveModelFile } from '../models/paths'
+import { ModelLoadLock } from '../concurrency/ModelLoadLock'
 
 /**
  * Cross-encoder reranker on top of BM25 + dense retrieval. Pipeline:
@@ -83,8 +84,13 @@ export class RerankerService {
   private placement: PlacementChoice = 'auto'
   private lastResolvedPlacement: Placement | null = null
   private lastReason: string | null = null
+  private planner: ResourcePlanner
+  private lock: ModelLoadLock
 
-  constructor(private planner: ResourcePlanner = new ResourcePlanner()) {}
+  constructor(opts: { planner?: ResourcePlanner; lock?: ModelLoadLock } = {}) {
+    this.planner = opts.planner ?? new ResourcePlanner()
+    this.lock = opts.lock ?? new ModelLoadLock()
+  }
 
   setPlacement(p: PlacementChoice): void {
     this.placement = p
@@ -180,9 +186,12 @@ export class RerankerService {
       modelPath,
       modelName: modelPath.split(/[\\/]/).pop() ?? BUNDLED_RERANKER_FILE,
       loadProgress: 0,
-      message: 'Initialising reranker backend…',
+      message: 'Waiting for load slot…',
     })
+    // Serialise heavy native init across LLM / embedder / reranker.
+    const release = await this.lock.acquire('reranker')
     try {
+      this.setStatus({ message: 'Initialising reranker backend…' })
       const resources = await this.planner.refresh()
       const weightsBytes = ggufWeightBytes(modelPath)
       const plan = this.planner.planAux({
@@ -221,6 +230,8 @@ export class RerankerService {
       await this.unload()
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
+    } finally {
+      release()
     }
   }
 

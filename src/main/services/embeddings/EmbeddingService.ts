@@ -7,6 +7,7 @@ import {
   type Placement,
 } from './ResourcePlanner'
 import { getModelSearchDirs, resolveModelFile } from '../models/paths'
+import { ModelLoadLock } from '../concurrency/ModelLoadLock'
 
 /**
  * Preferred filename — what we ship in the bundled installer if available.
@@ -114,17 +115,23 @@ export class EmbeddingService {
   }
   private listeners: Array<(s: EmbedderStatus) => void> = []
   private loadPromise: Promise<void> | null = null
-  // 'auto' lets ResourcePlanner decide based on free VRAM after the LLM
-  // loads; 'cpu' / 'gpu' are manual overrides that bypass the planner.
-  // Defaults to 'auto' so a fresh install gets the smart behavior; manual
-  // settings always win once the user picks them.
-  private placement: PlacementChoice = 'auto'
+  // Default to CPU: BGE-M3 Q4 (~280 MB) runs comfortably on CPU and
+  // returns query embeddings in well under a second, so keeping it off
+  // the GPU leaves all VRAM for the LLM (which is what actually benefits
+  // from acceleration). 'gpu' / 'auto' remain available via setPlacement
+  // for users who explicitly want to flip it.
+  private placement: PlacementChoice = 'cpu'
   /** Resolved placement of the most recent load. Surfaced for the UI. */
   private lastResolvedPlacement: Placement | null = null
   /** Reason string from the last planner decision — surfaced in status. */
   private lastReason: string | null = null
+  private planner: ResourcePlanner
+  private lock: ModelLoadLock
 
-  constructor(private planner: ResourcePlanner = new ResourcePlanner()) {}
+  constructor(opts: { planner?: ResourcePlanner; lock?: ModelLoadLock } = {}) {
+    this.planner = opts.planner ?? new ResourcePlanner()
+    this.lock = opts.lock ?? new ModelLoadLock()
+  }
 
   setPlacement(p: PlacementChoice): void {
     this.placement = p
@@ -230,10 +237,15 @@ export class EmbeddingService {
       modelPath,
       modelName: modelPath.split(/[\\/]/).pop() ?? BUNDLED_EMBEDDER_FILE,
       loadProgress: 0,
-      message: 'Initialising embedder backend…',
+      message: 'Waiting for load slot…',
     })
 
+    // Cross-service serialisation: never run the embedder's native init at the
+    // same time as the LLM's or the reranker's. Reduces VRAM thrash on tight
+    // machines and keeps load progress messages legible.
+    const release = await this.lock.acquire('embedder')
     try {
+      this.setStatus({ message: 'Initialising embedder backend…' })
       // Decide CPU vs GPU before initing the backend. 'auto' consults the
       // planner against current free VRAM (which already accounts for the
       // LLM if it loaded first); 'cpu' / 'gpu' short-circuit.
@@ -286,6 +298,8 @@ export class EmbeddingService {
         message: msg,
       })
       throw err
+    } finally {
+      release()
     }
   }
 

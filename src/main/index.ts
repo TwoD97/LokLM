@@ -13,6 +13,8 @@ import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
+import { ModelLoadLock } from './services/concurrency/ModelLoadLock'
+import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -29,6 +31,10 @@ function getAuth(): AuthService {
   if (!authService) {
     authService = new AuthService(app.getPath('userData'))
     authService.setOnLock(() => {
+      // Inactivity auto-lock fires here too — kill any pending warmup so a
+      // backfill kicked off seconds before the lock doesn't try to use the
+      // database we just zeroed.
+      cancelPostLoginWarmup()
       resetSessionServices()
       broadcastAuthState()
     })
@@ -72,6 +78,37 @@ let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let modelDownloader: ModelDownloader | null = null
 
+// Shared infrastructure for the three model services: one VRAM probe powers
+// every placement decision , one mutex ensures the heavy GGUF load operations
+// never run in parallel (no two backends initialising at once , no thrashing
+// fight for VRAM on a tight machine).
+const sharedPlanner = new ResourcePlanner()
+const sharedLoadLock = new ModelLoadLock()
+// Post-login warmup runs on a small delay so the renderer can mount the main
+// UI before model loads start consuming the main thread and VRAM. The handle
+// is kept so a lock/logout can cancel a pending warmup that did not yet fire.
+let postLoginWarmupTimer: NodeJS.Timeout | null = null
+function cancelPostLoginWarmup(): void {
+  if (postLoginWarmupTimer) {
+    clearTimeout(postLoginWarmupTimer)
+    postLoginWarmupTimer = null
+  }
+}
+function schedulePostLoginWarmup(): void {
+  cancelPostLoginWarmup()
+  // 1.5s is enough for the renderer to swap from the lock screen to the main
+  // view on a typical machine ; the load lock serialises the actual work that
+  // follows so even if backfill + autoLoad both fire immediately they queue.
+  postLoginWarmupTimer = setTimeout(() => {
+    postLoginWarmupTimer = null
+    void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+    void getLlamaService()
+      .autoLoad()
+      .catch(() => undefined)
+  }, 1500)
+  if (typeof postLoginWarmupTimer.unref === 'function') postLoginWarmupTimer.unref()
+}
+
 function getModelDownloader(): ModelDownloader {
   modelDownloader ??= new ModelDownloader()
   return modelDownloader
@@ -84,7 +121,7 @@ function getWorkspaceService(): WorkspaceService {
 
 function getEmbeddingService(): EmbeddingService {
   if (!embeddingService) {
-    embeddingService = new EmbeddingService()
+    embeddingService = new EmbeddingService({ planner: sharedPlanner, lock: sharedLoadLock })
     embeddingService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -110,7 +147,7 @@ function getBackfillService(): EmbeddingBackfillService {
 
 function getLlamaService(): LlamaService {
   if (!llamaService) {
-    llamaService = new LlamaService()
+    llamaService = new LlamaService({ planner: sharedPlanner, lock: sharedLoadLock })
     llamaService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -133,7 +170,7 @@ function getQAService(): QAService {
 
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
-    rerankerService = new RerankerService()
+    rerankerService = new RerankerService({ planner: sharedPlanner, lock: sharedLoadLock })
     rerankerService.subscribe((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
@@ -181,33 +218,42 @@ function registerIpc(): void {
     async (_e, input: { displayName: string; password: string; recoveryLang: 'de' | 'en' }) => {
       const result = await getAuth().register(input)
       broadcastAuthState()
-      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
-      void getLlamaService()
-        .autoLoad()
-        .catch(() => undefined)
+      schedulePostLoginWarmup()
       return result
     },
   )
 
-  ipcMain.handle('auth:login', async (_e, input: { password: string }) => {
-    const result = await getAuth().login(input.password)
+  ipcMain.handle('auth:login', async (e, input: { password: string }) => {
+    const result = await getAuth().login(input.password, {
+      // Stream stage events to the renderer so the LoginView can swap the
+      // "Entsperre …" label for the actual phase ("Schlüssel ableiten…",
+      // "Tresor entschlüsseln…", "Bibliothek laden…"). Per-sender send so
+      // a second window doesn't see another user's login progress.
+      onProgress: (stage) => {
+        if (e.sender.isDestroyed()) return
+        try {
+          e.sender.send('auth:login-progress', { stage })
+        } catch {
+          /* renderer torn down mid-flight , next stage emission will be a no-op too */
+        }
+      },
+    })
     if (result.ok) {
       broadcastAuthState()
-      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
-      void getLlamaService()
-        .autoLoad()
-        .catch(() => undefined)
+      schedulePostLoginWarmup()
     }
     return result
   })
 
   ipcMain.handle('auth:logout', async () => {
+    cancelPostLoginWarmup()
     await getAuth().logout()
     resetSessionServices()
     broadcastAuthState()
   })
 
   ipcMain.handle('auth:lock', async () => {
+    cancelPostLoginWarmup()
     await getAuth().lock()
     resetSessionServices()
     broadcastAuthState()

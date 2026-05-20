@@ -7,6 +7,7 @@ import {
   type SystemResources,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
+import { ModelLoadLock } from '../concurrency/ModelLoadLock'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
 import type {
@@ -239,9 +240,24 @@ export class LlamaService {
     profile: null,
   }
   private listeners: Array<(s: ModelStatus) => void> = []
-  // ResourcePlanner is shared across services; injected from index.ts so
-  // the same VRAM probe powers every placement decision.
-  constructor(private planner: ResourcePlanner = new ResourcePlanner()) {}
+  /** Dedupes concurrent `loadModel` callers — second caller awaits the same load. */
+  private loadPromise: Promise<void> | null = null
+  /** Monotonic clock of the last `ask()` / `generateRaw()` call. Powers idle eviction. */
+  private lastUsedAt: number = Date.now()
+  /** Idle-eviction config: unload after this many ms of no inference activity. */
+  private idleMs: number = parseIdleMs(process.env.LOKLM_LLM_IDLE_MS) ?? 30 * 60 * 1000
+  private idleTimer: NodeJS.Timeout | null = null
+  private planner: ResourcePlanner
+  private lock: ModelLoadLock
+  /**
+   * `planner` / `lock` are injected from index.ts so all three services share
+   * the same VRAM probe and the same load-serialisation queue. Defaults exist
+   * for tests and standalone use.
+   */
+  constructor(opts: { planner?: ResourcePlanner; lock?: ModelLoadLock } = {}) {
+    this.planner = opts.planner ?? new ResourcePlanner()
+    this.lock = opts.lock ?? new ModelLoadLock()
+  }
 
   // ---- status / introspection ------------------------------------------------
 
@@ -425,6 +441,17 @@ export class LlamaService {
   }
 
   async loadModel(modelPath: string, profileName?: LlmProfileName): Promise<void> {
+    // Dedupe: a second parallel caller (e.g. autoLoad racing with an IPC
+    // `llm:reload`) joins the in-flight load instead of triggering a second
+    // unload that races the first load's allocations.
+    if (this.loadPromise) return this.loadPromise
+    this.loadPromise = this.performLoad(modelPath, profileName).finally(() => {
+      this.loadPromise = null
+    })
+    return this.loadPromise
+  }
+
+  private async performLoad(modelPath: string, profileName?: LlmProfileName): Promise<void> {
     await this.unload()
     const profile = profileName ? profileByName(profileName) : null
     const filename = modelPath.split(/[\\/]/).pop() ?? 'unknown.gguf'
@@ -435,11 +462,18 @@ export class LlamaService {
       modelName: filename,
       profile: profile?.name ?? null,
       loadProgress: 0,
-      message: profileLabel ? `Initialising ${profileLabel}…` : 'Initialising llama backend…',
+      message: profileLabel ? `Waiting for load slot — ${profileLabel}…` : 'Waiting for load slot…',
       gpu: null,
     })
 
+    // Serialise across services: embedder + reranker + LLM never run their
+    // native load operations at the same time. Release in `finally` so an
+    // exception inside the try still unblocks the queue.
+    const release = await this.lock.acquire('llm')
     try {
+      this.setStatus({
+        message: profileLabel ? `Initialising ${profileLabel}…` : 'Initialising llama backend…',
+      })
       const lib = await import('node-llama-cpp')
       const llama = await initLlama(lib, (msg) => this.setStatus({ message: msg }))
       this.gpuLabel = describeGpu(llama)
@@ -588,6 +622,9 @@ export class LlamaService {
         loadProgress: null,
         message: profileLabel ? `${profileLabel} ready.` : 'Ready.',
       })
+      // Fresh load counts as "just used" — don't immediately evict.
+      this.lastUsedAt = Date.now()
+      this.startIdleTimer()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       await this.unload()
@@ -597,10 +634,13 @@ export class LlamaService {
         message: msg,
       })
       throw err
+    } finally {
+      release()
     }
   }
 
   async unload(): Promise<void> {
+    this.stopIdleTimer()
     try {
       if (this.session && hasDispose(this.session)) await this.session.dispose()
       if (this.context && hasDispose(this.context)) await this.context.dispose()
@@ -619,8 +659,54 @@ export class LlamaService {
   // ---- inference -------------------------------------------------------------
 
   async ask(question: string, hits: RetrievalHit[], opts: AskOptions = {}): Promise<string> {
-    if (this.isReady()) return this.askWithModel(question, hits, opts)
+    this.touchUsage()
+    if (this.isReady()) {
+      try {
+        return await this.askWithModel(question, hits, opts)
+      } finally {
+        this.touchUsage()
+      }
+    }
     return this.askFallback(question, hits, opts)
+  }
+
+  /** Bump the idle clock — exposed so streamers can keep the model resident across long responses. */
+  touchUsage(): void {
+    this.lastUsedAt = Date.now()
+  }
+
+  /** Force-set the idle threshold (ms). Pass 0 to disable eviction entirely. */
+  setIdleMs(ms: number): void {
+    this.idleMs = Math.max(0, ms)
+    if (this.idleMs === 0) {
+      this.stopIdleTimer()
+    } else if (this.isReady()) {
+      this.startIdleTimer()
+    }
+  }
+
+  private startIdleTimer(): void {
+    this.stopIdleTimer()
+    if (this.idleMs <= 0) return
+    // Tick at 1/10 of the idle window (capped at 60s) so we evict within ~10%
+    // of the configured threshold without spinning a tight interval.
+    const tickMs = Math.min(60_000, Math.max(5_000, Math.floor(this.idleMs / 10)))
+    this.idleTimer = setInterval(() => {
+      if (!this.isReady()) return
+      if (Date.now() - this.lastUsedAt < this.idleMs) return
+      // Drop the heavy resources — the next ask() will reload via the same
+      // path that an explicit `llm:reload` IPC takes. We unload via a fresh
+      // task so the timer callback returns promptly.
+      void this.unload().catch(() => undefined)
+    }, tickMs)
+    if (typeof this.idleTimer.unref === 'function') this.idleTimer.unref()
+  }
+
+  private stopIdleTimer(): void {
+    if (this.idleTimer) {
+      clearInterval(this.idleTimer)
+      this.idleTimer = null
+    }
   }
 
   private async askWithModel(
@@ -686,6 +772,9 @@ export class LlamaService {
       } = { maxTokens: MAX_RESPONSE_TOKENS }
       if (opts.onChunk) {
         promptOpts.onTextChunk = (chunk: string) => {
+          // Streaming activity keeps the idle clock alive — a long response
+          // should not get evicted mid-flight by the eviction timer.
+          this.lastUsedAt = Date.now()
           const cleaned = filter.feed(chunk)
           if (cleaned) opts.onChunk!(cleaned)
         }
@@ -760,6 +849,7 @@ export class LlamaService {
    * than throwing — better to lose a chat history than to crash a Q&A flow.
    */
   async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal } = {}): Promise<string> {
+    this.touchUsage()
     if (!this.isReady() || !this.session) {
       throw new Error('Model is not loaded.')
     }
@@ -911,6 +1001,18 @@ function parsePositiveInt(v: string | undefined): number | null {
   if (!v) return null
   const n = Number(v)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
+/**
+ * Parse LOKLM_LLM_IDLE_MS. `0` disables eviction explicitly ; any positive
+ * integer overrides the 30-minute default ; anything else falls back to the
+ * default. Power-user escape hatch , no UI surface.
+ */
+function parseIdleMs(v: string | undefined): number | null {
+  if (v == null) return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.floor(n)
 }
 
 function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {

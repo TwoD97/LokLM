@@ -12,7 +12,12 @@ import {
   PASSPHRASE_WORDS,
   type WordlistLang,
 } from '../../../shared/authHelpers'
-import type { AuthStatus, LoginResult, ResetResult } from '../../../shared/authTypes'
+import type {
+  AuthLoginStage,
+  AuthStatus,
+  LoginResult,
+  ResetResult,
+} from '../../../shared/authTypes'
 
 // vault layout v4 , one file on disk:
 //
@@ -203,13 +208,24 @@ export class AuthService {
     return { passphrase }
   }
 
-  async login(password: string): Promise<LoginResult> {
+  async login(
+    password: string,
+    opts: { onProgress?: (stage: AuthLoginStage) => void } = {},
+  ): Promise<LoginResult> {
+    const emit = (stage: AuthLoginStage): void => {
+      try {
+        opts.onProgress?.(stage)
+      } catch {
+        /* progress is diagnostic only , never block login on a listener throw */
+      }
+    }
     const vault = await this.readVault()
     if (!vault) return { ok: false, reason: 'no_user' }
 
     const cooldown = this.cooldownRemainingMs()
     if (cooldown > 0) return { ok: false, reason: 'rate_limited', retryAfterMs: cooldown }
 
+    emit('deriving')
     const passwordSalt = Buffer.from(vault.header.passwordSalt, 'base64')
     const passwordKek = await deriveKEK(password, Buffer.from(passwordSalt))
     const dek = unwrapKey(passwordKek, vault.header.passwordWrappedDek)
@@ -223,6 +239,7 @@ export class AuthService {
     // got the DEK , now decrypt the body. with single-file vaults the header
     // and body live together so any failure here is just file corruption ,
     // not an auth/snapshot drift.
+    emit('decrypting')
     const snapshotBlob = decryptBody(vault.body, dek)
     if (snapshotBlob == null) {
       dek.fill(0)
@@ -231,12 +248,14 @@ export class AuthService {
       )
     }
 
+    emit('restoring')
     this.dek = dek
     this.database = await Database.create(undefined, snapshotBlob)
     this.cache = vault.header
     this.cacheLoaded = true
     this.failures = []
     this.startInactivityTimer()
+    emit('ready')
     return { ok: true }
   }
 
