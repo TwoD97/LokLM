@@ -10,8 +10,27 @@ import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
 import { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import { LlamaService } from '@main/services/llm/LlamaService'
 import { QAService } from '@main/services/qa/QAService'
+import { ProviderRegistry } from '@main/services/providers/Registry'
+import { BundledLlmProvider } from '@main/services/providers/bundled/BundledLlmProvider'
+import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
+import type { RerankerProvider } from '@main/services/providers/types'
 import type { IndexProgress } from '@main/services/documents/types'
 import type { StreamEvent } from '@main/services/qa/types'
+
+// Build a registry around concrete LlamaService + EmbeddingService for the
+// integration tests. Reranker is stubbed (these scenarios don't use it).
+function buildRegistry(llama: LlamaService, embedder: EmbeddingService): ProviderRegistry {
+  const rerankerStub: RerankerProvider = {
+    rerank: async () => [],
+    isReady: () => false,
+    ensureReady: async () => undefined,
+  }
+  return new ProviderRegistry({
+    llm: { bundled: new BundledLlmProvider(llama), ollama: null },
+    embedder: { bundled: new BundledEmbedderProvider(embedder), ollama: null },
+    reranker: { bundled: rerankerStub, ollama: null },
+  })
+}
 
 const EMBEDDER_PATH = join(process.cwd(), 'models', 'bge-m3-Q4_K_M.gguf')
 const LLM_PATH = join(process.cwd(), 'models', 'Qwen_Qwen3-8B-Q4_K_M.gguf')
@@ -47,8 +66,10 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
 
       const embedder = new EmbeddingService()
       expect(await embedder.ensureReady()).toBe(true)
+      const llama = new LlamaService()
+      const registry = buildRegistry(llama, embedder)
 
-      const docs = new DocumentService(auth, embedder)
+      const docs = new DocumentService(auth, registry)
       const sent: IndexProgress[] = []
       await docs.importFile({
         workspaceId: ws.id,
@@ -60,11 +81,10 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
       await waitFor(() => sent.some((e) => e.phase === 'done' || e.phase === 'failed'), 30_000)
 
       const db = auth.requireDatabase()
-      const llama = new LlamaService()
       await llama.autoLoad()
       expect(llama.isReady()).toBe(true)
-      const retrieval = new RetrievalService(db, embedder, undefined, llama)
-      const qa = new QAService(db, retrieval, llama)
+      const retrieval = new RetrievalService(db, registry)
+      const qa = new QAService(db, retrieval, registry)
 
       const events: StreamEvent[] = []
       for await (const ev of qa.answer(ws.id, 'How are passwords hashed?', { topK: 4 })) {
@@ -92,7 +112,9 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
 
       const embedder = new EmbeddingService()
       expect(await embedder.ensureReady()).toBe(true)
-      const docs = new DocumentService(auth, embedder)
+      const llama = new LlamaService()
+      const registry = buildRegistry(llama, embedder)
+      const docs = new DocumentService(auth, registry)
       const sent: IndexProgress[] = []
       await docs.importFile({
         workspaceId: ws.id,
@@ -104,11 +126,10 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
       await waitFor(() => sent.some((e) => e.phase === 'done' || e.phase === 'failed'), 30_000)
 
       const db = auth.requireDatabase()
-      const llama = new LlamaService()
       await llama.autoLoad()
       expect(llama.isReady()).toBe(true)
-      const retrieval = new RetrievalService(db, embedder, undefined, llama)
-      const qa = new QAService(db, retrieval, llama)
+      const retrieval = new RetrievalService(db, registry)
+      const qa = new QAService(db, retrieval, registry)
 
       const events: StreamEvent[] = []
       for await (const ev of qa.answer(ws.id, 'wie schütze ich passwörter', {

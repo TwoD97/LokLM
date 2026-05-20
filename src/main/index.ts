@@ -13,6 +13,12 @@ import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
+import { ProviderRegistry } from './services/providers/Registry'
+import { BundledLlmProvider } from './services/providers/bundled/BundledLlmProvider'
+import { BundledEmbedderProvider } from './services/providers/bundled/BundledEmbedderProvider'
+import { BundledRerankerProvider } from './services/providers/bundled/BundledRerankerProvider'
+import { SettingsService } from './services/settings/SettingsService'
+import type { UserSettings } from '../shared/settings'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -45,9 +51,15 @@ function resetSessionServices(): void {
   // only and re-resolve the Database lazily on each call. embeddingService +
   // rerankerService are deliberately kept too — the GGUFs take seconds to
   // reload, so warming them across a lock cycle is the right UX.
+  //
+  // ProviderRegistry + SettingsService are also reset — the registry depends
+  // on AuthService-bound state indirectly through the SettingsService, and
+  // SettingsService captures a Database reference at construction.
   backfillService = null
   retrievalService = null
   qaService = null
+  providerRegistry = null
+  settingsService = null
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
@@ -71,6 +83,8 @@ let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let modelDownloader: ModelDownloader | null = null
+let providerRegistry: ProviderRegistry | null = null
+let settingsService: SettingsService | null = null
 
 function getModelDownloader(): ModelDownloader {
   modelDownloader ??= new ModelDownloader()
@@ -102,10 +116,55 @@ function getBackfillService(): EmbeddingBackfillService {
   if (!backfillService) {
     backfillService = new EmbeddingBackfillService(
       getAuth().requireDatabase(),
-      getEmbeddingService(),
+      getProviderRegistry(),
     )
   }
   return backfillService
+}
+
+function getProviderRegistry(): ProviderRegistry {
+  if (!providerRegistry) {
+    // The bundled providers wrap the concrete LlamaService / EmbeddingService /
+    // RerankerService singletons (kept warm across lock cycles). Ollama
+    // providers stay null at boot — Task 16 will replace them when the user
+    // points at a remote backend via the settings UI.
+    const llm = getLlamaService()
+    const embedder = getEmbeddingService()
+    const reranker = getRerankerService()
+    providerRegistry = new ProviderRegistry({
+      llm: { bundled: new BundledLlmProvider(llm), ollama: null },
+      embedder: { bundled: new BundledEmbedderProvider(embedder), ollama: null },
+      reranker: { bundled: new BundledRerankerProvider(reranker), ollama: null },
+      onFallback: (ev) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          try {
+            win.webContents.send('provider:fallback', ev)
+          } catch {
+            /* renderer torn down — drop the event */
+          }
+        }
+      },
+    })
+  }
+  return providerRegistry
+}
+
+function getSettingsService(): SettingsService {
+  if (!settingsService) {
+    settingsService = new SettingsService(getAuth().requireDatabase(), () =>
+      getAuth().persistSnapshotIfUnlocked(),
+    )
+  }
+  return settingsService
+}
+
+// Stub for Task 16. The intent is to read the hydrated UserSettings and apply
+// them to the live ProviderRegistry / bundled services (placement, profile,
+// Ollama wiring). For Task 14 we just need the call site to compile so the
+// post-login hydration sequence is in place.
+async function applySettings(settings: UserSettings): Promise<void> {
+  // Task 16 will fill this in — for now, just a no-op so the call site compiles.
+  void settings
 }
 
 function getLlamaService(): LlamaService {
@@ -126,7 +185,11 @@ function getLlamaService(): LlamaService {
 
 function getQAService(): QAService {
   if (!qaService) {
-    qaService = new QAService(getAuth().requireDatabase(), getRetrievalService(), getLlamaService())
+    qaService = new QAService(
+      getAuth().requireDatabase(),
+      getRetrievalService(),
+      getProviderRegistry(),
+    )
   }
   return qaService
 }
@@ -149,18 +212,13 @@ function getRerankerService(): RerankerService {
 
 function getRetrievalService(): RetrievalService {
   if (!retrievalService) {
-    retrievalService = new RetrievalService(
-      getAuth().requireDatabase(),
-      getEmbeddingService(),
-      getRerankerService(),
-      getLlamaService(),
-    )
+    retrievalService = new RetrievalService(getAuth().requireDatabase(), getProviderRegistry())
   }
   return retrievalService
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getEmbeddingService())
+  documentService ??= new DocumentService(getAuth(), getProviderRegistry())
   return documentService
 }
 
@@ -181,6 +239,11 @@ function registerIpc(): void {
     async (_e, input: { displayName: string; password: string; recoveryLang: 'de' | 'en' }) => {
       const result = await getAuth().register(input)
       broadcastAuthState()
+      // Settings hydrate before any model warming so applySettings (Task 16)
+      // gets a chance to swap providers / placement before autoLoad fires.
+      const settings = getSettingsService()
+      await settings.hydrate()
+      await applySettings(settings.get())
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
       void getLlamaService()
         .autoLoad()
@@ -193,6 +256,11 @@ function registerIpc(): void {
     const result = await getAuth().login(input.password)
     if (result.ok) {
       broadcastAuthState()
+      // Settings hydrate before any model warming so applySettings (Task 16)
+      // gets a chance to swap providers / placement before autoLoad fires.
+      const settings = getSettingsService()
+      await settings.hydrate()
+      await applySettings(settings.get())
       void scheduleBackfillForAllWorkspaces().catch(() => undefined)
       void getLlamaService()
         .autoLoad()

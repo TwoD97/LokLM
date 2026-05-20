@@ -8,7 +8,34 @@ import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
 import { RetrievalService } from '@main/services/retrieval/RetrievalService'
+import { ProviderRegistry } from '@main/services/providers/Registry'
+import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
+import type { LlmProvider, RerankerProvider } from '@main/services/providers/types'
 import type { IndexProgress } from '@main/services/documents/types'
+
+// Helper to build a ProviderRegistry from a concrete EmbeddingService for
+// these tests — LLM + reranker are stubbed out (the suite only exercises
+// BM25+dense fusion, no rerank, no multi-query).
+function buildRegistry(embedder: EmbeddingService): ProviderRegistry {
+  const llmStub: LlmProvider = {
+    ask: async () => '',
+    generateRaw: async () => '',
+    generateTitle: async () => null,
+    isReady: () => false,
+    getStatus: () => ({ ready: false, message: null, identity: 'stub' }),
+    getModelStatus: () => ({}) as never,
+  }
+  const rerankerStub: RerankerProvider = {
+    rerank: async () => [],
+    isReady: () => false,
+    ensureReady: async () => undefined,
+  }
+  return new ProviderRegistry({
+    llm: { bundled: llmStub, ollama: null },
+    embedder: { bundled: new BundledEmbedderProvider(embedder), ollama: null },
+    reranker: { bundled: rerankerStub, ollama: null },
+  })
+}
 
 const MODEL_PATH = join(process.cwd(), 'models', 'bge-m3-Q4_K_M.gguf')
 
@@ -33,7 +60,8 @@ describe.runIf(existsSync(MODEL_PATH))('hybrid retrieval (integration)', () => {
 
     const embedder = new EmbeddingService()
     expect(await embedder.ensureReady()).toBe(true)
-    const docs = new DocumentService(auth, embedder)
+    const registry = buildRegistry(embedder)
+    const docs = new DocumentService(auth, registry)
 
     const wochen = join(dir, 'Wochenbuch.md')
     const authPolicy = join(dir, 'auth-policy.md')
@@ -69,7 +97,7 @@ describe.runIf(existsSync(MODEL_PATH))('hybrid retrieval (integration)', () => {
     }
 
     const db = auth.requireDatabase()
-    const retrieval = new RetrievalService(db, embedder)
+    const retrieval = new RetrievalService(db, registry)
 
     // Auth question must rank the auth-policy doc highly
     const hitsAuth = await retrieval.search(ws.id, 'wie wurden passwörter geschützt', 5, {

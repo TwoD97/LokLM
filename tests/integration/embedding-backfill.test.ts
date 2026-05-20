@@ -8,7 +8,32 @@ import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
 import { EmbeddingBackfillService } from '@main/services/embeddings/EmbeddingBackfillService'
+import { ProviderRegistry } from '@main/services/providers/Registry'
+import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
+import type { LlmProvider, RerankerProvider } from '@main/services/providers/types'
 import type { IndexProgress } from '@main/services/documents/types'
+
+// Backfill only needs an embedder; LLM + reranker are stubbed.
+function buildRegistry(embedder: EmbeddingService): ProviderRegistry {
+  const llmStub: LlmProvider = {
+    ask: async () => '',
+    generateRaw: async () => '',
+    generateTitle: async () => null,
+    isReady: () => false,
+    getStatus: () => ({ ready: false, message: null, identity: 'stub' }),
+    getModelStatus: () => ({}) as never,
+  }
+  const rerankerStub: RerankerProvider = {
+    rerank: async () => [],
+    isReady: () => false,
+    ensureReady: async () => undefined,
+  }
+  return new ProviderRegistry({
+    llm: { bundled: llmStub, ollama: null },
+    embedder: { bundled: new BundledEmbedderProvider(embedder), ollama: null },
+    reranker: { bundled: rerankerStub, ollama: null },
+  })
+}
 
 const MODEL_PATH = join(process.cwd(), 'models', 'bge-m3-Q4_K_M.gguf')
 
@@ -57,7 +82,8 @@ describe.runIf(existsSync(MODEL_PATH))('embedding backfill (integration)', () =>
     const embedder = new EmbeddingService()
     const ok = await embedder.ensureReady()
     expect(ok).toBe(true)
-    const backfill = new EmbeddingBackfillService(db, embedder)
+    const registry = buildRegistry(embedder)
+    const backfill = new EmbeddingBackfillService(db, registry)
     await backfill.run(ws.id)
 
     const missingAfter = await db.documents().countChunksMissingEmbedding(ws.id)

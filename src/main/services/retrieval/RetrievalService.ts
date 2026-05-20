@@ -1,7 +1,5 @@
 import type { ChunkRow, Database, SearchHit } from '../../db/database'
-import type { EmbeddingService } from '../embeddings/EmbeddingService'
-import type { LlamaService } from '../llm/LlamaService'
-import type { RerankerService } from './RerankerService'
+import type { ProviderRegistry } from '../providers/Registry'
 import { fuseRrf } from './rrf'
 import { applyTitleBoost, applyShortChunkPenalty, applyRecencyBoost } from './heuristics'
 
@@ -95,9 +93,7 @@ const DEFAULT_RECENCY_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
 export class RetrievalService {
   constructor(
     private readonly db: Database,
-    private readonly embedder: EmbeddingService,
-    private readonly reranker?: RerankerService,
-    private readonly llama?: LlamaService,
+    private readonly registry: ProviderRegistry,
   ) {}
 
   async search(
@@ -217,27 +213,38 @@ export class RetrievalService {
     searchOpts: { activeDocumentIds: number[] | null; perDocK?: number },
   ): Promise<[SearchHit[], SearchHit[]]> {
     const bm25Promise = this.db.documents().searchChunks(workspaceId, q, candidateK, searchOpts)
-    const vectorPromise: Promise<SearchHit[]> = this.embedder.isAvailable()
-      ? this.embedder
-          .embedQuery(q)
-          .then((vec) =>
-            vec
-              ? this.db.documents().searchChunksByVector(workspaceId, vec, candidateK, searchOpts)
-              : [],
-          )
-          .catch(() => [])
-      : Promise.resolve([])
+    // The provider contract throws on failure (no embedder model on disk,
+    // Ollama unreachable, etc.) where the old EmbeddingService returned null.
+    // Wrap in try/catch to preserve the user-visible "no embedder → BM25-only"
+    // soft-fail behaviour.
+    const vectorPromise: Promise<SearchHit[]> = (async () => {
+      const embedder = this.registry.embedder()
+      if (!embedder.isReady()) return []
+      try {
+        const vecs = await embedder.embed([q])
+        const vec = vecs[0]
+        if (!vec || vec.length === 0) return []
+        // searchChunksByVector expects number[]; convert from the provider's
+        // Float32Array. Array.from on a typed array materialises a plain Array.
+        return this.db
+          .documents()
+          .searchChunksByVector(workspaceId, Array.from(vec), candidateK, searchOpts)
+      } catch {
+        return []
+      }
+    })()
     return Promise.all([bm25Promise, vectorPromise])
   }
 
   private async maybeExpandQueries(query: string, enabled: boolean): Promise<string[]> {
-    if (!enabled || !this.llama || !this.llama.isReady()) return [query]
+    const llm = this.registry.llm()
+    if (!enabled || !llm.isReady()) return [query]
     try {
       const prompt =
         `Produce 2 paraphrases of the user's search query that retain the original meaning ` +
         `but use different vocabulary so a keyword index can find them. Output strictly two ` +
         `lines, one paraphrase per line, no preamble.\n\nQuery: ${query}\n\nParaphrases:`
-      const raw = await this.llama.generateRaw(prompt)
+      const raw = await llm.generateRaw(prompt, {})
       const lines = raw
         .split(/\r?\n/)
         .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())
@@ -254,12 +261,21 @@ export class RetrievalService {
     hits: SearchHit[],
     enabled: boolean,
   ): Promise<SearchHit[]> {
-    if (!enabled || !this.reranker || !this.reranker.isAvailable() || hits.length === 0) {
+    const reranker = this.registry.reranker()
+    if (!enabled || !reranker.isReady() || hits.length === 0) {
       return hits
     }
     const docs = hits.map((h) => h.text)
-    const scores = await this.reranker.rank(query, docs)
-    if (!scores || scores.length !== hits.length) return hits
+    // The provider contract throws when the underlying reranker fails or the
+    // model isn't available (used to return null). Preserve the silent
+    // soft-fail to RRF order by catching and returning the input hits.
+    let scores: number[]
+    try {
+      scores = await reranker.rerank(query, docs)
+    } catch {
+      return hits
+    }
+    if (scores.length !== hits.length) return hits
     // Pair, sort by reranker score descending, write the score back so the
     // downstream UI can show the model's confidence on each chip.
     return hits.map((h, i) => ({ ...h, score: scores[i]! })).sort((a, b) => b.score - a.score)
