@@ -98,7 +98,13 @@
   !macroend
 
   Function OptionsPageCreate
-    !insertmacro MUI_HEADER_TEXT "Optionen" "Wählen Sie die Verknüpfungen und das Startverhalten aus."
+    ; Set the MUI page header text directly (MUI_HEADER_TEXT macro isn't
+    ; available here because electron-builder includes us before MUI2.nsh).
+    ; Control IDs 1037/1038 are the MUI header title/subtitle labels.
+    GetDlgItem $0 $HWNDPARENT 1037
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:Optionen"
+    GetDlgItem $0 $HWNDPARENT 1038
+    SendMessage $0 ${WM_SETTEXT} 0 "STR:Verknüpfungen und Startverhalten konfigurieren"
 
     nsDialogs::Create 1018
     Pop $0
@@ -110,7 +116,6 @@
     ${NSD_CreateLabel} 0 0 100% 12u "Verknüpfungen"
     Pop $1
     SetCtlColors $1 ${LM_ACCENT} transparent
-    SendMessage $1 ${WM_SETFONT} $mui.Header.Text.Font 0
 
     ${NSD_CreateCheckbox} 8u 16u 280u 12u "Desktop-Verknüpfung erstellen"
     Pop $OptDesktopCheckbox
