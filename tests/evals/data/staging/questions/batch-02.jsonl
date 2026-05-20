@@ -1,0 +1,40 @@
+{"chunkId":"eval-metriken::9","question":"Warum kann ein Anstieg von Recall@10 um einen Hundertstel-Punkt irreführend wirken?"}
+{"chunkId":"eval-metriken::9","question":"Welches Resampling-Verfahren wird vorgeschlagen, um leicht deutbare Konfidenzbereiche zu erhalten?"}
+{"chunkId":"eval-metriken::9","question":"Welcher paarweise Signifikanztest gilt laut Text als widerstandsfähiger als der t-Test?"}
+{"chunkId":"eval-metriken::9","question":"Aus welchem Grund eignet sich der t-Test schlechter für Retrieval-Auswertungen?"}
+{"chunkId":"eval-metriken::9","question":"Welcher Aspekt der Evaluation wird laut Text in der Praxis oft übersehen?"}
+{"chunkId":"eval-metriken::10","question":"Welche Spannbreite an Anfragen empfehlen Forschungs-Faustregeln als Untergrenze für belastbare Modellvergleiche?"}
+{"chunkId":"eval-metriken::10","question":"Ab welcher Anfragenzahl werden die Konfidenzintervalle so groß, dass kaum noch Unterschiede statistisch trennbar sind?"}
+{"chunkId":"eval-metriken::10","question":"Welcher praktische Vorteil ergibt sich aus synthetisch erzeugten Eval-Fragen hinsichtlich des Aufwands?"}
+{"chunkId":"eval-metriken::10","question":"Bis in welche Größenordnung lässt sich ein Eval-Set mittels automatischer Fragegenerierung problemlos vergrößern?"}
+{"chunkId":"eval-metriken::10","question":"Welche statistische Eigenschaft der Metrik-Verteilung über Anfragen wird im Text als typisch beschrieben?"}
+{"chunkId":"eval-metriken::11","question":"Wie sieht die empfohlene Aufteilung zwischen handgepflegtem und automatisch erzeugtem Eval-Material aus?"}
+{"chunkId":"eval-metriken::11","question":"Wozu dient laut Text die größere, automatisch erzeugte Hold-out-Menge?"}
+{"chunkId":"eval-metriken::11","question":"Warum reichen allgemeine Retrieval-Benchmarks für ein konkretes Produkt nicht aus?"}
+{"chunkId":"eval-metriken::11","question":"Welches Beispiel illustriert die starke Domänenabhängigkeit der Retrieval-Qualität?"}
+{"chunkId":"eval-metriken::11","question":"Welche Rolle spielen Benchmarks wie BEIR im Aufbau eines RAG-Systems?"}
+{"chunkId":"eval-metriken::12","question":"Was sollte laut Text bei jeder Veränderung der eingesetzten Modelle mitlaufen?"}
+{"chunkId":"eval-metriken::12","question":"Wie wird der Effekt bezeichnet, wenn eine generierte Frage sprachlich zu eng am Quelltext bleibt?"}
+{"chunkId":"eval-metriken::12","question":"Welcher Charakter wird der Eigenpflege eines fachgebietsnahen Bewertungsdatensatzes zugeschrieben?"}
+{"chunkId":"eval-metriken::12","question":"Welche Eigenschaften soll der selbst gepflegte Eval-Datensatz vereinen?"}
+{"chunkId":"eval-metriken::12","question":"Wodurch wird das Trivial-Match-Problem konkret ausgelöst?"}
+{"chunkId":"eval-metriken::13","question":"Welches klassische lexikalische Retrieval-Verfahren würde von wörtlich übernommenen Frageformulierungen besonders profitieren?"}
+{"chunkId":"eval-metriken::13","question":"Warum verfälscht eine zu nah am Original liegende Frage die Aussagekraft eines Embedding-Tests?"}
+{"chunkId":"eval-metriken::13","question":"Welche Anweisung an das Generator-Modell wird als Gegenmittel genannt?"}
+{"chunkId":"eval-metriken::13","question":"Warum sollte für die Fragenerstellung ein anderes Modell als für den Retrieval-Test eingesetzt werden?"}
+{"chunkId":"eval-metriken::13","question":"Welcher automatisierte Filtermechanismus kann zu wörtlich übernommene Fragen nachträglich entfernen?"}
+{"chunkId":"eval-metriken::14","question":"Welche Art von Verzerrung droht, wenn ein einzelnes Modell die Bewertungs-Fragen produziert?"}
+{"chunkId":"eval-metriken::14","question":"Welches konkrete Modell wird als Beispiel für einen Fragen-Generator genannt?"}
+{"chunkId":"eval-metriken::14","question":"In welchem Fall ist mit einem unfairen Vorteil eines Embedding-Modells zu rechnen?"}
+{"chunkId":"eval-metriken::14","question":"Welche Rolle spielen bevorzugte Formulierungsmuster eines Generators im Retrieval-Test?"}
+{"chunkId":"eval-metriken::14","question":"Warum lässt sich ein solcher Vorteil bei einem fremden Embedding-Modell nicht reproduzieren?"}
+{"chunkId":"eval-metriken::15","question":"Welche Eigenschaft sollte das fragenerzeugende Modell relativ zu den getesteten Embedding-Modellen besitzen?"}
+{"chunkId":"eval-metriken::15","question":"Welche zwei Arten von Inhalten gehören laut Text gleichermaßen in einen Eval-Report?"}
+{"chunkId":"eval-metriken::15","question":"Welche beispielhaften Fragen werden vorgeschlagen, um schlechte Treffer zu analysieren?"}
+{"chunkId":"eval-metriken::15","question":"Warum kann qualitatives Material wichtiger sein als die zusammengefassten Kennzahlen?"}
+{"chunkId":"eval-metriken::15","question":"Was kennzeichnet eine als sauber bezeichnete Evaluierungs-Konfiguration in Bezug auf Modellverwandtschaft?"}
+{"chunkId":"eval-metriken::16","question":"Welche grafische Darstellung wird empfohlen, um die Streuung der MRR-Werte sichtbar zu machen?"}
+{"chunkId":"eval-metriken::16","question":"Wozu liefert das qualitative Begleitmaterial laut Text konkrete Hinweise?"}
+{"chunkId":"eval-metriken::16","question":"Welches Risiko macht eine Verteilungs-Visualisierung sichtbar, das ein bloßer Mittelwert verdeckt?"}
+{"chunkId":"eval-metriken::16","question":"Worauf bezieht sich die vorgeschlagene Verteilungs-Anzeige pro Anfrage?"}
+{"chunkId":"eval-metriken::16","question":"Welche Metrik wird explizit als geeignet für die Histogramm-Darstellung genannt?"}
