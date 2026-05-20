@@ -237,6 +237,11 @@ export class LlamaService {
     loadProgress: null,
     message: null,
     profile: null,
+    // LlamaService is always the bundled engine — `source` is fixed; the
+    // broadcaster in main/index.ts overlays the live `source` from the
+    // ProviderRegistry so an active Ollama session reports 'ollama' instead.
+    source: 'bundled',
+    fallback: { active: false, reason: null },
   }
   private listeners: Array<(s: ModelStatus) => void> = []
   // ResourcePlanner is shared across services; injected from index.ts so

@@ -130,7 +130,7 @@ function getProviderRegistry(): ProviderRegistry {
   if (!providerRegistry) {
     // The bundled providers wrap the concrete LlamaService / EmbeddingService /
     // RerankerService singletons (kept warm across lock cycles). Ollama
-    // providers stay null at boot — Task 16 will replace them when the user
+    // providers stay null at boot — applySettings replaces them when the user
     // points at a remote backend via the settings UI.
     const llm = getLlamaService()
     const embedder = getEmbeddingService()
@@ -146,6 +146,13 @@ function getProviderRegistry(): ProviderRegistry {
           } catch {
             /* renderer torn down — drop the event */
           }
+        }
+        // An LLM fallback flips the chat-header pill from 'ollama' to
+        // 'bundled' with fallback.active = true. The next clean broadcast
+        // from LlamaService (state transition, reload, etc.) naturally
+        // clears the fallback flag.
+        if (ev.kind === 'llm') {
+          broadcastLlmStatus(getLlamaService().getStatus(), { active: true, reason: ev.reason })
         }
       },
     })
@@ -205,22 +212,53 @@ async function applySettings(s: UserSettings): Promise<void> {
   )
   // Embedder source flips are gated by the re-index flow — main does NOT change
   // embedder source from settings:update. Task 17's dedicated handler does it.
+
+  // The LLM source may have just changed — re-broadcast so the chat-header
+  // pill reflects the new 'source' immediately, without waiting for the next
+  // state transition inside LlamaService.
+  broadcastLlmStatus(getLlamaService().getStatus())
 }
 
 function getLlamaService(): LlamaService {
   if (!llamaService) {
     llamaService = new LlamaService()
-    llamaService.subscribe((status) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        try {
-          win.webContents.send('llm:status', status)
-        } catch {
-          /* ignore */
-        }
-      }
-    })
+    llamaService.subscribe((status) => broadcastLlmStatus(status))
   }
   return llamaService
+}
+
+/**
+ * Overlay the live provider source + an optional fallback flag onto the raw
+ * status emitted by LlamaService. LlamaService always reports `source:
+ * 'bundled'` in its own initializer because it has no view of the registry;
+ * the registry is the source of truth for which engine is currently active.
+ */
+function composeLlmStatus(
+  bundledStatus: import('./services/llm/LlamaService').ModelStatus,
+  fallback?: { active: boolean; reason: string },
+): import('./services/llm/LlamaService').ModelStatus {
+  const source = providerRegistry?.getLlmSource() ?? 'bundled'
+  return {
+    ...bundledStatus,
+    source,
+    fallback: fallback
+      ? { active: true, reason: fallback.reason }
+      : { active: false, reason: null },
+  }
+}
+
+function broadcastLlmStatus(
+  bundledStatus: import('./services/llm/LlamaService').ModelStatus,
+  fallback?: { active: boolean; reason: string },
+): void {
+  const status = composeLlmStatus(bundledStatus, fallback)
+  for (const win of BrowserWindow.getAllWindows()) {
+    try {
+      win.webContents.send('llm:status', status)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function getQAService(): QAService {
@@ -550,7 +588,7 @@ function registerIpc(): void {
   })
 
   // llm
-  ipcMain.handle('llm:status', async () => getLlamaService().getStatus())
+  ipcMain.handle('llm:status', async () => composeLlmStatus(getLlamaService().getStatus()))
   ipcMain.handle('llm:info', async () => getLlamaService().systemInfo())
   ipcMain.handle('llm:reload', async () => {
     await getLlamaService().unload()
