@@ -154,17 +154,14 @@
       "artifactName": "LokLM-Setup-${version}-win-x64.${ext}"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
-      "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "LokLM",
+      "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
       "include": "installer/installer.nsh",
-      "installerSidebar": "installer/installer-sidebar.bmp",
-      "uninstallerSidebar": "installer/uninstaller-sidebar.bmp",
       "installerHeader": "installer/installer-header.bmp"
     },
     "linux": {
