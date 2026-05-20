@@ -1,19 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="150" height="57" viewBox="0 0 150 57">
-  <!-- Background: --bg-1 (#161b22) -->
-  <rect width="150" height="57" fill="#161b22"/>
+  <rect width="150" height="57" fill="#ffffff"/>
+  <rect x="0" y="56" width="150" height="1" fill="#1f4fb8" opacity="0.25"/>
 
-  <!-- Bottom border: --accent at 30% opacity -->
-  <rect x="0" y="56" width="150" height="1" fill="#3b82f6" opacity="0.3"/>
-
-  <!-- LokLM mark (scaled from resources/brand/mark-on-dark.svg, ~28×28 at x=12,y=14) -->
   <g transform="translate(12, 14) scale(0.4375)">
-    <rect x="14" y="22" width="36" height="30" rx="2" stroke="#F6F4EF" stroke-width="3" opacity="0.4" fill="none"/>
-    <rect x="11" y="17" width="36" height="30" rx="2" stroke="#F6F4EF" stroke-width="3" opacity="0.7" fill="none"/>
-    <rect x="8" y="12" width="36" height="30" rx="2" fill="#0B1B2B" stroke="#F6F4EF" stroke-width="3"/>
-    <circle cx="38" cy="20" r="2.6" fill="#7DD3FC"/>
-    <path d="M14 22 H32 M14 28 H30 M14 34 H26" stroke="#F6F4EF" stroke-width="1.8" stroke-linecap="round" opacity="0.55" fill="none"/>
+    <rect x="14" y="22" width="36" height="30" rx="2" stroke="#1f4fb8" stroke-width="3" opacity="0.35" fill="none"/>
+    <rect x="11" y="17" width="36" height="30" rx="2" stroke="#1f4fb8" stroke-width="3" opacity="0.6" fill="none"/>
+    <rect x="8" y="12" width="36" height="30" rx="2" fill="#ffffff" stroke="#1f4fb8" stroke-width="3"/>
+    <circle cx="38" cy="20" r="2.6" fill="#3b82f6"/>
+    <path d="M14 22 H32 M14 28 H30 M14 34 H26" stroke="#1f4fb8" stroke-width="1.8" stroke-linecap="round" opacity="0.7" fill="none"/>
   </g>
 
-  <!-- Wordmark "LokLM" -->
-  <text x="48" y="36" font-family="Segoe UI, Inter, sans-serif" font-size="14" font-weight="700" fill="#e6edf3">LokLM</text>
+  <text x="48" y="36" font-family="Segoe UI, Inter, sans-serif" font-size="14" font-weight="700" fill="#0b1b2b">LokLM</text>
 </svg>
