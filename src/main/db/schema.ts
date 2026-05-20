@@ -82,6 +82,7 @@ export const chunks = pgTable(
     // for plain markdown). Null for PDFs and unstructured text.
     headingPath: jsonb('heading_path').$type<string[]>(),
     embedding: vector('embedding', { dimensions: 1024 }),
+    embedderIdentity: text('embedder_identity').notNull().default('bundled:bge-m3'),
     textSearch: tsvector('text_search'),
   },
   (t) => ({
