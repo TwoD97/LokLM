@@ -35,6 +35,7 @@
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:nsis": "makensis /CMDHELP installer/installer.nsh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "installer:assets": "node installer/assets/export.mjs",
