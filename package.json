@@ -14,10 +14,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "pnpm package:win:payload && pnpm package:win:installer && pnpm package:win:stub",
+    "package:win": "pnpm package:win:payload && pnpm package:win:installer",
     "package:win:payload": "electron-vite build && electron-builder --win dir",
-    "package:win:installer": "electron-builder --config installer-ui/electron-builder.json --win dir",
-    "package:win:stub": "pnpm build:installer-splash && node scripts/build-installer-stub.mjs",
+    "package:win:installer": "pnpm build:installer-splash && electron-builder --config installer-ui/electron-builder.json --win portable",
     "build:installer-splash": "node scripts/build-installer-splash.mjs",
     "package:linux": "electron-vite build && electron-builder --linux AppImage",
     "package:mac": "electron-vite build && electron-builder --mac dmg",
