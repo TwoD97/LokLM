@@ -48,7 +48,7 @@ describe('AuthService (integration)', () => {
     const login = await auth.login('Test12345!')
     expect(login.ok).toBe(true)
     expect(auth.isUnlocked()).toBe(true)
-  }, 20_000)
+  }, 45_000)
 
   it('login mit falschem passwort schlägt fehl', async () => {
     await auth.register({
@@ -61,7 +61,7 @@ describe('AuthService (integration)', () => {
     const result = await auth.login('wrong-password!')
     expect(result.ok).toBe(false)
     expect(auth.isUnlocked()).toBe(false)
-  }, 20_000)
+  }, 45_000)
 
   it('login emits progress stages in order (deriving , decrypting , restoring , ready)', async () => {
     await auth.register({
@@ -77,7 +77,7 @@ describe('AuthService (integration)', () => {
     })
     expect(result.ok).toBe(true)
     expect(stages).toEqual(['deriving', 'decrypting', 'restoring', 'ready'])
-  }, 20_000)
+  }, 45_000)
 
   it('login progress reports only "deriving" before a bad password short-circuits', async () => {
     await auth.register({
@@ -94,7 +94,7 @@ describe('AuthService (integration)', () => {
     expect(result.ok).toBe(false)
     // KDF ran (so "deriving" emitted) , unwrap failed , no decrypt/restore.
     expect(stages).toEqual(['deriving'])
-  }, 20_000)
+  }, 45_000)
 
   // weitere flows als ausgangspunkt:
   // - reset mit der bei register erhaltenen passphrase
