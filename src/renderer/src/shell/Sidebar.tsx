@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Library, MessageSquare, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Library,
+  MessageSquare,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  GraduationCap,
+} from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 
-type ViewKind = 'library' | 'chat'
+type ViewKind = 'library' | 'chat' | 'quiz'
 
 type Props = {
   expanded: boolean
@@ -69,6 +76,14 @@ export function Sidebar({
           title="Chat"
         >
           <MessageSquare size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
+        </button>
+        <button
+          className={`sidebar__rail-btn ${activeView === 'quiz' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('quiz')}
+          aria-label="Quiz"
+          title="Quiz"
+        >
+          <GraduationCap size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
       </div>
       {expanded && (

@@ -160,6 +160,84 @@ export const citations = pgTable(
   }),
 )
 
+// Quiz feature — see docs/superpowers/specs/2026-05-21-quiz-feature-design.md.
+// A deck is a workspace-scoped MCQ set generated once from a chosen subset of
+// documents; question rows are its persisted contents; attempt rows hold one
+// run-through per retake. document_ids is a snapshot — chunks (and the docs
+// themselves) can be deleted without breaking the deck, the citation chip just
+// degrades to "Source no longer available" at click time.
+export const quizDecks = pgTable(
+  'quiz_decks',
+  {
+    id: serial('id').primaryKey(),
+    workspaceId: integer('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    documentIds: jsonb('document_ids').$type<number[]>().notNull(),
+    questionCount: integer('question_count').notNull(),
+    // 'generating' | 'ready' | 'failed' — text rather than enum to mirror the
+    // documents/conversations style and stay diffable in plain SQL.
+    status: text('status').notNull().default('generating'),
+    error: text('error'),
+    language: text('language').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW())::BIGINT)`),
+  },
+  (t) => ({
+    idxWorkspace: index('idx_quiz_decks_workspace').on(t.workspaceId),
+  }),
+)
+
+export const quizQuestions = pgTable(
+  'quiz_questions',
+  {
+    id: serial('id').primaryKey(),
+    deckId: integer('deck_id')
+      .notNull()
+      .references(() => quizDecks.id, { onDelete: 'cascade' }),
+    ordinal: integer('ordinal').notNull(),
+    stem: text('stem').notNull(),
+    options: jsonb('options').$type<string[]>().notNull(),
+    correctIndex: integer('correct_index').notNull(),
+    explanation: text('explanation').notNull(),
+    // jsonb int[] rather than a chunk FK: deletion of the source chunk leaves
+    // the question intact (it still has stem/answer/explanation). Citation chip
+    // checks existence on click and degrades gracefully.
+    sourceChunkIds: jsonb('source_chunk_ids').$type<number[]>().notNull(),
+    themeTitle: text('theme_title').notNull(),
+  },
+  (t) => ({
+    idxDeck: index('idx_quiz_questions_deck').on(t.deckId),
+    uniqDeckOrdinal: uniqueIndex('uniq_quiz_questions_deck_ordinal').on(t.deckId, t.ordinal),
+  }),
+)
+
+export const quizAttempts = pgTable(
+  'quiz_attempts',
+  {
+    id: serial('id').primaryKey(),
+    deckId: integer('deck_id')
+      .notNull()
+      .references(() => quizDecks.id, { onDelete: 'cascade' }),
+    startedAt: bigint('started_at', { mode: 'number' })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW())::BIGINT)`),
+    finishedAt: bigint('finished_at', { mode: 'number' }),
+    score: integer('score'),
+    // Array of { questionId, selectedIndex, correct } — written once on finish.
+    // No per-click IPC; an abandoned attempt stays with finished_at=null and [].
+    answers: jsonb('answers')
+      .$type<Array<{ questionId: number; selectedIndex: number; correct: boolean }>>()
+      .notNull()
+      .default([]),
+  },
+  (t) => ({
+    idxDeck: index('idx_quiz_attempts_deck').on(t.deckId),
+  }),
+)
+
 export const documentTags = pgTable(
   'document_tags',
   {
@@ -193,3 +271,9 @@ export type Settings = typeof settings.$inferSelect
 export type NewSettings = typeof settings.$inferInsert
 export type DocumentTag = typeof documentTags.$inferSelect
 export type NewDocumentTag = typeof documentTags.$inferInsert
+export type QuizDeckRow = typeof quizDecks.$inferSelect
+export type NewQuizDeckRow = typeof quizDecks.$inferInsert
+export type QuizQuestionRow = typeof quizQuestions.$inferSelect
+export type NewQuizQuestionRow = typeof quizQuestions.$inferInsert
+export type QuizAttemptRow = typeof quizAttempts.$inferSelect
+export type NewQuizAttemptRow = typeof quizAttempts.$inferInsert

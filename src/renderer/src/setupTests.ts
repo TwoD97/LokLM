@@ -315,6 +315,60 @@ const stub: Api = {
   providers: {
     onFallback: () => () => undefined,
   },
+  quiz: {
+    listDecks: () => Promise.resolve([]),
+    getDeck: (deckId: number) =>
+      Promise.resolve({
+        deck: {
+          id: deckId,
+          workspaceId: 1,
+          name: 'stub',
+          documentIds: [],
+          questionCount: 0,
+          status: 'ready' as const,
+          error: null,
+          language: 'en' as const,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+        questions: [],
+      }),
+    createDeck: (input) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId: input.workspaceId,
+        name: input.name,
+        documentIds: input.documentIds,
+        questionCount: input.questionCount,
+        status: 'generating' as const,
+        error: null,
+        language: 'en' as const,
+        createdAt: Math.floor(Date.now() / 1000),
+      }),
+    deleteDeck: () => Promise.resolve(),
+    regenerateDeck: () => Promise.resolve(),
+    generate: () => Promise.resolve(),
+    cancelGenerate: () => Promise.resolve(),
+    onGenerateEvent: () => () => undefined,
+    startAttempt: (deckId: number) =>
+      Promise.resolve({
+        id: 1,
+        deckId,
+        startedAt: Math.floor(Date.now() / 1000),
+        finishedAt: null,
+        score: null,
+        answers: [],
+      }),
+    finishAttempt: (attemptId: number) =>
+      Promise.resolve({
+        id: attemptId,
+        deckId: 1,
+        startedAt: Math.floor(Date.now() / 1000) - 10,
+        finishedAt: Math.floor(Date.now() / 1000),
+        score: 0,
+        answers: [],
+      }),
+    listAttempts: () => Promise.resolve([]),
+  },
 }
 
 window.api = stub

@@ -73,6 +73,10 @@ export class Database {
   conversations(): ConversationsRepo {
     return new ConversationsRepo(this.db)
   }
+
+  quizzes(): QuizzesRepo {
+    return new QuizzesRepo(this.db)
+  }
 }
 
 export { schema }
@@ -855,5 +859,267 @@ export class WorkspacesRepo {
 
   async delete(id: number): Promise<void> {
     await this.db.delete(workspaces).where(eq(workspaces.id, id))
+  }
+}
+
+// ----- quiz ----------------------------------------------------------------
+
+import type {
+  QuizDeck,
+  QuizDeckStatus,
+  QuizDeckSummary,
+  QuizDeckWithQuestions,
+  QuizAttempt,
+  QuizAttemptAnswer,
+  QuizLanguage,
+  QuizQuestion,
+} from '../../shared/quiz'
+
+interface QuizDeckRowSnake {
+  id: number
+  workspace_id: number
+  name: string
+  document_ids: number[] | null
+  question_count: number
+  status: string
+  error: string | null
+  language: string
+  created_at: number
+}
+
+interface QuizQuestionRowSnake {
+  id: number
+  deck_id: number
+  ordinal: number
+  stem: string
+  options: string[] | null
+  correct_index: number
+  explanation: string
+  source_chunk_ids: number[] | null
+  theme_title: string
+}
+
+interface QuizAttemptRowSnake {
+  id: number
+  deck_id: number
+  started_at: number
+  finished_at: number | null
+  score: number | null
+  answers: QuizAttemptAnswer[] | null
+}
+
+function mapDeck(row: QuizDeckRowSnake): QuizDeck {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    name: row.name,
+    documentIds: row.document_ids ?? [],
+    questionCount: row.question_count,
+    status: row.status as QuizDeckStatus,
+    error: row.error,
+    language: row.language as QuizLanguage,
+    createdAt: row.created_at,
+  }
+}
+
+function mapQuestion(row: QuizQuestionRowSnake): QuizQuestion {
+  return {
+    id: row.id,
+    deckId: row.deck_id,
+    ordinal: row.ordinal,
+    stem: row.stem,
+    options: row.options ?? [],
+    correctIndex: row.correct_index,
+    explanation: row.explanation,
+    sourceChunkIds: row.source_chunk_ids ?? [],
+    themeTitle: row.theme_title,
+  }
+}
+
+function mapAttempt(row: QuizAttemptRowSnake): QuizAttempt {
+  return {
+    id: row.id,
+    deckId: row.deck_id,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    score: row.score,
+    answers: row.answers ?? [],
+  }
+}
+
+export interface NewQuizQuestionInput {
+  ordinal: number
+  stem: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+  sourceChunkIds: number[]
+  themeTitle: string
+}
+
+export class QuizzesRepo {
+  constructor(private readonly db: DbHandle) {}
+
+  async createDeck(input: {
+    workspaceId: number
+    name: string
+    documentIds: number[]
+    questionCount: number
+    language: QuizLanguage
+  }): Promise<QuizDeck> {
+    const docIdsJson = JSON.stringify(input.documentIds)
+    const r = await this.db.execute(sql`
+      INSERT INTO quiz_decks
+        (workspace_id, name, document_ids, question_count, language)
+      VALUES
+        (${input.workspaceId}, ${input.name}, ${docIdsJson}::jsonb,
+         ${input.questionCount}, ${input.language})
+      RETURNING id, workspace_id, name, document_ids, question_count,
+                status, error, language, created_at
+    `)
+    return mapDeck((r.rows as unknown as QuizDeckRowSnake[])[0]!)
+  }
+
+  async setDeckStatus(deckId: number, status: QuizDeckStatus, error: string | null): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE quiz_decks SET status = ${status}, error = ${error} WHERE id = ${deckId}
+    `)
+  }
+
+  async getDeck(deckId: number): Promise<QuizDeck | null> {
+    const r = await this.db.execute(sql`
+      SELECT id, workspace_id, name, document_ids, question_count,
+             status, error, language, created_at
+        FROM quiz_decks WHERE id = ${deckId}
+    `)
+    const row = (r.rows as unknown as QuizDeckRowSnake[])[0]
+    return row ? mapDeck(row) : null
+  }
+
+  async listDecks(workspaceId: number): Promise<QuizDeckSummary[]> {
+    // Single JOIN: deck rows left-joined with their finished attempts so the
+    // list screen can render last-score + attempt-count without N+1 queries.
+    const r = await this.db.execute(sql`
+      SELECT d.id, d.workspace_id, d.name, d.document_ids, d.question_count,
+             d.status, d.error, d.language, d.created_at,
+             COUNT(a.id) FILTER (WHERE a.finished_at IS NOT NULL)::INT AS attempt_count,
+             (
+               SELECT score FROM quiz_attempts
+                WHERE deck_id = d.id AND finished_at IS NOT NULL
+                ORDER BY finished_at DESC LIMIT 1
+             ) AS last_score,
+             (
+               SELECT finished_at FROM quiz_attempts
+                WHERE deck_id = d.id AND finished_at IS NOT NULL
+                ORDER BY finished_at DESC LIMIT 1
+             ) AS last_finished_at
+        FROM quiz_decks d
+        LEFT JOIN quiz_attempts a ON a.deck_id = d.id
+       WHERE d.workspace_id = ${workspaceId}
+       GROUP BY d.id
+       ORDER BY d.created_at DESC, d.id DESC
+    `)
+    type Row = QuizDeckRowSnake & {
+      attempt_count: number
+      last_score: number | null
+      last_finished_at: number | null
+    }
+    return (r.rows as unknown as Row[]).map((row) => ({
+      ...mapDeck(row),
+      attemptCount: row.attempt_count,
+      lastScore: row.last_score,
+      lastFinishedAt: row.last_finished_at,
+    }))
+  }
+
+  async deleteDeck(deckId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM quiz_decks WHERE id = ${deckId}`)
+  }
+
+  async listQuestions(deckId: number): Promise<QuizQuestion[]> {
+    const r = await this.db.execute(sql`
+      SELECT id, deck_id, ordinal, stem, options, correct_index,
+             explanation, source_chunk_ids, theme_title
+        FROM quiz_questions WHERE deck_id = ${deckId}
+       ORDER BY ordinal ASC, id ASC
+    `)
+    return (r.rows as unknown as QuizQuestionRowSnake[]).map(mapQuestion)
+  }
+
+  async getDeckWithQuestions(deckId: number): Promise<QuizDeckWithQuestions | null> {
+    const deck = await this.getDeck(deckId)
+    if (!deck) return null
+    const questions = await this.listQuestions(deckId)
+    return { deck, questions }
+  }
+
+  /** Insert all questions for a deck atomically. Called at the end of
+   *  QuizService.generate so a partial pipeline doesn't leak half a deck. */
+  async insertQuestions(deckId: number, items: NewQuizQuestionInput[]): Promise<void> {
+    if (items.length === 0) return
+    for (const q of items) {
+      const optsJson = JSON.stringify(q.options)
+      const chunksJson = JSON.stringify(q.sourceChunkIds)
+      await this.db.execute(sql`
+        INSERT INTO quiz_questions
+          (deck_id, ordinal, stem, options, correct_index,
+           explanation, source_chunk_ids, theme_title)
+        VALUES
+          (${deckId}, ${q.ordinal}, ${q.stem}, ${optsJson}::jsonb, ${q.correctIndex},
+           ${q.explanation}, ${chunksJson}::jsonb, ${q.themeTitle})
+      `)
+    }
+  }
+
+  /** Wipe existing questions for a deck. Used by regenerate before re-running
+   *  the pipeline. Attempts are NOT cleared (the old questionIds in answers
+   *  point into rows that no longer exist — we accept that; regenerate is a
+   *  deliberate user action, the history of *prior* generations is fine to
+   *  break). */
+  async clearQuestions(deckId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM quiz_questions WHERE deck_id = ${deckId}`)
+  }
+
+  async startAttempt(deckId: number): Promise<QuizAttempt> {
+    const r = await this.db.execute(sql`
+      INSERT INTO quiz_attempts (deck_id) VALUES (${deckId})
+      RETURNING id, deck_id, started_at, finished_at, score, answers
+    `)
+    return mapAttempt((r.rows as unknown as QuizAttemptRowSnake[])[0]!)
+  }
+
+  async finishAttempt(
+    attemptId: number,
+    answers: QuizAttemptAnswer[],
+    score: number,
+  ): Promise<QuizAttempt> {
+    const answersJson = JSON.stringify(answers)
+    const r = await this.db.execute(sql`
+      UPDATE quiz_attempts
+         SET finished_at = (EXTRACT(EPOCH FROM NOW())::BIGINT),
+             answers = ${answersJson}::jsonb,
+             score = ${score}
+       WHERE id = ${attemptId}
+      RETURNING id, deck_id, started_at, finished_at, score, answers
+    `)
+    return mapAttempt((r.rows as unknown as QuizAttemptRowSnake[])[0]!)
+  }
+
+  async listAttempts(deckId: number): Promise<QuizAttempt[]> {
+    const r = await this.db.execute(sql`
+      SELECT id, deck_id, started_at, finished_at, score, answers
+        FROM quiz_attempts WHERE deck_id = ${deckId}
+       ORDER BY started_at DESC, id DESC
+    `)
+    return (r.rows as unknown as QuizAttemptRowSnake[]).map(mapAttempt)
+  }
+
+  async getAttempt(attemptId: number): Promise<QuizAttempt | null> {
+    const r = await this.db.execute(sql`
+      SELECT id, deck_id, started_at, finished_at, score, answers
+        FROM quiz_attempts WHERE id = ${attemptId}
+    `)
+    const row = (r.rows as unknown as QuizAttemptRowSnake[])[0]
+    return row ? mapAttempt(row) : null
   }
 }
