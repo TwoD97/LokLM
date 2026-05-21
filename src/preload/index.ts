@@ -9,6 +9,14 @@ import type {
 } from '../shared/authTypes'
 import type { UserSettings } from '../shared/settings'
 import type {
+  QuizDeck,
+  QuizDeckSummary,
+  QuizDeckWithQuestions,
+  QuizAttempt,
+  CreateQuizInput,
+  QuizGenerationEvent,
+} from '../shared/quiz'
+import type {
   Document,
   Workspace,
   IndexProgress,
@@ -266,6 +274,37 @@ const api = {
         ipcRenderer.removeListener('provider:fallback', listener)
       }
     },
+  },
+  quiz: {
+    listDecks: (workspaceId: number): Promise<QuizDeckSummary[]> =>
+      ipcRenderer.invoke('quiz:list-decks', workspaceId),
+    getDeck: (deckId: number): Promise<QuizDeckWithQuestions> =>
+      ipcRenderer.invoke('quiz:get-deck', deckId),
+    createDeck: (input: CreateQuizInput): Promise<QuizDeck> =>
+      ipcRenderer.invoke('quiz:create-deck', input),
+    deleteDeck: (deckId: number): Promise<void> => ipcRenderer.invoke('quiz:delete-deck', deckId),
+    regenerateDeck: (deckId: number): Promise<void> =>
+      ipcRenderer.invoke('quiz:regenerate-deck', deckId),
+    generate: (streamId: string, deckId: number): Promise<void> =>
+      ipcRenderer.invoke('quiz:generate', streamId, deckId),
+    cancelGenerate: (streamId: string): Promise<void> =>
+      ipcRenderer.invoke('quiz:cancel-generate', streamId),
+    onGenerateEvent: (streamId: string, cb: (ev: QuizGenerationEvent) => void): (() => void) => {
+      const channel = `quiz:generate-event:${streamId}`
+      const listener = (_e: IpcRendererEvent, ev: QuizGenerationEvent): void => cb(ev)
+      ipcRenderer.on(channel, listener)
+      return () => {
+        ipcRenderer.removeListener(channel, listener)
+      }
+    },
+    startAttempt: (deckId: number): Promise<QuizAttempt> =>
+      ipcRenderer.invoke('quiz:start-attempt', deckId),
+    finishAttempt: (
+      attemptId: number,
+      answers: Array<{ questionId: number; selectedIndex: number }>,
+    ): Promise<QuizAttempt> => ipcRenderer.invoke('quiz:finish-attempt', attemptId, answers),
+    listAttempts: (deckId: number): Promise<QuizAttempt[]> =>
+      ipcRenderer.invoke('quiz:list-attempts', deckId),
   },
 }
 

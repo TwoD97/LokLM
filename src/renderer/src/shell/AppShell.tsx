@@ -3,9 +3,10 @@ import type { Document, Workspace } from '@shared/documents'
 import { Sidebar, usePinnedSidebar } from './Sidebar'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
+import { QuizView } from '../quiz/QuizView'
 import './shell.css'
 
-type ViewKind = 'library' | 'chat'
+type ViewKind = 'library' | 'chat' | 'quiz'
 
 export function AppShell(): JSX.Element {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -131,6 +132,13 @@ export function AppShell(): JSX.Element {
             currentConversationId={currentConversationId}
             activeDocumentIds={activeDocumentIds}
             onConversationChange={onConversationChange}
+          />
+        )}
+        {activeView === 'quiz' && activeWorkspaceId != null && (
+          <QuizView
+            key={activeWorkspaceId}
+            workspaceId={activeWorkspaceId}
+            documents={workspaceDocs}
           />
         )}
       </main>

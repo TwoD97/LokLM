@@ -11,6 +11,7 @@ import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
+import { QuizService } from './services/quiz/QuizService'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
 import { ProviderRegistry } from './services/providers/Registry'
@@ -72,6 +73,7 @@ function resetSessionServices(): void {
   backfillService = null
   retrievalService = null
   qaService = null
+  quizService = null
   providerRegistry = null
   settingsService = null
 }
@@ -96,6 +98,7 @@ let rerankerService: RerankerService | null = null
 let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
+let quizService: QuizService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
@@ -401,6 +404,17 @@ function getQAService(): QAService {
     )
   }
   return qaService
+}
+
+function getQuizService(): QuizService {
+  if (!quizService) {
+    quizService = new QuizService(
+      getAuth().requireDatabase(),
+      getRetrievalService(),
+      getProviderRegistry(),
+    )
+  }
+  return quizService
 }
 
 function getRerankerService(): RerankerService {
@@ -951,6 +965,98 @@ function registerIpc(): void {
   ipcMain.handle('chat:cancel', async (_e, streamId: string) => {
     activeStreams.get(streamId)?.abort()
   })
+
+  // quiz — see docs/superpowers/specs/2026-05-21-quiz-feature-design.md
+  ipcMain.handle('quiz:list-decks', async (_e, workspaceId: number) =>
+    getAuth().requireDatabase().quizzes().listDecks(workspaceId),
+  )
+
+  ipcMain.handle('quiz:get-deck', async (_e, deckId: number) => {
+    const data = await getAuth().requireDatabase().quizzes().getDeckWithQuestions(deckId)
+    if (!data) throw new Error(`Deck ${deckId} not found`)
+    return data
+  })
+
+  ipcMain.handle(
+    'quiz:create-deck',
+    async (_e, input: import('../shared/quiz').CreateQuizInput) => {
+      // QuizService.createDeckRow validates name/count/docs and resolves
+      // language from 'auto' before insert.
+      return getQuizService().createDeckRow(input)
+    },
+  )
+
+  ipcMain.handle('quiz:delete-deck', async (_e, deckId: number) => {
+    await getAuth().requireDatabase().quizzes().deleteDeck(deckId)
+  })
+
+  ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
+    const quizzes = getAuth().requireDatabase().quizzes()
+    await quizzes.clearQuestions(deckId)
+    await quizzes.setDeckStatus(deckId, 'generating', null)
+  })
+
+  const activeQuizStreams = new Map<string, AbortController>()
+  ipcMain.handle('quiz:generate', async (e, streamId: string, deckId: number) => {
+    const ctrl = new AbortController()
+    activeQuizStreams.set(streamId, ctrl)
+    try {
+      const stream = getQuizService().generate(deckId, ctrl.signal)
+      for await (const ev of stream) {
+        if (ctrl.signal.aborted) break
+        try {
+          e.sender.send(`quiz:generate-event:${streamId}`, ev)
+        } catch {
+          ctrl.abort()
+          break
+        }
+      }
+    } finally {
+      activeQuizStreams.delete(streamId)
+    }
+  })
+  ipcMain.handle('quiz:cancel-generate', async (_e, streamId: string) => {
+    activeQuizStreams.get(streamId)?.abort()
+  })
+
+  ipcMain.handle('quiz:start-attempt', async (_e, deckId: number) =>
+    getAuth().requireDatabase().quizzes().startAttempt(deckId),
+  )
+
+  ipcMain.handle(
+    'quiz:finish-attempt',
+    async (
+      _e,
+      attemptId: number,
+      answers: Array<{ questionId: number; selectedIndex: number }>,
+    ) => {
+      const quizzes = getAuth().requireDatabase().quizzes()
+      const attempt = await quizzes.getAttempt(attemptId)
+      if (!attempt) throw new Error(`Attempt ${attemptId} not found`)
+      const questions = await quizzes.listQuestions(attempt.deckId)
+      // Build a (questionId -> correct_index) map so we can score without
+      // trusting the renderer's claim of correctness.
+      const byId = new Map(questions.map((q) => [q.id, q.correctIndex]))
+      let score = 0
+      const scored = answers.map((a) => {
+        const correctIdx = byId.get(a.questionId)
+        if (correctIdx === undefined) {
+          throw new Error(`Question ${a.questionId} does not belong to attempt ${attemptId}`)
+        }
+        if (!Number.isInteger(a.selectedIndex) || a.selectedIndex < 0 || a.selectedIndex > 3) {
+          throw new Error(`Invalid selectedIndex ${a.selectedIndex} for question ${a.questionId}`)
+        }
+        const correct = a.selectedIndex === correctIdx
+        if (correct) score += 1
+        return { questionId: a.questionId, selectedIndex: a.selectedIndex, correct }
+      })
+      return quizzes.finishAttempt(attemptId, scored, score)
+    },
+  )
+
+  ipcMain.handle('quiz:list-attempts', async (_e, deckId: number) =>
+    getAuth().requireDatabase().quizzes().listAttempts(deckId),
+  )
 }
 
 function createMainWindow(): BrowserWindow {
