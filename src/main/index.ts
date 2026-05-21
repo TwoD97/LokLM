@@ -124,10 +124,21 @@ function schedulePostLoginWarmup(): void {
   // follows so even if backfill + autoLoad both fire immediately they queue.
   postLoginWarmupTimer = setTimeout(() => {
     postLoginWarmupTimer = null
+    // Backfill is safe under either source — it goes through the registry, so
+    // when the embedder is on Ollama it embeds via HTTP without touching the
+    // bundled GGUF. Always run it; pending chunks need vectors either way.
     void scheduleBackfillForAllWorkspaces().catch(() => undefined)
-    void getLlamaService()
-      .autoLoad()
-      .catch(() => undefined)
+    // Skip bundled-LLM warmup when the user is on external Ollama — loading
+    // a multi-GB GGUF only to leave it sitting unused is the exact resource
+    // waste the source switch is meant to avoid. (Reranker is intentionally
+    // not warmed: lazy-load on first retrieval is fine, and an unconditional
+    // ensureReady would load bundled even when the user's on external.)
+    const reg = providerRegistry
+    if (!reg || reg.getLlmSource() !== 'ollama') {
+      void getLlamaService()
+        .autoLoad()
+        .catch(() => undefined)
+    }
   }, 1500)
   if (typeof postLoginWarmupTimer.unref === 'function') postLoginWarmupTimer.unref()
 }
@@ -157,6 +168,13 @@ function composeEmbedderStatus(
   raw: import('../shared/documents').EmbedderStatus,
 ): import('../shared/documents').EmbedderStatus {
   const source = providerRegistry?.getEmbedderSource() ?? 'bundled'
+  // When the user is on external Ollama the bundled embedder is unloaded —
+  // its raw state would be 'unloaded'/'idle' and the TitleBar dot would go
+  // grey. The active provider is Ollama, so report that as 'ready' so the
+  // dot shows the purple external indicator instead. (Mirrors LLM behavior.)
+  if (source === 'ollama') {
+    return { ...raw, source, state: 'ready', loadProgress: null }
+  }
   return { ...raw, source }
 }
 
@@ -267,21 +285,51 @@ async function applySettings(s: UserSettings): Promise<void> {
   }
 
   // Switch sources only if Ollama providers are actually built; otherwise stay bundled.
-  reg.setLlmSource(haveOllama && s.advanced.llm.source === 'ollama' ? 'ollama' : 'bundled')
-  reg.setRerankerSource(
-    haveOllama && s.advanced.reranker.source === 'ollama' ? 'ollama' : 'bundled',
-  )
-  // Embedder source flips are gated by the re-index flow — main does NOT change
-  // embedder source from settings:update. Task 17's dedicated handler does it.
+  const nextLlmSource: 'bundled' | 'ollama' =
+    haveOllama && s.advanced.llm.source === 'ollama' ? 'ollama' : 'bundled'
+  const nextRerankerSource: 'bundled' | 'ollama' =
+    haveOllama && s.advanced.reranker.source === 'ollama' ? 'ollama' : 'bundled'
+  // Embedder used to be excluded here so a UI flip could only happen via the
+  // probe-and-commit `embedder:trySwitchSource` handler (dim-mismatch guard).
+  // That left a hole at login: the persisted source was already dim-verified
+  // by a prior trySwitchSource, but applySettings never re-applied it, so the
+  // registry stayed 'bundled' and the backfill warmed the bundled GGUF even
+  // when the user had picked Ollama. Apply the persisted source here too —
+  // trySwitchSource still owns runtime flips, this just rehydrates state.
+  const nextEmbedderSource: 'bundled' | 'ollama' =
+    haveOllama && s.advanced.embedder.source === 'ollama' ? 'ollama' : 'bundled'
+  reg.setLlmSource(nextLlmSource)
+  reg.setRerankerSource(nextRerankerSource)
+  reg.setEmbedderSource(nextEmbedderSource)
+
+  // Free the bundled engines whose source just flipped to external. The user
+  // explicitly chose Ollama; keeping the GGUFs in memory would waste several
+  // GB of RAM/VRAM. (Bundled is lazy-loaded on demand if the user flips back.)
+  // Errors are swallowed — the worker's status push reflects whatever state
+  // the unload actually reached.
+  if (nextLlmSource === 'ollama') {
+    void getLlamaService()
+      .unload()
+      .catch(() => undefined)
+  }
+  if (nextRerankerSource === 'ollama') {
+    void getRerankerService()
+      .unload()
+      .catch(() => undefined)
+  }
+  if (nextEmbedderSource === 'ollama') {
+    void getEmbeddingService()
+      .unload()
+      .catch(() => undefined)
+  }
 
   // The LLM source may have just changed — re-broadcast so the chat-header
   // pill reflects the new 'source' immediately, without waiting for the next
-  // state transition inside LlamaService.
+  // state transition inside LlamaService. Same overlay refresh for the
+  // embedder + reranker dots in the TitleBar.
   broadcastLlmStatus(getLlamaService().getStatus())
-  // Same overlay refresh for the reranker dot in the TitleBar. (Embedder is
-  // handled by the dedicated trySwitchSource handler — applySettings never
-  // flips embedder source.)
   broadcastRerankerStatus(getRerankerService().getStatus())
+  broadcastEmbedderStatus(getEmbeddingService().getStatus())
 }
 
 function getLlamaService(): LlamaService {
@@ -306,6 +354,21 @@ function composeLlmStatus(
   fallback?: { active: boolean; reason: string },
 ): import('./services/llm/LlamaService').ModelStatus {
   const source = providerRegistry?.getLlmSource() ?? 'bundled'
+  // When Ollama is the live source, the bundled LLM is unloaded (see
+  // applySettings) so its raw state is 'unloaded'/'idle' — that would render
+  // the TitleBar dot grey. Force 'ready' so the dot reflects the active
+  // external backend. A fallback flip is the one case we preserve the bundled
+  // status untouched — the chat header pill reads fallback.active to surface
+  // that the request actually ran against bundled despite source='ollama'.
+  if (source === 'ollama' && !fallback) {
+    return {
+      ...bundledStatus,
+      source,
+      state: 'ready',
+      loadProgress: null,
+      fallback: { active: false, reason: null },
+    }
+  }
   return {
     ...bundledStatus,
     source,
@@ -352,6 +415,12 @@ function composeRerankerStatus(
   raw: import('../shared/documents').RerankerStatus,
 ): import('../shared/documents').RerankerStatus {
   const source = providerRegistry?.getRerankerSource() ?? 'bundled'
+  // Same overlay as composeEmbedderStatus — bundled reranker is unloaded on
+  // external switch, so report 'ready' so the dot reflects the live Ollama
+  // backend rather than the dormant bundled service.
+  if (source === 'ollama') {
+    return { ...raw, source, state: 'ready', loadProgress: null }
+  }
   return { ...raw, source }
 }
 
@@ -771,6 +840,13 @@ function registerIpc(): void {
     }
     reg.setEmbedderSource(source)
     await getSettingsService().update({ advanced: { embedder: { source } } })
+    // Free the bundled embedder when the user just chose external — same
+    // reasoning as applySettings (no point keeping the GGUF resident).
+    if (source === 'ollama') {
+      void getEmbeddingService()
+        .unload()
+        .catch(() => undefined)
+    }
     // Refresh the TitleBar dot — source just flipped, raw status didn't.
     broadcastEmbedderStatus(getEmbeddingService().getStatus())
     return { ok: true as const, identity: target.identity() }
