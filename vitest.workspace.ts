@@ -63,4 +63,11 @@ export default defineWorkspace([
       environment: 'node',
     },
   },
+  {
+    test: {
+      name: 'installer-ui',
+      include: ['installer-ui/__tests__/**/*.test.ts'],
+      environment: 'node',
+    },
+  },
 ])
