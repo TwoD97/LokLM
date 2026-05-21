@@ -95,6 +95,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.16.0",
+    "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",

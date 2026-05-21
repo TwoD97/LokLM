@@ -12,8 +12,12 @@ describe('isSupported', () => {
     expect(isSupported('foo.go')).toBe(true)
     expect(isSupported('foo.PY')).toBe(true) // case-insensitive
   })
-  it('rejects docx (deferred to v0.3)', () => {
-    expect(isSupported('foo.docx')).toBe(false)
+  it('accepts docx', () => {
+    expect(isSupported('foo.docx')).toBe(true)
+    expect(isSupported('FOO.DOCX')).toBe(true)
+  })
+  it('rejects legacy .doc (binary Word format)', () => {
+    expect(isSupported('foo.doc')).toBe(false)
   })
   it('rejects unknown extensions', () => {
     expect(isSupported('foo.xyz')).toBe(false)
@@ -70,7 +74,25 @@ describe('parseFile (pdf)', () => {
 })
 
 describe('parseFile (docx)', () => {
-  it('throws ImportError for .docx (deferred to v0.3)', async () => {
-    await expect(parseFile('foo.docx')).rejects.toBeInstanceOf(ImportError)
+  it('returns markdown-kind sections with Word headings mapped to #/##', async () => {
+    const parsed = await parseFile(resolve(FIX, 'sample.docx'))
+    expect(parsed.kind).toBe('markdown')
+    if (parsed.kind !== 'markdown') return
+    expect(parsed.fullText).toContain('Einführung')
+    expect(parsed.fullText).toContain('Second paragraph in english')
+    // sample.docx has two H1 headings (Einführung, Methoden) plus an H2
+    // (Hintergrund) nested under the first H1.
+    expect(parsed.sections.length).toBeGreaterThanOrEqual(2)
+    const headings = parsed.sections.map((s) => s.headingPath)
+    expect(headings).toContainEqual(['Einführung'])
+    expect(headings).toContainEqual(['Methoden'])
+    // Mammoth escapes punctuation in the body text (e.g. `\.`); confirm we
+    // are at least getting body content under each heading, not just titles.
+    const einf = parsed.sections.find((s) => s.headingPath[0] === 'Einführung')
+    expect(einf?.text.length).toBeGreaterThan(0)
+  })
+
+  it('throws ImportError for legacy .doc', async () => {
+    await expect(parseFile('foo.doc')).rejects.toBeInstanceOf(ImportError)
   })
 })

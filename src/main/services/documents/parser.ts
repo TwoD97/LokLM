@@ -3,9 +3,10 @@ import { basename, extname } from 'node:path'
 import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
 import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
 
-// extension whitelist — verbatim from MVP (Notebook-LoLM). docx is intentionally
-// out so isSupported returns false; parseFile throws ImportError('unsupported')
-// for any other unknown extension.
+// extension whitelist — verbatim from MVP (Notebook-LoLM). .docx is handled
+// separately (mammoth → markdown). Legacy .doc (binary OOXML predecessor) is
+// intentionally NOT supported: mammoth doesn't read it and we don't want to
+// pretend by silently producing empty text.
 const TEXT_EXTS = new Set([
   '.md',
   '.markdown',
@@ -46,12 +47,13 @@ export { ImportError }
 
 export function isSupported(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase()
-  return ext === '.pdf' || TEXT_EXTS.has(ext)
+  return ext === '.pdf' || ext === '.docx' || TEXT_EXTS.has(ext)
 }
 
 export async function parseFile(filePath: string): Promise<ParsedDocument> {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.pdf') return parsePdf(filePath)
+  if (ext === '.docx') return parseDocx(filePath)
   if (ext === '.md' || ext === '.markdown') return parseMarkdown(filePath)
   if (TEXT_EXTS.has(ext)) return parsePlainText(filePath)
   throw new ImportError(`Unsupported file type: ${basename(filePath)}`, 'unsupported', filePath)
@@ -72,6 +74,38 @@ async function parseMarkdown(filePath: string): Promise<ParsedDocument> {
   // fullText / pages remain populated (with frontmatter stripped) so callers
   // that don't care about structure (e.g. full-text export) still work.
   const fullText = stripFrontmatter(raw)
+  return {
+    kind: 'markdown',
+    sections,
+    pages: [{ num: 1, text: fullText }],
+    fullText,
+  }
+}
+
+async function parseDocx(filePath: string): Promise<ParsedDocument> {
+  // mammoth converts .docx (OOXML) → markdown with Heading 1/2/3 styles
+  // mapped to #/##/###. We then feed the markdown through the same
+  // section-aware pipeline markdown files use, so DOCX chunks inherit
+  // heading-breadcrumb citations and the existing markdown preview branch.
+  const mammoth = (await import('mammoth')) as unknown as {
+    convertToMarkdown: (
+      input: { buffer: Buffer } | { path: string },
+    ) => Promise<{ value: string; messages: { type: string; message: string }[] }>
+  }
+  const buf = await readFile(filePath)
+  const { value: rawMarkdown, messages } = await mammoth.convertToMarkdown({ buffer: buf })
+  if (messages.length > 0) {
+    // mammoth warns about unsupported styles, dropped elements, etc. Log
+    // them so they're discoverable without surfacing them to the user.
+    // eslint-disable-next-line no-console
+    console.warn(`[documents] mammoth produced ${messages.length} message(s) for ${basename(filePath)}`)
+  }
+  // Strip image references — RAG doesn't use them and they'd bloat both
+  // embeddings and preview text. Inline images become `![alt](data:…)`
+  // in mammoth's markdown output; block-level images are on their own line.
+  const markdown = rawMarkdown.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n')
+  const sections = parseMarkdownSections(markdown)
+  const fullText = stripFrontmatter(markdown)
   return {
     kind: 'markdown',
     sections,

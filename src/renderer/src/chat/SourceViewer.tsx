@@ -12,11 +12,21 @@ type Props = {
 
 type BodyMode = 'pdf' | 'markdown' | 'text'
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
 function pickBodyMode(source: ChunkSource | null): BodyMode {
   if (!source) return 'text'
   const path = (source.sourcePath ?? '').toLowerCase()
   if (source.mimeType === 'application/pdf' || path.endsWith('.pdf')) return 'pdf'
-  if (path.endsWith('.md') || path.endsWith('.markdown')) return 'markdown'
+  // .docx chunks are stored as markdown (mammoth-converted at parse time),
+  // so they render through the existing markdown branch — same as .md.
+  if (
+    source.mimeType === DOCX_MIME ||
+    path.endsWith('.docx') ||
+    path.endsWith('.md') ||
+    path.endsWith('.markdown')
+  )
+    return 'markdown'
   return 'text'
 }
 
