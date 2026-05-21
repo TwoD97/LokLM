@@ -7,6 +7,7 @@ import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
+import { InProcessModelsClient, asModelsWorkerClient } from './helpers/InProcessModelsClient'
 import { EmbeddingBackfillService } from '@main/services/embeddings/EmbeddingBackfillService'
 import { ProviderRegistry } from '@main/services/providers/Registry'
 import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
@@ -79,7 +80,8 @@ describe.runIf(existsSync(MODEL_PATH))('embedding backfill (integration)', () =>
     expect(missing).toBeGreaterThan(0)
 
     // Phase 2: warm the embedder + run backfill → all NULLs filled.
-    const embedder = new EmbeddingService()
+    const modelsClient = new InProcessModelsClient()
+    const embedder = new EmbeddingService({ client: asModelsWorkerClient(modelsClient) })
     const ok = await embedder.ensureReady()
     expect(ok).toBe(true)
     const registry = buildRegistry(embedder)

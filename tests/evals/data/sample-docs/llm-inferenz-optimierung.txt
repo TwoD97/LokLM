@@ -1,0 +1,186 @@
+Lokale LLM-Inferenz unterscheidet sich von Cloud-Inferenz in den Begrenzungen,
+denen sie unterliegt. In der Cloud sind Speicher, Rechenleistung und Bandbreite
+elastisch und die Optimierung dreht sich um Durchsatz pro Dollar. Lokal sind
+diese Ressourcen fest und oft knapp, sodass die Optimierung sich um zwei
+Größen dreht: Latenz pro Anfrage und Speicher-Footprint des Modells. Ein
+Modell, das auf einem Server-Cluster mit 80 GB Vollpräzisions-Gewichten läuft,
+muss auf einer Consumer-Maschine in 8 bis 24 GB Speicher passen, ohne die
+Antwort-Qualität so weit zu degradieren, dass die Nutzer den Lokal-Vorteil
+nicht mehr empfinden.
+
+Die wichtigste Stellschraube ist die Quantisierung. Sie reduziert die
+Bit-Breite der Modell-Gewichte und damit den Speicherbedarf. Die in lokalen
+Anwendungen häufigsten Formate sind Q4_K_M, Q5_K_M, Q6_K und Q8_0. Q4_K_M
+verwendet vier Bits pro Gewicht, mit blockweisen Skalierungsfaktoren und einer
+gemischten Strategie für Aufmerksamkeits- und Feed-Forward-Gewichte. Das
+Ergebnis ist eine Modellgröße von etwa 30 Prozent des Original-FP16-Modells
+bei einem Qualitätsverlust, der für die meisten Anwendungsfälle unter fünf
+Prozent in standardisierten Benchmarks bleibt. Q5_K_M trifft einen guten
+Mittelweg zwischen Q4 und Q6, Q8_0 liefert nahezu verlustfreie Qualität bei
+50 Prozent des FP16-Speicherbedarfs.
+
+Die Unterschiede zwischen den Quantisierungs-Stufen sind nicht linear. Der
+Sprung von Q8 nach Q6 verliert kaum messbar Qualität, der Sprung von Q4 nach
+Q3 verliert oft deutlich sichtbar. Q4_K_M gilt als der industriestandard-
+Kompromiss für lokale Inferenz, weil er den letzten kritischen Quanten-
+Sprung gerade noch oberhalb der Wahrnehmbarkeitsschwelle hält. Unterhalb von
+Q4 lohnt sich der Wechsel auf kleinere Modelle in Q5 oder Q6 fast immer
+mehr als die weitere Quantisierung eines großen Modells. Ein 7-Milliarden-
+Parameter-Modell in Q4 schlägt in den meisten Fällen ein 13-Milliarden-
+Parameter-Modell in Q2.
+
+Der KV-Cache ist die zweite große Speicher-Position bei der Inferenz. Er
+speichert die Schlüssel- und Werte-Vektoren aller bereits generierten Tokens,
+damit jeder neue Token nur einmal über die volle Attention rechnen muss und
+nicht über die gesamte Historie wiederholt. Die Größe des KV-Cache wächst
+linear mit der Sequenzlänge und proportional zu Modell-Dimensionalität und
+Anzahl der Schichten. Bei einem 7-Milliarden-Modell mit 8192 Tokens Kontext
+können das schnell mehrere GB werden, oft mehr als die Modell-Gewichte selbst.
+Quantisierung des KV-Cache, üblicherweise auf 8 Bit, halbiert diesen Speicher
+ohne nennenswerten Qualitätsverlust und wird in llama.cpp über die Optionen
+cache_type_k und cache_type_v gesteuert.
+
+Die effektive Kontextlänge, in llama.cpp als n_ctx bezeichnet, bestimmt
+sowohl den maximalen Speicherbedarf des KV-Cache als auch die Prefill-Latenz.
+Prefill ist die initiale Verarbeitung des gesamten Prompts, bevor der erste
+Token generiert wird. Diese Phase ist quadratisch in der Sequenzlänge, weil
+jede Position über die Attention mit jeder anderen interagiert. Für einen
+8K-Prompt auf einer Consumer-GPU können das mehrere Sekunden TTFT sein, für
+einen 32K-Prompt entsprechend ein Vielfaches. Wenn die typische Anwendung
+selten lange Prompts braucht, lohnt es sich, n_ctx auf die tatsächlich
+benötigte Größe zu setzen statt auf das Modell-Maximum, weil sonst der
+KV-Cache überdimensioniert wird.
+
+Batch-Größe bezeichnet bei lokaler Inferenz meist nicht die Anzahl
+paralleler Anfragen, sondern die Anzahl Tokens, die pro Forward-Pass durch
+das Modell geschickt werden. Während des Prefill wird der gesamte Prompt in
+einer einzigen Batch verarbeitet, was die Hauptkostenphase der Inferenz ist.
+Während des Decodes wird Token für Token generiert, was inhärent seriell ist
+und nicht durch Batching beschleunigt werden kann, außer durch speculative
+decoding. Die Prefill-Batch-Größe sollte so groß sein, wie der GPU-Speicher
+es zulässt, weil größere Batches die Hardware besser auslasten und damit
+die TTFT linear verbessern. In llama.cpp ist das die Option n_batch.
+
+Die Verteilung der Modell-Schichten zwischen CPU und GPU ist eine der
+wirkungsvollsten Stellschrauben. Wenn alle Schichten auf der GPU liegen,
+ist die Inferenz am schnellsten, weil die teure Matrix-Multiplikation auf
+der spezialisierten Hardware läuft. Wenn die GPU-VRAM nicht reicht, müssen
+einige Schichten auf die CPU verschoben werden, was pro Token-Generation
+einen Transfer der Aktivierungen über den PCIe-Bus erfordert. Dieser
+Transfer wird schnell zum Flaschenhals: ein Modell mit 32 GPU-Schichten und
+zehn CPU-Schichten kann mehr als doppelt so langsam sein wie eines mit allen
+40 Schichten auf der GPU, obwohl nur zehn Schichten "falsch" liegen. Die
+Faustregel ist: entweder alle Schichten auf die GPU, oder das nächstkleinere
+Modell wählen.
+
+Flash-Attention ist eine I/O-optimierte Implementierung des Attention-
+Mechanismus, die die quadratische Speicherkomplexität durch geschicktes
+Tiling und Streaming reduziert. Auf NVIDIA-GPUs ab Ampere-Architektur bringt
+sie sowohl eine deutliche Speicher-Einsparung als auch einen merklichen
+Geschwindigkeits-Vorteil, weil weniger Daten zwischen High-Bandwidth-Memory
+und SRAM bewegt werden müssen. In llama.cpp wird Flash-Attention über die
+Option flash_attn aktiviert. Die Voraussetzung ist eine kompatible GPU-
+Architektur und ein Build mit aktiviertem Flash-Attention-Pfad. Auf älteren
+GPUs oder reinen CPU-Builds ist die Option ein No-Op.
+
+CPU-Inferenz lohnt sich für kleine Modelle und Hardware ohne ausreichende
+GPU. Die wichtigsten Stellschrauben sind die Anzahl Threads, die SIMD-
+Instruktion-Sets des Builds und die Cache-Lokalität der Datenstrukturen.
+llama.cpp wird typischerweise mit AVX2, AVX-512 oder ARM NEON kompiliert,
+je nach Ziel-Architektur. Die optimale Thread-Anzahl ist meist gleich der
+physischen Kern-Anzahl, nicht der logischen, weil Hyper-Threading bei
+rechenintensiven Workloads selten Vorteile bringt und manchmal sogar
+schadet. Ein 7B-Modell in Q4_K_M kann auf einer modernen CPU mit 12 Kernen
+fünf bis fünfzehn Tokens pro Sekunde liefern, was für interaktive
+Anwendungen ausreicht.
+
+Memory-Mapping ist eine oft übersehene Optimierung. Statt die Modell-Datei
+in den RAM zu laden, wird sie über mmap als virtueller Speicher gemappt.
+Das Betriebssystem lädt nur die tatsächlich benötigten Seiten aus der Datei
+in den physischen Speicher und kann sie bei Speichermangel transparent
+wieder auslagern. Das beschleunigt den App-Start dramatisch, weil keine
+mehreren GB beim Start gelesen werden müssen, und ermöglicht es, mehrere
+Modelle in derselben Datei-System-Cache zu teilen. In llama.cpp ist mmap
+der Default; deaktiviert werden sollte es nur, wenn der Storage langsam ist
+und die volle Lade-Zeit beim Start vorgezogen wird.
+
+Sampling-Parameter beeinflussen die Qualität der Generation, nicht direkt
+die Geschwindigkeit. Die wichtigsten sind temperature, top_p und top_k.
+Temperature steuert die Schärfe der Wahrscheinlichkeitsverteilung über das
+nächste Token. Werte um 0 erzeugen deterministische, fokussierte Antworten,
+Werte um 1 erzeugen kreativere, variantenreichere Antworten. top_p, auch
+nucleus sampling genannt, begrenzt die Auswahl auf das kleinste Set Tokens,
+deren kumulierte Wahrscheinlichkeit über einem Schwellenwert liegt. top_k
+begrenzt die Auswahl auf die K wahrscheinlichsten Tokens. Repetition-Penalty
+strafft Tokens, die kürzlich generiert wurden, und verhindert Schleifen.
+Für RAG-Anwendungen empfiehlt sich eine niedrige Temperature zwischen 0,1
+und 0,3, weil die Antwort durch die Quelle bestimmt sein soll und nicht
+durch Kreativität.
+
+Time-to-First-Token, kurz TTFT, ist die am wichtigsten wahrgenommene Latenz-
+Metrik einer interaktiven LLM-Anwendung. Sie entspricht der Prefill-Phase
+plus dem ersten Decode-Schritt. Nutzer bewerten ein System mit niedriger
+TTFT und etwas langsamerem Decode-Stream meist besser als ein System mit
+hoher TTFT und schnellem Decode-Stream, weil sie früher sehen, dass etwas
+passiert. Strategien zur TTFT-Reduktion sind: Prompt-Caching, also das
+Wiederverwenden bereits eingebetteter Prompt-Teile zwischen Anfragen,
+kleinere Modelle für schnelle Erst-Antworten, und das Vermeiden unnötig
+langer System-Prompts. Streaming der Ausgabe sollte selbstverständlich
+aktiviert sein.
+
+Speculative Decoding beschleunigt den Decode-Pfad durch ein zweites,
+kleineres Draft-Modell. Das Draft-Modell generiert mehrere Kandidat-Tokens
+seriell, die das Haupt-Modell anschließend in einem einzigen Forward-Pass
+verifiziert. Wenn die Verifikation übereinstimmt, akzeptiert das Haupt-Modell
+mehrere Tokens auf einmal und spart entsprechend Forward-Passes ein. Die
+typische Beschleunigung liegt zwischen Faktor zwei und drei, abhängig
+davon, wie gut Draft- und Haupt-Modell trainiert sind. Voraussetzung ist
+ein kompatibles Vokabular zwischen beiden Modellen und genug Speicher, um
+beide gleichzeitig zu laden. In llama.cpp wird speculative decoding über
+das Tool llama-speculative oder die entsprechende Server-Konfiguration
+aktiviert.
+
+Die wichtigsten Inferenz-Engines für lokale Anwendungen unterscheiden sich
+in Reife, Plattform-Abdeckung und Performance-Charakteristik. llama.cpp ist
+die etablierteste Wahl, mit breitester Hardware-Unterstützung von Apple
+Silicon über Intel-CPUs, AMD-GPUs und NVIDIA-GPUs. Es ist als C++-Bibliothek
+geschrieben und bietet Bindings für viele Sprachen, darunter Python, Node
+und Rust. vLLM ist auf Server-Workloads mit hohem Durchsatz spezialisiert
+und nutzt aggressives Batching, Paged Attention und Continuous Batching,
+ist aber auf NVIDIA-GPUs zugeschnitten. MLX ist Apples Antwort, optimiert
+für Apple Silicon mit nativer Metal-Beschleunigung, deutlich schneller als
+llama.cpp auf M-Series-Chips, aber auf macOS beschränkt.
+
+Modell-Formate haben sich in den letzten zwei Jahren konsolidiert. GGUF ist
+das von llama.cpp eingeführte Format, ein einzelner Container mit Modell-
+Gewichten, Tokenizer und Metadaten. Es ist plattform-unabhängig und das
+verbreitetste Format für lokale Inferenz. AWQ und GPTQ sind ältere
+Quantisierungs-Verfahren mit eigenen Datei-Formaten, die hauptsächlich in
+PyTorch- und vLLM-Pipelines verwendet werden. EXL2 ist ein Format der
+ExLlama-Bibliothek mit feingranularer Quantisierung pro Schicht, das auf
+NVIDIA-GPUs gute Performance liefert, aber außerhalb dieser Bibliothek
+selten verwendet wird. Für lokale Anwendungen ist GGUF heute fast immer
+die richtige Wahl.
+
+Eine praktische Empfehlung für ein neues lokales LLM-Setup ist, mit einem
+7-Milliarden-Parameter-Modell in Q4_K_M auf der besten verfügbaren GPU zu
+starten, n_ctx auf das tatsächlich benötigte Maximum zu setzen, alle
+Schichten auf die GPU zu offloaden und Flash-Attention zu aktivieren. Diese
+Konfiguration liefert auf einer Mid-Range-GPU mit 8 GB VRAM etwa 30 bis 50
+Tokens pro Sekunde Decode-Geschwindigkeit und eine TTFT unter einer halben
+Sekunde für typische Prompts. Erst wenn diese Baseline gemessen wurde,
+lohnt sich die Auseinandersetzung mit feineren Optimierungen wie spekulativem
+Decoding, KV-Cache-Quantisierung oder dem Wechsel zu einem größeren Modell.
+Optimierung ohne Messung führt fast immer zu falschen Prioritäten.
+
+Schließlich gibt es einen wichtigen Trade-off zwischen Inferenz-Geschwindigkeit
+und Antwort-Qualität, der oft übersehen wird. Ein Modell, das in Q4 läuft
+und 50 Tokens pro Sekunde liefert, kann eine längere, weniger genaue
+Antwort produzieren als ein Modell, das in Q6 läuft und 30 Tokens pro
+Sekunde liefert, aber präziser und kürzer antwortet. Die End-zu-End-Latenz
+für den Nutzer hängt sowohl von der Token-Rate als auch von der Antwort-
+Länge ab. Eine bessere Quantisierungs-Stufe kann eine niedrigere Token-Rate
+mehr als kompensieren, indem die Antwort kürzer und auf den Punkt ausfällt.
+Diese Beobachtung führt dazu, dass die Wahl der Quantisierungs-Stufe nicht
+allein auf Token-Rate basieren sollte, sondern auf einer ganzheitlichen
+Eval, die Token-Rate, Antwort-Qualität und Antwort-Länge gemeinsam misst.

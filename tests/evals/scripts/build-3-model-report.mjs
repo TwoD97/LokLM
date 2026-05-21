@@ -17,10 +17,14 @@ const runs = [
 
 const TOP_CONFIGS = ['grid_k3_rr0', 'grid_k5_rr0', 'grid_k2_rr5']
 
+const resultCache = new Map()
 function readResult(runDir, cfg) {
+  const key = `${runDir}::${cfg}`
+  if (resultCache.has(key)) return resultCache.get(key)
   const p = join(ROOT, runDir, 'configs', cfg, 'result.json')
-  if (!existsSync(p)) return null
-  return JSON.parse(readFileSync(p, 'utf-8'))
+  const value = existsSync(p) ? JSON.parse(readFileSync(p, 'utf-8')) : null
+  resultCache.set(key, value)
+  return value
 }
 
 const dataset = JSON.parse(readFileSync(join(ROOT, runs[0].dir, 'dataset.json'), 'utf-8'))

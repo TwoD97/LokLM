@@ -60,7 +60,7 @@ describe('QuestionCard', () => {
     )
     expect(screen.getByText(QUESTION.explanation)).toBeInTheDocument()
     fireEvent.click(screen.getByText('View source'))
-    expect(onCite).toHaveBeenCalledWith(42)
+    expect(onCite).toHaveBeenCalledWith({ chunkId: 42, explanation: QUESTION.explanation })
   })
 
   it('keyboard 1–4 selects the matching option', () => {

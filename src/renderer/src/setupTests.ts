@@ -60,6 +60,18 @@ const stub: Api = {
       Promise.resolve({ id: 1, name, createdAt: Math.floor(Date.now() / 1000) }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
+    listSyncFolders: () => Promise.resolve([] as string[]),
+    addSyncFolder: () => Promise.resolve(null),
+    removeSyncFolder: () => Promise.resolve([] as string[]),
+    syncNow: () =>
+      Promise.resolve({
+        imported: 0,
+        reindexed: 0,
+        markedMissing: 0,
+        unchanged: 0,
+        stillMissing: 0,
+      }),
+    onSyncProgress: () => () => undefined,
   },
   documents: {
     list: () => Promise.resolve([]),
@@ -95,6 +107,12 @@ const stub: Api = {
     listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
     readDocumentBytes: () => Promise.resolve(null),
+    revealSource: () => Promise.resolve({ ok: true as const, sourcePath: '/stub' }),
+    openExternal: () => Promise.resolve({ ok: true as const }),
+    replaceSource: () => Promise.resolve(null),
+    refresh: () => Promise.resolve({ ok: true as const, outcome: 'unchanged' as const }),
+    listMissing: () => Promise.resolve([]),
+    keepMissing: () => Promise.resolve(),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
@@ -135,6 +153,13 @@ const stub: Api = {
       }),
     download: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
+    checkSpace: (requiredBytes: number) =>
+      Promise.resolve({
+        unknown: false as const,
+        ok: true,
+        availableBytes: requiredBytes * 4,
+        requiredBytes,
+      }),
     onProgress: () => Promise.resolve(() => undefined),
   },
   embedder: {

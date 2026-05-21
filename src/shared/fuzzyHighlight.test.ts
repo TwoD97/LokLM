@@ -61,6 +61,27 @@ describe('findFuzzyHighlights', () => {
     const chunk = 'a b c d e f g'
     expect(findFuzzyHighlights(chunk, ['a b c d e f g'])).toEqual([])
   })
+
+  it('falls back to single tokens (len >= 5) when no n-gram matches — cross-language', () => {
+    // Quiz explanation in German, PDF chunk in English. The only shared token
+    // is "Frontier" (proper noun / loanword). 3-gram and 2-gram both miss; the
+    // single-token fallback should still light "Frontier" up.
+    const chunk = 'On each iteration we choose a node on the frontier with minimum value.'
+    const ranges = findFuzzyHighlights(chunk, [
+      'Die Frontier ist eine Prioritätsliste, in der die Knoten nach ihrer Bewertungsfunktion sortiert sind.',
+    ])
+    expect(ranges.length).toBe(1)
+    const r0 = ranges[0]!
+    expect(chunk.slice(r0.start, r0.end).toLowerCase()).toBe('frontier')
+  })
+
+  it('single-token fallback ignores short stopwords so it does not light everything up', () => {
+    // No 3-gram / 2-gram overlap. The only "shared" tokens would be 3-char
+    // German/English articles — should NOT light up under the len-5 filter.
+    const chunk = 'Der Hund lief schnell und sprang über den Zaun.'
+    const ranges = findFuzzyHighlights(chunk, ['the dog ran fast and jumped over the fence.'])
+    expect(ranges).toEqual([])
+  })
 })
 
 describe('applyHighlights', () => {
