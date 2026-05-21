@@ -43,13 +43,71 @@ input {
   font: inherit;
 }
 
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0 14px;
+  z-index: 10;
+  /* Frameless window — this strip is the only drag region. Buttons inside
+   * opt out via .titlebar__btn { -webkit-app-region: no-drag }. */
+  -webkit-app-region: drag;
+  /* No background of its own ; the body gradient shows through so the
+   * titlebar visually merges with the rest of the window. */
+}
+
+.titlebar__title {
+  color: var(--muted-2);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.titlebar__controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar__btn {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.titlebar__btn:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--fg);
+}
+
+.titlebar__btn--close:hover {
+  background: #e81123;
+  color: white;
+}
+
 .installer-shell {
   width: min(100vw, 980px);
   height: min(100vh, 680px);
   display: grid;
   grid-template-columns: 330px 1fr;
   gap: 18px;
-  padding: 18px;
+  /* Top padding leaves room for the fixed-position .titlebar (32px) plus
+   * a small breathing gap. Other sides stay at 18px. */
+  padding: 44px 18px 18px;
 }
 
 .brand-panel,
@@ -67,15 +125,6 @@ input {
   padding: 30px;
   display: flex;
   flex-direction: column;
-  /* With titleBarStyle:'hidden' the OS-level drag region is gone — we re-add
-   * it here so the user can still move the window. Interactive controls
-   * inside the panel (lang-switch buttons) override this with no-drag. */
-  -webkit-app-region: drag;
-}
-
-.lang-switch,
-.lang-switch__btn {
-  -webkit-app-region: no-drag;
 }
 
 .lang-switch {

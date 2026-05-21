@@ -55,17 +55,17 @@ describe('createI18n', () => {
   it('interpolates {placeholder} variables', () => {
     const i = createI18n('de')
     const result = i.t('install.summaryDir', { dir: 'C:\\Users\\Test\\LokLM' })
-    expect(result).toBe('LokLM wird nach C:\\Users\\Test\\LokLM installiert.')
+    expect(result).toBe('LokLM landet in C:\\Users\\Test\\LokLM.')
   })
 
   it('leaves unknown placeholders in place rather than substituting empty', () => {
     const i = createI18n('de')
     // No vars passed at all
     const noVars = i.t('install.summaryDir')
-    expect(noVars).toBe('LokLM wird nach {dir} installiert.')
+    expect(noVars).toBe('LokLM landet in {dir}.')
     // Vars passed but missing the named one
     const partial = i.t('install.summaryDir', { other: 'foo' })
-    expect(partial).toBe('LokLM wird nach {dir} installiert.')
+    expect(partial).toBe('LokLM landet in {dir}.')
   })
 
   it('switches locale via setLocale and reflects in subsequent lookups', () => {

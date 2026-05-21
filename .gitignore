@@ -169,3 +169,9 @@ tests/e2e/.playwright-report/
 tests/evals/report/
 
 release
+
+# Generated splash assets ( rebuilt by scripts/build-installer-splash.mjs
+# before package:win:installer ; source of truth is installer-ui/splash.html )
+resources/installer-splash.bmp
+resources/installer-splash.gif
+resources/installer-splash.png

@@ -7,6 +7,38 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <header class="titlebar" aria-hidden="true">
+      <span class="titlebar__title">LokLM Installer</span>
+      <div class="titlebar__controls">
+        <button
+          id="titlebar-min"
+          type="button"
+          class="titlebar__btn"
+          aria-label="Minimieren"
+          title="Minimieren"
+        >
+          <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+            <path d="M0 5 H10" stroke="currentColor" stroke-width="1" />
+          </svg>
+        </button>
+        <button
+          id="titlebar-close"
+          type="button"
+          class="titlebar__btn titlebar__btn--close"
+          aria-label="Schließen"
+          title="Schließen"
+        >
+          <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+            <path
+              d="M0 0 L10 10 M10 0 L0 10"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="square"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
     <main class="installer-shell">
       <aside class="brand-panel" aria-label="LokLM">
         <div class="lang-switch" role="group" aria-label="Sprache">

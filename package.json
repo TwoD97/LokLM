@@ -14,9 +14,11 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "pnpm package:win:payload && pnpm package:win:installer",
+    "package:win": "pnpm package:win:payload && pnpm package:win:installer && pnpm package:win:stub",
     "package:win:payload": "electron-vite build && electron-builder --win dir",
-    "package:win:installer": "electron-builder --config installer-ui/electron-builder.json --win portable",
+    "package:win:installer": "electron-builder --config installer-ui/electron-builder.json --win dir",
+    "package:win:stub": "pnpm build:installer-splash && node scripts/build-installer-stub.mjs",
+    "build:installer-splash": "node scripts/build-installer-splash.mjs",
     "package:linux": "electron-vite build && electron-builder --linux AppImage",
     "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
@@ -78,6 +80,7 @@
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "gifenc": "^1.0.3",
     "globals": "^15.13.0",
     "husky": "^9.1.7",
     "jsdom": "^25.0.1",
@@ -124,6 +127,10 @@
     "asar": true,
     "publish": null,
     "npmRebuild": false,
+    "electronLanguages": [
+      "en-US",
+      "de"
+    ],
     "extraResources": [
       {
         "from": "drizzle",

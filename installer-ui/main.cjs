@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron')
 const { execFile } = require('node:child_process')
-const { appendFile, cp, mkdir, readFile, rm, stat, writeFile } = require('node:fs/promises')
+const { appendFile, mkdir, readFile, rm, stat, writeFile } = require('node:fs/promises')
+const { existsSync } = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { promisify } = require('node:util')
@@ -13,6 +14,9 @@ const UNINSTALL_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Unins
 const SETUP_KEY = 'HKCU\\Software\\LokLM\\Setup'
 const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
 let mainWindow = null
+// Tracked here (not in the renderer) so installer:launch can use the path of
+// the last successful install — never the one the renderer passes back.
+let lastInstalledExe = null
 
 function log(message) {
   const line = `[${new Date().toISOString()}] ${message}\n`
@@ -39,9 +43,16 @@ function localProgramsDir() {
 }
 
 function payloadDir() {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'payload', 'win-unpacked')
-    : path.resolve(__dirname, '..', 'release', 'win-unpacked')
+  if (!app.isPackaged) return path.resolve(__dirname, '..', 'release', 'win-unpacked')
+  // NSIS-stub layout : payload is a sibling of the installer dir , so
+  // ..\..\win-unpacked relative to this main.cjs ( which sits inside
+  // installer\resources\app.asar after asar packing ).
+  const sibling = path.resolve(path.dirname(app.getPath('exe')), '..', 'win-unpacked')
+  if (existsSync(sibling)) return sibling
+  // Legacy portable-wrapper layout ( pre NSIS-stub ) : payload at
+  // resources/payload/win-unpacked. Kept for forward compat in case
+  // we ever swap the wrapper back.
+  return path.join(process.resourcesPath, 'payload', 'win-unpacked')
 }
 
 function installerIcon() {
@@ -68,6 +79,48 @@ async function exists(target) {
     return true
   } catch {
     return false
+  }
+}
+
+function robocopyExe() {
+  return process.env.SystemRoot
+    ? path.join(process.env.SystemRoot, 'System32', 'robocopy.exe')
+    : 'robocopy.exe'
+}
+
+// Recursive directory copy via Windows' built-in robocopy. fs/promises.cp
+// on Windows has truncation bugs for large binary files ( app.asar is ~100 MB
+// here ) and produced "Invalid package" errors on the copied asar. robocopy
+// is bulletproof for this size class — handles retries, long paths, large
+// files via OS-native APIs.
+//
+// Exit code quirk : robocopy treats 0-7 as success ( 0 = no changes ,
+// 1-7 = files copied / mismatched / extra / skipped — all non-fatal ).
+// 8+ is a real failure. execFileAsync rejects on any non-zero so we
+// inspect err.code and swallow 1-7.
+async function robocopyDir(source, dest) {
+  try {
+    await execFileAsync(
+      robocopyExe(),
+      [
+        source,
+        dest,
+        '/MIR', // mirror tree ( purge extra files at dest )
+        '/COPY:DAT', // data + attributes + timestamps
+        '/R:3', // 3 retries on transient failure
+        '/W:2', // 2s between retries
+        '/NJH', // no job header
+        '/NJS', // no job summary
+        '/NDL', // no directory list
+        '/NFL', // no file list
+        '/NP', // no progress
+      ],
+      { windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
+    )
+  } catch (err) {
+    const code = typeof err.code === 'number' ? err.code : -1
+    if (code >= 0 && code < 8) return
+    throw new Error(`robocopy failed ( exit ${code} ) : ${err.message}`)
   }
 }
 
@@ -236,7 +289,7 @@ async function install(event, options) {
   await mkdir(installDir, { recursive: true })
 
   sendProgress(event, 'copying-files', 20)
-  await cp(source, installDir, { recursive: true, force: true })
+  await robocopyDir(source, installDir)
 
   sendProgress(event, 'applying-options', 78)
   await applyOptions(options, appExePath)
@@ -246,6 +299,7 @@ async function install(event, options) {
   await writeUninstallRegistry(installDir, appExePath, uninstallerPath)
 
   sendProgress(event, 'done', 100)
+  lastInstalledExe = appExePath
   return { installDir, appExePath }
 }
 
@@ -262,16 +316,11 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    // Drop the bright native Windows titlebar — it clashed with the dark
-    // wizard chrome. titleBarOverlay keeps the native min/close buttons in
-    // the top-right corner, themed dark to match the brand panel. The drag
-    // region is set via CSS (-webkit-app-region: drag on .brand-panel).
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#0B1B2B',
-      symbolColor: '#F6F4EF',
-      height: 32,
-    },
+    // Custom titlebar in HTML/CSS (see .titlebar in styles.css). frame:false
+    // strips ALL native chrome ; titleBarOverlay was the previous approach
+    // but its solid color stripe couldn't blend with the body gradient. The
+    // drag region is set via -webkit-app-region: drag on .titlebar.
+    frame: false,
     show: false,
     autoHideMenuBar: true,
     title: 'LokLM Installer',
@@ -281,6 +330,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // sandbox the renderer so an XSS (e.g. via license text or a future
+      // remote-content fetch) can't escape into the un-sandboxed preload's
+      // Node surface. contextBridge still works under sandbox.
+      sandbox: true,
     },
   })
 
@@ -329,12 +382,21 @@ ipcMain.handle('installer:choose-dir', async (event, current) => {
 
 ipcMain.handle('installer:install', async (event, options) => install(event, options))
 
-ipcMain.handle('installer:launch', async (_event, appExePath) => {
-  await shell.openPath(appExePath)
+// Ignore whatever path the renderer passes — use the tracked
+// lastInstalledExe from the most recent successful install instead. A
+// compromised renderer could otherwise hand us an arbitrary path that
+// shell.openPath would happily execute.
+ipcMain.handle('installer:launch', async () => {
+  if (!lastInstalledExe) return
+  await shell.openPath(lastInstalledExe)
 })
 
 ipcMain.handle('installer:close', () => {
   app.quit()
+})
+
+ipcMain.handle('installer:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize()
 })
 
 void app.whenReady().then(() => {

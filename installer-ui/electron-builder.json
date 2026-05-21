@@ -9,11 +9,9 @@
   "files": ["**/*"],
   "asar": true,
   "npmRebuild": false,
+  "compression": "store",
+  "electronLanguages": ["en-US", "de"],
   "extraResources": [
-    {
-      "from": "release/win-unpacked",
-      "to": "payload/win-unpacked"
-    },
     {
       "from": "resources/icon.ico",
       "to": "icon.ico"
@@ -26,14 +24,10 @@
   "win": {
     "target": [
       {
-        "target": "portable",
+        "target": "dir",
         "arch": ["x64"]
       }
     ],
-    "icon": "resources/icon.ico",
-    "artifactName": "LokLM-Setup-${version}-win-${arch}.${ext}"
-  },
-  "portable": {
-    "artifactName": "LokLM-Setup-${version}-win-${arch}.${ext}"
+    "icon": "resources/icon.ico"
   }
 }
