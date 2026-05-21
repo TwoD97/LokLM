@@ -6,7 +6,7 @@ import { Segmented } from '../Segmented'
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
 export function EmbedderSection({ settings, update }: Props): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [gate, setGate] = useState<{
     from: string
     to: string

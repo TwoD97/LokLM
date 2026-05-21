@@ -20,7 +20,7 @@ const TIMEOUT_PRESETS = [
 ]
 
 export function OllamaSection({ settings, update }: Props): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [probe, setProbe] = useState<Probe>({ state: 'idle' })
   const [showAllForEmbedder, setShowAllForEmbedder] = useState(false)
   const o = settings.advanced.ollama

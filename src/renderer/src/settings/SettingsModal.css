@@ -541,6 +541,42 @@
   border-color: #d93832;
 }
 
+/* ── Sub-tabs (inside the Advanced tab) ──────────────────────────────── */
+.settings-subtabs {
+  display: flex;
+  gap: 2px;
+  margin: 6px 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-subtab {
+  background: transparent;
+  color: var(--fg-2);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
+  transition:
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+.settings-subtab:hover:not(.settings-subtab--active) {
+  color: var(--fg-0);
+}
+.settings-subtab--active {
+  color: var(--fg-0);
+  border-bottom-color: var(--accent);
+}
+.settings-subtab__icon {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
 /* ── Chip selector (for many-option pickers like Ollama models) ──────── */
 .settings-chip-group {
   display: flex;
