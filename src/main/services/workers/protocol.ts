@@ -69,6 +69,10 @@ export interface LlmAskPayload {
 export interface LlmGenerateRawPayload {
   streamId: string
   prompt: string
+  /** Optional ceiling so callers on the TTFT critical path (contextualize,
+   *  multi-query expansion) don't get a full-answer-sized generation when
+   *  the model ignores its single-line instructions. */
+  maxTokens?: number
 }
 
 export interface EmbedderLoadPayload {
@@ -119,7 +123,16 @@ export type WorkerPush =
   | { ev: 'status'; service: 'llm'; status: Partial<ModelStatus> }
   | { ev: 'status'; service: 'embedder'; status: Partial<EmbedderStatus> }
   | { ev: 'status'; service: 'reranker'; status: Partial<RerankerStatus> }
-  | { ev: 'token'; streamId: string; text: string }
+  | {
+      ev: 'token'
+      streamId: string
+      text: string
+      /** Number of native onTextChunk callbacks coalesced into this push. The
+       *  worker buffers chunks for ~8 ms and ships them in one message; the
+       *  renderer uses `count` to keep its tokens/sec metric accurate. Absent
+       *  for the first push (and any single-chunk push) , treat as 1. */
+      count?: number
+    }
   | { ev: 'log'; level: 'info' | 'warn' | 'error'; message: string }
 
 export type WorkerMessage = WorkerResponse | WorkerPush

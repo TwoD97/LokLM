@@ -52,6 +52,18 @@ export interface ModelDownloadEvent {
   message: string | null
 }
 
+/** Mirrors `SyncEvent` in src/main/services/documents/FolderSyncService.ts.
+ *  Same duplicate-rather-than-import rationale as ModelDownloadEvent above. */
+export interface SyncProgressEvent {
+  workspaceId: number
+  phase: 'start' | 'progress' | 'done' | 'failed'
+  imported: number
+  reindexed: number
+  markedMissing: number
+  unchanged: number
+  detail?: string
+}
+
 const api = {
   auth: {
     status: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:status'),
@@ -106,6 +118,32 @@ const api = {
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
+    listSyncFolders: (workspaceId: number): Promise<string[]> =>
+      ipcRenderer.invoke('workspaces:listSyncFolders', workspaceId),
+    // Returns the updated folder list on add ; null when the user cancels the
+    // picker. The main process kicks off a one-shot sync right after add so
+    // the renderer can rely on indexing:progress + a refresh to surface the
+    // newly imported docs.
+    addSyncFolder: (workspaceId: number): Promise<string[] | null> =>
+      ipcRenderer.invoke('workspaces:addSyncFolder', workspaceId),
+    removeSyncFolder: (workspaceId: number, folderPath: string): Promise<string[]> =>
+      ipcRenderer.invoke('workspaces:removeSyncFolder', workspaceId, folderPath),
+    syncNow: (
+      workspaceId: number,
+    ): Promise<{
+      imported: number
+      reindexed: number
+      markedMissing: number
+      unchanged: number
+      stillMissing: number
+    }> => ipcRenderer.invoke('workspaces:syncNow', workspaceId),
+    onSyncProgress: (cb: (ev: SyncProgressEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, ev: SyncProgressEvent): void => cb(ev)
+      ipcRenderer.on('sync:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('sync:progress', listener)
+      }
+    },
   },
   documents: {
     list: (workspaceId: number): Promise<Document[]> =>
@@ -116,6 +154,28 @@ const api = {
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
     reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    revealSource: (
+      id: number,
+    ): Promise<
+      { ok: true; sourcePath: string } | { ok: false; kind: 'missing'; sourcePath: string }
+    > => ipcRenderer.invoke('documents:revealSource', id),
+    openExternal: (
+      id: number,
+    ): Promise<{ ok: true } | { ok: false; kind: 'missing'; message: string }> =>
+      ipcRenderer.invoke('documents:openExternal', id),
+    replaceSource: (id: number): Promise<Document | null> =>
+      ipcRenderer.invoke('documents:replaceSource', id),
+    refresh: (
+      id: number,
+    ): Promise<
+      | { ok: true; outcome: 'unchanged' | 'reindexed' | 'missing' }
+      | { ok: false; kind: string; message: string }
+    > => ipcRenderer.invoke('documents:refresh', id),
+    listMissing: (workspaceId: number): Promise<Document[]> =>
+      ipcRenderer.invoke('documents:listMissing', workspaceId),
+    /** User clicked "Behalten" — stamp dismissed_at so the banner stops
+     *  surfacing this doc until the file reappears + vanishes again. */
+    keepMissing: (id: number): Promise<void> => ipcRenderer.invoke('documents:keepMissing', id),
     listChunksForDocument: (documentId: number): Promise<DocumentChunk[]> =>
       ipcRenderer.invoke('documents:listChunksForDocument', documentId),
     getSourceForChunk: (chunkId: number): Promise<ChunkSource | null> =>
@@ -151,6 +211,12 @@ const api = {
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),
     download: (id: string): Promise<void> => ipcRenderer.invoke('models:download', id),
     cancel: (id: string): Promise<void> => ipcRenderer.invoke('models:cancel', id),
+    checkSpace: (
+      requiredBytes: number,
+    ): Promise<
+      | { unknown: false; ok: boolean; availableBytes: number; requiredBytes: number }
+      | { unknown: true; message: string; requiredBytes: number }
+    > => ipcRenderer.invoke('models:checkSpace', requiredBytes),
     onProgress: async (cb: (ev: ModelDownloadEvent) => void): Promise<() => void> => {
       const channel = await ipcRenderer.invoke('models:subscribeProgress')
       const listener = (_e: IpcRendererEvent, ev: ModelDownloadEvent): void => cb(ev)

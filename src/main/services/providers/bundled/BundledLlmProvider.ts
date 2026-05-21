@@ -20,7 +20,10 @@ export class BundledLlmProvider implements LlmProvider {
     return this.inner.ask(question, hits, opts)
   }
 
-  async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+  async generateRaw(
+    prompt: string,
+    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+  ): Promise<string> {
     await this.inner.ensureLoaded()
     return this.inner.generateRaw(prompt, opts)
   }

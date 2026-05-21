@@ -56,8 +56,14 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
   const [status, setStatus] = useState<ModelsStatus | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [running, setRunning] = useState(false)
+  const [spaceWarning, setSpaceWarning] = useState<string | null>(null)
   // Track in-flight model id so the Cancel button only cancels the right one.
   const activeIdRef = useRef<string | null>(null)
+  // Set by the Cancel button so the queue loop can break out between items ,
+  // without this, cancelling stopped only the current download and the queue
+  // happily started the next one. Ref (not state) so the running closure sees
+  // the latest value without re-creating startDownload.
+  const cancelRequestedRef = useRef(false)
 
   const refreshStatus = useCallback(async () => {
     const s = await window.api.models.status()
@@ -107,12 +113,34 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
 
   const startDownload = useCallback(async () => {
     if (!status) return
+    setSpaceWarning(null)
+    cancelRequestedRef.current = false
+    // Disk-space pre-check , failing 6 GB into a 7 GB download because /
+    // is full is a brutal first-run experience. statfs lives in main; if
+    // the probe itself errors we silently continue (unknown:true path).
+    const queue = status.models.filter((m) => m.required && !m.present)
+    const required = queue.reduce((acc, m) => acc + m.sizeBytes, 0)
+    if (required > 0) {
+      try {
+        const result = await window.api.models.checkSpace(required)
+        if (!result.unknown && !result.ok) {
+          setSpaceWarning(
+            `Nicht genug freier Speicher: benötigt ${formatBytes(result.requiredBytes)}, ` +
+              `verfügbar ${formatBytes(result.availableBytes)}.`,
+          )
+          return
+        }
+      } catch {
+        // probe failed entirely — continue and let the actual download surface
+        // a disk-full error if one happens.
+      }
+    }
     setRunning(true)
     try {
       // Serial download — embedder first (small, smoke-tests the connection),
       // then the rest in manifest order.
-      const queue = status.models.filter((m) => m.required && !m.present)
       for (const m of queue) {
+        if (cancelRequestedRef.current) break
         activeIdRef.current = m.id
         try {
           await window.api.models.download(m.id)
@@ -120,7 +148,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
           // Error already surfaced via the progress event; stop the queue so
           // the user can retry / inspect.
           activeIdRef.current = null
-
+           
           console.error(`[models] download ${m.id} failed`, err)
           return
         }
@@ -131,13 +159,17 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
       await refreshStatus()
     } finally {
       setRunning(false)
+      cancelRequestedRef.current = false
     }
   }, [status, refreshStatus])
 
-  const cancelActive = useCallback(async () => {
+  const cancelQueue = useCallback(async () => {
+    // Stop the queue AND the in-flight item. Order matters: set the ref
+    // first so the loop's between-items check breaks out even if the
+    // models.cancel IPC resolves before the download promise rejects.
+    cancelRequestedRef.current = true
     const id = activeIdRef.current
-    if (!id) return
-    await window.api.models.cancel(id)
+    if (id) await window.api.models.cancel(id)
   }, [])
 
   if (!status) {
@@ -209,6 +241,12 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
         })}
       </ul>
 
+      {spaceWarning && (
+        <p className="models-list__error" role="alert" style={{ marginTop: 12 }}>
+          {spaceWarning}
+        </p>
+      )}
+
       <div className="models-card__actions">
         {!running && !allDone && (
           <button type="button" onClick={() => void startDownload()}>
@@ -216,7 +254,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
           </button>
         )}
         {running && (
-          <button type="button" onClick={() => void cancelActive()} className="ghost">
+          <button type="button" onClick={() => void cancelQueue()} className="ghost">
             Abbrechen
           </button>
         )}

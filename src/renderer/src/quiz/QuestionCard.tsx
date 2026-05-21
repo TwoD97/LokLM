@@ -9,8 +9,9 @@ type Props = {
   revealed: boolean
   onSelect: (index: number) => void
   /** Click handler for the citation chip. Receives the primary source chunk
-   *  id; runner forwards to SourceViewer. */
-  onCite: (chunkId: number) => void
+   *  id plus the explanation prose so the SourceViewer can fuzzy-highlight
+   *  matching spans inside the cited chunk. */
+  onCite: (args: { chunkId: number; explanation: string }) => void
 }
 
 // Reveals correct/wrong styling once `revealed` flips true. Keyboard 1–4
@@ -73,7 +74,12 @@ export function QuestionCard({
             <button
               type="button"
               className="quiz-citation"
-              onClick={() => onCite(question.sourceChunkIds[0]!)}
+              onClick={() =>
+                onCite({
+                  chunkId: question.sourceChunkIds[0]!,
+                  explanation: question.explanation,
+                })
+              }
             >
               View source
             </button>

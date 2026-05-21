@@ -10,7 +10,13 @@ import type { Db } from './database'
 // in packaged builds: extraResources will copy both folders under
 // process.resourcesPath; we'll wire extraResources when packaging this release.
 
-const RAW_MIGRATIONS = ['0001_triggers_funcs.sql', '0002_hnsw_index.sql']
+const RAW_MIGRATIONS = [
+  '0001_triggers_funcs.sql',
+  '0002_hnsw_index.sql',
+  '0003_chunks_counter_statement.sql',
+  '0004_sync_metadata.sql',
+  '0005_documents_unique_path.sql',
+]
 
 function isPackaged(): boolean {
   // detect packaged electron build without importing `app` (which throws in vitest)

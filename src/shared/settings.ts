@@ -7,6 +7,11 @@ export interface UserSettings {
   basic: {
     language: 'de' | 'en'
     llmProfile: LlmProfileChoice
+    /** When true, the pipeline progress checklist (contextualize → retrieve →
+     *  rerank → prefill) stays visible above the assistant bubble after the
+     *  first token arrives. Default false — checklist collapses into a single
+     *  "pipeline X ms" chip in the metrics row once tokens start streaming. */
+    showPipelineSteps: boolean
   }
   advanced: {
     llm: {
@@ -37,6 +42,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   basic: {
     language: 'de',
     llmProfile: 'auto',
+    showPipelineSteps: false,
   },
   advanced: {
     llm: { source: 'bundled', contextChoice: 'auto' },

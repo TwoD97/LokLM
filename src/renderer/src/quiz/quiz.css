@@ -425,37 +425,6 @@
   justify-content: flex-end;
 }
 
-/* Citation chip pops the SourceViewer as a modal over the runner instead of
- * appending it below. Backdrop click and the SourceViewer's own close button
- * both dismiss. */
-.quiz-source-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 14, 24, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 32px;
-}
-.quiz-source-modal__panel {
-  background: #0b1726;
-  border: 1px solid #243a55;
-  border-radius: 10px;
-  /* SourceViewer styles itself at 480px / 720px (with-page) and height: 100%;
-   * give the panel an explicit height so its child can fill it, and pick a
-   * width that fits either viewer variant without horizontal scroll. */
-  width: min(840px, 100%);
-  height: min(720px, 90vh);
-  display: flex;
-  overflow: hidden;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
-}
-.quiz-source-modal__panel > .source-viewer {
-  width: 100%;
-  border-left: 0;
-}
-
 .quiz-card-q {
   background: #0f1a2a;
   border: 1px solid #243a55;

@@ -87,6 +87,75 @@
   font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Consolas, monospace;
   padding: 0 4px;
 }
+.chat__pipeline {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  background: rgba(20, 34, 53, 0.55);
+  border: 1px solid #1f2a3a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: min(78%, 480px);
+  font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  font-size: 11px;
+}
+.chat__pipeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9aaac0;
+}
+.chat__pipeline-row--done {
+  color: #cdd4dd;
+}
+.chat__pipeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #243a55;
+  border: 1px solid #2c4c7a;
+  flex-shrink: 0;
+}
+.chat__pipeline-row--running .chat__pipeline-dot {
+  background: transparent;
+  border-color: #5a9bff;
+  box-shadow: 0 0 0 0 rgba(90, 155, 255, 0.6);
+  animation: chat-pipeline-pulse 1.1s ease-out infinite;
+}
+.chat__pipeline-row--done .chat__pipeline-dot {
+  background: #5a9bff;
+  border-color: #5a9bff;
+}
+.chat__pipeline-label {
+  flex-shrink: 0;
+}
+.chat__pipeline-detail {
+  flex: 1;
+  opacity: 0.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat__pipeline-time {
+  margin-left: auto;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+@keyframes chat-pipeline-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(90, 155, 255, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(90, 155, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(90, 155, 255, 0);
+  }
+}
 .chat__input-wrap {
   border-top: 1px solid #1f2a3a;
   padding: 10px 20px;
@@ -330,7 +399,25 @@
   color: #f0d97a;
   border: 1px solid rgba(255, 230, 100, 0.3);
   white-space: nowrap;
-  cursor: help;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.source-viewer__highlight-hint:hover {
+  background: rgba(255, 230, 100, 0.2);
+  border-color: rgba(255, 230, 100, 0.5);
+}
+.source-viewer__highlight-hint:focus-visible {
+  outline: 2px solid rgba(255, 230, 100, 0.7);
+  outline-offset: 1px;
+}
+.source-viewer__highlight-hint:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .source-viewer__header {
   padding: 0 20px;
@@ -565,4 +652,75 @@
   font-size: 12px;
   color: #5a6678;
   pointer-events: none;
+}
+
+/*
+ * Minimal subset of pdfjs-dist/web/pdf_viewer.css needed to position the
+ * text-layer spans on top of the rendered canvas. Kept inline (rather than
+ * importing the full viewer css) so we don't drag in editor / annotation
+ * styles we never use.
+ */
+.pdf-doc__text-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  text-align: initial;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: transparent;
+  z-index: 1;
+  pointer-events: none;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  /* pdfjs setLayerDimensions uses CSS round() on modern Chromium , both vars
+   * must exist or the container collapses to invalid dimensions and every
+   * span ends up at 0×0. */
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+.pdf-doc__text-layer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.pdf-doc__text-layer > :not(.markedContent),
+.pdf-doc__text-layer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.pdf-doc__text-layer .markedContent {
+  display: contents;
+}
+.pdf-doc__page-mark {
+  background: rgba(255, 213, 79, 0.42);
+  /* The two horizontal shadows extend the bg ~0.25em past either edge so
+   * consecutive marks on the same line bleed into the inter-word gap and form
+   * one continuous highlight band. em scales with the per-span font-size so
+   * the extension looks consistent across font sizes. */
+  box-shadow:
+    -0.25em 0 0 rgba(255, 213, 79, 0.42),
+    0.25em 0 0 rgba(255, 213, 79, 0.42);
+  border-radius: 2px;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.pdf-doc__page-mark.is-active,
+.source-viewer__mark.is-active {
+  background: rgba(255, 170, 40, 0.7);
+  box-shadow:
+    -0.25em 0 0 rgba(255, 170, 40, 0.7),
+    0.25em 0 0 rgba(255, 170, 40, 0.7),
+    0 0 0 2px rgba(255, 170, 40, 0.9);
 }

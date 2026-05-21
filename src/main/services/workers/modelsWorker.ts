@@ -15,7 +15,6 @@
 
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
 import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
-import { buildSystemPrompt } from '../llm/prompt'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -64,6 +63,62 @@ let llmSystemPrompt = ''
 // Active AbortControllers keyed by streamId so an `llm.abort` request can cancel
 // the right in-flight `session.prompt`.
 const activeAborts = new Map<string, AbortController>()
+
+// Tombstones for `llm.abort` requests that landed BEFORE the matching
+// `llmAsk` / `llmGenerateRaw` had a chance to register its controller. The
+// ask path consumes the tombstone at start and aborts the fresh controller
+// immediately , without this, an early Cancel click was silently dropped.
+const abortedBeforeStart = new Set<string>()
+
+// Token coalescer , buffers onTextChunk callbacks per streamId and flushes
+// every ~8 ms. node-llama-cpp fires onTextChunk sub-millisecond on fast
+// hardware; sending one postMessage per chunk used to dominate the worker's
+// CPU on a 5090. Flushing at 8 ms keeps perceived UI smoothness (~120 fps
+// equivalent) while collapsing N small messages into one structured-clone +
+// IPC pipe write. The first chunk per streamId is sent without buffering so
+// TTFT measurements stay tight.
+const TOKEN_FLUSH_MS = 8
+const tokenBuffers = new Map<string, { text: string; count: number }>()
+const tokenFlushTimers = new Map<string, NodeJS.Timeout>()
+const tokenStreamStarted = new Set<string>()
+
+function bufferToken(streamId: string, text: string): void {
+  if (!tokenStreamStarted.has(streamId)) {
+    // First chunk of this stream — ship immediately, then start buffering.
+    tokenStreamStarted.add(streamId)
+    send({ ev: 'token', streamId, text, count: 1 })
+    return
+  }
+  const existing = tokenBuffers.get(streamId)
+  if (existing) {
+    existing.text += text
+    existing.count += 1
+  } else {
+    tokenBuffers.set(streamId, { text, count: 1 })
+  }
+  if (!tokenFlushTimers.has(streamId)) {
+    const timer = setTimeout(() => flushTokens(streamId), TOKEN_FLUSH_MS)
+    tokenFlushTimers.set(streamId, timer)
+  }
+}
+
+function flushTokens(streamId: string): void {
+  const timer = tokenFlushTimers.get(streamId)
+  if (timer) {
+    clearTimeout(timer)
+    tokenFlushTimers.delete(streamId)
+  }
+  const buf = tokenBuffers.get(streamId)
+  tokenBuffers.delete(streamId)
+  if (buf && buf.text.length > 0) {
+    send({ ev: 'token', streamId, text: buf.text, count: buf.count })
+  }
+}
+
+function endTokenStream(streamId: string): void {
+  flushTokens(streamId)
+  tokenStreamStarted.delete(streamId)
+}
 
 // ---- mutex for load operations --------------------------------------------
 
@@ -177,8 +232,9 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   pushStatus('llm', { gpu: backendGpuLabel, message: 'Loading model weights…' })
 
   // Probe resources BEFORE the weights allocate so planLlm's freeVram math
-  // doesn't double-count weights.
-  const resources = await planner.refresh()
+  // doesn't double-count weights. Use the TTL'd refresh so back-to-back
+  // service warmups don't each re-probe VRAM (post-load is still forced).
+  const resources = await planner.refreshIfStale()
   const weightsBytes = payload.weightsBytes || ggufWeightBytes(payload.modelPath)
 
   const model = await (
@@ -314,6 +370,17 @@ async function llmUnload(): Promise<void> {
   pushStatus('llm', { state: 'unloaded', message: 'Model unloaded.' })
 }
 
+// node-llama-cpp's default repeat penalty (lastTokens=64, penalty=1.1) is too
+// narrow for the long contexts we run — XL profile in particular can spiral
+// into verbatim repetition. Widen the window and add a small frequencyPenalty
+// so the sampler shaves logits of tokens the model has already leaned on.
+// Detector in askWithModel catches the cases penalties don't.
+const REPEAT_PENALTY = {
+  lastTokens: 256,
+  penalty: 1.1,
+  frequencyPenalty: 0.15,
+}
+
 async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   if (!llmSession) throw new Error('Model is not loaded.')
   const session = llmSession as {
@@ -323,6 +390,7 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
         onTextChunk?: (s: string) => void
         signal?: AbortSignal
         maxTokens?: number
+        repeatPenalty?: typeof REPEAT_PENALTY
       },
     ) => Promise<string>
     resetChatHistory?: () => void
@@ -333,31 +401,45 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
     /* best-effort */
   }
   const ctrl = new AbortController()
+  // Register BEFORE consuming the tombstone so a concurrent `llm.abort`
+  // that arrives during the next microtask still finds the controller.
   activeAborts.set(payload.streamId, ctrl)
+  if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
   try {
     const raw = await session.prompt(payload.prompt, {
       maxTokens: payload.maxTokens,
       signal: ctrl.signal,
-      onTextChunk: (chunk: string) => {
-        send({ ev: 'token', streamId: payload.streamId, text: chunk })
-      },
+      repeatPenalty: REPEAT_PENALTY,
+      onTextChunk: (chunk: string) => bufferToken(payload.streamId, chunk),
     })
     return { raw }
   } finally {
     activeAborts.delete(payload.streamId)
+    // Drain any buffered tail before resolving so the renderer's "done"
+    // event arrives strictly AFTER the last token chunk. Without this, the
+    // final 0-8 ms of tokens could be dropped if dispose ran before flush.
+    endTokenStream(payload.streamId)
   }
 }
 
 async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: string }> {
   if (!llmSession) throw new Error('Model is not loaded.')
   const session = llmSession as {
-    prompt: (text: string, options: { signal?: AbortSignal }) => Promise<string>
+    prompt: (
+      text: string,
+      options: {
+        signal?: AbortSignal
+        repeatPenalty?: typeof REPEAT_PENALTY
+        maxTokens?: number
+      },
+    ) => Promise<string>
     getChatHistory?: () => unknown[]
     setChatHistory?: (history: unknown[]) => void
     resetChatHistory?: () => void
   }
   const ctrl = new AbortController()
   activeAborts.set(payload.streamId, ctrl)
+  if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
   let saved: unknown[] | undefined
   try {
     saved = session.getChatHistory?.()
@@ -366,7 +448,16 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   }
   try {
     session.resetChatHistory?.()
-    const raw = await session.prompt(payload.prompt, { signal: ctrl.signal })
+    const promptOpts: {
+      signal: AbortSignal
+      repeatPenalty: typeof REPEAT_PENALTY
+      maxTokens?: number
+    } = {
+      signal: ctrl.signal,
+      repeatPenalty: REPEAT_PENALTY,
+    }
+    if (payload.maxTokens != null) promptOpts.maxTokens = payload.maxTokens
+    const raw = await session.prompt(payload.prompt, promptOpts)
     return { raw }
   } finally {
     activeAborts.delete(payload.streamId)
@@ -410,7 +501,7 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     loadProgress: 0,
     message: 'Initialising embedder backend…',
   })
-  const resources = await planner.refresh()
+  const resources = await planner.refreshIfStale()
   const plan = planner.planAux({
     weightsBytes: payload.weightsBytes,
     resources,
@@ -502,7 +593,7 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  const resources = await planner.refresh()
+  const resources = await planner.refreshIfStale()
   const plan = planner.planAux({
     weightsBytes: payload.weightsBytes,
     resources,
@@ -609,6 +700,9 @@ async function handle(msg: WorkerRequest): Promise<void> {
     case 'llm.abort': {
       const ctrl = activeAborts.get(msg.payload.streamId)
       if (ctrl) ctrl.abort()
+      // If abort raced ahead of llmAsk's controller registration, leave a
+      // tombstone so the ask path aborts as soon as it starts.
+      else abortedBeforeStart.add(msg.payload.streamId)
       reply(msg.id, null)
       return
     }
@@ -637,15 +731,34 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     case 'shutdown': {
       reply(msg.id, null)
-      await llmUnloadInternal()
-      await embedderUnloadInternal()
-      await rerankerUnloadInternal()
-      process.exit(0)
+      // Let the postMessage above drain through the parent pipe before we
+      // start disposing native handles. Dispose-then-exit can take seconds
+      // on big GPU contexts and we want the main side to see the ack first.
+      await new Promise<void>((r) => setImmediate(r))
+      try {
+        await llmUnloadInternal()
+        await embedderUnloadInternal()
+        await rerankerUnloadInternal()
+      } finally {
+        // Always exit , a hanging dispose used to leave the worker process
+        // alive past main's `before-quit` (the orphan-on-Windows scenario
+        // the memory note flags).
+        process.exit(0)
+      }
       return
     }
     default: {
       const _exhaustive: never = msg
-      fail((msg as { id: number }).id, `Unknown op: ${JSON.stringify(_exhaustive)}`)
+      // Guard against a malformed message (e.g. a future-renderer version's
+      // op this worker doesn't recognise). Without the typeof check, fail()
+      // gets called with id=undefined and the response is silently dropped
+      // on the main side.
+      const id = (msg as { id?: unknown }).id
+      if (typeof id === 'number') {
+        fail(id, `Unknown op: ${JSON.stringify(_exhaustive)}`)
+      } else {
+        log('warn', `dropped malformed request: ${JSON.stringify(_exhaustive)}`)
+      }
     }
   }
 }

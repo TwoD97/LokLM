@@ -149,10 +149,21 @@ export interface ServicePlan {
  * weights footprint. Q4_K_M and Q8 quantisations both load ~1× their file
  * size into VRAM (a touch more for layout, but close enough for budgeting).
  */
+// TTL-cached by path. Multiple services warming up the same GGUF used to stat
+// it 6× in a few hundred ms. GGUFs don't change under normal use, so a 5-second
+// window is safe; the cache invalidates on the first stale-window hit and the
+// fresh stat picks up any genuine swap.
+const ggufStatCache = new Map<string, { size: number; at: number }>()
+const GGUF_STAT_TTL_MS = 5000
+
 export function ggufWeightBytes(path: string): number {
+  const cached = ggufStatCache.get(path)
+  if (cached && Date.now() - cached.at < GGUF_STAT_TTL_MS) return cached.size
   try {
     if (!existsSync(path)) return 0
-    return statSync(path).size
+    const size = statSync(path).size
+    ggufStatCache.set(path, { size, at: Date.now() })
+    return size
   } catch {
     return 0
   }
@@ -161,14 +172,18 @@ export function ggufWeightBytes(path: string): number {
 export class ResourcePlanner {
   private cachedResources: SystemResources | null = null
   private llamaProbe: unknown = null
+  private lastRefreshAt = 0
 
   /**
-   * Cheap, synchronous snapshot — RAM only, plus whatever VRAM we cached
-   * from the last probe. Use refresh() after a model load to re-read free
-   * VRAM from the live llama instance.
+   * Cheap, synchronous snapshot — RAM is always re-read (single syscall) so
+   * the caller sees current freeRamGB. VRAM uses whatever was cached by the
+   * last refresh(). Use refresh() to re-probe VRAM after a model load.
    */
   snapshot(): SystemResources {
-    if (this.cachedResources) return this.cachedResources
+    if (this.cachedResources) {
+      this.cachedResources.freeRamGB = round(freemem() / BYTES_PER_GB)
+      return this.cachedResources
+    }
     const t = totalmem() / BYTES_PER_GB
     const f = freemem() / BYTES_PER_GB
     const r: SystemResources = {
@@ -183,6 +198,20 @@ export class ResourcePlanner {
     }
     this.cachedResources = r
     return r
+  }
+
+  /**
+   * Returns the cached snapshot if a refresh ran within `ttlMs` , otherwise
+   * does a full refresh. Use this for pre-load planning where the previous
+   * service's post-load probe is still authoritative. Post-load refreshes
+   * (which observe a real VRAM change) MUST call refresh() directly.
+   */
+  async refreshIfStale(ttlMs = 1000): Promise<SystemResources> {
+    if (this.cachedResources && Date.now() - this.lastRefreshAt < ttlMs) {
+      this.cachedResources.freeRamGB = round(freemem() / BYTES_PER_GB)
+      return this.cachedResources
+    }
+    return this.refresh()
   }
 
   /**
@@ -224,6 +253,7 @@ export class ResourcePlanner {
       base.hasGpu = false
     }
     this.cachedResources = base
+    this.lastRefreshAt = Date.now()
     return base
   }
 
