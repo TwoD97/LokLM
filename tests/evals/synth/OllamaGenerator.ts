@@ -3,10 +3,17 @@ import type { GeneratedQuestion, QuestionGenerator, SourceChunk } from './Questi
 // ollama-provider , spricht die /api/generate http-route an.
 // default-modell ist llama3 , kann per ctor überschrieben werden.
 // kein streaming , wir brauchen den vollen text einmal am ende.
+//
+// env-fallback fuer remote-pods (zB runpod proxy):
+//   OLLAMA_BASE_URL     zielhost inkl. schema , ohne trailing slash
+//   OLLAMA_BEARER_TOKEN optional , wird als Authorization-header gesendet
+//   OLLAMA_LLM_MODEL    modellname , falls nicht im ctor uebergeben
+//                       (gleiche var wie pod:start warm-up benutzt)
 
 interface OllamaOptions {
   baseUrl?: string
   model?: string
+  bearerToken?: string | null
 }
 
 interface OllamaResponse {
@@ -18,18 +25,23 @@ export class OllamaGenerator implements QuestionGenerator {
   readonly name: string
   private readonly baseUrl: string
   private readonly model: string
+  private readonly bearerToken: string | null
 
   constructor(opts: OllamaOptions = {}) {
-    this.baseUrl = opts.baseUrl ?? 'http://127.0.0.1:11434'
-    this.model = opts.model ?? 'llama3'
+    this.baseUrl = opts.baseUrl || process.env['OLLAMA_BASE_URL'] || 'http://127.0.0.1:11434'
+    this.model = opts.model || process.env['OLLAMA_LLM_MODEL'] || 'llama3'
+    this.bearerToken = opts.bearerToken ?? process.env['OLLAMA_BEARER_TOKEN'] ?? null
+    if (this.bearerToken === '') this.bearerToken = null
     this.name = `ollama:${this.model}`
   }
 
   async generate(chunk: SourceChunk, n: number): Promise<GeneratedQuestion[]> {
     const prompt = buildPrompt(chunk.text, n)
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (this.bearerToken) headers['authorization'] = `Bearer ${this.bearerToken}`
     const res = await fetch(`${this.baseUrl}/api/generate`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ model: this.model, prompt, stream: false }),
     })
     if (!res.ok) {

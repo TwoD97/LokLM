@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
