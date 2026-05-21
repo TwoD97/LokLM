@@ -1,0 +1,45 @@
+{"chunkId":"rag-grundlagen::9","question":"Auf wie viele Treffer wird das Ergebnis am Ende der zweistufigen Pipeline mit Cross-Encoder reduziert?"}
+{"chunkId":"rag-grundlagen::9","question":"Welche drei Anforderungen muss die Prompt-Gestaltung fuer den Generierungsschritt erfuellen?"}
+{"chunkId":"rag-grundlagen::9","question":"Wie soll das Sprachmodell reagieren, wenn die uebergebenen Textstellen keine Antwort hergeben?"}
+{"chunkId":"rag-grundlagen::9","question":"Warum ist eine klar definierte Zitatform im Prompt notwendig?"}
+{"chunkId":"rag-grundlagen::9","question":"Was soll im Prompt verhindert werden, wenn das Modell sein eigenes Trainingswissen einbringt?"}
+{"chunkId":"rag-grundlagen::10","question":"In welchem Klammertyp wird laut Beschreibung typischerweise die Quellenreferenz hinter einer Aussage notiert?"}
+{"chunkId":"rag-grundlagen::10","question":"Wo im strukturierten Antwortformat soll die Liste der verwendeten Quellen erscheinen?"}
+{"chunkId":"rag-grundlagen::10","question":"Wie viele Belege muss eine einzelne Aussage in dem beschriebenen Format mindestens haben?"}
+{"chunkId":"rag-grundlagen::10","question":"Was soll das Sprachmodell tun, wenn die gefundenen Belege sich gegenseitig widersprechen?"}
+{"chunkId":"rag-grundlagen::10","question":"Welches Verhalten gegenueber widerspruechlichen Quellen wird im Antwortformat ausdruecklich abgelehnt?"}
+{"chunkId":"rag-grundlagen::11","question":"In welche zwei Qualitaetsdimensionen wird die Bewertung eines RAG-Systems aufgeteilt?"}
+{"chunkId":"rag-grundlagen::11","question":"Was genau prueft die Retrieval-Qualitaet bei einem RAG-System?"}
+{"chunkId":"rag-grundlagen::11","question":"Welche vier Eigenschaften werden bei der Bewertung der Generations-Qualitaet beruecksichtigt?"}
+{"chunkId":"rag-grundlagen::11","question":"Warum koennen die beiden Qualitaetsarten nicht isoliert voneinander betrachtet werden?"}
+{"chunkId":"rag-grundlagen::11","question":"Welche Auswirkung hat ein fehlerhaftes Retrieval auf die nachgelagerte Antwortgenerierung?"}
+{"chunkId":"rag-grundlagen::12","question":"Welches Problem bleibt bestehen, selbst wenn die abgerufenen Chunks inhaltlich passend sind?"}
+{"chunkId":"rag-grundlagen::12","question":"Welche drei Beschaffungswege fuer Eval-Daten zur Retrieval-Bewertung werden genannt?"}
+{"chunkId":"rag-grundlagen::12","question":"Was umfasst die manuelle Annotation als erste Methode zur Datenerhebung?"}
+{"chunkId":"rag-grundlagen::12","question":"Welche zwei englischsprachigen Benchmark-Sammlungen werden als zweite Quelle erwaehnt?"}
+{"chunkId":"rag-grundlagen::12","question":"Was ist die dritte angesprochene Methode zur Gewinnung von Eval-Daten?"}
+{"chunkId":"rag-grundlagen::13","question":"Welche Aufgabe wird einem leistungsfaehigen Sprachmodell bei der synthetischen Datenerzeugung gestellt?"}
+{"chunkId":"rag-grundlagen::13","question":"Welchen Vorteil bietet die synthetische Eval-Datenerzeugung gegenueber den anderen Verfahren?"}
+{"chunkId":"rag-grundlagen::13","question":"Welcher Nachteil ist bei automatisch generierten Eval-Datensaetzen zu beachten?"}
+{"chunkId":"rag-grundlagen::13","question":"Welches Verfahren wird mit der dichten Vektorsuche im hybriden Ansatz verknuepft?"}
+{"chunkId":"rag-grundlagen::13","question":"Welche zwei Eigenschaften zeichnen die synthetische Generierung gleichzeitig aus?"}
+{"chunkId":"rag-grundlagen::14","question":"Bei welchen Inhalten zeigt die Vektorsuche typischerweise Schwaechen?"}
+{"chunkId":"rag-grundlagen::14","question":"In welchen Faellen liefert die rein lexikalische Suche besonders gute Treffer?"}
+{"chunkId":"rag-grundlagen::14","question":"Welche Staerke besitzt die Vektorsuche im Vergleich zu BM25?"}
+{"chunkId":"rag-grundlagen::14","question":"Welche zwei Verfahren werden zur Zusammenfuehrung der beiden Ergebnislisten genannt?"}
+{"chunkId":"rag-grundlagen::14","question":"Wovon haengt die geeignete Wichtung zwischen den beiden Suchverfahren ab?"}
+{"chunkId":"rag-grundlagen::15","question":"Worauf sollte die Gewichtung zwischen den beiden Suchverfahren abgestimmt werden?"}
+{"chunkId":"rag-grundlagen::15","question":"Welches Laufzeitverhalten zeigen einfache Implementierungen der Vektorsuche bezogen auf die Korpusgroesse?"}
+{"chunkId":"rag-grundlagen::15","question":"Wie geht eine naive Suchimplementierung mit dem Anfrage-Vektor um?"}
+{"chunkId":"rag-grundlagen::15","question":"Welche drei beispielhaften Strukturen fuer approximative Nachbarsuche werden aufgezaehlt?"}
+{"chunkId":"rag-grundlagen::15","question":"Welche Nachteile haben ANN-Verfahren trotz schnellerer Suche?"}
+{"chunkId":"rag-grundlagen::16","question":"Bis zu welcher ungefaehren Chunk-Anzahl wird eine vollstaendige Brute-Force-Suche lokal als ausreichend bezeichnet?"}
+{"chunkId":"rag-grundlagen::16","question":"Warum lohnt sich bei kleineren lokalen Korpora der Einsatz eines ANN-Index meist nicht?"}
+{"chunkId":"rag-grundlagen::16","question":"Welcher Aspekt rund um den Korpus wird laut Text oft unterschaetzt?"}
+{"chunkId":"rag-grundlagen::16","question":"Was muss mit den Chunks eines Dokuments geschehen, sobald dessen Inhalt veraendert wurde?"}
+{"chunkId":"rag-grundlagen::16","question":"Welche Folgen hat es, wenn man neue Inhalte einfach an den Index anhaengt, ohne alte zu entfernen?"}
+{"chunkId":"rag-grundlagen::17","question":"Welche Pruefsumme wird in einer sauberen Indexierung pro Dokument gefuehrt?"}
+{"chunkId":"rag-grundlagen::17","question":"Wann genau wird der gespeicherte Dokument-Hash mit dem aktuellen verglichen?"}
+{"chunkId":"rag-grundlagen::17","question":"Welche Operation folgt, wenn der Vergleich der Hashes eine Aenderung anzeigt?"}
+{"chunkId":"rag-grundlagen::17","question":"Welches Indexierungsverfahren ist bei sehr grossen Datenbestaenden besonders sinnvoll?"}
+{"chunkId":"rag-grundlagen::17","question":"Was unterscheidet ein delta-basiertes Re-Indexieren vom vollstaendigen Neuaufbau?"}

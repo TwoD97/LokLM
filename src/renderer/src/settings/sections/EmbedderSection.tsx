@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { UserSettings } from '@shared/settings'
 import { ReindexGateModal } from '../ReindexGateModal'
+import { Segmented } from '../Segmented'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
@@ -12,17 +13,13 @@ export function EmbedderSection({ settings, update }: Props): JSX.Element {
     targetSource: 'bundled' | 'ollama'
   } | null>(null)
   const a = settings.advanced.embedder
+  const ollamaEmbedderModel = settings.advanced.ollama.embedderModel
 
   const startSwitch = (next: 'bundled' | 'ollama'): void => {
     if (next === a.source) return
     const fromId =
-      a.source === 'ollama'
-        ? `ollama:${settings.advanced.ollama.embedderModel ?? '?'}`
-        : 'bundled:bge-m3'
-    const toId =
-      next === 'ollama'
-        ? `ollama:${settings.advanced.ollama.embedderModel ?? '?'}`
-        : 'bundled:bge-m3'
+      a.source === 'ollama' ? `ollama:${ollamaEmbedderModel ?? '?'}` : 'bundled:bge-m3'
+    const toId = next === 'ollama' ? `ollama:${ollamaEmbedderModel ?? '?'}` : 'bundled:bge-m3'
     setGate({ from: fromId, to: toId, targetSource: next })
   }
 
@@ -33,43 +30,63 @@ export function EmbedderSection({ settings, update }: Props): JSX.Element {
       const msg = 'message' in res ? `: ${res.message}` : ''
       throw new Error(`Probe failed (${res.kind})${msg}`)
     }
-    // Setting already updated server-side. Now kick the backfill across all workspaces:
     const wss = await window.api.workspaces.list()
     for (const w of wss) await window.api.embedder.runBackfill(w.id)
     setGate(null)
   }
 
   return (
-    <div className="settings-group">
+    <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
       <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <span>{open ? '▼' : '▶'} Embedder</span>
+        <div className="settings-group__title">
+          <div className="settings-group__title-row">Embedder</div>
+          <div className="settings-group__sub">
+            Produces the vectors search runs against. Switching forces a re-index.
+          </div>
+        </div>
+        <span className="settings-group__chevron">▶</span>
       </div>
       {open && (
         <div className="settings-group__body">
           <div className="settings-row">
-            <label>Source</label>
-            <select
+            <div className="settings-row__label">
+              <span className="settings-row__label-text">Source</span>
+              <span className="settings-row__hint">
+                Re-index modal will open when you change this.
+              </span>
+            </div>
+            <Segmented
+              ariaLabel="Embedder source"
               value={a.source}
-              onChange={(e) => startSwitch(e.target.value as 'bundled' | 'ollama')}
-            >
-              <option value="bundled">Bundled (BGE-M3)</option>
-              <option value="ollama" disabled={!settings.advanced.ollama.embedderModel}>
-                External Ollama
-              </option>
-            </select>
+              options={[
+                { value: 'bundled', label: 'Bundled (BGE-M3)' },
+                {
+                  value: 'ollama',
+                  label: 'External Ollama',
+                  disabled: !ollamaEmbedderModel,
+                  hint: ollamaEmbedderModel ? undefined : 'Pick an Ollama embedder model first',
+                },
+              ]}
+              onChange={(v) => startSwitch(v)}
+            />
           </div>
           <div className="settings-row">
-            <label>Placement</label>
-            <select
+            <div className="settings-row__label">
+              <span className="settings-row__label-text">Placement</span>
+              <span className="settings-row__hint">CPU/GPU compute placement at load time.</span>
+            </div>
+            <Segmented
+              ariaLabel="Embedder placement"
               value={a.placement}
-              onChange={(e) =>
-                void update({ advanced: { embedder: { placement: e.target.value } } })
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'cpu', label: 'CPU' },
+                { value: 'gpu', label: 'GPU' },
+              ]}
+              onChange={(v) =>
+                void update({ advanced: { embedder: { placement: v } } })
               }
-            >
-              <option value="auto">Auto</option>
-              <option value="cpu">CPU</option>
-              <option value="gpu">GPU</option>
-            </select>
+            />
           </div>
         </div>
       )}

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSettings } from './useSettings'
+import { Segmented } from './Segmented'
 import type { SystemInfo, LlmProfileChoice } from '@shared/documents'
 
-const PROFILES: { value: LlmProfileChoice; label: string }[] = [
-  { value: 'auto', label: 'Auto (recommended)' },
-  { value: 'lite', label: 'Lite — 8 GB target' },
-  { value: 'full', label: 'Full — 16 GB+ target' },
-  { value: 'xl', label: 'XL — high-end GPU' },
+const PROFILES: { value: LlmProfileChoice; label: string; sub: string }[] = [
+  { value: 'auto', label: 'Auto', sub: 'Recommended — picks best fit for your hardware.' },
+  { value: 'lite', label: 'Lite', sub: 'Qwen3 4B · 8 GB target' },
+  { value: 'full', label: 'Full', sub: 'Qwen3 8B · 16 GB+ target' },
+  { value: 'xl', label: 'XL', sub: 'Nemotron 30B-A3B · high-end GPU' },
 ]
 
 /** `SystemInfo.lastLlmPlan` is typed as `unknown` on the wire because the
@@ -36,75 +37,88 @@ export function BasicTab(): JSX.Element {
 
   return (
     <div>
-      <h3>Response language</h3>
-      <div className="settings-row" style={{ gap: 16 }}>
-        <label>
-          <input
-            type="radio"
-            checked={settings.basic.language === 'de'}
-            onChange={() => void update({ basic: { language: 'de' } })}
-          />{' '}
-          Deutsch
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={settings.basic.language === 'en'}
-            onChange={() => void update({ basic: { language: 'en' } })}
-          />{' '}
-          English
-        </label>
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">Response language</span>
+        <span className="settings-section-head__sub">How LokLM should reply.</span>
+      </div>
+      <Segmented
+        ariaLabel="Response language"
+        value={settings.basic.language}
+        options={[
+          { value: 'de', label: 'Deutsch' },
+          { value: 'en', label: 'English' },
+        ]}
+        onChange={(v) => void update({ basic: { language: v } })}
+      />
+
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">Model size</span>
+        <span className="settings-section-head__sub">Which bundled GGUF the local LLM loads.</span>
+      </div>
+      <div className="settings-model-cards">
+        {PROFILES.map((p) => {
+          const available = haveGguf(p.value)
+          const active = settings.basic.llmProfile === p.value
+          return (
+            <button
+              key={p.value}
+              type="button"
+              className={`settings-model-card ${active ? 'settings-model-card--active' : ''}`}
+              disabled={!available}
+              onClick={() => void update({ basic: { llmProfile: p.value } })}
+            >
+              <div className="settings-model-card__head">
+                <span className="settings-model-card__title">{p.label}</span>
+                <span
+                  className={`settings-model-card__badge ${available ? 'settings-model-card__badge--ok' : 'settings-model-card__badge--missing'}`}
+                >
+                  {p.value === 'auto'
+                    ? 'auto'
+                    : available
+                      ? 'available'
+                      : 'download via Models panel'}
+                </span>
+              </div>
+              <span className="settings-model-card__sub">{p.sub}</span>
+            </button>
+          )
+        })}
       </div>
 
-      <h3 style={{ marginTop: 18 }}>Model size</h3>
-      {PROFILES.map((p) => (
-        <div key={p.value} className="settings-row">
-          <label style={{ opacity: haveGguf(p.value) ? 1 : 0.55 }}>
-            <input
-              type="radio"
-              checked={settings.basic.llmProfile === p.value}
-              onChange={() => void update({ basic: { llmProfile: p.value } })}
-              disabled={!haveGguf(p.value)}
-            />{' '}
-            {p.label}
-          </label>
-          {!haveGguf(p.value) && (
-            <span style={{ color: '#9fb3cc', fontSize: 12 }}>Download via Models panel.</span>
-          )}
-        </div>
-      ))}
-
-      <h3 style={{ marginTop: 18 }}>System info</h3>
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">System info</span>
+        <span className="settings-section-head__sub">Live introspection from the planner.</span>
+      </div>
       {info && (
-        <table style={{ width: '100%', fontSize: 13 }}>
-          <tbody>
-            <tr>
-              <td>Total RAM</td>
-              <td style={{ textAlign: 'right' }}>{info.totalMemGB} GB</td>
-            </tr>
-            <tr>
-              <td>GPU</td>
-              <td style={{ textAlign: 'right' }}>{info.gpu ?? '—'}</td>
-            </tr>
-            <tr>
-              <td>Model</td>
-              <td style={{ textAlign: 'right' }}>{info.modelName ?? '—'}</td>
-            </tr>
-            <tr>
-              <td>Context size</td>
-              <td style={{ textAlign: 'right' }}>{plan.contextSize ?? '—'}</td>
-            </tr>
-            <tr>
-              <td>KV cache</td>
-              <td style={{ textAlign: 'right' }}>{plan.kvCacheType ?? '—'}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="settings-stat-grid">
+          <div className="settings-stat">
+            <span className="settings-stat__label">Total RAM</span>
+            <span className="settings-stat__value">{info.totalMemGB} GB</span>
+          </div>
+          <div className="settings-stat">
+            <span className="settings-stat__label">GPU</span>
+            <span className="settings-stat__value">{info.gpu ?? '—'}</span>
+          </div>
+          <div className="settings-stat">
+            <span className="settings-stat__label">Model</span>
+            <span className="settings-stat__value">{info.modelName ?? '—'}</span>
+          </div>
+          <div className="settings-stat">
+            <span className="settings-stat__label">Context size</span>
+            <span className="settings-stat__value">{plan.contextSize ?? '—'}</span>
+          </div>
+          <div className="settings-stat">
+            <span className="settings-stat__label">KV cache</span>
+            <span className="settings-stat__value">{plan.kvCacheType ?? '—'}</span>
+          </div>
+        </div>
       )}
 
-      <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-        ✓ saved
-      </span>
+      <div style={{ marginTop: 14 }}>
+        <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
+          ✓ saved
+        </span>
+      </div>
     </div>
   )
 }
