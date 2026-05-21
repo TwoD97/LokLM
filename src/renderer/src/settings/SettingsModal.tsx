@@ -35,23 +35,38 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
         aria-modal="true"
       >
         <header className="settings-modal__header">
-          <div className="settings-modal__tabs">
+          <div className="settings-modal__tabs" role="tablist">
             <button
+              role="tab"
+              aria-selected={tab === 'profile'}
               className={`settings-tab ${tab === 'profile' ? 'settings-tab--active' : ''}`}
               onClick={() => setTab('profile')}
             >
+              <span className="settings-tab__icon" aria-hidden="true">
+                👤
+              </span>
               Profile
             </button>
             <button
+              role="tab"
+              aria-selected={tab === 'basic'}
               className={`settings-tab ${tab === 'basic' ? 'settings-tab--active' : ''}`}
               onClick={() => setTab('basic')}
             >
+              <span className="settings-tab__icon" aria-hidden="true">
+                ⚙
+              </span>
               Basic
             </button>
             <button
+              role="tab"
+              aria-selected={tab === 'advanced'}
               className={`settings-tab ${tab === 'advanced' ? 'settings-tab--active' : ''}`}
               onClick={() => setTab('advanced')}
             >
+              <span className="settings-tab__icon" aria-hidden="true">
+                ⚠
+              </span>
               Advanced
             </button>
           </div>
