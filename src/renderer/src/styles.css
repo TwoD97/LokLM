@@ -374,6 +374,141 @@ body {
   }
 }
 
+/* ---- Hover pill for status dots --------------------------------------- *
+ * Wraps each dot so the dot itself keeps the existing 9px visual, while the
+ * pill positions absolutely below it and fades in on hover/focus. The pill
+ * uses the same surface tokens as the rest of the chrome (bg-2, border,
+ * shadow-glow) so it reads as part of the app, not a browser tooltip. */
+.titlebar__dot-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 9px;
+  height: 9px;
+}
+
+.titlebar__pill {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translate(-50%, -2px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--fg-0);
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    visibility 0s linear var(--t-fast);
+  z-index: 101;
+}
+
+.titlebar__dot-wrap:hover .titlebar__pill,
+.titlebar__dot-wrap:focus-within .titlebar__pill {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    visibility 0s linear 0s;
+}
+
+/* Little upward-pointing notch — anchors the pill to its dot. */
+.titlebar__pill::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border-strong);
+  border-left: 1px solid var(--border-strong);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.titlebar__pill-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  color: var(--fg-2);
+}
+
+.titlebar__pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-3);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4) inset;
+  flex-shrink: 0;
+}
+
+.titlebar__pill-dot--loading {
+  background: #f0b429;
+  box-shadow: 0 0 4px rgba(240, 180, 41, 0.7);
+  animation: titlebar-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.titlebar__pill-dot--ready {
+  background: var(--success);
+  box-shadow: 0 0 4px rgba(63, 185, 80, 0.6);
+}
+
+.titlebar__pill-dot--ready.titlebar__dot--ollama {
+  background: #a78bff;
+  box-shadow: 0 0 4px rgba(167, 139, 255, 0.6);
+}
+
+.titlebar__pill-dot--failed {
+  background: var(--error);
+  box-shadow: 0 0 4px rgba(248, 81, 73, 0.6);
+}
+
+.titlebar__pill-text {
+  color: var(--fg-0);
+}
+
+/* Message line drops below the pill body when the service has something to
+ * say (e.g. failure reason, model name, fallback note). Wrap it so long
+ * messages don't push the pill off-screen. */
+.titlebar__pill-msg {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-2);
+  font-size: 0.65rem;
+  line-height: 1.35;
+  white-space: normal;
+  max-width: 240px;
+}
+
+/* When the pill carries a message it needs to wrap from a row to a column
+ * so the message sits below the status line instead of next to it. */
+.titlebar__pill:has(.titlebar__pill-msg) {
+  flex-wrap: wrap;
+  border-radius: 12px;
+  max-width: 260px;
+  white-space: normal;
+}
+
 .titlebar__controls {
   display: flex;
   align-items: stretch;

@@ -45,19 +45,35 @@ function osHeadroomGB(): number {
  * VRAM compositor reservation — what the OS itself keeps for the desktop
  * compositor, browser GPU process, etc. Skipped on macOS (unified memory
  * accounting is handled by osHeadroomGB).
+ *
+ * This is the platform-flat floor; the effective headroom is raised to at
+ * least 10% of total VRAM in `refresh()` once the probe knows the card
+ * size, so peak usage caps at ~90% on any GPU large enough that 10%
+ * exceeds the flat floor.
  */
 function vramHeadroomGB(): number {
   switch (platform()) {
     case 'win32':
-      return 1.0 // DWM + browser GPU process
+      // 2 GB baseline for DWM + browser GPU process. On an 8 GB card this
+      // leaves ~6 GB usable (Lite still fits; Full + 8B Q4 gets tight).
+      // The 10% percentage floor takes over above 20 GB total VRAM.
+      return 2.0
     case 'linux':
-      return 0.7 // X/Wayland compositor
+      return 0.7 // X/Wayland compositor is lighter than DWM
     case 'darwin':
       return 0 // unified memory — already counted in RAM headroom
     default:
-      return 1.0
+      return 2.0
   }
 }
+
+/**
+ * Fraction of total VRAM we always leave free so the desktop compositor and
+ * other GPU consumers keep running smoothly while a model is resident.
+ * Combined with the platform-flat floor, peak in-use VRAM stays at ~90% of
+ * total. Lift this to relax the cap; lower it to reserve more for the OS.
+ */
+const VRAM_HEADROOM_FRACTION = 0.1
 
 export interface SystemResources {
   totalRamGB: number
@@ -194,6 +210,13 @@ export class ResourcePlanner {
         base.totalVramGB = round(v.total / BYTES_PER_GB)
         base.freeVramGB = round(v.free / BYTES_PER_GB)
         base.hasGpu = v.total > 0 && probe.gpu !== false
+        // Raise the headroom floor to a fraction of total VRAM so peak
+        // usage caps at ~90% — keeps DWM / browser GPU process from
+        // starving while a big model is resident. Platform-flat wins on
+        // small cards where 10% would under-reserve.
+        base.vramHeadroomGB = round(
+          Math.max(vramHeadroomGB(), base.totalVramGB * VRAM_HEADROOM_FRACTION),
+        )
       }
     } catch (err) {
       // eslint-disable-next-line no-console

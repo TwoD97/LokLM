@@ -55,6 +55,11 @@ let embedderContext: unknown = null
 let rerankerModel: unknown = null
 let rerankerContext: unknown = null
 
+// Canonical system prompt is built on the main side from prompt.ts and shipped
+// in via llm.load / llm.setLanguage. Stash the latest one so we can re-seed
+// the chat session on language changes without going back to main.
+let llmSystemPrompt = ''
+
 // Active AbortControllers keyed by streamId so an `llm.abort` request can cancel
 // the right in-flight `session.prompt`.
 const activeAborts = new Map<string, AbortController>()
@@ -153,20 +158,10 @@ function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
 
 // ---- LLM ------------------------------------------------------------------
 
-function buildSystemPrompt(lang: 'de' | 'en'): string {
-  // We keep a minimal system prompt here so the worker doesn't depend on
-  // src/main/services/llm/prompt.ts (which pulls in document types). The
-  // main-side service still builds the full user prompt and ships it to us;
-  // this string is only the role-grounding system turn.
-  if (lang === 'de') {
-    return 'Du bist LokLM, ein deutschsprachiger Wissensassistent. Antworte präzise und stütze dich auf den Kontext, den du erhältst.'
-  }
-  return 'You are LokLM, a knowledge assistant. Answer precisely and ground your answers in the provided context.'
-}
-
 async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   await llmUnloadInternal()
   llmLanguage = payload.language
+  llmSystemPrompt = payload.systemPrompt
   pushStatus('llm', {
     state: 'loading',
     modelPath: payload.modelPath,
@@ -278,7 +273,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
 
   const session = new (lib as { LlamaChatSession: new (o: unknown) => unknown }).LlamaChatSession({
     contextSequence: context.getSequence(),
-    systemPrompt: buildSystemPrompt(llmLanguage),
+    systemPrompt: llmSystemPrompt,
   })
 
   llmModel = model
@@ -384,8 +379,9 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   }
 }
 
-function llmSetLanguage(lang: 'de' | 'en'): void {
+function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
   llmLanguage = lang
+  llmSystemPrompt = systemPrompt
   const session = llmSession as {
     getChatHistory?: () => Array<{ type: string; text?: string }>
     setChatHistory?: (h: Array<{ type: string; text?: string }>) => void
@@ -394,7 +390,7 @@ function llmSetLanguage(lang: 'de' | 'en'): void {
   try {
     const history = session.getChatHistory()
     const next = history.map((h, i) =>
-      i === 0 || h.type === 'system' ? { ...h, type: 'system', text: buildSystemPrompt(lang) } : h,
+      i === 0 || h.type === 'system' ? { ...h, type: 'system', text: systemPrompt } : h,
     )
     session.setChatHistory(next)
   } catch {
@@ -600,7 +596,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
       reply(msg.id, null)
       return
     case 'llm.setLanguage':
-      llmSetLanguage(msg.payload.lang)
+      llmSetLanguage(msg.payload.lang, msg.payload.systemPrompt)
       reply(msg.id, null)
       return
     case 'llm.ask':

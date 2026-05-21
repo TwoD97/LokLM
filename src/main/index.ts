@@ -23,6 +23,8 @@ import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedd
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
 import { SettingsService } from './services/settings/SettingsService'
 import type { UserSettings } from '../shared/settings'
+import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
+import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -39,9 +41,17 @@ function getAuth(): AuthService {
   if (!authService) {
     authService = new AuthService(app.getPath('userData'))
     authService.setOnLock(() => {
+      // Inactivity auto-lock fires here too — kill any pending warmup so a
+      // backfill kicked off seconds before the lock doesn't try to use the
+      // database we just zeroed.
+      cancelPostLoginWarmup()
       resetSessionServices()
       broadcastAuthState()
     })
+    // Pause the inactivity auto-lock while a model download is in flight —
+    // multi-GB GGUFs take longer than the 15 min idle window and the user
+    // sitting at the download view would otherwise get locked mid-transfer.
+    authService.setInactivityGuard(() => getModelDownloader().hasAnyActive())
   }
   return authService
 }
@@ -90,6 +100,38 @@ let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
 
+// Shared infrastructure for the three model services. The planner stays on
+// main for its cheap pure helpers ; the worker owns its own planner instance
+// for the live VRAM probe (which used to block main during getLlama init).
+// Load serialisation moved into the worker too , a FIFO mutex there guards
+// the heavy loadModel calls across LLM / embedder / reranker.
+const sharedPlanner = new ResourcePlanner()
+const modelsWorker = new ModelsWorkerClient()
+// Post-login warmup runs on a small delay so the renderer can mount the main
+// UI before model loads start consuming the main thread and VRAM. The handle
+// is kept so a lock/logout can cancel a pending warmup that did not yet fire.
+let postLoginWarmupTimer: NodeJS.Timeout | null = null
+function cancelPostLoginWarmup(): void {
+  if (postLoginWarmupTimer) {
+    clearTimeout(postLoginWarmupTimer)
+    postLoginWarmupTimer = null
+  }
+}
+function schedulePostLoginWarmup(): void {
+  cancelPostLoginWarmup()
+  // 1.5s is enough for the renderer to swap from the lock screen to the main
+  // view on a typical machine ; the load lock serialises the actual work that
+  // follows so even if backfill + autoLoad both fire immediately they queue.
+  postLoginWarmupTimer = setTimeout(() => {
+    postLoginWarmupTimer = null
+    void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+    void getLlamaService()
+      .autoLoad()
+      .catch(() => undefined)
+  }, 1500)
+  if (typeof postLoginWarmupTimer.unref === 'function') postLoginWarmupTimer.unref()
+}
+
 function getModelDownloader(): ModelDownloader {
   modelDownloader ??= new ModelDownloader()
   return modelDownloader
@@ -102,18 +144,31 @@ function getWorkspaceService(): WorkspaceService {
 
 function getEmbeddingService(): EmbeddingService {
   if (!embeddingService) {
-    embeddingService = new EmbeddingService()
-    embeddingService.subscribe((status) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        try {
-          win.webContents.send('embedder:status', status)
-        } catch {
-          /* ignore */
-        }
-      }
-    })
+    embeddingService = new EmbeddingService({ planner: sharedPlanner, client: modelsWorker })
+    // Like LLM: ProviderRegistry is the source of truth for which backend is
+    // active. Overlay it via composeEmbedderStatus so the TitleBar dot can flip
+    // to the 'ollama' (purple) visual when the user is on the external backend.
+    embeddingService.subscribe((status) => broadcastEmbedderStatus(status))
   }
   return embeddingService
+}
+
+function composeEmbedderStatus(
+  raw: import('../shared/documents').EmbedderStatus,
+): import('../shared/documents').EmbedderStatus {
+  const source = providerRegistry?.getEmbedderSource() ?? 'bundled'
+  return { ...raw, source }
+}
+
+function broadcastEmbedderStatus(raw: import('../shared/documents').EmbedderStatus): void {
+  const status = composeEmbedderStatus(raw)
+  for (const win of BrowserWindow.getAllWindows()) {
+    try {
+      win.webContents.send('embedder:status', status)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function getBackfillService(): EmbeddingBackfillService {
@@ -223,11 +278,18 @@ async function applySettings(s: UserSettings): Promise<void> {
   // pill reflects the new 'source' immediately, without waiting for the next
   // state transition inside LlamaService.
   broadcastLlmStatus(getLlamaService().getStatus())
+  // Same overlay refresh for the reranker dot in the TitleBar. (Embedder is
+  // handled by the dedicated trySwitchSource handler — applySettings never
+  // flips embedder source.)
+  broadcastRerankerStatus(getRerankerService().getStatus())
 }
 
 function getLlamaService(): LlamaService {
   if (!llamaService) {
-    llamaService = new LlamaService()
+    llamaService = new LlamaService({ planner: sharedPlanner, client: modelsWorker })
+    // broadcastLlmStatus overlays ProviderRegistry's live source + fallback flag
+    // onto the raw status emitted by LlamaService; sending status straight to
+    // 'llm:status' would lose that overlay and lie about the active backend.
     llamaService.subscribe((status) => broadcastLlmStatus(status))
   }
   return llamaService
@@ -280,18 +342,28 @@ function getQAService(): QAService {
 
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
-    rerankerService = new RerankerService()
-    rerankerService.subscribe((status) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        try {
-          win.webContents.send('reranker:status', status)
-        } catch {
-          /* ignore */
-        }
-      }
-    })
+    rerankerService = new RerankerService({ planner: sharedPlanner, client: modelsWorker })
+    rerankerService.subscribe((status) => broadcastRerankerStatus(status))
   }
   return rerankerService
+}
+
+function composeRerankerStatus(
+  raw: import('../shared/documents').RerankerStatus,
+): import('../shared/documents').RerankerStatus {
+  const source = providerRegistry?.getRerankerSource() ?? 'bundled'
+  return { ...raw, source }
+}
+
+function broadcastRerankerStatus(raw: import('../shared/documents').RerankerStatus): void {
+  const status = composeRerankerStatus(raw)
+  for (const win of BrowserWindow.getAllWindows()) {
+    try {
+      win.webContents.send('reranker:status', status)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function getRetrievalService(): RetrievalService {
@@ -325,41 +397,54 @@ function registerIpc(): void {
       broadcastAuthState()
       // Settings hydrate before any model warming so applySettings (Task 16)
       // gets a chance to swap providers / placement before autoLoad fires.
+      // Warmup itself is deferred by ~1.5s so the renderer can mount the main
+      // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
-      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
-      void getLlamaService()
-        .autoLoad()
-        .catch(() => undefined)
+      schedulePostLoginWarmup()
       return result
     },
   )
 
-  ipcMain.handle('auth:login', async (_e, input: { password: string }) => {
-    const result = await getAuth().login(input.password)
+  ipcMain.handle('auth:login', async (e, input: { password: string }) => {
+    const result = await getAuth().login(input.password, {
+      // Stream stage events to the renderer so the LoginView can swap the
+      // "Entsperre …" label for the actual phase ("Schlüssel ableiten…",
+      // "Tresor entschlüsseln…", "Bibliothek laden…"). Per-sender send so
+      // a second window doesn't see another user's login progress.
+      onProgress: (stage) => {
+        if (e.sender.isDestroyed()) return
+        try {
+          e.sender.send('auth:login-progress', { stage })
+        } catch {
+          /* renderer torn down mid-flight , next stage emission will be a no-op too */
+        }
+      },
+    })
     if (result.ok) {
       broadcastAuthState()
       // Settings hydrate before any model warming so applySettings (Task 16)
       // gets a chance to swap providers / placement before autoLoad fires.
+      // Warmup itself is deferred by ~1.5s so the renderer can mount the main
+      // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
-      void scheduleBackfillForAllWorkspaces().catch(() => undefined)
-      void getLlamaService()
-        .autoLoad()
-        .catch(() => undefined)
+      schedulePostLoginWarmup()
     }
     return result
   })
 
   ipcMain.handle('auth:logout', async () => {
+    cancelPostLoginWarmup()
     await getAuth().logout()
     resetSessionServices()
     broadcastAuthState()
   })
 
   ipcMain.handle('auth:lock', async () => {
+    cancelPostLoginWarmup()
     await getAuth().lock()
     resetSessionServices()
     broadcastAuthState()
@@ -550,7 +635,9 @@ function registerIpc(): void {
   })
 
   // embedder
-  ipcMain.handle('embedder:status', async () => getEmbeddingService().getStatus())
+  ipcMain.handle('embedder:status', async () =>
+    composeEmbedderStatus(getEmbeddingService().getStatus()),
+  )
   ipcMain.handle('embedder:info', async () => getEmbeddingService().info())
   ipcMain.handle('embedder:reload', async () => {
     await getEmbeddingService().unload()
@@ -582,7 +669,9 @@ function registerIpc(): void {
   )
 
   // reranker
-  ipcMain.handle('reranker:status', async () => getRerankerService().getStatus())
+  ipcMain.handle('reranker:status', async () =>
+    composeRerankerStatus(getRerankerService().getStatus()),
+  )
   ipcMain.handle('reranker:info', async () => getRerankerService().info())
   ipcMain.handle('reranker:reload', async () => {
     await getRerankerService().unload()
@@ -682,6 +771,8 @@ function registerIpc(): void {
     }
     reg.setEmbedderSource(source)
     await getSettingsService().update({ advanced: { embedder: { source } } })
+    // Refresh the TitleBar dot — source just flipped, raw status didn't.
+    broadcastEmbedderStatus(getEmbeddingService().getStatus())
     return { ok: true as const, identity: target.identity() }
   })
 
@@ -740,14 +831,19 @@ function registerIpc(): void {
           }
         }
 
-        // Persist the assistant turn. Refusal short-circuits to an empty
-        // citations list with the refusal text as the assistant's content —
-        // resume of the conversation later sees an intact timeline.
-        if (conversations && opts.conversationId != null && !ctrl.signal.aborted) {
+        // Persist the assistant turn. Even on cancel (user clicked stop, or
+        // the renderer disconnected mid-stream) we still write whatever tokens
+        // we got — losing the partial answer is worse than persisting a
+        // truncated one. Refusal short-circuits to a fixed message.
+        if (conversations && opts.conversationId != null) {
           if (refused && refusalMessage != null) {
             await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
           } else if (tokenBuffer.length > 0) {
-            const assistantContent = tokenBuffer.join('')
+            const interrupted = ctrl.signal.aborted
+            const body = tokenBuffer.join('')
+            const assistantContent = interrupted
+              ? `${body}\n\n_[Antwort wurde unterbrochen]_`
+              : body
             const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
             const elapsedSinceFirst =
               firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
@@ -815,15 +911,33 @@ function createMainWindow(): BrowserWindow {
   return window
 }
 
-void app.whenReady().then(() => {
-  if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
-  registerIpc()
-  createMainWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+// Only one process is allowed to touch the encrypted vault at a time. Two
+// instances would race on loklm.vault.tmp during persistSnapshot and could
+// rename a mixed-content tmp over the real vault , producing an AES-GCM tag
+// failure on the next login that recovery codes can't fix. The lock also
+// matters in dev , where `electron-vite dev` can be started twice by mistake.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const wins = BrowserWindow.getAllWindows()
+    const first = wins[0]
+    if (first) {
+      if (first.isMinimized()) first.restore()
+      first.focus()
+    }
   })
-})
+
+  void app.whenReady().then(() => {
+    if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+    registerIpc()
+    createMainWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

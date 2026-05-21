@@ -45,6 +45,7 @@ const stub: Api = {
     reset: () =>
       Promise.resolve({ ok: true as const, passphrase: Array(18).fill('test') as string[] }),
     onState: () => () => undefined,
+    onLoginProgress: () => () => undefined,
   },
   window: {
     minimize: () => Promise.resolve(),
@@ -144,6 +145,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
       }),
     info: () =>
       Promise.resolve({
@@ -153,6 +155,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
         bundledModelPath: '',
         bundledModelExists: false,
         resolvedPlacement: null,
@@ -167,6 +170,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
         bundledModelPath: '',
         bundledModelExists: false,
         resolvedPlacement: null,
@@ -199,6 +203,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
       }),
     info: () =>
       Promise.resolve({
@@ -208,6 +213,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
         bundledModelPath: '',
         bundledModelExists: false,
         resolvedPlacement: null,
@@ -222,6 +228,7 @@ const stub: Api = {
         modelName: null,
         loadProgress: null,
         message: null,
+        source: 'bundled' as const,
         bundledModelPath: '',
         bundledModelExists: false,
         resolvedPlacement: null,

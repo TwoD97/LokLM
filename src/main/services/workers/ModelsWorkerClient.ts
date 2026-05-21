@@ -166,8 +166,8 @@ export class ModelsWorkerClient {
   llmUnload(): Promise<void> {
     return this.send<void>('llm.unload')
   }
-  llmSetLanguage(lang: 'de' | 'en'): Promise<void> {
-    return this.send<void>('llm.setLanguage', { lang })
+  llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): Promise<void> {
+    return this.send<void>('llm.setLanguage', { lang, systemPrompt })
   }
   llmAsk(p: LlmAskPayload): Promise<{ raw: string }> {
     return this.send<{ raw: string }>('llm.ask', p)

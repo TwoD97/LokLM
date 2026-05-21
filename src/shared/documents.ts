@@ -38,6 +38,10 @@ export interface EmbedderStatus {
   modelName: string | null
   loadProgress: number | null
   message: string | null
+  /** Which provider source is active — set by ProviderRegistry overlay in
+   *  main/index.ts (the raw service always reports 'bundled'). Drives the
+   *  status-dot color and Local/Remote label in the TitleBar. */
+  source: 'bundled' | 'ollama'
 }
 
 export interface EmbedderInfo extends EmbedderStatus {
@@ -65,6 +69,8 @@ export interface RerankerStatus {
   modelName: string | null
   loadProgress: number | null
   message: string | null
+  /** See EmbedderStatus.source — same overlay pattern. */
+  source: 'bundled' | 'ollama'
 }
 
 export interface RerankerInfo extends RerankerStatus {

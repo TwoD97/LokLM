@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AuthStatus } from '@shared/authTypes'
+import type { AuthLoginStage, AuthStatus } from '@shared/authTypes'
 
 type Props = {
   status: AuthStatus
@@ -7,16 +7,29 @@ type Props = {
   onForgotPassword: () => void
 }
 
+const STAGE_LABEL: Record<AuthLoginStage, string> = {
+  deriving: 'Schlüssel ableiten …',
+  decrypting: 'Tresor entschlüsseln …',
+  restoring: 'Bibliothek laden …',
+  ready: 'Bereit.',
+}
+
 export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.Element {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [stage, setStage] = useState<AuthLoginStage | null>(null)
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     if (busy || password.length === 0) return
     setError(null)
     setBusy(true)
+    setStage(null)
+    // Subscribe just for the lifetime of this login attempt — the unsubscribe
+    // fires in the `finally` below so a re-entered submit doesn't pile up
+    // listeners on the preload bridge.
+    const offProgress = window.api.auth.onLoginProgress((ev) => setStage(ev.stage))
     try {
       const result = await window.api.auth.login(password)
       if (result.ok) {
@@ -34,9 +47,13 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
       const msg = err instanceof Error ? err.message : String(err)
       setError(msg.replace(/^Error invoking remote method [^:]+: Error: /, ''))
     } finally {
+      offProgress()
       setBusy(false)
+      setStage(null)
     }
   }
+
+  const busyLabel = busy ? (stage ? STAGE_LABEL[stage] : 'Entsperre …') : 'Entsperren →'
 
   const initial = status.displayName?.trim().charAt(0).toUpperCase() ?? '?'
 
@@ -73,7 +90,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
           className="primary primary--full"
           disabled={busy || password.length === 0}
         >
-          {busy ? 'Entsperre …' : 'Entsperren →'}
+          {busyLabel}
         </button>
         <button type="button" className="link link--centered" onClick={onForgotPassword}>
           Passwort vergessen?

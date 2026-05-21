@@ -165,4 +165,7 @@ tests/e2e/screenshots/output/
 tests/e2e/test-results/
 tests/e2e/.playwright-report/
 
+# Eval reports (regenerated per run, can be large with per-question.jsonl + LLM text)
+tests/evals/report/
+
 release
