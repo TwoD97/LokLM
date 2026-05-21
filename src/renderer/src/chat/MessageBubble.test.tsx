@@ -19,7 +19,11 @@ describe('MessageBubble', () => {
     )
     const chip = screen.getByText('1')
     fireEvent.click(chip)
-    expect(onClick).toHaveBeenCalledWith({ documentId: 5, chunkId: 42 })
+    expect(onClick).toHaveBeenCalledWith({
+      documentId: 5,
+      chunkId: 42,
+      messageText: 'argon2id is used [doc:5, chunk:42] in the vault',
+    })
   })
 
   it('applies refusal style when isRefusal is true', () => {

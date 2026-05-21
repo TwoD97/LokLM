@@ -297,6 +297,19 @@ export interface ChunkWithContext {
   isTarget: boolean
 }
 
+/** All chunks of a document, ordered by ordinal. Used by SourceViewer to render
+ *  the whole document and focus the cited chunk. */
+export interface DocumentChunk {
+  id: number
+  documentId: number
+  ordinal: number
+  text: string
+  tokenCount: number | null
+  pageFrom: number | null
+  pageTo: number | null
+  headingPath: string[] | null
+}
+
 /** Renderer-visible source-document metadata for a single chunk. The renderer
  *  uses this to decide whether to render a PDF page preview, markdown, or
  *  plain monospace text in the SourceViewer. */

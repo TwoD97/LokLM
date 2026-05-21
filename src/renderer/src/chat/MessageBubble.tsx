@@ -9,7 +9,10 @@ type Props = {
   role: Role
   content: string
   isRefusal?: boolean
-  onCitationClick: (m: { documentId: number; chunkId: number }) => void
+  /** Receives the citation marker AND the original assistant message text , so
+   *  the SourceViewer can fuzzy-match the surrounding sentence inside the
+   *  cited chunk. */
+  onCitationClick: (m: { documentId: number; chunkId: number; messageText: string }) => void
 }
 
 export function MessageBubble({ role, content, isRefusal, onCitationClick }: Props): JSX.Element {
@@ -22,7 +25,12 @@ export function MessageBubble({ role, content, isRefusal, onCitationClick }: Pro
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: (props) => <CitationChip {...props} onCitationClick={onCitationClick} />,
+          a: (props) => (
+            <CitationChip
+              {...props}
+              onCitationClick={(m) => onCitationClick({ ...m, messageText: content })}
+            />
+          ),
         }}
       >
         {text}

@@ -5,7 +5,12 @@ import type { AskOptions } from '../llm/LlamaService'
 import type { RetrievalHit, StreamEvent, AnswerOptions } from '../../../shared/documents'
 import { REFUSAL_TEXT } from '../llm/prompt'
 
-const DEFAULT_TOP_K = 8
+// 3 wins on the eval sweep (tests/evals/report/runs/2026-05-20T19-46-39…):
+// across Qwen3-8B, Granite-3.3-8B and Mistral-Nemo-12B, k=3 was best- or
+// tied-best on Nemotron-judged answer quality (~0.92), and TTFT scales
+// with prompt length so smaller k is also a latency win. Bigger k didn't
+// improve quality on this corpus and just slowed prefill.
+const DEFAULT_TOP_K = 3
 // RRF fuses 1/(60+rank) scores so even strong matches sit around 0.03–0.05.
 // The score gate is here purely to catch the empty-pool case; we rely on the
 // LLM itself to decline when the retrieved chunks don't actually answer.

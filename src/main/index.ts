@@ -620,11 +620,23 @@ function registerIpc(): void {
     })
   })
 
-  ipcMain.handle(
-    'documents:getChunkWithContext',
-    async (_e, chunkId: number, before: number = 1, after: number = 1) =>
-      getAuth().requireDatabase().documents().getChunkWithContext(chunkId, before, after),
-  )
+  // Returns every chunk of a document, ordered by ordinal. The SourceViewer
+  // modal uses this to render the whole document and scroll the cited chunk
+  // into view. Snake_case from the repo is flipped to camelCase here so the
+  // renderer doesn't have to know about DB column names.
+  ipcMain.handle('documents:listChunksForDocument', async (_e, documentId: number) => {
+    const rows = await getAuth().requireDatabase().documents().listChunksForDocument(documentId)
+    return rows.map((row) => ({
+      id: row.id,
+      documentId: row.document_id,
+      ordinal: row.ordinal,
+      text: row.text,
+      tokenCount: row.token_count,
+      pageFrom: row.page_from,
+      pageTo: row.page_to,
+      headingPath: row.heading_path,
+    }))
+  })
 
   ipcMain.handle('documents:getSourceForChunk', async (_e, chunkId: number) => {
     const repo = getAuth().requireDatabase().documents()
@@ -769,6 +781,14 @@ function registerIpc(): void {
     await getRerankerService().unload()
     await getRerankerService().ensureReady()
     return getRerankerService().info()
+  })
+  // Pre-warm the reranker so the first chat:stream doesn't pay the GGUF load.
+  // ChatView fires this on mount ; idempotent (ensureReady dedupes) so repeated
+  // calls (workspace switches, re-mounts) are cheap.
+  ipcMain.handle('reranker:warmup', async () => {
+    void getRerankerService()
+      .ensureReady()
+      .catch(() => undefined)
   })
   ipcMain.handle('reranker:setPlacement', async (_e, choice: 'auto' | 'cpu' | 'gpu') => {
     getRerankerService().setPlacement(choice)

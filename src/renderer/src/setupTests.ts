@@ -5,8 +5,8 @@ import type { Api } from '@preload/index'
 import { DEFAULT_SETTINGS } from '../../shared/settings'
 
 // pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
-// Stub the module so any test that transitively imports PdfPagePreview doesn't
-// blow up — no test currently exercises an actual PDF render path.
+// Stub the module so any test that transitively imports MultiPagePdfPreview
+// doesn't blow up — no test currently exercises an actual PDF render path.
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
   getDocument: () => ({
@@ -92,7 +92,7 @@ const stub: Api = {
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
       }),
-    getChunkWithContext: () => Promise.resolve([] as Array<never>),
+    listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
     readDocumentBytes: () => Promise.resolve(null),
     onIndexProgress: () => () => undefined,
@@ -236,6 +236,7 @@ const stub: Api = {
         placementChoice: 'auto' as const,
         placementReason: null,
       }),
+    warmup: () => Promise.resolve(),
     setPlacement: () => Promise.resolve(),
     onStatus: () => () => undefined,
   },

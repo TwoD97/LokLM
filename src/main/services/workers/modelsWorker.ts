@@ -15,6 +15,7 @@
 
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
 import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
+import { buildSystemPrompt } from '../llm/prompt'
 import type {
   WorkerRequest,
   WorkerResponse,

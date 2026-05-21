@@ -92,24 +92,51 @@ export class LlmBridge {
 
   async warm(): Promise<void> {
     if (this.warmed) return
-    const modelPath = this.opts.modelPath ?? resolveLlmPath(this.profile)
+    // Env-override-prioritätsfolge:
+    //   1. opts.modelPath (caller hat EXPLIZIT einen pfad gesetzt → respektieren ;
+    //      blockiert env-override damit der judge mit fest gepinnter Nemotron-
+    //      pfad nicht versehentlich das under-test-modell lädt)
+    //   2. LOKLM_LLM_PATH env (CLI-driven sweep across models — übertrumpft
+    //      auch ein profil-arg vom caller weil das der ganze sinn der env-var
+    //      ist: aus konfigs.ts ohne edit verschiedene modelle laufen lassen)
+    //   3. resolveLlmPath(this.profile) (auto-discover via profile-patterns)
+    const envPath = process.env.LOKLM_LLM_PATH
+    let modelPath: string | null
+    if (this.opts.modelPath) {
+      modelPath = this.opts.modelPath
+    } else if (envPath && existsSync(envPath)) {
+      modelPath = envPath
+    } else {
+      modelPath = resolveLlmPath(this.profile)
+    }
     if (!modelPath) {
       throw new Error(`llm bridge: no GGUF found in ${REPO_MODELS_DIR} for profile=${this.profile}`)
     }
+     
+    console.error(`[llm-bridge] loading ${modelPath}`)
     const lib = await import('node-llama-cpp')
     const gpu = this.placement === 'cpu' ? false : 'auto'
     const llama = await lib.getLlama({ gpu })
     this.model = await llama.loadModel({ modelPath })
-    // contextSize is a hard number here (not the planner-driven {min,max} the
-    // production service uses) because the eval wants reproducible cost — a
-    // measurement at "8 K context" should mean the same thing every run.
-    // Flash attention is on for the same reason as production: required by
-    // some quant combos, free perf win otherwise.
+    // contextSize MUST be passed as a {min, max} shape (not a bare number).
+    // node-llama-cpp v3 with a bare number silently allocates KV-cache space
+    // for the model's *native* max context (131k for Qwen3-8B → ~16 GB RSS +
+    // ~5 GB weights = ~21 GB total). With the {min, max} range plus q8_0 KV
+    // quantization, the library actually sizes the KV cache to a value in
+    // the requested range and the allocation drops to a few hundred MB.
+    // experimentalKvCacheKeyType / experimentalKvCacheValueType are the
+    // same flags LlamaService uses in production; Q8_0 halves KV size with
+    // negligible quality loss.
     this.context = await (
       this.model as {
         createContext: (o: Record<string, unknown>) => Promise<{ getSequence: () => unknown }>
       }
-    ).createContext({ contextSize: this.contextSize, flashAttention: true })
+    ).createContext({
+      contextSize: { min: Math.min(4096, this.contextSize), max: this.contextSize },
+      flashAttention: true,
+      experimentalKvCacheKeyType: 'Q8_0',
+      experimentalKvCacheValueType: 'Q8_0',
+    })
     this.session = new lib.LlamaChatSession({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       contextSequence: (this.context as { getSequence: () => unknown }).getSequence() as any,

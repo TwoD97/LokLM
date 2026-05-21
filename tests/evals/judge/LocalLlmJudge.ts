@@ -6,7 +6,7 @@
 // Judge is loaded once at warm() and reused across all sweep iterations —
 // reloading the XL model per question would dominate runtime.
 
-import { LlmBridge, type Placement } from '../bridges/LlmBridge'
+import { LlmBridge, resolveLlmPath, type Placement } from '../bridges/LlmBridge'
 import {
   buildJudgePrompt,
   parseJudgeOutput,
@@ -30,8 +30,19 @@ export class LocalLlmJudge implements Judge {
 
   constructor(opts: LocalLlmJudgeOpts = {}) {
     const profile = opts.profile ?? 'xl'
+    // Resolve the judge model file EXPLICITLY via the profile patterns , then
+    // pass modelPath to LlmBridge. Reason: LlmBridge respects LOKLM_LLM_PATH
+    // for under-test multi-model sweeps , but the judge must stay locked to
+    // its profile no matter what env vars are set. Passing modelPath wins
+    // over env in LlmBridge.warm()'s priority order.
+    const resolved = resolveLlmPath(profile)
+    if (!resolved) {
+      throw new Error(
+        `LocalLlmJudge: no GGUF found for profile=${profile}. Make sure an ${profile}-class .gguf is in models/.`,
+      )
+    }
     this.llm = new LlmBridge({
-      profile,
+      modelPath: resolved,
       contextSize: opts.contextSize ?? 8192,
       ...(opts.placement ? { placement: opts.placement } : {}),
       // judge prompts are in German; matching session language keeps the
