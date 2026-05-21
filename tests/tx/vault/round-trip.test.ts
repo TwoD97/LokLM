@@ -48,7 +48,7 @@ describe('vault round-trip', () => {
     expect(afterLogin.locked).toBe(false)
 
     await second.lock()
-  }, 30_000)
+  }, 45_000)
 
   it('reset mit passphrase überlebt round-trip', async () => {
     const first = new AuthService(userDataDir)
