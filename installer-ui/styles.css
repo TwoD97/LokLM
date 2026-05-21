@@ -67,6 +67,52 @@ input {
   padding: 30px;
   display: flex;
   flex-direction: column;
+  /* With titleBarStyle:'hidden' the OS-level drag region is gone — we re-add
+   * it here so the user can still move the window. Interactive controls
+   * inside the panel (lang-switch buttons) override this with no-drag. */
+  -webkit-app-region: drag;
+}
+
+.lang-switch,
+.lang-switch__btn {
+  -webkit-app-region: no-drag;
+}
+
+.lang-switch {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.42);
+  z-index: 2;
+}
+
+.lang-switch__btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.lang-switch__btn:hover {
+  color: var(--fg);
+}
+
+.lang-switch__btn.is-active {
+  background: var(--accent);
+  color: white;
 }
 
 .brand-panel::before {
@@ -137,7 +183,8 @@ input {
   font-size: 0.92rem;
 }
 
-.step span {
+.step__num {
+  flex: 0 0 26px;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -150,18 +197,27 @@ input {
   font-weight: 800;
 }
 
+.step__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .step.is-active,
 .step.is-done {
   color: var(--fg);
 }
 
-.step.is-active span {
+.step.is-active .step__num {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
 
-.step.is-done span {
+.step.is-done .step__num {
   border-color: rgba(34, 197, 94, 0.7);
   color: var(--success);
 }
@@ -172,16 +228,24 @@ input {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  /* Clip overflow at the card boundary so individual pages cannot push the
+   * footer offscreen and the window itself cannot start scrolling. The only
+   * scroll surface in the wizard is the license body (.license-body). */
+  overflow: hidden;
 }
 
 .page {
   display: none;
   padding: 44px 46px 24px;
-  min-height: 502px;
 }
 
 .page.is-active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .page h2 {
@@ -233,8 +297,8 @@ input {
 
 .field {
   display: grid;
-  gap: 10px;
-  margin: 26px 0;
+  gap: 8px;
+  margin: 18px 0 16px;
 }
 
 .field > span {
@@ -272,15 +336,20 @@ input[type='text']:focus {
 
 .toggle-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .toggle-row {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 14px;
-  padding: 15px;
+  padding: 11px 14px;
   cursor: pointer;
+}
+
+.toggle-row small {
+  display: block;
+  margin-top: 3px;
 }
 
 .toggle-row input {
@@ -288,6 +357,68 @@ input[type='text']:focus {
   height: 20px;
   margin-top: 2px;
   accent-color: var(--accent);
+}
+
+.license-body {
+  margin: 0 0 14px;
+  padding: 16px 18px;
+  /* Fills the remaining vertical space inside the active license page. The
+   * outer .page is overflow:hidden, so this pre is the only scroll surface
+   * on the page — exactly what the scroll-gate needs to track. */
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.42);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.license-body:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.license-accept {
+  margin-top: 4px;
+}
+
+.license-scroll-hint {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-2);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.license-scroll-hint::before {
+  content: '↓';
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.license-scroll-hint[hidden] {
+  display: none;
+}
+
+.license-accept.is-locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.license-accept.is-locked input {
+  cursor: not-allowed;
 }
 
 .progress-shell {

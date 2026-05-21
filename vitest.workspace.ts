@@ -64,21 +64,10 @@ export default defineWorkspace([
     },
   },
   {
-    resolve: { alias: aliases },
     test: {
-      name: 'installer',
-      include: ['tests/installer/export.test.ts', 'tests/installer/artifact.test.ts'],
+      name: 'installer-ui',
+      include: ['installer-ui/__tests__/**/*.test.ts'],
       environment: 'node',
-      testTimeout: 30_000,
-    },
-  },
-  {
-    resolve: { alias: aliases },
-    test: {
-      name: 'installer-e2e',
-      include: ['tests/installer/e2e.test.ts'],
-      environment: 'node',
-      testTimeout: 10 * 60 * 1000,
     },
   },
 ])

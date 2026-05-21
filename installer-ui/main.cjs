@@ -1,9 +1,10 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron')
 const { execFile } = require('node:child_process')
-const { appendFile, cp, mkdir, rm, stat, writeFile } = require('node:fs/promises')
+const { appendFile, cp, mkdir, readFile, rm, stat, writeFile } = require('node:fs/promises')
 const os = require('node:os')
 const path = require('node:path')
 const { promisify } = require('node:util')
+const { quoteForPowerShellSingle, parseRegQueryValue } = require('./lib.cjs')
 const execFileAsync = promisify(execFile)
 
 const PRODUCT_NAME = 'LokLM'
@@ -37,11 +38,6 @@ function localProgramsDir() {
   return path.join(root, 'Programs')
 }
 
-function appDataDir() {
-  const root = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
-  return path.join(root, 'loklm')
-}
-
 function payloadDir() {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'payload', 'win-unpacked')
@@ -52,6 +48,12 @@ function installerIcon() {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'icon.ico')
     : path.resolve(__dirname, '..', 'resources', 'icon.ico')
+}
+
+function licenseFilePath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'LICENSE')
+    : path.resolve(__dirname, '..', 'LICENSE')
 }
 
 function regExe() {
@@ -79,14 +81,7 @@ async function regQueryValue(key, name) {
   const { stdout } = await execFileAsync(regExe(), ['query', key, '/v', name], {
     windowsHide: true,
   })
-  const line = stdout
-    .split(/\r?\n/)
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(name))
-  if (!line) return null
-
-  const parts = line.split(/\s{2,}/)
-  return parts.length >= 3 ? parts.slice(2).join('  ').trim() : null
+  return parseRegQueryValue(stdout, name)
 }
 
 async function regDeleteValue(key, name) {
@@ -142,37 +137,22 @@ async function createShortcut(linkPath, targetPath, description) {
   )
 }
 
-async function writeSetupState(options) {
-  const dir = appDataDir()
-  await mkdir(dir, { recursive: true })
-  await writeFile(
-    path.join(dir, 'setup.json'),
-    JSON.stringify(
-      {
-        firstRunDone: true,
-        options: {
-          createDesktopShortcut: options.createDesktopShortcut,
-          createStartMenuShortcut: options.createStartMenuShortcut,
-          enableAutostart: options.enableAutostart,
-        },
-      },
-      null,
-      2,
-    ),
-    'utf8',
-  )
-}
-
 async function writeUninstaller(installDir) {
   const scriptPath = path.join(installDir, 'Uninstall LokLM.ps1')
+  // installDir is user-chosen via dialog.showOpenDialog and is interpolated
+  // into a PowerShell script that runs unprivileged at uninstall time. Quote
+  // it as a single-quoted PS literal (with embedded ' escaped as '') so a
+  // path containing apostrophes or quotes can't break out of the string.
+  const safeInstallDir = quoteForPowerShellSingle(installDir)
   const script = `
 $ErrorActionPreference = 'SilentlyContinue'
 Remove-Item "$env:USERPROFILE\\Desktop\\LokLM.lnk" -Force
 Remove-Item "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\LokLM.lnk" -Force
 reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "LokLM" /f | Out-Null
 reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\LokLM" /f | Out-Null
-reg delete "HKCU\\Software\\LokLM\\Setup" /f | Out-Null
-Start-Process -WindowStyle Hidden -FilePath "$env:ComSpec" -ArgumentList "/c timeout /t 1 > nul & rmdir /s /q ""${installDir}"""
+reg delete "HKCU\\Software\\LokLM" /f | Out-Null
+$target = '${safeInstallDir}'
+Start-Process -WindowStyle Hidden -FilePath cmd.exe -ArgumentList '/c','timeout /t 1 > nul & rmdir /s /q',('"' + $target + '"')
 `
   await writeFile(scriptPath, script.trimStart(), 'utf8')
   return scriptPath
@@ -250,23 +230,22 @@ async function install(event, options) {
     throw new Error(`Payload nicht gefunden: ${source}`)
   }
 
-  sendProgress(event, 'Installationsordner vorbereiten', 8)
+  // Progress steps are sent as i18n keys (see installer-ui/i18n.js → progress.*)
+  // so the renderer can translate them in the user's chosen locale.
+  sendProgress(event, 'preparing-folder', 8)
   await mkdir(installDir, { recursive: true })
 
-  sendProgress(event, 'LokLM-Dateien kopieren', 20)
+  sendProgress(event, 'copying-files', 20)
   await cp(source, installDir, { recursive: true, force: true })
 
-  sendProgress(event, 'Verknuepfungen und Autostart anwenden', 72)
+  sendProgress(event, 'applying-options', 78)
   await applyOptions(options, appExePath)
 
-  sendProgress(event, 'Setup-Status schreiben', 84)
-  await writeSetupState(options)
-
-  sendProgress(event, 'Uninstaller registrieren', 92)
+  sendProgress(event, 'registering-uninstaller', 92)
   const uninstallerPath = await writeUninstaller(installDir)
   await writeUninstallRegistry(installDir, appExePath, uninstallerPath)
 
-  sendProgress(event, 'Fertig', 100)
+  sendProgress(event, 'done', 100)
   return { installDir, appExePath }
 }
 
@@ -275,8 +254,24 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 980,
     height: 680,
-    minWidth: 860,
-    minHeight: 600,
+    // Lock the installer to a single fixed-size dialog. resizable disables
+    // window edge dragging, maximizable greys out the maximize button on
+    // the Windows titlebar, fullscreenable blocks F11 / `Win+Shift+Enter`.
+    // The installer is a wizard, not an app — there is no useful state at
+    // any other window size, so we don't expose those controls.
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    // Drop the bright native Windows titlebar — it clashed with the dark
+    // wizard chrome. titleBarOverlay keeps the native min/close buttons in
+    // the top-right corner, themed dark to match the brand panel. The drag
+    // region is set via CSS (-webkit-app-region: drag on .brand-panel).
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#0B1B2B',
+      symbolColor: '#F6F4EF',
+      height: 32,
+    },
     show: false,
     autoHideMenuBar: true,
     title: 'LokLM Installer',
@@ -312,6 +307,15 @@ ipcMain.handle('installer:get-state', async () => ({
   existingInstallDir: await existingInstallDir(),
   payloadReady: await exists(path.join(payloadDir(), APP_EXE)),
 }))
+
+ipcMain.handle('installer:get-license', async () => {
+  try {
+    return await readFile(licenseFilePath(), 'utf8')
+  } catch (error) {
+    log(`license read failed: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+})
 
 ipcMain.handle('installer:choose-dir', async (event, current) => {
   const win = BrowserWindow.fromWebContents(event.sender)
