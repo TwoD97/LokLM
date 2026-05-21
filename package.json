@@ -51,15 +51,6 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
   },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{json,md,yml,yaml,css,html}": [
-      "prettier --write"
-    ]
-  },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
     "@eslint/js": "^9.16.0",
