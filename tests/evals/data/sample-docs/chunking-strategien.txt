@@ -1,0 +1,189 @@
+Chunking ist der Vorverarbeitungs-Schritt jeder Retrieval-Pipeline, in dem
+Dokumente in kleinere, einzeln durchsuchbare Abschnitte zerlegt werden. Ohne
+diesen Schritt wäre die Suche entweder zu grob, weil ganze Dokumente zur Frage
+zurückgegeben würden, oder zu fein, weil einzelne Sätze keinen ausreichenden
+Kontext für das nachgeschaltete Sprachmodell liefern. Die Wahl der Chunking-
+Strategie ist eine der wichtigsten Stellschrauben einer RAG-Pipeline und
+beeinflusst Retrieval-Qualität, Speicherbedarf, Indexierungs-Geschwindigkeit
+und die Lesbarkeit der gelieferten Belege. Trotz dieser Tragweite wird das
+Thema in vielen Tutorials auf eine einzige Empfehlung reduziert, meist auf
+ein festes Token-Fenster mit Überlappung, was in der Praxis selten die beste
+Lösung ist.
+
+Die einfachste Chunking-Strategie ist das feste Token-Fenster. Der Text wird
+in gleichgroße Abschnitte zerschnitten, typischerweise zwischen 256 und 1024
+Tokens lang, mit einer Überlappung von zehn bis zwanzig Prozent zwischen
+benachbarten Chunks. Diese Strategie ist trivial zu implementieren, deterministisch
+und schnell. Sie ignoriert allerdings die inhaltliche Struktur des Dokuments
+vollständig. Ein Chunk kann mitten in einem Satz, mitten in einer Tabelle oder
+mitten in einem Code-Block enden, was die Retrieval-Qualität für Anfragen
+verschlechtert, die genau auf diese unterbrochene Stelle zielen. Das feste
+Token-Fenster ist trotzdem ein guter Default für homogene Fließtexte ohne
+starke strukturelle Eigenheiten.
+
+Das satzweise Chunking ist die nächstkomplexere Variante. Der Text wird
+zunächst in Sätze zerlegt, üblicherweise mit einem Bibliotheks-Splitter wie
+spaCy, NLTK oder den Sentence-Boundary-Heuristiken eines simpleren regex-
+basierten Tokenizers. Anschließend werden Sätze zu Chunks zusammengefasst, bis
+ein Token-Budget erreicht ist. Diese Methode garantiert, dass jeder Chunk an
+einer Satzgrenze beginnt und endet. Sie verbessert die Lesbarkeit der Belege
+in der UI deutlich und reduziert Halluzinations-Risiken, weil das nachgeschaltete
+Modell keine unvollständigen Sätze interpretieren muss. Der Aufwand ist
+moderat, da Satz-Splitter für viele Sprachen verfügbar sind und schnell
+genug für große Korpora arbeiten.
+
+Strukturiertes Chunking nutzt vorhandene Markup-Strukturen wie Überschriften,
+Absätze oder Listen-Items. Bei Markdown- oder HTML-Dokumenten lassen sich
+Überschriften der Ebenen H1 bis H6 als natürliche Chunk-Grenzen verwenden. Ein
+typisches Schema legt eine neue Chunk-Grenze bei jedem H2 an und füllt
+darunter mit Absätzen, bis das Token-Budget erreicht ist. Die Heading-Hierarchie
+wird in den Chunk als Breadcrumb übernommen, also zum Beispiel als "Auth >
+Vault > KDF", was das Embedding-Signal anreichert und in der UI als zusätzlicher
+Kontext angezeigt werden kann. Strukturiertes Chunking ist die beste Wahl für
+technische Dokumentation, Wikis und alle Texte, die eine vom Autor explizit
+ausgewiesene Gliederung tragen.
+
+Semantisches Chunking verfolgt einen anderen Ansatz. Statt nach Tokens oder
+syntaktischen Grenzen zu schneiden, wird zunächst jede Satz-Einheit einzeln
+eingebettet. Dann werden die Embeddings benachbarter Sätze über Kosinus-
+Ähnlichkeit verglichen. Eine neue Chunk-Grenze entsteht immer dann, wenn die
+Ähnlichkeit unter einen Schwellenwert fällt, üblicherweise zwischen 0,5 und
+0,7 je nach Korpus und Embedding-Modell. Das Verfahren erkennt thematische
+Wechsel, auch wenn diese nicht durch Überschriften oder Absatz-Grenzen markiert
+sind. Es ist allerdings teuer, weil pro Satz ein Embedding-Aufruf nötig ist,
+und nicht-deterministisch im Sinne, dass die Chunk-Grenzen vom verwendeten
+Embedding-Modell abhängen. Bei Modellwechsel ändert sich der Index.
+
+Sentence-Window-Retrieval ist eine Variante, die nicht beim Chunking, sondern
+beim Retrieval ansetzt. Indexiert werden einzelne Sätze, die für die Vektorsuche
+das präziseste Signal liefern. Bei einem Treffer wird allerdings nicht nur der
+Treffer-Satz an das Sprachmodell weitergegeben, sondern ein Fenster von
+typischerweise zwei oder drei Sätzen davor und danach. Dadurch hat das Modell
+genug Kontext zum Antworten, während das Embedding-Signal scharf bleibt. Diese
+Asymmetrie zwischen Index-Granularität und Liefer-Granularität ist eine der
+wirkungsvollsten Optimierungen für Retrieval-Qualität und wird in der
+LlamaIndex-Pipeline als sentence-window-node-parser direkt unterstützt.
+
+Hierarchisches Chunking, auch als Parent-Document-Retrieval bekannt, kombiniert
+zwei Chunk-Ebenen. Auf der feinen Ebene werden kleine Chunks von 128 bis 256
+Tokens erzeugt, die gut für präzise Vektorsuche taugen. Auf der groben Ebene
+werden große Chunks von 1000 bis 2000 Tokens erzeugt, die genug Kontext für
+ein gutes Modell-Antwort-Verhalten liefern. Jeder kleine Chunk hält eine
+Referenz auf seinen Eltern-Chunk. Die Suche läuft auf den kleinen Chunks, die
+Übergabe an das Sprachmodell erfolgt mit den Eltern-Chunks. Diese Methode
+adressiert die Spannung zwischen präziser Suche und ausreichendem Kontext
+sauberer als die alleinige Wahl einer Chunk-Größe.
+
+Late Chunking ist eine jüngere Innovation, die die Reihenfolge von Embedding
+und Chunking umkehrt. Statt das Dokument in Chunks zu zerschneiden und jeden
+Chunk einzeln einzubetten, wird zuerst das gesamte Dokument durch einen
+Long-Context-Embedder geleitet. Die resultierende Embedding-Sequenz wird
+anschließend in Chunks aufgeteilt, wobei jeder Chunk-Vektor durch Mittelung
+der zugehörigen Token-Embeddings entsteht. Da der Encoder das gesamte
+Dokument gesehen hat, bevor die Chunks gebildet werden, fließt mehr Kontext
+in jeden Chunk-Vektor ein. Voraussetzung ist ein Embedder mit ausreichend
+großer Sequenzlänge, zum Beispiel jina-embeddings-v3 mit 8192 Tokens oder
+voyage-3 mit 32000 Tokens. Late Chunking ist insbesondere bei Dokumenten mit
+vielen Koreferenzen, etwa juristischen Texten, deutlich überlegen.
+
+Die Wahl der Chunk-Größe ist ein Trade-off zwischen Präzision und Kontext.
+Sehr kleine Chunks zwischen 64 und 128 Tokens liefern ein scharfes Such-
+Signal, weil das Embedding nur wenige Themen mischen muss. Sie reichen aber
+selten aus, um eine vollständige Antwort zu stützen, sodass das nachgeschaltete
+Modell mehr Chunks zusammenfügen muss und damit anfälliger für Lücken oder
+Widersprüche wird. Sehr große Chunks zwischen 1024 und 2048 Tokens liefern
+viel Kontext, aber das Embedding muss mehrere Themen in einen einzigen Vektor
+pressen, was bei spezifischen Anfragen die Treffergenauigkeit reduziert. In
+der Praxis hat sich der Bereich zwischen 256 und 512 Tokens als guter
+Kompromiss etabliert, mit einer Überlappung von 50 bis 100 Tokens.
+
+Die Überlappung zwischen benachbarten Chunks soll verhindern, dass eine
+zentrale Information genau an einer Chunk-Grenze abgeschnitten wird. Ein
+typischer Wert liegt zwischen zehn und zwanzig Prozent der Chunk-Größe, also
+bei 512er-Chunks etwa 64 bis 128 Tokens Überlappung. Höhere Werte
+verschlimmern den Speicher-Bedarf des Index, da derselbe Text mehrfach
+eingebettet wird, und können bei der Antwort-Generation zu Wiederholungen
+führen, wenn zwei überlappende Chunks gleichzeitig in den Top-K landen.
+Niedrige Werte oder gar keine Überlappung sparen Speicher, erhöhen aber das
+Risiko, dass Antworten an Chunk-Grenzen scheitern. Bei strukturiertem
+Chunking, das ohnehin an natürlichen Grenzen schneidet, ist die Überlappung
+weniger wichtig.
+
+Sprach-spezifische Überlegungen sind beim Chunking oft unterschätzt.
+Deutsche Texte haben durchschnittlich längere Sätze als englische, mit häufig
+verschachtelten Nebensätzen. Ein Satz-Splitter, der für Englisch optimiert
+wurde, schneidet deutsche Texte manchmal an unsinnigen Stellen, etwa an
+Abkürzungen mit Punkt wie "z.B." oder "bzw.". Ebenso erkennen tokenbasierte
+Splitter Komposita wie "Datenbankschema" nicht als zusammenhängend, was das
+Embedding-Signal verwässern kann. Für deutsche Texte empfiehlt sich ein
+Satz-Splitter mit deutschen Abkürzungs-Listen wie spaCy mit dem de_core_news-
+Modell oder eine custom Heuristik. Für Token-Zählung sollte der Tokenizer des
+Ziel-Embedders verwendet werden, weil englisch-zentrierte Tokenizer für
+deutsche Texte oft zu viele Tokens pro Wort vergeben.
+
+Domänen-Spezifika bringen weitere Komplikationen mit sich. Bei Programmcode
+sind sinnvolle Chunk-Grenzen Funktionen, Klassen oder Module, niemals
+beliebige Token-Schnitte. Ein Code-Chunker sollte die abstrakte Syntax-Struktur
+parsen können, was Bibliotheken wie tree-sitter ermöglichen. Bei PDFs mit
+Tabellen muss das Chunking die Tabellen-Struktur erhalten, etwa indem es
+Tabellen als geschlossene Einheit behandelt und nicht zwischen Zeilen
+zerschneidet. Bei juristischen Texten, wissenschaftlichen Artikeln oder
+Verträgen tragen Paragraphen-Nummerierungen oder Abschnitts-IDs eine
+strukturelle Bedeutung, die als Chunk-Metadaten erhalten bleiben sollte. Das
+Ignorieren dieser Domänen-Eigenheiten zerstört oft schon im Chunking die
+Information, die später für gute Antworten gebraucht wird.
+
+Die Evaluierung einer Chunking-Strategie erfolgt über eine Retrieval-
+Pipeline mit festen Embedder und Reranker. Variiert wird nur die Chunking-
+Strategie, gemessen werden Recall@K, MRR und nDCG auf einem Eval-Datensatz
+mit Frage-Chunk-Pairs. Damit der Vergleich aussagekräftig ist, müssen die
+Eval-Fragen für mehrere Chunking-Strategien gleichermaßen relevant bleiben,
+also nicht ein bestimmtes Schnitt-Schema voraussetzen. Bei semantischem
+Chunking ist außerdem zu beachten, dass die Chunk-Grenzen vom Embedder
+abhängen, was die Kosten pro Eval-Iteration erhöht. Eine pragmatische
+Vorgehensweise ist, zunächst feste Token-Fenster zu evaluieren und dann
+schrittweise gegen aufwändigere Strategien zu vergleichen, bis der
+Mehraufwand keine Verbesserung mehr bringt.
+
+Hybrid-Strategien kombinieren mehrere der genannten Verfahren. Eine
+verbreitete Kombination ist strukturiertes Chunking auf der ersten Ebene,
+also Schnitt an Überschriften, mit anschließendem festem Token-Fenster
+innerhalb großer Sektionen, die das Token-Budget eines einzelnen Chunks
+übersteigen. Eine weitere Variante ist sentence-window-Retrieval mit
+zusätzlichem strukturiertem Markup, das die Fenster-Größe pro Heading-Sektion
+limitiert. Diese hybriden Pipelines sind in der Praxis verbreitet, weil sie
+die Robustheit einfacher Methoden mit der Präzision aufwändigerer Methoden
+verbinden, ohne die Komplexität in den Himmel zu treiben. Die meisten
+produktiven RAG-Systeme nutzen heute eine Variante dieses Schemas.
+
+Eine pragmatische Empfehlung für ein neues Projekt ist, mit strukturiertem
+Chunking nach Überschriften als Basis zu starten, ein festes Token-Fenster
+von 512 Tokens mit 64 Tokens Überlappung innerhalb großer Sektionen zu
+verwenden und die Heading-Hierarchie als Chunk-Metadaten zu speichern. Diese
+Konfiguration ist deterministisch, schnell und liefert in den meisten Fällen
+bereits gute Retrieval-Werte. Erst wenn die Eval-Werte ein Problem aufzeigen,
+das durch eine andere Chunking-Strategie messbar besser wird, lohnt sich der
+Umstieg auf semantisches Chunking, Late Chunking oder ein hierarchisches
+Schema. Wechsel der Strategie sind teuer, weil sie eine vollständige Neu-
+Indexierung des Korpus auslösen, und sollten daher gut begründet sein.
+
+Eine häufig vergessene Eigenschaft guten Chunkings ist die Stabilität gegenüber
+kleinen Änderungen im Quell-Dokument. Wenn ein einzelner Satz im Dokument
+geändert wird, sollte sich idealerweise nur der eine Chunk ändern, der diesen
+Satz enthält. Bei festem Token-Fenster ist das oft nicht der Fall, weil eine
+Einfügung den Beginn aller folgenden Chunks verschiebt, was eine Neu-Indexierung
+des gesamten Dokuments auslöst. Bei strukturiertem Chunking ist die Stabilität
+deutlich besser, weil Änderungen meist innerhalb einer Sektion bleiben.
+Stabilität ist besonders wichtig für Systeme mit häufigen Dokumenten-Updates
+und großen Korpora, in denen jede überflüssige Neu-Indexierung Geld kostet.
+
+Schließlich ist Chunking nicht das einzige Werkzeug, mit dem das Spannungsfeld
+zwischen Präzision und Kontext aufgelöst werden kann. Alternativen sind das
+schon erwähnte Sentence-Window-Retrieval, das Index-Granularität und Liefer-
+Granularität entkoppelt, das Reranking, das eine grobere Erst-Retrieval-Stufe
+mit einer feineren Zweit-Stufe kombiniert, und das Multi-Query-Retrieval, das
+eine Anfrage in mehrere Sub-Anfragen aufteilt und die Ergebnisse fusioniert.
+Diese Methoden können das Chunking ergänzen und in manchen Fällen sogar
+ersetzen. Ein modernes RAG-System ist selten durch eine einzige Chunking-
+Strategie geprägt, sondern durch das Zusammenspiel mehrerer Mechanismen, von
+denen Chunking nur der erste und sichtbarste ist.

@@ -1,14 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { Api } from '@preload/index'
 import { SourceViewer } from './SourceViewer'
 
-type DocsApi = {
-  listChunksForDocument: () => Promise<unknown[]>
-  getSourceForChunk: () => Promise<unknown>
-}
-
-function setApi(impl: Partial<DocsApi>): void {
-  Object.assign(window.api.documents as unknown as DocsApi, impl)
+function setApi(impl: Partial<Api['documents']>): void {
+  Object.assign(window.api.documents, impl)
 }
 
 describe('SourceViewer', () => {
@@ -21,6 +17,12 @@ describe('SourceViewer', () => {
     Element.prototype.scrollIntoView = vi.fn()
   })
 
+  afterEach(() => {
+    // Delete (not reassign to undefined) so checks for the method behave as
+    // they would in fresh jsdom.
+    delete (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView
+  })
+
   it('renders all chunks of the document and accents the cited one', async () => {
     setApi({
       getSourceForChunk: () =>
@@ -30,6 +32,8 @@ describe('SourceViewer', () => {
           mimeType: null,
           sourcePath: '/x/Test.md',
           headingPath: null,
+          chunkPageFrom: null,
+          chunkPageTo: null,
         }),
       listChunksForDocument: () =>
         Promise.resolve([
@@ -86,6 +90,8 @@ describe('SourceViewer', () => {
           mimeType: null,
           sourcePath: '/x/Frist.md',
           headingPath: null,
+          chunkPageFrom: null,
+          chunkPageTo: null,
         }),
       listChunksForDocument: () =>
         Promise.resolve([
@@ -123,6 +129,8 @@ describe('SourceViewer', () => {
           mimeType: null,
           sourcePath: '/x/empty.md',
           headingPath: null,
+          chunkPageFrom: null,
+          chunkPageTo: null,
         }),
       listChunksForDocument: () => Promise.resolve([]),
     })

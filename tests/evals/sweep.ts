@@ -23,11 +23,18 @@ import { readFile, readdir } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cosineSimilarity } from './pipeline/Embedder'
-import { defaultConfigs, sweepConfigs, gridConfigs, type PipelineConfig } from './pipeline/configs'
+import {
+  defaultConfigs,
+  sweepConfigs,
+  gridConfigs,
+  adaptiveTopKConfigs,
+  type PipelineConfig,
+} from './pipeline/configs'
 import type { Judge, JudgeScore } from './judge/Judge'
 import { compositeScore } from './judge/Judge'
-import type { GeneratedQuestion, SourceChunk } from './synth/QuestionGenerator'
-import { recallAtK, mrr, ndcgAtK, type RankedResult } from './metrics'
+import type { GeneratedQuestion, QuestionIntent, SourceChunk } from './synth/QuestionGenerator'
+import { questionIntent, requiredChunkSet } from './synth/QuestionGenerator'
+import { recallAtK, recallRequiredAtK, mrr, ndcgAtK, type RankedResult } from './metrics'
 import {
   PhasedTimer,
   ResourceSampler,
@@ -62,6 +69,11 @@ interface Library {
 interface PerQuestionRecord {
   question: string
   expectedChunkId: string
+  /** Multi-Relevant-Ground-Truth (Backward-compat: für single-relevant-Datensätze
+   *  enthält dies [expectedChunkId]). */
+  requiredChunkIds: string[]
+  /** Intent-Tag aus dem Datensatz , 'focused' für alte Datensätze ohne Tag. */
+  intent: QuestionIntent
   retrievedChunkIds: string[]
   rerankedChunkIds: string[]
   phases: PhasedSnapshot['phases']
@@ -79,6 +91,13 @@ interface ConfigResult {
   recallAt1: number
   recallAt5: number
   recallAt10: number
+  /** Multi-Relevant-Recall — mittlere Abdeckung der required-Sets in Top-K.
+   *  Identisch zu recall@K wenn alle Queries single-relevant sind. Wichtig
+   *  für broad/summary-Datensätze , wo recall@K alleine nicht aussagekräftig
+   *  ist , weil dort mehrere Chunks gleichzeitig erwartet werden. */
+  recallRequiredAt5: number
+  recallRequiredAt10: number
+  recallRequiredAt12: number
   mrr: number
   ndcgAt10: number
   phased: PhasedSummary
@@ -126,7 +145,9 @@ async function main(): Promise<void> {
       ? defaultConfigs()
       : args.configs === 'grid'
         ? await gridConfigs()
-        : await sweepConfigs()
+        : args.configs === 'adaptive'
+          ? await adaptiveTopKConfigs()
+          : await sweepConfigs()
   if (args.only && args.only.length > 0) {
     const patterns = args.only
     const before = configs.length
@@ -367,9 +388,13 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
     const retrievedChunkIds = scored.slice(0, topKToLLM).map((s) => s.id)
     const rerankedChunkIds = rerankedChunks.map((c) => c.id)
     const expectedIdx = rerankedChunkIds.indexOf(q.chunkId)
+    const required = requiredChunkSet(q)
+    const intent = questionIntent(q)
     const record: PerQuestionRecord = {
       question: q.question,
       expectedChunkId: q.chunkId,
+      requiredChunkIds: required,
+      intent,
       retrievedChunkIds,
       rerankedChunkIds,
       phases: snapshot.phases,
@@ -380,7 +405,7 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
       llm: llmResult,
       judge: null,
     }
-    ranked.push({ chunkIds: rerankedChunkIds, expected: q.chunkId })
+    ranked.push({ chunkIds: rerankedChunkIds, expected: q.chunkId, required })
     collectedRecords.push(record)
     await writer.appendPerQuestion(record)
   }
@@ -404,6 +429,9 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
     recallAt1: recallAtK(ranked, 1),
     recallAt5: recallAtK(ranked, 5),
     recallAt10: recallAtK(ranked, 10),
+    recallRequiredAt5: recallRequiredAtK(ranked, 5),
+    recallRequiredAt10: recallRequiredAtK(ranked, 10),
+    recallRequiredAt12: recallRequiredAtK(ranked, 12),
     mrr: mrr(ranked),
     ndcgAt10: ndcgAtK(ranked, 10),
     phased,
@@ -446,9 +474,14 @@ async function scoreConfig(
       console.error(`  judging ${i + 1}/${records.length} …`)
     }
     try {
+      const expectedChunkTexts = r.requiredChunkIds
+        .map((id) => chunkTextById.get(id) ?? '')
+        .filter((t) => t.length > 0)
       const score = await judge.score({
         question: r.question,
+        intent: r.intent,
         expectedChunkText: chunkTextById.get(r.expectedChunkId) ?? '',
+        expectedChunkTexts,
         providedChunks: r.rerankedChunkIds
           .map((id) => chunkTextById.get(id) ?? '')
           .filter((t) => t.length > 0),
@@ -518,7 +551,8 @@ function formatResult(r: ConfigResult): string {
   const tx = (s: LatencySummary): string => `${s.p50.toFixed(0)}/${s.p95.toFixed(0)}`
   const lines = [
     `  n=${r.numQueries} , build=${r.buildMs.toFixed(0)}ms`,
-    `  recall@5=${r.recallAt5.toFixed(3)} , MRR=${r.mrr.toFixed(3)}`,
+    `  recall@5=${r.recallAt5.toFixed(3)} , recall_req@5=${r.recallRequiredAt5.toFixed(3)} , ` +
+      `recall_req@12=${r.recallRequiredAt12.toFixed(3)} , MRR=${r.mrr.toFixed(3)}`,
     r.llmEnabled
       ? `  TTFT p50/p95 = ${tx(r.phased.ttft)} ms , fullResp = ${tx(r.phased.fullResponse)} ms`
       : `  retrieval-only , query p50/p95 = ${tx(r.phased.perPhase.retrieve)} ms`,
@@ -556,8 +590,8 @@ function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: 
     ``,
     `## Quality + TTFT`,
     ``,
-    `| Config | n | r@5 | r@10 | MRR | judge | TTFT p50 | TTFT p95 | FullResp p50 | qEmb | retr | rerank | prefill | rss-max MiB | cpu% | free VRAM min GB | composite |`,
-    `| ------ | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: |`,
+    `| Config | n | r@5 | r@10 | r_req@5 | r_req@12 | MRR | judge | TTFT p50 | TTFT p95 | FullResp p50 | qEmb | retr | rerank | prefill | rss-max MiB | cpu% | free VRAM min GB | composite |`,
+    `| ------ | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: |`,
   ]
   const fmt = (n: number, d = 1): string => n.toFixed(d)
   const rows = results.map((r) =>
@@ -566,6 +600,8 @@ function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: 
       r.numQueries,
       fmt(r.recallAt5, 3),
       fmt(r.recallAt10, 3),
+      fmt(r.recallRequiredAt5, 3),
+      fmt(r.recallRequiredAt12, 3),
       fmt(r.mrr, 3),
       r.judgeAvg ? fmt(r.judgeAvg.score, 3) : '-',
       r.llmEnabled ? fmt(r.phased.ttft.p50, 0) : '-',
@@ -628,7 +664,7 @@ async function latestDataset(): Promise<string> {
 interface SweepArgs {
   dataset?: string
   library?: string
-  configs: 'default' | 'sweep' | 'grid'
+  configs: 'default' | 'sweep' | 'grid' | 'adaptive'
   /** für grid: wie viele grid-punkte aus dem cartesian-raum gelaufen werden. */
   iterations?: number
   /** für `--limit N`: cappt wie viele questions pro config. */
@@ -654,7 +690,10 @@ function parseArgs(argv: string[]): SweepArgs {
     } else if (a === '--library' && next !== undefined) {
       out.library = next
       i++
-    } else if (a === '--configs' && (next === 'default' || next === 'sweep' || next === 'grid')) {
+    } else if (
+      a === '--configs' &&
+      (next === 'default' || next === 'sweep' || next === 'grid' || next === 'adaptive')
+    ) {
       out.configs = next
       i++
     } else if (a === '--iterations' && next !== undefined) {

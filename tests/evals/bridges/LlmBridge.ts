@@ -22,8 +22,9 @@ import {
   type ResponseLanguage,
 } from '../../../src/main/services/llm/prompt'
 import type { RetrievalHit } from '../../../src/main/services/retrieval/RetrievalService'
+import { REPO_MODELS_DIR as SHARED_MODELS_DIR, type Placement, safeDispose } from './common'
 
-export type Placement = 'cpu' | 'gpu' | 'auto'
+export type { Placement }
 
 export interface LlmBridgeOpts {
   /** absolute GGUF path. Overrides `profile` selection. */
@@ -52,7 +53,7 @@ export interface LlmRunResult {
   charCount: number
 }
 
-const REPO_MODELS_DIR = join(process.cwd(), 'models')
+const REPO_MODELS_DIR = SHARED_MODELS_DIR
 
 // Same filename patterns as src/main/services/llm/LlamaService.ts LLM_PROFILES.
 // Kept local so the bridge doesn't pull in LlamaService (which transitively
@@ -112,7 +113,7 @@ export class LlmBridge {
     if (!modelPath) {
       throw new Error(`llm bridge: no GGUF found in ${REPO_MODELS_DIR} for profile=${this.profile}`)
     }
-     
+
     console.error(`[llm-bridge] loading ${modelPath}`)
     const lib = await import('node-llama-cpp')
     const gpu = this.placement === 'cpu' ? false : 'auto'
@@ -218,13 +219,9 @@ export class LlmBridge {
   }
 
   async unload(): Promise<void> {
-    try {
-      if (this.session && hasDispose(this.session)) await this.session.dispose()
-      if (this.context && hasDispose(this.context)) await this.context.dispose()
-      if (this.model && hasDispose(this.model)) await this.model.dispose()
-    } catch {
-      /* best-effort */
-    }
+    await safeDispose(this.session)
+    await safeDispose(this.context)
+    await safeDispose(this.model)
     this.session = null
     this.context = null
     this.model = null
@@ -269,12 +266,4 @@ export function resolveLlmPath(profile: 'lite' | 'full' | 'xl' | 'auto'): string
   // No profile match — try any GGUF that doesn't look like embedder/reranker.
   const fallback = entries.find((f) => !/embed|reranker|bge/i.test(f))
   return fallback ? join(REPO_MODELS_DIR, fallback) : null
-}
-
-function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
-  return (
-    typeof o === 'object' &&
-    o !== null &&
-    typeof (o as { dispose?: unknown }).dispose === 'function'
-  )
 }

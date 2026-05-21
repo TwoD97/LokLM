@@ -44,4 +44,20 @@ describe('extractCitationSnippets', () => {
     const text = 'Nothing cites [doc:99, chunk:1] here.'
     expect(extractCitationSnippets(text, { documentId: 1, chunkId: 2 })).toEqual([])
   })
+
+  it('falls back to the previous sentence when the marker sits in a citation dump', () => {
+    // Models sometimes emit "claim. [m1], [m2], [m3]." — the sentence around
+    // the inner marker is just commas after stripping. The snippet should be
+    // the preceding claim sentence so the SourceViewer still has something
+    // meaningful to fuzzy-match against the chunk text.
+    const text = 'Die Frist beträgt 14 Tage. [doc:1, chunk:2], [doc:1, chunk:3], [doc:1, chunk:4].'
+    const snippets = extractCitationSnippets(text, { documentId: 1, chunkId: 3 })
+    expect(snippets).toEqual(['Die Frist beträgt 14 Tage.'])
+  })
+
+  it('falls back across paragraph breaks for citation-only lines', () => {
+    const text = 'Beleg für die Frist von 14 Tagen.\n[doc:1, chunk:2], [doc:1, chunk:3]'
+    const snippets = extractCitationSnippets(text, { documentId: 1, chunkId: 3 })
+    expect(snippets).toEqual(['Beleg für die Frist von 14 Tagen.'])
+  })
 })

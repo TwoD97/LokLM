@@ -9,6 +9,7 @@ import { DocumentService } from '@main/services/documents/DocumentService'
 import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
 import { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import { LlamaService } from '@main/services/llm/LlamaService'
+import { InProcessModelsClient, asModelsWorkerClient } from './helpers/InProcessModelsClient'
 import { QAService } from '@main/services/qa/QAService'
 import { ProviderRegistry } from '@main/services/providers/Registry'
 import { BundledLlmProvider } from '@main/services/providers/bundled/BundledLlmProvider'
@@ -64,9 +65,11 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
         'utf-8',
       )
 
-      const embedder = new EmbeddingService()
+      const modelsClient = new InProcessModelsClient()
+      const wrappedClient = asModelsWorkerClient(modelsClient)
+      const embedder = new EmbeddingService({ client: wrappedClient })
       expect(await embedder.ensureReady()).toBe(true)
-      const llama = new LlamaService()
+      const llama = new LlamaService({ client: wrappedClient })
       const registry = buildRegistry(llama, embedder)
 
       const docs = new DocumentService(auth, registry)
@@ -110,9 +113,11 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
       const filePath = join(dir, 'cooking.md')
       await writeFile(filePath, '# Pancake\nFlour, milk, egg, butter. Mix, rest, fry.', 'utf-8')
 
-      const embedder = new EmbeddingService()
+      const modelsClient = new InProcessModelsClient()
+      const wrappedClient = asModelsWorkerClient(modelsClient)
+      const embedder = new EmbeddingService({ client: wrappedClient })
       expect(await embedder.ensureReady()).toBe(true)
-      const llama = new LlamaService()
+      const llama = new LlamaService({ client: wrappedClient })
       const registry = buildRegistry(llama, embedder)
       const docs = new DocumentService(auth, registry)
       const sent: IndexProgress[] = []

@@ -7,6 +7,7 @@ import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import { EmbeddingService } from '@main/services/embeddings/EmbeddingService'
+import { InProcessModelsClient, asModelsWorkerClient } from './helpers/InProcessModelsClient'
 import { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import { ProviderRegistry } from '@main/services/providers/Registry'
 import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
@@ -58,7 +59,8 @@ describe.runIf(existsSync(MODEL_PATH))('hybrid retrieval (integration)', () => {
   it('finds the right doc via BM25+dense fusion on a seeded mini-corpus', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
 
-    const embedder = new EmbeddingService()
+    const modelsClient = new InProcessModelsClient()
+    const embedder = new EmbeddingService({ client: asModelsWorkerClient(modelsClient) })
     expect(await embedder.ensureReady()).toBe(true)
     const registry = buildRegistry(embedder)
     const docs = new DocumentService(auth, registry)

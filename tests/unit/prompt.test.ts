@@ -5,7 +5,9 @@ import {
   renderFallback,
   stripThink,
   ThinkFilter,
+  LoopDetector,
   REFUSAL_TEXT,
+  REPETITION_HINT_TEXT,
   condense,
   chunkifyForStream,
 } from '@main/services/llm/prompt'
@@ -136,6 +138,70 @@ describe('ThinkFilter', () => {
     filter.reset()
     const out = filter.feed('hello') + filter.flush()
     expect(out).toBe('hello')
+  })
+})
+
+describe('LoopDetector', () => {
+  it('does not trip on normal varied prose', () => {
+    const det = new LoopDetector()
+    const text =
+      'Die Antwort auf deine Frage ist vielschichtig. Wir betrachten zunächst die Definition, ' +
+      'dann die historische Entwicklung, und schließlich die praktischen Auswirkungen heute. ' +
+      'Im ersten Abschnitt zeigt sich, dass die Begriffe nicht einheitlich verwendet werden.'
+    expect(det.feed(text)).toBe(false)
+    expect(det.isTripped()).toBe(false)
+  })
+
+  it('trips on a verbatim sentence repeated three times', () => {
+    const det = new LoopDetector()
+    const line = 'Diese Information findet sich nicht in den bereitgestellten Dokumenten. '
+    expect(det.feed(line + line)).toBe(false)
+    expect(det.feed(line)).toBe(true)
+    expect(det.isTripped()).toBe(true)
+  })
+
+  it('trips on tight token-level repetition (single phrase spiral)', () => {
+    const det = new LoopDetector()
+    // 'haha ' * 200 — short cycle but the 40-char trailing window still
+    // appears multiple times non-overlapping inside the rolling buffer.
+    let tripped = false
+    for (let i = 0; i < 200 && !tripped; i++) {
+      tripped = det.feed('haha ')
+    }
+    expect(tripped).toBe(true)
+  })
+
+  it('ignores whitespace/punctuation-only tails', () => {
+    const det = new LoopDetector()
+    // Pure newline runs (e.g. trailing list separators) shouldn't be flagged.
+    expect(det.feed('\n'.repeat(500))).toBe(false)
+  })
+
+  it('stays tripped once triggered (idempotent feed)', () => {
+    const det = new LoopDetector()
+    const line = 'Wir haben das Thema bereits ausführlich besprochen und kommen jetzt zum Punkt. '
+    det.feed(line.repeat(4))
+    expect(det.isTripped()).toBe(true)
+    // Further feeds short-circuit to true without re-scanning.
+    expect(det.feed('anything')).toBe(true)
+  })
+
+  it('reset() clears tripped state', () => {
+    const det = new LoopDetector()
+    const line = 'Wir kommen jetzt zum Punkt der eigentlichen Diskussion und Antwort. '
+    det.feed(line.repeat(5))
+    expect(det.isTripped()).toBe(true)
+    det.reset()
+    expect(det.isTripped()).toBe(false)
+    expect(det.feed('fresh varied text comes through cleanly')).toBe(false)
+  })
+})
+
+describe('REPETITION_HINT_TEXT', () => {
+  it('has both de and en variants, non-empty and distinct', () => {
+    expect(REPETITION_HINT_TEXT.de.length).toBeGreaterThan(0)
+    expect(REPETITION_HINT_TEXT.en.length).toBeGreaterThan(0)
+    expect(REPETITION_HINT_TEXT.de).not.toBe(REPETITION_HINT_TEXT.en)
   })
 })
 

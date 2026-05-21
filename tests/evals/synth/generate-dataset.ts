@@ -36,7 +36,10 @@ async function main(): Promise<void> {
   const outDir = join(__dirname, '..', 'data', 'datasets')
   await mkdir(outDir, { recursive: true })
 
-  const docFiles = (await readdir(docsDir)).filter((f) => extname(f) === '.txt')
+  // .sort() so --limit N picks the same subset across filesystems (NTFS
+  // returns sorted names, POSIX does not). assemble-dataset.ts already does
+  // this — matching here keeps the two synth entrypoints reproducible.
+  const docFiles = (await readdir(docsDir)).filter((f) => extname(f) === '.txt').sort()
   if (docFiles.length === 0) {
     throw new Error(`keine .txt dokumente unter ${docsDir}`)
   }

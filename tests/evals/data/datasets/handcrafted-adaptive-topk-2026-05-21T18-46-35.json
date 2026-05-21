@@ -1,4 +1,6 @@
 {
+  "generator": "manual-handcrafted:adaptive-topk-eval",
+  "generatedAt": "2026-05-21T18:46:35.814Z",
   "chunker": "fixed-512-64",
   "chunks": [
     {
@@ -545,6 +547,203 @@
       "id": "rag-grundlagen::17",
       "docId": "rag-grundlagen",
       "text": "aus dem Index entfernt und neu\r\neingefügt werden. Eine reine Append-Strategie führt schnell zu veralteten\r\nTreffern und sinkender Retrieval-Qualität. Eine saubere Implementierung\r\nverwaltet pro Dokument einen Hash, vergleicht diesen vor jedem Indexierungs-\r\nschritt und löscht veraltete Chunks zuverlässig. Bei großen Korpora lohnt sich\r\nein delta-basierter Re-Index, der nur die geänderten Dokumente neu verarbeitet,\r\nnicht den ganzen Bestand."
+    }
+  ],
+  "questions": [
+    {
+      "intent": "summary",
+      "question": "Fasse die wichtigsten Chunking-Strategien für RAG zusammen.",
+      "chunkId": "chunking-strategien::2",
+      "requiredChunkIds": [
+        "chunking-strategien::2",
+        "chunking-strategien::4",
+        "chunking-strategien::5",
+        "chunking-strategien::7",
+        "chunking-strategien::9",
+        "chunking-strategien::10",
+        "chunking-strategien::12"
+      ]
+    },
+    {
+      "intent": "summary",
+      "question": "Gib mir einen Überblick über die wichtigsten Optimierungs-Stellschrauben für lokale LLM-Inferenz.",
+      "chunkId": "llm-inferenz-optimierung::2",
+      "requiredChunkIds": [
+        "llm-inferenz-optimierung::2",
+        "llm-inferenz-optimierung::4",
+        "llm-inferenz-optimierung::6",
+        "llm-inferenz-optimierung::9",
+        "llm-inferenz-optimierung::11",
+        "llm-inferenz-optimierung::15"
+      ]
+    },
+    {
+      "intent": "summary",
+      "question": "Zusammenfassung: welche Quantisierungsformate für lokale LLM-Inferenz gibt es?",
+      "chunkId": "llm-inferenz-optimierung::2",
+      "requiredChunkIds": [
+        "llm-inferenz-optimierung::2",
+        "llm-inferenz-optimierung::3",
+        "llm-inferenz-optimierung::22"
+      ]
+    },
+    {
+      "intent": "summary",
+      "question": "Fasse zusammen, was bei der Wahl der Chunk-Größe zu beachten ist.",
+      "chunkId": "chunking-strategien::13",
+      "requiredChunkIds": [
+        "chunking-strategien::13",
+        "chunking-strategien::14",
+        "chunking-strategien::15",
+        "chunking-strategien::16"
+      ]
+    },
+    {
+      "intent": "summary",
+      "question": "Übersicht: welche Phasen der LLM-Inferenz haben welche Performance-Charakteristik?",
+      "chunkId": "llm-inferenz-optimierung::6",
+      "requiredChunkIds": [
+        "llm-inferenz-optimierung::6",
+        "llm-inferenz-optimierung::8",
+        "llm-inferenz-optimierung::17"
+      ]
+    },
+    {
+      "intent": "summary",
+      "question": "Fasse den Trade-off zwischen Geschwindigkeit und Antwort-Qualität bei der Wahl der Quantisierungsstufe zusammen.",
+      "chunkId": "llm-inferenz-optimierung::25",
+      "requiredChunkIds": ["llm-inferenz-optimierung::25", "llm-inferenz-optimierung::26"]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche Chunking-Strategien gibt es und wann eignet sich welche?",
+      "chunkId": "chunking-strategien::2",
+      "requiredChunkIds": [
+        "chunking-strategien::2",
+        "chunking-strategien::4",
+        "chunking-strategien::5",
+        "chunking-strategien::7",
+        "chunking-strategien::10",
+        "chunking-strategien::12"
+      ]
+    },
+    {
+      "intent": "broad",
+      "question": "Vergleiche semantisches und strukturiertes Chunking.",
+      "chunkId": "chunking-strategien::5",
+      "requiredChunkIds": [
+        "chunking-strategien::5",
+        "chunking-strategien::6",
+        "chunking-strategien::7",
+        "chunking-strategien::8"
+      ]
+    },
+    {
+      "intent": "broad",
+      "question": "Vergleiche Q4_K_M, Q5_K_M, Q6_K und Q8_0 bei lokaler LLM-Inferenz.",
+      "chunkId": "llm-inferenz-optimierung::2",
+      "requiredChunkIds": ["llm-inferenz-optimierung::2", "llm-inferenz-optimierung::3"]
+    },
+    {
+      "intent": "broad",
+      "question": "Nenne die wichtigsten Stellschrauben für CPU-Inferenz von LLMs.",
+      "chunkId": "llm-inferenz-optimierung::12",
+      "requiredChunkIds": ["llm-inferenz-optimierung::12", "llm-inferenz-optimierung::13"]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche Inferenz-Engines für lokale LLMs gibt es und wie unterscheiden sie sich?",
+      "chunkId": "llm-inferenz-optimierung::20",
+      "requiredChunkIds": ["llm-inferenz-optimierung::20", "llm-inferenz-optimierung::21"]
+    },
+    {
+      "intent": "broad",
+      "question": "Liste die GGUF-, AWQ-, EXL2- und GPTQ-Modellformate mit ihren Eigenschaften auf.",
+      "chunkId": "llm-inferenz-optimierung::22",
+      "requiredChunkIds": ["llm-inferenz-optimierung::22", "llm-inferenz-optimierung::23"]
+    },
+    {
+      "intent": "broad",
+      "question": "Vergleich: festes Token-Fenster vs. hierarchisches Chunking.",
+      "chunkId": "chunking-strategien::2",
+      "requiredChunkIds": [
+        "chunking-strategien::2",
+        "chunking-strategien::3",
+        "chunking-strategien::10",
+        "chunking-strategien::11"
+      ]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche sprachspezifischen Probleme treten beim Chunking deutscher Texte auf?",
+      "chunkId": "chunking-strategien::17",
+      "requiredChunkIds": ["chunking-strategien::17", "chunking-strategien::18"]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche Sampling-Parameter beeinflussen die Generation eines lokalen LLM?",
+      "chunkId": "llm-inferenz-optimierung::15",
+      "requiredChunkIds": ["llm-inferenz-optimierung::15", "llm-inferenz-optimierung::16"]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche Vorteile hat Late Chunking gegenüber traditionellem Chunking?",
+      "chunkId": "chunking-strategien::11",
+      "requiredChunkIds": ["chunking-strategien::11", "chunking-strategien::12"]
+    },
+    {
+      "intent": "broad",
+      "question": "Vergleiche n_batch und n_ctx als Stellschrauben bei llama.cpp.",
+      "chunkId": "llm-inferenz-optimierung::6",
+      "requiredChunkIds": ["llm-inferenz-optimierung::6", "llm-inferenz-optimierung::8"]
+    },
+    {
+      "intent": "broad",
+      "question": "Welche Domänen-Spezifika sind beim Chunking zu beachten?",
+      "chunkId": "chunking-strategien::18",
+      "requiredChunkIds": ["chunking-strategien::18", "chunking-strategien::19"]
+    },
+    {
+      "intent": "broad",
+      "question": "Liste die alternativen Mechanismen auf, die das Problem von Präzision vs. Kontext lösen können, jenseits der reinen Chunking-Strategie.",
+      "chunkId": "chunking-strategien::27",
+      "requiredChunkIds": ["chunking-strategien::8", "chunking-strategien::27"]
+    },
+    {
+      "intent": "focused",
+      "question": "Was ist die typische Überlappung zwischen benachbarten Chunks bei einer 512-Token-Chunk-Größe?",
+      "chunkId": "chunking-strategien::15",
+      "requiredChunkIds": ["chunking-strategien::15"]
+    },
+    {
+      "intent": "focused",
+      "question": "Was bedeutet GGUF und wofür wird es verwendet?",
+      "chunkId": "llm-inferenz-optimierung::22",
+      "requiredChunkIds": ["llm-inferenz-optimierung::22"]
+    },
+    {
+      "intent": "focused",
+      "question": "Was ist Flash-Attention?",
+      "chunkId": "llm-inferenz-optimierung::11",
+      "requiredChunkIds": ["llm-inferenz-optimierung::11"]
+    },
+    {
+      "intent": "focused",
+      "question": "Welche Ähnlichkeitsschwelle wird beim semantischen Chunking üblicherweise verwendet?",
+      "chunkId": "chunking-strategien::7",
+      "requiredChunkIds": ["chunking-strategien::7"]
+    },
+    {
+      "intent": "focused",
+      "question": "Was ist Late Chunking?",
+      "chunkId": "chunking-strategien::11",
+      "requiredChunkIds": ["chunking-strategien::11"]
+    },
+    {
+      "intent": "focused",
+      "question": "Welche Threadzahl ist für CPU-Inferenz optimal?",
+      "chunkId": "llm-inferenz-optimierung::13",
+      "requiredChunkIds": ["llm-inferenz-optimierung::13"]
     }
   ]
 }

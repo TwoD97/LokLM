@@ -74,7 +74,12 @@ export async function sweepConfigs(): Promise<PipelineConfig[]> {
   const embedder = new EmbedderBridge({ placement: 'cpu' })
   const reranker = new RerankerBridge({ placement: 'auto' })
   const skipRr = new SkipReranker()
-  const llm: LlmBridge = new LlmBridge({ profile: 'auto' })
+  // Pin to 'full' to match gridConfigs/adaptiveTopKConfigs , 'auto' would
+  // resolve to the XL model (Nemotron) when it's present in models/ (for the
+  // judge), making the under-test LLM identical to the judge and producing a
+  // self-bias result. The judge is locked to XL inside LocalLlmJudge; the
+  // under-test slot must stay distinct.
+  const llm: LlmBridge = new LlmBridge({ profile: 'full' })
 
   return [
     {
@@ -111,6 +116,46 @@ export async function sweepConfigs(): Promise<PipelineConfig[]> {
       reranker,
       topKToRerank: 20,
       topKToLLM: 8,
+      llm,
+    },
+  ]
+}
+
+/**
+ * Drei Punkte für den Adaptive-TopK-Eval: misst , ob das in
+ * QAService.classifyQueryBreadth implementierte Heuristik (focused=3 ,
+ * broad=8 , summary=12) tatsächlich auf einem broad/summary-Datensatz
+ * Mehrwert bringt. Selber embedder/reranker/LLM für alle drei Punkte ,
+ * nur topKToLLM variiert.
+ *
+ * Datensatz muss intent + requiredChunkIds tragen , sonst entartet die
+ * Metrik zu klassischem single-relevant recall@K und der Test verliert
+ * Aussagekraft.
+ */
+export async function adaptiveTopKConfigs(): Promise<PipelineConfig[]> {
+  const [{ EmbedderBridge }, { RerankerBridge }, { LlmBridge }] = await Promise.all([
+    import('../bridges/EmbedderBridge'),
+    import('../bridges/RerankerBridge'),
+    import('../bridges/LlmBridge'),
+  ])
+  const chunker = new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 })
+  const embedder = new EmbedderBridge({ placement: 'cpu' })
+  const reranker = new RerankerBridge({ placement: 'auto' })
+  // Pin auf 'full' (Qwen3-8B) , gleiche Begründung wie bei gridConfigs():
+  // 'auto' würde den XL-judge fälschlich als under-test mounten.
+  const llm: LlmBridge = new LlmBridge({ profile: 'full' })
+  // topKToRerank=20 für alle drei , damit der einzige Unterschied der
+  // Zuschnitt am Ende ist , nicht die Reranker-Stufe.
+  return [
+    { name: 'adaptive_k3_rr20', chunker, embedder, reranker, topKToRerank: 20, topKToLLM: 3, llm },
+    { name: 'adaptive_k8_rr20', chunker, embedder, reranker, topKToRerank: 20, topKToLLM: 8, llm },
+    {
+      name: 'adaptive_k12_rr20',
+      chunker,
+      embedder,
+      reranker,
+      topKToRerank: 20,
+      topKToLLM: 12,
       llm,
     },
   ]
