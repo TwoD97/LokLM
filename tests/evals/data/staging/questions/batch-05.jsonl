@@ -1,0 +1,45 @@
+{"chunkId":"rag-grundlagen::0","question":"Welche Abkürzung wird für die Kopplung eines generativen Modells mit einem externen Wissensspeicher verwendet?"}
+{"chunkId":"rag-grundlagen::0","question":"Welche drei Defizite reiner Sprachmodelle ohne externen Zugriff werden hier genannt?"}
+{"chunkId":"rag-grundlagen::0","question":"Warum neigen Sprachmodelle ohne Anbindung an externe Daten zu falschen, aber überzeugend klingenden Antworten?"}
+{"chunkId":"rag-grundlagen::0","question":"An welcher Stelle im Antwortprozess wird laut Text der Suchvorgang vor der Generierung eingefügt?"}
+{"chunkId":"rag-grundlagen::0","question":"Was hat dazu beigetragen, dass dieses Verfahren in der Praxis bekannt wurde?"}
+{"chunkId":"rag-grundlagen::1","question":"In welche Form werden die Textstücke umgewandelt, bevor sie im Suchspeicher abgelegt werden?"}
+{"chunkId":"rag-grundlagen::1","question":"Welche spezialisierten Produkte werden als Optionen für die Speicherung der Vektoren genannt?"}
+{"chunkId":"rag-grundlagen::1","question":"Welche Erweiterung für eine herkömmliche relationale Datenbank wird als Alternative aufgeführt?"}
+{"chunkId":"rag-grundlagen::1","question":"Was geschieht mit den Dokumenten als ersten Schritt der Aufbereitung des Wissensspeichers?"}
+{"chunkId":"rag-grundlagen::1","question":"Welches relationale Datenbanksystem wird in Verbindung mit einer Vektor-Erweiterung erwähnt?"}
+{"chunkId":"rag-grundlagen::2","question":"Bis zu welcher Größenordnung an Textsegmenten genügt bei lokalen Installationen ein Index, der nur im Hauptspeicher liegt?"}
+{"chunkId":"rag-grundlagen::2","question":"Welches Ähnlichkeitsmaß wird bei der ersten Sucheinstufung typischerweise eingesetzt?"}
+{"chunkId":"rag-grundlagen::2","question":"Wie wird die Nutzerfrage behandelt, bevor sie mit den gespeicherten Daten verglichen wird?"}
+{"chunkId":"rag-grundlagen::2","question":"Welcher Modelltyp wird in der zweiten, optionalen Stufe des Sucheinprozesses genannt?"}
+{"chunkId":"rag-grundlagen::2","question":"Worin besteht der Unterschied zwischen den beiden Stufen beim Auffinden relevanter Inhalte?"}
+{"chunkId":"rag-grundlagen::3","question":"Was sind die Nachteile, wenn die Textabschnitte sehr klein gewählt werden?"}
+{"chunkId":"rag-grundlagen::3","question":"Warum verschlechtert sich das Ähnlichkeitssignal bei überdimensionierten Textabschnitten?"}
+{"chunkId":"rag-grundlagen::3","question":"Welche zwei Forderungen muss der finale Prompt an das antwortgebende Modell stellen?"}
+{"chunkId":"rag-grundlagen::3","question":"Welchen Faktor beeinflusst die Größe der Textsegmente laut diesem Abschnitt maßgeblich?"}
+{"chunkId":"rag-grundlagen::3","question":"In welcher Form gelangen die gefundenen Belege gemeinsam mit der Anfrage zum Sprachmodell?"}
+{"chunkId":"rag-grundlagen::4","question":"In welchem Bereich liegen die typischen Token-Längen für einen Textabschnitt?"}
+{"chunkId":"rag-grundlagen::4","question":"Welcher prozentuale Überlapp zwischen aufeinanderfolgenden Abschnitten gilt als üblich?"}
+{"chunkId":"rag-grundlagen::4","question":"Welchen Zweck erfüllt es, dass benachbarte Abschnitte sich inhaltlich überschneiden?"}
+{"chunkId":"rag-grundlagen::4","question":"Was ist die Kernidee der ersten der drei vorgestellten Strategien zum Zerteilen von Texten?"}
+{"chunkId":"rag-grundlagen::4","question":"Wie viele unterschiedliche Vorgehensweisen zum Zerteilen von Texten werden insgesamt aufgezählt?"}
+{"chunkId":"rag-grundlagen::5","question":"Welche Variante des Zerteilens orientiert sich an grammatikalischen Einheiten des Textes?"}
+{"chunkId":"rag-grundlagen::5","question":"Welchen Vorteil bringt das Schneiden entlang syntaktischer Grenzen für das nachgelagerte Modell?"}
+{"chunkId":"rag-grundlagen::5","question":"Wann wird beim inhaltsbasierten Verfahren eine neue Trennstelle eingefügt?"}
+{"chunkId":"rag-grundlagen::5","question":"Welche Eigenschaft macht das semantische Verfahren gegenüber den anderen aufwendiger?"}
+{"chunkId":"rag-grundlagen::5","question":"Was wird beim semantischen Zerteilen zwischen benachbarten Sätzen miteinander verglichen?"}
+{"chunkId":"rag-grundlagen::6","question":"Welche Vektorgröße besitzt das als klein und schnell beschriebene Modell?"}
+{"chunkId":"rag-grundlagen::6","question":"Aus welchem Land stammen die als modern und open-source bezeichneten bge-Modelle?"}
+{"chunkId":"rag-grundlagen::6","question":"Welche vier Merkmale werden zur Unterscheidung der Embedding-Modelle hervorgehoben?"}
+{"chunkId":"rag-grundlagen::6","question":"Auf welche Sprache ist das Training von all-MiniLM-L6-v2 vorwiegend ausgerichtet?"}
+{"chunkId":"rag-grundlagen::6","question":"Welches kleine, geschwindigkeitsorientierte Modell wird namentlich genannt?"}
+{"chunkId":"rag-grundlagen::7","question":"Welches Modell wird wegen seiner Eignung für sehr lange Eingaben mit 8192 Tokens hervorgehoben?"}
+{"chunkId":"rag-grundlagen::7","question":"Welche Modelle werden für deutschsprachige bzw. mehrsprachige Anwendungsfälle empfohlen?"}
+{"chunkId":"rag-grundlagen::7","question":"Wie verarbeitet ein Bi-Encoder Frage und Kandidatentext im Gegensatz zum Cross-Encoder?"}
+{"chunkId":"rag-grundlagen::7","question":"Auf welcher Architekturform basieren die zur Nachsortierung eingesetzten Modelle in der Regel?"}
+{"chunkId":"rag-grundlagen::7","question":"Wodurch werden die Vektoren bei einem getrennt einbettenden Encoder schließlich miteinander in Beziehung gesetzt?"}
+{"chunkId":"rag-grundlagen::8","question":"Welche Anbieter werden neben den kostenfreien Varianten für leistungsstärkere Reranker genannt?"}
+{"chunkId":"rag-grundlagen::8","question":"Welche Metrik wird im Text als positiv beeinflusst durch den Einsatz eines Cross-Encoders genannt?"}
+{"chunkId":"rag-grundlagen::8","question":"Welche Größenordnung an Vorab-Kandidaten holt sich eine empfohlene zweistufige Pipeline in der ersten Stufe?"}
+{"chunkId":"rag-grundlagen::8","question":"Welcher Nachteil entsteht durch die Verwendung eines Cross-Encoders je untersuchtem Kandidaten?"}
+{"chunkId":"rag-grundlagen::8","question":"Welches Open-Source-Modell wird als Beispiel für eine kompakte MiniLM-Variante zur Neubewertung genannt?"}

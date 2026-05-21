@@ -16,9 +16,14 @@ export function AdvancedTab(): JSX.Element {
   return (
     <div>
       <div className="settings-advanced-banner">
-        Advanced settings can break LokLM&apos;s local-first defaults. Only change these if you
-        understand the implications. Use <em>Reset advanced</em> at the bottom to restore safe
-        defaults.
+        <span className="settings-advanced-banner__icon" aria-hidden="true">
+          ⚠
+        </span>
+        <span>
+          <strong>Advanced settings can break LokLM&apos;s local-first defaults.</strong> Only
+          change these if you understand the implications. Use <em>Reset advanced</em> at the
+          bottom to restore safe defaults.
+        </span>
       </div>
 
       <LlmSection settings={settings} update={update} />
@@ -27,12 +32,17 @@ export function AdvancedTab(): JSX.Element {
       <RerankerSection settings={settings} update={update} />
       <DiagnosticsSection />
 
-      <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="settings-reset-row">
+        <span className="settings-reset-row__copy">
+          Restores every advanced setting to its default. Profile and Basic stay untouched.
+        </span>
         {!confirmReset ? (
-          <button onClick={() => setConfirmReset(true)}>Reset advanced to defaults</button>
+          <button className="settings-btn--danger" onClick={() => setConfirmReset(true)}>
+            Reset advanced
+          </button>
         ) : (
           <button
-            style={{ background: '#7a2a2a', color: '#fff' }}
+            className="settings-btn--danger-confirm"
             onClick={async () => {
               await update({ advanced: DEFAULT_SETTINGS.advanced })
               setConfirmReset(false)

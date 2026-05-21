@@ -6,6 +6,7 @@ export function ProfileTab(): JSX.Element {
   const [savedName, setSavedName] = useState('')
   const [avatarBytes, setAvatarBytes] = useState<Uint8Array | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [savedFlash, setSavedFlash] = useState(false)
 
   useEffect(() => {
     void window.api.auth.status().then((s) => {
@@ -15,20 +16,29 @@ export function ProfileTab(): JSX.Element {
     void window.api.settings.getAvatar().then((b) => setAvatarBytes(b ? Uint8Array.from(b) : null))
   }, [])
 
-  const saveName = useCallback(async (next: string): Promise<void> => {
-    const trimmed = next.trim()
-    if (trimmed.length === 0 || trimmed.length > 40) {
-      setError('Display name must be 1–40 characters.')
-      return
-    }
-    setError(null)
-    try {
-      await window.api.settings.setDisplayName(trimmed)
-      setSavedName(trimmed)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
+  const flashSaved = useCallback((): void => {
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 600)
   }, [])
+
+  const saveName = useCallback(
+    async (next: string): Promise<void> => {
+      const trimmed = next.trim()
+      if (trimmed.length === 0 || trimmed.length > 40) {
+        setError('Display name must be 1–40 characters.')
+        return
+      }
+      setError(null)
+      try {
+        await window.api.settings.setDisplayName(trimmed)
+        setSavedName(trimmed)
+        flashSaved()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [flashSaved],
+  )
 
   const pickAvatar = useCallback(async (): Promise<void> => {
     const input = document.createElement('input')
@@ -46,48 +56,64 @@ export function ProfileTab(): JSX.Element {
         await window.api.settings.setAvatar(Array.from(bytes))
         setAvatarBytes(bytes)
         setError(null)
+        flashSaved()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       }
     }
     input.click()
-  }, [])
+  }, [flashSaved])
 
   const removeAvatar = useCallback(async (): Promise<void> => {
     await window.api.settings.setAvatar(null)
     setAvatarBytes(null)
-  }, [])
+    flashSaved()
+  }, [flashSaved])
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+      <div className="settings-profile-card">
         <Avatar bytes={avatarBytes} name={savedName} size={96} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <button onClick={() => void pickAvatar()}>Change…</button>
+        <div className="settings-profile-card__actions">
+          <button onClick={() => void pickAvatar()}>Change avatar…</button>
           <button onClick={() => void removeAvatar()} disabled={!avatarBytes}>
             Remove
           </button>
         </div>
       </div>
-      <label style={{ display: 'block', marginBottom: 4 }}>Display name</label>
+
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">Display name</span>
+        <span className="settings-section-head__sub">1–40 characters. Saves on blur.</span>
+      </div>
       <input
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
         onBlur={() => {
           if (displayName !== savedName) void saveName(displayName)
         }}
-        style={{
-          padding: '6px 8px',
-          width: '100%',
-          borderRadius: 6,
-          border: '1px solid #243a55',
-          background: '#0f1a2a',
-          color: 'inherit',
-          boxSizing: 'border-box',
-        }}
+        style={{ width: '100%' }}
       />
-      {error && <div style={{ color: '#ff8080', marginTop: 6 }}>{error}</div>}
-      <div style={{ marginTop: 20, color: '#9fb3cc' }}>Recovery passphrase set ✓</div>
+      {error && <div style={{ color: 'var(--error)', marginTop: 6, fontSize: 13 }}>{error}</div>}
+
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">Recovery</span>
+        <span className="settings-section-head__sub">
+          Vault is locked behind your passphrase and password.
+        </span>
+      </div>
+      <div className="settings-stat">
+        <span className="settings-stat__label">Status</span>
+        <span className="settings-stat__value" style={{ color: 'var(--success)' }}>
+          Recovery passphrase set ✓
+        </span>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
+          ✓ saved
+        </span>
+      </div>
     </div>
   )
 }

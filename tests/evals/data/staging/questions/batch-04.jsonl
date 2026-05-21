@@ -1,0 +1,40 @@
+{"chunkId":"loklm-architektur::9","question":"Warum lässt sich die einmal generierte Passphrase im Nachhinein nicht mehr im Klartext einsehen?"}
+{"chunkId":"loklm-architektur::9","question":"In welcher abgeleiteten Form werden die Recovery-Wörter intern abgelegt?"}
+{"chunkId":"loklm-architektur::9","question":"Wodurch wird die übliche Betriebssystem-Fensterdekoration in der Anwendung ersetzt?"}
+{"chunkId":"loklm-architektur::9","question":"Welche drei Fensteraktionen kann die Oberfläche per Interprozesskommunikation an den Backend-Prozess delegieren?"}
+{"chunkId":"loklm-architektur::9","question":"Warum schickt der Hauptprozess Benachrichtigungen über Maximieren und Wiederherstellen an die Oberfläche zurück?"}
+{"chunkId":"loklm-architektur::10","question":"Welche sechs Operationen umfasst die Authentifizierungs-Schnittstelle zwischen Frontend und Backend?"}
+{"chunkId":"loklm-architektur::10","question":"An welcher Stelle der Anwendung werden die Typen der Auth-Aufrufe öffentlich gemacht?"}
+{"chunkId":"loklm-architektur::10","question":"Welches Feld signalisiert in Antworten der Auth-Schnittstelle einen erfolgreichen Ablauf?"}
+{"chunkId":"loklm-architektur::10","question":"Welche konkreten Fehlergründe werden in der geschlossenen Aufzählung für misslungene Authentifizierung genannt?"}
+{"chunkId":"loklm-architektur::10","question":"Wie wird zwischen den beiden Symbol-Zuständen der eigenen Titelleiste umgeschaltet?"}
+{"chunkId":"loklm-architektur::11","question":"Welche kryptographischen Aufgaben darf der Renderer-Prozess nicht selbst übernehmen?"}
+{"chunkId":"loklm-architektur::11","question":"Über welches Lebenszyklus-Ereignis wird vor dem Schließen der Anwendung noch einmal in die Vault geschrieben?"}
+{"chunkId":"loklm-architektur::11","question":"Welche Voraussetzung muss erfüllt sein, damit beim Beenden überhaupt ein zusätzlicher Persistierungsvorgang erfolgt?"}
+{"chunkId":"loklm-architektur::11","question":"Mit welcher Methode wird der unmittelbare Anwendungsabbruch beim Beenden zunächst gestoppt?"}
+{"chunkId":"loklm-architektur::11","question":"Welcher Aufruf schließt den Beendigungsablauf nach dem asynchronen Sichern endgültig ab?"}
+{"chunkId":"loklm-architektur::12","question":"Welches Designprinzip macht eine ständige automatische Speicherung im laufenden Betrieb überflüssig?"}
+{"chunkId":"loklm-architektur::12","question":"In welche drei Teil-Builds gliedert das Bundler-Werkzeug der Anwendung den Übersetzungsvorgang?"}
+{"chunkId":"loklm-architektur::12","question":"Welcher Mechanismus von TypeScript wird genutzt, um Node- und Browser-Typen sauber zu trennen?"}
+{"chunkId":"loklm-architektur::12","question":"Welche TypeScript-Konfigurationsdateien verteilen die Typwelten auf Backend- und Frontend-Seite?"}
+{"chunkId":"loklm-architektur::12","question":"Welche vier Import-Kürzel werden quer durch das Projekt verwendet, um Pfade abzukürzen?"}
+{"chunkId":"loklm-architektur::13","question":"An welchen Stellen außerhalb der Sub-Builds müssen die Import-Aliase ebenfalls identisch hinterlegt sein?"}
+{"chunkId":"loklm-architektur::13","question":"In welcher Form wird die Software derzeit pro Plattform an Nutzer ausgeliefert?"}
+{"chunkId":"loklm-architektur::13","question":"Auf welchem Weg erhalten Anwender momentan eine neue Version der Anwendung?"}
+{"chunkId":"loklm-architektur::13","question":"Welche Eigenschaft soll ein zukünftiger Update-Dienst bezüglich der Anbindung an den Hauptprozess haben?"}
+{"chunkId":"loklm-architektur::13","question":"Welches Grundprinzip darf ein späterer Auto-Update-Mechanismus nicht verletzen?"}
+{"chunkId":"loklm-architektur::14","question":"Welche konkrete Form von Netzwerkverkehr bleibt einem späteren Update-Dienst ausdrücklich erlaubt?"}
+{"chunkId":"loklm-architektur::14","question":"Worauf bezieht sich der Name des Programms inhaltlich-funktional?"}
+{"chunkId":"loklm-architektur::14","question":"Welche Anforderung wird an die Belege jeder Modell-Antwort gestellt?"}
+{"chunkId":"loklm-architektur::14","question":"Wie werden die Quellenverweise im Frontend interaktiv aufbereitet?"}
+{"chunkId":"loklm-architektur::14","question":"Was geschieht, wenn der Benutzer auf einen Quellenverweis in der Oberfläche klickt?"}
+{"chunkId":"loklm-architektur::15","question":"Wie reagiert die Anwendung, wenn eine erzeugte Antwort ohne Belegstellen zurückkommt?"}
+{"chunkId":"loklm-architektur::15","question":"Welche zwei Antworttypen werden den Nutzern gegenüber visuell voneinander abgegrenzt?"}
+{"chunkId":"loklm-architektur::15","question":"Welches Angriffsszenario rund um die gespeicherte Tresordatei wird durch das Sicherheitsmodell adressiert?"}
+{"chunkId":"loklm-architektur::15","question":"Welche Situation am laufenden Gerät bei Abwesenheit des Eigentümers wird vom Schutzkonzept abgedeckt?"}
+{"chunkId":"loklm-architektur::15","question":"Welches Verfahren wird im Bedrohungsmodell explizit als systematisches Durchprobieren von Passwörtern adressiert?"}
+{"chunkId":"loklm-architektur::16","question":"Mit welchem Mittel kann ein verlorenes Passwort laut Sicherheitsmodell wiederhergestellt werden?"}
+{"chunkId":"loklm-architektur::16","question":"Welche Art von hochprivilegierter Schadsoftware liegt explizit außerhalb des Schutzversprechens?"}
+{"chunkId":"loklm-architektur::16","question":"Welches Angriffsszenario auf den Arbeitsspeicher einer bereits entsperrten Sitzung wird nicht abgewehrt?"}
+{"chunkId":"loklm-architektur::16","question":"Welcher Angriff über die Bildschirm-Darstellung durch fremde Programme bleibt außerhalb des Schutzumfangs?"}
+{"chunkId":"loklm-architektur::16","question":"Wo sind die akzeptierten Schutzgrenzen des Systems verbindlich festgehalten?"}

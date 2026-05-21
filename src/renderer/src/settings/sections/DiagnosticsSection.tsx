@@ -24,22 +24,26 @@ export function DiagnosticsSection(): JSX.Element {
   }, [open, info])
 
   return (
-    <div className="settings-group">
+    <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
       <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <span>{open ? '▼' : '▶'} Diagnostics</span>
+        <div className="settings-group__title">
+          <div className="settings-group__title-row">Diagnostics</div>
+          <div className="settings-group__sub">
+            Read-only snapshot of the planner&apos;s most recent decisions.
+          </div>
+        </div>
+        <span className="settings-group__chevron">▶</span>
       </div>
       {open && info && (
         <div className="settings-group__body">
-          <table style={{ width: '100%', fontSize: 13 }}>
-            <tbody>
-              {Object.entries(diagRows(info)).map(([k, v]) => (
-                <tr key={k}>
-                  <td>{k}</td>
-                  <td style={{ textAlign: 'right' }}>{String(v)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="settings-stat-grid">
+            {Object.entries(diagRows(info)).map(([k, v]) => (
+              <div key={k} className="settings-stat">
+                <span className="settings-stat__label">{k}</span>
+                <span className="settings-stat__value">{String(v)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -53,11 +57,10 @@ function diagRows(info: SystemInfo): Record<string, unknown> {
     'Total RAM (GB)': info.totalMemGB,
     GPU: info.gpu ?? '—',
     'Active model': info.modelName ?? '—',
-    'Bundled model path': info.bundledModelPath,
     'Recommended profile': info.recommendedProfile,
     'Free VRAM (GB)': resources?.freeVramGB ?? '—',
-    'Last LLM plan': plan?.reason ?? '—',
     'Context size': plan?.contextSize ?? '—',
     'KV cache type': plan?.kvCacheType ?? '—',
+    'Plan reason': plan?.reason ?? '—',
   }
 }

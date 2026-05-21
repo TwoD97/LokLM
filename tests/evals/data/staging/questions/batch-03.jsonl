@@ -1,0 +1,45 @@
+{"chunkId":"loklm-architektur::0","question":"Auf welchem Framework basiert die Desktop-Anwendung für Recherche?"}
+{"chunkId":"loklm-architektur::0","question":"Welche Betriebssysteme werden von der Anwendung unterstützt?"}
+{"chunkId":"loklm-architektur::0","question":"Wo verbleiben Modelle und Nutzerdaten bei der Verarbeitung?"}
+{"chunkId":"loklm-architektur::0","question":"An welche Zielgruppen richtet sich die Software primär?"}
+{"chunkId":"loklm-architektur::0","question":"Welches Feature ermöglicht es Nutzern, Antworten auf ihre Quellen zurückzuführen?"}
+{"chunkId":"loklm-architektur::1","question":"Auf welcher Laufzeitumgebung basiert der Hauptprozess der Anwendung?"}
+{"chunkId":"loklm-architektur::1","question":"Welche Aufgaben übernimmt der Node-basierte Prozess in der Architektur?"}
+{"chunkId":"loklm-architektur::1","question":"Mit welcher Bibliothek wird die Oberfläche im Chromium-Prozess gerendert?"}
+{"chunkId":"loklm-architektur::1","question":"Welche Komponente vermittelt eine typisierte Schnittstelle zwischen den beiden Prozessen?"}
+{"chunkId":"loklm-architektur::1","question":"Mit welchem Mechanismus wird die API in den Renderer eingeschleust?"}
+{"chunkId":"loklm-architektur::2","question":"Welche Electron-Optionen sind für die Isolierung des Renderers eingeschaltet?"}
+{"chunkId":"loklm-architektur::2","question":"Welche Electron-Option ist im Renderer abgeschaltet, um Node-APIs zu blockieren?"}
+{"chunkId":"loklm-architektur::2","question":"Wie heißt die einzelne verschlüsselte Datei, in der Authentifizierungsdaten liegen?"}
+{"chunkId":"loklm-architektur::2","question":"Wie viele gewrappte Datenverschlüsselungs-Keys enthält der Header der Vault?"}
+{"chunkId":"loklm-architektur::2","question":"Mit welchem Geheimnis ist der erste DEK in der Vault eingehüllt?"}
+{"chunkId":"loklm-architektur::3","question":"Wie viele Wörter hat die Recovery-Passphrase, die den zweiten DEK schützt?"}
+{"chunkId":"loklm-architektur::3","question":"An welchem Standard orientiert sich das Wortlisten-Format der Wiederherstellungs-Passphrase?"}
+{"chunkId":"loklm-architektur::3","question":"Was passiert mit dem DEK, wenn ein Nutzer sein Passwort zurücksetzt?"}
+{"chunkId":"loklm-architektur::3","question":"Welches Key-Derivation-Verfahren wird für die Ableitung der Wrapping-Keys eingesetzt?"}
+{"chunkId":"loklm-architektur::3","question":"Wie viel Arbeitsspeicher konsumiert die KDF-Konfiguration pro Ableitung?"}
+{"chunkId":"loklm-architektur::4","question":"Wie viele Byte lang ist der direkt aus der KDF erzeugte KEK?"}
+{"chunkId":"loklm-architektur::4","question":"Wie wird der KEK nach seiner Verwendung im RAM unschädlich gemacht?"}
+{"chunkId":"loklm-architektur::4","question":"Welches Verschlüsselungsverfahren sichert den Inhalt der Vault-Datei?"}
+{"chunkId":"loklm-architektur::4","question":"Welche Länge hat die für jede Speicherung neu generierte Nonce in Byte?"}
+{"chunkId":"loklm-architektur::4","question":"Welche eingebettete Postgres-Variante kommt als Datenbank zum Einsatz?"}
+{"chunkId":"loklm-architektur::5","question":"Über welche Technologie wird der Postgres-Build im Node-Prozess ausgeführt?"}
+{"chunkId":"loklm-architektur::5","question":"In welches Format wird die Datenbank beim Sperren der App exportiert?"}
+{"chunkId":"loklm-architektur::5","question":"Mit welchem Schlüssel wird der Datenbank-Dump beim Lock-Vorgang chiffriert?"}
+{"chunkId":"loklm-architektur::5","question":"Was geschieht beim Entsperren mit dem entschlüsselten Tar-Dump?"}
+{"chunkId":"loklm-architektur::5","question":"Nach wie vielen falschen Anmeldeversuchen wird die erste Schutzstufe aktiv?"}
+{"chunkId":"loklm-architektur::6","question":"Wie lange dauert die temporäre Sperre nach mehrfacher Fehleingabe an?"}
+{"chunkId":"loklm-architektur::6","question":"Warum überdauert die Anmelde-Sperre keinen Neustart der Anwendung?"}
+{"chunkId":"loklm-architektur::6","question":"Welches Argument spricht laut Dokument gegen einen dauerhaften Lockout in lokalen Apps?"}
+{"chunkId":"loklm-architektur::6","question":"Nach wie vielen Minuten ohne Interaktion greift die automatische Inaktivitäts-Sperre?"}
+{"chunkId":"loklm-architektur::6","question":"Was wird beim Auslösen der Inaktivitäts-Sperre persistiert?"}
+{"chunkId":"loklm-architektur::7","question":"Warum verzichtet das Datenmodell auf eine eigene Benutzer-Tabelle in SQL?"}
+{"chunkId":"loklm-architektur::7","question":"Was bildet laut Dokument die alleinige Wahrheitsquelle für die Anmeldung?"}
+{"chunkId":"loklm-architektur::7","question":"Welche Inhalte sollen später in eigenen Tabellen auf PGlite verwaltet werden?"}
+{"chunkId":"loklm-architektur::7","question":"Welches ORM wird für die kommenden Anwendungs-Tabellen eingesetzt?"}
+{"chunkId":"loklm-architektur::7","question":"Welches Werkzeug erzeugt die Datenbank-Migrationen?"}
+{"chunkId":"loklm-architektur::8","question":"Wann genau werden ausstehende Migrationen auf die Datenbank angewendet?"}
+{"chunkId":"loklm-architektur::8","question":"Auf welche Hauptversion von React setzt die Oberfläche auf?"}
+{"chunkId":"loklm-architektur::8","question":"Welche Hauptansichten gibt es im Frontend neben der UnlockedView?"}
+{"chunkId":"loklm-architektur::8","question":"In welcher Komponente wird die generierte Wiederherstellungs-Passphrase einmalig dargestellt?"}
+{"chunkId":"loklm-architektur::8","question":"Was muss der Nutzer während der Registrierung quittieren, bevor er fortfahren kann?"}

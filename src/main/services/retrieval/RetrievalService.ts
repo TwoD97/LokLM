@@ -66,6 +66,16 @@ export interface RetrievalOptions {
    *  over 10 minutes. Set factor to 1.0 to disable. */
   recencyBoostFactor?: number
   recencyBoostWindowMs?: number
+  /** Apply the CPU-only TTFT preset:
+   *    - rerank defaults to false (cross-encoder on CPU is the single biggest
+   *      retrieval-side latency hit, ~0.5–2 s per pass)
+   *    - multiQuery defaults to false (each variant adds a full LLM pass)
+   *    - candidate pool shrinks (smaller FANOUT, lower MAX_CANDIDATES) so the
+   *      RRF fusion and any surviving reranker call do less work
+   *  Explicit RetrievalOptions still win — the preset only fills in undefined
+   *  fields. When `undefined` (the default), RetrievalService auto-detects from
+   *  the LLM backend: no GPU → preset on, GPU → preset off. */
+  cpuOptimized?: boolean
 }
 
 /**
@@ -82,6 +92,13 @@ export interface RetrievalOptions {
  */
 const FANOUT = 4
 const MAX_CANDIDATES = 64
+// CPU-mode preset: same shape, smaller numbers. Halving the per-list ceiling
+// roughly halves the rerank candidate count (when rerank is explicitly forced
+// on under CPU mode) and halves the BM25 + dense fusion work. The cap at 32
+// keeps a tight workspace from collapsing to ~10 candidates which would hurt
+// recall on document-diverse queries.
+const CPU_FANOUT = 2
+const CPU_MAX_CANDIDATES = 32
 const DEFAULT_WHOLE_DOC_THRESHOLD = 8
 const DEFAULT_PER_DOC_CAP = 6
 const DEFAULT_TITLE_BOOST = 1.25
@@ -112,15 +129,26 @@ export class RetrievalService {
         ? DEFAULT_PER_DOC_CAP
         : Math.max(0, opts.perDocCandidateCap)
 
+    // CPU-mode trigger: explicit flag wins; otherwise auto-detect from the LLM
+    // backend. When the LLM has no GPU label, every CPU-heavy retrieval stage
+    // (rerank, multiQuery) is dwarfed by the LLM prefill cost anyway — but
+    // shaving a CPU rerank pass still buys 0.5–2 s of TTFT, and skipping
+    // multiQuery saves a full extra LLM pass.
+    const cpuMode = opts.cpuOptimized ?? this.autoDetectCpuMode()
+    const effectiveRerank = opts.rerank ?? !cpuMode
+    const effectiveMultiQuery = opts.multiQuery ?? !cpuMode
+    const fanout = cpuMode ? CPU_FANOUT : FANOUT
+    const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
+
     // ------- 0. multi-query expansion -------
-    const queries = await this.maybeExpandQueries(trimmed, opts.multiQuery === true)
+    const queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery)
 
     // ------- 1. retrieve & RRF-fuse across variants -------
     // candidateK is the per-list ceiling. With the per-doc cap branch active
     // the SQL will pull at most `perDocCap` chunks per doc up to this global
     // ceiling — so a workspace with 10 docs can present up to 60 candidates
     // even when 1 doc would have dominated the global top-50.
-    const candidateK = Math.min(MAX_CANDIDATES, Math.max(topK * FANOUT, topK))
+    const candidateK = Math.min(maxCandidates, Math.max(topK * fanout, topK))
     const searchOpts: { activeDocumentIds: number[] | null; perDocK?: number } = {
       activeDocumentIds: activeIds,
       ...(perDocCap > 0 ? { perDocK: perDocCap } : {}),
@@ -156,14 +184,14 @@ export class RetrievalService {
     // diversification step below has reranked-quality candidates from every
     // document represented in the pool — not just whichever happened to win
     // the first K post-rerank slots.
-    const reranked = await this.maybeRerank(trimmed, pool, opts.rerank === true)
+    const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------
     // Cross-encoder scores live on a different scale, but the heuristics still
     // express "I'd rather see a 600-char paragraph from a fresh doc than a
     // 90-char cover line" — so they belong on whatever score we use to rank.
     let postRank = reranked
-    if (opts.rerank === true) {
+    if (effectiveRerank) {
       postRank = applyTitleBoost(postRank, trimmed, opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST)
       postRank = applyShortChunkPenalty(
         postRank,
@@ -236,6 +264,30 @@ export class RetrievalService {
       }
     })()
     return Promise.all([bm25Promise, vectorPromise])
+  }
+
+  /**
+   * Auto-decide whether the CPU-mode preset should apply when the caller
+   * didn't pin `cpuOptimized` either way.
+   *
+   * Signal we trust: the loaded LLM's GPU label. node-llama-cpp populates
+   * `gpu` to 'cuda' / 'vulkan' / 'metal' when a real backend latched, or
+   * leaves it null/falsy when it fell back to CPU. The LLM prefill dominates
+   * end-to-end latency on CPU — when it's CPU-bound everything else might
+   * as well also pick its CPU-cheap defaults.
+   *
+   * Defensive: when no LLM is wired (e.g. retrieval-only test contexts) we
+   * stay on the non-CPU defaults so we don't quietly weaken recall in
+   * scenarios where TTFT isn't even a concern.
+   */
+  private autoDetectCpuMode(): boolean {
+    // MERGE_HEAD added cpuOptimized that probes the LLM directly; HEAD routed
+    // services through ProviderRegistry. Bridge both: ask the registry for the
+    // active llm provider and read its status. isReady() guards against a
+    // pre-load probe where the provider exists but has no resolved status yet.
+    const llm = this.registry.llm()
+    if (!llm.isReady()) return false
+    return !llm.getModelStatus().gpu
   }
 
   private async maybeExpandQueries(query: string, enabled: boolean): Promise<string[]> {
