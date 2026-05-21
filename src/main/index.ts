@@ -667,6 +667,19 @@ function registerIpc(): void {
         message: e.message ?? 'unknown',
       }
     }
+    // Guard against dim drift before we commit: chunks.embedding is vector(1024).
+    // A probe-successful Ollama model with a different output dim (e.g. 768)
+    // would pass the HTTP roundtrip here, then silently fail downstream in
+    // setChunkEmbedding *after* the backfill purge already wiped vectors. Bail
+    // out now and surface a clear error to the UI via the ReindexGateModal.
+    const probedDim = target.dimension()
+    if (probedDim !== 1024) {
+      return {
+        ok: false as const,
+        kind: 'dim-mismatch' as const,
+        message: `Active embedding column expects 1024-dim vectors, got ${probedDim}. Re-indexing would corrupt the library.`,
+      }
+    }
     reg.setEmbedderSource(source)
     await getSettingsService().update({ advanced: { embedder: { source } } })
     return { ok: true as const, identity: target.identity() }
