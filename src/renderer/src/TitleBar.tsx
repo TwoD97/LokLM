@@ -23,9 +23,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     state: 'idle',
     message: null,
   })
-  const [llm, setLlm] = useState<{ state: ModelState; message: string | null }>({
+  const [llm, setLlm] = useState<{
+    state: ModelState
+    message: string | null
+    source: 'bundled' | 'ollama'
+  }>({
     state: 'idle',
     message: null,
+    source: 'bundled',
   })
 
   useEffect(() => {
@@ -55,8 +60,12 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.llm.status().then((s) => setLlm({ state: s.state, message: s.message }))
-    const off = window.api.llm.onStatus((s) => setLlm({ state: s.state, message: s.message }))
+    void window.api.llm
+      .status()
+      .then((s) => setLlm({ state: s.state, message: s.message, source: s.source }))
+    const off = window.api.llm.onStatus((s) =>
+      setLlm({ state: s.state, message: s.message, source: s.source }),
+    )
     return () => off()
   }, [])
 
@@ -103,7 +112,9 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
 
       <div className="titlebar__status" aria-label="Modellstatus">
         <span
-          className={`titlebar__dot titlebar__dot--${llm.state}`}
+          className={`titlebar__dot titlebar__dot--${llm.state}${
+            llm.state === 'ready' && llm.source === 'ollama' ? ' titlebar__dot--ollama' : ''
+          }`}
           role="img"
           aria-label={dotLabel('LLM', llm.state, llm.message)}
           title={dotLabel('LLM', llm.state, llm.message)}

@@ -353,6 +353,12 @@ body {
   box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
 }
 
+/* Purple ready-state when the active LLM source is external Ollama. */
+.titlebar__dot--ready.titlebar__dot--ollama {
+  background: #a78bff;
+  box-shadow: 0 0 6px rgba(167, 139, 255, 0.6);
+}
+
 .titlebar__dot--failed {
   background: var(--error);
   box-shadow: 0 0 6px rgba(248, 81, 73, 0.6);
