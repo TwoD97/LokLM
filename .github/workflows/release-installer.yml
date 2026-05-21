@@ -96,10 +96,30 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          EXE="release/installer/LokLM-Setup-${V}-win-x64.exe"
-          if [ ! -f "$EXE" ]; then
-            echo "expected artefact missing: $EXE"; ls -la release/; exit 1
+          TARGET="release/installer/LokLM-Setup-${V}-win-x64.exe"
+
+          # electron-builder's portable target sometimes emits the .exe with
+          # productName-derived defaults instead of artifactName. Glob , then
+          # rename to the canonical TARGET so the rest of the pipeline ( upload
+          # paths , website manifest ) stays stable.
+          echo "release/ contents:"
+          ls -la release/ || true
+          echo "release/installer/ contents:"
+          ls -la release/installer/ || true
+
+          FOUND=$(ls release/installer/*.exe 2>/dev/null | head -1 || true)
+          if [ -z "$FOUND" ]; then
+            echo "no .exe found in release/installer/"
+            echo "builder-debug.yml:"
+            cat release/builder-debug.yml 2>/dev/null || true
+            exit 1
           fi
+          if [ "$FOUND" != "$TARGET" ]; then
+            echo "renaming $FOUND → $TARGET"
+            mv "$FOUND" "$TARGET"
+          fi
+          EXE="$TARGET"
+
           SHA=$(sha256sum "$EXE" | awk '{print $1}')
           SIZE=$(stat -c%s "$EXE")
           echo "$SHA  $(basename "$EXE")" > "${EXE}.sha256"
