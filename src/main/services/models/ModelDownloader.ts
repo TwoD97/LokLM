@@ -65,6 +65,14 @@ export class ModelDownloader {
     return this.active.has(id)
   }
 
+  /** Whether *any* download is currently active. Used by the auth service to
+   *  pause its inactivity timer , a 4 GB GGUF takes longer than the 15 min
+   *  default and the user sitting at the download view would otherwise get
+   *  locked out mid-transfer. */
+  hasAnyActive(): boolean {
+    return this.active.size > 0
+  }
+
   cancel(id: string): void {
     const ctrl = this.active.get(id)
     if (ctrl) ctrl.abort()

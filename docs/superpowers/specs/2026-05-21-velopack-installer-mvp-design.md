@@ -24,6 +24,8 @@ Replace electron-builder's NSIS (Windows), DMG (macOS), and AppImage (Linux) ins
 - **Channels (stable/beta), delta-update tuning, telemetry, custom installer UI polish.** Velopack defaults only.
 - **Mac PKG/DMG choice or Linux .deb/.rpm targets.** Mac ships `.pkg` (Velopack default); Linux ships `.AppImage`.
 - **Auto-check on app start, background update polling, in-product update notifications.** User-initiated check only. Background polling is a follow-up.
+- **Website download-page rewiring.** [loklm.com](https://loklm.com) currently links to installers on Bunny CDN/MinIO, kept fresh by the existing `release-installer.yml`'s `bump-and-redeploy` job (rsync to Hetzner, patch `website/src/data/releases.ts`). This MVP retires that workflow. Until a follow-up spec rewires the website to either link to `https://github.com/TwoD97/LokLM/releases/latest` or read a manifest from GH Releases, the website's "Download" button will point at the last-Bunny-published version and become stale. **Accepted MVP regression.**
+- **Bunny CDN / MinIO continued use.** Deprecated by this MVP. Existing v0.2.x installer artifacts on those hosts stay accessible (we don't actively delete them), but no new releases land there.
 
 ## Section 1 — Architecture
 
@@ -172,6 +174,8 @@ The Microsoft redist binary's manifest declares `requireAdministrator`, so it se
 **Tradeoff flagged.** Bundling the redist adds ~13 MB to the Windows installer. Accepted vs. the "msvcp140.dll not found" black screen on a clean Win11 machine.
 
 ## Section 6 — Release flow & GitHub Actions
+
+**Existing workflow retired.** `.github/workflows/release-installer.yml` (Bunny CDN + MinIO mirror + Hetzner website redeploy + `bump-and-redeploy` job that patched `website/src/data/releases.ts`) is **deleted** by this MVP. The website continues to point at the last Bunny-published version until the follow-up website-rewiring spec lands (noted in Non-goals).
 
 **Trigger.** Push a tag matching `v*.*.*` (e.g., `git tag v0.3.0 && git push origin v0.3.0`). Pushes to `main` do **not** release.
 

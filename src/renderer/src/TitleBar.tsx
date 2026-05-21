@@ -2,10 +2,65 @@ import { useEffect, useState } from 'react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
 
 type DotState = EmbedderState | RerankerState | ModelState
+type DotSource = 'bundled' | 'ollama'
 
-function dotLabel(label: string, state: DotState, message: string | null): string {
-  const base = `${label}: ${state}`
+// Maps the raw service state + source onto the pill text shown in the hover
+// tooltip. Mirrors the LLM chat-header pill vocabulary ("Local"/"Remote") so
+// the TitleBar reads consistently with the rest of the app.
+function pillText(state: DotState, source: DotSource): string {
+  const where = source === 'ollama' ? 'Remote' : 'Local'
+  switch (state) {
+    case 'ready':
+      return `Running · ${where}`
+    case 'loading':
+      return `Loading · ${where}`
+    case 'failed':
+      return `Failed · ${where}`
+    case 'unloaded':
+      return `Unloaded · ${where}`
+    case 'idle':
+    default:
+      return `Idle · ${where}`
+  }
+}
+
+// Native `title=` fallback for screen readers and users who hover before our
+// custom tooltip renders. The pill is decorative; this string is the truth.
+function ariaText(
+  label: string,
+  state: DotState,
+  source: DotSource,
+  message: string | null,
+): string {
+  const base = `${label}: ${pillText(state, source)}`
   return message ? `${base} — ${message}` : base
+}
+
+type DotProps = {
+  label: string
+  state: DotState
+  source: DotSource
+  message: string | null
+  extraClass?: string
+}
+
+function StatusDot({ label, state, source, message, extraClass }: DotProps): JSX.Element {
+  const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
+  return (
+    <span
+      className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
+      role="img"
+      aria-label={ariaText(label, state, source, message)}
+    >
+      <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
+      <span className="titlebar__pill" role="tooltip">
+        <span className="titlebar__pill-label">{label}</span>
+        <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
+        <span className="titlebar__pill-text">{pillText(state, source)}</span>
+        {message && <span className="titlebar__pill-msg">{message}</span>}
+      </span>
+    </span>
+  )
 }
 
 type TitleBarProps = {
@@ -15,18 +70,28 @@ type TitleBarProps = {
 
 export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {}): JSX.Element {
   const [maximized, setMaximized] = useState(false)
-  const [embedder, setEmbedder] = useState<{ state: EmbedderState; message: string | null }>({
+  const [embedder, setEmbedder] = useState<{
+    state: EmbedderState
+    message: string | null
+    source: DotSource
+  }>({
     state: 'idle',
     message: null,
+    source: 'bundled',
   })
-  const [reranker, setReranker] = useState<{ state: RerankerState; message: string | null }>({
+  const [reranker, setReranker] = useState<{
+    state: RerankerState
+    message: string | null
+    source: DotSource
+  }>({
     state: 'idle',
     message: null,
+    source: 'bundled',
   })
   const [llm, setLlm] = useState<{
     state: ModelState
     message: string | null
-    source: 'bundled' | 'ollama'
+    source: DotSource
   }>({
     state: 'idle',
     message: null,
@@ -42,9 +107,9 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   useEffect(() => {
     void window.api.embedder
       .status()
-      .then((s) => setEmbedder({ state: s.state, message: s.message }))
+      .then((s) => setEmbedder({ state: s.state, message: s.message, source: s.source }))
     const off = window.api.embedder.onStatus((s) =>
-      setEmbedder({ state: s.state, message: s.message }),
+      setEmbedder({ state: s.state, message: s.message, source: s.source }),
     )
     return () => off()
   }, [])
@@ -52,9 +117,9 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   useEffect(() => {
     void window.api.reranker
       .status()
-      .then((s) => setReranker({ state: s.state, message: s.message }))
+      .then((s) => setReranker({ state: s.state, message: s.message, source: s.source }))
     const off = window.api.reranker.onStatus((s) =>
-      setReranker({ state: s.state, message: s.message }),
+      setReranker({ state: s.state, message: s.message, source: s.source }),
     )
     return () => off()
   }, [])
@@ -111,25 +176,18 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
       </div>
 
       <div className="titlebar__status" aria-label="Modellstatus">
-        <span
-          className={`titlebar__dot titlebar__dot--${llm.state}${
-            llm.state === 'ready' && llm.source === 'ollama' ? ' titlebar__dot--ollama' : ''
-          }`}
-          role="img"
-          aria-label={dotLabel('LLM', llm.state, llm.message)}
-          title={dotLabel('LLM', llm.state, llm.message)}
+        <StatusDot label="LLM" state={llm.state} source={llm.source} message={llm.message} />
+        <StatusDot
+          label="Embedder"
+          state={embedder.state}
+          source={embedder.source}
+          message={embedder.message}
         />
-        <span
-          className={`titlebar__dot titlebar__dot--${embedder.state}`}
-          role="img"
-          aria-label={dotLabel('Embedder', embedder.state, embedder.message)}
-          title={dotLabel('Embedder', embedder.state, embedder.message)}
-        />
-        <span
-          className={`titlebar__dot titlebar__dot--${reranker.state}`}
-          role="img"
-          aria-label={dotLabel('Reranker', reranker.state, reranker.message)}
-          title={dotLabel('Reranker', reranker.state, reranker.message)}
+        <StatusDot
+          label="Reranker"
+          state={reranker.state}
+          source={reranker.source}
+          message={reranker.message}
         />
       </div>
 

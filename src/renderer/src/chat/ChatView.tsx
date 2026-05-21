@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Conversation, StreamEvent } from '@shared/documents'
 import { ChatHeader } from './ChatHeader'
 import { ChatInput } from './ChatInput'
@@ -37,6 +37,16 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null)
   const [sourceViewer, setSourceViewer] = useState<{ chunkId: number } | null>(null)
+
+  // Closures captured by the stream listener see a stale `currentId` — we use
+  // a ref so the listener can compare against the live value and drop tokens
+  // for conversations the user has already navigated away from. Without this
+  // the tokens of a still-running stream get appended to the LAST message of
+  // whichever conv the user happens to be viewing.
+  const currentIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    currentIdRef.current = currentId
+  }, [currentId])
 
   const refresh = useCallback(async () => {
     const list = await window.api.conversations.list(workspaceId)
@@ -110,8 +120,13 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         },
       ])
       const streamId = crypto.randomUUID()
+      const streamConvId = convId
       setActiveStreamId(streamId)
       const offEvent = window.api.chat.onEvent(streamId, (ev: StreamEvent) => {
+        // User navigated to a different conv mid-stream — drop the event so
+        // we don't append to the wrong conv. The main process keeps streaming
+        // and persists the full answer; openConversation() refetches on return.
+        if (currentIdRef.current !== streamConvId) return
         setMessages((prev) => {
           const next = prev.slice()
           const last = next[next.length - 1]

@@ -25,7 +25,11 @@ export type ServiceKind = 'llm' | 'embedder' | 'reranker'
 export type WorkerRequest =
   | { id: number; op: 'llm.load'; payload: LlmLoadPayload }
   | { id: number; op: 'llm.unload' }
-  | { id: number; op: 'llm.setLanguage'; payload: { lang: 'de' | 'en' } }
+  | {
+      id: number
+      op: 'llm.setLanguage'
+      payload: { lang: 'de' | 'en'; systemPrompt: string }
+    }
   | { id: number; op: 'llm.ask'; payload: LlmAskPayload }
   | { id: number; op: 'llm.generateRaw'; payload: LlmGenerateRawPayload }
   | { id: number; op: 'llm.abort'; payload: { streamId: string } }
@@ -46,6 +50,11 @@ export interface LlmLoadPayload {
   userContextChoice: LlmContextChoice
   language: 'de' | 'en'
   envContextOverride: number | null
+  // Full system prompt built on the main side from src/main/services/llm/prompt.ts.
+  // Shipped across the wire so the worker stays free of document-type imports
+  // while the citation directive (and refusal text, /no_think, tool list) remain
+  // the single source of truth in prompt.ts.
+  systemPrompt: string
 }
 
 export interface LlmAskPayload {
