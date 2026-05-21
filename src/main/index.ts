@@ -196,8 +196,14 @@ async function applySettings(s: UserSettings): Promise<void> {
       bearerToken: o.bearerToken,
       timeoutMs: o.requestTimeoutMs,
     })
+    // Mirror the bundled-LLM language onto the Ollama provider so the system
+    // prompt matches the user's basic.language choice. Without this, the
+    // Ollama provider falls back to its constructor default ('de') and an
+    // English-speaking user with Ollama active gets German system prompts.
+    const llm = new OllamaLlmProvider(client, o.llmModel!)
+    llm.setLanguage(s.basic.language)
     reg.replaceOllama({
-      llm: new OllamaLlmProvider(client, o.llmModel!),
+      llm,
       embedder: new OllamaEmbedderProvider(client, o.embedderModel!, null),
       reranker: new OllamaRerankerProvider(client, o.rerankerModel!),
     })
