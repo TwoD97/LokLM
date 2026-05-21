@@ -53,26 +53,24 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
               onChange={(v) => void update({ advanced: { llm: { source: v } } })}
             />
           </div>
-          <div className="settings-row">
-            <div className="settings-row__label">
-              <span className="settings-row__label-text">Context size</span>
-              <span className="settings-row__hint">
-                Auto sizes against free VRAM. Override only if you know your budget.
-              </span>
+          <div className="settings-block">
+            <div className="settings-block__head">
+              <div className="settings-block__head-text">
+                <span className="settings-block__label">Context size</span>
+                <span className="settings-block__hint">
+                  Auto sizes against free VRAM. Override only if you know your budget.
+                </span>
+              </div>
             </div>
-            <select
+            <Segmented
+              ariaLabel="Context size"
               value={a.contextChoice === 'auto' ? 'auto' : String(a.contextChoice)}
-              onChange={(e) => {
-                const v = e.target.value === 'auto' ? 'auto' : Number(e.target.value)
-                void update({ advanced: { llm: { contextChoice: v } } })
+              options={CTX_OPTIONS}
+              onChange={(v) => {
+                const next = v === 'auto' ? 'auto' : Number(v)
+                void update({ advanced: { llm: { contextChoice: next } } })
               }}
-            >
-              {CTX_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       )}
