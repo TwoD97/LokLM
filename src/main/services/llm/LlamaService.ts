@@ -290,6 +290,20 @@ export class LlamaService {
 
   // ---- lifecycle -------------------------------------------------------------
 
+  /**
+   * Lazy load: no-op when already loaded, otherwise runs autoLoad. Concurrent
+   * callers share the same in-flight load — second-and-later callers get the
+   * same promise back rather than triggering an unload/reload race.
+   *
+   * Used by BundledLlmProvider so the local model spins up on-demand on the
+   * first fallback request when the user has external Ollama as their source.
+   */
+  async ensureLoaded(): Promise<void> {
+    if (this.isReady()) return
+    if (this.loadPromise) return this.loadPromise
+    return this.autoLoad()
+  }
+
   async autoLoad(): Promise<void> {
     const profiles = discoverProfiles()
     // We avoid kicking the planner's GPU probe on main , the worker probes

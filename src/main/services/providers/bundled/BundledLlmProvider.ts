@@ -11,19 +11,26 @@ import type { LlmProvider, ProviderStatus } from '../types'
 export class BundledLlmProvider implements LlmProvider {
   constructor(private readonly inner: LlamaService) {}
 
-  ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string> {
+  async ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string> {
+    // Lazy-load: when the user has Ollama as their LLM source the bundled
+    // model isn't loaded at startup. The registry routes here only on
+    // fallback (Ollama timeout / network error), so the first such request
+    // triggers the load; subsequent ones reuse the warmed model.
+    await this.inner.ensureLoaded()
     return this.inner.ask(question, hits, opts)
   }
 
-  generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+  async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+    await this.inner.ensureLoaded()
     return this.inner.generateRaw(prompt, opts)
   }
 
-  generateTitle(
+  async generateTitle(
     user: string,
     assistant: string,
     opts?: { abortSignal?: AbortSignal },
   ): Promise<string | null> {
+    await this.inner.ensureLoaded()
     return this.inner.generateTitle(user, assistant, opts)
   }
 
