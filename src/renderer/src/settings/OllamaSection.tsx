@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import type { UserSettings } from '@shared/settings'
 import { Segmented } from './Segmented'
 import { ReindexGateModal } from './ReindexGateModal'
@@ -202,7 +203,17 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
               />
 
               <ChipPicker
-                label="Reranker model ⚠"
+                label={
+                  <>
+                    Reranker model{' '}
+                    <AlertTriangle
+                      size={14}
+                      aria-hidden="true"
+                      style={{ verticalAlign: 'text-bottom' }}
+                    />
+                  </>
+                }
+                ariaLabel="Reranker model"
                 hint="Ollama has no dedicated reranker — any chat model works (slower)."
                 models={models}
                 value={o.rerankerModel}
@@ -276,19 +287,22 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
 
 function ChipPicker({
   label,
+  ariaLabel,
   hint,
   models,
   value,
   onChange,
   trailing,
 }: {
-  label: string
+  label: React.ReactNode
+  ariaLabel?: string
   hint: string
   models: string[]
   value: string | null
   onChange: (next: string | null) => void
   trailing?: React.ReactNode
 }): JSX.Element {
+  const groupLabel = ariaLabel ?? (typeof label === 'string' ? label : undefined)
   return (
     <div className="settings-block">
       <div className="settings-block__head">
@@ -303,7 +317,7 @@ function ChipPicker({
           No matching models on this Ollama server.
         </div>
       ) : (
-        <div className="settings-chip-group" role="radiogroup" aria-label={label}>
+        <div className="settings-chip-group" role="radiogroup" aria-label={groupLabel}>
           {models.map((m) => (
             <button
               key={m}

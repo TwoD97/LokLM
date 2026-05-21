@@ -129,13 +129,19 @@ const api = {
   conversations: {
     list: (workspaceId: number): Promise<Conversation[]> =>
       ipcRenderer.invoke('conversations:list', workspaceId),
-    create: (workspaceId: number, title?: string): Promise<Conversation> =>
-      ipcRenderer.invoke('conversations:create', workspaceId, title),
+    create: (
+      workspaceId: number,
+      title?: string,
+      activeDocumentIds?: number[],
+    ): Promise<Conversation> =>
+      ipcRenderer.invoke('conversations:create', workspaceId, title, activeDocumentIds),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('conversations:delete', id),
     getWithMessages: (id: number): Promise<ConversationWithMessages> =>
       ipcRenderer.invoke('conversations:getWithMessages', id),
     generateTitle: (id: number): Promise<string | null> =>
       ipcRenderer.invoke('conversations:generateTitle', id),
+    setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
+      ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
   },
   models: {
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),

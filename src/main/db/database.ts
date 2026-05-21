@@ -529,6 +529,7 @@ export class ConversationsRepo {
   async create(
     workspaceId: number,
     title?: string | null,
+    activeDocumentIds?: number[],
   ): Promise<{
     id: number
     workspaceId: number
@@ -538,9 +539,13 @@ export class ConversationsRepo {
     lastActivityAt: number
     messageCount: number
   }> {
+    // `active_document_ids` is a jsonb column; drizzle's sql tag binds JS
+    // arrays as Postgres arrays, which is wrong both shape- and syntax-wise
+    // (empty array becomes `()`). Serialize and cast explicitly.
+    const idsJson = JSON.stringify(activeDocumentIds ?? [])
     const inserted = await this.db.execute(sql`
-      INSERT INTO conversations (workspace_id, title)
-      VALUES (${workspaceId}, ${title ?? null})
+      INSERT INTO conversations (workspace_id, title, active_document_ids)
+      VALUES (${workspaceId}, ${title ?? null}, ${idsJson}::jsonb)
       RETURNING id, workspace_id, title, active_document_ids, created_at
     `)
     const row = (
@@ -568,6 +573,15 @@ export class ConversationsRepo {
   async setTitle(id: number, title: string | null): Promise<void> {
     await this.db.execute(sql`
       UPDATE conversations SET title = ${title} WHERE id = ${id}
+    `)
+  }
+
+  async setActiveDocumentIds(conversationId: number, ids: number[]): Promise<void> {
+    const idsJson = JSON.stringify(ids)
+    await this.db.execute(sql`
+      UPDATE conversations
+         SET active_document_ids = ${idsJson}::jsonb
+       WHERE id = ${conversationId}
     `)
   }
 

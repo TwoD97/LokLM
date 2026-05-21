@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 import type { ModelAvailability, ModelsStatus } from '@shared/documents'
 import type { ModelDownloadEvent } from '@preload/index'
 
@@ -119,7 +120,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
           // Error already surfaced via the progress event; stop the queue so
           // the user can retry / inspect.
           activeIdRef.current = null
-           
+
           console.error(`[models] download ${m.id} failed`, err)
           return
         }
@@ -193,7 +194,11 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
                   </span>
                 )}
                 {row.phase === 'verifying' && <span>Verifiziere …</span>}
-                {row.phase === 'complete' && <span>✓ Bereit</span>}
+                {row.phase === 'complete' && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Check size={14} aria-hidden="true" /> Bereit
+                  </span>
+                )}
                 {row.phase === 'cancelled' && <span>Abgebrochen — kann fortgesetzt werden</span>}
                 {row.phase === 'error' && (
                   <span className="models-list__error">Fehler: {row.message ?? 'unbekannt'}</span>

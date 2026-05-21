@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import type { UserSettings } from '@shared/settings'
 import { Segmented } from '../Segmented'
 
@@ -46,7 +47,7 @@ export function RerankerSection({ settings, update }: Props): JSX.Element {
           {a.source === 'ollama' && (
             <div className="settings-inline-warning">
               <span className="settings-inline-warning__icon" aria-hidden="true">
-                ⚠
+                <AlertTriangle size={14} />
               </span>
               <span>
                 Ollama doesn&apos;t expose dedicated rerankers. Scores come from prompting a chat
@@ -67,9 +68,7 @@ export function RerankerSection({ settings, update }: Props): JSX.Element {
                 { value: 'cpu', label: 'CPU' },
                 { value: 'gpu', label: 'GPU' },
               ]}
-              onChange={(v) =>
-                void update({ advanced: { reranker: { placement: v } } })
-              }
+              onChange={(v) => void update({ advanced: { reranker: { placement: v } } })}
             />
           </div>
         </div>

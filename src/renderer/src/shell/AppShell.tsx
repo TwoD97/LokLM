@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Workspace } from '@shared/documents'
+import type { Document, Workspace } from '@shared/documents'
 import { Sidebar, usePinnedSidebar } from './Sidebar'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
@@ -15,6 +15,13 @@ export function AppShell(): JSX.Element {
   const [peeking, setPeeking] = useState(false)
   const expanded = pinned || peeking
 
+  // Chat-scope state lifted here so the Sidebar can render the per-conversation
+  // document picker. ChatView is a controlled consumer that reports
+  // conversation changes back via onConversationChange.
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
+  const [activeDocumentIds, setActiveDocumentIds] = useState<number[]>([])
+  const [workspaceDocs, setWorkspaceDocs] = useState<Document[]>([])
+
   const refreshWorkspaces = useCallback(async () => {
     const ws = await window.api.workspaces.list()
     setWorkspaces(ws)
@@ -25,6 +32,30 @@ export function AppShell(): JSX.Element {
     void refreshWorkspaces()
   }, [refreshWorkspaces])
 
+  // Load docs for the active workspace; refresh on view switch back to chat
+  // (covers deletions that happened in the Library) and on index-done events
+  // (covers fresh imports).
+  useEffect(() => {
+    if (activeWorkspaceId == null) {
+      setWorkspaceDocs([])
+      return
+    }
+    let cancelled = false
+    void window.api.documents.list(activeWorkspaceId).then((docs) => {
+      if (!cancelled) setWorkspaceDocs(docs)
+    })
+    const off = window.api.documents.onIndexProgress((p) => {
+      if (p.phase !== 'done') return
+      void window.api.documents.list(activeWorkspaceId).then((docs) => {
+        if (!cancelled) setWorkspaceDocs(docs)
+      })
+    })
+    return () => {
+      cancelled = true
+      off()
+    }
+  }, [activeWorkspaceId, activeView])
+
   const onCreateWorkspace = useCallback(
     async (name: string) => {
       const ws = await window.api.workspaces.create(name)
@@ -34,6 +65,37 @@ export function AppShell(): JSX.Element {
     [refreshWorkspaces],
   )
 
+  const onWorkspaceSelect = useCallback((id: number) => {
+    setActiveWorkspaceId(id)
+    setCurrentConversationId(null)
+    setActiveDocumentIds([])
+  }, [])
+
+  const onConversationChange = useCallback((id: number | null, ids: number[]) => {
+    setCurrentConversationId(id)
+    setActiveDocumentIds(ids)
+  }, [])
+
+  const onToggleDocument = useCallback(
+    async (docId: number) => {
+      const next = activeDocumentIds.includes(docId)
+        ? activeDocumentIds.filter((x) => x !== docId)
+        : [...activeDocumentIds, docId]
+      setActiveDocumentIds(next)
+      if (currentConversationId != null) {
+        await window.api.conversations.setActiveDocumentIds(currentConversationId, next)
+      }
+    },
+    [activeDocumentIds, currentConversationId],
+  )
+
+  const onClearScope = useCallback(async () => {
+    setActiveDocumentIds([])
+    if (currentConversationId != null) {
+      await window.api.conversations.setActiveDocumentIds(currentConversationId, [])
+    }
+  }, [currentConversationId])
+
   return (
     <div className={`app-shell ${expanded ? 'app-shell--expanded' : ''}`}>
       <Sidebar
@@ -42,11 +104,16 @@ export function AppShell(): JSX.Element {
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         activeView={activeView}
-        onWorkspaceSelect={setActiveWorkspaceId}
+        onWorkspaceSelect={onWorkspaceSelect}
         onCreateWorkspace={(name) => void onCreateWorkspace(name)}
         onViewChange={setActiveView}
         onTogglePin={togglePin}
         onPeek={setPeeking}
+        chatViewActive={activeView === 'chat'}
+        workspaceDocs={workspaceDocs}
+        activeDocumentIds={activeDocumentIds}
+        onToggleDocument={(id) => void onToggleDocument(id)}
+        onClearScope={() => void onClearScope()}
       />
       <main className="app-shell__main">
         {activeWorkspaceId == null && (
@@ -59,7 +126,12 @@ export function AppShell(): JSX.Element {
           />
         )}
         {activeView === 'chat' && activeWorkspaceId != null && (
-          <ChatView workspaceId={activeWorkspaceId} />
+          <ChatView
+            workspaceId={activeWorkspaceId}
+            currentConversationId={currentConversationId}
+            activeDocumentIds={activeDocumentIds}
+            onConversationChange={onConversationChange}
+          />
         )}
       </main>
     </div>

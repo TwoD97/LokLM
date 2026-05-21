@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check, Plug } from 'lucide-react'
 import { useSettings } from './useSettings'
 import { Segmented } from './Segmented'
 import type { SystemInfo, LlmProfileChoice } from '@shared/documents'
@@ -65,12 +66,12 @@ export function BasicTab(): JSX.Element {
       {ollamaActive && (
         <div className="settings-section__notice">
           <span className="settings-section__notice__icon" aria-hidden="true">
-            🔌
+            <Plug size={16} />
           </span>
           <span>
-            External Ollama is the active LLM source. The bundled model isn&apos;t loaded right
-            now — it spins up only if Ollama fails. Pick the profile you&apos;d want serving when
-            that happens.
+            External Ollama is the active LLM source. The bundled model isn&apos;t loaded right now
+            — it spins up only if Ollama fails. Pick the profile you&apos;d want serving when that
+            happens.
           </span>
         </div>
       )}
@@ -141,7 +142,7 @@ export function BasicTab(): JSX.Element {
 
       <div style={{ marginTop: 14 }}>
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          ✓ saved
+          <Check size={14} aria-hidden="true" /> saved
         </span>
       </div>
     </div>

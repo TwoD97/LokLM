@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 
 type Props = {
   words: string[]
@@ -40,8 +41,18 @@ export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.El
         ))}
       </ol>
       <div className="auth-card__row">
-        <button type="button" onClick={() => void copy()}>
-          {copied ? 'In Zwischenablage ✓' : 'In Zwischenablage kopieren'}
+        <button
+          type="button"
+          onClick={() => void copy()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          {copied ? (
+            <>
+              In Zwischenablage <Check size={14} aria-hidden="true" />
+            </>
+          ) : (
+            'In Zwischenablage kopieren'
+          )}
         </button>
       </div>
       <label className="auth-card__checkbox">

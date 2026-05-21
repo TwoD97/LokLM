@@ -27,26 +27,42 @@ type LocalMessage =
 
 type Props = {
   workspaceId: number
+  currentConversationId: number | null
+  activeDocumentIds: number[]
+  onConversationChange: (id: number | null, activeDocumentIds: number[]) => void
 }
 
-export function ChatView({ workspaceId }: Props): JSX.Element {
+export function ChatView({
+  workspaceId,
+  currentConversationId,
+  activeDocumentIds,
+  onConversationChange,
+}: Props): JSX.Element {
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [currentId, setCurrentId] = useState<number | null>(null)
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [busy, setBusy] = useState(false)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null)
   const [sourceViewer, setSourceViewer] = useState<{ chunkId: number } | null>(null)
 
-  // Closures captured by the stream listener see a stale `currentId` — we use
-  // a ref so the listener can compare against the live value and drop tokens
-  // for conversations the user has already navigated away from. Without this
-  // the tokens of a still-running stream get appended to the LAST message of
-  // whichever conv the user happens to be viewing.
-  const currentIdRef = useRef<number | null>(null)
+  // Closures captured by the stream listener see a stale `currentConversationId`
+  // — we use a ref so the listener can compare against the live value and drop
+  // tokens for conversations the user has already navigated away from. Without
+  // this the tokens of a still-running stream get appended to the LAST message
+  // of whichever conv the user happens to be viewing.
+  const currentIdRef = useRef<number | null>(currentConversationId)
   useEffect(() => {
-    currentIdRef.current = currentId
-  }, [currentId])
+    currentIdRef.current = currentConversationId
+  }, [currentConversationId])
+
+  // Latest activeDocumentIds snapshot for the in-flight send. The handler
+  // closes over the value at the time the user clicked send; we don't want
+  // mid-stream toggles to affect the request, so reading from a ref at send
+  // time is intentional — we capture once into a local in onSend.
+  const activeDocumentIdsRef = useRef<number[]>(activeDocumentIds)
+  useEffect(() => {
+    activeDocumentIdsRef.current = activeDocumentIds
+  }, [activeDocumentIds])
 
   const refresh = useCallback(async () => {
     const list = await window.api.conversations.list(workspaceId)
@@ -54,56 +70,59 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
   }, [workspaceId])
 
   useEffect(() => {
-    setCurrentId(null)
     setMessages([])
     void refresh()
   }, [workspaceId, refresh])
 
-  const openConversation = useCallback(async (id: number) => {
-    setCurrentId(id)
-    const data = await window.api.conversations.getWithMessages(id)
-    setMessages(
-      data.messages.map((m) => {
-        if (m.role === 'user') return { role: 'user', content: m.content }
-        // Persisted assistant turns carry the stream metrics they were
-        // recorded with. Re-hydrate the metrics chip if any of them survived
-        // the round-trip (older rows have all-null and render without a chip).
-        const hasMetrics = m.ttftMs != null || m.tokensPerSec != null || (m.tokenCount ?? 0) > 0
-        return {
-          role: 'assistant',
-          content: m.content,
-          streaming: false,
-          ...(hasMetrics
-            ? {
-                metrics: {
-                  ttftMs: m.ttftMs,
-                  tokensPerSec: m.tokensPerSec,
-                  tokenCount: m.tokenCount ?? 0,
-                },
-              }
-            : {}),
-        }
-      }),
-    )
-  }, [])
+  const openConversation = useCallback(
+    async (id: number) => {
+      const data = await window.api.conversations.getWithMessages(id)
+      onConversationChange(id, data.conversation.activeDocumentIds)
+      setMessages(
+        data.messages.map((m) => {
+          if (m.role === 'user') return { role: 'user', content: m.content }
+          // Persisted assistant turns carry the stream metrics they were
+          // recorded with. Re-hydrate the metrics chip if any of them survived
+          // the round-trip (older rows have all-null and render without a chip).
+          const hasMetrics = m.ttftMs != null || m.tokensPerSec != null || (m.tokenCount ?? 0) > 0
+          return {
+            role: 'assistant',
+            content: m.content,
+            streaming: false,
+            ...(hasMetrics
+              ? {
+                  metrics: {
+                    ttftMs: m.ttftMs,
+                    tokensPerSec: m.tokensPerSec,
+                    tokenCount: m.tokenCount ?? 0,
+                  },
+                }
+              : {}),
+          }
+        }),
+      )
+    },
+    [onConversationChange],
+  )
 
   const startNewChat = useCallback(() => {
-    setCurrentId(null)
+    onConversationChange(null, [])
     setMessages([])
-  }, [])
+  }, [onConversationChange])
 
   const onSend = useCallback(
     async (text: string) => {
       setBusy(true)
       // Captured here so we still know it was a fresh chat after we mint a
-      // conversation row below — `currentId` won't reflect the setState until
-      // the next render.
-      const wasNewConversation = currentId == null
-      let convId = currentId
+      // conversation row below — `currentConversationId` won't reflect the
+      // update until the next render.
+      const wasNewConversation = currentConversationId == null
+      const idsForSend = activeDocumentIdsRef.current
+      let convId = currentConversationId
       if (convId == null) {
-        const conv = await window.api.conversations.create(workspaceId)
+        const conv = await window.api.conversations.create(workspaceId, undefined, idsForSend)
         convId = conv.id
-        setCurrentId(convId)
+        onConversationChange(convId, idsForSend)
         await refresh()
       }
       const sendTime = performance.now()
@@ -167,6 +186,7 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
           history: messages.map((m) => ({ role: m.role, content: m.content })),
           rerank: true,
           contextualize: true,
+          activeDocumentIds: idsForSend,
         })
         // IPC stream events can race with the invoke reply that resolves
         // chat.stream — once we unsubscribe in `finally`, any late `done` or
@@ -191,7 +211,7 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         void refresh()
       }
     },
-    [currentId, workspaceId, messages, openConversation, refresh],
+    [currentConversationId, workspaceId, messages, openConversation, refresh, onConversationChange],
   )
 
   const onCancel = useCallback(() => {
@@ -201,19 +221,20 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
   const onDelete = useCallback(
     async (id: number) => {
       await window.api.conversations.delete(id)
-      if (currentId === id) {
-        setCurrentId(null)
+      if (currentConversationId === id) {
+        onConversationChange(null, [])
         setMessages([])
       }
       setConfirmDelete(null)
       void refresh()
     },
-    [currentId, refresh],
+    [currentConversationId, refresh, onConversationChange],
   )
 
   const currentTitle =
-    currentId != null
-      ? (conversations.find((c) => c.id === currentId)?.title ?? `Conversation #${currentId}`)
+    currentConversationId != null
+      ? (conversations.find((c) => c.id === currentConversationId)?.title ??
+        `Conversation #${currentConversationId}`)
       : 'New chat'
 
   const onCitationClick = useCallback(({ chunkId }: { documentId: number; chunkId: number }) => {
@@ -232,7 +253,7 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
     >
       <ConversationList
         conversations={conversations}
-        currentId={currentId}
+        currentId={currentConversationId}
         onSelect={(id) => void openConversation(id)}
         onNewChat={startNewChat}
         onRequestDelete={(c) => setConfirmDelete(c)}
@@ -241,8 +262,11 @@ export function ChatView({ workspaceId }: Props): JSX.Element {
         <ChatHeader
           title={currentTitle}
           onDelete={
-            currentId != null
-              ? () => setConfirmDelete(conversations.find((c) => c.id === currentId) ?? null)
+            currentConversationId != null
+              ? () =>
+                  setConfirmDelete(
+                    conversations.find((c) => c.id === currentConversationId) ?? null,
+                  )
               : null
           }
         />

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { Check, Pencil, X } from 'lucide-react'
 import { Avatar } from '../components/Avatar'
 
 // Six hand-picked HSL hues across the wheel — enough variety that any
@@ -181,21 +182,22 @@ export function ProfileTab(): JSX.Element {
               onClick={() => void commitEdit()}
               title="Save (Enter)"
             >
-              ✓ Save
+              <Check size={16} aria-hidden="true" /> Save
             </button>
             <button
               className="settings-inline-field__action settings-inline-field__action--cancel"
               onClick={cancelEdit}
               title="Cancel (Esc)"
+              aria-label="Cancel"
             >
-              ✕
+              <X size={16} aria-hidden="true" />
             </button>
           </>
         ) : (
           <>
             <span className="settings-inline-field__value">{savedName || '—'}</span>
             <button className="settings-inline-field__action" onClick={startEdit} title="Edit">
-              ✏ Edit
+              <Pencil size={14} aria-hidden="true" /> Edit
             </button>
           </>
         )}
@@ -210,17 +212,24 @@ export function ProfileTab(): JSX.Element {
       </div>
       <div className="settings-stat">
         <span className="settings-stat__label">Status</span>
-        <span className="settings-stat__value" style={{ color: 'var(--success)' }}>
-          Recovery passphrase set ✓
+        <span
+          className="settings-stat__value"
+          style={{
+            color: 'var(--success)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          Recovery passphrase set <Check size={14} aria-hidden="true" />
         </span>
       </div>
 
       <div style={{ marginTop: 14 }}>
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          ✓ saved
+          <Check size={14} aria-hidden="true" /> saved
         </span>
       </div>
-
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react'
 import type { Conversation } from '@shared/documents'
 
 type Props = {
@@ -83,9 +84,11 @@ export function ConversationList({
                 color: '#9aaac0',
                 cursor: 'pointer',
                 padding: '4px 6px',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
             >
-              🗑️
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         ))
