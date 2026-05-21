@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { UserSettings } from '@shared/settings'
 import { Segmented } from './Segmented'
+import { ReindexGateModal } from './ReindexGateModal'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 type Probe =
@@ -23,7 +24,55 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   const [open, setOpen] = useState(true)
   const [probe, setProbe] = useState<Probe>({ state: 'idle' })
   const [showAllForEmbedder, setShowAllForEmbedder] = useState(false)
+  // Master-switch gate: opens the ReindexGateModal when the user flips ALL
+  // three sources at once. The embedder leg of the flip is the part that
+  // demands the gate (changing embedding model invalidates existing vectors),
+  // so the modal copy keeps using the embedder-identity strings.
+  const [masterGate, setMasterGate] = useState<{
+    from: string
+    to: string
+    targetSource: 'bundled' | 'ollama'
+  } | null>(null)
   const o = settings.advanced.ollama
+  const adv = settings.advanced
+  const allModelsConfigured = Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+  const allOnOllama =
+    adv.llm.source === 'ollama' &&
+    adv.embedder.source === 'ollama' &&
+    adv.reranker.source === 'ollama'
+
+  const startMasterSwitch = (next: 'bundled' | 'ollama'): void => {
+    if (next === (allOnOllama ? 'ollama' : 'bundled')) return
+    const fromId =
+      adv.embedder.source === 'ollama' ? `ollama:${o.embedderModel ?? '?'}` : 'bundled:bge-m3'
+    const toId = next === 'ollama' ? `ollama:${o.embedderModel ?? '?'}` : 'bundled:bge-m3'
+    setMasterGate({ from: fromId, to: toId, targetSource: next })
+  }
+
+  const confirmMaster = async (): Promise<void> => {
+    if (!masterGate) return
+    // Embedder goes first — trySwitchSource probes + dim-checks before
+    // committing, so if Ollama is misconfigured we bail before flipping the
+    // LLM and reranker. (Errors bubble up to the modal's error banner.)
+    const res = await window.api.embedder.trySwitchSource(masterGate.targetSource)
+    if (!res.ok) {
+      const msg = 'message' in res ? `: ${res.message}` : ''
+      throw new Error(`Probe failed (${res.kind})${msg}`)
+    }
+    // Embedder is now on the target source — flip LLM + reranker together via
+    // settings:update so applySettings re-broadcasts both dots and unloads
+    // the bundled GGUFs whose source just changed.
+    await update({
+      advanced: {
+        llm: { source: masterGate.targetSource },
+        reranker: { source: masterGate.targetSource },
+      },
+    })
+    // Re-embed pending chunks against the new embedder identity.
+    const wss = await window.api.workspaces.list()
+    for (const w of wss) await window.api.embedder.runBackfill(w.id)
+    setMasterGate(null)
+  }
 
   const doProbe = useCallback(async () => {
     setProbe({ state: 'probing' })
@@ -160,6 +209,31 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                 onChange={(v) => void update({ advanced: { ollama: { rerankerModel: v } } })}
               />
 
+              <div className="settings-row">
+                <div className="settings-row__label">
+                  <span className="settings-row__label-text">Use Ollama for everything</span>
+                  <span className="settings-row__hint">
+                    {allModelsConfigured
+                      ? 'Routes LLM, embedding, and reranking through this server. Flips all three sources at once — the per-section toggles below still work if you want to mix-and-match.'
+                      : 'Pick a model for LLM, Embedder, and Reranker above to enable this switch.'}
+                  </span>
+                </div>
+                <Segmented
+                  ariaLabel="Use Ollama for everything"
+                  value={allOnOllama ? 'ollama' : 'bundled'}
+                  options={[
+                    { value: 'bundled', label: 'Bundled (local)' },
+                    {
+                      value: 'ollama',
+                      label: 'External Ollama',
+                      disabled: !allModelsConfigured,
+                      hint: allModelsConfigured ? undefined : 'Pick all three Ollama models first',
+                    },
+                  ]}
+                  onChange={(v) => startMasterSwitch(v)}
+                />
+              </div>
+
               <div className="settings-block">
                 <div className="settings-block__head">
                   <div className="settings-block__head-text">
@@ -189,6 +263,13 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
           )}
         </div>
       )}
+      <ReindexGateModal
+        open={masterGate !== null}
+        fromIdentity={masterGate?.from ?? ''}
+        toIdentity={masterGate?.to ?? ''}
+        onConfirm={confirmMaster}
+        onCancel={() => setMasterGate(null)}
+      />
     </div>
   )
 }

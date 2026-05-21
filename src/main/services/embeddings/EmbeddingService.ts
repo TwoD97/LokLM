@@ -19,6 +19,29 @@ export const EMBEDDING_DIM = 1024
  */
 export const BUNDLED_EMBEDDER_IDENTITY = 'bundled:bge-m3'
 
+/**
+ * Normalises an embedder identity string down to the underlying model stem so
+ * the backfill can tell "bundled bge-m3" and "ollama bge-m3" apart from a real
+ * model swap. Two identities with the same stem produce vectors in the same
+ * semantic space — different quantisations of BGE-M3 still cosine-match at
+ * >0.99 — so we keep the existing vectors and skip the re-embed.
+ *
+ *   bundled:bge-m3                            → bge-m3
+ *   ollama:hf.co/lm-kit/bge-m3-gguf:Q4_K_M    → bge-m3
+ *   ollama:nomic-embed-text                   → nomic-embed-text
+ *   ollama:nomic-embed-text:latest            → nomic-embed-text
+ *   ollama:mxbai-embed-large:f16              → mxbai-embed-large
+ */
+export function embedderModelStem(identity: string): string {
+  // Strip provider prefix (bundled:/ollama:); leave bare model strings as-is.
+  const afterPrefix = identity.replace(/^(bundled|ollama):/, '')
+  // For HF-style paths (hf.co/owner/repo:tag) take the last path component.
+  const lastSegment = afterPrefix.split('/').pop() ?? afterPrefix
+  // Drop the trailing :TAG (quant / version marker) and any -gguf suffix.
+  const noTag = lastSegment.split(':')[0] ?? lastSegment
+  return noTag.toLowerCase().replace(/-gguf$/i, '')
+}
+
 const NON_EMBEDDER_PATTERNS = [/qwen/i, /llama/i, /mistral/i, /phi/i, /gemma/i, /reranker/i]
 
 import type { EmbedderState, EmbedderStatus, EmbedderInfo } from '../../../shared/documents'

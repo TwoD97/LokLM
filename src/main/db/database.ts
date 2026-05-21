@@ -243,6 +243,30 @@ export class DocumentsRepo {
     return r.rows.length
   }
 
+  /** Distinct embedder identities present in non-null chunk embeddings for the
+   *  workspace. Used by the backfill to decide whether existing vectors are
+   *  stem-compatible with the active embedder — see embedderModelStem(). */
+  async distinctEmbedderIdentities(workspaceId: number): Promise<string[]> {
+    const r = await this.db.execute(sql`
+      SELECT DISTINCT embedder_identity
+        FROM chunks
+       WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedding IS NOT NULL
+    `)
+    return (r.rows as Array<{ embedder_identity: string }>).map((row) => row.embedder_identity)
+  }
+
+  /** Nulls out the embedding for chunks tagged with this exact identity. */
+  async purgeEmbeddingsByIdentity(workspaceId: number, identity: string): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE chunks SET embedding = NULL
+       WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedder_identity = ${identity}
+      RETURNING id
+    `)
+    return r.rows.length
+  }
+
   async ensureVectorIndex(): Promise<void> {
     await this.db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_chunks_hnsw

@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import type { Database } from '../../db/database'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { BackfillStatus } from '../../../shared/documents'
+import { embedderModelStem } from './EmbeddingService'
 
 // re-export so callers in main process can keep importing from this file.
 export type { BackfillStatus }
@@ -66,16 +67,30 @@ export class EmbeddingBackfillService {
     }
 
     // Identity round-trip: before processing missing-embedding rows, null out
-    // any pre-existing vectors that were produced by a *different* embedder.
-    // This way a user who switches embedders (bundled ↔ ollama, or swaps the
-    // ollama model) gets a clean re-embed instead of mixed-identity vectors
-    // poisoning cosine search. The same backfill loop below then refills the
-    // NULLs we just punched.
+    // any pre-existing vectors that were produced by a *different* underlying
+    // model. "Different" is judged by `embedderModelStem` — both bundled BGE-M3
+    // and an Ollama-served BGE-M3 (regardless of quantisation tag) collapse to
+    // the same stem, so flipping the source doesn't trigger a re-embed when
+    // the model is functionally identical. A genuine model swap (bge-m3 →
+    // nomic-embed-text) does have different stems and still gets purged so
+    // the same backfill loop below can refill the NULLs cleanly.
     const activeIdentity = embedder.identity()
-    const purged = await this.db.documents().purgeEmbeddingsNotMatching(workspaceId, activeIdentity)
+    const activeStem = embedderModelStem(activeIdentity)
+    const existingIdentities = await this.db.documents().distinctEmbedderIdentities(workspaceId)
+    const incompatibleIdentities = existingIdentities.filter(
+      (id) => embedderModelStem(id) !== activeStem,
+    )
+    let purged = 0
+    for (const id of incompatibleIdentities) {
+      purged += await this.db.documents().purgeEmbeddingsByIdentity(workspaceId, id)
+    }
     if (purged > 0) {
       // eslint-disable-next-line no-console
-      console.warn(`[backfill] purged ${purged} stale chunks (identity != ${activeIdentity})`)
+      console.warn(
+        `[backfill] purged ${purged} stale chunks (stem ${incompatibleIdentities
+          .map(embedderModelStem)
+          .join(', ')} != ${activeStem})`,
+      )
     }
 
     const total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
