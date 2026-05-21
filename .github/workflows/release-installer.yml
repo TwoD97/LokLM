@@ -82,11 +82,13 @@ jobs:
       # gegen die URLs in src/main/services/models/manifest.ts. CI braucht die
       # GGUFs daher nicht mehr , spart ~6 GB download pro run.
 
-      - name: Package (NSIS)
-        # makensis 32-bit ist nicht mehr ein problem , weil die payload jetzt
-        # ~200 MB ist (kein bundling). npmRebuild=false in package.json
-        # umgeht @electron/rebuild (alle native deps sind N-API prebuilt).
-        # makensis selbst kommt von windows-latest's PATH ( pre-installed ).
+      - name: Package (portable 7zSD self-extractor)
+        # electron-builder's "portable" target wrapt payload + wizard in einer
+        # single-file .exe via 7zSD ; splashImage zeigt resources/installer-
+        # splash.bmp während der self-extract phase. npmRebuild=false in
+        # package.json umgeht @electron/rebuild (alle native deps sind N-API
+        # prebuilt). Kein makensis mehr nötig — der frühere NSIS-stub-ansatz
+        # wurde durch das build-in portable target ersetzt.
         run: pnpm package:win
 
       - name: Compute sha256 + size
