@@ -1,8 +1,12 @@
 import type { DocumentGenerator, TopicSeed } from './DocumentGenerator'
 
+// env-fallback wie in synth/OllamaGenerator:
+//   OLLAMA_BASE_URL , OLLAMA_BEARER_TOKEN , OLLAMA_LLM_MODEL
+
 interface OllamaOptions {
   baseUrl?: string
   model?: string
+  bearerToken?: string | null
 }
 
 interface OllamaResponse {
@@ -14,18 +18,23 @@ export class OllamaDocGenerator implements DocumentGenerator {
   readonly name: string
   private readonly baseUrl: string
   private readonly model: string
+  private readonly bearerToken: string | null
 
   constructor(opts: OllamaOptions = {}) {
-    this.baseUrl = opts.baseUrl ?? 'http://127.0.0.1:11434'
-    this.model = opts.model ?? 'llama3'
+    this.baseUrl = opts.baseUrl || process.env['OLLAMA_BASE_URL'] || 'http://127.0.0.1:11434'
+    this.model = opts.model || process.env['OLLAMA_LLM_MODEL'] || 'llama3'
+    this.bearerToken = opts.bearerToken ?? process.env['OLLAMA_BEARER_TOKEN'] ?? null
+    if (this.bearerToken === '') this.bearerToken = null
     this.name = `ollama:${this.model}`
   }
 
   async generate(seed: TopicSeed): Promise<string> {
     const prompt = buildPrompt(seed)
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (this.bearerToken) headers['authorization'] = `Bearer ${this.bearerToken}`
     const res = await fetch(`${this.baseUrl}/api/generate`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: this.model,
         prompt,
