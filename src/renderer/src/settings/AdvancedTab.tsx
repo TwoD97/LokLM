@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AlertTriangle, BarChart3, Brain, Check, Plug, Search, type LucideIcon } from 'lucide-react'
 import { useSettings } from './useSettings'
 import { LlmSection } from './sections/LlmSection'
 import { EmbedderSection } from './sections/EmbedderSection'
@@ -9,11 +10,11 @@ import { DEFAULT_SETTINGS } from '@shared/settings'
 
 type SubTab = 'llm' | 'retrieval' | 'ollama' | 'diagnostics'
 
-const SUBTABS: { id: SubTab; label: string; icon: string }[] = [
-  { id: 'llm', label: 'LLM', icon: '🧠' },
-  { id: 'retrieval', label: 'Retrieval', icon: '🔎' },
-  { id: 'ollama', label: 'Ollama', icon: '🔌' },
-  { id: 'diagnostics', label: 'Diagnostics', icon: '📊' },
+const SUBTABS: { id: SubTab; label: string; Icon: LucideIcon }[] = [
+  { id: 'llm', label: 'LLM', Icon: Brain },
+  { id: 'retrieval', label: 'Retrieval', Icon: Search },
+  { id: 'ollama', label: 'Ollama', Icon: Plug },
+  { id: 'diagnostics', label: 'Diagnostics', Icon: BarChart3 },
 ]
 
 export function AdvancedTab(): JSX.Element {
@@ -27,12 +28,12 @@ export function AdvancedTab(): JSX.Element {
     <div>
       <div className="settings-advanced-banner">
         <span className="settings-advanced-banner__icon" aria-hidden="true">
-          ⚠
+          <AlertTriangle size={16} />
         </span>
         <span>
           <strong>Advanced settings can break LokLM&apos;s local-first defaults.</strong> Only
-          change these if you understand the implications. Use <em>Reset advanced</em> at the
-          bottom to restore safe defaults.
+          change these if you understand the implications. Use <em>Reset advanced</em> at the bottom
+          to restore safe defaults.
         </span>
       </div>
 
@@ -46,7 +47,7 @@ export function AdvancedTab(): JSX.Element {
             onClick={() => setSub(t.id)}
           >
             <span className="settings-subtab__icon" aria-hidden="true">
-              {t.icon}
+              <t.Icon size={16} />
             </span>
             {t.label}
           </button>
@@ -83,7 +84,7 @@ export function AdvancedTab(): JSX.Element {
           </button>
         )}
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          ✓ saved
+          <Check size={14} aria-hidden="true" /> saved
         </span>
       </div>
     </div>

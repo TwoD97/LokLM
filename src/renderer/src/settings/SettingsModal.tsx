@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlertTriangle, Settings as SettingsIcon, User } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { BasicTab } from './BasicTab'
 import { AdvancedTab } from './AdvancedTab'
@@ -43,7 +44,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               onClick={() => setTab('profile')}
             >
               <span className="settings-tab__icon" aria-hidden="true">
-                👤
+                <User size={18} />
               </span>
               Profile
             </button>
@@ -54,7 +55,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               onClick={() => setTab('basic')}
             >
               <span className="settings-tab__icon" aria-hidden="true">
-                ⚙
+                <SettingsIcon size={18} />
               </span>
               Basic
             </button>
@@ -65,7 +66,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               onClick={() => setTab('advanced')}
             >
               <span className="settings-tab__icon" aria-hidden="true">
-                ⚠
+                <AlertTriangle size={18} />
               </span>
               Advanced
             </button>

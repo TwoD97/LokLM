@@ -99,12 +99,12 @@ const stub: Api = {
   },
   conversations: {
     list: () => Promise.resolve([]),
-    create: (workspaceId: number, title?: string) =>
+    create: (workspaceId: number, title?: string, activeDocumentIds?: number[]) =>
       Promise.resolve({
         id: 1,
         workspaceId,
         title: title ?? null,
-        activeDocumentIds: [] as number[],
+        activeDocumentIds: activeDocumentIds ?? ([] as number[]),
         createdAt: Math.floor(Date.now() / 1000),
         lastActivityAt: Math.floor(Date.now() / 1000),
         messageCount: 0,
@@ -124,6 +124,7 @@ const stub: Api = {
         messages: [],
       }),
     generateTitle: () => Promise.resolve(null),
+    setActiveDocumentIds: () => Promise.resolve(),
   },
   models: {
     status: () =>

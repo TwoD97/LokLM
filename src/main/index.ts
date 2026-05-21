@@ -644,15 +644,23 @@ function registerIpc(): void {
   ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>
     getAuth().requireDatabase().conversations().list(workspaceId),
   )
-  ipcMain.handle('conversations:create', async (_e, workspaceId: number, title?: string) =>
-    getAuth()
-      .requireDatabase()
-      .conversations()
-      .create(workspaceId, title ?? null),
+  ipcMain.handle(
+    'conversations:create',
+    async (_e, workspaceId: number, title?: string, activeDocumentIds?: number[]) =>
+      getAuth()
+        .requireDatabase()
+        .conversations()
+        .create(workspaceId, title ?? null, activeDocumentIds),
   )
   ipcMain.handle('conversations:delete', async (_e, id: number) => {
     await getAuth().requireDatabase().conversations().delete(id)
   })
+  ipcMain.handle(
+    'conversations:setActiveDocumentIds',
+    async (_e, conversationId: number, ids: number[]) => {
+      await getAuth().requireDatabase().conversations().setActiveDocumentIds(conversationId, ids)
+    },
+  )
   ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
     getAuth().requireDatabase().conversations().getWithMessages(id),
   )

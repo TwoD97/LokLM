@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { Workspace } from '@shared/documents'
+import { Library, MessageSquare, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import type { Document, Workspace } from '@shared/documents'
 
 type ViewKind = 'library' | 'chat'
 
@@ -14,6 +15,11 @@ type Props = {
   onViewChange: (v: ViewKind) => void
   onTogglePin: () => void
   onPeek: (peek: boolean) => void
+  chatViewActive: boolean
+  workspaceDocs: Document[]
+  activeDocumentIds: number[]
+  onToggleDocument: (docId: number) => void
+  onClearScope: () => void
 }
 
 export function Sidebar({
@@ -27,8 +33,19 @@ export function Sidebar({
   onViewChange,
   onTogglePin,
   onPeek,
+  chatViewActive,
+  workspaceDocs,
+  activeDocumentIds,
+  onToggleDocument,
+  onClearScope,
 }: Props): JSX.Element {
   const [draft, setDraft] = useState('')
+  const [docPickerOpen, setDocPickerOpen] = useState(true)
+
+  // Stale-id filter: a document may have been deleted while still referenced
+  // by the conversation row. Only count and render ids that still resolve.
+  const visibleDocIds = new Set(workspaceDocs.map((d) => d.id))
+  const selectedCount = activeDocumentIds.filter((id) => visibleDocIds.has(id)).length
 
   return (
     <aside
@@ -43,7 +60,7 @@ export function Sidebar({
           aria-label="Library"
           title="Library"
         >
-          📚
+          <Library size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
         <button
           className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
@@ -51,7 +68,7 @@ export function Sidebar({
           aria-label="Chat"
           title="Chat"
         >
-          💬
+          <MessageSquare size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
       </div>
       {expanded && (
@@ -69,15 +86,76 @@ export function Sidebar({
               {pinned ? '«' : '»'}
             </button>
           </div>
-          {workspaces.map((w) => (
-            <button
-              key={w.id}
-              className={`sidebar__nav-btn ${w.id === activeWorkspaceId ? 'sidebar__nav-btn--active' : ''}`}
-              onClick={() => onWorkspaceSelect(w.id)}
-            >
-              {w.name}
-            </button>
-          ))}
+          {workspaces.map((w) => {
+            const isActive = w.id === activeWorkspaceId
+            const isDropdown = isActive && chatViewActive
+            const showDocs = isDropdown && docPickerOpen
+            return (
+              <div key={w.id}>
+                <button
+                  className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''} ${isDropdown ? 'sidebar__nav-btn--dropdown' : ''}`}
+                  onClick={() => {
+                    if (isDropdown) {
+                      setDocPickerOpen((v) => !v)
+                    } else {
+                      onWorkspaceSelect(w.id)
+                      setDocPickerOpen(true)
+                    }
+                  }}
+                  aria-expanded={isDropdown ? docPickerOpen : undefined}
+                >
+                  <span className="sidebar__nav-btn-label">{w.name}</span>
+                  {isDropdown &&
+                    (docPickerOpen ? (
+                      <ChevronDown size={14} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight size={14} aria-hidden="true" />
+                    ))}
+                </button>
+                {showDocs && (
+                  <div className="sidebar__doc-scope">
+                    <div className="sidebar__doc-scope-header">
+                      <span className="sidebar__doc-scope-label">
+                        {selectedCount > 0
+                          ? `Scope: ${selectedCount} file${selectedCount === 1 ? '' : 's'}`
+                          : 'Scope: All documents'}
+                      </span>
+                      {selectedCount > 0 && (
+                        <button
+                          type="button"
+                          className="sidebar__doc-scope-clear"
+                          onClick={onClearScope}
+                          aria-label="Clear document scope"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {workspaceDocs.length === 0 ? (
+                      <div className="sidebar__doc-scope-empty">No documents yet</div>
+                    ) : (
+                      workspaceDocs.map((d) => {
+                        const selected = activeDocumentIds.includes(d.id)
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            className={`sidebar__nav-btn sidebar__doc-btn ${selected ? 'sidebar__nav-btn--active' : ''}`}
+                            onClick={() => onToggleDocument(d.id)}
+                            aria-pressed={selected}
+                            title={d.title}
+                          >
+                            <FileText size={14} aria-hidden="true" />
+                            <span className="sidebar__doc-btn-label">{d.title}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
           <form
             onSubmit={(e) => {
               e.preventDefault()

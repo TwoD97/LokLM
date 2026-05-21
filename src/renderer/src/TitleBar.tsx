@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Settings as SettingsIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
 
 type DotState = EmbedderState | RerankerState | ModelState
@@ -202,7 +203,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
             title="Settings"
             onClick={onOpenSettings}
           >
-            ⚙
+            <SettingsIcon size={16} aria-hidden="true" />
           </button>
         )}
         <button
