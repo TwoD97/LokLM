@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, copyFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import type { IndexProgress } from '@main/services/documents/types'
+
+const FIX = resolve(__dirname, '..', 'unit', 'fixtures')
 
 describe('DocumentService.importFile (integration)', () => {
   let dir: string
@@ -42,6 +44,44 @@ describe('DocumentService.importFile (integration)', () => {
     const refreshed = await auth.requireDatabase().documents().getDocument(doc.id)
     expect(refreshed?.status).toBe('ready')
     expect(refreshed?.chunkCount).toBeGreaterThan(0)
+  }, 30_000)
+
+  it('imports a docx file → markdown-aware chunks with heading_path populated', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    // Copy the fixture into the temp dir — DocumentService stores sourcePath,
+    // we don't want the test to mutate the committed fixture by accident.
+    const path = join(dir, 'sample.docx')
+    await copyFile(join(FIX, 'sample.docx'), path)
+
+    const sent: IndexProgress[] = []
+    const fakeSender = { send: (_ch: string, payload: IndexProgress) => sent.push(payload) }
+    const docs = new DocumentService(auth)
+    const doc = await docs.importFile({
+      workspaceId: ws.id,
+      sourcePath: path,
+      sender: fakeSender as unknown as Electron.WebContents,
+    })
+    expect(doc.mimeType).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+
+    await waitFor(() => sent.some((e) => e.phase === 'done' || e.phase === 'failed'), 10000)
+    expect(sent.at(-1)?.phase).toBe('done')
+
+    const refreshed = await auth.requireDatabase().documents().getDocument(doc.id)
+    expect(refreshed?.status).toBe('ready')
+    expect(refreshed?.chunkCount).toBeGreaterThan(0)
+
+    // The DOCX → markdown → chunkMarkdown path must populate heading_path so
+    // citations render breadcrumbs. At least one chunk should carry the
+    // 'Einführung' or 'Methoden' H1 from the fixture.
+    const repo = auth.requireDatabase().documents()
+    const chunks = await repo.listChunksForDocument(doc.id)
+    const withHeading = chunks.filter((c) => c.heading_path && c.heading_path.length > 0)
+    expect(withHeading.length).toBeGreaterThan(0)
+    const allHeadings = withHeading.flatMap((c) => c.heading_path ?? [])
+    expect(allHeadings).toEqual(expect.arrayContaining(['Einführung']))
+    expect(allHeadings).toEqual(expect.arrayContaining(['Methoden']))
   }, 30_000)
 
   it('rejects unsupported extensions', async () => {

@@ -193,6 +193,8 @@ function mimeFromExt(ext: string): string | undefined {
   switch (ext.toLowerCase()) {
     case '.pdf':
       return 'application/pdf'
+    case '.docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     case '.md':
     case '.markdown':
       return 'text/markdown'
