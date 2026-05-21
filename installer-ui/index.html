@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LokLM Installer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="installer-shell">
+      <aside class="brand-panel" aria-label="LokLM">
+        <div class="lang-switch" role="group" aria-label="Sprache">
+          <button type="button" class="lang-switch__btn is-active" data-locale="de">DE</button>
+          <button type="button" class="lang-switch__btn" data-locale="en">EN</button>
+        </div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="72" height="72" fill="none">
+            <rect
+              x="14"
+              y="22"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              stroke-width="3"
+              opacity="0.35"
+            />
+            <rect
+              x="11"
+              y="17"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              stroke-width="3"
+              opacity="0.65"
+            />
+            <rect
+              x="8"
+              y="12"
+              width="36"
+              height="30"
+              rx="2"
+              fill="#0B1B2B"
+              stroke="#F6F4EF"
+              stroke-width="3"
+            />
+            <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
+            <path
+              d="M14 22 H32 M14 28 H30 M14 34 H26"
+              stroke="#F6F4EF"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              opacity="0.6"
+            />
+          </svg>
+        </div>
+        <p class="eyebrow" data-i18n="brand.eyebrow">Lokaler KI-Wissensassistent</p>
+        <h1 data-i18n="brand.title">LokLM installieren</h1>
+        <p class="brand-copy" data-i18n="brand.copy">
+          Richte LokLM lokal ein, lege Verknuepfungen fest und starte direkt in deinen sicheren
+          Arbeitsbereich.
+        </p>
+        <ol class="steps" aria-label="Installationsschritte">
+          <li class="step is-active" data-step-dot="welcome">
+            <span class="step__num">1</span
+            ><span class="step__label" data-i18n="steps.welcome">Start</span>
+          </li>
+          <li class="step" data-step-dot="license">
+            <span class="step__num">2</span
+            ><span class="step__label" data-i18n="steps.license">Lizenz</span>
+          </li>
+          <li class="step" data-step-dot="options">
+            <span class="step__num">3</span
+            ><span class="step__label" data-i18n="steps.options">Optionen</span>
+          </li>
+          <li class="step" data-step-dot="install">
+            <span class="step__num">4</span
+            ><span class="step__label" data-i18n="steps.install">Installieren</span>
+          </li>
+          <li class="step" data-step-dot="finish">
+            <span class="step__num">5</span
+            ><span class="step__label" data-i18n="steps.finish">Fertig</span>
+          </li>
+        </ol>
+      </aside>
+
+      <section class="content-card">
+        <section class="page is-active" data-page="welcome">
+          <p class="page-kicker" data-i18n="welcome.kicker">Willkommen</p>
+          <h2 data-i18n="welcome.title">Ein Installer, der sich wie LokLM anfuehlt.</h2>
+          <p data-i18n="welcome.copy">
+            Dieser Bootstrapper installiert die fertige LokLM-App in dein Benutzerprofil. Keine
+            altmodischen Wizard-Seiten, keine Control-ID-Hacks, kein schwerfaelliger Setup-Dialog.
+          </p>
+          <div class="feature-grid">
+            <div>
+              <strong data-i18n="welcome.feature_local_title">Lokal</strong>
+              <span data-i18n="welcome.feature_local_desc"
+                >Installation unter deinem Windows-Benutzer.</span
+              >
+            </div>
+            <div>
+              <strong data-i18n="welcome.feature_cleanup_title">Aufraeumbar</strong>
+              <span data-i18n="welcome.feature_cleanup_desc"
+                >Ein Uninstaller-Eintrag wird registriert.</span
+              >
+            </div>
+            <div>
+              <strong data-i18n="welcome.feature_appstyle_title">App-nah</strong>
+              <span data-i18n="welcome.feature_appstyle_desc"
+                >Optionen und Startverhalten im LokLM-Stil.</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="license">
+          <p class="page-kicker" data-i18n="license.kicker">Lizenz</p>
+          <h2 data-i18n="license.title">Lizenzvereinbarung</h2>
+          <p data-i18n="license.copy">
+            LokLM steht unter der MIT-Lizenz. Bitte zur Kenntnis nehmen, danach geht es weiter.
+          </p>
+          <pre id="license-body" class="license-body" tabindex="0" aria-label="MIT-Lizenztext">
+Lizenztext wird geladen ...</pre
+          >
+          <p id="license-scroll-hint" class="license-scroll-hint" data-i18n="license.scrollHint">
+            Bitte bis zum Ende der Lizenz scrollen, um zustimmen zu koennen.
+          </p>
+          <label
+            id="license-accept-row"
+            class="toggle-row license-accept is-locked"
+            aria-disabled="true"
+          >
+            <input id="license-accept" type="checkbox" disabled />
+            <span>
+              <strong data-i18n="license.acceptTitle"
+                >Ich akzeptiere die MIT-Lizenzbedingungen.</strong
+              >
+              <small data-i18n="license.acceptDesc"
+                >Erforderlich, um mit der Installation fortzufahren.</small
+              >
+            </span>
+          </label>
+        </section>
+
+        <section class="page" data-page="options">
+          <p class="page-kicker" data-i18n="options.kicker">Optionen</p>
+          <h2 data-i18n="options.title">Installationsziel und Startverhalten</h2>
+          <label class="field">
+            <span data-i18n="options.installDirLabel">Installationsordner</span>
+            <div class="path-row">
+              <input id="install-dir" type="text" spellcheck="false" />
+              <button
+                id="choose-dir"
+                class="btn btn-secondary"
+                type="button"
+                data-i18n="options.chooseDir"
+              >
+                Waehlen
+              </button>
+            </div>
+            <small id="install-dir-hint" class="path-hint"></small>
+          </label>
+
+          <div class="toggle-list">
+            <label class="toggle-row">
+              <input id="desktop-shortcut" type="checkbox" checked />
+              <span>
+                <strong data-i18n="options.desktopTitle">Desktop-Verknuepfung</strong>
+                <small data-i18n="options.desktopDesc"
+                  >Legt eine LokLM-Verknuepfung auf dem Desktop an.</small
+                >
+              </span>
+            </label>
+            <label class="toggle-row">
+              <input id="startmenu-shortcut" type="checkbox" checked />
+              <span>
+                <strong data-i18n="options.startMenuTitle">Startmenue-Verknuepfung</strong>
+                <small data-i18n="options.startMenuDesc"
+                  >Fuegt LokLM im Windows-Startmenue hinzu.</small
+                >
+              </span>
+            </label>
+            <label class="toggle-row">
+              <input id="autostart" type="checkbox" />
+              <span>
+                <strong data-i18n="options.autostartTitle">Mit Windows starten</strong>
+                <small data-i18n="options.autostartDesc"
+                  >Startet LokLM automatisch nach der Anmeldung.</small
+                >
+              </span>
+            </label>
+            <label class="toggle-row">
+              <input id="launch-after-install" type="checkbox" checked />
+              <span>
+                <strong data-i18n="options.launchAfterInstallTitle">LokLM direkt starten</strong>
+                <small data-i18n="options.launchAfterInstallDesc"
+                  >Startet LokLM nach erfolgreicher Installation automatisch und schliesst das
+                  Setup.</small
+                >
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="page" data-page="install">
+          <p class="page-kicker" data-i18n="install.kicker">Installieren</p>
+          <h2 data-i18n="install.title">Bereit fuer die Installation</h2>
+          <p id="install-summary"></p>
+          <div class="progress-shell">
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <p id="progress-label" data-i18n="install.waiting">Wartet auf Start</p>
+          </div>
+          <p id="install-error" class="error" hidden></p>
+        </section>
+
+        <section class="page" data-page="finish">
+          <p class="page-kicker" data-i18n="finish.kicker">Fertig</p>
+          <h2 data-i18n="finish.title">LokLM ist installiert.</h2>
+          <p data-i18n="finish.copy">
+            Die App wurde eingerichtet. Du kannst LokLM jetzt starten und mit deinem lokalen
+            Arbeitsbereich loslegen.
+          </p>
+          <dl class="summary-list">
+            <div>
+              <dt data-i18n="finish.installLocation">Installationsort</dt>
+              <dd id="finish-dir"></dd>
+            </div>
+            <div>
+              <dt data-i18n="finish.shortcuts">Verknuepfungen</dt>
+              <dd id="finish-shortcuts"></dd>
+            </div>
+            <div>
+              <dt data-i18n="finish.autostart">Autostart</dt>
+              <dd id="finish-autostart"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <footer class="footer">
+          <button id="back" class="btn btn-secondary" type="button" data-i18n="nav.back">
+            Zurueck
+          </button>
+          <div class="footer-spacer"></div>
+          <button id="next" class="btn btn-primary" type="button" data-i18n="nav.next">
+            Weiter
+          </button>
+        </footer>
+      </section>
+    </main>
+
+    <script src="./i18n.js"></script>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

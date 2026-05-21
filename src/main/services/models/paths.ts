@@ -13,7 +13,7 @@
  *  - **Packaged**: prefer the writable `userData/models/` (where the
  *    first-launch downloader writes), then fall back to the read-only
  *    `resourcesPath/models/` for anyone still shipping a bundle. The fallback
- *    is harmless after v0.2.2 (NSIS will ship no GGUFs) but keeps the option
+ *    is harmless after v0.2.2 (the installer ships no GGUFs) but keeps the option
  *    open and helps installs that side-load models into the install dir.
  *  - **Tests**: when the electron `app` import is undefined (vitest), behave
  *    like dev and use `<cwd>/models/`. Integration tests put fixture GGUFs
