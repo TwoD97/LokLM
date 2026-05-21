@@ -18,7 +18,15 @@ type RunnerState =
       data: QuizDeckWithQuestions
       attempt: QuizAttempt
       order: QuizQuestion[]
+      /** Per-question option permutation: optionPerms.get(questionId)[displayIdx]
+       *  = originalIdx. Built once at attempt start and re-applied across
+       *  re-renders so option order stays stable within one attempt. Retaking
+       *  the same deck produces a different permutation. */
+      optionPerms: Map<number, number[]>
       cursor: number
+      /** Stored in DISPLAY coordinates while the quiz runs. Translated to
+       *  ORIGINAL via optionPerms at finishAttempt submit so the backend can
+       *  score against the persisted correct_index. */
       selectedByQuestionId: Map<number, number>
       revealed: boolean
     }
@@ -42,6 +50,13 @@ function shuffle<T>(arr: T[], seed: number): T[] {
   return a
 }
 
+function permutation(length: number, seed: number): number[] {
+  return shuffle(
+    Array.from({ length }, (_, i) => i),
+    seed,
+  )
+}
+
 export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   const [state, setState] = useState<RunnerState>({ kind: 'loading' })
   const [sourceChunkId, setSourceChunkId] = useState<number | null>(null)
@@ -54,11 +69,19 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
         const attempt = await window.api.quiz.startAttempt(deckId)
         if (cancelled) return
         const order = shuffle(data.questions, attempt.id)
+        // Seed each option permutation with (attempt.id * 31 + question.id)
+        // so a re-take of the same deck reshuffles options too, while a
+        // re-render mid-attempt keeps them stable.
+        const optionPerms = new Map<number, number[]>()
+        for (const q of data.questions) {
+          optionPerms.set(q.id, permutation(q.options.length, attempt.id * 31 + q.id))
+        }
         setState({
           kind: 'running',
           data,
           attempt,
           order,
+          optionPerms,
           cursor: 0,
           selectedByQuestionId: new Map(),
           revealed: false,
@@ -104,17 +127,17 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
     if (finishedRef.current) return
     finishedRef.current = true
     const submit = async (): Promise<void> => {
-      const answers = state.order.map((q) => ({
-        questionId: q.id,
-        selectedIndex: state.selectedByQuestionId.get(q.id) ?? -1,
-      }))
-      // -1 sentinel for unanswered (e.g. user advanced without picking — not
-      // possible with current UX, but defensive). Send 0 to satisfy the
-      // validation on the server, marked wrong via correctness check there.
-      const payload = answers.map((a) => ({
-        questionId: a.questionId,
-        selectedIndex: a.selectedIndex < 0 ? 0 : a.selectedIndex,
-      }))
+      // Map each question's display-coord selection back to the original
+      // option index via its perm so the backend can score against the
+      // persisted correct_index. -1 (unanswered) becomes 0 — the server will
+      // mark it wrong unless the correct answer happens to live at index 0,
+      // which is fine since the current UX prevents unanswered submissions.
+      const payload = state.order.map((q) => {
+        const displayIdx = state.selectedByQuestionId.get(q.id) ?? -1
+        const perm = state.optionPerms.get(q.id) ?? q.options.map((_, i) => i)
+        const originalIdx = displayIdx < 0 ? 0 : (perm[displayIdx] ?? 0)
+        return { questionId: q.id, selectedIndex: originalIdx }
+      })
       const attempt = await window.api.quiz.finishAttempt(state.attempt.id, payload)
       setState({ kind: 'finished', attempt, data: state.data, order: state.order })
     }
@@ -179,6 +202,12 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   }
 
   const question = state.order[state.cursor]!
+  const perm = state.optionPerms.get(question.id) ?? question.options.map((_, i) => i)
+  const displayQuestion: QuizQuestion = {
+    ...question,
+    options: perm.map((origIdx) => question.options[origIdx]!),
+    correctIndex: perm.indexOf(question.correctIndex),
+  }
   return (
     <section className="quiz-runner">
       <header className="quiz-runner__header">
@@ -195,7 +224,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
       </header>
       <div className="quiz-runner__body">
         <RunnerContent
-          question={question}
+          question={displayQuestion}
           selectedIndex={state.selectedByQuestionId.get(question.id) ?? null}
           revealed={state.revealed}
           onSelect={onSelect}

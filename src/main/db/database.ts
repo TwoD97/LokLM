@@ -1006,12 +1006,15 @@ export class QuizzesRepo {
              (
                SELECT score FROM quiz_attempts
                 WHERE deck_id = d.id AND finished_at IS NOT NULL
-                ORDER BY finished_at DESC LIMIT 1
+                -- id DESC tiebreaks attempts finished in the same epoch-second
+                -- (PGlite's NOW() granularity is 1s; rapid retakes would
+                -- otherwise read the wrong "latest").
+                ORDER BY finished_at DESC, id DESC LIMIT 1
              ) AS last_score,
              (
                SELECT finished_at FROM quiz_attempts
                 WHERE deck_id = d.id AND finished_at IS NOT NULL
-                ORDER BY finished_at DESC LIMIT 1
+                ORDER BY finished_at DESC, id DESC LIMIT 1
              ) AS last_finished_at
         FROM quiz_decks d
         LEFT JOIN quiz_attempts a ON a.deck_id = d.id
@@ -1106,10 +1109,14 @@ export class QuizzesRepo {
   }
 
   async listAttempts(deckId: number): Promise<QuizAttempt[]> {
+    // Order by finished_at first so users see their finished history in true
+    // chronological order; unfinished attempts (NULL) sort last via NULLS LAST.
+    // started_at + id tiebreak keeps the order deterministic under PGlite's
+    // 1-second NOW() granularity (see listDecks comment).
     const r = await this.db.execute(sql`
       SELECT id, deck_id, started_at, finished_at, score, answers
         FROM quiz_attempts WHERE deck_id = ${deckId}
-       ORDER BY started_at DESC, id DESC
+       ORDER BY finished_at DESC NULLS LAST, started_at DESC, id DESC
     `)
     return (r.rows as unknown as QuizAttemptRowSnake[]).map(mapAttempt)
   }
