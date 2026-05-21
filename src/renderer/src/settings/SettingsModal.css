@@ -646,6 +646,32 @@
   border-color: #d93832;
 }
 
+/* ── Disabled section wrapper ─────────────────────────────────────────── */
+.settings-section--disabled {
+  position: relative;
+}
+.settings-section--disabled > .settings-model-cards,
+.settings-section--disabled > .settings-stat-grid {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.settings-section__notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(123, 165, 234, 0.07);
+  border: 1px solid rgba(123, 165, 234, 0.28);
+  color: #b0c8ee;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  margin: 4px 0 10px;
+}
+.settings-section__notice__icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
 /* ── Sub-tabs (inside the Advanced tab) ──────────────────────────────── */
 .settings-subtabs {
   display: flex;

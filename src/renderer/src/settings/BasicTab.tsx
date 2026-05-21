@@ -34,6 +34,7 @@ export function BasicTab(): JSX.Element {
   }
 
   const plan = planSummary(info?.lastLlmPlan)
+  const ollamaActive = settings.advanced.llm.source === 'ollama'
 
   return (
     <div>
@@ -51,38 +52,51 @@ export function BasicTab(): JSX.Element {
         onChange={(v) => void update({ basic: { language: v } })}
       />
 
-      <div className="settings-section-head">
-        <span className="settings-section-head__title">Model size</span>
-        <span className="settings-section-head__sub">Which bundled GGUF the local LLM loads.</span>
-      </div>
-      <div className="settings-model-cards">
-        {PROFILES.map((p) => {
-          const available = haveGguf(p.value)
-          const active = settings.basic.llmProfile === p.value
-          return (
-            <button
-              key={p.value}
-              type="button"
-              className={`settings-model-card ${active ? 'settings-model-card--active' : ''}`}
-              disabled={!available}
-              onClick={() => void update({ basic: { llmProfile: p.value } })}
-            >
-              <div className="settings-model-card__head">
-                <span className="settings-model-card__title">{p.label}</span>
-                <span
-                  className={`settings-model-card__badge ${available ? 'settings-model-card__badge--ok' : 'settings-model-card__badge--missing'}`}
-                >
-                  {p.value === 'auto'
-                    ? 'auto'
-                    : available
-                      ? 'available'
-                      : 'download via Models panel'}
-                </span>
-              </div>
-              <span className="settings-model-card__sub">{p.sub}</span>
-            </button>
-          )
-        })}
+      <div className={`settings-section ${ollamaActive ? 'settings-section--disabled' : ''}`}>
+        <div className="settings-section-head">
+          <span className="settings-section-head__title">Model size</span>
+          <span className="settings-section-head__sub">Which bundled GGUF the local LLM loads.</span>
+        </div>
+        {ollamaActive && (
+          <div className="settings-section__notice">
+            <span className="settings-section__notice__icon" aria-hidden="true">
+              🔌
+            </span>
+            <span>
+              External Ollama is the active LLM source — the bundled model size doesn&apos;t affect
+              answers right now. Switch in <em>Advanced → LLM</em>.
+            </span>
+          </div>
+        )}
+        <div className="settings-model-cards">
+          {PROFILES.map((p) => {
+            const available = haveGguf(p.value)
+            const active = settings.basic.llmProfile === p.value
+            return (
+              <button
+                key={p.value}
+                type="button"
+                className={`settings-model-card ${active ? 'settings-model-card--active' : ''}`}
+                disabled={!available || ollamaActive}
+                onClick={() => void update({ basic: { llmProfile: p.value } })}
+              >
+                <div className="settings-model-card__head">
+                  <span className="settings-model-card__title">{p.label}</span>
+                  <span
+                    className={`settings-model-card__badge ${available ? 'settings-model-card__badge--ok' : 'settings-model-card__badge--missing'}`}
+                  >
+                    {p.value === 'auto'
+                      ? 'auto'
+                      : available
+                        ? 'available'
+                        : 'download via Models panel'}
+                  </span>
+                </div>
+                <span className="settings-model-card__sub">{p.sub}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="settings-section-head">
