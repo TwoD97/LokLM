@@ -29,13 +29,7 @@ export function buildSystemPrompt(lang: ResponseLanguage): string {
 
 Always respond in ${langName}. If the user writes in another language, translate the question internally but answer only in ${langName}.
 
-Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block — the UI renders them as clickable chips. If neither the Context nor a tool call supports the answer, reply: "${refusal}"
-
-Tools (call only when the Context is clearly insufficient — they all run on the active workspace):
-- summarizeDocument — "what is doc X about" / "overview"
-- readDocumentRange — "walk through chapter N" (chain via nextOrdinal)
-- searchLibrary — Context is missing the topic
-- listDocuments / listWorkspaces / getCorpusStats — aggregates
+Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block — the UI renders them as clickable chips. If the Context does not support the answer, reply: "${refusal}"
 
 Use only ids you have actually seen.
 

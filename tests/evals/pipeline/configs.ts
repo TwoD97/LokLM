@@ -134,10 +134,16 @@ export async function gridConfigs(): Promise<PipelineConfig[]> {
   ])
   // Single instances per bridge → reused across all grid points. Warm()-cost
   // wird genau einmal bezahlt (LLM-load ist der teuerste schritt).
+  //
+  // LLM-profil ist hier auf 'full' (Qwen3-8B) gepinnt , NICHT 'auto'. Sonst
+  // würde resolveLlmPath('auto') das XL-modell (Nemotron 30B-A3B) finden
+  // sobald es in models/ liegt (für den judge symlinked) und das wäre dann
+  // auch das under-test-LLM — selbstbewertungs-bias UND massive VRAM-last.
+  // Pin auf 'full' macht den under-test sauber vom judge getrennt.
   const embedder = new EmbedderBridge({ placement: 'cpu' })
   const reranker = new RerankerBridge({ placement: 'auto' })
   const skipRr = new SkipReranker()
-  const llm: LlmBridge = new LlmBridge({ profile: 'auto' })
+  const llm: LlmBridge = new LlmBridge({ profile: 'full' })
 
   const baseChunker = new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 })
   const base: PipelineConfig = {
@@ -150,9 +156,11 @@ export async function gridConfigs(): Promise<PipelineConfig[]> {
     llm,
   }
 
-  // Achsen: jede ist ein liste von {name, partial}. `cartesian` baut das
-  // vollständige produkt. Default-grid: 4 rerank-werte × 3 chunks-to-LLM-werte
-  // = 12 grid-punkte. Passt in eine überschaubare laufzeit auf CPU-only.
+  // Achsen: focused search variant. Erster judge-run hat gezeigt , dass
+  // rr20/rr40 strictly schlechter als rr10 sind und k=8 nichts gegenüber
+  // k=5 bringt. Hier auf kleinere werte verschoben um den "wenig aber
+  // selektiv"-bereich auszuleuchten. 4 rerank × 3 k = 12 grid-punkte ,
+  // --iterations N schneidet ab.
   const axes: Array<{
     axis: string
     values: Array<{ name: string; partial: Partial<PipelineConfig> }>
@@ -161,17 +169,17 @@ export async function gridConfigs(): Promise<PipelineConfig[]> {
       axis: 'rerank',
       values: [
         { name: 'rr0', partial: { topKToRerank: 0, reranker: skipRr } },
+        { name: 'rr3', partial: { topKToRerank: 3, reranker } },
+        { name: 'rr5', partial: { topKToRerank: 5, reranker } },
         { name: 'rr10', partial: { topKToRerank: 10, reranker } },
-        { name: 'rr20', partial: { topKToRerank: 20, reranker } },
-        { name: 'rr40', partial: { topKToRerank: 40, reranker } },
       ],
     },
     {
       axis: 'k',
       values: [
+        { name: 'k2', partial: { topKToLLM: 2 } },
         { name: 'k3', partial: { topKToLLM: 3 } },
         { name: 'k5', partial: { topKToLLM: 5 } },
-        { name: 'k8', partial: { topKToLLM: 8 } },
       ],
     },
     // ZUM ERWEITERN (kosten chunk-axis ist re-embed pro punkt , also

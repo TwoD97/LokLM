@@ -464,7 +464,6 @@ export class LlamaService {
     const client = this.client!
     const ctxSize = this.lastPlan?.contextSize ?? 8192
     const maxTokens = Math.max(4096, Math.min(32768, Math.floor(ctxSize / 4)))
-    const promptBody = buildPrompt(question, hits, opts.conversationHistory)
     const streamId = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     const filter = new ThinkFilter()
@@ -483,16 +482,31 @@ export class LlamaService {
       opts.abortSignal.addEventListener('abort', abortListener, { once: true })
     }
 
-    try {
-      const { raw } = await client.llmAsk({
-        streamId,
-        question,
-        prompt: promptBody,
-        maxTokens,
-      })
+    const runOnce = async (history: AskOptions['conversationHistory']): Promise<string> => {
+      filter.reset()
+      const promptBody = buildPrompt(question, hits, history)
+      const { raw } = await client.llmAsk({ streamId, question, prompt: promptBody, maxTokens })
       if (opts.onChunk) {
         const tail = filter.flush()
         if (tail) opts.onChunk(tail)
+      }
+      return raw
+    }
+
+    try {
+      let raw: string
+      try {
+        raw = await runOnce(opts.conversationHistory)
+      } catch (err) {
+        // Conversation history is embedded into the prompt body by buildPrompt,
+        // so when the context overflows it's the one knob we can turn on retry.
+        // Dropping it costs the model topical memory of prior turns , the live
+        // question + retrieved Context still answer most follow-ups.
+        const hasHistory = opts.conversationHistory && opts.conversationHistory.length > 0
+        if (!isOverflowError(err) || !hasHistory) throw err
+        // eslint-disable-next-line no-console
+        console.warn('[llama] context overflowed, retrying without conversation history')
+        raw = await runOnce(undefined)
       }
       return stripThink(raw)
     } finally {
@@ -603,4 +617,9 @@ function parseIdleMs(v: string | undefined): number | null {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+function isOverflowError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return /context shift|context size|history.*fit|too long/i.test(msg)
 }

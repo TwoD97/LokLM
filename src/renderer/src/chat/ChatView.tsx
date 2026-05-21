@@ -43,7 +43,10 @@ export function ChatView({
   const [busy, setBusy] = useState(false)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null)
-  const [sourceViewer, setSourceViewer] = useState<{ chunkId: number } | null>(null)
+  const [sourceViewer, setSourceViewer] = useState<{
+    chunkId: number
+    messageText: string
+  } | null>(null)
 
   // Closures captured by the stream listener see a stale `currentConversationId`
   // — we use a ref so the listener can compare against the live value and drop
@@ -72,6 +75,11 @@ export function ChatView({
   useEffect(() => {
     setMessages([])
     void refresh()
+    // Kick the reranker load up-front so the first chat:stream call doesn't
+    // pay the GGUF load time on top of retrieval + generation latency. Fire
+    // and forget — failure (no GGUF on disk) is non-fatal, retrieval still
+    // works without reranking.
+    void window.api.reranker.warmup().catch(() => undefined)
   }, [workspaceId, refresh])
 
   const openConversation = useCallback(
@@ -237,15 +245,18 @@ export function ChatView({
         `Conversation #${currentConversationId}`)
       : 'New chat'
 
-  const onCitationClick = useCallback(({ chunkId }: { documentId: number; chunkId: number }) => {
-    setSourceViewer({ chunkId })
-  }, [])
+  const onCitationClick = useCallback(
+    ({ chunkId, messageText }: { documentId: number; chunkId: number; messageText: string }) => {
+      setSourceViewer({ chunkId, messageText })
+    },
+    [],
+  )
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: sourceViewer ? '240px minmax(0, 1fr) auto' : '240px minmax(0, 1fr)',
+        gridTemplateColumns: '240px minmax(0, 1fr)',
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
@@ -277,6 +288,7 @@ export function ChatView({
         <ErrorBoundary label="Quellenvorschau" onError={() => setSourceViewer(null)}>
           <SourceViewer
             chunkId={sourceViewer.chunkId}
+            messageText={sourceViewer.messageText}
             documentTitle={null}
             onClose={() => setSourceViewer(null)}
           />

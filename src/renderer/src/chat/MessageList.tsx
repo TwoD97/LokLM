@@ -19,7 +19,7 @@ type LocalMessage =
 
 type Props = {
   messages: LocalMessage[]
-  onCitationClick: (m: { documentId: number; chunkId: number }) => void
+  onCitationClick: (m: { documentId: number; chunkId: number; messageText: string }) => void
 }
 
 const NEAR_BOTTOM_PX = 64

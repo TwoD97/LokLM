@@ -34,8 +34,8 @@ import type {
   StreamEvent,
   Conversation,
   ConversationWithMessages,
-  ChunkWithContext,
   ChunkSource,
+  DocumentChunk,
   ModelsStatus,
 } from '../shared/documents'
 
@@ -116,12 +116,8 @@ const api = {
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
     reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
-    getChunkWithContext: (
-      chunkId: number,
-      before?: number,
-      after?: number,
-    ): Promise<ChunkWithContext[]> =>
-      ipcRenderer.invoke('documents:getChunkWithContext', chunkId, before ?? 1, after ?? 1),
+    listChunksForDocument: (documentId: number): Promise<DocumentChunk[]> =>
+      ipcRenderer.invoke('documents:listChunksForDocument', documentId),
     getSourceForChunk: (chunkId: number): Promise<ChunkSource | null> =>
       ipcRenderer.invoke('documents:getSourceForChunk', chunkId),
     readDocumentBytes: (documentId: number): Promise<Uint8Array | null> =>
@@ -206,6 +202,7 @@ const api = {
     status: (): Promise<RerankerStatus> => ipcRenderer.invoke('reranker:status'),
     info: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:info'),
     reload: (): Promise<RerankerInfo> => ipcRenderer.invoke('reranker:reload'),
+    warmup: (): Promise<void> => ipcRenderer.invoke('reranker:warmup'),
     setPlacement: (choice: 'auto' | 'cpu' | 'gpu'): Promise<void> =>
       ipcRenderer.invoke('reranker:setPlacement', choice),
     onStatus: (cb: (s: RerankerStatus) => void): (() => void) => {

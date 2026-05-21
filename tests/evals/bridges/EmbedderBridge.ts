@@ -30,9 +30,11 @@ const EMBEDDING_DIM = 1024
 export type Placement = 'cpu' | 'gpu' | 'auto'
 
 export interface EmbedderBridgeOpts {
-  /** explicit placement override. defaults to 'cpu' (mirrors the app default
-   *  set during the VRAM-headroom work — embedder stays off the GPU so the
-   *  LLM gets all the VRAM). */
+  /** explicit placement override. defaults to 'cpu' to match production
+   *  (set during the VRAM-headroom work — embedder stays off the GPU so
+   *  the LLM gets all the VRAM). The eval mirrors this so per-query embed
+   *  timings reflect what end-users actually experience , not a faster
+   *  GPU-embedder configuration nobody ships. */
   placement?: Placement
   /** absolute path to the GGUF. defaults to resolveEmbedderPath(). */
   modelPath?: string
