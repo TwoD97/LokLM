@@ -12,6 +12,7 @@ import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
+import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import { checkAll as checkModelsAvailability } from './services/models/availability'
 import { ProviderRegistry } from './services/providers/Registry'
@@ -1034,22 +1035,7 @@ function registerIpc(): void {
       const attempt = await quizzes.getAttempt(attemptId)
       if (!attempt) throw new Error(`Attempt ${attemptId} not found`)
       const questions = await quizzes.listQuestions(attempt.deckId)
-      // Build a (questionId -> correct_index) map so we can score without
-      // trusting the renderer's claim of correctness.
-      const byId = new Map(questions.map((q) => [q.id, q.correctIndex]))
-      let score = 0
-      const scored = answers.map((a) => {
-        const correctIdx = byId.get(a.questionId)
-        if (correctIdx === undefined) {
-          throw new Error(`Question ${a.questionId} does not belong to attempt ${attemptId}`)
-        }
-        if (!Number.isInteger(a.selectedIndex) || a.selectedIndex < 0 || a.selectedIndex > 3) {
-          throw new Error(`Invalid selectedIndex ${a.selectedIndex} for question ${a.questionId}`)
-        }
-        const correct = a.selectedIndex === correctIdx
-        if (correct) score += 1
-        return { questionId: a.questionId, selectedIndex: a.selectedIndex, correct }
-      })
+      const { scored, score } = scoreAnswers(questions, answers)
       return quizzes.finishAttempt(attemptId, scored, score)
     },
   )
