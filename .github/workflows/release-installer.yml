@@ -66,6 +66,13 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright chromium ( splash render )
+        # build:installer-splash rendert installer-ui/splash.html in headless
+        # chromium und schreibt resources/installer-splash.bmp ( gitignored ).
+        # @playwright/test ist NICHT in pnpm.onlyBuiltDependencies , also lädt
+        # pnpm install den browser nicht automatisch — hier explizit holen.
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Build (electron-vite)
         run: pnpm build
 
@@ -79,6 +86,7 @@ jobs:
         # makensis 32-bit ist nicht mehr ein problem , weil die payload jetzt
         # ~200 MB ist (kein bundling). npmRebuild=false in package.json
         # umgeht @electron/rebuild (alle native deps sind N-API prebuilt).
+        # makensis selbst kommt von windows-latest's PATH ( pre-installed ).
         run: pnpm package:win
 
       - name: Compute sha256 + size

@@ -40,7 +40,12 @@ const els = {
   finishDir: document.getElementById('finish-dir'),
   finishShortcuts: document.getElementById('finish-shortcuts'),
   finishAutostart: document.getElementById('finish-autostart'),
+  titlebarMin: document.getElementById('titlebar-min'),
+  titlebarClose: document.getElementById('titlebar-close'),
 }
+
+els.titlebarMin?.addEventListener('click', () => void window.installer.minimize())
+els.titlebarClose?.addEventListener('click', () => void window.installer.close())
 
 let progressState = { key: 'install.waiting', percent: 0 }
 let licenseText = null
