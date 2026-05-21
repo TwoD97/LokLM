@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChunkSource, DocumentChunk } from '@shared/documents'
@@ -18,52 +18,61 @@ type Props = {
   onClose: () => void
 }
 
-type BodyMode = 'pdf' | 'text'
+type BodyMode = 'pdf' | 'markdown' | 'text'
+type LoadStatus = 'loading' | 'ready' | 'error'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-function pickBodyMode(source: ChunkSource | null): BodyMode {
+function classifySource(source: ChunkSource | null): BodyMode {
   if (!source) return 'text'
   const path = (source.sourcePath ?? '').toLowerCase()
   if (source.mimeType === 'application/pdf' || path.endsWith('.pdf')) return 'pdf'
+  // .docx is mammoth-converted to markdown at parse time — same render path as .md.
+  if (source.mimeType === DOCX_MIME || path.endsWith('.docx')) return 'markdown'
+  if (path.endsWith('.md') || path.endsWith('.markdown')) return 'markdown'
   return 'text'
 }
 
-function isMarkdownPath(source: ChunkSource | null): boolean {
-  if (!source) return false
-  const path = (source.sourcePath ?? '').toLowerCase()
-  // .docx is mammoth-converted to markdown at parse time , render via the same branch.
-  if (source.mimeType === DOCX_MIME || path.endsWith('.docx')) return true
-  return path.endsWith('.md') || path.endsWith('.markdown')
+function formatPageRange(source: ChunkSource | null): string | null {
+  if (!source || source.chunkPageFrom == null) return null
+  if (source.chunkPageTo == null || source.chunkPageTo === source.chunkPageFrom) {
+    return `p. ${source.chunkPageFrom}`
+  }
+  return `p. ${source.chunkPageFrom}–${source.chunkPageTo}`
 }
 
 export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: Props): JSX.Element {
-  const [chunks, setChunks] = useState<DocumentChunk[] | null>(null)
+  const [status, setStatus] = useState<LoadStatus>('loading')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [chunks, setChunks] = useState<DocumentChunk[]>([])
   const [source, setSource] = useState<ChunkSource | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
-  // 1) Resolve which document this chunk belongs to , then list ALL its chunks.
-  // Two round trips because getSourceForChunk also returns the headingPath
-  // for the cited chunk specifically — we need both pieces.
+  // PDF previews render off source.chunkPageFrom alone , skip the full-document
+  // chunks fetch for them (avoids shipping MBs of unused chunk text over IPC).
+  // Non-PDF docs need the chunk list to render the body around the cited
+  // chunk, so we fetch sequentially once the documentId is known.
   useEffect(() => {
     let cancelled = false
-    setChunks(null)
+    setStatus('loading')
+    setErrorMessage(null)
     setSource(null)
-    setError(null)
+    setChunks([])
     void (async () => {
       try {
         const src = await window.api.documents.getSourceForChunk(chunkId)
         if (cancelled) return
         setSource(src)
-        if (!src) {
-          setChunks([])
-          return
+        if (src && classifySource(src) !== 'pdf') {
+          const all = await window.api.documents.listChunksForDocument(src.documentId)
+          if (cancelled) return
+          setChunks(all)
         }
-        const all = await window.api.documents.listChunksForDocument(src.documentId)
-        if (cancelled) return
-        setChunks(all)
+        if (!cancelled) setStatus('ready')
       } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) {
+          setErrorMessage(err instanceof Error ? err.message : String(err))
+          setStatus('error')
+        }
       }
     })()
     return () => {
@@ -79,37 +88,125 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const targetChunk = useMemo(
-    () => chunks?.find((c) => c.id === chunkId) ?? null,
-    [chunks, chunkId],
-  )
-  const snippets = useMemo(
-    () =>
-      messageText
-        ? extractCitationSnippets(messageText, {
-            documentId: targetChunk?.documentId ?? source?.documentId ?? -1,
-            chunkId,
-          })
-        : [],
-    [messageText, targetChunk?.documentId, source?.documentId, chunkId],
-  )
+  const snippets = useMemo(() => {
+    if (!messageText || !source) return []
+    const fromMarkers = extractCitationSnippets(messageText, {
+      documentId: source.documentId,
+      chunkId,
+    })
+    if (fromMarkers.length > 0) return fromMarkers
+    // No [doc:X, chunk:Y] markers in the supplied text — used by the quiz path
+    // where the explanation is plain prose. Treat the whole message as one
+    // snippet so the fuzzy matcher still has something to chew on.
+    const stripped = messageText.replace(/\s+/g, ' ').trim()
+    return stripped ? [stripped] : []
+  }, [messageText, source, chunkId])
 
-  const pageRange =
-    targetChunk?.pageFrom != null
-      ? targetChunk.pageTo != null && targetChunk.pageTo !== targetChunk.pageFrom
-        ? `p. ${targetChunk.pageFrom}–${targetChunk.pageTo}`
-        : `p. ${targetChunk.pageFrom}`
-      : null
+  const bodyMode = useMemo(() => classifySource(source), [source])
+  const showPdf = bodyMode === 'pdf' && source != null && source.chunkPageFrom != null
+
+  // Highlight cycling: each click on the "N highlights" pill scrolls the next
+  // visually-distinct mark group into view. Groups are derived at click time
+  // from the live DOM so newly-rendered lazy PDF pages join the rotation
+  // automatically. markIdx lives in a ref to keep the click handler stable.
+  const asideRef = useRef<HTMLElement | null>(null)
+  const markIdxRef = useRef(-1)
+  const didInitialFocusRef = useRef(false)
+  const [markGroupCount, setMarkGroupCount] = useState(0)
+  const cycleHighlights = useCallback(() => {
+    const aside = asideRef.current
+    if (!aside) return
+    const groups = collectMarkGroups(aside)
+    if (groups.length === 0) return
+    const next = (markIdxRef.current + 1) % groups.length
+    markIdxRef.current = next
+    focusMarkGroup(aside, groups, next, 'smooth')
+  }, [])
+  // Reset rotation + initial-focus latch whenever the modal switches to a
+  // different chunk.
+  useEffect(() => {
+    markIdxRef.current = -1
+    didInitialFocusRef.current = false
+  }, [chunkId])
+  // Recount groups whenever marks are added/removed in the modal — PDF pages
+  // render lazily so the group set grows as the user scrolls. rAF-debounced
+  // because the text layer fires one mutation per span on initial paint.
+  // The first time at least one group exists we also snap the viewport to the
+  // first highlight so the user lands on the cited phrase , not the top of
+  // the page.
+  useEffect(() => {
+    const aside = asideRef.current
+    if (!aside) return
+    let raf = 0
+    const recompute = (): void => {
+      if (raf !== 0) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        const groups = collectMarkGroups(aside)
+        setMarkGroupCount(groups.length)
+        if (!didInitialFocusRef.current && groups.length > 0) {
+          didInitialFocusRef.current = true
+          markIdxRef.current = 0
+          focusMarkGroup(aside, groups, 0, 'auto')
+        }
+      })
+    }
+    recompute()
+    // Filter mutations to those that actually touch a highlight node ,
+    // pdfjs's text layer fires one mutation per span on initial paint and
+    // every scroll-driven page render. Without the filter, collectMarkGroups
+    // (which calls getBoundingClientRect on every mark) ran on every paint
+    // and thrashed layout. We also ignore `is-active`-only flips that come
+    // from focusMarkGroup itself (otherwise the observer recurses).
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes') {
+          const el = m.target as Element
+          if (
+            el.classList?.contains?.('pdf-doc__page-mark') ||
+            el.classList?.contains?.('source-viewer__mark')
+          ) {
+            // Skip recompute when only `is-active` toggled — that's our own
+            // focusMarkGroup, the mark set didn't change.
+            const oldVal = m.oldValue ?? ''
+            const newVal = el.getAttribute('class') ?? ''
+            const onlyActiveFlip =
+              oldVal.replace(/\s*is-active\s*/, ' ').trim() ===
+              newVal.replace(/\s*is-active\s*/, ' ').trim()
+            if (!onlyActiveFlip) {
+              recompute()
+              return
+            }
+          }
+          continue
+        }
+        if (m.type === 'childList') {
+          if (nodeListContainsMark(m.addedNodes) || nodeListContainsMark(m.removedNodes)) {
+            recompute()
+            return
+          }
+        }
+      }
+    })
+    observer.observe(aside, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+      attributeOldValue: true,
+    })
+    return () => {
+      observer.disconnect()
+      if (raf !== 0) cancelAnimationFrame(raf)
+    }
+  }, [chunkId])
+
   const headingCrumb =
     source?.headingPath && source.headingPath.length > 0
       ? `§ ${source.headingPath.join(' › ')}`
       : null
-  const locationLabel =
-    headingCrumb && pageRange ? `${headingCrumb} · ${pageRange}` : (headingCrumb ?? pageRange)
-
-  const bodyMode = useMemo(() => pickBodyMode(source), [source])
-  const showPdf = bodyMode === 'pdf' && source != null && targetChunk?.pageFrom != null
-  const isMarkdownDoc = isMarkdownPath(source)
+  const pageRange = formatPageRange(source)
+  const locationLabel = [headingCrumb, pageRange].filter(Boolean).join(' · ') || null
 
   return (
     <div
@@ -123,16 +220,31 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <aside className={`source-viewer ${showPdf ? 'source-viewer--pdf' : 'source-viewer--text'}`}>
+      <aside
+        ref={asideRef}
+        className={`source-viewer ${showPdf ? 'source-viewer--pdf' : 'source-viewer--text'}`}
+      >
         <header className="source-viewer__header">
           <span className="source-viewer__title">
             {documentTitle ?? source?.title ?? `Chunk #${chunkId}`}
             {locationLabel ? ` · ${locationLabel}` : ''}
           </span>
           {snippets.length > 0 && (
-            <span className="source-viewer__highlight-hint" title={snippets.join(' / ')}>
-              {snippets.length === 1 ? '1 highlight' : `${snippets.length} highlights`}
-            </span>
+            <button
+              type="button"
+              className="source-viewer__highlight-hint"
+              title={`${snippets.join(' / ')}\n(click to jump to the next highlight)`}
+              onClick={cycleHighlights}
+              disabled={markGroupCount === 0}
+            >
+              {(() => {
+                // Prefer the live group count — that's what the user actually
+                // sees on the page. Fall back to the snippet count for the
+                // first frame, before the text layer has painted any marks.
+                const count = markGroupCount || snippets.length
+                return count === 1 ? '1 highlight' : `${count} highlights`
+              })()}
+            </button>
           )}
           <button
             type="button"
@@ -152,28 +264,68 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
           </button>
         </header>
         <div className="source-viewer__body">
-          {error && <div className="source-viewer__error">{error}</div>}
-          {!error && chunks === null && <div className="source-viewer__empty">Loading…</div>}
-
-          {!error && showPdf && source != null && targetChunk?.pageFrom != null && (
-            <MultiPagePdfPreview documentId={source.documentId} targetPage={targetChunk.pageFrom} />
-          )}
-
-          {!error && chunks !== null && chunks.length === 0 && !showPdf && (
-            <div className="source-viewer__empty">No chunks available for this document.</div>
-          )}
-
-          {!error && !showPdf && chunks !== null && chunks.length > 0 && (
-            <TextDocumentBody
-              chunks={chunks}
-              targetChunkId={chunkId}
-              snippets={snippets}
-              renderMarkdown={isMarkdownDoc}
-            />
-          )}
+          <BodyContents
+            status={status}
+            errorMessage={errorMessage}
+            showPdf={showPdf}
+            source={source}
+            chunks={chunks}
+            chunkId={chunkId}
+            snippets={snippets}
+            renderMarkdown={bodyMode === 'markdown'}
+          />
         </div>
       </aside>
     </div>
+  )
+}
+
+function BodyContents({
+  status,
+  errorMessage,
+  showPdf,
+  source,
+  chunks,
+  chunkId,
+  snippets,
+  renderMarkdown,
+}: {
+  status: LoadStatus
+  errorMessage: string | null
+  showPdf: boolean
+  source: ChunkSource | null
+  chunks: DocumentChunk[]
+  chunkId: number
+  snippets: string[]
+  renderMarkdown: boolean
+}): JSX.Element {
+  if (status === 'error' && errorMessage) {
+    return <div className="source-viewer__error">{errorMessage}</div>
+  }
+  if (status === 'loading') {
+    return <div className="source-viewer__empty">Loading…</div>
+  }
+  if (showPdf && source && source.chunkPageFrom != null) {
+    return (
+      <MultiPagePdfPreview
+        documentId={source.documentId}
+        targetPage={source.chunkPageFrom}
+        snippets={snippets}
+        citedPageFrom={source.chunkPageFrom}
+        citedPageTo={source.chunkPageTo ?? source.chunkPageFrom}
+      />
+    )
+  }
+  if (chunks.length === 0) {
+    return <div className="source-viewer__empty">No chunks available for this document.</div>
+  }
+  return (
+    <TextDocumentBody
+      chunks={chunks}
+      targetChunkId={chunkId}
+      snippets={snippets}
+      renderMarkdown={renderMarkdown}
+    />
   )
 }
 
@@ -223,6 +375,84 @@ function TextDocumentBody({
       })}
     </article>
   )
+}
+
+/** Collects the marked DOM elements inside the modal and groups visually
+ *  adjacent ones together so a single click on the "highlights" pill jumps to
+ *  the next *region*, not the next individual text-layer span. A mark joins
+ *  the previous group when it sits on the same line (vertical overlap with the
+ *  previous mark's rect) or on the immediately-following line within roughly
+ *  one line height — that catches sentence highlights that wrap across two or
+ *  three lines. Cross-page marks always split.
+ */
+function nodeListContainsMark(list: NodeList): boolean {
+  for (let i = 0; i < list.length; i++) {
+    const n = list.item(i)
+    if (!n || n.nodeType !== 1) continue
+    const el = n as Element
+    if (
+      el.classList?.contains?.('pdf-doc__page-mark') ||
+      el.classList?.contains?.('source-viewer__mark') ||
+      el.querySelector?.('.pdf-doc__page-mark, .source-viewer__mark')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function collectMarkGroups(root: HTMLElement): HTMLElement[][] {
+  const marks = Array.from(
+    root.querySelectorAll<HTMLElement>('.pdf-doc__page-mark, .source-viewer__mark'),
+  )
+  if (marks.length === 0) return []
+  const groups: HTMLElement[][] = []
+  let currentPage: Element | null = null
+  let prevRect: DOMRect | null = null
+  for (const m of marks) {
+    const rect = m.getBoundingClientRect()
+    const page = m.closest('.pdf-doc__page, .source-viewer__doc-section')
+    let joinPrev = false
+    if (page === currentPage && prevRect !== null) {
+      const verticalOverlap =
+        Math.min(prevRect.bottom, rect.bottom) - Math.max(prevRect.top, rect.top)
+      if (verticalOverlap > 0) {
+        // Same line — adjacent words in the same phrase.
+        joinPrev = true
+      } else {
+        // Wrap to the next line: PDF reading order places the next line's
+        // marks right after the current line's. Group when the vertical gap
+        // is under ~one line height.
+        const verticalGap = rect.top - prevRect.bottom
+        if (verticalGap >= 0 && verticalGap < rect.height * 0.8) joinPrev = true
+      }
+    }
+    if (joinPrev && groups.length > 0) {
+      groups[groups.length - 1]!.push(m)
+    } else {
+      groups.push([m])
+    }
+    currentPage = page
+    prevRect = rect
+  }
+  return groups
+}
+
+/** Scrolls the first element of `groups[idx]` into view and pulses every mark
+ *  in that group via the `is-active` class. Previously-active marks elsewhere
+ *  get cleared first so only one group is highlighted at a time. */
+function focusMarkGroup(
+  root: HTMLElement,
+  groups: HTMLElement[][],
+  idx: number,
+  behavior: ScrollBehavior,
+): void {
+  const allMarks = root.querySelectorAll<HTMLElement>('.pdf-doc__page-mark, .source-viewer__mark')
+  for (const m of allMarks) m.classList.remove('is-active')
+  const group = groups[idx]
+  if (!group || group.length === 0) return
+  for (const m of group) m.classList.add('is-active')
+  group[0]!.scrollIntoView({ block: 'center', behavior })
 }
 
 function HighlightedText({ text, snippets }: { text: string; snippets: string[] }): JSX.Element {

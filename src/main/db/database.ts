@@ -137,10 +137,105 @@ export class DocumentsRepo {
   constructor(private readonly db: DbHandle) {}
 
   async addDocument(
-    input: Pick<NewDocument, 'workspaceId' | 'title' | 'sourcePath' | 'mimeType' | 'byteSize'>,
+    input: Pick<
+      NewDocument,
+      | 'workspaceId'
+      | 'title'
+      | 'sourcePath'
+      | 'mimeType'
+      | 'byteSize'
+      | 'contentHash'
+      | 'sourceMtime'
+    >,
   ): Promise<Document> {
     const [row] = await this.db.insert(documents).values(input).returning()
     return row!
+  }
+
+  /** Updates per-file metadata captured at (re)import time. Called from
+   *  DocumentService after the file is read so a future refreshDocument can
+   *  short-circuit when neither the mtime nor the hash has changed. */
+  async setSourceMetadata(
+    documentId: number,
+    fields: {
+      sourcePath?: string
+      title?: string
+      mimeType?: string | null
+      byteSize?: number | null
+      contentHash?: string | null
+      sourceMtime?: number | null
+    },
+  ): Promise<void> {
+    if (Object.keys(fields).length === 0) return
+    await this.db.update(documents).set(fields).where(eq(documents.id, documentId))
+  }
+
+  /** Finds a document by (workspace, sourcePath). FolderSyncService uses this
+   *  to decide whether a path encountered during a folder walk maps to an
+   *  existing doc (→ refresh) or is new (→ import). */
+  async findByWorkspaceAndPath(
+    workspaceId: number,
+    sourcePath: string,
+  ): Promise<Document | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(documents)
+      .where(
+        sql`${documents.workspaceId} = ${workspaceId} AND ${documents.sourcePath} = ${sourcePath}`,
+      )
+      .limit(1)
+    return row
+  }
+
+  /** Soft-mark the doc as missing — sync detected the source path is gone.
+   *  Idempotent: if missing_at is already set we leave the original timestamp
+   *  alone so the dismissed-vs-fresh comparison stays correct. */
+  async markMissing(documentId: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE documents
+         SET missing_at = COALESCE(missing_at, (EXTRACT(EPOCH FROM NOW())::BIGINT))
+       WHERE id = ${documentId}
+    `)
+  }
+
+  /** Clear the missing state — source file reappeared (or user explicitly
+   *  re-imported). Resets the dismissal flag too so a future disappearance
+   *  surfaces again. */
+  async clearMissing(documentId: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE documents
+         SET missing_at = NULL, missing_dismissed_at = NULL
+       WHERE id = ${documentId}
+    `)
+  }
+
+  /** User clicked "Behalten" on the missing-banner row. Stamp dismissed_at so
+   *  the banner stops surfacing this doc until the file reappears and
+   *  vanishes again. */
+  async dismissMissing(documentId: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE documents
+         SET missing_dismissed_at = (EXTRACT(EPOCH FROM NOW())::BIGINT)
+       WHERE id = ${documentId}
+    `)
+  }
+
+  /** Returns docs the user hasn't decided about yet — vanished but not
+   *  dismissed. Drives the LibraryView banner. */
+  async listMissingUnacknowledged(workspaceId: number): Promise<Document[]> {
+    // Goes through drizzle's select so the row keys come back camel-cased
+    // (matching Document); raw execute() preserves snake_case which would
+    // mismatch the type at every call site.
+    return this.db
+      .select()
+      .from(documents)
+      .where(
+        sql`${documents.workspaceId} = ${workspaceId}
+            AND ${documents.missingAt} IS NOT NULL
+            AND (${documents.missingDismissedAt} IS NULL
+                 OR ${documents.missingDismissedAt} < ${documents.missingAt})`,
+      )
+      .orderBy(desc(documents.missingAt), desc(documents.id))
   }
 
   async setDocumentStatus(documentId: number, status: string): Promise<void> {
@@ -160,14 +255,31 @@ export class DocumentsRepo {
     return row
   }
 
-  async getDocumentByChunkId(chunkId: number): Promise<Document | undefined> {
+  /** Single-query source-context fetch for the SourceViewer: the parent
+   *  document + the cited chunk's page range + heading breadcrumb. Replaces
+   *  the previous two-roundtrip (document + heading-path) IPC path. */
+  async getCitedChunkSource(chunkId: number): Promise<
+    | {
+        document: Document
+        pageFrom: number | null
+        pageTo: number | null
+        headingPath: string[] | null
+      }
+    | undefined
+  > {
     const [row] = await this.db
       .select()
       .from(documents)
       .innerJoin(chunks, eq(chunks.documentId, documents.id))
       .where(eq(chunks.id, chunkId))
       .limit(1)
-    return row?.documents
+    if (!row) return undefined
+    return {
+      document: row.documents,
+      pageFrom: row.chunks.pageFrom,
+      pageTo: row.chunks.pageTo,
+      headingPath: row.chunks.headingPath,
+    }
   }
 
   async deleteDocument(id: number): Promise<void> {
@@ -190,16 +302,6 @@ export class DocumentsRepo {
       headingPath: c.headingPath ?? null,
     }))
     await this.db.insert(chunks).values(rows)
-  }
-
-  /** Fetch just the heading_path for a chunk — used by the source viewer to
-   *  render markdown citations as breadcrumbs. */
-  async getChunkHeadingPath(chunkId: number): Promise<string[] | null> {
-    const r = await this.db.execute(sql`
-      SELECT heading_path FROM chunks WHERE id = ${chunkId} LIMIT 1
-    `)
-    const row = (r.rows as Array<{ heading_path: string[] | null }>)[0]
-    return row?.heading_path ?? null
   }
 
   async countChunksMissingEmbedding(workspaceId: number): Promise<number> {
@@ -234,6 +336,31 @@ export class DocumentsRepo {
          SET embedding = ${lit}::vector, embedder_identity = ${identity}
        WHERE id = ${chunkId}
     `)
+  }
+
+  /** Batch variant of setChunkEmbedding. The API exists so callers can pass
+   *  a single (id, vector) list instead of looping themselves and so a future
+   *  single-statement UPDATE can land without touching the call sites.
+   *  Accepts Float32Array directly so callers skip the Array.from copy.
+   *
+   *  Today the body loops per-row , the multi-row `UPDATE … FROM (VALUES …)`
+   *  and `unnest(int[], text[])` forms both tripped pglite (one row got
+   *  silently skipped under VALUES, unnest hit a protocol-violation on the
+   *  array binding). pglite is in-process so per-row roundtrips are JS calls,
+   *  not network , the upside of batching is small here, not worth the
+   *  driver risk. */
+  async setChunkEmbeddingsBatch(
+    rows: Array<{ id: number; vector: number[] | Float32Array }>,
+    identity: string,
+  ): Promise<void> {
+    for (const r of rows) {
+      const lit = '[' + r.vector.join(',') + ']'
+      await this.db.execute(sql`
+        UPDATE chunks
+           SET embedding = ${lit}::vector, embedder_identity = ${identity}
+         WHERE id = ${r.id}
+      `)
+    }
   }
 
   /** Nulls out the embedding for every chunk whose stored identity differs from `keep`. */
@@ -687,12 +814,17 @@ export class ConversationsRepo {
 
   async persistCitations(messageId: number, items: PersistCitationInput[]): Promise<void> {
     if (items.length === 0) return
-    for (const it of items) {
-      await this.db.execute(sql`
-        INSERT INTO citations (message_id, chunk_id, document_id, score)
-        VALUES (${messageId}, ${it.chunk_id}, ${it.doc_id}, ${it.score ?? null})
-      `)
-    }
+    // Single multi-row INSERT — was N round-trips, one per citation (~5-10 per
+    // assistant turn). Built via raw SQL because Drizzle's .values() on a
+    // schema table requires the citations import which this file deliberately
+    // skips (the citations type lives in PersistCitationInput).
+    const valuesSql = items.map(
+      (it) => sql`(${messageId}, ${it.chunk_id}, ${it.doc_id}, ${it.score ?? null})`,
+    )
+    await this.db.execute(sql`
+      INSERT INTO citations (message_id, chunk_id, document_id, score)
+      VALUES ${sql.join(valuesSql, sql`, `)}
+    `)
   }
 
   async getWithMessages(conversationId: number): Promise<{
@@ -859,6 +991,24 @@ export class WorkspacesRepo {
 
   async delete(id: number): Promise<void> {
     await this.db.delete(workspaces).where(eq(workspaces.id, id))
+  }
+
+  async getSyncFolders(workspaceId: number): Promise<string[]> {
+    const r = await this.db.execute(sql`
+      SELECT sync_folders FROM workspaces WHERE id = ${workspaceId}
+    `)
+    const row = (r.rows as Array<{ sync_folders: string[] | null }>)[0]
+    return row?.sync_folders ?? []
+  }
+
+  /** Overwrites the watched-folder set for the workspace. The caller (sync
+   *  service) is responsible for tearing down + reattaching watchers when this
+   *  changes — the repo just persists. */
+  async setSyncFolders(workspaceId: number, folders: string[]): Promise<void> {
+    const json = JSON.stringify(folders)
+    await this.db.execute(sql`
+      UPDATE workspaces SET sync_folders = ${json}::jsonb WHERE id = ${workspaceId}
+    `)
   }
 }
 
@@ -1060,18 +1210,19 @@ export class QuizzesRepo {
    *  QuizService.generate so a partial pipeline doesn't leak half a deck. */
   async insertQuestions(deckId: number, items: NewQuizQuestionInput[]): Promise<void> {
     if (items.length === 0) return
-    for (const q of items) {
-      const optsJson = JSON.stringify(q.options)
-      const chunksJson = JSON.stringify(q.sourceChunkIds)
-      await this.db.execute(sql`
-        INSERT INTO quiz_questions
-          (deck_id, ordinal, stem, options, correct_index,
-           explanation, source_chunk_ids, theme_title)
-        VALUES
-          (${deckId}, ${q.ordinal}, ${q.stem}, ${optsJson}::jsonb, ${q.correctIndex},
-           ${q.explanation}, ${chunksJson}::jsonb, ${q.themeTitle})
-      `)
-    }
+    // Single multi-row INSERT — was N round-trips, one per question (20-50 per
+    // deck). pglite serialises each one through a JS boundary so the N+1 was
+    // measurable on cold generation.
+    const valuesSql = items.map(
+      (q) =>
+        sql`(${deckId}, ${q.ordinal}, ${q.stem}, ${JSON.stringify(q.options)}::jsonb, ${q.correctIndex}, ${q.explanation}, ${JSON.stringify(q.sourceChunkIds)}::jsonb, ${q.themeTitle})`,
+    )
+    await this.db.execute(sql`
+      INSERT INTO quiz_questions
+        (deck_id, ordinal, stem, options, correct_index,
+         explanation, source_chunk_ids, theme_title)
+      VALUES ${sql.join(valuesSql, sql`, `)}
+    `)
   }
 
   /** Wipe existing questions for a deck. Used by regenerate before re-running

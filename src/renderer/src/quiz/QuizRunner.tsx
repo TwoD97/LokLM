@@ -59,7 +59,7 @@ function permutation(length: number, seed: number): number[] {
 
 export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   const [state, setState] = useState<RunnerState>({ kind: 'loading' })
-  const [sourceChunkId, setSourceChunkId] = useState<number | null>(null)
+  const [source, setSource] = useState<{ chunkId: number; explanation: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -157,7 +157,12 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
     return () => window.removeEventListener('keydown', handler)
   }, [state, advance])
 
-  const onCite = useCallback((chunkId: number) => setSourceChunkId(chunkId), [])
+  const onCite = useCallback(
+    ({ chunkId, explanation }: { chunkId: number; explanation: string }) => {
+      setSource({ chunkId, explanation })
+    },
+    [],
+  )
 
   if (state.kind === 'loading') {
     return (
@@ -238,25 +243,17 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
           </div>
         )}
       </div>
-      {sourceChunkId != null && (
-        <div
-          className="quiz-source-modal"
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSourceChunkId(null)
-          }}
-        >
-          <div className="quiz-source-modal__panel">
-            <ErrorBoundary label="Source preview" onError={() => setSourceChunkId(null)}>
-              <SourceViewer
-                chunkId={sourceChunkId}
-                documentTitle={null}
-                onClose={() => setSourceChunkId(null)}
-              />
-            </ErrorBoundary>
-          </div>
-        </div>
+      {source != null && (
+        // SourceViewer renders its own backdrop + role=dialog modal — no extra
+        // wrapper here.
+        <ErrorBoundary label="Source preview" onError={() => setSource(null)}>
+          <SourceViewer
+            chunkId={source.chunkId}
+            messageText={source.explanation}
+            documentTitle={null}
+            onClose={() => setSource(null)}
+          />
+        </ErrorBoundary>
       )}
     </section>
   )
@@ -275,7 +272,7 @@ function RunnerContent({
   selectedIndex: number | null
   revealed: boolean
   onSelect: (i: number) => void
-  onCite: (c: number) => void
+  onCite: (args: { chunkId: number; explanation: string }) => void
 }): JSX.Element {
   return (
     <QuestionCard

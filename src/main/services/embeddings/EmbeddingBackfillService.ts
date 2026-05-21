@@ -134,21 +134,29 @@ export class EmbeddingBackfillService {
         }
         let madeProgress = 0
         if (vectors) {
+          // Collect the batch's successful (id, vector) pairs and write them
+          // all in one UPDATE … FROM (VALUES …) , the per-row UPDATE was the
+          // dominant cost on a hot backfill (32 round-trips per page).
+          const writes: Array<{ id: number; vector: Float32Array }> = []
           for (let i = 0; i < batch.length; i++) {
             const v = vectors[i]
             const row = batch[i]
             if (!v || !row) continue
+            writes.push({ id: row.id, vector: v })
+          }
+          if (writes.length > 0) {
             try {
-              await this.db.documents().setChunkEmbedding(row.id, Array.from(v), activeIdentity)
-              madeProgress++
+              await this.db.documents().setChunkEmbeddingsBatch(writes, activeIdentity)
+              madeProgress = writes.length
             } catch (err) {
               // Most likely a pgvector dimension mismatch (the model was
               // swapped after the column type was set). Surface it once and
               // bail — re-trying every batch would just spam logs.
               throw new Error(
-                `Failed to write embedding for chunk ${row.id}: ${
-                  err instanceof Error ? err.message : String(err)
-                }`,
+                `Failed to write embeddings for ${writes.length} chunks ` +
+                  `(sample id ${writes[0]?.id}): ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
               )
             }
           }

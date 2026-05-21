@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 
 type Props = {
   bytes: Uint8Array | null
@@ -16,6 +16,13 @@ export function Avatar({ bytes, name, size, alt }: Props): JSX.Element {
     copy.set(bytes)
     return URL.createObjectURL(new Blob([copy.buffer], { type: 'image/png' }))
   }, [bytes])
+  // URL.createObjectURL leaks the underlying Blob until revokeObjectURL fires.
+  // Without this cleanup every avatar swap (or unmount) used to leak ~few-KB
+  // blobs forever , the blobs accumulated for the lifetime of the renderer.
+  useEffect(() => {
+    if (!imgUrl) return
+    return () => URL.revokeObjectURL(imgUrl)
+  }, [imgUrl])
 
   if (imgUrl) {
     return (

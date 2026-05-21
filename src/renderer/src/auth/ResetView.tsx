@@ -7,6 +7,7 @@ import {
   validatePassphrase,
 } from '@shared/authHelpers'
 import type { AuthStatus } from '@shared/authTypes'
+import { formatCooldown, useAuthForm } from './useAuthForm'
 
 type Props = {
   status: AuthStatus
@@ -18,8 +19,8 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
   const [passphrase, setPassphrase] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, error, cooldownMs, setBusy, setError, setCooldownUntil, setRpcError } =
+    useAuthForm()
 
   const lang = status.recoveryLang ?? 'de'
   const wordlist = useMemo(() => getWordlist(lang), [lang])
@@ -32,7 +33,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
   const pwOk = password.length >= 10 && countCharacterClasses(password) >= 3
   const matches = confirm.length > 0 && password === confirm
 
-  const canSubmit = phraseCheck?.ok === true && pwOk && matches && !busy
+  const canSubmit = phraseCheck?.ok === true && pwOk && matches && !busy && cooldownMs === 0
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
@@ -48,15 +49,13 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
         onReset(result.passphrase)
         return
       }
-      if (result.reason === 'no_user') setError('Auf diesem Gerät ist kein Konto registriert.')
-      else if (result.reason === 'bad_code') setError('Wiederherstellungs-Wörter stimmen nicht.')
-      else if (result.reason === 'rate_limited') {
-        const mins = result.retryAfterMs ? Math.ceil(result.retryAfterMs / 60_000) : 5
-        setError(`Zu viele Fehlversuche. Bitte ${mins} Minuten warten.`)
+      if (result.reason === 'no_user' || result.reason === 'bad_code') {
+        setError('Wiederherstellungs-Wörter oder Konto unbekannt.')
+      } else if (result.reason === 'rate_limited') {
+        setCooldownUntil(Date.now() + (result.retryAfterMs ?? 5 * 60_000))
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg.replace(/^Error invoking remote method [^:]+: Error: /, ''))
+      setRpcError(err)
     } finally {
       setBusy(false)
     }
@@ -145,7 +144,16 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
           </li>
         </ol>
 
-        {error && <p className="auth-card__error">{error}</p>}
+        {error && !cooldownMs && (
+          <p className="auth-card__error" role="alert">
+            {error}
+          </p>
+        )}
+        {cooldownMs > 0 && (
+          <p className="auth-card__error" role="alert">
+            Zu viele Fehlversuche. Bitte noch {formatCooldown(cooldownMs)} warten.
+          </p>
+        )}
 
         <div className="auth-card__row">
           <button type="submit" className="primary" disabled={!canSubmit}>

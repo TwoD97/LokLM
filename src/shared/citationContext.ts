@@ -8,53 +8,62 @@
  * noisy false-positive highlights. Per-citation sentences are tight.
  */
 
-import { extractCitationMarkers } from './citationMarkers'
+import { findCitationMatches, stripCitationMarkers } from './citationMarkers'
 
-const ANY_CITATION = /\[doc:(\d+),\s*chunk:(\d+)\]/g
+const HAS_WORD_CONTENT = /[\p{L}\p{N}]/u
+const MAX_LOOKBACK_SENTENCES = 4
 
 /**
- * Returns every sentence in `messageText` that contains the citation marker
- * for `(documentId, chunkId)`. Each returned snippet has citation markers
- * removed and whitespace collapsed. Duplicates are deduped after
- * normalisation , so two identical sentences (rare) collapse to one.
+ * For each occurrence of `(documentId, chunkId)` in `messageText`, returns the
+ * surrounding sentence (citation markers stripped, whitespace collapsed).
+ * Duplicates after normalisation collapse to one. Empty array when the marker
+ * doesn't appear.
  *
- * Empty array when the marker doesn't appear in the text.
+ * When the sentence containing the marker is just a citation dump (e.g.
+ * `claim. [m1], [m2], [m3].` — clicking m2 lands inside the comma list, which
+ * has no word content of its own), we walk back to the previous sentence so
+ * the snippet still carries the assistant's actual claim.
  */
 export function extractCitationSnippets(
   messageText: string,
   target: { documentId: number; chunkId: number },
 ): string[] {
-  const found = extractCitationMarkers(messageText).some(
+  const hits = findCitationMatches(messageText).filter(
     (m) => m.documentId === target.documentId && m.chunkId === target.chunkId,
   )
-  if (!found) return []
+  if (hits.length === 0) return []
 
-  const markerNeedle = `[doc:${target.documentId}, chunk:${target.chunkId}]`
-  const altNeedle = `[doc:${target.documentId},chunk:${target.chunkId}]` // tolerated no-space form
   const out: string[] = []
   const seen = new Set<string>()
-
-  let cursor = 0
-  while (cursor < messageText.length) {
-    const a = messageText.indexOf(markerNeedle, cursor)
-    const b = messageText.indexOf(altNeedle, cursor)
-    const next = a === -1 ? b : b === -1 ? a : Math.min(a, b)
-    if (next === -1) break
-    const sentence = sentenceAround(messageText, next)
-    const normalised = stripCitationsAndCollapse(sentence)
-    if (normalised.length > 0 && !seen.has(normalised)) {
-      seen.add(normalised)
-      out.push(normalised)
+  for (const hit of hits) {
+    const snippet = findContentfulSentence(messageText, hit.start)
+    if (snippet.length > 0 && !seen.has(snippet)) {
+      seen.add(snippet)
+      out.push(snippet)
     }
-    cursor = next + 1
   }
   return out
 }
 
-function sentenceAround(text: string, position: number): string {
-  // Walk back to the previous sentence boundary (or start of text). Boundary =
-  // `. ! ? \n` followed by whitespace OR start. Keep it simple , don't try to
-  // be clever about abbreviations.
+function findContentfulSentence(text: string, position: number): string {
+  let bounds = sentenceBounds(text, position)
+  for (let step = 0; step < MAX_LOOKBACK_SENTENCES; step++) {
+    const slice = text.slice(bounds.start, bounds.end)
+    const normalised = stripCitationsAndCollapse(slice)
+    if (HAS_WORD_CONTENT.test(normalised)) return normalised
+    if (bounds.start === 0) return normalised
+    // Step back into the previous sentence by anchoring just before the
+    // current sentence's start.
+    bounds = sentenceBounds(text, bounds.start - 1)
+  }
+  // Gave up — return whatever the original sentence stripped to, even if it's
+  // pure punctuation. Caller dedupes empty/duplicate results.
+  return stripCitationsAndCollapse(text.slice(bounds.start, bounds.end))
+}
+
+function sentenceBounds(text: string, position: number): { start: number; end: number } {
+  // Boundary = `. ! ? \n` followed by whitespace OR start/end. Keep it simple,
+  // don't try to be clever about abbreviations.
   let start = 0
   for (let i = position - 1; i >= 0; i--) {
     const c = text[i]
@@ -85,13 +94,12 @@ function sentenceAround(text: string, position: number): string {
       }
     }
   }
-  return text.slice(start, end)
+  return { start, end }
 }
 
 function stripCitationsAndCollapse(s: string): string {
   return (
-    s
-      .replace(ANY_CITATION, '')
+    stripCitationMarkers(s)
       // Collapse whitespace runs first so "foo  ." becomes "foo .".
       .replace(/\s+/g, ' ')
       // Strip the space that's now stranded before terminal punctuation.

@@ -1,4 +1,14 @@
-import { useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
+import {
+  MoreHorizontal,
+  FolderOpen,
+  ExternalLink,
+  RefreshCw,
+  Replace,
+  RotateCcw,
+  Trash2,
+  AlertTriangle,
+} from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 
 type Props = {
@@ -6,20 +16,59 @@ type Props = {
   progress?: IndexProgress
   onDelete: (id: number) => void
   onReindex: (id: number) => void
+  onReveal: (id: number) => void
+  onOpenExternal: (id: number) => void
+  onReplace: (id: number) => void
+  onRefresh: (id: number) => void
 }
 
-export function DocumentRow({ doc, progress, onDelete, onReindex }: Props): JSX.Element {
+function DocumentRowImpl({
+  doc,
+  progress,
+  onDelete,
+  onReindex,
+  onReveal,
+  onOpenExternal,
+  onReplace,
+  onRefresh,
+}: Props): JSX.Element {
   const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close on outside click — the original ⋯-menu would persist across rows
+  // if the user clicked into another, which felt buggy now that the menu has
+  // six items instead of two.
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menu])
+
   const status =
     progress?.phase === 'failed' || doc.status === 'failed'
       ? 'failed'
       : progress && progress.phase !== 'done'
         ? 'indexing'
         : doc.status
+  const isMissing = doc.missingAt != null
 
   return (
-    <tr>
-      <td>{doc.title}</td>
+    <tr className={isMissing ? 'library__row--missing' : ''}>
+      <td>
+        <span className="library__row-title">
+          {isMissing && (
+            <AlertTriangle
+              size={14}
+              aria-label="Quelldatei fehlt"
+              className="library__row-missing-icon"
+            />
+          )}
+          {doc.title}
+        </span>
+      </td>
       <td>
         <span className={`library__status library__status--${status}`}>{status}</span>
         {progress && progress.phase !== 'done' && progress.phase !== 'failed' && (
@@ -31,39 +80,69 @@ export function DocumentRow({ doc, progress, onDelete, onReindex }: Props): JSX.
       <td>{doc.chunkCount}</td>
       <td>{new Date(doc.addedAt * 1000).toLocaleString()}</td>
       <td style={{ width: 40, position: 'relative' }}>
-        <button onClick={() => setMenu((v) => !v)} aria-label="actions">
-          ⋯
+        <button
+          className="library__row-menu-btn"
+          onClick={() => setMenu((v) => !v)}
+          aria-label="actions"
+        >
+          <MoreHorizontal size={16} aria-hidden="true" />
         </button>
         {menu && (
-          <div
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: '100%',
-              background: '#0f1a2a',
-              border: '1px solid #243a55',
-              padding: 4,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              zIndex: 10,
-            }}
-          >
+          <div ref={menuRef} className="library__row-menu">
+            <button
+              onClick={() => {
+                setMenu(false)
+                onReveal(doc.id)
+              }}
+            >
+              <FolderOpen size={14} aria-hidden="true" />
+              Im Ordner zeigen
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onOpenExternal(doc.id)
+              }}
+            >
+              <ExternalLink size={14} aria-hidden="true" />
+              Extern öffnen
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onRefresh(doc.id)
+              }}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Aktualisieren
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onReplace(doc.id)
+              }}
+            >
+              <Replace size={14} aria-hidden="true" />
+              Datei ersetzen…
+            </button>
             <button
               onClick={() => {
                 setMenu(false)
                 onReindex(doc.id)
               }}
             >
+              <RotateCcw size={14} aria-hidden="true" />
               Reindex
             </button>
             <button
+              className="library__row-menu-danger"
               onClick={() => {
                 setMenu(false)
                 onDelete(doc.id)
               }}
             >
-              Delete
+              <Trash2 size={14} aria-hidden="true" />
+              Löschen
             </button>
           </div>
         )}
@@ -71,3 +150,8 @@ export function DocumentRow({ doc, progress, onDelete, onReindex }: Props): JSX.
     </tr>
   )
 }
+
+// memoised so rows whose (doc, progress) didn't change skip re-render when
+// the parent's progress map updates a different row , under indexing
+// storms the whole table used to redraw every tick.
+export const DocumentRow = memo(DocumentRowImpl)

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
+import { SyncFoldersPanel } from './SyncFoldersPanel'
+import { MissingDocsBanner } from './MissingDocsBanner'
 import './library.css'
 
 type Props = {
@@ -11,6 +13,11 @@ type Props = {
 export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element {
   const [docs, setDocs] = useState<Document[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
+  // Bumped after any flow that could change the missing-banner contents
+  // (sync run, doc delete, replace, refresh). The banner refetches on every
+  // bump rather than subscribing to four separate event sources.
+  const [missingTick, setMissingTick] = useState(0)
+  const bumpMissing = useCallback(() => setMissingTick((n) => n + 1), [])
 
   const refreshDocs = useCallback(async (id: number) => {
     setDocs(await window.api.documents.list(id))
@@ -33,6 +40,21 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     })
     return () => off()
   }, [workspaceId, refreshDocs])
+
+  // Sync events arrive on a separate channel ; on 'done' we refresh the doc
+  // list once so deletions + new imports appear without per-doc roundtrips,
+  // and bump the missing-banner refresh key so it surfaces newly-marked
+  // vanished files immediately (no per-event subscription on the banner).
+  useEffect(() => {
+    const off = window.api.workspaces.onSyncProgress((ev) => {
+      if (ev.workspaceId !== workspaceId) return
+      if (ev.phase === 'done' || ev.phase === 'failed') {
+        void refreshDocs(workspaceId)
+        bumpMissing()
+      }
+    })
+    return () => off()
+  }, [workspaceId, refreshDocs, bumpMissing])
 
   const onImport = useCallback(
     async (paths: string[]) => {
@@ -64,9 +86,60 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs],
   )
 
+  const onReveal = useCallback(async (id: number) => {
+    const res = await window.api.documents.revealSource(id)
+    if (!res.ok) {
+      window.alert(`Quelldatei nicht gefunden:\n${res.sourcePath}`)
+    }
+  }, [])
+
+  const onOpenExternal = useCallback(async (id: number) => {
+    const res = await window.api.documents.openExternal(id)
+    if (!res.ok) {
+      window.alert(`Datei kann nicht geöffnet werden: ${res.message}`)
+    }
+  }, [])
+
+  const onReplace = useCallback(
+    async (id: number) => {
+      try {
+        const replaced = await window.api.documents.replaceSource(id)
+        if (replaced != null) void refreshDocs(workspaceId)
+      } catch (err) {
+        console.error('replace failed', err)
+        window.alert(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [workspaceId, refreshDocs],
+  )
+
+  const onRefresh = useCallback(
+    async (id: number) => {
+      const res = await window.api.documents.refresh(id)
+      if (res.ok) {
+        // 'missing' now stamps the soft-marker in main ; the banner surfaces it,
+        // so we just bump and refresh instead of popping an alert.
+        void refreshDocs(workspaceId)
+        bumpMissing()
+      } else {
+        window.alert(res.message)
+      }
+    },
+    [workspaceId, refreshDocs, bumpMissing],
+  )
+
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
+      <SyncFoldersPanel
+        workspaceId={workspaceId}
+        onSyncDone={() => void refreshDocs(workspaceId)}
+      />
+      <MissingDocsBanner
+        workspaceId={workspaceId}
+        refreshKey={missingTick}
+        onChanged={() => void refreshDocs(workspaceId)}
+      />
       <DropZone
         onFiles={(paths) => void onImport(paths)}
         onPick={async () => {
@@ -74,11 +147,19 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           if (paths.length > 0) void onImport(paths)
         }}
       />
+      {/* Pass the callbacks straight , each is already useCallback'd above, so
+       *  DocumentRow's React.memo can actually skip re-renders for rows whose
+       *  doc + progress didn't change. Wrapping them inline with arrows used
+       *  to mint fresh fns each render and defeat the memo. */}
       <DocumentTable
         docs={docs}
         progress={progress}
-        onDelete={(id) => void onDelete(id)}
-        onReindex={(id) => void onReindex(id)}
+        onDelete={onDelete}
+        onReindex={onReindex}
+        onReveal={onReveal}
+        onOpenExternal={onOpenExternal}
+        onReplace={onReplace}
+        onRefresh={onRefresh}
       />
     </div>
   )

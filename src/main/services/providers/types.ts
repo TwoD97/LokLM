@@ -9,7 +9,10 @@ export interface ProviderStatus {
 
 export interface LlmProvider {
   ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string>
-  generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string>
+  generateRaw(
+    prompt: string,
+    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+  ): Promise<string>
   generateTitle(
     user: string,
     assistant: string,

@@ -12,6 +12,16 @@ export interface Document {
   chunkCount: number
   tokenCount: number
   addedAt: number
+  /** sha256 of the source bytes at last (re)import. Null on pre-0004 rows. */
+  contentHash?: string | null
+  /** statSync().mtimeMs of the source at last (re)import, rounded to ms. */
+  sourceMtime?: number | null
+  /** Soft "source file vanished" marker — set by FolderSyncService and
+   *  refreshDocument, cleared on rediscovery. Drives the LibraryView banner. */
+  missingAt?: number | null
+  /** When the user clicked "Behalten" on the banner. Suppresses re-notifying
+   *  until the file reappears and vanishes again. */
+  missingDismissedAt?: number | null
 }
 
 export interface Workspace {
@@ -185,9 +195,36 @@ export interface SystemInfo extends ModelStatus {
 
 export type RefusalReason = 'no_hits' | 'below_threshold'
 
+/** Pipeline stages emitted as `stage` events so the renderer can show real-time
+ *  progress before the first token arrives. Order is roughly the chronological
+ *  order each stage runs in QAService / RetrievalService.
+ *    - contextualize  : LLM rewrites a follow-up into a standalone retrieval query
+ *    - expand_queries : multiQuery — LLM paraphrases the query for recall
+ *    - retrieve       : BM25 + dense fusion (always runs)
+ *    - rerank         : cross-encoder pass over the candidate pool
+ *    - prefill        : time between citations sent and first generated token
+ */
+export type StageName = 'contextualize' | 'expand_queries' | 'retrieve' | 'rerank' | 'prefill'
+
 export type StreamEvent =
-  | { type: 'token'; text: string }
+  | {
+      type: 'token'
+      text: string
+      /** Number of native llama.cpp chunks this batch coalesces. Absent or 1
+       *  for non-batched / synthesized text. Renderer adds this to its
+       *  tokens/sec counter instead of incrementing by 1 per event. */
+      count?: number
+    }
   | { type: 'citation'; doc_id: number; chunk_id: number; score: number }
+  | {
+      type: 'stage'
+      stage: StageName
+      status: 'start' | 'done'
+      /** Set on `done` events. Milliseconds spent in the stage. */
+      durationMs?: number
+      /** Optional short note for the renderer (e.g. "3 variants", "12 candidates"). */
+      detail?: string
+    }
   | {
       type: 'refusal'
       reason: RefusalReason
@@ -312,7 +349,9 @@ export interface DocumentChunk {
 
 /** Renderer-visible source-document metadata for a single chunk. The renderer
  *  uses this to decide whether to render a PDF page preview, markdown, or
- *  plain monospace text in the SourceViewer. */
+ *  plain monospace text in the SourceViewer. Holds chunk-specific fields too
+ *  (headingPath, chunkPage*) so the SourceViewer can render the cited chunk
+ *  without a second IPC. */
 export interface ChunkSource {
   documentId: number
   title: string
@@ -323,4 +362,9 @@ export interface ChunkSource {
   /** Heading breadcrumb for the specific chunk this was fetched for. Null for
    *  PDFs and chunks indexed before markdown-aware chunking landed. */
   headingPath: string[] | null
+  /** Page range of the cited chunk. PDFs use this to open the preview at the
+   *  right page without fetching the full chunks list. Null for non-paginated
+   *  documents (markdown, plain text). */
+  chunkPageFrom: number | null
+  chunkPageTo: number | null
 }

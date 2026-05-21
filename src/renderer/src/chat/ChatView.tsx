@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Conversation, StreamEvent } from '@shared/documents'
+import type { Conversation, StageName, StreamEvent } from '@shared/documents'
 import { ChatHeader } from './ChatHeader'
 import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
@@ -7,6 +7,7 @@ import { ConversationList } from './ConversationList'
 import { ConfirmModal } from './ConfirmModal'
 import { SourceViewer } from './SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
+import { useSettings } from '../settings/useSettings'
 import './chat.css'
 
 type StreamMetrics = {
@@ -15,15 +16,36 @@ type StreamMetrics = {
   tokenCount: number
 }
 
+/** One row in the inline progress checklist. `status` flips from 'running' to
+ *  'done' when QAService emits the matching done event. `durationMs` is filled
+ *  on the done event; `detail` is an optional caption ("12 candidates"). */
+export type StageRow = {
+  stage: StageName
+  status: 'running' | 'done'
+  durationMs?: number
+  detail?: string
+}
+
 type LocalMessage =
-  | { role: 'user'; content: string }
+  | { id: string; role: 'user'; content: string }
   | {
+      id: string
       role: 'assistant'
       content: string
       streaming: boolean
       isRefusal?: boolean
       metrics?: StreamMetrics
+      /** Pipeline stages observed for this turn, in arrival order. Empty for
+       *  re-hydrated messages from the DB (stage timings aren't persisted). */
+      pipeline?: StageRow[]
     }
+
+function newMessageId(): string {
+  // Stable per-message id for React keys + memo. Lets MessageBubble skip
+  // re-renders on token streams (only the streaming bubble's content changes
+  // — index keys forced every bubble to re-run).
+  return crypto.randomUUID()
+}
 
 type Props = {
   workspaceId: number
@@ -47,6 +69,10 @@ export function ChatView({
     chunkId: number
     messageText: string
   } | null>(null)
+  const { settings } = useSettings()
+  // Default false matches the original "collapse on first token" UX; setting
+  // is undefined while settings hydrate from disk on first launch.
+  const keepPipelineVisible = settings?.basic.showPipelineSteps ?? false
 
   // Closures captured by the stream listener see a stale `currentConversationId`
   // — we use a ref so the listener can compare against the live value and drop
@@ -66,6 +92,17 @@ export function ChatView({
   useEffect(() => {
     activeDocumentIdsRef.current = activeDocumentIds
   }, [activeDocumentIds])
+
+  // Mirror of messages so onSend can read history without listing `messages`
+  // in its deps , otherwise onSend's identity churns every token and
+  // ChatInput re-renders on every chunk. Bonus: also fixes the latent bug
+  // where the history payload captured the empty assistant placeholder we
+  // just pushed (since setMessages had already added it before window.api
+  // .chat.stream was called).
+  const messagesRef = useRef<LocalMessage[]>(messages)
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
 
   const refresh = useCallback(async () => {
     const list = await window.api.conversations.list(workspaceId)
@@ -88,12 +125,13 @@ export function ChatView({
       onConversationChange(id, data.conversation.activeDocumentIds)
       setMessages(
         data.messages.map((m) => {
-          if (m.role === 'user') return { role: 'user', content: m.content }
+          if (m.role === 'user') return { id: newMessageId(), role: 'user', content: m.content }
           // Persisted assistant turns carry the stream metrics they were
           // recorded with. Re-hydrate the metrics chip if any of them survived
           // the round-trip (older rows have all-null and render without a chip).
           const hasMetrics = m.ttftMs != null || m.tokensPerSec != null || (m.tokenCount ?? 0) > 0
           return {
+            id: newMessageId(),
             role: 'assistant',
             content: m.content,
             streaming: false,
@@ -138,12 +176,14 @@ export function ChatView({
       let tokenCount = 0
       setMessages((prev) => [
         ...prev,
-        { role: 'user', content: text },
+        { id: newMessageId(), role: 'user', content: text },
         {
+          id: newMessageId(),
           role: 'assistant',
           content: '',
           streaming: true,
           metrics: { ttftMs: null, tokensPerSec: null, tokenCount: 0 },
+          pipeline: [],
         },
       ])
       const streamId = crypto.randomUUID()
@@ -160,7 +200,10 @@ export function ChatView({
           if (!last || last.role !== 'assistant') return prev
           if (ev.type === 'token') {
             if (firstTokenTime == null) firstTokenTime = performance.now()
-            tokenCount += 1
+            // Worker coalesces ~8 ms worth of native onTextChunk callbacks
+            // into one push; `ev.count` is how many it merged. Without it
+            // the tokens/sec metric would cap at the batching rate (~125 Hz).
+            tokenCount += ev.count ?? 1
             const ttftMs = firstTokenTime - sendTime
             const elapsedSinceFirst = (performance.now() - firstTokenTime) / 1000
             const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
@@ -169,6 +212,30 @@ export function ChatView({
               content: last.content + ev.text,
               metrics: { ttftMs, tokensPerSec, tokenCount },
             }
+          } else if (ev.type === 'stage') {
+            // Mutate-via-copy: find the existing row for this stage (started
+            // earlier) or push a new one on 'start'. Order is preserved so the
+            // checklist renders in the order stages actually fired.
+            const pipeline: StageRow[] = (last.pipeline ?? []).slice()
+            if (ev.status === 'start') {
+              const row: StageRow = { stage: ev.stage, status: 'running' }
+              if (ev.detail !== undefined) row.detail = ev.detail
+              pipeline.push(row)
+            } else {
+              // Find the most recent matching running row and flip it to done.
+              for (let i = pipeline.length - 1; i >= 0; i--) {
+                if (pipeline[i]!.stage === ev.stage && pipeline[i]!.status === 'running') {
+                  pipeline[i] = {
+                    ...pipeline[i]!,
+                    status: 'done',
+                    ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+                    ...(ev.detail !== undefined ? { detail: ev.detail } : {}),
+                  }
+                  break
+                }
+              }
+            }
+            next[next.length - 1] = { ...last, pipeline }
           } else if (ev.type === 'refusal') {
             next[next.length - 1] = {
               ...last,
@@ -189,9 +256,13 @@ export function ChatView({
         })
       })
       try {
+        // History excludes the user turn + empty assistant placeholder we
+        // just pushed — slice(0, -2) drops both. Read via the ref so onSend's
+        // identity stays stable across tokens.
+        const priorMessages = messagesRef.current.slice(0, -2)
         await window.api.chat.stream(streamId, workspaceId, text, {
           conversationId: convId,
-          history: messages.map((m) => ({ role: m.role, content: m.content })),
+          history: priorMessages.map((m) => ({ role: m.role, content: m.content })),
           rerank: true,
           contextualize: true,
           activeDocumentIds: idsForSend,
@@ -219,8 +290,14 @@ export function ChatView({
         void refresh()
       }
     },
-    [currentConversationId, workspaceId, messages, openConversation, refresh, onConversationChange],
+    [currentConversationId, workspaceId, openConversation, refresh, onConversationChange],
   )
+
+  // Stable wrapper for ChatInput — its `onSend` prop is `(text: string) => void`
+  // while ours returns a Promise. Wrapping inline with `(t) => void onSend(t)`
+  // allocated a fresh function per render and forced ChatInput to re-render on
+  // every token.
+  const onSendForInput = useCallback((t: string) => void onSend(t), [onSend])
 
   const onCancel = useCallback(() => {
     if (activeStreamId) void window.api.chat.cancel(activeStreamId)
@@ -281,8 +358,12 @@ export function ChatView({
               : null
           }
         />
-        <MessageList messages={messages} onCitationClick={onCitationClick} />
-        <ChatInput onSend={(t) => void onSend(t)} busy={busy} onCancel={onCancel} />
+        <MessageList
+          messages={messages}
+          onCitationClick={onCitationClick}
+          keepPipelineVisible={keepPipelineVisible}
+        />
+        <ChatInput onSend={onSendForInput} busy={busy} onCancel={onCancel} />
       </section>
       {sourceViewer && (
         <ErrorBoundary label="Quellenvorschau" onError={() => setSourceViewer(null)}>

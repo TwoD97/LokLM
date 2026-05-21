@@ -56,7 +56,24 @@ export function bundledEmbedderPath(): string {
   return join(getModelSearchDirs()[0]!, BUNDLED_EMBEDDER_FILE)
 }
 
+// TTL-cached because info() / isAvailable() are called from IPC status polls
+// — the directory walk used to run on every renderer status query.
+let resolvedEmbedderPathCache: { value: string | null; at: number } | null = null
+const EMBEDDER_PATH_TTL_MS = 5000
+
 export function resolveEmbedderPath(): string | null {
+  if (
+    resolvedEmbedderPathCache &&
+    Date.now() - resolvedEmbedderPathCache.at < EMBEDDER_PATH_TTL_MS
+  ) {
+    return resolvedEmbedderPathCache.value
+  }
+  const value = resolveEmbedderPathUncached()
+  resolvedEmbedderPathCache = { value, at: Date.now() }
+  return value
+}
+
+function resolveEmbedderPathUncached(): string | null {
   const override = process.env['LOKLM_EMBEDDER_PATH']
   if (override && existsSync(override)) return override
 
@@ -131,6 +148,17 @@ export class EmbeddingService {
   }
 
   private setStatus(patch: Partial<EmbedderStatus>): void {
+    // Short-circuit identity patches — worker pushes the same status object
+    // multiple times during load (progress ticks) and the renderer treats
+    // every fan-out as a re-render.
+    let changed = false
+    for (const k of Object.keys(patch) as Array<keyof EmbedderStatus>) {
+      if (this.status[k] !== patch[k]) {
+        changed = true
+        break
+      }
+    }
+    if (!changed) return
     this.status = { ...this.status, ...patch }
     for (const l of this.listeners) {
       try {

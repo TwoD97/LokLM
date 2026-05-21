@@ -1,7 +1,12 @@
 import type { ChunkRow, Database, SearchHit } from '../../db/database'
 import type { ProviderRegistry } from '../providers/Registry'
+import type { StageName } from '../../../shared/documents'
 import { fuseRrf } from './rrf'
 import { applyTitleBoost, applyShortChunkPenalty, applyRecencyBoost } from './heuristics'
+
+/** Callback the caller (QAService) supplies to receive stage start/done events
+ *  from inside search(). Used to drive the renderer's live progress strip. */
+export type StageReporter = (stage: StageName, status: 'start' | 'done', detail?: string) => void
 
 export interface RetrievalHit {
   chunk_id: number
@@ -76,6 +81,15 @@ export interface RetrievalOptions {
    *  fields. When `undefined` (the default), RetrievalService auto-detects from
    *  the LLM backend: no GPU → preset on, GPU → preset off. */
   cpuOptimized?: boolean
+  /** Optional callback invoked for each pipeline stage start/done so the caller
+   *  can forward the events to the renderer. Stages reported here:
+   *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
+   *    - 'retrieve'       (always)
+   *    - 'rerank'         (only when reranker is loaded AND there are hits)
+   *  Stage timing is wall-clock around the awaited call. Errors and short-
+   *  circuits (no LLM, no reranker) emit start+done with the start being
+   *  immediately followed by done so the renderer doesn't show a stuck row. */
+  onStage?: StageReporter
 }
 
 /**
@@ -140,51 +154,80 @@ export class RetrievalService {
     const fanout = cpuMode ? CPU_FANOUT : FANOUT
     const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
 
+    const onStage = opts.onStage
+
     // ------- 0. multi-query expansion -------
-    const queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery)
+    // Only fire the stage event when expansion will actually do work — i.e.
+    // multiQuery is on AND an LLM is loaded. Otherwise we'd flash an
+    // "expand_queries" row in the UI for a no-op.
+    const llmReadyForExpansion = effectiveMultiQuery && this.registry.llm().isReady()
+    let queries: string[]
+    if (llmReadyForExpansion) {
+      onStage?.('expand_queries', 'start')
+      queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery)
+      onStage?.('expand_queries', 'done', `${queries.length} variants`)
+    } else {
+      queries = [trimmed]
+    }
 
     // ------- 1. retrieve & RRF-fuse across variants -------
     // candidateK is the per-list ceiling. With the per-doc cap branch active
     // the SQL will pull at most `perDocCap` chunks per doc up to this global
     // ceiling — so a workspace with 10 docs can present up to 60 candidates
     // even when 1 doc would have dominated the global top-50.
+    onStage?.('retrieve', 'start')
     const candidateK = Math.min(maxCandidates, Math.max(topK * fanout, topK))
     const searchOpts: { activeDocumentIds: number[] | null; perDocK?: number } = {
       activeDocumentIds: activeIds,
       ...(perDocCap > 0 ? { perDocK: perDocCap } : {}),
     }
+    // Fan out across variants: each variant's BM25 + vector pair already runs
+    // in parallel inside retrieveSingle, and the variants themselves are
+    // independent, so we issue them all at once and RRF-fuse the results
+    // sequentially when they come back. Was a serial for-loop , every extra
+    // variant added one full retrieval round-trip to TTFT.
+    const perVariant = await Promise.all(
+      queries.map((q) => this.retrieveSingle(workspaceId, q, candidateK, searchOpts)),
+    )
     let pool: SearchHit[] = []
-    for (const q of queries) {
-      const [bm25, vector] = await this.retrieveSingle(workspaceId, q, candidateK, searchOpts)
+    for (const [bm25, vector] of perVariant) {
       pool = fuseRrf(pool, bm25, candidateK)
       pool = fuseRrf(pool, vector, candidateK)
     }
+    onStage?.('retrieve', 'done', `${pool.length} candidates`)
 
     // ------- 1b. score adjustments BEFORE rerank -------
-    // We mutate the fused RRF score (not the underlying SQL scores) so the
-    // adjustments only influence ordering for the rerank candidate slate and
-    // any fallback non-rerank path. The reranker, when on, reassigns scores
-    // wholesale at stage 2, which is the intended behaviour: cross-encoder
-    // similarity is more trustworthy than these heuristics.
-    pool = applyTitleBoost(pool, trimmed, opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST)
-    pool = applyShortChunkPenalty(
-      pool,
-      opts.shortChunkPenalty ?? DEFAULT_SHORT_CHUNK_PENALTY,
-      opts.shortChunkMinChars ?? DEFAULT_SHORT_CHUNK_MIN_CHARS,
-    )
-    pool = applyRecencyBoost(
-      pool,
-      opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
-      opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
-    )
-    pool.sort((a, b) => b.score - a.score)
+    // Skipped when rerank is on , the reranker reassigns scores wholesale at
+    // stage 2, so the pre-rerank ordering is only used to pick the candidate
+    // slate. The same heuristics get applied AFTER rerank below where they
+    // actually shape the final ranking. Fallback path (no rerank) still does
+    // the boost-before-sort here.
+    if (!effectiveRerank) {
+      pool = applyTitleBoost(pool, trimmed, opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST)
+      pool = applyShortChunkPenalty(
+        pool,
+        opts.shortChunkPenalty ?? DEFAULT_SHORT_CHUNK_PENALTY,
+        opts.shortChunkMinChars ?? DEFAULT_SHORT_CHUNK_MIN_CHARS,
+      )
+      pool = applyRecencyBoost(
+        pool,
+        opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
+        opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
+      )
+      pool.sort((a, b) => b.score - a.score)
+    }
 
     // ------- 2. rerank (or fall back to fused order) -------
     // We rerank the *whole* candidate pool, not just the first topK, so the
     // diversification step below has reranked-quality candidates from every
     // document represented in the pool — not just whichever happened to win
     // the first K post-rerank slots.
+    // Only fire the stage event when rerank will actually run — readiness and
+    // empty-pool short-circuits are silent so the UI doesn't flash a no-op row.
+    const rerankWillRun = effectiveRerank && this.registry.reranker().isReady() && pool.length > 0
+    if (rerankWillRun) onStage?.('rerank', 'start')
     const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank)
+    if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------
     // Cross-encoder scores live on a different scale, but the heuristics still
@@ -298,13 +341,27 @@ export class RetrievalService {
         `Produce 2 paraphrases of the user's search query that retain the original meaning ` +
         `but use different vocabulary so a keyword index can find them. Output strictly two ` +
         `lines, one paraphrase per line, no preamble.\n\nQuery: ${query}\n\nParaphrases:`
-      const raw = await llm.generateRaw(prompt, {})
+      // 96 tokens easily fits 2 short paraphrases. Without this cap a model
+      // that ignores "strictly two lines" runs to the full generation budget
+      // on every retrieval call.
+      const raw = await llm.generateRaw(prompt, { maxTokens: 96 })
       const lines = raw
         .split(/\r?\n/)
         .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())
         .filter((s) => s.length > 3 && s.length < 240)
-      // Always keep the original query first; cap variants at 2 to bound cost.
-      return [query, ...lines.slice(0, 2)]
+      // Dedup against the original query (case-insensitive, whitespace
+      // collapsed). Small models often regurgitate the query verbatim ,
+      // running the same retrieval pass twice was just wasted work.
+      const seen = new Set<string>([normalizeForDedup(query)])
+      const uniqueVariants: string[] = []
+      for (const v of lines) {
+        const norm = normalizeForDedup(v)
+        if (seen.has(norm)) continue
+        seen.add(norm)
+        uniqueVariants.push(v)
+        if (uniqueVariants.length >= 2) break
+      }
+      return [query, ...uniqueVariants]
     } catch {
       return [query]
     }
@@ -545,4 +602,8 @@ function toHit(item: HitWithOrigin): RetrievalHit {
     score: item.hit.score,
     origin: item.origin,
   }
+}
+
+function normalizeForDedup(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim()
 }

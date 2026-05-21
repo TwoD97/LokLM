@@ -54,20 +54,51 @@ export function findFuzzyHighlights(
   if (chunkTokens.length === 0) return []
 
   const desiredN = opts.n ?? DEFAULT_NGRAM
-  const minSnippetTokens = Math.min(...snippets.map((s) => tokenise(s).length).filter((l) => l > 0))
-  // Fall back to bigrams when even the shortest snippet can't fill an n-gram.
-  const n = Number.isFinite(minSnippetTokens) && minSnippetTokens < desiredN ? 2 : desiredN
-  if (chunkTokens.length < n) return []
+  const tokenisedSnippets = snippets.map(tokenise)
+  const nonEmptyLengths = tokenisedSnippets.map((t) => t.length).filter((l) => l > 0)
+  if (nonEmptyLengths.length === 0) return []
+  const minSnippetTokens = Math.min(...nonEmptyLengths)
 
+  // Progressive fallback: 3-grams are the sweet spot for paraphrased same-
+  // language prose. When that finds nothing — typically because the snippet
+  // and chunk are in different languages or the model has paraphrased very
+  // aggressively — fall back to 2-grams, then to single-token matches with a
+  // min-length filter so shared terms like "Frontier" or proper nouns still
+  // highlight without lighting up every "die" / "the".
+  const primaryN = minSnippetTokens < desiredN ? 2 : desiredN
+  const ladder: Array<{ n: number; minTokenLen: number }> = [{ n: primaryN, minTokenLen: 2 }]
+  if (primaryN > 2) ladder.push({ n: 2, minTokenLen: 2 })
+  ladder.push({ n: 1, minTokenLen: 5 })
+
+  for (const { n, minTokenLen } of ladder) {
+    if (chunkTokens.length < n) continue
+    const ranges = matchAtN(chunkTokens, tokenisedSnippets, n, minTokenLen)
+    if (ranges.length > 0) return ranges
+  }
+  return []
+}
+
+function matchAtN(
+  chunkTokens: Token[],
+  tokenisedSnippets: Token[][],
+  n: number,
+  minTokenLen: number,
+): HighlightRange[] {
+  // For n === 1 we treat each snippet token as a single-shingle. The min-len
+  // filter dampens common-word noise (articles, prepositions). For n > 1 the
+  // min-len filter is a no-op against the default MIN_TOKEN_CHARS, which is
+  // intentional — multi-token shingles are already specific enough.
+  const passesMinLen = (t: Token): boolean => t.normalised.length >= minTokenLen
   const snippetShingles = new Set<string>()
-  for (const s of snippets) {
-    for (const sh of shingles(tokenise(s), n)) snippetShingles.add(sh)
+  for (const tokens of tokenisedSnippets) {
+    const eligible = n === 1 ? tokens.filter(passesMinLen) : tokens
+    for (const sh of shingles(eligible, n)) snippetShingles.add(sh)
   }
   if (snippetShingles.size === 0) return []
 
-  // Mark which chunk-token positions are part of at least one matching shingle.
   const tokenMatched = new Array<boolean>(chunkTokens.length).fill(false)
   for (let i = 0; i + n <= chunkTokens.length; i++) {
+    if (n === 1 && !passesMinLen(chunkTokens[i]!)) continue
     const key = chunkTokens
       .slice(i, i + n)
       .map((t) => t.normalised)
@@ -77,7 +108,6 @@ export function findFuzzyHighlights(
     }
   }
 
-  // Collapse consecutive matched tokens into character ranges.
   const raw: HighlightRange[] = []
   let i = 0
   while (i < chunkTokens.length) {
@@ -92,7 +122,6 @@ export function findFuzzyHighlights(
     raw.push({ start: startTok.start, end: endTok.end })
     i = j + 1
   }
-
   return mergeClose(raw)
 }
 

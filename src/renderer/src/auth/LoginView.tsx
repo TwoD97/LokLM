@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AuthLoginStage, AuthStatus } from '@shared/authTypes'
+import { formatCooldown, useAuthForm } from './useAuthForm'
 
 type Props = {
   status: AuthStatus
@@ -16,13 +17,13 @@ const STAGE_LABEL: Record<AuthLoginStage, string> = {
 
 export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.Element {
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState<AuthLoginStage | null>(null)
+  const form = useAuthForm()
+  const { busy, error, cooldownMs, setBusy, setError, setCooldownUntil, setRpcError } = form
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
-    if (busy || password.length === 0) return
+    if (busy || password.length === 0 || cooldownMs > 0) return
     setError(null)
     setBusy(true)
     setStage(null)
@@ -37,15 +38,16 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
         onUnlocked()
         return
       }
-      if (result.reason === 'no_user') setError('Auf diesem Gerät ist kein Konto registriert.')
-      else if (result.reason === 'bad_password') setError('Falsches Passwort.')
-      else if (result.reason === 'rate_limited') {
-        const mins = result.retryAfterMs ? Math.ceil(result.retryAfterMs / 60_000) : 5
-        setError(`Zu viele Fehlversuche. Bitte ${mins} Minuten warten.`)
+      // Collapse no_user + bad_password to the SAME message. Distinct text
+      // would let a local attacker confirm whether an account exists on this
+      // device (privacy leak, free fix).
+      if (result.reason === 'no_user' || result.reason === 'bad_password') {
+        setError('Konto oder Passwort falsch.')
+      } else if (result.reason === 'rate_limited') {
+        setCooldownUntil(Date.now() + (result.retryAfterMs ?? 5 * 60_000))
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg.replace(/^Error invoking remote method [^:]+: Error: /, ''))
+      setRpcError(err)
     } finally {
       offProgress()
       setBusy(false)
@@ -83,12 +85,21 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
           />
         </label>
 
-        {error && <p className="auth-card__error">{error}</p>}
+        {error && !cooldownMs && (
+          <p className="auth-card__error" role="alert">
+            {error}
+          </p>
+        )}
+        {cooldownMs > 0 && (
+          <p className="auth-card__error" role="alert">
+            Zu viele Fehlversuche. Bitte noch {formatCooldown(cooldownMs)} warten.
+          </p>
+        )}
 
         <button
           type="submit"
           className="primary primary--full"
-          disabled={busy || password.length === 0}
+          disabled={busy || password.length === 0 || cooldownMs > 0}
         >
           {busyLabel}
         </button>

@@ -23,7 +23,24 @@ export function bundledRerankerPath(): string {
   return join(getModelSearchDirs()[0]!, BUNDLED_RERANKER_FILE)
 }
 
+// TTL-cached because status() / info() hit the directory walk on every IPC
+// status poll. Same pattern as resolveEmbedderPath.
+let resolvedRerankerPathCache: { value: string | null; at: number } | null = null
+const RERANKER_PATH_TTL_MS = 5000
+
 export function resolveRerankerPath(): string | null {
+  if (
+    resolvedRerankerPathCache &&
+    Date.now() - resolvedRerankerPathCache.at < RERANKER_PATH_TTL_MS
+  ) {
+    return resolvedRerankerPathCache.value
+  }
+  const value = resolveRerankerPathUncached()
+  resolvedRerankerPathCache = { value, at: Date.now() }
+  return value
+}
+
+function resolveRerankerPathUncached(): string | null {
   const override = process.env['LOKLM_RERANKER_PATH']
   if (override && existsSync(override)) return override
 
@@ -102,6 +119,14 @@ export class RerankerService {
   }
 
   private setStatus(patch: Partial<RerankerStatus>): void {
+    let changed = false
+    for (const k of Object.keys(patch) as Array<keyof RerankerStatus>) {
+      if (this.status[k] !== patch[k]) {
+        changed = true
+        break
+      }
+    }
+    if (!changed) return
     this.status = { ...this.status, ...patch }
     for (const l of this.listeners) {
       try {

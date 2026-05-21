@@ -44,13 +44,20 @@ export class ModelsWorkerClient {
     embedder: () => {},
     reranker: () => {},
   }
-  private tokenListeners = new Map<string, (text: string) => void>()
+  // Token listener signature carries `count` so callers can reflect the
+  // number of native onTextChunk callbacks coalesced into one batched push
+  // (see modelsWorker's bufferToken). Single-chunk pushes pass count=1.
+  private tokenListeners = new Map<string, (text: string, count: number) => void>()
+  private beforeQuitRegistered = false
+  /** Set during shutdown() so the long-lived exit handler can tell an
+   *  intentional quit from a crash (only the latter fires the status reset). */
+  private shuttingDown = false
 
   setStatusListener<K extends ServiceKind>(kind: K, cb: StatusListener[K]): void {
     this.statusListeners[kind] = cb as StatusListener[K]
   }
 
-  registerStream(streamId: string, onToken: (text: string) => void): () => void {
+  registerStream(streamId: string, onToken: (text: string, count: number) => void): () => void {
     this.tokenListeners.set(streamId, onToken)
     return () => this.tokenListeners.delete(streamId)
   }
@@ -87,16 +94,42 @@ export class ModelsWorkerClient {
         const reason = `models worker exited (code=${code ?? 'null'})`
         for (const p of this.pending.values()) p.reject(new Error(reason))
         this.pending.clear()
+        // Token streams that were in flight have no way to drain — drop their
+        // listeners so a stale callback isn't held by a long-running renderer.
+        this.tokenListeners.clear()
         this.child = null
         this.spawnPromise = null
+        // Crash recovery: tell every service the worker is gone so the UI
+        // reflects reality (otherwise the chat header still says "Ready" and
+        // the next ask attempt produces a stale-looking error). Skipped on a
+        // graceful shutdown() , the renderer already knows the app is closing.
+        if (!this.shuttingDown) {
+          const failedMsg = `Worker crashed (${reason}). The next request will respawn it.`
+          this.statusListeners.llm({ state: 'unloaded', loadProgress: null, message: failedMsg })
+          this.statusListeners.embedder({
+            state: 'unloaded',
+            loadProgress: null,
+            message: failedMsg,
+          })
+          this.statusListeners.reranker({
+            state: 'unloaded',
+            loadProgress: null,
+            message: failedMsg,
+          })
+        }
       })
       this.child = child
       // Kill the worker on app quit so it doesn't survive the main process and
       // leak the GPU context. before-quit fires early enough to give the worker
-      // a chance to dispose the models cleanly via the shutdown op.
-      app.once('before-quit', () => {
-        void this.shutdown().catch(() => undefined)
-      })
+      // a chance to dispose the models cleanly via the shutdown op. Register
+      // ONCE — re-running on every respawn (after a crash) used to stack
+      // listeners on the app singleton.
+      if (!this.beforeQuitRegistered) {
+        this.beforeQuitRegistered = true
+        app.once('before-quit', () => {
+          void this.shutdown().catch(() => undefined)
+        })
+      }
       return child
     })()
     try {
@@ -111,8 +144,17 @@ export class ModelsWorkerClient {
   private dispatch(msg: WorkerResponse | WorkerPush): void {
     // utilityProcess in some Electron versions wraps messages in { data: … }.
     const m = (msg as unknown as { data?: WorkerResponse | WorkerPush }).data ?? msg
-    if ('ev' in m) {
+    if (m && typeof m === 'object' && 'ev' in m) {
       this.handlePush(m)
+      return
+    }
+    // Reject malformed messages explicitly. A future renderer/worker version
+    // could ship a message shape this main doesn't recognise — without the
+    // typeof guard, the lookup `pending.get(undefined)` returns null and the
+    // matching request hangs forever.
+    if (!m || typeof m !== 'object' || typeof (m as { id?: unknown }).id !== 'number') {
+      // eslint-disable-next-line no-console
+      console.warn('[modelsWorkerClient] dropped malformed worker message', m)
       return
     }
     const p = this.pending.get(m.id)
@@ -129,7 +171,7 @@ export class ModelsWorkerClient {
         return
       case 'token': {
         const cb = this.tokenListeners.get(ev.streamId)
-        if (cb) cb(ev.text)
+        if (cb) cb(ev.text, ev.count ?? 1)
         return
       }
       case 'log':
@@ -211,6 +253,7 @@ export class ModelsWorkerClient {
 
   async shutdown(): Promise<void> {
     if (!this.child) return
+    this.shuttingDown = true
     try {
       await Promise.race([
         this.send<void>('shutdown'),

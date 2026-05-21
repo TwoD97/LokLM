@@ -54,6 +54,23 @@ export function BasicTab(): JSX.Element {
       />
 
       <div className="settings-section-head">
+        <span className="settings-section-head__title">Pipeline checklist</span>
+        <span className="settings-section-head__sub">
+          Keep the retrieve / rerank / prefill checklist visible above the answer after the first
+          token. Off by default — it collapses into the metrics line.
+        </span>
+      </div>
+      <Segmented
+        ariaLabel="Pipeline checklist visibility"
+        value={settings.basic.showPipelineSteps ? 'on' : 'off'}
+        options={[
+          { value: 'off', label: 'Collapse on first token' },
+          { value: 'on', label: 'Keep visible' },
+        ]}
+        onChange={(v) => void update({ basic: { showPipelineSteps: v === 'on' } })}
+      />
+
+      <div className="settings-section-head">
         <span className="settings-section-head__title">
           Model size {ollamaActive && <span style={{ color: 'var(--fg-3)' }}>· fallback</span>}
         </span>

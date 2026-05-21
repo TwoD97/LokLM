@@ -60,7 +60,11 @@ export async function parseFile(filePath: string): Promise<ParsedDocument> {
 }
 
 async function parsePlainText(filePath: string): Promise<ParsedDocument> {
-  const text = await readFile(filePath, 'utf-8')
+  const raw = await readFile(filePath, 'utf-8')
+  // Strip UTF-8 BOM — keeping it makes the first chunk start with ﻿,
+  // which then bleeds into embeddings and preview text. parseMarkdown already
+  // does this via stripFrontmatter; .txt files went without.
+  const text = raw.startsWith('﻿') ? raw.slice(1) : raw
   return {
     kind: 'text',
     pages: [{ num: 1, text }],
@@ -92,18 +96,22 @@ async function parseDocx(filePath: string): Promise<ParsedDocument> {
       input: { buffer: Buffer } | { path: string },
     ) => Promise<{ value: string; messages: { type: string; message: string }[] }>
   }
-  const buf = await readFile(filePath)
-  const { value: rawMarkdown, messages } = await mammoth.convertToMarkdown({ buffer: buf })
+  // Pass {path} so mammoth streams the zip itself — saves the full-buffer copy
+  // we used to make with readFile() before handing it back over.
+  const { value: rawMarkdown, messages } = await mammoth.convertToMarkdown({ path: filePath })
   if (messages.length > 0) {
     // mammoth warns about unsupported styles, dropped elements, etc. Log
     // them so they're discoverable without surfacing them to the user.
     // eslint-disable-next-line no-console
-    console.warn(`[documents] mammoth produced ${messages.length} message(s) for ${basename(filePath)}`)
+    console.warn(
+      `[documents] mammoth produced ${messages.length} message(s) for ${basename(filePath)}`,
+    )
   }
-  // Strip image references — RAG doesn't use them and they'd bloat both
-  // embeddings and preview text. Inline images become `![alt](data:…)`
-  // in mammoth's markdown output; block-level images are on their own line.
-  const markdown = rawMarkdown.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n')
+  // Strip image refs + collapse 3+ newlines in a single pass — was two
+  // sequential .replace calls each re-scanning the whole markdown buffer.
+  const markdown = rawMarkdown.replace(/!\[[^\]]*\]\([^)]*\)|\n{3,}/g, (m) =>
+    m.startsWith('!') ? '' : '\n\n',
+  )
   const sections = parseMarkdownSections(markdown)
   const fullText = stripFrontmatter(markdown)
   return {

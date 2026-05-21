@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { countCharacterClasses } from '@shared/authHelpers'
+import { useAuthForm } from './useAuthForm'
 
 type Props = {
   onRegistered: (words: string[]) => void
@@ -11,8 +12,7 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [recoveryLang, setRecoveryLang] = useState<'de' | 'en'>('de')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, error, setBusy, setError, setRpcError } = useAuthForm()
 
   const nameOk = displayName.trim().length >= 3 && displayName.trim().length <= 32
   const pwLong = password.length >= 10
@@ -32,10 +32,14 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
         password,
         recoveryLang,
       )
+      // Drop the password from component state on success — argon2 already
+      // ran, vault is open, the React tree no longer needs it. Doesn't fully
+      // zero (JS strings are interned + immutable) but caps the lifetime.
+      setPassword('')
+      setConfirm('')
       onRegistered(passphrase)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg.replace(/^Error invoking remote method [^:]+: Error: /, ''))
+      setRpcError(err)
     } finally {
       setBusy(false)
     }
@@ -130,7 +134,11 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
           </label>
         </div>
 
-        {error && <p className="auth-card__error">{error}</p>}
+        {error && (
+          <p className="auth-card__error" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="auth-card__row">
           <button type="submit" className="primary" disabled={!canSubmit}>

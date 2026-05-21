@@ -7,6 +7,14 @@ export const REFUSAL_TEXT: Record<ResponseLanguage, string> = {
   en: 'This information is not in the provided documents.',
 }
 
+// Appended to a truncated answer when the streaming loop detector trips.
+// Leading newline so it stays on its own line below whatever fragment the
+// model emitted before getting stuck.
+export const REPETITION_HINT_TEXT: Record<ResponseLanguage, string> = {
+  de: '\n\n[…] (Antwort wegen Wiederholungsschleife abgebrochen — bitte umformulieren oder Kontext einschränken)',
+  en: '\n\n[…] (response stopped due to repetition loop — try rephrasing or narrowing the context)',
+}
+
 // Per-message length cap when embedding prior conversation. ~1500 chars
 // keeps each turn ~400 tokens, so 10 turns is ~4 K tokens — fits comfortably
 // alongside the system prompt + tools + retrieval block + answer in 32 K+
@@ -204,5 +212,58 @@ export class ThinkFilter {
     const out = this.buf
     this.buf = ''
     return out
+  }
+}
+
+/**
+ * Streaming detector for repetition loops — the failure mode where the model
+ * gets stuck emitting the same line / phrase until it hits maxTokens. node-
+ * llama-cpp's repeatPenalty catches token-level loops; this catches the
+ * verbatim-substring spiral that penalties miss.
+ *
+ * Holds a rolling window of recent output. Whenever the trailing NGRAM slice
+ * has occurred K times non-overlapping inside the window, trip() returns true
+ * and the caller is expected to abort the in-flight generation.
+ */
+export class LoopDetector {
+  private buf = ''
+  private tripped = false
+  private static readonly NGRAM = 40
+  private static readonly K = 3
+  private static readonly WINDOW = 1024
+
+  feed(text: string): boolean {
+    if (this.tripped) return true
+    this.buf += text
+    if (this.buf.length > LoopDetector.WINDOW) {
+      this.buf = this.buf.slice(-LoopDetector.WINDOW)
+    }
+    if (this.buf.length < LoopDetector.NGRAM * LoopDetector.K) return false
+    const probe = this.buf.slice(-LoopDetector.NGRAM)
+    // Skip whitespace-only or punctuation-only tails — short symbol runs
+    // (newlines, bullets, separators) recur legitimately in long answers.
+    if (!/[A-Za-zÄÖÜäöüß0-9]/.test(probe)) return false
+    let count = 0
+    let idx = 0
+    while (idx <= this.buf.length - probe.length) {
+      const next = this.buf.indexOf(probe, idx)
+      if (next === -1) break
+      count++
+      idx = next + probe.length
+      if (count >= LoopDetector.K) {
+        this.tripped = true
+        return true
+      }
+    }
+    return false
+  }
+
+  reset(): void {
+    this.buf = ''
+    this.tripped = false
+  }
+
+  isTripped(): boolean {
+    return this.tripped
   }
 }

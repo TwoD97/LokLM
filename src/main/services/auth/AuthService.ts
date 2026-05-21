@@ -68,7 +68,11 @@ interface WrappedKey {
 interface EncryptedBody {
   nonce: Buffer // 12 bytes
   tag: Buffer // 16 bytes
-  ciphertext: Buffer
+  /** Cipher chunks (cipher.update + cipher.final). Kept as an array so writeVault
+   *  can spread them into its outer Buffer.concat — one Buffer.concat instead of
+   *  the two we used to do (chunks → ciphertext → final out blob). Concatenated
+   *  size identical to a single ciphertext Buffer. */
+  ciphertextChunks: Buffer[]
 }
 
 export type { AuthStatus, LoginResult, ResetResult }
@@ -98,6 +102,27 @@ const FAIL_LOCKOUT_MS = 5 * 60 * 1000
 
 // Pflichtenheft 3.1.4 , 15 min default inactivity lock.
 const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000
+
+/** Thrown by requireDatabase() when the session is locked. Detect on the
+ *  caller side via `instanceof LockedError` (in-process) or
+ *  `err.code === 'LOCKED'` (across the Electron IPC boundary , `instanceof`
+ *  doesn't survive serialization but `.code` does). */
+export class LockedError extends Error {
+  readonly code = 'LOCKED'
+  constructor(message = 'locked') {
+    super(message)
+    this.name = 'LockedError'
+  }
+}
+
+export function isLockedError(err: unknown): boolean {
+  if (err instanceof LockedError) return true
+  if (err && typeof err === 'object') {
+    const e = err as { code?: unknown; name?: unknown }
+    if (e.code === 'LOCKED' || e.name === 'LockedError') return true
+  }
+  return false
+}
 
 /**
  * AuthService owns the boot-time auth state , the encrypted vault lifecycle ,
@@ -372,10 +397,11 @@ export class AuthService {
   // session helpers used by the IPC layer
   // -------------------------------------------------------------------------
 
-  /** returns the live Database , throws when the session is locked. */
+  /** returns the live Database , throws LockedError when the session is locked.
+   *  Callers can detect via `isLockedError(err)` (works across IPC). */
   requireDatabase(): Database {
     if (!this.database) {
-      throw new Error('locked')
+      throw new LockedError()
     }
     this.touch()
     return this.database
@@ -463,7 +489,10 @@ export class AuthService {
       bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES,
     )
     const ciphertext = raw.subarray(bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES)
-    return { header, body: { nonce, tag, ciphertext } }
+    // Single subarray view , no copy. Wrapped in an array so the body shape
+    // is symmetric between read (where we have one big chunk) and write
+    // (where we have cipher.update + cipher.final).
+    return { header, body: { nonce, tag, ciphertextChunks: [ciphertext] } }
   }
 
   private async writeVault(header: AuthHeader, body: EncryptedBody): Promise<void> {
@@ -476,7 +505,7 @@ export class AuthService {
       headerJson,
       body.nonce,
       body.tag,
-      body.ciphertext,
+      ...body.ciphertextChunks,
     ])
     await fs.mkdir(dirname(this.vaultFilePath), { recursive: true })
     const tmp = this.vaultFilePath + '.tmp'
@@ -495,12 +524,17 @@ export class AuthService {
   private async encryptCurrentDb(dek: Buffer): Promise<EncryptedBody> {
     if (!this.database) throw new Error('encryptCurrentDb called without a live database')
     const blob = await this.database.dump()
-    const plaintext = Buffer.from(await blob.arrayBuffer())
+    // Buffer.from(ArrayBuffer) is a view , no copy of the bytes. We feed it
+    // straight to cipher.update and skip the intermediate `plaintext` local +
+    // the Buffer.concat of update/final. That used to triple-buffer the whole
+    // snapshot at peak; now we keep just the cipher chunks + the final
+    // writeVault concat.
+    const plaintextView = Buffer.from(await blob.arrayBuffer())
     const nonce = randomBytes(AES_NONCE_BYTES)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
-    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
+    const chunks = [cipher.update(plaintextView), cipher.final()]
     const tag = cipher.getAuthTag()
-    return { nonce, tag, ciphertext }
+    return { nonce, tag, ciphertextChunks: chunks }
   }
 
   private async shutdownDatabase(): Promise<void> {
@@ -603,7 +637,13 @@ function decryptBody(body: EncryptedBody, dek: Buffer): Blob | null {
   try {
     const decipher = createDecipheriv(AES_ALGO, dek, body.nonce)
     decipher.setAuthTag(body.tag)
-    const plaintext = Buffer.concat([decipher.update(body.ciphertext), decipher.final()])
+    // Feed each ciphertext chunk through update , no need to Buffer.concat
+    // them first. Most read paths give us a single-chunk array (whole file
+    // read in one go); write paths have 2 chunks (update + final).
+    const decoded: Buffer[] = []
+    for (const chunk of body.ciphertextChunks) decoded.push(decipher.update(chunk))
+    decoded.push(decipher.final())
+    const plaintext = Buffer.concat(decoded)
     return new Blob([new Uint8Array(plaintext)])
   } catch {
     return null

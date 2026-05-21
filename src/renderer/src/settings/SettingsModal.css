@@ -189,11 +189,25 @@
   color: var(--fg-0);
   background: rgba(255, 255, 255, 0.03);
 }
+/* Mirror the model-card active treatment ; the previous border-strong (white
+   at 18%) was indistinguishable from the bg-0 container so neither button
+   read as "selected". The global `button:hover` rule also stomped bg +
+   border via higher specificity , hence the explicit :hover re-assertion. */
 .settings-segmented__opt--active {
   background: var(--bg-2);
   color: var(--fg-0);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-1);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--shadow-1);
+}
+.settings-segmented__opt--active:hover:not(:disabled) {
+  background: var(--bg-2);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--shadow-1);
+  transform: none;
 }
 .settings-segmented__opt:disabled {
   opacity: 0.4;

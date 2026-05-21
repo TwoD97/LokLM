@@ -25,6 +25,22 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   const [open, setOpen] = useState(true)
   const [probe, setProbe] = useState<Probe>({ state: 'idle' })
   const [showAllForEmbedder, setShowAllForEmbedder] = useState(false)
+  // Local copies of the text inputs so each keystroke doesn't fire the whole
+  // settings round-trip (which triggers applySettings on the main side,
+  // unloading providers etc.). We commit to the settings store on blur ,
+  // which already runs the probe.
+  const [baseUrlDraft, setBaseUrlDraft] = useState(settings.advanced.ollama.baseUrl)
+  const [bearerTokenDraft, setBearerTokenDraft] = useState(
+    settings.advanced.ollama.bearerToken ?? '',
+  )
+  // Re-sync local drafts when settings change underneath us (e.g. another
+  // tab edited them, or DEFAULTS got applied).
+  useEffect(() => {
+    setBaseUrlDraft(settings.advanced.ollama.baseUrl)
+  }, [settings.advanced.ollama.baseUrl])
+  useEffect(() => {
+    setBearerTokenDraft(settings.advanced.ollama.bearerToken ?? '')
+  }, [settings.advanced.ollama.bearerToken])
   // Master-switch gate: opens the ReindexGateModal when the user flips ALL
   // three sources at once. The embedder leg of the flip is the part that
   // demands the gate (changing embedding model invalidates existing vectors),
@@ -121,9 +137,14 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             </div>
             <input
               type="text"
-              value={o.baseUrl}
-              onChange={(e) => void update({ advanced: { ollama: { baseUrl: e.target.value } } })}
-              onBlur={() => void doProbe()}
+              value={baseUrlDraft}
+              onChange={(e) => setBaseUrlDraft(e.target.value)}
+              onBlur={() => {
+                if (baseUrlDraft !== o.baseUrl) {
+                  void update({ advanced: { ollama: { baseUrl: baseUrlDraft } } })
+                }
+                void doProbe()
+              }}
               style={{ width: '100%' }}
             />
           </div>
@@ -139,11 +160,15 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             </div>
             <input
               type="password"
-              value={o.bearerToken ?? ''}
-              onChange={(e) =>
-                void update({ advanced: { ollama: { bearerToken: e.target.value || null } } })
-              }
-              onBlur={() => void doProbe()}
+              value={bearerTokenDraft}
+              onChange={(e) => setBearerTokenDraft(e.target.value)}
+              onBlur={() => {
+                const next = bearerTokenDraft || null
+                if (next !== (o.bearerToken ?? null)) {
+                  void update({ advanced: { ollama: { bearerToken: next } } })
+                }
+                void doProbe()
+              }}
               placeholder="(optional)"
               style={{ width: '100%' }}
             />

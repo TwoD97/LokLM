@@ -38,6 +38,10 @@ export const workspaces = pgTable('workspaces', {
   createdAt: bigint('created_at', { mode: 'number' })
     .notNull()
     .default(sql`(EXTRACT(EPOCH FROM NOW())::BIGINT)`),
+  // Absolute folder paths that the workspace watches for auto-import. The
+  // column is added via raw migration 0004; drizzle's snapshot doesn't track
+  // it but the column exists at runtime so .syncFolders is safe to select.
+  syncFolders: jsonb('sync_folders').$type<string[]>().notNull().default([]),
 })
 
 export const documents = pgTable(
@@ -57,6 +61,24 @@ export const documents = pgTable(
     addedAt: bigint('added_at', { mode: 'number' })
       .notNull()
       .default(sql`(EXTRACT(EPOCH FROM NOW())::BIGINT)`),
+    // sha256 of the source file bytes at last import/reindex. Null on pre-0004
+    // rows; filled the next time the doc gets refreshed/reindexed. Drives the
+    // hash-aware short-circuit in DocumentService.refreshDocument so an
+    // unchanged file doesn't trigger a re-parse + re-embed.
+    contentHash: text('content_hash'),
+    // statSync().mtimeMs at last import, rounded to ms. Cheap pre-check before
+    // the more expensive hash compare in the folder-sync loop.
+    sourceMtime: bigint('source_mtime', { mode: 'number' }),
+    // Soft-missing marker: set by FolderSyncService when the source path
+    // vanishes, cleared when sync rediscovers the file. Drives the LibraryView
+    // "vanished files" banner. Status stays 'ready' so retrieval keeps working
+    // on the still-indexed chunks until the user decides Keep vs. Remove.
+    missingAt: bigint('missing_at', { mode: 'number' }),
+    // When the user clicks "Behalten" on the banner. Sync still re-detects the
+    // file as missing on every pass but skips notifying as long as
+    // missing_dismissed_at >= missing_at. Reset to null when the file
+    // reappears so a future disappearance re-notifies.
+    missingDismissedAt: bigint('missing_dismissed_at', { mode: 'number' }),
   },
   (t) => ({
     idxWorkspace: index('idx_documents_workspace').on(t.workspaceId),

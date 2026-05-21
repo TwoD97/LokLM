@@ -4,7 +4,9 @@ import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
+import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
+import { isSupported as isSupportedDocPath } from './services/documents/parser'
 import { EmbeddingService } from './services/embeddings/EmbeddingService'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
 import { RerankerService } from './services/retrieval/RerankerService'
@@ -77,6 +79,10 @@ function resetSessionServices(): void {
   quizService = null
   providerRegistry = null
   settingsService = null
+  // Watchers hold OS handles on the user's folders ; they must not survive a
+  // lock or logout (a different account on the same machine would otherwise
+  // inherit the previous user's sync targets).
+  if (folderSyncService) folderSyncService.stopAll()
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
@@ -91,8 +97,19 @@ async function scheduleBackfillForAllWorkspaces(): Promise<void> {
   }
 }
 
+async function startSyncWatchersForAllWorkspaces(): Promise<void> {
+  // Attach fs.watch on every workspace that has sync_folders set. Watchers
+  // are cheap (a single inotify/ReadDirectoryChangesW handle per folder) so
+  // starting them all at login keeps "automatic file update" honest without
+  // waiting for the user to first navigate into each workspace.
+  const wss = await getAuth().requireDatabase().workspaces().list()
+  const svc = getFolderSyncService()
+  for (const ws of wss) svc.start(ws.id)
+}
+
 let workspaceService: WorkspaceService | null = null
 let documentService: DocumentService | null = null
+let folderSyncService: FolderSyncService | null = null
 let embeddingService: EmbeddingService | null = null
 let backfillService: EmbeddingBackfillService | null = null
 let rerankerService: RerankerService | null = null
@@ -132,6 +149,9 @@ function schedulePostLoginWarmup(): void {
     // when the embedder is on Ollama it embeds via HTTP without touching the
     // bundled GGUF. Always run it; pending chunks need vectors either way.
     void scheduleBackfillForAllWorkspaces().catch(() => undefined)
+    // Folder-sync watchers attach in parallel ; per-workspace fs.watch is
+    // independent of the embedder so it can run as soon as the DB is up.
+    void startSyncWatchersForAllWorkspaces().catch(() => undefined)
     // Skip bundled-LLM warmup when the user is on external Ollama — loading
     // a multi-GB GGUF only to leave it sitting unused is the exact resource
     // waste the source switch is meant to avoid. (Reranker is intentionally
@@ -462,6 +482,31 @@ function getDocumentService(): DocumentService {
   return documentService
 }
 
+function getFolderSyncService(): FolderSyncService {
+  if (!folderSyncService) {
+    folderSyncService = new FolderSyncService(getAuth(), getDocumentService())
+    // Sync progress fans out to all open windows — the LibraryView listens for
+    // 'sync:progress' to flip the inline indicator regardless of which window
+    // triggered the run.
+    folderSyncService.setSenderFactory(() => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (!win || win.isDestroyed()) return undefined
+      return {
+        send: (channel: string, payload: unknown): void => {
+          for (const w of BrowserWindow.getAllWindows()) {
+            try {
+              w.webContents.send(channel, payload)
+            } catch {
+              /* ignore */
+            }
+          }
+        },
+      }
+    })
+  }
+  return folderSyncService
+}
+
 function broadcastAuthState(): void {
   if (!authService) return
   void authService.status().then((state) => {
@@ -566,7 +611,43 @@ function registerIpc(): void {
   ipcMain.handle('workspaces:rename', async (_e, id: number, name: string) =>
     getWorkspaceService().rename(id, name),
   )
-  ipcMain.handle('workspaces:delete', async (_e, id: number) => getWorkspaceService().delete(id))
+  ipcMain.handle('workspaces:delete', async (_e, id: number) => {
+    // Stop watching first — otherwise the cascade delete fires the watcher,
+    // which would queue a sync against a workspace that no longer exists.
+    getFolderSyncService().stop(id)
+    await getWorkspaceService().delete(id)
+  })
+
+  // Folder sync — per-workspace watched directories.
+  ipcMain.handle('workspaces:listSyncFolders', async (_e, workspaceId: number) =>
+    getFolderSyncService().getFolders(workspaceId),
+  )
+  ipcMain.handle('workspaces:addSyncFolder', async (e, workspaceId: number) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openDirectory'],
+    }
+    const picked = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
+    if (picked.canceled || picked.filePaths.length === 0) return null
+    const folder = picked.filePaths[0]!
+    const folders = await getFolderSyncService().addFolder(workspaceId, folder)
+    // Kick off an immediate sync so the folder's existing contents land in
+    // the library without a manual "Sync now" click.
+    void getFolderSyncService()
+      .sync(workspaceId)
+      .catch(() => undefined)
+    return folders
+  })
+  ipcMain.handle(
+    'workspaces:removeSyncFolder',
+    async (_e, workspaceId: number, folderPath: string) =>
+      getFolderSyncService().removeFolder(workspaceId, folderPath),
+  )
+  ipcMain.handle('workspaces:syncNow', async (_e, workspaceId: number) =>
+    getFolderSyncService().sync(workspaceId),
+  )
 
   // documents
   ipcMain.handle('documents:list', async (_e, workspaceId: number) => {
@@ -607,17 +688,96 @@ function registerIpc(): void {
   ipcMain.handle('documents:delete', async (_e, id: number) => {
     await getAuth().requireDatabase().documents().deleteDocument(id)
   })
-  ipcMain.handle('documents:reindex', async (e, id: number) => {
-    await getAuth().requireDatabase().documents().reindexDocument(id)
-    // re-import using the existing source path to repopulate chunks via the
-    // normal background indexing flow.
+
+  // Export = reveal the original file in the OS file manager. The bytes stay
+  // on the user's disk ; the encrypted vault never holds a copy, so there's
+  // nothing to "save as" from us. shell.showItemInFolder is a no-op when the
+  // path is gone, so we stat first and return a structured "missing" result
+  // for the renderer to surface.
+  ipcMain.handle('documents:revealSource', async (_e, id: number) => {
     const doc = await getAuth().requireDatabase().documents().getDocument(id)
     if (!doc) throw new Error(`Document ${id} not found`)
-    return getDocumentService().importFile({
-      workspaceId: doc.workspaceId,
-      sourcePath: doc.sourcePath,
-      sender: e.sender,
-    })
+    const { existsSync } = await import('node:fs')
+    if (!existsSync(doc.sourcePath)) {
+      return { ok: false as const, kind: 'missing' as const, sourcePath: doc.sourcePath }
+    }
+    shell.showItemInFolder(doc.sourcePath)
+    return { ok: true as const, sourcePath: doc.sourcePath }
+  })
+
+  // Open externally with the OS-default app (PDF viewer, editor, etc.). Same
+  // missing-file guard as reveal , plus a defense-in-depth extension check so
+  // a stored sourcePath pointing at a .lnk / .url / .scpt (e.g. via a stale
+  // pre-symlink-fix sync) can't get shell-executed. isSupportedDocPath only
+  // accepts the doc extensions we know how to parse.
+  ipcMain.handle('documents:openExternal', async (_e, id: number) => {
+    const doc = await getAuth().requireDatabase().documents().getDocument(id)
+    if (!doc) throw new Error(`Document ${id} not found`)
+    if (!isSupportedDocPath(doc.sourcePath)) {
+      return {
+        ok: false as const,
+        kind: 'missing' as const,
+        message: 'Unsupported file type for the OS opener.',
+      }
+    }
+    const err = await shell.openPath(doc.sourcePath)
+    if (err) return { ok: false as const, kind: 'missing' as const, message: err }
+    return { ok: true as const }
+  })
+
+  // Replace = pick a new file on disk + reindex against it. The doc row keeps
+  // its id (so chats / quizzes referencing it stay valid), only sourcePath +
+  // title + metadata flip.
+  ipcMain.handle('documents:replaceSource', async (e, id: number) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Dokumente',
+          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+        },
+        { name: 'Alle Dateien', extensions: ['*'] },
+      ],
+    }
+    const picked = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
+    if (picked.canceled || picked.filePaths.length === 0) return null
+    try {
+      return await getDocumentService().replaceSource(id, picked.filePaths[0]!, e.sender)
+    } catch (err) {
+      if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
+      throw err
+    }
+  })
+
+  // Refresh = re-stat + hash the existing path ; reindex only if bytes changed.
+  // Returns the outcome so the UI can show "Aktuell" / "Aktualisiert" / "Quelle fehlt".
+  ipcMain.handle('documents:refresh', async (e, id: number) => {
+    try {
+      const outcome = await getDocumentService().refreshDocument(id, e.sender)
+      return { ok: true as const, outcome }
+    } catch (err) {
+      if (err instanceof ImportError) {
+        return { ok: false as const, kind: err.code, message: err.message }
+      }
+      throw err
+    }
+  })
+  ipcMain.handle('documents:listMissing', async (_e, workspaceId: number) => {
+    return getAuth().requireDatabase().documents().listMissingUnacknowledged(workspaceId)
+  })
+  ipcMain.handle('documents:keepMissing', async (_e, id: number) => {
+    await getAuth().requireDatabase().documents().dismissMissing(id)
+  })
+  ipcMain.handle('documents:reindex', async (e, id: number) => {
+    try {
+      return await getDocumentService().reindex(id, e.sender)
+    } catch (err) {
+      if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
+      throw err
+    }
   })
 
   // Returns every chunk of a document, ordered by ordinal. The SourceViewer
@@ -639,18 +799,16 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('documents:getSourceForChunk', async (_e, chunkId: number) => {
-    const repo = getAuth().requireDatabase().documents()
-    const [doc, headingPath] = await Promise.all([
-      repo.getDocumentByChunkId(chunkId),
-      repo.getChunkHeadingPath(chunkId),
-    ])
-    if (!doc) return null
+    const ctx = await getAuth().requireDatabase().documents().getCitedChunkSource(chunkId)
+    if (!ctx) return null
     return {
-      documentId: doc.id,
-      title: doc.title,
-      mimeType: doc.mimeType,
-      sourcePath: doc.sourcePath,
-      headingPath,
+      documentId: ctx.document.id,
+      title: ctx.document.title,
+      mimeType: ctx.document.mimeType,
+      sourcePath: ctx.document.sourcePath,
+      headingPath: ctx.headingPath,
+      chunkPageFrom: ctx.pageFrom,
+      chunkPageTo: ctx.pageTo,
     }
   })
 
@@ -720,6 +878,33 @@ function registerIpc(): void {
   })
   ipcMain.handle('models:cancel', async (_e, id: string) => {
     getModelDownloader().cancel(id)
+  })
+  // Probe free space on the download volume before kicking off a multi-GB
+  // queue. Failing 6 GB into a 7 GB download because the user's disk is full
+  // is a brutal first-run experience , this lets the renderer surface a
+  // clear "X GB available, Y GB needed" warning up-front. statfs is in
+  // Node's fs/promises (stable since 18.15); on probe failure we return
+  // unknown:true so the renderer can fall back to the existing flow.
+  ipcMain.handle('models:checkSpace', async (_e, requiredBytes: number) => {
+    try {
+      const { statfs } = await import('node:fs/promises')
+      const status = await checkModelsAvailability()
+      const st = await statfs(status.downloadDir)
+      // `bavail` is the count available to non-superusers; multiply by blocksize.
+      const availableBytes = Number(st.bavail) * Number(st.bsize)
+      return {
+        unknown: false as const,
+        ok: availableBytes >= requiredBytes,
+        availableBytes,
+        requiredBytes,
+      }
+    } catch (err) {
+      return {
+        unknown: true as const,
+        message: err instanceof Error ? err.message : String(err),
+        requiredBytes,
+      }
+    }
   })
   // Subscribe to download progress events. Returns the channel name the
   // renderer should listen on; the preload bridge attaches a listener and
@@ -929,7 +1114,7 @@ function registerIpc(): void {
       let tokenCount = 0
 
       try {
-        const stream = getQAService().answer(workspaceId, query, opts)
+        const stream = getQAService().answer(workspaceId, query, opts, ctrl.signal)
         for await (const ev of stream) {
           if (ctrl.signal.aborted) break
           try {

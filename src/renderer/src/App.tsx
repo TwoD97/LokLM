@@ -10,6 +10,8 @@ import { TitleBar } from './TitleBar'
 import { ModelDownloadView } from './models/ModelDownloadView'
 import { SettingsModal } from './settings/SettingsModal'
 import { FallbackToast } from './settings/FallbackToast'
+import { ErrorBoundary } from './ErrorBoundary'
+import { isLockedError } from './lib/lockedError'
 
 type Phase =
   | { kind: 'loading' }
@@ -76,20 +78,36 @@ export function App(): JSX.Element {
     return () => off()
   }, [refresh])
 
-  if (phase.kind === 'unlocked') {
-    return (
-      <>
-        <BackgroundFx />
-        <TitleBar unlocked onOpenSettings={() => setSettingsOpen(true)} />
-        <AppShell />
-        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        <FallbackToast onOpenSettings={() => setSettingsOpen(true)} />
-      </>
-    )
-  }
+  // Global LockedError → re-route to login. The inactivity timer in main can
+  // fire at any moment; without this, the first IPC call after that lock
+  // throws "locked" and the user sees a stray error toast somewhere instead
+  // of being sent back to the unlock screen. refresh() reads the new
+  // (locked) auth state and pickPhaseFromStatus routes from there.
+  useEffect(() => {
+    const onRejection = (ev: PromiseRejectionEvent): void => {
+      if (isLockedError(ev.reason)) {
+        ev.preventDefault()
+        void refresh()
+      }
+    }
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => window.removeEventListener('unhandledrejection', onRejection)
+  }, [refresh])
+
+  // Chrome (BackgroundFx + TitleBar + Settings/Toast) is hoisted above the
+  // phase switch so unlocking the vault doesn't tear down and re-mount the
+  // shared shell — that used to re-fetch all three model statuses through
+  // the TitleBar and restart BackgroundFx's pointer listener on every unlock.
+  const isUnlocked = phase.kind === 'unlocked'
 
   let content: JSX.Element
-  if (phase.kind === 'loading') {
+  if (isUnlocked) {
+    content = (
+      <ErrorBoundary label="Workspace">
+        <AppShell />
+      </ErrorBoundary>
+    )
+  } else if (phase.kind === 'loading') {
     content = (
       <section className="auth-card">
         <p>Lade …</p>
@@ -149,56 +167,67 @@ export function App(): JSX.Element {
   return (
     <>
       <BackgroundFx />
-      <TitleBar />
-      <main className="app">
-        <header className="app__header" aria-label="LokLM">
-          <div className="app__brand-row">
-            <svg
-              className="app__mark"
-              viewBox="0 0 64 64"
-              width="40"
-              height="40"
-              fill="none"
-              aria-hidden="true"
-            >
-              <rect
-                x="14"
-                y="22"
-                width="36"
-                height="30"
-                rx="2"
-                stroke="#F6F4EF"
-                strokeWidth="3"
-                opacity="0.4"
-              />
-              <rect
-                x="11"
-                y="17"
-                width="36"
-                height="30"
-                rx="2"
-                stroke="#F6F4EF"
-                strokeWidth="3"
-                opacity="0.7"
-              />
-              <rect
-                x="8"
-                y="12"
-                width="36"
-                height="30"
-                rx="2"
-                fill="#0B1B2B"
-                stroke="#F6F4EF"
-                strokeWidth="3"
-              />
-              <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
-            </svg>
-            <p className="app__brand">LokLM</p>
-          </div>
-          <p className="app__sub">Lokaler KI-Wissensassistent</p>
-        </header>
-        {content}
-      </main>
+      <TitleBar
+        unlocked={isUnlocked}
+        {...(isUnlocked ? { onOpenSettings: () => setSettingsOpen(true) } : {})}
+      />
+      {isUnlocked ? (
+        <>
+          {content}
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+          <FallbackToast onOpenSettings={() => setSettingsOpen(true)} />
+        </>
+      ) : (
+        <main className="app">
+          <header className="app__header" aria-label="LokLM">
+            <div className="app__brand-row">
+              <svg
+                className="app__mark"
+                viewBox="0 0 64 64"
+                width="40"
+                height="40"
+                fill="none"
+                aria-hidden="true"
+              >
+                <rect
+                  x="14"
+                  y="22"
+                  width="36"
+                  height="30"
+                  rx="2"
+                  stroke="#F6F4EF"
+                  strokeWidth="3"
+                  opacity="0.4"
+                />
+                <rect
+                  x="11"
+                  y="17"
+                  width="36"
+                  height="30"
+                  rx="2"
+                  stroke="#F6F4EF"
+                  strokeWidth="3"
+                  opacity="0.7"
+                />
+                <rect
+                  x="8"
+                  y="12"
+                  width="36"
+                  height="30"
+                  rx="2"
+                  fill="#0B1B2B"
+                  stroke="#F6F4EF"
+                  strokeWidth="3"
+                />
+                <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
+              </svg>
+              <p className="app__brand">LokLM</p>
+            </div>
+            <p className="app__sub">Lokaler KI-Wissensassistent</p>
+          </header>
+          {content}
+        </main>
+      )}
     </>
   )
 }

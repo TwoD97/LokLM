@@ -14,7 +14,32 @@ export interface CitationMarker {
   chunkId: number
 }
 
+export interface CitationMatch extends CitationMarker {
+  /** Inclusive offset of the opening `[` in the source text. */
+  start: number
+  /** Exclusive offset just past the closing `]`. */
+  end: number
+}
+
 const CITATION_REGEX = /\[doc:(\d+),\s*chunk:(\d+)\]/g
+
+/**
+ * Returns every citation match with its character offsets. Order = document
+ * order, **duplicates retained**.
+ */
+export function findCitationMatches(text: string): CitationMatch[] {
+  const out: CitationMatch[] = []
+  const re = new RegExp(CITATION_REGEX.source, 'g')
+  let match: RegExpExecArray | null
+  while ((match = re.exec(text)) !== null) {
+    const documentId = Number(match[1])
+    const chunkId = Number(match[2])
+    if (Number.isFinite(documentId) && Number.isFinite(chunkId)) {
+      out.push({ documentId, chunkId, start: match.index, end: match.index + match[0].length })
+    }
+  }
+  return out
+}
 
 /**
  * Returns every (documentId, chunkId) pair found in `text`, in document
@@ -23,17 +48,14 @@ const CITATION_REGEX = /\[doc:(\d+),\s*chunk:(\d+)\]/g
  * index numbers in mention order.
  */
 export function extractCitationMarkers(text: string): CitationMarker[] {
-  const out: CitationMarker[] = []
-  const re = new RegExp(CITATION_REGEX.source, 'g')
-  let match: RegExpExecArray | null
-  while ((match = re.exec(text)) !== null) {
-    const documentId = Number(match[1])
-    const chunkId = Number(match[2])
-    if (Number.isFinite(documentId) && Number.isFinite(chunkId)) {
-      out.push({ documentId, chunkId })
-    }
-  }
-  return out
+  return findCitationMatches(text).map(({ documentId, chunkId }) => ({ documentId, chunkId }))
+}
+
+/** Removes every `[doc:X, chunk:Y]` marker from `text` (single source of truth
+ *  for the marker grammar — callers that need to strip markers go through this
+ *  instead of re-declaring the regex). */
+export function stripCitationMarkers(text: string): string {
+  return text.replace(new RegExp(CITATION_REGEX.source, 'g'), '')
 }
 
 /**

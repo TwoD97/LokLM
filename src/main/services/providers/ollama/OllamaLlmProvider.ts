@@ -41,18 +41,26 @@ export class OllamaLlmProvider implements LlmProvider {
       const piece = chunk.message?.content ?? ''
       if (piece) {
         acc += piece
-        opts.onChunk?.(piece)
+        // Ollama's NDJSON stream is one chunk per token-ish; pass count=1.
+        // (Native worker batches its own chunks; the count plumbing is the
+        // same shape across providers.)
+        opts.onChunk?.(piece, 1)
       }
       if (chunk.done) break
     }
     return acc
   }
 
-  async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+  async generateRaw(
+    prompt: string,
+    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+  ): Promise<string> {
     let acc = ''
+    const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
+    if (opts.maxTokens != null) body.options = { num_predict: opts.maxTokens }
     for await (const chunk of this.client.postNdjson<{ response?: string; done?: boolean }>(
       '/api/generate',
-      { model: this.model, prompt, stream: true },
+      body,
       opts.abortSignal,
     )) {
       if (chunk.response) acc += chunk.response

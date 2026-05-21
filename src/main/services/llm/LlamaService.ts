@@ -35,6 +35,8 @@ import {
   buildSystemPrompt,
   renderFallback,
   ThinkFilter,
+  LoopDetector,
+  REPETITION_HINT_TEXT,
   stripThink,
   chunkifyForStream,
   type ResponseLanguage,
@@ -47,7 +49,11 @@ export type { ResponseLanguage }
 // inject a worker-backed bridge.
 
 export interface AskOptions {
-  onChunk?: (text: string) => void
+  /** Called for each batched token push. `count` is the number of native
+   *  llama.cpp chunks coalesced into this push — at most ~8 ms worth. Most
+   *  callers can ignore it and just append `text`; the renderer uses it to
+   *  keep its tokens/sec metric accurate post-batching. */
+  onChunk?: (text: string, count: number) => void
   abortSignal?: AbortSignal
   /**
    * Optional tools the model may call during generation. Worker-mode does not
@@ -211,6 +217,14 @@ export class LlamaService {
   }
 
   private setStatus(patch: Partial<ModelStatus>): void {
+    let changed = false
+    for (const k of Object.keys(patch) as Array<keyof ModelStatus>) {
+      if (this.status[k] !== patch[k]) {
+        changed = true
+        break
+      }
+    }
+    if (!changed) return
     this.status = { ...this.status, ...patch }
     for (const l of this.listeners) {
       try {
@@ -467,11 +481,32 @@ export class LlamaService {
     const streamId = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     const filter = new ThinkFilter()
-    const unregister = client.registerStream(streamId, (chunk) => {
+    const detector = new LoopDetector()
+    // Accumulated post-ThinkFilter text — used to reconstruct the answer when
+    // the loop detector aborts mid-stream (worker throws AbortError before
+    // returning `raw`, but the user-visible text up to that point is fine).
+    let accumulated = ''
+    let loopAborted = false
+
+    const unregister = client.registerStream(streamId, (chunk, count) => {
       this.lastUsedAt = Date.now()
-      if (!opts.onChunk) return
+      // After a loop trip the worker is winding down — drop late chunks so
+      // the renderer sees a clean cutoff instead of more repetition.
+      if (loopAborted) return
       const cleaned = filter.feed(chunk)
-      if (cleaned) opts.onChunk(cleaned)
+      if (!cleaned) return
+      accumulated += cleaned
+      // `count` is the number of native onTextChunk callbacks the worker
+      // coalesced into this batched push — forward it so the renderer's
+      // tokens/sec metric reflects native chunk granularity, not the 125 Hz
+      // ceiling that batching would otherwise impose.
+      if (opts.onChunk) opts.onChunk(cleaned, count)
+      if (detector.feed(cleaned)) {
+        loopAborted = true
+        // eslint-disable-next-line no-console
+        console.warn('[llama] repetition loop detected, aborting generation')
+        void client.llmAbort(streamId).catch(() => undefined)
+      }
     })
 
     let abortListener: (() => void) | null = null
@@ -484,20 +519,33 @@ export class LlamaService {
 
     const runOnce = async (history: AskOptions['conversationHistory']): Promise<string> => {
       filter.reset()
+      detector.reset()
+      accumulated = ''
+      loopAborted = false
       const promptBody = buildPrompt(question, hits, history)
       const { raw } = await client.llmAsk({ streamId, question, prompt: promptBody, maxTokens })
       if (opts.onChunk) {
         const tail = filter.flush()
-        if (tail) opts.onChunk(tail)
+        // Synthesized tails count as one batched event (the ThinkFilter
+        // buffer held back partial-think markers; flushing emits whatever
+        // survived as a single chunk).
+        if (tail) opts.onChunk(tail, 1)
       }
       return raw
     }
 
+    const finalizeLoop = (): string => {
+      const hint = REPETITION_HINT_TEXT[this.language]
+      if (opts.onChunk) opts.onChunk(hint, 1)
+      return stripThink(accumulated) + hint
+    }
+
     try {
-      let raw: string
       try {
-        raw = await runOnce(opts.conversationHistory)
+        const raw = await runOnce(opts.conversationHistory)
+        return stripThink(raw)
       } catch (err) {
+        if (loopAborted) return finalizeLoop()
         // Conversation history is embedded into the prompt body by buildPrompt,
         // so when the context overflows it's the one knob we can turn on retry.
         // Dropping it costs the model topical memory of prior turns , the live
@@ -506,9 +554,14 @@ export class LlamaService {
         if (!isOverflowError(err) || !hasHistory) throw err
         // eslint-disable-next-line no-console
         console.warn('[llama] context overflowed, retrying without conversation history')
-        raw = await runOnce(undefined)
       }
-      return stripThink(raw)
+      try {
+        const raw = await runOnce(undefined)
+        return stripThink(raw)
+      } catch (err) {
+        if (loopAborted) return finalizeLoop()
+        throw err
+      }
     } finally {
       unregister()
       if (abortListener && opts.abortSignal) {
@@ -517,7 +570,10 @@ export class LlamaService {
     }
   }
 
-  async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal } = {}): Promise<string> {
+  async generateRaw(
+    prompt: string,
+    opts: { abortSignal?: AbortSignal; maxTokens?: number } = {},
+  ): Promise<string> {
     this.touchUsage()
     if (!this.isReady() || !this.client) {
       throw new Error('Model is not loaded.')
@@ -532,7 +588,12 @@ export class LlamaService {
       opts.abortSignal.addEventListener('abort', abortListener, { once: true })
     }
     try {
-      const { raw } = await client.llmGenerateRaw({ streamId, prompt })
+      const payload: { streamId: string; prompt: string; maxTokens?: number } = {
+        streamId,
+        prompt,
+      }
+      if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
+      const { raw } = await client.llmGenerateRaw(payload)
       return stripThink(raw).trim()
     } finally {
       if (abortListener && opts.abortSignal) {
@@ -573,7 +634,7 @@ export class LlamaService {
     if (opts.onChunk) {
       for (const piece of chunkifyForStream(out)) {
         if (opts.abortSignal?.aborted) break
-        opts.onChunk(piece)
+        opts.onChunk(piece, 1)
         await sleep(8)
       }
     }
@@ -621,5 +682,7 @@ function sleep(ms: number): Promise<void> {
 
 function isOverflowError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err)
-  return /context shift|context size|history.*fit|too long/i.test(msg)
+  // `free up space` covers node-llama-cpp's LlamaContext.js "Failed to free up
+  // space for new tokens" path — fires when context-shift can't reclaim room.
+  return /context shift|context size|history.*fit|too long|free up space/i.test(msg)
 }
