@@ -17,15 +17,23 @@
     {
       "from": "resources/icon.ico",
       "to": "icon.ico"
+    },
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
     }
   ],
   "win": {
     "target": [
       {
-        "target": "dir",
+        "target": "portable",
         "arch": ["x64"]
       }
     ],
-    "icon": "resources/icon.ico"
+    "icon": "resources/icon.ico",
+    "artifactName": "LokLM-Setup-${version}-win-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "LokLM-Setup-${version}-win-${arch}.${ext}"
   }
 }

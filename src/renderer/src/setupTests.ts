@@ -125,11 +125,6 @@ const stub: Api = {
     cancel: () => Promise.resolve(),
     onProgress: () => Promise.resolve(() => undefined),
   },
-  setup: {
-    status: () => Promise.resolve({ firstRunDone: true, options: null }),
-    saveOptions: (options) => Promise.resolve(options),
-    markFirstRunDone: () => Promise.resolve(),
-  },
   embedder: {
     status: () =>
       Promise.resolve({
