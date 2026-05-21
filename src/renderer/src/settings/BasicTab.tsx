@@ -58,7 +58,7 @@ export function BasicTab(): JSX.Element {
         </span>
         <span className="settings-section-head__sub">
           {ollamaActive
-            ? 'Local GGUF used when Ollama is unreachable.'
+            ? 'Loads on demand if Ollama becomes unreachable.'
             : 'Which bundled GGUF the local LLM loads.'}
         </span>
       </div>
@@ -68,9 +68,9 @@ export function BasicTab(): JSX.Element {
             🔌
           </span>
           <span>
-            External Ollama is the active LLM source. The bundled model below stays loaded as a
-            fallback for connection errors — pick the profile you&apos;d want serving when Ollama
-            is unavailable.
+            External Ollama is the active LLM source. The bundled model isn&apos;t loaded right
+            now — it spins up only if Ollama fails. Pick the profile you&apos;d want serving when
+            that happens.
           </span>
         </div>
       )}
@@ -106,11 +106,11 @@ export function BasicTab(): JSX.Element {
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">
-          System info {ollamaActive && <span style={{ color: 'var(--fg-3)' }}>· local fallback</span>}
+          System info {ollamaActive && <span style={{ color: 'var(--fg-3)' }}>· idle</span>}
         </span>
         <span className="settings-section-head__sub">
           {ollamaActive
-            ? 'Snapshot of the bundled engine kept warm as fallback.'
+            ? 'Empty until the local model loads. Total RAM and GPU stay live.'
             : 'Live introspection from the planner.'}
         </span>
       </div>
