@@ -1,3 +1,4 @@
+/* global window, document */
 // Drives the built Electron app through register -> import -> chat -> source-viewer
 // and captures the seven screenshots the landing page needs. Saves PNGs to
 // tests/e2e/screenshots/output/, then ffmpeg-converts to webp (main + @1x) into
