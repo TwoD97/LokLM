@@ -7,9 +7,19 @@ import { DiagnosticsSection } from './sections/DiagnosticsSection'
 import { OllamaSection } from './OllamaSection'
 import { DEFAULT_SETTINGS } from '@shared/settings'
 
+type SubTab = 'llm' | 'retrieval' | 'ollama' | 'diagnostics'
+
+const SUBTABS: { id: SubTab; label: string; icon: string }[] = [
+  { id: 'llm', label: 'LLM', icon: '🧠' },
+  { id: 'retrieval', label: 'Retrieval', icon: '🔎' },
+  { id: 'ollama', label: 'Ollama', icon: '🔌' },
+  { id: 'diagnostics', label: 'Diagnostics', icon: '📊' },
+]
+
 export function AdvancedTab(): JSX.Element {
   const { settings, update, savedFlash } = useSettings()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [sub, setSub] = useState<SubTab>('llm')
 
   if (!settings) return <div>Loading…</div>
 
@@ -26,11 +36,32 @@ export function AdvancedTab(): JSX.Element {
         </span>
       </div>
 
-      <LlmSection settings={settings} update={update} />
-      <OllamaSection settings={settings} update={update} />
-      <EmbedderSection settings={settings} update={update} />
-      <RerankerSection settings={settings} update={update} />
-      <DiagnosticsSection />
+      <div className="settings-subtabs" role="tablist">
+        {SUBTABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={sub === t.id}
+            className={`settings-subtab ${sub === t.id ? 'settings-subtab--active' : ''}`}
+            onClick={() => setSub(t.id)}
+          >
+            <span className="settings-subtab__icon" aria-hidden="true">
+              {t.icon}
+            </span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {sub === 'llm' && <LlmSection settings={settings} update={update} />}
+      {sub === 'retrieval' && (
+        <>
+          <EmbedderSection settings={settings} update={update} />
+          <RerankerSection settings={settings} update={update} />
+        </>
+      )}
+      {sub === 'ollama' && <OllamaSection settings={settings} update={update} />}
+      {sub === 'diagnostics' && <DiagnosticsSection />}
 
       <div className="settings-reset-row">
         <span className="settings-reset-row__copy">

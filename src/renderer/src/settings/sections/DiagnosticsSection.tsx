@@ -17,7 +17,7 @@ function resourcesSummary(value: unknown): ResourcesSummary | null {
 }
 
 export function DiagnosticsSection(): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [info, setInfo] = useState<SystemInfo | null>(null)
   useEffect(() => {
     if (open && !info) void window.api.llm.info().then(setInfo)

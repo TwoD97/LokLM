@@ -5,7 +5,7 @@ import { Segmented } from '../Segmented'
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
 export function RerankerSection({ settings, update }: Props): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const a = settings.advanced.reranker
   const ollamaRerankerModel = settings.advanced.ollama.rerankerModel
   return (
