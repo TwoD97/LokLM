@@ -10,7 +10,12 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "test:e2e:headed": "playwright test --config tests/e2e/playwright.config.ts --headed",
+    "lighthouse": "lighthouse http://127.0.0.1:4321/ --preset=desktop --output=html --output=json --output-path=./.lighthouse/home --chrome-flags=--headless --quiet",
+    "ci": "astro check && vitest run --coverage && astro build && playwright test --config tests/e2e/playwright.config.ts"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.4",
@@ -22,6 +27,10 @@
   },
   "devDependencies": {
     "@astrojs/sitemap": "^3.7.2",
-    "vitest": "^4.1.6"
+    "@axe-core/playwright": "^4.11.3",
+    "@playwright/test": "^1.60.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "lighthouse": "^13.3.0",
+    "vitest": "^4.1.7"
   }
 }
