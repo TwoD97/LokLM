@@ -62,9 +62,6 @@
         startMenuDesc: 'Fügt LokLM zu deinem Windows-Startmenü hinzu.',
         autostartTitle: 'Mit Windows starten',
         autostartDesc: 'LokLM startet automatisch, sobald du dich anmeldest.',
-        launchAfterInstallTitle: 'Direkt loslegen',
-        launchAfterInstallDesc:
-          'Nach der Installation startet LokLM von selbst und dieser Dialog schließt sich.',
       },
       install: {
         kicker: 'Installieren',
@@ -95,6 +92,7 @@
         next: 'Weiter',
         install: 'Installieren',
         launch: 'LokLM starten',
+        close: 'Schließen',
       },
       progress: {
         'preparing-folder': 'Installationsordner wird vorbereitet',
@@ -157,9 +155,6 @@
         startMenuDesc: 'Adds LokLM to your Windows start menu.',
         autostartTitle: 'Start with Windows',
         autostartDesc: 'LokLM launches automatically when you sign in.',
-        launchAfterInstallTitle: 'Jump straight in',
-        launchAfterInstallDesc:
-          'After install, LokLM starts itself and this setup window closes.',
       },
       install: {
         kicker: 'Install',
@@ -190,6 +185,7 @@
         next: 'Next',
         install: 'Install',
         launch: 'Launch LokLM',
+        close: 'Close',
       },
       progress: {
         'preparing-folder': 'Preparing install folder',

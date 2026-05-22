@@ -65,8 +65,8 @@ export default defineWorkspace([
   },
   {
     test: {
-      name: 'installer-ui',
-      include: ['installer-ui/__tests__/**/*.test.ts'],
+      name: 'wizard-frontend',
+      include: ['installer-wizard/frontend/__tests__/**/*.test.ts'],
       environment: 'node',
     },
   },

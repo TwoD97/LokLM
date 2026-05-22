@@ -66,29 +66,40 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright chromium ( splash render )
-        # build:installer-splash rendert installer-ui/splash.html in headless
-        # chromium und schreibt resources/installer-splash.bmp ( gitignored ).
-        # @playwright/test ist NICHT in pnpm.onlyBuiltDependencies , also lädt
-        # pnpm install den browser nicht automatisch — hier explizit holen.
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Rust toolchain ( msvc )
+        # Tauri wizard ( installer-wizard/src-tauri ) needs cargo to build
+        # the native loklm-installer.exe. windows-latest already ships
+        # Visual Studio 2022 with the C++ workload + Windows SDK , so the
+        # MSVC linker resolves without extra installs.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
 
-      - name: Build (electron-vite)
-        run: pnpm build
+      - name: Cache cargo registry + tauri target
+        # Caches ~/.cargo/registry + installer-wizard/src-tauri/target so
+        # repeat CI runs skip the ~5 min first-time tauri compile and
+        # finish the wizard build in ~30s.
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: installer-wizard/src-tauri
+          cache-on-failure: true
 
-      # v0.2.2+ : keine GGUFs mehr im installer. Der first-launch downloader
-      # (src/main/services/models/ModelDownloader.ts) holt embedder + reranker
-      # + LLM nach %APPDATA%\loklm\models\ via SHA256-verifizierten HTTP-pulls
-      # gegen die URLs in src/main/services/models/manifest.ts. CI braucht die
-      # GGUFs daher nicht mehr , spart ~6 GB download pro run.
+      - name: Install tauri-cli
+        # `cargo install` only recompiles if the version target differs from
+        # the cached binary , so this is a no-op on warm cache runs.
+        run: cargo install tauri-cli --version "^2.0" --locked
 
-      - name: Package (portable 7zSD self-extractor)
-        # electron-builder's "portable" target wrapt payload + wizard in einer
-        # single-file .exe via 7zSD ; splashImage zeigt resources/installer-
-        # splash.bmp während der self-extract phase. npmRebuild=false in
-        # package.json umgeht @electron/rebuild (alle native deps sind N-API
-        # prebuilt). Kein makensis mehr nötig — der frühere NSIS-stub-ansatz
-        # wurde durch das build-in portable target ersetzt.
+      - name: Build payload + wizard + bundle ( pnpm package:win )
+        # Three-stage pipeline :
+        #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder)
+        #   package:win:wizard   → installer-wizard/src-tauri/target/release/loklm-installer.exe
+        #                          (cargo tauri build , Rust + WebView2 wizard)
+        #   package:win:stub     → release/LokLM-Setup-<v>-win-x64.exe
+        #                          (NSIS wraps wizard + payload into one .exe)
+        # No GGUFs are bundled — the first-launch downloader in src/main/
+        # services/models/ModelDownloader.ts fetches them to %APPDATA%\loklm
+        # via SHA256-verified HTTP pulls. CI saves ~6 GB / run.
         run: pnpm package:win
 
       - name: Compute sha256 + size
@@ -96,29 +107,15 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          TARGET="release/installer/LokLM-Setup-${V}-win-x64.exe"
+          EXE="release/LokLM-Setup-${V}-win-x64.exe"
 
-          # electron-builder's portable target sometimes emits the .exe with
-          # productName-derived defaults instead of artifactName. Glob , then
-          # rename to the canonical TARGET so the rest of the pipeline ( upload
-          # paths , website manifest ) stays stable.
-          echo "release/ contents:"
-          ls -la release/ || true
-          echo "release/installer/ contents:"
-          ls -la release/installer/ || true
-
-          FOUND=$(ls release/installer/*.exe 2>/dev/null | head -1 || true)
-          if [ -z "$FOUND" ]; then
-            echo "no .exe found in release/installer/"
-            echo "builder-debug.yml:"
-            cat release/builder-debug.yml 2>/dev/null || true
+          # scripts/build-installer-stub.mjs writes exactly this filename ;
+          # bail early if it's missing because something earlier broke.
+          if [ ! -f "$EXE" ]; then
+            echo "expected $EXE missing"
+            ls -la release/ || true
             exit 1
           fi
-          if [ "$FOUND" != "$TARGET" ]; then
-            echo "renaming $FOUND → $TARGET"
-            mv "$FOUND" "$TARGET"
-          fi
-          EXE="$TARGET"
 
           SHA=$(sha256sum "$EXE" | awk '{print $1}')
           SIZE=$(stat -c%s "$EXE")
@@ -135,7 +132,7 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/installer/LokLM-Setup-${V}-win-x64.exe"
+          FILE="release/LokLM-Setup-${V}-win-x64.exe"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
@@ -159,12 +156,12 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/installer/LokLM-Setup-${V}-win-x64.exe" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/installer/LokLM-Setup-${V}-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:
-    name: Build AppImage + upload to bunny + minio
+    name: Build .run installer + upload to bunny + minio
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -197,11 +194,43 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build (electron-vite)
-        run: pnpm build
+      - name: Install Tauri's system deps + makeself
+        # Tauri 2.x on Linux links against webkit2gtk-4.1 ( required ) and
+        # libayatana-appindicator3-1 ( for tray icons , not used by the
+        # wizard but Tauri's build script checks for it ). librsvg2-dev
+        # is needed for SVG-based icon rendering at build time.
+        # makeself is the self-extractor we wrap wizard + payload into.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            makeself
 
-      # v0.2.2+ : keine GGUFs gebundled — first-launch downloader holt sie.
-      - name: Package (AppImage)
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache cargo registry + tauri target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: installer-wizard/src-tauri
+          cache-on-failure: true
+
+      - name: Install tauri-cli
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Build payload + wizard + bundle ( pnpm package:linux )
+        # Three-stage pipeline ( mirrors Windows ) :
+        #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir)
+        #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm-installer
+        #                            (cargo tauri build , Rust + webkit2gtk wizard)
+        #   package:linux:stub     → release/LokLM-Setup-<v>-linux-x64.run
+        #                            (makeself wraps wizard + payload into one .run)
         run: pnpm package:linux
 
       - name: Compute sha256 + size
@@ -209,7 +238,7 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          APP="release/LokLM-${V}.AppImage"
+          APP="release/LokLM-Setup-${V}-linux-x64.run"
           if [ ! -f "$APP" ]; then
             echo "expected artefact missing: $APP"; ls -la release/; exit 1
           fi
@@ -227,7 +256,7 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-${V}.AppImage"
+          FILE="release/LokLM-Setup-${V}-linux-x64.run"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
@@ -250,13 +279,109 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-${V}.AppImage" "s3target/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-${V}.AppImage.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-Setup-${V}-linux-x64.run" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-Setup-${V}-linux-x64.run.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc ls "s3target/loklm-installers/v${V}/"
+
+  build-macos:
+    name: Build .dmg + upload to bunny + minio
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      sha256: ${{ steps.hash.outputs.sha256 }}
+      size: ${{ steps.hash.outputs.size }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version (tag oder dispatch-input)
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Package ( DMG , unsigned , universal )
+        # No wizard on Mac — we ship the standard .dmg + drag-to-Applications
+        # idiom Mac users expect. `identity: null` in build.mac disables
+        # the auto-detected codesigning ; users see Gatekeeper warning on
+        # first launch ( right-click → Open → confirm ). Adding a real
+        # cert + notarization later is a single env-var swap.
+        # Universal arch builds both Intel and Apple Silicon variants and
+        # lipo-merges them into one .dmg — ~2x build time but one download.
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: pnpm package:mac
+
+      - name: Compute sha256 + size
+        id: hash
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          DMG="release/LokLM-${V}-mac.dmg"
+          if [ ! -f "$DMG" ]; then
+            echo "expected artefact missing: $DMG"; ls -la release/; exit 1
+          fi
+          SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          SIZE=$(stat -f%z "$DMG")
+          echo "$SHA  $(basename "$DMG")" > "${DMG}.sha256"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "built $DMG , size=$SIZE sha256=$SHA"
+
+      - name: Upload to Bunny Storage (primary , served via CDN)
+        env:
+          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
+          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          FILE="release/LokLM-${V}-mac.dmg"
+          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
+          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
+            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
+            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
+      - name: Install mc
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-amd64/mc
+          chmod +x /tmp/mc
+          /tmp/mc --version | head -1
+
+      - name: Upload to minio (backup mirror)
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          /tmp/mc cp "release/LokLM-${V}-mac.dmg" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-${V}-mac.dmg.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc ls "s3target/loklm-installers/v${V}/"
 
   bump-and-redeploy:
     name: Bump manifest + redeploy website
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -289,6 +414,14 @@ jobs:
             linux \
             "${{ needs.build-linux.outputs.sha256 }}" \
             "${{ needs.build-linux.outputs.size }}"
+
+      - name: Patch releases.ts (macos)
+        run: |
+          node scripts/bump-release.mjs \
+            "${{ needs.build-macos.outputs.version }}" \
+            macos \
+            "${{ needs.build-macos.outputs.sha256 }}" \
+            "${{ needs.build-macos.outputs.size }}"
 
       - name: Install website deps
         working-directory: website
@@ -349,5 +482,6 @@ jobs:
             echo ""
             echo "**Backup (minio , manual fallback):**"
             echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-${V}-win-x64.exe"
-            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}.AppImage"
+            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-${V}-linux-x64.run"
+            echo "- macOS:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}-mac.dmg"
           } >> "$GITHUB_STEP_SUMMARY"

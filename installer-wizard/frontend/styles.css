@@ -537,6 +537,123 @@ input[type='text']:focus {
   flex: 1;
 }
 
+/* ============================================================
+ * Boot splash : full-screen overlay shown from first paint until
+ * renderer.js finishes its getState() + getLicense() round-trips.
+ * Fades out when <body> picks up .is-booted ( set after init ).
+ * ============================================================ */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(59, 130, 246, 0.32), transparent 38%),
+    radial-gradient(circle at 80% 92%, rgba(20, 184, 166, 0.22), transparent 36%),
+    linear-gradient(135deg, #07111f 0%, #0b1b2b 52%, #101827 100%);
+  opacity: 1;
+  transition:
+    opacity 360ms ease-out,
+    visibility 0s linear 360ms;
+}
+body.is-booted .boot-splash {
+  opacity: 0;
+  visibility: hidden;
+}
+.boot-splash__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.boot-splash__logo {
+  width: 110px;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  border-radius: 26px;
+  background: rgba(2, 8, 23, 0.42);
+  border: 1px solid rgba(246, 244, 239, 0.18);
+  position: relative;
+  margin-bottom: 10px;
+}
+.boot-splash__logo::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 30px;
+  border: 1px solid rgba(125, 211, 252, 0.32);
+  opacity: 0.55;
+  animation: bootSplashGlow 2.4s ease-in-out infinite;
+}
+.boot-splash__eyebrow {
+  margin: 0;
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.boot-splash__brand {
+  margin: 0;
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.boot-splash__hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.boot-splash__dots {
+  display: inline-flex;
+  gap: 8px;
+}
+.boot-splash__dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.28;
+  animation: bootSplashPulse 1.2s infinite ease-in-out;
+}
+.boot-splash__dots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.boot-splash__dots span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+@keyframes bootSplashPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.78);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+@keyframes bootSplashGlow {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+}
+
 .btn {
   min-width: 112px;
   height: 40px;

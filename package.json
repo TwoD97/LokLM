@@ -14,18 +14,21 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "pnpm package:win:payload && pnpm package:win:installer",
+    "package:win": "pnpm package:win:payload && pnpm package:win:wizard && pnpm package:win:stub",
     "package:win:payload": "electron-vite build && electron-builder --win dir",
-    "package:win:installer": "pnpm build:installer-splash && electron-builder --config installer-ui/electron-builder.json --win portable",
-    "build:installer-splash": "node scripts/build-installer-splash.mjs",
-    "package:linux": "electron-vite build && electron-builder --linux AppImage",
+    "package:win:wizard": "node scripts/build-installer-wizard.mjs",
+    "package:win:stub": "node scripts/build-installer-stub.mjs",
+    "package:linux": "pnpm package:linux:payload && pnpm package:linux:wizard && pnpm package:linux:stub",
+    "package:linux:payload": "electron-vite build && electron-builder --linux dir",
+    "package:linux:wizard": "node scripts/build-installer-wizard.mjs",
+    "package:linux:stub": "node scripts/build-installer-stub-linux.mjs",
     "package:mac": "electron-vite build && electron-builder --mac dmg",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:unit": "vitest run --project node --project web",
-    "test:installer-ui": "vitest run --project installer-ui",
+    "test:wizard-frontend": "vitest run --project wizard-frontend",
     "test:integration": "vitest run --project integration",
     "test:tx": "vitest run --project tx",
     "pretest:e2e": "pnpm build",
@@ -37,6 +40,7 @@
     "evals:sweep": "tsx tests/evals/sweep.ts",
     "evals:build-library": "tsx tests/evals/scale/build-library.ts",
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
+    "evals:pack": "tsx tests/evals/answer/run-pack.ts",
     "pod:start": "tsx tests/evals/runpod/pod.ts start",
     "pod:stop": "tsx tests/evals/runpod/pod.ts stop",
     "pod:status": "tsx tests/evals/runpod/pod.ts status",
@@ -55,6 +59,7 @@
     "models:medium": "node scripts/download-models.mjs medium",
     "models:pro": "node scripts/download-models.mjs pro",
     "models:all": "node scripts/download-models.mjs all",
+    "models:evals": "node scripts/download-models.mjs evals",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
@@ -79,7 +84,6 @@
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
-    "gifenc": "^1.0.3",
     "globals": "^15.13.0",
     "husky": "^9.1.7",
     "jsdom": "^25.0.1",
@@ -154,27 +158,28 @@
     "linux": {
       "target": [
         {
-          "target": "AppImage",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ],
       "category": "Office",
-      "artifactName": "LokLM-${version}.${ext}"
+      "artifactName": "LokLM-${version}.${ext}",
+      "executableName": "loklm"
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
       ],
       "category": "public.app-category.productivity",
-      "artifactName": "LokLM-${version}.${ext}"
+      "artifactName": "LokLM-${version}-mac.${ext}",
+      "identity": null
     }
   },
   "pnpm": {
