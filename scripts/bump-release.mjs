@@ -56,21 +56,20 @@ next = next.replace(platformBlockRe, `${block}}`)
 await writeFile(file, next)
 console.log(`patched releases.ts , version=${version} platform=${platform} sha256=${sha256.slice(0, 12)}… size=${sizeBytes}`)
 
-function assetFileName(p, v) {
+function assetFileName(p, _v) {
+  // v0.2.6+ : version lives in the .exe / .dmg / .run file metadata
+  // ( VS_VERSION_INFO on Windows , Info.plist on Mac , no metadata on
+  // Linux but the Bunny URL path still carries the version folder for
+  // rollback ). Static filenames make the download URL stable across
+  // releases — the website's "Download" button doesn't need to be
+  // hardcoded per version.
   switch (p) {
     case 'windows':
-      // v0.2.2+ : nsis installer , slim ~375 MB ohne bundled GGUFs (die holt
-      // der first-launch downloader). filename matched die artifactName in
-      // package.json (build.win.artifactName = "LokLM-Setup-${version}-...").
-      return `LokLM-Setup-${v}-win-x64.exe`
+      return 'LokLM-Setup-win-x64.exe'
     case 'macos':
-      // Universal .dmg ( Intel + Apple Silicon ) , unsigned. Filename
-      // matches build.mac.artifactName in package.json.
-      return `LokLM-${v}-mac.dmg`
+      return 'LokLM-mac.dmg'
     case 'linux':
-      // v0.2.5+ : self-extracting .run via makeself ( wraps Tauri wizard +
-      // payload ). User runs `chmod +x ... && ./LokLM-Setup-...run`.
-      return `LokLM-Setup-${v}-linux-x64.run`
+      return 'LokLM-Setup-linux-x64.run'
     default:
       throw new Error(`unknown platform: ${p}`)
   }

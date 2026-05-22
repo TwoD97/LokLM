@@ -90,6 +90,17 @@ jobs:
         # the cached binary , so this is a no-op on warm cache runs.
         run: cargo install tauri-cli --version "^2.0" --locked
 
+      - name: Install NSIS ( makensis )
+        # scripts/build-installer-stub.mjs looks for makensis via PATH ,
+        # electron-builder's cache , then the system install paths.
+        # windows-latest doesn't have NSIS by default and we don't trigger
+        # any electron-builder NSIS-target build anymore , so the cache is
+        # empty. Chocolatey is preinstalled on windows-latest and puts
+        # makensis.exe at C:\Program Files (x86)\NSIS\ which findMakensis
+        # already checks.
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
       - name: Build payload + wizard + bundle ( pnpm package:win )
         # Three-stage pipeline :
         #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder)
@@ -107,7 +118,7 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          EXE="release/LokLM-Setup-${V}-win-x64.exe"
+          EXE="release/LokLM-Setup-win-x64.exe"
 
           # scripts/build-installer-stub.mjs writes exactly this filename ;
           # bail early if it's missing because something earlier broke.
@@ -132,7 +143,7 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-Setup-${V}-win-x64.exe"
+          FILE="release/LokLM-Setup-win-x64.exe"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
@@ -156,8 +167,8 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-Setup-${V}-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-win-x64.exe" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-Setup-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:
@@ -238,7 +249,7 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          APP="release/LokLM-Setup-${V}-linux-x64.run"
+          APP="release/LokLM-Setup-linux-x64.run"
           if [ ! -f "$APP" ]; then
             echo "expected artefact missing: $APP"; ls -la release/; exit 1
           fi
@@ -256,7 +267,7 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-Setup-${V}-linux-x64.run"
+          FILE="release/LokLM-Setup-linux-x64.run"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
@@ -279,8 +290,8 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-Setup-${V}-linux-x64.run" "s3target/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-Setup-${V}-linux-x64.run.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-Setup-linux-x64.run" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-Setup-linux-x64.run.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc ls "s3target/loklm-installers/v${V}/"
 
   build-macos:
@@ -334,7 +345,7 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          DMG="release/LokLM-${V}-mac.dmg"
+          DMG="release/LokLM-mac.dmg"
           if [ ! -f "$DMG" ]; then
             echo "expected artefact missing: $DMG"; ls -la release/; exit 1
           fi
@@ -352,7 +363,7 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-${V}-mac.dmg"
+          FILE="release/LokLM-mac.dmg"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
@@ -375,8 +386,8 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-${V}-mac.dmg" "s3target/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-${V}-mac.dmg.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-mac.dmg" "s3target/loklm-installers/v${V}/"
+          /tmp/mc cp "release/LokLM-mac.dmg.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc ls "s3target/loklm-installers/v${V}/"
 
   bump-and-redeploy:
@@ -481,7 +492,7 @@ jobs:
             echo "**Primary (CDN):** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
             echo "**Backup (minio , manual fallback):**"
-            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-${V}-win-x64.exe"
-            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-${V}-linux-x64.run"
-            echo "- macOS:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-${V}-mac.dmg"
+            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-win-x64.exe"
+            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-linux-x64.run"
+            echo "- macOS:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-mac.dmg"
           } >> "$GITHUB_STEP_SUMMARY"

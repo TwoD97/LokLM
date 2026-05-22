@@ -46,7 +46,7 @@ fn local_programs_dir() -> PathBuf {
 }
 
 fn default_install_dir() -> PathBuf {
-    local_programs_dir().join("LokLM")
+    local_programs_dir().join(PRODUCT_NAME)
 }
 
 // Locate the LokLM payload ( win-unpacked dir with LokLM.exe + dlls ).
