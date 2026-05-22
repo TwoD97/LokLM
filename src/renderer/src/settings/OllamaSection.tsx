@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Globe } from 'lucide-react'
 import type { UserSettings } from '@shared/settings'
+import { isLoopbackBaseUrl } from '@shared/networkHelpers'
 import { Segmented } from './Segmented'
 import { ReindexGateModal } from './ReindexGateModal'
+import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 type Probe =
@@ -50,9 +52,16 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
     to: string
     targetSource: 'bundled' | 'ollama'
   } | null>(null)
+  // Loopback gate. Open when the user types a non-loopback baseUrl while
+  // allowRemoteOllama is still false. Confirming flips the setting once and
+  // re-runs the probe ; cancelling leaves the baseUrl as-typed but no probe
+  // fires until the gate is satisfied.
+  const [remoteGateOpen, setRemoteGateOpen] = useState(false)
   const o = settings.advanced.ollama
   const adv = settings.advanced
   const allModelsConfigured = Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+  const baseIsLoopback = isLoopbackBaseUrl(o.baseUrl)
+  const blockedByRemoteGate = !baseIsLoopback && !o.allowRemoteOllama
   const allOnOllama =
     adv.llm.source === 'ollama' &&
     adv.embedder.source === 'ollama' &&
@@ -92,6 +101,18 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   }
 
   const doProbe = useCallback(async () => {
+    // Loopback gate: never roundtrip to a non-loopback host until the user
+    // has acknowledged the offline-grundsatz relaxation via the retype gate.
+    // Surface the block as a probe-state so the rest of the UI (chip pickers ,
+    // master-switch) stays disabled.
+    if (blockedByRemoteGate) {
+      setProbe({
+        state: 'err',
+        kind: 'remote-gate',
+        message: 'Externer Host nicht freigegeben.',
+      })
+      return
+    }
     setProbe({ state: 'probing' })
     const r = await window.api.ollama.probe({
       baseUrl: o.baseUrl,
@@ -100,11 +121,18 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
     })
     if (r.ok) setProbe({ state: 'ok', version: r.version, models: r.models })
     else setProbe({ state: 'err', kind: r.kind, message: r.message })
-  }, [o.baseUrl, o.bearerToken, o.requestTimeoutMs])
+  }, [o.baseUrl, o.bearerToken, o.requestTimeoutMs, blockedByRemoteGate])
 
   useEffect(() => {
     if (open && probe.state === 'idle') void doProbe()
   }, [open, probe.state, doProbe])
+
+  // Re-probe whenever the gate state flips , so a freshly-confirmed remote
+  // host probes immediately instead of waiting for the next user interaction.
+  useEffect(() => {
+    if (open) void doProbe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockedByRemoteGate])
 
   const models = probe.state === 'ok' ? probe.models : []
   const embedderModels = showAllForEmbedder ? models : models.filter((m) => EMBED_NAME_RE.test(m))
@@ -141,7 +169,15 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
               onChange={(e) => setBaseUrlDraft(e.target.value)}
               onBlur={() => {
                 if (baseUrlDraft !== o.baseUrl) {
-                  void update({ advanced: { ollama: { baseUrl: baseUrlDraft } } })
+                  // Reset the remote-host consent on every baseUrl change.
+                  // Otherwise a user who once allowed remote-A could swap to
+                  // remote-B and silently inherit the prior consent ; each
+                  // host has to be re-confirmed independently.
+                  void update({
+                    advanced: {
+                      ollama: { baseUrl: baseUrlDraft, allowRemoteOllama: false },
+                    },
+                  })
                 }
                 void doProbe()
               }}
@@ -174,6 +210,16 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             />
           </div>
 
+          {!baseIsLoopback && o.allowRemoteOllama && (
+            <div
+              className="settings-probe settings-probe--ok"
+              style={{ background: 'rgba(255,170,60,0.12)', color: '#ffd28a' }}
+              title="Anfragen verlassen diesen Rechner. Lastenheft-Grundsatz (offline) ist hierfür ausgesetzt."
+            >
+              <Globe size={14} aria-hidden="true" />
+              Externer Host , Daten verlassen diesen Rechner
+            </div>
+          )}
           {probe.state === 'probing' && (
             <div className="settings-probe settings-probe--probing">
               <span className="settings-probe__dot" aria-hidden="true" />
@@ -187,7 +233,16 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
               {probe.models.length === 1 ? '' : 's'}
             </div>
           )}
-          {probe.state === 'err' && (
+          {probe.state === 'err' && probe.kind === 'remote-gate' && (
+            <div className="settings-probe settings-probe--err">
+              <AlertTriangle size={14} aria-hidden="true" />
+              <span>Externer Host blockiert. Verbindung erst nach Passwort-Bestätigung.</span>
+              <button className="settings-probe__retry" onClick={() => setRemoteGateOpen(true)}>
+                Externen Host erlauben…
+              </button>
+            </div>
+          )}
+          {probe.state === 'err' && probe.kind !== 'remote-gate' && (
             <div className="settings-probe settings-probe--err">
               <span className="settings-probe__dot" aria-hidden="true" />
               <span>
@@ -305,6 +360,17 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
         toIdentity={masterGate?.to ?? ''}
         onConfirm={confirmMaster}
         onCancel={() => setMasterGate(null)}
+      />
+      <PasswordRetypeGate
+        open={remoteGateOpen}
+        title="Externer Ollama-Host"
+        body={`"${o.baseUrl}" liegt außerhalb des lokalen Rechners. Daten verlassen damit das System. Passwort zur Bestätigung eingeben — die Freigabe gilt persistent , bis die URL wieder auf Loopback zurückgesetzt wird.`}
+        confirmLabel="Erlauben"
+        onCancel={() => setRemoteGateOpen(false)}
+        onConfirm={async () => {
+          await update({ advanced: { ollama: { allowRemoteOllama: true } } })
+          setRemoteGateOpen(false)
+        }}
       />
     </div>
   )

@@ -27,6 +27,7 @@ import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedd
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
 import { SettingsService } from './services/settings/SettingsService'
 import type { UserSettings } from '../shared/settings'
+import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 
@@ -285,8 +286,14 @@ async function applySettings(s: UserSettings): Promise<void> {
   getRerankerService().setPlacement(s.advanced.reranker.placement)
 
   // Rebuild Ollama providers from the current config (best-effort — no probe here).
+  // Loopback gate (defense in depth ; the UI already blocks this path , but a
+  // stale renderer or third-party IPC client must not be able to bypass it).
+  // Non-loopback baseUrl without allowRemoteOllama => treat as "no ollama
+  // configured" , the registry stays bundled-only.
   const o = s.advanced.ollama
-  const haveOllama = Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+  const remoteOk = isLoopbackBaseUrl(o.baseUrl) || o.allowRemoteOllama
+  const haveOllama =
+    remoteOk && Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
   if (haveOllama) {
     const client = new OllamaClient({
       baseUrl: o.baseUrl,
@@ -584,6 +591,13 @@ function registerIpc(): void {
     if (result.ok) broadcastAuthState()
     return result
   })
+
+  // Confirmation gate for destructive / exfiltrating actions. Re-runs argon2id
+  // against the live vault header without touching session state. Honors the
+  // same brute-force lockout as login.
+  ipcMain.handle('auth:verifyPassword', async (_e, input: { password: string }) =>
+    getAuth().verifyPassword(input.password),
+  )
 
   // frameless-window controls , React titlebar calls these.
   ipcMain.handle('window:minimize', (e) => {
@@ -1015,10 +1029,23 @@ function registerIpc(): void {
 
   // ollama probe — UI uses this to validate the user's baseUrl/token before
   // committing the full settings:update. Returns the version + model list on
-  // success so the dropdowns can populate.
+  // success so the dropdowns can populate. Loopback gate enforced here too ;
+  // probing leaks the configured bearer token to a non-loopback host the
+  // moment the request fires , so refuse the call until allowRemoteOllama
+  // has been confirmed via the PasswordRetypeGate.
   ipcMain.handle(
     'ollama:probe',
     async (_e, cfg: { baseUrl: string; bearerToken: string | null; timeoutMs: number }) => {
+      if (!isLoopbackBaseUrl(cfg.baseUrl)) {
+        const allowed = getSettingsService().get().advanced.ollama.allowRemoteOllama
+        if (!allowed) {
+          return {
+            ok: false as const,
+            kind: 'remote-gate' as const,
+            message: 'Externer Host nicht freigegeben.',
+          }
+        }
+      }
       const c = new OllamaClient(cfg)
       try {
         const version = await c.version()

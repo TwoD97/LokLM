@@ -289,6 +289,43 @@ export class AuthService {
     return { ok: true }
   }
 
+  /** Re-runs argon2id + tries the DEK unwrap against the supplied password
+   *  without touching session state. Used as a confirmation gate before
+   *  destructive / exfiltrating actions (document export , flipping the
+   *  Ollama connector to a non-loopback host , ...). Honors the same
+   *  brute-force lockout as login so the gate can't be used as an
+   *  unlimited oracle. Returns:
+   *    { ok: true }                          — password matched
+   *    { ok: false, reason: 'no_user' }      — no vault on disk
+   *    { ok: false, reason: 'locked_session' } — session is locked
+   *    { ok: false, reason: 'rate_limited', retryAfterMs }
+   *    { ok: false, reason: 'bad_password' } */
+  async verifyPassword(
+    password: string,
+  ): Promise<
+    | { ok: true }
+    | { ok: false; reason: 'no_user' | 'locked_session' | 'bad_password' }
+    | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+  > {
+    if (!this.isUnlocked()) return { ok: false, reason: 'locked_session' }
+    const header = this.liveHeader
+    if (!header) return { ok: false, reason: 'no_user' }
+    const cooldown = this.cooldownRemainingMs()
+    if (cooldown > 0) return { ok: false, reason: 'rate_limited', retryAfterMs: cooldown }
+    const salt = Buffer.from(header.passwordSalt, 'base64')
+    const kek = await deriveKEK(password, salt)
+    const probe = unwrapKey(kek, header.passwordWrappedDek)
+    kek.fill(0)
+    if (!probe) {
+      this.recordFailure()
+      return { ok: false, reason: 'bad_password' }
+    }
+    // got the DEK , zero it immediately , the verify only confirms identity.
+    probe.fill(0)
+    this.touch()
+    return { ok: true }
+  }
+
   async lock(): Promise<void> {
     if (!this.dek || !this.database) return
     try {
