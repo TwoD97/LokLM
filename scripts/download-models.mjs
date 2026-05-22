@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Download the GGUFs that LokLM bundles, by tier. Skips files already on disk.
 // Usage:
-//   node scripts/download-models.mjs              # all tiers
+//   node scripts/download-models.mjs              # all tiers (ship-bundle only)
 //   node scripts/download-models.mjs lite         # just lite (4B + embedder)
 //   node scripts/download-models.mjs medium       # 4B + 8B + embedder
-//   node scripts/download-models.mjs pro          # all of the above + Nemotron-49B
+//   node scripts/download-models.mjs pro          # all of the above + Nemotron-30B
 //   node scripts/download-models.mjs embedder     # just the embedder
+//   node scripts/download-models.mjs evals        # 10-model pool + Mistral-Small judge
+//                                                 # for tests/evals/answer/model-pack.json
 //
 // Re-running is safe: existing files are skipped. If a similar file already
 // matches the profile pattern (e.g. you renamed it), the script also skips.
+//
+// `evals` tier does NOT include `all` — these are eval-only , not shipped.
 
 import {
   createWriteStream,
@@ -75,16 +79,105 @@ const MODELS = [
     // intended Nano now.
     skipPattern: /nemotron.*nano.*30b/i,
   },
+
+  // ---- evals tier ----------------------------------------------------------
+  // For the 10-model RAG eval pack (tests/evals/answer/model-pack.json).
+  // NOT shipped with the app. The pool covers Qwen / Llama / Phi / Gemma /
+  // Mistral / Granite / Hermes / SmolLM3 across the <=4B and 7-14B tiers.
+  // URLs are best-effort against HuggingFace repo names as of 2026-05 — if a
+  // download 404s , the repo got renamed or the file moved , fix it here.
+
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3-4B-Instruct-2507 (no-think variant , clean JSON)',
+    filename: 'Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
+    sizeGB: 2.5,
+    skipPattern: /qwen3.*4b.*instruct.*2507/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Llama-3.2-3B-Instruct',
+    filename: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+    sizeGB: 2.2,
+    skipPattern: /llama.*3\.2.*3b.*instruct/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Phi-4-mini-instruct (3.8B)',
+    filename: 'microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
+    sizeGB: 2.5,
+    skipPattern: /phi.*4.*mini/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Gemma-3-4B-it (best DE in 4B tier)',
+    filename: 'gemma-3-4b-it-Q4_K_M.gguf',
+    url: 'https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf',
+    sizeGB: 3.0,
+    skipPattern: /gemma.*3.*4b.*it/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — SmolLM3-3B (outsider)',
+    filename: 'HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
+    sizeGB: 2.0,
+    skipPattern: /smollm3.*3b/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3-14B (mid-tier flagship)',
+    filename: 'Qwen_Qwen3-14B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-14B-GGUF/resolve/main/Qwen_Qwen3-14B-Q4_K_M.gguf',
+    sizeGB: 9.0,
+    // Excludes the 14B-Instruct-2507 if it ever lands here. Plain 14B for now.
+    skipPattern: /qwen3.*14b/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Phi-4 14B (STEM reasoning , ACHTUNG: nur 16k ctx)',
+    // bartowski/microsoft_phi-4-GGUF antwortete 2026-05 mit HTTP 401 (gated) ,
+    // unsloth-mirror ist offen und identische gewichte. skipPattern matched
+    // beide dateinamen damit ein vorhandener bartowski-download (falls user
+    // schon HF-token gesetzt hat) nicht überschrieben wird.
+    filename: 'phi-4-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/phi-4-GGUF/resolve/main/phi-4-Q4_K_M.gguf',
+    sizeGB: 9.0,
+    skipPattern: /(^microsoft_phi-4-Q|^phi-4-Q)/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Hermes-3-Llama-3.1-8B (outsider , steuerbar)',
+    filename: 'Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
+    url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
+    sizeGB: 5.0,
+    skipPattern: /hermes.*3.*llama.*3\.1.*8b/i,
+  },
+  {
+    tier: 'evals',
+    purpose:
+      'Eval judge — Mistral-Small-3.2-24B-Instruct-2506 (Q5_K_M , fixed judge fuer pack-run)',
+    filename: 'mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q5_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q5_K_M.gguf',
+    sizeGB: 17.0,
+    skipPattern: /mistral.*small.*3\.2.*24b/i,
+  },
 ]
 
 // Tier hierarchy: each tier includes the tiers below it. Embedder is always
-// included since every install needs it.
+// included since every install needs it. `evals` is OUT of the ship-bundle
+// hierarchy — it pulls only the 10-model eval pool + judge , no ship-tier
+// fallthrough , and `all` does not pull `evals`.
 const TIER_INCLUDES = {
   embedder: ['embedder'],
   lite: ['embedder', 'lite'],
   medium: ['embedder', 'lite', 'medium'],
   pro: ['embedder', 'lite', 'medium', 'pro'],
   all: ['embedder', 'lite', 'medium', 'pro'],
+  evals: ['embedder', 'evals'],
 }
 
 // ---- main ------------------------------------------------------------------

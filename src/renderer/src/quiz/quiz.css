@@ -92,6 +92,8 @@
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .quiz-card__meta {
   display: flex;

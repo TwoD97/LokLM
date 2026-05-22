@@ -64,9 +64,13 @@ function assetFileName(p, v) {
       // package.json (build.win.artifactName = "LokLM-Setup-${version}-...").
       return `LokLM-Setup-${v}-win-x64.exe`
     case 'macos':
-      return `LokLM-${v}.dmg`
+      // Universal .dmg ( Intel + Apple Silicon ) , unsigned. Filename
+      // matches build.mac.artifactName in package.json.
+      return `LokLM-${v}-mac.dmg`
     case 'linux':
-      return `LokLM-${v}.AppImage`
+      // v0.2.5+ : self-extracting .run via makeself ( wraps Tauri wizard +
+      // payload ). User runs `chmod +x ... && ./LokLM-Setup-...run`.
+      return `LokLM-Setup-${v}-linux-x64.run`
     default:
       throw new Error(`unknown platform: ${p}`)
   }
