@@ -7,6 +7,65 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- Boot splash : visible from first paint until renderer.js finishes
+         its initial getState() + getLicense() round-trips. Reuses the
+         brand design from splash.html ; fades out once <body> picks up
+         the .is-booted class ( set from renderer.js after data is in ). -->
+    <div id="boot-splash" class="boot-splash" aria-hidden="true">
+      <div class="boot-splash__inner">
+        <div class="boot-splash__logo">
+          <svg viewBox="0 0 64 64" width="64" height="64" fill="none">
+            <rect
+              x="14"
+              y="22"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              stroke-width="3"
+              opacity="0.35"
+            />
+            <rect
+              x="11"
+              y="17"
+              width="36"
+              height="30"
+              rx="2"
+              stroke="#F6F4EF"
+              stroke-width="3"
+              opacity="0.65"
+            />
+            <rect
+              x="8"
+              y="12"
+              width="36"
+              height="30"
+              rx="2"
+              fill="#0B1B2B"
+              stroke="#F6F4EF"
+              stroke-width="3"
+            />
+            <circle cx="38" cy="20" r="2.6" fill="#7DD3FC" />
+            <path
+              d="M14 22 H32 M14 28 H30 M14 34 H26"
+              stroke="#F6F4EF"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              opacity="0.6"
+            />
+          </svg>
+        </div>
+        <p class="boot-splash__eyebrow">Lokaler KI-Wissensassistent</p>
+        <h1 class="boot-splash__brand">LokLM</h1>
+        <p class="boot-splash__hint">
+          <span>wird geladen</span>
+          <span class="boot-splash__dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+        </p>
+      </div>
+    </div>
+
     <header class="titlebar" aria-hidden="true">
       <span class="titlebar__title">LokLM Installer</span>
       <div class="titlebar__controls">
@@ -223,16 +282,6 @@ Lizenztext wird geladen ...</pre
                 >
               </span>
             </label>
-            <label class="toggle-row">
-              <input id="launch-after-install" type="checkbox" checked />
-              <span>
-                <strong data-i18n="options.launchAfterInstallTitle">LokLM direkt starten</strong>
-                <small data-i18n="options.launchAfterInstallDesc"
-                  >Startet LokLM nach erfolgreicher Installation automatisch und schliesst das
-                  Setup.</small
-                >
-              </span>
-            </label>
           </div>
         </section>
 
@@ -285,6 +334,7 @@ Lizenztext wird geladen ...</pre
     </main>
 
     <script src="./i18n.js"></script>
+    <script src="./tauri-bridge.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

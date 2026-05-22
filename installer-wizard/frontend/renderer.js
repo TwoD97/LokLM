@@ -32,7 +32,6 @@ const els = {
   desktopShortcut: document.getElementById('desktop-shortcut'),
   startMenuShortcut: document.getElementById('startmenu-shortcut'),
   autostart: document.getElementById('autostart'),
-  launchAfterInstall: document.getElementById('launch-after-install'),
   installSummary: document.getElementById('install-summary'),
   progressFill: document.getElementById('progress-fill'),
   progressLabel: document.getElementById('progress-label'),
@@ -56,9 +55,6 @@ function options() {
     createDesktopShortcut: els.desktopShortcut.checked,
     createStartMenuShortcut: els.startMenuShortcut.checked,
     enableAutostart: els.autostart.checked,
-    // Renderer-side concern: not part of the IPC `install` payload, used
-    // only to decide whether to auto-launch + close after a successful run.
-    launchAfterInstall: els.launchAfterInstall.checked,
   }
 }
 
@@ -174,8 +170,11 @@ function render() {
     dot?.classList.toggle('is-done', pages.indexOf(page) < pageIndex)
   }
 
-  els.back.disabled = pageIndex === 0 || isInstalling || active === 'finish'
+  // On the finish page the back button is repurposed as "Schließen"
+  // ( close without launching ) , so it has to stay enabled there.
+  els.back.disabled = pageIndex === 0 || isInstalling
   els.back.style.visibility = pageIndex === 0 ? 'hidden' : 'visible'
+  els.back.textContent = active === 'finish' ? t('nav.close') : t('nav.back')
 
   applyLicenseBodyText()
   applyLicenseAcceptLock()
@@ -209,20 +208,12 @@ async function install() {
   els.installError.hidden = true
   setProgress('install.starting', 3)
 
-  const current = options()
-  const { launchAfterInstall: _autoLaunch, ...installPayload } = current
   try {
-    installResult = await window.installer.install(installPayload)
+    installResult = await window.installer.install(options())
     isInstalling = false
-    // If the user opted in to auto-launch on the options page, skip the
-    // finish screen entirely: launch the freshly-installed app and close
-    // the bootstrapper. Otherwise fall through to the finish step so the
-    // user can review the summary and decide.
-    if (current.launchAfterInstall && installResult?.appExePath) {
-      await window.installer.launch(installResult.appExePath)
-      await window.installer.close()
-      return
-    }
+    // Always land on the finish page so the user decides explicitly
+    // whether to launch LokLM now or close without launching. The two
+    // buttons on the finish page handle that choice ( see render() ).
     pageIndex = pages.indexOf('finish')
     render()
   } catch (err) {
@@ -243,7 +234,15 @@ function setLocale(next) {
   render()
 }
 
-els.back.addEventListener('click', () => {
+els.back.addEventListener('click', async () => {
+  const active = pages[pageIndex]
+  // On the finish page the back button is repurposed as "Close without
+  // launching" ( going back to the install progress wouldn't make sense
+  // anyway ). On every other page it's just a page-step backward.
+  if (active === 'finish') {
+    await window.installer.close()
+    return
+  }
   pageIndex = Math.max(0, pageIndex - 1)
   render()
 })
@@ -276,7 +275,6 @@ els.licenseAccept.addEventListener('change', render)
 els.desktopShortcut.addEventListener('change', render)
 els.startMenuShortcut.addEventListener('change', render)
 els.autostart.addEventListener('change', render)
-els.launchAfterInstall.addEventListener('change', render)
 
 els.licenseBody.addEventListener('scroll', () => {
   if (licenseScrolled) return
@@ -295,13 +293,17 @@ window.installer.onProgress(({ step, percent }) => setProgress(step, percent))
 
 applyStaticTranslations()
 
-window.installer.getLicense().then((text) => {
+// Three things must finish before we hide the boot-splash overlay :
+// the two IPC bootstrap calls AND a small minimum-visible delay so
+// the splash doesn't flicker on fast machines ( both calls can
+// resolve in <50ms and the user wouldn't see anything ).
+const licensePromise = window.installer.getLicense().then((text) => {
   licenseText = text
   licenseLoaded = true
   render()
 })
 
-window.installer.getState().then((state) => {
+const statePromise = window.installer.getState().then((state) => {
   installerState = state
   els.installDir.value = state.defaultInstallDir
   if (!state.payloadReady) {
@@ -309,4 +311,10 @@ window.installer.getState().then((state) => {
     els.installError.hidden = false
   }
   render()
+})
+
+const minVisible = new Promise((resolve) => setTimeout(resolve, 800))
+
+Promise.all([licensePromise, statePromise, minVisible]).then(() => {
+  document.body.classList.add('is-booted')
 })
