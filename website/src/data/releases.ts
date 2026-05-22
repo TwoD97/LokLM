@@ -18,28 +18,28 @@ export interface Release {
 }
 
 export const currentRelease: Release = {
-  version: '0.2.4',
-  releasedAt: '2026-05-21',
+  version: '0.2.6',
+  releasedAt: '2026-05-22',
   assets: [
     {
       platform: 'windows',
-      file: 'LokLM-Setup-0.2.4-win-x64.exe',
-      sizeBytes: 1527720641,
-      sha256: '9ba9ce34b58f486cd1b841642ecf0b7533ea19ead810991f6cdc0e93e2e675f9',
+      file: 'LokLM-Setup-win-x64.exe',
+      sizeBytes: 544057608,
+      sha256: 'efec08f6ab49f8baf9578aa052e80b5cd5541ce7272abb575734754949947bb3',
       available: true,
     },
     {
       platform: 'macos',
-      file: 'LokLM-0.1.2.dmg',
-      sizeBytes: 0,
-      sha256: '',
-      available: false,
+      file: 'LokLM-mac.dmg',
+      sizeBytes: 177331180,
+      sha256: 'eacb1334ce4fe9a9b3ae95e73bafaa67fb523e7da8a8a0406cceed9ba8869cbd',
+      available: true,
     },
     {
       platform: 'linux',
-      file: 'LokLM-0.2.4.AppImage',
-      sizeBytes: 515196626,
-      sha256: '3bdcbcede0dab2f4fee224e103379cf6d1221d00d062af965b70f03104d8ca27',
+      file: 'LokLM-Setup-linux-x64.run',
+      sizeBytes: 523019150,
+      sha256: '005e8bfc7d6714405af9339026b2c7a8e167154886b8dabc60d575bc3f9cc167',
       available: true,
     },
   ],
