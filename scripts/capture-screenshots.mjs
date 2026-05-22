@@ -77,6 +77,44 @@ async function shot(name) {
   console.log(`  📸 ${name}.png`)
 }
 
+// Component-aware capture: clip a region centered on `selector`, expanded to
+// match the card's target aspect ratio, then clamped to the viewport. This
+// avoids the "full window letterboxed into the card" look — the screenshot
+// fills its card with the actual UI we want to show.
+//
+//  - selector: CSS selector for the focal element
+//  - target: [w, h] target card dimensions (sets the aspect; clip is logical px)
+//  - minW: optional floor for clip width (use to widen tight captures like a
+//    single citation chip so the screenshot includes meaningful context)
+async function shotComponent(name, selector, target, { minW = 0, anchorTop = false } = {}) {
+  const file = join(outDir, `${name}.png`)
+  const el = page.locator(selector).first()
+  await el.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(120)
+  const box = await el.boundingBox()
+  if (!box) throw new Error(`No bbox for "${selector}" (scene ${name})`)
+  const vp = page.viewportSize() || { width: 1400, height: 900 }
+  const [tw, th] = target
+  const aspect = tw / th
+  let cw = Math.max(box.width, minW)
+  let ch = cw / aspect
+  if (ch < box.height) {
+    ch = box.height
+    cw = ch * aspect
+  }
+  cw = Math.min(cw, vp.width)
+  ch = Math.min(ch, vp.height)
+  // Re-derive missing dim if clamp broke the aspect
+  if (cw / ch > aspect) cw = ch * aspect
+  else ch = cw / aspect
+  const cx = box.x + box.width / 2
+  const cy = anchorTop ? box.y + ch / 2 : box.y + box.height / 2
+  const x = Math.max(0, Math.min(vp.width - cw, cx - cw / 2))
+  const y = Math.max(0, Math.min(vp.height - ch, cy - ch / 2))
+  await page.screenshot({ path: file, clip: { x, y, width: cw, height: ch } })
+  console.log(`  📸 ${name}.png  (${selector}  ${Math.round(cw)}×${Math.round(ch)})`)
+}
+
 // ============================================================
 // PHASE 1 — Register screen (deepdive-vault)
 // ============================================================
@@ -94,7 +132,7 @@ await page.waitForTimeout(200)
 await page.locator('button[type="submit"]').click()
 await page.getByRole('heading', { name: 'Wiederherstellungs-Wörter' }).waitFor({ timeout: 30_000 })
 await page.waitForTimeout(400)
-await shot('deepdive-vault')
+await shotComponent('deepdive-vault', 'section.auth-card--reveal', [1200, 800])
 
 // Acknowledge and continue
 await page.getByRole('checkbox').check()
@@ -152,7 +190,7 @@ if (!indexed) fail('Document never reached ready status within 3 minutes.')
 console.log('  ✓ doc ready')
 await page.waitForTimeout(400)
 
-await shot('step1-import')
+await shotComponent('step1-import', '.library', [1200, 800])
 
 // ============================================================
 // PHASE 2.5 — Wait for the LLM to finish loading. autoLoad() kicks off in
@@ -206,7 +244,7 @@ const question = 'Why does the Transformer architecture avoid recurrence, and wh
 await page.locator('textarea.chat__input').fill(question)
 await page.waitForTimeout(300)
 
-await shot('step2-ask')
+await shotComponent('step2-ask', 'section.chat', [1200, 800])
 
 // Send. Cold-start model load (Qwen3 4B/8B) can take 30-90s before the first
 // token even arrives, then more streaming after that.
@@ -238,14 +276,25 @@ await page
 
 // Brief settle so the final layout is stable before screenshotting
 await page.waitForTimeout(800)
-await shot('hero-chat')
+await shotComponent('hero-chat', 'section.chat', [1400, 900])
 
 // ============================================================
-// PHASE 4 — Source viewer
+// PHASE 4 — Citation chip (deepdive-citation) + source viewer (step3-verify)
 // ============================================================
-console.log('\n[4/7] source viewer')
+console.log('\n[4/7] citation + source viewer')
 
-// Citation chips are <a class="citation-chip"> anchors, not [N] markers.
+// Deepdive-citation is a tight close-up of the citation chip in the assistant
+// bubble — minW=1000 pads the clip wide enough to include the surrounding
+// answer text so the chip reads as "click to verify" in context. Capture this
+// FIRST, before clicking opens the modal and obscures the bubble.
+const chipPresent = await page.locator('a.citation-chip').first().count()
+if (chipPresent > 0) {
+  await shotComponent('deepdive-citation', 'a.citation-chip', [1200, 800], { minW: 1100 })
+} else {
+  console.warn('  (no citation chip found; skipping deepdive-citation)')
+}
+
+// Now open the source viewer for step3-verify.
 const firstCitation = await page.evaluate(() => {
   const chip = document.querySelector('a.citation-chip')
   if (!chip) return null
@@ -254,7 +303,7 @@ const firstCitation = await page.evaluate(() => {
   return (chip.textContent || '').trim()
 })
 if (!firstCitation) {
-  console.warn('  (no citation chip found; step3-verify/deepdive-citation will lack source viewer)')
+  console.warn('  (no citation chip found; step3-verify will lack source viewer)')
 } else {
   console.log(`  clicked citation: ${firstCitation}`)
 }
@@ -265,9 +314,7 @@ await page
   .catch(() => undefined)
 await page.waitForTimeout(1200)
 
-await shot('step3-verify')
-await page.waitForTimeout(400)
-await shot('deepdive-citation')
+await shotComponent('step3-verify', '.source-viewer__backdrop', [1200, 800])
 
 // ============================================================
 // PHASE 5 — Offline indicator shot (library, status dots green in titlebar)
@@ -282,10 +329,13 @@ if ((await closeBtn.count()) > 0) {
   await page.waitForTimeout(400)
 }
 
-// Back to library for a clean shot with all three status dots green in the titlebar
+// Back to library for a clean shot, then frame around the titlebar status —
+// the three green pills ('Modell · lokal', 'Embedder · lokal', etc.) are the
+// "running offline" signal. minW=1400 + anchorTop expands the clip to show
+// titlebar at top of frame with library content below.
 await page.locator('button[aria-label="Library"]').click()
 await page.waitForTimeout(700)
-await shot('deepdive-offline')
+await shotComponent('deepdive-offline', '.titlebar', [1200, 800], { minW: 1400, anchorTop: true })
 
 // ============================================================
 // Done — close app, run ffmpeg
@@ -316,14 +366,17 @@ for (const { name, target } of SCENES) {
   const [w, h] = target
   const main = join(finalDir, `${name}.webp`)
   const onex = join(finalDir, `${name}@1x.webp`)
-  // -y overwrites. quality 88 gives sharp text without bloated file sizes.
-  // crop=w:h:(iw-w)/2:0 takes a w×h region centered horizontally from the top.
+  // Source PNGs are the full Electron window at physical pixels (≈2079×1340 on
+  // a 1400×900 logical window @ Windows 150% scaling). The whole window is the
+  // content we want — scale to target with `force_original_aspect_ratio=decrease`
+  // and pad the remainder so the card shows the full UI without cropping the
+  // sidebar/titlebar/input. Pad colour matches the app's #161b22 chrome.
   await ffmpeg([
     '-y',
     '-i',
     src,
     '-vf',
-    `crop=min(iw\\,${w}):min(ih\\,${h}):(iw-min(iw\\,${w}))/2:0,scale=${w}:${h}`,
+    `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=0x161b22`,
     '-c:v',
     'libwebp',
     '-quality',
@@ -335,7 +388,7 @@ for (const { name, target } of SCENES) {
     '-i',
     src,
     '-vf',
-    `crop=min(iw\\,${w}):min(ih\\,${h}):(iw-min(iw\\,${w}))/2:0,scale=${Math.round(w / 2)}:${Math.round(h / 2)}`,
+    `scale=${Math.round(w / 2)}:${Math.round(h / 2)}:force_original_aspect_ratio=decrease,pad=${Math.round(w / 2)}:${Math.round(h / 2)}:(ow-iw)/2:(oh-ih)/2:color=0x161b22`,
     '-c:v',
     'libwebp',
     '-quality',
