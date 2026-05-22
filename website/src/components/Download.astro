@@ -139,7 +139,7 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
                 {isAvailable ? (
                   <a
                     href={downloadUrl(asset)}
-                    class="btn-primary w-full text-sm py-2.5"
+                    class="btn-primary w-full text-sm py-3"
                     data-platform-link={asset.platform}
                   >
                     <svg
@@ -163,7 +163,7 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
                   <button
                     type="button"
                     disabled
-                    class="w-full text-sm py-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02] text-[color:var(--color-fg-3)] mono uppercase tracking-wider text-xs cursor-not-allowed"
+                    class="w-full text-sm py-3 rounded-[10px] border border-white/[0.06] bg-white/[0.02] text-[color:var(--color-fg-3)] mono uppercase tracking-wider text-xs cursor-not-allowed"
                   >
                     {t(lang, 'download.comingSoon')}
                   </button>

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 test.describe('language switch', () => {
   test('clicking EN from / navigates to /en', async ({ page }) => {
     await page.goto('/')
-    await page.locator('header').locator('a[href="/en/"]').click()
+    await page.locator('header').locator('a[href="/en"]').click()
     await expect(page).toHaveURL(/\/en\/?$/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })
@@ -18,7 +18,7 @@ test.describe('language switch', () => {
   test('active locale has aria-current=page in switch', async ({ page }) => {
     await page.goto('/')
     const deLink = page.locator('header').locator('a[href="/"]').last()
-    const enLink = page.locator('header').locator('a[href="/en/"]')
+    const enLink = page.locator('header').locator('a[href="/en"]')
     await expect(deLink).toHaveAttribute('aria-current', 'page')
     await expect(enLink).not.toHaveAttribute('aria-current', 'page')
   })

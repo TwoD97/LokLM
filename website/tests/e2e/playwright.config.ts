@@ -22,7 +22,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: '**/mobile.spec.ts',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'chromium-mobile',
+      testMatch: '**/mobile.spec.ts',
+      use: { ...devices['Pixel 7'] },
     },
   ],
   // astro preview serves dist/ as-is; we build first so the server reflects
