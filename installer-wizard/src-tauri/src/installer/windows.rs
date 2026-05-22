@@ -462,8 +462,24 @@ pub fn get_license() -> Option<String> {
 }
 
 pub fn launch(app_exe_path: &str) -> Result<(), String> {
-    cmd("cmd.exe")
-        .args(["/c", "start", "", app_exe_path])
+    // De-elevation trick : launch through explorer.exe instead of
+    // CreateProcess. If the wizard happens to be elevated ( Windows
+    // AppCompat sometimes auto-elevates binaries with "setup" or
+    // "installer" in the name regardless of our asInvoker manifest ) ,
+    // a direct spawn would hand the elevated token to LokLM.exe and
+    // the user ends up with the chat app running as Administrator
+    // forever. explorer.exe runs under the user's regular shell token ,
+    // so it acts as a trampoline that drops elevation cleanly.
+    //
+    // Also why we don't use `cmd /c start` : that uses ShellExecuteEx
+    // which inherits the parent's token. explorer.exe's ShellExecute
+    // dispatch resolves through the user's shell , not the wizard
+    // process , and the resulting child runs un-elevated.
+    let explorer = std::env::var("SystemRoot")
+        .map(|sr| PathBuf::from(sr).join("explorer.exe"))
+        .unwrap_or_else(|_| PathBuf::from("explorer.exe"));
+    cmd_path(explorer)
+        .arg(app_exe_path)
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())

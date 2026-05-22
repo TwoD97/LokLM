@@ -42,6 +42,14 @@ Name "LokLM Installer"
 OutFile "${OUTPUT_FILE}"
 Icon "${ICON_PATH}"
 RequestExecutionLevel user
+; Windows AppCompat auto-elevates any binary whose filename matches
+; installer heuristics ( "setup" , "install" , "update" ) UNLESS the
+; manifest is "complete" enough for Windows to trust it. RequestExecution-
+; Level user alone embeds only the security part ; we also need the
+; supportedOS + DPI declarations so Windows treats the manifest as
+; modern and skips the elevation shim.
+ManifestSupportedOS all
+ManifestDPIAware true
 SilentInstall silent
 
 InstallDir "$TEMP\LokLM-Setup"
