@@ -1,0 +1,18 @@
+{
+  "name": "smoke-2models",
+  "comment": "2-modell-pack für ersten end-to-end smoke. nutzt was am 2026-05-22 schon auf disk lag. judge wird via --judge-path auf Qwen3-8B gepointet (fast , aber familien-bias möglich) bis Mistral-Small-3.2-24B heruntergeladen ist.",
+  "models": [
+    {
+      "label": "granite-3.3-8b",
+      "path": "models/granite-3.3-8b-instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "mistral-nemo-12b",
+      "path": "models/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    }
+  ]
+}

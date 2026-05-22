@@ -13,12 +13,20 @@
 //   tsx tests/evals/sweep.ts [--dataset <path>] [--library <path>]
 //                            [--configs default|sweep] [--limit <n>]
 //                            [--no-llm]
+//                            [--llm-models <pack.json>]
+//                            [--judge] [--judge-path <gguf>] [--judge-context <n>]
 //
 // ohne --dataset wird das jüngste file unter data/datasets/ genommen.
 // --configs default → defaultConfigs() , --configs sweep → sweepConfigs().
 // --limit caps wie viele questions pro config gelaufen werden (für quick smoke).
 // --no-llm überschreibt alle config.llm auf null (skip TTFT-messung).
+// --llm-models <pack.json> evaluiert jede config gegen jedes modell im pack ;
+//   die llm-bridge in der config wird ignoriert , bridges werden zwischen
+//   modellen unloaded um RAM/VRAM-druck zu vermeiden.
+// --judge-path zwingt den judge auf ein konkretes GGUF (sonst LOKLM_JUDGE_PATH
+//   oder profile='xl'). --judge-context overridet die default 8192.
 
+import { existsSync } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,6 +36,7 @@ import {
   sweepConfigs,
   gridConfigs,
   adaptiveTopKConfigs,
+  answerConfigs,
   type PipelineConfig,
 } from './pipeline/configs'
 import type { Judge, JudgeScore } from './judge/Judge'
@@ -44,9 +53,27 @@ import {
   type PhasedSummary,
   type ResourceSample,
 } from './perf'
-import { createRunDir, envSnapshot, hashBytes, type DatasetInfo } from './runDir'
+import { createRunDir, envSnapshot, hashBytes, useRunDir, type DatasetInfo } from './runDir'
 import { evalChunksToHits } from './bridges/hits'
 import type { LlmRunResult } from './bridges/LlmBridge'
+import type { Placement } from './bridges/common'
+
+interface ModelPackEntry {
+  /** kurzer label für report-namen. wird an config-namen angehängt: `<cfg>@<label>`. */
+  label: string
+  /** absoluter oder repo-relativer pfad zum GGUF. */
+  path: string
+  /** ctx-window cap , default 8192. relevant für phi-4-14b (nur 16k!). */
+  contextSize?: number
+  language?: 'de' | 'en'
+  placement?: Placement
+}
+
+interface ModelPack {
+  /** schöner identifier für summary.md , optional. */
+  name?: string
+  models: ModelPackEntry[]
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -147,7 +174,9 @@ async function main(): Promise<void> {
         ? await gridConfigs()
         : args.configs === 'adaptive'
           ? await adaptiveTopKConfigs()
-          : await sweepConfigs()
+          : args.configs === 'answer'
+            ? await answerConfigs()
+            : await sweepConfigs()
   if (args.only && args.only.length > 0) {
     const patterns = args.only
     const before = configs.length
@@ -163,8 +192,22 @@ async function main(): Promise<void> {
     configs = configs.slice(0, args.iterations)
   }
   if (args.noLlm) configs = configs.map((c) => ({ ...c, llm: null }))
+  // Pack-modus: ignoriert die llm-instanz die configs.ts vergibt und ersetzt
+  // sie pro pack-eintrag im äußeren modell-loop. Hier auf null setzen verhindert
+  // dass die factory-bridge versehentlich (un)geladen wird.
+  let pack: ModelPack | null = null
+  if (args.llmModels) {
+    const packRaw = await readFile(args.llmModels, 'utf-8')
+    pack = JSON.parse(packRaw) as ModelPack
+    if (!Array.isArray(pack.models) || pack.models.length === 0) {
+      throw new Error(`pack ${args.llmModels} hat keine .models entries`)
+    }
+    console.error(`pack: ${args.llmModels} (${pack.models.length} modelle)`)
+    configs = configs.map((c) => ({ ...c, llm: null }))
+  }
   if (configs.length === 0) throw new Error('keine configs ausgewählt')
-  console.error(`configs: ${configs.length} , LLM: ${configs.some((c) => c.llm) ? 'an' : 'aus'}`)
+  const llmActive = pack !== null || configs.some((c) => c.llm)
+  console.error(`configs: ${configs.length} , LLM: ${llmActive ? 'an' : 'aus'}`)
 
   const questions =
     args.limit !== undefined ? dataset.questions.slice(0, args.limit) : dataset.questions
@@ -173,16 +216,19 @@ async function main(): Promise<void> {
   // alle LLM-asks unter dem under-test-LLM durchziehen , dann sämtliche
   // bridges unloaden , dann judge laden , dann judge-pass über die in-memory
   // PerQuestionRecord-arrays. Vorteil: unter-test-LLM (5 GB) und judge-LLM
-  // (18 GB Nemotron) sind nie gleichzeitig resident — auf 32 GB RAM machine
-  // bleibt das system responsive. Sanity-check früh: --judge braucht configs
-  // mit LLM , sonst gibt's nichts zu beurteilen.
-  if (args.judge && !configs.some((c) => c.llm)) {
+  // (18 GB Mistral-Small/Nemotron) sind nie gleichzeitig resident — auf 32 GB
+  // RAM machine bleibt das system responsive. Sanity-check früh: --judge
+  // braucht configs mit LLM , sonst gibt's nichts zu beurteilen.
+  if (args.judge && !llmActive) {
     throw new Error(
       `--judge braucht configs mit LLM ; --no-llm oder --configs default schließt das aus`,
     )
   }
 
-  const runDir = await createRunDir()
+  // --run-dir reuse: orchestrator (run-pack.ts) erstellt EINEN run-dir und
+  // gibt ihn an mehrere sweep-kindprozesse weiter , damit alle configs unter
+  // einem dach landen. Wenn nicht gesetzt , wie bisher neuen dir aufmachen.
+  const runDir = args.runDir ? await useRunDir(args.runDir) : await createRunDir()
   await runDir.writeEnv(envSnapshot())
   const datasetInfo: DatasetInfo = {
     path: resolve(datasetPath),
@@ -220,29 +266,80 @@ async function main(): Promise<void> {
   // chunk-text lookup für den judge-pass , gold-chunk-text per question.id.
   const chunkTextById = new Map(corpus.map((c) => [c.id, c.text] as const))
 
-  for (let i = 0; i < configs.length; i++) {
-    const cfg = configs[i]!
-    console.error(`\n[${i + 1}/${configs.length}] config: ${cfg.name}`)
-    const writer = runDir.configWriter(cfg.name)
-    const { result, records } = await runConfig(cfg, {
-      corpus,
-      questions,
-      writer,
-      corpusVecCache,
-    })
-    results.push(result)
-    perConfigRecords.push({ cfg, writer, records })
-    console.error(formatResult(result))
+  // Outer loop = modelle (pack-modus) oder ein einziger durchlauf (legacy).
+  // Innerer loop = configs. Im pack-modus wird die llm-bridge pro modell
+  // gebaut , an alle configs durchgereicht und am modell-grenze unloaded.
+  // Damit liegt nie mehr als ein under-test-modell gleichzeitig im speicher.
+  interface ModelGroup {
+    label: string | null
+    configs: PipelineConfig[]
+    bridgeToUnload: unknown
+  }
+  const modelGroups: ModelGroup[] = []
+  if (pack) {
+    const { LlmBridge } = await import('./bridges/LlmBridge')
+    for (const m of pack.models) {
+      const resolvedPath = resolve(m.path)
+      if (!existsSync(resolvedPath)) {
+        console.error(`pack: SKIP ${m.label} — fehlt ${resolvedPath}`)
+        continue
+      }
+      const bridge = new LlmBridge({
+        modelPath: resolvedPath,
+        contextSize: m.contextSize ?? 8192,
+        ...(m.placement ? { placement: m.placement } : {}),
+        language: m.language ?? 'de',
+        label: m.label,
+      })
+      const groupConfigs = configs.map((c) => ({
+        ...c,
+        llm: bridge,
+        name: `${c.name}@${m.label}`,
+      }))
+      modelGroups.push({ label: m.label, configs: groupConfigs, bridgeToUnload: bridge })
+    }
+    if (modelGroups.length === 0) {
+      throw new Error(`pack: kein einziges modell aus ${args.llmModels} lokal vorhanden`)
+    }
+  } else {
+    modelGroups.push({ label: null, configs, bridgeToUnload: null })
   }
 
-  // Pass-1 ist durch — alle bridges können raus aus VRAM/RAM. Critical für
-  // den judge-pass: under-test-LLM (5 GB) + judge-LLM (18 GB) gleichzeitig
-  // gehen auf einer 32 GB RAM machine in den swap. Sequential = stabil.
+  let gi = 0
+  for (const group of modelGroups) {
+    gi++
+    if (group.label) {
+      console.error(`\n========== [modell ${gi}/${modelGroups.length}] ${group.label} ==========`)
+    }
+    for (let i = 0; i < group.configs.length; i++) {
+      const cfg = group.configs[i]!
+      console.error(`\n[${i + 1}/${group.configs.length}] config: ${cfg.name}`)
+      const writer = runDir.configWriter(cfg.name)
+      const { result, records } = await runConfig(cfg, {
+        corpus,
+        questions,
+        writer,
+        corpusVecCache,
+      })
+      results.push(result)
+      perConfigRecords.push({ cfg, writer, records })
+      console.error(formatResult(result))
+    }
+    // modell-grenze: die EINE bridge des groups unloaden (configs teilen sie).
+    if (group.bridgeToUnload) {
+      console.error(`\nunloading ${group.label} bridge before next modell …`)
+      await tryUnload(group.bridgeToUnload)
+    }
+  }
+
+  // Pass-1 ist durch — embedder/reranker können auch raus. Im pack-modus
+  // wurden die LLM-bridges schon an der modell-grenze unloaded ; im legacy-
+  // modus passiert das hier.
   console.error('\nunloading under-test bridges …')
   for (const cfg of configs) {
     await tryUnload(cfg.embedder)
     await tryUnload(cfg.reranker)
-    if (cfg.llm) await tryUnload(cfg.llm)
+    if (!pack && cfg.llm) await tryUnload(cfg.llm)
   }
 
   // Pass-2: judge wird jetzt geladen und scored sequenziell alle gesammelten
@@ -250,7 +347,15 @@ async function main(): Promise<void> {
   // + result.json pro config rewritten.
   if (args.judge) {
     const { LocalLlmJudge } = await import('./judge/LocalLlmJudge')
-    const judge = new LocalLlmJudge({ profile: 'xl', contextSize: 8192 })
+    // Priorität: --judge-path > LOKLM_JUDGE_PATH env (innerhalb LocalLlmJudge)
+    // > profile='xl' legacy. So kann der pack-run ohne env-mucking auf einen
+    // kleinen judge (Mistral-Small-3.2-24B) zeigen.
+    const judgeOpts: { modelPath?: string; profile?: 'xl'; contextSize: number } = {
+      contextSize: args.judgeContext ?? 8192,
+    }
+    if (args.judgePath) judgeOpts.modelPath = resolve(args.judgePath)
+    else if (!process.env.LOKLM_JUDGE_PATH) judgeOpts.profile = 'xl'
+    const judge = new LocalLlmJudge(judgeOpts)
     console.error(`\nwarming judge: ${judge.name} (dauert ~10-60s) …`)
     await judge.warm?.()
     console.error(`judge ready: ${judge.name}`)
@@ -262,20 +367,24 @@ async function main(): Promise<void> {
     await tryUnload(judge)
   }
 
-  await runDir.writeSummary(formatMarkdown(results, datasetInfo, runDir.rootDir), {
-    results,
-    dataset: datasetInfo,
-  })
-  // ranking.md separat geschrieben: gleicher datensatz , sortiert nach
-  // composite-score , kürzere tabelle für den schnellen blick.
-  const { writeFile } = await import('node:fs/promises')
-  await writeFile(
-    join(runDir.rootDir, 'ranking.md'),
-    formatRanking(results, runDir.rootDir),
-    'utf-8',
-  )
-  console.error(`\nreport: ${join(runDir.rootDir, 'summary.md')}`)
-  console.error(`ranking: ${join(runDir.rootDir, 'ranking.md')}`)
+  if (args.skipSummary) {
+    // orchestrator schreibt am ende eine aggregate-summary über alle kinder.
+    // Der einzelne kindprozess soll die summary.md nicht überschreiben.
+    console.error(`\nresults (skip-summary): ${runDir.rootDir}/configs/`)
+  } else {
+    await runDir.writeSummary(formatMarkdown(results, datasetInfo, runDir.rootDir), {
+      results,
+      dataset: datasetInfo,
+    })
+    const { writeFile } = await import('node:fs/promises')
+    await writeFile(
+      join(runDir.rootDir, 'ranking.md'),
+      formatRanking(results, runDir.rootDir),
+      'utf-8',
+    )
+    console.error(`\nreport: ${join(runDir.rootDir, 'summary.md')}`)
+    console.error(`ranking: ${join(runDir.rootDir, 'ranking.md')}`)
+  }
 }
 
 interface RunConfigInputs {
@@ -664,7 +773,7 @@ async function latestDataset(): Promise<string> {
 interface SweepArgs {
   dataset?: string
   library?: string
-  configs: 'default' | 'sweep' | 'grid' | 'adaptive'
+  configs: 'default' | 'sweep' | 'grid' | 'adaptive' | 'answer'
   /** für grid: wie viele grid-punkte aus dem cartesian-raum gelaufen werden. */
   iterations?: number
   /** für `--limit N`: cappt wie viele questions pro config. */
@@ -672,6 +781,20 @@ interface SweepArgs {
   noLlm: boolean
   /** wenn true , wird LocalLlmJudge gewärmt und pro generierter antwort gescored. */
   judge: boolean
+  /** explizites GGUF für judge. Wins über LOKLM_JUDGE_PATH env. */
+  judgePath?: string
+  /** ctx-window cap für judge , default 8192. */
+  judgeContext?: number
+  /** pfad zur model-pack.json. Aktiviert pack-modus: jede config × jedes
+   *  modell , bridges zwischen modellen unloaded. */
+  llmModels?: string
+  /** wenn gesetzt , schreibt sweep in diesen rundir statt einen neuen anzulegen.
+   *  vom run-pack.ts-orchestrator genutzt um mehrere kindprozesse in einen
+   *  gemeinsamen rundir zu schreiben. */
+  runDir?: string
+  /** unterdrueckt summary.md / ranking.md write am ende. orchestrator
+   *  uebernimmt die aggregation. */
+  skipSummary: boolean
   /** comma-separated substring filter über config-namen. matched konfigs
    *  bleiben , alle anderen werden raus-gefiltert. nützlich um aus einer
    *  früheren ranking.md die top-N namen nachzulaufen ohne configs.ts
@@ -680,7 +803,7 @@ interface SweepArgs {
 }
 
 function parseArgs(argv: string[]): SweepArgs {
-  const out: SweepArgs = { configs: 'sweep', noLlm: false, judge: false }
+  const out: SweepArgs = { configs: 'sweep', noLlm: false, judge: false, skipSummary: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
@@ -692,7 +815,11 @@ function parseArgs(argv: string[]): SweepArgs {
       i++
     } else if (
       a === '--configs' &&
-      (next === 'default' || next === 'sweep' || next === 'grid' || next === 'adaptive')
+      (next === 'default' ||
+        next === 'sweep' ||
+        next === 'grid' ||
+        next === 'adaptive' ||
+        next === 'answer')
     ) {
       out.configs = next
       i++
@@ -708,6 +835,20 @@ function parseArgs(argv: string[]): SweepArgs {
       out.noLlm = true
     } else if (a === '--judge') {
       out.judge = true
+    } else if (a === '--judge-path' && next !== undefined) {
+      out.judgePath = next
+      i++
+    } else if (a === '--judge-context' && next !== undefined) {
+      out.judgeContext = Number(next)
+      i++
+    } else if (a === '--llm-models' && next !== undefined) {
+      out.llmModels = next
+      i++
+    } else if (a === '--run-dir' && next !== undefined) {
+      out.runDir = next
+      i++
+    } else if (a === '--skip-summary') {
+      out.skipSummary = true
     } else if (a === '--only' && next !== undefined) {
       out.only = next
         .split(',')

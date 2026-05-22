@@ -1,11 +1,18 @@
-// LocalLlmJudge — wraps an LlmBridge (loaded with the XL profile by default,
-// i.e. Nemotron 3 Nano 30B-A3B) to score generated answers locally. Uses the
-// eval-side LlmBridge instead of the production LlamaService, so the judge
-// keeps working when the production code switches to a worker process.
+// LocalLlmJudge — wraps an LlmBridge to score generated answers locally.
+// Uses the eval-side LlmBridge instead of the production LlamaService , so
+// the judge keeps working when the production code switches to a worker
+// process.
 //
 // Judge is loaded once at warm() and reused across all sweep iterations —
-// reloading the XL model per question would dominate runtime.
+// reloading the model per question would dominate runtime.
+//
+// Model resolution priority:
+//   1. opts.modelPath (explicit caller override , wins everything)
+//   2. LOKLM_JUDGE_PATH env (CLI-driven judge override , distinct from
+//      LOKLM_LLM_PATH so under-test sweeps and judge selection are independent)
+//   3. resolveLlmPath(opts.profile ?? 'xl') (legacy auto-discover via patterns)
 
+import { existsSync } from 'node:fs'
 import { LlmBridge, resolveLlmPath, type Placement } from '../bridges/LlmBridge'
 import {
   buildJudgePrompt,
@@ -16,12 +23,19 @@ import {
 } from './Judge'
 
 export interface LocalLlmJudgeOpts {
-  /** which profile to load as judge. defaults to 'xl' (largest on disk —
-   *  Nemotron 3 Nano 30B-A3B if present). */
+  /** explicit GGUF path. Wins over env + profile. Use this when the judge is
+   *  a fixed model file (e.g. Mistral-Small-3.2-24B) that does not match any
+   *  of the legacy profile patterns. */
+  modelPath?: string
+  /** which profile to load as judge when modelPath + LOKLM_JUDGE_PATH are both
+   *  absent. defaults to 'xl'. */
   profile?: 'lite' | 'full' | 'xl' | 'auto'
   /** judge prompts run ~3-5 K tokens; 8192 is comfortable with headroom. */
   contextSize?: number
   placement?: Placement
+  /** human-readable label for reports. Defaults to `judge:<filename>` so
+   *  ranking.md / summary.md show which model judged. */
+  label?: string
 }
 
 export class LocalLlmJudge implements Judge {
@@ -29,18 +43,30 @@ export class LocalLlmJudge implements Judge {
   private readonly llm: LlmBridge
 
   constructor(opts: LocalLlmJudgeOpts = {}) {
-    const profile = opts.profile ?? 'xl'
-    // Resolve the judge model file EXPLICITLY via the profile patterns , then
-    // pass modelPath to LlmBridge. Reason: LlmBridge respects LOKLM_LLM_PATH
-    // for under-test multi-model sweeps , but the judge must stay locked to
-    // its profile no matter what env vars are set. Passing modelPath wins
-    // over env in LlmBridge.warm()'s priority order.
-    const resolved = resolveLlmPath(profile)
+    const envPath = process.env.LOKLM_JUDGE_PATH
+    let resolved: string | null = null
+    let source: 'opts' | 'env' | 'profile' = 'profile'
+    if (opts.modelPath) {
+      resolved = opts.modelPath
+      source = 'opts'
+    } else if (envPath && existsSync(envPath)) {
+      resolved = envPath
+      source = 'env'
+    } else {
+      const profile = opts.profile ?? 'xl'
+      resolved = resolveLlmPath(profile)
+    }
     if (!resolved) {
       throw new Error(
-        `LocalLlmJudge: no GGUF found for profile=${profile}. Make sure an ${profile}-class .gguf is in models/.`,
+        `LocalLlmJudge: no GGUF found. Set LOKLM_JUDGE_PATH , pass opts.modelPath , or place an ${opts.profile ?? 'xl'}-class .gguf in models/.`,
       )
     }
+    const label =
+      opts.label ??
+      `judge:${source === 'opts' || source === 'env' ? basename(resolved) : (opts.profile ?? 'xl')}`
+    // Pass modelPath to LlmBridge so it skips its own LOKLM_LLM_PATH lookup —
+    // the judge must never accidentally load the under-test model when a
+    // sweep sets LOKLM_LLM_PATH.
     this.llm = new LlmBridge({
       modelPath: resolved,
       contextSize: opts.contextSize ?? 8192,
@@ -48,7 +74,7 @@ export class LocalLlmJudge implements Judge {
       // judge prompts are in German; matching session language keeps the
       // model from flipping to English mid-response.
       language: 'de',
-      label: `judge:${profile}`,
+      label,
     })
     this.name = this.llm.label
   }
@@ -66,4 +92,9 @@ export class LocalLlmJudge implements Judge {
   async unload(): Promise<void> {
     await this.llm.unload()
   }
+}
+
+function basename(p: string): string {
+  const m = p.match(/[^\\/]+$/)
+  return m ? m[0]! : p
 }

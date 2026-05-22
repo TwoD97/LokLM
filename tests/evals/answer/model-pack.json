@@ -1,0 +1,66 @@
+{
+  "name": "loklm-rag-eval-10",
+  "comment": "5 klein (<=4B) + 5 mittel (7-14B) , gemischt nach familien. paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
+  "models": [
+    {
+      "label": "qwen3-4b-instruct",
+      "path": "models/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "llama-3.2-3b",
+      "path": "models/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "phi-4-mini",
+      "path": "models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "gemma-3-4b",
+      "path": "models/gemma-3-4b-it-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "smollm3-3b",
+      "path": "models/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "qwen3-14b",
+      "path": "models/Qwen_Qwen3-14B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "phi-4-14b",
+      "path": "models/phi-4-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "granite-3.3-8b",
+      "path": "models/granite-3.3-8b-instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "mistral-nemo-12b",
+      "path": "models/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "hermes-3-8b",
+      "path": "models/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    }
+  ]
+}
