@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -178,7 +178,7 @@
         }
       ],
       "category": "public.app-category.productivity",
-      "artifactName": "LokLM-${version}-mac.${ext}",
+      "artifactName": "LokLM-mac.${ext}",
       "identity": null
     }
   },

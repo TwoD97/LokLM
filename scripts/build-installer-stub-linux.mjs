@@ -70,7 +70,9 @@ async function main() {
 
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'))
   const version = pkg.version
-  const outputFile = join(ROOT, 'release', `LokLM-Setup-${version}-linux-x64.run`)
+  // Version stays out of the filename ; the Bunny URL path still has the
+  // version folder so we can serve specific versions for rollback / pinning.
+  const outputFile = join(ROOT, 'release', 'LokLM-Setup-linux-x64.run')
 
   // Stage : assemble the directory layout the wizard expects at runtime.
   //   <stage>/installer/loklm-installer  ← Tauri binary

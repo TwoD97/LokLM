@@ -87,7 +87,12 @@ async function main() {
 
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'))
   const version = pkg.version
-  const outputFile = join(ROOT, 'release', `LokLM-Setup-${version}-win-x64.exe`)
+  // Version stays out of the filename ; it's embedded in the .exe's
+  // VS_VERSION_INFO via stub.nsi ( VIProductVersion + VIAddVersionKey
+  // FileVersion / ProductVersion ). The URL path on Bunny still has the
+  // version folder so we can roll back , but the filename inside is
+  // stable across releases.
+  const outputFile = join(ROOT, 'release', 'LokLM-Setup-win-x64.exe')
 
   const makensis = await findMakensis()
   console.log(`makensis : ${makensis}`)
