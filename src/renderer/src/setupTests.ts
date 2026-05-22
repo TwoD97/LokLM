@@ -110,6 +110,7 @@ const stub: Api = {
     readDocumentBytes: () => Promise.resolve(null),
     revealSource: () => Promise.resolve({ ok: true as const, sourcePath: '/stub' }),
     openExternal: () => Promise.resolve({ ok: true as const }),
+    exportDocument: () => Promise.resolve({ ok: true as const, destPath: '/stub/export' }),
     replaceSource: () => Promise.resolve(null),
     refresh: () => Promise.resolve({ ok: true as const, outcome: 'unchanged' as const }),
     listMissing: () => Promise.resolve([]),

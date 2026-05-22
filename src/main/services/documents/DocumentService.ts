@@ -7,6 +7,7 @@ import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { Document } from '../../db/schema'
 import type { ProviderRegistry } from '../providers/Registry'
+import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
 import { chunkPages, chunkMarkdown, tagChunksWithSections, type Chunk } from './chunker'
@@ -27,12 +28,32 @@ export class DocumentService {
   constructor(
     private readonly auth: AuthService,
     private readonly registry?: ProviderRegistry,
+    /** Optional worker client. When present, parseFile + chunker run in the
+     *  modelsWorker utilityProcess so a book-length PDF doesn't pin the main
+     *  event loop. Tests construct DocumentService without one and the inline
+     *  path is used as a fallback. */
+    private readonly worker?: ModelsWorkerClient,
   ) {}
 
   async importFile(input: ImportInput): Promise<Document> {
     const { stat, hash } = await this.statAndHashOrThrow(input.sourcePath)
     const mime = mimeFromExt(extname(input.sourcePath))
     const repo = this.auth.requireDatabase().documents()
+    // Guard the unique (workspace_id, source_path) index in JS so callers get a
+    // coded ImportError instead of a raw SQL stack. Pre-fix, the bug surfaced
+    // as `documents:reindex` doing reindex_document + importFile back-to-back ,
+    // any future caller that loops sync+import or otherwise re-imports an
+    // already-vectorized path would have hit the same opaque trace. Reindex is
+    // the right verb for this case ; this layer just refuses to be the one
+    // that masks it.
+    const existing = await repo.findByWorkspaceAndPath(input.workspaceId, input.sourcePath)
+    if (existing) {
+      throw new ImportError(
+        `${basename(input.sourcePath)} ist bereits in dieser Bibliothek — Reindex statt erneuter Import.`,
+        'already_imported',
+        input.sourcePath,
+      )
+    }
     const doc = await repo.addDocument({
       workspaceId: input.workspaceId,
       title: basename(input.sourcePath),
@@ -237,24 +258,38 @@ export class DocumentService {
       const repo = this.auth.requireDatabase().documents()
       await repo.setDocumentStatus(doc.id, 'indexing')
       send('parsing', 1)
-      const parsed = await parseFile(doc.sourcePath)
 
-      send('chunking', 2)
-      const chunkOpts: Parameters<typeof chunkPages>[1] = {}
-      if (input.chunkSize !== undefined) chunkOpts.maxChars = input.chunkSize
-      if (input.chunkOverlap !== undefined) chunkOpts.overlap = input.chunkOverlap
       // Markdown gets section-aware chunking so citations can render breadcrumbs
       // ("§ Introduction › Why MD") rather than the meaningless "p. 1" we'd
       // otherwise emit for a single-page markdown ParsedDocument. PDFs use
       // page-based chunking, then we overlay the bookmark outline (when the
       // author shipped one) so citations get both "§ Chapter 2" AND "p. 14".
+      // The worker path runs both parse + chunk off the main event loop so
+      // the renderer stays responsive even on book-length PDFs ; the inline
+      // path is the fallback for tests/contexts without a worker.
       let out: Chunk[]
-      if (parsed.kind === 'markdown') {
-        out = chunkMarkdown(parsed.sections, chunkOpts)
-      } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {
-        out = tagChunksWithSections(chunkPages(parsed.pages, chunkOpts), parsed.sections)
+      if (this.worker) {
+        const chunkPayload: { sourcePath: string; chunkSize?: number; chunkOverlap?: number } = {
+          sourcePath: doc.sourcePath,
+        }
+        if (input.chunkSize !== undefined) chunkPayload.chunkSize = input.chunkSize
+        if (input.chunkOverlap !== undefined) chunkPayload.chunkOverlap = input.chunkOverlap
+        const { chunks: workerChunks } = await this.worker.parseAndChunk(chunkPayload)
+        send('chunking', 2)
+        out = workerChunks
       } else {
-        out = chunkPages(parsed.pages, chunkOpts)
+        const parsed = await parseFile(doc.sourcePath)
+        send('chunking', 2)
+        const chunkOpts: Parameters<typeof chunkPages>[1] = {}
+        if (input.chunkSize !== undefined) chunkOpts.maxChars = input.chunkSize
+        if (input.chunkOverlap !== undefined) chunkOpts.overlap = input.chunkOverlap
+        if (parsed.kind === 'markdown') {
+          out = chunkMarkdown(parsed.sections, chunkOpts)
+        } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {
+          out = tagChunksWithSections(chunkPages(parsed.pages, chunkOpts), parsed.sections)
+        } else {
+          out = chunkPages(parsed.pages, chunkOpts)
+        }
       }
 
       // Embed first, persist second. Order matters: we need the chunk text

@@ -8,6 +8,8 @@ import {
   RotateCcw,
   Trash2,
   AlertTriangle,
+  BookOpen,
+  Download,
 } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 
@@ -20,6 +22,8 @@ type Props = {
   onOpenExternal: (id: number) => void
   onReplace: (id: number) => void
   onRefresh: (id: number) => void
+  onRead: (doc: Document) => void
+  onExport: (doc: Document) => void
 }
 
 function DocumentRowImpl({
@@ -31,6 +35,8 @@ function DocumentRowImpl({
   onOpenExternal,
   onReplace,
   onRefresh,
+  onRead,
+  onExport,
 }: Props): JSX.Element {
   const [menu, setMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -56,7 +62,7 @@ function DocumentRowImpl({
   const isMissing = doc.missingAt != null
 
   return (
-    <tr className={isMissing ? 'library__row--missing' : ''}>
+    <tr className={isMissing ? 'library__row--missing' : ''} onDoubleClick={() => onRead(doc)}>
       <td>
         <span className="library__row-title">
           {isMissing && (
@@ -89,6 +95,24 @@ function DocumentRowImpl({
         </button>
         {menu && (
           <div ref={menuRef} className="library__row-menu">
+            <button
+              onClick={() => {
+                setMenu(false)
+                onRead(doc)
+              }}
+            >
+              <BookOpen size={14} aria-hidden="true" />
+              Lesen
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onExport(doc)
+              }}
+            >
+              <Download size={14} aria-hidden="true" />
+              Exportieren…
+            </button>
             <button
               onClick={() => {
                 setMenu(false)

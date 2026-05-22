@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
+import { DocumentPreview } from './DocumentPreview'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
+import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
 import './library.css'
 
 type Props = {
@@ -18,6 +20,12 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   // bump rather than subscribing to four separate event sources.
   const [missingTick, setMissingTick] = useState(0)
   const bumpMissing = useCallback(() => setMissingTick((n) => n + 1), [])
+  // In-app reader for the highlighted document. Null = closed.
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null)
+  // Pending export — the user clicked Exportieren ; we hold the document
+  // here while the PasswordRetypeGate is up. On confirm we run the gated
+  // exportDocument flow.
+  const [exportPending, setExportPending] = useState<Document | null>(null)
 
   const refreshDocs = useCallback(async (id: number) => {
     setDocs(await window.api.documents.list(id))
@@ -113,6 +121,14 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs],
   )
 
+  const onRead = useCallback((d: Document) => {
+    setPreviewDoc(d)
+  }, [])
+
+  const onExport = useCallback((d: Document) => {
+    setExportPending(d)
+  }, [])
+
   const onRefresh = useCallback(
     async (id: number) => {
       const res = await window.api.documents.refresh(id)
@@ -160,6 +176,29 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         onOpenExternal={onOpenExternal}
         onReplace={onReplace}
         onRefresh={onRefresh}
+        onRead={onRead}
+        onExport={onExport}
+      />
+      {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      <PasswordRetypeGate
+        open={exportPending !== null}
+        title="Dokument exportieren"
+        body={
+          exportPending
+            ? `"${exportPending.title}" verlässt den Tresor als unverschlüsselte Kopie. Passwort zur Bestätigung eingeben.`
+            : ''
+        }
+        confirmLabel="Exportieren"
+        onCancel={() => setExportPending(null)}
+        onConfirm={async () => {
+          const target = exportPending
+          if (!target) return
+          const res = await window.api.documents.exportDocument(target.id)
+          setExportPending(null)
+          if (res.ok === false && res.kind !== 'cancelled') {
+            window.alert(`Export fehlgeschlagen: ${res.message}`)
+          }
+        }}
       />
     </div>
   )

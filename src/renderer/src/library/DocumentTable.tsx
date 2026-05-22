@@ -11,6 +11,8 @@ type Props = {
   onOpenExternal: (id: number) => void
   onReplace: (id: number) => void
   onRefresh: (id: number) => void
+  onRead: (doc: Document) => void
+  onExport: (doc: Document) => void
 }
 
 // Cheap windowed render: start with INITIAL_BATCH rows, observe a sentinel
@@ -33,6 +35,8 @@ export function DocumentTable({
   onOpenExternal,
   onReplace,
   onRefresh,
+  onRead,
+  onExport,
 }: Props): JSX.Element {
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
   const sentinelRef = useRef<HTMLTableRowElement | null>(null)
@@ -92,6 +96,8 @@ export function DocumentTable({
               onOpenExternal={onOpenExternal}
               onReplace={onReplace}
               onRefresh={onRefresh}
+              onRead={onRead}
+              onExport={onExport}
             />
           )
         })}

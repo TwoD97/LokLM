@@ -170,6 +170,17 @@ const api = {
       id: number,
     ): Promise<{ ok: true } | { ok: false; kind: 'missing'; message: string }> =>
       ipcRenderer.invoke('documents:openExternal', id),
+    /** Gated behind PasswordRetypeGate in the renderer — the main-process
+     *  handler trusts that the caller already passed verifyPassword. Returns
+     *  `{ ok: true, destPath }` on a successful copy, or a structured failure
+     *  ('missing' = source gone , 'cancelled' = user dismissed the save
+     *  dialog , 'write_failed' = fs error). */
+    exportDocument: (
+      id: number,
+    ): Promise<
+      | { ok: true; destPath: string }
+      | { ok: false; kind: 'missing' | 'cancelled' | 'write_failed'; message: string }
+    > => ipcRenderer.invoke('documents:exportDocument', id),
     replaceSource: (id: number): Promise<Document | null> =>
       ipcRenderer.invoke('documents:replaceSource', id),
     refresh: (
