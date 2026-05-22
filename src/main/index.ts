@@ -485,7 +485,7 @@ function getRetrievalService(): RetrievalService {
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getProviderRegistry())
+  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), modelsWorker)
   return documentService
 }
 
@@ -717,6 +717,50 @@ function registerIpc(): void {
     }
     shell.showItemInFolder(doc.sourcePath)
     return { ok: true as const, sourcePath: doc.sourcePath }
+  })
+
+  // Export = save a copy of the source file to a path the user picks. Distinct
+  // from reveal/openExternal in that the gated PasswordRetypeGate runs first
+  // in the renderer ; this handler only fires once verifyPassword succeeded,
+  // so the user has reconfirmed they intend to write plaintext outside the
+  // vault. Mirrors documents:revealSource's "stat first" guard so a missing
+  // source returns a structured result instead of a crash.
+  ipcMain.handle('documents:exportDocument', async (e, id: number) => {
+    const doc = await getAuth().requireDatabase().documents().getDocument(id)
+    if (!doc) throw new Error(`Document ${id} not found`)
+    const { existsSync } = await import('node:fs')
+    if (!existsSync(doc.sourcePath)) {
+      return { ok: false as const, kind: 'missing' as const, message: 'Quelldatei fehlt.' }
+    }
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const { basename, extname } = await import('node:path')
+    const defaultName = basename(doc.sourcePath)
+    const ext = extname(doc.sourcePath).replace(/^\./, '').toLowerCase() || 'bin'
+    const options: Electron.SaveDialogOptions = {
+      title: 'Dokument exportieren',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'Originalformat', extensions: [ext] },
+        { name: 'Alle Dateien', extensions: ['*'] },
+      ],
+    }
+    const picked = win
+      ? await dialog.showSaveDialog(win, options)
+      : await dialog.showSaveDialog(options)
+    if (picked.canceled || !picked.filePath) {
+      return { ok: false as const, kind: 'cancelled' as const, message: 'abgebrochen' }
+    }
+    try {
+      const { copyFile } = await import('node:fs/promises')
+      await copyFile(doc.sourcePath, picked.filePath)
+      return { ok: true as const, destPath: picked.filePath }
+    } catch (err) {
+      return {
+        ok: false as const,
+        kind: 'write_failed' as const,
+        message: err instanceof Error ? err.message : String(err),
+      }
+    }
   })
 
   // Open externally with the OS-default app (PDF viewer, editor, etc.). Same

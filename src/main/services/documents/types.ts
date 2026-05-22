@@ -26,7 +26,7 @@ export type ParsedDocument =
   | { kind: 'text'; pages: PageText[]; fullText: string }
   | { kind: 'markdown'; sections: MarkdownSection[]; pages: PageText[]; fullText: string }
 
-export type ImportErrorCode = 'unsupported' | 'too_large' | 'unreadable'
+export type ImportErrorCode = 'unsupported' | 'too_large' | 'unreadable' | 'already_imported'
 
 export class ImportError extends Error {
   constructor(
