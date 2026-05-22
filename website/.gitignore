@@ -6,3 +6,10 @@ node_modules/
 !.env.example
 
 .cache/
+
+# test + report artefacts
+coverage/
+.lighthouse/
+.playwright-report/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
