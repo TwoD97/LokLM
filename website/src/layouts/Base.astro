@@ -6,6 +6,7 @@ import Nav from '~/components/Nav.astro'
 import Footer from '~/components/Footer.astro'
 import { getLangFromUrl } from '~/i18n/utils'
 import { currentRelease, downloadUrl } from '~/data/releases'
+import { buildOrganizationSchema, buildSoftwareSchema } from '~/lib/schema'
 import interLatinFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
 
 interface Props {
@@ -32,40 +33,15 @@ const siteName = 'LokLM'
 const windowsAsset = currentRelease.assets.find((a) => a.platform === 'windows' && a.available)
 const winDownloadUrl = windowsAsset ? downloadUrl(windowsAsset) : undefined
 
-const organizationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: siteName,
-  url: siteUrl,
-  logo: `${siteUrl}/brand/mark-color.svg`,
-  sameAs: ['https://github.com/TwoD97/LokLM'],
-  founder: [
-    { '@type': 'Person', name: 'Denys Tudosa' },
-    { '@type': 'Person', name: 'Dominik Furlan' },
-  ],
-}
+const organizationSchema = buildOrganizationSchema({ siteUrl, siteName })
 
-const softwareSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: siteName,
-  applicationCategory: 'ProductivityApplication',
-  operatingSystem: 'Windows 10, Windows 11',
-  url: siteUrl,
-  image: `${siteUrl}/brand/og.png`,
+const softwareSchema = buildSoftwareSchema({
+  siteUrl,
+  siteName,
   description,
   softwareVersion: currentRelease.version,
-  inLanguage: ['de', 'en'],
-  license: 'https://opensource.org/licenses/MIT',
-  isAccessibleForFree: true,
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'EUR',
-  },
-  author: { '@id': `${siteUrl}#organization` },
-  ...(winDownloadUrl ? { downloadUrl: winDownloadUrl } : {}),
-}
+  winDownloadUrl,
+})
 ---
 
 <!doctype html>
@@ -116,7 +92,7 @@ const softwareSchema = {
     <script
       is:inline
       type="application/ld+json"
-      set:html={JSON.stringify({ ...organizationSchema, '@id': `${siteUrl}#organization` })}
+      set:html={JSON.stringify(organizationSchema)}
     />
     <script
       is:inline

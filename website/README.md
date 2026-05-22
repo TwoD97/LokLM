@@ -14,12 +14,49 @@ pnpm dev                   # http://localhost:4321
 
 ## Scripts
 
-| Script         | Zweck                      |
-| -------------- | -------------------------- |
-| `pnpm dev`     | Astro Dev-Server mit HMR   |
-| `pnpm build`   | Production build → `dist/` |
-| `pnpm preview` | `dist/` lokal anschauen    |
-| `pnpm check`   | Astro + TypeScript check   |
+| Script                 | Zweck                                                                 |
+| ---------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`             | Astro Dev-Server mit HMR                                              |
+| `pnpm build`           | Production build → `dist/`                                            |
+| `pnpm preview`         | `dist/` lokal anschauen                                               |
+| `pnpm check`           | Astro + TypeScript check                                              |
+| `pnpm test`            | Vitest unit tests (i18n parity, releases, schema, github)             |
+| `pnpm test:watch`      | Vitest watch mode                                                     |
+| `pnpm test:coverage`   | Coverage report (v8, Thresholds 80%/70% in vitest.config)             |
+| `pnpm test:e2e`        | Playwright E2E (home, lang-switch, download, anchors, a11y, visual)   |
+| `pnpm test:e2e:headed` | E2E mit sichtbarem Browser                                            |
+| `pnpm lighthouse`      | Lighthouse-Report (preview muss laufen, schreibt nach `.lighthouse/`) |
+| `pnpm ci`              | check → coverage → build → e2e (komplette Pipeline lokal)             |
+
+## Tests
+
+| Layer  | Pfad                          | Coverage                                                                        |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------- |
+| Unit   | `src/**/*.test.ts`            | `lib/github`, `lib/schema`, `i18n/ui`, `i18n/utils`, `data/releases`            |
+| Public | `tests/public-assets.test.ts` | Brand-Assets + Screenshots + robots.txt vorhanden, kein 1×1-Stub                |
+| Dist   | `tests/dist-smoke.test.ts`    | 6 HTML-Seiten + JSON-LD + canonical + Sitemap (skip wenn `dist/` fehlt)         |
+| E2E    | `tests/e2e/*.spec.ts`         | DE/EN-Smoke, LangSwitch, Download-Links, Anchor-Nav, axe-a11y, Visual Snapshots |
+
+Visual-Baselines liegen in `tests/e2e/visual.spec.ts-snapshots/`. Nach
+absichtlichen Design-Änderungen mit
+`pnpm test:e2e --update-snapshots` aktualisieren.
+
+E2E-Setup startet `astro preview` automatisch (rebuild + serve auf
+`127.0.0.1:4321`). In CI wird der Build separat im `ci`-Script erledigt
+und `preview` reused.
+
+### Lighthouse-Baseline (Desktop, May 2026)
+
+| Category       | Score |
+| -------------- | ----- |
+| Performance    | 100   |
+| Accessibility  | 93    |
+| Best Practices | 100   |
+| SEO            | 100   |
+
+Restliche A11y-Punkte: Kontrast bei dekorativen `aria-hidden`-Numerals
+(`how__num`), Touch-Target-Size bei sehr kleinen Nav-Pills. Beide sind
+bewusste Design-Trade-offs , kein Bugfix offen.
 
 ## Struktur
 

@@ -4,9 +4,11 @@ import { languages, type Lang } from '~/i18n/ui'
 
 const lang = getLangFromUrl(Astro.url)
 
+// astro is configured with trailingSlash: 'never' , link to canonical /en
+// (no slash) so we never trigger an astro-preview 301/404.
 const targetHref: Record<Lang, string> = {
   de: '/',
-  en: '/en/',
+  en: '/en',
 }
 ---
 
