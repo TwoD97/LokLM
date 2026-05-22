@@ -6,7 +6,7 @@ describe('schema-objects: triggers + function + procedure', () => {
   beforeAll(setupDb, 30_000)
   afterAll(teardownDb)
 
-  it('chunks_tsv_biu trigger populates text_search on insert', async () => {
+  it('idx_chunks_fts expression-index returns the row for a bilingual query (post mig 0006)', async () => {
     await withTransaction(async (tx) => {
       const wsR = await tx.execute(sql`INSERT INTO workspaces (name) VALUES ('ws1') RETURNING id`)
       const wsId = (wsR.rows as { id: number }[])[0]!.id
@@ -20,10 +20,16 @@ describe('schema-objects: triggers + function + procedure', () => {
         VALUES (${docId}, 0, 'Hallo Welt english world', 5) RETURNING id
       `)
       const chunkId = (chunkR.rows as { id: number }[])[0]!.id
+      // The expression mirrors what searchChunks puts in WHERE clause ; if the
+      // index is present and the expression matches a tsquery , the row comes
+      // back.
       const result = await tx.execute(sql`
-        SELECT text_search IS NOT NULL AS has_tsv FROM chunks WHERE id = ${chunkId}
+        SELECT id FROM chunks
+         WHERE id = ${chunkId}
+           AND (setweight(to_tsvector('german',  text), 'A') ||
+                setweight(to_tsvector('english', text), 'B')) @@ plainto_tsquery('english', 'world')
       `)
-      expect((result.rows as { has_tsv: boolean }[])[0]!.has_tsv).toBe(true)
+      expect((result.rows as { id: number }[])[0]?.id).toBe(chunkId)
     })
   })
 

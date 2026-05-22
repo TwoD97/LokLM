@@ -16,6 +16,7 @@ const RAW_MIGRATIONS = [
   '0003_chunks_counter_statement.sql',
   '0004_sync_metadata.sql',
   '0005_documents_unique_path.sql',
+  '0006_partial_3nf.sql',
 ]
 
 function isPackaged(): boolean {

@@ -292,16 +292,33 @@ export class DocumentsRepo {
 
   async persistChunks(documentId: number, items: NewChunkInput[]): Promise<void> {
     if (items.length === 0) return
+    // Postgres TEXT in UTF-8 rejects 0x00 bytes ; some PDFs (notably the
+    // OceanofPDF rip of Thinking_Fast_and_Slow) carry NULs through pdf-parse
+    // and the whole import fails with `invalid byte sequence for encoding
+    // "UTF8": 0x00`. Strip them at the persistence boundary so any future
+    // parser quirk gets sanitized once instead of poisoning every consumer.
+    const stripNul = (s: string): string =>
+      s.indexOf('\u0000') === -1 ? s : s.replaceAll('\u0000', '')
     const rows: NewChunk[] = items.map((c) => ({
       documentId,
       ordinal: c.ordinal,
-      text: c.text,
+      text: stripNul(c.text),
       pageFrom: c.pageFrom,
       pageTo: c.pageTo,
       tokenCount: c.tokenCount,
-      headingPath: c.headingPath ?? null,
+      headingPath: c.headingPath?.map(stripNul) ?? null,
     }))
-    await this.db.insert(chunks).values(rows)
+    // Single bulk INSERT used to blow up pglite on book-sized docs: a 533-page
+    // PDF produced a ~1.4 MB SQL string with >7000 placeholders and the WASM
+    // parser tripped before reaching the 65535-placeholder Postgres cap. We
+    // batch at 200 rows (200 × 7 = 1400 placeholders, ~150 KB SQL) so the
+    // chunks table fills predictably regardless of document length. The FTS
+    // expression index is built per-row anyway , batch boundaries don't
+    // affect tsvector materialization.
+    const BATCH = 200
+    for (let i = 0; i < rows.length; i += BATCH) {
+      await this.db.insert(chunks).values(rows.slice(i, i + BATCH))
+    }
   }
 
   async countChunksMissingEmbedding(workspaceId: number): Promise<number> {
@@ -424,6 +441,12 @@ export class DocumentsRepo {
     // match set. ts_rank_cd already rewards chunks that hit more terms, so
     // OR + rank gives recall + ordering. Bilingual: union the german and
     // english queries.
+    //
+    // Post mig 0006: chunks.text_search column is gone ; the tsvector
+    // expression is inlined in both the filter (WHERE … @@) and the rank
+    // (ts_rank_cd) so the planner can use idx_chunks_fts (built on the same
+    // expression). ts_rank_cd recomputes the tsvector for matching rows ,
+    // documented tradeoff in db-normalization.md.
     const r = await this.db.execute(sql`
       WITH q AS (
         SELECT
@@ -443,13 +466,18 @@ export class DocumentsRepo {
           c.page_to      AS page_to,
           c.heading_path AS heading_path,
           c.text         AS text,
-          ts_rank_cd(c.text_search, qq.query) AS score,
+          ts_rank_cd(
+            setweight(to_tsvector('german',  c.text), 'A') ||
+            setweight(to_tsvector('english', c.text), 'B'),
+            qq.query
+          ) AS score,
           d.added_at     AS added_at
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         CROSS JOIN qq
         WHERE qq.query::text <> ''
-          AND c.text_search @@ qq.query
+          AND (setweight(to_tsvector('german',  c.text), 'A') ||
+               setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
           AND d.workspace_id = ${workspaceId}
           AND d.status = 'ready'
           AND (${activeLit}::int[] IS NULL OR c.document_id = ANY(${activeLit}::int[]))
@@ -818,11 +846,15 @@ export class ConversationsRepo {
     // assistant turn). Built via raw SQL because Drizzle's .values() on a
     // schema table requires the citations import which this file deliberately
     // skips (the citations type lives in PersistCitationInput).
-    const valuesSql = items.map(
-      (it) => sql`(${messageId}, ${it.chunk_id}, ${it.doc_id}, ${it.score ?? null})`,
-    )
+    //
+    // Post mig 0006: citations.document_id column was dropped (transitively
+    // derivable from chunks.document_id). PersistCitationInput still carries
+    // doc_id because the upstream streaming event ({type:'citation', doc_id,
+    // chunk_id, score}) emits it ; we accept the field on the input shape and
+    // drop it here on the write boundary.
+    const valuesSql = items.map((it) => sql`(${messageId}, ${it.chunk_id}, ${it.score ?? null})`)
     await this.db.execute(sql`
-      INSERT INTO citations (message_id, chunk_id, document_id, score)
+      INSERT INTO citations (message_id, chunk_id, score)
       VALUES ${sql.join(valuesSql, sql`, `)}
     `)
   }
@@ -924,11 +956,21 @@ export class ConversationsRepo {
     if (messages.length > 0) {
       const ids = messages.map((m) => m.id)
       const idLit = '{' + ids.join(',') + '}'
+      // Post mig 0006: document_id is derived via JOIN chunks rather than read
+      // from a redundant column on citations.
       const citRows = await this.db.execute(sql`
-        SELECT id, message_id, chunk_id, document_id, score, span_start, span_end, created_at
-          FROM citations
-         WHERE message_id = ANY(${idLit}::int[])
-         ORDER BY id ASC
+        SELECT cit.id           AS id,
+               cit.message_id   AS message_id,
+               cit.chunk_id     AS chunk_id,
+               c.document_id    AS document_id,
+               cit.score        AS score,
+               cit.span_start   AS span_start,
+               cit.span_end     AS span_end,
+               cit.created_at   AS created_at
+          FROM citations cit
+          JOIN chunks c ON c.id = cit.chunk_id
+         WHERE cit.message_id = ANY(${idLit}::int[])
+         ORDER BY cit.id ASC
       `)
       const byMessage = new Map<number, CitationRow[]>()
       for (const m of messages) byMessage.set(m.id, [])
@@ -994,20 +1036,34 @@ export class WorkspacesRepo {
   }
 
   async getSyncFolders(workspaceId: number): Promise<string[]> {
+    // Post mig 0006: paths live in workspace_sync_folders rather than as a
+    // jsonb array on workspaces. Order by path for stable UI ordering ; the
+    // table has no inherent insertion order to preserve.
     const r = await this.db.execute(sql`
-      SELECT sync_folders FROM workspaces WHERE id = ${workspaceId}
+      SELECT path FROM workspace_sync_folders
+       WHERE workspace_id = ${workspaceId}
+       ORDER BY path
     `)
-    const row = (r.rows as Array<{ sync_folders: string[] | null }>)[0]
-    return row?.sync_folders ?? []
+    return (r.rows as Array<{ path: string }>).map((row) => row.path)
   }
 
   /** Overwrites the watched-folder set for the workspace. The caller (sync
    *  service) is responsible for tearing down + reattaching watchers when this
-   *  changes — the repo just persists. */
+   *  changes — the repo just persists.
+   *
+   *  Post mig 0006: DELETE + INSERT into workspace_sync_folders. The two
+   *  statements run sequentially on the same pglite connection, which is
+   *  single-threaded ; concurrent readers see one of the two stable states. */
   async setSyncFolders(workspaceId: number, folders: string[]): Promise<void> {
-    const json = JSON.stringify(folders)
     await this.db.execute(sql`
-      UPDATE workspaces SET sync_folders = ${json}::jsonb WHERE id = ${workspaceId}
+      DELETE FROM workspace_sync_folders WHERE workspace_id = ${workspaceId}
+    `)
+    if (folders.length === 0) return
+    const valuesSql = folders.map((p) => sql`(${workspaceId}, ${p})`)
+    await this.db.execute(sql`
+      INSERT INTO workspace_sync_folders (workspace_id, path)
+      VALUES ${sql.join(valuesSql, sql`, `)}
+      ON CONFLICT (workspace_id, path) DO NOTHING
     `)
   }
 }
