@@ -463,7 +463,7 @@ jobs:
             exit 0
           fi
           git add website/src/data/releases.ts
-          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux assets"
+          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux + macos assets"
           git push origin main
 
       - name: Clean up SSH key
