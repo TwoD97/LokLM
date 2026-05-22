@@ -179,6 +179,14 @@ export async function createRunDir(
   const git = opts.git ?? gitInfo()
   const stamp = opts.stamp ?? timestamp()
   const rootDir = join(runsRoot, runFolderName(stamp, git))
+  return useRunDir(rootDir)
+}
+
+/** Wrappt einen bereits existierenden run-dir-pfad. Wird vom orchestrator
+ *  (run-pack.ts) genutzt: parent legt den dir EINMAL an , kindprozesse
+ *  bekommen den pfad via --run-dir und schreiben hinein. Funktional identisch
+ *  zu createRunDir() nur ohne stamp/git-naming. */
+export async function useRunDir(rootDir: string): Promise<RunDirHandle> {
   await mkdir(join(rootDir, 'configs'), { recursive: true })
   return {
     rootDir,

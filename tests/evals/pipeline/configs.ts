@@ -241,6 +241,38 @@ export async function gridConfigs(): Promise<PipelineConfig[]> {
 }
 
 /**
+ * Single-config für den answer-pack-modus. EINE retrieval-konfig (BGE-m3 +
+ * BGE-reranker , rerank20 → top5) mit llm=null. Der pack-loop in sweep.ts
+ * multipliziert das mit jedem modell , so ergibt sich pro modell genau eine
+ * zeile in der ranking.md. Ziel: die antwort-LLM-achse isoliert messen ,
+ * retrieval bleibt fix.
+ *
+ * Wenn man später retrieval × modell kreuzen will , `sweepConfigs()` oder
+ * `gridConfigs()` mit `--llm-models` kombinieren — dann bekommt man volle
+ * cartesian product (langsamer , aber ergiebig).
+ */
+export async function answerConfigs(): Promise<PipelineConfig[]> {
+  const [{ EmbedderBridge }, { RerankerBridge }] = await Promise.all([
+    import('../bridges/EmbedderBridge'),
+    import('../bridges/RerankerBridge'),
+  ])
+  const chunker = new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 })
+  const embedder = new EmbedderBridge({ placement: 'cpu' })
+  const reranker = new RerankerBridge({ placement: 'auto' })
+  return [
+    {
+      name: 'answer',
+      chunker,
+      embedder,
+      reranker,
+      topKToRerank: 20,
+      topKToLLM: 5,
+      llm: null,
+    },
+  ]
+}
+
+/**
  * Helper: cartesian product über mehrere achsen. Jede achse ist eine liste von
  * {name, partial}-paaren; die ergebnis-configs werden über `<basename>_<n1>_<n2>…`
  * benannt. `partial` mergt nur das was es überschreibt , der rest kommt aus base.
