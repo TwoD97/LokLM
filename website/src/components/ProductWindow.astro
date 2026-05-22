@@ -1,14 +1,13 @@
 ---
 // product-window , gemeinsames chrome für screenshots im hero , how-it-works und feature-deepdives.
-// drei-punkt-titlebar , gerundete ecken , drop-shadow , optionaler glow + 3d-tilt.
+// gerundete ecken , drop-shadow , optionaler glow + 3d-tilt. keine titlebar — das app-screenshot bringt seine eigene mit.
 interface Props {
-  label?: string
   glow?: boolean
   tilt?: boolean
   class?: string
 }
 
-const { label, glow = false, tilt = false, class: extraClass = '' } = Astro.props
+const { glow = false, tilt = false, class: extraClass = '' } = Astro.props
 ---
 
 <div
@@ -19,12 +18,6 @@ const { label, glow = false, tilt = false, class: extraClass = '' } = Astro.prop
     extraClass,
   ]}
 >
-  <div class="product-window__bar">
-    <span class="product-window__dot product-window__dot--red"></span>
-    <span class="product-window__dot product-window__dot--yellow"></span>
-    <span class="product-window__dot product-window__dot--green"></span>
-    {label && <span class="product-window__label">{label}</span>}
-  </div>
   <div class="product-window__body">
     <slot />
   </div>
@@ -67,35 +60,6 @@ const { label, glow = false, tilt = false, class: extraClass = '' } = Astro.prop
     .product-window--tilt {
       transform: none;
     }
-  }
-
-  .product-window__bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    background: rgba(255, 255, 255, 0.015);
-  }
-
-  .product-window__dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-  .product-window__dot--red { background: #f85149; }
-  .product-window__dot--yellow { background: #d29922; }
-  .product-window__dot--green { background: #3fb950; }
-
-  .product-window__label {
-    margin-left: 12px;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--color-fg-3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .product-window__body {
