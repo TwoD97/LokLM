@@ -33,6 +33,11 @@ export interface UserSettings {
       embedderModel: string | null
       rerankerModel: string | null
       requestTimeoutMs: number
+      /** Loopback gate. Default false , the connector refuses non-loopback
+       *  hosts. Flipped to true once via the PasswordRetypeGate in
+       *  OllamaSection ; that confirmation acknowledges the Lastenheft
+       *  offline-grundsatz being relaxed (data leaves this machine). */
+      allowRemoteOllama: boolean
     }
   }
 }
@@ -55,6 +60,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
       embedderModel: null,
       rerankerModel: null,
       requestTimeoutMs: 60000,
+      allowRemoteOllama: false,
     },
   },
 }

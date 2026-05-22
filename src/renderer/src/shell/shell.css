@@ -7,6 +7,10 @@
   right: 0;
   bottom: 0;
   z-index: 1;
+  /* Implicit grid row defaults to auto (content-sized), so a tall main panel
+   * would push past bottom:0 and surface a body-level scrollbar. Clip here and
+   * let .app-shell__main own the vertical scroll. */
+  overflow: hidden;
   transition: grid-template-columns 200ms ease;
 }
 .app-shell--expanded {
@@ -20,6 +24,10 @@
   min-height: 0;
 }
 .app-shell__main {
+  /* min-height:0 lets the grid item shrink below its content's intrinsic size
+   * so overflow-y:auto actually engages instead of stretching the row. */
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
