@@ -1,14 +1,26 @@
 name: Release installer
 
-# baut den electron-installer für eine version , lädt ihn nach bunny storage
+# baut den installer für eine version , lädt ihn nach bunny storage
 # (primary, fronted vom CDN) und minio (manual backup mirror) , patcht
 # releases.ts + re-deployt die website mit aktualisiertem manifest.
-# v0.2.2+ : windows ist nsis statt zip , GGUFs werden NICHT mehr gebundled
-# (first-launch downloader holt sie in userData/models). slim installer
-# ~375 MB statt ~6 GB.
+#
+# v0.3.0+ : installer ist tier-aware ( lite / standard / pro ). Wizard
+# probt hardware beim install , user wählt edition , Phase-2-downloader
+# holt das passende model-bundle aus huggingface.co/buckets/LokLM/...
+# direkt in <install-dir>/models/. App's first-launch-downloader bleibt
+# als v0.2.6-fallback erhalten ( triggert nur ohne tier-marker ).
+#
+# Artefakt-grössen ( setup.exe wrapt wizard + payload via NSIS ) :
+#   win   : ~375 MB    ( wizard 3 MB + electron payload ~370 MB )
+#   linux : ~375 MB    ( makeself self-extractor )
+#   mac   : ~210 MB    ( universal DMG , kein wizard )
+# Models ( zusätzlich pro install , downloaded by wizard from LokLM org ) :
+#   lite ~1.6 GB , standard ~3.4 GB , pro ~6.3 GB
+#
 # backup-URL-pattern bei CDN-ausfall:
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-<V>-win-x64.exe
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-<V>.AppImage
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-win-x64.exe
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
 on:
   push:
     tags: ['v*']
