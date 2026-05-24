@@ -1,6 +1,6 @@
 {
   "name": "loklm-wizard-frontend",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "HTML + CSS + i18n + renderer for the LokLM installer wizard ( loaded by ../src-tauri via WebView2 ). The type:commonjs is here so the vitest project can require() i18n.js as CJS — the file ships as a UMD script tag too , so Tauri's WebView2 loads it via the regular HTML script-src.",
   "private": true,
   "type": "commonjs"
