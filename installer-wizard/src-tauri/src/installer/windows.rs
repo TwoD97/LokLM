@@ -439,6 +439,10 @@ pub fn install<F: Fn(ProgressEvent)>(
     write_uninstall_registry(&install_dir, &app_exe_path, &uninstaller_path, version)
         .map_err(|e| e.to_string())?;
 
+    progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
+    super::write_tier_marker(&install_dir, options, version)
+        .map_err(|e| format!("tier-marker write failed : {}", e))?;
+
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 
     Ok(InstallResult {

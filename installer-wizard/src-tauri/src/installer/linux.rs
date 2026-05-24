@@ -376,6 +376,10 @@ pub fn install<F: Fn(ProgressEvent)>(
     write_uninstaller(&install_dir).map_err(|e| e.to_string())?;
     write_manifest(&install_dir, version).map_err(|e| e.to_string())?;
 
+    progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
+    super::write_tier_marker(&install_dir, options, version)
+        .map_err(|e| format!("tier-marker write failed : {}", e))?;
+
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 
     Ok(InstallResult {
