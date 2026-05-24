@@ -6,7 +6,7 @@
 // snake_case for Tauri's command naming.
 
 use crate::installer::{
-    self, InstallOptions, InstallResult, InstallerState, ProgressEvent,
+    self, HardwareProfile, InstallOptions, InstallResult, InstallerState, ProgressEvent,
 };
 use tauri::{AppHandle, Emitter, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
@@ -62,6 +62,17 @@ pub async fn install(
 #[tauri::command]
 pub fn launch(app_exe_path: String) -> Result<(), String> {
     installer::launch(&app_exe_path)
+}
+
+// Probes GPU ( wgpu enumerate_adapters ) , RAM and CPU ( sysinfo ) and
+// returns a recommended tier. Wgpu init can take 200-500ms on first call
+// while the driver spins up — run on a blocking task so the UI thread
+// stays responsive.
+#[tauri::command]
+pub async fn probe_hardware() -> Result<HardwareProfile, String> {
+    tokio::task::spawn_blocking(installer::probe_hardware)
+        .await
+        .map_err(|e| format!("hardware probe panicked : {}", e))
 }
 
 #[tauri::command]

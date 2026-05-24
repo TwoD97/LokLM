@@ -25,6 +25,7 @@ fn main() {
             commands::launch,
             commands::close_app,
             commands::minimize_window,
+            commands::probe_hardware,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LokLM installer");

@@ -30,6 +30,7 @@ import type { UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
+import { readTierMarker } from './services/tier/TierMarker'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -1382,6 +1383,21 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+
+    // v0.3.0+ : log the installer-written tier so support has a single
+    // place to confirm what the wizard recorded. Phase 4 wires this into
+    // ResourcePlanner / SettingsService ; for now it's pure telemetry and
+    // the legacy settings-driven path still runs unchanged.
+    const tierMarker = readTierMarker()
+    if (tierMarker) {
+      console.log(
+        `[tier] installer-recorded : ${tierMarker.tier} ` +
+          `(installer ${tierMarker.installerVersion} , ${tierMarker.installedAt})`,
+      )
+    } else {
+      console.log('[tier] no marker (pre-v0.3.0 install or dev) , using legacy settings path')
+    }
+
     registerIpc()
     createMainWindow()
 
