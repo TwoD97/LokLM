@@ -36,8 +36,11 @@ pub struct HardwareProfile {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Tier {
-    Light,
-    Normal,
+    // Renamed from Light → Lite , Normal → Standard on 2026-05-24 to match
+    // the user-facing nomenclature settled after the Qwen3.5 eval-run
+    // ( see plan-doc ). Pro keeps its name.
+    Lite,
+    Standard,
     Pro,
 }
 
@@ -83,7 +86,7 @@ pub fn probe() -> HardwareProfile {
         cpu_threads,
         cpu_brand,
         ram_bytes,
-        recommended_tier: Tier::Light,
+        recommended_tier: Tier::Lite,
     };
     profile.recommended_tier = recommend(&profile);
     profile
@@ -212,43 +215,44 @@ pub fn recommend(p: &HardwareProfile) -> Tier {
     let ram_gb = p.ram_bytes / GB;
 
     // Tier 1 cut : memory capacity. Budgets per tier ( from plan-doc ) :
-    //   Pro    ~14 GB  ( Qwen3-14B Q4 8.5 + KV 3 + bge-m3 0.5 + reranker 0.5 + headroom )
-    //   Normal ~7 GB   ( Qwen3-8B Q4 5 + KV 1.5 + bge-m3 0.5 )
-    //   Light  ~3 GB   ( Qwen3-4B Q4 2.5 + small embedder , CPU offload ok )
-    let memory_tier = if vram_gb >= 14 {
+    //   Pro      ~8 GB   ( Qwen3.5-9B Q4 5.7 + KV 1.5 + bge-m3 0.5 + reranker 0.5 )
+    //   Standard ~4.5 GB ( Qwen3.5-4B Q4 2.8 + KV 1 + bge-m3 0.5 , reranker opt-in )
+    //   Lite     ~2 GB   ( Qwen3.5-2B Q4 1.2 + small embedder , CPU offload ok )
+    //
+    // Thresholds are conservative ( recommend down rather than risk OOM
+    // at load ). User can always override on the picker.
+    let memory_tier = if vram_gb >= 8 {
         Tier::Pro
-    } else if vram_gb >= 6 {
-        Tier::Normal
+    } else if vram_gb >= 4 {
+        Tier::Standard
     } else {
-        // CPU-only or low-VRAM : land on Light. RAM >= 16 GB is required
-        // for Light to be pleasant on CPU ; less than that and the user
-        // is still on Light but the wizard should warn ( UI concern ).
+        // CPU-only or <4 GB GPU : land on Lite. RAM >= 8 GB ist for Lite
+        // pleasant on CPU ; less than that and the wizard should warn
+        // ( UI concern ).
         let _ = ram_gb;
-        Tier::Light
+        Tier::Lite
     };
 
     // Tier 2 cut : chip-type adjustments for boundary cases.
     match (memory_tier, p.gpu_arch) {
-        // RTX 40/50-series laptop SKUs with marginal VRAM ( 8 GB Ada
-        // mobile ) can still handle Normal cleanly thanks to fast memory
-        // bandwidth + tensor cores. Bump Light → Normal.
-        (Tier::Light, Some(GpuArch::NvidiaAda | GpuArch::NvidiaBlackwell)) if vram_gb >= 5 => {
-            Tier::Normal
-        }
-
         // Apple Silicon unified memory : wgpu reports a small per-buffer
-        // limit but the chip can use all of system RAM. M2/M3/M4 with
-        // 16+ GB → Normal , M3/M4 with 32+ GB → Pro.
-        (Tier::Light, Some(GpuArch::AppleM2 | GpuArch::AppleM3 | GpuArch::AppleM4))
+        // limit but the chip can use all of system RAM. The 16-GB-first
+        // arm has to come before the 8-GB-first arm because match arms
+        // resolve top-to-bottom.
+        (Tier::Lite, Some(GpuArch::AppleM2 | GpuArch::AppleM3 | GpuArch::AppleM4))
             if ram_gb >= 16 =>
         {
-            Tier::Normal
+            Tier::Pro
         }
-        (Tier::Light, Some(GpuArch::AppleM3 | GpuArch::AppleM4)) if ram_gb >= 32 => Tier::Pro,
+        (Tier::Lite, Some(GpuArch::AppleM2 | GpuArch::AppleM3 | GpuArch::AppleM4))
+            if ram_gb >= 8 =>
+        {
+            Tier::Standard
+        }
 
-        // Old Nvidia ( Pascal , Turing ) with 16+ GB is misleading — slow
-        // tensor performance kills Pro experience. Downgrade.
-        (Tier::Pro, Some(GpuArch::NvidiaPascal | GpuArch::NvidiaTuring)) => Tier::Normal,
+        // Old Nvidia ( Pascal , Turing ) with 8+ GB is misleading — slow
+        // tensor performance kills Pro experience. Cap at Standard.
+        (Tier::Pro, Some(GpuArch::NvidiaPascal | GpuArch::NvidiaTuring)) => Tier::Standard,
 
         (t, _) => t,
     }
@@ -268,7 +272,7 @@ mod tests {
             cpu_threads: 8,
             cpu_brand: "test".into(),
             ram_bytes: ram_gb * GB,
-            recommended_tier: Tier::Light,
+            recommended_tier: Tier::Lite,
         }
     }
 
@@ -280,37 +284,63 @@ mod tests {
 
     #[test]
     fn rtx_4080_lands_pro() {
-        // 16 GB VRAM , Ada — comfortably above the 14 GB Pro threshold.
+        // 16 GB VRAM , Ada — well above the 8 GB Pro threshold.
         let p = make(Some(16), 32, Some(GpuArch::NvidiaAda));
         assert_eq!(recommend(&p), Tier::Pro);
     }
 
     #[test]
-    fn rtx_4070_lands_normal() {
-        // 12 GB VRAM , Ada — above Normal threshold ( 6 GB ) , below Pro ( 14 GB ).
+    fn rtx_4070_lands_pro() {
+        // 12 GB Ada — still Pro under the new 8 GB threshold ( old plan
+        // had this at Normal back when Pro = Qwen3-14B ).
         let p = make(Some(12), 32, Some(GpuArch::NvidiaAda));
-        assert_eq!(recommend(&p), Tier::Normal);
+        assert_eq!(recommend(&p), Tier::Pro);
     }
 
     #[test]
-    fn rtx_4060_laptop_8gb_lands_normal_via_chip_bonus() {
-        // 8 GB Ada mobile : memory cut says Normal directly ( >= 6 GB ).
+    fn rtx_4060_8gb_lands_pro() {
+        // 8 GB Ada mobile : sits right at the Pro threshold ( Qwen3.5-9B
+        // 5.7 GB + KV + embedder + reranker ≈ 8 GB budget , tight but ok ).
         let p = make(Some(8), 16, Some(GpuArch::NvidiaAda));
-        assert_eq!(recommend(&p), Tier::Normal);
+        assert_eq!(recommend(&p), Tier::Pro);
     }
 
     #[test]
-    fn old_titan_v_pascal_24gb_downgrades_to_normal() {
+    fn rtx_3050_6gb_lands_standard() {
+        // 6 GB GPU : not enough headroom for Pro ( 9B + KV ) , but
+        // Standard ( 4B + KV ) fits comfortably.
+        let p = make(Some(6), 16, Some(GpuArch::NvidiaAmpere));
+        assert_eq!(recommend(&p), Tier::Standard);
+    }
+
+    #[test]
+    fn old_titan_v_pascal_24gb_caps_at_standard() {
         // Pascal Titan V with 24 GB VRAM would land Pro by memory alone ,
-        // but chip-type cut downgrades to Normal because tensor perf is weak.
+        // but chip-type cut caps at Standard because tensor perf is weak.
         let p = make(Some(24), 64, Some(GpuArch::NvidiaPascal));
-        assert_eq!(recommend(&p), Tier::Normal);
+        assert_eq!(recommend(&p), Tier::Standard);
     }
 
     #[test]
-    fn cpu_only_lands_light() {
+    fn cpu_only_lands_lite() {
         let p = make(None, 32, None);
-        assert_eq!(recommend(&p), Tier::Light);
+        assert_eq!(recommend(&p), Tier::Lite);
+    }
+
+    #[test]
+    fn apple_m3_16gb_lands_pro() {
+        // 16 GB unified Apple Silicon : wgpu reports tiny per-buffer
+        // limit but the chip can use all RAM. Pro tier is the right call.
+        let p = make(Some(2), 16, Some(GpuArch::AppleM3));
+        assert_eq!(recommend(&p), Tier::Pro);
+    }
+
+    #[test]
+    fn apple_m2_8gb_lands_standard() {
+        // 8 GB unified M2 : Standard is appropriate ( Qwen3.5-4B fits ,
+        // 9B would be too tight with macOS overhead ).
+        let p = make(Some(2), 8, Some(GpuArch::AppleM2));
+        assert_eq!(recommend(&p), Tier::Standard);
     }
 
     #[test]
