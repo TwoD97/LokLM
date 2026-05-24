@@ -10,6 +10,7 @@ import { statSync } from 'node:fs'
 import { MODEL_MANIFEST, type ModelManifestEntry } from './manifest'
 import { getDownloadTargetDir, resolveModelFile } from './paths'
 import type { ModelAvailability, ModelsStatus } from '../../../shared/documents'
+import { readTierMarker } from '../tier/TierMarker'
 
 /** ±2% size tolerance — covers Content-Length jitter (CDN re-quantisations,
  *  unicode BOM stripping, etc.) without letting a 50%-downloaded `.partial`
@@ -52,6 +53,24 @@ export function checkOne(entry: ModelManifestEntry): ModelAvailability {
 }
 
 export function checkAll(): ModelsStatus {
+  // v0.3.0+ : if the wizard wrote a tier marker , the bundle for that tier
+  // was downloaded + verified ( SHA256 / size ) during install. Skip the
+  // in-app first-launch downloader entirely ; the legacy MODEL_MANIFEST
+  // doesn't describe what the wizard installed ( it pre-dates tiers ) , so
+  // we can't usefully iterate it for these installs. Settings panel will
+  // get a tier-aware view in v0.3.1 ; for now an empty models list is the
+  // honest answer ( "we don't manage models here anymore" ).
+  if (readTierMarker() !== null) {
+    return {
+      downloadDir: getDownloadTargetDir(),
+      models: [],
+      allRequiredReady: true,
+    }
+  }
+
+  // v0.2.6 fallback : no marker , so this is either dev mode or a legacy
+  // install that hasn't been re-installed through the wizard. Keep the
+  // first-launch download flow alive for those users.
   const models = MODEL_MANIFEST.map(checkOne)
   const allRequiredReady = models.filter((m) => m.required).every((m) => m.present)
   return {

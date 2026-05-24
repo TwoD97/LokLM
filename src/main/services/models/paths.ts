@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 
 /**
@@ -70,6 +70,12 @@ export function getDownloadTargetDir(): string {
  * Ordered list of directories to look in when resolving a model file. First
  * hit wins. Callers should iterate this — do NOT cache the result; the
  * userData directory may not exist yet on first launch.
+ *
+ * v0.3.0+ : the wizard writes its tier-specific bundle to
+ * `<install-dir>/models/`. We look there before the legacy
+ * `userData/models` ( which the in-app first-launch downloader still uses
+ * as the v0.2.6-fallback target ) so a freshly-wizard-installed app finds
+ * the GGUFs without re-downloading them.
  */
 export function getModelSearchDirs(): string[] {
   const app = getAppOrNull()
@@ -77,7 +83,13 @@ export function getModelSearchDirs(): string[] {
     return [join(process.cwd(), 'models')]
   }
   if (!app.isPackaged) return [join(process.cwd(), 'models')]
-  return [join(app.getPath('userData'), 'models'), join(process.resourcesPath, 'models')]
+  // dirname(execPath) = install-dir for both Windows ( <dir>/LokLM.exe )
+  // and Linux ( <dir>/loklm ). The wizard writes models alongside the exe.
+  return [
+    join(dirname(process.execPath), 'models'),
+    join(app.getPath('userData'), 'models'),
+    join(process.resourcesPath, 'models'),
+  ]
 }
 
 /** Backward-compat: returns the *primary* search directory. New code should
