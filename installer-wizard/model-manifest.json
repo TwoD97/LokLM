@@ -1,0 +1,99 @@
+{
+  "$schema": "./model-manifest.schema.json",
+  "version": "0.3.0",
+  "comment": [
+    "Shared model-bundle manifest for the wizard ( Rust , installer/models.rs ) and",
+    "the main app ( TS , src/main/services/tier/manifest.ts ). One source of truth ;",
+    "both sides include this file at compile / build time.",
+    "",
+    "sha256 = null means 'size-only verification'. Populate per-file SHA256 before",
+    "the v0.3.0 release by running a one-time script that downloads each file and",
+    "computes the hash ( or fetches it from HuggingFace's LFS metadata API ). See",
+    "T2.5 in the plan-doc for the ops checklist.",
+    "",
+    "sizeBytes is an estimate ; the downloader uses Content-Length at runtime for",
+    "the actual progress bar. The estimate just lets the wizard UI show a total",
+    "before the request fires."
+  ],
+  "tiers": {
+    "lite": {
+      "totalSizeBytes": 2415919104,
+      "models": [
+        {
+          "id": "Qwen_Qwen3.5-2B-Q4_K_M",
+          "role": "llm",
+          "filename": "Qwen3.5-2B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 1610612736
+        },
+        {
+          "id": "bge-m3-Q4_K_M",
+          "role": "embedder",
+          "filename": "bge-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 805306368
+        }
+      ]
+    },
+    "standard": {
+      "totalSizeBytes": 4242538496,
+      "models": [
+        {
+          "id": "Qwen_Qwen3.5-4B-Q4_K_M",
+          "role": "llm",
+          "filename": "Qwen3.5-4B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 3006477107
+        },
+        {
+          "id": "bge-m3-Q4_K_M",
+          "role": "embedder",
+          "filename": "bge-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 805306368
+        },
+        {
+          "id": "bge-reranker-v2-m3-Q4_K_M",
+          "role": "reranker",
+          "filename": "bge-reranker-v2-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 429496729
+        }
+      ]
+    },
+    "pro": {
+      "totalSizeBytes": 7354131251,
+      "models": [
+        {
+          "id": "Qwen_Qwen3.5-9B-Q4_K_M",
+          "role": "llm",
+          "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 6120328153
+        },
+        {
+          "id": "bge-m3-Q4_K_M",
+          "role": "embedder",
+          "filename": "bge-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 805306368
+        },
+        {
+          "id": "bge-reranker-v2-m3-Q4_K_M",
+          "role": "reranker",
+          "filename": "bge-reranker-v2-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf",
+          "sha256": null,
+          "sizeBytes": 429496729
+        }
+      ]
+    }
+  }
+}

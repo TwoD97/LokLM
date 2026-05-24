@@ -15,7 +15,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 # Used for spawn_blocking around the install ( robocopy / powershell can
 # block multiple seconds ) so the UI thread stays responsive.
-tokio = { version = "1", features = ["rt", "sync"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "fs", "io-util"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Hardware probe : wgpu enumerates GPUs cross-platform ( DX12/Vulkan/Metal ) ,
@@ -27,6 +27,13 @@ sysinfo = { version = "0.32", default-features = false, features = ["system"] }
 # Tier-marker timestamp. `time` is smaller than chrono and gives us ISO 8601
 # via the `formatting` feature.
 time = { version = "0.3", features = ["formatting", "macros"] }
+# Model downloader ( Phase 2 ) . rustls-tls avoids the OpenSSL build mess on
+# Windows ; `stream` enables Body::bytes_stream for chunked progress. http2
+# off : HF only does HTTP/1.1 for LFS downloads anyway.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "http2"] }
+sha2 = "0.10"
+futures-util = "0.3"
+hex = "0.4"
 
 [profile.release]
 opt-level = "z"

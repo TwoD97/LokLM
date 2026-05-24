@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub mod hardware;
+pub mod models;
 pub use hardware::{HardwareProfile, Tier};
+pub use models::{cleanup_partials, download_all};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +76,7 @@ pub fn write_tier_marker(
     install_dir: &std::path::Path,
     options: &InstallOptions,
     version: &str,
+    downloaded: &[models::DownloadedModel],
 ) -> std::io::Result<std::path::PathBuf> {
     use time::format_description::well_known::Rfc3339;
 
@@ -86,7 +89,13 @@ pub fn write_tier_marker(
         installed_at: now,
         installer_version: version,
         hardware: options.hardware_snapshot.as_ref(),
-        models: Vec::new(),
+        models: downloaded
+            .iter()
+            .map(|d| ModelManifestEntry {
+                id: d.id.clone(),
+                sha256: d.sha256.clone(),
+            })
+            .collect(),
     };
 
     let path = install_dir.join(TIER_MARKER_FILENAME);
@@ -138,12 +147,15 @@ compile_error!("LokLM installer wizard only supports Windows and Linux");
 
 // --- Public API ( delegates to platform module ) ---------------------
 
-pub fn install<F: Fn(ProgressEvent)>(
+pub async fn install<F>(
     options: &InstallOptions,
     version: &str,
     progress: F,
-) -> Result<InstallResult, String> {
-    platform::install(options, version, progress)
+) -> Result<InstallResult, String>
+where
+    F: FnMut(ProgressEvent) + Send,
+{
+    platform::install(options, version, progress).await
 }
 
 pub fn get_state() -> InstallerState {
