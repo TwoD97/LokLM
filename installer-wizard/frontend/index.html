@@ -161,16 +161,20 @@
             <span class="step__num">2</span
             ><span class="step__label" data-i18n="steps.license">Lizenz</span>
           </li>
-          <li class="step" data-step-dot="options">
+          <li class="step" data-step-dot="hardware">
             <span class="step__num">3</span
+            ><span class="step__label" data-i18n="steps.hardware">Hardware</span>
+          </li>
+          <li class="step" data-step-dot="options">
+            <span class="step__num">4</span
             ><span class="step__label" data-i18n="steps.options">Optionen</span>
           </li>
           <li class="step" data-step-dot="install">
-            <span class="step__num">4</span
+            <span class="step__num">5</span
             ><span class="step__label" data-i18n="steps.install">Installieren</span>
           </li>
           <li class="step" data-step-dot="finish">
-            <span class="step__num">5</span
+            <span class="step__num">6</span
             ><span class="step__label" data-i18n="steps.finish">Fertig</span>
           </li>
         </ol>
@@ -235,6 +239,84 @@ Lizenztext wird geladen ...</pre
           </label>
         </section>
 
+        <section class="page" data-page="hardware">
+          <p class="page-kicker" data-i18n="hardware.kicker">Hardware</p>
+          <h2 data-i18n="hardware.title">Welche Edition passt zu deinem Rechner?</h2>
+          <p class="page-copy" data-i18n="hardware.copy">
+            Wir haben deine Hardware kurz geprüft. Die empfohlene Edition ist markiert — du kannst
+            aber jederzeit eine andere wählen.
+          </p>
+
+          <div id="hardware-summary" class="hardware-summary" aria-live="polite">
+            <p class="hardware-summary__probing" data-i18n="hardware.probing">
+              Hardware wird geprüft …
+            </p>
+          </div>
+
+          <div class="tier-grid" role="radiogroup" aria-label="Edition wählen">
+            <label class="tier-card" data-tier="lite">
+              <input type="radio" name="tier" value="lite" />
+              <div class="tier-card__head">
+                <strong class="tier-card__title" data-i18n="tiers.lite.title">Lite</strong>
+                <span class="tier-card__badge" data-i18n="hardware.recommended" hidden
+                  >Empfohlen</span
+                >
+              </div>
+              <p class="tier-card__subtitle" data-i18n="tiers.lite.subtitle">Klein und sparsam</p>
+              <p class="tier-card__model" data-i18n="tiers.lite.model">Qwen3.5-2B</p>
+              <ul class="tier-card__stats">
+                <li data-i18n="tiers.lite.size">~2,3 GB Download</li>
+                <li data-i18n="tiers.lite.latency">~2 s pro Antwort</li>
+              </ul>
+              <p class="tier-card__body" data-i18n="tiers.lite.body">
+                Läuft auch auf 8 GB RAM ganz ohne GPU.
+              </p>
+            </label>
+
+            <label class="tier-card" data-tier="standard">
+              <input type="radio" name="tier" value="standard" />
+              <div class="tier-card__head">
+                <strong class="tier-card__title" data-i18n="tiers.standard.title">Standard</strong>
+                <span class="tier-card__badge" data-i18n="hardware.recommended" hidden
+                  >Empfohlen</span
+                >
+              </div>
+              <p class="tier-card__subtitle" data-i18n="tiers.standard.subtitle">
+                Der empfohlene Default
+              </p>
+              <p class="tier-card__model" data-i18n="tiers.standard.model">Qwen3.5-4B</p>
+              <ul class="tier-card__stats">
+                <li data-i18n="tiers.standard.size">~4,0 GB Download</li>
+                <li data-i18n="tiers.standard.latency">~3 s pro Antwort</li>
+              </ul>
+              <p class="tier-card__body" data-i18n="tiers.standard.body">
+                Beste Antwort-Qualität in unserem Eval-Pool.
+              </p>
+            </label>
+
+            <label class="tier-card" data-tier="pro">
+              <input type="radio" name="tier" value="pro" />
+              <div class="tier-card__head">
+                <strong class="tier-card__title" data-i18n="tiers.pro.title">Pro</strong>
+                <span class="tier-card__badge" data-i18n="hardware.recommended" hidden
+                  >Empfohlen</span
+                >
+              </div>
+              <p class="tier-card__subtitle" data-i18n="tiers.pro.subtitle">
+                Reserven für lange Fragen
+              </p>
+              <p class="tier-card__model" data-i18n="tiers.pro.model">Qwen3.5-9B</p>
+              <ul class="tier-card__stats">
+                <li data-i18n="tiers.pro.size">~7,0 GB Download</li>
+                <li data-i18n="tiers.pro.latency">~6 s pro Antwort</li>
+              </ul>
+              <p class="tier-card__body" data-i18n="tiers.pro.body">
+                Mehr Spielraum für Nischen-Themen und längere Kontexte.
+              </p>
+            </label>
+          </div>
+        </section>
+
         <section class="page" data-page="options">
           <p class="page-kicker" data-i18n="options.kicker">Optionen</p>
           <h2 data-i18n="options.title">Installationsziel und Startverhalten</h2>
@@ -294,6 +376,7 @@ Lizenztext wird geladen ...</pre
               <div id="progress-fill" class="progress-fill"></div>
             </div>
             <p id="progress-label" data-i18n="install.waiting">Wartet auf Start</p>
+            <p id="progress-model" class="progress-model" hidden></p>
           </div>
           <p id="install-error" class="error" hidden></p>
         </section>

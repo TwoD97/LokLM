@@ -19,6 +19,10 @@
     launch: (appExePath) => invoke('launch', { appExePath }),
     close: () => invoke('close_app'),
     minimize: () => invoke('minimize_window'),
+    // Phase 1 of v0.3.0 work : returns HardwareProfile with VRAM /
+    // RAM / arch / recommended_tier. ~200-500ms first call ( wgpu
+    // driver init ) , cached after that.
+    probeHardware: () => invoke('probe_hardware'),
     // Mirror the electron preload signature : returns an unsubscribe fn.
     onProgress: (callback) => {
       if (!listen) return () => undefined
