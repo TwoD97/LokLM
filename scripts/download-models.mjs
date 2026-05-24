@@ -165,6 +165,51 @@ const MODELS = [
     sizeGB: 17.0,
     skipPattern: /mistral.*small.*3\.2.*24b/i,
   },
+
+  // ---- Qwen3.5 family (release Feb 2026) -----------------------------------
+  // Natural experiment: 2B ist non-thinking-default , alle anderen
+  // (4B/9B/27B/35B-A3B) haben thinking-on. Wenn 2B die größeren schlägt ,
+  // ist thinking-mode der dominante faktor , nicht die größe. Bestätigt
+  // die hypothese aus dem ersten 10-modell run wo Qwen3-4B-Instruct-2507
+  // (no-think) Qwen3-8B/14B (thinking-on) deutlich geschlagen hat.
+
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3.5-2B (small , NON-thinking default — kontroll-modell)',
+    filename: 'Qwen3.5-2B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+    sizeGB: 1.5,
+    skipPattern: /qwen3\.5.*2b/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
+    filename: 'Qwen3.5-4B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
+    sizeGB: 2.8,
+    skipPattern: /qwen3\.5.*4b/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
+    filename: 'Qwen3.5-9B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf',
+    sizeGB: 5.7,
+    skipPattern: /qwen3\.5.*9b/i,
+  },
+  {
+    tier: 'evals',
+    purpose: 'Eval pool — Qwen3.5-27B (dense , thinking-on default — passt knapp auf 5090 Q4)',
+    filename: 'Qwen3.5-27B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf',
+    sizeGB: 16.0,
+    skipPattern: /qwen3\.5.*27b/i,
+  },
+  // Qwen3.5-35B-A3B (22 GB MoE) bewusst aus dem evals-tier rausgenommen:
+  // disk-druck auf der E: , und A3B-MoE bringt voraussichtlich keinen
+  // signifikanten lift gegenueber dem dense 27B in unserem RAG-eval.
+  // Wenn du es doch testen willst , entry wieder einkommentieren und
+  // `pnpm models:evals` erneut laufen lassen.
 ]
 
 // Tier hierarchy: each tier includes the tiers below it. Embedder is always

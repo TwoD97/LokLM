@@ -1,4 +1,5 @@
 import type { SearchHit } from '@main/db/database'
+import type { ResponseLanguage } from '../llm/prompt'
 
 // small-but-deliberate DE+EN stopword set. Domain-relevant nouns like
 // "Wochenbuch" intentionally NOT in the list — they should pass through
@@ -88,4 +89,35 @@ export function applyRecencyBoost(
     if (added == null) return h
     return nowSec - added <= windowSec ? { ...h, score: h.score * factor } : h
   })
+}
+
+/**
+ * Mild multiplicative boost (default ~1.10) for chunks whose detected language
+ * matches the configured response language. Backed by the research summarised
+ * in src/main/services/llm/prompt.ts: language-matched material is easier for
+ * the model to quote-cite without translation drift, and downstream answer
+ * quality drops measurably (~5–10 %) when the model is forced to translate
+ * source text mid-response.
+ *
+ * No-ops in three cases — each chosen to avoid hurting recall:
+ *   - factor ≤ 1.0           : caller explicitly disabled the heuristic
+ *   - responseLang missing   : caller didn't tell us what language to favour
+ *   - chunk.language ∈ {null, 'other'} : we can't be sure of a mismatch, so
+ *     leave the chunk untouched rather than down-weight it relative to
+ *     known-matching chunks (which would happen implicitly if we boosted only
+ *     the matches).
+ *
+ * Mirrors applyTitleBoost's shape: returns a new array, mutates nothing.
+ */
+export function applyLanguageMatchBoost(
+  hits: SearchHit[],
+  responseLang: ResponseLanguage | undefined,
+  factor: number,
+): SearchHit[] {
+  if (factor === 1.0 || factor <= 0 || !responseLang) return hits
+  return hits.map((h) =>
+    h.language && h.language !== 'other' && h.language === responseLang
+      ? { ...h, score: h.score * factor }
+      : h,
+  )
 }

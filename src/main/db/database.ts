@@ -98,6 +98,10 @@ export interface NewChunkInput {
   /** Markdown sections store their breadcrumb here (["1. Intro", "Why MD"]).
    *  PDFs and unstructured text leave this null. */
   headingPath?: string[] | null
+  /** Detected language from eld (mig 0007). Ingest writes 'de' | 'en' |
+   *  'other'; leave undefined to keep NULL (e.g. when detection is skipped
+   *  for chunks shorter than the eld minimum-length threshold). */
+  language?: 'de' | 'en' | 'other' | null
 }
 
 export interface ChunkRow {
@@ -109,6 +113,7 @@ export interface ChunkRow {
   page_from: number | null
   page_to: number | null
   heading_path: string[] | null
+  language: 'de' | 'en' | 'other' | null
 }
 
 export interface SearchHit {
@@ -122,6 +127,7 @@ export interface SearchHit {
   text: string
   score: number
   added_at?: number | null
+  language: 'de' | 'en' | 'other' | null
 }
 
 export interface ChunkSearchOptions {
@@ -243,11 +249,51 @@ export class DocumentsRepo {
   }
 
   async listDocumentsByWorkspace(workspaceId: number): Promise<Document[]> {
-    return this.db
-      .select()
-      .from(documents)
-      .where(eq(documents.workspaceId, workspaceId))
-      .orderBy(desc(documents.addedAt))
+    // Aggregates per-document language from chunks.language (mig 0007). Rule:
+    //   - dominant lang ≥70 % of detected chunks → 'de' | 'en'
+    //   - everything else (split, 'other'-majority) → 'mixed'
+    //   - no detected chunks → NULL
+    // Single query with a LATERAL aggregate so we don't N+1 over documents.
+    // Threshold lives in SQL because the data layer is the right place to
+    // collapse 3 buckets into 1 user-facing summary; renderers stay dumb.
+    const r = await this.db.execute(sql`
+      SELECT d.id,
+             d.workspace_id   AS "workspaceId",
+             d.title,
+             d.source_path    AS "sourcePath",
+             d.mime_type      AS "mimeType",
+             d.byte_size      AS "byteSize",
+             d.status,
+             d.chunk_count    AS "chunkCount",
+             d.token_count    AS "tokenCount",
+             d.added_at       AS "addedAt",
+             d.content_hash   AS "contentHash",
+             d.source_mtime   AS "sourceMtime",
+             d.missing_at     AS "missingAt",
+             d.missing_dismissed_at AS "missingDismissedAt",
+             agg.language
+        FROM documents d
+        LEFT JOIN LATERAL (
+          WITH counts AS (
+            SELECT
+              COUNT(*) FILTER (WHERE c.language = 'de')                AS de_n,
+              COUNT(*) FILTER (WHERE c.language = 'en')                AS en_n,
+              COUNT(*) FILTER (WHERE c.language IS NOT NULL)           AS detected_n
+              FROM chunks c
+             WHERE c.document_id = d.id
+          )
+          SELECT CASE
+            WHEN detected_n = 0 THEN NULL
+            WHEN de_n::FLOAT / detected_n >= 0.7 THEN 'de'
+            WHEN en_n::FLOAT / detected_n >= 0.7 THEN 'en'
+            ELSE 'mixed'
+          END AS language
+          FROM counts
+        ) agg ON TRUE
+       WHERE d.workspace_id = ${workspaceId}
+       ORDER BY d.added_at DESC
+    `)
+    return r.rows as unknown as Document[]
   }
 
   async getDocument(id: number): Promise<Document | undefined> {
@@ -307,14 +353,15 @@ export class DocumentsRepo {
       pageTo: c.pageTo,
       tokenCount: c.tokenCount,
       headingPath: c.headingPath?.map(stripNul) ?? null,
+      language: c.language ?? null,
     }))
     // Single bulk INSERT used to blow up pglite on book-sized docs: a 533-page
     // PDF produced a ~1.4 MB SQL string with >7000 placeholders and the WASM
     // parser tripped before reaching the 65535-placeholder Postgres cap. We
-    // batch at 200 rows (200 × 7 = 1400 placeholders, ~150 KB SQL) so the
-    // chunks table fills predictably regardless of document length. The FTS
-    // expression index is built per-row anyway , batch boundaries don't
-    // affect tsvector materialization.
+    // batch at 200 rows (200 × 8 = 1600 placeholders post-mig-0007, ~170 KB
+    // SQL) so the chunks table fills predictably regardless of document
+    // length. The FTS expression index is built per-row anyway , batch
+    // boundaries don't affect tsvector materialization.
     const BATCH = 200
     for (let i = 0; i < rows.length; i += BATCH) {
       await this.db.insert(chunks).values(rows.slice(i, i + BATCH))
@@ -466,6 +513,7 @@ export class DocumentsRepo {
           c.page_to      AS page_to,
           c.heading_path AS heading_path,
           c.text         AS text,
+          c.language     AS language,
           ts_rank_cd(
             setweight(to_tsvector('german',  c.text), 'A') ||
             setweight(to_tsvector('english', c.text), 'B'),
@@ -491,7 +539,7 @@ export class DocumentsRepo {
           FROM hits
       )
       SELECT chunk_id, document_id, document_title, ordinal,
-             page_from, page_to, heading_path, text, score, added_at
+             page_from, page_to, heading_path, text, score, added_at, language
         FROM ranked
        WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
        ORDER BY score DESC
@@ -525,6 +573,7 @@ export class DocumentsRepo {
           c.page_to      AS page_to,
           c.heading_path AS heading_path,
           c.text         AS text,
+          c.language     AS language,
           (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
           d.added_at     AS added_at
         FROM chunks c
@@ -550,6 +599,7 @@ export class DocumentsRepo {
           c.page_to      AS page_to,
           c.heading_path AS heading_path,
           c.text         AS text,
+          c.language     AS language,
           (1 - (c.embedding <=> ${lit}::vector))::FLOAT AS score,
           d.added_at     AS added_at,
           ROW_NUMBER() OVER (
@@ -564,7 +614,7 @@ export class DocumentsRepo {
           AND (${activeLit}::int[] IS NULL OR c.document_id = ANY(${activeLit}::int[]))
       )
       SELECT chunk_id, document_id, document_title, ordinal,
-             page_from, page_to, heading_path, text, score, added_at
+             page_from, page_to, heading_path, text, score, added_at, language
         FROM ranked
        WHERE ${perDocK}::int IS NULL OR doc_rank <= ${perDocK}::int
        ORDER BY score DESC
@@ -618,7 +668,7 @@ export class DocumentsRepo {
 
   async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
     const r = await this.db.execute(sql`
-      SELECT id, document_id, ordinal, text, token_count, page_from, page_to, heading_path
+      SELECT id, document_id, ordinal, text, token_count, page_from, page_to, heading_path, language
         FROM chunks
        WHERE document_id = ${documentId}
        ORDER BY ordinal
@@ -666,7 +716,7 @@ export class DocumentsRepo {
         VALUES ${sql.raw(valueParts)}
       )
       SELECT DISTINCT c.id, c.document_id, c.ordinal, c.text,
-                      c.token_count, c.page_from, c.page_to, c.heading_path
+                      c.token_count, c.page_from, c.page_to, c.heading_path, c.language
         FROM chunks c
         JOIN seeds s ON c.document_id = s.doc_id
        WHERE c.ordinal BETWEEN s.ord - ${radius} AND s.ord + ${radius}

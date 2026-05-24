@@ -170,7 +170,7 @@ export class LlmBridge {
     } catch {
       /* ignore */
     }
-    const prompt = buildPrompt(question, hits, opts.conversationHistory)
+    const prompt = buildPrompt(question, hits, opts.conversationHistory, this.language)
     let firstChunkAt: number | null = null
     let chunkCount = 0
     let chars = 0

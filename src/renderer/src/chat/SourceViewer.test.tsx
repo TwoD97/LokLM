@@ -46,6 +46,7 @@ describe('SourceViewer', () => {
             pageFrom: null,
             pageTo: null,
             headingPath: null,
+            language: null,
           },
           {
             id: 2,
@@ -56,6 +57,7 @@ describe('SourceViewer', () => {
             pageFrom: null,
             pageTo: null,
             headingPath: null,
+            language: null,
           },
           {
             id: 3,
@@ -66,6 +68,7 @@ describe('SourceViewer', () => {
             pageFrom: null,
             pageTo: null,
             headingPath: null,
+            language: null,
           },
         ]),
     })
@@ -104,6 +107,7 @@ describe('SourceViewer', () => {
             pageFrom: null,
             pageTo: null,
             headingPath: null,
+            language: null,
           },
         ]),
     })

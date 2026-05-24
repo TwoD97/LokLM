@@ -22,6 +22,15 @@ export interface Document {
   /** When the user clicked "Behalten" on the banner. Suppresses re-notifying
    *  until the file reappears and vanishes again. */
   missingDismissedAt?: number | null
+  /** Aggregated per-document language summary (mig 0007 / eld), computed
+   *  on-the-fly by listDocumentsByWorkspace via GROUP BY over chunks.language:
+   *    - 'de'    : ≥70 % of detected chunks tagged DE
+   *    - 'en'    : ≥70 % of detected chunks tagged EN
+   *    - 'mixed' : detected chunks split or majority is 'other'
+   *    - null    : no chunks have a detected language (legacy / undetectable)
+   *  Drives the library row badge. Single-doc fetches (`getDocument`) skip
+   *  the aggregation so the field is omitted there. */
+  language?: 'de' | 'en' | 'mixed' | null
 }
 
 export interface Workspace {
@@ -104,6 +113,11 @@ export interface RetrievalHit {
   text: string
   score: number
   origin?: 'primary' | 'neighbour' | 'whole_doc'
+  /** Per-chunk detected language (mig 0007 / eld). 'de' | 'en' | 'other' when
+   *  ingest ran post-0007, null for legacy chunks. Consumed by formatHitHeader
+   *  to tag chunks whose language differs from the response language so the
+   *  model knows it's translating quoted material rather than copying verbatim. */
+  language: 'de' | 'en' | 'other' | null
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +359,10 @@ export interface DocumentChunk {
   pageFrom: number | null
   pageTo: number | null
   headingPath: string[] | null
+  /** Per-chunk detected language (mig 0007 / eld). DocumentPreview renders
+   *  it as a small tag on each section so the user can see which parts of a
+   *  mixed-language document are in which language. */
+  language: 'de' | 'en' | 'other' | null
 }
 
 /** Renderer-visible source-document metadata for a single chunk. The renderer

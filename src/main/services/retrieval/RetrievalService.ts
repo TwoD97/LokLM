@@ -2,7 +2,13 @@ import type { ChunkRow, Database, SearchHit } from '../../db/database'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { StageName } from '../../../shared/documents'
 import { fuseRrf } from './rrf'
-import { applyTitleBoost, applyShortChunkPenalty, applyRecencyBoost } from './heuristics'
+import {
+  applyTitleBoost,
+  applyShortChunkPenalty,
+  applyRecencyBoost,
+  applyLanguageMatchBoost,
+} from './heuristics'
+import type { ResponseLanguage } from '../llm/prompt'
 
 /** Callback the caller (QAService) supplies to receive stage start/done events
  *  from inside search(). Used to drive the renderer's live progress strip. */
@@ -23,6 +29,10 @@ export interface RetrievalHit {
   /** Why this hit ended up in the result set — useful for the renderer to
    *  visually distinguish "primary match" from "expanded neighbour" etc. */
   origin?: 'primary' | 'neighbour' | 'whole_doc'
+  /** Per-chunk detected language (mig 0007 / eld). Threads through from the
+   *  SearchHit so formatHitHeader can tag cross-language chunks. Null for
+   *  chunks ingested before 0007 or whose text was too short for eld. */
+  language: 'de' | 'en' | 'other' | null
 }
 
 export interface RetrievalOptions {
@@ -71,6 +81,13 @@ export interface RetrievalOptions {
    *  over 10 minutes. Set factor to 1.0 to disable. */
   recencyBoostFactor?: number
   recencyBoostWindowMs?: number
+  /** Detected-language match boost (mig 0007 / eld). When set, chunks whose
+   *  `language` field matches `responseLanguage` get a multiplicative score
+   *  bump. Default factor 1.10 — research shows language-matched material
+   *  is ~5–10 % easier for the LLM to ground on without translation drift.
+   *  Skipped silently when `responseLanguage` is undefined. */
+  responseLanguage?: ResponseLanguage
+  languageMatchBoostFactor?: number
   /** Apply the CPU-only TTFT preset:
    *    - rerank defaults to false (cross-encoder on CPU is the single biggest
    *      retrieval-side latency hit, ~0.5–2 s per pass)
@@ -120,6 +137,7 @@ const DEFAULT_SHORT_CHUNK_PENALTY = 0.7
 const DEFAULT_SHORT_CHUNK_MIN_CHARS = 200
 const DEFAULT_RECENCY_BOOST = 1.1
 const DEFAULT_RECENCY_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
+const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
 
 export class RetrievalService {
   constructor(
@@ -214,6 +232,11 @@ export class RetrievalService {
         opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
         opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
       )
+      pool = applyLanguageMatchBoost(
+        pool,
+        opts.responseLanguage,
+        opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
+      )
       pool.sort((a, b) => b.score - a.score)
     }
 
@@ -245,6 +268,11 @@ export class RetrievalService {
         postRank,
         opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
         opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
+      )
+      postRank = applyLanguageMatchBoost(
+        postRank,
+        opts.responseLanguage,
+        opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
       )
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
@@ -586,6 +614,7 @@ function chunkToSearchHit(c: ChunkRow, title: string, score: number): SearchHit 
     heading_path: c.heading_path,
     text: c.text,
     score,
+    language: c.language,
   }
 }
 
@@ -601,6 +630,7 @@ function toHit(item: HitWithOrigin): RetrievalHit {
     text: item.hit.text,
     score: item.hit.score,
     origin: item.origin,
+    language: item.hit.language,
   }
 }
 

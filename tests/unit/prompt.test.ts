@@ -23,6 +23,7 @@ const hit = (id: number, text: string, title = 'doc.md'): RetrievalHit => ({
   heading_path: null,
   text,
   score: 1.0,
+  language: null,
 })
 
 describe('buildPrompt', () => {
@@ -79,22 +80,102 @@ describe('buildPrompt', () => {
     expect(out).toContain('§ Chapter 2')
     expect(out).toContain('p.12')
   })
+
+  it('tags chunk language in header when chunk lang differs from response lang', () => {
+    // German user asks question, retrieval surfaces an English-language chunk.
+    // The model needs to know it must translate the quoted material rather
+    // than echo it verbatim — `, lang:en` in the header is the signal.
+    const h = { ...hit(7, 'text'), language: 'en' as const }
+    const out = buildPrompt('q', [h], undefined, 'de')
+    expect(out).toContain('lang:en')
+  })
+
+  it('omits the language tag when chunk lang matches response lang', () => {
+    // German chunk + German response = no translation happening, no need to
+    // burn tokens telling the model what it already knows.
+    const h = { ...hit(7, 'text'), language: 'de' as const }
+    const out = buildPrompt('q', [h], undefined, 'de')
+    expect(out).not.toContain('lang:')
+  })
+
+  it('omits the language tag when chunk language is null (legacy/unknown)', () => {
+    // Chunks ingested before mig 0007 have null language. Tagging them would
+    // be guessing — silent fallback is the safer default.
+    const h = { ...hit(7, 'text'), language: null }
+    const out = buildPrompt('q', [h], undefined, 'de')
+    expect(out).not.toContain('lang:')
+  })
+
+  it("omits the language tag when chunk language is 'other'", () => {
+    // eld returns 'other' for languages outside LokLM's DE/EN scope (e.g. FR,
+    // ES). The model can't reliably translate every world language, so don't
+    // imply it should — leave the header untagged and trust the response-
+    // language constraint in the system prompt.
+    const h = { ...hit(7, 'text'), language: 'other' as const }
+    const out = buildPrompt('q', [h], undefined, 'en')
+    expect(out).not.toContain('lang:')
+  })
+
+  it('omits the language tag when no response language is supplied', () => {
+    // Backwards compat: callers that don't pass `responseLang` (e.g. legacy
+    // tests, debug tooling) get the original header format with no tag.
+    const h = { ...hit(7, 'text'), language: 'en' as const }
+    const out = buildPrompt('q', [h])
+    expect(out).not.toContain('lang:')
+  })
 })
 
 describe('buildSystemPrompt', () => {
-  it('contains citation discipline + refusal instruction', () => {
-    const sys = buildSystemPrompt('de')
-    expect(sys.toLowerCase()).toMatch(/doc:|chunk:|cite/i)
+  it('keeps citation markup verbatim in both languages', () => {
+    // Parser-critical literals — UI keys off these exact tokens for chip
+    // rendering. Translating them (Dokument/Stück, etc.) would silently
+    // break citation parsing on the DE prompt.
+    expect(buildSystemPrompt('de')).toContain('[doc:<documentId>, chunk:<chunkId>]')
+    expect(buildSystemPrompt('en')).toContain('[doc:<documentId>, chunk:<chunkId>]')
   })
 
-  it('contains /no_think directive', () => {
-    const sys = buildSystemPrompt('en')
-    expect(sys).toMatch(/no_think/)
+  it('contains /no_think directive in both languages', () => {
+    expect(buildSystemPrompt('de')).toMatch(/no_think/)
+    expect(buildSystemPrompt('en')).toMatch(/no_think/)
   })
 
-  it('binds the response language', () => {
-    expect(buildSystemPrompt('de')).toContain('German')
-    expect(buildSystemPrompt('en')).toContain('English')
+  it('binds the response language natively', () => {
+    // Language-matched prompts (research: Cross-Lingual Prompt Steerability,
+    // MultiQ) reduce English-drift on smaller models — so the DE variant is
+    // written in German end-to-end rather than English-prompt-with-German-target.
+    expect(buildSystemPrompt('de')).toMatch(/auf Deutsch/)
+    expect(buildSystemPrompt('en')).toMatch(/in English/)
+  })
+
+  it('embeds the centralized refusal string verbatim', () => {
+    expect(buildSystemPrompt('de')).toContain(REFUSAL_TEXT.de)
+    expect(buildSystemPrompt('en')).toContain(REFUSAL_TEXT.en)
+  })
+
+  it('references the Context block header by its literal name', () => {
+    // buildPrompt always emits `Context:` (English) regardless of response
+    // language — the system rules must reference it by that literal so the
+    // model links its constraints to the right section header.
+    expect(buildSystemPrompt('de')).toContain('Context')
+    expect(buildSystemPrompt('en')).toContain('Context')
+  })
+
+  it('enforces derivation + calculation discipline rules', () => {
+    const en = buildSystemPrompt('en')
+    // Calc reasoning order + ban on self-correction phrases — the rules that
+    // distinguish this prompt from the original short version.
+    expect(en).toMatch(/SOURCE/)
+    expect(en).toMatch(/DERIVATION/)
+    expect(en).toMatch(/CALCULATIONS/)
+    expect(en).toMatch(/wait/)
+    expect(en).toMatch(/actually/)
+
+    const de = buildSystemPrompt('de')
+    expect(de).toMatch(/QUELLE/)
+    expect(de).toMatch(/ABLEITUNG/)
+    expect(de).toMatch(/RECHENWEG/)
+    expect(de).toMatch(/Moment/)
+    expect(de).toMatch(/eigentlich/)
   })
 })
 

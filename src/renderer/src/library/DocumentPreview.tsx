@@ -121,6 +121,14 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
             <article className="source-viewer__doc" aria-label="Dokumentvorschau">
               {chunks.map((c) => (
                 <section key={c.id} className="source-viewer__doc-section">
+                  {c.language && c.language !== 'other' && (
+                    <span
+                      className="library__lang-badge"
+                      title={`Chunk-Sprache: ${c.language === 'de' ? 'Deutsch' : 'Englisch'}`}
+                    >
+                      {c.language}
+                    </span>
+                  )}
                   {renderMarkdown ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.text}</ReactMarkdown>
                   ) : (

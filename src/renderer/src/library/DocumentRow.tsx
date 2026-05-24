@@ -73,6 +73,7 @@ function DocumentRowImpl({
             />
           )}
           {doc.title}
+          {doc.language && <LanguageBadge language={doc.language} />}
         </span>
       </td>
       <td>
@@ -172,6 +173,24 @@ function DocumentRowImpl({
         )}
       </td>
     </tr>
+  )
+}
+
+function LanguageBadge({ language }: { language: 'de' | 'en' | 'mixed' }): JSX.Element {
+  const label = language === 'mixed' ? 'de+en' : language
+  const className =
+    language === 'mixed' ? 'library__lang-badge library__lang-badge--mixed' : 'library__lang-badge'
+  return (
+    <span
+      className={className}
+      title={
+        language === 'mixed'
+          ? 'Dokument enthält Chunks in beiden Sprachen'
+          : `Dokumentsprache: ${language === 'de' ? 'Deutsch' : 'Englisch'}`
+      }
+    >
+      {label}
+    </span>
   )
 }
 

@@ -1,4 +1,5 @@
 import type { MarkdownSection, PageText, PdfSection } from './types'
+import { detectChunkLanguages, type ChunkLanguage } from './languageDetector'
 
 export interface Chunk {
   text: string
@@ -9,6 +10,11 @@ export interface Chunk {
   pageTo: number | null
   /** Hierarchical heading breadcrumb. Populated only by chunkMarkdown. */
   headingPath: string[] | null
+  /** Detected per-chunk language (eld, mig 0007). Null when detection was
+   *  skipped (chunker producers leave it null ; `tagChunkLanguages` fills
+   *  it in as a post-pass so the language-detector import stays out of the
+   *  synchronous chunking hot path). */
+  language: ChunkLanguage | null
 }
 
 export interface ChunkOptions {
@@ -38,6 +44,7 @@ export function chunkPages(pages: PageText[], opts: Partial<ChunkOptions> = {}):
         pageFrom: page.num,
         pageTo: page.num,
         headingPath: null,
+        language: null,
       })
     }
   }
@@ -82,6 +89,7 @@ export function chunkMarkdown(
         pageFrom: null,
         pageTo: null,
         headingPath: section.headingPath.length > 0 ? [...section.headingPath] : null,
+        language: null,
       })
       continue
     }
@@ -101,10 +109,22 @@ export function chunkMarkdown(
         pageFrom: null,
         pageTo: null,
         headingPath: section.headingPath.length > 0 ? [...section.headingPath] : null,
+        language: null,
       })
     }
   }
   return chunks
+}
+
+/** Post-pass over a chunk list that fills in the `language` field on each
+ *  chunk via eld. Kept separate from the chunk producers so the chunker
+ *  module stays synchronous (eld load is async + ~140 MB resident) and so
+ *  callers that don't care about language tagging (unit tests, eval
+ *  bridges) don't pay the load cost. */
+export async function tagChunkLanguages(chunks: Chunk[]): Promise<Chunk[]> {
+  if (chunks.length === 0) return chunks
+  const languages = await detectChunkLanguages(chunks.map((c) => c.text))
+  return chunks.map((c, i) => ({ ...c, language: languages[i] ?? null }))
 }
 
 /**
