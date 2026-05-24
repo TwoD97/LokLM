@@ -407,11 +407,21 @@ fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
 // Public API : install , get_state , get_license , launch
 // ----------------------------------------------------------------
 
-pub fn install<F: Fn(ProgressEvent)>(
+// Phase budgets in the overall progress bar :
+//   prepare-folder + copy-files + apply-options + register-uninstaller : 0-40%
+//   download-models                                                    : 40-95%
+//   write-tier-marker + done                                           : 95-100%
+//
+// The download phase reports its OWN 0-100% via the per-model events ;
+// we rescale into the 40-95 slot before emitting upstream.
+pub async fn install<F>(
     options: &InstallOptions,
     version: &str,
-    progress: F,
-) -> Result<InstallResult, String> {
+    mut progress: F,
+) -> Result<InstallResult, String>
+where
+    F: FnMut(ProgressEvent) + Send,
+{
     let source = payload_dir()
         .ok_or("payload nicht gefunden — bitte zuerst den win-unpacked-build ausführen")?;
     let install_dir = if options.install_dir.is_empty() {
@@ -425,22 +435,41 @@ pub fn install<F: Fn(ProgressEvent)>(
         return Err(format!("payload exe fehlt in {}", source.display()));
     }
 
-    progress(ProgressEvent { step: "preparing-folder".into(), percent: 8 });
+    progress(ProgressEvent { step: "preparing-folder".into(), percent: 5 });
     std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
 
-    progress(ProgressEvent { step: "copying-files".into(), percent: 20 });
+    progress(ProgressEvent { step: "copying-files".into(), percent: 12 });
     robocopy_dir(&source, &install_dir).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "applying-options".into(), percent: 78 });
+    progress(ProgressEvent { step: "applying-options".into(), percent: 30 });
     apply_options(options, &app_exe_path).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 92 });
+    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 38 });
     let uninstaller_path = write_uninstaller(&install_dir).map_err(|e| e.to_string())?;
     write_uninstall_registry(&install_dir, &app_exe_path, &uninstaller_path, version)
         .map_err(|e| e.to_string())?;
 
+    progress(ProgressEvent { step: "downloading-models".into(), percent: 40 });
+    let downloaded = match super::download_all(&install_dir, options.tier, |ev| {
+        // Scale 0-100 inner into the 40-95 outer slot.
+        let scaled = 40 + (ev.percent as u64 * 55 / 100) as u32;
+        progress(ProgressEvent { step: ev.step, percent: scaled });
+    })
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            // T2.4 : on any download failure , clean up partials so the next
+            // install attempt finds a consistent state. We do NOT delete
+            // fully-downloaded models — those are reused via the idempotency
+            // check on retry.
+            let _ = super::cleanup_partials(&install_dir).await;
+            return Err(e);
+        }
+    };
+
     progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
-    super::write_tier_marker(&install_dir, options, version)
+    super::write_tier_marker(&install_dir, options, version, &downloaded)
         .map_err(|e| format!("tier-marker write failed : {}", e))?;
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });

@@ -345,11 +345,15 @@ fn copy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
 // Public API
 // ----------------------------------------------------------------
 
-pub fn install<F: Fn(ProgressEvent)>(
+// Same phase budget as windows.rs : 0-40 setup , 40-95 download , 95-100 marker.
+pub async fn install<F>(
     options: &InstallOptions,
     version: &str,
-    progress: F,
-) -> Result<InstallResult, String> {
+    mut progress: F,
+) -> Result<InstallResult, String>
+where
+    F: FnMut(ProgressEvent) + Send,
+{
     let source = payload_dir()
         .ok_or("payload nicht gefunden — bitte zuerst den linux-unpacked-build ausführen")?;
     let install_dir = if options.install_dir.is_empty() {
@@ -363,21 +367,35 @@ pub fn install<F: Fn(ProgressEvent)>(
         return Err(format!("payload binary fehlt in {}", source.display()));
     }
 
-    progress(ProgressEvent { step: "preparing-folder".into(), percent: 8 });
+    progress(ProgressEvent { step: "preparing-folder".into(), percent: 5 });
     std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
 
-    progress(ProgressEvent { step: "copying-files".into(), percent: 20 });
+    progress(ProgressEvent { step: "copying-files".into(), percent: 12 });
     copy_dir(&source, &install_dir).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "applying-options".into(), percent: 78 });
+    progress(ProgressEvent { step: "applying-options".into(), percent: 30 });
     apply_options(options, &install_dir).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 92 });
+    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 38 });
     write_uninstaller(&install_dir).map_err(|e| e.to_string())?;
     write_manifest(&install_dir, version).map_err(|e| e.to_string())?;
 
+    progress(ProgressEvent { step: "downloading-models".into(), percent: 40 });
+    let downloaded = match super::download_all(&install_dir, options.tier, |ev| {
+        let scaled = 40 + (ev.percent as u64 * 55 / 100) as u32;
+        progress(ProgressEvent { step: ev.step, percent: scaled });
+    })
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            let _ = super::cleanup_partials(&install_dir).await;
+            return Err(e);
+        }
+    };
+
     progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
-    super::write_tier_marker(&install_dir, options, version)
+    super::write_tier_marker(&install_dir, options, version, &downloaded)
         .map_err(|e| format!("tier-marker write failed : {}", e))?;
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });

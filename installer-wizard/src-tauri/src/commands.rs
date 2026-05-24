@@ -47,16 +47,14 @@ pub async fn install(
     options: InstallOptions,
 ) -> Result<InstallResult, String> {
     let version = app.package_info().version.to_string();
-    let emit_window = window.clone();
-    // Move heavy install work to a blocking thread — robocopy + reg.exe
-    // calls would otherwise stall Tauri's UI thread for several seconds.
-    tokio::task::spawn_blocking(move || {
-        installer::install(&options, &version, |progress: ProgressEvent| {
-            let _ = emit_window.emit("installer:progress", progress);
-        })
+    // Now async end-to-end : the model download phase is naturally async ,
+    // sync sub-calls ( robocopy , reg.exe , powershell .lnk creation ) run
+    // briefly on tokio's multi-thread runtime so the UI stays responsive.
+    let emit_window = window;
+    installer::install(&options, &version, move |progress: ProgressEvent| {
+        let _ = emit_window.emit("installer:progress", progress);
     })
     .await
-    .map_err(|e| format!("install task panicked : {}", e))?
 }
 
 #[tauri::command]
