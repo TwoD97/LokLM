@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 
-export type Tier = 'light' | 'normal' | 'pro'
+export type Tier = 'lite' | 'standard' | 'pro'
 
 export interface ModelManifestEntry {
   id: string
@@ -116,7 +116,7 @@ export function readTierMarker(): TierMarker | null {
 }
 
 function isValidTier(v: unknown): v is Tier {
-  return v === 'light' || v === 'normal' || v === 'pro'
+  return v === 'lite' || v === 'standard' || v === 'pro'
 }
 
 /**

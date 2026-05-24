@@ -37,7 +37,7 @@ pub struct InstallOptions {
 }
 
 fn default_tier() -> Tier {
-    Tier::Normal
+    Tier::Standard
 }
 
 // ---- Tier marker --------------------------------------------------------
