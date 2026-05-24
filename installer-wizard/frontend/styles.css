@@ -695,3 +695,163 @@ body.is-booted .boot-splash {
 .btn-secondary:not(:disabled):hover {
   border-color: rgba(125, 211, 252, 0.52);
 }
+
+/* ------ hardware page : probe summary + tier picker ------- */
+
+.page-copy {
+  margin: 0 0 1.2rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.hardware-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(11, 27, 43, 0.5);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.hardware-summary__probing {
+  margin: 0;
+  font-style: italic;
+  color: var(--muted-2);
+}
+
+.hardware-summary__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.hardware-summary__label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  color: var(--muted-2);
+}
+
+.hardware-summary__value {
+  color: var(--fg);
+}
+
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 0;
+}
+
+.tier-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(11, 27, 43, 0.55);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
+  position: relative;
+}
+
+.tier-card input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tier-card:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+  background: rgba(13, 33, 54, 0.7);
+}
+
+.tier-card.is-selected {
+  border-color: var(--accent-2);
+  background: rgba(15, 41, 67, 0.85);
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.45);
+}
+
+.tier-card.is-recommended:not(.is-selected) {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.tier-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tier-card__title {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.tier-card__badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.tier-card__subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tier-card__model {
+  margin: 0.3rem 0 0;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  color: var(--accent-2);
+  letter-spacing: 0.01em;
+}
+
+.tier-card__stats {
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.tier-card__body {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .tier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------ install page : per-file download progress ------- */
+
+.progress-model {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted-2);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}

@@ -6,92 +6,126 @@
     "the main app ( TS , src/main/services/tier/manifest.ts ). One source of truth ;",
     "both sides include this file at compile / build time.",
     "",
-    "sha256 = null means 'size-only verification'. Populate per-file SHA256 before",
-    "the v0.3.0 release by running a one-time script that downloads each file and",
-    "computes the hash ( or fetches it from HuggingFace's LFS metadata API ). See",
-    "T2.5 in the plan-doc for the ops checklist.",
+    "URLs point at HF Buckets in the LokLM org ( huggingface.co/buckets/LokLM/... ).",
+    "Bucket URL format : /buckets/<org>/<bucket>/resolve/<file>?download=true —",
+    "no /main/ branch segment ( unlike regular HF model repos ). We mirror upstream",
+    "into our own buckets so upstream renames / re-quantizations / takedowns can't",
+    "break installs. Original sources kept here for traceability :",
+    "  - unsloth/Qwen3.5-{2,4,9}B-GGUF                     ( the Qwen3.5 LLM family )",
+    "  - lm-kit/bge-m3-gguf                                ( embedder )",
+    "  - gpustack/bge-reranker-v2-m3-GGUF                  ( reranker )",
     "",
-    "sizeBytes is an estimate ; the downloader uses Content-Length at runtime for",
-    "the actual progress bar. The estimate just lets the wizard UI show a total",
-    "before the request fires."
+    "Pro LLM note : bucket is named '-MTP-' ( multi-token prediction variant from",
+    "Alibaba ) but the filename inside is plain Qwen3.5-9B-Q4_K_M.gguf — Unsloth",
+    "doesn't differentiate filenames between MTP and non-MTP repos , MTP heads are",
+    "extra tensors in the same file. Compat check : verify node-llama-cpp's vendored",
+    "llama.cpp build understands MTP heads before v0.3.0 release ( if not , file",
+    "loads but the MTP speedup is silent-no-op ; if loader strictly validates , the",
+    "load fails and we'd swap to the plain Qwen3.5-9B-GGUF bucket ).",
+    "",
+    "sha256 = null means 'size-only verification' ( ±5% tolerance in models.rs ).",
+    "Since we own the buckets and files are immutable once pushed , size-only is",
+    "acceptable for v0.3.0.",
+    "",
+    "xetHash = the X-Xet-Hash content hash that HF Buckets serve in the response",
+    "headers ( 64 hex chars = 256 bits ). VERIFIED 2026-05-24 against sha256sum of",
+    "the downloaded bge-m3 file : xetHash ≠ SHA256. Xet uses its own content-",
+    "addressed-storage algorithm ( BLAKE3-flavoured ) , not SHA256. The field is",
+    "kept as opaque telemetry / source-of-truth for the bucket-side content version",
+    "but the Rust downloader ignores it ( serde permits unknown fields ). Real",
+    "SHA256s require downloading each file ; bge-m3 was done as the verification ,",
+    "the other four LLM SHAs can be backfilled by downloading + computing once.",
+    "",
+    "sizeBytes is the actual on-disk size from the HF Buckets' X-Linked-Size header",
+    "( fetched 2026-05-24 ) — accurate to the byte. The downloader still uses",
+    "Content-Length at runtime as the authority ; this field drives the wizard UI's",
+    "before-the-fact 'total to download' estimate."
   ],
   "tiers": {
     "lite": {
-      "totalSizeBytes": 2415919104,
+      "totalSizeBytes": 1718614432,
       "models": [
         {
           "id": "Qwen_Qwen3.5-2B-Q4_K_M",
           "role": "llm",
           "filename": "Qwen3.5-2B-Q4_K_M.gguf",
-          "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-2B-GGUF-bucket/resolve/Qwen3.5-2B-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "sizeBytes": 1610612736
+          "xetHash": "125b05d833c1decf4fb55f5f12e97737245cab9711841fc4cdbcd3afcfd39aae",
+          "sizeBytes": 1280835840
         },
         {
           "id": "bge-m3-Q4_K_M",
           "role": "embedder",
           "filename": "bge-m3-Q4_K_M.gguf",
-          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
-          "sha256": null,
-          "sizeBytes": 805306368
+          "url": "https://huggingface.co/buckets/LokLM/bge-m3-gguf-bucket/resolve/bge-m3-Q4_K_M.gguf?download=true",
+          "sha256": "e251234fcb7d050991a6be491952f485bf5c641dd10c3272dc1301fd281ad50f",
+          "xetHash": "ab2c4ea5a70121198f17b94bc81ae8d9b7983fb1e6d9a8a2d16520b8c54d93a7",
+          "sizeBytes": 437778592
         }
       ]
     },
     "standard": {
-      "totalSizeBytes": 4242538496,
+      "totalSizeBytes": 3617093344,
       "models": [
         {
           "id": "Qwen_Qwen3.5-4B-Q4_K_M",
           "role": "llm",
           "filename": "Qwen3.5-4B-Q4_K_M.gguf",
-          "url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-4B-GGUF-bucket/resolve/Qwen3.5-4B-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "sizeBytes": 3006477107
+          "xetHash": "1d203c2196991da08bc5b191ab4727516f476f3167e3276f75a0c5257493aadb",
+          "sizeBytes": 2740937888
         },
         {
           "id": "bge-m3-Q4_K_M",
           "role": "embedder",
           "filename": "bge-m3-Q4_K_M.gguf",
-          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
-          "sha256": null,
-          "sizeBytes": 805306368
+          "url": "https://huggingface.co/buckets/LokLM/bge-m3-gguf-bucket/resolve/bge-m3-Q4_K_M.gguf?download=true",
+          "sha256": "e251234fcb7d050991a6be491952f485bf5c641dd10c3272dc1301fd281ad50f",
+          "xetHash": "ab2c4ea5a70121198f17b94bc81ae8d9b7983fb1e6d9a8a2d16520b8c54d93a7",
+          "sizeBytes": 437778592
         },
         {
           "id": "bge-reranker-v2-m3-Q4_K_M",
           "role": "reranker",
           "filename": "bge-reranker-v2-m3-Q4_K_M.gguf",
-          "url": "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/bge-reranker-v2-m3-GGUF-bucket/resolve/bge-reranker-v2-m3-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "sizeBytes": 429496729
+          "xetHash": "56de03268bcd7bad34e7e5729f40939c6f14a91362f4b936891e850e60bfede5",
+          "sizeBytes": 438376864
         }
       ]
     },
     "pro": {
-      "totalSizeBytes": 7354131251,
+      "totalSizeBytes": 6744982432,
       "models": [
         {
-          "id": "Qwen_Qwen3.5-9B-Q4_K_M",
+          "id": "Qwen_Qwen3.5-9B-MTP-Q4_K_M",
           "role": "llm",
           "filename": "Qwen3.5-9B-Q4_K_M.gguf",
-          "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-9B-MTP-GGUF-bucket/resolve/Qwen3.5-9B-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "sizeBytes": 6120328153
+          "xetHash": "859abc00f2e405c4a9e9c5f6c5c1a909c07cc4240ddb9097be2d5a83597143ce",
+          "sizeBytes": 5868826976
         },
         {
           "id": "bge-m3-Q4_K_M",
           "role": "embedder",
           "filename": "bge-m3-Q4_K_M.gguf",
-          "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q4_K_M.gguf",
-          "sha256": null,
-          "sizeBytes": 805306368
+          "url": "https://huggingface.co/buckets/LokLM/bge-m3-gguf-bucket/resolve/bge-m3-Q4_K_M.gguf?download=true",
+          "sha256": "e251234fcb7d050991a6be491952f485bf5c641dd10c3272dc1301fd281ad50f",
+          "xetHash": "ab2c4ea5a70121198f17b94bc81ae8d9b7983fb1e6d9a8a2d16520b8c54d93a7",
+          "sizeBytes": 437778592
         },
         {
           "id": "bge-reranker-v2-m3-Q4_K_M",
           "role": "reranker",
           "filename": "bge-reranker-v2-m3-Q4_K_M.gguf",
-          "url": "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/bge-reranker-v2-m3-GGUF-bucket/resolve/bge-reranker-v2-m3-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "sizeBytes": 429496729
+          "xetHash": "56de03268bcd7bad34e7e5729f40939c6f14a91362f4b936891e850e60bfede5",
+          "sizeBytes": 438376864
         }
       ]
     }

@@ -1,7 +1,7 @@
 const i18n = window.LokLMI18n.createI18n('de')
 const t = (key, vars) => i18n.t(key, vars)
 
-const pages = ['welcome', 'license', 'options', 'install', 'finish']
+const pages = ['welcome', 'license', 'hardware', 'options', 'install', 'finish']
 let pageIndex = 0
 let installResult = null
 let isInstalling = false
@@ -19,6 +19,20 @@ let installerState = {
   existingInstallDir: null,
 }
 
+// Hardware-page state. probe runs once ( cached for the whole session ) when
+// the user lands on the hardware page ; result drives the recommended-badge
+// + auto-selects that tier. User can override before clicking Next.
+let hardwareProfile = null
+let hardwareProbePromise = null
+let hardwareProbeFailed = false
+// Default to standard so the install flow has a sane tier even before the
+// user opens the hardware page ( edge-case : Next-spammed past it ).
+let selectedTier = 'standard'
+
+// Per-file download state — updated by every model-progress event so the
+// install page can show which model is currently downloading.
+let activeDownload = { id: null, label: null, kind: null }
+
 const els = {
   back: document.getElementById('back'),
   next: document.getElementById('next'),
@@ -26,6 +40,9 @@ const els = {
   licenseAccept: document.getElementById('license-accept'),
   licenseAcceptRow: document.getElementById('license-accept-row'),
   licenseScrollHint: document.getElementById('license-scroll-hint'),
+  hardwareSummary: document.getElementById('hardware-summary'),
+  tierCards: Array.from(document.querySelectorAll('.tier-card')),
+  tierRadios: Array.from(document.querySelectorAll('input[name="tier"]')),
   installDir: document.getElementById('install-dir'),
   installDirHint: document.getElementById('install-dir-hint'),
   chooseDir: document.getElementById('choose-dir'),
@@ -35,6 +52,7 @@ const els = {
   installSummary: document.getElementById('install-summary'),
   progressFill: document.getElementById('progress-fill'),
   progressLabel: document.getElementById('progress-label'),
+  progressModel: document.getElementById('progress-model'),
   installError: document.getElementById('install-error'),
   finishDir: document.getElementById('finish-dir'),
   finishShortcuts: document.getElementById('finish-shortcuts'),
@@ -55,6 +73,12 @@ function options() {
     createDesktopShortcut: els.desktopShortcut.checked,
     createStartMenuShortcut: els.startMenuShortcut.checked,
     enableAutostart: els.autostart.checked,
+    tier: selectedTier,
+    // Snapshot of what probe_hardware returned. Persisted into the tier-
+    // marker as forensic context ( "this machine looked like X when the
+    // user installed" ) ; the recommendation algorithm runs server-side
+    // in Rust so we just pass through what we received.
+    hardwareSnapshot: hardwareProfile,
   }
 }
 
@@ -67,9 +91,57 @@ function applyStaticTranslations() {
   }
 }
 
+// Steps that come from the Rust download phase ( models.rs ) are encoded
+// as "<event>:<model-id>" — e.g. "model-progress:Qwen_Qwen3.5-4B-Q4_K_M".
+// We split on the first colon : prefix is the event type ( looked up in
+// i18n.progress.* with model={name} interpolation ) , suffix is the model
+// id which we munge into a friendly display name.
+const MODEL_EVENTS = new Set(['model-start', 'model-progress', 'model-done', 'model-skip'])
+
+function friendlyModelName(id) {
+  // "Qwen_Qwen3.5-4B-Q4_K_M" → "Qwen3.5-4B" ( drop vendor prefix + quant ).
+  // "bge-m3-Q4_K_M" → "bge-m3". "bge-reranker-v2-m3-Q4_K_M" → "bge-reranker-v2-m3".
+  return id
+    .replace(/^Qwen_/, '')
+    .replace(/-(Q\d[\w_]+|IQ\d_\w+|UD-Q\d[\w_]+|MTP-Q\d[\w_]+)$/, '')
+}
+
 function setProgress(key, percent) {
   progressState = { key, percent }
   els.progressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`
+
+  // Per-file download events : route to the active-download sub-label and
+  // pick a generic top-level label so the user sees "Modelle werden geladen"
+  // up top + "Lade Qwen3.5-4B … 35%" underneath.
+  if (key.includes(':')) {
+    const [event, modelId] = key.split(':', 2)
+    if (MODEL_EVENTS.has(event)) {
+      const name = friendlyModelName(modelId)
+      activeDownload = { id: modelId, label: name, kind: event }
+      els.progressLabel.textContent = t('progress.downloading-models')
+      const subKey =
+        event === 'model-start'
+          ? 'progress.modelStart'
+          : event === 'model-done'
+            ? 'progress.modelDone'
+            : event === 'model-skip'
+              ? 'progress.modelSkip'
+              : 'progress.modelProgress'
+      els.progressModel.textContent = t(subKey, {
+        model: name,
+        done: `${percent}%`,
+        total: '100%',
+      })
+      els.progressModel.hidden = false
+      return
+    }
+  }
+
+  // Non-model step ( prepare , copy , registry , done ) : clear the per-file
+  // sub-label so the user doesn't see stale "Lade …" text after the download
+  // phase finishes.
+  activeDownload = { id: null, label: null, kind: null }
+  els.progressModel.hidden = true
   els.progressLabel.textContent = key.includes('.') ? t(key) : t(`progress.${key}`)
 }
 
@@ -89,6 +161,104 @@ function renderSummary() {
     current.enableAutostart ? t('install.summaryAutostartOn') : t('install.summaryAutostartOff'),
   )
   els.installSummary.textContent = parts.join(' ')
+}
+
+// ---- Hardware page : probe + tier picker ---------------------------------
+
+function formatGiB(bytes) {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return '?'
+  const gib = bytes / (1024 * 1024 * 1024)
+  return gib >= 10 ? gib.toFixed(0) : gib.toFixed(1)
+}
+
+function renderHardwareSummary() {
+  if (hardwareProbeFailed) {
+    els.hardwareSummary.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'hardware-summary__probing'
+    p.textContent = t('hardware.probeFailed')
+    els.hardwareSummary.appendChild(p)
+    return
+  }
+  if (!hardwareProfile) {
+    els.hardwareSummary.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'hardware-summary__probing'
+    p.textContent = t('hardware.probing')
+    els.hardwareSummary.appendChild(p)
+    return
+  }
+
+  const items = []
+  if (hardwareProfile.gpuName) {
+    const vram = hardwareProfile.gpuVramBytes
+      ? ` , ${formatGiB(hardwareProfile.gpuVramBytes)} GiB ${t('hardware.vramSuffix')}`
+      : ''
+    items.push({ label: t('hardware.gpu'), value: `${hardwareProfile.gpuName}${vram}` })
+  } else {
+    items.push({ label: t('hardware.gpu'), value: t('hardware.noGpu') })
+  }
+  if (hardwareProfile.cpuBrand) {
+    const threads = hardwareProfile.cpuThreads
+      ? ` , ${hardwareProfile.cpuThreads} ${t('hardware.threadsSuffix')}`
+      : ''
+    items.push({ label: t('hardware.cpu'), value: `${hardwareProfile.cpuBrand}${threads}` })
+  }
+  if (hardwareProfile.ramBytes) {
+    items.push({ label: t('hardware.ram'), value: `${formatGiB(hardwareProfile.ramBytes)} GiB` })
+  }
+
+  els.hardwareSummary.innerHTML = ''
+  for (const item of items) {
+    const wrap = document.createElement('p')
+    wrap.className = 'hardware-summary__item'
+    const label = document.createElement('span')
+    label.className = 'hardware-summary__label'
+    label.textContent = item.label
+    const value = document.createElement('span')
+    value.className = 'hardware-summary__value'
+    value.textContent = item.value
+    wrap.appendChild(label)
+    wrap.appendChild(value)
+    els.hardwareSummary.appendChild(wrap)
+  }
+}
+
+function renderTierCards() {
+  const recommended = hardwareProfile?.recommendedTier ?? null
+  for (const card of els.tierCards) {
+    const tier = card.dataset.tier
+    card.classList.toggle('is-selected', tier === selectedTier)
+    card.classList.toggle('is-recommended', tier === recommended)
+    const badge = card.querySelector('.tier-card__badge')
+    if (badge) badge.hidden = tier !== recommended
+    const radio = card.querySelector('input[type="radio"]')
+    if (radio) radio.checked = tier === selectedTier
+  }
+}
+
+// One-shot probe per session — first navigation to the hardware page kicks
+// it off ; subsequent visits reuse the cached result. ~200-500 ms cost the
+// first time ( wgpu driver init ) so the splash is genuinely informative.
+function startHardwareProbe() {
+  if (hardwareProbePromise || hardwareProfile || hardwareProbeFailed) return
+  hardwareProbePromise = window.installer
+    .probeHardware()
+    .then((profile) => {
+      hardwareProfile = profile
+      // Auto-select the recommended tier ( user can still override ). Honour
+      // an earlier manual pick if the user clicked a card before the probe
+      // resolved — selectedTier was already set in that case.
+      if (profile?.recommendedTier && selectedTier === 'standard') {
+        selectedTier = profile.recommendedTier
+      }
+      render()
+    })
+    .catch((err) => {
+      console.error('[wizard] hardware probe failed', err)
+      hardwareProbeFailed = true
+      render()
+    })
 }
 
 function renderInstallDirHint() {
@@ -178,6 +348,11 @@ function render() {
 
   applyLicenseBodyText()
   applyLicenseAcceptLock()
+  if (active === 'hardware') {
+    startHardwareProbe()
+    renderHardwareSummary()
+    renderTierCards()
+  }
   if (active === 'install') renderSummary()
   if (active === 'finish') renderFinish()
   renderInstallDirHint()
@@ -189,6 +364,10 @@ function render() {
   els.next.disabled =
     isInstalling ||
     (active === 'license' && !els.licenseAccept.checked) ||
+    // Hardware page : block Next until we have a result ( so we don't ship
+    // a probe-less hardwareSnapshot ) OR the probe failed ( then user picks
+    // manually , selectedTier is always set ).
+    (active === 'hardware' && !hardwareProfile && !hardwareProbeFailed) ||
     (active === 'options' && !els.installDir.value.trim()) ||
     (active === 'install' && !installerState.payloadReady)
 
@@ -275,6 +454,15 @@ els.licenseAccept.addEventListener('change', render)
 els.desktopShortcut.addEventListener('change', render)
 els.startMenuShortcut.addEventListener('change', render)
 els.autostart.addEventListener('change', render)
+
+for (const radio of els.tierRadios) {
+  radio.addEventListener('change', () => {
+    if (radio.checked) {
+      selectedTier = radio.value
+      render()
+    }
+  })
+}
 
 els.licenseBody.addEventListener('scroll', () => {
   if (licenseScrolled) return
