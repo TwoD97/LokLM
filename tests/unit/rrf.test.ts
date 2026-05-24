@@ -13,6 +13,7 @@ function hit(chunkId: number, score: number, docId = 1): SearchHit {
     heading_path: null,
     text: `chunk ${chunkId}`,
     score,
+    language: null,
   }
 }
 

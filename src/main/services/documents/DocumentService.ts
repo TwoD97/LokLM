@@ -10,7 +10,13 @@ import type { ProviderRegistry } from '../providers/Registry'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
-import { chunkPages, chunkMarkdown, tagChunksWithSections, type Chunk } from './chunker'
+import {
+  chunkPages,
+  chunkMarkdown,
+  tagChunksWithSections,
+  tagChunkLanguages,
+  type Chunk,
+} from './chunker'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
@@ -290,6 +296,10 @@ export class DocumentService {
         } else {
           out = chunkPages(parsed.pages, chunkOpts)
         }
+        // Mirror the worker path's language tagging so unit tests + degraded
+        // (no-worker) ingest still populate chunks.language and the prompt
+        // formatter gets the cross-language hint either way.
+        out = await tagChunkLanguages(out)
       }
 
       // Embed first, persist second. Order matters: we need the chunk text
@@ -335,6 +345,7 @@ export class DocumentService {
           pageTo: c.pageTo,
           tokenCount: estimateTokens(c.text),
           headingPath: c.headingPath,
+          language: c.language,
         })),
       )
       if (vectors && activeIdentity) {

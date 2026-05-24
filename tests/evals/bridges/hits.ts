@@ -25,6 +25,7 @@ export function evalChunksToHits(
     text: c.text,
     score: c.score,
     origin: 'primary' as const,
+    language: null,
   }))
 }
 

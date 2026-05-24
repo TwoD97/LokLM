@@ -109,8 +109,12 @@ export const chunks = pgTable(
     headingPath: jsonb('heading_path').$type<string[]>(),
     embedding: vector('embedding', { dimensions: 1024 }),
     embedderIdentity: text('embedder_identity').notNull().default('bundled:bge-m3'),
-    // text_search column removed in mig 0006 ; the GIN index now keys off the
-    // expression (setweight(to_tsvector('german', text), 'A') || …) directly.
+    // Per-chunk detected language from eld (mig 0007). Values: 'de' | 'en' |
+    // 'other'. Nullable for legacy rows ingested before detection was wired —
+    // the prompt formatter treats NULL as "unknown" and omits the cross-language
+    // header tag rather than guessing. text_search column removed in mig 0006 ;
+    // the GIN index now keys off the expression directly.
+    language: text('language').$type<'de' | 'en' | 'other'>(),
   },
   (t) => ({
     idxDocument: index('idx_chunks_document').on(t.documentId),

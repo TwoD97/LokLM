@@ -107,7 +107,14 @@ export class QAService {
     // ---- 1. retrieve ----
     let hits: RetrievalHit[] = []
     try {
-      const searchOpts: Parameters<RetrievalService['search']>[3] = { onStage: emitStage }
+      const searchOpts: Parameters<RetrievalService['search']>[3] = {
+        onStage: emitStage,
+        // Hands RetrievalService the response language so applyLanguageMatchBoost
+        // can favour matching-language chunks at rank time (mig 0007 / eld).
+        // Computed via opts.language ?? detectLanguage(query) up at line 62 so
+        // retrieval and the LLM agree on the target language.
+        responseLanguage: language,
+      }
       if (opts.rerank !== undefined) searchOpts.rerank = opts.rerank
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
       if (opts.activeDocumentIds !== undefined)

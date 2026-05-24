@@ -85,7 +85,12 @@ import type {
   ParseAndChunkResult,
 } from './protocol'
 import { parseFile } from '../documents/parser'
-import { chunkMarkdown, chunkPages, tagChunksWithSections } from '../documents/chunker'
+import {
+  chunkMarkdown,
+  chunkPages,
+  tagChunksWithSections,
+  tagChunkLanguages,
+} from '../documents/chunker'
 
 // utilityProcess provides process.parentPort with postMessage / on('message').
 declare const process: NodeJS.Process & {
@@ -743,6 +748,10 @@ async function parseAndChunk(payload: ParseAndChunkPayload): Promise<ParseAndChu
   } else {
     chunks = chunkPages(parsed.pages, opts)
   }
+  // Run eld AFTER section tagging so language detection sees the final chunk
+  // text (heading prefixes included) — the prefix is part of what the LLM
+  // will read at retrieval time so it shouldn't bias the detector.
+  chunks = await tagChunkLanguages(chunks)
   return { chunks }
 }
 

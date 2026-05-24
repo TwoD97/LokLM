@@ -175,6 +175,7 @@ describe('tagChunksWithSections', () => {
       pageFrom: p,
       pageTo: p,
       headingPath: null,
+      language: null,
     }))
 
   it('returns chunks unchanged when sections is empty', () => {
@@ -203,7 +204,16 @@ describe('tagChunksWithSections', () => {
   it('leaves headingPath null for chunks without a pageFrom (markdown leftovers)', () => {
     const sections: PdfSection[] = [{ headingPath: ['X'], pageStart: 1 }]
     const out = tagChunksWithSections(
-      [{ text: 'no page', ordinal: 0, pageFrom: null, pageTo: null, headingPath: null }],
+      [
+        {
+          text: 'no page',
+          ordinal: 0,
+          pageFrom: null,
+          pageTo: null,
+          headingPath: null,
+          language: null,
+        },
+      ],
       sections,
     )
     expect(out[0]!.headingPath).toBeNull()

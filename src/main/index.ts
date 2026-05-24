@@ -854,6 +854,7 @@ function registerIpc(): void {
       pageFrom: row.page_from,
       pageTo: row.page_to,
       headingPath: row.heading_path,
+      language: row.language,
     }))
   })
 

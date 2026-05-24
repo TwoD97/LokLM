@@ -14,6 +14,7 @@ function makeChunk(id: number, text: string): ChunkRow {
     page_from: null,
     page_to: null,
     heading_path: null,
+    language: null,
   }
 }
 

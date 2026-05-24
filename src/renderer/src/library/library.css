@@ -19,6 +19,25 @@
   border-radius: 999px;
   background: #1f2a3a;
 }
+/* per-document language pill (mig 0007 / eld aggregate). Subtle by design —
+   it's metadata, not a status; the user shouldn't be drawn to it the way
+   they're drawn to a failed-status row. */
+.library__lang-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+  border-radius: 3px;
+  background: #1a2433;
+  color: #7e8fa5;
+  vertical-align: middle;
+}
+.library__lang-badge--mixed {
+  color: #9c8a6e;
+}
 .library__status--ready {
   background: #14502b;
 }

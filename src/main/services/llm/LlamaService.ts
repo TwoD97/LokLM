@@ -522,7 +522,7 @@ export class LlamaService {
       detector.reset()
       accumulated = ''
       loopAborted = false
-      const promptBody = buildPrompt(question, hits, history)
+      const promptBody = buildPrompt(question, hits, history, this.language)
       const { raw } = await client.llmAsk({ streamId, question, prompt: promptBody, maxTokens })
       if (opts.onChunk) {
         const tail = filter.flush()
