@@ -1,6 +1,6 @@
 [package]
 name = "loklm-installer"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2021"
 description = "LokLM Installer ( Tauri-based wizard )"
 authors = ["Projektgruppe LokLM ( Denys Tudosa , Dominik Furlan )"]
