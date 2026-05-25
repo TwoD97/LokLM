@@ -175,3 +175,4 @@ release
 resources/installer-splash.bmp
 resources/installer-splash.gif
 resources/installer-splash.png
+installer-wizard/.nsis-portable/

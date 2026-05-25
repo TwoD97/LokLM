@@ -147,6 +147,7 @@
         modelProgress: 'Lade {model} … {done} / {total}',
         modelDone: '{model} fertig',
         modelSkip: '{model} ist bereits da , wird übersprungen',
+        modelRetry: 'Verbindung unterbrochen — versuche {model} erneut …',
       },
       shortcutNames: {
         desktop: 'Desktop',
@@ -287,6 +288,7 @@
         modelProgress: 'Downloading {model} … {done} / {total}',
         modelDone: '{model} done',
         modelSkip: '{model} already present , skipping',
+        modelRetry: 'Connection dropped — retrying {model} …',
       },
       shortcutNames: {
         desktop: 'Desktop',

@@ -37,17 +37,23 @@ SetCompressor /SOLID zlib
 !ifndef ICON_PATH
   !error "ICON_PATH not defined"
 !endif
+!ifndef LICENSE_PATH
+  !error "LICENSE_PATH not defined ( path to repo LICENSE — wizard's get_license reads it at runtime )"
+!endif
 
 Name "LokLM Installer"
 OutFile "${OUTPUT_FILE}"
 Icon "${ICON_PATH}"
-RequestExecutionLevel user
-; Windows AppCompat auto-elevates any binary whose filename matches
-; installer heuristics ( "setup" , "install" , "update" ) UNLESS the
-; manifest is "complete" enough for Windows to trust it. RequestExecution-
-; Level user alone embeds only the security part ; we also need the
-; supportedOS + DPI declarations so Windows treats the manifest as
-; modern and skips the elevation shim.
+; v0.2.7 : `RequestExecutionLevel admin` is the right call here. We tried
+; `user` ( asInvoker manifest ) on Win11 25H2 , but Explorer's AppCompat
+; pre-launch shim silently refuses to launch any 500+ MB NSIS-pattern
+; self-extractor without elevation , regardless of manifest content.
+; Result : double-click → nothing happens. Switching to `admin` makes
+; Windows show a UAC prompt immediately ( consistent UX with v0.2.6 ) ,
+; the user clicks Yes , installer runs. The wizard inside still drops
+; elevation when launching the installed app via the explorer.exe
+; trampoline in installer/windows.rs ( same fix as v0.2.6 ).
+RequestExecutionLevel admin
 ManifestSupportedOS all
 ManifestDPIAware true
 SilentInstall silent
@@ -65,11 +71,15 @@ VIAddVersionKey "LegalCopyright" "Projektgruppe LokLM"
 Section "Main" SecMain
   RMDir /r "$INSTDIR"
 
-  ; Extract wizard binary ( ~2.8 MB ) and LokLM payload ( ~1.2 GB ) as
-  ; two sibling folders. The wizard's payload_dir() in installer.rs
-  ; resolves the payload via ../win-unpacked relative to its own exe.
+  ; Extract wizard binary ( ~2.8 MB ) , its LICENSE ( ~1 KB , read by
+  ; the wizard's get_license at runtime ) , and the LokLM payload
+  ; ( ~1.2 GB ) as two sibling folders ( installer/ and win-unpacked/ ).
+  ; The wizard's payload_dir() in installer.rs resolves the payload via
+  ; ../win-unpacked relative to its own exe ; license_file_path() finds
+  ; LICENSE alongside the exe.
   SetOutPath "$INSTDIR\installer"
   File "/oname=$INSTDIR\installer\loklm-installer.exe" "${WIZARD_EXE}"
+  File "/oname=$INSTDIR\installer\LICENSE" "${LICENSE_PATH}"
   SetOutPath "$INSTDIR\win-unpacked"
   File /r "${PAYLOAD_DIR}\*"
 

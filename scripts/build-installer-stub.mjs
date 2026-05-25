@@ -27,6 +27,22 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
 async function findMakensis() {
+  // 1. Repo-portable NSIS first ( installer-wizard/.nsis-portable/ ).
+  //    Pinned to 3.11+ because the electron-builder cache ships NSIS 3.0.4
+  //    ( from 2017 ) whose generated manifest still trips Windows 11 25H2's
+  //    AppCompat installer-detection heuristic , forcing UAC even with
+  //    RequestExecutionLevel=user. NSIS 3.11's manifest format passes
+  //    cleanly. To refresh : download nsis-X.Y.zip from sourceforge into
+  //    installer-wizard/.nsis-portable/ and unzip.
+  const portableRoot = join(ROOT, 'installer-wizard', '.nsis-portable')
+  if (existsSync(portableRoot)) {
+    for (const entry of await readdir(portableRoot)) {
+      const candidate = join(portableRoot, entry, 'Bin', 'makensis.exe')
+      if (existsSync(candidate)) return candidate
+    }
+  }
+
+  // 2. System PATH.
   try {
     await execFileAsync('makensis', ['/VERSION'], { windowsHide: true })
     return 'makensis'
@@ -34,6 +50,16 @@ async function findMakensis() {
     // fall through
   }
 
+  // 3. System install dirs ( Chocolatey , standalone installer ).
+  for (const p of [
+    'C:\\Program Files (x86)\\NSIS\\makensis.exe',
+    'C:\\Program Files\\NSIS\\makensis.exe',
+  ]) {
+    if (existsSync(p)) return p
+  }
+
+  // 4. electron-builder cache ( last resort — likely OLD NSIS , may trip
+  //    Win11 AppCompat ; emit warning when this is the only candidate ).
   const cacheRoot = join(
     process.env.LOCALAPPDATA || join(process.env.USERPROFILE || '', 'AppData', 'Local'),
     'electron-builder',
@@ -43,21 +69,22 @@ async function findMakensis() {
   if (existsSync(cacheRoot)) {
     for (const entry of await readdir(cacheRoot)) {
       const candidate = join(cacheRoot, entry, 'Bin', 'makensis.exe')
-      if (existsSync(candidate)) return candidate
+      if (existsSync(candidate)) {
+        console.warn(
+          `WARNING : falling back to electron-builder's cached NSIS ( ${entry} ). ` +
+            `If the installer asks for admin on Win11 , download nsis-3.11.zip from ` +
+            `sourceforge into installer-wizard/.nsis-portable/ and re-run.`,
+        )
+        return candidate
+      }
     }
   }
 
-  for (const p of [
-    'C:\\Program Files (x86)\\NSIS\\makensis.exe',
-    'C:\\Program Files\\NSIS\\makensis.exe',
-  ]) {
-    if (existsSync(p)) return p
-  }
-
   throw new Error(
-    'makensis.exe not found. Run any electron-builder NSIS-target build once ' +
-      'to populate %LOCALAPPDATA%\\electron-builder\\Cache , or install NSIS ' +
-      'system-wide from https://nsis.sourceforge.io/',
+    'makensis.exe not found. Either : (a) drop nsis-3.11.zip into installer-wizard/.nsis-portable/ , ' +
+      ' (b) install NSIS 3.11 system-wide from https://nsis.sourceforge.io/ , or ' +
+      ' (c) run any electron-builder NSIS-target build once to populate %LOCALAPPDATA%\\electron-builder\\Cache ' +
+      '( WARNING : cache ships OLD NSIS that trips Win11 AppCompat — option (a) preferred ).',
   )
 }
 
@@ -91,14 +118,21 @@ async function main() {
   // VS_VERSION_INFO via stub.nsi ( VIProductVersion + VIAddVersionKey
   // FileVersion / ProductVersion ). The URL path on Bunny still has the
   // version folder so we can roll back , but the filename inside is
-  // stable across releases.
+  // stable across releases ( matches the website's Download button URL ).
   const outputFile = join(ROOT, 'release', 'LokLM-Setup-win-x64.exe')
+
+  // Repo LICENSE goes into the NSIS bundle so the wizard's get_license
+  // command can read it at runtime ( extracted to $INSTDIR\installer\LICENSE
+  // alongside loklm-installer.exe — see stub.nsi for the layout ).
+  const licensePath = join(ROOT, 'LICENSE')
+  await requireFile(licensePath, 'LICENSE ( repo root )')
 
   const makensis = await findMakensis()
   console.log(`makensis : ${makensis}`)
   console.log(`wizard   : ${wizardExe}`)
   console.log(`payload  : ${payloadDir}`)
   console.log(`icon     : ${iconPath}`)
+  console.log(`license  : ${licensePath}`)
   console.log(`output   : ${outputFile}`)
   console.log('compiling NSIS stub ...')
 
@@ -107,6 +141,7 @@ async function main() {
     `/DWIZARD_EXE=${wizardExe}`,
     `/DPAYLOAD_DIR=${payloadDir}`,
     `/DICON_PATH=${iconPath}`,
+    `/DLICENSE_PATH=${licensePath}`,
     `/DOUTPUT_FILE=${outputFile}`,
     nsiScript,
   ]

@@ -311,10 +311,25 @@ fn apply_options(options: &InstallOptions, install_dir: &Path) -> std::io::Resul
 // ----------------------------------------------------------------
 
 fn copy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
-    // Wipe dest first so a re-install doesn't leave files from an older
-    // version sitting around alongside the new payload.
+    // Wipe stale payload files from any previous install , but PRESERVE the
+    // models/ dir ( multi-GB GGUFs the previous install downloaded ) and the
+    // loklm-tier.json marker. A blind remove_dir_all(dest) would nuke the
+    // models , then download_all re-fetches them for nothing — and the
+    // existing_complete() skip never gets a chance to fire.
     if dest.exists() {
-        std::fs::remove_dir_all(dest)?;
+        for entry in std::fs::read_dir(dest)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            if name == "models" || name == "loklm-tier.json" {
+                continue;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                std::fs::remove_dir_all(&path)?;
+            } else {
+                std::fs::remove_file(&path)?;
+            }
+        }
     }
     std::fs::create_dir_all(dest)?;
     // `cp -r source/. dest/` copies *contents* into dest ; without the

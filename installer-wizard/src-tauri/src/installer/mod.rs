@@ -27,15 +27,18 @@ pub struct InstallOptions {
     // v0.3.0+ : tier picked by the user on the hardware-check page.
     // Drives which model bundle the wizard downloads in phase 2 and is
     // persisted into the tier-marker JSON. Optional for backwards-compat
-    // with any caller that hasn't been updated yet ; defaults to Normal.
+    // with any caller that hasn't been updated yet ; defaults to Standard.
     #[serde(default = "default_tier")]
     pub tier: Tier,
     // Optional hardware snapshot collected by the renderer during the
     // hardware-check page. Persisted into the marker for support /
-    // debugging. If absent ( Phase 1 renderer not yet updated ) , the
-    // marker just omits the hardware field.
+    // debugging. Stored as raw serde_json::Value rather than a typed
+    // HardwareProfile so that ANY field-shape mismatch ( e.g. a number
+    // that lost precision crossing the JS-Rust JSON boundary , as happens
+    // when wgpu returns u64::MAX for max_buffer_size ) doesn't kill the
+    // entire install. The marker writer round-trips it as-is.
     #[serde(default)]
-    pub hardware_snapshot: Option<HardwareProfile>,
+    pub hardware_snapshot: Option<serde_json::Value>,
 }
 
 fn default_tier() -> Tier {
@@ -59,7 +62,7 @@ pub struct TierMarker<'a> {
     pub tier: Tier,
     pub installed_at: String,
     pub installer_version: &'a str,
-    pub hardware: Option<&'a HardwareProfile>,
+    pub hardware: Option<&'a serde_json::Value>,
     pub models: Vec<ModelManifestEntry>,
 }
 
