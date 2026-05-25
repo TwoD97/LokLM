@@ -175,19 +175,39 @@ where
             percent: scale_overall_percent(downloaded_far, bundle_total),
         });
 
-        let result = download_one(
-            &client,
-            entry,
-            &target,
-            |bytes_in_file| {
+        // Retry-with-resume : large GGUFs ( the 9B is ~5.5 GB ) regularly
+        // hit transient network errors ( S3 connection reset , "error
+        // decoding response body" , rate-limit blips ). Each retry re-enters
+        // download_one which resumes from the .partial via a Range request ,
+        // so we don't re-download what already landed. Hash / size mismatches
+        // are NOT retried — those are deterministic and won't self-heal.
+        const MAX_ATTEMPTS: u32 = 5;
+        let mut attempt = 0u32;
+        let result = loop {
+            attempt += 1;
+            match download_one(&client, entry, &target, |bytes_in_file| {
                 let overall = downloaded_far.saturating_add(bytes_in_file);
                 progress(ProgressEvent {
                     step: format!("model-progress:{}", entry.id),
                     percent: scale_overall_percent(overall, bundle_total),
                 });
-            },
-        )
-        .await?;
+            })
+            .await
+            {
+                Ok(r) => break Ok(r),
+                Err(e) if attempt < MAX_ATTEMPTS && is_retryable(&e) => {
+                    progress(ProgressEvent {
+                        step: format!("model-retry:{}", entry.id),
+                        percent: scale_overall_percent(downloaded_far, bundle_total),
+                    });
+                    // Linear backoff : 2s , 4s , 6s , 8s. HF's rate-limit
+                    // window is short enough that this clears most blips.
+                    tokio::time::sleep(std::time::Duration::from_secs(2 * attempt as u64)).await;
+                    continue;
+                }
+                Err(e) => break Err(e),
+            }
+        }?;
 
         downloaded_far = downloaded_far.saturating_add(entry.size_bytes);
         progress(ProgressEvent {
@@ -197,7 +217,31 @@ where
         results.push(result);
     }
 
+    // Prune : delete any *.gguf in models/ that the chosen tier doesn't
+    // need. Catches tier-switches on re-install ( e.g. Pro→Standard leaves
+    // the 9B behind because robocopy /XD preserves the whole dir ). Only
+    // touches .gguf files NOT in this tier's manifest ; never deletes the
+    // ones we just verified , never touches non-gguf files. Best-effort —
+    // a failed delete doesn't fail the install ( stale model = wasted disk ,
+    // not broken behavior ).
+    prune_stale_models(&models_dir, bundle).await;
+
     Ok(results)
+}
+
+async fn prune_stale_models(models_dir: &Path, bundle: &TierBundle) {
+    use std::collections::HashSet;
+    let keep: HashSet<&str> = bundle.models.iter().map(|m| m.filename.as_str()).collect();
+    let Ok(mut entries) = tokio::fs::read_dir(models_dir).await else {
+        return;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let is_gguf = name.to_ascii_lowercase().ends_with(".gguf");
+        if is_gguf && !keep.contains(name.as_str()) {
+            let _ = tokio::fs::remove_file(entry.path()).await;
+        }
+    }
 }
 
 // Sweep leftover .partial files from a previous failed install. Called by
@@ -219,6 +263,23 @@ pub async fn cleanup_partials(install_dir: &Path) -> std::io::Result<()> {
 }
 
 // --- Per-file download ---------------------------------------------------
+
+// Classify a download error as transient ( worth retrying ) vs terminal.
+// Verification failures ( sha256 / size mismatch ) are deterministic — the
+// server will keep serving the same bytes , so retrying is pointless and
+// would just loop. Everything else ( network resets , decode errors , 5xx ,
+// 429 rate-limits ) is transient.
+fn is_retryable(err: &str) -> bool {
+    let e = err.to_ascii_lowercase();
+    if e.contains("sha256 mismatch") || e.contains("size mismatch") {
+        return false;
+    }
+    // HTTP 4xx ( except 429 ) are client errors that won't self-heal.
+    if e.contains("http 4") && !e.contains("http 429") {
+        return false;
+    }
+    true
+}
 
 fn scale_overall_percent(done: u64, total: u64) -> u32 {
     if total == 0 {

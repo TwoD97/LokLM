@@ -96,7 +96,13 @@ function applyStaticTranslations() {
 // We split on the first colon : prefix is the event type ( looked up in
 // i18n.progress.* with model={name} interpolation ) , suffix is the model
 // id which we munge into a friendly display name.
-const MODEL_EVENTS = new Set(['model-start', 'model-progress', 'model-done', 'model-skip'])
+const MODEL_EVENTS = new Set([
+  'model-start',
+  'model-progress',
+  'model-done',
+  'model-skip',
+  'model-retry',
+])
 
 function friendlyModelName(id) {
   // "Qwen_Qwen3.5-4B-Q4_K_M" → "Qwen3.5-4B" ( drop vendor prefix + quant ).
@@ -126,7 +132,9 @@ function setProgress(key, percent) {
             ? 'progress.modelDone'
             : event === 'model-skip'
               ? 'progress.modelSkip'
-              : 'progress.modelProgress'
+              : event === 'model-retry'
+                ? 'progress.modelRetry'
+                : 'progress.modelProgress'
       els.progressModel.textContent = t(subKey, {
         model: name,
         done: `${percent}%`,

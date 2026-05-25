@@ -85,10 +85,21 @@ fn payload_dir() -> Option<PathBuf> {
 fn license_file_path() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let exe_dir = exe.parent()?;
+    // NSIS extracts LICENSE alongside the wizard exe ( stub.nsi puts it at
+    // $INSTDIR\installer\LICENSE — same layout as Linux's makeself stub ).
+    // The `resources/LICENSE` fallback is left for a hypothetical future
+    // where we switch back to tauri-bundler , which would put it there.
+    let alongside = exe_dir.join("LICENSE");
+    if alongside.exists() {
+        return Some(alongside);
+    }
     let resources = exe_dir.join("resources").join("LICENSE");
     if resources.exists() {
         return Some(resources);
     }
+    // Dev fallback : running the wizard out of cargo target , LICENSE
+    // lives at <repo>/LICENSE which is four parents up from
+    // installer-wizard/src-tauri/target/release/<exe>.
     let dev = exe_dir
         .join("..")
         .join("..")
@@ -376,14 +387,32 @@ fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
     let robocopy = std::env::var("SystemRoot")
         .map(|sr| PathBuf::from(sr).join("System32").join("robocopy.exe"))
         .unwrap_or_else(|_| PathBuf::from("robocopy.exe"));
+    // /MIR mirrors source→dest and PURGES anything in dest that's not in
+    // source. The payload ( win-unpacked ) has no models/ dir , so on a
+    // re-install /MIR would delete the GGUFs the previous install
+    // downloaded — then the download phase re-fetches multi-GB files for
+    // nothing. /XD excludes the models dir from the purge so existing
+    // models survive and download_all's existing_complete() skip kicks in.
+    // We also exclude the tier-marker so a re-install doesn't wipe it
+    // before write_tier_marker rewrites it ( harmless either way , but
+    // tidy ). loklm-tier.json sits at the install-dir root.
+    let models_dir = dest.join("models");
     let out = cmd_path(robocopy)
         .args([
             source.to_str().unwrap_or_default(),
             dest.to_str().unwrap_or_default(),
             "/MIR",
             "/COPY:DAT",
-            "/R:3",
-            "/W:2",
+            // Low retry budget : we already stop_running_app() before this ,
+            // so a still-locked file is an anomaly we want to surface fast
+            // rather than grind through ( /R:3 /W:2 was ~6s per locked file ,
+            // looked frozen when the whole app was running ).
+            "/R:1",
+            "/W:1",
+            "/XD",
+            models_dir.to_str().unwrap_or_default(),
+            "/XF",
+            "loklm-tier.json",
             "/NJH",
             "/NJS",
             "/NDL",
@@ -401,6 +430,25 @@ fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
         ));
     }
     Ok(())
+}
+
+// ----------------------------------------------------------------
+// Stop a running LokLM before overwriting its files
+// ----------------------------------------------------------------
+
+// Force-terminate any running LokLM.exe ( the app being updated ) plus its
+// electron child processes ( /T kills the tree ) so robocopy can overwrite
+// the locked payload. Synchronous + best-effort : taskkill exits non-zero
+// when no process matches , which we ignore. The short sleep gives Windows
+// a beat to release the file handles before robocopy starts.
+fn stop_running_app() {
+    let taskkill = std::env::var("SystemRoot")
+        .map(|sr| PathBuf::from(sr).join("System32").join("taskkill.exe"))
+        .unwrap_or_else(|_| PathBuf::from("taskkill.exe"));
+    let _ = cmd_path(taskkill)
+        .args(["/IM", APP_EXE, "/T", "/F"])
+        .status();
+    std::thread::sleep(std::time::Duration::from_millis(700));
 }
 
 // ----------------------------------------------------------------
@@ -436,6 +484,11 @@ where
     }
 
     progress(ProgressEvent { step: "preparing-folder".into(), percent: 5 });
+    // Re-install over a running app : LokLM.exe + its DLLs are locked , so
+    // robocopy can't overwrite them and grinds through its retry budget
+    // ( looks frozen on "copying files" ). Stop the app first. Best-effort —
+    // taskkill returns non-zero when nothing's running , which is fine.
+    stop_running_app();
     std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
 
     progress(ProgressEvent { step: "copying-files".into(), percent: 12 });

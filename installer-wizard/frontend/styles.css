@@ -101,7 +101,7 @@ input {
 
 .installer-shell {
   width: min(100vw, 980px);
-  height: min(100vh, 680px);
+  height: min(100vh, 740px);
   display: grid;
   grid-template-columns: 330px 1fr;
   gap: 18px;
@@ -699,23 +699,23 @@ body.is-booted .boot-splash {
 /* ------ hardware page : probe summary + tier picker ------- */
 
 .page-copy {
-  margin: 0 0 1.2rem;
+  margin: 0 0 0.9rem;
   color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .hardware-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem 1.4rem;
-  padding: 0.9rem 1.1rem;
-  margin: 0 0 1.4rem;
+  gap: 0.35rem 1.4rem;
+  padding: 0.7rem 0.95rem;
+  margin: 0 0 1rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(11, 27, 43, 0.5);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
 }
 
 .hardware-summary__probing {
@@ -734,7 +734,7 @@ body.is-booted .boot-splash {
 .hardware-summary__label {
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--muted-2);
 }
 
@@ -745,15 +745,15 @@ body.is-booted .boot-splash {
 .tier-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 0.7rem;
   margin: 0;
 }
 
 .tier-card {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 1rem 1.05rem 1.1rem;
+  gap: 0.3rem;
+  padding: 0.75rem 0.8rem 0.85rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgba(11, 27, 43, 0.55);
@@ -790,61 +790,91 @@ body.is-booted .boot-splash {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .tier-card__title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   letter-spacing: 0.02em;
 }
 
 .tier-card__badge {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.15rem 0.5rem;
+  letter-spacing: 0.06em;
+  padding: 0.12rem 0.42rem;
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.18);
   color: var(--success);
   border: 1px solid rgba(34, 197, 94, 0.4);
+  white-space: nowrap;
 }
 
 .tier-card__subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .tier-card__model {
-  margin: 0.3rem 0 0;
+  margin: 0.2rem 0 0;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   color: var(--accent-2);
   letter-spacing: 0.01em;
 }
 
 .tier-card__stats {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   padding: 0;
   list-style: none;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.9rem;
-  font-size: 0.8rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.76rem;
   color: var(--muted);
 }
 
 .tier-card__body {
-  margin: 0.4rem 0 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--muted);
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted-2);
 }
 
 @media (max-width: 720px) {
   .tier-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ------ hardware page : fit-as-fixed-pane redesign -------
+ * The hardware page packs the most vertical content of any page ( probe
+ * summary + 3 tier cards ) and was clipping at the bottom of the ~680px
+ * window. These overrides shrink the heading , drop the redundant per-card
+ * body paragraph , and tighten the top padding so the whole thing fits
+ * without a scrollbar. */
+.page[data-page='hardware'] {
+  padding-top: 30px;
+}
+.page[data-page='hardware'] h2 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+.page[data-page='hardware'] .page-copy {
+  margin-bottom: 0.8rem;
+  font-size: 0.85rem;
+}
+/* Subtitle + model + size/latency stats carry the decision ; the prose
+ * body is redundant with the subtitle and is what pushed the cards past
+ * the fold. Hidden on the card , kept in the DOM for screen-readers. */
+.tier-card__body {
+  display: none;
+}
+/* Let the card grid absorb the remaining vertical space so the cards
+ * align to a clean bottom edge above the footer. */
+.page[data-page='hardware'] .tier-grid {
+  flex: 0 0 auto;
 }
 
 /* ------ install page : per-file download progress ------- */

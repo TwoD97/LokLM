@@ -130,9 +130,17 @@ fn probe_gpu() -> (Option<String>, Option<u64>, Option<GpuArch>) {
     // Metal reports recommended-working-set. None of these are exact , but
     // for tier-detection ( "is it 6 / 14 / 20+ GB ? " ) they're good enough.
     //
-    // On software/integrated adapters this can be misleadingly small or
-    // huge ( shared system RAM ) ; we already filtered those above.
-    let vram_bytes = adapter.limits().max_buffer_size;
+    // Sanity-cap : DX12 on high-end GPUs ( seen on RTX 5090 ) returns
+    // u64::MAX as a "no limit" sentinel for max_buffer_size. That value
+    // (a) breaks the GiB display ( "17179869184 GiB VRAM" ) , (b) breaks
+    // JSON round-trip ( JS f64 can't hold u64::MAX exactly , serde then
+    // rejects on the install round-trip as "expected u64 , got float" ).
+    // Clamp at 80 GiB — covers every current consumer + most workstation
+    // cards , and triggers the Pro-tier memory threshold so the user
+    // still gets the right recommendation when wgpu lies.
+    let raw_max = adapter.limits().max_buffer_size;
+    const MAX_REASONABLE_VRAM: u64 = 80 * GB;
+    let vram_bytes = raw_max.min(MAX_REASONABLE_VRAM);
 
     let arch = classify_gpu_arch(&name);
 
