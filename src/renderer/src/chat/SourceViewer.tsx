@@ -5,6 +5,7 @@ import type { ChunkSource, DocumentChunk } from '@shared/documents'
 import { extractCitationSnippets } from '@shared/citationContext'
 import { applyHighlights, findFuzzyHighlights } from '@shared/fuzzyHighlight'
 import { MultiPagePdfPreview } from './MultiPagePdfPreview'
+import { useT } from '../i18n'
 
 type Props = {
   chunkId: number
@@ -42,6 +43,7 @@ function formatPageRange(source: ChunkSource | null): string | null {
 }
 
 export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: Props): JSX.Element {
+  const t = useT()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [chunks, setChunks] = useState<DocumentChunk[]>([])
@@ -213,7 +215,7 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
       className="source-viewer__backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Source viewer"
+      aria-label={t('chat.sourceViewer')}
       onMouseDown={(e) => {
         // Close on outside click only — clicks inside the modal shouldn't
         // bubble through, so guard with target === currentTarget.
@@ -226,14 +228,14 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
       >
         <header className="source-viewer__header">
           <span className="source-viewer__title">
-            {documentTitle ?? source?.title ?? `Chunk #${chunkId}`}
+            {documentTitle ?? source?.title ?? t('chat.chunkFallback', { id: chunkId })}
             {locationLabel ? ` · ${locationLabel}` : ''}
           </span>
           {snippets.length > 0 && (
             <button
               type="button"
               className="source-viewer__highlight-hint"
-              title={`${snippets.join(' / ')}\n(click to jump to the next highlight)`}
+              title={t('chat.highlightHintTitle', { snippets: snippets.join(' / ') })}
               onClick={cycleHighlights}
               disabled={markGroupCount === 0}
             >
@@ -242,7 +244,7 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
                 // sees on the page. Fall back to the snippet count for the
                 // first frame, before the text layer has painted any marks.
                 const count = markGroupCount || snippets.length
-                return count === 1 ? '1 highlight' : `${count} highlights`
+                return count === 1 ? t('chat.highlightOne') : t('chat.highlightMany', { count })
               })()}
             </button>
           )}
@@ -250,8 +252,8 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
             type="button"
             className="chat__header-action"
             onClick={onClose}
-            aria-label="Close source viewer"
-            title="Close (Esc)"
+            aria-label={t('chat.closeSourceViewer')}
+            title={t('chat.closeEsc')}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
               <path
@@ -299,11 +301,12 @@ function BodyContents({
   snippets: string[]
   renderMarkdown: boolean
 }): JSX.Element {
+  const t = useT()
   if (status === 'error' && errorMessage) {
     return <div className="source-viewer__error">{errorMessage}</div>
   }
   if (status === 'loading') {
-    return <div className="source-viewer__empty">Loading…</div>
+    return <div className="source-viewer__empty">{t('common.loading')}</div>
   }
   if (showPdf && source && source.chunkPageFrom != null) {
     return (
@@ -317,7 +320,7 @@ function BodyContents({
     )
   }
   if (chunks.length === 0) {
-    return <div className="source-viewer__empty">No chunks available for this document.</div>
+    return <div className="source-viewer__empty">{t('chat.noChunks')}</div>
   }
   return (
     <TextDocumentBody
@@ -340,6 +343,7 @@ function TextDocumentBody({
   snippets: string[]
   renderMarkdown: boolean
 }): JSX.Element {
+  const t = useT()
   const targetRef = useRef<HTMLElement | null>(null)
 
   // Scroll the cited chunk into view on first paint after chunks land. Use a
@@ -354,7 +358,7 @@ function TextDocumentBody({
   }, [targetChunkId, chunks])
 
   return (
-    <article className="source-viewer__doc" aria-label="Document preview">
+    <article className="source-viewer__doc" aria-label={t('chat.documentPreview')}>
       {chunks.map((c) => {
         const isTarget = c.id === targetChunkId
         return (

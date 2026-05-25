@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { QuizAttempt } from '@shared/quiz'
+import { useT } from '../i18n'
 
 type Props = {
   deckId: number
@@ -11,6 +12,7 @@ type Props = {
 // Mounted by the deck card only when the user expands the history, so we don't
 // pay the IPC cost for every deck on every list render.
 export function QuizDeckHistory({ deckId, questionCount }: Props): JSX.Element {
+  const t = useT()
   const [attempts, setAttempts] = useState<QuizAttempt[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,8 +32,8 @@ export function QuizDeckHistory({ deckId, questionCount }: Props): JSX.Element {
   }, [deckId])
 
   if (error) return <p className="quiz-history__empty">{error}</p>
-  if (attempts === null) return <p className="quiz-history__empty">Loading history…</p>
-  if (attempts.length === 0) return <p className="quiz-history__empty">No attempts yet.</p>
+  if (attempts === null) return <p className="quiz-history__empty">{t('quiz.history.loading')}</p>
+  if (attempts.length === 0) return <p className="quiz-history__empty">{t('quiz.history.empty')}</p>
 
   return (
     <ul className="quiz-history">

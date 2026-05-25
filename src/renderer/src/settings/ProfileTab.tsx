@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
 import { Avatar } from '../components/Avatar'
+import { useT } from '../i18n'
 
 // Six hand-picked HSL hues across the wheel — enough variety that any
 // initial reads well on every swatch. Saturation + lightness fixed so all
@@ -8,6 +9,7 @@ import { Avatar } from '../components/Avatar'
 const PRESET_HUES = [212, 268, 320, 16, 142, 192]
 
 export function ProfileTab(): JSX.Element {
+  const t = useT()
   const [savedName, setSavedName] = useState('')
   const [draftName, setDraftName] = useState('')
   const [editing, setEditing] = useState(false)
@@ -39,7 +41,7 @@ export function ProfileTab(): JSX.Element {
     async (next: string): Promise<boolean> => {
       const trimmed = next.trim()
       if (trimmed.length === 0 || trimmed.length > 40) {
-        setError('Display name must be 1–40 characters.')
+        setError(t('settings.profile.displayNameError'))
         return false
       }
       setError(null)
@@ -54,7 +56,7 @@ export function ProfileTab(): JSX.Element {
         return false
       }
     },
-    [flashSaved],
+    [flashSaved, t],
   )
 
   const startEdit = useCallback((): void => {
@@ -86,7 +88,7 @@ export function ProfileTab(): JSX.Element {
       const file = input.files?.[0]
       if (!file) return
       if (file.size > 2 * 1024 * 1024) {
-        setError('Avatar must be ≤ 2 MB.')
+        setError(t('settings.profile.avatarSizeError'))
         return
       }
       try {
@@ -101,7 +103,7 @@ export function ProfileTab(): JSX.Element {
       }
     }
     input.click()
-  }, [flashSaved])
+  }, [flashSaved, t])
 
   const removeAvatar = useCallback(async (): Promise<void> => {
     await window.api.settings.setAvatar(null)
@@ -131,21 +133,23 @@ export function ProfileTab(): JSX.Element {
       <div className="settings-profile-card">
         <Avatar bytes={avatarBytes} name={savedName} size={96} />
         <div className="settings-profile-card__actions">
-          <button onClick={() => void pickAvatar()}>Upload…</button>
+          <button onClick={() => void pickAvatar()}>{t('settings.profile.upload')}</button>
           <button onClick={() => void removeAvatar()} disabled={!avatarBytes}>
-            Remove
+            {t('common.remove')}
           </button>
         </div>
         <div className="settings-profile-presets">
-          <span className="settings-profile-presets__label">Or pick a preset</span>
+          <span className="settings-profile-presets__label">
+            {t('settings.profile.orPickPreset')}
+          </span>
           <div className="settings-profile-presets__row">
             {PRESET_HUES.map((hue) => (
               <button
                 key={hue}
                 className={`settings-profile-preset ${activePresetHue === hue ? 'settings-profile-preset--active' : ''}`}
                 onClick={() => void pickPreset(hue)}
-                aria-label={`Pick preset avatar ${hue}`}
-                title="Pick preset avatar"
+                aria-label={t('settings.profile.pickPresetAvatarNum', { num: hue })}
+                title={t('settings.profile.pickPresetAvatar')}
               >
                 <span
                   className="settings-profile-preset__swatch"
@@ -160,8 +164,8 @@ export function ProfileTab(): JSX.Element {
       </div>
 
       <div className="settings-section-head">
-        <span className="settings-section-head__title">Display name</span>
-        <span className="settings-section-head__sub">1–40 characters.</span>
+        <span className="settings-section-head__title">{t('settings.profile.displayName')}</span>
+        <span className="settings-section-head__sub">{t('settings.profile.displayNameSub')}</span>
       </div>
       <div className={`settings-inline-field ${editing ? 'settings-inline-field--editing' : ''}`}>
         {editing ? (
@@ -180,15 +184,15 @@ export function ProfileTab(): JSX.Element {
             <button
               className="settings-inline-field__action settings-inline-field__action--save"
               onClick={() => void commitEdit()}
-              title="Save (Enter)"
+              title={t('settings.profile.editSave')}
             >
-              <Check size={16} aria-hidden="true" /> Save
+              <Check size={16} aria-hidden="true" /> {t('common.save')}
             </button>
             <button
               className="settings-inline-field__action settings-inline-field__action--cancel"
               onClick={cancelEdit}
-              title="Cancel (Esc)"
-              aria-label="Cancel"
+              title={t('settings.profile.editCancel')}
+              aria-label={t('common.cancel')}
             >
               <X size={16} aria-hidden="true" />
             </button>
@@ -196,8 +200,12 @@ export function ProfileTab(): JSX.Element {
         ) : (
           <>
             <span className="settings-inline-field__value">{savedName || '—'}</span>
-            <button className="settings-inline-field__action" onClick={startEdit} title="Edit">
-              <Pencil size={14} aria-hidden="true" /> Edit
+            <button
+              className="settings-inline-field__action"
+              onClick={startEdit}
+              title={t('settings.profile.edit')}
+            >
+              <Pencil size={14} aria-hidden="true" /> {t('settings.profile.edit')}
             </button>
           </>
         )}
@@ -205,13 +213,11 @@ export function ProfileTab(): JSX.Element {
       {error && <div style={{ color: 'var(--error)', marginTop: 6, fontSize: 13 }}>{error}</div>}
 
       <div className="settings-section-head">
-        <span className="settings-section-head__title">Recovery</span>
-        <span className="settings-section-head__sub">
-          Vault is locked behind your passphrase and password.
-        </span>
+        <span className="settings-section-head__title">{t('settings.profile.recovery')}</span>
+        <span className="settings-section-head__sub">{t('settings.profile.recoverySub')}</span>
       </div>
       <div className="settings-stat">
-        <span className="settings-stat__label">Status</span>
+        <span className="settings-stat__label">{t('settings.profile.status')}</span>
         <span
           className="settings-stat__value"
           style={{
@@ -221,13 +227,13 @@ export function ProfileTab(): JSX.Element {
             gap: 4,
           }}
         >
-          Recovery passphrase set <Check size={14} aria-hidden="true" />
+          {t('settings.profile.recoverySet')} <Check size={14} aria-hidden="true" />
         </span>
       </div>
 
       <div style={{ marginTop: 14 }}>
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> saved
+          <Check size={14} aria-hidden="true" /> {t('settings.profile.saved')}
         </span>
       </div>
     </div>

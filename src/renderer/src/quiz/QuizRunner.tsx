@@ -4,6 +4,7 @@ import { QuestionCard } from './QuestionCard'
 import { QuizResults } from './QuizResults'
 import { SourceViewer } from '../chat/SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
+import { useT, type TFn } from '../i18n'
 
 type Props = {
   deckId: number
@@ -58,6 +59,7 @@ function permutation(length: number, seed: number): number[] {
 }
 
 export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
+  const t = useT()
   const [state, setState] = useState<RunnerState>({ kind: 'loading' })
   const [source, setSource] = useState<{ chunkId: number; explanation: string } | null>(null)
 
@@ -167,7 +169,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   if (state.kind === 'loading') {
     return (
       <section className="quiz-runner">
-        <p>Loading…</p>
+        <p>{t('common.loading')}</p>
       </section>
     )
   }
@@ -176,7 +178,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
       <section className="quiz-runner">
         <p className="quiz-create__error">{state.message}</p>
         <button type="button" className="quiz-btn" onClick={onClose}>
-          Back
+          {t('common.back')}
         </button>
       </section>
     )
@@ -201,7 +203,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   if (state.cursor >= state.order.length) {
     return (
       <section className="quiz-runner">
-        <p className="quiz-runner__progress">Scoring…</p>
+        <p className="quiz-runner__progress">{t('quiz.runner.scoring')}</p>
       </section>
     )
   }
@@ -219,12 +221,15 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
         <div>
           <h2>{state.data.deck.name}</h2>
           <p className="quiz-runner__progress">
-            Question {state.cursor + 1} / {state.order.length}
+            {t('quiz.runner.progress', {
+              current: state.cursor + 1,
+              total: state.order.length,
+            })}
           </p>
         </div>
-        <Stopwatch startedAt={state.attempt.startedAt} />
+        <Stopwatch startedAt={state.attempt.startedAt} t={t} />
         <button type="button" className="quiz-btn" onClick={onClose}>
-          Close
+          {t('common.close')}
         </button>
       </header>
       <div className="quiz-runner__body">
@@ -238,7 +243,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
         {state.revealed && (
           <div className="quiz-runner__footer">
             <button type="button" className="quiz-btn quiz-btn--primary" onClick={advance}>
-              {state.cursor + 1 >= state.order.length ? 'Finish' : 'Next'}
+              {state.cursor + 1 >= state.order.length ? t('quiz.runner.finish') : t('common.next')}
             </button>
           </div>
         )}
@@ -286,7 +291,7 @@ function RunnerContent({
   )
 }
 
-function Stopwatch({ startedAt }: { startedAt: number }): JSX.Element {
+function Stopwatch({ startedAt, t }: { startedAt: number; t: TFn }): JSX.Element {
   const startedMs = useMemo(() => startedAt * 1000, [startedAt])
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -297,7 +302,7 @@ function Stopwatch({ startedAt }: { startedAt: number }): JSX.Element {
   const mm = Math.floor(elapsed / 60)
   const ss = elapsed % 60
   return (
-    <span className="quiz-runner__time" aria-label="Elapsed time">
+    <span className="quiz-runner__time" aria-label={t('quiz.runner.elapsedTime')}>
       {mm}:{ss.toString().padStart(2, '0')}
     </span>
   )

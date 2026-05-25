@@ -11,6 +11,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/types/src/display/api'
 import { findFuzzyHighlights } from '@shared/fuzzyHighlight'
+import { useT } from '../i18n'
 
 /** One IntersectionObserver shared across every PdfPage in a single document
  *  preview — a 200-page PDF used to spawn 200 observers, this collapses to one.
@@ -102,6 +103,7 @@ export function MultiPagePdfPreview({
   citedPageFrom,
   citedPageTo,
 }: Props): JSX.Element {
+  const t = useT()
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [aspectRatio, setAspectRatio] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -151,8 +153,10 @@ export function MultiPagePdfPreview({
   return (
     <VisibilityContext.Provider value={visibility.register}>
       <div className="pdf-doc">
-        {error && <div className="pdf-doc__error">PDF preview failed: {error}</div>}
-        {!error && pdf == null && <div className="pdf-doc__loading">Loading PDF…</div>}
+        {error && (
+          <div className="pdf-doc__error">{t('chat.pdfPreviewFailed', { message: error })}</div>
+        )}
+        {!error && pdf == null && <div className="pdf-doc__loading">{t('chat.loadingPdf')}</div>}
         {!error &&
           pdf != null &&
           aspectRatio != null &&
@@ -189,6 +193,7 @@ function PdfPage({
    *  outside the cited range or no message context was passed in. */
   snippets: string[]
 }): JSX.Element {
+  const t = useT()
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const textLayerRef = useRef<HTMLDivElement | null>(null)
@@ -287,10 +292,12 @@ function PdfPage({
       style={rendered ? undefined : { aspectRatio: `${1 / aspectRatio}` }}
       data-page={pageNumber}
     >
-      <div className="pdf-doc__page-label">p. {pageNumber}</div>
+      <div className="pdf-doc__page-label">{t('chat.pageLabel', { n: pageNumber })}</div>
       <canvas ref={canvasRef} className={`pdf-doc__page-canvas${rendered ? '' : ' is-hidden'}`} />
       <div ref={textLayerRef} className="pdf-doc__text-layer textLayer" aria-hidden="true" />
-      {!rendered && shouldRender && <div className="pdf-doc__page-loading">Rendering…</div>}
+      {!rendered && shouldRender && (
+        <div className="pdf-doc__page-loading">{t('chat.rendering')}</div>
+      )}
     </div>
   )
 }

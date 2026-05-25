@@ -5,6 +5,7 @@ import { isLoopbackBaseUrl } from '@shared/networkHelpers'
 import { Segmented } from './Segmented'
 import { ReindexGateModal } from './ReindexGateModal'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
+import { useT, type TFn } from '../i18n'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 type Probe =
@@ -24,6 +25,7 @@ const TIMEOUT_PRESETS = [
 ]
 
 export function OllamaSection({ settings, update }: Props): JSX.Element {
+  const t = useT()
   const [open, setOpen] = useState(true)
   const [probe, setProbe] = useState<Probe>({ state: 'idle' })
   const [showAllForEmbedder, setShowAllForEmbedder] = useState(false)
@@ -109,7 +111,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
       setProbe({
         state: 'err',
         kind: 'remote-gate',
-        message: 'Externer Host nicht freigegeben.',
+        message: t('settings.ollama.remoteGateMessage'),
       })
       return
     }
@@ -121,7 +123,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
     })
     if (r.ok) setProbe({ state: 'ok', version: r.version, models: r.models })
     else setProbe({ state: 'err', kind: r.kind, message: r.message })
-  }, [o.baseUrl, o.bearerToken, o.requestTimeoutMs, blockedByRemoteGate])
+  }, [o.baseUrl, o.bearerToken, o.requestTimeoutMs, blockedByRemoteGate, t])
 
   useEffect(() => {
     if (open && probe.state === 'idle') void doProbe()
@@ -145,10 +147,8 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
       <div className="settings-group__header" onClick={() => setOpen((s) => !s)}>
         <div className="settings-group__title">
-          <div className="settings-group__title-row">External Ollama</div>
-          <div className="settings-group__sub">
-            Power-user opt-in. Connection + model selection for an Ollama HTTP endpoint.
-          </div>
+          <div className="settings-group__title-row">{t('settings.ollama.title')}</div>
+          <div className="settings-group__sub">{t('settings.ollama.sub')}</div>
         </div>
         <span className="settings-group__chevron">▶</span>
       </div>
@@ -157,9 +157,10 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
           <div className="settings-block">
             <div className="settings-block__head">
               <div className="settings-block__head-text">
-                <span className="settings-block__label">Base URL</span>
+                <span className="settings-block__label">{t('settings.ollama.baseUrl')}</span>
                 <span className="settings-block__hint">
-                  Probes <code>/api/version</code> on blur. Supports proxies (https + bearer).
+                  {t('settings.ollama.baseUrlHintPre')} <code>/api/version</code>{' '}
+                  {t('settings.ollama.baseUrlHintPost')}
                 </span>
               </div>
             </div>
@@ -188,10 +189,8 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
           <div className="settings-block">
             <div className="settings-block__head">
               <div className="settings-block__head-text">
-                <span className="settings-block__label">Bearer token</span>
-                <span className="settings-block__hint">
-                  Optional. Stored in the encrypted snapshot.
-                </span>
+                <span className="settings-block__label">{t('settings.ollama.bearerToken')}</span>
+                <span className="settings-block__hint">{t('settings.ollama.bearerTokenHint')}</span>
               </div>
             </div>
             <input
@@ -205,7 +204,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                 }
                 void doProbe()
               }}
-              placeholder="(optional)"
+              placeholder={t('settings.ollama.bearerTokenPlaceholder')}
               style={{ width: '100%' }}
             />
           </div>
@@ -214,31 +213,35 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             <div
               className="settings-probe settings-probe--ok"
               style={{ background: 'rgba(255,170,60,0.12)', color: '#ffd28a' }}
-              title="Anfragen verlassen diesen Rechner. Lastenheft-Grundsatz (offline) ist hierfür ausgesetzt."
+              title={t('settings.ollama.remoteHostWarningTitle')}
             >
               <Globe size={14} aria-hidden="true" />
-              Externer Host , Daten verlassen diesen Rechner
+              {t('settings.ollama.remoteHostWarning')}
             </div>
           )}
           {probe.state === 'probing' && (
             <div className="settings-probe settings-probe--probing">
               <span className="settings-probe__dot" aria-hidden="true" />
-              Probing…
+              {t('settings.ollama.probing')}
             </div>
           )}
           {probe.state === 'ok' && (
             <div className="settings-probe settings-probe--ok">
               <span className="settings-probe__dot" aria-hidden="true" />
-              Connected · Ollama v{probe.version} · {probe.models.length} model
-              {probe.models.length === 1 ? '' : 's'}
+              {t(
+                probe.models.length === 1
+                  ? 'settings.ollama.connected'
+                  : 'settings.ollama.connectedPlural',
+                { version: probe.version, count: probe.models.length },
+              )}
             </div>
           )}
           {probe.state === 'err' && probe.kind === 'remote-gate' && (
             <div className="settings-probe settings-probe--err">
               <AlertTriangle size={14} aria-hidden="true" />
-              <span>Externer Host blockiert. Verbindung erst nach Passwort-Bestätigung.</span>
+              <span>{t('settings.ollama.remoteGateBlocked')}</span>
               <button className="settings-probe__retry" onClick={() => setRemoteGateOpen(true)}>
-                Externen Host erlauben…
+                {t('settings.ollama.allowRemoteHost')}
               </button>
             </div>
           )}
@@ -246,10 +249,10 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             <div className="settings-probe settings-probe--err">
               <span className="settings-probe__dot" aria-hidden="true" />
               <span>
-                Failed: {probe.kind} — {probe.message}
+                {t('settings.ollama.probeFailed', { kind: probe.kind, message: probe.message })}
               </span>
               <button className="settings-probe__retry" onClick={() => void doProbe()}>
-                Retry
+                {t('common.retry')}
               </button>
             </div>
           )}
@@ -257,16 +260,18 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
           {probe.state === 'ok' && (
             <>
               <ChipPicker
-                label="LLM model"
-                hint="Used for chat answers, titles, and contextualization."
+                t={t}
+                label={t('settings.ollama.llmModel')}
+                hint={t('settings.ollama.llmModelHint')}
                 models={models}
                 value={o.llmModel}
                 onChange={(v) => void update({ advanced: { ollama: { llmModel: v } } })}
               />
 
               <ChipPicker
-                label="Embedder model"
-                hint="Filtered to names matching embed-style patterns."
+                t={t}
+                label={t('settings.ollama.embedderModel')}
+                hint={t('settings.ollama.embedderModelHint')}
                 models={embedderModels}
                 value={o.embedderModel}
                 onChange={(v) => void update({ advanced: { ollama: { embedderModel: v } } })}
@@ -276,16 +281,17 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                       className="settings-block__inline-btn"
                       onClick={() => setShowAllForEmbedder(true)}
                     >
-                      show all ({hiddenEmbedderCount} more)
+                      {t('settings.ollama.showAll', { count: hiddenEmbedderCount })}
                     </button>
                   ) : null
                 }
               />
 
               <ChipPicker
+                t={t}
                 label={
                   <>
-                    Reranker model{' '}
+                    {t('settings.ollama.rerankerModel')}{' '}
                     <AlertTriangle
                       size={14}
                       aria-hidden="true"
@@ -293,8 +299,8 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                     />
                   </>
                 }
-                ariaLabel="Reranker model"
-                hint="Ollama has no dedicated reranker — any chat model works (slower)."
+                ariaLabel={t('settings.ollama.rerankerModel')}
+                hint={t('settings.ollama.rerankerModelHint')}
                 models={models}
                 value={o.rerankerModel}
                 onChange={(v) => void update({ advanced: { ollama: { rerankerModel: v } } })}
@@ -302,23 +308,25 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
 
               <div className="settings-row">
                 <div className="settings-row__label">
-                  <span className="settings-row__label-text">Use Ollama for everything</span>
+                  <span className="settings-row__label-text">
+                    {t('settings.ollama.useForEverything')}
+                  </span>
                   <span className="settings-row__hint">
                     {allModelsConfigured
-                      ? 'Routes LLM, embedding, and reranking through this server. Flips all three sources at once — the per-section toggles below still work if you want to mix-and-match.'
-                      : 'Pick a model for LLM, Embedder, and Reranker above to enable this switch.'}
+                      ? t('settings.ollama.useForEverythingHintReady')
+                      : t('settings.ollama.useForEverythingHintNotReady')}
                   </span>
                 </div>
                 <Segmented
-                  ariaLabel="Use Ollama for everything"
+                  ariaLabel={t('settings.ollama.useForEverything')}
                   value={allOnOllama ? 'ollama' : 'bundled'}
                   options={[
-                    { value: 'bundled', label: 'Bundled (local)' },
+                    { value: 'bundled', label: t('settings.ollama.bundledLocal') },
                     {
                       value: 'ollama',
-                      label: 'External Ollama',
+                      label: t('settings.ollama.external'),
                       disabled: !allModelsConfigured,
-                      hint: allModelsConfigured ? undefined : 'Pick all three Ollama models first',
+                      hint: allModelsConfigured ? undefined : t('settings.ollama.pickAllThree'),
                     },
                   ]}
                   onChange={(v) => startMasterSwitch(v)}
@@ -328,15 +336,16 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
               <div className="settings-block">
                 <div className="settings-block__head">
                   <div className="settings-block__head-text">
-                    <span className="settings-block__label">Request timeout</span>
+                    <span className="settings-block__label">
+                      {t('settings.ollama.requestTimeout')}
+                    </span>
                     <span className="settings-block__hint">
-                      Bound on the request-start latency. The stream itself can take as long as the
-                      model needs.
+                      {t('settings.ollama.requestTimeoutHint')}
                     </span>
                   </div>
                 </div>
                 <Segmented
-                  ariaLabel="Request timeout"
+                  ariaLabel={t('settings.ollama.requestTimeout')}
                   value={isCustomTimeout ? 'custom' : timeoutValue}
                   options={[
                     ...TIMEOUT_PRESETS,
@@ -363,9 +372,9 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
       />
       <PasswordRetypeGate
         open={remoteGateOpen}
-        title="Externer Ollama-Host"
-        body={`"${o.baseUrl}" liegt außerhalb des lokalen Rechners. Daten verlassen damit das System. Passwort zur Bestätigung eingeben — die Freigabe gilt persistent , bis die URL wieder auf Loopback zurückgesetzt wird.`}
-        confirmLabel="Erlauben"
+        title={t('settings.ollama.remoteGateTitle')}
+        body={t('settings.ollama.remoteGateBody', { url: o.baseUrl })}
+        confirmLabel={t('settings.ollama.allow')}
         onCancel={() => setRemoteGateOpen(false)}
         onConfirm={async () => {
           await update({ advanced: { ollama: { allowRemoteOllama: true } } })
@@ -377,6 +386,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
 }
 
 function ChipPicker({
+  t,
   label,
   ariaLabel,
   hint,
@@ -385,6 +395,7 @@ function ChipPicker({
   onChange,
   trailing,
 }: {
+  t: TFn
   label: React.ReactNode
   ariaLabel?: string
   hint: string
@@ -405,7 +416,7 @@ function ChipPicker({
       </div>
       {models.length === 0 ? (
         <div className="settings-chip-group settings-chip-group--empty">
-          No matching models on this Ollama server.
+          {t('settings.ollama.noMatchingModels')}
         </div>
       ) : (
         <div className="settings-chip-group" role="radiogroup" aria-label={groupLabel}>
@@ -416,7 +427,11 @@ function ChipPicker({
               aria-checked={m === value}
               className={`settings-chip ${m === value ? 'settings-chip--active' : ''}`}
               onClick={() => onChange(m === value ? null : m)}
-              title={m === value ? 'Click to clear' : `Pick ${m}`}
+              title={
+                m === value
+                  ? t('settings.ollama.clickToClear')
+                  : t('settings.ollama.pickModel', { model: m })
+              }
             >
               {m}
             </button>

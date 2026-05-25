@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { QuizDeckSummary } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
+import { useT, type TFn } from '../i18n'
 
 type Props = {
   decks: QuizDeckSummary[]
@@ -22,6 +23,7 @@ type Props = {
 }
 
 export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Props): JSX.Element {
+  const t = useT()
   // Per-deck expansion state — kept here rather than inside the card so the
   // history component remounts (and re-fetches) when the user re-opens.
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set())
@@ -37,22 +39,21 @@ export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Pr
   return (
     <section className="quiz-list">
       <header className="quiz-list__header">
-        <h2>Quizzes</h2>
+        <h2>{t('quiz.list.heading')}</h2>
         <button type="button" className="quiz-btn quiz-btn--primary" onClick={onCreate}>
           <Plus size={16} strokeWidth={2.5} />
-          New Quiz
+          {t('quiz.list.newQuiz')}
         </button>
       </header>
       {decks.length === 0 ? (
-        <p className="quiz-list__empty">
-          No quizzes yet. Create one to start learning from your documents.
-        </p>
+        <p className="quiz-list__empty">{t('quiz.list.empty')}</p>
       ) : (
         <ul className="quiz-list__items">
           {decks.map((deck) => (
             <DeckCard
               key={deck.id}
               deck={deck}
+              t={t}
               historyOpen={openHistory.has(deck.id)}
               onToggleHistory={() => toggleHistory(deck.id)}
               onStart={() => onStart(deck.id)}
@@ -68,6 +69,7 @@ export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Pr
 
 function DeckCard({
   deck,
+  t,
   historyOpen,
   onToggleHistory,
   onStart,
@@ -75,6 +77,7 @@ function DeckCard({
   onRetry,
 }: {
   deck: QuizDeckSummary
+  t: TFn
   historyOpen: boolean
   onToggleHistory: () => void
   onStart: () => void
@@ -90,12 +93,16 @@ function DeckCard({
     <li className={`quiz-card quiz-card--${deck.status}${tone ? ` quiz-card--tone-${tone}` : ''}`}>
       <div className="quiz-card__head">
         <h3 className="quiz-card__name">{deck.name}</h3>
-        <StatusBadge status={deck.status} />
+        <StatusBadge status={deck.status} t={t} />
       </div>
       <div className="quiz-card__meta">
-        <span className="quiz-card__meta-chip">{deck.questionCount} questions</span>
         <span className="quiz-card__meta-chip">
-          {deck.documentIds.length} file{deck.documentIds.length === 1 ? '' : 's'}
+          {t('quiz.list.questions', { count: deck.questionCount })}
+        </span>
+        <span className="quiz-card__meta-chip">
+          {t(deck.documentIds.length === 1 ? 'quiz.list.fileCount' : 'quiz.list.fileCountPlural', {
+            count: deck.documentIds.length,
+          })}
         </span>
         <span className="quiz-card__meta-chip">{deck.language.toUpperCase()}</span>
       </div>
@@ -104,6 +111,7 @@ function DeckCard({
           score={deck.lastScore}
           total={deck.questionCount}
           attempts={deck.attemptCount}
+          t={t}
         />
       )}
       {deck.status === 'failed' && deck.error && <p className="quiz-card__error">{deck.error}</p>}
@@ -114,10 +122,10 @@ function DeckCard({
             className="quiz-btn quiz-btn--ghost"
             onClick={onToggleHistory}
             aria-expanded={historyOpen}
-            aria-label={historyOpen ? 'Hide history' : 'Show history'}
+            aria-label={historyOpen ? t('quiz.list.hideHistory') : t('quiz.list.showHistory')}
           >
             <History size={14} strokeWidth={2.5} />
-            History
+            {t('quiz.list.history')}
             {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         )}
@@ -125,21 +133,21 @@ function DeckCard({
         {deck.status === 'ready' && (
           <button type="button" className="quiz-btn quiz-btn--primary" onClick={onStart}>
             <Play size={14} strokeWidth={2.5} />
-            Start
+            {t('quiz.list.start')}
           </button>
         )}
         {deck.status === 'failed' && (
           <button type="button" className="quiz-btn" onClick={onRetry}>
             <RotateCcw size={14} strokeWidth={2.5} />
-            Retry
+            {t('common.retry')}
           </button>
         )}
         <button
           type="button"
           className="quiz-btn quiz-btn--danger"
           onClick={onDelete}
-          aria-label="Delete deck"
-          title="Delete deck"
+          aria-label={t('quiz.list.deleteDeck')}
+          title={t('quiz.list.deleteDeck')}
         >
           <Trash2 size={14} strokeWidth={2.5} />
         </button>
@@ -157,10 +165,12 @@ function ScoreStrip({
   score,
   total,
   attempts,
+  t,
 }: {
   score: number
   total: number
   attempts: number
+  t: TFn
 }): JSX.Element {
   const pct = total > 0 ? Math.round((score / total) * 100) : 0
   const tone = scoreTone(pct)
@@ -177,26 +187,34 @@ function ScoreStrip({
         {score} / {total}
       </span>
       <span className="quiz-card__score-attempts">
-        {attempts} attempt{attempts === 1 ? '' : 's'}
+        {t(attempts === 1 ? 'quiz.list.attemptCount' : 'quiz.list.attemptCountPlural', {
+          count: attempts,
+        })}
       </span>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: 'generating' | 'ready' | 'failed' }): JSX.Element {
+function StatusBadge({
+  status,
+  t,
+}: {
+  status: 'generating' | 'ready' | 'failed'
+  t: TFn
+}): JSX.Element {
   if (status === 'generating') {
     return (
       <span className="quiz-badge quiz-badge--generating">
-        <Loader2 size={12} className="quiz-spin" /> Generating…
+        <Loader2 size={12} className="quiz-spin" /> {t('quiz.list.statusGenerating')}
       </span>
     )
   }
   if (status === 'failed') {
     return (
       <span className="quiz-badge quiz-badge--failed">
-        <AlertTriangle size={12} /> Failed
+        <AlertTriangle size={12} /> {t('quiz.list.statusFailed')}
       </span>
     )
   }
-  return <span className="quiz-badge quiz-badge--ready">Ready</span>
+  return <span className="quiz-badge quiz-badge--ready">{t('quiz.list.statusReady')}</span>
 }

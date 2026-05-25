@@ -7,6 +7,7 @@ import {
   validatePassphrase,
 } from '@shared/authHelpers'
 import type { AuthStatus } from '@shared/authTypes'
+import { useT } from '../i18n'
 import { formatCooldown, useAuthForm } from './useAuthForm'
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
+  const t = useT()
   const [passphrase, setPassphrase] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -50,7 +52,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
         return
       }
       if (result.reason === 'no_user' || result.reason === 'bad_code') {
-        setError('Wiederherstellungs-Wörter oder Konto unbekannt.')
+        setError(t('auth.resetBadCode'))
       } else if (result.reason === 'rate_limited') {
         setCooldownUntil(Date.now() + (result.retryAfterMs ?? 5 * 60_000))
       }
@@ -63,11 +65,12 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
 
   return (
     <section className="auth-card">
-      <h1>Passwort zurücksetzen</h1>
+      <h1>{t('auth.resetTitle')}</h1>
       <p className="auth-card__lead">
-        Gib die {PASSPHRASE_WORDS} Wiederherstellungs-Wörter (
-        {lang === 'de' ? 'Deutsch' : 'English'}) und ein neues Passwort ein. Nach erfolgreichem
-        Reset bekommst du neue Wörter — die alten verfallen.
+        {t('auth.resetLead', {
+          count: PASSPHRASE_WORDS,
+          lang: lang === 'de' ? t('auth.langGerman') : t('auth.langEnglish'),
+        })}
       </p>
       <form onSubmit={(e) => void submit(e)} noValidate>
         <ol className="auth-steps">
@@ -76,15 +79,15 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
               1
             </span>
             <div className="auth-steps__body">
-              <span className="auth-steps__title">Wiederherstellungs-Wörter</span>
+              <span className="auth-steps__title">{t('auth.recoveryWords')}</span>
               <label className="auth-card__field">
-                <span className="sr-only">Wiederherstellungs-Wörter</span>
+                <span className="sr-only">{t('auth.recoveryWords')}</span>
                 <textarea
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
                   rows={4}
                   autoFocus
-                  placeholder="18 Wörter durch Leerzeichen getrennt"
+                  placeholder={t('auth.recoveryWordsPlaceholder')}
                   required
                 />
                 <small
@@ -92,14 +95,18 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
                     !phraseCheck ? 'hint' : phraseCheck.ok ? 'hint hint--ok' : 'hint hint--error'
                   }
                 >
-                  {!phraseCheck && `${words.length} / ${PASSPHRASE_WORDS} Wörter`}
-                  {phraseCheck?.ok && `Alle ${PASSPHRASE_WORDS} Wörter erkannt.`}
+                  {!phraseCheck &&
+                    t('auth.wordsCount', { count: words.length, total: PASSPHRASE_WORDS })}
+                  {phraseCheck?.ok && t('auth.wordsAllRecognized', { total: PASSPHRASE_WORDS })}
                   {phraseCheck?.ok === false &&
                     phraseCheck.reason === 'wrong-length' &&
-                    `Erwarte ${PASSPHRASE_WORDS} Wörter, gefunden ${words.length}.`}
+                    t('auth.wordsWrongLength', { total: PASSPHRASE_WORDS, count: words.length })}
                   {phraseCheck?.ok === false &&
                     phraseCheck.reason === 'unknown-word' &&
-                    `Wort ${phraseCheck.badIndex + 1} ist unbekannt: "${words[phraseCheck.badIndex] ?? ''}".`}
+                    t('auth.wordsUnknown', {
+                      index: phraseCheck.badIndex + 1,
+                      word: words[phraseCheck.badIndex] ?? '',
+                    })}
                 </small>
               </label>
             </div>
@@ -110,34 +117,38 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
               2
             </span>
             <div className="auth-steps__body">
-              <span className="auth-steps__title">Neues Passwort</span>
+              <span className="auth-steps__title">{t('auth.newPassword')}</span>
               <label className="auth-card__field">
-                <span className="sr-only">Neues Passwort</span>
+                <span className="sr-only">{t('auth.newPassword')}</span>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
                   minLength={10}
-                  placeholder="Neues Passwort"
+                  placeholder={t('auth.newPasswordPlaceholder')}
                   required
                 />
                 <small className={pwOk || password.length === 0 ? 'hint' : 'hint hint--error'}>
-                  Mindestens 10 Zeichen, drei der vier Klassen.
+                  {t('auth.newPasswordHint')}
                 </small>
               </label>
               <label className="auth-card__field">
-                <span className="sr-only">Neues Passwort wiederholen</span>
+                <span className="sr-only">{t('auth.newPasswordRepeat')}</span>
                 <input
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   autoComplete="new-password"
-                  placeholder="Passwort wiederholen"
+                  placeholder={t('auth.repeatPassword')}
                   required
                 />
                 <small className={matches || confirm.length === 0 ? 'hint' : 'hint hint--error'}>
-                  {confirm.length === 0 ? '—' : matches ? 'Passt.' : 'Stimmt nicht überein.'}
+                  {confirm.length === 0
+                    ? t('auth.resetMismatchPlaceholder')
+                    : matches
+                      ? t('auth.repeatHintMatch')
+                      : t('auth.repeatHintMismatch')}
                 </small>
               </label>
             </div>
@@ -151,16 +162,16 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
         )}
         {cooldownMs > 0 && (
           <p className="auth-card__error" role="alert">
-            Zu viele Fehlversuche. Bitte noch {formatCooldown(cooldownMs)} warten.
+            {t('auth.tooManyAttempts', { time: formatCooldown(cooldownMs) })}
           </p>
         )}
 
         <div className="auth-card__row">
           <button type="submit" className="primary" disabled={!canSubmit}>
-            {busy ? 'Setze zurück …' : 'Zurücksetzen'}
+            {busy ? t('auth.resetting') : t('auth.resetSubmit')}
           </button>
           <button type="button" className="link" onClick={onCancel}>
-            Abbrechen
+            {t('common.cancel')}
           </button>
         </div>
       </form>

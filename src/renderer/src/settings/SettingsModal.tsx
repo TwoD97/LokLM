@@ -3,6 +3,7 @@ import { AlertTriangle, Settings as SettingsIcon, User } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { BasicTab } from './BasicTab'
 import { AdvancedTab } from './AdvancedTab'
+import { useT } from '../i18n'
 import './SettingsModal.css'
 
 type Tab = 'profile' | 'basic' | 'advanced'
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
+  const t = useT()
   const [tab, setTab] = useState<Tab>('basic')
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               <span className="settings-tab__icon" aria-hidden="true">
                 <User size={18} />
               </span>
-              Profile
+              {t('settings.tab.profile')}
             </button>
             <button
               role="tab"
@@ -57,7 +59,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               <span className="settings-tab__icon" aria-hidden="true">
                 <SettingsIcon size={18} />
               </span>
-              Basic
+              {t('settings.tab.basic')}
             </button>
             <button
               role="tab"
@@ -68,10 +70,14 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               <span className="settings-tab__icon" aria-hidden="true">
                 <AlertTriangle size={18} />
               </span>
-              Advanced
+              {t('settings.tab.advanced')}
             </button>
           </div>
-          <button className="settings-modal__close" onClick={onClose} aria-label="Close">
+          <button
+            className="settings-modal__close"
+            onClick={onClose}
+            aria-label={t('common.close')}
+          >
             ×
           </button>
         </header>

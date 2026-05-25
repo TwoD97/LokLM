@@ -8,6 +8,7 @@ import { ConfirmModal } from './ConfirmModal'
 import { SourceViewer } from './SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useSettings } from '../settings/useSettings'
+import { useT } from '../i18n'
 import './chat.css'
 
 type StreamMetrics = {
@@ -70,6 +71,7 @@ export function ChatView({
     messageText: string
   } | null>(null)
   const { settings } = useSettings()
+  const t = useT()
   // Default false matches the original "collapse on first token" UX; setting
   // is undefined while settings hydrate from disk on first launch.
   const keepPipelineVisible = settings?.basic.showPipelineSteps ?? false
@@ -246,7 +248,7 @@ export function ChatView({
           } else if (ev.type === 'error') {
             next[next.length - 1] = {
               ...last,
-              content: `Error: ${ev.message}`,
+              content: t('chat.streamError', { message: ev.message }),
               streaming: false,
             }
           } else if (ev.type === 'done') {
@@ -290,7 +292,7 @@ export function ChatView({
         void refresh()
       }
     },
-    [currentConversationId, workspaceId, openConversation, refresh, onConversationChange],
+    [currentConversationId, workspaceId, openConversation, refresh, onConversationChange, t],
   )
 
   // Stable wrapper for ChatInput — its `onSend` prop is `(text: string) => void`
@@ -319,8 +321,8 @@ export function ChatView({
   const currentTitle =
     currentConversationId != null
       ? (conversations.find((c) => c.id === currentConversationId)?.title ??
-        `Conversation #${currentConversationId}`)
-      : 'New chat'
+        t('chat.conversationFallback', { id: currentConversationId }))
+      : t('chat.newChat')
 
   const onCitationClick = useCallback(
     ({ chunkId, messageText }: { documentId: number; chunkId: number; messageText: string }) => {
@@ -366,7 +368,7 @@ export function ChatView({
         <ChatInput onSend={onSendForInput} busy={busy} onCancel={onCancel} />
       </section>
       {sourceViewer && (
-        <ErrorBoundary label="Quellenvorschau" onError={() => setSourceViewer(null)}>
+        <ErrorBoundary label={t('chat.sourcePreview')} onError={() => setSourceViewer(null)}>
           <SourceViewer
             chunkId={sourceViewer.chunkId}
             messageText={sourceViewer.messageText}
@@ -377,8 +379,10 @@ export function ChatView({
       )}
       {confirmDelete && (
         <ConfirmModal
-          title="Delete conversation?"
-          body={`This permanently removes "${confirmDelete.title ?? `#${confirmDelete.id}`}" and all its messages.`}
+          title={t('chat.deleteConversationTitle')}
+          body={t('chat.deleteConversationBody', {
+            title: confirmDelete.title ?? `#${confirmDelete.id}`,
+          })}
           onConfirm={() => void onDelete(confirmDelete.id)}
           onCancel={() => setConfirmDelete(null)}
         />

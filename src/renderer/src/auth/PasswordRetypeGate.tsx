@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../i18n'
 // the gate can fire from contexts that haven't already loaded SettingsModal.css
 // (e.g. the library Exportieren action) , so pull the backdrop chrome in
 // directly. import is idempotent — vite dedupes css side-effects.
@@ -31,6 +32,7 @@ export function PasswordRetypeGate({
   onConfirm,
   onCancel,
 }: Props): JSX.Element | null {
+  const t = useT()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,12 +68,12 @@ export function PasswordRetypeGate({
     try {
       const res = await window.api.auth.verifyPassword(password)
       if (!res.ok) {
-        if (res.reason === 'bad_password') setError('Falsches Passwort.')
+        if (res.reason === 'bad_password') setError(t('auth.retypeBadPassword'))
         else if (res.reason === 'rate_limited') {
           const secs = Math.ceil(res.retryAfterMs / 1000)
-          setError(`Zu viele Fehlversuche. In ${secs}s erneut versuchen.`)
-        } else if (res.reason === 'locked_session') setError('Sitzung ist gesperrt.')
-        else setError('Kein Tresor registriert.')
+          setError(t('auth.retypeRateLimited', { secs }))
+        } else if (res.reason === 'locked_session') setError(t('auth.retypeLockedSession'))
+        else setError(t('auth.retypeNoVault'))
         return
       }
       setPassword('')
@@ -103,7 +105,7 @@ export function PasswordRetypeGate({
         <p className="auth-card__lead auth-card__lead--centered">{body}</p>
         <form onSubmit={(e) => void submit(e)} noValidate>
           <label className="auth-card__field auth-card__field--hero">
-            <span className="sr-only">Passwort</span>
+            <span className="sr-only">{t('auth.passwordLabel')}</span>
             <input
               ref={inputRef}
               type="password"
@@ -127,10 +129,10 @@ export function PasswordRetypeGate({
             className="primary primary--full"
             disabled={busy || password.length === 0}
           >
-            {busy ? 'Prüfe …' : (confirmLabel ?? 'Bestätigen')}
+            {busy ? t('auth.retypeChecking') : (confirmLabel ?? t('auth.retypeConfirmDefault'))}
           </button>
           <button type="button" className="link link--centered" onClick={onCancel} disabled={busy}>
-            Abbrechen
+            {t('common.cancel')}
           </button>
         </form>
       </section>
