@@ -104,9 +104,9 @@
           "id": "Qwen_Qwen3.5-9B-Q4_K_M",
           "role": "llm",
           "filename": "Qwen3.5-9B-Q4_K_M.gguf",
-          "_comment": "Bucket is named '-MTP-' for historical reasons but MUST serve the NON-MTP Qwen3.5-9B ( unsloth/Qwen3.5-9B-GGUF ). The MTP variant is a Mamba/SSM hybrid that node-llama-cpp 3.18.1 can't load ( missing tensor blk.N.ssm_conv1d.weight ) — it shipped broken in v0.2.7 and the bucket content was swapped to non-MTP as the hotfix. The non-MTP is also the variant the eval-säule actually scored ( judge 0.819 ).",
-          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-9B-MTP-GGUF-bucket/resolve/Qwen3.5-9B-Q4_K_M.gguf?download=true",
-          "sha256": null,
+          "_comment": "v0.2.8 : points at UPSTREAM unsloth/Qwen3.5-9B-GGUF ( the NON-MTP variant the eval-säule scored , judge 0.819 ). v0.2.7 shipped the LokLM MTP-bucket by mistake — that's a Mamba/SSM hybrid node-llama-cpp 3.18.1 can't load ( missing tensor blk.N.ssm_conv1d.weight ). sha256 is pinned to the exact file verified-loadable on 2026-05-25 , so an upstream re-quant fails LOUD ( sha mismatch ) rather than shipping another broken model. TODO : mirror this exact file into a LokLM bucket for durability + repoint here.",
+          "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true",
+          "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
           "sizeBytes": 5680522464
         },
         {
