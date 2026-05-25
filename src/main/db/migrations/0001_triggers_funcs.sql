@@ -3,20 +3,13 @@
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- TRIGGER 1: keep tsvector populated; bilingual german (weight A) + english (weight B)
-CREATE OR REPLACE FUNCTION chunks_set_tsv() RETURNS TRIGGER AS $$
-BEGIN
-  NEW.text_search :=
-    setweight(to_tsvector('german',  NEW.text), 'A') ||
-    setweight(to_tsvector('english', NEW.text), 'B');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS chunks_tsv_biu ON chunks;
-CREATE TRIGGER chunks_tsv_biu
-  BEFORE INSERT OR UPDATE OF text ON chunks
-  FOR EACH ROW EXECUTE FUNCTION chunks_set_tsv();
+-- NOTE: the chunks.text_search tsvector column, its BEFORE-trigger
+-- (chunks_set_tsv / chunks_tsv_biu) and the GIN index on it used to live here.
+-- Mig 0006 (partial_3nf) eliminated the stored column in favour of an
+-- expression index, so those statements were removed from this file: raw
+-- migrations re-run unconditionally on every vault round-trip, and a
+-- CREATE INDEX ... (text_search) after 0006 dropped the column threw
+-- "column text_search does not exist" mid-login. 0006 now owns FTS setup.
 
 -- TRIGGER 2: denormalized chunk_count + token_count on documents
 CREATE OR REPLACE FUNCTION chunks_update_doc_counters() RETURNS TRIGGER AS $$
@@ -86,6 +79,3 @@ BEGIN
    WHERE id = p_doc_id;
 END;
 $$;
-
--- GIN on tsvector for AP-6 + Spec 2 BM25
-CREATE INDEX IF NOT EXISTS idx_chunks_fts ON chunks USING GIN (text_search);
