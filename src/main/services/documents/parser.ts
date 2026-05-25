@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises'
-import { basename, extname } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
+import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
 import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
 import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
 
@@ -122,15 +124,43 @@ async function parseDocx(filePath: string): Promise<ParsedDocument> {
   }
 }
 
+/** Minimal slice of pdf-parse's static surface we touch for worker config. */
+interface PdfParseStatic {
+  new (opts: { data: Uint8Array }): {
+    load(): Promise<PdfDoc>
+    getText(): Promise<{ pages: { num: number; text: string }[] }>
+    destroy(): Promise<void>
+  }
+  /** false inside Electron's utilityProcess/renderer (process.type set) , true
+   *  in plain Node — drives whether pdfjs needs an explicit worker. */
+  readonly isNodeJS: boolean
+  /** Sets GlobalWorkerOptions.workerSrc ; no-arg returns the current value. */
+  setWorker(src?: string): string
+}
+
+let pdfWorkerConfigured = false
+
+// pdf-parse's isNodeJS is false in Electron's utilityProcess (process.type ===
+// 'utility'), so pdfjs refuses to run without an explicit worker and throws
+// `No "GlobalWorkerOptions.workerSrc" specified`. In plain Node (isNodeJS true ,
+// e.g. vitest) pdfjs uses its in-process fake worker and needs no workerSrc , so
+// we leave that path alone. The worker file ships beside pdf-parse's entry ;
+// pdf-parse is externalized (electron.vite externalizeDepsPlugin) so resolving
+// it as a sibling of the package main works in dev and packaged builds alike.
+function configurePdfWorker(PDFParse: PdfParseStatic): void {
+  if (pdfWorkerConfigured) return
+  pdfWorkerConfigured = true
+  if (PDFParse.isNodeJS) return
+  if (PDFParse.setWorker()) return // workerSrc already set elsewhere
+  const require = createRequire(import.meta.url)
+  const workerPath = join(dirname(require.resolve('pdf-parse')), 'pdf.worker.mjs')
+  PDFParse.setWorker(pathToFileURL(workerPath).href)
+}
+
 async function parsePdf(filePath: string): Promise<ParsedDocument> {
   // pdf-parse v2 ESM/CJS interop: dynamic import sidesteps potential typings issues.
-  const { PDFParse } = (await import('pdf-parse')) as unknown as {
-    PDFParse: new (opts: { data: Uint8Array }) => {
-      load(): Promise<PdfDoc>
-      getText(): Promise<{ pages: { num: number; text: string }[] }>
-      destroy(): Promise<void>
-    }
-  }
+  const { PDFParse } = (await import('pdf-parse')) as unknown as { PDFParse: PdfParseStatic }
+  configurePdfWorker(PDFParse)
   const buf = await readFile(filePath)
   const parser = new PDFParse({ data: new Uint8Array(buf) })
   try {
