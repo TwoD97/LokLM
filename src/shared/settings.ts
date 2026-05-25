@@ -45,7 +45,9 @@ export interface UserSettings {
 export const DEFAULT_SETTINGS: UserSettings = {
   schemaVersion: 1,
   basic: {
-    language: 'de',
+    // English-first default. Users can switch to German in settings ; the
+    // switch is honored ( QA forces the response language from this setting ).
+    language: 'en',
     llmProfile: 'auto',
     showPipelineSteps: false,
   },
