@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import type { ModelAvailability, ModelsStatus } from '@shared/documents'
 import type { ModelDownloadEvent } from '@preload/index'
+import { useT } from '../i18n'
 
 type Props = {
   onReady: () => void
@@ -53,6 +54,7 @@ function formatRate(n: number | null): string {
 }
 
 export function ModelDownloadView({ onReady }: Props): JSX.Element {
+  const t = useT()
   const [status, setStatus] = useState<ModelsStatus | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [running, setRunning] = useState(false)
@@ -125,8 +127,10 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
         const result = await window.api.models.checkSpace(required)
         if (!result.unknown && !result.ok) {
           setSpaceWarning(
-            `Nicht genug freier Speicher: benötigt ${formatBytes(result.requiredBytes)}, ` +
-              `verfügbar ${formatBytes(result.availableBytes)}.`,
+            t('models.space.insufficient', {
+              required: formatBytes(result.requiredBytes),
+              available: formatBytes(result.availableBytes),
+            }),
           )
           return
         }
@@ -148,7 +152,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
           // Error already surfaced via the progress event; stop the queue so
           // the user can retry / inspect.
           activeIdRef.current = null
-           
+
           console.error(`[models] download ${m.id} failed`, err)
           return
         }
@@ -161,7 +165,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
       setRunning(false)
       cancelRequestedRef.current = false
     }
-  }, [status, refreshStatus])
+  }, [status, refreshStatus, t])
 
   const cancelQueue = useCallback(async () => {
     // Stop the queue AND the in-flight item. Order matters: set the ref
@@ -175,7 +179,7 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
   if (!status) {
     return (
       <section className="auth-card">
-        <p>Lade Modellstatus…</p>
+        <p>{t('models.loadingStatus')}</p>
       </section>
     )
   }
@@ -193,11 +197,9 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
 
   return (
     <section className="auth-card models-card">
-      <h1>Willkommen bei LokLM</h1>
+      <h1>{t('models.welcome')}</h1>
       <p className="models-card__intro">
-        Für den ersten Start laden wir das Sprachmodell und die Hilfsdateien herunter (insgesamt ≈{' '}
-        {formatBytes(totalRequiredBytes)}). Das passiert nur einmal — danach läuft alles vollständig
-        lokal.
+        {t('models.intro', { size: formatBytes(totalRequiredBytes) })}
       </p>
 
       <ul className="models-list">
@@ -218,22 +220,34 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
                 />
               </div>
               <div className="models-list__status">
-                {row.phase === 'idle' && !m.present && <span>Wartet auf Download</span>}
+                {row.phase === 'idle' && !m.present && <span>{t('models.row.waiting')}</span>}
                 {row.phase === 'downloading' && (
                   <span>
-                    {formatBytes(row.bytesReceived)} / {formatBytes(row.totalBytes)}
-                    {row.bytesPerSec ? ` · ${formatRate(row.bytesPerSec)}` : ''}
+                    {row.bytesPerSec
+                      ? t('models.row.progressWithRate', {
+                          received: formatBytes(row.bytesReceived),
+                          total: formatBytes(row.totalBytes),
+                          rate: formatRate(row.bytesPerSec),
+                        })
+                      : t('models.row.progress', {
+                          received: formatBytes(row.bytesReceived),
+                          total: formatBytes(row.totalBytes),
+                        })}
                   </span>
                 )}
-                {row.phase === 'verifying' && <span>Verifiziere …</span>}
+                {row.phase === 'verifying' && <span>{t('models.row.verifying')}</span>}
                 {row.phase === 'complete' && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Check size={14} aria-hidden="true" /> Bereit
+                    <Check size={14} aria-hidden="true" /> {t('models.row.ready')}
                   </span>
                 )}
-                {row.phase === 'cancelled' && <span>Abgebrochen — kann fortgesetzt werden</span>}
+                {row.phase === 'cancelled' && <span>{t('models.row.cancelled')}</span>}
                 {row.phase === 'error' && (
-                  <span className="models-list__error">Fehler: {row.message ?? 'unbekannt'}</span>
+                  <span className="models-list__error">
+                    {t('models.row.error', {
+                      message: row.message ?? t('models.row.errorUnknown'),
+                    })}
+                  </span>
                 )}
               </div>
             </li>
@@ -250,27 +264,31 @@ export function ModelDownloadView({ onReady }: Props): JSX.Element {
       <div className="models-card__actions">
         {!running && !allDone && (
           <button type="button" onClick={() => void startDownload()}>
-            {anyError ? 'Erneut versuchen' : 'Download starten'}
+            {anyError ? t('models.action.retry') : t('models.action.startDownload')}
           </button>
         )}
         {running && (
           <button type="button" onClick={() => void cancelQueue()} className="ghost">
-            Abbrechen
+            {t('models.action.cancel')}
           </button>
         )}
         {allDone && (
           <button type="button" onClick={() => onReady()}>
-            Weiter
+            {t('models.action.continue')}
           </button>
         )}
       </div>
 
       <p className="models-card__progress">
-        Gesamt: {formatBytes(totalDownloadedBytes)} / {formatBytes(totalRequiredBytes)} ·{' '}
-        {overallPct.toFixed(1)}%
+        {t('models.overall', {
+          downloaded: formatBytes(totalDownloadedBytes),
+          total: formatBytes(totalRequiredBytes),
+          pct: overallPct.toFixed(1),
+        })}
       </p>
       <p className="models-card__path">
-        Speicherort: <code>{status.downloadDir}</code>
+        {t('models.location')}
+        <code>{status.downloadDir}</code>
       </p>
     </section>
   )

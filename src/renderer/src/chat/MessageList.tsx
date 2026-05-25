@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { StageName } from '@shared/documents'
 import { MessageBubble } from './MessageBubble'
+import { useT } from '../i18n'
 
 type StreamMetrics = {
   ttftMs: number | null
@@ -37,15 +38,14 @@ type Props = {
   keepPipelineVisible: boolean
 }
 
-// Human-readable label per stage. Bilingual would be nicer, but the rest of
-// the assistant UI is mostly DE-leaning while these terms are widely
-// understood EN — keeping them short and stable across languages.
-const STAGE_LABEL: Record<StageName, string> = {
-  contextualize: 'Kontextualisieren',
-  expand_queries: 'Query erweitern',
-  retrieve: 'Suchen',
-  rerank: 'Reranken',
-  prefill: 'Prefill',
+// i18n key per stage, resolved via useT() at render so the checklist follows
+// the response-language setting like the rest of the UI.
+const STAGE_LABEL_KEY: Record<StageName, string> = {
+  contextualize: 'chat.stageContextualize',
+  expand_queries: 'chat.stageExpandQueries',
+  retrieve: 'chat.stageRetrieve',
+  rerank: 'chat.stageRerank',
+  prefill: 'chat.stagePrefill',
 }
 
 function fmtMs(ms: number | undefined): string {
@@ -65,6 +65,7 @@ export function MessageList({
   onCitationClick,
   keepPipelineVisible,
 }: Props): JSX.Element {
+  const t = useT()
   const ref = useRef<HTMLDivElement>(null)
   // Whether we should auto-follow new content. Flips off as soon as the user
   // scrolls up away from the bottom, and back on when they scroll back down.
@@ -100,7 +101,7 @@ export function MessageList({
   if (messages.length === 0) {
     return (
       <div className="chat__messages" ref={ref} onScroll={onScroll}>
-        <div className="chat__messages-empty">Stelle eine Frage zu deinen Dokumenten.</div>
+        <div className="chat__messages-empty">{t('chat.emptyState')}</div>
       </div>
     )
   }
@@ -127,7 +128,7 @@ export function MessageList({
                       className={`chat__pipeline-row chat__pipeline-row--${row.status}`}
                     >
                       <span className="chat__pipeline-dot" aria-hidden="true" />
-                      <span className="chat__pipeline-label">{STAGE_LABEL[row.stage]}</span>
+                      <span className="chat__pipeline-label">{t(STAGE_LABEL_KEY[row.stage])}</span>
                       {row.detail && <span className="chat__pipeline-detail">{row.detail}</span>}
                       <span className="chat__pipeline-time">
                         {row.status === 'done' ? fmtMs(row.durationMs) : '…'}
@@ -144,12 +145,11 @@ export function MessageList({
               />
               {m.role === 'assistant' && m.metrics && m.metrics.ttftMs != null && (
                 <div className="chat__metrics">
-                  {pipelineMs > 0 && <>pipeline {fmtMs(pipelineMs)} · </>}
-                  TTFT {(m.metrics.ttftMs / 1000).toFixed(2)} s
-                  {m.metrics.tokensPerSec != null && (
-                    <> · {m.metrics.tokensPerSec.toFixed(1)} tok/s</>
-                  )}
-                  <> · {m.metrics.tokenCount} tok</>
+                  {pipelineMs > 0 && t('chat.metricsPipeline', { ms: fmtMs(pipelineMs) })}
+                  {t('chat.metricsTtft', { s: (m.metrics.ttftMs / 1000).toFixed(2) })}
+                  {m.metrics.tokensPerSec != null &&
+                    t('chat.metricsTokensPerSec', { rate: m.metrics.tokensPerSec.toFixed(1) })}
+                  {t('chat.metricsTokens', { count: m.metrics.tokenCount })}
                 </div>
               )}
             </div>

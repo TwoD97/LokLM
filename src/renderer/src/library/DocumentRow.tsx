@@ -12,6 +12,8 @@ import {
   Download,
 } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
+import { useT } from '../i18n'
+import type { TFn } from '../i18n'
 
 type Props = {
   doc: Document
@@ -38,6 +40,7 @@ function DocumentRowImpl({
   onRead,
   onExport,
 }: Props): JSX.Element {
+  const t = useT()
   const [menu, setMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -68,12 +71,12 @@ function DocumentRowImpl({
           {isMissing && (
             <AlertTriangle
               size={14}
-              aria-label="Quelldatei fehlt"
+              aria-label={t('library.sourceMissing')}
               className="library__row-missing-icon"
             />
           )}
           {doc.title}
-          {doc.language && <LanguageBadge language={doc.language} />}
+          {doc.language && <LanguageBadge language={doc.language} t={t} />}
         </span>
       </td>
       <td>
@@ -90,7 +93,7 @@ function DocumentRowImpl({
         <button
           className="library__row-menu-btn"
           onClick={() => setMenu((v) => !v)}
-          aria-label="actions"
+          aria-label={t('library.actions')}
         >
           <MoreHorizontal size={16} aria-hidden="true" />
         </button>
@@ -103,7 +106,7 @@ function DocumentRowImpl({
               }}
             >
               <BookOpen size={14} aria-hidden="true" />
-              Lesen
+              {t('library.read')}
             </button>
             <button
               onClick={() => {
@@ -112,7 +115,7 @@ function DocumentRowImpl({
               }}
             >
               <Download size={14} aria-hidden="true" />
-              Exportieren…
+              {t('library.export')}
             </button>
             <button
               onClick={() => {
@@ -121,7 +124,7 @@ function DocumentRowImpl({
               }}
             >
               <FolderOpen size={14} aria-hidden="true" />
-              Im Ordner zeigen
+              {t('library.revealInFolder')}
             </button>
             <button
               onClick={() => {
@@ -130,7 +133,7 @@ function DocumentRowImpl({
               }}
             >
               <ExternalLink size={14} aria-hidden="true" />
-              Extern öffnen
+              {t('library.openExternal')}
             </button>
             <button
               onClick={() => {
@@ -139,7 +142,7 @@ function DocumentRowImpl({
               }}
             >
               <RefreshCw size={14} aria-hidden="true" />
-              Aktualisieren
+              {t('library.refresh')}
             </button>
             <button
               onClick={() => {
@@ -148,7 +151,7 @@ function DocumentRowImpl({
               }}
             >
               <Replace size={14} aria-hidden="true" />
-              Datei ersetzen…
+              {t('library.replaceFile')}
             </button>
             <button
               onClick={() => {
@@ -157,7 +160,7 @@ function DocumentRowImpl({
               }}
             >
               <RotateCcw size={14} aria-hidden="true" />
-              Reindex
+              {t('library.reindex')}
             </button>
             <button
               className="library__row-menu-danger"
@@ -167,7 +170,7 @@ function DocumentRowImpl({
               }}
             >
               <Trash2 size={14} aria-hidden="true" />
-              Löschen
+              {t('common.delete')}
             </button>
           </div>
         )}
@@ -176,7 +179,7 @@ function DocumentRowImpl({
   )
 }
 
-function LanguageBadge({ language }: { language: 'de' | 'en' | 'mixed' }): JSX.Element {
+function LanguageBadge({ language, t }: { language: 'de' | 'en' | 'mixed'; t: TFn }): JSX.Element {
   const label = language === 'mixed' ? 'de+en' : language
   const className =
     language === 'mixed' ? 'library__lang-badge library__lang-badge--mixed' : 'library__lang-badge'
@@ -185,8 +188,10 @@ function LanguageBadge({ language }: { language: 'de' | 'en' | 'mixed' }): JSX.E
       className={className}
       title={
         language === 'mixed'
-          ? 'Dokument enthält Chunks in beiden Sprachen'
-          : `Dokumentsprache: ${language === 'de' ? 'Deutsch' : 'Englisch'}`
+          ? t('library.langMixedTitle')
+          : t('library.docLanguageTitle', {
+              language: language === 'de' ? t('library.langGerman') : t('library.langEnglish'),
+            })
       }
     >
       {label}

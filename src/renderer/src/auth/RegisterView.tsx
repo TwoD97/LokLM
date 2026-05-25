@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { countCharacterClasses } from '@shared/authHelpers'
+import { useT } from '../i18n'
 import { useAuthForm } from './useAuthForm'
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
 }
 
 export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Element {
+  const t = useT()
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -47,17 +49,14 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
 
   return (
     <section className="auth-card auth-card--steps">
-      <h1>Konto anlegen</h1>
-      <p className="auth-card__lead">
-        Einmaliges Konto auf diesem Gerät. Die Daten bleiben lokal und werden verschlüsselt
-        abgelegt.
-      </p>
+      <h1>{t('auth.createAccount')}</h1>
+      <p className="auth-card__lead">{t('auth.registerLead')}</p>
       <form onSubmit={(e) => void submit(e)} noValidate>
         <div className="auth-section">
-          <span className="auth-section__label">01 · Identität</span>
+          <span className="auth-section__label">{t('auth.sectionIdentity')}</span>
 
           <label className="auth-card__field">
-            <span>Anzeigename</span>
+            <span>{t('auth.displayName')}</span>
             <input
               type="text"
               value={displayName}
@@ -69,12 +68,12 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
               required
             />
             <small className={nameOk || displayName.length === 0 ? 'hint' : 'hint hint--error'}>
-              3–32 Zeichen.
+              {t('auth.displayNameHint')}
             </small>
           </label>
 
           <fieldset className="auth-card__field">
-            <legend>Sprache der Wiederherstellungs-Wörter</legend>
+            <legend>{t('auth.recoveryLangLegend')}</legend>
             <label className="auth-card__radio">
               <input
                 type="radio"
@@ -82,7 +81,7 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
                 checked={recoveryLang === 'de'}
                 onChange={() => setRecoveryLang('de')}
               />
-              Deutsch
+              {t('auth.langGerman')}
             </label>
             <label className="auth-card__radio">
               <input
@@ -91,16 +90,16 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
                 checked={recoveryLang === 'en'}
                 onChange={() => setRecoveryLang('en')}
               />
-              English
+              {t('auth.langEnglish')}
             </label>
           </fieldset>
         </div>
 
         <div className="auth-section">
-          <span className="auth-section__label">02 · Sicherheit</span>
+          <span className="auth-section__label">{t('auth.sectionSecurity')}</span>
 
           <label className="auth-card__field">
-            <span>Passwort</span>
+            <span>{t('auth.password')}</span>
             <input
               type="password"
               value={password}
@@ -110,13 +109,12 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
               required
             />
             <small className={pwOk || password.length === 0 ? 'hint' : 'hint hint--error'}>
-              Mindestens 10 Zeichen, drei der vier Klassen (Groß-, Kleinbuchstabe, Ziffer,
-              Sonderzeichen). Aktuell: {password.length} Zeichen, {pwClasses} Klassen.
+              {t('auth.passwordHint', { chars: password.length, classes: pwClasses })}
             </small>
           </label>
 
           <label className="auth-card__field">
-            <span>Passwort wiederholen</span>
+            <span>{t('auth.repeatPassword')}</span>
             <input
               type="password"
               value={confirm}
@@ -126,10 +124,10 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
             />
             <small className={matches || confirm.length === 0 ? 'hint' : 'hint hint--error'}>
               {confirm.length === 0
-                ? 'Zur Sicherheit nochmal.'
+                ? t('auth.repeatHintEmpty')
                 : matches
-                  ? 'Passt.'
-                  : 'Stimmt nicht überein.'}
+                  ? t('auth.repeatHintMatch')
+                  : t('auth.repeatHintMismatch')}
             </small>
           </label>
         </div>
@@ -142,10 +140,10 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
 
         <div className="auth-card__row">
           <button type="submit" className="primary" disabled={!canSubmit}>
-            {busy ? 'Registriere …' : 'Konto anlegen'}
+            {busy ? t('auth.registering') : t('auth.createAccount')}
           </button>
           <button type="button" className="link" onClick={onSwitchToLogin}>
-            Schon registriert? Anmelden.
+            {t('auth.alreadyRegistered')}
           </button>
         </div>
       </form>

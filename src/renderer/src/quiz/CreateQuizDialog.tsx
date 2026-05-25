@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Document } from '@shared/documents'
 import type { CreateQuizInput, QuizDeck, QuizQuestionCount } from '@shared/quiz'
+import { useT } from '../i18n'
 
 type Props = {
   workspaceId: number
@@ -17,6 +18,7 @@ export function CreateQuizDialog({
   onCancel,
   onCreated,
 }: Props): JSX.Element {
+  const t = useT()
   const [name, setName] = useState('')
   const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set())
   const [count, setCount] = useState<QuizQuestionCount>(10)
@@ -61,28 +63,26 @@ export function CreateQuizDialog({
   return (
     <section className="quiz-create">
       <header className="quiz-create__header">
-        <h2>New Quiz</h2>
+        <h2>{t('quiz.create.heading')}</h2>
         <button type="button" className="quiz-btn" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </button>
       </header>
       <label className="quiz-field">
-        <span className="quiz-field__label">Name</span>
+        <span className="quiz-field__label">{t('quiz.create.nameLabel')}</span>
         <input
           className="quiz-field__input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={128}
-          placeholder="z.B. Kapitel 3 — Funktionen"
+          placeholder={t('quiz.create.namePlaceholder')}
         />
       </label>
 
       <div className="quiz-field">
-        <span className="quiz-field__label">Documents</span>
+        <span className="quiz-field__label">{t('quiz.create.documentsLabel')}</span>
         {readyDocs.length === 0 ? (
-          <p className="quiz-create__empty">
-            No indexed documents in this workspace. Import a file first.
-          </p>
+          <p className="quiz-create__empty">{t('quiz.create.noDocuments')}</p>
         ) : (
           <ul className="quiz-create__docs">
             {readyDocs.map((doc) => (
@@ -102,7 +102,7 @@ export function CreateQuizDialog({
       </div>
 
       <div className="quiz-field">
-        <span className="quiz-field__label">Questions</span>
+        <span className="quiz-field__label">{t('quiz.create.questionsLabel')}</span>
         <div className="quiz-segmented">
           {COUNTS.map((n) => (
             <button
@@ -118,7 +118,7 @@ export function CreateQuizDialog({
       </div>
 
       <div className="quiz-field">
-        <span className="quiz-field__label">Language</span>
+        <span className="quiz-field__label">{t('quiz.create.languageLabel')}</span>
         <div className="quiz-segmented">
           {(['auto', 'de', 'en'] as const).map((l) => (
             <button
@@ -127,7 +127,11 @@ export function CreateQuizDialog({
               className={`quiz-segmented__btn ${language === l ? 'quiz-segmented__btn--active' : ''}`}
               onClick={() => setLanguage(l)}
             >
-              {l === 'auto' ? 'Auto' : l === 'de' ? 'Deutsch' : 'English'}
+              {l === 'auto'
+                ? t('quiz.create.languageAuto')
+                : l === 'de'
+                  ? t('quiz.create.languageDe')
+                  : t('quiz.create.languageEn')}
             </button>
           ))}
         </div>
@@ -142,7 +146,7 @@ export function CreateQuizDialog({
           disabled={!canSubmit}
           onClick={() => void submit()}
         >
-          {submitting ? 'Creating…' : 'Generate'}
+          {submitting ? t('quiz.create.generating') : t('quiz.create.generate')}
         </button>
       </div>
     </section>

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   X,
 } from 'lucide-react'
+import { useT } from '../i18n'
 
 type Props = {
   workspaceId: number
@@ -28,6 +29,7 @@ type SyncEvent = {
 }
 
 export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Element {
+  const t = useT()
   const [folders, setFolders] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [activeEvent, setActiveEvent] = useState<SyncEvent | null>(null)
@@ -91,7 +93,9 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
   }, [workspaceId])
 
   const summary =
-    folders.length === 0 ? 'Kein Ordner verbunden' : `${folders.length} Ordner verbunden`
+    folders.length === 0
+      ? t('library.noFolderConnected')
+      : t('library.foldersConnected', { count: folders.length })
 
   return (
     <div className="library__sync">
@@ -103,7 +107,7 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
       >
         <span className="library__sync-toggle-label">
           <FolderSync size={16} aria-hidden="true" />
-          Ordner-Sync · {summary}
+          {t('library.folderSync', { summary })}
         </span>
         {open ? (
           <ChevronDown size={14} aria-hidden="true" />
@@ -114,11 +118,7 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
       {open && (
         <div className="library__sync-body">
           {folders.length === 0 ? (
-            <div className="library__sync-empty">
-              Verbinde Ordner und LokLM importiert neue Dateien automatisch und reindiziert
-              geänderte. Gelöschte Dateien werden als „nicht mehr gefunden“ markiert – du
-              entscheidest selbst über behalten oder entfernen.
-            </div>
+            <div className="library__sync-empty">{t('library.syncIntro')}</div>
           ) : (
             <ul className="library__sync-list">
               {folders.map((f) => (
@@ -131,8 +131,8 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
                     type="button"
                     className="library__sync-item-remove"
                     onClick={() => void onRemove(f)}
-                    aria-label={`Remove ${f}`}
-                    title="Aus Sync entfernen (Dokumente bleiben in der Bibliothek)"
+                    aria-label={t('library.removeFolder', { folder: f })}
+                    title={t('library.removeFromSyncTitle')}
                   >
                     <X size={14} aria-hidden="true" />
                   </button>
@@ -143,7 +143,7 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
           <div className="library__sync-actions">
             <button type="button" onClick={() => void onAdd()} disabled={busy}>
               <FolderPlus size={14} aria-hidden="true" />
-              Ordner hinzufügen
+              {t('library.addFolder')}
             </button>
             <button
               type="button"
@@ -151,24 +151,34 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
               disabled={busy || folders.length === 0}
             >
               <RefreshCw size={14} aria-hidden="true" className={busy ? 'spin' : ''} />
-              {busy ? 'Synchronisiere…' : 'Jetzt synchronisieren'}
+              {busy ? t('library.syncing') : t('library.syncNow')}
             </button>
           </div>
           {activeEvent && activeEvent.phase !== 'done' && activeEvent.phase !== 'failed' && (
             <div className="library__sync-progress">
-              {activeEvent.detail ?? 'Scanne…'} · neu {activeEvent.imported} · reindex{' '}
-              {activeEvent.reindexed} · fehlt {activeEvent.markedMissing}
+              {t('library.syncProgress', {
+                detail: activeEvent.detail ?? t('library.scanning'),
+                imported: activeEvent.imported,
+                reindexed: activeEvent.reindexed,
+                missing: activeEvent.markedMissing,
+              })}
             </div>
           )}
           {activeEvent?.phase === 'done' && (
             <div className="library__sync-progress library__sync-progress--done">
-              Fertig · neu {activeEvent.imported} · reindex {activeEvent.reindexed} · fehlt{' '}
-              {activeEvent.markedMissing} · unverändert {activeEvent.unchanged}
+              {t('library.syncDone', {
+                imported: activeEvent.imported,
+                reindexed: activeEvent.reindexed,
+                missing: activeEvent.markedMissing,
+                unchanged: activeEvent.unchanged,
+              })}
             </div>
           )}
           {activeEvent?.phase === 'failed' && (
             <div className="library__sync-progress library__sync-progress--failed">
-              Fehler: {activeEvent.detail ?? 'unbekannt'}
+              {t('library.syncFailed', {
+                detail: activeEvent.detail ?? t('library.syncFailedUnknown'),
+              })}
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@ import { SettingsModal } from './settings/SettingsModal'
 import { FallbackToast } from './settings/FallbackToast'
 import { ErrorBoundary } from './ErrorBoundary'
 import { isLockedError } from './lib/lockedError'
+import { useT } from './i18n'
 
 type Phase =
   | { kind: 'loading' }
@@ -36,6 +37,7 @@ function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
 }
 
 export function App(): JSX.Element {
+  const t = useT()
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -110,7 +112,7 @@ export function App(): JSX.Element {
   } else if (phase.kind === 'loading') {
     content = (
       <section className="auth-card">
-        <p>Lade …</p>
+        <p>{t('shell.loading')}</p>
       </section>
     )
   } else if (phase.kind === 'models') {
@@ -118,10 +120,10 @@ export function App(): JSX.Element {
   } else if (phase.kind === 'error') {
     content = (
       <section className="auth-card">
-        <h1>Fehler</h1>
+        <h1>{t('shell.errorTitle')}</h1>
         <p className="auth-card__error">{phase.message}</p>
         <button type="button" onClick={() => void refresh()}>
-          Erneut versuchen
+          {t('common.retry')}
         </button>
       </section>
     )
@@ -152,14 +154,14 @@ export function App(): JSX.Element {
     content = (
       <PassphraseReveal
         words={phase.words}
-        title="Wiederherstellungs-Wörter"
+        title={t('shell.recoveryWordsTitle')}
         onAcknowledge={() => setPhase({ kind: 'unlocked' })}
       />
     )
   } else {
     content = (
       <section className="auth-card">
-        <p>Lade …</p>
+        <p>{t('shell.loading')}</p>
       </section>
     )
   }
@@ -223,7 +225,7 @@ export function App(): JSX.Element {
               </svg>
               <p className="app__brand">LokLM</p>
             </div>
-            <p className="app__sub">Lokaler KI-Wissensassistent</p>
+            <p className="app__sub">{t('shell.tagline')}</p>
           </header>
           {content}
         </main>

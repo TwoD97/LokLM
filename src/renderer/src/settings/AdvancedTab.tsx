@@ -6,23 +6,25 @@ import { EmbedderSection } from './sections/EmbedderSection'
 import { RerankerSection } from './sections/RerankerSection'
 import { DiagnosticsSection } from './sections/DiagnosticsSection'
 import { OllamaSection } from './OllamaSection'
+import { useT } from '../i18n'
 import { DEFAULT_SETTINGS } from '@shared/settings'
 
 type SubTab = 'llm' | 'retrieval' | 'ollama' | 'diagnostics'
 
-const SUBTABS: { id: SubTab; label: string; Icon: LucideIcon }[] = [
-  { id: 'llm', label: 'LLM', Icon: Brain },
-  { id: 'retrieval', label: 'Retrieval', Icon: Search },
-  { id: 'ollama', label: 'Ollama', Icon: Plug },
-  { id: 'diagnostics', label: 'Diagnostics', Icon: BarChart3 },
+const SUBTABS: { id: SubTab; labelKey: string; Icon: LucideIcon }[] = [
+  { id: 'llm', labelKey: 'settings.advanced.subtabLlm', Icon: Brain },
+  { id: 'retrieval', labelKey: 'settings.advanced.subtabRetrieval', Icon: Search },
+  { id: 'ollama', labelKey: 'settings.advanced.subtabOllama', Icon: Plug },
+  { id: 'diagnostics', labelKey: 'settings.advanced.subtabDiagnostics', Icon: BarChart3 },
 ]
 
 export function AdvancedTab(): JSX.Element {
+  const t = useT()
   const { settings, update, savedFlash } = useSettings()
   const [confirmReset, setConfirmReset] = useState(false)
   const [sub, setSub] = useState<SubTab>('llm')
 
-  if (!settings) return <div>Loading…</div>
+  if (!settings) return <div>{t('settings.loading')}</div>
 
   return (
     <div>
@@ -31,25 +33,24 @@ export function AdvancedTab(): JSX.Element {
           <AlertTriangle size={16} />
         </span>
         <span>
-          <strong>Advanced settings can break LokLM&apos;s local-first defaults.</strong> Only
-          change these if you understand the implications. Use <em>Reset advanced</em> at the bottom
-          to restore safe defaults.
+          <strong>{t('settings.advanced.bannerStrong')}</strong> {t('settings.advanced.bannerBody')}{' '}
+          <em>{t('settings.advanced.bannerResetWord')}</em> {t('settings.advanced.bannerBodyTail')}
         </span>
       </div>
 
       <div className="settings-subtabs" role="tablist">
-        {SUBTABS.map((t) => (
+        {SUBTABS.map((st) => (
           <button
-            key={t.id}
+            key={st.id}
             role="tab"
-            aria-selected={sub === t.id}
-            className={`settings-subtab ${sub === t.id ? 'settings-subtab--active' : ''}`}
-            onClick={() => setSub(t.id)}
+            aria-selected={sub === st.id}
+            className={`settings-subtab ${sub === st.id ? 'settings-subtab--active' : ''}`}
+            onClick={() => setSub(st.id)}
           >
             <span className="settings-subtab__icon" aria-hidden="true">
-              <t.Icon size={16} />
+              <st.Icon size={16} />
             </span>
-            {t.label}
+            {t(st.labelKey)}
           </button>
         ))}
       </div>
@@ -65,12 +66,10 @@ export function AdvancedTab(): JSX.Element {
       {sub === 'diagnostics' && <DiagnosticsSection />}
 
       <div className="settings-reset-row">
-        <span className="settings-reset-row__copy">
-          Restores every advanced setting to its default. Profile and Basic stay untouched.
-        </span>
+        <span className="settings-reset-row__copy">{t('settings.advanced.resetCopy')}</span>
         {!confirmReset ? (
           <button className="settings-btn--danger" onClick={() => setConfirmReset(true)}>
-            Reset advanced
+            {t('settings.advanced.reset')}
           </button>
         ) : (
           <button
@@ -80,11 +79,11 @@ export function AdvancedTab(): JSX.Element {
               setConfirmReset(false)
             }}
           >
-            Click again to confirm
+            {t('settings.advanced.resetConfirm')}
           </button>
         )}
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> saved
+          <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
         </span>
       </div>
     </div>

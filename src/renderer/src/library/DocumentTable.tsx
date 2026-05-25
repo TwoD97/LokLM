@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentRow } from './DocumentRow'
+import { useT } from '../i18n'
 
 type Props = {
   docs: Document[]
@@ -38,6 +39,7 @@ export function DocumentTable({
   onRead,
   onExport,
 }: Props): JSX.Element {
+  const t = useT()
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
   const sentinelRef = useRef<HTMLTableRowElement | null>(null)
 
@@ -65,9 +67,7 @@ export function DocumentTable({
   }, [visibleCount, docs.length])
 
   if (docs.length === 0) {
-    return (
-      <div className="library__empty">Noch keine Dokumente. Dateien per Drag-Drop importieren.</div>
-    )
+    return <div className="library__empty">{t('library.empty')}</div>
   }
   const visibleDocs = visibleCount >= docs.length ? docs : docs.slice(0, visibleCount)
   const hiddenCount = docs.length - visibleDocs.length
@@ -75,10 +75,10 @@ export function DocumentTable({
     <table className="library__table">
       <thead>
         <tr>
-          <th>Titel</th>
-          <th>Status</th>
-          <th>Chunks</th>
-          <th>Hinzugefügt</th>
+          <th>{t('library.colTitle')}</th>
+          <th>{t('library.colStatus')}</th>
+          <th>{t('library.colChunks')}</th>
+          <th>{t('library.colAdded')}</th>
           <th></th>
         </tr>
       </thead>
@@ -104,7 +104,7 @@ export function DocumentTable({
         {hiddenCount > 0 && (
           <tr ref={sentinelRef} className="library__row-sentinel" aria-hidden="true">
             <td colSpan={5} style={{ padding: '8px 0', opacity: 0.5, textAlign: 'center' }}>
-              … {hiddenCount} weitere werden geladen
+              {t('library.loadingMore', { count: hiddenCount })}
             </td>
           </tr>
         )}
