@@ -98,16 +98,16 @@
       ]
     },
     "pro": {
-      "totalSizeBytes": 6744982432,
+      "totalSizeBytes": 6556677920,
       "models": [
         {
-          "id": "Qwen_Qwen3.5-9B-MTP-Q4_K_M",
+          "id": "Qwen_Qwen3.5-9B-Q4_K_M",
           "role": "llm",
           "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+          "_comment": "Bucket is named '-MTP-' for historical reasons but MUST serve the NON-MTP Qwen3.5-9B ( unsloth/Qwen3.5-9B-GGUF ). The MTP variant is a Mamba/SSM hybrid that node-llama-cpp 3.18.1 can't load ( missing tensor blk.N.ssm_conv1d.weight ) — it shipped broken in v0.2.7 and the bucket content was swapped to non-MTP as the hotfix. The non-MTP is also the variant the eval-säule actually scored ( judge 0.819 ).",
           "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-9B-MTP-GGUF-bucket/resolve/Qwen3.5-9B-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "xetHash": "859abc00f2e405c4a9e9c5f6c5c1a909c07cc4240ddb9097be2d5a83597143ce",
-          "sizeBytes": 5868826976
+          "sizeBytes": 5680522464
         },
         {
           "id": "bge-m3-Q4_K_M",
