@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Document, DocumentChunk } from '@shared/documents'
 import { MultiPagePdfPreview } from '../chat/MultiPagePdfPreview'
+import { useT } from '../i18n'
 
 type Props = {
   doc: Document
@@ -28,6 +29,7 @@ function classifyDoc(doc: Document): BodyMode {
  *  ground a citation in. PDF goes straight to MultiPagePdfPreview at page 1 ;
  *  non-PDFs load the chunk list and render the doc in reading order. */
 export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
+  const t = useT()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [chunks, setChunks] = useState<DocumentChunk[]>([])
@@ -83,7 +85,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
         className={`source-viewer ${showPdf ? 'source-viewer--pdf' : 'source-viewer--text'}`}
         role="dialog"
         aria-modal="true"
-        aria-label={`Vorschau: ${doc.title}`}
+        aria-label={t('library.previewAria', { title: doc.title })}
       >
         <header className="source-viewer__header">
           <span className="source-viewer__title">{doc.title}</span>
@@ -91,8 +93,8 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
             type="button"
             className="chat__header-action"
             onClick={onClose}
-            aria-label="Vorschau schließen"
-            title="Schließen (Esc)"
+            aria-label={t('library.closePreview')}
+            title={t('library.closeEsc')}
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
               <path
@@ -108,23 +110,26 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
           {status === 'error' && errorMessage && (
             <div className="source-viewer__error">{errorMessage}</div>
           )}
-          {status === 'loading' && <div className="source-viewer__empty">Lade…</div>}
+          {status === 'loading' && (
+            <div className="source-viewer__empty">{t('library.loading')}</div>
+          )}
           {status === 'ready' && showPdf && (
             <MultiPagePdfPreview documentId={doc.id} targetPage={1} />
           )}
           {status === 'ready' && !showPdf && chunks.length === 0 && (
-            <div className="source-viewer__empty">
-              Keine Chunks vorhanden — Dokument indexieren.
-            </div>
+            <div className="source-viewer__empty">{t('library.noChunks')}</div>
           )}
           {status === 'ready' && !showPdf && chunks.length > 0 && (
-            <article className="source-viewer__doc" aria-label="Dokumentvorschau">
+            <article className="source-viewer__doc" aria-label={t('library.previewDoc')}>
               {chunks.map((c) => (
                 <section key={c.id} className="source-viewer__doc-section">
                   {c.language && c.language !== 'other' && (
                     <span
                       className="library__lang-badge"
-                      title={`Chunk-Sprache: ${c.language === 'de' ? 'Deutsch' : 'Englisch'}`}
+                      title={t('library.chunkLanguageTitle', {
+                        language:
+                          c.language === 'de' ? t('library.langGerman') : t('library.langEnglish'),
+                      })}
                     >
                       {c.language}
                     </span>

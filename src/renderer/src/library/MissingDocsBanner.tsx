@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, FileX, Check, Trash2 } from 'lucide-react'
 import type { Document } from '@shared/documents'
+import { useT } from '../i18n'
 
 type Props = {
   workspaceId: number
@@ -23,6 +24,7 @@ export function MissingDocsBanner({
   refreshKey,
   onChanged,
 }: Props): JSX.Element | null {
+  const t = useT()
   const [missing, setMissing] = useState<Document[]>([])
 
   const reload = useCallback(async () => {
@@ -69,8 +71,8 @@ export function MissingDocsBanner({
         <AlertTriangle size={16} aria-hidden="true" />
         <span>
           {missing.length === 1
-            ? '1 Datei nicht mehr gefunden'
-            : `${missing.length} Dateien nicht mehr gefunden`}
+            ? t('library.missingOne')
+            : t('library.missingMany', { count: missing.length })}
         </span>
       </div>
       <ul className="library__missing-list">
@@ -87,19 +89,19 @@ export function MissingDocsBanner({
               type="button"
               className="library__missing-action"
               onClick={() => void onKeep(d.id)}
-              title="In Bibliothek belassen (Suche funktioniert weiter, Quelle fehlt)"
+              title={t('library.keepTitle')}
             >
               <Check size={14} aria-hidden="true" />
-              Behalten
+              {t('library.keep')}
             </button>
             <button
               type="button"
               className="library__missing-action library__missing-action--danger"
               onClick={() => void onRemove(d.id)}
-              title="Dokument samt Chunks aus der Bibliothek entfernen"
+              title={t('library.removeTitle')}
             >
               <Trash2 size={14} aria-hidden="true" />
-              Entfernen
+              {t('common.remove')}
             </button>
           </li>
         ))}

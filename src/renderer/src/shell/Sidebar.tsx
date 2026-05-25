@@ -8,6 +8,7 @@ import {
   GraduationCap,
 } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
+import { useT } from '../i18n'
 
 type ViewKind = 'library' | 'chat' | 'quiz'
 
@@ -46,6 +47,7 @@ export function Sidebar({
   onToggleDocument,
   onClearScope,
 }: Props): JSX.Element {
+  const t = useT()
   const [draft, setDraft] = useState('')
   const [docPickerOpen, setDocPickerOpen] = useState(true)
 
@@ -64,24 +66,24 @@ export function Sidebar({
         <button
           className={`sidebar__rail-btn ${activeView === 'library' ? 'sidebar__rail-btn--active' : ''}`}
           onClick={() => onViewChange('library')}
-          aria-label="Library"
-          title="Library"
+          aria-label={t('shell.navLibrary')}
+          title={t('shell.navLibrary')}
         >
           <Library size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
         <button
           className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
           onClick={() => onViewChange('chat')}
-          aria-label="Chat"
-          title="Chat"
+          aria-label={t('shell.navChat')}
+          title={t('shell.navChat')}
         >
           <MessageSquare size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
         <button
           className={`sidebar__rail-btn ${activeView === 'quiz' ? 'sidebar__rail-btn--active' : ''}`}
           onClick={() => onViewChange('quiz')}
-          aria-label="Quiz"
-          title="Quiz"
+          aria-label={t('shell.navQuiz')}
+          title={t('shell.navQuiz')}
         >
           <GraduationCap size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
         </button>
@@ -90,13 +92,13 @@ export function Sidebar({
         <div className="sidebar__expanded">
           <div className="sidebar__expanded-header">
             <span className="sidebar__section-label" style={{ margin: 0 }}>
-              Workspaces
+              {t('shell.workspaces')}
             </span>
             <button
               className="sidebar__rail-btn"
               onClick={onTogglePin}
-              aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-              title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              aria-label={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
+              title={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
             >
               {pinned ? '«' : '»'}
             </button>
@@ -132,22 +134,28 @@ export function Sidebar({
                     <div className="sidebar__doc-scope-header">
                       <span className="sidebar__doc-scope-label">
                         {selectedCount > 0
-                          ? `Scope: ${selectedCount} file${selectedCount === 1 ? '' : 's'}`
-                          : 'Scope: All documents'}
+                          ? t('shell.scopeFiles', {
+                              count: selectedCount,
+                              noun:
+                                selectedCount === 1
+                                  ? t('shell.scopeFileSingular')
+                                  : t('shell.scopeFilePlural'),
+                            })
+                          : t('shell.scopeAllDocuments')}
                       </span>
                       {selectedCount > 0 && (
                         <button
                           type="button"
                           className="sidebar__doc-scope-clear"
                           onClick={onClearScope}
-                          aria-label="Clear document scope"
+                          aria-label={t('shell.clearScope')}
                         >
-                          Clear
+                          {t('shell.clear')}
                         </button>
                       )}
                     </div>
                     {workspaceDocs.length === 0 ? (
-                      <div className="sidebar__doc-scope-empty">No documents yet</div>
+                      <div className="sidebar__doc-scope-empty">{t('shell.noDocumentsYet')}</div>
                     ) : (
                       workspaceDocs.map((d) => {
                         const selected = activeDocumentIds.includes(d.id)
@@ -184,7 +192,7 @@ export function Sidebar({
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="+ New workspace"
+              placeholder={t('shell.newWorkspace')}
               style={{
                 width: '100%',
                 padding: '6px 8px',

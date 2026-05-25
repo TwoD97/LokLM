@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { QuizQuestion } from '@shared/quiz'
+import { useT } from '../i18n'
 
 type Props = {
   question: QuizQuestion
@@ -24,6 +25,7 @@ export function QuestionCard({
   onSelect,
   onCite,
 }: Props): JSX.Element {
+  const t = useT()
   useEffect(() => {
     if (revealed) return
     const handler = (e: KeyboardEvent): void => {
@@ -81,7 +83,7 @@ export function QuestionCard({
                 })
               }
             >
-              View source
+              {t('quiz.card.viewSource')}
             </button>
           )}
         </div>

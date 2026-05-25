@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AuthLoginStage, AuthStatus } from '@shared/authTypes'
+import { useT } from '../i18n'
 import { formatCooldown, useAuthForm } from './useAuthForm'
 
 type Props = {
@@ -8,14 +9,15 @@ type Props = {
   onForgotPassword: () => void
 }
 
-const STAGE_LABEL: Record<AuthLoginStage, string> = {
-  deriving: 'Schlüssel ableiten …',
-  decrypting: 'Tresor entschlüsseln …',
-  restoring: 'Bibliothek laden …',
-  ready: 'Bereit.',
+const STAGE_KEY: Record<AuthLoginStage, string> = {
+  deriving: 'auth.stageDeriving',
+  decrypting: 'auth.stageDecrypting',
+  restoring: 'auth.stageRestoring',
+  ready: 'auth.stageReady',
 }
 
 export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.Element {
+  const t = useT()
   const [password, setPassword] = useState('')
   const [stage, setStage] = useState<AuthLoginStage | null>(null)
   const form = useAuthForm()
@@ -42,7 +44,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
       // would let a local attacker confirm whether an account exists on this
       // device (privacy leak, free fix).
       if (result.reason === 'no_user' || result.reason === 'bad_password') {
-        setError('Konto oder Passwort falsch.')
+        setError(t('auth.badCredentials'))
       } else if (result.reason === 'rate_limited') {
         setCooldownUntil(Date.now() + (result.retryAfterMs ?? 5 * 60_000))
       }
@@ -55,7 +57,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
     }
   }
 
-  const busyLabel = busy ? (stage ? STAGE_LABEL[stage] : 'Entsperre …') : 'Entsperren →'
+  const busyLabel = busy ? (stage ? t(STAGE_KEY[stage]) : t('auth.unlocking')) : t('auth.unlock')
 
   const initial = status.displayName?.trim().charAt(0).toUpperCase() ?? '?'
 
@@ -66,14 +68,12 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
         <span className="auth-avatar__status" />
       </div>
       <h1 id="login-title" className="auth-card__title-centered">
-        {status.displayName ?? 'LokLM'}
+        {status.displayName ?? t('auth.fallbackName')}
       </h1>
-      <p className="auth-card__lead auth-card__lead--centered">
-        Passwort eingeben, um den Tresor zu entsperren.
-      </p>
+      <p className="auth-card__lead auth-card__lead--centered">{t('auth.loginLead')}</p>
       <form onSubmit={(e) => void submit(e)} noValidate>
         <label className="auth-card__field auth-card__field--hero">
-          <span className="sr-only">Passwort</span>
+          <span className="sr-only">{t('auth.passwordLabel')}</span>
           <input
             type="password"
             value={password}
@@ -92,7 +92,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
         )}
         {cooldownMs > 0 && (
           <p className="auth-card__error" role="alert">
-            Zu viele Fehlversuche. Bitte noch {formatCooldown(cooldownMs)} warten.
+            {t('auth.tooManyAttempts', { time: formatCooldown(cooldownMs) })}
           </p>
         )}
 
@@ -104,7 +104,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
           {busyLabel}
         </button>
         <button type="button" className="link link--centered" onClick={onForgotPassword}>
-          Passwort vergessen?
+          {t('auth.forgotPassword')}
         </button>
       </form>
     </section>

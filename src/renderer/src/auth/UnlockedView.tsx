@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AuthStatus } from '@shared/authTypes'
+import { useT } from '../i18n'
 
 type Props = {
   status: AuthStatus
@@ -7,6 +8,7 @@ type Props = {
 }
 
 export function UnlockedView({ status, onLocked }: Props): JSX.Element {
+  const t = useT()
   const [busy, setBusy] = useState(false)
 
   const lock = async (): Promise<void> => {
@@ -37,18 +39,15 @@ export function UnlockedView({ status, onLocked }: Props): JSX.Element {
         <span className="auth-avatar__letter">{initial}</span>
         <span className="auth-avatar__status" />
       </div>
-      <h1 id="lobby-title">{status.displayName ?? 'Eingeloggt'}</h1>
-      <span className="lobby__status">Tresor entsperrt</span>
-      <p className="auth-card__lead auth-card__lead--centered">
-        Die App-Funktionen kommen mit den nächsten APs. Bis dahin kannst du den Tresor sperren oder
-        dich abmelden.
-      </p>
+      <h1 id="lobby-title">{status.displayName ?? t('auth.lobbyFallbackName')}</h1>
+      <span className="lobby__status">{t('auth.lobbyVaultUnlocked')}</span>
+      <p className="auth-card__lead auth-card__lead--centered">{t('auth.lobbyLead')}</p>
       <div className="lobby__actions">
         <button type="button" onClick={() => void lock()} disabled={busy}>
-          Sperren
+          {t('auth.lock')}
         </button>
         <button type="button" className="link" onClick={() => void logout()} disabled={busy}>
-          Abmelden
+          {t('auth.logout')}
         </button>
       </div>
     </section>

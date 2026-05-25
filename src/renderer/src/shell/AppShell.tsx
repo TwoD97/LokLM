@@ -4,11 +4,13 @@ import { Sidebar, usePinnedSidebar } from './Sidebar'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
 import { QuizView } from '../quiz/QuizView'
+import { useT } from '../i18n'
 import './shell.css'
 
 type ViewKind = 'library' | 'chat' | 'quiz'
 
 export function AppShell(): JSX.Element {
+  const t = useT()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<number | null>(null)
   const [activeView, setActiveView] = useState<ViewKind>('library')
@@ -118,7 +120,7 @@ export function AppShell(): JSX.Element {
       />
       <main className="app-shell__main">
         {activeWorkspaceId == null && (
-          <div style={{ padding: 40, opacity: 0.6 }}>Create or select a workspace first.</div>
+          <div style={{ padding: 40, opacity: 0.6 }}>{t('shell.selectWorkspaceFirst')}</div>
         )}
         {activeView === 'library' && activeWorkspaceId != null && (
           <LibraryView

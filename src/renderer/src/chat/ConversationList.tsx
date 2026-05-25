@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react'
 import type { Conversation } from '@shared/documents'
+import { useT } from '../i18n'
 
 type Props = {
   conversations: Conversation[]
@@ -16,6 +17,7 @@ export function ConversationList({
   onNewChat,
   onRequestDelete,
 }: Props): JSX.Element {
+  const t = useT()
   return (
     <aside
       style={{
@@ -37,10 +39,10 @@ export function ConversationList({
           marginBottom: 12,
         }}
       >
-        + New chat
+        {t('chat.newChatButton')}
       </button>
       {conversations.length === 0 ? (
-        <div style={{ opacity: 0.5, fontSize: 13 }}>No conversations yet.</div>
+        <div style={{ opacity: 0.5, fontSize: 13 }}>{t('chat.noConversations')}</div>
       ) : (
         conversations.map((c) => (
           <div
@@ -69,15 +71,15 @@ export function ConversationList({
                 fontSize: 13,
               }}
             >
-              {c.title ?? `Conversation #${c.id}`}
+              {c.title ?? t('chat.conversationFallback', { id: c.id })}
               <span style={{ display: 'block', fontSize: 11, opacity: 0.55 }}>
-                {c.messageCount} messages
+                {t('chat.messageCount', { count: c.messageCount })}
               </span>
             </button>
             <button
               onClick={() => onRequestDelete(c)}
-              aria-label="Delete"
-              title="Delete"
+              aria-label={t('common.delete')}
+              title={t('common.delete')}
               style={{
                 background: 'transparent',
                 border: 'none',

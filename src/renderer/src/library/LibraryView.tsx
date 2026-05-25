@@ -5,6 +5,7 @@ import { DocumentPreview } from './DocumentPreview'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
+import { useT } from '../i18n'
 import './library.css'
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element {
+  const t = useT()
   const [docs, setDocs] = useState<Document[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
   // Bumped after any flow that could change the missing-banner contents
@@ -94,19 +96,25 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs],
   )
 
-  const onReveal = useCallback(async (id: number) => {
-    const res = await window.api.documents.revealSource(id)
-    if (!res.ok) {
-      window.alert(`Quelldatei nicht gefunden:\n${res.sourcePath}`)
-    }
-  }, [])
+  const onReveal = useCallback(
+    async (id: number) => {
+      const res = await window.api.documents.revealSource(id)
+      if (!res.ok) {
+        window.alert(t('library.sourceNotFound', { path: res.sourcePath }))
+      }
+    },
+    [t],
+  )
 
-  const onOpenExternal = useCallback(async (id: number) => {
-    const res = await window.api.documents.openExternal(id)
-    if (!res.ok) {
-      window.alert(`Datei kann nicht geöffnet werden: ${res.message}`)
-    }
-  }, [])
+  const onOpenExternal = useCallback(
+    async (id: number) => {
+      const res = await window.api.documents.openExternal(id)
+      if (!res.ok) {
+        window.alert(t('library.cannotOpenFile', { message: res.message }))
+      }
+    },
+    [t],
+  )
 
   const onReplace = useCallback(
     async (id: number) => {
@@ -147,6 +155,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
+      {/* workspaceName is user data, rendered verbatim. */}
       <SyncFoldersPanel
         workspaceId={workspaceId}
         onSyncDone={() => void refreshDocs(workspaceId)}
@@ -182,13 +191,9 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
       <PasswordRetypeGate
         open={exportPending !== null}
-        title="Dokument exportieren"
-        body={
-          exportPending
-            ? `"${exportPending.title}" verlässt den Tresor als unverschlüsselte Kopie. Passwort zur Bestätigung eingeben.`
-            : ''
-        }
-        confirmLabel="Exportieren"
+        title={t('library.exportTitle')}
+        body={exportPending ? t('library.exportBody', { title: exportPending.title }) : ''}
+        confirmLabel={t('library.exportLabel')}
         onCancel={() => setExportPending(null)}
         onConfirm={async () => {
           const target = exportPending
@@ -196,7 +201,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           const res = await window.api.documents.exportDocument(target.id)
           setExportPending(null)
           if (res.ok === false && res.kind !== 'cancelled') {
-            window.alert(`Export fehlgeschlagen: ${res.message}`)
+            window.alert(t('library.exportFailed', { message: res.message }))
           }
         }}
       />
@@ -211,6 +216,7 @@ function DropZone({
   onFiles: (paths: string[]) => void
   onPick: () => void
 }): JSX.Element {
+  const t = useT()
   const [over, setOver] = useState(false)
   return (
     <button
@@ -231,7 +237,7 @@ function DropZone({
         onFiles(files)
       }}
     >
-      Klicken zum Auswählen – oder Dateien hierher ziehen.
+      {t('library.dropZone')}
     </button>
   )
 }
