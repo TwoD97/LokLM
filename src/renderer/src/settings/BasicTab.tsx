@@ -6,9 +6,9 @@ import type { SystemInfo, LlmProfileChoice } from '@shared/documents'
 
 const PROFILES: { value: LlmProfileChoice; label: string; sub: string }[] = [
   { value: 'auto', label: 'Auto', sub: 'Recommended — picks best fit for your hardware.' },
-  { value: 'lite', label: 'Lite', sub: 'Qwen3 4B · 8 GB target' },
-  { value: 'full', label: 'Full', sub: 'Qwen3 8B · 16 GB+ target' },
-  { value: 'xl', label: 'XL', sub: 'Nemotron 30B-A3B · high-end GPU' },
+  { value: 'lite', label: 'Lite', sub: 'Qwen3.5 2B · 8 GB target' },
+  { value: 'full', label: 'Full', sub: 'Qwen3.5 4B · 16 GB+ target' },
+  { value: 'xl', label: 'XL', sub: 'Qwen3.5 9B · high-end GPU' },
 ]
 
 /** `SystemInfo.lastLlmPlan` is typed as `unknown` on the wire because the

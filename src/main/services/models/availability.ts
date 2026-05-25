@@ -6,7 +6,8 @@
  *   - The downloader, to decide whether to skip / resume / start fresh.
  */
 
-import { statSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { MODEL_MANIFEST, type ModelManifestEntry } from './manifest'
 import { getDownloadTargetDir, resolveModelFile } from './paths'
 import type { ModelAvailability, ModelsStatus } from '../../../shared/documents'
@@ -21,6 +22,51 @@ function isWithinTolerance(actual: number, expected: number): boolean {
   if (expected <= 0) return actual > 0
   const ratio = Math.abs(actual - expected) / expected
   return ratio <= SIZE_TOLERANCE
+}
+
+/**
+ * v0.2.7 migration cleanup. The wizard now installs models to
+ * `<install-dir>/models/` ; the legacy first-launch downloader wrote to
+ * `userData/models/`. Once a tier marker exists ( = a wizard-managed
+ * install ) those userData copies are orphaned dead weight ( the search
+ * path resolves install-dir/models first , so they're never loaded ).
+ *
+ * Sweeps *.gguf from userData/models only when : (a) a tier marker exists ,
+ * and (b) userData/models is NOT the same dir the wizard installs to
+ * ( belt-and-suspenders against a misconfigured path ). Leaves non-gguf
+ * files untouched. Best-effort + idempotent ; returns bytes freed for the
+ * startup log. No-op in dev / pre-v0.3 installs ( no marker ).
+ */
+export function sweepLegacyUserDataModels(): { removed: number; freedBytes: number } {
+  if (readTierMarker() === null) return { removed: 0, freedBytes: 0 }
+
+  const legacyDir = getDownloadTargetDir() // userData/models when packaged
+  // The wizard installs alongside the exe ( <install-dir>/models ). If the
+  // legacy dir happens to resolve to that ( shouldn't , but guard anyway ) ,
+  // skip — we'd be deleting the live models.
+  const wizardDir = join(dirname(process.execPath), 'models')
+  if (!existsSync(legacyDir) || legacyDir === wizardDir) {
+    return { removed: 0, freedBytes: 0 }
+  }
+
+  let removed = 0
+  let freedBytes = 0
+  try {
+    for (const name of readdirSync(legacyDir)) {
+      if (!name.toLowerCase().endsWith('.gguf')) continue
+      const p = join(legacyDir, name)
+      try {
+        freedBytes += statSync(p).size
+        rmSync(p)
+        removed += 1
+      } catch {
+        /* file in use / permission — skip , try again next launch */
+      }
+    }
+  } catch {
+    /* legacy dir vanished mid-scan — nothing to do */
+  }
+  return { removed, freedBytes }
 }
 
 export function checkOne(entry: ModelManifestEntry): ModelAvailability {

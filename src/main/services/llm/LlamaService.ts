@@ -6,6 +6,7 @@ import {
   type SystemResources,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
+import { readTierMarker, type Tier } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
@@ -73,25 +74,37 @@ export interface LlmProfile {
   minTotalMemGB: number
 }
 
+// Profile ↔ on-disk-GGUF binding. v0.2.7 added the Qwen3.5 tier lineup the
+// wizard now installs ( lite=Qwen3.5-2B , standard=Qwen3.5-4B , pro=Qwen3.5-9B ) ;
+// patterns are ordered most-specific-first so a Qwen3.5-9B never accidentally
+// matches the bare /qwen3.*9b/ -style fallbacks. The older Qwen3 / Qwen2.5 /
+// Llama / Nemotron patterns stay so v0.2.6 installs + side-loaded GGUFs keep
+// resolving. Mapping by model size : 2B→lite , 4B→full , 9B→xl.
 export const LLM_PROFILES: LlmProfile[] = [
   {
     name: 'lite',
-    displayName: 'Lite — Qwen3 4B (8 GB target)',
-    filenamePatterns: [/qwen3.*[-_]?4b/i, /qwen2\.5.*[-_]?3b/i, /llama.*3\.2.*[-_]?3b/i],
+    displayName: 'Lite — Qwen3.5 2B (8 GB target)',
+    filenamePatterns: [
+      /qwen3\.5.*[-_]?2b/i,
+      /qwen3.*[-_]?4b/i,
+      /qwen2\.5.*[-_]?3b/i,
+      /llama.*3\.2.*[-_]?3b/i,
+    ],
     contextSize: 32768,
     minTotalMemGB: 8,
   },
   {
     name: 'full',
-    displayName: 'Full — Qwen3 8B (16 GB+ target)',
-    filenamePatterns: [/qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
+    displayName: 'Full — Qwen3.5 4B (16 GB+ target)',
+    filenamePatterns: [/qwen3\.5.*[-_]?4b/i, /qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
     contextSize: 131072,
     minTotalMemGB: 16,
   },
   {
     name: 'xl',
-    displayName: 'XL — Nemotron 3 Nano 30B-A3B (high-end GPU, 32 GB+ RAM)',
+    displayName: 'XL — Qwen3.5 9B (high-end GPU, 32 GB+ RAM)',
     filenamePatterns: [
+      /qwen3\.5.*[-_]?9b/i,
       /nemotron.*3.*nano.*30b/i,
       /nemotron.*nano.*30b/i,
       /qwen3.*[-_]?30b.*a3b/i,
@@ -109,7 +122,34 @@ export function totalMemGB(): number {
   return totalmem() / (1024 * 1024 * 1024)
 }
 
+// Wizard tier ( install-time user choice ) → LLM profile. The tiers and
+// profiles are separate vocabularies that happen to line up by model size :
+//   lite     ( Qwen3.5-2B )  → lite  profile
+//   standard ( Qwen3.5-4B )  → full  profile
+//   pro      ( Qwen3.5-9B )  → xl    profile
+const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
+  lite: 'lite',
+  standard: 'full',
+  pro: 'xl',
+}
+
+/**
+ * The profile the user implicitly chose by picking a tier in the installer
+ * wizard. This is AUTHORITATIVE over the RAM heuristic — if someone with
+ * 31.9 GB RAM deliberately picked Pro , we honour that instead of letting
+ * the `minTotalMemGB: 32` threshold silently demote them to Full. Returns
+ * null for v0.2.6 installs / dev ( no marker ) so callers fall back to the
+ * hardware heuristic.
+ */
+export function tierMarkerProfile(): LlmProfileName | null {
+  const marker = readTierMarker()
+  if (!marker) return null
+  return TIER_TO_PROFILE[marker.tier] ?? null
+}
+
 export function recommendedProfile(): LlmProfileName {
+  const fromTier = tierMarkerProfile()
+  if (fromTier) return fromTier
   const gb = totalMemGB()
   const sorted = [...LLM_PROFILES].sort((a, b) => b.minTotalMemGB - a.minTotalMemGB)
   for (const p of sorted) {
@@ -142,6 +182,11 @@ function profileDisplayName(profile: LlmProfile, filename: string | null): strin
 
 function variantLabel(name: LlmProfileName, filename: string): string {
   const f = filename.toLowerCase()
+  // Qwen3.5 ( v0.2.7 tier lineup ) checked first so it doesn't fall through
+  // to the looser Qwen3 labels below.
+  if (/qwen3\.5.*2b/.test(f)) return 'Qwen3.5 2B'
+  if (/qwen3\.5.*4b/.test(f)) return 'Qwen3.5 4B'
+  if (/qwen3\.5.*9b/.test(f)) return 'Qwen3.5 9B'
   if (name === 'lite') {
     if (/qwen3.*4b/.test(f)) return 'Qwen3 4B'
     if (/qwen2\.5.*3b/.test(f)) return 'Qwen2.5 3B'
@@ -287,6 +332,14 @@ export class LlamaService {
   }
 
   private recommendedProfileFromCache(profiles: AvailableProfile[]): LlmProfileName {
+    // Install-time tier wins — but only if its profile actually has a GGUF
+    // on disk ( guards against a marker pointing at a tier whose download
+    // failed ; then we fall through to the hardware heuristic ).
+    const fromTier = tierMarkerProfile()
+    if (fromTier) {
+      const d = profiles.find((x) => x.name === fromTier)
+      if (d?.filename) return fromTier
+    }
     const res = this.lastResources
     if (!res) return recommendedProfile()
     const enriched = LLM_PROFILES.map((p) => {

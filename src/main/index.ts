@@ -16,7 +16,10 @@ import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
-import { checkAll as checkModelsAvailability } from './services/models/availability'
+import {
+  checkAll as checkModelsAvailability,
+  sweepLegacyUserDataModels,
+} from './services/models/availability'
 import { ProviderRegistry } from './services/providers/Registry'
 import { BundledLlmProvider } from './services/providers/bundled/BundledLlmProvider'
 import { BundledEmbedderProvider } from './services/providers/bundled/BundledEmbedderProvider'
@@ -1395,6 +1398,15 @@ if (!app.requestSingleInstanceLock()) {
         `[tier] installer-recorded : ${tierMarker.tier} ` +
           `(installer ${tierMarker.installerVersion} , ${tierMarker.installedAt})`,
       )
+      // One-time migration cleanup : drop the orphaned v0.2.6 userData/models
+      // GGUFs now that the wizard owns models in the install dir.
+      const swept = sweepLegacyUserDataModels()
+      if (swept.removed > 0) {
+        console.log(
+          `[tier] swept ${swept.removed} legacy userData GGUF(s) , ` +
+            `freed ${(swept.freedBytes / 1024 / 1024 / 1024).toFixed(1)} GB`,
+        )
+      }
     } else {
       console.log('[tier] no marker (pre-v0.3.0 install or dev) , using legacy settings path')
     }
