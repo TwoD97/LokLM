@@ -1169,6 +1169,16 @@ function registerIpc(): void {
     ) => {
       const ctrl = new AbortController()
       activeStreams.set(streamId, ctrl)
+
+      // Response language is the user's explicit setting , full stop. The
+      // language-detection feature ( mig 0007 ) is for per-CHUNK retrieval
+      // boosting , NOT for picking the answer language — letting
+      // detectLanguage(query) decide made the EN toggle a no-op ( a German
+      // question always got a German answer ). Force opts.language from
+      // settings here so QAService.answer's `opts.language ?? detect` always
+      // takes the setting branch.
+      opts.language = getSettingsService().get().basic.language
+
       const conversations =
         opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
 
