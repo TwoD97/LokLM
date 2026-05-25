@@ -1,4 +1,4 @@
-const i18n = window.LokLMI18n.createI18n('de')
+const i18n = window.LokLMI18n.createI18n('en')
 const t = (key, vars) => i18n.t(key, vars)
 
 const pages = ['welcome', 'license', 'hardware', 'options', 'install', 'finish']

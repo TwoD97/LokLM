@@ -147,7 +147,7 @@ export function buildPrompt(
 export function renderFallback(
   question: string,
   hits: RetrievalHit[],
-  lang: ResponseLanguage = 'de',
+  lang: ResponseLanguage = 'en',
 ): string {
   if (hits.length === 0) return REFUSAL_TEXT[lang]
   const intro =
