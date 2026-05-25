@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { useT } from '../i18n'
 
 type Props = {
   words: string[]
@@ -8,6 +9,7 @@ type Props = {
 }
 
 export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.Element {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
 
@@ -24,14 +26,12 @@ export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.El
   return (
     <section className="auth-card auth-card--reveal">
       <div className="reveal-header">
-        <span className="reveal-header__badge">{words.length} Wörter</span>
+        <span className="reveal-header__badge">
+          {t('auth.revealBadge', { count: words.length })}
+        </span>
         <h1>{title}</h1>
       </div>
-      <p className="auth-card__lead">
-        Diese {words.length} Wörter sind dein einziger Weg zurück, falls du das Passwort vergisst.
-        Notiere sie jetzt — sie werden nirgendwo gespeichert und können nicht erneut angezeigt
-        werden.
-      </p>
+      <p className="auth-card__lead">{t('auth.revealLead', { count: words.length })}</p>
       <ol className="passphrase-grid">
         {words.map((w, i) => (
           <li key={`${i}-${w}`}>
@@ -48,10 +48,10 @@ export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.El
         >
           {copied ? (
             <>
-              In Zwischenablage <Check size={14} aria-hidden="true" />
+              {t('auth.copiedToClipboard')} <Check size={14} aria-hidden="true" />
             </>
           ) : (
-            'In Zwischenablage kopieren'
+            t('auth.copyToClipboard')
           )}
         </button>
       </div>
@@ -61,11 +61,11 @@ export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.El
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
-        Ich habe die 18 Wörter sicher notiert.
+        {t('auth.revealConfirm')}
       </label>
       <div className="auth-card__row">
         <button type="button" className="primary" disabled={!confirmed} onClick={onAcknowledge}>
-          Weiter
+          {t('common.next')}
         </button>
       </div>
     </section>

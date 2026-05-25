@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ModelStatus } from '@shared/documents'
+import { useT } from '../i18n'
 
 type Props = {
   title: string
@@ -7,6 +8,7 @@ type Props = {
 }
 
 export function ChatHeader({ title, onDelete }: Props): JSX.Element {
+  const t = useT()
   // Subscribe to LLM status so we can surface which provider produced the
   // current model state. The TitleBar already owns the colored status dot;
   // here we just append a small text label next to the title so users in the
@@ -30,7 +32,7 @@ export function ChatHeader({ title, onDelete }: Props): JSX.Element {
           style={{ marginLeft: 8, color: '#9fb3cc', fontSize: 12 }}
           title={status.fallback?.reason ?? undefined}
         >
-          {status.fallback?.active ? 'via Ollama → bundled (fallback)' : 'via Ollama'}
+          {status.fallback?.active ? t('chat.viaOllamaFallback') : t('chat.viaOllama')}
         </span>
       )}
       {onDelete && (
@@ -38,8 +40,8 @@ export function ChatHeader({ title, onDelete }: Props): JSX.Element {
           type="button"
           className="chat__header-action"
           onClick={onDelete}
-          aria-label="Delete conversation"
-          title="Delete conversation"
+          aria-label={t('chat.deleteConversation')}
+          title={t('chat.deleteConversation')}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
             <path

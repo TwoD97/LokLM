@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Plug } from 'lucide-react'
 import { useSettings } from './useSettings'
 import { Segmented } from './Segmented'
+import { useT } from '../i18n'
 import type { SystemInfo, LlmProfileChoice } from '@shared/documents'
 
 const PROFILES: { value: LlmProfileChoice; label: string; sub: string }[] = [
@@ -21,6 +22,7 @@ function planSummary(value: unknown): LlmPlanSummary {
 }
 
 export function BasicTab(): JSX.Element {
+  const t = useT()
   const { settings, update, savedFlash } = useSettings()
   const [info, setInfo] = useState<SystemInfo | null>(null)
 
@@ -28,7 +30,7 @@ export function BasicTab(): JSX.Element {
     void window.api.llm.info().then(setInfo)
   }, [])
 
-  if (!settings) return <div>Loading…</div>
+  if (!settings) return <div>{t('settings.loading')}</div>
   const haveGguf = (p: LlmProfileChoice): boolean => {
     if (p === 'auto') return true
     return info?.profiles?.find((x) => x.name === p)?.filename != null
@@ -40,11 +42,13 @@ export function BasicTab(): JSX.Element {
   return (
     <div>
       <div className="settings-section-head">
-        <span className="settings-section-head__title">Response language</span>
-        <span className="settings-section-head__sub">How LokLM should reply.</span>
+        <span className="settings-section-head__title">{t('settings.basic.responseLanguage')}</span>
+        <span className="settings-section-head__sub">
+          {t('settings.basic.responseLanguageSub')}
+        </span>
       </div>
       <Segmented
-        ariaLabel="Response language"
+        ariaLabel={t('settings.basic.responseLanguage')}
         value={settings.basic.language}
         options={[
           { value: 'de', label: 'Deutsch' },
@@ -54,30 +58,34 @@ export function BasicTab(): JSX.Element {
       />
 
       <div className="settings-section-head">
-        <span className="settings-section-head__title">Pipeline checklist</span>
+        <span className="settings-section-head__title">
+          {t('settings.basic.pipelineChecklist')}
+        </span>
         <span className="settings-section-head__sub">
-          Keep the retrieve / rerank / prefill checklist visible above the answer after the first
-          token. Off by default — it collapses into the metrics line.
+          {t('settings.basic.pipelineChecklistSub')}
         </span>
       </div>
       <Segmented
-        ariaLabel="Pipeline checklist visibility"
+        ariaLabel={t('settings.basic.pipelineVisibility')}
         value={settings.basic.showPipelineSteps ? 'on' : 'off'}
         options={[
-          { value: 'off', label: 'Collapse on first token' },
-          { value: 'on', label: 'Keep visible' },
+          { value: 'off', label: t('settings.basic.pipelineCollapse') },
+          { value: 'on', label: t('settings.basic.pipelineKeepVisible') },
         ]}
         onChange={(v) => void update({ basic: { showPipelineSteps: v === 'on' } })}
       />
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">
-          Model size {ollamaActive && <span style={{ color: 'var(--fg-3)' }}>· fallback</span>}
+          {t('settings.basic.modelSize')}{' '}
+          {ollamaActive && (
+            <span style={{ color: 'var(--fg-3)' }}>· {t('settings.basic.fallbackTag')}</span>
+          )}
         </span>
         <span className="settings-section-head__sub">
           {ollamaActive
-            ? 'Loads on demand if Ollama becomes unreachable.'
-            : 'Which bundled GGUF the local LLM loads.'}
+            ? t('settings.basic.modelSizeSubFallback')
+            : t('settings.basic.modelSizeSub')}
         </span>
       </div>
       {ollamaActive && (
@@ -85,11 +93,7 @@ export function BasicTab(): JSX.Element {
           <span className="settings-section__notice__icon" aria-hidden="true">
             <Plug size={16} />
           </span>
-          <span>
-            External Ollama is the active LLM source. The bundled model isn&apos;t loaded right now
-            — it spins up only if Ollama fails. Pick the profile you&apos;d want serving when that
-            happens.
-          </span>
+          <span>{t('settings.basic.ollamaNotice')}</span>
         </div>
       )}
       <div className="settings-model-cards">
@@ -110,10 +114,10 @@ export function BasicTab(): JSX.Element {
                   className={`settings-model-card__badge ${available ? 'settings-model-card__badge--ok' : 'settings-model-card__badge--missing'}`}
                 >
                   {p.value === 'auto'
-                    ? 'auto'
+                    ? t('settings.basic.badgeAuto')
                     : available
-                      ? 'available'
-                      : 'download via Models panel'}
+                      ? t('settings.basic.badgeAvailable')
+                      : t('settings.basic.badgeMissing')}
                 </span>
               </div>
               <span className="settings-model-card__sub">{p.sub}</span>
@@ -124,34 +128,35 @@ export function BasicTab(): JSX.Element {
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">
-          System info {ollamaActive && <span style={{ color: 'var(--fg-3)' }}>· idle</span>}
+          {t('settings.basic.systemInfo')}{' '}
+          {ollamaActive && (
+            <span style={{ color: 'var(--fg-3)' }}>· {t('settings.basic.idleTag')}</span>
+          )}
         </span>
         <span className="settings-section-head__sub">
-          {ollamaActive
-            ? 'Empty until the local model loads. Total RAM and GPU stay live.'
-            : 'Live introspection from the planner.'}
+          {ollamaActive ? t('settings.basic.systemInfoSubIdle') : t('settings.basic.systemInfoSub')}
         </span>
       </div>
       {info && (
         <div className="settings-stat-grid">
           <div className="settings-stat">
-            <span className="settings-stat__label">Total RAM</span>
+            <span className="settings-stat__label">{t('settings.basic.statTotalRam')}</span>
             <span className="settings-stat__value">{info.totalMemGB} GB</span>
           </div>
           <div className="settings-stat">
-            <span className="settings-stat__label">GPU</span>
+            <span className="settings-stat__label">{t('settings.basic.statGpu')}</span>
             <span className="settings-stat__value">{info.gpu ?? '—'}</span>
           </div>
           <div className="settings-stat">
-            <span className="settings-stat__label">Model</span>
+            <span className="settings-stat__label">{t('settings.basic.statModel')}</span>
             <span className="settings-stat__value">{info.modelName ?? '—'}</span>
           </div>
           <div className="settings-stat">
-            <span className="settings-stat__label">Context size</span>
+            <span className="settings-stat__label">{t('settings.basic.statContextSize')}</span>
             <span className="settings-stat__value">{plan.contextSize ?? '—'}</span>
           </div>
           <div className="settings-stat">
-            <span className="settings-stat__label">KV cache</span>
+            <span className="settings-stat__label">{t('settings.basic.statKvCache')}</span>
             <span className="settings-stat__value">{plan.kvCacheType ?? '—'}</span>
           </div>
         </div>
@@ -159,7 +164,7 @@ export function BasicTab(): JSX.Element {
 
       <div style={{ marginTop: 14 }}>
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> saved
+          <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
         </span>
       </div>
     </div>

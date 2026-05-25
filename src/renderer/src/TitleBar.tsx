@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import { useT, type TFn } from './i18n'
 
 type DotState = EmbedderState | RerankerState | ModelState
 type DotSource = 'bundled' | 'ollama'
@@ -8,32 +9,33 @@ type DotSource = 'bundled' | 'ollama'
 // Maps the raw service state + source onto the pill text shown in the hover
 // tooltip. Mirrors the LLM chat-header pill vocabulary ("Local"/"Remote") so
 // the TitleBar reads consistently with the rest of the app.
-function pillText(state: DotState, source: DotSource): string {
-  const where = source === 'ollama' ? 'Remote' : 'Local'
+function pillText(t: TFn, state: DotState, source: DotSource): string {
+  const where = source === 'ollama' ? t('shell.locationRemote') : t('shell.locationLocal')
   switch (state) {
     case 'ready':
-      return `Running · ${where}`
+      return t('shell.statusRunning', { where })
     case 'loading':
-      return `Loading · ${where}`
+      return t('shell.statusLoading', { where })
     case 'failed':
-      return `Failed · ${where}`
+      return t('shell.statusFailed', { where })
     case 'unloaded':
-      return `Unloaded · ${where}`
+      return t('shell.statusUnloaded', { where })
     case 'idle':
     default:
-      return `Idle · ${where}`
+      return t('shell.statusIdle', { where })
   }
 }
 
 // Native `title=` fallback for screen readers and users who hover before our
 // custom tooltip renders. The pill is decorative; this string is the truth.
 function ariaText(
+  t: TFn,
   label: string,
   state: DotState,
   source: DotSource,
   message: string | null,
 ): string {
-  const base = `${label}: ${pillText(state, source)}`
+  const base = `${label}: ${pillText(t, state, source)}`
   return message ? `${base} — ${message}` : base
 }
 
@@ -46,18 +48,19 @@ type DotProps = {
 }
 
 function StatusDot({ label, state, source, message, extraClass }: DotProps): JSX.Element {
+  const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
   return (
     <span
       className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
       role="img"
-      aria-label={ariaText(label, state, source, message)}
+      aria-label={ariaText(t, label, state, source, message)}
     >
       <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
       <span className="titlebar__pill" role="tooltip">
         <span className="titlebar__pill-label">{label}</span>
         <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
-        <span className="titlebar__pill-text">{pillText(state, source)}</span>
+        <span className="titlebar__pill-text">{pillText(t, state, source)}</span>
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
     </span>
@@ -70,6 +73,7 @@ type TitleBarProps = {
 }
 
 export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {}): JSX.Element {
+  const t = useT()
   const [maximized, setMaximized] = useState(false)
   const [embedder, setEmbedder] = useState<{
     state: EmbedderState
@@ -176,7 +180,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
         <span className="titlebar__brand">LokLM</span>
       </div>
 
-      <div className="titlebar__status" aria-label="Modellstatus">
+      <div className="titlebar__status" aria-label={t('shell.modelStatus')}>
         <StatusDot label="LLM" state={llm.state} source={llm.source} message={llm.message} />
         <StatusDot
           label="Embedder"
@@ -199,8 +203,8 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           <button
             type="button"
             className="titlebar__btn titlebar__btn--icon"
-            aria-label="Settings"
-            title="Settings"
+            aria-label={t('shell.settings')}
+            title={t('shell.settings')}
             onClick={onOpenSettings}
           >
             <SettingsIcon size={16} aria-hidden="true" />
@@ -209,7 +213,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
         <button
           type="button"
           className="titlebar__btn"
-          aria-label="Minimieren"
+          aria-label={t('shell.minimize')}
           onClick={() => void window.api.window.minimize()}
         >
           <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
@@ -219,7 +223,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
         <button
           type="button"
           className="titlebar__btn"
-          aria-label={maximized ? 'Wiederherstellen' : 'Maximieren'}
+          aria-label={maximized ? t('shell.restore') : t('shell.maximize')}
           onClick={() => void window.api.window.toggleMaximize()}
         >
           {maximized ? (
@@ -260,7 +264,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
         <button
           type="button"
           className="titlebar__btn titlebar__btn--close"
-          aria-label="Schließen"
+          aria-label={t('common.close')}
           onClick={() => void window.api.window.close()}
         >
           <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">

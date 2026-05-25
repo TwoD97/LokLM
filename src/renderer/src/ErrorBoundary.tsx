@@ -1,4 +1,23 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { useT } from './i18n'
+
+// Functional fallback so the class boundary can still use the translation hook
+// (hooks can't run inside a class component). Rendered only on error.
+function ErrorFallback({
+  label,
+  message,
+}: {
+  label?: string | undefined
+  message: string
+}): JSX.Element {
+  const t = useT()
+  return (
+    <div role="alert" style={{ padding: 16, color: '#f0d4d4' }}>
+      {label ? `${label}: ` : ''}
+      {message || t('shell.unknownError')}
+    </div>
+  )
+}
 
 type Props = {
   children: ReactNode
@@ -25,12 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override render(): ReactNode {
     if (this.state.error) {
-      return (
-        <div role="alert" style={{ padding: 16, color: '#f0d4d4' }}>
-          {this.props.label ? `${this.props.label}: ` : ''}
-          {this.state.error.message || 'Unbekannter Fehler'}
-        </div>
-      )
+      return <ErrorFallback label={this.props.label} message={this.state.error.message} />
     }
     return this.props.children
   }

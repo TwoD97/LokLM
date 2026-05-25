@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SystemInfo } from '@shared/documents'
+import { useT, type TFn } from '../../i18n'
 
 /** `SystemInfo.lastLlmPlan` and `SystemInfo.resources` are typed as `unknown`
  *  on the wire because their underlying types live in the main-process module
@@ -17,6 +18,7 @@ function resourcesSummary(value: unknown): ResourcesSummary | null {
 }
 
 export function DiagnosticsSection(): JSX.Element {
+  const t = useT()
   const [open, setOpen] = useState(true)
   const [info, setInfo] = useState<SystemInfo | null>(null)
   useEffect(() => {
@@ -27,17 +29,15 @@ export function DiagnosticsSection(): JSX.Element {
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
       <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
         <div className="settings-group__title">
-          <div className="settings-group__title-row">Diagnostics</div>
-          <div className="settings-group__sub">
-            Read-only snapshot of the planner&apos;s most recent decisions.
-          </div>
+          <div className="settings-group__title-row">{t('settings.diag.title')}</div>
+          <div className="settings-group__sub">{t('settings.diag.sub')}</div>
         </div>
         <span className="settings-group__chevron">▶</span>
       </div>
       {open && info && (
         <div className="settings-group__body">
           <div className="settings-stat-grid">
-            {Object.entries(diagRows(info)).map(([k, v]) => (
+            {Object.entries(diagRows(info, t)).map(([k, v]) => (
               <div key={k} className="settings-stat">
                 <span className="settings-stat__label">{k}</span>
                 <span className="settings-stat__value">{String(v)}</span>
@@ -50,17 +50,17 @@ export function DiagnosticsSection(): JSX.Element {
   )
 }
 
-function diagRows(info: SystemInfo): Record<string, unknown> {
+function diagRows(info: SystemInfo, t: TFn): Record<string, unknown> {
   const plan = planSummary(info.lastLlmPlan)
   const resources = resourcesSummary(info.resources)
   return {
-    'Total RAM (GB)': info.totalMemGB,
-    GPU: info.gpu ?? '—',
-    'Active model': info.modelName ?? '—',
-    'Recommended profile': info.recommendedProfile,
-    'Free VRAM (GB)': resources?.freeVramGB ?? '—',
-    'Context size': plan?.contextSize ?? '—',
-    'KV cache type': plan?.kvCacheType ?? '—',
-    'Plan reason': plan?.reason ?? '—',
+    [t('settings.diag.totalRam')]: info.totalMemGB,
+    [t('settings.diag.gpu')]: info.gpu ?? '—',
+    [t('settings.diag.activeModel')]: info.modelName ?? '—',
+    [t('settings.diag.recommendedProfile')]: info.recommendedProfile,
+    [t('settings.diag.freeVram')]: resources?.freeVramGB ?? '—',
+    [t('settings.diag.contextSize')]: plan?.contextSize ?? '—',
+    [t('settings.diag.kvCacheType')]: plan?.kvCacheType ?? '—',
+    [t('settings.diag.planReason')]: plan?.reason ?? '—',
   }
 }

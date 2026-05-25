@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../i18n'
 
 type Props = {
   open: boolean
@@ -15,6 +16,7 @@ export function ReindexGateModal({
   onConfirm,
   onCancel,
 }: Props): JSX.Element | null {
+  const t = useT()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -28,16 +30,16 @@ export function ReindexGateModal({
     <div className="settings-backdrop" role="presentation">
       <div className="settings-modal" style={{ width: 520 }} role="dialog" aria-modal="true">
         <div className="settings-modal__body">
-          <h3 style={{ marginTop: 0 }}>Re-index required</h3>
+          <h3 style={{ marginTop: 0 }}>{t('settings.reindex.heading')}</h3>
           <p>
-            Switching embedder from <code>{fromIdentity}</code> to <code>{toIdentity}</code> changes
-            the embedding model. Existing chunks must be re-embedded; search results will be
-            unavailable until re-indexing finishes.
+            {t('settings.reindex.bodyPre')} <code>{fromIdentity}</code>{' '}
+            {t('settings.reindex.bodyMid')} <code>{toIdentity}</code>{' '}
+            {t('settings.reindex.bodyPost')}
           </p>
           {error && <div style={{ color: '#ff8080', marginBottom: 12 }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button onClick={onCancel} disabled={busy}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               style={{ background: '#2c5d4f', color: '#fff' }}
@@ -54,7 +56,7 @@ export function ReindexGateModal({
                 }
               }}
             >
-              {busy ? 'Re-indexing…' : 'Re-index now'}
+              {busy ? t('settings.reindex.busy') : t('settings.reindex.confirm')}
             </button>
           </div>
         </div>
