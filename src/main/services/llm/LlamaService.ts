@@ -217,7 +217,9 @@ export class LlamaService {
   private gpuLabel: string | null = null
   private selectedChoice: LlmProfileChoice = 'auto'
   private selectedContext: LlmContextChoice = 'auto'
-  private language: ResponseLanguage = 'de'
+  // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
+  // real value is pushed from settings on startup + on every change.
+  private language: ResponseLanguage = 'en'
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
   private status: ModelStatus = {
