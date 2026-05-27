@@ -146,3 +146,43 @@ describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
     expect(html).toContain('"@type":"FAQPage"')
   })
 })
+
+describe.skipIf(!distExists)('Phase 3 blog', () => {
+  it('blog index + post build in both locales', () => {
+    for (const p of [
+      'dist/blog/index.html',
+      'dist/en/blog/index.html',
+      'dist/blog/willkommen/index.html',
+      'dist/en/blog/welcome/index.html',
+    ]) {
+      expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
+    }
+  })
+
+  it('post embeds Article + BreadcrumbList JSON-LD and a translation hreflang', () => {
+    const html = readFileSync(resolve(root, 'dist/blog/willkommen/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"Article"')
+    expect(html).toContain('"@type":"BreadcrumbList"')
+    expect(html).toMatch(/hreflang="en" href="[^"]*\/en\/blog\/welcome"/)
+  })
+
+  it('RSS feeds and .md mirrors build', () => {
+    for (const p of [
+      'dist/blog/rss.xml',
+      'dist/en/blog/rss.xml',
+      'dist/blog/willkommen.md',
+      'dist/en/blog/welcome.md',
+    ]) {
+      expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
+    }
+    expect(readFileSync(resolve(root, 'dist/blog/rss.xml'), 'utf-8')).toContain('<item>')
+    expect(readFileSync(resolve(root, 'dist/blog/willkommen.md'), 'utf-8').startsWith('# ')).toBe(
+      true,
+    )
+  })
+
+  it('tag pages build in both locales', () => {
+    expect(existsSync(resolve(root, 'dist/blog/tag/lokale-ki/index.html'))).toBe(true)
+    expect(existsSync(resolve(root, 'dist/en/blog/tag/local-ai/index.html'))).toBe(true)
+  })
+})
