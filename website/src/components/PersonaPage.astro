@@ -3,6 +3,7 @@ import Base from '~/layouts/Base.astro'
 import { getLangFromUrl } from '~/i18n/utils'
 import { t, type UIKey } from '~/i18n/ui'
 import { getPersona, personaUrl, pillarUrl, type PersonaKey } from '~/data/cluster'
+import { buildWebPageSchema, buildBreadcrumbSchema, buildFaqSchema } from '~/lib/schema'
 
 interface Props {
   persona: PersonaKey
@@ -23,9 +24,30 @@ const relatedPillars = p.pillars.map((k) => ({
 // hreflang translation pair for this exact page
 const alternates = { de: personaUrl(persona, 'de'), en: personaUrl(persona, 'en') }
 const downloadHref = lang === 'de' ? '/#download' : '/en/#download'
+
+const siteUrl = Astro.site!.toString().replace(/\/$/, '')
+const pageUrl = `${siteUrl}${personaUrl(persona, lang)}`
+const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
+const faq = [1, 2, 3].map((i) => ({
+  question: t(lang, `persona.${persona}.faq.q${i}` as UIKey),
+  answer: t(lang, `persona.${persona}.faq.a${i}` as UIKey),
+}))
+const schemas = [
+  buildWebPageSchema({ url: pageUrl, name: t(lang, titleKey), description: t(lang, leadKey), lang }),
+  buildBreadcrumbSchema([
+    { name: 'LokLM', url: homeUrl },
+    { name: t(lang, titleKey), url: pageUrl },
+  ]),
+  buildFaqSchema(faq),
+]
 ---
 
-<Base title={`${t(lang, titleKey)} — LokLM`} description={t(lang, leadKey)} alternates={alternates}>
+<Base
+  title={`${t(lang, titleKey)} — LokLM`}
+  description={t(lang, leadKey)}
+  alternates={alternates}
+  schemas={schemas}
+>
   <main class="cluster">
     <div class="cluster__inner">
       <span class="section-eyebrow">{t(lang, 'cluster.relatedPersonas')}</span>
@@ -42,6 +64,17 @@ const downloadHref = lang === 'de' ? '/#download' : '/en/#download'
           ))}
         </ul>
       </nav>
+
+      <section class="cluster__faq">
+        {
+          faq.map((f) => (
+            <details>
+              <summary>{f.question}</summary>
+              <p>{f.answer}</p>
+            </details>
+          ))
+        }
+      </section>
 
       <a class="cluster__cta" href={downloadHref}>{t(lang, 'nav.download')}</a>
     </div>
@@ -97,5 +130,25 @@ const downloadHref = lang === 'de' ? '/#download' : '/en/#download'
     margin-top: 2.5rem;
     color: var(--color-accent-hover);
     font-family: var(--font-mono);
+  }
+  .cluster__faq {
+    margin-top: 2.5rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .cluster__faq details {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1rem;
+  }
+  .cluster__faq summary {
+    cursor: pointer;
+    color: var(--color-fg-0);
+    font-weight: 500;
+  }
+  .cluster__faq p {
+    margin-top: 0.5rem;
+    color: var(--color-fg-2);
+    line-height: 1.6;
   }
 </style>
