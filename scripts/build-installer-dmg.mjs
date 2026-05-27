@@ -10,16 +10,31 @@
 //   3. rename to release/LokLM-mac.dmg ( stable filename ; matches v0.2.x
 //      naming so website + bump-release.mjs + workflow paths stay unchanged )
 
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
 import { rm, readdir, rename } from 'node:fs/promises'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const execFileAsync = promisify(execFile)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
+
+// spawn + stdio:'inherit' so cargo / tauri / create-dmg output streams
+// to the parent terminal in real time AND non-zero exit codes reliably
+// fail the script. promisify(execFile)'s stdio:'inherit' is silently
+// ignored ( the option is documented for spawn , not execFile ) , so
+// errors got swallowed in the original implementation and tauri's bundle
+// failures looked like our existsSync check failing.
+function runInherit(cmd, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: 'inherit', ...opts })
+    child.on('error', reject)
+    child.on('exit', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error(`${cmd} ${args.join(' ')} exited with code ${code}`))
+    })
+  })
+}
 
 function cargoBinDir() {
   // Same defensive PATH prepend the windows wizard script uses ; rustup's
@@ -47,20 +62,30 @@ async function main() {
   // 1) Build the Tauri wizard for the host arch. We DO want the .app
   //    bundle this time ( unlike windows where --no-bundle is correct
   //    because NSIS wraps the raw .exe ) , so omit --no-bundle.
-  console.log('cargo tauri build ...')
-  await execFileAsync('cargo', ['tauri', 'build'], {
-    cwd: wizardDir,
-    env,
-    stdio: 'inherit',
-    maxBuffer: 128 * 1024 * 1024,
-    shell: true,
-  })
+  //    --verbose so any bundle-step failure ( missing icns , code-sign
+  //    issue , ... ) surfaces in CI logs rather than hiding.
+  console.log('cargo tauri build --verbose ...')
+  await runInherit('cargo', ['tauri', 'build', '--verbose'], { cwd: wizardDir, env })
 
   // Tauri uses productName from tauri.conf.json verbatim. After the v0.3.0
-  // IDT-bypass rename it's just "LokLM" — bundle is "LokLM.app".
-  const built = join(wizardDir, 'target', 'release', 'bundle', 'macos', 'LokLM.app')
+  // IDT-bypass rename it's just "LokLM" — bundle is "LokLM.app". If tauri
+  // produces it elsewhere ( name mismatch , version mismatch , etc. ) the
+  // fallback search picks any .app in the macos bundle dir.
+  const macosBundleDir = join(wizardDir, 'target', 'release', 'bundle', 'macos')
+  let built = join(macosBundleDir, 'LokLM.app')
   if (!existsSync(built)) {
-    throw new Error(`expected ${built} ; cargo tauri build did not produce the .app bundle`)
+    if (existsSync(macosBundleDir)) {
+      const found = (await readdir(macosBundleDir)).find((f) => f.endsWith('.app'))
+      if (found) {
+        built = join(macosBundleDir, found)
+        console.warn(`expected LokLM.app , using ${found}`)
+      }
+    }
+    if (!existsSync(built)) {
+      throw new Error(
+        `expected ${built} ; cargo tauri build did not produce a .app bundle in ${macosBundleDir}`,
+      )
+    }
   }
 
   // 2) Pack into a DMG via create-dmg ( npm ).
@@ -68,12 +93,7 @@ async function main() {
   const dmgPath = join(releaseDir, 'LokLM-mac.dmg')
   if (existsSync(dmgPath)) await rm(dmgPath)
   console.log('npx create-dmg ...')
-  const { stdout } = await execFileAsync(
-    'npx',
-    ['create-dmg', built, releaseDir, '--overwrite'],
-    { maxBuffer: 64 * 1024 * 1024 },
-  )
-  console.log(stdout.trim().split('\n').slice(-5).join('\n'))
+  await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite'])
 
   // 3) create-dmg names its output "<AppName> <version>.dmg" by default
   //    ( e.g. "LokLM 0.3.0.dmg" ). Rename to the stable LokLM-mac.dmg so
