@@ -18,7 +18,9 @@ export class OllamaLlmProvider implements LlmProvider {
     private readonly model: string,
   ) {}
 
-  setLanguage(lang: ResponseLanguage): void {
+  async setLanguage(lang: ResponseLanguage): Promise<void> {
+    // No worker round-trip — the system prompt is rebuilt per ask() from
+    // this.language , so setting the field is enough.
     this.language = lang
   }
 

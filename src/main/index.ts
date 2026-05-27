@@ -29,7 +29,7 @@ import { OllamaLlmProvider } from './services/providers/ollama/OllamaLlmProvider
 import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedderProvider'
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
 import { SettingsService } from './services/settings/SettingsService'
-import type { UserSettings } from '../shared/settings'
+import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
@@ -279,9 +279,15 @@ function getSettingsService(): SettingsService {
 async function applySettings(s: UserSettings): Promise<void> {
   const reg = getProviderRegistry()
 
+  // Session baseline for the LLM answer language. There's no query here , so
+  // 'auto' falls back to the UI language ; QAService.answer sets the real
+  // per-turn language ( detecting it in Auto mode ) before each ask.
+  const answerBaseline =
+    s.basic.answerLanguage === 'auto' ? s.basic.language : s.basic.answerLanguage
+
   // Push basic settings to bundled LLM:
   getLlamaService().setSelectedProfile(s.basic.llmProfile)
-  getLlamaService().setLanguage(s.basic.language)
+  void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
 
@@ -309,7 +315,7 @@ async function applySettings(s: UserSettings): Promise<void> {
     // Ollama provider falls back to its constructor default ('de') and an
     // English-speaking user with Ollama active gets German system prompts.
     const llm = new OllamaLlmProvider(client, o.llmModel!)
-    llm.setLanguage(s.basic.language)
+    void llm.setLanguage(answerBaseline)
     reg.replaceOllama({
       llm,
       embedder: new OllamaEmbedderProvider(client, o.embedderModel!, null),
@@ -1058,7 +1064,17 @@ function registerIpc(): void {
   )
 
   // settings
-  ipcMain.handle('settings:get', async () => getSettingsService().get())
+  ipcMain.handle('settings:get', async () => {
+    // useT() — and through it useSettings — runs on the pre-unlock login /
+    // loading screens too , so settings:get is legitimately called while the
+    // vault is locked. The real settings live in the encrypted DB we can't
+    // read yet , so hand back defaults rather than throwing LockedError. The
+    // old throw only spammed the main log and poisoned the renderer's settings
+    // hook (every Settings tab stuck on "loading" after a slow-unlock race ,
+    // e.g. on a reinstall). The renderer re-reads the real settings on unlock.
+    if (!getAuth().isUnlocked()) return DEFAULT_SETTINGS
+    return getSettingsService().get()
+  })
   ipcMain.handle('settings:update', async (_e, patch: unknown) => {
     await getSettingsService().update(patch as never)
     await applySettings(getSettingsService().get())
@@ -1170,14 +1186,15 @@ function registerIpc(): void {
       const ctrl = new AbortController()
       activeStreams.set(streamId, ctrl)
 
-      // Response language is the user's explicit setting , full stop. The
-      // language-detection feature ( mig 0007 ) is for per-CHUNK retrieval
-      // boosting , NOT for picking the answer language — letting
-      // detectLanguage(query) decide made the EN toggle a no-op ( a German
-      // question always got a German answer ). Force opts.language from
-      // settings here so QAService.answer's `opts.language ?? detect` always
-      // takes the setting branch.
-      opts.language = getSettingsService().get().basic.language
+      // Answer language: honour the user's answerLanguage setting. 'de'/'en'
+      // force that language ; 'auto' (the default) leaves opts.language unset so
+      // QAService.answer detects it per-turn from the query (eld , mapped to the
+      // two supported answer languages). The MVP used to force the language
+      // unconditionally — Auto is now an explicit opt-in, so detection no longer
+      // silently overrides a manual DE/EN choice. ( The UI language lives in
+      // basic.language and is unaffected by this. )
+      const answerLang = getSettingsService().get().basic.answerLanguage
+      if (answerLang === 'de' || answerLang === 'en') opts.language = answerLang
 
       const conversations =
         opts.conversationId != null ? getAuth().requireDatabase().conversations() : null

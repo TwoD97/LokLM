@@ -11,7 +11,7 @@ describe('ChatInput', () => {
 
   it('enables send when input has non-whitespace text', () => {
     render(<ChatInput onSend={() => undefined} busy={false} />)
-    const ta = screen.getByPlaceholderText(/dokumenten/i)
+    const ta = screen.getByRole('textbox')
     fireEvent.change(ta, { target: { value: 'what is argon?' } })
     expect(screen.getByRole('button', { name: /send message/i })).not.toBeDisabled()
   })
@@ -19,7 +19,7 @@ describe('ChatInput', () => {
   it('sends on Enter and clears the textarea', () => {
     const onSend = vi.fn()
     render(<ChatInput onSend={onSend} busy={false} />)
-    const ta = screen.getByPlaceholderText(/dokumenten/i) as HTMLTextAreaElement
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement
     fireEvent.change(ta, { target: { value: 'hi' } })
     fireEvent.keyDown(ta, { key: 'Enter' })
     expect(onSend).toHaveBeenCalledWith('hi')
@@ -29,7 +29,7 @@ describe('ChatInput', () => {
   it('does not send on Shift+Enter (allows newline)', () => {
     const onSend = vi.fn()
     render(<ChatInput onSend={onSend} busy={false} />)
-    const ta = screen.getByPlaceholderText(/dokumenten/i) as HTMLTextAreaElement
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement
     fireEvent.change(ta, { target: { value: 'hi' } })
     fireEvent.keyDown(ta, { key: 'Enter', shiftKey: true })
     expect(onSend).not.toHaveBeenCalled()

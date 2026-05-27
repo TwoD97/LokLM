@@ -34,6 +34,7 @@ function mkLlm(): LlmProvider {
     isReady: () => true,
     getStatus: () => ({ ready: true, message: null, identity: 'stub' }),
     getModelStatus: () => ({}) as never,
+    setLanguage: async () => {},
   }
 }
 

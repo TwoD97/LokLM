@@ -14,6 +14,7 @@ function mkLlm(opts: { ask?: (q: string) => Promise<string>; ready?: boolean } =
     isReady: () => opts.ready ?? true,
     getStatus: () => ({ ready: true, message: null, identity: 'test' }),
     getModelStatus: () => ({}) as never,
+    setLanguage: vi.fn(async () => {}),
   } as LlmProvider
 }
 

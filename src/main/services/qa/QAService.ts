@@ -4,6 +4,7 @@ import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
 import { REFUSAL_TEXT } from '../llm/prompt'
+import { detectResponseLanguage } from '../documents/languageDetector'
 
 // 3 wins on the eval sweep (tests/evals/report/runs/2026-05-20T19-46-39…):
 // across Qwen3-8B, Granite-3.3-8B and Mistral-Nemo-12B, k=3 was best- or
@@ -59,7 +60,11 @@ export class QAService {
     void this.db // retained for parity with future enrichment paths
     const topK = opts.topK ?? adaptiveTopK(query)
     const threshold = opts.refusalThreshold ?? DEFAULT_REFUSAL_THRESHOLD
-    const language = opts.language ?? detectLanguage(query)
+    // Answer language: forced when the caller set opts.language ('de'/'en'),
+    // otherwise auto — detect it from the query (Auto mode). detectResponseLanguage
+    // only loads eld for queries long enough to score reliably ; short prompts
+    // take the regex path, so the common case stays cheap.
+    const language = opts.language ?? (await detectResponseLanguage(query))
 
     // Stage events emitted from inside awaited helpers (RetrievalService) land
     // here; we drain the buffer between awaits and re-yield as StreamEvents.
@@ -197,6 +202,10 @@ export class QAService {
         onChunk: collector,
       }
       if (opts.history) askOpts.conversationHistory = opts.history
+      // Bind the provider to this turn's language before streaming. Awaited so
+      // the bundled worker's system prompt is in place before llmAsk (it holds
+      // the prompt as session state). No-op when the language is unchanged.
+      await this.registry.llm().setLanguage(language)
       const askPromise = this.registry.llm().ask(query, hits, askOpts)
       // drain the queue while ask is still running
       while (true) {
@@ -344,15 +353,6 @@ function uniqueByDoc(hits: RetrievalHit[], limit: number): RetrievalHit[] {
     if (out.length >= limit) break
   }
   return out
-}
-
-// crude language detect for refusal-text selection only. Real language
-// binding happens via LlamaService profile/system-prompt; this fallback
-// only matters when we never call the LLM (refusal path).
-function detectLanguage(query: string): 'de' | 'en' {
-  if (/[äöüß]/i.test(query)) return 'de'
-  if (/\b(was|wie|wer|wo|wann|warum|der|die|das|ist|sind)\b/i.test(query)) return 'de'
-  return 'en'
 }
 
 export type QueryBreadth = 'focused' | 'broad' | 'summary'

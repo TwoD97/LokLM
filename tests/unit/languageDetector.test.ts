@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   detectChunkLanguage,
   detectChunkLanguages,
+  detectResponseLanguage,
 } from '@main/services/documents/languageDetector'
 import { tagChunkLanguages } from '@main/services/documents/chunker'
 import type { Chunk } from '@main/services/documents/chunker'
@@ -56,6 +57,41 @@ describe('detectChunkLanguages (batch)', () => {
 
   it('returns an empty array for an empty input (no eld load triggered)', async () => {
     expect(await detectChunkLanguages([])).toEqual([])
+  })
+})
+
+describe('detectResponseLanguage', () => {
+  // Always resolves to one of the two supported answer languages — never
+  // 'other' or null, unlike the per-chunk detector.
+  it('detects German from a long query via eld', async () => {
+    const q =
+      'Was sagen die Quartalskennzahlen über die gestiegenen Betriebsausgaben im letzten Jahr?'
+    expect(await detectResponseLanguage(q)).toBe('de')
+  })
+
+  it('detects English from a long query via eld', async () => {
+    const q = 'What do the quarterly figures say about the increased operating expenses last year?'
+    expect(await detectResponseLanguage(q)).toBe('en')
+  })
+
+  it('collapses a non-DE/EN long query to English', async () => {
+    const q =
+      '¿Qué muestran las cifras trimestrales sobre los gastos operativos del último periodo?'
+    expect(await detectResponseLanguage(q)).toBe('en')
+  })
+
+  // Short queries sit below eld's reliable floor, so the regex fallback runs
+  // (no eld load) — umlauts / German function words mark DE, else EN.
+  it('falls back to regex for short German queries (umlaut)', async () => {
+    expect(await detectResponseLanguage('Wofür?')).toBe('de')
+  })
+
+  it('falls back to regex for short German queries (function word)', async () => {
+    expect(await detectResponseLanguage('Was ist das?')).toBe('de')
+  })
+
+  it('falls back to English for short ambiguous queries', async () => {
+    expect(await detectResponseLanguage('hi there')).toBe('en')
   })
 })
 
