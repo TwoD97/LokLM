@@ -42,6 +42,12 @@ pub struct InstallOptions {
     // entire install. The marker writer round-trips it as-is.
     #[serde(default)]
     pub hardware_snapshot: Option<serde_json::Value>,
+    // v0.3.0+ : whether the wizard should additionally fetch the CUDA
+    // llama-cpp variant from Bunny and extract it on top of the base
+    // payload. Default false ; renderer flips it on when hardware probe
+    // detects an NVIDIA Pascal+ card. Hidden on mac entirely.
+    #[serde(default)]
+    pub download_cuda: bool,
 }
 
 fn default_tier() -> Tier {
