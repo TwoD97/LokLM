@@ -25,7 +25,7 @@
     "package:linux:wizard": "node scripts/build-installer-wizard.mjs",
     "package:linux:stub": "node scripts/build-installer-stub-linux.mjs",
     "package:mac": "pnpm package:mac:payload && pnpm package:mac:archive && pnpm package:mac:dmg",
-    "package:mac:payload": "electron-vite build && electron-builder --mac dir --arm64 --x64",
+    "package:mac:payload": "electron-vite build && node scripts/build-mac-payloads.mjs",
     "package:mac:archive": "node scripts/build-payload-archive.mjs mac-arm64 && node scripts/build-payload-archive.mjs mac-x64 && node scripts/write-payload-manifest.mjs",
     "package:mac:dmg": "node scripts/build-installer-dmg.mjs",
     "release:upload": "node scripts/upload-release.mjs",
