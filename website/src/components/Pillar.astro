@@ -3,6 +3,7 @@ import Base from '~/layouts/Base.astro'
 import { getLangFromUrl } from '~/i18n/utils'
 import { t, type UIKey } from '~/i18n/ui'
 import { pillars, personas, pillarUrl, personaUrl, type PillarKey } from '~/data/cluster'
+import { buildWebPageSchema, buildBreadcrumbSchema } from '~/lib/schema'
 
 interface Props {
   pillar: PillarKey
@@ -23,9 +24,25 @@ const personaLinks = personas.map((p) => ({
 }))
 
 const alternates = { de: pillarUrl(pillar, 'de'), en: pillarUrl(pillar, 'en') }
+
+const siteUrl = Astro.site!.toString().replace(/\/$/, '')
+const pageUrl = `${siteUrl}${pillarUrl(pillar, lang)}`
+const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
+const schemas = [
+  buildWebPageSchema({ url: pageUrl, name: t(lang, titleKey), description: t(lang, leadKey), lang }),
+  buildBreadcrumbSchema([
+    { name: 'LokLM', url: homeUrl },
+    { name: t(lang, titleKey), url: pageUrl },
+  ]),
+]
 ---
 
-<Base title={`${t(lang, titleKey)} — LokLM`} description={t(lang, leadKey)} alternates={alternates}>
+<Base
+  title={`${t(lang, titleKey)} — LokLM`}
+  description={t(lang, leadKey)}
+  alternates={alternates}
+  schemas={schemas}
+>
   <main class="cluster">
     <div class="cluster__inner">
       <span class="section-eyebrow">{t(lang, 'cluster.relatedPillars')}</span>
