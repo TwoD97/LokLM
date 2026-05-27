@@ -65,7 +65,11 @@ function assetFileName(p, _v) {
   // hardcoded per version.
   switch (p) {
     case 'windows':
-      return 'LokLM-Setup-win-x64.exe'
+      // v0.3.0+ : renamed from LokLM-Setup-win-x64.exe to dodge Win11's
+      // Installer Detection Technology shim , which silently refused to
+      // launch the setup-named .exe without UAC elevation. "LokLM" alone
+      // isn't on IDT's keyword list ; verified on a non-admin user.
+      return 'LokLM-x64.exe'
     case 'macos':
       return 'LokLM-mac.dmg'
     case 'linux':

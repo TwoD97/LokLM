@@ -103,6 +103,11 @@
         startMenuDesc: 'Fügt LokLM zu deinem Windows-Startmenü hinzu.',
         autostartTitle: 'Mit Windows starten',
         autostartDesc: 'LokLM startet automatisch, sobald du dich anmeldest.',
+        cudaTitle: 'NVIDIA GPU-Beschleunigung herunterladen',
+        cudaDesc: 'Etwa 280 MB zusätzlicher Download. Aktiviert CUDA für deutlich schnellere Inferenz auf NVIDIA-Karten.',
+        cudaHelpNvidia: 'Empfohlen für deine NVIDIA-Karte ({gpu}).',
+        cudaHelpOther: 'Nicht erforderlich für deine GPU ({gpu} — Vulkan ist bereits enthalten).',
+        cudaHelpNoGpu: 'Keine GPU erkannt; CUDA wird nicht benötigt.',
       },
       install: {
         kicker: 'Installieren',
@@ -136,6 +141,8 @@
         close: 'Schließen',
       },
       progress: {
+        'download-payload': 'Installationspaket wird heruntergeladen',
+        'download-cuda': 'NVIDIA GPU-Beschleunigung wird heruntergeladen',
         'preparing-folder': 'Installationsordner wird vorbereitet',
         'copying-files': 'Dateien werden kopiert',
         'applying-options': 'Verknüpfungen und Autostart werden gesetzt',
@@ -244,6 +251,11 @@
         startMenuDesc: 'Adds LokLM to your Windows start menu.',
         autostartTitle: 'Start with Windows',
         autostartDesc: 'LokLM launches automatically when you sign in.',
+        cudaTitle: 'Download NVIDIA GPU acceleration',
+        cudaDesc: 'About 280 MB extra download. Enables CUDA for much faster inference on NVIDIA cards.',
+        cudaHelpNvidia: 'Recommended for your NVIDIA card ({gpu}).',
+        cudaHelpOther: 'Not needed for your GPU ({gpu} — Vulkan is already included).',
+        cudaHelpNoGpu: 'No GPU detected; CUDA is not required.',
       },
       install: {
         kicker: 'Install',
@@ -277,6 +289,8 @@
         close: 'Close',
       },
       progress: {
+        'download-payload': 'Downloading install package',
+        'download-cuda': 'Downloading NVIDIA GPU acceleration',
         'preparing-folder': 'Preparing install folder',
         'copying-files': 'Copying files',
         'applying-options': 'Setting up shortcuts and autostart',

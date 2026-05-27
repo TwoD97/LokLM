@@ -66,21 +66,31 @@ fn manifest_path() -> PathBuf {
     config_dir().join("install-manifest.json")
 }
 
-// Locate the LokLM payload ( linux-unpacked dir produced by
-// electron-builder --linux dir ). Same two-layer search as the Windows
-// backend : sibling of the wizard exe at install time , then a dev
-// fallback for running the wizard out of cargo target.
+// Where the download-stub wizard puts the downloaded payload + cuda
+// archives while it's working. install() extracts both into here ; then
+// cp -a mirrors from staging/linux-unpacked/ into the user-chosen
+// install dir ; the staging tree is best-effort-cleaned at the end.
+fn staging_dir() -> PathBuf {
+    let tmp = std::env::var("TMPDIR")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp"));
+    tmp.join("loklm-setup").join("staging")
+}
+
+// Locate the LokLM payload ( linux-unpacked dir ). Two layouts , in order :
+//   1. Staging : $TMPDIR/loklm-setup/staging/linux-unpacked/ , populated
+//      by install()'s download-payload phase. Production layout.
+//   2. Dev : ../../../../release/linux-unpacked relative to this binary ,
+//      for running the wizard out of cargo target against a local payload
+//      build ( pnpm package:linux:payload ).
 fn payload_dir() -> Option<PathBuf> {
+    let staged = staging_dir().join("linux-unpacked");
+    if staged.join(APP_BIN).exists() {
+        return Some(staged);
+    }
     let exe = std::env::current_exe().ok()?;
     let exe_dir = exe.parent()?;
-
-    let sibling = exe_dir.parent().map(|p| p.join("linux-unpacked"));
-    if let Some(p) = &sibling {
-        if p.join(APP_BIN).exists() {
-            return Some(p.clone());
-        }
-    }
-
     let dev = exe_dir
         .join("..")
         .join("..")
@@ -360,7 +370,8 @@ fn copy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
 // Public API
 // ----------------------------------------------------------------
 
-// Same phase budget as windows.rs : 0-40 setup , 40-95 download , 95-100 marker.
+// Phase budget : 0-30 download , 30-62 setup ( prep / copy / options /
+// uninstaller ) , 62-97 model download , 97-100 marker.
 pub async fn install<F>(
     options: &InstallOptions,
     version: &str,
@@ -369,8 +380,99 @@ pub async fn install<F>(
 where
     F: FnMut(ProgressEvent) + Send,
 {
+    use super::{archive, download, payload_manifest};
+
+    // ---- Phase 0 : free-space precheck -----------------------------------
+    let bundle = payload_manifest::current_bundle();
+    let needed = bundle.payload.size_bytes
+        + if options.download_cuda {
+            bundle.cuda.as_ref().map(|c| c.size_bytes).unwrap_or(0)
+        } else {
+            0
+        };
+    let needed_with_headroom = needed + needed / 5;
+    let staging = staging_dir();
+    std::fs::create_dir_all(&staging).map_err(|e| format!("mkdir staging : {}", e))?;
+    {
+        use sysinfo::Disks;
+        let disks = Disks::new_with_refreshed_list();
+        let staging_canon = std::fs::canonicalize(&staging).unwrap_or_else(|_| staging.clone());
+        let best = disks
+            .iter()
+            .filter(|d| staging_canon.starts_with(d.mount_point()))
+            .max_by_key(|d| d.mount_point().as_os_str().len());
+        if let Some(d) = best {
+            if d.available_space() < needed_with_headroom {
+                return Err(format!(
+                    "Mindestens {} GB freier Speicher in {} erforderlich ( verfügbar : {} GB ).",
+                    (needed_with_headroom + 1024 * 1024 * 1024 - 1) / (1024 * 1024 * 1024),
+                    staging.display(),
+                    d.available_space() / (1024 * 1024 * 1024),
+                ));
+            }
+        }
+    }
+
+    // ---- Phase 1 : download payload ( 0-15 % ) ---------------------------
+    progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
+    let client = download::build_client();
+    let payload_archive_path = staging.join(&bundle.payload.filename);
+    download::download_with_resume(
+        &client,
+        download::DownloadSpec {
+            url: &payload_manifest::payload_url(),
+            dest: &payload_archive_path,
+            expected_sha256: Some(&bundle.payload.sha256),
+            expected_size: Some(bundle.payload.size_bytes),
+        },
+        |written, total| {
+            let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
+            progress(ProgressEvent {
+                step: "download-payload".into(),
+                percent: pct.min(15),
+            });
+        },
+    )
+    .await
+    .map_err(|e| format!("payload download : {}", e))?;
+    archive::extract_tar_zst(&payload_archive_path, &staging)
+        .map_err(|e| format!("payload extract : {}", e))?;
+    let _ = std::fs::remove_file(&payload_archive_path);
+
+    // ---- Phase 2 : optional CUDA addon ( 15-30 % ) -----------------------
+    if options.download_cuda {
+        if let Some(cuda_entry) = bundle.cuda.as_ref() {
+            let cuda_url = payload_manifest::cuda_url()
+                .expect("manifest has cuda entry on this platform");
+            let cuda_archive_path = staging.join(&cuda_entry.filename);
+            progress(ProgressEvent { step: "download-cuda".into(), percent: 15 });
+            download::download_with_resume(
+                &client,
+                download::DownloadSpec {
+                    url: &cuda_url,
+                    dest: &cuda_archive_path,
+                    expected_sha256: Some(&cuda_entry.sha256),
+                    expected_size: Some(cuda_entry.size_bytes),
+                },
+                |written, total| {
+                    let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
+                    progress(ProgressEvent {
+                        step: "download-cuda".into(),
+                        percent: pct.min(30),
+                    });
+                },
+            )
+            .await
+            .map_err(|e| format!("cuda download : {}", e))?;
+            archive::extract_tar_zst(&cuda_archive_path, &staging)
+                .map_err(|e| format!("cuda extract : {}", e))?;
+            let _ = std::fs::remove_file(&cuda_archive_path);
+        }
+    }
+
+    // ---- Phase 3+ : the existing install flow ----------------------------
     let source = payload_dir()
-        .ok_or("payload nicht gefunden — bitte zuerst den linux-unpacked-build ausführen")?;
+        .ok_or("payload nicht gefunden nach Download — staging layout korrupt ?")?;
     let install_dir = if options.install_dir.is_empty() {
         default_install_dir()
     } else {
@@ -382,22 +484,22 @@ where
         return Err(format!("payload binary fehlt in {}", source.display()));
     }
 
-    progress(ProgressEvent { step: "preparing-folder".into(), percent: 5 });
+    progress(ProgressEvent { step: "preparing-folder".into(), percent: 30 });
     std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
 
-    progress(ProgressEvent { step: "copying-files".into(), percent: 12 });
+    progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
     copy_dir(&source, &install_dir).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "applying-options".into(), percent: 30 });
+    progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &install_dir).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 38 });
+    progress(ProgressEvent { step: "registering-uninstaller".into(), percent: 60 });
     write_uninstaller(&install_dir).map_err(|e| e.to_string())?;
     write_manifest(&install_dir, version).map_err(|e| e.to_string())?;
 
-    progress(ProgressEvent { step: "downloading-models".into(), percent: 40 });
+    progress(ProgressEvent { step: "downloading-models".into(), percent: 62 });
     let downloaded = match super::download_all(&install_dir, options.tier, |ev| {
-        let scaled = 40 + (ev.percent as u64 * 55 / 100) as u32;
+        let scaled = 62 + (ev.percent as u64 * 35 / 100) as u32;
         progress(ProgressEvent { step: ev.step, percent: scaled });
     })
     .await
@@ -415,6 +517,8 @@ where
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 
+    let _ = std::fs::remove_dir_all(staging.parent().unwrap_or(&staging));
+
     Ok(InstallResult {
         install_dir: install_dir.display().to_string(),
         app_exe_path: app_exe_path.display().to_string(),
@@ -422,11 +526,13 @@ where
 }
 
 pub fn get_state() -> InstallerState {
-    let payload_ready = payload_dir().is_some();
+    // Download-stub model : payload arrives at install time , not pre-staged.
+    // Always report ready so the renderer's old "payload missing" guard
+    // ( meaningful for the embedded-payload makeself layout ) doesn't fire.
     InstallerState {
         default_install_dir: suggested_install_dir().display().to_string(),
         existing_install_dir: existing_install_dir().map(|p| p.display().to_string()),
-        payload_ready,
+        payload_ready: true,
     }
 }
 

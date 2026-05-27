@@ -70,4 +70,11 @@ export default defineWorkspace([
       environment: 'node',
     },
   },
+  {
+    test: {
+      name: 'scripts',
+      include: ['tests/unit/scripts/**/*.test.mjs'],
+      environment: 'node',
+    },
+  },
 ])

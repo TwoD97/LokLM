@@ -1,0 +1,107 @@
+// Packs a payload directory ( win-unpacked , linux-unpacked , LokLM.app )
+// into a single .tar.zst on disk and writes a sidecar .sha256 of the
+// compressed bytes. Designed to be called from package.json scripts and
+// from vitest.
+//
+// Implementation note : @mongodb-js/zstd is buffer-oriented , not streaming.
+// For ~1.2 GB payloads the peak RAM is acceptable on a build box ; if it
+// ever becomes a problem , swap to the `zstd` system cli via execFile and
+// pipe stdin -> stdout.
+
+import { readdir, stat, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { join, relative, resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import * as tar from 'tar-stream'
+import * as zstd from '@mongodb-js/zstd'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+const PLATFORM_DEFAULTS = {
+  'win-x64': { sourceDir: 'release/win-unpacked', tarRoot: 'win-unpacked' },
+  'linux-x64': { sourceDir: 'release/linux-unpacked', tarRoot: 'linux-unpacked' },
+  'mac-arm64': { sourceDir: 'release/mac/LokLM.app', tarRoot: 'LokLM.app' },
+  'mac-x64': { sourceDir: 'release/mac/LokLM.app', tarRoot: 'LokLM.app' },
+}
+
+async function walk(dir, baseDir, entries = []) {
+  for (const name of await readdir(dir)) {
+    const full = join(dir, name)
+    const st = await stat(full)
+    const rel = relative(baseDir, full).replace(/\\/g, '/')
+    if (st.isDirectory()) {
+      await walk(full, baseDir, entries)
+    } else if (st.isFile()) {
+      entries.push({ full, rel, size: st.size, mtime: st.mtime })
+    }
+  }
+  return entries
+}
+
+export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
+  const src = resolve(sourceDir)
+  const out = resolve(outFile)
+  const entries = await walk(src, src)
+  entries.sort((a, b) => a.rel.localeCompare(b.rel))
+
+  const pack = tar.pack()
+  const chunks = []
+  pack.on('data', (c) => chunks.push(c))
+  const done = new Promise((res, rej) => {
+    pack.on('end', res).on('error', rej)
+  })
+
+  for (const e of entries) {
+    const buf = await readFile(e.full)
+    pack.entry(
+      {
+        name: `${tarRoot}/${e.rel}`,
+        size: e.size,
+        mode: 0o644,
+        mtime: e.mtime,
+        type: 'file',
+      },
+      buf,
+    )
+  }
+  pack.finalize()
+  await done
+
+  const tarBuf = Buffer.concat(chunks)
+  const compressed = await zstd.compress(tarBuf, 19)
+  await writeFile(out, compressed)
+
+  const sha = createHash('sha256').update(compressed).digest('hex')
+  await writeFile(`${out}.sha256`, `${sha}\n`)
+
+  return { outFile: out, sha256: sha, sizeBytes: compressed.length, entryCount: entries.length }
+}
+
+async function main() {
+  const [, , platform] = process.argv
+  if (!platform || !PLATFORM_DEFAULTS[platform]) {
+    console.error(
+      `usage : build-payload-archive.mjs <${Object.keys(PLATFORM_DEFAULTS).join(' | ')}>`,
+    )
+    process.exit(2)
+  }
+  const cfg = PLATFORM_DEFAULTS[platform]
+  const ROOT = join(__dirname, '..')
+  const result = await buildPayloadArchive({
+    sourceDir: join(ROOT, cfg.sourceDir),
+    tarRoot: cfg.tarRoot,
+    outFile: join(ROOT, 'release', `payload-${platform}.tar.zst`),
+  })
+  console.log(
+    `payload-${platform}.tar.zst : ${(result.sizeBytes / 1024 / 1024).toFixed(1)} MB , ` +
+      `${result.entryCount} files , sha256 ${result.sha256.slice(0, 12)}…`,
+  )
+}
+
+const invoked = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
+if (invoked) {
+  main().catch((err) => {
+    console.error(err.stack || err.message)
+    process.exit(1)
+  })
+}
