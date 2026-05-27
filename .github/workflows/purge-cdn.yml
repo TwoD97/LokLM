@@ -1,0 +1,99 @@
+name: Purge CDN
+
+# Purges the Bunny *edge* cache for a release version's files.
+#
+# Why this exists : release-installer.yml uploads artefacts to Bunny
+# *storage* , but the public pull zone ( loklm-installers.b-cdn.net ) caches
+# them at the edge with `Cache-Control: max-age=2592000` ( 30 days ). So a
+# re-uploaded / hotfixed installer keeps serving the STALE bytes to every
+# user until the edge is explicitly purged — which is exactly how a fixed
+# v0.3.0 installer can sit in storage while users still download the broken
+# one for a month.
+#
+# Two entry points :
+#   * manual    : Actions -> Purge CDN -> Run workflow ( pick the version )
+#   * automatic : called by release-installer.yml after the uploads finish
+#                 ( reusable-workflow `uses:` , see that file's purge-cdn job )
+#
+# Requires repo secrets :
+#   BUNNY_API_KEY              the Bunny *account* API key
+#                              ( dashboard -> Account Settings -> API Key ;
+#                                this is NOT the storage-zone password used
+#                                for uploads — that one can't purge )
+#   PUBLIC_INSTALLER_BASE_URL  already configured ( the CDN base , e.g.
+#                              https://loklm-installers.b-cdn.net )
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version ohne v-prefix , z.b. 0.3.0'
+        required: true
+        type: string
+        default: '0.3.0'
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+# The job only talks to the external Bunny API ; it needs no repo scopes.
+permissions: {}
+
+jobs:
+  purge:
+    name: Purge Bunny edge cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge /v${{ inputs.version }}/ from the edge
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          BASE: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+          V: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUNNY_API_KEY:-}" ]; then
+            echo "::error::BUNNY_API_KEY secret is not set ( Bunny account API key , dashboard -> Account Settings -> API Key )"
+            exit 1
+          fi
+          if [ -z "${BASE:-}" ]; then
+            echo "::error::PUBLIC_INSTALLER_BASE_URL secret is not set"
+            exit 1
+          fi
+          BASE="${BASE%/}"   # tolerate a trailing slash in the secret
+
+          # User-facing installers + the payload / cuda archives the wizard
+          # fetches at install time. Purging a URL that isn't cached ( e.g.
+          # a platform that didn't ship this version ) is a harmless 200 ,
+          # so we just purge the full set per release.
+          files=(
+            LokLM-x64.exe
+            LokLM-Setup-linux-x64.run
+            LokLM-mac.dmg
+            payload-win-x64.tar.zst
+            cuda-win-x64.tar.zst
+            payload-linux-x64.tar.zst
+            cuda-linux-x64.tar.zst
+            payload-mac-arm64.tar.zst
+            payload-mac-x64.tar.zst
+          )
+          targets=()
+          for f in "${files[@]}"; do targets+=("$f" "${f}.sha256"); done
+
+          fail=0
+          for f in "${targets[@]}"; do
+            url="${BASE}/v${V}/${f}"
+            enc=$(jq -rn --arg u "$url" '$u|@uri')
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+              "https://api.bunny.net/purge?url=${enc}&async=false" \
+              -H "AccessKey: ${BUNNY_API_KEY}" \
+              -H "Accept: application/json")
+            echo "purge ${url} -> HTTP ${code}"
+            [ "$code" = "200" ] || fail=1
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::one or more purge calls did not return 200"
+            exit 1
+          fi
+          echo "edge cache purged for v${V}"
