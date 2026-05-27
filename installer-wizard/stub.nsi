@@ -42,16 +42,14 @@ SetCompressor /SOLID lzma
 Name "LokLM Installer"
 OutFile "${OUTPUT_FILE}"
 Icon "${ICON_PATH}"
-; v0.2.7 : `RequestExecutionLevel admin` is the right call here. We tried
-; `user` ( asInvoker manifest ) on Win11 25H2 , but Explorer's AppCompat
-; pre-launch shim silently refuses to launch any 500+ MB NSIS-pattern
-; self-extractor without elevation , regardless of manifest content.
-; Result : double-click → nothing happens. Switching to `admin` makes
-; Windows show a UAC prompt immediately ( consistent UX with v0.2.6 ) ,
-; the user clicks Yes , installer runs. The wizard inside still drops
-; elevation when launching the installed app via the explorer.exe
-; trampoline in installer/windows.rs ( same fix as v0.2.6 ).
-RequestExecutionLevel admin
+; v0.3.0 : asInvoker again. v0.2.7 had to force `admin` because the
+; 500 MB embedded-payload stub tripped Win11 25H2's AppCompat installer-
+; detection heuristic ( silently refused to launch without elevation
+; regardless of manifest ). The new download-stub is ~2.5 MB ; the
+; heuristic doesn't fire at this size. The wizard's install code targets
+; HKCU + %LOCALAPPDATA%\Programs , so it never needed admin to begin with.
+; No more UAC prompt for a regular install.
+RequestExecutionLevel user
 ManifestSupportedOS all
 ManifestDPIAware true
 SilentInstall silent
