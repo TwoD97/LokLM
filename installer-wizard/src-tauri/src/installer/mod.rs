@@ -16,6 +16,7 @@ pub mod archive;
 pub mod download;
 pub mod hardware;
 pub mod models;
+pub mod payload_manifest;
 pub use hardware::{HardwareProfile, Tier};
 pub use models::{cleanup_partials, download_all};
 
