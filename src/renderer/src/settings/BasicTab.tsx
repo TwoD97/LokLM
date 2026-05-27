@@ -42,6 +42,20 @@ export function BasicTab(): JSX.Element {
   return (
     <div>
       <div className="settings-section-head">
+        <span className="settings-section-head__title">{t('settings.basic.uiLanguage')}</span>
+        <span className="settings-section-head__sub">{t('settings.basic.uiLanguageSub')}</span>
+      </div>
+      <Segmented
+        ariaLabel={t('settings.basic.uiLanguage')}
+        value={settings.basic.language}
+        options={[
+          { value: 'de', label: 'Deutsch' },
+          { value: 'en', label: 'English' },
+        ]}
+        onChange={(v) => void update({ basic: { language: v } })}
+      />
+
+      <div className="settings-section-head">
         <span className="settings-section-head__title">{t('settings.basic.responseLanguage')}</span>
         <span className="settings-section-head__sub">
           {t('settings.basic.responseLanguageSub')}
@@ -49,12 +63,13 @@ export function BasicTab(): JSX.Element {
       </div>
       <Segmented
         ariaLabel={t('settings.basic.responseLanguage')}
-        value={settings.basic.language}
+        value={settings.basic.answerLanguage}
         options={[
+          { value: 'auto', label: t('settings.basic.languageAuto') },
           { value: 'de', label: 'Deutsch' },
           { value: 'en', label: 'English' },
         ]}
-        onChange={(v) => void update({ basic: { language: v } })}
+        onChange={(v) => void update({ basic: { answerLanguage: v } })}
       />
 
       <div className="settings-section-head">

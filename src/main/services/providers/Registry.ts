@@ -6,7 +6,7 @@ import type {
   ProviderStatus,
 } from './types'
 import type { RetrievalHit, ModelStatus } from '../../../shared/documents'
-import type { AskOptions } from '../llm/LlamaService'
+import type { AskOptions, ResponseLanguage } from '../llm/LlamaService'
 
 export type ProviderSource = 'bundled' | 'ollama'
 type LlmPair = { bundled: LlmProvider; ollama: LlmProvider | null }
@@ -146,6 +146,13 @@ class RegistryLlmProvider implements LlmProvider {
       this.deps.onFallback?.({ kind: 'llm', reason: (err as Error).message })
       return this.deps.llm.bundled.generateTitle(u, a, opts)
     }
+  }
+
+  async setLanguage(lang: ResponseLanguage): Promise<void> {
+    // Set on both providers , not just the active one : ask() can fall back to
+    // bundled mid-turn , and that fallback must answer in the same language.
+    await this.deps.llm.bundled.setLanguage(lang)
+    if (this.deps.llm.ollama) await this.deps.llm.ollama.setLanguage(lang)
   }
 
   isReady(): boolean {
