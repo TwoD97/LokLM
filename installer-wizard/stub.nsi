@@ -16,20 +16,18 @@
 ;----------------------------------------------------------------------
 
 Unicode True
-; zlib : payload is ~1.2 GB raw and lzma's compression saved ~15%
-; size at the cost of ~15s of decompression at install time. zlib
-; produces a slightly bigger .exe ( ~500 MB vs ~400 MB ) but extracts
-; ~3-4x faster , which is what the user actually feels.
-SetCompressor /SOLID zlib
+; lzma : the stub now bundles only the wizard exe ( ~2.8 MB ) + LICENSE
+; ( ~1 KB ) , so the whole .exe is ~5-10 MB. lzma's decompression cost
+; is ~0.5s at this size — negligible — and trims a few MB off what the
+; user downloads ( payload + cuda are fetched separately from Bunny
+; during install , so the stub itself stays tiny ).
+SetCompressor /SOLID lzma
 
 !ifndef PRODUCT_VERSION
   !error "PRODUCT_VERSION not defined ; invoke via scripts/build-installer-stub.mjs"
 !endif
 !ifndef WIZARD_EXE
   !error "WIZARD_EXE not defined ( path to loklm-installer.exe )"
-!endif
-!ifndef PAYLOAD_DIR
-  !error "PAYLOAD_DIR not defined"
 !endif
 !ifndef OUTPUT_FILE
   !error "OUTPUT_FILE not defined"
@@ -71,17 +69,13 @@ VIAddVersionKey "LegalCopyright" "Projektgruppe LokLM"
 Section "Main" SecMain
   RMDir /r "$INSTDIR"
 
-  ; Extract wizard binary ( ~2.8 MB ) , its LICENSE ( ~1 KB , read by
-  ; the wizard's get_license at runtime ) , and the LokLM payload
-  ; ( ~1.2 GB ) as two sibling folders ( installer/ and win-unpacked/ ).
-  ; The wizard's payload_dir() in installer.rs resolves the payload via
-  ; ../win-unpacked relative to its own exe ; license_file_path() finds
-  ; LICENSE alongside the exe.
+  ; Extract wizard binary ( ~2.8 MB ) + LICENSE ( ~1 KB , read by the
+  ; wizard's get_license at runtime ). The payload + optional cuda are
+  ; fetched by the wizard itself from bunny ( see installer/download.rs
+  ; + payload_manifest.rs ) , so we no longer embed win-unpacked here.
   SetOutPath "$INSTDIR\installer"
   File "/oname=$INSTDIR\installer\loklm-installer.exe" "${WIZARD_EXE}"
   File "/oname=$INSTDIR\installer\LICENSE" "${LICENSE_PATH}"
-  SetOutPath "$INSTDIR\win-unpacked"
-  File /r "${PAYLOAD_DIR}\*"
 
   ; Launch wizard ; ExecWait blocks until it exits ( user clicks
   ; "LokLM starten" , "Schließen" , cancel , or X ). Then we tear down
