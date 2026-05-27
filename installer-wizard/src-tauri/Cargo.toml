@@ -40,6 +40,12 @@ hex = "0.4"
 zstd = "0.13"
 tar = "0.4"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Reserved for mac-only deps. The mac install backend currently uses
+# out-of-process shellouts ( ditto , pkill , open , launchctl-via-plist )
+# the same way windows.rs uses robocopy / taskkill / explorer ; if we
+# need typed plist serialization later , add `plist = "1"` here.
+
 [dev-dependencies]
 # Local HTTP mock for download.rs Range/SHA/resume unit tests.
 wiremock = "0.6"
