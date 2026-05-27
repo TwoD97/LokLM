@@ -49,6 +49,9 @@ const els = {
   desktopShortcut: document.getElementById('desktop-shortcut'),
   startMenuShortcut: document.getElementById('startmenu-shortcut'),
   autostart: document.getElementById('autostart'),
+  cudaRow: document.getElementById('cuda-row'),
+  cudaDownload: document.getElementById('cuda-download'),
+  cudaHelp: document.getElementById('cuda-help'),
   installSummary: document.getElementById('install-summary'),
   progressFill: document.getElementById('progress-fill'),
   progressLabel: document.getElementById('progress-label'),
@@ -79,6 +82,45 @@ function options() {
     // user installed" ) ; the recommendation algorithm runs server-side
     // in Rust so we just pass through what we received.
     hardwareSnapshot: hardwareProfile,
+    // v0.3.0+ : whether to additionally fetch the CUDA llama-cpp variant
+    // from Bunny. The checkbox is hidden ( hence .checked == false ) when
+    // the wizard is built for mac , so this round-trips as false on mac
+    // even if the user somehow toggled it.
+    downloadCuda: els.cudaDownload?.checked === true,
+  }
+}
+
+// Drive the CUDA checkbox's default + helper text from the hardware
+// probe result. Called once on probe success. Hidden entirely when the
+// wizard runs on mac ( payload-manifest has no `cuda` entry ).
+const NVIDIA_PASCAL_PLUS = new Set([
+  'nvidia-pascal',
+  'nvidia-turing',
+  'nvidia-ampere',
+  'nvidia-ada',
+  'nvidia-blackwell',
+])
+function isMacUserAgent() {
+  return /mac|darwin/i.test(navigator.userAgent || '')
+}
+function applyCudaDefault() {
+  if (!els.cudaRow || !els.cudaDownload || !els.cudaHelp) return
+  if (isMacUserAgent()) {
+    els.cudaRow.hidden = true
+    els.cudaDownload.checked = false
+    return
+  }
+  els.cudaRow.hidden = false
+  const arch = hardwareProfile?.gpuArch ?? null
+  const name = hardwareProfile?.gpuName ?? ''
+  const isNvidia = arch && NVIDIA_PASCAL_PLUS.has(arch)
+  els.cudaDownload.checked = !!isNvidia
+  if (isNvidia) {
+    els.cudaHelp.textContent = t('options.cudaHelpNvidia', { gpu: name })
+  } else if (name) {
+    els.cudaHelp.textContent = t('options.cudaHelpOther', { gpu: name })
+  } else {
+    els.cudaHelp.textContent = t('options.cudaHelpNoGpu')
   }
 }
 
@@ -260,11 +302,18 @@ function startHardwareProbe() {
       if (profile?.recommendedTier && selectedTier === 'standard') {
         selectedTier = profile.recommendedTier
       }
+      // Default the CUDA checkbox on for detected NVIDIA Pascal+ ;
+      // off for AMD / Intel / Apple / CPU-only.
+      applyCudaDefault()
       render()
     })
     .catch((err) => {
       console.error('[wizard] hardware probe failed', err)
       hardwareProbeFailed = true
+      // Probe failed : we don't know what the GPU is. Default OFF and
+      // surface the "no GPU detected" helper text so the user is
+      // informed rather than guessing. They can still toggle manually.
+      applyCudaDefault()
       render()
     })
 }
