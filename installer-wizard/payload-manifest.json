@@ -1,0 +1,44 @@
+{
+  "version": "0.3.0",
+  "baseUrl": "https://cdn.loklm.ai/releases/v0.3.0",
+  "platforms": {
+    "win-x64": {
+      "payload": {
+        "filename": "payload-win-x64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      },
+      "cuda": {
+        "filename": "cuda-win-x64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      }
+    },
+    "linux-x64": {
+      "payload": {
+        "filename": "payload-linux-x64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      },
+      "cuda": {
+        "filename": "cuda-linux-x64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      }
+    },
+    "mac-arm64": {
+      "payload": {
+        "filename": "payload-mac-arm64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      }
+    },
+    "mac-x64": {
+      "payload": {
+        "filename": "payload-mac-x64.tar.zst",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "sizeBytes": 0
+      }
+    }
+  }
+}
