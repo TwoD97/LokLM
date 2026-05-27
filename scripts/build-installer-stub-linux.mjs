@@ -2,7 +2,7 @@
 // single self-extracting .run file via makeself ( https://makeself.io ).
 //
 // Inputs ( produced by earlier pipeline stages ) :
-//   installer-wizard/src-tauri/target/release/loklm-installer  ← wizard ( ~3-4 MB )
+//   installer-wizard/src-tauri/target/release/loklm  ← wizard ( ~3-4 MB )
 //   release/linux-unpacked/                                    ← LokLM payload ( ~1.2 GB )
 //   LICENSE                                                    ← packaged alongside the wizard
 //
@@ -59,13 +59,11 @@ async function main() {
     'src-tauri',
     'target',
     'release',
-    'loklm-installer',
+    'loklm',
   )
-  const payloadDir = join(ROOT, 'release', 'linux-unpacked')
   const licenseFile = join(ROOT, 'LICENSE')
 
   await requireFile(wizardBin, 'wizard binary ( cargo build first )')
-  await requireFile(payloadDir, 'payload dir ( pnpm package:linux:payload first )')
   await requireFile(licenseFile, 'LICENSE')
 
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'))
@@ -74,23 +72,24 @@ async function main() {
   // version folder so we can serve specific versions for rollback / pinning.
   const outputFile = join(ROOT, 'release', 'LokLM-Setup-linux-x64.run')
 
-  // Stage : assemble the directory layout the wizard expects at runtime.
-  //   <stage>/installer/loklm-installer  ← Tauri binary
+  // Stage : assemble the directory layout makeself wraps.
+  //   <stage>/installer/loklm  ← Tauri wizard ( ~2.8 MB ; the wizard
+  //                                        fetches payload + cuda from bunny
+  //                                        on demand at install time )
   //   <stage>/installer/LICENSE          ← read by get_license()
-  //   <stage>/linux-unpacked/            ← LokLM payload
   //   <stage>/run-install.sh             ← makeself entry point
+  // The embedded linux-unpacked/ payload is gone ; download-stub model now.
   const stage = join(ROOT, 'release', '.installer-stub-staging-linux')
   if (existsSync(stage)) await rm(stage, { recursive: true, force: true })
   await mkdir(join(stage, 'installer'), { recursive: true })
-  await cp(wizardBin, join(stage, 'installer', 'loklm-installer'))
-  await chmod(join(stage, 'installer', 'loklm-installer'), 0o755)
+  await cp(wizardBin, join(stage, 'installer', 'loklm'))
+  await chmod(join(stage, 'installer', 'loklm'), 0o755)
   await cp(licenseFile, join(stage, 'installer', 'LICENSE'))
-  await cp(payloadDir, join(stage, 'linux-unpacked'), { recursive: true })
 
   // Entry script invoked by makeself after extraction. The wizard exec
   // takes over the process — we exec ( not spawn ) so the makeself
   // wrapper's exit code propagates from the wizard.
-  const runScript = '#!/usr/bin/env bash\nset -e\nexec "$(dirname "$0")/installer/loklm-installer"\n'
+  const runScript = '#!/usr/bin/env bash\nset -e\nexec "$(dirname "$0")/installer/loklm"\n'
   await writeFile(join(stage, 'run-install.sh'), runScript)
   await chmod(join(stage, 'run-install.sh'), 0o755)
 

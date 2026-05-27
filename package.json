@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -9,20 +9,26 @@
   "license": "MIT",
   "packageManager": "pnpm@10.33.4",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "package:win": "pnpm package:win:payload && pnpm package:win:wizard && pnpm package:win:stub",
+    "package:win": "pnpm package:win:payload && pnpm package:win:archive && pnpm package:win:wizard && pnpm package:win:stub",
     "package:win:payload": "electron-vite build && electron-builder --win dir",
+    "package:win:archive": "node scripts/build-payload-archive.mjs win-x64 && node scripts/build-cuda-archive.mjs win-x64 && node scripts/write-payload-manifest.mjs",
     "package:win:wizard": "node scripts/build-installer-wizard.mjs",
     "package:win:stub": "node scripts/build-installer-stub.mjs",
-    "package:linux": "pnpm package:linux:payload && pnpm package:linux:wizard && pnpm package:linux:stub",
+    "package:linux": "pnpm package:linux:payload && pnpm package:linux:archive && pnpm package:linux:wizard && pnpm package:linux:stub",
     "package:linux:payload": "electron-vite build && electron-builder --linux dir",
+    "package:linux:archive": "node scripts/build-payload-archive.mjs linux-x64 && node scripts/build-cuda-archive.mjs linux-x64 && node scripts/write-payload-manifest.mjs",
     "package:linux:wizard": "node scripts/build-installer-wizard.mjs",
     "package:linux:stub": "node scripts/build-installer-stub-linux.mjs",
-    "package:mac": "electron-vite build && electron-builder --mac dmg",
+    "package:mac": "pnpm package:mac:payload && pnpm package:mac:archive && pnpm package:mac:dmg",
+    "package:mac:payload": "electron-vite build && electron-builder --mac dir",
+    "package:mac:archive": "node scripts/build-payload-archive.mjs mac-arm64 && node scripts/build-payload-archive.mjs mac-x64 && node scripts/write-payload-manifest.mjs",
+    "package:mac:dmg": "node scripts/build-installer-dmg.mjs",
+    "release:upload": "node scripts/upload-release.mjs",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -69,6 +75,7 @@
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
     "@eslint/js": "^9.16.0",
+    "@mongodb-js/zstd": "^7.0.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -94,6 +101,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.34.0",
+    "tar-stream": "^3.2.0",
     "tsx": "^4.21.0",
     "typedoc": "^0.27.4",
     "typescript": "^5.6.3",
@@ -107,6 +115,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "eld": "^2.0.3",
+    "electron-log": "^5.4.4",
     "lucide-react": "^1.16.0",
     "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
@@ -128,7 +137,8 @@
       "!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/**/*.d.ts",
-      "!**/node_modules/**/*.map"
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/@node-llama-cpp/{win-x64-cuda,win-x64-cuda-ext,linux-x64-cuda,linux-x64-cuda-ext}/**"
     ],
     "asar": true,
     "publish": null,
@@ -191,7 +201,8 @@
       "esbuild",
       "electron",
       "@electron/rebuild",
-      "node-llama-cpp"
+      "node-llama-cpp",
+      "@mongodb-js/zstd"
     ],
     "overrides": {
       "esbuild": "0.25.12"

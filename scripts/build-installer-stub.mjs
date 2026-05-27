@@ -1,13 +1,16 @@
-// Wraps the Tauri-built wizard exe + LokLM payload into a single
-// release/LokLM-Setup-<version>-win-x64.exe via NSIS.
+// Wraps the Tauri-built wizard exe ( + LICENSE ) into a single tiny
+// release/LokLM-Setup-win-x64.exe via NSIS. The LokLM payload + the
+// optional CUDA addon are NO LONGER embedded — the wizard fetches both
+// from Bunny on demand at install time ( see installer/download.rs +
+// payload_manifest.rs ). The final .exe is ~5-10 MB.
 //
 // Inputs ( produced by earlier pipeline stages ) :
-//   installer-wizard/src-tauri/target/release/loklm-installer.exe  ← Tauri wizard ( 2.8 MB )
-//   release/win-unpacked/                                          ← LokLM payload ( ~1.2 GB )
+//   installer-wizard/src-tauri/target/release/loklm.exe  ← Tauri wizard ( ~2.8 MB )
 //   resources/icon.ico                                             ← Setup.exe icon
+//   LICENSE                                                        ← packaged alongside the wizard
 //
 // Output :
-//   release/LokLM-Setup-<version>-win-x64.exe                      ← what users download
+//   release/LokLM-Setup-win-x64.exe                                ← what users download
 //
 // makensis lookup ( in order ) :
 //   1. PATH
@@ -101,14 +104,12 @@ async function main() {
     'src-tauri',
     'target',
     'release',
-    'loklm-installer.exe',
+    'loklm.exe',
   )
-  const payloadDir = join(ROOT, 'release', 'win-unpacked')
   const iconPath = join(ROOT, 'resources', 'icon.ico')
   const nsiScript = join(ROOT, 'installer-wizard', 'stub.nsi')
 
   await requireFile(wizardExe, 'wizard exe ( cargo tauri build first )')
-  await requireFile(payloadDir, 'payload dir ( pnpm package:win:payload first )')
   await requireFile(iconPath, 'icon.ico')
   await requireFile(nsiScript, 'stub.nsi')
 
@@ -119,18 +120,21 @@ async function main() {
   // FileVersion / ProductVersion ). The URL path on Bunny still has the
   // version folder so we can roll back , but the filename inside is
   // stable across releases ( matches the website's Download button URL ).
-  const outputFile = join(ROOT, 'release', 'LokLM-Setup-win-x64.exe')
+  // Filename matters : "Setup" trips Win11 IDT and forces UAC even with
+  // asInvoker , locking out non-admin users entirely. "Wizard" also trips
+  // it ( verified empirically , undocumented heuristic ). Going fully
+  // bland — "LokLM-x64.exe" reads as a regular release binary.
+  const outputFile = join(ROOT, 'release', 'LokLM-x64.exe')
 
   // Repo LICENSE goes into the NSIS bundle so the wizard's get_license
   // command can read it at runtime ( extracted to $INSTDIR\installer\LICENSE
-  // alongside loklm-installer.exe — see stub.nsi for the layout ).
+  // alongside loklm.exe — see stub.nsi for the layout ).
   const licensePath = join(ROOT, 'LICENSE')
   await requireFile(licensePath, 'LICENSE ( repo root )')
 
   const makensis = await findMakensis()
   console.log(`makensis : ${makensis}`)
   console.log(`wizard   : ${wizardExe}`)
-  console.log(`payload  : ${payloadDir}`)
   console.log(`icon     : ${iconPath}`)
   console.log(`license  : ${licensePath}`)
   console.log(`output   : ${outputFile}`)
@@ -139,7 +143,6 @@ async function main() {
   const args = [
     `/DPRODUCT_VERSION=${version}`,
     `/DWIZARD_EXE=${wizardExe}`,
-    `/DPAYLOAD_DIR=${payloadDir}`,
     `/DICON_PATH=${iconPath}`,
     `/DLICENSE_PATH=${licensePath}`,
     `/DOUTPUT_FILE=${outputFile}`,
