@@ -154,11 +154,11 @@ describe('release asset integrity', () => {
         it('file extension matches platform', () => {
           if (asset.platform === 'windows') expect(asset.file).toMatch(/\.exe$/i)
           if (asset.platform === 'macos') expect(asset.file).toMatch(/\.dmg$/i)
-          if (asset.platform === 'linux') expect(asset.file).toMatch(/\.AppImage$/)
+          if (asset.platform === 'linux') expect(asset.file).toMatch(/\.run$/)
         })
 
-        it('file name contains the release version', () => {
-          expect(asset.file).toContain(currentRelease.version)
+        it('download url is pinned to the release version', () => {
+          expect(downloadUrl(asset)).toContain(`/v${currentRelease.version}/`)
         })
       } else {
         it('not-yet-available asset has empty hash and zero size (placeholder shape)', () => {
