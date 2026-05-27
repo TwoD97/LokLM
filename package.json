@@ -128,7 +128,8 @@
       "!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/**/*.d.ts",
-      "!**/node_modules/**/*.map"
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/@node-llama-cpp/{win-x64-cuda,win-x64-cuda-ext,linux-x64-cuda,linux-x64-cuda-ext}/**"
     ],
     "asar": true,
     "publish": null,
