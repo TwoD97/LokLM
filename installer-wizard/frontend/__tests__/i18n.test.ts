@@ -116,6 +116,8 @@ describe('dictionary parity', () => {
     // The bootstrapper's progress event channel is the IPC contract — if we
     // change one side without the other the user sees raw keys.
     const steps = [
+      'download-payload',
+      'download-cuda',
       'preparing-folder',
       'copying-files',
       'applying-options',
