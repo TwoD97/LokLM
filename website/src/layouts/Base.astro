@@ -7,24 +7,27 @@ import Footer from '~/components/Footer.astro'
 import { getLangFromUrl } from '~/i18n/utils'
 import { currentRelease, downloadUrl } from '~/data/releases'
 import { buildOrganizationSchema, buildSoftwareSchema } from '~/lib/schema'
+import { resolveAlternates, type AlternatePaths } from '~/lib/alternates'
 import interLatinFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
 
 interface Props {
   title: string
   description: string
+  /** translation pair for hreflang; omit for the homepage pair */
+  alternates?: AlternatePaths
 }
 
-const { title, description } = Astro.props
+const { title, description, alternates } = Astro.props
 const lang = getLangFromUrl(Astro.url)
 
 const siteUrl = Astro.site!.toString().replace(/\/$/, '')
 const pathname = Astro.url.pathname.replace(/\/$/, '') || '/'
 const canonical = `${siteUrl}${pathname === '/' ? '' : pathname}`
 
-const dePath = '/'
-const enPath = '/en'
-const deUrl = `${siteUrl}${dePath === '/' ? '' : dePath}`
-const enUrl = `${siteUrl}${enPath}`
+const alt = resolveAlternates(siteUrl, alternates)
+const deUrl = alt.de
+const enUrl = alt.en
+const xDefaultUrl = alt.xDefault
 
 const ogLocale = lang === 'de' ? 'de_DE' : 'en_US'
 const ogLocaleAlternate = lang === 'de' ? 'en_US' : 'de_DE'
@@ -62,7 +65,7 @@ const softwareSchema = buildSoftwareSchema({
     <link rel="canonical" href={canonical} />
     <link rel="alternate" hreflang="de" href={deUrl} />
     <link rel="alternate" hreflang="en" href={enUrl} />
-    <link rel="alternate" hreflang="x-default" href={deUrl} />
+    <link rel="alternate" hreflang="x-default" href={xDefaultUrl} />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/app-paper.svg" />
