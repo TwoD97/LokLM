@@ -17,11 +17,19 @@ import * as zstd from '@mongodb-js/zstd'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+// electron-builder writes payloads per-(platform,arch) :
+//   --win dir   → release/win-unpacked
+//   --linux dir → release/linux-unpacked
+//   --mac dir   → release/mac-arm64 + release/mac-x64 ( one folder per arch
+//                  when build.mac.target.arch = ["arm64", "x64"] ; a "universal"
+//                  arch would produce release/mac/ instead , but we want
+//                  separate archives so users on each arch only download
+//                  what they can actually run ).
 const PLATFORM_DEFAULTS = {
   'win-x64': { sourceDir: 'release/win-unpacked', tarRoot: 'win-unpacked' },
   'linux-x64': { sourceDir: 'release/linux-unpacked', tarRoot: 'linux-unpacked' },
-  'mac-arm64': { sourceDir: 'release/mac/LokLM.app', tarRoot: 'LokLM.app' },
-  'mac-x64': { sourceDir: 'release/mac/LokLM.app', tarRoot: 'LokLM.app' },
+  'mac-arm64': { sourceDir: 'release/mac-arm64/LokLM.app', tarRoot: 'LokLM.app' },
+  'mac-x64': { sourceDir: 'release/mac-x64/LokLM.app', tarRoot: 'LokLM.app' },
 }
 
 async function walk(dir, baseDir, entries = []) {

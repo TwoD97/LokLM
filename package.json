@@ -184,9 +184,10 @@
     "mac": {
       "target": [
         {
-          "target": "dmg",
+          "target": "dir",
           "arch": [
-            "universal"
+            "arm64",
+            "x64"
           ]
         }
       ],
