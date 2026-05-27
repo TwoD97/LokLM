@@ -88,13 +88,32 @@ export async function runUpload({
     })
     if (!put.ok) throw new Error(`PUT ${p.url} failed : ${put.status} ${put.statusText}`)
 
-    const head = await fetchImpl(p.url, { method: 'HEAD', headers: { AccessKey: key } })
-    if (!head.ok) throw new Error(`HEAD ${p.url} failed : ${head.status}`)
-    const remoteSize = parseInt(head.headers.get('content-length') ?? '0', 10)
-    if (remoteSize !== p.sizeBytes) {
-      throw new Error(`size mismatch at ${p.url} : remote ${remoteSize} vs local ${p.sizeBytes}`)
+    // Bunny Storage rejects HEAD with 401 even with the same AccessKey
+    // that PUT just succeeded with ( quirk of their Storage API ; HEAD
+    // verification is intended against the public CDN URL , not the
+    // storage zone ). PUT's 201 + Bunny's own integrity check is the
+    // authoritative success signal ; we still try HEAD as best-effort
+    // but don't fail the upload on a 401/405. Sha verification at
+    // install time catches any genuine corruption.
+    try {
+      const head = await fetchImpl(p.url, { method: 'HEAD', headers: { AccessKey: key } })
+      if (head.ok) {
+        const remoteSize = parseInt(head.headers.get('content-length') ?? '0', 10)
+        if (remoteSize !== p.sizeBytes) {
+          throw new Error(`size mismatch at ${p.url} : remote ${remoteSize} vs local ${p.sizeBytes}`)
+        }
+        console.log(`OK   PUT ${p.url} ( ${(p.sizeBytes / 1024 / 1024).toFixed(2)} MB , HEAD verified )`)
+      } else {
+        console.log(
+          `OK   PUT ${p.url} ( ${(p.sizeBytes / 1024 / 1024).toFixed(2)} MB , HEAD ${head.status} skipped )`,
+        )
+      }
+    } catch (e) {
+      if (String(e.message || '').startsWith('size mismatch')) throw e
+      console.log(
+        `OK   PUT ${p.url} ( ${(p.sizeBytes / 1024 / 1024).toFixed(2)} MB , HEAD failed : ${e.message} )`,
+      )
     }
-    console.log(`OK   PUT ${p.url} ( ${(p.sizeBytes / 1024 / 1024).toFixed(2)} MB )`)
   }
 }
 
