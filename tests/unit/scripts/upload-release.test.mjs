@@ -27,12 +27,12 @@ it('plans one PUT per artifact + sidecar per requested platform', async () => {
   })
   const paths = plans.map((p) => p.urlPath)
   expect(paths).toEqual([
-    'releases/v0.3.0/payload-win-x64.tar.zst',
-    'releases/v0.3.0/payload-win-x64.tar.zst.sha256',
-    'releases/v0.3.0/cuda-win-x64.tar.zst',
-    'releases/v0.3.0/cuda-win-x64.tar.zst.sha256',
-    'releases/v0.3.0/payload-mac-arm64.tar.zst',
-    'releases/v0.3.0/payload-mac-arm64.tar.zst.sha256',
+    'v0.3.0/payload-win-x64.tar.zst',
+    'v0.3.0/payload-win-x64.tar.zst.sha256',
+    'v0.3.0/cuda-win-x64.tar.zst',
+    'v0.3.0/cuda-win-x64.tar.zst.sha256',
+    'v0.3.0/payload-mac-arm64.tar.zst',
+    'v0.3.0/payload-mac-arm64.tar.zst.sha256',
   ])
 })
 

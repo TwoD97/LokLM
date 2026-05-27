@@ -1,11 +1,14 @@
 // Uploads release/*.tar.zst + .sha256 sidecars to Bunny Storage under
-// /releases/v<version>/ via HTTP PUT with AccessKey auth. Per-artifact
-// HEAD round-trip after the PUT verifies Content-Length matches.
+// /v<version>/ via HTTP PUT with AccessKey auth. Per-artifact HEAD
+// round-trip after the PUT verifies Content-Length matches. URL pattern
+// matches the existing release-installer.yml workflow's flat /v<V>/
+// folder so installer .exe + payload + cuda archives all live together.
 //
 // Env :
-//   BUNNY_STORAGE_ZONE   ( required ; the zone name in the Bunny dashboard )
-//   BUNNY_STORAGE_KEY    ( required ; the Storage AccessKey )
-//   BUNNY_BASE_URL       ( optional ; defaults to https://storage.bunnycdn.com )
+//   BUNNY_STORAGE_ZONE        ( required ; the zone name in the Bunny dashboard )
+//   BUNNY_STORAGE_PASSWORD    ( required for upload ; the Storage AccessKey ;
+//                               alias BUNNY_STORAGE_KEY accepted )
+//   BUNNY_STORAGE_HOSTNAME    ( optional ; defaults to storage.bunnycdn.com )
 
 import { readFile, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -29,21 +32,21 @@ export async function planUploads({
     const payloadFile = `payload-${plat}.tar.zst`
     plans.push({
       local: join(releaseDir, payloadFile),
-      urlPath: `releases/v${version}/${payloadFile}`,
+      urlPath: `v${version}/${payloadFile}`,
     })
     plans.push({
       local: join(releaseDir, `${payloadFile}.sha256`),
-      urlPath: `releases/v${version}/${payloadFile}.sha256`,
+      urlPath: `v${version}/${payloadFile}.sha256`,
     })
     if (CUDA_PLATFORMS.has(plat)) {
       const cudaFile = `cuda-${plat}.tar.zst`
       plans.push({
         local: join(releaseDir, cudaFile),
-        urlPath: `releases/v${version}/${cudaFile}`,
+        urlPath: `v${version}/${cudaFile}`,
       })
       plans.push({
         local: join(releaseDir, `${cudaFile}.sha256`),
-        urlPath: `releases/v${version}/${cudaFile}.sha256`,
+        urlPath: `v${version}/${cudaFile}.sha256`,
       })
     }
   }
@@ -73,8 +76,9 @@ export async function runUpload({
   key,
   platforms,
   fetchImpl = fetch,
+  baseUrl,
 }) {
-  const plans = await planUploads({ releaseDir, version, zone, platforms })
+  const plans = await planUploads({ releaseDir, version, zone, platforms, baseUrl })
   for (const p of plans) {
     const body = await readFile(p.local)
     const put = await fetchImpl(p.url, {
@@ -112,12 +116,20 @@ async function main() {
   }
 
   const zone = process.env.BUNNY_STORAGE_ZONE
-  const key = process.env.BUNNY_STORAGE_KEY
+  // Accept either BUNNY_STORAGE_PASSWORD ( name used by the existing
+  // release-installer.yml workflow ) or BUNNY_STORAGE_KEY ( shorter alias
+  // for local testing ). PASSWORD wins if both are set.
+  const key = process.env.BUNNY_STORAGE_PASSWORD || process.env.BUNNY_STORAGE_KEY
   if (!zone || !key) {
-    console.error('BUNNY_STORAGE_ZONE and BUNNY_STORAGE_KEY env vars required ( or pass --dry-run )')
+    console.error(
+      'BUNNY_STORAGE_ZONE and BUNNY_STORAGE_PASSWORD ( or BUNNY_STORAGE_KEY ) env vars required ( or pass --dry-run )',
+    )
     process.exit(2)
   }
-  await runUpload({ releaseDir, version: pkg.version, zone, key, platforms })
+  const baseUrl = process.env.BUNNY_STORAGE_HOSTNAME
+    ? `https://${process.env.BUNNY_STORAGE_HOSTNAME}`
+    : undefined
+  await runUpload({ releaseDir, version: pkg.version, zone, key, platforms, baseUrl })
 }
 
 const invoked =

@@ -18,7 +18,7 @@ name: Release installer
 #   lite ~1.6 GB , standard ~3.4 GB , pro ~6.3 GB
 #
 # backup-URL-pattern bei CDN-ausfall:
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-win-x64.exe
+#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-x64.exe
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
 on:
@@ -114,15 +114,24 @@ jobs:
         run: choco install nsis -y --no-progress
 
       - name: Build payload + wizard + bundle ( pnpm package:win )
-        # Three-stage pipeline :
-        #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder)
-        #   package:win:wizard   → installer-wizard/src-tauri/target/release/loklm-installer.exe
-        #                          (cargo tauri build , Rust + WebView2 wizard)
-        #   package:win:stub     → release/LokLM-Setup-<v>-win-x64.exe
-        #                          (NSIS wraps wizard + payload into one .exe)
-        # No GGUFs are bundled — the first-launch downloader in src/main/
-        # services/models/ModelDownloader.ts fetches them to %APPDATA%\loklm
-        # via SHA256-verified HTTP pulls. CI saves ~6 GB / run.
+        # Four-stage pipeline ( v0.3.0+ download-stub model ) :
+        #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder ; cuda stripped)
+        #   package:win:archive  → release/payload-win-x64.tar.zst + cuda-win-x64.tar.zst
+        #                          + sha256 sidecars + installer-wizard/payload-manifest.json regen
+        #   package:win:wizard   → installer-wizard/src-tauri/target/release/loklm.exe
+        #                          ( cargo tauri build ; bakes the manifest baseUrl + hashes via include_str! )
+        #   package:win:stub     → release/LokLM-x64.exe
+        #                          ( NSIS wraps just the wizard + LICENSE ; payload + cuda fetched
+        #                            from bunny at install time , see installer/download.rs )
+        # GGUFs continue to be fetched at install time by the wizard's
+        # download_all() , unchanged from v0.2.x. CI saves ~6 GB / run.
+        env:
+          # Bake the production CDN URL into the wizard's payload-manifest.json
+          # ( write-payload-manifest.mjs picks this up before cargo tauri build
+          # snapshots it via include_str! ). Without this the wizard would
+          # default to https://cdn.loklm.ai/v<V>/ which may or may not be the
+          # actual public URL.
+          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:win
 
       - name: Compute sha256 + size
@@ -130,7 +139,7 @@ jobs:
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          EXE="release/LokLM-Setup-win-x64.exe"
+          EXE="release/LokLM-x64.exe"
 
           # scripts/build-installer-stub.mjs writes exactly this filename ;
           # bail early if it's missing because something earlier broke.
@@ -147,7 +156,7 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $EXE , size=$SIZE sha256=$SHA"
 
-      - name: Upload to Bunny Storage (primary , served via CDN)
+      - name: Upload installer + payload + cuda archives to Bunny Storage
         shell: bash
         env:
           BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
@@ -155,14 +164,23 @@ jobs:
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-Setup-win-x64.exe"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+
+          # User-facing installer .exe + its sha256 sidecar.
+          FILE="release/LokLM-x64.exe"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
+          # v0.3.0+ : the installer fetches payload + cuda from this same
+          # /v${V}/ path at install time. URL conventions baked into the
+          # wizard via installer-wizard/payload-manifest.json must match
+          # what we PUT here. upload-release.mjs handles the URL pattern +
+          # HEAD-size verification ; we drive it from the same secrets.
+          node scripts/upload-release.mjs --platforms=win-x64
 
       - name: Install mc
         shell: bash
@@ -179,8 +197,8 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-Setup-win-x64.exe" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-Setup-win-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-x64.exe" "s3target/loklm-installers/v${V}/"
+          /tmp/mc.exe cp "release/LokLM-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
 
   build-linux:
@@ -248,12 +266,17 @@ jobs:
         run: cargo install tauri-cli --version "^2.0" --locked
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
-        # Three-stage pipeline ( mirrors Windows ) :
-        #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir)
-        #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm-installer
-        #                            (cargo tauri build , Rust + webkit2gtk wizard)
-        #   package:linux:stub     → release/LokLM-Setup-<v>-linux-x64.run
-        #                            (makeself wraps wizard + payload into one .run)
+        # Four-stage pipeline ( v0.3.0+ download-stub model ; mirrors Windows ) :
+        #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir ; cuda stripped)
+        #   package:linux:archive  → release/payload-linux-x64.tar.zst + cuda-linux-x64.tar.zst
+        #                            + sha256 sidecars + installer-wizard/payload-manifest.json regen
+        #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm
+        #                            ( cargo tauri build ; bakes manifest baseUrl + hashes )
+        #   package:linux:stub     → release/LokLM-Setup-linux-x64.run
+        #                            ( makeself wraps just the wizard + LICENSE ; payload + cuda
+        #                              fetched from bunny at install time )
+        env:
+          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:linux
 
       - name: Compute sha256 + size
@@ -272,21 +295,26 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $APP , size=$SIZE sha256=$SHA"
 
-      - name: Upload to Bunny Storage (primary , served via CDN)
+      - name: Upload installer + payload + cuda archives to Bunny Storage
         env:
           BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
           BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-Setup-linux-x64.run"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+
+          # User-facing .run installer + sha256 sidecar.
+          FILE="release/LokLM-Setup-linux-x64.run"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
+          # v0.3.0+ : payload + cuda archives the wizard fetches at install.
+          node scripts/upload-release.mjs --platforms=linux-x64
 
       - name: Install mc
         run: |
@@ -340,16 +368,37 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Package ( DMG , unsigned , universal )
-        # No wizard on Mac — we ship the standard .dmg + drag-to-Applications
-        # idiom Mac users expect. `identity: null` in build.mac disables
-        # the auto-detected codesigning ; users see Gatekeeper warning on
-        # first launch ( right-click → Open → confirm ). Adding a real
-        # cert + notarization later is a single env-var swap.
-        # Universal arch builds both Intel and Apple Silicon variants and
-        # lipo-merges them into one .dmg — ~2x build time but one download.
+      - name: Install Rust toolchain
+        # v0.3.0+ : Mac now has a Tauri wizard like Win + Linux. macos-latest
+        # ships Xcode + the system linker , so no extra prep needed beyond
+        # the rust toolchain itself.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache cargo registry + tauri target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: installer-wizard/src-tauri
+          cache-on-failure: true
+
+      - name: Install tauri-cli
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Build payload + wizard + dmg ( pnpm package:mac )
+        # Three-stage pipeline ( v0.3.0+ download-stub model ) :
+        #   package:mac:payload  → release/mac/LokLM.app  (electron-builder --mac dir)
+        #   package:mac:archive  → release/payload-mac-{arm64,x64}.tar.zst + sha256 sidecars
+        #                          + installer-wizard/payload-manifest.json regen
+        #   package:mac:dmg      → release/LokLM-mac.dmg
+        #                          ( cargo tauri build -> create-dmg around the wizard .app ;
+        #                            the real LokLM.app is fetched from bunny at install time )
+        # `identity: null` in build.mac disables auto-detected codesigning ;
+        # users see Gatekeeper warning on first launch ( right-click → Open ).
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:mac
 
       - name: Compute sha256 + size
@@ -368,21 +417,28 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $DMG , size=$SIZE sha256=$SHA"
 
-      - name: Upload to Bunny Storage (primary , served via CDN)
+      - name: Upload installer + payload archives to Bunny Storage
         env:
           BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
           BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
           BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          FILE="release/LokLM-mac.dmg"
           BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
+
+          # User-facing .dmg + sha256 sidecar.
+          FILE="release/LokLM-mac.dmg"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
           curl -fsSL --retry 3 --retry-delay 5 -X PUT \
             -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
             --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
+
+          # v0.3.0+ : payload archives the wizard fetches at install ( both
+          # mac-arm64 and mac-x64 since the wizard's payload-manifest knows
+          # both ). No cuda branch on mac.
+          node scripts/upload-release.mjs --platforms=mac-arm64,mac-x64
 
       - name: Install mc
         run: |
@@ -504,7 +560,7 @@ jobs:
             echo "**Primary (CDN):** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
             echo "**Backup (minio , manual fallback):**"
-            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-win-x64.exe"
+            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-x64.exe"
             echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-linux-x64.run"
             echo "- macOS:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-mac.dmg"
           } >> "$GITHUB_STEP_SUMMARY"
