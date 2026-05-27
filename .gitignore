@@ -170,6 +170,9 @@ tests/evals/report/
 
 release
 
+# Lokale Test-Notizen (Zugangsdaten / Recovery-Phrasen) — NIE committen
+test-notes/
+
 # Generated splash assets ( rebuilt by scripts/build-installer-splash.mjs
 # before package:win:installer ; source of truth is installer-ui/splash.html )
 resources/installer-splash.bmp

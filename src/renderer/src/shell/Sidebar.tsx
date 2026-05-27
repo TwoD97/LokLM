@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   GraduationCap,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -69,7 +71,7 @@ export function Sidebar({
           aria-label={t('shell.navLibrary')}
           title={t('shell.navLibrary')}
         >
-          <Library size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
+          <Library size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
         </button>
         <button
           className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
@@ -77,7 +79,7 @@ export function Sidebar({
           aria-label={t('shell.navChat')}
           title={t('shell.navChat')}
         >
-          <MessageSquare size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
+          <MessageSquare size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
         </button>
         <button
           className={`sidebar__rail-btn ${activeView === 'quiz' ? 'sidebar__rail-btn--active' : ''}`}
@@ -85,22 +87,24 @@ export function Sidebar({
           aria-label={t('shell.navQuiz')}
           title={t('shell.navQuiz')}
         >
-          <GraduationCap size={22} strokeWidth={2.25} color="#e6edf3" aria-hidden="true" />
+          <GraduationCap size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
         </button>
       </div>
       {expanded && (
         <div className="sidebar__expanded">
           <div className="sidebar__expanded-header">
-            <span className="sidebar__section-label" style={{ margin: 0 }}>
-              {t('shell.workspaces')}
-            </span>
+            <span className="sidebar__section-label">{t('shell.workspaces')}</span>
             <button
               className="sidebar__rail-btn"
               onClick={onTogglePin}
               aria-label={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
               title={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
             >
-              {pinned ? '«' : '»'}
+              {pinned ? (
+                <PanelLeftClose size={16} aria-hidden="true" />
+              ) : (
+                <PanelLeftOpen size={16} aria-hidden="true" />
+              )}
             </button>
           </div>
           {workspaces.map((w) => {
@@ -187,21 +191,14 @@ export function Sidebar({
               onCreateWorkspace(trimmed)
               setDraft('')
             }}
-            style={{ marginTop: 8 }}
+            className="sidebar__new-ws-form"
           >
             <input
+              className="sidebar__new-ws-input"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={t('shell.newWorkspace')}
-              style={{
-                width: '100%',
-                padding: '6px 8px',
-                borderRadius: 6,
-                background: '#0f1a2a',
-                color: 'inherit',
-                border: '1px solid #243a55',
-                boxSizing: 'border-box',
-              }}
+              aria-label={t('shell.newWorkspace')}
             />
           </form>
         </div>
