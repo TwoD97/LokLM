@@ -95,6 +95,31 @@ export function buildBreadcrumbSchema(items: BreadcrumbItem[]) {
   }
 }
 
+export interface ArticleSchemaInput {
+  url: string
+  headline: string
+  description: string
+  lang: 'de' | 'en'
+  datePublished: string
+  dateModified?: string
+}
+
+export function buildArticleSchema(input: ArticleSchemaInput) {
+  const { url, headline, description, lang, datePublished, dateModified } = input
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    inLanguage: lang,
+    datePublished,
+    dateModified: dateModified ?? datePublished,
+    mainEntityOfPage: url,
+    author: { '@type': 'Organization', name: 'LokLM' },
+    publisher: { '@type': 'Organization', name: 'LokLM' },
+  }
+}
+
 export interface FaqEntry {
   question: string
   answer: string
