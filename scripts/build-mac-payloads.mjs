@@ -1,22 +1,16 @@
-// Builds the LokLM.app payload for both mac archs ( arm64 + x64 ) and
-// normalises the output paths so build-payload-archive.mjs finds them at
-// predictable release/mac-<arch>/LokLM.app.
+// Builds the LokLM.app payload for both mac archs ( arm64 + x64 ).
 //
-// Why this wrapper exists :
-//   electron-builder's multi-arch behaviour when invoked as
-//   `electron-builder --mac dir --arm64 --x64` is to put the FIRST arch
-//   it builds at release/mac/ ( unsuffixed ) and subsequent archs at
-//   release/mac-<arch>/ ( suffixed ). The "first arch" isn't documented
-//   to be deterministic and empirically can be x64-first ; that breaks
-//   build-payload-archive's hard-coded release/mac-x64/LokLM.app path.
-//
-//   Running one arch per invocation + renaming release/mac to
-//   release/mac-<arch> after each gives us both bundles at predictable
-//   paths regardless of electron-builder's internal arch ordering.
+// Two sequential single-arch invocations rather than one multi-arch
+// `electron-builder --mac dir --arm64 --x64`. Reason : the multi-arch
+// form was empirically putting the first-built arch at release/mac/
+// ( unsuffixed ) and the second at release/mac-<arch>/ ( suffixed ) ,
+// with no documented ordering guarantee. Single-arch invocations
+// consistently output to release/mac-<arch>/ ( verified on macos-latest
+// 2026-05-27 ).
 
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { rm, rename } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -24,15 +18,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 async function buildArch(arch) {
   const releaseDir = join(ROOT, 'release')
-  const macDir = join(releaseDir, 'mac')
   const targetDir = join(releaseDir, `mac-${arch}`)
+  const stragglerMacDir = join(releaseDir, 'mac')
 
-  // Clean both possible output dirs so a previous run's leftover doesn't
-  // get mis-renamed. Specifically , if release/mac exists from a prior
-  // arch's build , electron-builder would NOT delete it — it'd just write
-  // alongside and we'd rename the wrong one.
-  if (existsSync(macDir)) await rm(macDir, { recursive: true, force: true })
+  // Clean previous run's output so we know what we just produced.
+  // Also wipe the unsuffixed release/mac/ in case some prior code path
+  // landed there ; we don't want a stale tree to confuse downstream.
   if (existsSync(targetDir)) await rm(targetDir, { recursive: true, force: true })
+  if (existsSync(stragglerMacDir)) await rm(stragglerMacDir, { recursive: true, force: true })
 
   console.log(`\n=== electron-builder --mac dir --${arch} ===`)
   execFileSync('pnpm', ['exec', 'electron-builder', '--mac', 'dir', `--${arch}`], {
@@ -41,14 +34,23 @@ async function buildArch(arch) {
     env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' },
   })
 
-  // After a single-arch build , electron-builder always uses the unsuffixed
-  // release/mac/ output dir. Rename to release/mac-<arch>/ so downstream
-  // scripts find it at the expected per-arch path.
-  if (!existsSync(macDir)) {
-    throw new Error(`electron-builder did not produce ${macDir}`)
+  // electron-builder's single-arch CLI invocation writes to the suffixed
+  // release/mac-<arch>/ path directly. ( Multi-arch + multiple --arch
+  // flags is what triggered the inconsistent first-arch-unsuffixed
+  // behaviour we worked around by splitting. )
+  if (!existsSync(targetDir)) {
+    // Defensive fallback : if electron-builder ever flips back to the
+    // unsuffixed path , catch it and rename so we don't silently produce
+    // a release with the wrong arch bundled.
+    if (existsSync(stragglerMacDir)) {
+      const { rename } = await import('node:fs/promises')
+      await rename(stragglerMacDir, targetDir)
+      console.log(`fallback : renamed release/mac -> release/mac-${arch}`)
+    } else {
+      throw new Error(`electron-builder did not produce ${targetDir} ( or release/mac/ )`)
+    }
   }
-  await rename(macDir, targetDir)
-  console.log(`renamed release/mac -> release/mac-${arch}`)
+  console.log(`ok : ${targetDir}`)
 }
 
 async function main() {
