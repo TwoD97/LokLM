@@ -116,3 +116,33 @@ describe.skipIf(!distExists)('SEO cluster routes', () => {
     })
   }
 })
+
+describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
+  it('robots.txt explicitly allows AI crawlers', () => {
+    const robots = readFileSync(resolve(root, 'dist/robots.txt'), 'utf-8')
+    for (const ua of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended', 'CCBot']) {
+      expect(robots, `robots.txt missing ${ua}`).toContain(`User-agent: ${ua}`)
+    }
+    expect(robots).toContain('Sitemap: https://loklm.com/sitemap-index.xml')
+  })
+
+  it('llms.txt is generated with pillar + persona links', () => {
+    const llms = readFileSync(resolve(root, 'dist/llms.txt'), 'utf-8')
+    expect(llms).toContain('# LokLM')
+    expect(llms).toContain('https://loklm.com/lokale-ki')
+    expect(llms).toContain('https://loklm.com/en/use-cases/lawyer')
+  })
+
+  it('pillar + persona pages embed WebPage and BreadcrumbList JSON-LD', () => {
+    for (const r of ['lokale-ki', 'einsatz/anwalt', 'en/local-ai', 'en/use-cases/lawyer']) {
+      const html = readFileSync(resolve(root, 'dist', r, 'index.html'), 'utf-8')
+      expect(html, `${r} WebPage`).toContain('"@type":"WebPage"')
+      expect(html, `${r} BreadcrumbList`).toContain('"@type":"BreadcrumbList"')
+    }
+  })
+
+  it('persona pages embed FAQPage JSON-LD', () => {
+    const html = readFileSync(resolve(root, 'dist/einsatz/anwalt/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"FAQPage"')
+  })
+})
