@@ -446,12 +446,30 @@ fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
 // the locked payload. Synchronous + best-effort : taskkill exits non-zero
 // when no process matches , which we ignore. The short sleep gives Windows
 // a beat to release the file handles before robocopy starts.
+//
+// CRITICAL : this wizard's own binary is loklm.exe ( Cargo.toml [[bin]] ) and
+// taskkill /IM matches image names CASE-INSENSITIVELY , so a bare
+// `/IM LokLM.exe` also matches THIS process — the wizard would taskkill
+// itself and the window would just vanish mid-install ( right after the
+// download phase , at preparing-folder ). On a fresh install nothing else is
+// named LokLM.exe , so the self-kill happens every time. We exclude our own
+// PID via a filter so we only ever kill a *previous* LokLM.exe ( re-install
+// case ) , never the running wizard. The real app's processes carry
+// different PIDs , so they're still terminated as intended.
 fn stop_running_app() {
     let taskkill = std::env::var("SystemRoot")
         .map(|sr| PathBuf::from(sr).join("System32").join("taskkill.exe"))
         .unwrap_or_else(|_| PathBuf::from("taskkill.exe"));
+    let self_pid = std::process::id();
     let _ = cmd_path(taskkill)
-        .args(["/IM", APP_EXE, "/T", "/F"])
+        .args([
+            "/F",
+            "/T",
+            "/IM",
+            APP_EXE,
+            "/FI",
+            &format!("PID ne {}", self_pid),
+        ])
         .status();
     std::thread::sleep(std::time::Duration::from_millis(700));
 }
