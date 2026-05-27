@@ -15,9 +15,11 @@ interface Props {
   description: string
   /** translation pair for hreflang; omit for the homepage pair */
   alternates?: AlternatePaths
+  /** extra page-level JSON-LD objects, rendered as <script type="application/ld+json"> */
+  schemas?: object[]
 }
 
-const { title, description, alternates } = Astro.props
+const { title, description, alternates, schemas = [] } = Astro.props
 const lang = getLangFromUrl(Astro.url)
 
 const siteUrl = Astro.site!.toString().replace(/\/$/, '')
@@ -102,6 +104,11 @@ const softwareSchema = buildSoftwareSchema({
       type="application/ld+json"
       set:html={JSON.stringify(softwareSchema)}
     />
+    {
+      schemas.map((s) => (
+        <script is:inline type="application/ld+json" set:html={JSON.stringify(s)} />
+      ))
+    }
   </head>
   <body class="min-h-screen relative">
     <BackgroundFx />
