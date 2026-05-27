@@ -18,8 +18,8 @@
 }
 .app-shell__sidebar {
   display: flex;
-  background: #0b1726;
-  border-right: 1px solid #1f2a3a;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
   overflow-x: hidden;
   min-height: 0;
 }
@@ -39,7 +39,7 @@
   align-items: center;
   padding: 8px 0;
   gap: 4px;
-  border-right: 1px solid #1f2a3a;
+  border-right: 1px solid var(--border);
   overflow-y: auto;
 }
 .sidebar__rail-btn {
@@ -64,12 +64,12 @@
 }
 .sidebar__rail-btn:hover {
   color: var(--fg-0);
-  background: #16263b;
+  background: var(--bg-2);
 }
 .sidebar__rail-btn--active {
   color: var(--fg-0);
-  background: #16263b;
-  border-color: #243a55;
+  background: var(--bg-2);
+  border-color: var(--border-strong);
 }
 .sidebar__expanded {
   flex: 1;
@@ -83,6 +83,9 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+.sidebar__expanded-header .sidebar__section-label {
+  margin: 0;
 }
 .sidebar__section-label {
   font-size: 11px;
@@ -108,11 +111,11 @@
   text-align: left;
 }
 .sidebar__nav-btn--active {
-  background: #16263b;
-  border-color: #243a55;
+  background: var(--bg-2);
+  border-color: var(--border-strong);
 }
 .sidebar__nav-btn:hover {
-  background: #16263b;
+  background: var(--bg-2);
 }
 .sidebar__nav-btn--dropdown {
   justify-content: space-between;
@@ -127,7 +130,7 @@
 .sidebar__doc-scope {
   margin: 4px 0 8px 12px;
   padding-left: 8px;
-  border-left: 1px solid #1f2a3a;
+  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -169,4 +172,42 @@
   white-space: nowrap;
   min-width: 0;
   flex: 1;
+}
+
+/* New-workspace input — token-based, matches the app's input styling instead
+ * of the previous one-off inline styles. */
+.sidebar__new-ws-form {
+  margin-top: 8px;
+}
+.sidebar__new-ws-input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-0);
+  color: inherit;
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+  font: inherit;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.sidebar__new-ws-input::placeholder {
+  color: var(--fg-3);
+}
+.sidebar__new-ws-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+/* Empty state shown in the main panel when no workspace is selected. */
+.app-shell__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  text-align: center;
+  color: var(--fg-2);
 }
