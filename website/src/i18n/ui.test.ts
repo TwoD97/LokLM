@@ -108,3 +108,17 @@ describe('cluster i18n keys', () => {
     }
   })
 })
+
+describe('persona FAQ keys', () => {
+  const personasK = ['lawyer', 'research', 'consulting', 'development'] as const
+  it('each persona has 3 Q/A pairs in both locales', () => {
+    for (const p of personasK) {
+      for (let i = 1; i <= 3; i++) {
+        for (const k of [`persona.${p}.faq.q${i}`, `persona.${p}.faq.a${i}`]) {
+          expect(ui.de, `de ${k}`).toHaveProperty([k])
+          expect(ui.en, `en ${k}`).toHaveProperty([k])
+        }
+      }
+    }
+  })
+})

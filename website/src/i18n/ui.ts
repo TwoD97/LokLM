@@ -271,6 +271,39 @@ export const ui = {
     'persona.development.title': 'Für Entwicklung',
     'persona.development.lead':
       'Lass eine lokale KI deinen eigenen Code und deine Doku durchsuchen — Antworten mit Verweis auf Datei und Stelle. Kein Hochladen proprietärer Quellen, alles bleibt auf deiner Maschine.',
+    // --- SEO cluster: persona FAQs ---
+    'persona.lawyer.faq.q1': 'Verlassen vertrauliche Mandantsunterlagen das Gerät?',
+    'persona.lawyer.faq.a1':
+      'Nein. Import, Index und Beantwortung laufen vollständig lokal und verschlüsselt — keine Cloud, keine externen KI-APIs.',
+    'persona.lawyer.faq.q2': 'Kann ich jede Antwort bis zur Fundstelle nachprüfen?',
+    'persona.lawyer.faq.a2':
+      'Ja. Jede Antwort verweist klickbar auf die Textstelle im Originaldokument, inklusive Seite.',
+    'persona.lawyer.faq.q3': 'Wie große Aktenbestände kann ich durchsuchen?',
+    'persona.lawyer.faq.a3':
+      'LokLM ist auf große Bestände ausgelegt; tausende Seiten werden lokal indexiert und durchsuchbar.',
+    'persona.research.faq.q1': 'Gelangt mein unveröffentlichter Entwurf an externe Anbieter?',
+    'persona.research.faq.a1':
+      'Nein. Deine Quellen und Fragen bleiben auf dem Gerät; nichts wird an Cloud-Dienste gesendet.',
+    'persona.research.faq.q2': 'Bekomme ich zitierfähige Stellen mit Seitenzahl?',
+    'persona.research.faq.a2':
+      'Ja. Antworten verlinken die konkrete Fundstelle samt Seite, sodass du sie direkt zitieren kannst.',
+    'persona.research.faq.q3': 'Kann ich viele PDFs auf einmal einlesen?',
+    'persona.research.faq.a3':
+      'Ja. Du legst einen Stapel PDFs in einen Arbeitsbereich und befragst sie gemeinsam.',
+    'persona.consulting.faq.q1': 'Bleiben Mandantenunterlagen vertraulich?',
+    'persona.consulting.faq.a1':
+      'Ja. Alles liegt verschlüsselt lokal; es gibt keine Telemetrie und keinen Account-Zwang.',
+    'persona.consulting.faq.q2': 'Funktioniert das auch ohne Internet, etwa beim Kunden vor Ort?',
+    'persona.consulting.faq.a2': 'Ja, LokLM läuft vollständig offline.',
+    'persona.consulting.faq.q3': 'Kann ich verschiedene Mandate getrennt halten?',
+    'persona.consulting.faq.a3': 'Ja. Du organisierst Dokumente in getrennten Arbeitsbereichen.',
+    'persona.development.faq.q1': 'Verlässt mein Quellcode das Gerät?',
+    'persona.development.faq.a1':
+      'Nein. Code wird lokal indexiert und befragt — nichts geht an externe APIs.',
+    'persona.development.faq.q2': 'Bekomme ich Verweise auf die konkrete Datei und Stelle?',
+    'persona.development.faq.a2': 'Ja. Antworten verlinken die Fundstelle im Code.',
+    'persona.development.faq.q3': 'Welche Formate kann ich einlesen?',
+    'persona.development.faq.a3': 'Quellcode, Markdown, Text und PDF.',
     // --- SEO cluster: shared link labels ---
     'cluster.relatedPillars': 'Mehr erfahren',
     'cluster.relatedPersonas': 'Anwendungsfälle',
@@ -536,6 +569,39 @@ export const ui = {
     'persona.development.title': 'For Development',
     'persona.development.lead':
       'Point a local AI at your own code and docs — answers cite the file and location. No uploading proprietary source; everything stays on your machine.',
+    // --- SEO cluster: persona FAQs ---
+    'persona.lawyer.faq.q1': 'Do confidential client documents leave the device?',
+    'persona.lawyer.faq.a1':
+      'No. Import, indexing and answering run entirely on-device and encrypted — no cloud, no external AI APIs.',
+    'persona.lawyer.faq.q2': 'Can I verify every answer down to the source?',
+    'persona.lawyer.faq.a2':
+      'Yes. Every answer links to the exact passage in the source document, including the page.',
+    'persona.lawyer.faq.q3': 'How large a case file can I search?',
+    'persona.lawyer.faq.a3':
+      'LokLM is built for large corpora; thousands of pages are indexed and searchable locally.',
+    'persona.research.faq.q1': 'Does my unpublished draft reach external providers?',
+    'persona.research.faq.a1':
+      'No. Your sources and questions stay on the device; nothing is sent to cloud services.',
+    'persona.research.faq.q2': 'Do I get citable passages with page numbers?',
+    'persona.research.faq.a2':
+      'Yes. Answers link the specific passage with its page so you can cite it directly.',
+    'persona.research.faq.q3': 'Can I import many PDFs at once?',
+    'persona.research.faq.a3':
+      'Yes. Drop a batch of PDFs into a workspace and query them together.',
+    'persona.consulting.faq.q1': 'Do client documents stay confidential?',
+    'persona.consulting.faq.a1':
+      'Yes. Everything stays encrypted on-device; there is no telemetry and no required account.',
+    'persona.consulting.faq.q2': 'Does it work without internet, e.g. on-site at a client?',
+    'persona.consulting.faq.a2': 'Yes, LokLM runs fully offline.',
+    'persona.consulting.faq.q3': 'Can I keep different engagements separate?',
+    'persona.consulting.faq.a3': 'Yes. You organize documents into separate workspaces.',
+    'persona.development.faq.q1': 'Does my source code leave the device?',
+    'persona.development.faq.a1':
+      'No. Code is indexed and queried locally — nothing goes to external APIs.',
+    'persona.development.faq.q2': 'Do I get references to the exact file and location?',
+    'persona.development.faq.a2': 'Yes. Answers link the location in the code.',
+    'persona.development.faq.q3': 'Which formats can I import?',
+    'persona.development.faq.a3': 'Source code, Markdown, text and PDF.',
     // --- SEO cluster: shared link labels ---
     'cluster.relatedPillars': 'Learn more',
     'cluster.relatedPersonas': 'Use cases',
