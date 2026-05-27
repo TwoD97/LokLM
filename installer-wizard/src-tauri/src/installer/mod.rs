@@ -151,11 +151,13 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux as platform;
 
-// Fallback for unsupported OSes ( mac is electron-builder dmg territory ,
-// not the Tauri wizard ). Compiling on those targets fails loudly here
-// rather than silently producing a broken binary.
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-compile_error!("LokLM installer wizard only supports Windows and Linux");
+#[cfg(target_os = "macos")]
+mod mac;
+#[cfg(target_os = "macos")]
+use mac as platform;
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+compile_error!("LokLM installer wizard supports Windows , Linux , and macOS");
 
 // --- Public API ( delegates to platform module ) ---------------------
 
