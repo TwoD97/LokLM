@@ -42,14 +42,14 @@ SetCompressor /SOLID lzma
 Name "LokLM Installer"
 OutFile "${OUTPUT_FILE}"
 Icon "${ICON_PATH}"
-; v0.3.0 : asInvoker again. v0.2.7 had to force `admin` because the
-; 500 MB embedded-payload stub tripped Win11 25H2's AppCompat installer-
-; detection heuristic ( silently refused to launch without elevation
-; regardless of manifest ). The new download-stub is ~2.5 MB ; the
-; heuristic doesn't fire at this size. The wizard's install code targets
-; HKCU + %LOCALAPPDATA%\Programs , so it never needed admin to begin with.
-; No more UAC prompt for a regular install.
-RequestExecutionLevel user
+; Win11 25H2 AppCompat refuses to launch the .exe without elevation
+; when ANYTHING in the name looks like an installer ( "Setup" trips it
+; even at 2.5 MB ; verified on Denys's machine 2026-05-27 ). The asInvoker
+; manifest is silently ignored by the shim. So we accept the one UAC
+; prompt at install time. The wizard inside still targets HKCU +
+; %LOCALAPPDATA%\Programs and drops elevation when launching LokLM.exe
+; via the explorer.exe trampoline ( installer/windows.rs ).
+RequestExecutionLevel admin
 ManifestSupportedOS all
 ManifestDPIAware true
 SilentInstall silent
