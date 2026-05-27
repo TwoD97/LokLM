@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod download;
 pub mod hardware;
 pub mod models;
 pub use hardware::{HardwareProfile, Tier};

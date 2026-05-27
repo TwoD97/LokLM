@@ -35,6 +35,13 @@ sha2 = "0.10"
 futures-util = "0.3"
 hex = "0.4"
 
+[dev-dependencies]
+# Local HTTP mock for download.rs Range/SHA/resume unit tests.
+wiremock = "0.6"
+tempfile = "3"
+# Reexpose macros + multi-thread runtime for #[tokio::test] in the dev tests.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "io-util"] }
+
 [profile.release]
 opt-level = "z"
 lto = true
