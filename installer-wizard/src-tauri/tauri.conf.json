@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "LokLM Installer",
-  "version": "0.2.9",
-  "identifier": "com.loklm.installer",
+  "productName": "LokLM",
+  "version": "0.3.0",
+  "identifier": "com.loklm.bootstrap",
   "build": {
     "frontendDist": "../frontend",
     "devUrl": null,
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "LokLM Installer",
+        "title": "LokLM",
         "url": "index.html",
         "width": 980,
         "height": 740,
@@ -38,7 +38,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -48,8 +48,8 @@
     ],
     "publisher": "Projektgruppe LokLM",
     "category": "Productivity",
-    "shortDescription": "LokLM Installer",
-    "longDescription": "Installs LokLM ( Lokaler KI-Wissensassistent ) into the user profile and registers shortcuts , autostart , and uninstaller. Renders the wizard via WebView2 ; the install logic is native Rust ( robocopy + powershell + reg.exe ).",
+    "shortDescription": "LokLM",
+    "longDescription": "LokLM ( Lokaler KI-Wissensassistent ). Native Rust + WebView2 launcher that fetches the app from the LokLM CDN and places it into the user profile.",
     "copyright": "© Projektgruppe LokLM ( MIT )"
   }
 }

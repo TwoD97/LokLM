@@ -12,8 +12,11 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod archive;
+pub mod download;
 pub mod hardware;
 pub mod models;
+pub mod payload_manifest;
 pub use hardware::{HardwareProfile, Tier};
 pub use models::{cleanup_partials, download_all};
 
@@ -39,6 +42,12 @@ pub struct InstallOptions {
     // entire install. The marker writer round-trips it as-is.
     #[serde(default)]
     pub hardware_snapshot: Option<serde_json::Value>,
+    // v0.3.0+ : whether the wizard should additionally fetch the CUDA
+    // llama-cpp variant from Bunny and extract it on top of the base
+    // payload. Default false ; renderer flips it on when hardware probe
+    // detects an NVIDIA Pascal+ card. Hidden on mac entirely.
+    #[serde(default)]
+    pub download_cuda: bool,
 }
 
 fn default_tier() -> Tier {
@@ -142,11 +151,13 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux as platform;
 
-// Fallback for unsupported OSes ( mac is electron-builder dmg territory ,
-// not the Tauri wizard ). Compiling on those targets fails loudly here
-// rather than silently producing a broken binary.
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-compile_error!("LokLM installer wizard only supports Windows and Linux");
+#[cfg(target_os = "macos")]
+mod mac;
+#[cfg(target_os = "macos")]
+use mac as platform;
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+compile_error!("LokLM installer wizard supports Windows , Linux , and macOS");
 
 // --- Public API ( delegates to platform module ) ---------------------
 

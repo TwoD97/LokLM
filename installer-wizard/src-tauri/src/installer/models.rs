@@ -17,16 +17,15 @@
 // re-run finds a consistent state. Partials are NOT deleted on success —
 // they get atomically renamed to the final filename.
 
+use crate::installer::download::{self, DownloadSpec};
 use crate::installer::{ProgressEvent, Tier};
-use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, RANGE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
-use tokio::fs::{rename, File, OpenOptions};
-use tokio::io::AsyncWriteExt;
+use tokio::fs::File;
 
 // --- Manifest types ------------------------------------------------------
 
@@ -133,7 +132,7 @@ pub async fn download_all<F>(
     mut progress: F,
 ) -> Result<Vec<DownloadedModel>, String>
 where
-    F: FnMut(ProgressEvent),
+    F: FnMut(ProgressEvent) + Send,
 {
     let bundle = bundle_for_tier(tier);
     let models_dir = install_dir.join("models");
@@ -339,158 +338,51 @@ async fn download_one<F>(
     mut on_bytes: F,
 ) -> Result<DownloadedModel, String>
 where
-    F: FnMut(u64),
+    F: FnMut(u64) + Send,
 {
-    let partial_path = target.with_extension(format!(
-        "{}.partial",
-        target
-            .extension()
-            .map(|e| e.to_string_lossy().to_string())
-            .unwrap_or_default()
-    ));
+    // The generic streaming + Range-resume + SHA-verify + atomic-rename
+    // primitive lives in installer::download. The model-specific wrapping
+    // here is :
+    //   * the HF-authed `client` argument ( built by our own build_client )
+    //   * tightening the SHA verification : we pass entry.sha256 through
+    //     so the primitive aborts on mismatch , same behavior as before
+    //   * the 5%-size-tolerance fallback below , for the entries whose
+    //     manifest sha256 is null ( HF re-quants can drift the byte count )
+    let outcome = download::download_with_resume(
+        client,
+        DownloadSpec {
+            url: &entry.url,
+            dest: target,
+            expected_sha256: entry.sha256.as_deref(),
+            expected_size: Some(entry.size_bytes),
+        },
+        |written, _total| on_bytes(written),
+    )
+    .await
+    .map_err(|e| format!("download {} : {}", entry.id, e))?;
 
-    // How many bytes do we already have on disk ? Used for Range-resume.
-    let mut existing_bytes: u64 = 0;
-    if partial_path.exists() {
-        if let Ok(m) = tokio::fs::metadata(&partial_path).await {
-            existing_bytes = m.len();
-        }
-    }
-
-    let mut req = client.get(&entry.url);
-    if existing_bytes > 0 {
-        if let Ok(range) = HeaderValue::from_str(&format!("bytes={}-", existing_bytes)) {
-            req = req.header(RANGE, range);
-        }
-    }
-
-    let response = req
-        .send()
-        .await
-        .map_err(|e| format!("HTTP request failed for {} : {}", entry.id, e))?;
-
-    // If we asked for a range but the server sent 200 ( full body ) , we
-    // can't append — truncate and start over.
-    let status = response.status();
-    let resuming = status.as_u16() == 206;
-    if !status.is_success() {
-        return Err(format!(
-            "download {} failed : HTTP {} from {}",
-            entry.id,
-            status.as_u16(),
-            entry.url
-        ));
-    }
-    if !resuming && existing_bytes > 0 {
-        // Server ignored our Range header — discard the partial.
-        tokio::fs::remove_file(&partial_path)
-            .await
-            .map_err(|e| format!("remove stale partial : {}", e))?;
-        existing_bytes = 0;
-    }
-
-    // Pre-hash the already-on-disk bytes so we end up with a single
-    // sha256 covering the whole file ( crucial for resume + verify ).
-    let mut hasher = Sha256::new();
-    if resuming && existing_bytes > 0 {
-        use tokio::io::AsyncReadExt;
-        let mut f = File::open(&partial_path)
-            .await
-            .map_err(|e| format!("reopen partial : {}", e))?;
-        let mut buf = vec![0u8; 1024 * 1024];
-        loop {
-            let n = f
-                .read(&mut buf)
-                .await
-                .map_err(|e| format!("read partial : {}", e))?;
-            if n == 0 {
-                break;
-            }
-            hasher.update(&buf[..n]);
-        }
-    }
-
-    // Total content-length includes only the remaining bytes when 206 ;
-    // we add existing_bytes to know the overall file size for the size
-    // sanity check at the end.
-    let content_length = response
-        .headers()
-        .get(CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok());
-    let expected_total = content_length
-        .map(|cl| cl + if resuming { existing_bytes } else { 0 })
-        .unwrap_or(entry.size_bytes);
-
-    let mut out = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .append(resuming)
-        .truncate(!resuming)
-        .open(&partial_path)
-        .await
-        .map_err(|e| format!("open partial {} : {}", partial_path.display(), e))?;
-
-    let mut downloaded: u64 = existing_bytes;
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let bytes = chunk.map_err(|e| format!("network read error : {}", e))?;
-        hasher.update(&bytes);
-        out.write_all(&bytes)
-            .await
-            .map_err(|e| format!("write to partial : {}", e))?;
-        downloaded = downloaded.saturating_add(bytes.len() as u64);
-        on_bytes(downloaded);
-    }
-    out.flush()
-        .await
-        .map_err(|e| format!("flush partial : {}", e))?;
-    drop(out);
-
-    // Sanity check : observed bytes should match the manifest estimate
-    // within 5% ( HF sometimes serves slightly different file sizes when
-    // a model is re-quantized but the URL stays stable — caught here ).
-    let observed_sha = hex::encode(hasher.finalize());
-    if let Some(expected_hex) = entry.sha256.as_deref() {
-        if !observed_sha.eq_ignore_ascii_case(expected_hex) {
-            // Hash mismatch = bad download. Delete the partial so a
-            // retry starts fresh ( no risk of resuming corrupted bytes ).
-            let _ = tokio::fs::remove_file(&partial_path).await;
-            return Err(format!(
-                "sha256 mismatch for {} : expected {} , got {}",
-                entry.id, expected_hex, observed_sha
-            ));
-        }
-    } else {
-        // Size-only fallback when manifest has no SHA256 ( v0.3.0 ships
-        // with these as null until the post-release backfill ).
-        let pct_off = if expected_total > 0 {
-            ((downloaded as i64 - expected_total as i64).abs() as f64)
-                / (expected_total as f64)
-                * 100.0
-        } else {
-            0.0
-        };
-        if expected_total > 0 && pct_off > 5.0 {
-            let _ = tokio::fs::remove_file(&partial_path).await;
+    // Size-only fallback when manifest has no SHA256 ( v0.3.0 ships some
+    // entries with sha256 = null pending post-release backfill ). The
+    // primitive already hashed + renamed ; if the size is way off we
+    // delete the now-final file so the next attempt starts fresh.
+    if entry.sha256.is_none() && entry.size_bytes > 0 {
+        let pct_off = ((outcome.bytes_written as i64 - entry.size_bytes as i64).abs() as f64)
+            / (entry.size_bytes as f64)
+            * 100.0;
+        if pct_off > 5.0 {
+            let _ = tokio::fs::remove_file(target).await;
             return Err(format!(
                 "size mismatch for {} : expected {} bytes , got {} ( {:.1}% off )",
-                entry.id, expected_total, downloaded, pct_off
+                entry.id, entry.size_bytes, outcome.bytes_written, pct_off
             ));
         }
     }
-
-    // Atomically promote partial → final filename so a crash mid-rename
-    // can't leave a half-renamed file the next install confuses.
-    rename(&partial_path, target)
-        .await
-        .map_err(|e| format!("rename {} → {} : {}", partial_path.display(), target.display(), e))?;
 
     Ok(DownloadedModel {
         id: entry.id.clone(),
         filename: entry.filename.clone(),
-        sha256: observed_sha,
-        size_bytes: downloaded,
+        sha256: outcome.sha256,
+        size_bytes: outcome.bytes_written,
     })
 }
 
