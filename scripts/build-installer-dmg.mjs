@@ -59,13 +59,18 @@ async function main() {
   const cargoBin = cargoBinDir()
   if (cargoBin) env.PATH = `${cargoBin}${delimiter}${env.PATH || ''}`
 
-  // 1) Build the Tauri wizard for the host arch. We DO want the .app
-  //    bundle this time ( unlike windows where --no-bundle is correct
-  //    because NSIS wraps the raw .exe ) , so omit --no-bundle.
-  //    --verbose so any bundle-step failure ( missing icns , code-sign
-  //    issue , ... ) surfaces in CI logs rather than hiding.
-  console.log('cargo tauri build --verbose ...')
-  await runInherit('cargo', ['tauri', 'build', '--verbose'], { cwd: wizardDir, env })
+  // 1) Build the Tauri wizard for the host arch. We need the .app
+  //    bundle but NOT the dmg ( our own create-dmg step below does that ).
+  //    --bundles app tells tauri-cli to skip every other bundler target
+  //    listed in tauri.conf.json ( nsis on win is irrelevant on mac ,
+  //    dmg would otherwise run bundle_dmg.sh which has been crashing on
+  //    macos-latest with "hdiutil: create failed - Resource busy" ).
+  //    --verbose surfaces any bundle-step failures in CI logs.
+  console.log('cargo tauri build --bundles app --verbose ...')
+  await runInherit('cargo', ['tauri', 'build', '--bundles', 'app', '--verbose'], {
+    cwd: wizardDir,
+    env,
+  })
 
   // Tauri uses productName from tauri.conf.json verbatim. After the v0.3.0
   // IDT-bypass rename it's just "LokLM" — bundle is "LokLM.app". If tauri
