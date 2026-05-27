@@ -5,6 +5,7 @@ import {
   buildWebPageSchema,
   buildBreadcrumbSchema,
   buildFaqSchema,
+  buildArticleSchema,
 } from './schema'
 
 const siteUrl = 'https://loklm.com'
@@ -157,5 +158,35 @@ describe('buildFaqSchema', () => {
       name: 'Q1?',
       acceptedAnswer: { '@type': 'Answer', text: 'A1.' },
     })
+  })
+})
+
+describe('buildArticleSchema', () => {
+  const s = buildArticleSchema({
+    url: 'https://loklm.com/blog/willkommen',
+    headline: 'Willkommen',
+    description: 'desc',
+    lang: 'de',
+    datePublished: '2026-05-01',
+    dateModified: '2026-05-02',
+  })
+  it('is an Article with the SEO-relevant fields', () => {
+    expect(s['@type']).toBe('Article')
+    expect(s.headline).toBe('Willkommen')
+    expect(s.inLanguage).toBe('de')
+    expect(s.datePublished).toBe('2026-05-01')
+    expect(s.dateModified).toBe('2026-05-02')
+    expect(s.mainEntityOfPage).toBe('https://loklm.com/blog/willkommen')
+    expect(s.author).toBeDefined()
+  })
+  it('falls back dateModified to datePublished when omitted', () => {
+    const s2 = buildArticleSchema({
+      url: 'u',
+      headline: 'h',
+      description: 'd',
+      lang: 'en',
+      datePublished: '2026-01-01',
+    })
+    expect(s2.dateModified).toBe('2026-01-01')
   })
 })
