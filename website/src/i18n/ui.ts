@@ -247,6 +247,34 @@ export const ui = {
     'privacy.appTitle': 'Die LokLM-App',
     'privacy.app':
       'Die Desktop-App selbst macht keine Telemetrie-Aufrufe und braucht keinen Account. Eine Beschreibung des Datenflusses findest du im Abschnitt Architektur auf der Startseite.',
+
+    // --- SEO cluster: pillars (STUB COPY — replace with final voice) ---
+    'pillar.privacy.title': 'Lokale KI & Datenschutz',
+    'pillar.privacy.lead':
+      'Was „lokal“ und „privat“ bei einem KI-Assistenten wirklich bedeuten — DSGVO, EU AI Act, On-Device-Prinzipien. [Stub-Text, wird ersetzt.]',
+    'pillar.architecture.title': 'Architektur',
+    'pillar.architecture.lead':
+      'Wie LokLM intern funktioniert: hybrides Retrieval, Quellenverweise, llama.cpp, deutsche Embeddings. [Stub-Text, wird ersetzt.]',
+    'pillar.benchmarks.title': 'Benchmarks',
+    'pillar.benchmarks.lead':
+      'Reproduzierbare Messungen zu Retrieval und Embeddings auf deutschen Fachtexten. [Stub-Text, wird ersetzt.]',
+    // --- SEO cluster: personas (STUB COPY) ---
+    'persona.lawyer.title': 'Für Anwält:innen',
+    'persona.lawyer.lead':
+      '10.000 Seiten Verträge offline durchsuchen — mit Seitenverweisen. [Stub-Text, wird ersetzt.]',
+    'persona.research.title': 'Für Forschung',
+    'persona.research.lead':
+      'Literaturrecherche, ohne den Entwurf an externe APIs zu geben. [Stub-Text, wird ersetzt.]',
+    'persona.consulting.title': 'Für Beratung',
+    'persona.consulting.lead':
+      'Mandantenunterlagen lokal befragen, vertraulich. [Stub-Text, wird ersetzt.]',
+    'persona.development.title': 'Für Entwicklung',
+    'persona.development.lead':
+      'Den eigenen Code mit lokaler KI auditieren. [Stub-Text, wird ersetzt.]',
+    // --- SEO cluster: shared link labels ---
+    'cluster.relatedPillars': 'Mehr erfahren',
+    'cluster.relatedPersonas': 'Anwendungsfälle',
+    'cluster.readArchitecture': 'Vollständige Architektur lesen',
   },
   en: {
     'nav.features': 'Features',
@@ -484,6 +512,34 @@ export const ui = {
     'privacy.appTitle': 'The LokLM app',
     'privacy.app':
       'The desktop app itself makes no telemetry calls and needs no account. A description of the data flow lives in the Architecture section on the home page.',
+
+    // --- SEO cluster: pillars (STUB COPY — replace with final voice) ---
+    'pillar.privacy.title': 'Local AI & Privacy',
+    'pillar.privacy.lead':
+      'What "local" and "private" really mean for an AI assistant — GDPR, EU AI Act, on-device principles. [Stub copy, to be replaced.]',
+    'pillar.architecture.title': 'Architecture',
+    'pillar.architecture.lead':
+      'How LokLM works inside: hybrid retrieval, citations, llama.cpp, German embeddings. [Stub copy, to be replaced.]',
+    'pillar.benchmarks.title': 'Benchmarks',
+    'pillar.benchmarks.lead':
+      'Reproducible measurements for retrieval and embeddings on German technical text. [Stub copy, to be replaced.]',
+    // --- SEO cluster: personas (STUB COPY) ---
+    'persona.lawyer.title': 'For Lawyers',
+    'persona.lawyer.lead':
+      'Search 10,000 pages of contracts offline — with page-level citations. [Stub copy, to be replaced.]',
+    'persona.research.title': 'For Research',
+    'persona.research.lead':
+      'Literature review without leaking your draft to external APIs. [Stub copy, to be replaced.]',
+    'persona.consulting.title': 'For Consulting',
+    'persona.consulting.lead':
+      'Query client documents locally, confidentially. [Stub copy, to be replaced.]',
+    'persona.development.title': 'For Development',
+    'persona.development.lead':
+      'Audit your own codebase with a local AI. [Stub copy, to be replaced.]',
+    // --- SEO cluster: shared link labels ---
+    'cluster.relatedPillars': 'Learn more',
+    'cluster.relatedPersonas': 'Use cases',
+    'cluster.readArchitecture': 'Read the full architecture',
   },
 } as const
 
