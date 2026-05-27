@@ -83,3 +83,36 @@ describe.skipIf(!distExists)('sitemap', () => {
     expect(body).toContain('hreflang="en-US"')
   })
 })
+
+describe.skipIf(!distExists)('SEO cluster routes', () => {
+  const routes = [
+    'lokale-ki',
+    'architektur',
+    'benchmarks',
+    'en/local-ai',
+    'en/architecture',
+    'en/benchmarks',
+    'einsatz/anwalt',
+    'einsatz/forschung',
+    'einsatz/beratung',
+    'einsatz/entwicklung',
+    'en/use-cases/lawyer',
+    'en/use-cases/research',
+    'en/use-cases/consulting',
+    'en/use-cases/development',
+  ]
+
+  for (const route of routes) {
+    it(`builds ${route} with self canonical + de/en/x-default hreflang`, () => {
+      const file = resolve(root, 'dist', route, 'index.html')
+      expect(existsSync(file), `missing dist/${route}/index.html`).toBe(true)
+      const html = readFileSync(file, 'utf-8')
+      expect(html, `${route} canonical`).toContain(
+        `rel="canonical" href="https://loklm.com/${route}"`,
+      )
+      expect(html, `${route} hreflang de`).toMatch(/hreflang="de"/)
+      expect(html, `${route} hreflang en`).toMatch(/hreflang="en"/)
+      expect(html, `${route} hreflang x-default`).toMatch(/hreflang="x-default"/)
+    })
+  }
+})
