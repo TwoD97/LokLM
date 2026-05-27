@@ -34,6 +34,11 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 sha2 = "0.10"
 futures-util = "0.3"
 hex = "0.4"
+# tar.zst extraction for the payload + cuda archives the wizard downloads.
+# `zstd` bundles the C decoder ; `tar` is pure-rust. Both are widely used
+# and small ( ~200 KB combined post-LTO ).
+zstd = "0.13"
+tar = "0.4"
 
 [dev-dependencies]
 # Local HTTP mock for download.rs Range/SHA/resume unit tests.
