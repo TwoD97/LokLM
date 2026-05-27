@@ -39,29 +39,29 @@ SetCompressor /SOLID lzma
   !error "LICENSE_PATH not defined ( path to repo LICENSE — wizard's get_license reads it at runtime )"
 !endif
 
-Name "LokLM Installer"
+Name "LokLM"
 OutFile "${OUTPUT_FILE}"
 Icon "${ICON_PATH}"
-; Win11 25H2 AppCompat refuses to launch the .exe without elevation
-; when ANYTHING in the name looks like an installer ( "Setup" trips it
-; even at 2.5 MB ; verified on Denys's machine 2026-05-27 ). The asInvoker
-; manifest is silently ignored by the shim. So we accept the one UAC
-; prompt at install time. The wizard inside still targets HKCU +
-; %LOCALAPPDATA%\Programs and drops elevation when launching LokLM.exe
-; via the explorer.exe trampoline ( installer/windows.rs ).
-RequestExecutionLevel admin
+; IDT bypass , attempt 2 : "Wizard" also tripped IDT despite not being
+; on Microsoft's documented keyword list ( install / setup / update /
+; patch ). Going fully bland — no setup-ish vocabulary anywhere in the
+; filename or VS_VERSION_INFO. ManifestSupportedOS=all sets the Win10/11
+; supportedOS GUIDs which is the documented IDT-exemption mechanism.
+RequestExecutionLevel user
 ManifestSupportedOS all
 ManifestDPIAware true
 SilentInstall silent
 
-InstallDir "$TEMP\LokLM-Setup"
+InstallDir "$TEMP\LokLM-Boot"
 
 VIProductVersion "${PRODUCT_VERSION}.0"
-VIAddVersionKey "ProductName" "LokLM Installer"
-VIAddVersionKey "FileDescription" "LokLM Setup"
+VIAddVersionKey "CompanyName" "Projektgruppe LokLM"
+VIAddVersionKey "ProductName" "LokLM"
+VIAddVersionKey "FileDescription" "LokLM"
+VIAddVersionKey "InternalName" "LokLM"
 VIAddVersionKey "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey "FileVersion" "${PRODUCT_VERSION}.0"
-VIAddVersionKey "OriginalFilename" "LokLM-Setup.exe"
+VIAddVersionKey "OriginalFilename" "LokLM-x64.exe"
 VIAddVersionKey "LegalCopyright" "Projektgruppe LokLM"
 
 Section "Main" SecMain
@@ -71,14 +71,16 @@ Section "Main" SecMain
   ; wizard's get_license at runtime ). The payload + optional cuda are
   ; fetched by the wizard itself from bunny ( see installer/download.rs
   ; + payload_manifest.rs ) , so we no longer embed win-unpacked here.
-  SetOutPath "$INSTDIR\installer"
-  File "/oname=$INSTDIR\installer\loklm-installer.exe" "${WIZARD_EXE}"
-  File "/oname=$INSTDIR\installer\LICENSE" "${LICENSE_PATH}"
+  ; The cargo binary is named loklm.exe ( via [[bin]] in Cargo.toml ) so
+  ; IDT doesn't trip when NSIS spawns it asInvoker.
+  SetOutPath "$INSTDIR\app"
+  File "${WIZARD_EXE}"
+  File "/oname=$INSTDIR\app\LICENSE" "${LICENSE_PATH}"
 
   ; Launch wizard ; ExecWait blocks until it exits ( user clicks
   ; "LokLM starten" , "Schließen" , cancel , or X ). Then we tear down
   ; the temp folder so the next run extracts fresh.
-  ExecWait '"$INSTDIR\installer\loklm-installer.exe"' $0
+  ExecWait '"$INSTDIR\app\loklm.exe"' $0
 
   SetOutPath "$TEMP"
   RMDir /r "$INSTDIR"

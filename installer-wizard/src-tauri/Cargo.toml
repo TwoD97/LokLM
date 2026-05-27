@@ -1,10 +1,20 @@
 [package]
 name = "loklm-installer"
-version = "0.2.9"
+version = "0.3.0"
 edition = "2021"
-description = "LokLM Installer ( Tauri-based wizard )"
+# Note : the cargo package name + this description are baked into the
+# binary's VS_VERSION_INFO via tauri-build. "Installer" trips Win11 IDT
+# and the exe gets silently refused when spawned without elevation.
+# Description is intentionally bland ; the [[bin]] section below renames
+# the output to loklm.exe so the on-disk filename doesn't trip IDT either.
+# Package name stays loklm-installer for crate / user-agent / docs continuity.
+description = "LokLM"
 authors = ["Projektgruppe LokLM ( Denys Tudosa , Dominik Furlan )"]
 license = "MIT"
+
+[[bin]]
+name = "loklm"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -24,6 +34,13 @@ serde_json = "1"
 # swap to platform-specific APIs ( DXGI / sysfs / IOKit ).
 wgpu = { version = "22", default-features = false, features = ["dx12", "metal"] }
 sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+# NVIDIA-accurate VRAM read. wgpu's max_buffer_size is a per-allocation API
+# limit on DX12 ( reports huge sentinels for any modern NVIDIA card ) , so we
+# query NVML directly when the adapter looks like NVIDIA. Loads nvml.dll /
+# libnvidia-ml.so at runtime - returns Err on non-NVIDIA systems , at which
+# point we fall back to the wgpu estimate. Win + Linux only ; mac NVIDIA
+# hasn't shipped in years.
+nvml-wrapper = "0.10"
 # Tier-marker timestamp. `time` is smaller than chrono and gives us ISO 8601
 # via the `formatting` feature.
 time = { version = "0.3", features = ["formatting", "macros"] }
@@ -39,6 +56,15 @@ hex = "0.4"
 # and small ( ~200 KB combined post-LTO ).
 zstd = "0.13"
 tar = "0.4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# DXGI VRAM read for non-NVIDIA Windows GPUs ( AMD , Intel , Intel Arc ).
+# IDXGIAdapter1::GetDesc1 → DedicatedVideoMemory is the real dedicated VRAM
+# from the kernel-mode driver — accurate for both dGPU ( 7900 XTX = ~25 GB )
+# and iGPU ( 760M = ~512 MB UEFI carve-out , correctly tier-Lite ). 0.57
+# matches the version already pulled in transitively via tauri / wry so we
+# don't duplicate the windows crate.
+windows = { version = "0.57", features = ["Win32_Foundation", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Reserved for mac-only deps. The mac install backend currently uses
