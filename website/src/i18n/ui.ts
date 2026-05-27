@@ -248,29 +248,29 @@ export const ui = {
     'privacy.app':
       'Die Desktop-App selbst macht keine Telemetrie-Aufrufe und braucht keinen Account. Eine Beschreibung des Datenflusses findest du im Abschnitt Architektur auf der Startseite.',
 
-    // --- SEO cluster: pillars (STUB COPY — replace with final voice) ---
+    // --- SEO cluster: pillars ---
     'pillar.privacy.title': 'Lokale KI & Datenschutz',
     'pillar.privacy.lead':
-      'Was „lokal“ und „privat“ bei einem KI-Assistenten wirklich bedeuten — DSGVO, EU AI Act, On-Device-Prinzipien. [Stub-Text, wird ersetzt.]',
+      '„Privat“ heißt bei LokLM: Deine Dokumente verlassen das Gerät nicht. Keine Cloud, keine externen KI-APIs, keine Telemetrie — die Modelle laufen lokal, der Vault ist verschlüsselt. Hier liest du, was lokale KI für DSGVO, EU AI Act und deine Daten konkret bedeutet.',
     'pillar.architecture.title': 'Architektur',
     'pillar.architecture.lead':
-      'Wie LokLM intern funktioniert: hybrides Retrieval, Quellenverweise, llama.cpp, deutsche Embeddings. [Stub-Text, wird ersetzt.]',
+      'Wie LokLM intern arbeitet: Deine Dokumente werden lokal zerlegt, hybrid durchsucht (Stichwort + Bedeutung), und die Antwort entsteht aus den besten Treffern — mit klickbaren Quellenverweisen. Kein Cloud-Aufruf: llama.cpp, lokale Embeddings, verschlüsselter Vault.',
     'pillar.benchmarks.title': 'Benchmarks',
     'pillar.benchmarks.lead':
-      'Reproduzierbare Messungen zu Retrieval und Embeddings auf deutschen Fachtexten. [Stub-Text, wird ersetzt.]',
-    // --- SEO cluster: personas (STUB COPY) ---
+      'Zahlen statt Versprechen: reproduzierbare Messungen, wie gut Retrieval und Embeddings auf deutschen Fachtexten wirklich treffen — mit Methode und Rohdaten zum Nachrechnen. Ehrlich, auch wo es noch hakt.',
+    // --- SEO cluster: personas ---
     'persona.lawyer.title': 'Für Anwält:innen',
     'persona.lawyer.lead':
-      '10.000 Seiten Verträge offline durchsuchen — mit Seitenverweisen. [Stub-Text, wird ersetzt.]',
+      'Tausende Seiten Verträge und Schriftsätze offline durchsuchen — und jede Antwort zeigt die Fundstelle (z. B. „§4.2 in Mietvertrag.pdf“). Mandantendaten bleiben verschlüsselt auf deinem Gerät, ohne Cloud.',
     'persona.research.title': 'Für Forschung',
     'persona.research.lead':
-      'Literaturrecherche, ohne den Entwurf an externe APIs zu geben. [Stub-Text, wird ersetzt.]',
+      'Importiere deine PDFs und stelle Methodik- und Inhaltsfragen über den ganzen Stapel — mit Seitenangaben je Paper. Dein unveröffentlichter Entwurf verlässt dabei nie das Gerät.',
     'persona.consulting.title': 'Für Beratung',
     'persona.consulting.lead':
-      'Mandantenunterlagen lokal befragen, vertraulich. [Stub-Text, wird ersetzt.]',
+      'Mandantenunterlagen, Angebote und Protokolle lokal befragen — vertraulich, ohne dass etwas in die Cloud geht. Antworten kommen mit Quellenverweis, damit du sie sofort prüfen kannst.',
     'persona.development.title': 'Für Entwicklung',
     'persona.development.lead':
-      'Den eigenen Code mit lokaler KI auditieren. [Stub-Text, wird ersetzt.]',
+      'Lass eine lokale KI deinen eigenen Code und deine Doku durchsuchen — Antworten mit Verweis auf Datei und Stelle. Kein Hochladen proprietärer Quellen, alles bleibt auf deiner Maschine.',
     // --- SEO cluster: shared link labels ---
     'cluster.relatedPillars': 'Mehr erfahren',
     'cluster.relatedPersonas': 'Anwendungsfälle',
@@ -513,29 +513,29 @@ export const ui = {
     'privacy.app':
       'The desktop app itself makes no telemetry calls and needs no account. A description of the data flow lives in the Architecture section on the home page.',
 
-    // --- SEO cluster: pillars (STUB COPY — replace with final voice) ---
+    // --- SEO cluster: pillars ---
     'pillar.privacy.title': 'Local AI & Privacy',
     'pillar.privacy.lead':
-      'What "local" and "private" really mean for an AI assistant — GDPR, EU AI Act, on-device principles. [Stub copy, to be replaced.]',
+      'At LokLM, "private" means your documents never leave the device. No cloud, no external AI APIs, no telemetry — models run locally and the vault stays encrypted. Here is what local AI actually means for GDPR, the EU AI Act, and your data.',
     'pillar.architecture.title': 'Architecture',
     'pillar.architecture.lead':
-      'How LokLM works inside: hybrid retrieval, citations, llama.cpp, German embeddings. [Stub copy, to be replaced.]',
+      'How LokLM works inside: your documents are split locally, searched with a hybrid of keyword and meaning, and the answer is built from the best matches — with clickable source citations. No cloud call: llama.cpp, local embeddings, an encrypted vault.',
     'pillar.benchmarks.title': 'Benchmarks',
     'pillar.benchmarks.lead':
-      'Reproducible measurements for retrieval and embeddings on German technical text. [Stub copy, to be replaced.]',
-    // --- SEO cluster: personas (STUB COPY) ---
+      'Numbers, not promises: reproducible measurements of how well retrieval and embeddings actually perform on German technical text — with the method and raw data to check for yourself. Honest, including where it still falls short.',
+    // --- SEO cluster: personas ---
     'persona.lawyer.title': 'For Lawyers',
     'persona.lawyer.lead':
-      'Search 10,000 pages of contracts offline — with page-level citations. [Stub copy, to be replaced.]',
+      'Search thousands of pages of contracts and briefs offline — and every answer points to the exact passage (e.g. "§4.2 in Lease.pdf"). Client data stays encrypted on your device, no cloud.',
     'persona.research.title': 'For Research',
     'persona.research.lead':
-      'Literature review without leaking your draft to external APIs. [Stub copy, to be replaced.]',
+      'Import your PDFs and ask methodology and content questions across the whole stack — with page references for each paper. Your unpublished draft never leaves the device.',
     'persona.consulting.title': 'For Consulting',
     'persona.consulting.lead':
-      'Query client documents locally, confidentially. [Stub copy, to be replaced.]',
+      'Query client documents, proposals and notes locally — confidentially, with nothing sent to the cloud. Answers come with source citations so you can verify them on the spot.',
     'persona.development.title': 'For Development',
     'persona.development.lead':
-      'Audit your own codebase with a local AI. [Stub copy, to be replaced.]',
+      'Point a local AI at your own code and docs — answers cite the file and location. No uploading proprietary source; everything stays on your machine.',
     // --- SEO cluster: shared link labels ---
     'cluster.relatedPillars': 'Learn more',
     'cluster.relatedPersonas': 'Use cases',
