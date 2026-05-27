@@ -69,6 +69,7 @@
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
     "@eslint/js": "^9.16.0",
+    "@mongodb-js/zstd": "^7.0.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -94,6 +95,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.34.0",
+    "tar-stream": "^3.2.0",
     "tsx": "^4.21.0",
     "typedoc": "^0.27.4",
     "typescript": "^5.6.3",
@@ -192,7 +194,8 @@
       "esbuild",
       "electron",
       "@electron/rebuild",
-      "node-llama-cpp"
+      "node-llama-cpp",
+      "@mongodb-js/zstd"
     ],
     "overrides": {
       "esbuild": "0.25.12"
