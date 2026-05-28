@@ -64,6 +64,31 @@ export async function detectChunkLanguage(text: string): Promise<ChunkLanguage |
   return bucket(result.language)
 }
 
+/** Pick the chat response language (DE/EN only) for a user query. Uses eld
+ *  when the query is long enough to score reliably , else a cheap regex guess
+ *  — chat prompts are routinely shorter than eld's reliable floor. Anything
+ *  that isn't German collapses to English (the two supported answer
+ *  languages). The regex path never touches eld , so short prompts ( and the
+ *  test suite ) stay synchronous-fast and don't pay the ~140 MB load. */
+export async function detectResponseLanguage(query: string): Promise<'de' | 'en'> {
+  const trimmed = query.trim()
+  if (trimmed.length >= MIN_CHARS_FOR_DETECTION) {
+    const eld = await getEld()
+    const result = eld.detect(trimmed)
+    if (result.language && result.isReliable()) return result.language === 'de' ? 'de' : 'en'
+  }
+  return regexGuessDeEn(trimmed)
+}
+
+/** Sub-threshold fallback : German umlauts / common function words mark DE ,
+ *  everything else is EN. Mirrors the heuristic QAService used before eld. */
+function regexGuessDeEn(text: string): 'de' | 'en' {
+  if (/[äöüß]/i.test(text)) return 'de'
+  if (/\b(was|wie|wer|wo|wann|warum|welche|der|die|das|ist|sind|und|nicht|ein|eine)\b/i.test(text))
+    return 'de'
+  return 'en'
+}
+
 /** Batch variant — detects every chunk's text in sequence and returns the
  *  parallel array of buckets. eld.detect is sub-millisecond per call, so
  *  even a 500-chunk book runs in <0.5 s end-to-end; no need for Promise.all

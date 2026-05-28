@@ -12,8 +12,12 @@ export const settingsDict: DomainDict = {
     'settings.tab.about': 'About',
 
     // BasicTab
+    'settings.basic.uiLanguage': 'Interface language',
+    'settings.basic.uiLanguageSub': 'Language of the app interface.',
     'settings.basic.responseLanguage': 'Response language',
-    'settings.basic.responseLanguageSub': 'How LokLM should reply.',
+    'settings.basic.responseLanguageSub':
+      'Auto replies in the language you write in (DE/EN). Pick one to lock it.',
+    'settings.basic.languageAuto': 'Auto',
     'settings.basic.pipelineChecklist': 'Pipeline checklist',
     'settings.basic.pipelineChecklistSub':
       'Keep the retrieve / rerank / prefill checklist visible above the answer after the first token. Off by default — it collapses into the metrics line.',
@@ -225,8 +229,12 @@ export const settingsDict: DomainDict = {
     'settings.tab.about': 'Über',
 
     // BasicTab
+    'settings.basic.uiLanguage': 'Anzeigesprache',
+    'settings.basic.uiLanguageSub': 'Sprache der Benutzeroberfläche.',
     'settings.basic.responseLanguage': 'Antwortsprache',
-    'settings.basic.responseLanguageSub': 'Wie LokLM antworten soll.',
+    'settings.basic.responseLanguageSub':
+      'Auto antwortet in deiner Eingabesprache (DE/EN). Oder fixiere eine.',
+    'settings.basic.languageAuto': 'Auto',
     'settings.basic.pipelineChecklist': 'Pipeline-Checkliste',
     'settings.basic.pipelineChecklistSub':
       'Hält die Retrieve- / Rerank- / Prefill-Checkliste nach dem ersten Token über der Antwort sichtbar. Standardmäßig aus — sie klappt in die Metrik-Zeile ein.',

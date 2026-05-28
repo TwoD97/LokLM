@@ -134,6 +134,55 @@ jobs:
           LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:win
 
+      - name: Detect code-signing config
+        # Secrets can't be read directly in `if:` , so probe them here and
+        # expose a plain boolean output the sign step gates on. When no cert
+        # is configured this is a no-op + warning ( the release still ships ,
+        # just UNSIGNED — which is what trips Defender's Wacatac.B!ml ML
+        # heuristic on the fresh , low-reputation download-stub ).
+        id: signcfg
+        shell: bash
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if [ -n "${WIN_CSC_LINK:-}" ] && [ -n "${WIN_CSC_KEY_PASSWORD:-}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD not set — shipping an UNSIGNED installer. Defender will likely flag it ( Trojan:Win32/Wacatac.B!ml , an ML false positive on unsigned download stubs ). Add an Authenticode cert ( base64 .pfx in WIN_CSC_LINK + password in WIN_CSC_KEY_PASSWORD ) to sign."
+          fi
+
+      - name: Authenticode-sign the installer ( LokLM-x64.exe )
+        # Signs the user-facing stub BEFORE the sha256 is computed/published so
+        # the hash matches the signed bytes. NOTE : this signs only the outer
+        # stub , not the inner wizard ( loklm.exe ) that NSIS extracts to %TEMP%
+        # and runs. To also sign the wizard , split the build above into
+        # package:win:payload / :archive / :wizard , sign loklm.exe here , then
+        # run :stub — the wizard must be signed before NSIS wraps it.
+        if: steps.signcfg.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # WIN_CSC_LINK is the base64 of the .pfx ; materialise it to disk.
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CSC_LINK))
+          # signtool ships with the Windows SDK on windows-latest but isn't on
+          # PATH ; pick the newest x64 build.
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK' }
+          & $signtool sign /fd SHA256 /f $pfx /p $env:WIN_CSC_KEY_PASSWORD `
+            /tr http://timestamp.digicert.com /td SHA256 /d 'LokLM' `
+            'release\LokLM-x64.exe'
+          if ($LASTEXITCODE -ne 0) { throw "signtool sign failed ( exit $LASTEXITCODE )" }
+          & $signtool verify /pa 'release\LokLM-x64.exe'
+          if ($LASTEXITCODE -ne 0) { throw "signtool verify failed ( exit $LASTEXITCODE )" }
+          Remove-Item $pfx -Force
+
       - name: Compute sha256 + size
         id: hash
         shell: bash
@@ -457,6 +506,18 @@ jobs:
           /tmp/mc cp "release/LokLM-mac.dmg" "s3target/loklm-installers/v${V}/"
           /tmp/mc cp "release/LokLM-mac.dmg.sha256" "s3target/loklm-installers/v${V}/"
           /tmp/mc ls "s3target/loklm-installers/v${V}/"
+
+  purge-cdn:
+    name: Purge CDN edge cache
+    # The uploads above write to Bunny *storage* ; the pull zone caches at the
+    # edge for 30 days ( max-age=2592000 ) , so without this a re-released
+    # version keeps serving the previously-cached bytes. Reuses the same
+    # workflow the manual Actions-tab purge uses ( single source of truth ).
+    needs: [build-windows, build-linux, build-macos]
+    uses: ./.github/workflows/purge-cdn.yml
+    with:
+      version: ${{ needs.build-windows.outputs.version }}
+    secrets: inherit
 
   bump-and-redeploy:
     name: Bump manifest + redeploy website

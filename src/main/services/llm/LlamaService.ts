@@ -316,12 +316,18 @@ export class LlamaService {
     this.selectedContext = choice
   }
 
-  setLanguage(lang: ResponseLanguage): void {
+  async setLanguage(lang: ResponseLanguage): Promise<void> {
     if (this.language === lang) return
     this.language = lang
     // Worker patches its session's system prompt without paying a reload.
+    // Awaited so a per-turn switch (QAService , Auto mode) lands before the
+    // next llmAsk — the worker holds the system prompt as session state.
     if (this.client && this.isReady()) {
-      void this.client.llmSetLanguage(lang, buildSystemPrompt(lang)).catch(() => undefined)
+      try {
+        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang))
+      } catch {
+        /* worker status push already reflects reality */
+      }
     }
   }
 

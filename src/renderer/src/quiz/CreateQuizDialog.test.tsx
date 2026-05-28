@@ -50,7 +50,7 @@ describe('CreateQuizDialog', () => {
       />,
     )
     const generate = screen.getByText('Generate').closest('button')!
-    fireEvent.change(screen.getByPlaceholderText(/Kapitel/i), { target: { value: 'Quiz Name' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Quiz Name' } })
     // Still disabled — no doc picked.
     expect(generate.disabled).toBe(true)
   })
@@ -98,7 +98,7 @@ describe('CreateQuizDialog', () => {
         onCreated={onCreated}
       />,
     )
-    fireEvent.change(screen.getByPlaceholderText(/Kapitel/i), { target: { value: 'My Q' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My Q' } })
     fireEvent.click(screen.getByLabelText('A'))
     fireEvent.click(screen.getByLabelText('B'))
     fireEvent.click(screen.getByText('20'))
@@ -128,7 +128,7 @@ describe('CreateQuizDialog', () => {
         onCreated={() => undefined}
       />,
     )
-    fireEvent.change(screen.getByPlaceholderText(/Kapitel/i), { target: { value: 'X' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'X' } })
     fireEvent.click(screen.getByLabelText(/Doc 1/i))
     fireEvent.click(screen.getByText('Generate'))
     expect(await screen.findByText(/1–128 characters/)).toBeInTheDocument()
