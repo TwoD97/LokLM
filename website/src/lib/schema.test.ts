@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { buildOrganizationSchema, buildSoftwareSchema } from './schema'
+import {
+  buildOrganizationSchema,
+  buildSoftwareSchema,
+  buildWebPageSchema,
+  buildBreadcrumbSchema,
+  buildFaqSchema,
+  buildArticleSchema,
+} from './schema'
 
 const siteUrl = 'https://loklm.com'
 const siteName = 'LokLM'
@@ -105,5 +112,81 @@ describe('buildSoftwareSchema', () => {
   it('round-trips through JSON unchanged', () => {
     const s = buildSoftwareSchema({ ...baseInput, winDownloadUrl: 'https://x' })
     expect(JSON.parse(JSON.stringify(s))).toEqual(s)
+  })
+})
+
+describe('buildWebPageSchema', () => {
+  const s = buildWebPageSchema({
+    url: 'https://loklm.com/lokale-ki',
+    name: 'Lokale KI',
+    description: 'desc',
+    lang: 'de',
+  })
+  it('is a WebPage with id, url, inLanguage', () => {
+    expect(s['@type']).toBe('WebPage')
+    expect(s['@id']).toBe('https://loklm.com/lokale-ki#webpage')
+    expect(s.url).toBe('https://loklm.com/lokale-ki')
+    expect(s.name).toBe('Lokale KI')
+    expect(s.inLanguage).toBe('de')
+  })
+})
+
+describe('buildBreadcrumbSchema', () => {
+  const s = buildBreadcrumbSchema([
+    { name: 'Home', url: 'https://loklm.com' },
+    { name: 'Lokale KI', url: 'https://loklm.com/lokale-ki' },
+  ])
+  it('numbers items in order', () => {
+    expect(s['@type']).toBe('BreadcrumbList')
+    expect(s.itemListElement).toHaveLength(2)
+    expect(s.itemListElement[0]).toMatchObject({
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Home',
+      item: 'https://loklm.com',
+    })
+    expect(s.itemListElement[1].position).toBe(2)
+  })
+})
+
+describe('buildFaqSchema', () => {
+  const s = buildFaqSchema([{ question: 'Q1?', answer: 'A1.' }])
+  it('wraps each QA as a Question/Answer pair', () => {
+    expect(s['@type']).toBe('FAQPage')
+    expect(s.mainEntity[0]).toMatchObject({
+      '@type': 'Question',
+      name: 'Q1?',
+      acceptedAnswer: { '@type': 'Answer', text: 'A1.' },
+    })
+  })
+})
+
+describe('buildArticleSchema', () => {
+  const s = buildArticleSchema({
+    url: 'https://loklm.com/blog/willkommen',
+    headline: 'Willkommen',
+    description: 'desc',
+    lang: 'de',
+    datePublished: '2026-05-01',
+    dateModified: '2026-05-02',
+  })
+  it('is an Article with the SEO-relevant fields', () => {
+    expect(s['@type']).toBe('Article')
+    expect(s.headline).toBe('Willkommen')
+    expect(s.inLanguage).toBe('de')
+    expect(s.datePublished).toBe('2026-05-01')
+    expect(s.dateModified).toBe('2026-05-02')
+    expect(s.mainEntityOfPage).toBe('https://loklm.com/blog/willkommen')
+    expect(s.author).toBeDefined()
+  })
+  it('falls back dateModified to datePublished when omitted', () => {
+    const s2 = buildArticleSchema({
+      url: 'u',
+      headline: 'h',
+      description: 'd',
+      lang: 'en',
+      datePublished: '2026-01-01',
+    })
+    expect(s2.dateModified).toBe('2026-01-01')
   })
 })

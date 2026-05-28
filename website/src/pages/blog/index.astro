@@ -1,0 +1,9 @@
+---
+import { getCollection } from 'astro:content'
+import BlogIndex from '~/layouts/BlogIndex.astro'
+import { postsForLang } from '~/data/blog'
+
+const posts = postsForLang(await getCollection('blog'), 'de')
+---
+
+<BlogIndex lang="de" posts={posts} />

@@ -1,6 +1,7 @@
 ---
 import { getLangFromUrl } from '~/i18n/utils'
 import { t } from '~/i18n/ui'
+import { pillarUrl } from '~/data/cluster'
 
 const lang = getLangFromUrl(Astro.url)
 ---
@@ -62,6 +63,10 @@ const lang = getLangFromUrl(Astro.url)
         <li><span class="arch__bullet" aria-hidden="true">✓</span>{t(lang, 'security.callout.telemetry')}</li>
       </ul>
     </div>
+
+    <a class="arch__cta" href={pillarUrl('architecture', lang)}>
+      {t(lang, 'cluster.readArchitecture')} &rarr;
+    </a>
   </div>
 </section>
 
@@ -80,6 +85,17 @@ const lang = getLangFromUrl(Astro.url)
     margin-top: 1rem;
     color: var(--color-fg-2);
     line-height: 1.6;
+  }
+  .arch__cta {
+    display: inline-block;
+    margin-top: 2rem;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  .arch__cta:hover {
+    text-decoration: underline;
   }
 
   .arch__diagram {

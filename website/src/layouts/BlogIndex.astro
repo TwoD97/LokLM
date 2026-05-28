@@ -1,0 +1,78 @@
+---
+import Base from '~/layouts/Base.astro'
+import { slugOf } from '~/data/blog'
+import type { CollectionEntry } from 'astro:content'
+
+interface Props {
+  lang: 'de' | 'en'
+  posts: CollectionEntry<'blog'>[]
+}
+const { lang, posts } = Astro.props
+const base = lang === 'de' ? '/blog' : '/en/blog'
+const title = 'Blog'
+const description =
+  lang === 'de'
+    ? 'Beiträge zu lokaler KI, Datenschutz und Retrieval.'
+    : 'Posts on local AI, privacy, and retrieval.'
+const alternates = { de: '/blog', en: '/en/blog' }
+const iso = (d: Date) => d.toISOString().slice(0, 10)
+---
+
+<Base title={`${title} — LokLM`} description={description} alternates={alternates}>
+  <main class="bloglist">
+    <div class="bloglist__inner">
+      <h1 class="bloglist__title gradient-text">{title}</h1>
+      <ul class="bloglist__items">
+        {
+          posts.map((p) => (
+            <li>
+              <a href={`${base}/${slugOf(p)}`}>
+                <time datetime={iso(p.data.pubDate)}>{iso(p.data.pubDate)}</time>
+                <span>{p.data.title}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .bloglist {
+    padding: 6rem 0 8rem;
+  }
+  .bloglist__inner {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .bloglist__title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .bloglist__items {
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .bloglist__items a {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    color: var(--color-fg-0);
+    text-decoration: none;
+  }
+  .bloglist__items a:hover span {
+    color: var(--color-accent-hover);
+  }
+  .bloglist__items time {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-fg-3);
+    flex-shrink: 0;
+  }
+</style>
