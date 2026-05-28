@@ -17,24 +17,27 @@ test.describe('download section', () => {
     expect(href).toContain('/v')
   })
 
-  test('linux card links to an .AppImage asset', async ({ page }) => {
+  test('linux card links to a .run installer asset', async ({ page }) => {
     const link = page.locator('[data-platform-link="linux"]')
     await expect(link).toBeVisible()
     const href = await link.getAttribute('href')
-    expect(href).toMatch(/\.AppImage$/)
+    expect(href).toMatch(/LokLM-Setup-.*\.run$/)
+    expect(href).toContain('/v')
   })
 
-  test('macOS card shows the coming-soon button (DE)', async ({ page }) => {
-    const card = page.locator('[data-platform="macos"]')
-    await expect(card).toBeVisible()
-    await expect(card.locator('button')).toBeDisabled()
-    await expect(card.locator('button')).toContainText(/Bald verfügbar/)
+  test('macOS card links to a .dmg asset (DE)', async ({ page }) => {
+    const link = page.locator('[data-platform-link="macos"]')
+    await expect(link).toBeVisible()
+    const href = await link.getAttribute('href')
+    expect(href).toMatch(/LokLM-mac\.dmg$/)
+    expect(href).toContain('/v')
   })
 
-  test('macOS card shows the coming-soon button (EN)', async ({ page }) => {
+  test('macOS card links to a .dmg asset (EN)', async ({ page }) => {
     await page.goto('/en#download')
-    const card = page.locator('[data-platform="macos"]')
-    await expect(card.locator('button')).toContainText(/Coming soon/)
+    const link = page.locator('[data-platform-link="macos"]')
+    await expect(link).toBeVisible()
+    expect(await link.getAttribute('href')).toMatch(/LokLM-mac\.dmg$/)
   })
 
   test('checksum block renders the sha256 of the primary asset', async ({ page }) => {

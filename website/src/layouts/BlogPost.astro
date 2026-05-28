@@ -1,0 +1,93 @@
+---
+import Base from '~/layouts/Base.astro'
+import { buildArticleSchema, buildBreadcrumbSchema } from '~/lib/schema'
+import type { CollectionEntry } from 'astro:content'
+
+interface Props {
+  post: CollectionEntry<'blog'>
+  slug: string
+  translation?: string // other-locale slug
+}
+const { post, slug, translation } = Astro.props
+const { lang, title, description, pubDate, updatedDate } = post.data
+
+const siteUrl = Astro.site!.toString().replace(/\/$/, '')
+const base = lang === 'de' ? '/blog' : '/en/blog'
+const pageUrl = `${siteUrl}${base}/${slug}`
+const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
+const iso = (d: Date) => d.toISOString().slice(0, 10)
+
+const alternates =
+  translation !== undefined
+    ? {
+        de: lang === 'de' ? `/blog/${slug}` : `/blog/${translation}`,
+        en: lang === 'en' ? `/en/blog/${slug}` : `/en/blog/${translation}`,
+      }
+    : undefined
+
+const schemas = [
+  buildArticleSchema({
+    url: pageUrl,
+    headline: title,
+    description,
+    lang,
+    datePublished: iso(pubDate),
+    dateModified: updatedDate ? iso(updatedDate) : undefined,
+  }),
+  buildBreadcrumbSchema([
+    { name: 'LokLM', url: homeUrl },
+    { name: 'Blog', url: `${siteUrl}${base}` },
+    { name: title, url: pageUrl },
+  ]),
+]
+---
+
+<Base title={`${title} — LokLM`} description={description} alternates={alternates} schemas={schemas}>
+  <main class="post">
+    <article class="post__inner">
+      <p class="post__meta">
+        <a href={base}>Blog</a> · <time datetime={iso(pubDate)}>{iso(pubDate)}</time>
+      </p>
+      <h1 class="post__title gradient-text">{title}</h1>
+      <div class="post__body"><slot /></div>
+    </article>
+  </main>
+</Base>
+
+<style>
+  .post {
+    padding: 6rem 0 8rem;
+  }
+  .post__inner {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .post__meta {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-fg-3);
+  }
+  .post__meta a {
+    color: var(--color-accent-hover);
+  }
+  .post__title {
+    margin-top: 0.5rem;
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .post__body {
+    margin-top: 2rem;
+    color: var(--color-fg-1);
+    line-height: 1.7;
+  }
+  .post__body :global(h2) {
+    margin-top: 2rem;
+    color: var(--color-fg-0);
+  }
+  .post__body :global(a) {
+    color: var(--color-accent-hover);
+  }
+</style>
