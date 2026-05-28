@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'electron-log/renderer'
 import { App } from './App'
 import './styles.css'
 

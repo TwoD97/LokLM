@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Settings as SettingsIcon, User } from 'lucide-react'
+import { AlertTriangle, Info, Settings as SettingsIcon, User } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { BasicTab } from './BasicTab'
 import { AdvancedTab } from './AdvancedTab'
+import { AboutTab } from './AboutTab'
 import { useT } from '../i18n'
 import './SettingsModal.css'
 
-type Tab = 'profile' | 'basic' | 'advanced'
+type Tab = 'profile' | 'basic' | 'advanced' | 'about'
 
 type Props = {
   open: boolean
@@ -72,6 +73,17 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
               </span>
               {t('settings.tab.advanced')}
             </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'about'}
+              className={`settings-tab ${tab === 'about' ? 'settings-tab--active' : ''}`}
+              onClick={() => setTab('about')}
+            >
+              <span className="settings-tab__icon" aria-hidden="true">
+                <Info size={18} />
+              </span>
+              {t('settings.tab.about')}
+            </button>
           </div>
           <button
             className="settings-modal__close"
@@ -85,6 +97,7 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
           {tab === 'profile' && <ProfileTab />}
           {tab === 'basic' && <BasicTab />}
           {tab === 'advanced' && <AdvancedTab />}
+          {tab === 'about' && <AboutTab />}
         </div>
       </div>
     </div>

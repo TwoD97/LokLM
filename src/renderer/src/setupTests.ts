@@ -343,6 +343,9 @@ const stub: Api = {
   providers: {
     onFallback: () => () => undefined,
   },
+  logs: {
+    openFolder: () => Promise.resolve(),
+  },
   quiz: {
     listDecks: () => Promise.resolve([]),
     getDeck: (deckId: number) =>
