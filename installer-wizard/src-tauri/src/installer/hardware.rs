@@ -208,6 +208,7 @@ fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
         CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, DXGI_ADAPTER_DESC1,
     };
 
+    let mut adapters: Vec<(u32, u32, u64)> = Vec::new();
     unsafe {
         let factory: IDXGIFactory1 = CreateDXGIFactory1().ok()?;
         // EnumAdapters1 yields adapters until DXGI_ERROR_NOT_FOUND. Cap the
@@ -222,12 +223,36 @@ fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
             if adapter.GetDesc1(&mut desc).is_err() {
                 continue;
             }
-            if desc.VendorId == vendor_id && desc.DeviceId == device_id {
-                return Some(desc.DedicatedVideoMemory as u64);
-            }
+            adapters.push((desc.VendorId, desc.DeviceId, desc.DedicatedVideoMemory as u64));
         }
     }
-    None
+    select_dxgi_vram(&adapters, vendor_id, device_id)
+}
+
+// Pick the dedicated-VRAM figure for the wgpu-chosen adapter out of the DXGI
+// adapter list. Exact vendor+device match wins ( correct on multi-GPU boxes ).
+//
+// Fallback : if no exact match , take the largest dedicated VRAM among
+// same-vendor adapters. wgpu's Vulkan backend ( the adapter we usually pick
+// on Windows ) can report a `device` id that disagrees with DXGI's PCI
+// DeviceId ; without this fallback the caller drops to vram_from_wgpu , whose
+// max_buffer_size is the u64::MAX sentinel → clamped to 80 GiB. That sentinel
+// masquerading as real VRAM is the recurring "AMD card shows 80 GB" bug , so
+// we never let a real GPU slip through to it.
+#[cfg(any(target_os = "windows", test))]
+fn select_dxgi_vram(adapters: &[(u32, u32, u64)], vendor_id: u32, device_id: u32) -> Option<u64> {
+    if let Some(&(_, _, mem)) = adapters
+        .iter()
+        .find(|&&(v, d, _)| v == vendor_id && d == device_id)
+    {
+        return Some(mem);
+    }
+    adapters
+        .iter()
+        .filter(|&&(v, _, _)| v == vendor_id)
+        .map(|&(_, _, mem)| mem)
+        .max()
+        .filter(|&m| m > 0)
 }
 
 fn classify_gpu_arch(name: &str) -> GpuArch {
@@ -461,5 +486,45 @@ mod tests {
     #[test]
     fn classify_unknown_falls_back() {
         assert_eq!(classify_gpu_arch("some weird gpu"), GpuArch::Other);
+    }
+
+    // DXGI VRAM selection. Tuples are ( vendor_id , device_id , dedicated VRAM ).
+    // 0x1002 = AMD , 0x1414 = Microsoft ( Basic Render Driver , dedVRAM 0 ).
+
+    #[test]
+    fn dxgi_exact_match_wins() {
+        // 760M iGPU : wgpu device id agrees with DXGI , exact match returns
+        // the 512 MB carve-out.
+        let adapters = [(0x1002, 0x1900, GB / 2), (0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x1900), Some(GB / 2));
+    }
+
+    #[test]
+    fn dxgi_vendor_fallback_when_device_id_mismatches() {
+        // Discrete AMD card : wgpu's Vulkan backend reports a device id that
+        // DXGI doesn't list. Exact match misses ; the same-vendor fallback
+        // recovers the real 24 GB instead of the 80-GiB wgpu sentinel.
+        let adapters = [(0x1002, 0x7448, 24 * GB), (0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x9999), Some(24 * GB));
+    }
+
+    #[test]
+    fn dxgi_fallback_picks_largest_same_vendor() {
+        // AMD iGPU + AMD dGPU , wgpu device id matches neither. Pick the
+        // dGPU's larger VRAM , not the iGPU carve-out.
+        let adapters = [
+            (0x1002, 0x1900, GB / 2),
+            (0x1002, 0x7448, 24 * GB),
+            (0x1414, 0x008c, 0),
+        ];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x0000), Some(24 * GB));
+    }
+
+    #[test]
+    fn dxgi_no_same_vendor_returns_none() {
+        // Only the software renderer present : nothing for the queried
+        // vendor , so fall through ( caller uses the wgpu estimate ).
+        let adapters = [(0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x1900), None);
     }
 }
