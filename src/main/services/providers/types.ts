@@ -1,5 +1,5 @@
 import type { RetrievalHit, ModelStatus } from '../../../shared/documents'
-import type { AskOptions } from '../llm/LlamaService'
+import type { AskOptions, ResponseLanguage } from '../llm/LlamaService'
 
 export interface ProviderStatus {
   ready: boolean
@@ -22,6 +22,10 @@ export interface LlmProvider {
   getStatus(): ProviderStatus
   /** Hint for the LLM/QA layer — drives the chat header "via X" pill. */
   getModelStatus(): ModelStatus
+  /** Set the answer language. Awaitable so a per-turn switch is guaranteed to
+   *  land before the next ask() — the bundled worker holds the system prompt
+   *  as session state, so ask() must not race ahead of the language change. */
+  setLanguage(lang: ResponseLanguage): Promise<void>
 }
 
 export interface EmbedderProvider {

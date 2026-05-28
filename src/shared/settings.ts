@@ -5,7 +5,15 @@ export type ProviderSource = 'bundled' | 'ollama'
 export interface UserSettings {
   schemaVersion: 1
   basic: {
+    /** UI / interface language — drives every translated string via useT.
+     *  DE/EN only. Independent of `answerLanguage`. */
     language: 'de' | 'en'
+    /** Answer language. 'auto' (default) replies in the language the user
+     *  writes in (detected per-turn , mapped to the two supported answer
+     *  languages DE/EN) ; 'de'/'en' force that language. Kept separate from
+     *  `language` so the UI stays in the user's chosen locale while answers
+     *  can follow the prompt. */
+    answerLanguage: 'auto' | 'de' | 'en'
     llmProfile: LlmProfileChoice
     /** When true, the pipeline progress checklist (contextualize → retrieve →
      *  rerank → prefill) stays visible above the assistant bubble after the
@@ -45,9 +53,11 @@ export interface UserSettings {
 export const DEFAULT_SETTINGS: UserSettings = {
   schemaVersion: 1,
   basic: {
-    // English-first default. Users can switch to German in settings ; the
-    // switch is honored ( QA forces the response language from this setting ).
+    // English-first UI default ; users can switch to German.
     language: 'en',
+    // Auto by default : reply in the language the user writes in ( DE/EN ).
+    // Picking 'de'/'en' locks the answer language regardless of the prompt.
+    answerLanguage: 'auto',
     llmProfile: 'auto',
     showPipelineSteps: false,
   },

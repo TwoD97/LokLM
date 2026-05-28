@@ -23,6 +23,7 @@ function buildRegistry(embedder: EmbeddingService): ProviderRegistry {
     isReady: () => false,
     getStatus: () => ({ ready: false, message: null, identity: 'stub' }),
     getModelStatus: () => ({}) as never,
+    setLanguage: async () => {},
   }
   const rerankerStub: RerankerProvider = {
     rerank: async () => [],

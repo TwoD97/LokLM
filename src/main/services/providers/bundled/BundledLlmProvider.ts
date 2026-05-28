@@ -1,4 +1,4 @@
-import type { LlamaService, AskOptions } from '../../llm/LlamaService'
+import type { LlamaService, AskOptions, ResponseLanguage } from '../../llm/LlamaService'
 import type { ModelStatus, RetrievalHit } from '../../../../shared/documents'
 import type { LlmProvider, ProviderStatus } from '../types'
 
@@ -52,5 +52,9 @@ export class BundledLlmProvider implements LlmProvider {
 
   getModelStatus(): ModelStatus {
     return this.inner.getStatus()
+  }
+
+  async setLanguage(lang: ResponseLanguage): Promise<void> {
+    await this.inner.setLanguage(lang)
   }
 }
