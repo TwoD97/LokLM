@@ -83,3 +83,106 @@ describe.skipIf(!distExists)('sitemap', () => {
     expect(body).toContain('hreflang="en-US"')
   })
 })
+
+describe.skipIf(!distExists)('SEO cluster routes', () => {
+  const routes = [
+    'lokale-ki',
+    'architektur',
+    'benchmarks',
+    'en/local-ai',
+    'en/architecture',
+    'en/benchmarks',
+    'einsatz/anwalt',
+    'einsatz/forschung',
+    'einsatz/beratung',
+    'einsatz/entwicklung',
+    'en/use-cases/lawyer',
+    'en/use-cases/research',
+    'en/use-cases/consulting',
+    'en/use-cases/development',
+  ]
+
+  for (const route of routes) {
+    it(`builds ${route} with self canonical + de/en/x-default hreflang`, () => {
+      const file = resolve(root, 'dist', route, 'index.html')
+      expect(existsSync(file), `missing dist/${route}/index.html`).toBe(true)
+      const html = readFileSync(file, 'utf-8')
+      expect(html, `${route} canonical`).toContain(
+        `rel="canonical" href="https://loklm.com/${route}"`,
+      )
+      expect(html, `${route} hreflang de`).toMatch(/hreflang="de"/)
+      expect(html, `${route} hreflang en`).toMatch(/hreflang="en"/)
+      expect(html, `${route} hreflang x-default`).toMatch(/hreflang="x-default"/)
+    })
+  }
+})
+
+describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
+  it('robots.txt explicitly allows AI crawlers', () => {
+    const robots = readFileSync(resolve(root, 'dist/robots.txt'), 'utf-8')
+    for (const ua of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended', 'CCBot']) {
+      expect(robots, `robots.txt missing ${ua}`).toContain(`User-agent: ${ua}`)
+    }
+    expect(robots).toContain('Sitemap: https://loklm.com/sitemap-index.xml')
+  })
+
+  it('llms.txt is generated with pillar + persona links', () => {
+    const llms = readFileSync(resolve(root, 'dist/llms.txt'), 'utf-8')
+    expect(llms).toContain('# LokLM')
+    expect(llms).toContain('https://loklm.com/lokale-ki')
+    expect(llms).toContain('https://loklm.com/en/use-cases/lawyer')
+  })
+
+  it('pillar + persona pages embed WebPage and BreadcrumbList JSON-LD', () => {
+    for (const r of ['lokale-ki', 'einsatz/anwalt', 'en/local-ai', 'en/use-cases/lawyer']) {
+      const html = readFileSync(resolve(root, 'dist', r, 'index.html'), 'utf-8')
+      expect(html, `${r} WebPage`).toContain('"@type":"WebPage"')
+      expect(html, `${r} BreadcrumbList`).toContain('"@type":"BreadcrumbList"')
+    }
+  })
+
+  it('persona pages embed FAQPage JSON-LD', () => {
+    const html = readFileSync(resolve(root, 'dist/einsatz/anwalt/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"FAQPage"')
+  })
+})
+
+describe.skipIf(!distExists)('Phase 3 blog', () => {
+  it('blog index + post build in both locales', () => {
+    for (const p of [
+      'dist/blog/index.html',
+      'dist/en/blog/index.html',
+      'dist/blog/willkommen/index.html',
+      'dist/en/blog/welcome/index.html',
+    ]) {
+      expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
+    }
+  })
+
+  it('post embeds Article + BreadcrumbList JSON-LD and a translation hreflang', () => {
+    const html = readFileSync(resolve(root, 'dist/blog/willkommen/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"Article"')
+    expect(html).toContain('"@type":"BreadcrumbList"')
+    expect(html).toMatch(/hreflang="en" href="[^"]*\/en\/blog\/welcome"/)
+  })
+
+  it('RSS feeds and .md mirrors build', () => {
+    for (const p of [
+      'dist/blog/rss.xml',
+      'dist/en/blog/rss.xml',
+      'dist/blog/willkommen.md',
+      'dist/en/blog/welcome.md',
+    ]) {
+      expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
+    }
+    expect(readFileSync(resolve(root, 'dist/blog/rss.xml'), 'utf-8')).toContain('<item>')
+    expect(readFileSync(resolve(root, 'dist/blog/willkommen.md'), 'utf-8').startsWith('# ')).toBe(
+      true,
+    )
+  })
+
+  it('tag pages build in both locales', () => {
+    expect(existsSync(resolve(root, 'dist/blog/tag/lokale-ki/index.html'))).toBe(true)
+    expect(existsSync(resolve(root, 'dist/en/blog/tag/local-ai/index.html'))).toBe(true)
+  })
+})

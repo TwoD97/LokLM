@@ -1,0 +1,17 @@
+---
+import { getCollection } from 'astro:content'
+import BlogIndex from '~/layouts/BlogIndex.astro'
+import { postsForLang, tagsForLang } from '~/data/blog'
+
+export async function getStaticPaths() {
+  const all = await getCollection('blog')
+  return tagsForLang(all, 'de').map((tag) => ({
+    params: { tag },
+    props: { posts: postsForLang(all, 'de').filter((p) => p.data.tags.includes(tag)) },
+  }))
+}
+
+const { posts } = Astro.props
+---
+
+<BlogIndex lang="de" posts={posts} />
