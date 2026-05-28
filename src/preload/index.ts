@@ -344,6 +344,9 @@ const api = {
         | { ok: false; kind: string; message: string }
       >,
   },
+  logs: {
+    openFolder: (): Promise<void> => ipcRenderer.invoke('logs:openFolder'),
+  },
   providers: {
     onFallback: (cb: (ev: { kind: 'llm' | 'reranker'; reason: string }) => void): (() => void) => {
       const listener = (

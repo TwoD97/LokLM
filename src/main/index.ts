@@ -34,6 +34,7 @@ import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { readTierMarker } from './services/tier/TierMarker'
+import { initLogger, getLogDir } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -620,6 +621,12 @@ function registerIpc(): void {
     'window:isMaximized',
     (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false,
   )
+
+  // Reveal the log directory in the OS file manager. Used by the About tab so
+  // users can grab main.log for support without knowing the per-OS path.
+  ipcMain.handle('logs:openFolder', async () => {
+    await shell.openPath(getLogDir())
+  })
 
   // workspaces
   ipcMain.handle('workspaces:list', async () => getWorkspaceService().list())
@@ -1397,6 +1404,18 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+
+    // File logger first — captures uncaughtException / unhandledRejection and
+    // intercepts console.error/warn from every service constructed below.
+    initLogger()
+
+    // Persist renderer crashes (React errors slipping past ErrorBoundary, OOMs,
+    // GPU process kills). reason is one of 'crashed' | 'killed' | 'oom' | etc.
+    app.on('render-process-gone', (_e, _wc, details) => {
+      console.error(
+        `[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`,
+      )
+    })
 
     // v0.3.0+ : log the installer-written tier so support has a single
     // place to confirm what the wizard recorded. Phase 4 wires this into

@@ -94,11 +94,18 @@ async function main() {
   }
 
   // 2) Pack into a DMG via create-dmg ( npm ).
+  //    --no-code-sign : create-dmg v8.x exits with code 2 if no Developer ID
+  //    Application cert is in the keychain ( "No suitable code signing
+  //    identity found" ). github-hosted macos-latest runners don't have one ,
+  //    and the wizard ships unsigned anyway ( see CSC_IDENTITY_AUTO_DISCOVERY
+  //    + tauri.conf identity:null ; users see Gatekeeper "right-click → Open"
+  //    on first launch ). The flag skips the signing step entirely so the
+  //    DMG step doesn't fail the release pipeline.
   const releaseDir = join(ROOT, 'release')
   const dmgPath = join(releaseDir, 'LokLM-mac.dmg')
   if (existsSync(dmgPath)) await rm(dmgPath)
-  console.log('npx create-dmg ...')
-  await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite'])
+  console.log('npx create-dmg --no-code-sign ...')
+  await runInherit('npx', ['create-dmg', '--no-code-sign', built, releaseDir, '--overwrite'])
 
   // 3) create-dmg names its output "<AppName> <version>.dmg" by default
   //    ( e.g. "LokLM 0.3.0.dmg" ). Rename to the stable LokLM-mac.dmg so

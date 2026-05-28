@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -8,6 +9,9 @@ const sharedAliases = {
   '@shared': resolve(__dirname, 'src/shared'),
   '@renderer': resolve(__dirname, 'src/renderer/src'),
 }
+
+const pkgVersion = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'))
+  .version as string
 
 export default defineConfig({
   main: {
@@ -39,6 +43,9 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react()],
     resolve: { alias: sharedAliases },
+    define: {
+      __APP_VERSION__: JSON.stringify(pkgVersion),
+    },
     build: {
       outDir: resolve(__dirname, 'out/renderer'),
       rollupOptions: {
