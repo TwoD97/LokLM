@@ -73,18 +73,23 @@ async function main() {
   const outputFile = join(ROOT, 'release', 'LokLM-Setup-linux-x64.run')
 
   // Stage : assemble the directory layout makeself wraps.
-  //   <stage>/installer/loklm  ← Tauri wizard ( ~2.8 MB ; the wizard
-  //                                        fetches payload + cuda from bunny
-  //                                        on demand at install time )
+  //   <stage>/installer/loklm  ← Tauri wizard ( ~3 MB )
   //   <stage>/installer/LICENSE          ← read by get_license()
+  //   <stage>/linux-unpacked/            ← full electron payload ( ~370 MB )
   //   <stage>/run-install.sh             ← makeself entry point
-  // The embedded linux-unpacked/ payload is gone ; download-stub model now.
+  // The payload is embedded as a sibling of installer/ so the wizard's
+  // payload_dir() resolves it via ../linux-unpacked at runtime. The
+  // optional CUDA addon + GGUF models are still fetched at install time.
+  const payloadDir = join(ROOT, 'release', 'linux-unpacked')
+  await requireFile(payloadDir, 'payload dir release/linux-unpacked ( run package:linux:payload first )')
   const stage = join(ROOT, 'release', '.installer-stub-staging-linux')
   if (existsSync(stage)) await rm(stage, { recursive: true, force: true })
   await mkdir(join(stage, 'installer'), { recursive: true })
   await cp(wizardBin, join(stage, 'installer', 'loklm'))
   await chmod(join(stage, 'installer', 'loklm'), 0o755)
   await cp(licenseFile, join(stage, 'installer', 'LICENSE'))
+  // cp preserves source modes , so the payload's loklm launcher keeps +x.
+  await cp(payloadDir, join(stage, 'linux-unpacked'), { recursive: true })
 
   // Entry script invoked by makeself after extraction. The wizard exec
   // takes over the process — we exec ( not spawn ) so the makeself

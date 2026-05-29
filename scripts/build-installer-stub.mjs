@@ -1,16 +1,19 @@
-// Wraps the Tauri-built wizard exe ( + LICENSE ) into a single tiny
-// release/LokLM-Setup-win-x64.exe via NSIS. The LokLM payload + the
-// optional CUDA addon are NO LONGER embedded — the wizard fetches both
-// from Bunny on demand at install time ( see installer/download.rs +
-// payload_manifest.rs ). The final .exe is ~5-10 MB.
+// Wraps the Tauri-built wizard exe ( + LICENSE ) AND the full electron
+// payload ( release/win-unpacked ) into a single self-contained
+// release/LokLM-x64.exe via NSIS. The base app payload is embedded so the
+// installer doesn't fetch-and-execute it from a CDN — that tiny-stub
+// pattern tripped Defender's Wacatac.B!ml heuristic. The optional CUDA
+// addon + GGUF models are still fetched at install time ( see
+// installer/download.rs + payload_manifest.rs ). The final .exe is ~370 MB.
 //
 // Inputs ( produced by earlier pipeline stages ) :
-//   installer-wizard/src-tauri/target/release/loklm.exe  ← Tauri wizard ( ~2.8 MB )
+//   installer-wizard/src-tauri/target/release/loklm.exe  ← Tauri wizard ( ~3 MB )
+//   release/win-unpacked/                                          ← electron payload ( ~370 MB )
 //   resources/icon.ico                                             ← Setup.exe icon
 //   LICENSE                                                        ← packaged alongside the wizard
 //
 // Output :
-//   release/LokLM-Setup-win-x64.exe                                ← what users download
+//   release/LokLM-x64.exe                                          ← what users download
 //
 // makensis lookup ( in order ) :
 //   1. PATH
@@ -24,6 +27,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { signWindows } from './sign-windows.mjs'
 
 const execFileAsync = promisify(execFile)
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -98,20 +102,18 @@ async function requireFile(path, label) {
 }
 
 async function main() {
-  const wizardExe = join(
-    ROOT,
-    'installer-wizard',
-    'src-tauri',
-    'target',
-    'release',
-    'loklm.exe',
-  )
+  const wizardExe = join(ROOT, 'installer-wizard', 'src-tauri', 'target', 'release', 'loklm.exe')
   const iconPath = join(ROOT, 'resources', 'icon.ico')
   const nsiScript = join(ROOT, 'installer-wizard', 'stub.nsi')
+  // The full electron payload ( produced by package:win:payload ). It's
+  // embedded raw into the stub so the installer is self-contained — the
+  // wizard's payload_dir() finds it via ..\win-unpacked at runtime.
+  const payloadDir = join(ROOT, 'release', 'win-unpacked')
 
   await requireFile(wizardExe, 'wizard exe ( cargo tauri build first )')
   await requireFile(iconPath, 'icon.ico')
   await requireFile(nsiScript, 'stub.nsi')
+  await requireFile(payloadDir, 'payload dir release/win-unpacked ( run package:win:payload first )')
 
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'))
   const version = pkg.version
@@ -135,14 +137,22 @@ async function main() {
   const makensis = await findMakensis()
   console.log(`makensis : ${makensis}`)
   console.log(`wizard   : ${wizardExe}`)
+  console.log(`payload  : ${payloadDir}`)
   console.log(`icon     : ${iconPath}`)
   console.log(`license  : ${licensePath}`)
   console.log(`output   : ${outputFile}`)
+
+  // Sign the wizard exe BEFORE NSIS embeds it, so the binary extracted to
+  // $INSTDIR\installer\loklm.exe at install time carries a signature too.
+  // No-op unless LOKLM_SIGN=1.
+  await signWindows([wizardExe], { label: 'wizard exe' })
+
   console.log('compiling NSIS stub ...')
 
   const args = [
     `/DPRODUCT_VERSION=${version}`,
     `/DWIZARD_EXE=${wizardExe}`,
+    `/DPAYLOAD_DIR=${payloadDir}`,
     `/DICON_PATH=${iconPath}`,
     `/DLICENSE_PATH=${licensePath}`,
     `/DOUTPUT_FILE=${outputFile}`,
@@ -162,6 +172,10 @@ async function main() {
   }
   const size = statSync(outputFile).size
   console.log(`built ${outputFile} ( ${(size / 1024 / 1024).toFixed(1)} MB )`)
+
+  // Sign the final installer LAST — it's the file users download, so this is
+  // the signature SmartScreen / Defender evaluate. No-op unless LOKLM_SIGN=1.
+  await signWindows([outputFile], { label: 'installer' })
 }
 
 main().catch((err) => {
