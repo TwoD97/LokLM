@@ -174,6 +174,12 @@ export const settingsDict: DomainDict = {
     // RerankerSection
     'settings.reranker.title': 'Reranker',
     'settings.reranker.sub': 'Re-orders search hits by query relevance before the LLM sees them.',
+    'settings.reranker.enabled': 'Reranking',
+    'settings.reranker.enabledHint':
+      'Off skips the cross-encoder and keeps the fused search order — lighter, slightly less precise.',
+    'settings.reranker.enabledAria': 'Reranking on or off',
+    'settings.reranker.on': 'On',
+    'settings.reranker.off': 'Off',
     'settings.reranker.source': 'Source',
     'settings.reranker.sourceHint': 'Bundled is a real cross-encoder; Ollama prompts a chat model.',
     'settings.reranker.sourceAria': 'Reranker source',
@@ -397,6 +403,12 @@ export const settingsDict: DomainDict = {
     'settings.reranker.title': 'Reranker',
     'settings.reranker.sub':
       'Ordnet Suchtreffer nach Anfrage-Relevanz neu, bevor das LLM sie sieht.',
+    'settings.reranker.enabled': 'Reranking',
+    'settings.reranker.enabledHint':
+      'Aus überspringt den Cross-Encoder und behält die fusionierte Trefferreihenfolge — leichter, etwas ungenauer.',
+    'settings.reranker.enabledAria': 'Reranking an oder aus',
+    'settings.reranker.on': 'An',
+    'settings.reranker.off': 'Aus',
     'settings.reranker.source': 'Quelle',
     'settings.reranker.sourceHint':
       'Gebündelt ist ein echter Cross-Encoder; Ollama promptet ein Chat-Modell.',
