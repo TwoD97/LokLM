@@ -14,6 +14,7 @@ export default tseslint.config(
       'coverage/**',
       'docs/api/**',
       'node_modules/**',
+      '_reference/**',
       '.tsbuildinfo-*/**',
       'public/**',
       'drizzle/**',

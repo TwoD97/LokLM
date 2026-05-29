@@ -15,58 +15,6 @@
 // concurrent ask never overlaps a load. Inference (embed / rank / ask) is
 // async at the native layer and can interleave freely between requests.
 
-// pdfjs-dist (loaded lazily by pdf-parse on first parsePdf) constructs a
-// module-level `new DOMMatrix()` at import time. Electron's main process
-// exposes DOMMatrix as a browser global ; utilityProcess does not, so the
-// dynamic import threw `DOMMatrix is not defined` and indexing failed before
-// we ever called parser.getText(). Stub the class so the import succeeds ;
-// text extraction never touches canvas-rendering paths that would actually
-// use the matrix, so an identity-shaped no-op is enough.
-if (typeof (globalThis as { DOMMatrix?: unknown }).DOMMatrix === 'undefined') {
-  class DOMMatrixPolyfill {
-    a = 1
-    b = 0
-    c = 0
-    d = 1
-    e = 0
-    f = 0
-    constructor(init?: number[] | string | DOMMatrixPolyfill) {
-      if (Array.isArray(init) && init.length >= 6) {
-        ;[this.a, this.b, this.c, this.d, this.e, this.f] = init as [
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-        ]
-      }
-    }
-    multiplySelf(): this {
-      return this
-    }
-    preMultiplySelf(): this {
-      return this
-    }
-    invertSelf(): this {
-      return this
-    }
-    translateSelf(): this {
-      return this
-    }
-    translate(): this {
-      return this
-    }
-    scaleSelf(): this {
-      return this
-    }
-    scale(): this {
-      return this
-    }
-  }
-  ;(globalThis as { DOMMatrix?: unknown }).DOMMatrix = DOMMatrixPolyfill
-}
-
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
 import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
 import type {
@@ -81,16 +29,7 @@ import type {
   LlmLoadResult,
   EmbedderLoadResult,
   RerankerLoadResult,
-  ParseAndChunkPayload,
-  ParseAndChunkResult,
 } from './protocol'
-import { parseFile } from '../documents/parser'
-import {
-  chunkMarkdown,
-  chunkPages,
-  tagChunksWithSections,
-  tagChunkLanguages,
-} from '../documents/chunker'
 
 // utilityProcess provides process.parentPort with postMessage / on('message').
 declare const process: NodeJS.Process & {
@@ -728,33 +667,6 @@ async function rerankerRank(query: string, documents: string[]): Promise<number[
   }
 }
 
-// ---- documents -----------------------------------------------------------
-
-/** Parse + chunk a document off the main event loop. pdf-parse on a book-sized
- *  PDF and the section-aware chunker were both CPU-bound passes that pinned
- *  IPC for seconds (Windows surfaced "Not Responding" when the user clicked
- *  away mid-index). Same lifecycle as the other ops , one request, one reply,
- *  no native handles to manage. */
-async function parseAndChunk(payload: ParseAndChunkPayload): Promise<ParseAndChunkResult> {
-  const parsed = await parseFile(payload.sourcePath)
-  const opts: Partial<{ maxChars: number; overlap: number }> = {}
-  if (payload.chunkSize !== undefined) opts.maxChars = payload.chunkSize
-  if (payload.chunkOverlap !== undefined) opts.overlap = payload.chunkOverlap
-  let chunks
-  if (parsed.kind === 'markdown') {
-    chunks = chunkMarkdown(parsed.sections, opts)
-  } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {
-    chunks = tagChunksWithSections(chunkPages(parsed.pages, opts), parsed.sections)
-  } else {
-    chunks = chunkPages(parsed.pages, opts)
-  }
-  // Run eld AFTER section tagging so language detection sees the final chunk
-  // text (heading prefixes included) — the prefix is part of what the LLM
-  // will read at retrieval time so it shouldn't bias the detector.
-  chunks = await tagChunkLanguages(chunks)
-  return { chunks }
-}
-
 // ---- request dispatch -----------------------------------------------------
 
 process.parentPort.on('message', (raw: WorkerRequest) => {
@@ -818,9 +730,6 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     case 'planner.refresh':
       reply(msg.id, await planner.refresh())
-      return
-    case 'documents.parseAndChunk':
-      reply(msg.id, await parseAndChunk(msg.payload))
       return
     case 'shutdown': {
       reply(msg.id, null)

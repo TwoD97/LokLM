@@ -13,8 +13,6 @@ import type {
   LlmLoadResult,
   EmbedderLoadResult,
   RerankerLoadResult,
-  ParseAndChunkPayload,
-  ParseAndChunkResult,
 } from './protocol'
 import type { ModelStatus, EmbedderStatus, RerankerStatus } from '../../../shared/documents'
 import type { SystemResources } from '../embeddings/ResourcePlanner'
@@ -245,12 +243,6 @@ export class ModelsWorkerClient {
   }
   rerankerRank(query: string, documents: string[]): Promise<number[] | null> {
     return this.send<number[] | null>('reranker.rank', { query, documents })
-  }
-
-  // ---- documents ---------------------------------------------------------
-
-  parseAndChunk(p: ParseAndChunkPayload): Promise<ParseAndChunkResult> {
-    return this.send<ParseAndChunkResult>('documents.parseAndChunk', p)
   }
 
   // ---- misc --------------------------------------------------------------

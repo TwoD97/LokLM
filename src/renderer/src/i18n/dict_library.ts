@@ -13,6 +13,8 @@ export const libraryDict: DomainDict = {
     'library.sourceNotFound': 'Source file not found:\n{path}',
     'library.cannotOpenFile': 'Cannot open file: {message}',
     'library.dropZone': 'Click to choose — or drag files here.',
+    'library.indexingActive': 'Indexing {count} document(s)…',
+    'library.stopIndexing': 'Stop',
     // DocumentTable
     'library.empty': 'No documents yet. Import files via drag-and-drop.',
     'library.colTitle': 'Title',
@@ -77,6 +79,8 @@ export const libraryDict: DomainDict = {
     'library.sourceNotFound': 'Quelldatei nicht gefunden:\n{path}',
     'library.cannotOpenFile': 'Datei kann nicht geöffnet werden: {message}',
     'library.dropZone': 'Klicken zum Auswählen – oder Dateien hierher ziehen.',
+    'library.indexingActive': 'Indexiere {count} Dokument(e)…',
+    'library.stopIndexing': 'Stopp',
     // DocumentTable
     'library.empty': 'Noch keine Dokumente. Dateien per Drag-Drop importieren.',
     'library.colTitle': 'Titel',

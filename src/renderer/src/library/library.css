@@ -75,6 +75,32 @@
   background: rgba(90, 155, 255, 0.05);
 }
 
+.library__indexing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #243a55;
+  border-radius: 8px;
+  background: rgba(90, 155, 255, 0.06);
+  font-size: 13px;
+}
+.library__indexing-stop {
+  border: 1px solid #3a5478;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.library__indexing-stop:hover {
+  border-color: #5a9bff;
+  background: rgba(90, 155, 255, 0.08);
+}
+
 .library__sync {
   margin: 12px 0;
   border: 1px solid #1f2a3a;

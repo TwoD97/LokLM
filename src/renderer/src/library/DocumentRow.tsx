@@ -83,7 +83,7 @@ function DocumentRowImpl({
         <span className={`library__status library__status--${status}`}>{status}</span>
         {progress && progress.phase !== 'done' && progress.phase !== 'failed' && (
           <span style={{ marginLeft: 8, opacity: 0.7 }}>
-            {progress.phase} {progress.step}/{progress.total}
+            {progress.detail ?? `${progress.phase} ${progress.step}/${progress.total}`}
           </span>
         )}
       </td>

@@ -144,12 +144,17 @@ vite.config.ts.timestamp-*
 
 Pflichtenheft_LokLM.md
 
+# Comparison clones (not part of LokLM)
+_reference/
+
 # LokLM
 docs/api/
 .tsbuildinfo-node/
 .tsbuildinfo-web/
 # Top-level GGUF cache only — leave src/**/models/ alone (those are TS modules).
 /models/
+# Tesseract traineddata cache (fetched by scripts/download-tessdata.mjs, ~28 MB)
+/tessdata/
 LokLM.zip
 
 docs/superpowers/
