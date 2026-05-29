@@ -268,10 +268,27 @@ function getProviderRegistry(): ProviderRegistry {
   return providerRegistry
 }
 
+// The 'lite' install tier ships without the reranker on by default — it's the
+// heaviest optional retrieval stage and lite targets low-RAM machines. Every
+// other tier (and dev/test, where readTierMarker() returns null) keeps the
+// universal default of reranker-on.
+function tierBaseDefaults(): UserSettings {
+  if (readTierMarker()?.tier !== 'lite') return DEFAULT_SETTINGS
+  return {
+    ...DEFAULT_SETTINGS,
+    advanced: {
+      ...DEFAULT_SETTINGS.advanced,
+      reranker: { ...DEFAULT_SETTINGS.advanced.reranker, enabled: false },
+    },
+  }
+}
+
 function getSettingsService(): SettingsService {
   if (!settingsService) {
-    settingsService = new SettingsService(getAuth().requireDatabase(), () =>
-      getAuth().persistSnapshotIfUnlocked(),
+    settingsService = new SettingsService(
+      getAuth().requireDatabase(),
+      () => getAuth().persistSnapshotIfUnlocked(),
+      tierBaseDefaults(),
     )
   }
   return settingsService
@@ -359,7 +376,11 @@ async function applySettings(s: UserSettings): Promise<void> {
       .unload()
       .catch(() => undefined)
   }
-  if (nextRerankerSource === 'ollama') {
+  // Free the bundled reranker when it flipped to external OR when the user
+  // turned the rerank stage off entirely. Either way the bundled GGUF is dead
+  // weight ; unloading also drops isReady() to false so RetrievalService skips
+  // the rerank pass and falls back to the fused order.
+  if (nextRerankerSource === 'ollama' || !s.advanced.reranker.enabled) {
     void getRerankerService()
       .unload()
       .catch(() => undefined)
@@ -1103,6 +1124,10 @@ function registerIpc(): void {
   // ChatView fires this on mount ; idempotent (ensureReady dedupes) so repeated
   // calls (workspace switches, re-mounts) are cheap.
   ipcMain.handle('reranker:warmup', async () => {
+    // Reranker turned off in settings (default for the lite tier) : skip the
+    // load entirely. Retrieval falls back to the fused order, and the TitleBar
+    // hides the dot, so warming the GGUF would just waste RAM/VRAM.
+    if (!getSettingsService().get().advanced.reranker.enabled) return
     void getRerankerService()
       .ensureReady()
       .catch(() => undefined)
