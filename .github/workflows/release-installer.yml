@@ -10,11 +10,18 @@ name: Release installer
 # direkt in <install-dir>/models/. App's first-launch-downloader bleibt
 # als v0.2.6-fallback erhalten ( triggert nur ohne tier-marker ).
 #
-# Artefakt-grössen ( setup.exe wrapt wizard + payload via NSIS ) :
-#   win   : ~375 MB    ( wizard 3 MB + electron payload ~370 MB )
-#   linux : ~375 MB    ( makeself self-extractor )
-#   mac   : ~210 MB    ( universal DMG , kein wizard )
-# Models ( zusätzlich pro install , downloaded by wizard from LokLM org ) :
+# v0.3.1+ : win + linux RE-EMBED the electron payload into the installer
+# ( wizard + win-unpacked/linux-unpacked via NSIS / makeself ). A tiny
+# download-stub that fetched + executed the payload from the CDN tripped
+# Defender's Wacatac.B!ml ML heuristic ; a fat , signed installer has a far
+# better reputation. mac STAYS on the download model ( Gatekeeper , not
+# Defender ; bundling would break the single-DMG multi-arch story ).
+# Artefakt-grössen :
+#   win   : ~375 MB    ( wizard 3 MB + embedded electron payload ~370 MB )
+#   linux : ~375 MB    ( makeself self-extractor , payload embedded )
+#   mac   : ~10 MB     ( wizard-only DMG ; payload fetched from bunny )
+# Optional CUDA addon + GGUF models are still fetched by the wizard at
+# install time on every platform :
 #   lite ~1.6 GB , standard ~3.4 GB , pro ~6.3 GB
 #
 # backup-URL-pattern bei CDN-ausfall:
@@ -114,17 +121,20 @@ jobs:
         run: choco install nsis -y --no-progress
 
       - name: Build payload + wizard + bundle ( pnpm package:win )
-        # Four-stage pipeline ( v0.3.0+ download-stub model ) :
+        # Four-stage pipeline ( v0.3.1+ embedded-payload model ) :
         #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder ; cuda stripped)
         #   package:win:archive  → release/payload-win-x64.tar.zst + cuda-win-x64.tar.zst
         #                          + sha256 sidecars + installer-wizard/payload-manifest.json regen
+        #                          ( payload archive is still produced/uploaded as a fallback +
+        #                            for the manifest's free-space estimate ; cuda is fetched live )
         #   package:win:wizard   → installer-wizard/src-tauri/target/release/loklm.exe
         #                          ( cargo tauri build ; bakes the manifest baseUrl + hashes via include_str! )
         #   package:win:stub     → release/LokLM-x64.exe
-        #                          ( NSIS wraps just the wizard + LICENSE ; payload + cuda fetched
-        #                            from bunny at install time , see installer/download.rs )
+        #                          ( NSIS embeds wizard + LICENSE + win-unpacked ; the wizard installs
+        #                            from the bundled payload via ..\win-unpacked , skipping the download.
+        #                            cuda is still fetched from bunny if the user opts in )
         # GGUFs continue to be fetched at install time by the wizard's
-        # download_all() , unchanged from v0.2.x. CI saves ~6 GB / run.
+        # download_all() , unchanged from v0.2.x.
         env:
           # Bake the production CDN URL into the wizard's payload-manifest.json
           # ( write-payload-manifest.mjs picks this up before cargo tauri build
@@ -315,15 +325,17 @@ jobs:
         run: cargo install tauri-cli --version "^2.0" --locked
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
-        # Four-stage pipeline ( v0.3.0+ download-stub model ; mirrors Windows ) :
+        # Four-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
         #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir ; cuda stripped)
         #   package:linux:archive  → release/payload-linux-x64.tar.zst + cuda-linux-x64.tar.zst
         #                            + sha256 sidecars + installer-wizard/payload-manifest.json regen
+        #                            ( payload archive still produced/uploaded as a fallback )
         #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm
         #                            ( cargo tauri build ; bakes manifest baseUrl + hashes )
         #   package:linux:stub     → release/LokLM-Setup-linux-x64.run
-        #                            ( makeself wraps just the wizard + LICENSE ; payload + cuda
-        #                              fetched from bunny at install time )
+        #                            ( makeself embeds wizard + LICENSE + linux-unpacked ; the wizard
+        #                              installs from the bundled payload via ../linux-unpacked.
+        #                              cuda is still fetched from bunny if the user opts in )
         env:
           LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:linux
