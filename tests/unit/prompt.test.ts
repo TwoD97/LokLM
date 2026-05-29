@@ -10,6 +10,10 @@ import {
   REPETITION_HINT_TEXT,
   condense,
   chunkifyForStream,
+  packHitsToBudget,
+  answerMaxTokens,
+  estimateTokens,
+  estimateHistoryTokens,
 } from '@main/services/llm/prompt'
 import type { RetrievalHit } from '@shared/documents'
 
@@ -327,5 +331,56 @@ describe('chunkifyForStream', () => {
 
   it('returns empty array for empty input', () => {
     expect(chunkifyForStream('')).toEqual([])
+  })
+})
+
+describe('answerMaxTokens', () => {
+  it('reserves ~1/4 of the window, floored at 4K', () => {
+    // 8K Lite: ctx/4 = 2048, floored to 4096.
+    expect(answerMaxTokens(8192)).toBe(4096)
+  })
+  it('caps the reserve at 32K on huge windows', () => {
+    expect(answerMaxTokens(131072)).toBe(32768)
+    expect(answerMaxTokens(1_000_000)).toBe(32768)
+  })
+})
+
+describe('estimateHistoryTokens', () => {
+  it('is 0 for missing/empty history', () => {
+    expect(estimateHistoryTokens()).toBe(0)
+    expect(estimateHistoryTokens([])).toBe(0)
+  })
+  it('caps each message at the per-message char cap', () => {
+    const huge = [{ role: 'user' as const, content: 'x'.repeat(100_000) }]
+    // Capped at HISTORY_MESSAGE_CHAR_CAP (1500) + ~12 overhead → ~432 tokens,
+    // NOT 100k/3.5. The exact number isn't the point; that the cap bounds it is.
+    expect(estimateHistoryTokens(huge)).toBeLessThan(600)
+  })
+})
+
+describe('packHitsToBudget', () => {
+  // ~350-char chunks → ~100 tokens text + small header + separator ≈ 114 tokens each.
+  const body = (n: number): string => `chunk ${n} ` + 'word '.repeat(70)
+  const hits = [1, 2, 3, 4, 5].map((i) => hit(i, body(i)))
+
+  it('returns all hits when the budget is generous', () => {
+    expect(packHitsToBudget(hits, 100_000)).toHaveLength(5)
+  })
+
+  it('drops the lowest-ranked tail when over budget, preserving order', () => {
+    const oneCost = estimateTokens(body(1)) + estimateTokens('[doc:1, chunk:1] (doc.md, p.1)') + 4
+    const packed = packHitsToBudget(hits, oneCost * 2 + 10) // room for ~2 hits
+    expect(packed).toHaveLength(2)
+    expect(packed.map((h) => h.chunk_id)).toEqual([1, 2]) // top-ranked kept, in order
+  })
+
+  it('always keeps at least the top hit even if it alone exceeds the budget', () => {
+    expect(packHitsToBudget(hits, 0)).toHaveLength(1)
+    expect(packHitsToBudget(hits, 0)[0]!.chunk_id).toBe(1)
+  })
+
+  it('returns a single-hit list unchanged regardless of budget', () => {
+    const one = [hit(9, body(9))]
+    expect(packHitsToBudget(one, 0)).toEqual(one)
   })
 })
