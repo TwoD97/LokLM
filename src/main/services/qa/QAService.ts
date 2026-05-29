@@ -202,6 +202,10 @@ export class QAService {
         onChunk: collector,
       }
       if (opts.history) askOpts.conversationHistory = opts.history
+      // Forward the server-side cancel signal so chat:cancel tears down the
+      // worker generation (the longest LLM call) — not just the contextualize
+      // step. LlamaService.askWithModel wires this to llmAbort(streamId).
+      if (abortSignal) askOpts.abortSignal = abortSignal
       // Bind the provider to this turn's language before streaming. Awaited so
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.

@@ -205,6 +205,14 @@ export class ModelDownloader {
 
     const hash = entry.sha256 ? createHash('sha256') : null
     const out = createWriteStream(partial, { flags: resumeAt > 0 ? 'a' : 'w' })
+    // A write stream with no 'error' listener turns a failed write (disk full,
+    // EACCES, EISDIR) into an uncaught exception that crashes the process — and
+    // the backpressure `drain` wait below would otherwise hang forever. Capture
+    // the first error and surface it through the normal reject path instead.
+    let writeError: Error | null = null
+    out.on('error', (err: Error) => {
+      if (!writeError) writeError = err
+    })
 
     let received = resumeAt
     let lastEmit = 0
@@ -223,12 +231,29 @@ export class ModelDownloader {
     try {
       for await (const chunk of nodeStream as AsyncIterable<Buffer>) {
         if (signal.aborted) throw new Error('aborted')
+        if (writeError) throw writeError
         if (hash) hash.update(chunk)
         const writeOk = out.write(chunk)
         if (!writeOk) {
           // Backpressure — wait for drain so we don't balloon RAM on slow
-          // disks.
-          await new Promise<void>((resolve) => out.once('drain', resolve))
+          // disks. Resolve early on a write error so this can't hang; the
+          // loop's writeError check then throws on the next iteration.
+          await new Promise<void>((resolve) => {
+            if (writeError) {
+              resolve()
+              return
+            }
+            const onDrain = (): void => {
+              out.off('error', onErr)
+              resolve()
+            }
+            const onErr = (): void => {
+              out.off('drain', onDrain)
+              resolve()
+            }
+            out.once('drain', onDrain)
+            out.once('error', onErr)
+          })
         }
         received += chunk.length
         const now = Date.now()
@@ -247,10 +272,17 @@ export class ModelDownloader {
           })
         }
       }
+      if (writeError) throw writeError
     } finally {
-      await new Promise<void>((resolve, reject) =>
-        out.end((err: Error | null | undefined) => (err ? reject(err) : resolve())),
-      )
+      // On a write error the stream is already broken — destroy it (releases
+      // the fd) rather than awaiting end(), whose 'finish' would never fire.
+      if (writeError) {
+        out.destroy()
+      } else {
+        await new Promise<void>((resolve, reject) =>
+          out.end((err: Error | null | undefined) => (err ? reject(err) : resolve())),
+        )
+      }
     }
 
     // Verify phase.
