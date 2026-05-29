@@ -101,6 +101,60 @@
   background: rgba(90, 155, 255, 0.08);
 }
 
+.library__summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.library__summary-modal {
+  width: min(680px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f2236;
+  border: 1px solid #243a55;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.library__summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f2a3a;
+}
+.library__summary-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.library__summary-close:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.library__summary-body {
+  padding: 16px;
+  overflow-y: auto;
+}
+.library__summary-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.library__summary-loading {
+  opacity: 0.7;
+}
+.library__summary-error {
+  color: #ff9b9b;
+}
+
 .library__sync {
   margin: 12px 0;
   border: 1px solid #1f2a3a;

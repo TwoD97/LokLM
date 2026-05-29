@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
 import { DocumentPreview } from './DocumentPreview'
+import { SummaryModal } from './SummaryModal'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
@@ -24,6 +25,8 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   const bumpMissing = useCallback(() => setMissingTick((n) => n + 1), [])
   // In-app reader for the highlighted document. Null = closed.
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null)
+  // Document whose summary modal is open. Null = closed.
+  const [summaryDoc, setSummaryDoc] = useState<Document | null>(null)
   // Pending export — the user clicked Exportieren ; we hold the document
   // here while the PasswordRetypeGate is up. On confirm we run the gated
   // exportDocument flow.
@@ -138,6 +141,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     setPreviewDoc(d)
   }, [])
 
+  const onSummarize = useCallback((d: Document) => {
+    setSummaryDoc(d)
+  }, [])
+
   const onExport = useCallback((d: Document) => {
     setExportPending(d)
   }, [])
@@ -208,8 +215,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         onRefresh={onRefresh}
         onRead={onRead}
         onExport={onExport}
+        onSummarize={onSummarize}
       />
       {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {summaryDoc && <SummaryModal doc={summaryDoc} onClose={() => setSummaryDoc(null)} />}
       <PasswordRetypeGate
         open={exportPending !== null}
         title={t('library.exportTitle')}

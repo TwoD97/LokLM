@@ -248,6 +248,13 @@ export class DocumentsRepo {
     await this.db.update(documents).set({ status }).where(eq(documents.id, documentId))
   }
 
+  /** Cache (or clear) a document's lazily-computed summary. reindex_document
+   *  nulls it automatically on content change; this is the write side for the
+   *  SummarizationService. */
+  async setSummary(documentId: number, summary: string | null): Promise<void> {
+    await this.db.update(documents).set({ summary }).where(eq(documents.id, documentId))
+  }
+
   /** Cold-boot orphan sweep: a doc still flagged 'indexing'/'pending' is left
    *  over from a previous session that crashed (or was killed) mid-import — the
    *  in-memory queue that owned it is gone, so it would otherwise spin forever.

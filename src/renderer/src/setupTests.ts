@@ -116,6 +116,7 @@ const stub: Api = {
     listMissing: () => Promise.resolve([]),
     keepMissing: () => Promise.resolve(),
     cancelIndexing: () => Promise.resolve(0),
+    summarize: () => Promise.resolve({ summary: 'stub summary', cached: false }),
     onIndexProgress: () => () => undefined,
   },
   conversations: {

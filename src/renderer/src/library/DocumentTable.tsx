@@ -14,6 +14,7 @@ type Props = {
   onRefresh: (id: number) => void
   onRead: (doc: Document) => void
   onExport: (doc: Document) => void
+  onSummarize: (doc: Document) => void
 }
 
 // Cheap windowed render: start with INITIAL_BATCH rows, observe a sentinel
@@ -38,6 +39,7 @@ export function DocumentTable({
   onRefresh,
   onRead,
   onExport,
+  onSummarize,
 }: Props): JSX.Element {
   const t = useT()
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
@@ -98,6 +100,7 @@ export function DocumentTable({
               onRefresh={onRefresh}
               onRead={onRead}
               onExport={onExport}
+              onSummarize={onSummarize}
             />
           )
         })}

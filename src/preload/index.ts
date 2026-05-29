@@ -165,6 +165,10 @@ const api = {
      *  folder). Jobs already running finish. Returns how many were cancelled. */
     cancelIndexing: (workspaceId: number): Promise<number> =>
       ipcRenderer.invoke('documents:cancelIndexing', workspaceId),
+    /** Lazily compute (or return cached) a whole-document summary. Rejects with
+     *  a `code: message` error ('no_content' | 'model_not_ready' | 'failed'). */
+    summarize: (documentId: number): Promise<{ summary: string; cached: boolean }> =>
+      ipcRenderer.invoke('documents:summarize', documentId),
     revealSource: (
       id: number,
     ): Promise<

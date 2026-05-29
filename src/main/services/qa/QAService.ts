@@ -3,7 +3,16 @@ import type { RetrievalService } from '../retrieval/RetrievalService'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
-import { REFUSAL_TEXT } from '../llm/prompt'
+import {
+  REFUSAL_TEXT,
+  buildSystemPrompt,
+  packHitsToBudget,
+  answerMaxTokens,
+  estimateTokens,
+  estimateHistoryTokens,
+  DEFAULT_CONTEXT_TOKENS,
+  CONTEXT_PACK_MARGIN_TOKENS,
+} from '../llm/prompt'
 import { detectResponseLanguage } from '../documents/languageDetector'
 
 // 3 wins on the eval sweep (tests/evals/report/runs/2026-05-20T19-46-39…):
@@ -170,8 +179,25 @@ export class QAService {
       return
     }
 
+    // ---- 2.5 pack the Context block to the model's window ----
+    // Trim hits so the prompt fits the (often small) local context window.
+    // CRITICAL: this runs BEFORE citations are emitted, so the chips the UI
+    // shows match exactly what the model was fed — packing inside the provider
+    // would surface citations for chunks that got trimmed out of the prompt.
+    // The LlamaService overflow-retry stays as a belt-and-suspenders fallback
+    // for any non-QAService caller that passes unpacked hits.
+    const ctxTokens = this.registry.llm().contextWindowTokens() || DEFAULT_CONTEXT_TOKENS
+    const contextBudget =
+      ctxTokens -
+      answerMaxTokens(ctxTokens) -
+      estimateTokens(buildSystemPrompt(language)) -
+      estimateHistoryTokens(opts.history) -
+      estimateTokens(query) -
+      CONTEXT_PACK_MARGIN_TOKENS
+    const fedHits = packHitsToBudget(hits, contextBudget, language)
+
     // ---- 3. citations + streaming generation ----
-    const citations = hits.map((h) => ({
+    const citations = fedHits.map((h) => ({
       doc_id: h.document_id,
       chunk_id: h.chunk_id,
       score: h.score,
@@ -210,7 +236,7 @@ export class QAService {
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.
       await this.registry.llm().setLanguage(language)
-      const askPromise = this.registry.llm().ask(query, hits, askOpts)
+      const askPromise = this.registry.llm().ask(query, fedHits, askOpts)
       // drain the queue while ask is still running
       while (true) {
         if (queue.length > 0) {

@@ -14,6 +14,7 @@ import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
+import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import {
@@ -84,6 +85,7 @@ function resetSessionServices(): void {
   retrievalService = null
   qaService = null
   quizService = null
+  summarizationService = null
   providerRegistry = null
   settingsService = null
   // Watchers hold OS handles on the user's folders ; they must not survive a
@@ -124,6 +126,7 @@ let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let quizService: QuizService | null = null
+let summarizationService: SummarizationService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
@@ -480,6 +483,16 @@ function getQuizService(): QuizService {
     )
   }
   return quizService
+}
+
+function getSummarizationService(): SummarizationService {
+  if (!summarizationService) {
+    summarizationService = new SummarizationService(
+      getAuth().requireDatabase(),
+      getProviderRegistry(),
+    )
+  }
+  return summarizationService
 }
 
 function getRerankerService(): RerankerService {
@@ -930,6 +943,16 @@ function registerIpc(): void {
   // In-flight jobs finish; queued placeholder rows are deleted. Returns count.
   ipcMain.handle('documents:cancelIndexing', async (_e, workspaceId: number) => {
     return getDocumentService().cancelWorkspaceIndexing(workspaceId)
+  })
+  // Lazily compute (or return cached) whole-document summary. Coded errors so
+  // the renderer can localize 'no_content' / 'model_not_ready' distinctly.
+  ipcMain.handle('documents:summarize', async (_e, documentId: number) => {
+    try {
+      return await getSummarizationService().summarize(documentId)
+    } catch (err) {
+      if (err instanceof SummarizationError) throw new Error(`${err.code}: ${err.message}`)
+      throw err
+    }
   })
 
   // Returns every chunk of a document, ordered by ordinal. The SourceViewer
@@ -1411,6 +1434,26 @@ function registerIpc(): void {
           ctrl.abort()
           break
         }
+      }
+    } catch (err) {
+      // A throw BEFORE the generator reaches its own try-block (service
+      // construction, getDeck, model init) bypasses QuizService.generate's
+      // internal failure handling. Without this catch the deck row stays
+      // 'generating' forever and the renderer — which calls generate() with a
+      // floating `void` — never learns it failed. Flip the row to 'failed' and
+      // push an error event so the UI leaves the spinner.
+      const message = err instanceof Error ? err.message : String(err)
+       
+      console.error(`[quiz] generation failed before stream start (deck ${deckId}): ${message}`)
+      try {
+        await getAuth().requireDatabase().quizzes().setDeckStatus(deckId, 'failed', message)
+      } catch {
+        /* DB unavailable — nothing more we can do */
+      }
+      try {
+        e.sender.send(`quiz:generate-event:${streamId}`, { type: 'error', message })
+      } catch {
+        /* renderer gone */
       }
     } finally {
       activeQuizStreams.delete(streamId)
