@@ -20,6 +20,14 @@ export class OllamaEmbedderProvider implements EmbedderProvider {
     })
     const vectors = data.embeddings ?? []
     if (vectors.length === 0) throw new Error('Ollama embed returned no vectors')
+    // Callers (DocumentService, EmbeddingBackfillService) zip vectors back to
+    // chunks by index, so a short or padded response would persist embeddings
+    // against the wrong chunks. Fail loud rather than corrupt the vector store.
+    if (vectors.length !== texts.length) {
+      throw new Error(
+        `Ollama embed count mismatch: requested ${texts.length}, received ${vectors.length}`,
+      )
+    }
     if (this.dim === null) this.dim = vectors[0]!.length
     return vectors.map((v) => Float32Array.from(v))
   }
