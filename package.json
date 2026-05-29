@@ -195,18 +195,5 @@
       "artifactName": "LokLM-mac.${ext}",
       "identity": null
     }
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "argon2",
-      "esbuild",
-      "electron",
-      "@electron/rebuild",
-      "node-llama-cpp",
-      "@mongodb-js/zstd"
-    ],
-    "overrides": {
-      "esbuild": "0.25.12"
-    }
   }
 }

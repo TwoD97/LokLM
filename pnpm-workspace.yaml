@@ -1,0 +1,15 @@
+# pnpm 10 reads settings that previously lived under the package.json "pnpm"
+# field from here. `onlyBuiltDependencies` allows these packages to run their
+# install/build scripts — node-llama-cpp needs it to fetch its native engine,
+# argon2 / zstd compile native addons, electron downloads its binary.
+onlyBuiltDependencies:
+  - argon2
+  - esbuild
+  - electron
+  - '@electron/rebuild'
+  - node-llama-cpp
+  - '@mongodb-js/zstd'
+  - sharp
+
+overrides:
+  esbuild: 0.25.12
