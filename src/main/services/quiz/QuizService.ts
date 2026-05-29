@@ -13,7 +13,7 @@ import type {
 } from '../../../shared/quiz'
 import type { AcceptedQuestion, QuizTheme } from './types'
 import { allocateSlots, dedupThemes, extractThemesForDocument } from './themes'
-import { generateQuestion } from './generation'
+import { generateQuestionsForTheme } from './generation'
 
 const TARGET_THEMES_FACTOR = 1.5
 
@@ -153,11 +153,12 @@ export class QuizService {
         return
       }
 
-      // ---- Stage 4: generate questions theme-by-theme ----
+      // ---- Stage 4: batch-per-theme generation ----
       const accepted: AcceptedQuestion[] = []
-      // We pre-fetch grounding chunks per theme: whole-doc themes already
-      // carry chunk ids; outline themes get a RetrievalService hit. Done up
-      // front so the inner loop is purely LLM-bound.
+      // Pre-fetch grounding chunks per theme up front so the inner loop is
+      // purely LLM-bound. Themes carry chunk ids from windowed extraction; a
+      // theme without ids (shouldn't happen post-rework) falls back to a
+      // RetrievalService hit.
       const groundingByTheme = new Map<string, ChunkRow[]>()
       for (const slot of slots) {
         if (abortSignal?.aborted) throw new Error('cancelled')
@@ -165,47 +166,61 @@ export class QuizService {
         groundingByTheme.set(slot.theme.id, chunks)
       }
 
-      // Round-robin across themes so a single theme can't monopolise the
-      // first few questions before we've heard from the others. We re-walk
-      // until budgets are exhausted or top-ups are no longer possible.
-      const queue = slots.map((s) => ({ themeId: s.theme.id, theme: s.theme, remaining: s.budget }))
-      let topUpAttempts = 0
-      const maxTopUps = deck.questionCount // allow up to N skip-and-retries
-      let ordinal = 0
-      while (accepted.length < deck.questionCount) {
+      const emitAccepted = (
+        questions: Array<Omit<AcceptedQuestion, 'ordinal'>>,
+      ): QuizGenerationEvent[] => {
+        const events: QuizGenerationEvent[] = []
+        for (const q of questions) {
+          if (accepted.length >= deck.questionCount) break
+          accepted.push({ ...q, ordinal: accepted.length })
+          events.push({ type: 'question', ordinal: accepted.length, total: deck.questionCount })
+        }
+        return events
+      }
+
+      // One grammar-constrained batch call per allocated theme.
+      for (const slot of slots) {
         if (abortSignal?.aborted) throw new Error('cancelled')
-        const ready = queue.find((q) => q.remaining > 0)
-        if (!ready) {
-          // No budget left. If we're short, top up by picking the heaviest
-          // theme that still has grounding.
-          if (topUpAttempts >= maxTopUps) break
-          topUpAttempts += 1
-          const heaviest = [...slots].sort((a, b) => b.theme.weight - a.theme.weight)[0]
-          if (!heaviest) break
-          queue.push({ themeId: heaviest.theme.id, theme: heaviest.theme, remaining: 1 })
-          continue
-        }
-        const grounding = groundingByTheme.get(ready.themeId) ?? []
-        if (grounding.length === 0) {
-          ready.remaining = 0
-          continue
-        }
-        const result = await generateQuestion(llm, embedder, {
+        if (accepted.length >= deck.questionCount) break
+        const grounding = groundingByTheme.get(slot.theme.id) ?? []
+        if (grounding.length === 0) continue
+        const need = Math.min(slot.budget, deck.questionCount - accepted.length)
+        const batch = await generateQuestionsForTheme(llm, embedder, {
           language: deck.language,
-          theme: ready.theme,
+          theme: slot.theme,
           groundingChunks: grounding,
           accepted,
+          count: need,
           ...(abortSignal ? { abortSignal } : {}),
         })
-        ready.remaining -= 1
-        if (!result.question) continue
-        ordinal += 1
-        accepted.push({ ...result.question, ordinal: ordinal - 1 })
-        yield {
-          type: 'question',
-          ordinal: accepted.length,
-          total: deck.questionCount,
-        }
+        for (const ev of emitAccepted(batch)) yield ev
+      }
+
+      // Top-up: if we're short, re-call the heaviest themes that have grounding
+      // for the remaining count. Bounded by maxTopUps so a model that keeps
+      // producing dups/invalid output can't spin forever.
+      const heaviestFirst = [...slots]
+        .filter((s) => (groundingByTheme.get(s.theme.id) ?? []).length > 0)
+        .sort((a, b) => b.theme.weight - a.theme.weight)
+      let topUpAttempts = 0
+      const maxTopUps = deck.questionCount
+      while (accepted.length < deck.questionCount && heaviestFirst.length > 0) {
+        if (abortSignal?.aborted) throw new Error('cancelled')
+        if (topUpAttempts >= maxTopUps) break
+        const slot = heaviestFirst[topUpAttempts % heaviestFirst.length]!
+        topUpAttempts += 1
+        const grounding = groundingByTheme.get(slot.theme.id) ?? []
+        const need = deck.questionCount - accepted.length
+        const batch = await generateQuestionsForTheme(llm, embedder, {
+          language: deck.language,
+          theme: slot.theme,
+          groundingChunks: grounding,
+          accepted,
+          count: need,
+          ...(abortSignal ? { abortSignal } : {}),
+        })
+        if (batch.length === 0) continue
+        for (const ev of emitAccepted(batch)) yield ev
       }
 
       if (accepted.length === 0) {

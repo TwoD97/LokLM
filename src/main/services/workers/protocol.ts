@@ -73,6 +73,10 @@ export interface LlmGenerateRawPayload {
    *  multi-query expansion) don't get a full-answer-sized generation when
    *  the model ignores its single-line instructions. */
   maxTokens?: number
+  /** Optional node-llama-cpp GbnfJsonSchema. The worker builds (and caches) a
+   *  grammar from it and constrains generation to valid JSON. On any grammar
+   *  build failure the worker logs a warn and generates without it. */
+  jsonSchema?: object
 }
 
 export interface EmbedderLoadPayload {

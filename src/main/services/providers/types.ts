@@ -11,13 +11,24 @@ export interface LlmProvider {
   ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string>
   generateRaw(
     prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      /** Optional node-llama-cpp GbnfJsonSchema. When supplied AND the engine
+       *  supports grammar (bundled), output is constrained to valid JSON.
+       *  Providers that can't honour it (Ollama) ignore it and fall back to
+       *  plain generation — semantic validation/retry remains the safety net. */
+      jsonSchema?: object | undefined
+    },
   ): Promise<string>
   generateTitle(
     user: string,
     assistant: string,
     opts?: { abortSignal?: AbortSignal },
   ): Promise<string | null>
+  /** Live max context window in tokens, or 0 if unknown (callers fall back to
+   *  FALLBACK_CONTEXT_TOKENS). */
+  contextWindowTokens(): number
   isReady(): boolean
   getStatus(): ProviderStatus
   /** Hint for the LLM/QA layer — drives the chat header "via X" pill. */

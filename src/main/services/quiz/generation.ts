@@ -1,29 +1,30 @@
-// Stage 4 of the pipeline: per-theme MCQ generation with JSON validation,
-// retry, and anti-repetition. See spec §4 stage 4.
+// Stage 4 of the pipeline: batch-per-theme MCQ generation with grammar-
+// constrained JSON, semantic validation, retry, and anti-repetition. See
+// spec §4 stage 4.
 
 import type { LlmProvider, EmbedderProvider } from '../providers/types'
 import type { ChunkRow } from '../../db/database'
 import type { QuizLanguage } from '../../../shared/quiz'
 import type { AcceptedQuestion, QuizTheme } from './types'
-import { buildJsonRetryPrompt, buildQuestionGenerationPrompt } from './prompts'
+import {
+  buildJsonRetryPrompt,
+  buildBatchQuestionGenerationPrompt,
+  QUESTION_LIST_SCHEMA,
+  PER_QUESTION_TOKEN_BUDGET,
+} from './prompts'
 
 /** Stems whose cosine similarity is ≥ this against any already-accepted stem
- *  count as duplicates and trigger a retry. */
+ *  count as duplicates and are dropped. */
 const STEM_DUP_COSINE = 0.88
 
-export interface GenerateQuestionInput {
+export interface GenerateQuestionsForThemeInput {
   language: QuizLanguage
   theme: QuizTheme
   groundingChunks: ChunkRow[]
   accepted: AcceptedQuestion[]
+  /** Number of accepted questions to aim for from this theme in one call. */
+  count: number
   abortSignal?: AbortSignal
-}
-
-export interface GenerateQuestionResult {
-  question: Omit<AcceptedQuestion, 'ordinal'> | null
-  /** True if the LLM produced output but it was rejected (bad JSON, dup, etc.).
-   *  The caller may swap the theme and try again. */
-  rejected: boolean
 }
 
 interface RawQuestion {
@@ -34,74 +35,70 @@ interface RawQuestion {
   sourceChunkIds: number[]
 }
 
-/** Run one acceptance loop for the theme: build prompt → generateRaw → parse →
- *  validate → anti-repetition. On parse/validation failure, retry once with a
- *  stricter JSON-only prompt. On stem-duplicate, retry once with the new stem
- *  added to the avoid-list. Returns the accepted question or null. */
-export async function generateQuestion(
+/** Produce UP TO `count` validated, stem-deduped questions for a theme in ONE
+ *  grammar-constrained call. On bad JSON, retries once with the JSON-only
+ *  prompt; if still bad, returns whatever valid subset parsed (possibly empty).
+ *  Stem-dedup runs against `accepted` AND within the batch itself, so the same
+ *  call can't return two near-identical stems. */
+export async function generateQuestionsForTheme(
   llm: LlmProvider,
   embedder: EmbedderProvider,
-  input: GenerateQuestionInput,
-): Promise<GenerateQuestionResult> {
-  const { theme, groundingChunks, accepted, language, abortSignal } = input
-  if (groundingChunks.length === 0) return { question: null, rejected: false }
+  input: GenerateQuestionsForThemeInput,
+): Promise<Array<Omit<AcceptedQuestion, 'ordinal'>>> {
+  const { theme, groundingChunks, accepted, language, count, abortSignal } = input
+  if (groundingChunks.length === 0 || count <= 0) return []
 
   const groundingBlock = groundingChunks
     .map((c) => `[chunk:${c.id}] ${c.text.replace(/\s+/g, ' ').slice(0, 1200)}`)
     .join('\n')
   const allowedChunkIds = new Set(groundingChunks.map((c) => c.id))
+  const avoidStems = accepted.map((a) => a.stem)
 
-  const initialAvoid = accepted.map((a) => a.stem)
-  const basePrompt = buildQuestionGenerationPrompt({
+  const basePrompt = buildBatchQuestionGenerationPrompt({
     language,
     themeTitle: theme.title,
     themeSummary: theme.summary,
     groundingBlock,
-    avoidStems: initialAvoid,
+    avoidStems,
+    count,
   })
+  const maxTokens = count * PER_QUESTION_TOKEN_BUDGET
 
-  // Round 1: the base prompt.
-  const raw1 = await llm.generateRaw(basePrompt, abortSignal ? { abortSignal } : {})
-  const parsed1 = parseAndValidate(raw1, allowedChunkIds)
+  // Round 1: grammar-constrained batch call.
+  const raw1 = await llm.generateRaw(basePrompt, {
+    jsonSchema: QUESTION_LIST_SCHEMA,
+    maxTokens,
+    ...(abortSignal ? { abortSignal } : {}),
+  })
+  let parsed = parseAndValidateArray(raw1, allowedChunkIds)
 
-  // Round 2: JSON-only retry if validation failed.
-  let parsed: RawQuestion | null = parsed1
-  if (!parsed) {
-    const retry = await llm.generateRaw(
-      buildJsonRetryPrompt(language, basePrompt),
-      abortSignal ? { abortSignal } : {},
-    )
-    parsed = parseAndValidate(retry, allowedChunkIds)
-    if (!parsed) return { question: null, rejected: true }
-  }
-
-  // Round 2b: anti-repetition guard. If the new stem is too close to any
-  // accepted one, retry once with the rejected stem appended to the avoid-list.
-  const [stemEmbedding] = await embedder.embed([parsed.stem])
-  if (!stemEmbedding) return { question: null, rejected: true }
-  const dup = isStemDuplicate(stemEmbedding, accepted)
-  if (dup) {
-    const avoid2 = [...initialAvoid, parsed.stem]
-    const retryPrompt = buildQuestionGenerationPrompt({
-      language,
-      themeTitle: theme.title,
-      themeSummary: theme.summary,
-      groundingBlock,
-      avoidStems: avoid2,
+  // Round 2: JSON-only retry if nothing parsed (grammar unavailable / ignored,
+  // e.g. Ollama, or a malformed body). The retry restates the contract.
+  if (parsed.length === 0) {
+    const retry = await llm.generateRaw(buildJsonRetryPrompt(language, basePrompt), {
+      jsonSchema: QUESTION_LIST_SCHEMA,
+      maxTokens,
+      ...(abortSignal ? { abortSignal } : {}),
     })
-    const raw3 = await llm.generateRaw(retryPrompt, abortSignal ? { abortSignal } : {})
-    const parsed3 = parseAndValidate(raw3, allowedChunkIds)
-    if (!parsed3) return { question: null, rejected: true }
-    const [emb3] = await embedder.embed([parsed3.stem])
-    if (!emb3 || isStemDuplicate(emb3, accepted)) return { question: null, rejected: true }
-    parsed = parsed3
-    return {
-      question: toAccepted(parsed, emb3, theme.title),
-      rejected: false,
-    }
+    parsed = parseAndValidateArray(retry, allowedChunkIds)
+    if (parsed.length === 0) return []
   }
 
-  return { question: toAccepted(parsed, stemEmbedding, theme.title), rejected: false }
+  // Stem-dedup the batch against the already-accepted set and against each
+  // other (embed all candidate stems in one call). Drop dups.
+  const stems = parsed.map((q) => q.stem)
+  const embeddings = await embedder.embed(stems)
+  const out: Array<Omit<AcceptedQuestion, 'ordinal'>> = []
+  const acceptedEmbeddings = accepted.map((a) => a.stemEmbedding)
+  for (let i = 0; i < parsed.length && out.length < count; i += 1) {
+    const emb = embeddings[i]
+    if (!emb) continue
+    if (isStemDuplicate(emb, acceptedEmbeddings)) continue
+    out.push(toAccepted(parsed[i]!, emb, theme.title))
+    // Subsequent candidates must also avoid this freshly accepted stem.
+    acceptedEmbeddings.push(emb)
+  }
+  return out
 }
 
 function toAccepted(
@@ -120,9 +117,9 @@ function toAccepted(
   }
 }
 
-function isStemDuplicate(candidate: Float32Array, accepted: AcceptedQuestion[]): boolean {
+function isStemDuplicate(candidate: Float32Array, accepted: Float32Array[]): boolean {
   for (const a of accepted) {
-    if (cosine(candidate, a.stemEmbedding) >= STEM_DUP_COSINE) return true
+    if (cosine(candidate, a) >= STEM_DUP_COSINE) return true
   }
   return false
 }
@@ -143,14 +140,32 @@ function cosine(a: Float32Array, b: Float32Array): number {
   return dot / (Math.sqrt(na) * Math.sqrt(nb))
 }
 
-/** Pull a JSON object out of the LLM response and validate the schema:
- *   - stem non-empty string
- *   - options: array of exactly 4 distinct non-empty strings
- *   - correct_index ∈ [0, 3]
- *   - explanation non-empty
- *   - source_chunk_ids: non-empty array of integers drawn from allowedChunkIds
- *
- *  Returns null on any failure. */
+/** Parse an ARRAY of MCQ objects and validate each item, dropping invalid ones.
+ *  Tolerates leading/trailing prose and code fences. Returns the valid subset
+ *  (possibly empty). */
+export function parseAndValidateArray(raw: string, allowedChunkIds: Set<number>): RawQuestion[] {
+  const cleaned = stripCodeFences(raw)
+  const start = cleaned.indexOf('[')
+  const end = cleaned.lastIndexOf(']')
+  if (start < 0 || end <= start) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1))
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  const out: RawQuestion[] = []
+  for (const item of parsed) {
+    const q = validateQuestion(item, allowedChunkIds)
+    if (q) out.push(q)
+  }
+  return out
+}
+
+/** Pull a single JSON object out of the LLM response and validate it. Returns
+ *  null on any failure. Kept for the unit tests that exercise validation rules
+ *  directly. */
 export function parseAndValidate(raw: string, allowedChunkIds: Set<number>): RawQuestion | null {
   const cleaned = stripCodeFences(raw)
   const start = cleaned.indexOf('{')
@@ -162,6 +177,19 @@ export function parseAndValidate(raw: string, allowedChunkIds: Set<number>): Raw
   } catch {
     return null
   }
+  return validateQuestion(parsed, allowedChunkIds)
+}
+
+/** Validate one parsed MCQ object:
+ *   - stem non-empty string
+ *   - options: array of exactly 4 distinct non-empty strings
+ *   - correct_index ∈ [0, 3]
+ *   - explanation non-empty
+ *   - source_chunk_ids: integers drawn from allowedChunkIds, with a fallback to
+ *     the first allowed id when none overlap
+ *
+ *  Returns null on any failure. */
+function validateQuestion(parsed: unknown, allowedChunkIds: Set<number>): RawQuestion | null {
   if (typeof parsed !== 'object' || parsed === null) return null
   const o = parsed as Record<string, unknown>
   const stem = typeof o.stem === 'string' ? o.stem.trim() : ''
@@ -183,9 +211,9 @@ export function parseAndValidate(raw: string, allowedChunkIds: Set<number>): Raw
     ids.push(v)
   }
   if (ids.length === 0) {
-    // Fall back to the first allowed chunk so a forgetful model doesn't kill
-    // an otherwise-valid question. We still record the citation so the chip
-    // can do something useful.
+    // Fall back to the first allowed chunk so a forgetful model doesn't kill an
+    // otherwise-valid question. We still record the citation so the chip can do
+    // something useful.
     const first = allowedChunkIds.values().next().value
     if (typeof first !== 'number') return null
     ids.push(first)

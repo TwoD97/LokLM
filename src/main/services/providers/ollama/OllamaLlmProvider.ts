@@ -55,7 +55,14 @@ export class OllamaLlmProvider implements LlmProvider {
 
   async generateRaw(
     prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      // Accepted for interface parity but IGNORED — Ollama's /api/generate has
+      // no GBNF grammar hook here. Callers rely on the semantic-validation +
+      // JSON-retry fallback path for unconstrained output.
+      jsonSchema?: object | undefined
+    },
   ): Promise<string> {
     let acc = ''
     const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
@@ -95,6 +102,12 @@ export class OllamaLlmProvider implements LlmProvider {
     } catch {
       return null
     }
+  }
+
+  contextWindowTokens(): number {
+    // Unknown without an Ollama /api/show round-trip — callers fall back to
+    // FALLBACK_CONTEXT_TOKENS.
+    return 0
   }
 
   isReady(): boolean {

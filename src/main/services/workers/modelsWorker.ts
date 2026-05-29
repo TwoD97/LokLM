@@ -383,6 +383,35 @@ const REPEAT_PENALTY = {
   frequencyPenalty: 0.15,
 }
 
+// Grammar objects are expensive to build (GBNF compile) , the quiz pipeline
+// reuses the same two schemas across hundreds of calls. Cache by the schema's
+// JSON string so we compile each distinct schema once per worker lifetime.
+const grammarCache = new Map<string, unknown>()
+
+/** Build (and cache) a node-llama-cpp grammar for a JSON schema. Returns null
+ *  when the backend doesn't expose createGrammarForJsonSchema or the build
+ *  throws — the caller then generates without a grammar. */
+async function grammarForSchema(schema: object): Promise<unknown> {
+  const backend = llamaBackend as {
+    createGrammarForJsonSchema?: (s: object) => Promise<unknown>
+  } | null
+  if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
+  const key = JSON.stringify(schema)
+  const cached = grammarCache.get(key)
+  if (cached) return cached
+  try {
+    const grammar = await backend.createGrammarForJsonSchema(schema)
+    grammarCache.set(key, grammar)
+    return grammar
+  } catch (err) {
+    log(
+      'warn',
+      `grammar build failed, generating without it: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    return null
+  }
+}
+
 async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   if (!llmSession) throw new Error('Model is not loaded.')
   const session = llmSession as {
@@ -433,6 +462,7 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
         signal?: AbortSignal
         repeatPenalty?: typeof REPEAT_PENALTY
         maxTokens?: number
+        grammar?: unknown
       },
     ) => Promise<string>
     getChatHistory?: () => unknown[]
@@ -454,11 +484,19 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
       signal: AbortSignal
       repeatPenalty: typeof REPEAT_PENALTY
       maxTokens?: number
+      grammar?: unknown
     } = {
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
     }
     if (payload.maxTokens != null) promptOpts.maxTokens = payload.maxTokens
+    // Grammar guarantees JSON *syntax* only; the main side still runs semantic
+    // validation + JSON-retry. A grammar build failure must never crash the
+    // worker — grammarForSchema returns null and we generate unconstrained.
+    if (payload.jsonSchema) {
+      const grammar = await grammarForSchema(payload.jsonSchema)
+      if (grammar) promptOpts.grammar = grammar
+    }
     const raw = await session.prompt(payload.prompt, promptOpts)
     return { raw }
   } finally {

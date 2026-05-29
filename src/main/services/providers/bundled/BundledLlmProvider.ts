@@ -22,10 +22,18 @@ export class BundledLlmProvider implements LlmProvider {
 
   async generateRaw(
     prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number },
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      jsonSchema?: object | undefined
+    },
   ): Promise<string> {
     await this.inner.ensureLoaded()
     return this.inner.generateRaw(prompt, opts)
+  }
+
+  contextWindowTokens(): number {
+    return this.inner.contextWindowTokens()
   }
 
   async generateTitle(

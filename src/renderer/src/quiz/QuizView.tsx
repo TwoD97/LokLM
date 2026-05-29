@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Document } from '@shared/documents'
 import type { QuizDeckSummary, QuizDeckWithQuestions } from '@shared/quiz'
-import { QuizListView } from './QuizListView'
+import { QuizListView, type QuizProgress } from './QuizListView'
 import { QuizRunner } from './QuizRunner'
 import { CreateQuizDialog } from './CreateQuizDialog'
 import './quiz.css'
@@ -26,6 +26,9 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
   // streamId → off() handle, kept in state so we can clean up on unmount and
   // on deck deletion. Maps to the active onGenerateEvent subscription.
   const [streamHandles, setStreamHandles] = useState<Map<number, () => void>>(new Map())
+  // deckId → live generation progress, derived from the event stream and fed to
+  // QuizListView so each generating deck shows a step label + progress bar.
+  const [progress, setProgress] = useState<Map<number, QuizProgress>>(new Map())
 
   const refresh = useCallback(async () => {
     const list = await window.api.quiz.listDecks(workspaceId)
@@ -55,6 +58,13 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
       const off = window.api.quiz.onGenerateEvent(streamId, (ev) => {
         if (ev.type === 'done' || ev.type === 'error') {
           void refresh()
+          // Drop the live progress entry — the deck card flips to ready/failed
+          // on refresh and shouldn't keep a stale bar.
+          setProgress((prev) => {
+            const next = new Map(prev)
+            next.delete(deckId)
+            return next
+          })
           // After the stream settles we can drop the subscription.
           setStreamHandles((prev) => {
             const next = new Map(prev)
@@ -63,10 +73,24 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
             next.delete(deckId)
             return next
           })
+        } else if (ev.type === 'stage') {
+          setProgress((prev) => new Map(prev).set(deckId, { stage: ev.stage }))
+        } else if (ev.type === 'doc-themes') {
+          setProgress((prev) =>
+            new Map(prev).set(deckId, {
+              stage: 'extracting-themes',
+              docIndex: ev.docIndex,
+              docTotal: ev.docTotal,
+            }),
+          )
         } else if (ev.type === 'question') {
-          // Question-level progress doesn't need a refresh — the list view
-          // shows stage label from a separate state we don't track here.
-          // A targeted refresh on done is enough for accuracy.
+          setProgress((prev) =>
+            new Map(prev).set(deckId, {
+              stage: 'generating-questions',
+              ordinal: ev.ordinal,
+              total: ev.total,
+            }),
+          )
         }
       })
       setStreamHandles((prev) => new Map(prev).set(deckId, off))
@@ -105,6 +129,7 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
   return (
     <QuizListView
       decks={decks}
+      progress={progress}
       onCreate={() => setScreen({ kind: 'create' })}
       onStart={(deckId) => setScreen({ kind: 'runner', deckId })}
       onDelete={async (deckId) => {

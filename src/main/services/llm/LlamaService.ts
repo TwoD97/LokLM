@@ -40,6 +40,7 @@ import {
   REPETITION_HINT_TEXT,
   stripThink,
   chunkifyForStream,
+  answerMaxTokens,
   type ResponseLanguage,
 } from './prompt'
 export type { ResponseLanguage }
@@ -335,6 +336,12 @@ export class LlamaService {
     return this.language
   }
 
+  /** Live max context window in tokens from the last successful load plan, or
+   *  0 if no model is loaded (callers fall back to FALLBACK_CONTEXT_TOKENS). */
+  contextWindowTokens(): number {
+    return this.lastPlan?.contextSize ?? 0
+  }
+
   getPlanner(): ResourcePlanner {
     return this.planner
   }
@@ -538,7 +545,7 @@ export class LlamaService {
   ): Promise<string> {
     const client = this.client!
     const ctxSize = this.lastPlan?.contextSize ?? 8192
-    const maxTokens = Math.max(4096, Math.min(32768, Math.floor(ctxSize / 4)))
+    const maxTokens = answerMaxTokens(ctxSize)
     const streamId = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     const filter = new ThinkFilter()
@@ -633,7 +640,11 @@ export class LlamaService {
 
   async generateRaw(
     prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number } = {},
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      jsonSchema?: object | undefined
+    } = {},
   ): Promise<string> {
     this.touchUsage()
     if (!this.isReady() || !this.client) {
@@ -649,11 +660,17 @@ export class LlamaService {
       opts.abortSignal.addEventListener('abort', abortListener, { once: true })
     }
     try {
-      const payload: { streamId: string; prompt: string; maxTokens?: number } = {
+      const payload: {
+        streamId: string
+        prompt: string
+        maxTokens?: number
+        jsonSchema?: object
+      } = {
         streamId,
         prompt,
       }
       if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
+      if (opts.jsonSchema != null) payload.jsonSchema = opts.jsonSchema
       const { raw } = await client.llmGenerateRaw(payload)
       return stripThink(raw).trim()
     } finally {

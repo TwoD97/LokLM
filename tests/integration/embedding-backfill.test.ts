@@ -20,6 +20,7 @@ function buildRegistry(embedder: EmbeddingService): ProviderRegistry {
     ask: async () => '',
     generateRaw: async () => '',
     generateTitle: async () => null,
+    contextWindowTokens: () => 0,
     isReady: () => false,
     getStatus: () => ({ ready: false, message: null, identity: 'stub' }),
     getModelStatus: () => ({}) as never,
