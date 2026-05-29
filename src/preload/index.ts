@@ -161,6 +161,10 @@ const api = {
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
     reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    /** Cancel still-queued imports/reindexes for a workspace (e.g. a mis-dropped
+     *  folder). Jobs already running finish. Returns how many were cancelled. */
+    cancelIndexing: (workspaceId: number): Promise<number> =>
+      ipcRenderer.invoke('documents:cancelIndexing', workspaceId),
     revealSource: (
       id: number,
     ): Promise<

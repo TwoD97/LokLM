@@ -20,11 +20,12 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       rollupOptions: {
-        // modelsWorker is a sibling entry — utilityProcess.fork loads it from
-        // out/main/modelsWorker.js at runtime (see ModelsWorkerClient).
+        // modelsWorker + documentsWorker are sibling entries — utilityProcess.fork
+        // loads them from out/main/<name>.js at runtime (see the worker clients).
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
           modelsWorker: resolve(__dirname, 'src/main/services/workers/modelsWorker.ts'),
+          documentsWorker: resolve(__dirname, 'src/main/services/workers/documentsWorker.ts'),
         },
       },
     },

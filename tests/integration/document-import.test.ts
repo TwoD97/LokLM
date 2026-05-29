@@ -165,6 +165,100 @@ describe('DocumentService.importFile (integration)', () => {
     })
   }, 15_000)
 
+  // Bounded indexing queue: a batch of imports must ALL reach 'ready' even
+  // though only MAX_CONCURRENT_INDEXING run at once — i.e. the pump drains the
+  // backlog rather than stalling after the first couple of jobs.
+  it('drains a batch of imports through the bounded queue (all reach ready)', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    const sent: IndexProgress[] = []
+    const fakeSender = { send: (_ch: string, payload: IndexProgress) => sent.push(payload) }
+    const docs = new DocumentService(auth)
+    const N = 5
+    const created: Array<{ id: number }> = []
+    for (let i = 0; i < N; i++) {
+      const path = join(dir, `batch-${i}.md`)
+      await writeFile(path, `# Doc ${i}\n\nBody paragraph number ${i} with some words.`, 'utf-8')
+      created.push(
+        await docs.importFile({
+          workspaceId: ws.id,
+          sourcePath: path,
+          sender: fakeSender as unknown as Electron.WebContents,
+        }),
+      )
+    }
+    await waitFor(() => {
+      const done = new Set(sent.filter((e) => e.phase === 'done').map((e) => e.documentId))
+      return created.every((d) => done.has(d.id))
+    }, 20_000)
+    const repo = auth.requireDatabase().documents()
+    for (const d of created) {
+      expect((await repo.getDocument(d.id))?.status).toBe('ready')
+    }
+  }, 30_000)
+
+  // Cold-boot orphan sweep: docs left 'indexing'/'pending' by a crashed session
+  // get flipped to 'failed'; 'ready' docs are untouched.
+  it('sweepOrphanedIndexing flips stuck pending/indexing docs to failed', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    const repo = auth.requireDatabase().documents()
+    const base = {
+      workspaceId: ws.id,
+      mimeType: 'text/markdown',
+      byteSize: 1,
+      sourceMtime: 1,
+    }
+    const stuckIndexing = await repo.addDocument({
+      ...base,
+      title: 'a',
+      sourcePath: join(dir, 'a.md'),
+      contentHash: 'h1',
+    })
+    const stuckPending = await repo.addDocument({
+      ...base,
+      title: 'b',
+      sourcePath: join(dir, 'b.md'),
+      contentHash: 'h2',
+    })
+    const ready = await repo.addDocument({
+      ...base,
+      title: 'c',
+      sourcePath: join(dir, 'c.md'),
+      contentHash: 'h3',
+    })
+    await repo.setDocumentStatus(stuckIndexing.id, 'indexing')
+    // stuckPending keeps the addDocument default ('pending')
+    await repo.setDocumentStatus(ready.id, 'ready')
+
+    const reset = await new DocumentService(auth).sweepOrphanedIndexing()
+    expect(reset).toBe(2)
+    expect((await repo.getDocument(stuckIndexing.id))?.status).toBe('failed')
+    expect((await repo.getDocument(stuckPending.id))?.status).toBe('failed')
+    expect((await repo.getDocument(ready.id))?.status).toBe('ready')
+  })
+
+  // Cancellation drops still-queued imports (placeholder rows are deleted) and
+  // leaves a consistent library: surviving docs = N − cancelled, none stuck.
+  it('cancelWorkspaceIndexing removes queued imports and settles cleanly', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    const docs = new DocumentService(auth)
+    const N = 12
+    for (let i = 0; i < N; i++) {
+      const path = join(dir, `cancel-${i}.md`)
+      await writeFile(path, `# C ${i}\n\nBody ${i}.`, 'utf-8')
+      await docs.importFile({ workspaceId: ws.id, sourcePath: path })
+    }
+    const cancelled = await docs.cancelWorkspaceIndexing(ws.id)
+    expect(cancelled).toBeGreaterThanOrEqual(0)
+    expect(cancelled).toBeLessThanOrEqual(N)
+
+    // Let any in-flight (non-cancelled) jobs settle, then assert the invariant.
+    await new Promise((r) => setTimeout(r, 2000))
+    const repo = auth.requireDatabase().documents()
+    const all = await repo.listDocumentsByWorkspace(ws.id)
+    expect(all.length).toBe(N - cancelled)
+    for (const d of all) expect(['ready', 'failed']).toContain(d.status)
+  }, 30_000)
+
   // Probe against the actual problem doc from the user's bug report. Skipped
   // when the file isn't present (CI, other machines) ; runs locally where the
   // PDF lives at C:\Users\denys\Documents\Test\... to confirm the fix holds on
@@ -194,7 +288,6 @@ describe('DocumentService.importFile (integration)', () => {
       )
       const importFailure = sent.find((e) => e.phase === 'failed')
       if (importFailure) {
-         
         console.error('[import-failed]', importFailure)
       }
       expect(sent.at(-1)?.phase).toBe('done')

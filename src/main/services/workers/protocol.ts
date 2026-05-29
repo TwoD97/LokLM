@@ -40,29 +40,7 @@ export type WorkerRequest =
   | { id: number; op: 'reranker.unload' }
   | { id: number; op: 'reranker.rank'; payload: { query: string; documents: string[] } }
   | { id: number; op: 'planner.refresh' }
-  | { id: number; op: 'documents.parseAndChunk'; payload: ParseAndChunkPayload }
   | { id: number; op: 'shutdown' }
-
-export interface ParseAndChunkPayload {
-  sourcePath: string
-  chunkSize?: number
-  chunkOverlap?: number
-}
-
-/** Chunks ready for persistChunks ; the worker handles parse + chunker +
- *  PDF-outline overlay + per-chunk language tagging (mig 0007 / eld) so a
- *  book-length PDF doesn't pin the main event loop for the seconds it takes
- *  pdf-parse to walk 500+ pages OR the 4.4 MB eld L-DB to score them. */
-export interface ParseAndChunkResult {
-  chunks: Array<{
-    ordinal: number
-    text: string
-    pageFrom: number | null
-    pageTo: number | null
-    headingPath: string[] | null
-    language: 'de' | 'en' | 'other' | null
-  }>
-}
 
 export interface LlmLoadPayload {
   modelPath: string

@@ -46,6 +46,9 @@ export interface IndexProgress {
   step: number
   total: number
   error?: string
+  /** Optional sub-status for a long-running phase. The parsing phase sets this
+   *  to scanned-page OCR progress (e.g. "OCR 3/40") so it doesn't look stalled. */
+  detail?: string
 }
 
 export type EmbedderState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'

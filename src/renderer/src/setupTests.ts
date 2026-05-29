@@ -115,6 +115,7 @@ const stub: Api = {
     refresh: () => Promise.resolve({ ok: true as const, outcome: 'unchanged' as const }),
     listMissing: () => Promise.resolve([]),
     keepMissing: () => Promise.resolve(),
+    cancelIndexing: () => Promise.resolve(0),
     onIndexProgress: () => () => undefined,
   },
   conversations: {

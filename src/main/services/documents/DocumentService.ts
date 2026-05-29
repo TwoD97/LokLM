@@ -7,7 +7,7 @@ import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { Document } from '../../db/schema'
 import type { ProviderRegistry } from '../providers/Registry'
-import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
+import type { DocumentsWorkerClient } from '../workers/DocumentsWorkerClient'
 import { ImportError, type IndexProgress } from './types'
 import { isSupported, parseFile } from './parser'
 import {
@@ -34,12 +34,89 @@ export class DocumentService {
   constructor(
     private readonly auth: AuthService,
     private readonly registry?: ProviderRegistry,
-    /** Optional worker client. When present, parseFile + chunker run in the
-     *  modelsWorker utilityProcess so a book-length PDF doesn't pin the main
-     *  event loop. Tests construct DocumentService without one and the inline
-     *  path is used as a fallback. */
-    private readonly worker?: ModelsWorkerClient,
+    /** Optional worker client. When present, parseFile + OCR + chunker run in
+     *  the dedicated documentsWorker utilityProcess so a book-length or scanned
+     *  PDF doesn't pin the main event loop (and never competes with chat-token
+     *  streaming on the models worker). Tests construct DocumentService without
+     *  one and the inline path is used as a fallback. */
+    private readonly worker?: DocumentsWorkerClient,
   ) {}
+
+  // ---- bounded indexing queue --------------------------------------------
+  //
+  // importFile / refresh / reindex used to fire indexInBackground detached, so
+  // dropping a folder of N files spun up N concurrent parse+OCR+embed pipelines
+  // at once — unbounded memory and worker-queue flooding (much worse now that
+  // OCR makes each job multi-second). We cap in-flight jobs instead. Two is the
+  // sweet spot: parse+OCR runs in the documentsWorker while embed runs in the
+  // modelsWorker, so two jobs pipeline across the two processes without either
+  // worker's event loop thrashing.
+  private static readonly MAX_CONCURRENT_INDEXING = 2
+  private activeIndexing = 0
+  private readonly indexQueue: Array<{
+    doc: Document
+    input: ImportInput
+    /** 'import' rows are placeholders with no chunks yet — cancellation may
+     *  delete them. 'reindex' rows are real docs (chunks already wiped by
+     *  reindex_document); cancellation marks them failed instead of deleting. */
+    kind: 'import' | 'reindex'
+  }> = []
+
+  private enqueueIndexing(doc: Document, input: ImportInput, kind: 'import' | 'reindex'): void {
+    this.indexQueue.push({ doc, input, kind })
+    this.pumpIndexQueue()
+  }
+
+  private pumpIndexQueue(): void {
+    while (
+      this.activeIndexing < DocumentService.MAX_CONCURRENT_INDEXING &&
+      this.indexQueue.length > 0
+    ) {
+      const job = this.indexQueue.shift()!
+      this.activeIndexing += 1
+      void this.indexInBackground(job.doc, job.input)
+        .catch(() => {
+          // errors are surfaced via the IPC progress 'failed' event and the
+          // doc row's status; indexInBackground never rejects with anything we
+          // need to act on here.
+        })
+        .finally(() => {
+          this.activeIndexing -= 1
+          this.pumpIndexQueue()
+        })
+    }
+  }
+
+  /** Drop every not-yet-started indexing job for a workspace. Import
+   *  placeholders (no chunks) are deleted outright; reindex jobs (real docs
+   *  whose chunks were already wiped) are marked 'failed' so the user can
+   *  retry. Jobs already running are left to finish — the worker requests
+   *  aren't abortable mid-parse. Returns how many queued jobs were cancelled. */
+  async cancelWorkspaceIndexing(workspaceId: number): Promise<number> {
+    const cancelled: typeof this.indexQueue = []
+    for (let i = this.indexQueue.length - 1; i >= 0; i--) {
+      if (this.indexQueue[i]!.input.workspaceId === workspaceId) {
+        cancelled.push(this.indexQueue.splice(i, 1)[0]!)
+      }
+    }
+    if (cancelled.length === 0) return 0
+    const repo = this.auth.requireDatabase().documents()
+    for (const job of cancelled) {
+      try {
+        if (job.kind === 'import') await repo.deleteDocument(job.doc.id)
+        else await repo.setDocumentStatus(job.doc.id, 'failed')
+      } catch {
+        // row may already be gone (concurrent delete) — nothing to do
+      }
+    }
+    return cancelled.length
+  }
+
+  /** Reset documents left mid-index by a previous crashed session. Call once at
+   *  login, before any new import is enqueued. Returns the number reset. */
+  async sweepOrphanedIndexing(): Promise<number> {
+    return this.auth.requireDatabase().documents().resetStuckIndexing()
+  }
 
   async importFile(input: ImportInput): Promise<Document> {
     const { stat, hash } = await this.statAndHashOrThrow(input.sourcePath)
@@ -69,10 +146,7 @@ export class DocumentService {
       contentHash: hash,
       sourceMtime: Math.round(stat.mtimeMs),
     })
-    void this.indexInBackground(doc, input).catch(() => {
-      // errors are surfaced via IPC; swallow here to keep the unhandled-rejection
-      // listener quiet — indexInBackground already wrote status='failed' on the doc.
-    })
+    this.enqueueIndexing(doc, input, 'import')
     return doc
   }
 
@@ -107,7 +181,7 @@ export class DocumentService {
     const doc = (await repo.getDocument(documentId))!
     const indexInput: ImportInput = { workspaceId: doc.workspaceId, sourcePath: newPath }
     if (sender) indexInput.sender = sender
-    void this.indexInBackground(doc, indexInput).catch(() => undefined)
+    this.enqueueIndexing(doc, indexInput, 'reindex')
     return doc
   }
 
@@ -172,7 +246,7 @@ export class DocumentService {
       sourcePath: refreshed.sourcePath,
     }
     if (sender) indexInput.sender = sender
-    void this.indexInBackground(refreshed, indexInput).catch(() => undefined)
+    this.enqueueIndexing(refreshed, indexInput, 'reindex')
     return 'reindexed'
   }
 
@@ -200,7 +274,7 @@ export class DocumentService {
       sourcePath: refreshed.sourcePath,
     }
     if (sender) indexInput.sender = sender
-    void this.indexInBackground(refreshed, indexInput).catch(() => undefined)
+    this.enqueueIndexing(refreshed, indexInput, 'reindex')
     return refreshed
   }
 
@@ -238,7 +312,12 @@ export class DocumentService {
   private async indexInBackground(doc: Document, input: ImportInput): Promise<void> {
     const TOTAL = 4
     const sender = input.sender
-    const send = (phase: IndexProgress['phase'], step: number, error?: string): void => {
+    const send = (
+      phase: IndexProgress['phase'],
+      step: number,
+      error?: string,
+      detail?: string,
+    ): void => {
       if (!sender) return
       try {
         const payload: IndexProgress = {
@@ -249,6 +328,7 @@ export class DocumentService {
           total: TOTAL,
         }
         if (error !== undefined) payload.error = error
+        if (detail !== undefined) payload.detail = detail
         sender.send('indexing:progress', payload)
       } catch {
         // renderer gone
@@ -275,16 +355,33 @@ export class DocumentService {
       // path is the fallback for tests/contexts without a worker.
       let out: Chunk[]
       if (this.worker) {
-        const chunkPayload: { sourcePath: string; chunkSize?: number; chunkOverlap?: number } = {
+        const chunkPayload: {
+          sourcePath: string
+          documentId: number
+          chunkSize?: number
+          chunkOverlap?: number
+        } = {
           sourcePath: doc.sourcePath,
+          documentId: doc.id,
         }
         if (input.chunkSize !== undefined) chunkPayload.chunkSize = input.chunkSize
         if (input.chunkOverlap !== undefined) chunkPayload.chunkOverlap = input.chunkOverlap
-        const { chunks: workerChunks } = await this.worker.parseAndChunk(chunkPayload)
+        // Surface scanned-page OCR progress under the parsing phase so a slow
+        // OCR pass reads as progress, not a hang. Unregister once parse returns.
+        const offOcr = this.worker.registerOcrProgress(doc.id, (done, total) =>
+          send('parsing', 1, undefined, `OCR ${done}/${total}`),
+        )
+        try {
+          const { chunks: workerChunks } = await this.worker.parseAndChunk(chunkPayload)
+          out = workerChunks
+        } finally {
+          offOcr()
+        }
         send('chunking', 2)
-        out = workerChunks
       } else {
-        const parsed = await parseFile(doc.sourcePath)
+        const parsed = await parseFile(doc.sourcePath, {
+          onOcrProgress: (done, total) => send('parsing', 1, undefined, `OCR ${done}/${total}`),
+        })
         send('chunking', 2)
         const chunkOpts: Parameters<typeof chunkPages>[1] = {}
         if (input.chunkSize !== undefined) chunkOpts.maxChars = input.chunkSize

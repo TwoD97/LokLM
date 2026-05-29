@@ -33,6 +33,7 @@ import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
+import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
 import { readTierMarker } from './services/tier/TierMarker'
 import { initLogger, getLogDir } from './services/logging/logger'
 
@@ -134,6 +135,10 @@ let settingsService: SettingsService | null = null
 // the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
 const modelsWorker = new ModelsWorkerClient()
+// Document parsing + OCR + chunking run in their own utilityProcess, isolated
+// from model inference so a heavy/scanned PDF import never stutters chat-token
+// streaming or blocks main.
+const documentsWorker = new DocumentsWorkerClient()
 // Post-login warmup runs on a small delay so the renderer can mount the main
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
@@ -496,7 +501,7 @@ function getRetrievalService(): RetrievalService {
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), modelsWorker)
+  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), documentsWorker)
   return documentService
 }
 
@@ -549,6 +554,11 @@ function registerIpc(): void {
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
+      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
+      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
+      await getDocumentService()
+        .sweepOrphanedIndexing()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
     },
@@ -578,6 +588,11 @@ function registerIpc(): void {
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
+      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
+      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
+      await getDocumentService()
+        .sweepOrphanedIndexing()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
     }
     return result
@@ -690,7 +705,25 @@ function registerIpc(): void {
       filters: [
         {
           name: 'Dokumente',
-          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+          extensions: [
+            'pdf',
+            'md',
+            'markdown',
+            'txt',
+            'rst',
+            'json',
+            'yaml',
+            'yml',
+            'toml',
+            'png',
+            'jpg',
+            'jpeg',
+            'webp',
+            'tif',
+            'tiff',
+            'bmp',
+            'gif',
+          ],
         },
         { name: 'Alle Dateien', extensions: ['*'] },
       ],
@@ -810,7 +843,25 @@ function registerIpc(): void {
       filters: [
         {
           name: 'Dokumente',
-          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+          extensions: [
+            'pdf',
+            'md',
+            'markdown',
+            'txt',
+            'rst',
+            'json',
+            'yaml',
+            'yml',
+            'toml',
+            'png',
+            'jpg',
+            'jpeg',
+            'webp',
+            'tif',
+            'tiff',
+            'bmp',
+            'gif',
+          ],
         },
         { name: 'Alle Dateien', extensions: ['*'] },
       ],
@@ -853,6 +904,11 @@ function registerIpc(): void {
       if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
       throw err
     }
+  })
+  // Cancel still-queued imports/reindexes for a workspace (mis-dropped folder).
+  // In-flight jobs finish; queued placeholder rows are deleted. Returns count.
+  ipcMain.handle('documents:cancelIndexing', async (_e, workspaceId: number) => {
+    return getDocumentService().cancelWorkspaceIndexing(workspaceId)
   })
 
   // Returns every chunk of a document, ordered by ordinal. The SourceViewer
@@ -1421,6 +1477,13 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+
+    // Resolve where OCR traineddata lives so the documents worker (and the
+    // inline fallback) can find it offline. Packaged → resources/tessdata
+    // (build.extraResources); dev → repo/tessdata (pnpm tessdata writes here).
+    process.env['LOKLM_TESSDATA_DIR'] = app.isPackaged
+      ? join(process.resourcesPath, 'tessdata')
+      : join(app.getAppPath(), 'tessdata')
 
     // File logger first — captures uncaughtException / unhandledRejection and
     // intercepts console.error/warn from every service constructed below.

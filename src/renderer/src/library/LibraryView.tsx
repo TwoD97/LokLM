@@ -129,6 +129,11 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs],
   )
 
+  const onCancelIndexing = useCallback(async () => {
+    await window.api.documents.cancelIndexing(workspaceId)
+    void refreshDocs(workspaceId)
+  }, [workspaceId, refreshDocs])
+
   const onRead = useCallback((d: Document) => {
     setPreviewDoc(d)
   }, [])
@@ -152,6 +157,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs, bumpMissing],
   )
 
+  // Docs still pending/indexing — drives the cancel bar. Updates as the queue
+  // drains (each finished doc fires an indexing:progress 'done' → refreshDocs).
+  const indexingCount = docs.filter((d) => d.status === 'pending' || d.status === 'indexing').length
+
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
@@ -172,6 +181,18 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           if (paths.length > 0) void onImport(paths)
         }}
       />
+      {indexingCount > 0 && (
+        <div className="library__indexing-bar">
+          <span>{t('library.indexingActive', { count: indexingCount })}</span>
+          <button
+            type="button"
+            className="library__indexing-stop"
+            onClick={() => void onCancelIndexing()}
+          >
+            {t('library.stopIndexing')}
+          </button>
+        </div>
+      )}
       {/* Pass the callbacks straight , each is already useCallback'd above, so
        *  DocumentRow's React.memo can actually skip re-renders for rows whose
        *  doc + progress didn't change. Wrapping them inline with arrows used

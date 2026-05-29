@@ -46,4 +46,8 @@ export interface IndexProgress {
   step: number
   total: number
   error?: string
+  /** Optional sub-status for a long-running phase. Used by the parsing phase to
+   *  surface scanned-page OCR progress (e.g. "OCR 3/40") so it doesn't look
+   *  like a stall. */
+  detail?: string
 }
