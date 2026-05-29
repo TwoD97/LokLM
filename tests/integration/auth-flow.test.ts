@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
+// Imported the same way AuthService imports it (node:fs `promises`) so the
+// spy below patches the exact binding writeVault calls.
+import { promises as fsp } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
@@ -94,6 +97,46 @@ describe('AuthService (integration)', () => {
     expect(result.ok).toBe(false)
     // KDF ran (so "deriving" emitted) , unwrap failed , no decrypt/restore.
     expect(stages).toEqual(['deriving'])
+  }, 45_000)
+
+  it('serializes concurrent vault writes so the shared .tmp never interleaves', async () => {
+    await auth.register({
+      displayName: 'Test User',
+      password: 'Test12345!',
+      recoveryLang: 'de',
+    })
+
+    // writeVault writes to a single fixed `loklm.vault.tmp` then renames it over
+    // the real vault. Two overlapping persists (e.g. a settings:update persist
+    // racing an auto-lock or before-quit persist) would interleave into that one
+    // tmp and rename a mixed-content file over the vault — an AES-GCM tag failure
+    // on the next login that recovery codes can't fix. Assert writes are
+    // serialized: at most one fs.writeFile in flight at any moment.
+    let inFlight = 0
+    let maxInFlight = 0
+    const realWriteFile = fsp.writeFile.bind(fsp)
+    const spy = vi.spyOn(fsp, 'writeFile').mockImplementation((async (...args: unknown[]) => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      try {
+        await new Promise((r) => setTimeout(r, 25))
+        return await (realWriteFile as (...a: unknown[]) => Promise<void>)(...args)
+      } finally {
+        inFlight--
+      }
+    }) as never)
+
+    try {
+      await Promise.all([auth.persistSnapshotIfUnlocked(), auth.persistSnapshotIfUnlocked()])
+    } finally {
+      spy.mockRestore()
+    }
+
+    expect(maxInFlight).toBe(1)
+
+    // The vault must still be valid + unlockable after the concurrent writes.
+    await auth.lock()
+    expect((await auth.login('Test12345!')).ok).toBe(true)
   }, 45_000)
 
   // weitere flows als ausgangspunkt:

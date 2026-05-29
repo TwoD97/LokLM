@@ -247,9 +247,14 @@ export class FolderSyncService {
    *  watcher set for that workspace. Call after login (per workspace) or
    *  whenever the folder list changes. */
   start(workspaceId: number): void {
-    void this.getFolders(workspaceId).then((folders) => {
-      this.restartWatchers(workspaceId, folders)
-    })
+    // Fire-and-forget: getFolders hits requireDatabase(), which throws if a lock
+    // races in between login and this call. .catch keeps that from becoming an
+    // unhandled rejection (matches scheduleSync's fire-and-forget handling).
+    void this.getFolders(workspaceId)
+      .then((folders) => {
+        this.restartWatchers(workspaceId, folders)
+      })
+      .catch(() => undefined)
   }
 
   stop(workspaceId: number): void {
