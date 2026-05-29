@@ -1271,9 +1271,6 @@ function registerIpc(): void {
       query: string,
       opts: import('../shared/documents').AnswerOptions = {},
     ) => {
-      const ctrl = new AbortController()
-      activeStreams.set(streamId, ctrl)
-
       // Answer language: honour the user's answerLanguage setting. 'de'/'en'
       // force that language ; 'auto' (the default) leaves opts.language unset so
       // QAService.answer detects it per-turn from the query (eld , mapped to the
@@ -1292,6 +1289,13 @@ function registerIpc(): void {
       if (conversations && opts.conversationId != null) {
         await conversations.appendMessage(opts.conversationId, 'user', query)
       }
+
+      // Register the abort controller only after the pre-flight work above
+      // (settings read, DB access, user-message persist) succeeds. Registering
+      // earlier would leak this entry in activeStreams whenever that work threw,
+      // since the try/finally that deletes it only starts below.
+      const ctrl = new AbortController()
+      activeStreams.set(streamId, ctrl)
 
       const tokenBuffer: string[] = []
       const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []

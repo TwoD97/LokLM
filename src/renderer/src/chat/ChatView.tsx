@@ -168,10 +168,21 @@ export function ChatView({
       const idsForSend = activeDocumentIdsRef.current
       let convId = currentConversationId
       if (convId == null) {
-        const conv = await window.api.conversations.create(workspaceId, undefined, idsForSend)
-        convId = conv.id
-        onConversationChange(convId, idsForSend)
-        await refresh()
+        try {
+          const conv = await window.api.conversations.create(workspaceId, undefined, idsForSend)
+          convId = conv.id
+          onConversationChange(convId, idsForSend)
+          await refresh()
+        } catch (err) {
+          // Creating the conversation row failed (transient DB error, or a lock
+          // racing in — the auth-state broadcast re-routes to login in that
+          // case). The stream try/finally below that resets `busy` hasn't been
+          // entered yet, so reset it here or the composer stays stuck showing
+          // the stop button with no way to send.
+          console.error('[chat] failed to create conversation', err)
+          setBusy(false)
+          return
+        }
       }
       const sendTime = performance.now()
       let firstTokenTime: number | null = null
