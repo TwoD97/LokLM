@@ -26,6 +26,10 @@ type StatusListener = {
 type Pending = {
   resolve: (v: unknown) => void
   reject: (e: Error) => void
+  /** The worker op this request carries — surfaced in the crash log so a
+   *  native worker exit tells us which native call was in flight (and whether
+   *  more than one was, i.e. concurrent inference on the shared session). */
+  op: WorkerRequest['op']
 }
 
 /**
@@ -92,6 +96,17 @@ export class ModelsWorkerClient {
       child.on('message', (msg: WorkerResponse | WorkerPush) => this.dispatch(msg))
       child.on('exit', (code) => {
         const reason = `models worker exited (code=${code ?? 'null'})`
+        // A non-graceful exit is a native crash — log the code + which ops were
+        // in flight so support can tell a concurrent-inference fault (2+ ops on
+        // the shared session) from a single-call segfault. code 3221225477 is
+        // 0xC0000005 (Windows access violation) inside node-llama-cpp.
+        if (!this.shuttingDown) {
+          const inFlight = [...this.pending.values()].map((p) => p.op)
+          // eslint-disable-next-line no-console
+          console.error(
+            `[modelsWorkerClient] ${reason}; in-flight ops: ${inFlight.join(', ') || '(none)'}`,
+          )
+        }
         for (const p of this.pending.values()) p.reject(new Error(reason))
         this.pending.clear()
         // Token streams that were in flight have no way to drain — drop their
@@ -190,6 +205,7 @@ export class ModelsWorkerClient {
       this.pending.set(id, {
         resolve: resolve as (v: unknown) => void,
         reject,
+        op,
       })
       try {
         child.postMessage(payload === undefined ? { id, op } : { id, op, payload })
