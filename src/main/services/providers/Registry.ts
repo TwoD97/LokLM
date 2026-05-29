@@ -120,7 +120,14 @@ class RegistryLlmProvider implements LlmProvider {
     }
   }
 
-  async generateRaw(p: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+  async generateRaw(
+    p: string,
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      jsonSchema?: object | undefined
+    },
+  ): Promise<string> {
     const active = this.active()
     if (active === this.deps.llm.bundled) return active.generateRaw(p, opts)
     try {
@@ -153,6 +160,13 @@ class RegistryLlmProvider implements LlmProvider {
     // bundled mid-turn , and that fallback must answer in the same language.
     await this.deps.llm.bundled.setLanguage(lang)
     if (this.deps.llm.ollama) await this.deps.llm.ollama.setLanguage(lang)
+  }
+
+  contextWindowTokens(): number {
+    // Report the active provider's live window. When Ollama is active this is 0
+    // (callers fall back to FALLBACK_CONTEXT_TOKENS); on a mid-turn fallback to
+    // bundled the budgeting was already computed for the active provider.
+    return this.active().contextWindowTokens()
   }
 
   isReady(): boolean {

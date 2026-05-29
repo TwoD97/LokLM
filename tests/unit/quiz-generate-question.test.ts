@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { generateQuestion } from '../../src/main/services/quiz/generation'
+import { generateQuestionsForTheme } from '../../src/main/services/quiz/generation'
 import type { AcceptedQuestion, QuizTheme } from '../../src/main/services/quiz/types'
 import type { ChunkRow } from '../../src/main/db/database'
 import type { EmbedderProvider, LlmProvider } from '../../src/main/services/providers/types'
@@ -29,6 +29,8 @@ function makeTheme(): QuizTheme {
   }
 }
 
+// `responses` is consumed in order, one per generateRaw call. `ignoreSchema`
+// toggles whether the mock records the jsonSchema opt (to assert pass-through).
 function fakeLlm(responses: string[]): LlmProvider {
   const generateRaw = vi.fn(async () => {
     if (responses.length === 0) throw new Error('LLM ran out of canned responses')
@@ -38,6 +40,7 @@ function fakeLlm(responses: string[]): LlmProvider {
     ask: vi.fn(),
     generateRaw,
     generateTitle: vi.fn(),
+    contextWindowTokens: () => 0,
     isReady: () => true,
     getStatus: () => ({ ready: true, message: null, identity: 'fake' }),
     getModelStatus: () => ({
@@ -67,96 +70,77 @@ function fakeEmbedder(table: Record<string, Float32Array>): EmbedderProvider {
   }
 }
 
-const validQuestion = (stem: string, chunkId = 1): string =>
-  JSON.stringify({
-    stem,
-    options: ['A', 'B', 'C', 'D'],
-    correct_index: 1,
-    explanation: 'Because.',
-    source_chunk_ids: [chunkId],
-  })
+const mcq = (stem: string, chunkId = 1): Record<string, unknown> => ({
+  stem,
+  options: ['A', 'B', 'C', 'D'],
+  correct_index: 1,
+  explanation: 'Because.',
+  source_chunk_ids: [chunkId],
+})
 
-describe('generateQuestion', () => {
-  it('returns the accepted question on a clean first response', async () => {
-    const llm = fakeLlm([validQuestion('What is X?')])
-    const embedder = fakeEmbedder({ 'What is X?': new Float32Array([1, 0, 0]) })
-    const result = await generateQuestion(llm, embedder, {
+describe('generateQuestionsForTheme', () => {
+  it('returns multiple validated questions from one batch response', async () => {
+    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2'), mcq('Q3')])])
+    const embedder = fakeEmbedder({
+      Q1: new Float32Array([1, 0, 0]),
+      Q2: new Float32Array([0, 1, 0]),
+      Q3: new Float32Array([0, 0, 1]),
+    })
+    const out = await generateQuestionsForTheme(llm, embedder, {
       language: 'en',
       theme: makeTheme(),
       groundingChunks: [makeChunk(1, 'X is X.'), makeChunk(2, 'More about X.')],
       accepted: [],
+      count: 3,
     })
-    expect(result.question?.stem).toBe('What is X?')
-    expect(result.rejected).toBe(false)
-    // Exactly one LLM call when the first response is valid.
+    expect(out.map((q) => q.stem)).toEqual(['Q1', 'Q2', 'Q3'])
+    // ONE LLM call for the whole batch.
     expect(llm.generateRaw).toHaveBeenCalledTimes(1)
   })
 
-  it('retries once on bad JSON and accepts the retry', async () => {
-    const llm = fakeLlm(['not actually json', validQuestion('Retry path?')])
-    const embedder = fakeEmbedder({ 'Retry path?': new Float32Array([1, 0, 0]) })
-    const result = await generateQuestion(llm, embedder, {
+  it('passes the QUESTION_LIST_SCHEMA through as a jsonSchema opt', async () => {
+    const llm = fakeLlm([JSON.stringify([mcq('Q1')])])
+    const embedder = fakeEmbedder({ Q1: new Float32Array([1, 0, 0]) })
+    await generateQuestionsForTheme(llm, embedder, {
       language: 'en',
       theme: makeTheme(),
       groundingChunks: [makeChunk(1, 'X')],
       accepted: [],
+      count: 1,
     })
-    expect(result.question?.stem).toBe('Retry path?')
-    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
+    const opts = (llm.generateRaw as ReturnType<typeof vi.fn>).mock.calls[0]![1] as {
+      jsonSchema?: object
+      maxTokens?: number
+    }
+    expect(opts.jsonSchema).toBeDefined()
+    expect(opts.maxTokens).toBeGreaterThan(0)
   })
 
-  it('rejects after two consecutive bad-JSON outputs', async () => {
-    const llm = fakeLlm(['nope', 'still nope'])
-    const embedder = fakeEmbedder({})
-    const result = await generateQuestion(llm, embedder, {
+  it('caps the batch at `count` even if the model returns more', async () => {
+    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2'), mcq('Q3')])])
+    const embedder = fakeEmbedder({
+      Q1: new Float32Array([1, 0, 0]),
+      Q2: new Float32Array([0, 1, 0]),
+      Q3: new Float32Array([0, 0, 1]),
+    })
+    const out = await generateQuestionsForTheme(llm, embedder, {
       language: 'en',
       theme: makeTheme(),
       groundingChunks: [makeChunk(1, 'X')],
       accepted: [],
+      count: 2,
     })
-    expect(result.question).toBeNull()
-    expect(result.rejected).toBe(true)
-    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
+    expect(out).toHaveLength(2)
   })
 
-  it('rejects a near-duplicate stem and retries with avoid-list, accepting a distinct one', async () => {
-    // First proposal is essentially identical to the accepted stem (cosine ≈ 1
-    // against [1,0,0]); retry produces a clearly distinct vector ([0,1,0],
-    // cosine = 0 against [1,0,0]) so it passes.
-    const llm = fakeLlm([validQuestion('Dup-ish stem'), validQuestion('Distinct stem')])
+  it('dedups stems within the batch and against accepted', async () => {
+    // Q1 collides with an already-accepted stem ([1,0,0]); Q2 is distinct;
+    // Q3 collides with Q2 (both [0,1,0]) so it's dropped intra-batch.
+    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2'), mcq('Q3')])])
     const embedder = fakeEmbedder({
-      'Dup-ish stem': new Float32Array([1, 0, 0]),
-      'Distinct stem': new Float32Array([0, 1, 0]),
-    })
-    const accepted: AcceptedQuestion[] = [
-      {
-        ordinal: 0,
-        stem: 'Already accepted',
-        options: ['A', 'B', 'C', 'D'],
-        correctIndex: 0,
-        explanation: '...',
-        sourceChunkIds: [1],
-        themeTitle: 'prior',
-        stemEmbedding: new Float32Array([1, 0, 0]),
-      },
-    ]
-    const result = await generateQuestion(llm, embedder, {
-      language: 'en',
-      theme: makeTheme(),
-      groundingChunks: [makeChunk(1, 'X')],
-      accepted,
-    })
-    expect(result.question?.stem).toBe('Distinct stem')
-    // 1 base call + 1 dup-retry = 2 LLM calls. (Embedder was called twice too,
-    // once per candidate stem.)
-    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
-  })
-
-  it('rejects when both first and dup-retry stems collide with accepted', async () => {
-    const llm = fakeLlm([validQuestion('Dup 1'), validQuestion('Dup 2')])
-    const embedder = fakeEmbedder({
-      'Dup 1': new Float32Array([1, 0, 0]),
-      'Dup 2': new Float32Array([1, 0, 0]),
+      Q1: new Float32Array([1, 0, 0]),
+      Q2: new Float32Array([0, 1, 0]),
+      Q3: new Float32Array([0, 1, 0]),
     })
     const accepted: AcceptedQuestion[] = [
       {
@@ -170,40 +154,86 @@ describe('generateQuestion', () => {
         stemEmbedding: new Float32Array([1, 0, 0]),
       },
     ]
-    const result = await generateQuestion(llm, embedder, {
+    const out = await generateQuestionsForTheme(llm, embedder, {
       language: 'en',
       theme: makeTheme(),
       groundingChunks: [makeChunk(1, 'X')],
       accepted,
+      count: 3,
     })
-    expect(result.question).toBeNull()
-    expect(result.rejected).toBe(true)
+    expect(out.map((q) => q.stem)).toEqual(['Q2'])
   })
 
-  it('returns null without calling the LLM when grounding is empty', async () => {
-    const llm = fakeLlm([])
-    const embedder = fakeEmbedder({})
-    const result = await generateQuestion(llm, embedder, {
-      language: 'en',
-      theme: makeTheme(),
-      groundingChunks: [],
-      accepted: [],
-    })
-    expect(result.question).toBeNull()
-    expect(result.rejected).toBe(false)
-    expect(llm.generateRaw).not.toHaveBeenCalled()
-  })
-
-  it('carries the embedding back onto the accepted shape so the next call can compare', async () => {
-    const llm = fakeLlm([validQuestion('Carry me')])
-    const embedder = fakeEmbedder({ 'Carry me': new Float32Array([0.5, 0.5, 0]) })
-    const result = await generateQuestion(llm, embedder, {
+  it('retries once on bad JSON and accepts the retry (grammar-fallback path)', async () => {
+    // Simulates a provider that ignored jsonSchema (Ollama) and emitted prose:
+    // the JSON-only retry restates the contract and parses.
+    const llm = fakeLlm(['not actually json', JSON.stringify([mcq('Recovered')])])
+    const embedder = fakeEmbedder({ Recovered: new Float32Array([1, 0, 0]) })
+    const out = await generateQuestionsForTheme(llm, embedder, {
       language: 'en',
       theme: makeTheme(),
       groundingChunks: [makeChunk(1, 'X')],
       accepted: [],
+      count: 1,
     })
-    expect(result.question?.stemEmbedding).toBeInstanceOf(Float32Array)
-    expect(Array.from(result.question?.stemEmbedding ?? [])).toEqual([0.5, 0.5, 0])
+    expect(out.map((q) => q.stem)).toEqual(['Recovered'])
+    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns the valid subset when only some items pass validation', async () => {
+    // Q1 is valid; second item has 3 options (invalid) → dropped.
+    const bad = { stem: 'Q2', options: ['a', 'b', 'c'], correct_index: 0, explanation: 'x' }
+    const llm = fakeLlm([JSON.stringify([mcq('Q1'), bad])])
+    const embedder = fakeEmbedder({ Q1: new Float32Array([1, 0, 0]) })
+    const out = await generateQuestionsForTheme(llm, embedder, {
+      language: 'en',
+      theme: makeTheme(),
+      groundingChunks: [makeChunk(1, 'X')],
+      accepted: [],
+      count: 2,
+    })
+    expect(out.map((q) => q.stem)).toEqual(['Q1'])
+  })
+
+  it('returns empty after two consecutive bad-JSON outputs', async () => {
+    const llm = fakeLlm(['nope', 'still nope'])
+    const embedder = fakeEmbedder({})
+    const out = await generateQuestionsForTheme(llm, embedder, {
+      language: 'en',
+      theme: makeTheme(),
+      groundingChunks: [makeChunk(1, 'X')],
+      accepted: [],
+      count: 2,
+    })
+    expect(out).toEqual([])
+    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns empty without calling the LLM when grounding is empty', async () => {
+    const llm = fakeLlm([])
+    const embedder = fakeEmbedder({})
+    const out = await generateQuestionsForTheme(llm, embedder, {
+      language: 'en',
+      theme: makeTheme(),
+      groundingChunks: [],
+      accepted: [],
+      count: 3,
+    })
+    expect(out).toEqual([])
+    expect(llm.generateRaw).not.toHaveBeenCalled()
+  })
+
+  it('carries the stem embedding onto each accepted shape', async () => {
+    const llm = fakeLlm([JSON.stringify([mcq('Carry me')])])
+    const embedder = fakeEmbedder({ 'Carry me': new Float32Array([0.5, 0.5, 0]) })
+    const out = await generateQuestionsForTheme(llm, embedder, {
+      language: 'en',
+      theme: makeTheme(),
+      groundingChunks: [makeChunk(1, 'X')],
+      accepted: [],
+      count: 1,
+    })
+    expect(out[0]!.stemEmbedding).toBeInstanceOf(Float32Array)
+    expect(Array.from(out[0]!.stemEmbedding)).toEqual([0.5, 0.5, 0])
   })
 })

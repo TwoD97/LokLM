@@ -117,11 +117,16 @@ describe('dedupThemes', () => {
 })
 
 describe('extractThemesForDocument', () => {
-  function fakeLlm(response: string): LlmProvider {
+  // A single canned response (string) replies the same JSON every call. An
+  // array replies one entry per call, in order — used to assert per-window
+  // calls in the windowed extractor.
+  function fakeLlm(response: string | string[], contextTokens = 0): LlmProvider {
+    const queue = Array.isArray(response) ? [...response] : null
     return {
       ask: vi.fn(),
-      generateRaw: vi.fn(async () => response),
+      generateRaw: vi.fn(async () => (queue ? (queue.shift() ?? '[]') : response)),
       generateTitle: vi.fn(),
+      contextWindowTokens: () => contextTokens,
       isReady: () => true,
       getStatus: () => ({ ready: true, message: null, identity: 'fake' }),
       getModelStatus: () => ({
@@ -185,29 +190,7 @@ describe('extractThemesForDocument', () => {
     expect(themes).toEqual([])
   })
 
-  it('uses outline path when doc tokens exceed budget', async () => {
-    const llm = fakeLlm('[{"title":"Big","summary":"s","weight":1}]')
-    // Force the outline path: huge token count drives us over the default
-    // FALLBACK_CONTEXT_TOKENS budget minus the reserves.
-    const chunks = Array.from({ length: 5 }, (_, i) =>
-      chunk(i + 1, `chunk ${i + 1} body text`, 100000),
-    )
-    const themes = await extractThemesForDocument(
-      { llm, documents: {} as never },
-      {
-        docId: 1,
-        docTitle: 'Doc',
-        chunks,
-        language: 'en',
-        targetCount: 1,
-      },
-    )
-    // Outline themes have empty groundingChunkIds (filled later by retrieval).
-    expect(themes).toHaveLength(1)
-    expect(themes[0]!.groundingChunkIds).toEqual([])
-  })
-
-  it('attaches all chunk ids in whole-doc path', async () => {
+  it('a doc that fits the budget is a single window with the whole-doc chunk ids', async () => {
     const llm = fakeLlm('[{"title":"T","summary":"s","weight":1}]')
     const chunks = [chunk(11, 'small', 10), chunk(12, 'small', 10)]
     const themes = await extractThemesForDocument(
@@ -220,6 +203,59 @@ describe('extractThemesForDocument', () => {
         targetCount: 1,
       },
     )
+    // One window → one generateRaw call → grounding is every chunk in the doc.
+    expect(llm.generateRaw).toHaveBeenCalledTimes(1)
+    expect(themes).toHaveLength(1)
     expect(themes[0]!.groundingChunkIds).toEqual([11, 12])
+  })
+
+  it('splits a doc larger than the budget into multiple windows with real grounding', async () => {
+    // Each chunk is ~6000 tokens; with the default fallback budget (8192 -
+    // reserves) only one chunk fits per window → 3 windows, 3 LLM calls.
+    const calls = [
+      '[{"title":"A","summary":"s","weight":1}]',
+      '[{"title":"B","summary":"s","weight":1}]',
+      '[{"title":"C","summary":"s","weight":1}]',
+    ]
+    const llm = fakeLlm(calls)
+    const chunks = [chunk(1, 'aaa', 6000), chunk(2, 'bbb', 6000), chunk(3, 'ccc', 6000)]
+    const themes = await extractThemesForDocument(
+      { llm, documents: {} as never },
+      {
+        docId: 7,
+        docTitle: 'Big Doc',
+        chunks,
+        language: 'en',
+        targetCount: 3,
+      },
+    )
+    expect(llm.generateRaw).toHaveBeenCalledTimes(3)
+    expect(themes.map((t) => t.title)).toEqual(['A', 'B', 'C'])
+    // Each theme is grounded ONLY in its own window's chunk ids — and the union
+    // across windows covers every chunk.
+    expect(themes.map((t) => t.groundingChunkIds)).toEqual([[1], [2], [3]])
+    const union = new Set(themes.flatMap((t) => t.groundingChunkIds))
+    expect([...union].sort((a, b) => a - b)).toEqual([1, 2, 3])
+    // Stable per-(doc,theme) ids across windows.
+    expect(themes.map((t) => t.id)).toEqual(['7:0', '7:1', '7:2'])
+  })
+
+  it('uses the live context window when contextTokens is not overridden', async () => {
+    // A large live window (200k) keeps all chunks in a single window even
+    // though they exceed the 8192 fallback budget.
+    const llm = fakeLlm('[{"title":"T","summary":"s","weight":1}]', 200000)
+    const chunks = [chunk(1, 'aaa', 6000), chunk(2, 'bbb', 6000), chunk(3, 'ccc', 6000)]
+    const themes = await extractThemesForDocument(
+      { llm, documents: {} as never },
+      {
+        docId: 1,
+        docTitle: 'Doc',
+        chunks,
+        language: 'en',
+        targetCount: 2,
+      },
+    )
+    expect(llm.generateRaw).toHaveBeenCalledTimes(1)
+    expect(themes[0]!.groundingChunkIds).toEqual([1, 2, 3])
   })
 })

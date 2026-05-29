@@ -14,15 +14,76 @@ import type { QuizDeckSummary } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
 import { useT, type TFn } from '../i18n'
 
+/** Live generation progress for one deck, derived in QuizView from the
+ *  QuizGenerationEvent stream. Undefined until the first event arrives. */
+export interface QuizProgress {
+  stage: 'extracting-themes' | 'merging-themes' | 'allocating' | 'generating-questions'
+  /** extracting-themes: which document is being read. */
+  docIndex?: number
+  docTotal?: number
+  /** generating-questions: how many questions accepted so far / target. */
+  ordinal?: number
+  total?: number
+}
+
+/** Coarse weighted percentage across the 4 pipeline phases so the bar advances
+ *  monotonically. Reading docs = 0–30 %, merge 38 %, prepare 45 %, writing
+ *  questions = 50–100 % (the long phase gets the back half). */
+function progressPercent(p: QuizProgress): number {
+  switch (p.stage) {
+    case 'extracting-themes':
+      return p.docTotal ? Math.round(((p.docIndex ?? 0) / p.docTotal) * 30) : 6
+    case 'merging-themes':
+      return 38
+    case 'allocating':
+      return 45
+    case 'generating-questions':
+      return p.total ? 50 + Math.round(((p.ordinal ?? 0) / p.total) * 50) : 50
+  }
+}
+
+function stepLabel(p: QuizProgress, t: TFn): string {
+  switch (p.stage) {
+    case 'extracting-themes':
+      return t('quiz.list.stepExtracting')
+    case 'merging-themes':
+      return t('quiz.list.stepMerging')
+    case 'allocating':
+      return t('quiz.list.stepAllocating')
+    case 'generating-questions':
+      return t('quiz.list.stepGenerating')
+  }
+}
+
+function stepDetail(p: QuizProgress, t: TFn): string | null {
+  if (p.stage === 'extracting-themes' && p.docTotal && p.docTotal > 1) {
+    return t('quiz.list.stepDocProgress', { current: p.docIndex ?? 0, total: p.docTotal })
+  }
+  if (p.stage === 'generating-questions' && p.total) {
+    return t('quiz.list.stepQuestionProgress', { current: p.ordinal ?? 0, total: p.total })
+  }
+  return null
+}
+
 type Props = {
   decks: QuizDeckSummary[]
+  /** deckId → live generation progress. Decks not present (or in non-generating
+   *  status) simply show the spinner badge without a bar. */
+  progress?: Map<number, QuizProgress>
   onCreate: () => void
   onStart: (deckId: number) => void
   onDelete: (deckId: number) => void
   onRetry: (deckId: number) => void
 }
 
-export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Props): JSX.Element {
+export function QuizListView({
+  decks,
+  progress,
+  onCreate,
+  onStart,
+  onDelete,
+  onRetry,
+}: Props): JSX.Element {
   const t = useT()
   // Per-deck expansion state — kept here rather than inside the card so the
   // history component remounts (and re-fetches) when the user re-opens.
@@ -53,6 +114,7 @@ export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Pr
             <DeckCard
               key={deck.id}
               deck={deck}
+              progress={progress?.get(deck.id)}
               t={t}
               historyOpen={openHistory.has(deck.id)}
               onToggleHistory={() => toggleHistory(deck.id)}
@@ -69,6 +131,7 @@ export function QuizListView({ decks, onCreate, onStart, onDelete, onRetry }: Pr
 
 function DeckCard({
   deck,
+  progress,
   t,
   historyOpen,
   onToggleHistory,
@@ -77,6 +140,7 @@ function DeckCard({
   onRetry,
 }: {
   deck: QuizDeckSummary
+  progress?: QuizProgress | undefined
   t: TFn
   historyOpen: boolean
   onToggleHistory: () => void
@@ -106,6 +170,7 @@ function DeckCard({
         </span>
         <span className="quiz-card__meta-chip">{deck.language.toUpperCase()}</span>
       </div>
+      {deck.status === 'generating' && <GenerationProgress progress={progress} t={t} />}
       {deck.lastScore != null && (
         <ScoreStrip
           score={deck.lastScore}
@@ -217,4 +282,33 @@ function StatusBadge({
     )
   }
   return <span className="quiz-badge quiz-badge--ready">{t('quiz.list.statusReady')}</span>
+}
+
+function GenerationProgress({
+  progress,
+  t,
+}: {
+  progress?: QuizProgress | undefined
+  t: TFn
+}): JSX.Element {
+  // No event yet → indeterminate bar + "Starting…". Once events flow we show
+  // the step label, a x/y detail and a determinate fill.
+  const label = progress ? stepLabel(progress, t) : t('quiz.list.stepStarting')
+  const detail = progress ? stepDetail(progress, t) : null
+  const pct = progress ? progressPercent(progress) : null
+  return (
+    <div className="quiz-card__progress" role="status" aria-live="polite">
+      <div className="quiz-card__progress-head">
+        <span className="quiz-card__progress-step">{label}</span>
+        {detail && <span className="quiz-card__progress-detail">{detail}</span>}
+      </div>
+      <div className="quiz-card__progress-bar">
+        <div
+          className={`quiz-card__progress-fill${pct == null ? ' quiz-card__progress-fill--indeterminate' : ''}`}
+          style={pct == null ? undefined : { width: `${pct}%` }}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  )
 }

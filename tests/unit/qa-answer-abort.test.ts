@@ -24,6 +24,7 @@ describe('QAService.answer abort propagation', () => {
     let capturedOpts: AskOptions | undefined
     const llm = {
       setLanguage: vi.fn().mockResolvedValue(undefined),
+      contextWindowTokens: () => 0,
       ask: vi.fn(async (_q: string, _h: RetrievalHit[], opts: AskOptions) => {
         capturedOpts = opts
         return 'answer'

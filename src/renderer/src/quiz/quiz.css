@@ -157,6 +157,51 @@
   font-size: 11px;
   opacity: 0.6;
 }
+.quiz-card__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.quiz-card__progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.quiz-card__progress-step {
+  font-size: 13px;
+  color: var(--fg-1);
+}
+.quiz-card__progress-detail {
+  font-size: 12px;
+  color: #93c5fd;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-card__progress-bar {
+  height: 6px;
+  background: #16263b;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.quiz-card__progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #3b82f6;
+  transition: width 240ms ease;
+}
+.quiz-card__progress-fill--indeterminate {
+  width: 40%;
+  animation: quiz-progress-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes quiz-progress-indeterminate {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
 .quiz-card__error {
   margin: 8px 0;
   color: #fca5a5;
