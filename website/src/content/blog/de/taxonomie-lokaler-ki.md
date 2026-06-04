@@ -7,8 +7,6 @@ pubDate: 2026-05-28
 tags: ['lokale-ki', 'architektur', 'datenschutz']
 ---
 
-> **Hinweis:** Erstentwurf — wird vor der Veröffentlichung redaktionell überarbeitet.
-
 In der Diskussion über KI-Werkzeuge wird das Wort _"lokal"_ oft so verwendet, als bedeute es eine einzige Sache. Tatsächlich beschreibt eine moderne KI-Anwendung drei verschiedene Etappen, die jede für sich lokal oder entfernt laufen kann. Wer die drei nicht auseinanderhält, vergleicht Produkte, die in unterschiedlichen Achsen unterschiedlich sind, mit einem einzigen Begriff.
 
 Dieser Artikel ist die Referenz, auf die andere Artikel der Reihe verweisen. Er definiert die drei Etappen knapp und zeigt, welche Konstellationen in der Praxis existieren.
@@ -35,12 +33,12 @@ Der Schritt, der den meisten als "die KI" gilt: das Modell erzeugt aus Frage + K
 
 ## Die Konstellationen in der Praxis
 
-Drei Etappen, zwei mögliche Orte (lokal/entfernt) je Etappe. Theoretisch ergäben sich acht Kombinationen; praktisch sind fünf häufig:
+Drei Etappen, zwei mögliche Orte (lokal/entfernt) je Etappe. Theoretisch ergäben sich acht Kombinationen; praktisch sieht man fünf Konstellationen — wobei A und B dasselbe Lokalitäts-Profil teilen und sich nur in der Architektur unterscheiden:
 
 | #   | Training              | Retrieval/Index | Inferenz  | Beispiel-Typ                                                                                             |
 | --- | --------------------- | --------------- | --------- | -------------------------------------------------------------------------------------------------------- |
 | A   | entfernt              | entfernt        | entfernt  | Klassisches Cloud-LLM (Web-Chat-Werkzeuge) — die häufigste Konstellation                                 |
-| B   | entfernt              | entfernt        | entfernt  | Cloud-RAG mit Drittanbieter-Vector-DB — gleich wie A für den Endanwender                                 |
+| B   | entfernt              | entfernt        | entfernt  | ↳ Variante von A: Cloud-RAG mit Drittanbieter-Vector-DB — für den Endanwender identisch                  |
 | C   | entfernt              | **lokal**       | entfernt  | "Hybrid": Index lokal, Inferenz Cloud — selten, weil die Daten zur Inferenz trotzdem das Gerät verlassen |
 | D   | entfernt              | **lokal**       | **lokal** | On-Device RAG mit Open-Weight-Modell — z. B. LokLM                                                       |
 | E   | **lokal** (Fine-Tune) | **lokal**       | **lokal** | Spezialisiertes lokales System — eher Forschung/Enterprise                                               |
