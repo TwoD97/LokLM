@@ -83,6 +83,10 @@ export const documents = pgTable(
     // missing_dismissed_at >= missing_at. Reset to null when the file
     // reappears so a future disappearance re-notifies.
     missingDismissedAt: bigint('missing_dismissed_at', { mode: 'number' }),
+    // Lazily-computed whole-document summary (null until first requested via the
+    // Library "Summarize" action). Nulled by reindex_document so it never goes
+    // stale against changed content. Added in raw migration 0008.
+    summary: text('summary'),
   },
   (t) => ({
     idxWorkspace: index('idx_documents_workspace').on(t.workspaceId),

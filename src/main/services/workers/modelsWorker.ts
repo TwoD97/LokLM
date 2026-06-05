@@ -15,58 +15,6 @@
 // concurrent ask never overlaps a load. Inference (embed / rank / ask) is
 // async at the native layer and can interleave freely between requests.
 
-// pdfjs-dist (loaded lazily by pdf-parse on first parsePdf) constructs a
-// module-level `new DOMMatrix()` at import time. Electron's main process
-// exposes DOMMatrix as a browser global ; utilityProcess does not, so the
-// dynamic import threw `DOMMatrix is not defined` and indexing failed before
-// we ever called parser.getText(). Stub the class so the import succeeds ;
-// text extraction never touches canvas-rendering paths that would actually
-// use the matrix, so an identity-shaped no-op is enough.
-if (typeof (globalThis as { DOMMatrix?: unknown }).DOMMatrix === 'undefined') {
-  class DOMMatrixPolyfill {
-    a = 1
-    b = 0
-    c = 0
-    d = 1
-    e = 0
-    f = 0
-    constructor(init?: number[] | string | DOMMatrixPolyfill) {
-      if (Array.isArray(init) && init.length >= 6) {
-        ;[this.a, this.b, this.c, this.d, this.e, this.f] = init as [
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-        ]
-      }
-    }
-    multiplySelf(): this {
-      return this
-    }
-    preMultiplySelf(): this {
-      return this
-    }
-    invertSelf(): this {
-      return this
-    }
-    translateSelf(): this {
-      return this
-    }
-    translate(): this {
-      return this
-    }
-    scaleSelf(): this {
-      return this
-    }
-    scale(): this {
-      return this
-    }
-  }
-  ;(globalThis as { DOMMatrix?: unknown }).DOMMatrix = DOMMatrixPolyfill
-}
-
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
 import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
 import type {
@@ -76,24 +24,12 @@ import type {
   LlmLoadPayload,
   LlmAskPayload,
   LlmGenerateRawPayload,
-  QuizPoolEnsurePayload,
-  QuizPoolEnsureResult,
-  QuizGeneratePayload,
   EmbedderLoadPayload,
   RerankerLoadPayload,
   LlmLoadResult,
   EmbedderLoadResult,
   RerankerLoadResult,
-  ParseAndChunkPayload,
-  ParseAndChunkResult,
 } from './protocol'
-import { parseFile } from '../documents/parser'
-import {
-  chunkMarkdown,
-  chunkPages,
-  tagChunksWithSections,
-  tagChunkLanguages,
-} from '../documents/chunker'
 
 // utilityProcess provides process.parentPort with postMessage / on('message').
 declare const process: NodeJS.Process & {
@@ -114,52 +50,6 @@ let llmModel: unknown = null
 let llmContext: unknown = null
 let llmSession: unknown = null
 let llmLanguage: 'de' | 'en' = 'de'
-
-// ---- quiz batch-decode pool -----------------------------------------------
-// A second, modest-context LlamaContext created from the SAME loaded llmModel
-// with N parallel sequences. Quiz generation fires many independent prompts
-// that the GPU decodes concurrently (continuous batching) — a 2–9B model
-// single-streaming one sequence barely touches a 5090's memory bandwidth.
-// The chat `ask` path keeps using the untouched single `llmSession`, so this
-// pool is fully isolated from it. JSON-schema grammars are compiled once per
-// pool and force every quiz response to parse.
-let quizContext: { getSequence: () => unknown; dispose?: () => Promise<void> } | null = null
-let quizSessions: Array<{
-  prompt: (text: string, opts: Record<string, unknown>) => Promise<string>
-  resetChatHistory?: () => void
-  dispose?: () => Promise<void>
-}> = []
-const quizFreeSlots: number[] = []
-const quizWaiters: Array<(slot: number) => void> = []
-let quizGrammarTheme: unknown = null
-let quizGrammarQuestion: unknown = null
-let quizPoolContextTokens = 0
-
-// GBNF JSON-schema shapes. Keys are snake_case to match the prompts + the
-// parsers in quiz/generation.ts and quiz/themes.ts. Grammar guarantees shape
-// only — semantic checks (distinct options, valid chunk ids, weight range)
-// still run in the parser.
-const QUIZ_THEME_SCHEMA = {
-  type: 'array',
-  items: {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      summary: { type: 'string' },
-      weight: { type: 'integer' },
-    },
-  },
-} as const
-const QUIZ_QUESTION_SCHEMA = {
-  type: 'object',
-  properties: {
-    stem: { type: 'string' },
-    options: { type: 'array', items: { type: 'string' }, minItems: 4, maxItems: 4 },
-    correct_index: { type: 'integer' },
-    explanation: { type: 'string' },
-    source_chunk_ids: { type: 'array', items: { type: 'integer' } },
-  },
-} as const
 
 let embedderModel: unknown = null
 let embedderContext: unknown = null
@@ -239,25 +129,6 @@ async function withLoadLock<T>(fn: () => Promise<T>): Promise<T> {
   const prev = loadTail
   let release: () => void = () => {}
   loadTail = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  await prev
-  try {
-    return await fn()
-  } finally {
-    release()
-  }
-}
-
-// Serialises native embedding calls. Quiz generation now runs question slots in
-// parallel, and each does a stem-dedup embed — a single embedder context can't
-// service those concurrently without risking a native race, so we funnel them
-// through one FIFO.
-let embedTail: Promise<void> = Promise.resolve()
-async function withEmbedLock<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = embedTail
-  let release: () => void = () => {}
-  embedTail = new Promise<void>((resolve) => {
     release = resolve
   })
   await prev
@@ -484,7 +355,6 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
 }
 
 async function llmUnloadInternal(): Promise<void> {
-  await disposeQuizPool()
   try {
     if (llmSession && hasDispose(llmSession)) await llmSession.dispose()
     if (llmContext && hasDispose(llmContext)) await llmContext.dispose()
@@ -511,6 +381,35 @@ const REPEAT_PENALTY = {
   lastTokens: 256,
   penalty: 1.1,
   frequencyPenalty: 0.15,
+}
+
+// Grammar objects are expensive to build (GBNF compile) , the quiz pipeline
+// reuses the same two schemas across hundreds of calls. Cache by the schema's
+// JSON string so we compile each distinct schema once per worker lifetime.
+const grammarCache = new Map<string, unknown>()
+
+/** Build (and cache) a node-llama-cpp grammar for a JSON schema. Returns null
+ *  when the backend doesn't expose createGrammarForJsonSchema or the build
+ *  throws — the caller then generates without a grammar. */
+async function grammarForSchema(schema: object): Promise<unknown> {
+  const backend = llamaBackend as {
+    createGrammarForJsonSchema?: (s: object) => Promise<unknown>
+  } | null
+  if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
+  const key = JSON.stringify(schema)
+  const cached = grammarCache.get(key)
+  if (cached) return cached
+  try {
+    const grammar = await backend.createGrammarForJsonSchema(schema)
+    grammarCache.set(key, grammar)
+    return grammar
+  } catch (err) {
+    log(
+      'warn',
+      `grammar build failed, generating without it: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    return null
+  }
 }
 
 async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
@@ -563,6 +462,7 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
         signal?: AbortSignal
         repeatPenalty?: typeof REPEAT_PENALTY
         maxTokens?: number
+        grammar?: unknown
         budgets?: { thoughtTokens: number }
       },
     ) => Promise<string>
@@ -585,13 +485,25 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
       signal: AbortSignal
       repeatPenalty: typeof REPEAT_PENALTY
       maxTokens?: number
+      grammar?: unknown
       budgets?: { thoughtTokens: number }
     } = {
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
     }
     if (payload.maxTokens != null) promptOpts.maxTokens = payload.maxTokens
+    // Disable the reasoning segment when asked. This model thinks by default and
+    // `/no_think` is unreliable for its GGUF; budgeting thought tokens to 0 is
+    // node-llama-cpp's segment-aware switch and is most of the per-call speedup
+    // on the quiz path.
     if (payload.noThink) promptOpts.budgets = { thoughtTokens: 0 }
+    // Grammar guarantees JSON *syntax* only; the main side still runs semantic
+    // validation + JSON-retry. A grammar build failure must never crash the
+    // worker — grammarForSchema returns null and we generate unconstrained.
+    if (payload.jsonSchema) {
+      const grammar = await grammarForSchema(payload.jsonSchema)
+      if (grammar) promptOpts.grammar = grammar
+    }
     const raw = await session.prompt(payload.prompt, promptOpts)
     return { raw }
   } finally {
@@ -603,153 +515,6 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
         /* drop history on restore failure */
       }
     }
-  }
-}
-
-// ---- quiz batch-decode pool -----------------------------------------------
-
-function acquireQuizSlot(): Promise<number> {
-  const free = quizFreeSlots.pop()
-  if (free !== undefined) return Promise.resolve(free)
-  return new Promise<number>((resolve) => quizWaiters.push(resolve))
-}
-
-function releaseQuizSlot(slot: number): void {
-  const waiter = quizWaiters.shift()
-  if (waiter) waiter(slot)
-  else quizFreeSlots.push(slot)
-}
-
-async function disposeQuizPool(): Promise<void> {
-  // Wake any waiters with a sentinel so an in-flight acquire doesn't hang the
-  // request forever once the pool is gone.
-  while (quizWaiters.length) quizWaiters.shift()?.(-1)
-  try {
-    for (const s of quizSessions) if (hasDispose(s)) await s.dispose!()
-    if (quizContext && hasDispose(quizContext)) await quizContext.dispose!()
-  } catch {
-    /* best-effort */
-  }
-  quizSessions = []
-  quizFreeSlots.length = 0
-  quizContext = null
-  quizGrammarTheme = null
-  quizGrammarQuestion = null
-  quizPoolContextTokens = 0
-}
-
-async function ensureQuizPool(payload: QuizPoolEnsurePayload): Promise<QuizPoolEnsureResult> {
-  if (!llmModel) throw new Error('Model is not loaded.')
-  const ctxTokens = Math.max(2048, Math.floor(payload.contextTokens) || 8192)
-  // The pool's payoff (continuous batching) is GPU-only. On CPU a second
-  // context would just add KV-cache RAM for no parallelism, so we decline it
-  // and let the caller stay on the serial path (which still gets the maxTokens
-  // cap). 0 slots = "no pool".
-  const onGpu = !!backendGpuLabel && backendGpuLabel !== 'cpu'
-  if (!onGpu) {
-    await disposeQuizPool()
-    return { slots: 0 }
-  }
-  const want = Math.max(1, Math.min(Math.floor(payload.maxSlots) || 1, 8))
-
-  // Reuse an existing pool that already satisfies the request.
-  if (quizContext && quizSessions.length >= want && quizPoolContextTokens >= ctxTokens) {
-    return { slots: quizSessions.length }
-  }
-  await disposeQuizPool()
-
-  const lib = await import('node-llama-cpp')
-  const llama = llamaBackend as {
-    createGrammarForJsonSchema: (schema: unknown) => Promise<unknown>
-  }
-  // Compile the two grammars once; they're shape-static so they outlive the
-  // whole generation.
-  quizGrammarTheme = await llama.createGrammarForJsonSchema(QUIZ_THEME_SCHEMA)
-  quizGrammarQuestion = await llama.createGrammarForJsonSchema(QUIZ_QUESTION_SCHEMA)
-
-  const model = llmModel as {
-    createContext: (o: Record<string, unknown>) => Promise<{
-      getSequence: () => unknown
-      dispose?: () => Promise<void>
-    }>
-  }
-  const SessionCtor = (lib as { LlamaChatSession: new (o: unknown) => unknown }).LlamaChatSession
-
-  // Try `want` slots, halving on allocation failure (OOM) down to 1 — mirrors
-  // the main context's KV fallback so a tight GPU still gets a working pool.
-  for (let slots = want; slots >= 1; slots = Math.floor(slots / 2)) {
-    let ctx: { getSequence: () => unknown; dispose?: () => Promise<void> } | null = null
-    try {
-      ctx = await model.createContext({
-        sequences: slots,
-        contextSize: { min: Math.min(2048, ctxTokens), max: ctxTokens },
-        flashAttention: true,
-      })
-      const sessions: typeof quizSessions = []
-      for (let i = 0; i < slots; i++) {
-        sessions.push(new SessionCtor({ contextSequence: ctx.getSequence() }) as never)
-      }
-      quizContext = ctx
-      quizSessions = sessions
-      quizFreeSlots.length = 0
-      for (let i = 0; i < slots; i++) quizFreeSlots.push(i)
-      quizPoolContextTokens = ctxTokens
-      log('info', `quiz pool ready: ${slots} slot(s) @ ≤${ctxTokens} tok (gpu)`)
-      return { slots }
-    } catch (err) {
-      if (ctx && hasDispose(ctx)) await ctx.dispose!().catch(() => undefined)
-      log(
-        'warn',
-        `quiz pool ${slots} slot(s) @ ≤${ctxTokens} rejected: ${err instanceof Error ? err.message : String(err)}`,
-      )
-      if (slots === 1) throw err
-    }
-  }
-  throw new Error('quiz pool init failed')
-}
-
-async function quizGenerate(payload: QuizGeneratePayload): Promise<{ raw: string }> {
-  if (!quizContext || quizSessions.length === 0) throw new Error('Quiz pool is not initialised.')
-  const slot = await acquireQuizSlot()
-  if (slot < 0 || !quizSessions[slot]) throw new Error('Quiz pool was released.')
-  const session = quizSessions[slot]!
-  const ctrl = new AbortController()
-  activeAborts.set(payload.streamId, ctrl)
-  if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
-  try {
-    try {
-      session.resetChatHistory?.()
-    } catch {
-      /* best-effort — a fresh sequence has nothing to reset */
-    }
-    const opts: Record<string, unknown> = {
-      signal: ctrl.signal,
-      repeatPenalty: REPEAT_PENALTY,
-      // Hard-disable the reasoning segment. This model thinks by default and
-      // `/no_think` in the prompt is unreliable for it; budgeting thought tokens
-      // to 0 is node-llama-cpp's segment-aware switch and is what actually keeps
-      // the decode short. Without it a quiz question spends most of its tokens
-      // thinking, then the maxTokens cap truncates before any JSON appears.
-      budgets: { thoughtTokens: 0 },
-    }
-    if (payload.maxTokens != null) opts.maxTokens = payload.maxTokens
-    if (payload.schemaKind === 'theme' && quizGrammarTheme) opts.grammar = quizGrammarTheme
-    else if (payload.schemaKind === 'question' && quizGrammarQuestion)
-      opts.grammar = quizGrammarQuestion
-    // No onTextChunk: quiz shows per-question progress, not per-token, so we
-    // skip the streaming IPC entirely.
-    const t0 = Date.now()
-    const raw = await session.prompt(payload.prompt, opts)
-    if (process.env['LOKLM_QUIZ_DEBUG']) {
-      log(
-        'info',
-        `[quiz-gen] slot=${slot} ${Date.now() - t0}ms in=${payload.prompt.length}ch out=${raw.length}ch`,
-      )
-    }
-    return { raw }
-  } finally {
-    activeAborts.delete(payload.streamId)
-    releaseQuizSlot(slot)
   }
 }
 
@@ -846,27 +611,22 @@ async function embedderEmbed(texts: string[]): Promise<Array<number[] | null>> {
   const ctx = embedderContext as {
     getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
   }
-  return withEmbedLock(async () => {
-    const out: Array<number[] | null> = []
-    for (let i = 0; i < texts.length; i++) {
-      const t = texts[i]!
-      if (t.length === 0) {
-        out.push(null)
-        continue
-      }
-      try {
-        const r = await ctx.getEmbeddingFor(t)
-        out.push(Array.from(r.vector))
-      } catch (err) {
-        log(
-          'warn',
-          `embed passage #${i} failed: ${err instanceof Error ? err.message : String(err)}`,
-        )
-        out.push(null)
-      }
+  const out: Array<number[] | null> = []
+  for (let i = 0; i < texts.length; i++) {
+    const t = texts[i]!
+    if (t.length === 0) {
+      out.push(null)
+      continue
     }
-    return out
-  })
+    try {
+      const r = await ctx.getEmbeddingFor(t)
+      out.push(Array.from(r.vector))
+    } catch (err) {
+      log('warn', `embed passage #${i} failed: ${err instanceof Error ? err.message : String(err)}`)
+      out.push(null)
+    }
+  }
+  return out
 }
 
 // ---- Reranker -------------------------------------------------------------
@@ -952,33 +712,6 @@ async function rerankerRank(query: string, documents: string[]): Promise<number[
   }
 }
 
-// ---- documents -----------------------------------------------------------
-
-/** Parse + chunk a document off the main event loop. pdf-parse on a book-sized
- *  PDF and the section-aware chunker were both CPU-bound passes that pinned
- *  IPC for seconds (Windows surfaced "Not Responding" when the user clicked
- *  away mid-index). Same lifecycle as the other ops , one request, one reply,
- *  no native handles to manage. */
-async function parseAndChunk(payload: ParseAndChunkPayload): Promise<ParseAndChunkResult> {
-  const parsed = await parseFile(payload.sourcePath)
-  const opts: Partial<{ maxChars: number; overlap: number }> = {}
-  if (payload.chunkSize !== undefined) opts.maxChars = payload.chunkSize
-  if (payload.chunkOverlap !== undefined) opts.overlap = payload.chunkOverlap
-  let chunks
-  if (parsed.kind === 'markdown') {
-    chunks = chunkMarkdown(parsed.sections, opts)
-  } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {
-    chunks = tagChunksWithSections(chunkPages(parsed.pages, opts), parsed.sections)
-  } else {
-    chunks = chunkPages(parsed.pages, opts)
-  }
-  // Run eld AFTER section tagging so language detection sees the final chunk
-  // text (heading prefixes included) — the prefix is part of what the LLM
-  // will read at retrieval time so it shouldn't bias the detector.
-  chunks = await tagChunkLanguages(chunks)
-  return { chunks }
-}
-
 // ---- request dispatch -----------------------------------------------------
 
 process.parentPort.on('message', (raw: WorkerRequest) => {
@@ -1011,16 +744,6 @@ async function handle(msg: WorkerRequest): Promise<void> {
     case 'llm.generateRaw':
       reply(msg.id, await llmGenerateRaw(msg.payload))
       return
-    case 'llm.quizPoolEnsure':
-      reply(msg.id, await ensureQuizPool(msg.payload))
-      return
-    case 'llm.quizGenerate':
-      reply(msg.id, await quizGenerate(msg.payload))
-      return
-    case 'llm.quizPoolRelease':
-      await disposeQuizPool()
-      reply(msg.id, null)
-      return
     case 'llm.abort': {
       const ctrl = activeAborts.get(msg.payload.streamId)
       if (ctrl) ctrl.abort()
@@ -1052,9 +775,6 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     case 'planner.refresh':
       reply(msg.id, await planner.refresh())
-      return
-    case 'documents.parseAndChunk':
-      reply(msg.id, await parseAndChunk(msg.payload))
       return
     case 'shutdown': {
       reply(msg.id, null)

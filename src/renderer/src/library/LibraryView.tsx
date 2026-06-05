@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
 import { DocumentPreview } from './DocumentPreview'
+import { SummaryModal } from './SummaryModal'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
@@ -24,6 +25,8 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   const bumpMissing = useCallback(() => setMissingTick((n) => n + 1), [])
   // In-app reader for the highlighted document. Null = closed.
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null)
+  // Document whose summary modal is open. Null = closed.
+  const [summaryDoc, setSummaryDoc] = useState<Document | null>(null)
   // Pending export — the user clicked Exportieren ; we hold the document
   // here while the PasswordRetypeGate is up. On confirm we run the gated
   // exportDocument flow.
@@ -129,8 +132,17 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs],
   )
 
+  const onCancelIndexing = useCallback(async () => {
+    await window.api.documents.cancelIndexing(workspaceId)
+    void refreshDocs(workspaceId)
+  }, [workspaceId, refreshDocs])
+
   const onRead = useCallback((d: Document) => {
     setPreviewDoc(d)
+  }, [])
+
+  const onSummarize = useCallback((d: Document) => {
+    setSummaryDoc(d)
   }, [])
 
   const onExport = useCallback((d: Document) => {
@@ -152,6 +164,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs, bumpMissing],
   )
 
+  // Docs still pending/indexing — drives the cancel bar. Updates as the queue
+  // drains (each finished doc fires an indexing:progress 'done' → refreshDocs).
+  const indexingCount = docs.filter((d) => d.status === 'pending' || d.status === 'indexing').length
+
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
@@ -172,6 +188,18 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           if (paths.length > 0) void onImport(paths)
         }}
       />
+      {indexingCount > 0 && (
+        <div className="library__indexing-bar">
+          <span>{t('library.indexingActive', { count: indexingCount })}</span>
+          <button
+            type="button"
+            className="library__indexing-stop"
+            onClick={() => void onCancelIndexing()}
+          >
+            {t('library.stopIndexing')}
+          </button>
+        </div>
+      )}
       {/* Pass the callbacks straight , each is already useCallback'd above, so
        *  DocumentRow's React.memo can actually skip re-renders for rows whose
        *  doc + progress didn't change. Wrapping them inline with arrows used
@@ -187,8 +215,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         onRefresh={onRefresh}
         onRead={onRead}
         onExport={onExport}
+        onSummarize={onSummarize}
       />
       {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {summaryDoc && <SummaryModal doc={summaryDoc} onClose={() => setSummaryDoc(null)} />}
       <PasswordRetypeGate
         open={exportPending !== null}
         title={t('library.exportTitle')}

@@ -14,6 +14,7 @@ import { join, relative, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as tar from 'tar-stream'
 import * as zstd from '@mongodb-js/zstd'
+import { signWindows } from './sign-windows.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -95,6 +96,13 @@ async function main() {
   }
   const cfg = PLATFORM_DEFAULTS[platform]
   const ROOT = join(__dirname, '..')
+
+  // Sign the app launcher before it's packed into the Bunny payload, so the
+  // exe users actually run is signed. No-op unless LOKLM_SIGN=1.
+  if (platform === 'win-x64') {
+    await signWindows([join(ROOT, cfg.sourceDir, 'LokLM.exe')], { label: 'app exe' })
+  }
+
   const result = await buildPayloadArchive({
     sourceDir: join(ROOT, cfg.sourceDir),
     tarRoot: cfg.tarRoot,
@@ -106,7 +114,8 @@ async function main() {
   )
 }
 
-const invoked = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
+const invoked =
+  process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
 if (invoked) {
   main().catch((err) => {
     console.error(err.stack || err.message)

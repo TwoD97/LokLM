@@ -1,6 +1,6 @@
 import type { LlamaService, AskOptions, ResponseLanguage } from '../../llm/LlamaService'
 import type { ModelStatus, RetrievalHit } from '../../../../shared/documents'
-import type { LlmProvider, ProviderStatus, GenerateRawOptions } from '../types'
+import type { LlmProvider, ProviderStatus } from '../types'
 
 /**
  * Thin adapter that exposes the LlamaService (bundled GGUF inference) behind
@@ -20,25 +20,21 @@ export class BundledLlmProvider implements LlmProvider {
     return this.inner.ask(question, hits, opts)
   }
 
-  async generateRaw(prompt: string, opts: GenerateRawOptions): Promise<string> {
+  async generateRaw(
+    prompt: string,
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      jsonSchema?: object | undefined
+      noThink?: boolean | undefined
+    },
+  ): Promise<string> {
     await this.inner.ensureLoaded()
-    if (opts.pooled) {
-      return this.inner.generateQuiz(prompt, {
-        ...(opts.abortSignal ? { abortSignal: opts.abortSignal } : {}),
-        ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
-        ...(opts.schema ? { schemaKind: opts.schema } : {}),
-      })
-    }
     return this.inner.generateRaw(prompt, opts)
   }
 
-  async ensureGenerationPool(maxSlots: number, contextTokens: number): Promise<number> {
-    await this.inner.ensureLoaded()
-    return this.inner.ensureQuizPool(maxSlots, contextTokens)
-  }
-
-  async releaseGenerationPool(): Promise<void> {
-    await this.inner.releaseQuizPool()
+  contextWindowTokens(): number {
+    return this.inner.contextWindowTokens()
   }
 
   async generateTitle(

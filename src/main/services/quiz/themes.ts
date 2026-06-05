@@ -10,6 +10,8 @@ import {
   buildThemeExtractionPrompt,
   THEME_PROMPT_RESERVE_TOKENS,
   THEME_OUTPUT_RESERVE_TOKENS,
+  THEME_EXTRACTION_MAX_TOKENS,
+  THEME_LIST_SCHEMA,
   FALLBACK_CONTEXT_TOKENS,
 } from './prompts'
 
@@ -28,7 +30,8 @@ function estimateTokens(text: string): number {
 export interface ThemeExtractorDeps {
   llm: LlmProvider
   documents: DocumentsRepo
-  /** Override the assumed LLM content budget (default FALLBACK_CONTEXT_TOKENS). */
+  /** Override the live LLM content budget. When unset we probe
+   *  llm.contextWindowTokens() and fall back to FALLBACK_CONTEXT_TOKENS. */
   contextTokens?: number
 }
 
@@ -39,15 +42,42 @@ export interface ExtractThemesForDocInput {
   chunks: ChunkRow[]
   /** Language to use for the LLM prompt + theme strings. */
   language: QuizLanguage
-  /** Approximate themes to request from the LLM. */
+  /** Approximate themes to request from the LLM (across all windows). */
   targetCount: number
   /** Cancellation, plumbed through generateRaw. */
   abortSignal?: AbortSignal
 }
 
-/** Whole-doc-if-fits / outline-otherwise extraction. Returns themes anchored
- *  to a specific document; cross-doc dedup happens separately in
- *  dedupThemes(). */
+/** A consecutive run of chunks whose combined text fits one extraction call. */
+interface ChunkWindow {
+  chunks: ChunkRow[]
+  tokens: number
+}
+
+/** Pack chunks (ordinal order) into consecutive windows that each fit `budget`.
+ *  A doc that fits the budget becomes exactly one window — the same single call
+ *  as before, now correctly bounded by the live context window. */
+function packWindows(chunks: ChunkRow[], budget: number): ChunkWindow[] {
+  const windows: ChunkWindow[] = []
+  let current: ChunkRow[] = []
+  let currentTokens = 0
+  for (const c of chunks) {
+    const t = c.token_count ?? estimateTokens(c.text)
+    if (current.length > 0 && currentTokens + t > budget) {
+      windows.push({ chunks: current, tokens: currentTokens })
+      current = []
+      currentTokens = 0
+    }
+    current.push(c)
+    currentTokens += t
+  }
+  if (current.length > 0) windows.push({ chunks: current, tokens: currentTokens })
+  return windows
+}
+
+/** Windowed map-reduce extraction. Each window is a real run of chunk text (no
+ *  lossy outline) so every theme's groundingChunkIds are the actual chunk ids
+ *  in that window. Cross-window/cross-doc dedup happens later in dedupThemes(). */
 export async function extractThemesForDocument(
   deps: ThemeExtractorDeps,
   input: ExtractThemesForDocInput,
@@ -55,95 +85,46 @@ export async function extractThemesForDocument(
   const { docId, docTitle, chunks, language, targetCount, abortSignal } = input
   if (chunks.length === 0) return []
 
-  const contextTokens = deps.contextTokens ?? FALLBACK_CONTEXT_TOKENS
+  const contextTokens =
+    deps.contextTokens ?? (deps.llm.contextWindowTokens() || FALLBACK_CONTEXT_TOKENS)
   const budget = Math.max(
     1000,
     contextTokens - THEME_PROMPT_RESERVE_TOKENS - THEME_OUTPUT_RESERVE_TOKENS,
   )
 
-  const docTokens = chunks.reduce((sum, c) => sum + (c.token_count ?? estimateTokens(c.text)), 0)
+  const windows = packWindows(chunks, budget)
+  // Scale the per-window ask down so all windows together total ≈ targetCount,
+  // but always request at least 1 (a window with content should yield a theme).
+  const perWindow = Math.max(1, Math.round(targetCount / windows.length))
 
-  let body: string
-  let bodyKind: 'whole-doc' | 'outline'
-  let groundingByTheme: 'whole-doc' | 'retrieve-later'
-  if (docTokens <= budget) {
-    body = chunks.map((c) => c.text).join('\n\n')
-    bodyKind = 'whole-doc'
-    groundingByTheme = 'whole-doc'
-  } else {
-    body = buildOutline(chunks, budget)
-    bodyKind = 'outline'
-    groundingByTheme = 'retrieve-later'
-  }
-
-  const prompt = buildThemeExtractionPrompt({
-    language,
-    docTitle,
-    body,
-    bodyKind,
-    targetCount,
-  })
-  // Theme extraction stays on the main chat session (large profile context), not
-  // the quiz pool: a whole-doc prompt + a verbose theme list overruns the pool's
-  // modest 8192-token context and the array gets truncated → 0 themes. It's only
-  // 1–3 calls per quiz anyway; the pool's parallelism pays off on the questions.
-  // `noThink` disables the model's reasoning segment (this model thinks despite
-  // the `/no_think` hint), which is most of the per-call latency.
-  const raw = await deps.llm.generateRaw(prompt, {
-    ...(abortSignal ? { abortSignal } : {}),
-    noThink: true,
-  })
-  const themes = parseThemeJson(raw)
-  if (themes.length === 0) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[quiz] 0 themes parsed for "${docTitle}" (${bodyKind}, ${raw.length} chars): ${raw.slice(0, 200).replace(/\s+/g, ' ')}`,
-    )
-    return []
-  }
-
-  // Whole-doc path: every theme is grounded in the full doc, so we attach all
-  // chunk IDs to each theme. Generation will sub-retrieve from these later if
-  // the LLM struggles to pick the right one. Outline path: we leave the array
-  // empty and let generation call RetrievalService.search per-theme.
-  const allChunkIds = chunks.map((c) => c.id)
-  return themes.map((t, i) => ({
-    id: `${docId}:${i}`,
-    docId,
-    title: t.title,
-    summary: t.summary,
-    weight: t.weight,
-    groundingChunkIds: groundingByTheme === 'whole-doc' ? allChunkIds : [],
-  }))
-}
-
-/** Trim text to roughly `tokenBudget` tokens worth of characters. Used by the
- *  outline path when even the heading list overruns the budget. */
-function trimToTokenBudget(text: string, tokenBudget: number): string {
-  const charBudget = Math.floor(tokenBudget * CHARS_PER_TOKEN)
-  return text.length <= charBudget ? text : text.slice(0, charBudget) + '…'
-}
-
-function buildOutline(chunks: ChunkRow[], budget: number): string {
-  // Prefer heading_path when available (markdown chunks); fall back to the
-  // first sentence of each chunk. Keep it dense — we want as many entries as
-  // fit so the LLM gets a real survey of the doc.
-  const seenHeadings = new Set<string>()
-  const lines: string[] = []
-  for (const c of chunks) {
-    if (Array.isArray(c.heading_path) && c.heading_path.length > 0) {
-      const key = c.heading_path.join(' › ')
-      if (!seenHeadings.has(key)) {
-        seenHeadings.add(key)
-        lines.push(`# ${key}`)
-      }
-    }
-    const firstSentence = c.text.split(/[.!?\n]/, 1)[0]?.trim() ?? ''
-    if (firstSentence.length > 0) {
-      lines.push(`- ${firstSentence.slice(0, 200)}`)
+  const out: QuizTheme[] = []
+  let themeIndex = 0
+  for (const w of windows) {
+    if (abortSignal?.aborted) throw new Error('cancelled')
+    const body = w.chunks.map((c) => c.text).join('\n\n')
+    const prompt = buildThemeExtractionPrompt({ language, docTitle, body, targetCount: perWindow })
+    const raw = await deps.llm.generateRaw(prompt, {
+      jsonSchema: THEME_LIST_SCHEMA,
+      maxTokens: THEME_EXTRACTION_MAX_TOKENS,
+      noThink: true,
+      ...(abortSignal ? { abortSignal } : {}),
+    })
+    const parsed = parseThemeJson(raw)
+    const windowChunkIds = w.chunks.map((c) => c.id)
+    for (const t of parsed) {
+      out.push({
+        id: `${docId}:${themeIndex}`,
+        docId,
+        title: t.title,
+        summary: t.summary,
+        weight: t.weight,
+        // Real grounding: the chunk ids in this window, not a doc-wide blob.
+        groundingChunkIds: windowChunkIds,
+      })
+      themeIndex += 1
     }
   }
-  return trimToTokenBudget(lines.join('\n'), budget)
+  return out
 }
 
 interface RawTheme {

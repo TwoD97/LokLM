@@ -14,7 +14,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createServer, type Server } from 'node:http'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -183,6 +191,21 @@ describe('ModelDownloader', () => {
       const dl = new ModelDownloader()
       await dl.download('fixture')
       expect(readFileSync(join(tmpDir, 'fixture.bin')).equals(PAYLOAD)).toBe(true)
+    })
+  })
+
+  it('rejects cleanly when the partial file cannot be written', async () => {
+    // Simulate a write failure (disk full / permission / EISDIR) by making the
+    // .partial path an existing directory so the write stream's open errors.
+    // Without an 'error' handler on the stream, this surfaces as an unhandled
+    // exception (crash) or a hung download instead of a clean rejection.
+    mkdirSync(join(tmpDir, 'fixture.bin.partial'))
+    await withFixtureManifest(`${baseUrl}/ok`, {}, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      dl.onProgress((ev) => events.push(ev))
+      await expect(dl.download('fixture')).rejects.toThrow()
+      expect(events[events.length - 1]?.phase).toBe('error')
     })
   })
 

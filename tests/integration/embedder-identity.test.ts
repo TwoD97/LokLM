@@ -31,6 +31,7 @@ function mkLlm(): LlmProvider {
     ask: async () => 'ok',
     generateRaw: async () => '',
     generateTitle: async () => null,
+    contextWindowTokens: () => 0,
     isReady: () => true,
     getStatus: () => ({ ready: true, message: null, identity: 'stub' }),
     getModelStatus: () => ({}) as never,

@@ -12,7 +12,7 @@ describe('App (smoke)', () => {
   it('shows the register view when no user is registered', async () => {
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: 'Konto anlegen' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1, name: /create account/i })).toBeInTheDocument()
     })
   })
 })

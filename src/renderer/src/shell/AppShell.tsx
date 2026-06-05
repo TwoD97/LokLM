@@ -120,7 +120,7 @@ export function AppShell(): JSX.Element {
       />
       <main className="app-shell__main">
         {activeWorkspaceId == null && (
-          <div style={{ padding: 40, opacity: 0.6 }}>{t('shell.selectWorkspaceFirst')}</div>
+          <div className="app-shell__empty">{t('shell.selectWorkspaceFirst')}</div>
         )}
         {activeView === 'library' && activeWorkspaceId != null && (
           <LibraryView

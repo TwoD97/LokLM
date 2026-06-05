@@ -12,14 +12,21 @@ type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } 
 export type SettingsListener = (settings: UserSettings) => void
 
 export class SettingsService {
-  private cache: UserSettings = DEFAULT_SETTINGS
+  private cache: UserSettings
   private listeners: SettingsListener[] = []
   private persistTimer: NodeJS.Timeout | null = null
 
   constructor(
     private readonly db: Database,
     private readonly persistSnapshot: () => Promise<void>,
-  ) {}
+    // Tier-adjusted baseline. Defaults to the universal DEFAULT_SETTINGS ; the
+    // 'lite' install tier passes a variant with reranker.enabled flipped off so
+    // a fresh lite install (or a pre-feature row missing the key) defaults the
+    // reranker off. Persisted user choices still win via deepMerge below.
+    private readonly baseDefaults: UserSettings = DEFAULT_SETTINGS,
+  ) {
+    this.cache = baseDefaults
+  }
 
   async hydrate(): Promise<void> {
     const r = await this.db.db.execute(sql`
@@ -27,14 +34,14 @@ export class SettingsService {
     `)
     const row = (r.rows as Array<{ value: string }>)[0]
     if (!row) {
-      this.cache = DEFAULT_SETTINGS
+      this.cache = this.baseDefaults
       return
     }
     try {
       const parsed = JSON.parse(row.value) as UserSettings
-      this.cache = deepMerge(DEFAULT_SETTINGS, parsed)
+      this.cache = deepMerge(this.baseDefaults, parsed)
     } catch {
-      this.cache = DEFAULT_SETTINGS
+      this.cache = this.baseDefaults
     }
   }
 

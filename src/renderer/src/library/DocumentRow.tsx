@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   BookOpen,
   Download,
+  FileText,
 } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { useT } from '../i18n'
@@ -26,6 +27,7 @@ type Props = {
   onRefresh: (id: number) => void
   onRead: (doc: Document) => void
   onExport: (doc: Document) => void
+  onSummarize: (doc: Document) => void
 }
 
 function DocumentRowImpl({
@@ -39,6 +41,7 @@ function DocumentRowImpl({
   onRefresh,
   onRead,
   onExport,
+  onSummarize,
 }: Props): JSX.Element {
   const t = useT()
   const [menu, setMenu] = useState(false)
@@ -83,7 +86,7 @@ function DocumentRowImpl({
         <span className={`library__status library__status--${status}`}>{status}</span>
         {progress && progress.phase !== 'done' && progress.phase !== 'failed' && (
           <span style={{ marginLeft: 8, opacity: 0.7 }}>
-            {progress.phase} {progress.step}/{progress.total}
+            {progress.detail ?? `${progress.phase} ${progress.step}/${progress.total}`}
           </span>
         )}
       </td>
@@ -107,6 +110,15 @@ function DocumentRowImpl({
             >
               <BookOpen size={14} aria-hidden="true" />
               {t('library.read')}
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onSummarize(doc)
+              }}
+            >
+              <FileText size={14} aria-hidden="true" />
+              {t('library.summarize')}
             </button>
             <button
               onClick={() => {

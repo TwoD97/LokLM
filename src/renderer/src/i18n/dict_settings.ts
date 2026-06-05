@@ -9,6 +9,7 @@ export const settingsDict: DomainDict = {
     'settings.tab.profile': 'Profile',
     'settings.tab.basic': 'Basic',
     'settings.tab.advanced': 'Advanced',
+    'settings.tab.about': 'About',
 
     // BasicTab
     'settings.basic.uiLanguage': 'Interface language',
@@ -173,6 +174,12 @@ export const settingsDict: DomainDict = {
     // RerankerSection
     'settings.reranker.title': 'Reranker',
     'settings.reranker.sub': 'Re-orders search hits by query relevance before the LLM sees them.',
+    'settings.reranker.enabled': 'Reranking',
+    'settings.reranker.enabledHint':
+      'Off skips the cross-encoder and keeps the fused search order — lighter, slightly less precise.',
+    'settings.reranker.enabledAria': 'Reranking on or off',
+    'settings.reranker.on': 'On',
+    'settings.reranker.off': 'Off',
     'settings.reranker.source': 'Source',
     'settings.reranker.sourceHint': 'Bundled is a real cross-encoder; Ollama prompts a chat model.',
     'settings.reranker.sourceAria': 'Reranker source',
@@ -199,6 +206,25 @@ export const settingsDict: DomainDict = {
     'settings.diag.contextSize': 'Context size',
     'settings.diag.kvCacheType': 'KV cache type',
     'settings.diag.planReason': 'Plan reason',
+
+    // AboutTab
+    'settings.about.licenseMit': 'LokLM is released under the MIT License',
+    'settings.about.tagline':
+      'Local-first knowledge assistant with source verification. Built with the open-source components listed below.',
+    'settings.about.npmHeading': 'Bundled software components (Apache-2.0)',
+    'settings.about.npmSub':
+      'The following npm packages are shipped with LokLM under the Apache License 2.0.',
+    'settings.about.modelsHeading': 'Bundled model weights',
+    'settings.about.modelsSub':
+      'Local LLM and retrieval models downloaded into the models/ directory on first run.',
+    'settings.about.showApacheText': 'Apache License 2.0 — full text',
+    'settings.about.hideApacheText': 'Hide Apache License notice',
+    'settings.about.apacheNote':
+      'The full text of the Apache License 2.0 is shipped with the application as THIRD_PARTY_NOTICES.md and is also available at',
+    'settings.about.logsHeading': 'Diagnostic logs',
+    'settings.about.logsSub':
+      'Warnings and errors are written to a file on this machine. Older entries are purged automatically.',
+    'settings.about.logsOpen': 'Open log folder',
   },
   de: {
     // SettingsModal — tabs
@@ -206,6 +232,7 @@ export const settingsDict: DomainDict = {
     'settings.tab.profile': 'Profil',
     'settings.tab.basic': 'Allgemein',
     'settings.tab.advanced': 'Erweitert',
+    'settings.tab.about': 'Über',
 
     // BasicTab
     'settings.basic.uiLanguage': 'Anzeigesprache',
@@ -376,6 +403,12 @@ export const settingsDict: DomainDict = {
     'settings.reranker.title': 'Reranker',
     'settings.reranker.sub':
       'Ordnet Suchtreffer nach Anfrage-Relevanz neu, bevor das LLM sie sieht.',
+    'settings.reranker.enabled': 'Reranking',
+    'settings.reranker.enabledHint':
+      'Aus überspringt den Cross-Encoder und behält die fusionierte Trefferreihenfolge — leichter, etwas ungenauer.',
+    'settings.reranker.enabledAria': 'Reranking an oder aus',
+    'settings.reranker.on': 'An',
+    'settings.reranker.off': 'Aus',
     'settings.reranker.source': 'Quelle',
     'settings.reranker.sourceHint':
       'Gebündelt ist ein echter Cross-Encoder; Ollama promptet ein Chat-Modell.',
@@ -403,5 +436,24 @@ export const settingsDict: DomainDict = {
     'settings.diag.contextSize': 'Kontextgröße',
     'settings.diag.kvCacheType': 'KV-Cache-Typ',
     'settings.diag.planReason': 'Plan-Begründung',
+
+    // AboutTab
+    'settings.about.licenseMit': 'LokLM steht unter der MIT-Lizenz',
+    'settings.about.tagline':
+      'Local-First-Wissensassistent mit Quellenverifikation. Gebaut mit den unten gelisteten Open-Source-Komponenten.',
+    'settings.about.npmHeading': 'Gebündelte Software-Komponenten (Apache-2.0)',
+    'settings.about.npmSub':
+      'Die folgenden npm-Pakete werden mit LokLM unter der Apache License 2.0 ausgeliefert.',
+    'settings.about.modelsHeading': 'Gebündelte Modell-Gewichte',
+    'settings.about.modelsSub':
+      'Lokale LLM- und Retrieval-Modelle, die beim ersten Start in das Verzeichnis models/ geladen werden.',
+    'settings.about.showApacheText': 'Apache License 2.0 — vollständiger Text',
+    'settings.about.hideApacheText': 'Apache-Lizenz-Hinweis ausblenden',
+    'settings.about.apacheNote':
+      'Der vollständige Text der Apache License 2.0 wird als THIRD_PARTY_NOTICES.md mit der Anwendung ausgeliefert und ist außerdem verfügbar unter',
+    'settings.about.logsHeading': 'Diagnose-Protokolle',
+    'settings.about.logsSub':
+      'Warnungen und Fehler werden in eine Datei auf diesem Rechner geschrieben. Ältere Einträge werden automatisch entfernt.',
+    'settings.about.logsOpen': 'Log-Ordner öffnen',
   },
 }

@@ -4,6 +4,15 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
 import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
+import { ocrImageFile, ocrPdfPage, pageNeedsOcr, type PdfPageLike } from './ocr'
+
+/** Optional hooks threaded through the parse so callers can surface the slow
+ *  per-page OCR pass (scanned PDFs) as progress instead of a silent stall. */
+export interface ParseOptions {
+  /** Called once per OCR'd page. `total` is the number of scanned pages found
+   *  in this document, not the page count. */
+  onOcrProgress?: (done: number, total: number) => void
+}
 
 // extension whitelist — verbatim from MVP (Notebook-LoLM). .docx is handled
 // separately (mammoth → markdown). Legacy .doc (binary OOXML predecessor) is
@@ -45,20 +54,37 @@ const TEXT_EXTS = new Set([
   '.xml',
 ])
 
+// Raster image formats we OCR. sharp decodes all of these; tesseract reads the
+// normalised PNG sharp produces.
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp', '.gif'])
+
 export { ImportError }
 
 export function isSupported(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase()
-  return ext === '.pdf' || ext === '.docx' || TEXT_EXTS.has(ext)
+  return ext === '.pdf' || ext === '.docx' || TEXT_EXTS.has(ext) || IMAGE_EXTS.has(ext)
 }
 
-export async function parseFile(filePath: string): Promise<ParsedDocument> {
+export async function parseFile(
+  filePath: string,
+  opts: ParseOptions = {},
+): Promise<ParsedDocument> {
   const ext = extname(filePath).toLowerCase()
-  if (ext === '.pdf') return parsePdf(filePath)
+  if (ext === '.pdf') return parsePdf(filePath, opts)
   if (ext === '.docx') return parseDocx(filePath)
   if (ext === '.md' || ext === '.markdown') return parseMarkdown(filePath)
+  if (IMAGE_EXTS.has(ext)) return parseImage(filePath)
   if (TEXT_EXTS.has(ext)) return parsePlainText(filePath)
   throw new ImportError(`Unsupported file type: ${basename(filePath)}`, 'unsupported', filePath)
+}
+
+/** An image file carries no text layer, so OCR is the only source of text.
+ *  Returns a single-page text document (empty text if nothing legible). A
+ *  failure to initialise the OCR engine propagates and fails the import — for
+ *  an image there's nothing else we could have extracted. */
+async function parseImage(filePath: string): Promise<ParsedDocument> {
+  const text = await ocrImageFile(filePath)
+  return { kind: 'text', pages: [{ num: 1, text }], fullText: text }
 }
 
 async function parsePlainText(filePath: string): Promise<ParsedDocument> {
@@ -157,7 +183,7 @@ function configurePdfWorker(PDFParse: PdfParseStatic): void {
   PDFParse.setWorker(pathToFileURL(workerPath).href)
 }
 
-async function parsePdf(filePath: string): Promise<ParsedDocument> {
+async function parsePdf(filePath: string, opts: ParseOptions = {}): Promise<ParsedDocument> {
   // pdf-parse v2 ESM/CJS interop: dynamic import sidesteps potential typings issues.
   const { PDFParse } = (await import('pdf-parse')) as unknown as { PDFParse: PdfParseStatic }
   configurePdfWorker(PDFParse)
@@ -172,10 +198,56 @@ async function parsePdf(filePath: string): Promise<ParsedDocument> {
       num: p.num,
       text: normalizePdfPageText(p.text),
     }))
+    // Hybrid OCR: pages that came back (near-)empty have no text layer — i.e.
+    // they're scans. Rasterise + OCR just those, leaving real text pages
+    // untouched, so a normal PDF pays zero OCR cost and a part-scanned book
+    // only OCRs the scanned pages. Best-effort: any OCR failure (incl. the
+    // engine not initialising) is logged and the page stays as-is rather than
+    // failing an import that already has a perfectly good text layer.
+    await ocrScannedPages(doc, pages, opts.onOcrProgress)
     const fullText = pages.map((p) => p.text).join('\n\n')
     return { kind: 'pdf', pages, fullText, sections }
   } finally {
     await parser.destroy()
+  }
+}
+
+/** Find pages with no usable text layer and replace their text with OCR output,
+ *  in place. Mutates `pages`. Swallows all failures (see parsePdf rationale). */
+async function ocrScannedPages(
+  doc: PdfDoc,
+  pages: PageText[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  const scanned = pages.filter((p) => pageNeedsOcr(p.text))
+  if (scanned.length === 0) return
+  try {
+    let done = 0
+    for (const page of scanned) {
+      try {
+        const proxy = (await doc.getPage(page.num)) as unknown as PdfPageLike
+        const text = await ocrPdfPage(proxy)
+        if (text.length > 0) page.text = normalizePdfPageText(text)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[documents] OCR failed for page ${page.num}:`,
+          err instanceof Error ? err.message : err,
+        )
+      } finally {
+        done += 1
+        onProgress?.(done, scanned.length)
+      }
+    }
+  } catch (err) {
+    // OCR engine couldn't initialise at all (e.g. missing tessdata) — keep the
+    // extracted text layer and move on. A text PDF must not fail just because
+    // OCR is unavailable.
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[documents] OCR unavailable, indexing without it:',
+      err instanceof Error ? err.message : err,
+    )
   }
 }
 
@@ -185,6 +257,10 @@ interface PdfDoc {
   numPages: number
   getOutline(): Promise<PdfOutlineItem[] | null>
   getPageIndex(ref: { num: number; gen: number }): Promise<number>
+  /** pdfjs PDFPageProxy — used to rasterise scanned pages for OCR. Typed as
+   *  PdfPageLike on the OCR side; `unknown` here keeps pdfjs types out of the
+   *  parser. */
+  getPage(pageNumber: number): Promise<unknown>
 }
 
 interface PdfOutlineItem {
