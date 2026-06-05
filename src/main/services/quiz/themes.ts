@@ -83,9 +83,24 @@ export async function extractThemesForDocument(
     bodyKind,
     targetCount,
   })
-  const raw = await deps.llm.generateRaw(prompt, abortSignal ? { abortSignal } : {})
+  // Theme extraction stays on the main chat session (large profile context), not
+  // the quiz pool: a whole-doc prompt + a verbose theme list overruns the pool's
+  // modest 8192-token context and the array gets truncated → 0 themes. It's only
+  // 1–3 calls per quiz anyway; the pool's parallelism pays off on the questions.
+  // `noThink` disables the model's reasoning segment (this model thinks despite
+  // the `/no_think` hint), which is most of the per-call latency.
+  const raw = await deps.llm.generateRaw(prompt, {
+    ...(abortSignal ? { abortSignal } : {}),
+    noThink: true,
+  })
   const themes = parseThemeJson(raw)
-  if (themes.length === 0) return []
+  if (themes.length === 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[quiz] 0 themes parsed for "${docTitle}" (${bodyKind}, ${raw.length} chars): ${raw.slice(0, 200).replace(/\s+/g, ' ')}`,
+    )
+    return []
+  }
 
   // Whole-doc path: every theme is grounded in the full doc, so we attach all
   // chunk IDs to each theme. Generation will sub-retrieve from these later if

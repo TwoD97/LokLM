@@ -4,6 +4,7 @@ import type {
   RerankerProvider,
   ProviderFallbackEvent,
   ProviderStatus,
+  GenerateRawOptions,
 } from './types'
 import type { RetrievalHit, ModelStatus } from '../../../shared/documents'
 import type { AskOptions, ResponseLanguage } from '../llm/LlamaService'
@@ -120,7 +121,7 @@ class RegistryLlmProvider implements LlmProvider {
     }
   }
 
-  async generateRaw(p: string, opts: { abortSignal?: AbortSignal }): Promise<string> {
+  async generateRaw(p: string, opts: GenerateRawOptions): Promise<string> {
     const active = this.active()
     if (active === this.deps.llm.bundled) return active.generateRaw(p, opts)
     try {
@@ -128,8 +129,23 @@ class RegistryLlmProvider implements LlmProvider {
     } catch (err) {
       if (!isFallbackable(err)) throw err
       this.deps.onFallback?.({ kind: 'llm', reason: (err as Error).message })
-      return this.deps.llm.bundled.generateRaw(p, opts)
+      // The bundled quiz pool is only warmed when bundled is the *active*
+      // source; falling back here means it isn't, so strip `pooled` and take
+      // the serial bundled path rather than dispatching to an unbuilt pool.
+      return this.deps.llm.bundled.generateRaw(p, { ...opts, pooled: false })
     }
+  }
+
+  /** Pool lives on the active provider (bundled only). Ollama has no method →
+   *  0 slots, which the quiz orchestrator reads as "run serially". */
+  async ensureGenerationPool(maxSlots: number, contextTokens: number): Promise<number> {
+    const active = this.active()
+    return active.ensureGenerationPool ? active.ensureGenerationPool(maxSlots, contextTokens) : 0
+  }
+
+  async releaseGenerationPool(): Promise<void> {
+    const active = this.active()
+    if (active.releaseGenerationPool) await active.releaseGenerationPool()
   }
 
   async generateTitle(
