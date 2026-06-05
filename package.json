@@ -45,6 +45,7 @@
     "evals:sweep": "tsx tests/evals/sweep.ts",
     "evals:matrix": "tsx tests/evals/sweep.ts --configs matrix",
     "evals:paper": "tsx tests/evals/aggregate-paper.ts",
+    "evals:datasets": "tsx tests/evals/run-datasets.ts",
     "evals:build-library": "tsx tests/evals/scale/build-library.ts",
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
