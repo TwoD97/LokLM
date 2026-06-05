@@ -1,7 +1,7 @@
 // aggregate-paper.ts — sammelt alle sweep-run-dirs ein und schreibt eine flache ,
 // zitierfähige paper-tabelle als CSV (pandas/excel) + LaTeX-longtable (\input ins
 // manuskript). Jede zeile trägt provenienz: git-sha , dirty-flag , CPU , RAM ,
-// dataset-sha256 — siehe Paper-Regeln in ANLEITUNG-DOMINIK.md.
+// dataset-sha256 — damit jede zeile vollständig zitierfähig ist.
 //
 // CLI:
 //   tsx tests/evals/aggregate-paper.ts [--runs <dir>] [--out <dir>] [--clean-only]
