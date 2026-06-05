@@ -28,7 +28,6 @@
     "package:mac:payload": "electron-vite build && node scripts/build-mac-payloads.mjs",
     "package:mac:archive": "node scripts/build-payload-archive.mjs mac-arm64 && node scripts/build-payload-archive.mjs mac-x64 && node scripts/write-payload-manifest.mjs",
     "package:mac:dmg": "node scripts/build-installer-dmg.mjs",
-    "release:upload": "node scripts/upload-release.mjs",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

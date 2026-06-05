@@ -1,7 +1,7 @@
 name: Release installer
 
-# baut den installer für eine version , lädt ihn nach bunny storage
-# (primary, fronted vom CDN) und minio (manual backup mirror) , patcht
+# baut den installer für eine version , lädt installer + payload + cuda
+# archives nach minio ( s3.ltwodl.com/loklm-installers ) , patcht
 # releases.ts + re-deployt die website mit aktualisiertem manifest.
 #
 # v0.3.0+ : installer ist tier-aware ( lite / standard / pro ). Wizard
@@ -19,12 +19,12 @@ name: Release installer
 # Artefakt-grössen :
 #   win   : ~375 MB    ( wizard 3 MB + embedded electron payload ~370 MB )
 #   linux : ~375 MB    ( makeself self-extractor , payload embedded )
-#   mac   : ~10 MB     ( wizard-only DMG ; payload fetched from bunny )
+#   mac   : ~10 MB     ( wizard-only DMG ; payload fetched from minio )
 # Optional CUDA addon + GGUF models are still fetched by the wizard at
 # install time on every platform :
 #   lite ~1.6 GB , standard ~3.4 GB , pro ~6.3 GB
 #
-# backup-URL-pattern bei CDN-ausfall:
+# Public URL pattern ( wizard fetches payload + cuda from here at install ) :
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-x64.exe
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
@@ -48,7 +48,7 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build .exe + upload to bunny + minio
+    name: Build .exe + upload to minio
     runs-on: windows-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -132,7 +132,7 @@ jobs:
         #   package:win:stub     → release/LokLM-x64.exe
         #                          ( NSIS embeds wizard + LICENSE + win-unpacked ; the wizard installs
         #                            from the bundled payload via ..\win-unpacked , skipping the download.
-        #                            cuda is still fetched from bunny if the user opts in )
+        #                            cuda is still fetched from minio if the user opts in )
         # GGUFs continue to be fetched at install time by the wizard's
         # download_all() , unchanged from v0.2.x.
         env:
@@ -215,39 +215,13 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $EXE , size=$SIZE sha256=$SHA"
 
-      - name: Upload installer + payload + cuda archives to Bunny Storage
-        shell: bash
-        env:
-          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
-          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
-          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
-
-          # User-facing installer .exe + its sha256 sidecar.
-          FILE="release/LokLM-x64.exe"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
-
-          # v0.3.0+ : the installer fetches payload + cuda from this same
-          # /v${V}/ path at install time. URL conventions baked into the
-          # wizard via installer-wizard/payload-manifest.json must match
-          # what we PUT here. upload-release.mjs handles the URL pattern +
-          # HEAD-size verification ; we drive it from the same secrets.
-          node scripts/upload-release.mjs --platforms=win-x64
-
       - name: Install mc
         shell: bash
         run: |
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe --version | head -1
 
-      - name: Upload to minio (backup mirror)
+      - name: Upload installer + payload + cuda archives to minio
         shell: bash
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -255,13 +229,25 @@ jobs:
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
+          DEST="s3target/loklm-installers/v${V}/"
           /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc.exe cp "release/LokLM-x64.exe" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe cp "release/LokLM-x64.exe.sha256" "s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe ls "s3target/loklm-installers/v${V}/"
+          # User-facing installer + sha256. Payload archive is the v0.3.1+
+          # CDN fallback ( embedded in the .exe primarily ) ; cuda addon is
+          # still fetched from PUBLIC_INSTALLER_BASE_URL at install time.
+          for f in \
+            release/LokLM-x64.exe \
+            release/LokLM-x64.exe.sha256 \
+            release/payload-win-x64.tar.zst \
+            release/payload-win-x64.tar.zst.sha256 \
+            release/cuda-win-x64.tar.zst \
+            release/cuda-win-x64.tar.zst.sha256
+          do
+            /tmp/mc.exe cp "$f" "$DEST"
+          done
+          /tmp/mc.exe ls "$DEST"
 
   build-linux:
-    name: Build .run installer + upload to bunny + minio
+    name: Build .run installer + upload to minio
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -335,7 +321,7 @@ jobs:
         #   package:linux:stub     → release/LokLM-Setup-linux-x64.run
         #                            ( makeself embeds wizard + LICENSE + linux-unpacked ; the wizard
         #                              installs from the bundled payload via ../linux-unpacked.
-        #                              cuda is still fetched from bunny if the user opts in )
+        #                              cuda is still fetched from minio if the user opts in )
         env:
           LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:linux
@@ -356,47 +342,38 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $APP , size=$SIZE sha256=$SHA"
 
-      - name: Upload installer + payload + cuda archives to Bunny Storage
-        env:
-          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
-          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
-          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
-
-          # User-facing .run installer + sha256 sidecar.
-          FILE="release/LokLM-Setup-linux-x64.run"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
-
-          # v0.3.0+ : payload + cuda archives the wizard fetches at install.
-          node scripts/upload-release.mjs --platforms=linux-x64
-
       - name: Install mc
         run: |
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x /tmp/mc
           /tmp/mc --version | head -1
 
-      - name: Upload to minio (backup mirror)
+      - name: Upload installer + payload + cuda archives to minio
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
+          DEST="s3target/loklm-installers/v${V}/"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-Setup-linux-x64.run" "s3target/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-Setup-linux-x64.run.sha256" "s3target/loklm-installers/v${V}/"
-          /tmp/mc ls "s3target/loklm-installers/v${V}/"
+          # User-facing installer + sha256. Payload archive is the v0.3.1+
+          # CDN fallback ( embedded in the .run primarily ) ; cuda addon is
+          # still fetched from PUBLIC_INSTALLER_BASE_URL at install time.
+          for f in \
+            release/LokLM-Setup-linux-x64.run \
+            release/LokLM-Setup-linux-x64.run.sha256 \
+            release/payload-linux-x64.tar.zst \
+            release/payload-linux-x64.tar.zst.sha256 \
+            release/cuda-linux-x64.tar.zst \
+            release/cuda-linux-x64.tar.zst.sha256
+          do
+            /tmp/mc cp "$f" "$DEST"
+          done
+          /tmp/mc ls "$DEST"
 
   build-macos:
-    name: Build .dmg + upload to bunny + minio
+    name: Build .dmg + upload to minio
     runs-on: macos-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -454,7 +431,7 @@ jobs:
         #                          + installer-wizard/payload-manifest.json regen
         #   package:mac:dmg      → release/LokLM-mac.dmg
         #                          ( cargo tauri build -> create-dmg around the wizard .app ;
-        #                            the real LokLM.app is fetched from bunny at install time )
+        #                            the real LokLM.app is fetched from minio at install time )
         # `identity: null` in build.mac disables auto-detected codesigning ;
         # users see Gatekeeper warning on first launch ( right-click → Open ).
         env:
@@ -478,58 +455,35 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $DMG , size=$SIZE sha256=$SHA"
 
-      - name: Upload installer + payload archives to Bunny Storage
-        env:
-          BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
-          BUNNY_STORAGE_HOSTNAME: ${{ secrets.BUNNY_STORAGE_HOSTNAME }}
-          BUNNY_STORAGE_PASSWORD: ${{ secrets.BUNNY_STORAGE_PASSWORD }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          BASE="https://${BUNNY_STORAGE_HOSTNAME}/${BUNNY_STORAGE_ZONE}/v${V}"
-
-          # User-facing .dmg + sha256 sidecar.
-          FILE="release/LokLM-mac.dmg"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}" "${BASE}/$(basename "$FILE")"
-          curl -fsSL --retry 3 --retry-delay 5 -X PUT \
-            -H "AccessKey: ${BUNNY_STORAGE_PASSWORD}" \
-            --data-binary "@${FILE}.sha256" "${BASE}/$(basename "$FILE").sha256"
-
-          # v0.3.0+ : payload archives the wizard fetches at install ( both
-          # mac-arm64 and mac-x64 since the wizard's payload-manifest knows
-          # both ). No cuda branch on mac.
-          node scripts/upload-release.mjs --platforms=mac-arm64,mac-x64
-
       - name: Install mc
         run: |
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-amd64/mc
           chmod +x /tmp/mc
           /tmp/mc --version | head -1
 
-      - name: Upload to minio (backup mirror)
+      - name: Upload installer + payload archives to minio
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
           V="${{ steps.resolve.outputs.version }}"
+          DEST="s3target/loklm-installers/v${V}/"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          /tmp/mc cp "release/LokLM-mac.dmg" "s3target/loklm-installers/v${V}/"
-          /tmp/mc cp "release/LokLM-mac.dmg.sha256" "s3target/loklm-installers/v${V}/"
-          /tmp/mc ls "s3target/loklm-installers/v${V}/"
-
-  purge-cdn:
-    name: Purge CDN edge cache
-    # The uploads above write to Bunny *storage* ; the pull zone caches at the
-    # edge for 30 days ( max-age=2592000 ) , so without this a re-released
-    # version keeps serving the previously-cached bytes. Reuses the same
-    # workflow the manual Actions-tab purge uses ( single source of truth ).
-    needs: [build-windows, build-linux, build-macos]
-    uses: ./.github/workflows/purge-cdn.yml
-    with:
-      version: ${{ needs.build-windows.outputs.version }}
-    secrets: inherit
+          # User-facing .dmg + sha256 , plus the payload archives the
+          # wizard fetches at install ( both mac-arm64 and mac-x64 since
+          # the wizard's payload-manifest knows both ). No cuda branch on mac.
+          for f in \
+            release/LokLM-mac.dmg \
+            release/LokLM-mac.dmg.sha256 \
+            release/payload-mac-arm64.tar.zst \
+            release/payload-mac-arm64.tar.zst.sha256 \
+            release/payload-mac-x64.tar.zst \
+            release/payload-mac-x64.tar.zst.sha256
+          do
+            /tmp/mc cp "$f" "$DEST"
+          done
+          /tmp/mc ls "$DEST"
 
   bump-and-redeploy:
     name: Bump manifest + redeploy website
@@ -622,18 +576,17 @@ jobs:
         if: always()
         run: rm -f ~/.ssh/deploy_key
 
-      - name: Record backup URLs in run summary
+      - name: Record install URLs in run summary
         env:
           PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
         run: |
           V="${{ needs.build-windows.outputs.version }}"
           {
-            echo "## Release v${V} — mirrors"
+            echo "## Release v${V} — install URLs"
             echo ""
-            echo "**Primary (CDN):** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
+            echo "**Base:** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
-            echo "**Backup (minio , manual fallback):**"
-            echo "- Windows: https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-x64.exe"
-            echo "- Linux:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-Setup-linux-x64.run"
-            echo "- macOS:   https://s3.ltwodl.com/loklm-installers/v${V}/LokLM-mac.dmg"
+            echo "- Windows: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
+            echo "- Linux:   ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
+            echo "- macOS:   ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
           } >> "$GITHUB_STEP_SUMMARY"
