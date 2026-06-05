@@ -20,6 +20,15 @@ const TARGET_THEMES_FACTOR = 1.5
  *  the dominant per-call cost on a compute-bound model — across this many
  *  questions, roughly halving the number of round-trips at 2. */
 const QUIZ_BATCH_SIZE = 2
+
+/** Per-stage timing breadcrumbs for tuning generation speed. Off by default;
+ *  set LOKLM_QUIZ_DEBUG=1 to see `[quiz] …` lines while optimizing. */
+function quizDebug(message: string): void {
+  if (process.env['LOKLM_QUIZ_DEBUG']) {
+    // eslint-disable-next-line no-console
+    console.log(message)
+  }
+}
 /** Upper bound on parallel decode slots requested from the bundled pool. Each
  *  slot holds a full QUIZ_POOL_CONTEXT_TOKENS KV cache. At 8192 tokens, 6 slots
  *  over-pressured VRAM on the 9B and made parallel decode 5–8× slower than solo;
@@ -164,8 +173,7 @@ export class QuizService {
         }
       }
 
-      // eslint-disable-next-line no-console
-      console.log(
+      quizDebug(
         `[quiz] themes: ${themes.length} from ${docIds.length} doc(s) in ${Date.now() - tThemes}ms (pool=${pooled ? concurrency : 'serial'})`,
       )
 
@@ -271,8 +279,7 @@ export class QuizService {
             }
           }
         }
-        // eslint-disable-next-line no-console
-        console.log(
+        quizDebug(
           `[quiz] wave: ${wave.length} batch → ${waveGenerated} gen, ${waveAccepted} kept in ${waveMs}ms (total ${accepted.length}/${deck.questionCount})`,
         )
         if (waveAccepted === 0) {
