@@ -8,6 +8,9 @@ import type {
   LlmLoadPayload,
   LlmAskPayload,
   LlmGenerateRawPayload,
+  QuizPoolEnsurePayload,
+  QuizPoolEnsureResult,
+  QuizGeneratePayload,
   EmbedderLoadPayload,
   RerankerLoadPayload,
   LlmLoadResult,
@@ -218,6 +221,15 @@ export class ModelsWorkerClient {
   }
   llmGenerateRaw(p: LlmGenerateRawPayload): Promise<{ raw: string }> {
     return this.send<{ raw: string }>('llm.generateRaw', p)
+  }
+  quizPoolEnsure(p: QuizPoolEnsurePayload): Promise<QuizPoolEnsureResult> {
+    return this.send<QuizPoolEnsureResult>('llm.quizPoolEnsure', p)
+  }
+  quizGenerate(p: QuizGeneratePayload): Promise<{ raw: string }> {
+    return this.send<{ raw: string }>('llm.quizGenerate', p)
+  }
+  quizPoolRelease(): Promise<void> {
+    return this.send<void>('llm.quizPoolRelease')
   }
   llmAbort(streamId: string): Promise<void> {
     return this.send<void>('llm.abort', { streamId })

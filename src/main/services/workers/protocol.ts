@@ -32,6 +32,9 @@ export type WorkerRequest =
     }
   | { id: number; op: 'llm.ask'; payload: LlmAskPayload }
   | { id: number; op: 'llm.generateRaw'; payload: LlmGenerateRawPayload }
+  | { id: number; op: 'llm.quizPoolEnsure'; payload: QuizPoolEnsurePayload }
+  | { id: number; op: 'llm.quizGenerate'; payload: QuizGeneratePayload }
+  | { id: number; op: 'llm.quizPoolRelease' }
   | { id: number; op: 'llm.abort'; payload: { streamId: string } }
   | { id: number; op: 'embedder.load'; payload: EmbedderLoadPayload }
   | { id: number; op: 'embedder.unload' }
@@ -95,6 +98,42 @@ export interface LlmGenerateRawPayload {
    *  multi-query expansion) don't get a full-answer-sized generation when
    *  the model ignores its single-line instructions. */
   maxTokens?: number
+  /** Disable the model's reasoning segment (budgets.thoughtTokens = 0). Used by
+   *  structured/utility generations (e.g. quiz theme extraction) where thinking
+   *  only adds latency and risks truncating the real output. */
+  noThink?: boolean
+}
+
+/** Quiz batch-decode pool. A separate, modest-context LlamaContext is created
+ *  from the already-loaded LLM model with N parallel sequences so quiz
+ *  generation can decode many independent prompts at once on a GPU. On CPU the
+ *  worker pins this to a single slot (no batching benefit there). The pool is
+ *  lazily built on quizPoolEnsure and torn down on quizPoolRelease / model
+ *  unload, so it only holds KV-cache VRAM for the duration of a generation. */
+export interface QuizPoolEnsurePayload {
+  /** Upper bound on parallel slots the caller wants. Worker clamps to GPU
+   *  headroom (halving on OOM) and to 1 on CPU. */
+  maxSlots: number
+  /** Per-sequence context window (tokens). Sized to fit the largest quiz
+   *  prompt + its output reserve. */
+  contextTokens: number
+}
+
+export interface QuizPoolEnsureResult {
+  /** Actual slots allocated — the caller sizes its generation waves to this. */
+  slots: number
+}
+
+export interface QuizGeneratePayload {
+  streamId: string
+  prompt: string
+  /** Hard ceiling on decoded tokens — quiz JSON is small; this kills runaway
+   *  generations that the uncapped chat path used to allow. */
+  maxTokens?: number
+  /** When set, output is constrained to the matching cached JSON-schema
+   *  grammar so the model can't emit prose, code fences, or thinking — every
+   *  response parses, which also removes the JSON-retry round-trip. */
+  schemaKind?: 'theme' | 'question'
 }
 
 export interface EmbedderLoadPayload {

@@ -10,7 +10,10 @@ import type { QuizLanguage } from '../../../shared/quiz'
 export const THEME_PROMPT_RESERVE_TOKENS = 600
 export const THEME_OUTPUT_RESERVE_TOKENS = 800
 export const QUESTION_PROMPT_RESERVE_TOKENS = 800
-export const QUESTION_OUTPUT_RESERVE_TOKENS = 500
+// Doubles as the hard `maxTokens` cap per question. One MCQ JSON object (stem +
+// 4 options + explanation) is ~200–400 tokens; 768 leaves slack for a longer
+// explanation while still killing the uncapped runaway decodes.
+export const QUESTION_OUTPUT_RESERVE_TOKENS = 768
 
 /** Conservative ceiling on usable content tokens when we can't probe the live
  *  LLM context window. Lite / Full / XL all fit this; Ollama models usually do
@@ -100,7 +103,7 @@ ${avoidBlock}
 Anforderungen:
 - Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
 - Genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
-- Die Erklärung muss begründen, warum die richtige Antwort stimmt, und sich auf das Material stützen.
+- Die Erklärung ist EIN kurzer Satz (höchstens 25 Wörter), der die richtige Antwort knapp begründet.
 - "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
 
 Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
@@ -130,7 +133,7 @@ ${avoidBlock}
 Requirements:
 - Test understanding or application, NOT trivial recall.
 - Exactly 4 plausible options, exactly ONE correct.
-- The explanation must justify the correct answer using the material.
+- The explanation is ONE short sentence (max 25 words) that briefly justifies the correct answer.
 - "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
 
 Reply with ONLY a JSON object:
@@ -141,6 +144,74 @@ Reply with ONLY a JSON object:
   "explanation": "...",
   "source_chunk_ids": [1, 2]
 }
+
+No preamble, no code fences, no extra fields.
+
+/no_think`
+}
+
+export interface QuestionBatchInput extends QuestionGenerationInput {
+  /** How many distinct questions to request in one call. */
+  count: number
+}
+
+/** Like buildQuestionGenerationPrompt but asks for a JSON ARRAY of `count`
+ *  mutually-distinct questions in a single call. Amortises the prompt prefill
+ *  across N questions. */
+export function buildQuestionBatchPrompt(input: QuestionBatchInput): string {
+  const { language, themeTitle, themeSummary, groundingBlock, avoidStems, count } = input
+  const avoidBlock =
+    avoidStems.length > 0 ? avoidStems.map((s) => `- ${s}`).join('\n') : '(noch keine — none yet)'
+  if (language === 'de') {
+    return `Du schreibst genau ${count} verschiedene Multiple-Choice-Fragen für eine Studierende.
+
+Thema: ${themeTitle}
+Konzept: ${themeSummary}
+
+Quellmaterial (jeder Eintrag ist ein zitierbarer Chunk):
+${groundingBlock}
+
+Bereits gestellte Fragen (NICHT wiederholen, nicht umformulieren):
+${avoidBlock}
+
+Anforderungen:
+- Genau ${count} Fragen, inhaltlich klar VERSCHIEDEN voneinander.
+- Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
+- Je Frage genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
+- Die Erklärung ist je EIN kurzer Satz (höchstens 25 Wörter).
+- "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
+
+Antworte AUSSCHLIESSLICH mit einem JSON-Array von genau ${count} Objekten:
+[
+  {"stem": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, "explanation": "...", "source_chunk_ids": [1]}
+]
+
+Kein Vorspann, kein Code-Block, keine zusätzlichen Felder.
+
+/no_think`
+  }
+  return `Write exactly ${count} distinct multiple-choice questions for a learner.
+
+Theme: ${themeTitle}
+Concept: ${themeSummary}
+
+Source material (each entry is a citable chunk):
+${groundingBlock}
+
+Questions already asked (do NOT repeat, do NOT paraphrase):
+${avoidBlock}
+
+Requirements:
+- Exactly ${count} questions, clearly DISTINCT from one another.
+- Test understanding or application, NOT trivial recall.
+- Each question has exactly 4 plausible options, exactly ONE correct.
+- Each explanation is ONE short sentence (max 25 words).
+- "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
+
+Reply with ONLY a JSON array of exactly ${count} objects:
+[
+  {"stem": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, "explanation": "...", "source_chunk_ids": [1]}
+]
 
 No preamble, no code fences, no extra fields.
 

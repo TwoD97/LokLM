@@ -12,10 +12,24 @@ import type {
   QuizLanguage,
 } from '../../../shared/quiz'
 import type { AcceptedQuestion, QuizTheme } from './types'
-import { allocateSlots, dedupThemes, extractThemesForDocument } from './themes'
-import { generateQuestion } from './generation'
+import { dedupThemes, extractThemesForDocument } from './themes'
+import { generateQuestionBatch, isStemDuplicate } from './generation'
 
 const TARGET_THEMES_FACTOR = 1.5
+/** Questions requested per LLM call. Batching amortises the prompt prefill —
+ *  the dominant per-call cost on a compute-bound model — across this many
+ *  questions, roughly halving the number of round-trips at 2. */
+const QUIZ_BATCH_SIZE = 2
+/** Upper bound on parallel decode slots requested from the bundled pool. Each
+ *  slot holds a full QUIZ_POOL_CONTEXT_TOKENS KV cache. At 8192 tokens, 6 slots
+ *  over-pressured VRAM on the 9B and made parallel decode 5–8× slower than solo;
+ *  at 4096 tokens the per-slot KV is a quarter the size, so 6 slots fit (≈ the
+ *  old 3×8192 footprint) and we get fewer, fuller waves. The worker still clamps
+ *  to GPU headroom (and to 1 on CPU). */
+const QUIZ_MAX_SLOTS = 6
+/** Per-sequence context window. A grounded MCQ prompt is ~1.9k tokens + a
+ *  768-token answer; 4096 fits it with margin at a quarter of the prior KV. */
+const QUIZ_POOL_CONTEXT_TOKENS = 4096
 
 export class QuizService {
   constructor(
@@ -82,9 +96,30 @@ export class QuizService {
       return
     }
 
+    // Declared out here so the `finally` can release the pool regardless of
+    // where we exit. Assigned inside the try so a pool-warmup failure flips the
+    // deck to 'failed' through the normal error path.
+    let concurrency = 1
+    let pooled = false
+
     try {
+      // Warm the parallel decode pool. `slots > 0` means questions (and themes)
+      // can be generated concurrently across GPU sequences; 0 means no pool, so
+      // we stay strictly serial — the shared chat session can't be driven by two
+      // concurrent prompts at once.
+      if (llm.ensureGenerationPool) {
+        const slots = await llm.ensureGenerationPool(QUIZ_MAX_SLOTS, QUIZ_POOL_CONTEXT_TOKENS)
+        if (slots > 0) {
+          pooled = true
+          concurrency = slots
+        }
+      }
+
       // ---- Stage 1: per-doc theme extraction ----
+      // Serial, on the main chat session — see the note in themes.ts on why this
+      // doesn't use the pool. It's only 1–3 calls, so serial costs ~nothing.
       yield { type: 'stage', stage: 'extracting-themes' }
+      const tThemes = Date.now()
       const docIds = deck.documentIds
       const themes: QuizTheme[] = []
       const targetPerDoc = Math.max(
@@ -129,6 +164,11 @@ export class QuizService {
         }
       }
 
+      // eslint-disable-next-line no-console
+      console.log(
+        `[quiz] themes: ${themes.length} from ${docIds.length} doc(s) in ${Date.now() - tThemes}ms (pool=${pooled ? concurrency : 'serial'})`,
+      )
+
       if (themes.length === 0) {
         const msg =
           emptyDocCount === docIds.length
@@ -144,67 +184,102 @@ export class QuizService {
       yield { type: 'stage', stage: 'merging-themes' }
       const merged = await dedupThemes(embedder, themes)
 
-      // ---- Stage 3: allocate slots ----
+      // ---- Stage 3: order themes by weight ----
       yield { type: 'stage', stage: 'allocating' }
-      const slots = allocateSlots(merged, deck.questionCount)
-      if (slots.length === 0) {
-        await quizzes.setDeckStatus(deckId, 'failed', 'no slots after allocation')
-        yield { type: 'error', message: 'no slots after allocation' }
+
+      // ---- Stage 4: batched question generation ----
+      const accepted: AcceptedQuestion[] = []
+      // Pre-fetch grounding for EVERY merged theme. Each theme is one batch
+      // candidate; extra themes beyond what we need are a fresh-content buffer
+      // for batches that come back short (so we never re-grind an exhausted
+      // theme into duplicates).
+      const groundingByTheme = new Map<string, ChunkRow[]>()
+      for (const theme of merged) {
+        if (abortSignal?.aborted) throw new Error('cancelled')
+        groundingByTheme.set(theme.id, await this.resolveGrounding(deck.workspaceId, theme))
+      }
+
+      // Batch candidates: themes by weight, only those with grounding. When
+      // there are fewer themes than batches we need (few-themes / many-questions),
+      // cycle through them round-robin — each reuse sees a bigger avoid-list, so
+      // the model keeps producing distinct questions.
+      const grounded = [...merged]
+        .sort((a, b) => b.weight - a.weight)
+        .filter((t) => (groundingByTheme.get(t.id)?.length ?? 0) > 0)
+      if (grounded.length === 0) {
+        await quizzes.setDeckStatus(deckId, 'failed', 'no grounding for any theme')
+        yield { type: 'error', message: 'no grounding for any theme' }
         return
       }
+      const batchesNeeded = Math.ceil(deck.questionCount / QUIZ_BATCH_SIZE)
+      const maxBatches = Math.max(grounded.length, batchesNeeded * 3)
+      const batchQueue: QuizTheme[] = Array.from(
+        { length: maxBatches },
+        (_, i) => grounded[i % grounded.length]!,
+      )
 
-      // ---- Stage 4: generate questions theme-by-theme ----
-      const accepted: AcceptedQuestion[] = []
-      // We pre-fetch grounding chunks per theme: whole-doc themes already
-      // carry chunk ids; outline themes get a RetrievalService hit. Done up
-      // front so the inner loop is purely LLM-bound.
-      const groundingByTheme = new Map<string, ChunkRow[]>()
-      for (const slot of slots) {
+      let cursor = 0
+      let consecutiveEmptyWaves = 0
+      // Each batch asks one theme for QUIZ_BATCH_SIZE distinct questions in a
+      // single call; a wave runs up to `concurrency` batches in parallel. Stop
+      // at the target, when the queue drains, or after two waves in a row that
+      // add nothing new.
+      while (accepted.length < deck.questionCount && cursor < batchQueue.length) {
         if (abortSignal?.aborted) throw new Error('cancelled')
-        const chunks = await this.resolveGrounding(deck.workspaceId, slot.theme)
-        groundingByTheme.set(slot.theme.id, chunks)
-      }
-
-      // Round-robin across themes so a single theme can't monopolise the
-      // first few questions before we've heard from the others. We re-walk
-      // until budgets are exhausted or top-ups are no longer possible.
-      const queue = slots.map((s) => ({ themeId: s.theme.id, theme: s.theme, remaining: s.budget }))
-      let topUpAttempts = 0
-      const maxTopUps = deck.questionCount // allow up to N skip-and-retries
-      let ordinal = 0
-      while (accepted.length < deck.questionCount) {
-        if (abortSignal?.aborted) throw new Error('cancelled')
-        const ready = queue.find((q) => q.remaining > 0)
-        if (!ready) {
-          // No budget left. If we're short, top up by picking the heaviest
-          // theme that still has grounding.
-          if (topUpAttempts >= maxTopUps) break
-          topUpAttempts += 1
-          const heaviest = [...slots].sort((a, b) => b.theme.weight - a.theme.weight)[0]
-          if (!heaviest) break
-          queue.push({ themeId: heaviest.theme.id, theme: heaviest.theme, remaining: 1 })
-          continue
+        const need = deck.questionCount - accepted.length
+        const wantBatches = Math.min(concurrency, Math.ceil(need / QUIZ_BATCH_SIZE))
+        const wave: QuizTheme[] = []
+        while (wave.length < wantBatches && cursor < batchQueue.length) {
+          wave.push(batchQueue[cursor]!)
+          cursor += 1
         }
-        const grounding = groundingByTheme.get(ready.themeId) ?? []
-        if (grounding.length === 0) {
-          ready.remaining = 0
-          continue
+        if (wave.length === 0) break
+        const avoidSnapshot = accepted.slice()
+        const tWave = Date.now()
+        const results = await Promise.all(
+          wave.map((theme) =>
+            generateQuestionBatch(llm, embedder, {
+              language: deck.language,
+              theme,
+              groundingChunks: groundingByTheme.get(theme.id)!,
+              accepted: avoidSnapshot,
+              count: QUIZ_BATCH_SIZE,
+              ...(pooled ? { pooled: true } : {}),
+              ...(abortSignal ? { abortSignal } : {}),
+            }).catch((err: unknown) => {
+              if (err instanceof Error && err.message === 'cancelled') throw err
+              return { questions: [] }
+            }),
+          ),
+        )
+        const waveMs = Date.now() - tWave
+        let waveAccepted = 0
+        let waveGenerated = 0
+        for (const r of results) {
+          for (const q of r.questions) {
+            waveGenerated += 1
+            if (accepted.length >= deck.questionCount) break
+            // Cross-batch dedup: batches in the same wave shared one avoid-list
+            // snapshot, so re-check each survivor against the live accepted set.
+            if (isStemDuplicate(q.stemEmbedding, accepted)) continue
+            accepted.push({ ...q, ordinal: accepted.length })
+            waveAccepted += 1
+            yield {
+              type: 'question',
+              ordinal: accepted.length,
+              total: deck.questionCount,
+            }
+          }
         }
-        const result = await generateQuestion(llm, embedder, {
-          language: deck.language,
-          theme: ready.theme,
-          groundingChunks: grounding,
-          accepted,
-          ...(abortSignal ? { abortSignal } : {}),
-        })
-        ready.remaining -= 1
-        if (!result.question) continue
-        ordinal += 1
-        accepted.push({ ...result.question, ordinal: ordinal - 1 })
-        yield {
-          type: 'question',
-          ordinal: accepted.length,
-          total: deck.questionCount,
+        // eslint-disable-next-line no-console
+        console.log(
+          `[quiz] wave: ${wave.length} batch → ${waveGenerated} gen, ${waveAccepted} kept in ${waveMs}ms (total ${accepted.length}/${deck.questionCount})`,
+        )
+        if (waveAccepted === 0) {
+          consecutiveEmptyWaves += 1
+          if (consecutiveEmptyWaves >= 2) break
+        } else {
+          consecutiveEmptyWaves = 0
         }
       }
 
@@ -244,6 +319,16 @@ export class QuizService {
         /* DB might be gone — swallow */
       }
       yield { type: 'error', message: errorText }
+    } finally {
+      // Hand the pool's KV-cache VRAM back — quizzes are infrequent, so we don't
+      // keep N sequences resident between generations.
+      if (pooled && llm.releaseGenerationPool) {
+        try {
+          await llm.releaseGenerationPool()
+        } catch {
+          /* worker down or pool already gone — nothing to free */
+        }
+      }
     }
   }
 
@@ -259,10 +344,12 @@ export class QuizService {
       // doesn't blow the context window. We pick the longest chunks because
       // they tend to be most useful for question writing.
       const filtered = allChunks.filter((c) => allowed.has(c.id))
+      // 3 chunks is enough grounding to write ONE MCQ; the prefill is paid per
+      // question, and on a compute-bound 9B that prefill is most of each call.
       return filtered
         .slice()
         .sort((a, b) => (b.token_count ?? 0) - (a.token_count ?? 0))
-        .slice(0, 6)
+        .slice(0, 3)
         .sort((a, b) => a.ordinal - b.ordinal)
     }
     // Outline path: retrieve top-K relevant chunks for the theme title,
