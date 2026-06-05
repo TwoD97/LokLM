@@ -740,10 +740,12 @@ async function quizGenerate(payload: QuizGeneratePayload): Promise<{ raw: string
     // skip the streaming IPC entirely.
     const t0 = Date.now()
     const raw = await session.prompt(payload.prompt, opts)
-    log(
-      'info',
-      `[quiz-gen] slot=${slot} ${Date.now() - t0}ms in=${payload.prompt.length}ch out=${raw.length}ch`,
-    )
+    if (process.env['LOKLM_QUIZ_DEBUG']) {
+      log(
+        'info',
+        `[quiz-gen] slot=${slot} ${Date.now() - t0}ms in=${payload.prompt.length}ch out=${raw.length}ch`,
+      )
+    }
     return { raw }
   } finally {
     activeAborts.delete(payload.streamId)
