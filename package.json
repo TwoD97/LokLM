@@ -43,6 +43,7 @@
     "evals:generate": "tsx tests/evals/synth/generate-dataset.ts",
     "evals:run": "tsx tests/evals/run.ts",
     "evals:sweep": "tsx tests/evals/sweep.ts",
+    "evals:matrix": "tsx tests/evals/sweep.ts --configs matrix",
     "evals:build-library": "tsx tests/evals/scale/build-library.ts",
     "evals:scale": "tsx tests/evals/scale/run-scale.ts",
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
