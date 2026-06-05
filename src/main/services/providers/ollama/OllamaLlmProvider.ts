@@ -1,6 +1,6 @@
 import type { RetrievalHit, ModelStatus } from '../../../../shared/documents'
 import type { AskOptions } from '../../llm/LlamaService'
-import type { LlmProvider, ProviderStatus, GenerateRawOptions } from '../types'
+import type { LlmProvider, ProviderStatus } from '../types'
 import { buildPrompt, buildSystemPrompt, type ResponseLanguage } from '../../llm/prompt'
 import type { OllamaClient } from './OllamaClient'
 
@@ -53,14 +53,22 @@ export class OllamaLlmProvider implements LlmProvider {
     return acc
   }
 
-  async generateRaw(prompt: string, opts: GenerateRawOptions): Promise<string> {
+  async generateRaw(
+    prompt: string,
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      // Accepted for interface parity but IGNORED — Ollama's /api/generate has
+      // no GBNF grammar hook here. Callers rely on the semantic-validation +
+      // JSON-retry fallback path for unconstrained output.
+      jsonSchema?: object | undefined
+      // Also accepted for parity but IGNORED — no reasoning-budget hook here.
+      noThink?: boolean | undefined
+    },
+  ): Promise<string> {
     let acc = ''
     const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
     if (opts.maxTokens != null) body.options = { num_predict: opts.maxTokens }
-    // No GBNF here, but Ollama's `format: json` still forces parseable output,
-    // which removes the quiz JSON-retry round-trip on this path too. `pooled`
-    // is ignored — Ollama has no local batch pool.
-    if (opts.schema) body.format = 'json'
     for await (const chunk of this.client.postNdjson<{ response?: string; done?: boolean }>(
       '/api/generate',
       body,
@@ -96,6 +104,12 @@ export class OllamaLlmProvider implements LlmProvider {
     } catch {
       return null
     }
+  }
+
+  contextWindowTokens(): number {
+    // Unknown without an Ollama /api/show round-trip — callers fall back to
+    // FALLBACK_CONTEXT_TOKENS.
+    return 0
   }
 
   isReady(): boolean {

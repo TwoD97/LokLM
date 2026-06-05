@@ -123,28 +123,136 @@ fn probe_gpu() -> (Option<String>, Option<u64>, Option<GpuArch>) {
 
     let info = adapter.get_info();
     let name = info.name.clone();
-
-    // wgpu does not expose dedicated VRAM directly. limits().max_buffer_size
-    // is a usable lower-bound on most drivers — DX12 reports the heap budget
-    // here , Vulkan reports VkPhysicalDeviceMemoryProperties largest heap ,
-    // Metal reports recommended-working-set. None of these are exact , but
-    // for tier-detection ( "is it 6 / 14 / 20+ GB ? " ) they're good enough.
-    //
-    // Sanity-cap : DX12 on high-end GPUs ( seen on RTX 5090 ) returns
-    // u64::MAX as a "no limit" sentinel for max_buffer_size. That value
-    // (a) breaks the GiB display ( "17179869184 GiB VRAM" ) , (b) breaks
-    // JSON round-trip ( JS f64 can't hold u64::MAX exactly , serde then
-    // rejects on the install round-trip as "expected u64 , got float" ).
-    // Clamp at 80 GiB — covers every current consumer + most workstation
-    // cards , and triggers the Pro-tier memory threshold so the user
-    // still gets the right recommendation when wgpu lies.
-    let raw_max = adapter.limits().max_buffer_size;
-    const MAX_REASONABLE_VRAM: u64 = 80 * GB;
-    let vram_bytes = raw_max.min(MAX_REASONABLE_VRAM);
-
     let arch = classify_gpu_arch(&name);
 
+    // VRAM: wgpu's adapter.limits().max_buffer_size is a per-allocation API
+    // limit , not real VRAM. On DX12 ( Windows default ) it reports u64::MAX
+    // / huge sentinels for every modern card — the 80-GiB clamp then masks
+    // every Windows GPU as "80 GiB" → users landed in Pro by memory alone
+    // regardless of vendor. Vendor-specific paths :
+    //   NVIDIA          → NVML ( Win + Linux )
+    //   AMD / Intel Win → DXGI IDXGIAdapter1::DedicatedVideoMemory
+    //   else            → wgpu estimate with the 80-GiB clamp ( still
+    //                     inaccurate ; user can override on the picker )
+    let is_nvidia = matches!(
+        arch,
+        GpuArch::NvidiaPascal
+            | GpuArch::NvidiaTuring
+            | GpuArch::NvidiaAmpere
+            | GpuArch::NvidiaAda
+            | GpuArch::NvidiaBlackwell,
+    );
+    let vram_bytes = if is_nvidia {
+        probe_nvidia_vram_nvml(&name).unwrap_or_else(|| vram_from_wgpu(adapter))
+    } else {
+        non_nvidia_vram(adapter, &info)
+    };
+
     (Some(name), Some(vram_bytes), Some(arch))
+}
+
+// NVML read for NVIDIA cards. Returns the matching device's total memory ,
+// or the largest NVIDIA device's memory if name match fails ( e.g. NVML's
+// canonical name differs slightly from wgpu's ) , or None if NVML isn't
+// installed / fails to init ( non-NVIDIA system , broken driver ).
+fn probe_nvidia_vram_nvml(target_name: &str) -> Option<u64> {
+    let nvml = nvml_wrapper::Nvml::init().ok()?;
+    let count = nvml.device_count().ok()?;
+    if count == 0 {
+        return None;
+    }
+
+    let target_lower = target_name.to_ascii_lowercase();
+    let mut largest: Option<u64> = None;
+
+    for i in 0..count {
+        let Ok(dev) = nvml.device_by_index(i) else { continue };
+        let Ok(mem) = dev.memory_info() else { continue };
+        if let Ok(name) = dev.name() {
+            if name.to_ascii_lowercase() == target_lower {
+                return Some(mem.total);
+            }
+        }
+        if largest.map_or(true, |b| mem.total > b) {
+            largest = Some(mem.total);
+        }
+    }
+
+    largest
+}
+
+// Fallback path for non-NVIDIA adapters. Same logic the file used to apply
+// unconditionally — keep the 80-GiB clamp so DX12's u64::MAX sentinel ( and
+// equivalents on other backends ) still serialize and still trigger the Pro
+// memory threshold ; user can override.
+fn vram_from_wgpu(adapter: &wgpu::Adapter) -> u64 {
+    const MAX_REASONABLE_VRAM: u64 = 80 * GB;
+    adapter.limits().max_buffer_size.min(MAX_REASONABLE_VRAM)
+}
+
+// Non-NVIDIA VRAM read. On Windows we ask DXGI by vendor/device ID — the
+// kernel driver reports real DedicatedVideoMemory ( e.g. 7900 XTX = ~25 GB ,
+// 760M iGPU = ~512 MB UEFI carve-out ). Elsewhere we fall back to wgpu.
+fn non_nvidia_vram(adapter: &wgpu::Adapter, info: &wgpu::AdapterInfo) -> u64 {
+    #[cfg(target_os = "windows")]
+    if let Some(v) = probe_dxgi_vram(info.vendor, info.device) {
+        return v;
+    }
+    let _ = info; // unused on non-Windows
+    vram_from_wgpu(adapter)
+}
+
+#[cfg(target_os = "windows")]
+fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
+    use windows::Win32::Graphics::Dxgi::{
+        CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, DXGI_ADAPTER_DESC1,
+    };
+
+    let mut adapters: Vec<(u32, u32, u64)> = Vec::new();
+    unsafe {
+        let factory: IDXGIFactory1 = CreateDXGIFactory1().ok()?;
+        // EnumAdapters1 yields adapters until DXGI_ERROR_NOT_FOUND. Cap the
+        // loop defensively in case a driver returns success on a phantom
+        // index ( seen on a few Hyper-V configurations ).
+        for idx in 0u32..32 {
+            let Ok(adapter): windows::core::Result<IDXGIAdapter1> = factory.EnumAdapters1(idx)
+            else {
+                break;
+            };
+            let mut desc = DXGI_ADAPTER_DESC1::default();
+            if adapter.GetDesc1(&mut desc).is_err() {
+                continue;
+            }
+            adapters.push((desc.VendorId, desc.DeviceId, desc.DedicatedVideoMemory as u64));
+        }
+    }
+    select_dxgi_vram(&adapters, vendor_id, device_id)
+}
+
+// Pick the dedicated-VRAM figure for the wgpu-chosen adapter out of the DXGI
+// adapter list. Exact vendor+device match wins ( correct on multi-GPU boxes ).
+//
+// Fallback : if no exact match , take the largest dedicated VRAM among
+// same-vendor adapters. wgpu's Vulkan backend ( the adapter we usually pick
+// on Windows ) can report a `device` id that disagrees with DXGI's PCI
+// DeviceId ; without this fallback the caller drops to vram_from_wgpu , whose
+// max_buffer_size is the u64::MAX sentinel → clamped to 80 GiB. That sentinel
+// masquerading as real VRAM is the recurring "AMD card shows 80 GB" bug , so
+// we never let a real GPU slip through to it.
+#[cfg(any(target_os = "windows", test))]
+fn select_dxgi_vram(adapters: &[(u32, u32, u64)], vendor_id: u32, device_id: u32) -> Option<u64> {
+    if let Some(&(_, _, mem)) = adapters
+        .iter()
+        .find(|&&(v, d, _)| v == vendor_id && d == device_id)
+    {
+        return Some(mem);
+    }
+    adapters
+        .iter()
+        .filter(|&&(v, _, _)| v == vendor_id)
+        .map(|&(_, _, mem)| mem)
+        .max()
+        .filter(|&m| m > 0)
 }
 
 fn classify_gpu_arch(name: &str) -> GpuArch {
@@ -378,5 +486,45 @@ mod tests {
     #[test]
     fn classify_unknown_falls_back() {
         assert_eq!(classify_gpu_arch("some weird gpu"), GpuArch::Other);
+    }
+
+    // DXGI VRAM selection. Tuples are ( vendor_id , device_id , dedicated VRAM ).
+    // 0x1002 = AMD , 0x1414 = Microsoft ( Basic Render Driver , dedVRAM 0 ).
+
+    #[test]
+    fn dxgi_exact_match_wins() {
+        // 760M iGPU : wgpu device id agrees with DXGI , exact match returns
+        // the 512 MB carve-out.
+        let adapters = [(0x1002, 0x1900, GB / 2), (0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x1900), Some(GB / 2));
+    }
+
+    #[test]
+    fn dxgi_vendor_fallback_when_device_id_mismatches() {
+        // Discrete AMD card : wgpu's Vulkan backend reports a device id that
+        // DXGI doesn't list. Exact match misses ; the same-vendor fallback
+        // recovers the real 24 GB instead of the 80-GiB wgpu sentinel.
+        let adapters = [(0x1002, 0x7448, 24 * GB), (0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x9999), Some(24 * GB));
+    }
+
+    #[test]
+    fn dxgi_fallback_picks_largest_same_vendor() {
+        // AMD iGPU + AMD dGPU , wgpu device id matches neither. Pick the
+        // dGPU's larger VRAM , not the iGPU carve-out.
+        let adapters = [
+            (0x1002, 0x1900, GB / 2),
+            (0x1002, 0x7448, 24 * GB),
+            (0x1414, 0x008c, 0),
+        ];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x0000), Some(24 * GB));
+    }
+
+    #[test]
+    fn dxgi_no_same_vendor_returns_none() {
+        // Only the software renderer present : nothing for the queried
+        // vendor , so fall through ( caller uses the wgpu estimate ).
+        let adapters = [(0x1414, 0x008c, 0)];
+        assert_eq!(select_dxgi_vram(&adapters, 0x1002, 0x1900), None);
     }
 }

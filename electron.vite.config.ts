@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -9,6 +10,9 @@ const sharedAliases = {
   '@renderer': resolve(__dirname, 'src/renderer/src'),
 }
 
+const pkgVersion = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'))
+  .version as string
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -16,11 +20,12 @@ export default defineConfig({
     build: {
       outDir: 'out/main',
       rollupOptions: {
-        // modelsWorker is a sibling entry — utilityProcess.fork loads it from
-        // out/main/modelsWorker.js at runtime (see ModelsWorkerClient).
+        // modelsWorker + documentsWorker are sibling entries — utilityProcess.fork
+        // loads them from out/main/<name>.js at runtime (see the worker clients).
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
           modelsWorker: resolve(__dirname, 'src/main/services/workers/modelsWorker.ts'),
+          documentsWorker: resolve(__dirname, 'src/main/services/workers/documentsWorker.ts'),
         },
       },
     },
@@ -39,6 +44,9 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react()],
     resolve: { alias: sharedAliases },
+    define: {
+      __APP_VERSION__: JSON.stringify(pkgVersion),
+    },
     build: {
       outDir: resolve(__dirname, 'out/renderer'),
       rollupOptions: {

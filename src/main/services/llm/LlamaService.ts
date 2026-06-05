@@ -40,6 +40,7 @@ import {
   REPETITION_HINT_TEXT,
   stripThink,
   chunkifyForStream,
+  answerMaxTokens,
   type ResponseLanguage,
 } from './prompt'
 export type { ResponseLanguage }
@@ -335,6 +336,12 @@ export class LlamaService {
     return this.language
   }
 
+  /** Live max context window in tokens from the last successful load plan, or
+   *  0 if no model is loaded (callers fall back to FALLBACK_CONTEXT_TOKENS). */
+  contextWindowTokens(): number {
+    return this.lastPlan?.contextSize ?? 0
+  }
+
   getPlanner(): ResourcePlanner {
     return this.planner
   }
@@ -538,7 +545,7 @@ export class LlamaService {
   ): Promise<string> {
     const client = this.client!
     const ctxSize = this.lastPlan?.contextSize ?? 8192
-    const maxTokens = Math.max(4096, Math.min(32768, Math.floor(ctxSize / 4)))
+    const maxTokens = answerMaxTokens(ctxSize)
     const streamId = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     const filter = new ThinkFilter()
@@ -633,7 +640,12 @@ export class LlamaService {
 
   async generateRaw(
     prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number; noThink?: boolean } = {},
+    opts: {
+      abortSignal?: AbortSignal | undefined
+      maxTokens?: number | undefined
+      jsonSchema?: object | undefined
+      noThink?: boolean | undefined
+    } = {},
   ): Promise<string> {
     this.touchUsage()
     if (!this.isReady() || !this.client) {
@@ -653,82 +665,16 @@ export class LlamaService {
         streamId: string
         prompt: string
         maxTokens?: number
+        jsonSchema?: object
         noThink?: boolean
       } = {
         streamId,
         prompt,
       }
       if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
+      if (opts.jsonSchema != null) payload.jsonSchema = opts.jsonSchema
       if (opts.noThink) payload.noThink = true
       const { raw } = await client.llmGenerateRaw(payload)
-      return stripThink(raw).trim()
-    } finally {
-      if (abortListener && opts.abortSignal) {
-        opts.abortSignal.removeEventListener('abort', abortListener)
-      }
-    }
-  }
-
-  /** Warm the parallel quiz-decode pool (bundled-only). Returns the number of
-   *  concurrent slots the worker actually allocated (1 on CPU or a tight GPU,
-   *  up to `maxSlots` on a roomy GPU), or **0** if no pool could be built — in
-   *  which case the caller must fall back to the serial `generateRaw` path
-   *  rather than routing through `generateQuiz` (which would have no pool to
-   *  run on). */
-  async ensureQuizPool(maxSlots: number, contextTokens: number): Promise<number> {
-    if (!this.isReady() || !this.client) return 0
-    try {
-      const { slots } = await this.client.quizPoolEnsure({ maxSlots, contextTokens })
-      return Math.max(0, slots)
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[llama] quiz pool unavailable, falling back to serial: ${err instanceof Error ? err.message : String(err)}`,
-      )
-      return 0
-    }
-  }
-
-  /** Free the quiz pool's KV-cache VRAM. Safe to call when no pool exists. */
-  async releaseQuizPool(): Promise<void> {
-    if (!this.client) return
-    try {
-      await this.client.quizPoolRelease()
-    } catch {
-      /* pool already gone or worker down — nothing to free */
-    }
-  }
-
-  /** Single grammar-constrained generation routed through the quiz pool. The
-   *  worker queues it onto the next free sequence, so callers can fire many of
-   *  these concurrently and the pool throttles to its slot count. */
-  async generateQuiz(
-    prompt: string,
-    opts: { abortSignal?: AbortSignal; maxTokens?: number; schemaKind?: 'theme' | 'question' } = {},
-  ): Promise<string> {
-    this.touchUsage()
-    if (!this.isReady() || !this.client) {
-      throw new Error('Model is not loaded.')
-    }
-    const client = this.client
-    const streamId = `quiz-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-    let abortListener: (() => void) | null = null
-    if (opts.abortSignal) {
-      abortListener = (): void => {
-        void client.llmAbort(streamId).catch(() => undefined)
-      }
-      opts.abortSignal.addEventListener('abort', abortListener, { once: true })
-    }
-    try {
-      const payload: {
-        streamId: string
-        prompt: string
-        maxTokens?: number
-        schemaKind?: 'theme' | 'question'
-      } = { streamId, prompt }
-      if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
-      if (opts.schemaKind) payload.schemaKind = opts.schemaKind
-      const { raw } = await client.quizGenerate(payload)
       return stripThink(raw).trim()
     } finally {
       if (abortListener && opts.abortSignal) {

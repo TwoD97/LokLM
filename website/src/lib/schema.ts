@@ -56,3 +56,83 @@ export function buildSoftwareSchema(input: SoftwareSchemaInput) {
     ...(winDownloadUrl ? { downloadUrl: winDownloadUrl } : {}),
   }
 }
+
+export interface WebPageSchemaInput {
+  url: string
+  name: string
+  description: string
+  lang: 'de' | 'en'
+}
+
+export function buildWebPageSchema(input: WebPageSchemaInput) {
+  const { url, name, description, lang } = input
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${url}#webpage`,
+    url,
+    name,
+    description,
+    inLanguage: lang,
+  }
+}
+
+export interface BreadcrumbItem {
+  name: string
+  url: string
+}
+
+export function buildBreadcrumbSchema(items: BreadcrumbItem[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.name,
+      item: it.url,
+    })),
+  }
+}
+
+export interface ArticleSchemaInput {
+  url: string
+  headline: string
+  description: string
+  lang: 'de' | 'en'
+  datePublished: string
+  dateModified?: string
+}
+
+export function buildArticleSchema(input: ArticleSchemaInput) {
+  const { url, headline, description, lang, datePublished, dateModified } = input
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    inLanguage: lang,
+    datePublished,
+    dateModified: dateModified ?? datePublished,
+    mainEntityOfPage: url,
+    author: { '@type': 'Organization', name: 'LokLM' },
+    publisher: { '@type': 'Organization', name: 'LokLM' },
+  }
+}
+
+export interface FaqEntry {
+  question: string
+  answer: string
+}
+
+export function buildFaqSchema(entries: FaqEntry[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: entries.map((e) => ({
+      '@type': 'Question',
+      name: e.question,
+      acceptedAnswer: { '@type': 'Answer', text: e.answer },
+    })),
+  }
+}

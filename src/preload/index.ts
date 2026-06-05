@@ -161,6 +161,14 @@ const api = {
       ipcRenderer.invoke('documents:import', workspaceId, sourcePath),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('documents:delete', id),
     reindex: (id: number): Promise<Document> => ipcRenderer.invoke('documents:reindex', id),
+    /** Cancel still-queued imports/reindexes for a workspace (e.g. a mis-dropped
+     *  folder). Jobs already running finish. Returns how many were cancelled. */
+    cancelIndexing: (workspaceId: number): Promise<number> =>
+      ipcRenderer.invoke('documents:cancelIndexing', workspaceId),
+    /** Lazily compute (or return cached) a whole-document summary. Rejects with
+     *  a `code: message` error ('no_content' | 'model_not_ready' | 'failed'). */
+    summarize: (documentId: number): Promise<{ summary: string; cached: boolean }> =>
+      ipcRenderer.invoke('documents:summarize', documentId),
     revealSource: (
       id: number,
     ): Promise<
@@ -343,6 +351,9 @@ const api = {
         | { ok: true; version: string; models: string[] }
         | { ok: false; kind: string; message: string }
       >,
+  },
+  logs: {
+    openFolder: (): Promise<void> => ipcRenderer.invoke('logs:openFolder'),
   },
   providers: {
     onFallback: (cb: (ev: { kind: 'llm' | 'reranker'; reason: string }) => void): (() => void) => {

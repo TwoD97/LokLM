@@ -24,48 +24,69 @@ export function RerankerSection({ settings, update }: Props): JSX.Element {
         <div className="settings-group__body">
           <div className="settings-row">
             <div className="settings-row__label">
-              <span className="settings-row__label-text">{t('settings.reranker.source')}</span>
-              <span className="settings-row__hint">{t('settings.reranker.sourceHint')}</span>
+              <span className="settings-row__label-text">{t('settings.reranker.enabled')}</span>
+              <span className="settings-row__hint">{t('settings.reranker.enabledHint')}</span>
             </div>
             <Segmented
-              ariaLabel={t('settings.reranker.sourceAria')}
-              value={a.source}
+              ariaLabel={t('settings.reranker.enabledAria')}
+              value={a.enabled ? 'on' : 'off'}
               options={[
-                { value: 'bundled', label: t('settings.reranker.bundled') },
-                {
-                  value: 'ollama',
-                  label: t('settings.reranker.externalOllama'),
-                  disabled: !ollamaRerankerModel,
-                  hint: ollamaRerankerModel ? undefined : t('settings.reranker.pickModelFirst'),
-                },
+                { value: 'off', label: t('settings.reranker.off') },
+                { value: 'on', label: t('settings.reranker.on') },
               ]}
-              onChange={(v) => void update({ advanced: { reranker: { source: v } } })}
+              onChange={(v) => void update({ advanced: { reranker: { enabled: v === 'on' } } })}
             />
           </div>
-          {a.source === 'ollama' && (
-            <div className="settings-inline-warning">
-              <span className="settings-inline-warning__icon" aria-hidden="true">
-                <AlertTriangle size={14} />
-              </span>
-              <span>{t('settings.reranker.ollamaWarning')}</span>
-            </div>
+          {a.enabled && (
+            <>
+              <div className="settings-row">
+                <div className="settings-row__label">
+                  <span className="settings-row__label-text">{t('settings.reranker.source')}</span>
+                  <span className="settings-row__hint">{t('settings.reranker.sourceHint')}</span>
+                </div>
+                <Segmented
+                  ariaLabel={t('settings.reranker.sourceAria')}
+                  value={a.source}
+                  options={[
+                    { value: 'bundled', label: t('settings.reranker.bundled') },
+                    {
+                      value: 'ollama',
+                      label: t('settings.reranker.externalOllama'),
+                      disabled: !ollamaRerankerModel,
+                      hint: ollamaRerankerModel ? undefined : t('settings.reranker.pickModelFirst'),
+                    },
+                  ]}
+                  onChange={(v) => void update({ advanced: { reranker: { source: v } } })}
+                />
+              </div>
+              {a.source === 'ollama' && (
+                <div className="settings-inline-warning">
+                  <span className="settings-inline-warning__icon" aria-hidden="true">
+                    <AlertTriangle size={14} />
+                  </span>
+                  <span>{t('settings.reranker.ollamaWarning')}</span>
+                </div>
+              )}
+              <div className="settings-row">
+                <div className="settings-row__label">
+                  <span className="settings-row__label-text">
+                    {t('settings.reranker.placement')}
+                  </span>
+                  <span className="settings-row__hint">{t('settings.reranker.placementHint')}</span>
+                </div>
+                <Segmented
+                  ariaLabel={t('settings.reranker.placementAria')}
+                  value={a.placement}
+                  options={[
+                    { value: 'auto', label: t('settings.reranker.placementAuto') },
+                    { value: 'cpu', label: t('settings.reranker.placementCpu') },
+                    { value: 'gpu', label: t('settings.reranker.placementGpu') },
+                  ]}
+                  onChange={(v) => void update({ advanced: { reranker: { placement: v } } })}
+                />
+              </div>
+            </>
           )}
-          <div className="settings-row">
-            <div className="settings-row__label">
-              <span className="settings-row__label-text">{t('settings.reranker.placement')}</span>
-              <span className="settings-row__hint">{t('settings.reranker.placementHint')}</span>
-            </div>
-            <Segmented
-              ariaLabel={t('settings.reranker.placementAria')}
-              value={a.placement}
-              options={[
-                { value: 'auto', label: t('settings.reranker.placementAuto') },
-                { value: 'cpu', label: t('settings.reranker.placementCpu') },
-                { value: 'gpu', label: t('settings.reranker.placementGpu') },
-              ]}
-              onChange={(v) => void update({ advanced: { reranker: { placement: v } } })}
-            />
-          </div>
         </div>
       )}
     </div>

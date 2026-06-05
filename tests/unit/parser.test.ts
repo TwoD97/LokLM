@@ -16,6 +16,15 @@ describe('isSupported', () => {
     expect(isSupported('foo.docx')).toBe(true)
     expect(isSupported('FOO.DOCX')).toBe(true)
   })
+  it('accepts raster image formats (OCR)', () => {
+    expect(isSupported('scan.png')).toBe(true)
+    expect(isSupported('scan.JPG')).toBe(true)
+    expect(isSupported('scan.jpeg')).toBe(true)
+    expect(isSupported('scan.webp')).toBe(true)
+    expect(isSupported('scan.tif')).toBe(true)
+    expect(isSupported('scan.tiff')).toBe(true)
+    expect(isSupported('scan.bmp')).toBe(true)
+  })
   it('rejects legacy .doc (binary Word format)', () => {
     expect(isSupported('foo.doc')).toBe(false)
   })

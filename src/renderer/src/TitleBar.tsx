@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
 import { useT, type TFn } from './i18n'
+import { useSettings } from './settings/useSettings'
 
 type DotState = EmbedderState | RerankerState | ModelState
 type DotSource = 'bundled' | 'ollama'
@@ -74,6 +75,11 @@ type TitleBarProps = {
 
 export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {}): JSX.Element {
   const t = useT()
+  const { settings } = useSettings()
+  // Default to shown until settings hydrate, so the dot doesn't flicker out on
+  // first paint for the common (reranker-on) case. Hidden only once we know the
+  // user / tier disabled the rerank stage.
+  const rerankerEnabled = settings?.advanced.reranker.enabled ?? true
   const [maximized, setMaximized] = useState(false)
   const [embedder, setEmbedder] = useState<{
     state: EmbedderState
@@ -188,12 +194,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           source={embedder.source}
           message={embedder.message}
         />
-        <StatusDot
-          label="Reranker"
-          state={reranker.state}
-          source={reranker.source}
-          message={reranker.message}
-        />
+        {rerankerEnabled && (
+          <StatusDot
+            label="Reranker"
+            state={reranker.state}
+            source={reranker.source}
+            message={reranker.message}
+          />
+        )}
       </div>
 
       <div className="titlebar__spacer" />

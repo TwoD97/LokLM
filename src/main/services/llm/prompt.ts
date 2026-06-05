@@ -22,6 +22,74 @@ export const REPETITION_HINT_TEXT: Record<ResponseLanguage, string> = {
 export const HISTORY_MESSAGE_CHAR_CAP = 1500
 export const HISTORY_TRUNCATION_MARKER = '… [truncated]'
 
+// ---- token budgeting for the Context block --------------------------------
+//
+// LokLM runs small local models with tight windows (the Lite profile is ~8K).
+// buildPrompt used to dump EVERY retrieved hit into the prompt verbatim, so a
+// broad/summary query (topK up to 12) could silently overflow the window —
+// forcing the history-drop retry or letting llama.cpp truncate blindly. We now
+// trim hits to a token budget before they're fed (and before QAService emits
+// citations, so the chips match exactly what the model saw).
+//
+// Tokens are estimated by characters (~3.5 chars/token across DE+EN) rather
+// than a real tokenizer: within ~10%, zero hot-path cost, and consistent with
+// how the chunker + quiz themes already budget.
+export const CHARS_PER_TOKEN = 3.5
+
+/** Window assumed when the active provider can't report one (e.g. Ollama
+ *  without an /api/show round-trip). Matches the quiz path's fallback. */
+export const DEFAULT_CONTEXT_TOKENS = 8192
+
+/** Safety slack so estimate error + the worker's own framing never tips us
+ *  over the real window. */
+export const CONTEXT_PACK_MARGIN_TOKENS = 192
+
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN)
+}
+
+/** Answer-generation reserve. SINGLE source for both the maxTokens LlamaService
+ *  passes the worker AND the packer's reserve, so we never pack hits into space
+ *  the answer needs. ~1/4 of the window, floored at 4K, capped at 32K. */
+export function answerMaxTokens(contextSize: number): number {
+  return Math.max(4096, Math.min(32768, Math.floor(contextSize / 4)))
+}
+
+/** Rough token cost of the rendered history block — mirrors the per-message
+ *  char cap buildPrompt applies, plus a few tokens per turn for the role label
+ *  and separators — so the packer reserves room for it. */
+export function estimateHistoryTokens(
+  history?: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>,
+): number {
+  if (!history || history.length === 0) return 0
+  let chars = 0
+  for (const m of history) chars += Math.min(m.content.length, HISTORY_MESSAGE_CHAR_CAP) + 12
+  return Math.ceil(chars / CHARS_PER_TOKEN)
+}
+
+/** Trim retrieval hits to fit `budgetTokens`, preserving rank order and ALWAYS
+ *  keeping at least the top hit (a single chunk that alone exceeds the budget
+ *  is still better than refusing). Cost per hit matches buildPrompt's rendering
+ *  (header + text + the "\n\n---\n\n" separator). */
+export function packHitsToBudget(
+  hits: RetrievalHit[],
+  budgetTokens: number,
+  responseLang?: ResponseLanguage,
+): RetrievalHit[] {
+  if (hits.length <= 1) return hits
+  const SEP_TOKENS = 4
+  const out: RetrievalHit[] = []
+  let used = 0
+  for (const h of hits) {
+    const cost =
+      estimateTokens(formatHitHeader(h, responseLang)) + estimateTokens(h.text) + SEP_TOKENS
+    if (out.length > 0 && used + cost > budgetTokens) break
+    out.push(h)
+    used += cost
+  }
+  return out
+}
+
 /**
  * Build the system prompt for a given response language. The MVP locks the
  * model to exactly one of DE / EN per session — this keeps Piper TTS happy

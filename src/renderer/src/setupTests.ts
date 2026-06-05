@@ -115,6 +115,8 @@ const stub: Api = {
     refresh: () => Promise.resolve({ ok: true as const, outcome: 'unchanged' as const }),
     listMissing: () => Promise.resolve([]),
     keepMissing: () => Promise.resolve(),
+    cancelIndexing: () => Promise.resolve(0),
+    summarize: () => Promise.resolve({ summary: 'stub summary', cached: false }),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
@@ -342,6 +344,9 @@ const stub: Api = {
   },
   providers: {
     onFallback: () => () => undefined,
+  },
+  logs: {
+    openFolder: () => Promise.resolve(),
   },
   quiz: {
     listDecks: () => Promise.resolve([]),

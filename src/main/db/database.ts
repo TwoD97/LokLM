@@ -248,6 +248,27 @@ export class DocumentsRepo {
     await this.db.update(documents).set({ status }).where(eq(documents.id, documentId))
   }
 
+  /** Cache (or clear) a document's lazily-computed summary. reindex_document
+   *  nulls it automatically on content change; this is the write side for the
+   *  SummarizationService. */
+  async setSummary(documentId: number, summary: string | null): Promise<void> {
+    await this.db.update(documents).set({ summary }).where(eq(documents.id, documentId))
+  }
+
+  /** Cold-boot orphan sweep: a doc still flagged 'indexing'/'pending' is left
+   *  over from a previous session that crashed (or was killed) mid-import — the
+   *  in-memory queue that owned it is gone, so it would otherwise spin forever.
+   *  Flip them to 'failed' so the UI surfaces them and the user can reindex.
+   *  MUST run at startup, before any new import is enqueued. Returns row count. */
+  async resetStuckIndexing(): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE documents SET status = 'failed'
+       WHERE status IN ('indexing', 'pending')
+       RETURNING id
+    `)
+    return r.rows.length
+  }
+
   async listDocumentsByWorkspace(workspaceId: number): Promise<Document[]> {
     // Aggregates per-document language from chunks.language (mig 0007). Rule:
     //   - dominant lang ≥70 % of detected chunks → 'de' | 'en'

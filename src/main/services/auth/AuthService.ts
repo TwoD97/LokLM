@@ -155,6 +155,10 @@ export class AuthService {
   // brute-force tracker for login.
   private failures: number[] = []
 
+  // Serializes vault writes — see writeVault. Without this, two overlapping
+  // persists race on the shared loklm.vault.tmp file.
+  private vaultWriteChain: Promise<void> = Promise.resolve()
+
   constructor(userDataDir: string) {
     this.vaultFilePath = join(userDataDir, 'loklm.vault')
   }
@@ -280,8 +284,19 @@ export class AuthService {
     }
 
     emit('restoring')
+    // Only commit the DEK to session state once the DB actually loads. If
+    // Database.create throws (incompatible/corrupt snapshot that still passed
+    // the GCM tag, migration failure), zero the DEK rather than leaving it
+    // resident — matches the zeroing on every other failure path here.
+    let database: Database
+    try {
+      database = await Database.create(undefined, snapshotBlob)
+    } catch (err) {
+      dek.fill(0)
+      throw err
+    }
     this.dek = dek
-    this.database = await Database.create(undefined, snapshotBlob)
+    this.database = database
     this.liveHeader = vault.header
     this.failures = []
     this.startInactivityTimer()
@@ -532,7 +547,28 @@ export class AuthService {
     return { header, body: { nonce, tag, ciphertextChunks: [ciphertext] } }
   }
 
-  private async writeVault(header: AuthHeader, body: EncryptedBody): Promise<void> {
+  private writeVault(header: AuthHeader, body: EncryptedBody): Promise<void> {
+    // Serialize writes. writeVaultNow uses a single fixed `.tmp` path, so two
+    // overlapping writes (a settings:update persist racing an auto-lock or
+    // before-quit persist) would interleave into that tmp and the second rename
+    // would hit an already-moved tmp (ENOENT) or rename a mixed-content tmp over
+    // the vault — an AES-GCM tag failure on next login that recovery codes can't
+    // fix. The cross-process variant is handled by requestSingleInstanceLock;
+    // this closes the in-process one. Chain off the previous write regardless of
+    // its outcome so one failure doesn't wedge the queue, while still returning
+    // the real result to this caller.
+    const result = this.vaultWriteChain.then(
+      () => this.writeVaultNow(header, body),
+      () => this.writeVaultNow(header, body),
+    )
+    this.vaultWriteChain = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
+  }
+
+  private async writeVaultNow(header: AuthHeader, body: EncryptedBody): Promise<void> {
     const headerJson = Buffer.from(JSON.stringify(header), 'utf8')
     const headerLen = Buffer.alloc(HEADER_LEN_BYTES)
     headerLen.writeUInt32BE(headerJson.length, 0)
@@ -607,7 +643,13 @@ export class AuthService {
       }
       const idle = Date.now() - this.lastActivity
       if (idle >= this.inactivityMs) {
-        void this.lock().then(() => this.onLockCallback?.())
+        // lock() tears the session down in its finally even if the snapshot
+        // persist throws, so fire the callback regardless — the UI must reflect
+        // the now-locked state. .catch keeps a persist failure from surfacing as
+        // an unhandled rejection on this fire-and-forget call.
+        void this.lock()
+          .catch(() => undefined)
+          .finally(() => this.onLockCallback?.())
       }
     }, 30_000)
     if (typeof this.inactivityTimer.unref === 'function') this.inactivityTimer.unref()

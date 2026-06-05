@@ -10,37 +10,74 @@ import type { QuizLanguage } from '../../../shared/quiz'
 export const THEME_PROMPT_RESERVE_TOKENS = 600
 export const THEME_OUTPUT_RESERVE_TOKENS = 800
 export const QUESTION_PROMPT_RESERVE_TOKENS = 800
-// Doubles as the hard `maxTokens` cap per question. One MCQ JSON object (stem +
-// 4 options + explanation) is ~200–400 tokens; 768 leaves slack for a longer
-// explanation while still killing the uncapped runaway decodes.
-export const QUESTION_OUTPUT_RESERVE_TOKENS = 768
+export const QUESTION_OUTPUT_RESERVE_TOKENS = 500
 
 /** Conservative ceiling on usable content tokens when we can't probe the live
  *  LLM context window. Lite / Full / XL all fit this; Ollama models usually do
  *  too. The theme path uses this when LlamaService.lastPlan isn't available. */
 export const FALLBACK_CONTEXT_TOKENS = 8192
 
+/** Per-question output budget for the batch generator: a 4-option MCQ + short
+ *  explanation + a couple of citation ids fits well under this. maxTokens for a
+ *  batch call = count * PER_QUESTION_TOKEN_BUDGET, bounding runaway generation. */
+export const PER_QUESTION_TOKEN_BUDGET = 320
+
+/** maxTokens cap for one windowed theme-extraction call. Windows ask for only a
+ *  few themes so this is plenty, and it bounds runaway generation. */
+export const THEME_EXTRACTION_MAX_TOKENS = 1024
+
+// node-llama-cpp GbnfJsonSchema objects. The grammar enforces JSON *syntax* +
+// the value shapes here (enum for correct_index, integer/string arrays); the
+// "exactly 4 distinct options", "ids ⊆ allowed", and non-empty-string checks
+// stay in the TS validators since the grammar can't express them. These are
+// passed straight to llama.createGrammarForJsonSchema in the worker.
+
+/** Schema for the theme-extraction array. */
+export const THEME_LIST_SCHEMA = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      summary: { type: 'string' },
+      weight: { type: 'integer' },
+    },
+  },
+} as const
+
+/** Schema for the batch-of-MCQs array. */
+export const QUESTION_LIST_SCHEMA = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      stem: { type: 'string' },
+      options: { type: 'array', items: { type: 'string' } },
+      correct_index: { enum: [0, 1, 2, 3] },
+      explanation: { type: 'string' },
+      source_chunk_ids: { type: 'array', items: { type: 'integer' } },
+    },
+  },
+} as const
+
 export interface ThemeExtractionInput {
   language: QuizLanguage
   /** Document title — gives the model context for naming themes. */
   docTitle: string
-  /** Either the whole-doc text or the outline, already trimmed to budget. */
+  /** The window's actual chunk text, already packed to fit the budget. */
   body: string
-  /** Whether `body` is a full text dump or an outline. Affects wording. */
-  bodyKind: 'whole-doc' | 'outline'
   /** Approximate number of themes to extract. Generator tunes to deck size. */
   targetCount: number
 }
 
 export function buildThemeExtractionPrompt(input: ThemeExtractionInput): string {
-  const { language, docTitle, body, bodyKind, targetCount } = input
+  const { language, docTitle, body, targetCount } = input
   if (language === 'de') {
-    const bodyLabel = bodyKind === 'whole-doc' ? 'Dokumentinhalt' : 'Dokumentgliederung'
     return `Du analysierst ein Studienmaterial und extrahierst die wichtigsten Lernthemen.
 
 Dokumenttitel: ${docTitle}
 
-${bodyLabel}:
+Dokumentinhalt:
 ${body}
 
 Gib eine JSON-Liste mit ungefähr ${targetCount} verschiedenen, didaktisch wertvollen Lernthemen zurück. Jedes Thema:
@@ -54,12 +91,11 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON-Array, keine Erklärung, keinen Vors
 
 /no_think`
   }
-  const bodyLabel = bodyKind === 'whole-doc' ? 'Document content' : 'Document outline'
   return `You are analysing study material to extract its key learning themes.
 
 Document title: ${docTitle}
 
-${bodyLabel}:
+Document content:
 ${body}
 
 Return a JSON list of approximately ${targetCount} distinct, pedagogically valuable learning themes. Each theme:
@@ -74,7 +110,7 @@ Reply with ONLY a valid JSON array, no preamble, no explanation, no code fences.
 /no_think`
 }
 
-export interface QuestionGenerationInput {
+export interface BatchQuestionGenerationInput {
   language: QuizLanguage
   themeTitle: string
   themeSummary: string
@@ -82,83 +118,14 @@ export interface QuestionGenerationInput {
   groundingBlock: string
   /** Stems already accepted in this deck — the avoid-list. */
   avoidStems: string[]
-}
-
-export function buildQuestionGenerationPrompt(input: QuestionGenerationInput): string {
-  const { language, themeTitle, themeSummary, groundingBlock, avoidStems } = input
-  const avoidBlock =
-    avoidStems.length > 0 ? avoidStems.map((s) => `- ${s}`).join('\n') : '(noch keine — none yet)'
-  if (language === 'de') {
-    return `Du schreibst genau EINE Multiple-Choice-Frage für eine Studierende.
-
-Thema: ${themeTitle}
-Konzept: ${themeSummary}
-
-Quellmaterial (jeder Eintrag ist ein zitierbarer Chunk):
-${groundingBlock}
-
-Bereits gestellte Fragen (NICHT wiederholen, nicht umformulieren):
-${avoidBlock}
-
-Anforderungen:
-- Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
-- Genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
-- Die Erklärung ist EIN kurzer Satz (höchstens 25 Wörter), der die richtige Antwort knapp begründet.
-- "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
-
-Antworte AUSSCHLIESSLICH mit einem JSON-Objekt:
-{
-  "stem": "...",
-  "options": ["A", "B", "C", "D"],
-  "correct_index": 0,
-  "explanation": "...",
-  "source_chunk_ids": [1, 2]
-}
-
-Kein Vorspann, kein Code-Block, keine zusätzlichen Felder.
-
-/no_think`
-  }
-  return `Write exactly ONE multiple-choice question for a learner.
-
-Theme: ${themeTitle}
-Concept: ${themeSummary}
-
-Source material (each entry is a citable chunk):
-${groundingBlock}
-
-Questions already asked (do NOT repeat, do NOT paraphrase):
-${avoidBlock}
-
-Requirements:
-- Test understanding or application, NOT trivial recall.
-- Exactly 4 plausible options, exactly ONE correct.
-- The explanation is ONE short sentence (max 25 words) that briefly justifies the correct answer.
-- "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
-
-Reply with ONLY a JSON object:
-{
-  "stem": "...",
-  "options": ["A", "B", "C", "D"],
-  "correct_index": 0,
-  "explanation": "...",
-  "source_chunk_ids": [1, 2]
-}
-
-No preamble, no code fences, no extra fields.
-
-/no_think`
-}
-
-export interface QuestionBatchInput extends QuestionGenerationInput {
-  /** How many distinct questions to request in one call. */
+  /** Number of MCQs to request in this single call. */
   count: number
 }
 
-/** Like buildQuestionGenerationPrompt but asks for a JSON ARRAY of `count`
- *  mutually-distinct questions in a single call. Amortises the prompt prefill
- *  across N questions. */
-export function buildQuestionBatchPrompt(input: QuestionBatchInput): string {
+/** Batch builder: asks for an ARRAY of `count` MCQs grounded in the chunks. One
+ *  grammar-constrained call per theme replaces the old one-question-per-call
+ *  loop. Bilingual to match buildQuestionGenerationPrompt. */
+export function buildBatchQuestionGenerationPrompt(input: BatchQuestionGenerationInput): string {
   const { language, themeTitle, themeSummary, groundingBlock, avoidStems, count } = input
   const avoidBlock =
     avoidStems.length > 0 ? avoidStems.map((s) => `- ${s}`).join('\n') : '(noch keine — none yet)'
@@ -175,15 +142,21 @@ Bereits gestellte Fragen (NICHT wiederholen, nicht umformulieren):
 ${avoidBlock}
 
 Anforderungen:
-- Genau ${count} Fragen, inhaltlich klar VERSCHIEDEN voneinander.
+- Genau ${count} Fragen, alle klar voneinander verschieden.
 - Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
-- Je Frage genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
-- Die Erklärung ist je EIN kurzer Satz (höchstens 25 Wörter).
+- Jede Frage hat genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
+- Die Erklärung muss begründen, warum die richtige Antwort stimmt, und sich auf das Material stützen.
 - "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
 
-Antworte AUSSCHLIESSLICH mit einem JSON-Array von genau ${count} Objekten:
+Antworte AUSSCHLIESSLICH mit einem JSON-Array von ${count} Objekten:
 [
-  {"stem": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, "explanation": "...", "source_chunk_ids": [1]}
+  {
+    "stem": "...",
+    "options": ["A", "B", "C", "D"],
+    "correct_index": 0,
+    "explanation": "...",
+    "source_chunk_ids": [1, 2]
+  }
 ]
 
 Kein Vorspann, kein Code-Block, keine zusätzlichen Felder.
@@ -202,15 +175,21 @@ Questions already asked (do NOT repeat, do NOT paraphrase):
 ${avoidBlock}
 
 Requirements:
-- Exactly ${count} questions, clearly DISTINCT from one another.
+- Exactly ${count} questions, all clearly distinct from each other.
 - Test understanding or application, NOT trivial recall.
 - Each question has exactly 4 plausible options, exactly ONE correct.
-- Each explanation is ONE short sentence (max 25 words).
+- The explanation must justify the correct answer using the material.
 - "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
 
-Reply with ONLY a JSON array of exactly ${count} objects:
+Reply with ONLY a JSON array of ${count} objects:
 [
-  {"stem": "...", "options": ["A", "B", "C", "D"], "correct_index": 0, "explanation": "...", "source_chunk_ids": [1]}
+  {
+    "stem": "...",
+    "options": ["A", "B", "C", "D"],
+    "correct_index": 0,
+    "explanation": "...",
+    "source_chunk_ids": [1, 2]
+  }
 ]
 
 No preamble, no code fences, no extra fields.

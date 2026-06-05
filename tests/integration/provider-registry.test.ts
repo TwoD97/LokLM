@@ -11,6 +11,7 @@ function mkLlm(opts: { ask?: (q: string) => Promise<string>; ready?: boolean } =
     ask: vi.fn().mockImplementation((q: string) => (opts.ask ?? (async () => 'ok'))(q)),
     generateRaw: vi.fn(),
     generateTitle: vi.fn(),
+    contextWindowTokens: () => 0,
     isReady: () => opts.ready ?? true,
     getStatus: () => ({ ready: true, message: null, identity: 'test' }),
     getModelStatus: () => ({}) as never,

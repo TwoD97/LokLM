@@ -53,6 +53,13 @@ export const quizDict: DomainDict = {
     'quiz.list.statusGenerating': 'Generating…',
     'quiz.list.statusFailed': 'Failed',
     'quiz.list.statusReady': 'Ready',
+    'quiz.list.stepStarting': 'Starting…',
+    'quiz.list.stepExtracting': 'Reading documents',
+    'quiz.list.stepMerging': 'Merging themes',
+    'quiz.list.stepAllocating': 'Preparing questions',
+    'quiz.list.stepGenerating': 'Writing questions',
+    'quiz.list.stepDocProgress': 'Document {current} / {total}',
+    'quiz.list.stepQuestionProgress': '{current} / {total}',
 
     // QuizDeckHistory
     'quiz.history.loading': 'Loading history…',
@@ -109,6 +116,13 @@ export const quizDict: DomainDict = {
     'quiz.list.statusGenerating': 'Wird erstellt…',
     'quiz.list.statusFailed': 'Fehlgeschlagen',
     'quiz.list.statusReady': 'Bereit',
+    'quiz.list.stepStarting': 'Wird gestartet…',
+    'quiz.list.stepExtracting': 'Dokumente werden gelesen',
+    'quiz.list.stepMerging': 'Themen werden zusammengeführt',
+    'quiz.list.stepAllocating': 'Fragen werden vorbereitet',
+    'quiz.list.stepGenerating': 'Fragen werden geschrieben',
+    'quiz.list.stepDocProgress': 'Dokument {current} / {total}',
+    'quiz.list.stepQuestionProgress': '{current} / {total}',
 
     // QuizDeckHistory
     'quiz.history.loading': 'Verlauf wird geladen…',

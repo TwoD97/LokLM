@@ -78,18 +78,32 @@ fn staging_dir() -> PathBuf {
     tmp.join("loklm-setup").join("staging")
 }
 
-// Locate the LokLM payload ( linux-unpacked dir ). Two layouts , in order :
-//   1. Staging : $TMPDIR/loklm-setup/staging/linux-unpacked/ , populated
-//      by install()'s download-payload phase. Production layout.
-//   2. Dev : ../../../../release/linux-unpacked relative to this binary ,
+// Locate the LokLM payload ( linux-unpacked dir ). Three layouts , in order :
+//   1. Bundled : ../linux-unpacked relative to the wizard binary. The
+//      makeself stub extracts the payload as a sibling of installer/
+//      ( <extract>/installer/loklm + <extract>/linux-unpacked ). This is
+//      the production layout for the self-contained installer.
+//   2. Staging : $TMPDIR/loklm-setup/staging/linux-unpacked/ , populated
+//      by install()'s download-payload fallback ( legacy download-stub ).
+//   3. Dev : ../../../../release/linux-unpacked relative to this binary ,
 //      for running the wizard out of cargo target against a local payload
 //      build ( pnpm package:linux:payload ).
 fn payload_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok();
+
+    if let Some(exe_dir) = exe.as_ref().and_then(|e| e.parent()) {
+        let bundled = exe_dir.join("..").join("linux-unpacked");
+        if bundled.join(APP_BIN).exists() {
+            return Some(bundled);
+        }
+    }
+
     let staged = staging_dir().join("linux-unpacked");
     if staged.join(APP_BIN).exists() {
         return Some(staged);
     }
-    let exe = std::env::current_exe().ok()?;
+
+    let exe = exe?;
     let exe_dir = exe.parent()?;
     let dev = exe_dir
         .join("..")
@@ -382,14 +396,25 @@ where
 {
     use super::{archive, download, payload_manifest};
 
-    // ---- Phase 0 : free-space precheck -----------------------------------
     let bundle = payload_manifest::current_bundle();
-    let needed = bundle.payload.size_bytes
-        + if options.download_cuda {
-            bundle.cuda.as_ref().map(|c| c.size_bytes).unwrap_or(0)
-        } else {
-            0
-        };
+
+    // If a payload is already on disk ( embedded into the installer , or a
+    // local dev build ) , skip the network download and install straight
+    // from it. Only the legacy download-stub layout falls through to the CDN.
+    let preexisting_payload = payload_dir();
+
+    // ---- Phase 0 : free-space precheck -----------------------------------
+    // A bundled payload is already extracted , so it doesn't count toward
+    // the budget ; only the ( optional ) CUDA archive does.
+    let needed = (if preexisting_payload.is_none() {
+        bundle.payload.size_bytes
+    } else {
+        0
+    }) + if options.download_cuda {
+        bundle.cuda.as_ref().map(|c| c.size_bytes).unwrap_or(0)
+    } else {
+        0
+    };
     let needed_with_headroom = needed + needed / 5;
     let staging = staging_dir();
     std::fs::create_dir_all(&staging).map_err(|e| format!("mkdir staging : {}", e))?;
@@ -413,31 +438,34 @@ where
         }
     }
 
-    // ---- Phase 1 : download payload ( 0-15 % ) ---------------------------
-    progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
     let client = download::build_client();
-    let payload_archive_path = staging.join(&bundle.payload.filename);
-    download::download_with_resume(
-        &client,
-        download::DownloadSpec {
-            url: &payload_manifest::payload_url(),
-            dest: &payload_archive_path,
-            expected_sha256: Some(&bundle.payload.sha256),
-            expected_size: Some(bundle.payload.size_bytes),
-        },
-        |written, total| {
-            let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
-            progress(ProgressEvent {
-                step: "download-payload".into(),
-                percent: pct.min(15),
-            });
-        },
-    )
-    .await
-    .map_err(|e| format!("payload download : {}", e))?;
-    archive::extract_tar_zst(&payload_archive_path, &staging)
-        .map_err(|e| format!("payload extract : {}", e))?;
-    let _ = std::fs::remove_file(&payload_archive_path);
+
+    // ---- Phase 1 : payload ( bundled → no-op ; else download 0-15 % ) ----
+    if preexisting_payload.is_none() {
+        progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
+        let payload_archive_path = staging.join(&bundle.payload.filename);
+        download::download_with_resume(
+            &client,
+            download::DownloadSpec {
+                url: &payload_manifest::payload_url(),
+                dest: &payload_archive_path,
+                expected_sha256: Some(&bundle.payload.sha256),
+                expected_size: Some(bundle.payload.size_bytes),
+            },
+            |written, total| {
+                let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
+                progress(ProgressEvent {
+                    step: "download-payload".into(),
+                    percent: pct.min(15),
+                });
+            },
+        )
+        .await
+        .map_err(|e| format!("payload download : {}", e))?;
+        archive::extract_tar_zst(&payload_archive_path, &staging)
+            .map_err(|e| format!("payload extract : {}", e))?;
+        let _ = std::fs::remove_file(&payload_archive_path);
+    }
 
     // ---- Phase 2 : optional CUDA addon ( 15-30 % ) -----------------------
     if options.download_cuda {

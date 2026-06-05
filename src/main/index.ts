@@ -14,6 +14,7 @@ import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
+import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
 import {
@@ -33,7 +34,9 @@ import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
+import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
 import { readTierMarker } from './services/tier/TierMarker'
+import { initLogger, getLogDir } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -82,6 +85,7 @@ function resetSessionServices(): void {
   retrievalService = null
   qaService = null
   quizService = null
+  summarizationService = null
   providerRegistry = null
   settingsService = null
   // Watchers hold OS handles on the user's folders ; they must not survive a
@@ -122,6 +126,7 @@ let retrievalService: RetrievalService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let quizService: QuizService | null = null
+let summarizationService: SummarizationService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
@@ -133,6 +138,10 @@ let settingsService: SettingsService | null = null
 // the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
 const modelsWorker = new ModelsWorkerClient()
+// Document parsing + OCR + chunking run in their own utilityProcess, isolated
+// from model inference so a heavy/scanned PDF import never stutters chat-token
+// streaming or blocks main.
+const documentsWorker = new DocumentsWorkerClient()
 // Post-login warmup runs on a small delay so the renderer can mount the main
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
@@ -262,10 +271,27 @@ function getProviderRegistry(): ProviderRegistry {
   return providerRegistry
 }
 
+// The 'lite' install tier ships without the reranker on by default — it's the
+// heaviest optional retrieval stage and lite targets low-RAM machines. Every
+// other tier (and dev/test, where readTierMarker() returns null) keeps the
+// universal default of reranker-on.
+function tierBaseDefaults(): UserSettings {
+  if (readTierMarker()?.tier !== 'lite') return DEFAULT_SETTINGS
+  return {
+    ...DEFAULT_SETTINGS,
+    advanced: {
+      ...DEFAULT_SETTINGS.advanced,
+      reranker: { ...DEFAULT_SETTINGS.advanced.reranker, enabled: false },
+    },
+  }
+}
+
 function getSettingsService(): SettingsService {
   if (!settingsService) {
-    settingsService = new SettingsService(getAuth().requireDatabase(), () =>
-      getAuth().persistSnapshotIfUnlocked(),
+    settingsService = new SettingsService(
+      getAuth().requireDatabase(),
+      () => getAuth().persistSnapshotIfUnlocked(),
+      tierBaseDefaults(),
     )
   }
   return settingsService
@@ -353,7 +379,11 @@ async function applySettings(s: UserSettings): Promise<void> {
       .unload()
       .catch(() => undefined)
   }
-  if (nextRerankerSource === 'ollama') {
+  // Free the bundled reranker when it flipped to external OR when the user
+  // turned the rerank stage off entirely. Either way the bundled GGUF is dead
+  // weight ; unloading also drops isReady() to false so RetrievalService skips
+  // the rerank pass and falls back to the fused order.
+  if (nextRerankerSource === 'ollama' || !s.advanced.reranker.enabled) {
     void getRerankerService()
       .unload()
       .catch(() => undefined)
@@ -455,6 +485,16 @@ function getQuizService(): QuizService {
   return quizService
 }
 
+function getSummarizationService(): SummarizationService {
+  if (!summarizationService) {
+    summarizationService = new SummarizationService(
+      getAuth().requireDatabase(),
+      getProviderRegistry(),
+    )
+  }
+  return summarizationService
+}
+
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
     rerankerService = new RerankerService({ planner: sharedPlanner, client: modelsWorker })
@@ -495,7 +535,7 @@ function getRetrievalService(): RetrievalService {
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), modelsWorker)
+  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), documentsWorker)
   return documentService
 }
 
@@ -548,6 +588,11 @@ function registerIpc(): void {
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
+      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
+      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
+      await getDocumentService()
+        .sweepOrphanedIndexing()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
     },
@@ -577,6 +622,11 @@ function registerIpc(): void {
       const settings = getSettingsService()
       await settings.hydrate()
       await applySettings(settings.get())
+      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
+      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
+      await getDocumentService()
+        .sweepOrphanedIndexing()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
     }
     return result
@@ -626,6 +676,12 @@ function registerIpc(): void {
     'window:isMaximized',
     (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false,
   )
+
+  // Reveal the log directory in the OS file manager. Used by the About tab so
+  // users can grab main.log for support without knowing the per-OS path.
+  ipcMain.handle('logs:openFolder', async () => {
+    await shell.openPath(getLogDir())
+  })
 
   // workspaces
   ipcMain.handle('workspaces:list', async () => getWorkspaceService().list())
@@ -683,7 +739,25 @@ function registerIpc(): void {
       filters: [
         {
           name: 'Dokumente',
-          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+          extensions: [
+            'pdf',
+            'md',
+            'markdown',
+            'txt',
+            'rst',
+            'json',
+            'yaml',
+            'yml',
+            'toml',
+            'png',
+            'jpg',
+            'jpeg',
+            'webp',
+            'tif',
+            'tiff',
+            'bmp',
+            'gif',
+          ],
         },
         { name: 'Alle Dateien', extensions: ['*'] },
       ],
@@ -803,7 +877,25 @@ function registerIpc(): void {
       filters: [
         {
           name: 'Dokumente',
-          extensions: ['pdf', 'md', 'markdown', 'txt', 'rst', 'json', 'yaml', 'yml', 'toml'],
+          extensions: [
+            'pdf',
+            'md',
+            'markdown',
+            'txt',
+            'rst',
+            'json',
+            'yaml',
+            'yml',
+            'toml',
+            'png',
+            'jpg',
+            'jpeg',
+            'webp',
+            'tif',
+            'tiff',
+            'bmp',
+            'gif',
+          ],
         },
         { name: 'Alle Dateien', extensions: ['*'] },
       ],
@@ -844,6 +936,21 @@ function registerIpc(): void {
       return await getDocumentService().reindex(id, e.sender)
     } catch (err) {
       if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
+      throw err
+    }
+  })
+  // Cancel still-queued imports/reindexes for a workspace (mis-dropped folder).
+  // In-flight jobs finish; queued placeholder rows are deleted. Returns count.
+  ipcMain.handle('documents:cancelIndexing', async (_e, workspaceId: number) => {
+    return getDocumentService().cancelWorkspaceIndexing(workspaceId)
+  })
+  // Lazily compute (or return cached) whole-document summary. Coded errors so
+  // the renderer can localize 'no_content' / 'model_not_ready' distinctly.
+  ipcMain.handle('documents:summarize', async (_e, documentId: number) => {
+    try {
+      return await getSummarizationService().summarize(documentId)
+    } catch (err) {
+      if (err instanceof SummarizationError) throw new Error(`${err.code}: ${err.message}`)
       throw err
     }
   })
@@ -1040,6 +1147,10 @@ function registerIpc(): void {
   // ChatView fires this on mount ; idempotent (ensureReady dedupes) so repeated
   // calls (workspace switches, re-mounts) are cheap.
   ipcMain.handle('reranker:warmup', async () => {
+    // Reranker turned off in settings (default for the lite tier) : skip the
+    // load entirely. Retrieval falls back to the fused order, and the TitleBar
+    // hides the dot, so warming the GGUF would just waste RAM/VRAM.
+    if (!getSettingsService().get().advanced.reranker.enabled) return
     void getRerankerService()
       .ensureReady()
       .catch(() => undefined)
@@ -1183,9 +1294,6 @@ function registerIpc(): void {
       query: string,
       opts: import('../shared/documents').AnswerOptions = {},
     ) => {
-      const ctrl = new AbortController()
-      activeStreams.set(streamId, ctrl)
-
       // Answer language: honour the user's answerLanguage setting. 'de'/'en'
       // force that language ; 'auto' (the default) leaves opts.language unset so
       // QAService.answer detects it per-turn from the query (eld , mapped to the
@@ -1204,6 +1312,13 @@ function registerIpc(): void {
       if (conversations && opts.conversationId != null) {
         await conversations.appendMessage(opts.conversationId, 'user', query)
       }
+
+      // Register the abort controller only after the pre-flight work above
+      // (settings read, DB access, user-message persist) succeeds. Registering
+      // earlier would leak this entry in activeStreams whenever that work threw,
+      // since the try/finally that deletes it only starts below.
+      const ctrl = new AbortController()
+      activeStreams.set(streamId, ctrl)
 
       const tokenBuffer: string[] = []
       const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
@@ -1320,6 +1435,26 @@ function registerIpc(): void {
           break
         }
       }
+    } catch (err) {
+      // A throw BEFORE the generator reaches its own try-block (service
+      // construction, getDeck, model init) bypasses QuizService.generate's
+      // internal failure handling. Without this catch the deck row stays
+      // 'generating' forever and the renderer — which calls generate() with a
+      // floating `void` — never learns it failed. Flip the row to 'failed' and
+      // push an error event so the UI leaves the spinner.
+      const message = err instanceof Error ? err.message : String(err)
+
+      console.error(`[quiz] generation failed before stream start (deck ${deckId}): ${message}`)
+      try {
+        await getAuth().requireDatabase().quizzes().setDeckStatus(deckId, 'failed', message)
+      } catch {
+        /* DB unavailable — nothing more we can do */
+      }
+      try {
+        e.sender.send(`quiz:generate-event:${streamId}`, { type: 'error', message })
+      } catch {
+        /* renderer gone */
+      }
     } finally {
       activeQuizStreams.delete(streamId)
     }
@@ -1414,6 +1549,25 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId('com.loklm.app')
+
+    // Resolve where OCR traineddata lives so the documents worker (and the
+    // inline fallback) can find it offline. Packaged → resources/tessdata
+    // (build.extraResources); dev → repo/tessdata (pnpm tessdata writes here).
+    process.env['LOKLM_TESSDATA_DIR'] = app.isPackaged
+      ? join(process.resourcesPath, 'tessdata')
+      : join(app.getAppPath(), 'tessdata')
+
+    // File logger first — captures uncaughtException / unhandledRejection and
+    // intercepts console.error/warn from every service constructed below.
+    initLogger()
+
+    // Persist renderer crashes (React errors slipping past ErrorBoundary, OOMs,
+    // GPU process kills). reason is one of 'crashed' | 'killed' | 'oom' | etc.
+    app.on('render-process-gone', (_e, _wc, details) => {
+      console.error(
+        `[renderer] process gone: reason=${details.reason} exitCode=${details.exitCode}`,
+      )
+    })
 
     // v0.3.0+ : log the installer-written tier so support has a single
     // place to confirm what the wizard recorded. Phase 4 wires this into

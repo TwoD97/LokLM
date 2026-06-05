@@ -16,18 +16,25 @@
 ;----------------------------------------------------------------------
 
 Unicode True
-; lzma : the stub now bundles only the wizard exe ( ~2.8 MB ) + LICENSE
-; ( ~1 KB ) , so the whole .exe is ~5-10 MB. lzma's decompression cost
-; is ~0.5s at this size — negligible — and trims a few MB off what the
-; user downloads ( payload + cuda are fetched separately from Bunny
-; during install , so the stub itself stays tiny ).
-SetCompressor /SOLID lzma
+; zlib : the stub re-embeds the full LokLM payload ( win-unpacked , ~370 MB
+; raw ). zlib produces a slightly bigger .exe than lzma but extracts 3-4x
+; faster , which is what the user actually feels at launch ; lzma's extra
+; ~15s of decompression on a payload this size isn't worth the few % size
+; win. The fat , signed installer is deliberate : a tiny download-stub that
+; fetched + executed the payload from a CDN tripped Defender's Wacatac.B!ml
+; ML heuristic ( fresh , low-reputation downloader pattern ). The optional
+; CUDA addon + GGUF models are still fetched at install time ( see
+; installer/download.rs ) — only the base app payload is embedded here.
+SetCompressor /SOLID zlib
 
 !ifndef PRODUCT_VERSION
   !error "PRODUCT_VERSION not defined ; invoke via scripts/build-installer-stub.mjs"
 !endif
 !ifndef WIZARD_EXE
   !error "WIZARD_EXE not defined ( path to loklm-installer.exe )"
+!endif
+!ifndef PAYLOAD_DIR
+  !error "PAYLOAD_DIR not defined ( path to release/win-unpacked )"
 !endif
 !ifndef OUTPUT_FILE
   !error "OUTPUT_FILE not defined"
@@ -67,15 +74,20 @@ VIAddVersionKey "LegalCopyright" "Projektgruppe LokLM"
 Section "Main" SecMain
   RMDir /r "$INSTDIR"
 
-  ; Extract wizard binary ( ~2.8 MB ) + LICENSE ( ~1 KB , read by the
-  ; wizard's get_license at runtime ). The payload + optional cuda are
-  ; fetched by the wizard itself from bunny ( see installer/download.rs
-  ; + payload_manifest.rs ) , so we no longer embed win-unpacked here.
+  ; Extract the wizard binary ( ~3 MB ) + LICENSE ( ~1 KB , read by the
+  ; wizard's get_license at runtime ) into $INSTDIR\app , and the full
+  ; LokLM payload ( win-unpacked , ~370 MB ) into a sibling
+  ; $INSTDIR\win-unpacked. The wizard's payload_dir() resolves the
+  ; payload via ..\win-unpacked relative to its own exe ( bundled
+  ; layout ) and robocopies it into the user-chosen install dir. The
+  ; optional CUDA addon + GGUF models are still fetched at install time.
   ; The cargo binary is named loklm.exe ( via [[bin]] in Cargo.toml ) so
   ; IDT doesn't trip when NSIS spawns it asInvoker.
   SetOutPath "$INSTDIR\app"
   File "${WIZARD_EXE}"
   File "/oname=$INSTDIR\app\LICENSE" "${LICENSE_PATH}"
+  SetOutPath "$INSTDIR\win-unpacked"
+  File /r "${PAYLOAD_DIR}\*"
 
   ; Launch wizard ; ExecWait blocks until it exits ( user clicks
   ; "LokLM starten" , "Schließen" , cancel , or X ). Then we tear down

@@ -25,4 +25,20 @@ describe('OllamaEmbedderProvider', () => {
     await p.embed(['x'])
     expect(p.dimension()).toBe(5)
   })
+
+  it('throws when the returned vector count does not match the input count', async () => {
+    // Callers zip vectors back to chunks by index (DocumentService,
+    // EmbeddingBackfillService). A short/misaligned response would persist
+    // embeddings against the wrong chunks — fail loud instead of corrupting.
+    const client = {
+      postJson: vi.fn().mockResolvedValue({
+        embeddings: [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+      }),
+    }
+    const p = new OllamaEmbedderProvider(client as never, 'nomic-embed-text', 3)
+    await expect(p.embed(['a', 'b', 'c'])).rejects.toThrow(/mismatch/i)
+  })
 })

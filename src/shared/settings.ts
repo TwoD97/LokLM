@@ -31,6 +31,12 @@ export interface UserSettings {
       placement: 'auto' | 'cpu' | 'gpu'
     }
     reranker: {
+      /** Master switch for the rerank stage. When false the cross-encoder is
+       *  never warmed/loaded and retrieval falls back to the fused (RRF +
+       *  heuristic) ordering , and the TitleBar hides the Reranker status dot.
+       *  Defaults true here ; the 'lite' install tier overrides it to false in
+       *  SettingsService (see getSettingsService in main/index.ts). */
+      enabled: boolean
       source: ProviderSource
       placement: 'auto' | 'cpu' | 'gpu'
     }
@@ -64,7 +70,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   advanced: {
     llm: { source: 'bundled', contextChoice: 'auto' },
     embedder: { source: 'bundled', placement: 'auto' },
-    reranker: { source: 'bundled', placement: 'auto' },
+    reranker: { enabled: true, source: 'bundled', placement: 'auto' },
     ollama: {
       baseUrl: 'http://localhost:11434',
       bearerToken: null,
