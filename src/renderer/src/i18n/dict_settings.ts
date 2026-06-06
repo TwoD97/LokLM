@@ -243,7 +243,7 @@ export const settingsDict: DomainDict = {
     'settings.basic.uiLanguage': 'Anzeigesprache',
     'settings.basic.uiLanguageSub': 'Sprache der Benutzeroberfläche.',
     'settings.basic.theme': 'Erscheinungsbild',
-    'settings.basic.themeSub': 'Farbschema der App. „System" folgt dem Betriebssystem.',
+    'settings.basic.themeSub': 'Farbschema der App. „System“ folgt dem Betriebssystem.',
     'settings.basic.themeSystem': 'System',
     'settings.basic.themeLight': 'Hell',
     'settings.basic.themeDark': 'Dunkel',
