@@ -3,8 +3,14 @@
 
 export type Platform = 'windows' | 'macos' | 'linux'
 
+// Per platform optional , disambiguates assets when more than one is
+// shipped ( Linux : 'run' for the makeself self-extractor , 'deb' for
+// Debian/Ubuntu ). Used as a stable key for i18n button labels.
+export type AssetVariant = 'run' | 'deb'
+
 export interface ReleaseAsset {
   platform: Platform
+  variant?: AssetVariant
   file: string
   sizeBytes: number
   sha256: string
@@ -37,10 +43,19 @@ export const currentRelease: Release = {
     },
     {
       platform: 'linux',
+      variant: 'run',
       file: 'LokLM-Setup-linux-x64.run',
       sizeBytes: 244670555,
       sha256: 'eedf1e056d45ccbfa1e89e27f690e9d0c2c19e2bb46cf0235fa0a600e5560d13',
       available: true,
+    },
+    {
+      platform: 'linux',
+      variant: 'deb',
+      file: 'LokLM-Setup-linux-x64.deb',
+      sizeBytes: 0,
+      sha256: '',
+      available: false,
     },
   ],
 }
@@ -71,4 +86,11 @@ export function formatSize(bytes: number): string {
 
 export function getAsset(platform: Platform): ReleaseAsset | undefined {
   return currentRelease.assets.find((a) => a.platform === platform)
+}
+
+// Plural sibling of getAsset() — used when a platform has multiple
+// variants ( Linux : .run + .deb ). Preserves manifest order so callers
+// can render buttons in a stable sequence.
+export function getAssets(platform: Platform): ReleaseAsset[] {
+  return currentRelease.assets.filter((a) => a.platform === platform)
 }
