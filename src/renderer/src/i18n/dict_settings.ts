@@ -14,6 +14,11 @@ export const settingsDict: DomainDict = {
     // BasicTab
     'settings.basic.uiLanguage': 'Interface language',
     'settings.basic.uiLanguageSub': 'Language of the app interface.',
+    'settings.basic.theme': 'Theme',
+    'settings.basic.themeSub': 'Colour theme of the app. System follows your OS.',
+    'settings.basic.themeSystem': 'System',
+    'settings.basic.themeLight': 'Light',
+    'settings.basic.themeDark': 'Dark',
     'settings.basic.responseLanguage': 'Response language',
     'settings.basic.responseLanguageSub':
       'Auto replies in the language you write in (DE/EN). Pick one to lock it.',
@@ -237,6 +242,11 @@ export const settingsDict: DomainDict = {
     // BasicTab
     'settings.basic.uiLanguage': 'Anzeigesprache',
     'settings.basic.uiLanguageSub': 'Sprache der Benutzeroberfläche.',
+    'settings.basic.theme': 'Erscheinungsbild',
+    'settings.basic.themeSub': 'Farbschema der App. „System" folgt dem Betriebssystem.',
+    'settings.basic.themeSystem': 'System',
+    'settings.basic.themeLight': 'Hell',
+    'settings.basic.themeDark': 'Dunkel',
     'settings.basic.responseLanguage': 'Antwortsprache',
     'settings.basic.responseLanguageSub':
       'Auto antwortet in deiner Eingabesprache (DE/EN). Oder fixiere eine.',

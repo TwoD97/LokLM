@@ -56,6 +56,21 @@ export function BasicTab(): JSX.Element {
       />
 
       <div className="settings-section-head">
+        <span className="settings-section-head__title">{t('settings.basic.theme')}</span>
+        <span className="settings-section-head__sub">{t('settings.basic.themeSub')}</span>
+      </div>
+      <Segmented
+        ariaLabel={t('settings.basic.theme')}
+        value={settings.basic.theme}
+        options={[
+          { value: 'system', label: t('settings.basic.themeSystem') },
+          { value: 'light', label: t('settings.basic.themeLight') },
+          { value: 'dark', label: t('settings.basic.themeDark') },
+        ]}
+        onChange={(v) => void update({ basic: { theme: v } })}
+      />
+
+      <div className="settings-section-head">
         <span className="settings-section-head__title">{t('settings.basic.responseLanguage')}</span>
         <span className="settings-section-head__sub">
           {t('settings.basic.responseLanguageSub')}
