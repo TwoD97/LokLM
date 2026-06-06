@@ -13,6 +13,7 @@ import { FallbackToast } from './settings/FallbackToast'
 import { ErrorBoundary } from './ErrorBoundary'
 import { isLockedError } from './lib/lockedError'
 import { useT } from './i18n'
+import { useThemeEffect } from './theme/useTheme'
 
 type Phase =
   | { kind: 'loading' }
@@ -37,6 +38,7 @@ function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
 }
 
 export function App(): JSX.Element {
+  useThemeEffect()
   const t = useT()
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
