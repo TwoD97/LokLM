@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { resolveTheme, applyTheme } from './useTheme'
 
 describe('resolveTheme', () => {
@@ -12,13 +12,19 @@ describe('applyTheme', () => {
   beforeEach(() => {
     delete document.documentElement.dataset.theme
   })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
   function stubMatch(matches: boolean): void {
-    window.matchMedia = vi.fn().mockReturnValue({
-      matches,
-      media: '(prefers-color-scheme: dark)',
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }) as unknown as typeof window.matchMedia
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches,
+        media: '(prefers-color-scheme: dark)',
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    )
   }
   it('writes dark when OS prefers dark and pref is system', () => {
     stubMatch(true)
@@ -28,6 +34,11 @@ describe('applyTheme', () => {
   it('explicit light wins over an OS dark preference', () => {
     stubMatch(true)
     applyTheme('light')
+    expect(document.documentElement.dataset.theme).toBe('light')
+  })
+  it('writes light when OS prefers light and pref is system', () => {
+    stubMatch(false)
+    applyTheme('system')
     expect(document.documentElement.dataset.theme).toBe('light')
   })
 })
