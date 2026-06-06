@@ -57,6 +57,60 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Light theme ──────────────────────────────────────────────────────────
+ * Activated by document.documentElement.dataset.theme = 'light'
+ * (theme/useTheme.ts). Draft palette — review before release. */
+:root[data-theme='light'] {
+  --bg-0: #f6f7f9;
+  --bg-1: #ffffff;
+  --bg-2: #eceff3;
+  --bg-elev: rgba(31, 35, 40, 0.03);
+
+  --fg-0: #1f2328;
+  --fg-1: #424a53;
+  --fg-2: #636c76;
+  --fg-3: #8a929c;
+
+  --border: rgba(31, 35, 40, 0.12);
+  --border-strong: rgba(31, 35, 40, 0.22);
+
+  --accent: #2563eb;
+  --accent-hover: #3b82f6;
+  --accent-active: #1d4ed8;
+  --accent-glow: rgba(37, 99, 235, 0.22);
+
+  --error: #d1242f;
+  --error-bg: rgba(209, 36, 47, 0.08);
+  --error-border: rgba(209, 36, 47, 0.3);
+  --success: #1a7f37;
+
+  --ring: 0 0 0 3px rgba(37, 99, 235, 0.3);
+
+  --shadow-1: 0 1px 2px rgba(31, 35, 40, 0.1);
+  --shadow-2: 0 8px 24px rgba(31, 35, 40, 0.12);
+  --shadow-glow: 0 0 0 1px var(--border-strong), 0 12px 32px rgba(31, 35, 40, 0.14);
+
+  color-scheme: light;
+}
+
+/* Pre-JS first paint: honour the OS preference before useThemeEffect runs, so
+ * a light-mode OS doesn't flash the dark palette. Once JS sets data-theme the
+ * attribute selectors above win by specificity. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg-0: #f6f7f9;
+    --bg-1: #ffffff;
+    --bg-2: #eceff3;
+    --fg-0: #1f2328;
+    --fg-1: #424a53;
+    --fg-2: #636c76;
+    --fg-3: #8a929c;
+    --border: rgba(31, 35, 40, 0.12);
+    --border-strong: rgba(31, 35, 40, 0.22);
+    color-scheme: light;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
