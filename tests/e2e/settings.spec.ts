@@ -74,3 +74,25 @@ test('basic language toggle persists', async () => {
     .isChecked()
   expect(englishChecked).toBe(true)
 })
+
+test('theme toggle persists and applies to the document', async () => {
+  const { page } = launched
+
+  await page.locator('button[aria-label="Settings"]').click()
+  await page.getByRole('radio', { name: /Dark|Dunkel/i }).click()
+
+  // Applied immediately to the root element.
+  // page.evaluate with a string avoids referencing `document` in a TS-node context.
+  await expect
+    .poll(() => page.evaluate<string | undefined>('document.documentElement.dataset.theme'))
+    .toBe('dark')
+
+  await page.keyboard.press('Escape')
+
+  // Reopen — the choice persisted.
+  await page.locator('button[aria-label="Settings"]').click()
+  await expect(page.getByRole('radio', { name: /Dark|Dunkel/i })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  )
+})
