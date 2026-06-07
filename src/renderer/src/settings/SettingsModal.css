@@ -1008,3 +1008,17 @@
   color: var(--fg-1);
   font-size: 13px;
 }
+
+/* ── Light-mode contrast for warning/notice text built for a dark bg ─────── */
+:root[data-theme='light'] .settings-advanced-banner,
+:root[data-theme='light'] .settings-inline-warning {
+  color: #8a6d00;
+  background: rgba(240, 180, 41, 0.16);
+}
+:root[data-theme='light'] .settings-model-card__badge--missing {
+  color: #8a5a00;
+}
+:root[data-theme='light'] .settings-section__notice {
+  color: #2c4a7c;
+  background: rgba(123, 165, 234, 0.16);
+}

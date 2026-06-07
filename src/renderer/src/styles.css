@@ -111,6 +111,18 @@
   }
 }
 
+/* ── Light-mode overrides for chrome built dark-only ──────────────────────
+ * Some chrome hardcodes dark backgrounds (e.g. the titlebar gradient). Under
+ * data-theme='light' those need a light surface so text/icons (which use the
+ * now-dark --fg tokens) stay legible. Full per-feature light polish (chat,
+ * quiz, library) is tracked in a follow-up ticket. */
+:root[data-theme='light'] .titlebar {
+  background: var(--bg-1);
+}
+:root[data-theme='light'] .titlebar__logo {
+  filter: none;
+}
+
 * {
   box-sizing: border-box;
 }
