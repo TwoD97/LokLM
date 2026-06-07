@@ -1,3 +1,5 @@
+import type { HighlightedSegment } from './fuzzyHighlight'
+
 // renderer-visible shape of a document. mirrors src/main/db/schema.ts Document
 // type but lives in src/shared so it's safe to import from the renderer , which
 // can't reach into src/main.
@@ -121,6 +123,57 @@ export interface RetrievalHit {
    *  to tag chunks whose language differs from the response language so the
    *  model knows it's translating quoted material rather than copying verbatim. */
   language: 'de' | 'en' | 'other' | null
+}
+
+// ---------------------------------------------------------------------------
+// AP-6 Library search (Pflichtenheft §3.5) — renderer + preload + main agree.
+// Lexical (BM25 + ts_headline) library search with filters + sort, distinct
+// from the model-backed hybrid RetrievalService path above.
+// ---------------------------------------------------------------------------
+
+/** Filterable document-type buckets surfaced in the library search UI. Derived
+ *  from the source-path extension (mime_type is null for most text/code files).
+ *  'code' covers all code/markup extensions; 'txt' covers .txt/.rst + fallback. */
+export type LibraryDocType = 'pdf' | 'md' | 'txt' | 'code' | 'docx'
+
+/** Library result ordering. 'relevance' (ts_rank_cd) is the default; the other
+ *  two are document-level orderings (one hit per document). */
+export type LibrarySort = 'relevance' | 'filename' | 'added'
+
+export interface LibrarySearchOptions {
+  /** Restrict to these type buckets. Null/empty/all-five = no type filter. */
+  types?: LibraryDocType[] | null
+  /** Lower bound on documents.added_at (epoch SECONDS, matching the column).
+   *  Null = no date filter. */
+  addedAfter?: number | null
+  /** Inclusive byte-size bounds on documents.byte_size. Null = unbounded. */
+  minBytes?: number | null
+  maxBytes?: number | null
+  /** Result ordering. Default 'relevance'. */
+  sort?: LibrarySort
+  /** Max documents returned. Default 50. */
+  topK?: number
+}
+
+/** One row per matching document (its best-scoring chunk). The excerpt is
+ *  pre-split into segments in the main process from the ts_headline sentinels,
+ *  so the renderer maps them to <mark>/<span> and never touches innerHTML. */
+export interface LibrarySearchHit {
+  chunkId: number
+  documentId: number
+  documentTitle: string
+  docType: LibraryDocType
+  /** PDF page range of the best chunk. Null for markdown/plain text. */
+  pageFrom: number | null
+  pageTo: number | null
+  /** Heading breadcrumb for markdown chunks (shown when pageFrom is null). */
+  headingPath: string[] | null
+  score: number
+  addedAt: number | null
+  byteSize: number | null
+  language: 'de' | 'en' | 'other' | null
+  /** ts_headline excerpt as alternating plain/highlighted segments. */
+  segments: HighlightedSegment[]
 }
 
 // ---------------------------------------------------------------------------
