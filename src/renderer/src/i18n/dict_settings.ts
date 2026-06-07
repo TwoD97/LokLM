@@ -59,6 +59,23 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabRetrieval': 'Retrieval',
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnostics',
+    'settings.advanced.subtabBehavior': 'Behavior',
+
+    // BehaviorSection
+    'settings.behavior.title': 'Session & behavior',
+    'settings.behavior.sub': 'Model handling on conversation switch and automatic lock.',
+    'settings.behavior.convSwitch': 'On conversation switch',
+    'settings.behavior.convSwitchHint':
+      'Keep the model loaded when switching conversations, or unload it to free memory.',
+    'settings.behavior.convKeep': 'Keep loaded',
+    'settings.behavior.convUnload': 'Unload',
+    'settings.behavior.autoLock': 'Auto-lock',
+    'settings.behavior.autoLockHint': 'Lock the app after this many minutes of inactivity.',
+    'settings.behavior.lock5': '5 min',
+    'settings.behavior.lock15': '15 min',
+    'settings.behavior.lock60': '60 min',
+    'settings.behavior.lockNever': 'Never',
+
     'settings.advanced.resetCopy':
       'Restores every advanced setting to its default. Profile and Basic stay untouched.',
     'settings.advanced.reset': 'Reset advanced',
@@ -300,6 +317,23 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabRetrieval': 'Retrieval',
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnose',
+    'settings.advanced.subtabBehavior': 'Verhalten',
+
+    // BehaviorSection
+    'settings.behavior.title': 'Sitzung & Verhalten',
+    'settings.behavior.sub': 'Modell-Handhabung beim Konversationswechsel und automatische Sperre.',
+    'settings.behavior.convSwitch': 'Beim Konversationswechsel',
+    'settings.behavior.convSwitchHint':
+      'Modell beim Wechsel geladen lassen oder entladen, um Speicher freizugeben.',
+    'settings.behavior.convKeep': 'Geladen lassen',
+    'settings.behavior.convUnload': 'Entladen',
+    'settings.behavior.autoLock': 'Automatische Sperre',
+    'settings.behavior.autoLockHint': 'App nach so vielen Minuten Inaktivität sperren.',
+    'settings.behavior.lock5': '5 Min.',
+    'settings.behavior.lock15': '15 Min.',
+    'settings.behavior.lock60': '60 Min.',
+    'settings.behavior.lockNever': 'Nie',
+
     'settings.advanced.resetCopy':
       'Setzt jede erweiterte Einstellung auf ihren Standard zurück. Profil und Allgemein bleiben unberührt.',
     'settings.advanced.reset': 'Erweitert zurücksetzen',
