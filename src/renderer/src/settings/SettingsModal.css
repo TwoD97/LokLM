@@ -987,3 +987,24 @@
   background: var(--bg-elev);
   color: var(--fg-0);
 }
+
+/* ── Slider control (settings) ─────────────────────────────────────────── */
+.settings-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+.settings-slider__input {
+  flex: 1;
+  min-width: 140px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.settings-slider__value {
+  min-width: 70px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-1);
+  font-size: 13px;
+}
