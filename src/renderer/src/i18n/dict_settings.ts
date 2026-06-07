@@ -200,6 +200,17 @@ export const settingsDict: DomainDict = {
     'settings.reranker.placementCpu': 'CPU',
     'settings.reranker.placementGpu': 'GPU',
 
+    // IndexingSection
+    'settings.indexing.title': 'Indexing & retrieval',
+    'settings.indexing.sub':
+      'How documents are split into chunks and how many passages are retrieved per question.',
+    'settings.indexing.chunkSize': 'Chunk size',
+    'settings.indexing.chunkSizeHint': 'Characters per chunk when indexing documents (500–8000).',
+    'settings.indexing.overlap': 'Chunk overlap',
+    'settings.indexing.overlapHint': 'Characters shared between adjacent chunks (0–500).',
+    'settings.indexing.topK': 'Retrieved passages (Top-K)',
+    'settings.indexing.topKHint': 'How many passages are pulled into context per question (3–30).',
+
     // DiagnosticsSection
     'settings.diag.title': 'Diagnostics',
     'settings.diag.sub': "Read-only snapshot of the planner's most recent decisions.",
@@ -434,6 +445,18 @@ export const settingsDict: DomainDict = {
     'settings.reranker.placementAuto': 'Auto',
     'settings.reranker.placementCpu': 'CPU',
     'settings.reranker.placementGpu': 'GPU',
+
+    // IndexingSection
+    'settings.indexing.title': 'Indexierung & Suche',
+    'settings.indexing.sub':
+      'Wie Dokumente in Chunks geteilt werden und wie viele Passagen pro Frage abgerufen werden.',
+    'settings.indexing.chunkSize': 'Chunkgröße',
+    'settings.indexing.chunkSizeHint': 'Zeichen pro Chunk beim Indexieren (500–8000).',
+    'settings.indexing.overlap': 'Überlappung',
+    'settings.indexing.overlapHint': 'Gemeinsame Zeichen zwischen benachbarten Chunks (0–500).',
+    'settings.indexing.topK': 'Abgerufene Passagen (Treffer-K)',
+    'settings.indexing.topKHint':
+      'Wie viele Passagen pro Frage in den Kontext geholt werden (3–30).',
 
     // DiagnosticsSection
     'settings.diag.title': 'Diagnose',

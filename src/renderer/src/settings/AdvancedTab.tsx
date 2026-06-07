@@ -4,6 +4,7 @@ import { useSettings } from './useSettings'
 import { LlmSection } from './sections/LlmSection'
 import { EmbedderSection } from './sections/EmbedderSection'
 import { RerankerSection } from './sections/RerankerSection'
+import { IndexingSection } from './sections/IndexingSection'
 import { DiagnosticsSection } from './sections/DiagnosticsSection'
 import { OllamaSection } from './OllamaSection'
 import { useT } from '../i18n'
@@ -58,6 +59,7 @@ export function AdvancedTab(): JSX.Element {
       {sub === 'llm' && <LlmSection settings={settings} update={update} />}
       {sub === 'retrieval' && (
         <>
+          <IndexingSection settings={settings} update={update} />
           <EmbedderSection settings={settings} update={update} />
           <RerankerSection settings={settings} update={update} />
         </>
