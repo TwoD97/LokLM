@@ -37,6 +37,8 @@ import type {
   ChunkSource,
   DocumentChunk,
   ModelsStatus,
+  LibrarySearchHit,
+  LibrarySearchOptions,
 } from '../shared/documents'
 
 /** Mirrors `DownloadEvent` in src/main/services/models/ModelDownloader.ts —
@@ -206,6 +208,14 @@ const api = {
       ipcRenderer.invoke('documents:listChunksForDocument', documentId),
     getSourceForChunk: (chunkId: number): Promise<ChunkSource | null> =>
       ipcRenderer.invoke('documents:getSourceForChunk', chunkId),
+    // AP-6 library search: lexical hits (one per document) with ts_headline
+    // excerpts pre-split into highlight segments by the main process.
+    searchLibrary: (
+      workspaceId: number,
+      query: string,
+      opts?: LibrarySearchOptions,
+    ): Promise<LibrarySearchHit[]> =>
+      ipcRenderer.invoke('documents:searchLibrary', workspaceId, query, opts ?? {}),
     readDocumentBytes: (documentId: number): Promise<Uint8Array | null> =>
       ipcRenderer.invoke('documents:readDocumentBytes', documentId),
     onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {

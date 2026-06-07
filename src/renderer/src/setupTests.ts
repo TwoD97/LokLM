@@ -107,6 +107,7 @@ const stub: Api = {
       }),
     listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
+    searchLibrary: () => Promise.resolve([]),
     readDocumentBytes: () => Promise.resolve(null),
     revealSource: () => Promise.resolve({ ok: true as const, sourcePath: '/stub' }),
     openExternal: () => Promise.resolve({ ok: true as const }),

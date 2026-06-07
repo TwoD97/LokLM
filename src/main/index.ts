@@ -32,6 +32,7 @@ import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerank
 import { SettingsService } from './services/settings/SettingsService'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
+import { splitSentinels } from '../shared/docType'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
@@ -987,6 +988,40 @@ function registerIpc(): void {
       chunkPageTo: ctx.pageTo,
     }
   })
+
+  // AP-6 library search. Lexical (BM25 + ts_headline) search with type/date/size
+  // filters and a sort switch — one hit per document. snake_case from the repo is
+  // mapped to camelCase here, and the ts_headline ⟦…⟧ sentinels are split into
+  // {text,highlighted} segments so the renderer maps them to <mark> elements
+  // without ever touching innerHTML (document text is untrusted).
+  ipcMain.handle(
+    'documents:searchLibrary',
+    async (
+      _e,
+      workspaceId: number,
+      query: string,
+      opts: import('../shared/documents').LibrarySearchOptions = {},
+    ): Promise<import('../shared/documents').LibrarySearchHit[]> => {
+      const rows = await getAuth()
+        .requireDatabase()
+        .documents()
+        .searchLibrary(workspaceId, query, opts)
+      return rows.map((row) => ({
+        chunkId: row.chunk_id,
+        documentId: row.document_id,
+        documentTitle: row.document_title,
+        docType: row.doc_type as import('../shared/documents').LibraryDocType,
+        pageFrom: row.page_from,
+        pageTo: row.page_to,
+        headingPath: row.heading_path,
+        score: row.score,
+        addedAt: row.added_at ?? null,
+        byteSize: row.byte_size ?? null,
+        language: row.language,
+        segments: splitSentinels(row.headline),
+      }))
+    },
+  )
 
   // Returns raw bytes for a PDF document so the renderer can display the page
   // via pdfjs. We gate this on mime-type/extension so it can't be used to
