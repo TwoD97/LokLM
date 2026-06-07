@@ -127,6 +127,52 @@
   min-width: 0;
   flex: 1;
 }
+/* Hover-revealed rename/delete actions, overlaid on the right of a workspace
+   row so the button's own box model (and the dropdown chevron) are untouched. */
+.sidebar__ws-row {
+  position: relative;
+}
+.sidebar__ws-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.sidebar__ws-row:hover .sidebar__ws-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sidebar__ws-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg-1);
+  cursor: pointer;
+}
+.sidebar__ws-action:hover {
+  color: var(--fg-0);
+  border-color: var(--border-strong);
+}
+.sidebar__ws-edit-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  color: inherit;
+  font: inherit;
+}
 .sidebar__doc-scope {
   margin: 4px 0 8px 12px;
   padding-left: 8px;

@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  X,
 } from 'lucide-react'
 import type { QuizDeckSummary } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
@@ -74,6 +75,9 @@ type Props = {
   onStart: (deckId: number) => void
   onDelete: (deckId: number) => void
   onRetry: (deckId: number) => void
+  /** Abort an in-flight generation. When omitted, generating decks show no
+   *  Cancel button (e.g. in tests that don't exercise the cancel path). */
+  onCancel?: (deckId: number) => void
 }
 
 export function QuizListView({
@@ -83,6 +87,7 @@ export function QuizListView({
   onStart,
   onDelete,
   onRetry,
+  onCancel,
 }: Props): JSX.Element {
   const t = useT()
   // Per-deck expansion state — kept here rather than inside the card so the
@@ -121,6 +126,7 @@ export function QuizListView({
               onStart={() => onStart(deck.id)}
               onDelete={() => onDelete(deck.id)}
               onRetry={() => onRetry(deck.id)}
+              {...(onCancel ? { onCancel: () => onCancel(deck.id) } : {})}
             />
           ))}
         </ul>
@@ -138,6 +144,7 @@ function DeckCard({
   onStart,
   onDelete,
   onRetry,
+  onCancel,
 }: {
   deck: QuizDeckSummary
   progress?: QuizProgress | undefined
@@ -147,6 +154,7 @@ function DeckCard({
   onStart: () => void
   onDelete: () => void
   onRetry: () => void
+  onCancel?: () => void
 }): JSX.Element {
   const tone =
     deck.lastScore != null && deck.questionCount > 0
@@ -205,6 +213,12 @@ function DeckCard({
           <button type="button" className="quiz-btn" onClick={onRetry}>
             <RotateCcw size={14} strokeWidth={2.5} />
             {t('common.retry')}
+          </button>
+        )}
+        {deck.status === 'generating' && onCancel && (
+          <button type="button" className="quiz-btn" onClick={onCancel}>
+            <X size={14} strokeWidth={2.5} />
+            {t('common.cancel')}
           </button>
         )}
         <button

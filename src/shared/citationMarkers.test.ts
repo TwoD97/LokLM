@@ -64,6 +64,24 @@ describe('transformCitationMarkers', () => {
     const out = transformCitationMarkers('[doc:1, chunk:1][doc:2, chunk:2]')
     expect(out.text).toBe('[1](#cite-1-1)[2](#cite-2-2)')
   })
+
+  it('keeps only allowed markers as chips, strips the rest', () => {
+    const allowed = new Set(['1-1'])
+    const out = transformCitationMarkers('real [doc:1, chunk:1] fake [doc:9, chunk:9] end', allowed)
+    expect(out.text).toBe('real [1](#cite-1-1) fake  end')
+    expect(out.markers).toEqual([{ documentId: 1, chunkId: 1, index: 1 }])
+  })
+
+  it('strips every marker when none are allowed', () => {
+    const out = transformCitationMarkers('a [doc:1, chunk:1] b', new Set<string>())
+    expect(out.text).toBe('a  b')
+    expect(out.markers).toEqual([])
+  })
+
+  it('transforms all markers when no allow-set is given (streaming default)', () => {
+    const out = transformCitationMarkers('a [doc:7, chunk:8] b')
+    expect(out.text).toBe('a [1](#cite-7-8) b')
+  })
 })
 
 describe('parseCiteHref', () => {

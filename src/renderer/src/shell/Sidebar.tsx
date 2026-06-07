@@ -8,6 +8,8 @@ import {
   GraduationCap,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -22,6 +24,8 @@ type Props = {
   activeView: ViewKind
   onWorkspaceSelect: (id: number) => void
   onCreateWorkspace: (name: string) => void
+  onRenameWorkspace: (id: number, name: string) => void
+  onRequestDeleteWorkspace: (ws: Workspace) => void
   onViewChange: (v: ViewKind) => void
   onTogglePin: () => void
   onPeek: (peek: boolean) => void
@@ -40,6 +44,8 @@ export function Sidebar({
   activeView,
   onWorkspaceSelect,
   onCreateWorkspace,
+  onRenameWorkspace,
+  onRequestDeleteWorkspace,
   onViewChange,
   onTogglePin,
   onPeek,
@@ -52,6 +58,15 @@ export function Sidebar({
   const t = useT()
   const [draft, setDraft] = useState('')
   const [docPickerOpen, setDocPickerOpen] = useState(true)
+  // id of the workspace whose name is being edited inline, plus its draft text.
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editDraft, setEditDraft] = useState('')
+
+  const commitRename = (id: number): void => {
+    const trimmed = editDraft.trim()
+    setEditingId(null)
+    if (trimmed.length > 0) onRenameWorkspace(id, trimmed)
+  }
 
   // Stale-id filter: a document may have been deleted while still referenced
   // by the conversation row. Only count and render ids that still resolve.
@@ -113,26 +128,76 @@ export function Sidebar({
             const showDocs = isDropdown && docPickerOpen
             return (
               <div key={w.id}>
-                <button
-                  className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''} ${isDropdown ? 'sidebar__nav-btn--dropdown' : ''}`}
-                  onClick={() => {
-                    if (isDropdown) {
-                      setDocPickerOpen((v) => !v)
-                    } else {
-                      onWorkspaceSelect(w.id)
-                      setDocPickerOpen(true)
-                    }
-                  }}
-                  aria-expanded={isDropdown ? docPickerOpen : undefined}
-                >
-                  <span className="sidebar__nav-btn-label">{w.name}</span>
-                  {isDropdown &&
-                    (docPickerOpen ? (
-                      <ChevronDown size={14} aria-hidden="true" />
-                    ) : (
-                      <ChevronRight size={14} aria-hidden="true" />
-                    ))}
-                </button>
+                {editingId === w.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      commitRename(w.id)
+                    }}
+                  >
+                    <input
+                      className="sidebar__ws-edit-input"
+                      value={editDraft}
+                      autoFocus
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onBlur={() => commitRename(w.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      aria-label={t('shell.renameWorkspace')}
+                    />
+                  </form>
+                ) : (
+                  <div className="sidebar__ws-row">
+                    <button
+                      className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''} ${isDropdown ? 'sidebar__nav-btn--dropdown' : ''}`}
+                      onClick={() => {
+                        if (isDropdown) {
+                          setDocPickerOpen((v) => !v)
+                        } else {
+                          onWorkspaceSelect(w.id)
+                          setDocPickerOpen(true)
+                        }
+                      }}
+                      aria-expanded={isDropdown ? docPickerOpen : undefined}
+                    >
+                      <span className="sidebar__nav-btn-label">{w.name}</span>
+                      {isDropdown &&
+                        (docPickerOpen ? (
+                          <ChevronDown size={14} aria-hidden="true" />
+                        ) : (
+                          <ChevronRight size={14} aria-hidden="true" />
+                        ))}
+                    </button>
+                    <span className="sidebar__ws-actions">
+                      <button
+                        type="button"
+                        className="sidebar__ws-action"
+                        aria-label={t('shell.renameWorkspace')}
+                        title={t('shell.renameWorkspace')}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingId(w.id)
+                          setEditDraft(w.name)
+                        }}
+                      >
+                        <Pencil size={13} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="sidebar__ws-action"
+                        aria-label={t('shell.deleteWorkspace')}
+                        title={t('shell.deleteWorkspace')}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRequestDeleteWorkspace(w)
+                        }}
+                      >
+                        <Trash2 size={13} aria-hidden="true" />
+                      </button>
+                    </span>
+                  </div>
+                )}
                 {showDocs && (
                   <div className="sidebar__doc-scope">
                     <div className="sidebar__doc-scope-header">

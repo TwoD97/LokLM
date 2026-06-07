@@ -419,9 +419,30 @@ export class AuthService {
     const usedEntry = vault.header.recoveryEntries[matchedIdx]
     if (usedEntry) usedEntry.usedAt = nowSec()
 
+    // Fail closed on an undecryptable body — same guard login() uses. Without
+    // this a corrupt body (decryptBody → null) would fall through to a FRESH
+    // EMPTY database and writeVault would then overwrite the still-recoverable
+    // ciphertext with that empty snapshot — i.e. the recovery flow would wipe
+    // the very data it exists to save. Restore-from-backup is the only path
+    // from here, so we must not touch the file.
     const snapshotBlob = decryptBody(vault.body, dek)
+    if (snapshotBlob == null) {
+      dek.fill(0)
+      throw new Error(
+        'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
+      )
+    }
+    // Only commit the DEK once the DB actually loads ; zero it on any failure
+    // rather than leaving key material resident (mirrors login()).
+    let database: Database
+    try {
+      database = await Database.create(undefined, snapshotBlob)
+    } catch (err) {
+      dek.fill(0)
+      throw err
+    }
     this.dek = dek
-    this.database = await Database.create(undefined, snapshotBlob ?? undefined)
+    this.database = database
     const newBody = await this.encryptCurrentDb(dek)
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader

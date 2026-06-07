@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
@@ -207,6 +207,17 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
       <div className="titlebar__spacer" />
 
       <div className="titlebar__controls">
+        {unlocked && (
+          <button
+            type="button"
+            className="titlebar__btn titlebar__btn--icon"
+            aria-label={t('auth.lock')}
+            title={t('auth.lock')}
+            onClick={() => void window.api.auth.lock()}
+          >
+            <LockIcon size={16} aria-hidden="true" />
+          </button>
+        )}
         {unlocked && onOpenSettings && (
           <button
             type="button"

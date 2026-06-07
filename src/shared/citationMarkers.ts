@@ -67,7 +67,17 @@ export function stripCitationMarkers(text: string): string {
  * The href `#cite-<docId>-<chunkId>` is parsed back out by the CitationChip
  * component to wire the click handler.
  */
-export function transformCitationMarkers(text: string): {
+export function transformCitationMarkers(
+  text: string,
+  /** When provided, only markers whose `documentId-chunkId` key is in this set
+   *  become chips; any other marker is stripped from the output (rendered as
+   *  nothing rather than a broken, clickable chip). Pass the message's persisted
+   *  citations — the chunks that were actually fed AND cited — so a model that
+   *  hallucinates `[doc:999, chunk:999]` doesn't produce a chip that opens the
+   *  wrong source. Omit to transform every well-formed marker (the default used
+   *  while a turn is still streaming, before its citations are known). */
+  allowed?: ReadonlySet<string>,
+): {
   text: string
   markers: Array<CitationMarker & { index: number }>
 } {
@@ -80,6 +90,7 @@ export function transformCitationMarkers(text: string): {
       const chunkId = Number(chunk)
       if (!Number.isFinite(documentId) || !Number.isFinite(chunkId)) return full
       const key = `${documentId}-${chunkId}`
+      if (allowed && !allowed.has(key)) return ''
       let idx = keyToIndex.get(key)
       if (idx === undefined) {
         idx = markers.length + 1

@@ -10,13 +10,29 @@ type Props = {
   role: Role
   content: string
   isRefusal?: boolean
+  /** The chunks this turn actually cited (fed AND referenced). When present,
+   *  markers outside this set are stripped instead of rendered as broken chips.
+   *  Undefined while a turn is still streaming (citations aren't known yet).
+   *  Passed as the message's stable array so the surrounding memo() still
+   *  short-circuits — the Set is derived here, not rebuilt by the parent. */
+  citations?: ReadonlyArray<{ documentId: number; chunkId: number }>
   /** Receives the citation marker AND the original assistant message text , so
    *  the SourceViewer can fuzzy-match the surrounding sentence inside the
    *  cited chunk. */
   onCitationClick: (m: { documentId: number; chunkId: number; messageText: string }) => void
 }
 
-function MessageBubbleImpl({ role, content, isRefusal, onCitationClick }: Props): JSX.Element {
+function MessageBubbleImpl({
+  role,
+  content,
+  isRefusal,
+  citations,
+  onCitationClick,
+}: Props): JSX.Element {
+  const citedKeys = useMemo(
+    () => (citations ? new Set(citations.map((c) => `${c.documentId}-${c.chunkId}`)) : undefined),
+    [citations],
+  )
   // Hooks unconditionally before the user-role early return so React's hook
   // order stays stable across role flips (won't happen in practice — same
   // bubble doesn't switch roles — but lint enforces it).
@@ -36,7 +52,7 @@ function MessageBubbleImpl({ role, content, isRefusal, onCitationClick }: Props)
   if (role === 'user') {
     return <div className="bubble bubble--user">{content}</div>
   }
-  const { text } = transformCitationMarkers(content)
+  const { text } = transformCitationMarkers(content, citedKeys)
   return (
     <div className={`bubble ${isRefusal ? 'bubble--refusal' : 'bubble--assistant'}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

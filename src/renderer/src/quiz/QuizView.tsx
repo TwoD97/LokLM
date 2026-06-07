@@ -26,6 +26,9 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
   // streamId → off() handle, kept in state so we can clean up on unmount and
   // on deck deletion. Maps to the active onGenerateEvent subscription.
   const [streamHandles, setStreamHandles] = useState<Map<number, () => void>>(new Map())
+  // deckId → streamId of its in-flight generation, so a Cancel button can abort
+  // the right stream. Dropped when the stream settles (done/error).
+  const [streamIds, setStreamIds] = useState<Map<number, string>>(new Map())
   // deckId → live generation progress, derived from the event stream and fed to
   // QuizListView so each generating deck shows a step label + progress bar.
   const [progress, setProgress] = useState<Map<number, QuizProgress>>(new Map())
@@ -73,6 +76,11 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
             next.delete(deckId)
             return next
           })
+          setStreamIds((prev) => {
+            const next = new Map(prev)
+            next.delete(deckId)
+            return next
+          })
         } else if (ev.type === 'stage') {
           setProgress((prev) => new Map(prev).set(deckId, { stage: ev.stage }))
         } else if (ev.type === 'doc-themes') {
@@ -94,9 +102,21 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
         }
       })
       setStreamHandles((prev) => new Map(prev).set(deckId, off))
+      setStreamIds((prev) => new Map(prev).set(deckId, streamId))
       void window.api.quiz.generate(streamId, deckId)
     },
     [refresh],
+  )
+
+  // Abort an in-flight generation. The backend flips the deck to
+  // 'failed'/'cancelled' (retryable) and emits an 'error' event, which the
+  // subscription above turns into a refresh + subscription cleanup.
+  const cancelGeneration = useCallback(
+    (deckId: number) => {
+      const streamId = streamIds.get(deckId)
+      if (streamId) void window.api.quiz.cancelGenerate(streamId)
+    },
+    [streamIds],
   )
 
   if (screen.kind === 'create') {
@@ -141,6 +161,7 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
         startGeneration(deckId)
         await refresh()
       }}
+      onCancel={cancelGeneration}
     />
   )
 }
