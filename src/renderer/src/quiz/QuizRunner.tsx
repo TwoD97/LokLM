@@ -19,6 +19,11 @@ type RunnerState =
       data: QuizDeckWithQuestions
       attempt: QuizAttempt
       order: QuizQuestion[]
+      /** 'practice' reveals each answer immediately (the original flow);
+       *  'test' defers all reveals to the results screen, lets the learner
+       *  change answers and move back/forward, and gates submit on completeness.
+       *  Chosen via the header toggle before the first answer is locked in. */
+      mode: 'practice' | 'test'
       /** Per-question option permutation: optionPerms.get(questionId)[displayIdx]
        *  = originalIdx. Built once at attempt start and re-applied across
        *  re-renders so option order stays stable within one attempt. Retaking
@@ -83,6 +88,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
           data,
           attempt,
           order,
+          mode: 'practice',
           optionPerms,
           cursor: 0,
           selectedByQuestionId: new Map(),
@@ -101,15 +107,18 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
 
   const onSelect = useCallback((idx: number) => {
     setState((prev) => {
-      if (prev.kind !== 'running' || prev.revealed) return prev
+      if (prev.kind !== 'running') return prev
+      // Practice locks the answer on reveal; test keeps it editable until submit.
+      if (prev.mode === 'practice' && prev.revealed) return prev
       const q = prev.order[prev.cursor]
       if (!q) return prev
       const next = new Map(prev.selectedByQuestionId)
       next.set(q.id, idx)
-      return { ...prev, selectedByQuestionId: next, revealed: true }
+      return { ...prev, selectedByQuestionId: next, revealed: prev.mode === 'practice' }
     })
   }, [])
 
+  // Practice-mode advance: reveal-then-Next, auto-finishing past the last card.
   const advance = useCallback(() => {
     setState((prev) => {
       if (prev.kind !== 'running') return prev
@@ -118,6 +127,35 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
         return { ...prev, cursor: prev.order.length }
       }
       return { ...prev, cursor: prev.cursor + 1, revealed: false }
+    })
+  }, [])
+
+  // Test-mode navigation: free back/forward with no reveal, plus an explicit
+  // submit (gated on all questions answered, which keeps the -1→0 unanswered
+  // coercion unreachable and scoring unchanged).
+  const goTo = useCallback((delta: number) => {
+    setState((prev) => {
+      if (prev.kind !== 'running') return prev
+      const next = prev.cursor + delta
+      if (next < 0 || next >= prev.order.length) return prev
+      return { ...prev, cursor: next }
+    })
+  }, [])
+
+  const submitTest = useCallback(() => {
+    setState((prev) => {
+      if (prev.kind !== 'running') return prev
+      if (prev.selectedByQuestionId.size < prev.order.length) return prev
+      return { ...prev, cursor: prev.order.length }
+    })
+  }, [])
+
+  // Switch mode before the first answer is committed. Disabled afterwards so an
+  // attempt can't change its reveal contract mid-run.
+  const setMode = useCallback((mode: 'practice' | 'test') => {
+    setState((prev) => {
+      if (prev.kind !== 'running' || prev.selectedByQuestionId.size > 0) return prev
+      return { ...prev, mode }
     })
   }, [])
 
@@ -209,6 +247,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
   }
 
   const question = state.order[state.cursor]!
+  const isLast = state.cursor + 1 >= state.order.length
   const perm = state.optionPerms.get(question.id) ?? question.options.map((_, i) => i)
   const displayQuestion: QuizQuestion = {
     ...question,
@@ -227,6 +266,23 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
             })}
           </p>
         </div>
+        <div className="quiz-runner__mode" role="group" aria-label={t('quiz.runner.modeAria')}>
+          {(['practice', 'test'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`quiz-runner__mode-btn ${state.mode === m ? 'quiz-runner__mode-btn--active' : ''}`}
+              onClick={() => setMode(m)}
+              disabled={state.selectedByQuestionId.size > 0}
+              aria-pressed={state.mode === m}
+              title={t(
+                m === 'practice' ? 'quiz.runner.modePracticeHint' : 'quiz.runner.modeTestHint',
+              )}
+            >
+              {t(m === 'practice' ? 'quiz.runner.modePractice' : 'quiz.runner.modeTest')}
+            </button>
+          ))}
+        </div>
         <Stopwatch startedAt={state.attempt.startedAt} t={t} />
         <button type="button" className="quiz-btn" onClick={onClose}>
           {t('common.close')}
@@ -240,11 +296,43 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
           onSelect={onSelect}
           onCite={onCite}
         />
-        {state.revealed && (
+        {state.mode === 'practice' && state.revealed && (
           <div className="quiz-runner__footer">
             <button type="button" className="quiz-btn quiz-btn--primary" onClick={advance}>
-              {state.cursor + 1 >= state.order.length ? t('quiz.runner.finish') : t('common.next')}
+              {isLast ? t('quiz.runner.finish') : t('common.next')}
             </button>
+          </div>
+        )}
+        {state.mode === 'test' && (
+          <div className="quiz-runner__footer quiz-runner__footer--test">
+            <button
+              type="button"
+              className="quiz-btn"
+              onClick={() => goTo(-1)}
+              disabled={state.cursor === 0}
+            >
+              {t('common.back')}
+            </button>
+            <span className="quiz-runner__answered">
+              {t('quiz.runner.answered', {
+                answered: state.selectedByQuestionId.size,
+                total: state.order.length,
+              })}
+            </span>
+            {isLast ? (
+              <button
+                type="button"
+                className="quiz-btn quiz-btn--primary"
+                onClick={submitTest}
+                disabled={state.selectedByQuestionId.size < state.order.length}
+              >
+                {t('quiz.runner.submit')}
+              </button>
+            ) : (
+              <button type="button" className="quiz-btn quiz-btn--primary" onClick={() => goTo(1)}>
+                {t('common.next')}
+              </button>
+            )}
           </div>
         )}
       </div>
