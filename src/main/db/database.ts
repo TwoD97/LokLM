@@ -1263,6 +1263,20 @@ export class QuizzesRepo {
     `)
   }
 
+  /** Cold-boot orphan sweep, mirroring DocumentsRepo.resetStuckIndexing: a deck
+   *  still flagged 'generating' was orphaned by a session that crashed (or was
+   *  killed) mid-generation — its in-memory stream is gone, so the row would
+   *  spin forever (Retry only renders for 'failed'). Flip to 'failed' with an
+   *  'interrupted' marker so it becomes retryable. Returns the row count. */
+  async resetStuckGenerating(): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE quiz_decks SET status = 'failed', error = 'interrupted'
+       WHERE status = 'generating'
+       RETURNING id
+    `)
+    return r.rows.length
+  }
+
   async getDeck(deckId: number): Promise<QuizDeck | null> {
     const r = await this.db.execute(sql`
       SELECT id, workspace_id, name, document_ids, question_count,

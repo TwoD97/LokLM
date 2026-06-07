@@ -4,6 +4,7 @@ import { Sidebar, usePinnedSidebar } from './Sidebar'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
 import { QuizView } from '../quiz/QuizView'
+import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import './shell.css'
 
@@ -24,6 +25,7 @@ export function AppShell(): JSX.Element {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [activeDocumentIds, setActiveDocumentIds] = useState<number[]>([])
   const [workspaceDocs, setWorkspaceDocs] = useState<Document[]>([])
+  const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState<Workspace | null>(null)
 
   const refreshWorkspaces = useCallback(async () => {
     const ws = await window.api.workspaces.list()
@@ -74,6 +76,34 @@ export function AppShell(): JSX.Element {
     setActiveDocumentIds([])
   }, [])
 
+  const onRenameWorkspace = useCallback(
+    async (id: number, name: string) => {
+      const trimmed = name.trim()
+      if (trimmed.length === 0) return
+      await window.api.workspaces.rename(id, trimmed)
+      await refreshWorkspaces()
+    },
+    [refreshWorkspaces],
+  )
+
+  // Cascade-deletes the workspace and all its content in main. If the active
+  // workspace is the one removed, fall back to the first remaining one (or the
+  // empty state) and drop any now-orphaned chat scope.
+  const onDeleteWorkspace = useCallback(
+    async (id: number) => {
+      await window.api.workspaces.delete(id)
+      setConfirmDeleteWorkspace(null)
+      const ws = await window.api.workspaces.list()
+      setWorkspaces(ws)
+      if (activeWorkspaceId === id) {
+        setCurrentConversationId(null)
+        setActiveDocumentIds([])
+        setActiveWorkspaceId(ws.length > 0 ? ws[0]!.id : null)
+      }
+    },
+    [activeWorkspaceId],
+  )
+
   const onConversationChange = useCallback((id: number | null, ids: number[]) => {
     setCurrentConversationId(id)
     setActiveDocumentIds(ids)
@@ -109,6 +139,8 @@ export function AppShell(): JSX.Element {
         activeView={activeView}
         onWorkspaceSelect={onWorkspaceSelect}
         onCreateWorkspace={(name) => void onCreateWorkspace(name)}
+        onRenameWorkspace={(id, name) => void onRenameWorkspace(id, name)}
+        onRequestDeleteWorkspace={setConfirmDeleteWorkspace}
         onViewChange={setActiveView}
         onTogglePin={togglePin}
         onPeek={setPeeking}
@@ -133,6 +165,7 @@ export function AppShell(): JSX.Element {
             workspaceId={activeWorkspaceId}
             currentConversationId={currentConversationId}
             activeDocumentIds={activeDocumentIds}
+            documents={workspaceDocs}
             onConversationChange={onConversationChange}
           />
         )}
@@ -144,6 +177,14 @@ export function AppShell(): JSX.Element {
           />
         )}
       </main>
+      {confirmDeleteWorkspace && (
+        <ConfirmModal
+          title={t('shell.deleteWorkspaceTitle')}
+          body={t('shell.deleteWorkspaceBody', { name: confirmDeleteWorkspace.name })}
+          onConfirm={() => void onDeleteWorkspace(confirmDeleteWorkspace.id)}
+          onCancel={() => setConfirmDeleteWorkspace(null)}
+        />
+      )}
     </div>
   )
 }

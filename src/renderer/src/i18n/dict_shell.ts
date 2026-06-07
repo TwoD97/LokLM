@@ -42,6 +42,11 @@ export const shellDict: DomainDict = {
     'shell.clear': 'Clear',
     'shell.noDocumentsYet': 'No documents yet',
     'shell.newWorkspace': '+ New workspace',
+    'shell.renameWorkspace': 'Rename workspace',
+    'shell.deleteWorkspace': 'Delete workspace',
+    'shell.deleteWorkspaceTitle': 'Delete workspace?',
+    'shell.deleteWorkspaceBody':
+      'Delete “{name}” and all of its documents, chats and quizzes? This cannot be undone.',
 
     // ErrorBoundary.tsx
     'shell.unknownError': 'Unknown error',
@@ -85,6 +90,11 @@ export const shellDict: DomainDict = {
     'shell.clear': 'Zurücksetzen',
     'shell.noDocumentsYet': 'Noch keine Dokumente',
     'shell.newWorkspace': '+ Neuer Workspace',
+    'shell.renameWorkspace': 'Workspace umbenennen',
+    'shell.deleteWorkspace': 'Workspace löschen',
+    'shell.deleteWorkspaceTitle': 'Workspace löschen?',
+    'shell.deleteWorkspaceBody':
+      '„{name}“ und alle zugehörigen Dokumente, Chats und Quizze löschen? Das kann nicht rückgängig gemacht werden.',
 
     // ErrorBoundary.tsx
     'shell.unknownError': 'Unbekannter Fehler',

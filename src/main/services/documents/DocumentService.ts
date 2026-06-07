@@ -20,6 +20,11 @@ import {
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
+// Import-time embedding page size. Matches EmbeddingBackfillService's PAGE so
+// both ingest paths round-trip the embedder in equal, memory-bounded batches
+// and a single failing passage only affects its own page.
+const EMBED_BATCH = 32
+
 type ProgressSender = WebContents | { send: (channel: string, payload: IndexProgress) => void }
 
 export interface ImportInput {
@@ -407,27 +412,41 @@ export class DocumentService {
       // embedding phase silently degrades to a no-op (Spec 1 behaviour).
       //
       // The provider contract throws on failure (no embedder model on disk,
-      // Ollama unreachable, per-passage embed error). Where the old
-      // EmbeddingService returned per-item nulls, the provider throws once
-      // for the batch; we catch and leave vectors=null so chunks persist
-      // with embedding=NULL — the backfill service picks them up later.
+      // Ollama unreachable, per-passage embed error). We page the forward pass
+      // in fixed-size batches (mirroring EmbeddingBackfillService's PAGE=32)
+      // rather than embedding every chunk in one call: a book-length or OCR'd
+      // PDF can be hundreds of passages, and a single embed() over all of them
+      // is both a memory/timeout spike AND all-or-nothing — one bad passage
+      // throws for the whole batch and NULLs the entire document's vectors.
+      // Batching isolates a failure to its own page; the rest persist embedded
+      // and only the failed page defers to the backfill service.
       send('embedding', 3)
-      let vectors: Float32Array[] | null = null
+      let vectors: Array<Float32Array | null> | null = null
       let activeIdentity: string | null = null
       if (this.registry) {
         const embedder = this.registry.embedder()
         await embedder.ensureReady()
         if (embedder.isReady()) {
-          try {
-            vectors = await embedder.embed(out.map((c) => c.text))
+          const texts = out.map((c) => c.text)
+          const acc: Array<Float32Array | null> = new Array(texts.length).fill(null)
+          let anyEmbedded = false
+          for (let start = 0; start < texts.length; start += EMBED_BATCH) {
+            const slice = texts.slice(start, start + EMBED_BATCH)
+            try {
+              const vs = await embedder.embed(slice)
+              for (let j = 0; j < vs.length; j++) acc[start + j] = vs[j] ?? null
+              anyEmbedded = true
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[documents] embed batch ${start}–${start + slice.length} failed for "${doc.title}", deferring to backfill:`,
+                err,
+              )
+            }
+          }
+          if (anyEmbedded) {
+            vectors = acc
             activeIdentity = embedder.identity()
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              '[documents] embedder failed during indexing, chunks will need backfill:',
-              err,
-            )
-            vectors = null
           }
         }
       }

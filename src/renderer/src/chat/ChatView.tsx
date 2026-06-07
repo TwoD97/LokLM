@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Conversation, StageName, StreamEvent } from '@shared/documents'
+import type { Conversation, Document, StageName, StreamEvent } from '@shared/documents'
 import { ChatHeader } from './ChatHeader'
 import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
@@ -39,6 +39,9 @@ type LocalMessage =
       /** Pipeline stages observed for this turn, in arrival order. Empty for
        *  re-hydrated messages from the DB (stage timings aren't persisted). */
       pipeline?: StageRow[]
+      /** Persisted citations (fed AND cited chunks). Populated on re-hydrate;
+       *  undefined while streaming. Drives marker validation + grounding badge. */
+      citations?: Array<{ documentId: number; chunkId: number }>
     }
 
 function newMessageId(): string {
@@ -52,6 +55,10 @@ type Props = {
   workspaceId: number
   currentConversationId: number | null
   activeDocumentIds: number[]
+  /** All docs in the workspace, used to resolve a citation's document title for
+   *  the SourceViewer header (avoids the brief "chunk #id" flash while the
+   *  chunk source is still loading). */
+  documents: Document[]
   onConversationChange: (id: number | null, activeDocumentIds: number[]) => void
 }
 
@@ -59,6 +66,7 @@ export function ChatView({
   workspaceId,
   currentConversationId,
   activeDocumentIds,
+  documents,
   onConversationChange,
 }: Props): JSX.Element {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -69,6 +77,7 @@ export function ChatView({
   const [sourceViewer, setSourceViewer] = useState<{
     chunkId: number
     messageText: string
+    documentTitle: string | null
   } | null>(null)
   const { settings } = useSettings()
   const t = useT()
@@ -137,6 +146,10 @@ export function ChatView({
             role: 'assistant',
             content: m.content,
             streaming: false,
+            // Always set (possibly empty) so the bubble validates markers and
+            // the grounding badge renders — distinguishes "cited nothing" from
+            // "still streaming" (undefined).
+            citations: m.citations.map((c) => ({ documentId: c.documentId, chunkId: c.chunkId })),
             ...(hasMetrics
               ? {
                   metrics: {
@@ -336,10 +349,19 @@ export function ChatView({
       : t('chat.newChat')
 
   const onCitationClick = useCallback(
-    ({ chunkId, messageText }: { documentId: number; chunkId: number; messageText: string }) => {
-      setSourceViewer({ chunkId, messageText })
+    ({
+      documentId,
+      chunkId,
+      messageText,
+    }: {
+      documentId: number
+      chunkId: number
+      messageText: string
+    }) => {
+      const documentTitle = documents.find((d) => d.id === documentId)?.title ?? null
+      setSourceViewer({ chunkId, messageText, documentTitle })
     },
-    [],
+    [documents],
   )
 
   return (
@@ -383,7 +405,7 @@ export function ChatView({
           <SourceViewer
             chunkId={sourceViewer.chunkId}
             messageText={sourceViewer.messageText}
-            documentTitle={null}
+            documentTitle={sourceViewer.documentTitle}
             onClose={() => setSourceViewer(null)}
           />
         </ErrorBoundary>

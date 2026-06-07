@@ -32,6 +32,7 @@ import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerank
 import { SettingsService } from './services/settings/SettingsService'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
+import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
@@ -593,6 +594,13 @@ function registerIpc(): void {
       await getDocumentService()
         .sweepOrphanedIndexing()
         .catch(() => undefined)
+      // Same for quiz decks orphaned mid-generation by a hard kill (where the
+      // generator's own catch never ran to flip them to 'failed').
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .resetStuckGenerating()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
     },
@@ -626,6 +634,13 @@ function registerIpc(): void {
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
       await getDocumentService()
         .sweepOrphanedIndexing()
+        .catch(() => undefined)
+      // Same for quiz decks orphaned mid-generation by a hard kill (where the
+      // generator's own catch never ran to flip them to 'failed').
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .resetStuckGenerating()
         .catch(() => undefined)
       schedulePostLoginWarmup()
     }
@@ -1344,7 +1359,10 @@ function registerIpc(): void {
           if (ev.type === 'token') {
             tokenBuffer.push(ev.text)
             if (firstTokenTime == null) firstTokenTime = performance.now()
-            tokenCount += 1
+            // Each token event may coalesce several native tokens (the 8 ms
+            // batcher). Count the underlying tokens, not the events, so the
+            // persisted tokens/sec matches the live metric ChatView shows.
+            tokenCount += ev.count ?? 1
           } else if (ev.type === 'citation')
             citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
           else if (ev.type === 'refusal') {
@@ -1376,8 +1394,22 @@ function registerIpc(): void {
               assistantContent,
               { ttftMs, tokensPerSec, tokenCount },
             )
-            if (citations.length > 0) {
-              await conversations.persistCitations(asst.id, citations)
+            // Reconcile citations: persist ONLY the fed chunks the model
+            // actually cited in its answer, not every chunk we fed it. Without
+            // this the DB recorded all fedHits as "citations" regardless of
+            // whether the answer referenced them, so the persisted set never
+            // matched the chips the renderer derives from [doc:X, chunk:Y]
+            // markers — and a hallucinated marker had nothing to validate
+            // against. citations[] is already restricted to fedHits, so the
+            // intersection with the answer's markers is the faithful set.
+            const citedKeys = new Set(
+              extractCitationMarkers(body).map((m) => `${m.documentId}-${m.chunkId}`),
+            )
+            const groundedCitations = citations.filter((c) =>
+              citedKeys.has(`${c.doc_id}-${c.chunk_id}`),
+            )
+            if (groundedCitations.length > 0) {
+              await conversations.persistCitations(asst.id, groundedCitations)
             }
           }
         }
