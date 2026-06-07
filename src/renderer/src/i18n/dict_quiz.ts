@@ -23,6 +23,13 @@ export const quizDict: DomainDict = {
     'quiz.runner.elapsedTime': 'Elapsed time',
     'quiz.runner.scoring': 'Scoring…',
     'quiz.runner.finish': 'Finish',
+    'quiz.runner.modeAria': 'Quiz mode',
+    'quiz.runner.modePractice': 'Practice',
+    'quiz.runner.modeTest': 'Test',
+    'quiz.runner.modePracticeHint': 'Reveal each answer as you go',
+    'quiz.runner.modeTestHint': 'Answer everything, then see your results',
+    'quiz.runner.submit': 'Submit',
+    'quiz.runner.answered': '{answered} / {total} answered',
 
     // QuizResults
     'quiz.results.heading': 'Results',
@@ -86,6 +93,13 @@ export const quizDict: DomainDict = {
     'quiz.runner.elapsedTime': 'Verstrichene Zeit',
     'quiz.runner.scoring': 'Auswertung…',
     'quiz.runner.finish': 'Abschließen',
+    'quiz.runner.modeAria': 'Quiz-Modus',
+    'quiz.runner.modePractice': 'Üben',
+    'quiz.runner.modeTest': 'Test',
+    'quiz.runner.modePracticeHint': 'Antwort sofort nach jeder Frage anzeigen',
+    'quiz.runner.modeTestHint': 'Alles beantworten, dann Ergebnis ansehen',
+    'quiz.runner.submit': 'Abgeben',
+    'quiz.runner.answered': '{answered} / {total} beantwortet',
 
     // QuizResults
     'quiz.results.heading': 'Ergebnisse',

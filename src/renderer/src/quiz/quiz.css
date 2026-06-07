@@ -471,6 +471,41 @@
   display: flex;
   justify-content: flex-end;
 }
+.quiz-runner__footer--test {
+  justify-content: space-between;
+  align-items: center;
+}
+.quiz-runner__answered {
+  font-size: 12px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+/* Segmented Practice/Test toggle in the runner header. */
+.quiz-runner__mode {
+  display: inline-flex;
+  border: 1px solid #243a55;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.quiz-runner__mode-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  background: transparent;
+  border: 0;
+  color: var(--fg-1, #c8d4e3);
+  cursor: pointer;
+}
+.quiz-runner__mode-btn:not(:first-child) {
+  border-left: 1px solid #243a55;
+}
+.quiz-runner__mode-btn--active {
+  background: #1c3a5e;
+  color: #eaf2ff;
+}
+.quiz-runner__mode-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
 
 .quiz-card-q {
   background: #0f1a2a;
