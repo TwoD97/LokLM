@@ -80,8 +80,8 @@ export interface UserSettings {
 export const DEFAULT_SETTINGS: UserSettings = {
   schemaVersion: 1,
   basic: {
-    // English-first UI default ; users can switch to German.
-    language: 'en',
+    // German-first UI default per AP-9 ; users can switch to English.
+    language: 'de',
     // Auto by default : reply in the language the user writes in ( DE/EN ).
     // Picking 'de'/'en' locks the answer language regardless of the prompt.
     answerLanguage: 'auto',
