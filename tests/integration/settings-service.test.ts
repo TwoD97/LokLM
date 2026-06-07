@@ -99,4 +99,22 @@ describe('SettingsService', () => {
     await svc2.hydrate()
     expect(svc2.get().basic.theme).toBe('dark')
   })
+
+  it('round-trips a user-set retrieval value through the DB', async () => {
+    await svc.update({ retrieval: { chunkSize: 4000 } })
+    const svc2 = new SettingsService(db, async () => {})
+    await svc2.hydrate()
+    expect(svc2.get().retrieval.chunkSize).toBe(4000)
+    // sibling retrieval fields preserved by deep-merge
+    expect(svc2.get().retrieval.topK).toBe(10)
+  })
+
+  it('round-trips user-set runtime + security values', async () => {
+    await svc.update({ runtime: { conversationSwitch: 'unload' } })
+    await svc.update({ security: { autoLockMinutes: 0 } })
+    const svc2 = new SettingsService(db, async () => {})
+    await svc2.hydrate()
+    expect(svc2.get().runtime.conversationSwitch).toBe('unload')
+    expect(svc2.get().security.autoLockMinutes).toBe(0)
+  })
 })
