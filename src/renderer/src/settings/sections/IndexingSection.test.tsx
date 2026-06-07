@@ -10,18 +10,20 @@ describe('IndexingSection', () => {
     expect(screen.getByLabelText('Chunk overlap')).toBeInTheDocument()
     expect(screen.getByLabelText('Retrieved passages (Top-K)')).toBeInTheDocument()
   })
-  it('updates retrieval.topK on slider change', () => {
+  it('updates retrieval.topK on slider release', () => {
     const update = vi.fn(async () => {})
     render(<IndexingSection settings={DEFAULT_SETTINGS} update={update} />)
-    fireEvent.change(screen.getByLabelText('Retrieved passages (Top-K)'), {
-      target: { value: '20' },
-    })
+    const slider = screen.getByLabelText('Retrieved passages (Top-K)')
+    fireEvent.change(slider, { target: { value: '20' } })
+    fireEvent.blur(slider)
     expect(update).toHaveBeenCalledWith({ retrieval: { topK: 20 } })
   })
-  it('updates retrieval.chunkSize on slider change', () => {
+  it('updates retrieval.chunkSize on slider release', () => {
     const update = vi.fn(async () => {})
     render(<IndexingSection settings={DEFAULT_SETTINGS} update={update} />)
-    fireEvent.change(screen.getByLabelText('Chunk size'), { target: { value: '4000' } })
+    const slider = screen.getByLabelText('Chunk size')
+    fireEvent.change(slider, { target: { value: '4000' } })
+    fireEvent.blur(slider)
     expect(update).toHaveBeenCalledWith({ retrieval: { chunkSize: 4000 } })
   })
 })

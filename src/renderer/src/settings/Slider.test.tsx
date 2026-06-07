@@ -21,10 +21,21 @@ describe('Slider', () => {
     render(<Slider value={10} min={3} max={30} ariaLabel="TopK" onChange={() => {}} />)
     expect(screen.getByText('10')).toBeInTheDocument()
   })
-  it('calls onChange with the numeric value on input', () => {
+  it('updates the live readout during drag without persisting', () => {
     const onChange = vi.fn()
     render(<Slider value={10} min={3} max={30} ariaLabel="TopK" onChange={onChange} />)
-    fireEvent.change(screen.getByLabelText('TopK'), { target: { value: '17' } })
+    const input = screen.getByLabelText('TopK')
+    fireEvent.change(input, { target: { value: '22' } })
+    expect(screen.getByText('22')).toBeInTheDocument() // readout follows the drag...
+    expect(onChange).not.toHaveBeenCalled() // ...but nothing persisted yet
+  })
+  it('commits the value on release', () => {
+    const onChange = vi.fn()
+    render(<Slider value={10} min={3} max={30} ariaLabel="TopK" onChange={onChange} />)
+    const input = screen.getByLabelText('TopK')
+    fireEvent.change(input, { target: { value: '17' } })
+    // blur is the jsdom-reliable commit trigger; onPointerUp/onKeyUp are wired to the same commit().
+    fireEvent.blur(input)
     expect(onChange).toHaveBeenCalledWith(17)
   })
   it('exposes min/max/step on the range input', () => {

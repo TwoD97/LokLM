@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 type Props = {
   value: number
   min: number
@@ -18,6 +20,16 @@ export function Slider({
   ariaLabel,
   format,
 }: Props): JSX.Element {
+  // Show a live value while dragging, but only persist (onChange) on release — a
+  // native range fires onChange on every move, which would otherwise hammer the
+  // settings DB with a write per step of the drag.
+  const [live, setLive] = useState(value)
+  useEffect(() => setLive(value), [value])
+
+  const commit = (v: number): void => {
+    if (v !== value) onChange(v)
+  }
+
   return (
     <div className="settings-slider">
       <input
@@ -26,11 +38,14 @@ export function Slider({
         min={min}
         max={max}
         step={step}
-        value={value}
+        value={live}
         aria-label={ariaLabel}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => setLive(Number(e.target.value))}
+        onPointerUp={(e) => commit(Number(e.currentTarget.value))}
+        onKeyUp={(e) => commit(Number(e.currentTarget.value))}
+        onBlur={(e) => commit(Number(e.currentTarget.value))}
       />
-      <span className="settings-slider__value">{format ? format(value) : String(value)}</span>
+      <span className="settings-slider__value">{format ? format(live) : String(live)}</span>
     </div>
   )
 }
