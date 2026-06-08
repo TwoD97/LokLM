@@ -270,12 +270,15 @@ describe('generateQuestionsForTheme', () => {
     const gpuPrompt = gpuCall[0] as string
     const cpuOpts = cpuCall[1] as { maxTokens?: number }
     const gpuOpts = gpuCall[1] as { maxTokens?: number }
-    // Shorter grounding slice (700 vs 1200 chars) → shorter prompt on CPU.
+    // Shorter grounding slice (500 vs 1200 chars) → shorter prompt on CPU.
     expect(cpuPrompt.length).toBeLessThan(gpuPrompt.length)
     expect(cpuPrompt).toContain('L'.repeat(500))
     expect(cpuPrompt).not.toContain('L'.repeat(501))
-    // Tighter per-question output budget on CPU.
-    expect(cpuOpts.maxTokens).toBeLessThan(gpuOpts.maxTokens!)
+    // CPU and GPU both honour the same maxLength-bounded schema; the CPU
+    // budget needs ≥ the GPU one so a German-content batch=2 call doesn't get
+    // cut off mid-second-question (the original "tighter CPU budget" idea
+    // backfired by truncating distinct German distractors into duplicates).
+    expect(cpuOpts.maxTokens).toBeGreaterThanOrEqual(gpuOpts.maxTokens!)
   })
 
   it('carries the stem embedding onto each accepted shape', async () => {

@@ -22,11 +22,11 @@ export const FALLBACK_CONTEXT_TOKENS = 8192
  *  batch call = count * PER_QUESTION_TOKEN_BUDGET, bounding runaway generation. */
 export const PER_QUESTION_TOKEN_BUDGET = 320
 
-/** Per-question cap on CPU. Aggressive: paired with schema maxLength on stem
- *  /options/explanation so the grammar physically can't produce a question that
- *  needs more than this. CPU finishes in ~half the wall time, at the cost of
- *  terser explanations and shorter options. */
-export const PER_QUESTION_TOKEN_BUDGET_CPU = 220
+/** Per-question cap on CPU. Has to accommodate the schema maxLength bounds
+ *  ( stem 220 + 4 options × 140 + explanation 280 = ~1.1k chars ≈ ~320 tokens
+ *  per question , plus JSON overhead ). Set with a safety margin so the model
+ *  doesn't get cut off mid-question on the second item of a batch=2 call. */
+export const PER_QUESTION_TOKEN_BUDGET_CPU = 380
 
 /** maxTokens cap for one windowed theme-extraction call. Windows ask for only a
  *  few themes so this is plenty, and it bounds runaway generation. */
@@ -85,15 +85,21 @@ export const QUESTION_LIST_SCHEMA = {
   items: {
     type: 'object',
     properties: {
-      stem: { type: 'string', minLength: 8, maxLength: 160 },
+      stem: { type: 'string', minLength: 8, maxLength: 220 },
       options: {
         type: 'array',
-        items: { type: 'string', minLength: 1, maxLength: 80 },
+        // Option maxLength is the load-bearing number: German compound words
+        // ( Sitzungsschlüssel, Schlüsselaustausch, Verschlüsselungsverfahren )
+        // routinely push a single option past 100 chars. The old cap of 80
+        // truncated distinct distractors mid-word, leaving them textually
+        // identical after the cut , and our validator then rejected the whole
+        // question as options-not-distinct — observed on a 2B + German bench.
+        items: { type: 'string', minLength: 1, maxLength: 140 },
         minItems: 4,
         maxItems: 4,
       },
       correct_index: { enum: [0, 1, 2, 3] },
-      explanation: { type: 'string', minLength: 8, maxLength: 220 },
+      explanation: { type: 'string', minLength: 8, maxLength: 280 },
       source_chunk_ids: { type: 'array', items: { type: 'integer' }, minItems: 1 },
     },
   },
