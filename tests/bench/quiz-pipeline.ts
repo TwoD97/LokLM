@@ -150,7 +150,25 @@ class BenchLlm implements LlmProvider {
     if (opts.maxTokens != null) promptOpts.maxTokens = opts.maxTokens
     if (opts.abortSignal) promptOpts.signal = opts.abortSignal
     if (opts.noThink) promptOpts.budgets = { thoughtTokens: 0 }
+    // Live decode feedback: one dot per emitted chunk + final '[N tok, Ts]'.
+    // On CPU each call is often 60-120s of silence otherwise — this is the
+    // difference between "stuck?" and "30 tokens in, decoding fine".
+    const t0 = performance.now()
+    let chunks = 0
+    let chars = 0
+    let firstChunkAt: number | null = null
+    promptOpts.onTextChunk = (chunk: string): void => {
+      if (firstChunkAt === null) firstChunkAt = performance.now()
+      chunks += 1
+      chars += chunk.length
+      process.stderr.write('.')
+    }
     const raw = await session.prompt(prompt, promptOpts)
+    const dt = (performance.now() - t0) / 1000
+    const ttft = firstChunkAt != null ? ((firstChunkAt - t0) / 1000).toFixed(1) : 'n/a'
+    process.stderr.write(
+      ` [${chunks} chunks, ${chars} chars, ttft ${ttft}s, total ${dt.toFixed(1)}s]\n`,
+    )
     return String(raw).trim()
   }
 
