@@ -223,6 +223,30 @@ describe('generateQuestionsForTheme', () => {
     expect(llm.generateRaw).not.toHaveBeenCalled()
   })
 
+  it('salvages the valid prefix from a truncated batch array', async () => {
+    // 3 complete question objects then a 4th cut off mid-object (slow CPU model
+    // hit maxTokens). The whole-array JSON.parse would throw → 0; brace-matched
+    // salvage keeps the 3 complete ones.
+    const valid = [mcq('Q1'), mcq('Q2'), mcq('Q3')].map((q) => JSON.stringify(q)).join(',')
+    const truncated = `[${valid},{"stem":"Q4","options":["A","B"`
+    const llm = fakeLlm([truncated])
+    const embedder = fakeEmbedder({
+      Q1: new Float32Array([1, 0, 0]),
+      Q2: new Float32Array([0, 1, 0]),
+      Q3: new Float32Array([0, 0, 1]),
+    })
+    const out = await generateQuestionsForTheme(llm, embedder, {
+      language: 'en',
+      theme: makeTheme(),
+      groundingChunks: [makeChunk(1, 'X is X.'), makeChunk(2, 'More about X.')],
+      accepted: [],
+      count: 4,
+    })
+    expect(out.map((q) => q.stem)).toEqual(['Q1', 'Q2', 'Q3'])
+    // No retry — the salvage parse already returned a non-empty subset.
+    expect(llm.generateRaw).toHaveBeenCalledTimes(1)
+  })
+
   it('carries the stem embedding onto each accepted shape', async () => {
     const llm = fakeLlm([JSON.stringify([mcq('Carry me')])])
     const embedder = fakeEmbedder({ 'Carry me': new Float32Array([0.5, 0.5, 0]) })

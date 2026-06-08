@@ -14,6 +14,7 @@ import {
   THEME_LIST_SCHEMA,
   FALLBACK_CONTEXT_TOKENS,
 } from './prompts'
+import { extractJsonObjects } from './jsonSalvage'
 
 const DEDUP_COSINE_THRESHOLD = 0.85
 
@@ -110,6 +111,12 @@ export async function extractThemesForDocument(
       ...(abortSignal ? { abortSignal } : {}),
     })
     const parsed = parseThemeJson(raw)
+    if (parsed.length === 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[quiz] no themes parsed for doc ${docId} ("${docTitle}"); raw output: ${snippet(raw)}`,
+      )
+    }
     const windowChunkIds = w.chunks.map((c) => c.id)
     for (const t of parsed) {
       out.push({
@@ -133,22 +140,22 @@ interface RawTheme {
   weight: number
 }
 
-/** Pull a JSON array out of the model's response, tolerating leading/trailing
- *  prose and code fences. */
+/** Pull themes out of the model's response, tolerating leading/trailing prose,
+ *  code fences, AND truncation. Rather than parsing the whole `[...]` slice in
+ *  one JSON.parse (which throws — and loses everything — if the model was cut
+ *  off mid-array), we extract each top-level object by brace-matching and parse
+ *  them independently, stopping at the first that fails to parse but keeping the
+ *  valid prefix. */
 function parseThemeJson(raw: string): RawTheme[] {
   const cleaned = stripCodeFences(raw)
-  const start = cleaned.indexOf('[')
-  const end = cleaned.lastIndexOf(']')
-  if (start < 0 || end <= start) return []
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleaned.slice(start, end + 1))
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
   const out: RawTheme[] = []
-  for (const item of parsed) {
+  for (const objText of extractJsonObjects(cleaned)) {
+    let item: unknown
+    try {
+      item = JSON.parse(objText)
+    } catch {
+      break // truncated tail — keep what we have
+    }
     if (typeof item !== 'object' || item === null) continue
     const o = item as Record<string, unknown>
     const title = typeof o.title === 'string' ? o.title.trim() : ''
@@ -161,6 +168,12 @@ function parseThemeJson(raw: string): RawTheme[] {
     out.push({ title: title.slice(0, 200), summary: summary.slice(0, 500), weight })
   }
   return out
+}
+
+/** First ~200 chars of raw model output for actionable logs (one line). */
+function snippet(raw: string): string {
+  const oneLine = raw.replace(/\s+/g, ' ').trim()
+  return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine || '(empty)'
 }
 
 function stripCodeFences(text: string): string {
