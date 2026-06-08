@@ -32,15 +32,15 @@ import { extractThemesForDocument } from '../../src/main/services/quiz/themes'
 import { generateQuestionsForTheme } from '../../src/main/services/quiz/generation'
 import { REPO_MODELS_DIR } from '../evals/bridges/common'
 
-// Same filename patterns as src/main/services/llm/LlamaService.ts LLM_PROFILES
-// (also mirrored in tests/evals/bridges/LlmBridge.ts). Duplicated here so the
-// bench can do *strict* profile matching — the LlmBridge variant falls back to
-// "any non-embedder GGUF" when the requested profile isn't found, which silently
-// swaps an 8B in when you asked for lite and is exactly what we don't want here.
+// Kept in sync with src/main/services/llm/LlamaService.ts LLM_PROFILES.
+// Including Qwen3.5 2B as a lite candidate matters: the production installer
+// downloads exactly that file for the lite tier, so a dev pointing the bench
+// at their installed app's models/ dir picks it up automatically.
 const PROFILE_PATTERNS: Record<'lite' | 'full' | 'xl', RegExp[]> = {
-  lite: [/qwen3.*[-_]?4b/i, /qwen2\.5.*[-_]?3b/i, /llama.*3\.2.*[-_]?3b/i],
-  full: [/qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
+  lite: [/qwen3\.5.*[-_]?2b/i, /qwen3.*[-_]?4b/i, /qwen2\.5.*[-_]?3b/i, /llama.*3\.2.*[-_]?3b/i],
+  full: [/qwen3\.5.*[-_]?4b/i, /qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
   xl: [
+    /qwen3\.5.*[-_]?9b/i,
     /nemotron.*3.*nano.*30b/i,
     /nemotron.*nano.*30b/i,
     /qwen3.*[-_]?30b.*a3b/i,
@@ -51,15 +51,63 @@ const PROFILE_PATTERNS: Record<'lite' | 'full' | 'xl', RegExp[]> = {
   ],
 }
 
+/** Common locations where the installed LokLM app keeps its models, across
+ *  platforms. Filtered to existing dirs so the resolver can append these to
+ *  the repo-local models/ search list — a dev who installed the app + already
+ *  has the lite GGUF on disk shouldn't need to re-download it for the bench. */
+function getInstalledModelsDirs(): string[] {
+  const dirs: string[] = []
+  const home = process.env.USERPROFILE ?? process.env.HOME ?? ''
+  const localAppData = process.env.LOCALAPPDATA
+  const programFiles = process.env.PROGRAMFILES
+  const appData = process.env.APPDATA
+  if (localAppData) {
+    dirs.push(join(localAppData, 'Programs', 'LokLM', 'models'))
+    dirs.push(join(localAppData, 'Programs', 'loklm', 'models'))
+    dirs.push(join(localAppData, 'LokLM', 'models'))
+    dirs.push(join(localAppData, 'loklm', 'models'))
+  }
+  if (programFiles) {
+    dirs.push(join(programFiles, 'LokLM', 'models'))
+    dirs.push(join(programFiles, 'loklm', 'models'))
+  }
+  if (appData) {
+    dirs.push(join(appData, 'loklm', 'models'))
+    dirs.push(join(appData, 'LokLM', 'models'))
+  }
+  if (home) {
+    // macOS
+    dirs.push(join(home, 'Library', 'Application Support', 'loklm', 'models'))
+    // Linux
+    dirs.push(join(home, '.config', 'loklm', 'models'))
+    dirs.push(join(home, '.local', 'share', 'loklm', 'models'))
+  }
+  // System-wide installs
+  dirs.push('/Applications/LokLM.app/Contents/Resources/models')
+  dirs.push('/opt/loklm/models')
+  dirs.push('/usr/share/loklm/models')
+  return dirs.filter(existsSync)
+}
+
+/** All directories the bench searches for GGUFs, in priority order: the
+ *  repo-local models/ first ( a dev who placed a file there meant to use it ) ,
+ *  then any detected install location. */
+function getAllSearchDirs(): string[] {
+  return [REPO_MODELS_DIR, ...getInstalledModelsDirs()]
+}
+
 type Profile = 'lite' | 'full' | 'xl'
 
-/** STRICT profile resolver: returns null if no file matches the requested
- *  profile's regex patterns. */
+/** STRICT profile resolver: walks every search dir (repo-local + installed
+ *  app locations) looking for a GGUF matching the requested profile's
+ *  patterns. Returns the first hit, in priority order. */
 function resolveLlmPathStrict(profile: Profile): string | null {
-  if (!existsSync(REPO_MODELS_DIR)) return null
-  const entries = readdirSync(REPO_MODELS_DIR).filter((f) => f.toLowerCase().endsWith('.gguf'))
-  const match = entries.find((f) => PROFILE_PATTERNS[profile].some((re) => re.test(f)))
-  return match ? join(REPO_MODELS_DIR, match) : null
+  for (const dir of getAllSearchDirs()) {
+    const entries = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.gguf'))
+    const match = entries.find((f) => PROFILE_PATTERNS[profile].some((re) => re.test(f)))
+    if (match) return join(dir, match)
+  }
+  return null
 }
 
 /** Permissive resolver: tries the requested profile first, then the other
@@ -79,11 +127,13 @@ function resolveLlmPathPermissive(
     const path = resolveLlmPathStrict(p)
     if (path) return { path, chosen: p }
   }
-  // Catch-all: any non-embedder/reranker GGUF in models/.
-  if (!existsSync(REPO_MODELS_DIR)) return null
-  const entries = readdirSync(REPO_MODELS_DIR).filter((f) => f.toLowerCase().endsWith('.gguf'))
-  const fallback = entries.find((f) => !/embed|reranker|bge/i.test(f))
-  return fallback ? { path: join(REPO_MODELS_DIR, fallback), chosen: null } : null
+  // Catch-all: any non-embedder/reranker GGUF in any search dir.
+  for (const dir of getAllSearchDirs()) {
+    const entries = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.gguf'))
+    const fallback = entries.find((f) => !/embed|reranker|bge/i.test(f))
+    if (fallback) return { path: join(dir, fallback), chosen: null }
+  }
+  return null
 }
 
 interface Args {
@@ -119,9 +169,9 @@ function parseArgs(): Args {
     // when the fallback fires.
     const r = resolveLlmPathPermissive(requestedProfile, cpu)
     if (!r) {
-      console.error(`bench: no GGUF found in ${REPO_MODELS_DIR}`)
-      console.error('  • Place a .gguf in models/')
-      console.error('  • Or pass --model <path-to.gguf>')
+      console.error('bench: no GGUF found in any search location:')
+      for (const dir of getAllSearchDirs()) console.error(`  • ${dir}`)
+      console.error('  Place a .gguf in models/, or pass --model <path-to.gguf>')
       process.exit(1)
     }
     modelPath = r.path
