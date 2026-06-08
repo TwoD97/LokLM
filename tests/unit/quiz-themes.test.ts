@@ -241,9 +241,10 @@ describe('extractThemesForDocument', () => {
     expect(themes.map((t) => t.id)).toEqual(['7:0', '7:1', '7:2'])
   })
 
-  it('caps theme-extraction to <=2 windows on CPU, sampled across the doc', async () => {
+  it('caps theme-extraction to a single window on CPU (opening section only)', async () => {
     // 4 chunks at 6000 tokens each → 4 windows at the 8192 fallback budget.
-    // On CPU we keep at most 2, sampled evenly (first + last).
+    // On CPU we keep at most 1 — only the opening window. Aggressive setting:
+    // trades long-doc coverage for finishing within a viable wall time.
     const llm = fakeLlm('[{"title":"T","summary":"s","weight":1}]')
     const chunks = [
       chunk(1, 'aaa', 6000),
@@ -262,11 +263,11 @@ describe('extractThemesForDocument', () => {
         cpu: true,
       },
     )
-    // Two windows → two calls (vs four without the cap).
-    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
-    expect(themes).toHaveLength(2)
-    // Evenly sampled: first window (chunk 1) + last window (chunk 4), not 1+2.
-    expect(themes.map((t) => t.groundingChunkIds)).toEqual([[1], [4]])
+    // One window → one call (vs four without the cap).
+    expect(llm.generateRaw).toHaveBeenCalledTimes(1)
+    expect(themes).toHaveLength(1)
+    // Only the opening window's chunk is grounded.
+    expect(themes.map((t) => t.groundingChunkIds)).toEqual([[1]])
   })
 
   it('uses all windows when not on CPU (GPU keeps current behavior)', async () => {

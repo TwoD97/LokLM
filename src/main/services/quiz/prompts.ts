@@ -22,23 +22,24 @@ export const FALLBACK_CONTEXT_TOKENS = 8192
  *  batch call = count * PER_QUESTION_TOKEN_BUDGET, bounding runaway generation. */
 export const PER_QUESTION_TOKEN_BUDGET = 320
 
-/** Per-question cap on CPU. Only modestly tighter than GPU: the grammar now
- *  forces 4 full options + an explanation, so cutting this too low truncates a
- *  valid question mid-generation. CPU savings come from fewer themes/windows and
- *  smaller grounding (less prefill), not from clipping needed output. */
-export const PER_QUESTION_TOKEN_BUDGET_CPU = 300
+/** Per-question cap on CPU. Aggressive: paired with schema maxLength on stem
+ *  /options/explanation so the grammar physically can't produce a question that
+ *  needs more than this. CPU finishes in ~half the wall time, at the cost of
+ *  terser explanations and shorter options. */
+export const PER_QUESTION_TOKEN_BUDGET_CPU = 220
 
 /** maxTokens cap for one windowed theme-extraction call. Windows ask for only a
  *  few themes so this is plenty, and it bounds runaway generation. */
 export const THEME_EXTRACTION_MAX_TOKENS = 1024
 
-/** Tighter theme-extraction cap on CPU inference. */
-export const THEME_EXTRACTION_MAX_TOKENS_CPU = 640
+/** Tighter theme-extraction cap on CPU inference — one window only, brief
+ *  titles/summaries (see THEME_LIST_SCHEMA maxLength below). */
+export const THEME_EXTRACTION_MAX_TOKENS_CPU = 400
 
 /** Grounding-chunk char slice fed into the batch prompt. Shorter on CPU so the
  *  prompt is cheaper to ingest. */
 export const GROUNDING_CHUNK_CHARS = 1200
-export const GROUNDING_CHUNK_CHARS_CPU = 700
+export const GROUNDING_CHUNK_CHARS_CPU = 500
 
 // node-llama-cpp GbnfJsonSchema objects. The grammar enforces JSON *syntax* +
 // the value shapes here (enum for correct_index, integer/string arrays); the
@@ -46,14 +47,16 @@ export const GROUNDING_CHUNK_CHARS_CPU = 700
 // stay in the TS validators since the grammar can't express them. These are
 // passed straight to llama.createGrammarForJsonSchema in the worker.
 
-/** Schema for the theme-extraction array. */
+/** Schema for the theme-extraction array. maxLength on title/summary keeps the
+ *  grammar from letting a verbose model run away on CPU — terser themes are
+ *  fine for what's downstream (just labels for grounding). */
 export const THEME_LIST_SCHEMA = {
   type: 'array',
   items: {
     type: 'object',
     properties: {
-      title: { type: 'string' },
-      summary: { type: 'string' },
+      title: { type: 'string', maxLength: 100 },
+      summary: { type: 'string', maxLength: 250 },
       weight: { type: 'integer' },
     },
   },
@@ -64,17 +67,28 @@ export const THEME_LIST_SCHEMA = {
  *  the lazy path and emits `"options": []` (or a whole empty array), which then
  *  fails validation → zero questions → the deck fails. Forcing exactly 4
  *  options + ≥1 question makes the grammar reject those degenerate shapes.
- *  node-llama-cpp 3.x honours these length keywords. */
+ *
+ *  maxLength on stem/options/explanation bounds the per-field decode so the
+ *  PER_QUESTION_TOKEN_BUDGET_CPU = 220 cap is actually achievable: without
+ *  these caps a weak model on CPU can blow the budget on a single verbose
+ *  explanation and truncate everything that follows. node-llama-cpp 3.x honours
+ *  both the length keywords (minItems/maxItems) and the string length keywords
+ *  (minLength/maxLength). */
 export const QUESTION_LIST_SCHEMA = {
   type: 'array',
   minItems: 1,
   items: {
     type: 'object',
     properties: {
-      stem: { type: 'string' },
-      options: { type: 'array', items: { type: 'string' }, minItems: 4, maxItems: 4 },
+      stem: { type: 'string', maxLength: 160 },
+      options: {
+        type: 'array',
+        items: { type: 'string', maxLength: 80 },
+        minItems: 4,
+        maxItems: 4,
+      },
       correct_index: { enum: [0, 1, 2, 3] },
-      explanation: { type: 'string' },
+      explanation: { type: 'string', maxLength: 220 },
       source_chunk_ids: { type: 'array', items: { type: 'integer' }, minItems: 1 },
     },
   },
