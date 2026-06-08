@@ -18,6 +18,8 @@
 //   pnpm test:quiz-pipeline -- --count 3 --themes 2  # 3 Q per theme, bench 2 themes
 
 import { performance } from 'node:perf_hooks'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import type { ChunkRow } from '../../src/main/db/database'
 import type { ModelStatus } from '../../src/shared/documents'
 import type {
@@ -28,7 +30,39 @@ import type {
 import type { QuizLanguage } from '../../src/shared/quiz'
 import { extractThemesForDocument } from '../../src/main/services/quiz/themes'
 import { generateQuestionsForTheme } from '../../src/main/services/quiz/generation'
-import { resolveLlmPath } from '../evals/bridges/LlmBridge'
+import { REPO_MODELS_DIR } from '../evals/bridges/common'
+
+// Same filename patterns as src/main/services/llm/LlamaService.ts LLM_PROFILES
+// (also mirrored in tests/evals/bridges/LlmBridge.ts). Duplicated here so the
+// bench can do *strict* profile matching — the LlmBridge variant falls back to
+// "any non-embedder GGUF" when the requested profile isn't found, which silently
+// swaps an 8B in when you asked for lite and is exactly what we don't want here.
+const PROFILE_PATTERNS: Record<'lite' | 'full' | 'xl', RegExp[]> = {
+  lite: [/qwen3.*[-_]?4b/i, /qwen2\.5.*[-_]?3b/i, /llama.*3\.2.*[-_]?3b/i],
+  full: [/qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
+  xl: [
+    /nemotron.*3.*nano.*30b/i,
+    /nemotron.*nano.*30b/i,
+    /qwen3.*[-_]?30b.*a3b/i,
+    /qwen3.*[-_]?32b/i,
+    /qwen2\.5.*[-_]?32b/i,
+    /nemotron.*super.*49b/i,
+    /llama.*3\.3.*70b/i,
+  ],
+}
+
+type Profile = 'lite' | 'full' | 'xl'
+
+/** STRICT profile resolver: returns null if no file matches the requested
+ *  profile's regex patterns. Unlike LlmBridge.resolveLlmPath, does NOT fall
+ *  through to "any non-embedder GGUF" — that fallback is exactly the bug that
+ *  silently runs an 8B on CPU when you asked for lite. */
+function resolveLlmPathStrict(profile: Profile): string | null {
+  if (!existsSync(REPO_MODELS_DIR)) return null
+  const entries = readdirSync(REPO_MODELS_DIR).filter((f) => f.toLowerCase().endsWith('.gguf'))
+  const match = entries.find((f) => PROFILE_PATTERNS[profile].some((re) => re.test(f)))
+  return match ? join(REPO_MODELS_DIR, match) : null
+}
 
 interface Args {
   modelPath: string
@@ -36,7 +70,7 @@ interface Args {
   lang: QuizLanguage
   count: number
   themesToBench: number
-  profile: 'lite' | 'full' | 'xl'
+  profile: Profile
 }
 
 function parseArgs(): Args {
@@ -45,19 +79,36 @@ function parseArgs(): Args {
     const i = argv.indexOf(k)
     return i >= 0 ? argv[i + 1] : undefined
   }
-  const profile = (get('--profile') ?? 'lite') as 'lite' | 'full' | 'xl'
+  const cpu = argv.includes('--cpu')
+  // Profile default: lite on CPU (8B is unusable there), full otherwise.
+  // Explicit --profile always wins so you can deliberately bench a heavier
+  // model on CPU to measure the gap.
+  const profileArg = get('--profile') as Profile | undefined
+  const profile: Profile = profileArg ?? (cpu ? 'lite' : 'full')
   const explicit = get('--model')
-  const modelPath = explicit ?? resolveLlmPath(profile) ?? ''
+  const modelPath = explicit ?? resolveLlmPathStrict(profile)
   if (!modelPath) {
-    console.error(
-      `bench: no GGUF found for profile=${profile} (set --model <path> or place one in ./models)`,
-    )
+    console.error(`bench: no GGUF matching profile='${profile}' found in ${REPO_MODELS_DIR}`)
+    console.error('')
+    console.error(`Profile '${profile}' looks for files matching:`)
+    for (const re of PROFILE_PATTERNS[profile]) console.error(`  ${re}`)
+    console.error('')
+    console.error('Either:')
+    console.error('  • Place a matching .gguf in models/')
+    console.error('  • Pass --model <path-to.gguf> to use a specific file')
+    console.error("  • Pass --profile full or --profile xl if that's what you have")
+    if (profile === 'lite') {
+      console.error('')
+      console.error('To grab a lite (4B) model:')
+      console.error('  https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507-GGUF')
+      console.error('  (Q4_K_M is ~2.5 GB — fast enough for CPU)')
+    }
     process.exit(1)
   }
   const lang = (get('--lang') ?? 'de') as QuizLanguage
   return {
     modelPath,
-    cpu: argv.includes('--cpu'),
+    cpu,
     lang,
     count: Number(get('--count') ?? '2'),
     themesToBench: Number(get('--themes') ?? '3'),
