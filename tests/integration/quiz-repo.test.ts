@@ -49,6 +49,35 @@ describe('quiz repo (integration)', () => {
     expect(fetched!.documentIds).toEqual([1, 2, 5])
   })
 
+  it('resetStuckDecks flips orphaned generating decks to failed, leaves ready/failed untouched', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    const quizzes = auth.requireDatabase().quizzes()
+    const mk = (name: string): ReturnType<typeof quizzes.createDeck> =>
+      quizzes.createDeck({
+        workspaceId: ws.id,
+        name,
+        documentIds: [1],
+        questionCount: 5,
+        language: 'en',
+      })
+    const stuck = await mk('stuck') // stays 'generating'
+    const ready = await mk('ready')
+    await quizzes.setDeckStatus(ready.id, 'ready', null)
+
+    const swept = await quizzes.resetStuckDecks()
+    expect(swept).toBe(1)
+
+    const stuckAfter = await quizzes.getDeck(stuck.id)
+    expect(stuckAfter!.status).toBe('failed')
+    expect(stuckAfter!.error).toMatch(/interrupted/i)
+
+    const readyAfter = await quizzes.getDeck(ready.id)
+    expect(readyAfter!.status).toBe('ready')
+
+    // Idempotent: a second sweep finds nothing to do.
+    expect(await quizzes.resetStuckDecks()).toBe(0)
+  })
+
   it('insertQuestions persists in ordinal order and getDeckWithQuestions returns the combined shape', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
     const quizzes = auth.requireDatabase().quizzes()

@@ -50,13 +50,22 @@ function brandAsset(file: string): string {
 let authService: AuthService | null = null
 let didFinalPersist = false
 
+// In-flight quiz generation streams, keyed by streamId. Module-scoped (not
+// local to registerIpc) so the lock handler can abort them: a quiz generation
+// runs for minutes on CPU, and (auto-)locking mid-run would otherwise leave it
+// pegging the worker and writing to the database we're about to tear down.
+const activeQuizStreams = new Map<string, AbortController>()
+
 function getAuth(): AuthService {
   if (!authService) {
     authService = new AuthService(app.getPath('userData'))
     authService.setOnLock(() => {
-      // Inactivity auto-lock fires here too — kill any pending warmup so a
-      // backfill kicked off seconds before the lock doesn't try to use the
-      // database we just zeroed.
+      // Inactivity auto-lock fires here too — abort any in-flight quiz
+      // generation first so it stops pegging the worker and won't write to the
+      // database we're about to zero (the row is reconciled to 'failed' by the
+      // resetStuckDecks sweep on next unlock). Then kill any pending warmup so a
+      // backfill kicked off seconds before the lock doesn't try to use it.
+      for (const ctrl of activeQuizStreams.values()) ctrl.abort()
       cancelPostLoginWarmup()
       resetSessionServices()
       broadcastAuthState()
@@ -594,12 +603,13 @@ function registerIpc(): void {
       await getDocumentService()
         .sweepOrphanedIndexing()
         .catch(() => undefined)
-      // Same for quiz decks orphaned mid-generation by a hard kill (where the
-      // generator's own catch never ran to flip them to 'failed').
+      // Same orphan problem for quiz decks: a deck left 'generating' by a
+      // locked/closed/navigated-away session would spin forever. Flip stuck
+      // decks to 'failed' so the user sees them and can retry.
       await getAuth()
         .requireDatabase()
         .quizzes()
-        .resetStuckGenerating()
+        .resetStuckDecks()
         .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
@@ -635,12 +645,13 @@ function registerIpc(): void {
       await getDocumentService()
         .sweepOrphanedIndexing()
         .catch(() => undefined)
-      // Same for quiz decks orphaned mid-generation by a hard kill (where the
-      // generator's own catch never ran to flip them to 'failed').
+      // Same orphan problem for quiz decks: a deck left 'generating' by a
+      // locked/closed/navigated-away session would spin forever. Flip stuck
+      // decks to 'failed' so the user sees them and can retry.
       await getAuth()
         .requireDatabase()
         .quizzes()
-        .resetStuckGenerating()
+        .resetStuckDecks()
         .catch(() => undefined)
       schedulePostLoginWarmup()
     }
@@ -1452,7 +1463,6 @@ function registerIpc(): void {
     await quizzes.setDeckStatus(deckId, 'generating', null)
   })
 
-  const activeQuizStreams = new Map<string, AbortController>()
   ipcMain.handle('quiz:generate', async (e, streamId: string, deckId: number) => {
     const ctrl = new AbortController()
     activeQuizStreams.set(streamId, ctrl)

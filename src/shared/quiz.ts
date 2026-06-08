@@ -76,7 +76,15 @@ export interface CreateQuizInput {
 export type QuizGenerationEvent =
   | { type: 'stage'; stage: 'extracting-themes' | 'merging-themes' | 'allocating' }
   | { type: 'doc-themes'; docId: number; docIndex: number; docTotal: number; themeCount: number }
-  | { type: 'question'; ordinal: number; total: number }
+  | { type: 'theme'; themeIndex: number; themeTotal: number; themeTitle: string }
+  | {
+      type: 'question'
+      ordinal: number
+      total: number
+      themeTitle?: string
+      themeIndex?: number
+      themeTotal?: number
+    }
   | { type: 'warning'; message: string }
   | { type: 'done'; deckId: number }
   | { type: 'error'; message: string }
