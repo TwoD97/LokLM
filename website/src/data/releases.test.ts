@@ -127,9 +127,20 @@ describe('currentRelease shape', () => {
     expect(Number.isNaN(Date.parse(currentRelease.releasedAt))).toBe(false)
   })
 
-  it('covers all three platforms exactly once', () => {
-    const platforms = currentRelease.assets.map((a) => a.platform).sort()
-    expect(platforms).toEqual(['linux', 'macos', 'windows'])
+  it('covers all three platforms ( linux may have multiple variants )', () => {
+    const platforms = new Set(currentRelease.assets.map((a) => a.platform))
+    expect([...platforms].sort()).toEqual(['linux', 'macos', 'windows'])
+  })
+
+  it('linux assets carry a variant key when more than one ships', () => {
+    const linuxAssets = currentRelease.assets.filter((a) => a.platform === 'linux')
+    if (linuxAssets.length > 1) {
+      for (const a of linuxAssets) {
+        expect(a.variant).toBeDefined()
+      }
+      const variants = linuxAssets.map((a) => a.variant)
+      expect(new Set(variants).size).toBe(variants.length)
+    }
   })
 })
 
@@ -154,7 +165,7 @@ describe('release asset integrity', () => {
         it('file extension matches platform', () => {
           if (asset.platform === 'windows') expect(asset.file).toMatch(/\.exe$/i)
           if (asset.platform === 'macos') expect(asset.file).toMatch(/\.dmg$/i)
-          if (asset.platform === 'linux') expect(asset.file).toMatch(/\.run$/)
+          if (asset.platform === 'linux') expect(asset.file).toMatch(/\.(run|deb)$/)
         })
 
         it('download url is pinned to the release version', () => {

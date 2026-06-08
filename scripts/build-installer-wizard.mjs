@@ -1,4 +1,12 @@
-// Builds the Tauri wizard binary via `cargo tauri build --no-bundle`.
+// Builds the Tauri wizard binary.
+//
+// Platform behavior :
+//   - Linux : `cargo tauri build --bundles deb` — produces the wizard
+//     binary AND a Debian package ( consumed by build-installer-deb-linux.mjs ).
+//     The .run installer is still produced separately by the makeself stub ;
+//     the .deb is the new , distribution-friendly artefact.
+//   - Windows / macOS : `cargo tauri build --no-bundle` — Tauri's bundler
+//     is bypassed because we ship via NSIS ( win ) / create-dmg ( mac ).
 //
 // Why a node wrapper instead of a direct `cd ... && cargo ...` in
 // package.json :
@@ -33,7 +41,12 @@ if (cargoBin) {
   env.PATH = `${cargoBin}${delimiter}${env.PATH || ''}`
 }
 
-const child = spawn('cargo', ['tauri', 'build', '--no-bundle'], {
+const tauriArgs =
+  process.platform === 'linux'
+    ? ['tauri', 'build', '--bundles', 'deb']
+    : ['tauri', 'build', '--no-bundle']
+
+const child = spawn('cargo', tauriArgs, {
   cwd: WIZARD_DIR,
   stdio: 'inherit',
   env,
