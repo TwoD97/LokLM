@@ -166,6 +166,7 @@ function cosine(a: Float32Array, b: Float32Array): number {
 export function parseAndValidateArray(raw: string, allowedChunkIds: Set<number>): RawQuestion[] {
   const cleaned = stripCodeFences(raw)
   const out: RawQuestion[] = []
+  const rejections: string[] = []
   for (const objText of extractJsonObjects(cleaned)) {
     let item: unknown
     try {
@@ -173,8 +174,14 @@ export function parseAndValidateArray(raw: string, allowedChunkIds: Set<number>)
     } catch {
       break // truncated tail — keep the valid prefix
     }
-    const q = validateQuestion(item, allowedChunkIds)
+    const q = validateQuestion(item, allowedChunkIds, (reason) => {
+      if (rejections.length < 5) rejections.push(reason)
+    })
     if (q) out.push(q)
+  }
+  if (out.length === 0 && rejections.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`[quiz] validateQuestion rejected all items: ${rejections.join(' | ')}`)
   }
   return out
 }
@@ -205,20 +212,31 @@ export function parseAndValidate(raw: string, allowedChunkIds: Set<number>): Raw
  *     the first allowed id when none overlap
  *
  *  Returns null on any failure. */
-function validateQuestion(parsed: unknown, allowedChunkIds: Set<number>): RawQuestion | null {
-  if (typeof parsed !== 'object' || parsed === null) return null
+function validateQuestion(
+  parsed: unknown,
+  allowedChunkIds: Set<number>,
+  onReject?: (reason: string) => void,
+): RawQuestion | null {
+  const reject = (reason: string): null => {
+    onReject?.(reason)
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null) return reject('not-object')
   const o = parsed as Record<string, unknown>
   const stem = typeof o.stem === 'string' ? o.stem.trim() : ''
-  if (!stem) return null
-  if (!Array.isArray(o.options) || o.options.length !== 4) return null
+  if (!stem) return reject('empty-stem')
+  if (!Array.isArray(o.options)) return reject('options-not-array')
+  if (o.options.length !== 4) return reject(`options-length=${o.options.length}`)
   const opts = o.options.map((x) => (typeof x === 'string' ? x.trim() : ''))
-  if (opts.some((s) => s.length === 0)) return null
-  if (new Set(opts).size !== 4) return null
+  if (opts.some((s) => s.length === 0)) return reject('empty-option')
+  if (new Set(opts).size !== 4) return reject(`options-not-distinct=${new Set(opts).size}`)
   const correctIndex = typeof o.correct_index === 'number' ? o.correct_index : NaN
-  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) return null
+  if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) {
+    return reject(`correct_index=${JSON.stringify(o.correct_index)}`)
+  }
   const explanation =
     typeof o.explanation === 'string' && o.explanation.trim().length > 0 ? o.explanation.trim() : ''
-  if (!explanation) return null
+  if (!explanation) return reject('empty-explanation')
   const rawIds = Array.isArray(o.source_chunk_ids) ? o.source_chunk_ids : []
   const ids: number[] = []
   for (const v of rawIds) {
@@ -231,7 +249,7 @@ function validateQuestion(parsed: unknown, allowedChunkIds: Set<number>): RawQue
     // otherwise-valid question. We still record the citation so the chip can do
     // something useful.
     const first = allowedChunkIds.values().next().value
-    if (typeof first !== 'number') return null
+    if (typeof first !== 'number') return reject('no-fallback-chunk')
     ids.push(first)
   }
   return { stem, options: opts, correctIndex, explanation, sourceChunkIds: ids }
@@ -244,8 +262,10 @@ function stripCodeFences(text: string): string {
     .trim()
 }
 
-/** First ~200 chars of raw model output for actionable logs (one line). */
+/** First ~1000 chars of raw model output for actionable logs (one line). Long
+ *  enough to capture a full short question (stem + 4 options + explanation +
+ *  citation ids) so post-mortem reads aren't truncated mid-shape. */
 function snippet(raw: string): string {
   const oneLine = raw.replace(/\s+/g, ' ').trim()
-  return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine || '(empty)'
+  return oneLine.length > 1000 ? `${oneLine.slice(0, 1000)}…` : oneLine || '(empty)'
 }
