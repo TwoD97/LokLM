@@ -342,6 +342,13 @@ export class LlamaService {
     return this.lastPlan?.contextSize ?? 0
   }
 
+  /** True only when the loaded backend is CPU. The worker sets gpuLabel to
+   *  'cpu' when getLlama({ gpu: false }) won — any GPU label (or unknown/null
+   *  before a load) is treated as not-CPU so we never wrongly throttle a GPU. */
+  isCpuInference(): boolean {
+    return this.gpuLabel === 'cpu'
+  }
+
   getPlanner(): ResourcePlanner {
     return this.planner
   }

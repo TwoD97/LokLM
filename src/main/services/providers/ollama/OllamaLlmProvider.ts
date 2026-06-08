@@ -112,6 +112,11 @@ export class OllamaLlmProvider implements LlmProvider {
     return 0
   }
 
+  isCpuInference(): boolean {
+    // Assume the Ollama server is adequately resourced; we don't throttle it.
+    return false
+  }
+
   isReady(): boolean {
     return true // optimistic; probe runs at switch time
   }

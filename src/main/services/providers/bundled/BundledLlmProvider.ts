@@ -37,6 +37,10 @@ export class BundledLlmProvider implements LlmProvider {
     return this.inner.contextWindowTokens()
   }
 
+  isCpuInference(): boolean {
+    return this.inner.isCpuInference()
+  }
+
   async generateTitle(
     user: string,
     assistant: string,

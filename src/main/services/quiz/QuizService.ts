@@ -16,6 +16,15 @@ import { allocateSlots, dedupThemes, extractThemesForDocument } from './themes'
 import { generateQuestionsForTheme } from './generation'
 
 const TARGET_THEMES_FACTOR = 1.5
+/** Fewer themes on CPU — each theme is an LLM round-trip, so we trade breadth
+ *  for finishing. */
+const TARGET_THEMES_FACTOR_CPU = 1.0
+/** Grounding chunks per theme: fewer on CPU to keep prompts cheap. */
+const GROUNDING_TOPK = 6
+const GROUNDING_TOPK_CPU = 3
+/** Outline-path retrieval breadth (themes without window grounding ids). */
+const OUTLINE_TOPK = 5
+const OUTLINE_TOPK_CPU = 3
 
 export class QuizService {
   constructor(
@@ -75,6 +84,9 @@ export class QuizService {
     const documents = this.db.documents()
     const llm = this.registry.llm()
     const embedder = this.registry.embedder()
+    // CPU inference is far slower — apply hard work-caps so a run finishes
+    // (trading completeness) rather than stalling and flipping to Failed.
+    const cpu = llm.isCpuInference?.() ?? false
 
     const deck = await quizzes.getDeck(deckId)
     if (!deck) {
@@ -87,9 +99,10 @@ export class QuizService {
       yield { type: 'stage', stage: 'extracting-themes' }
       const docIds = deck.documentIds
       const themes: QuizTheme[] = []
+      const themesFactor = cpu ? TARGET_THEMES_FACTOR_CPU : TARGET_THEMES_FACTOR
       const targetPerDoc = Math.max(
         2,
-        Math.ceil((deck.questionCount * TARGET_THEMES_FACTOR) / Math.max(1, docIds.length)),
+        Math.ceil((deck.questionCount * themesFactor) / Math.max(1, docIds.length)),
       )
       let emptyDocCount = 0
       for (let i = 0; i < docIds.length; i += 1) {
@@ -116,6 +129,7 @@ export class QuizService {
             chunks: readyChunks,
             language: deck.language,
             targetCount: targetPerDoc,
+            cpu,
             ...(abortSignal ? { abortSignal } : {}),
           },
         )
@@ -162,7 +176,7 @@ export class QuizService {
       const groundingByTheme = new Map<string, ChunkRow[]>()
       for (const slot of slots) {
         if (abortSignal?.aborted) throw new Error('cancelled')
-        const chunks = await this.resolveGrounding(deck.workspaceId, slot.theme)
+        const chunks = await this.resolveGrounding(deck.workspaceId, slot.theme, cpu)
         groundingByTheme.set(slot.theme.id, chunks)
       }
 
@@ -191,6 +205,7 @@ export class QuizService {
           groundingChunks: grounding,
           accepted,
           count: need,
+          cpu,
           ...(abortSignal ? { abortSignal } : {}),
         })
         for (const ev of emitAccepted(batch)) yield ev
@@ -217,6 +232,7 @@ export class QuizService {
           groundingChunks: grounding,
           accepted,
           count: need,
+          cpu,
           ...(abortSignal ? { abortSignal } : {}),
         })
         if (batch.length === 0) continue
@@ -265,7 +281,11 @@ export class QuizService {
   /** Resolve grounding chunks for a theme. Whole-doc themes carry IDs from
    *  Stage 1 → load by id. Outline themes have empty groundingChunkIds → use
    *  the retrieval index keyed on the theme title, scoped to the theme's doc. */
-  private async resolveGrounding(workspaceId: number, theme: QuizTheme): Promise<ChunkRow[]> {
+  private async resolveGrounding(
+    workspaceId: number,
+    theme: QuizTheme,
+    cpu = false,
+  ): Promise<ChunkRow[]> {
     const documents = this.db.documents()
     if (theme.groundingChunkIds.length > 0) {
       const allChunks = await documents.listChunksForDocument(theme.docId)
@@ -277,14 +297,17 @@ export class QuizService {
       return filtered
         .slice()
         .sort((a, b) => (b.token_count ?? 0) - (a.token_count ?? 0))
-        .slice(0, 6)
+        .slice(0, cpu ? GROUNDING_TOPK_CPU : GROUNDING_TOPK)
         .sort((a, b) => a.ordinal - b.ordinal)
     }
     // Outline path: retrieve top-K relevant chunks for the theme title,
     // scoped to this theme's source document.
-    const hits = await this.retrieval.search(workspaceId, `${theme.title} — ${theme.summary}`, 5, {
-      activeDocumentIds: [theme.docId],
-    })
+    const hits = await this.retrieval.search(
+      workspaceId,
+      `${theme.title} — ${theme.summary}`,
+      cpu ? OUTLINE_TOPK_CPU : OUTLINE_TOPK,
+      { activeDocumentIds: [theme.docId] },
+    )
     const allChunks = await documents.listChunksForDocument(theme.docId)
     const byId = new Map(allChunks.map((c) => [c.id, c]))
     const out: ChunkRow[] = []
