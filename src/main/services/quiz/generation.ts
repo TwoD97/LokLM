@@ -12,6 +12,7 @@ import {
   QUESTION_LIST_SCHEMA,
   PER_QUESTION_TOKEN_BUDGET,
 } from './prompts'
+import { extractJsonObjects } from './jsonSalvage'
 
 /** Stems whose cosine similarity is ≥ this against any already-accepted stem
  *  count as duplicates and are dropped. */
@@ -83,7 +84,14 @@ export async function generateQuestionsForTheme(
       ...(abortSignal ? { abortSignal } : {}),
     })
     parsed = parseAndValidateArray(retry, allowedChunkIds)
-    if (parsed.length === 0) return []
+    if (parsed.length === 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[quiz] no questions accepted for theme "${theme.title}" after retry; ` +
+          `round1: ${snippet(raw1)} | retry: ${snippet(retry)}`,
+      )
+      return []
+    }
   }
 
   // Stem-dedup the batch against the already-accepted set and against each
@@ -143,22 +151,22 @@ function cosine(a: Float32Array, b: Float32Array): number {
 }
 
 /** Parse an ARRAY of MCQ objects and validate each item, dropping invalid ones.
- *  Tolerates leading/trailing prose and code fences. Returns the valid subset
- *  (possibly empty). */
+ *  Tolerates leading/trailing prose, code fences, AND truncation: instead of
+ *  one JSON.parse over the whole `[...]` slice (which throws — losing every
+ *  question — when a slow model is cut off mid-array), we extract each top-level
+ *  object by brace-matching and parse them independently. We stop at the first
+ *  object that fails to parse (the truncated tail) but keep everything before
+ *  it, so a response cut off after 3 complete questions still yields 3. */
 export function parseAndValidateArray(raw: string, allowedChunkIds: Set<number>): RawQuestion[] {
   const cleaned = stripCodeFences(raw)
-  const start = cleaned.indexOf('[')
-  const end = cleaned.lastIndexOf(']')
-  if (start < 0 || end <= start) return []
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleaned.slice(start, end + 1))
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
   const out: RawQuestion[] = []
-  for (const item of parsed) {
+  for (const objText of extractJsonObjects(cleaned)) {
+    let item: unknown
+    try {
+      item = JSON.parse(objText)
+    } catch {
+      break // truncated tail — keep the valid prefix
+    }
     const q = validateQuestion(item, allowedChunkIds)
     if (q) out.push(q)
   }
@@ -228,4 +236,10 @@ function stripCodeFences(text: string): string {
     .replace(/^[^[{]*```(?:json)?\s*/i, '')
     .replace(/```[^`]*$/i, '')
     .trim()
+}
+
+/** First ~200 chars of raw model output for actionable logs (one line). */
+function snippet(raw: string): string {
+  const oneLine = raw.replace(/\s+/g, ' ').trim()
+  return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine || '(empty)'
 }
