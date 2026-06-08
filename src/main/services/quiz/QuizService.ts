@@ -13,7 +13,7 @@ import type {
 } from '../../../shared/quiz'
 import type { AcceptedQuestion, QuizTheme } from './types'
 import { allocateSlots, dedupThemes, extractThemesForDocument } from './themes'
-import { generateAllQuestionsForDeck, generateQuestionsForTheme } from './generation'
+import { generateQuestionsForTheme } from './generation'
 
 const TARGET_THEMES_FACTOR = 1.5
 /** Fewer themes on CPU — each theme is an LLM round-trip, so we trade breadth
@@ -201,84 +201,70 @@ export class QuizService {
         return events
       }
 
-      if (cpu) {
-        // CPU mega-call path: one grammar-constrained call across ALL themes
-        // and ALL grounding instead of one per theme. Saves ( N - 1 ) ×
-        // ~65s of prefill ( ~3-5 min on a 5-theme deck on 2B / CPU ). No
-        // retry , no top-up — the existing 'X of Y questions generated'
-        // warning still fires for the user if the call comes in short.
-        const allLabel = deck.language === 'de' ? 'Alle Themen' : 'All themes'
-        themeContext = { themeTitle: allLabel, themeIndex: 1, themeTotal: 1 }
-        yield { type: 'theme', themeIndex: 1, themeTotal: 1, themeTitle: allLabel }
-        const batch = await generateAllQuestionsForDeck(llm, embedder, {
+      // One grammar-constrained batch call per allocated theme. Per-theme
+      // short-circuits naturally on small models : the call asks for `slot.budget`
+      // questions but the model often emits 1 and stops at the array close , so
+      // decode wall time per call stays short. A mega-call ( one LLM call across
+      // all themes ) was tried and lost : it forced the model to keep grinding
+      // through count=N questions , and the extra decode outweighed the prefill
+      // savings ( ~23 min , 2/6 Q vs ~14 min , 3/6 Q on a 2B / CPU bench ).
+      for (let i = 0; i < slots.length; i += 1) {
+        const slot = slots[i]!
+        if (abortSignal?.aborted) throw new Error('cancelled')
+        if (accepted.length >= deck.questionCount) break
+        const grounding = groundingByTheme.get(slot.theme.id) ?? []
+        if (grounding.length === 0) continue
+        // Announce the theme before the (long) batch call so the UI shows the
+        // current theme even before any question of it completes.
+        themeContext = { themeTitle: slot.theme.title, themeIndex: i + 1, themeTotal }
+        yield { type: 'theme', themeIndex: i + 1, themeTotal, themeTitle: slot.theme.title }
+        const need = Math.min(slot.budget, deck.questionCount - accepted.length)
+        const batch = await generateQuestionsForTheme(llm, embedder, {
           language: deck.language,
-          themes: slots.map((s) => s.theme),
-          groundingByTheme,
+          theme: slot.theme,
+          groundingChunks: grounding,
           accepted,
-          count: deck.questionCount,
+          count: need,
+          cpu,
           ...(abortSignal ? { abortSignal } : {}),
         })
         for (const ev of emitAccepted(batch)) yield ev
-      } else {
-        // GPU per-theme path: one grammar-constrained batch call per allocated
-        // theme. Cheaper per-call prefill on GPU + per-theme retry recovers
-        // partial failures — both reasons to keep this shape on GPU.
-        for (let i = 0; i < slots.length; i += 1) {
-          const slot = slots[i]!
-          if (abortSignal?.aborted) throw new Error('cancelled')
-          if (accepted.length >= deck.questionCount) break
-          const grounding = groundingByTheme.get(slot.theme.id) ?? []
-          if (grounding.length === 0) continue
-          // Announce the theme before the ( long ) batch call so the UI shows
-          // the current theme even before any question of it completes.
-          themeContext = { themeTitle: slot.theme.title, themeIndex: i + 1, themeTotal }
-          yield { type: 'theme', themeIndex: i + 1, themeTotal, themeTitle: slot.theme.title }
-          const need = Math.min(slot.budget, deck.questionCount - accepted.length)
-          const batch = await generateQuestionsForTheme(llm, embedder, {
-            language: deck.language,
-            theme: slot.theme,
-            groundingChunks: grounding,
-            accepted,
-            count: need,
-            cpu,
-            ...(abortSignal ? { abortSignal } : {}),
-          })
-          for (const ev of emitAccepted(batch)) yield ev
-        }
+      }
 
-        // Top-up: re-call the heaviest themes that have grounding for the
-        // remaining count. Bounded by maxTopUps so a model that keeps producing
-        // dups / invalid output can't spin forever.
-        const heaviestFirst = [...slots]
-          .filter((s) => (groundingByTheme.get(s.theme.id) ?? []).length > 0)
-          .sort((a, b) => b.theme.weight - a.theme.weight)
-        let topUpAttempts = 0
-        const maxTopUps = deck.questionCount
-        while (accepted.length < deck.questionCount && heaviestFirst.length > 0) {
-          if (abortSignal?.aborted) throw new Error('cancelled')
-          if (topUpAttempts >= maxTopUps) break
-          const slot = heaviestFirst[topUpAttempts % heaviestFirst.length]!
-          topUpAttempts += 1
-          const slotIndex = slots.indexOf(slot)
-          themeContext = {
-            themeTitle: slot.theme.title,
-            themeIndex: slotIndex >= 0 ? slotIndex + 1 : 1,
-            themeTotal,
-          }
-          const grounding = groundingByTheme.get(slot.theme.id) ?? []
-          const need = deck.questionCount - accepted.length
-          const batch = await generateQuestionsForTheme(llm, embedder, {
-            language: deck.language,
-            theme: slot.theme,
-            groundingChunks: grounding,
-            accepted,
-            count: need,
-            cpu,
-            ...(abortSignal ? { abortSignal } : {}),
-          })
-          if (batch.length === 0) continue
-          for (const ev of emitAccepted(batch)) yield ev
+      // Top-up: if we're short, re-call the heaviest themes that have grounding
+      // for the remaining count. Bounded by maxTopUps so a model that keeps
+      // producing dups/invalid output can't spin forever. Skipped on CPU — each
+      // retry is another minutes-long LLM call and the short deck warning below
+      // makes the gap visible.
+      const heaviestFirst = [...slots]
+        .filter((s) => (groundingByTheme.get(s.theme.id) ?? []).length > 0)
+        .sort((a, b) => b.theme.weight - a.theme.weight)
+      let topUpAttempts = 0
+      const maxTopUps = cpu ? 0 : deck.questionCount
+      while (accepted.length < deck.questionCount && heaviestFirst.length > 0) {
+        if (abortSignal?.aborted) throw new Error('cancelled')
+        if (topUpAttempts >= maxTopUps) break
+        const slot = heaviestFirst[topUpAttempts % heaviestFirst.length]!
+        topUpAttempts += 1
+        const slotIndex = slots.indexOf(slot)
+        themeContext = {
+          themeTitle: slot.theme.title,
+          themeIndex: slotIndex >= 0 ? slotIndex + 1 : 1,
+          themeTotal,
         }
+        const grounding = groundingByTheme.get(slot.theme.id) ?? []
+        const need = deck.questionCount - accepted.length
+        const batch = await generateQuestionsForTheme(llm, embedder, {
+          language: deck.language,
+          theme: slot.theme,
+          groundingChunks: grounding,
+          accepted,
+          count: need,
+          cpu,
+          ...(abortSignal ? { abortSignal } : {}),
+        })
+        if (batch.length === 0) continue
+        for (const ev of emitAccepted(batch)) yield ev
       }
 
       if (accepted.length === 0) {
