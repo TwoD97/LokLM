@@ -11,7 +11,7 @@
 //
 // CLI:
 //   tsx tests/evals/sweep.ts [--dataset <path>] [--library <path>]
-//                            [--configs default|sweep] [--limit <n>]
+//                            [--configs default|sweep|matrix|grid|adaptive|answer] [--limit <n>]
 //                            [--no-llm]
 //                            [--llm-models <pack.json>]
 //                            [--judge] [--judge-path <gguf>] [--judge-context <n>]
@@ -37,6 +37,7 @@ import {
   gridConfigs,
   adaptiveTopKConfigs,
   answerConfigs,
+  matrixConfigs,
   type PipelineConfig,
 } from './pipeline/configs'
 import type { Judge, JudgeScore } from './judge/Judge'
@@ -170,13 +171,15 @@ async function main(): Promise<void> {
   let configs: PipelineConfig[] =
     args.configs === 'default'
       ? defaultConfigs()
-      : args.configs === 'grid'
-        ? await gridConfigs()
-        : args.configs === 'adaptive'
-          ? await adaptiveTopKConfigs()
-          : args.configs === 'answer'
-            ? await answerConfigs()
-            : await sweepConfigs()
+      : args.configs === 'matrix'
+        ? await matrixConfigs()
+        : args.configs === 'grid'
+          ? await gridConfigs()
+          : args.configs === 'adaptive'
+            ? await adaptiveTopKConfigs()
+            : args.configs === 'answer'
+              ? await answerConfigs()
+              : await sweepConfigs()
   if (args.only && args.only.length > 0) {
     const patterns = args.only
     const before = configs.length
@@ -773,7 +776,7 @@ async function latestDataset(): Promise<string> {
 interface SweepArgs {
   dataset?: string
   library?: string
-  configs: 'default' | 'sweep' | 'grid' | 'adaptive' | 'answer'
+  configs: 'default' | 'sweep' | 'grid' | 'adaptive' | 'answer' | 'matrix'
   /** für grid: wie viele grid-punkte aus dem cartesian-raum gelaufen werden. */
   iterations?: number
   /** für `--limit N`: cappt wie viele questions pro config. */
@@ -817,6 +820,7 @@ function parseArgs(argv: string[]): SweepArgs {
       a === '--configs' &&
       (next === 'default' ||
         next === 'sweep' ||
+        next === 'matrix' ||
         next === 'grid' ||
         next === 'adaptive' ||
         next === 'answer')

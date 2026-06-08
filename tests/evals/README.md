@@ -159,13 +159,18 @@ Die 6 Phasen die der `PhasedTimer` (perf.ts) misst:
 
 ### Configs editieren
 
-`pipeline/configs.ts` enthält drei config-quellen:
+`pipeline/configs.ts` enthält vier config-quellen:
 
 - `defaultConfigs()` → fake-stubs , kein LLM-load , für quick CI-tauglichen smoke.
 - `sweepConfigs()` → echte Bridges (Embedder/Reranker/LLM) , das ist die
   liste die `pnpm evals:sweep` standardmäßig läuft.
 - `gridConfigs()` → cartesian product über (rerank-topK × chunks-to-LLM × …).
   `pnpm evals:sweep --iterations N` schneidet die ersten N punkte ab.
+- `matrixConfigs()` → cartesian product über (embedder × chunker × reranker) bei
+  festem antwort-LLM (auf 'full' gepinnt). `pnpm evals:sweep --configs matrix`
+  (= `evals:matrix`). default = 2 configs (skip vs bge-reranker) ohne extra-
+  downloads ; weitere embedder/chunker als auskommentierte kandidaten mit
+  eindeutigen labels (cache-falle: label ist teil des embedding-cache-keys).
 
 Hinzufügen einer config: einfach unten anhängen. Für ganze achsen-vergleiche
 gibt's den `cartesian()`-helper unten in der datei. Wichtig: bridges sind
@@ -215,12 +220,58 @@ pnpm evals:sweep -- --configs sweep --judge
 mit `--limit 10` runter , oder ohne `--judge` laufen lassen und composite-
 score fällt auf recall+TTFT zurück.
 
+## Matrix-Sweep , Multi-Datensatz , Paper-Tabelle
+
+Drei bausteine automatisieren den weg von "eine config" zur papierfertigen
+tabelle über mehrere datensätze:
+
+| Script           | Datei                 | Was er tut                                                            |
+| ---------------- | --------------------- | --------------------------------------------------------------------- |
+| `evals:matrix`   | `pipeline/configs.ts` | `matrixConfigs()` als `--configs matrix` (Embedder×Chunker×Reranker). |
+| `evals:datasets` | `run-datasets.ts`     | äußere schleife: matrix-sweep über MEHRERE datensätze.                |
+| `evals:paper`    | `aggregate-paper.ts`  | alle sweep-run-dirs → `report/paper-table.csv` + `.tex`.              |
+
+**A — `evals:matrix`**: Embedder × Chunker × Reranker als cartesian product ,
+antwort-LLM fix auf 'full' (nicht 'auto' , sonst self-bias gegen den judge).
+default = 2 configs (mit/ohne reranker) , ohne downloads. Weitere achsen-einträge
+in `pipeline/configs.ts` sind auskommentierte kandidaten — jedem embedder/chunker
+einen eindeutigen label geben (cache-falle , s.o.).
+
+**B — `evals:datasets`** ([`run-datasets.ts`](./run-datasets.ts)): pro datensatz
+ein isolierter `evals:sweep --configs matrix`-aufruf (eigenes run-dir) ; ein
+fehlgeschlagener datensatz stoppt die anderen nicht (vorlage: `answer/run-pack.ts`).
+default retrieval-only (`--no-llm`) ; `--judge --judge-path <gguf>` schaltet den
+LLM+judge-pass an.
+
+```bash
+# alle committeten datensätze , retrieval-only (schnell , deterministisch)
+pnpm evals:datasets
+# gezielt , mit judge (langsam)
+pnpm evals:datasets -- --datasets a.json,b.json --judge --judge-path models/<judge>.gguf
+```
+
+**C — `evals:paper`** ([`aggregate-paper.ts`](./aggregate-paper.ts)): sammelt alle
+sweep-run-dirs (`summary.json` + `env.json`) , überspringt pack-aggregate (kein
+`dataset`-feld) , schreibt eine flache zeile je (datensatz × config) mit provenienz
+(git-sha , dirty , CPU , RAM , dataset-sha256). Spaltenreihenfolge an EINER stelle
+(`COLUMNS`) — CSV und LaTeX können nicht auseinanderlaufen. `--clean-only` filtert
+dirty-runs raus.
+
+Reihenfolge fürs paper (Paper-Regeln beachten): erst committen (sonst `_dirty`) ,
+dann `evals:datasets` über alle datensätze , top-configs mit `--judge` nachfahren ,
+zum schluss `evals:paper`.
+
 ## Status
 
 Scaffold steht, Implementierungen sind Stubs. Was als Nächstes konkret wird,
 hängt davon ab, welcher Embedder/Reranker zuerst in die App kommt — dann diese
 Eval-Stelle gleich mit echtem Code füllen, sonst veraltet die Struktur bevor
 sie genutzt wurde.
+
+**Update (eval-automatisierung):** Die A/B/C-schicht — matrix-config
+(`matrixConfigs`) , multi-datensatz-loop (`run-datasets.ts`) , paper-aggregator
+(`aggregate-paper.ts`) — ist implementiert , unit-getestet und über `evals:matrix`
+/ `evals:datasets` / `evals:paper` nutzbar (siehe „Matrix-Sweep" oben).
 
 ## Zuständigkeit
 
