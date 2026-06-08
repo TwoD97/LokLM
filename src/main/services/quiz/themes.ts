@@ -195,10 +195,12 @@ function sampleEvenly<T>(items: T[], max: number): T[] {
   return out
 }
 
-/** First ~200 chars of raw model output for actionable logs (one line). */
+/** First ~1000 chars of raw model output for actionable logs (one line). Long
+ *  enough to capture a full short theme list (titles + summaries) so
+ *  post-mortem reads aren't truncated mid-shape. */
 function snippet(raw: string): string {
   const oneLine = raw.replace(/\s+/g, ' ').trim()
-  return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine || '(empty)'
+  return oneLine.length > 1000 ? `${oneLine.slice(0, 1000)}…` : oneLine || '(empty)'
 }
 
 function stripCodeFences(text: string): string {
