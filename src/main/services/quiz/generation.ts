@@ -9,6 +9,7 @@ import type { AcceptedQuestion, QuizTheme } from './types'
 import {
   buildJsonRetryPrompt,
   buildBatchQuestionGenerationPrompt,
+  buildDeckQuestionGenerationPrompt,
   QUESTION_LIST_SCHEMA,
   PER_QUESTION_TOKEN_BUDGET,
   PER_QUESTION_TOKEN_BUDGET_CPU,
@@ -128,6 +129,121 @@ export async function generateQuestionsForTheme(
     if (isStemDuplicate(emb, acceptedEmbeddings)) continue
     out.push(toAccepted(parsed[i]!, emb, theme.title))
     // Subsequent candidates must also avoid this freshly accepted stem.
+    acceptedEmbeddings.push(emb)
+  }
+  return out
+}
+
+export interface GenerateAllQuestionsForDeckInput {
+  language: QuizLanguage
+  themes: QuizTheme[]
+  /** themeId → grounding chunks for that theme. The deck-level call dedups
+   *  these chunks across themes before stuffing them into a single prompt. */
+  groundingByTheme: Map<string, ChunkRow[]>
+  accepted: AcceptedQuestion[]
+  /** Total questions to aim for across the WHOLE deck in this single call. */
+  count: number
+  abortSignal?: AbortSignal
+}
+
+/** CPU mega-batch path: ONE grammar-constrained call produces all deck
+ *  questions across all themes. Replaces the per-theme loop ( N calls × ~65s
+ *  prefill each ) with one call ( 1 × ~100s prefill ) , saving ~3-5 minutes
+ *  on a 5-theme deck on a 2B model on CPU.
+ *
+ *  Trade-offs vs the per-theme call :
+ *   - Theme attribution is heuristic ( source_chunk_ids → which theme owns
+ *     that chunk ) rather than exact ; the UI loses a tiny bit of precision.
+ *   - One bad call wastes more decode than one bad theme call.
+ *   - The model has to plan all N questions in advance ; very small models
+ *     might do this worse than per-theme.
+ *
+ *  Why no retry : same reasoning as the CPU branch in generateQuestionsForTheme
+ *  — retry costs minutes and content-level failures repeat. */
+export async function generateAllQuestionsForDeck(
+  llm: LlmProvider,
+  embedder: EmbedderProvider,
+  input: GenerateAllQuestionsForDeckInput,
+): Promise<Array<Omit<AcceptedQuestion, 'ordinal'>>> {
+  const { themes, groundingByTheme, accepted, language, count, abortSignal } = input
+  if (themes.length === 0 || count <= 0) return []
+
+  // Format the theme list — used for both the prompt AND the post-hoc theme
+  // attribution heuristic.
+  const themeBlock = themes
+    .map((t) => `- "${t.title}" (Gewicht/weight ${t.weight}): ${t.summary}`)
+    .join('\n')
+
+  // Dedup grounding chunks across themes ( two themes might share a window
+  // chunk ). Preserves insertion order so chunks of higher-weight themes come
+  // first — the model tends to over-weight the first chunks it sees.
+  const seenChunkIds = new Set<number>()
+  const allChunks: ChunkRow[] = []
+  // Process themes in weight order so the model sees heavy themes' chunks first.
+  const themesByWeight = [...themes].sort((a, b) => b.weight - a.weight)
+  for (const theme of themesByWeight) {
+    for (const chunk of groundingByTheme.get(theme.id) ?? []) {
+      if (!seenChunkIds.has(chunk.id)) {
+        seenChunkIds.add(chunk.id)
+        allChunks.push(chunk)
+      }
+    }
+  }
+  if (allChunks.length === 0) return []
+
+  // Map each chunk id → its owning theme(s) for post-hoc attribution.
+  const chunkToTheme = new Map<number, QuizTheme>()
+  for (const theme of themes) {
+    for (const chunk of groundingByTheme.get(theme.id) ?? []) {
+      if (!chunkToTheme.has(chunk.id)) chunkToTheme.set(chunk.id, theme)
+    }
+  }
+
+  const groundingBlock = allChunks
+    .map(
+      (c) => `[chunk:${c.id}] ${c.text.replace(/\s+/g, ' ').slice(0, GROUNDING_CHUNK_CHARS_CPU)}`,
+    )
+    .join('\n')
+  const allowedChunkIds = new Set(allChunks.map((c) => c.id))
+  const avoidStems = accepted.map((a) => a.stem)
+
+  const prompt = buildDeckQuestionGenerationPrompt({
+    language,
+    themeBlock,
+    groundingBlock,
+    avoidStems,
+    count,
+  })
+  const maxTokens = count * PER_QUESTION_TOKEN_BUDGET_CPU
+
+  const raw = await llm.generateRaw(prompt, {
+    jsonSchema: QUESTION_LIST_SCHEMA,
+    maxTokens,
+    noThink: true,
+    ...(abortSignal ? { abortSignal } : {}),
+  })
+  const parsed = parseAndValidateArray(raw, allowedChunkIds)
+  if (parsed.length === 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`[quiz] deck mega-call produced no valid questions (round1: ${snippet(raw)})`)
+    return []
+  }
+
+  // Stem-dedup as in the per-theme path.
+  const stems = parsed.map((q) => q.stem)
+  const embeddings = await embedder.embed(stems)
+  const out: Array<Omit<AcceptedQuestion, 'ordinal'>> = []
+  const acceptedEmbeddings = accepted.map((a) => a.stemEmbedding)
+  for (let i = 0; i < parsed.length && out.length < count; i += 1) {
+    const emb = embeddings[i]
+    if (!emb) continue
+    if (isStemDuplicate(emb, acceptedEmbeddings)) continue
+    // Theme attribution heuristic: pick the theme that owns the question's
+    // first cited chunk. Falls back to the heaviest theme if no overlap.
+    const firstChunkId = parsed[i]!.sourceChunkIds[0]
+    const owningTheme =
+      (firstChunkId != null ? chunkToTheme.get(firstChunkId) : undefined) ?? themesByWeight[0]!
+    out.push(toAccepted(parsed[i]!, emb, owningTheme.title))
     acceptedEmbeddings.push(emb)
   }
   return out
