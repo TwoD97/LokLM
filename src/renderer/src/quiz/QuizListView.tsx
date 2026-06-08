@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus,
   Play,
@@ -10,21 +10,46 @@ import {
   ChevronUp,
   History,
   X,
+  Check,
 } from 'lucide-react'
-import type { QuizDeckSummary } from '@shared/quiz'
+import type { QuizDeckSummary, QuizGenerationEvent } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
 import { useT, type TFn } from '../i18n'
+
+export type QuizPhaseName =
+  | 'extracting-themes'
+  | 'merging-themes'
+  | 'allocating'
+  | 'generating-questions'
+
+/** One phase in the per-deck timeline. `endedAt` is set once the next phase
+ *  opens; the still-open (active) phase leaves it undefined. */
+export interface QuizPhase {
+  phase: QuizPhaseName
+  startedAt: number
+  endedAt?: number
+}
 
 /** Live generation progress for one deck, derived in QuizView from the
  *  QuizGenerationEvent stream. Undefined until the first event arrives. */
 export interface QuizProgress {
-  stage: 'extracting-themes' | 'merging-themes' | 'allocating' | 'generating-questions'
+  stage: QuizPhaseName
   /** extracting-themes: which document is being read. */
   docIndex?: number
   docTotal?: number
+  /** extracting-themes: doc count surfaced in the timeline label. */
+  docCount?: number
   /** generating-questions: how many questions accepted so far / target. */
   ordinal?: number
   total?: number
+  /** generating-questions: which allocated theme is being written. */
+  themeTitle?: string
+  themeIndex?: number
+  themeTotal?: number
+  /** epoch ms when the first event for this deck arrived (live timer base). */
+  startedAt?: number
+  /** ordered, closed+open phases for the step timeline. */
+  timeline?: QuizPhase[]
 }
 
 /** Coarse weighted percentage across the 4 pipeline phases so the bar advances
@@ -60,10 +85,122 @@ function stepDetail(p: QuizProgress, t: TFn): string | null {
   if (p.stage === 'extracting-themes' && p.docTotal && p.docTotal > 1) {
     return t('quiz.list.stepDocProgress', { current: p.docIndex ?? 0, total: p.docTotal })
   }
-  if (p.stage === 'generating-questions' && p.total) {
-    return t('quiz.list.stepQuestionProgress', { current: p.ordinal ?? 0, total: p.total })
+  if (p.stage === 'generating-questions') {
+    const parts: string[] = []
+    if (p.themeTotal) {
+      const title = p.themeTitle ? ` "${p.themeTitle}"` : ''
+      parts.push(
+        t('quiz.list.stepThemeProgress', { current: p.themeIndex ?? 0, total: p.themeTotal }) +
+          title,
+      )
+    }
+    if (p.total) {
+      parts.push(t('quiz.list.stepQuestionProgress', { current: p.ordinal ?? 0, total: p.total }))
+    }
+    return parts.length > 0 ? parts.join(' · ') : null
   }
   return null
+}
+
+function phaseLabel(phase: QuizPhaseName, p: QuizProgress | undefined, t: TFn): string {
+  switch (phase) {
+    case 'extracting-themes': {
+      const count = p?.docCount ?? p?.docTotal
+      return count ? t('quiz.list.stepExtractingDocs', { count }) : t('quiz.list.stepExtracting')
+    }
+    case 'merging-themes':
+      return t('quiz.list.stepMerging')
+    case 'allocating':
+      return t('quiz.list.stepAllocating')
+    case 'generating-questions':
+      return t('quiz.list.stepGenerating')
+  }
+}
+
+/** Human-readable duration: `Ns` under a minute, else `m:ss`. */
+export function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  if (totalSec < 60) return `${totalSec}s`
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  return `${min}:${String(sec).padStart(2, '0')}`
+}
+
+/** `mm:ss` clock for the live elapsed timer. */
+export function formatClock(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
+
+/** Open a new phase in the timeline, closing the currently-open one (if it
+ *  differs). Same-phase events just keep the existing open phase. */
+function advanceTimeline(timeline: QuizPhase[], phase: QuizPhaseName, at: number): QuizPhase[] {
+  const open = timeline[timeline.length - 1]
+  if (open && open.endedAt == null && open.phase === phase) return timeline
+  const next = timeline.map((p, i) =>
+    i === timeline.length - 1 && p.endedAt == null ? { ...p, endedAt: at } : p,
+  )
+  next.push({ phase, startedAt: at })
+  return next
+}
+
+/** Fold one generation event into the running per-deck progress. Pure so it can
+ *  be unit-tested; `now` is injected for determinism. Returns `null` for events
+ *  that don't update progress (done/error/warning are handled by the caller). */
+export function reduceProgress(
+  prev: QuizProgress | undefined,
+  ev: QuizGenerationEvent,
+  now: number,
+): QuizProgress | null {
+  const startedAt = prev?.startedAt ?? now
+  const base = { startedAt, timeline: prev?.timeline ?? [] }
+  switch (ev.type) {
+    case 'stage': {
+      const stage: QuizPhaseName =
+        ev.stage === 'extracting-themes'
+          ? 'extracting-themes'
+          : ev.stage === 'merging-themes'
+            ? 'merging-themes'
+            : 'allocating'
+      return { stage, startedAt, timeline: advanceTimeline(base.timeline, stage, now) }
+    }
+    case 'doc-themes':
+      return {
+        ...prev,
+        stage: 'extracting-themes',
+        docIndex: ev.docIndex,
+        docTotal: ev.docTotal,
+        docCount: ev.docTotal,
+        startedAt,
+        timeline: advanceTimeline(base.timeline, 'extracting-themes', now),
+      }
+    case 'theme':
+      return {
+        ...prev,
+        stage: 'generating-questions',
+        themeTitle: ev.themeTitle,
+        themeIndex: ev.themeIndex,
+        themeTotal: ev.themeTotal,
+        startedAt,
+        timeline: advanceTimeline(base.timeline, 'generating-questions', now),
+      }
+    case 'question':
+      return {
+        ...prev,
+        stage: 'generating-questions',
+        ordinal: ev.ordinal,
+        total: ev.total,
+        ...(ev.themeTitle != null ? { themeTitle: ev.themeTitle } : {}),
+        ...(ev.themeIndex != null ? { themeIndex: ev.themeIndex } : {}),
+        ...(ev.themeTotal != null ? { themeTotal: ev.themeTotal } : {}),
+        startedAt,
+        timeline: advanceTimeline(base.timeline, 'generating-questions', now),
+      }
+    default:
+      return null
+  }
 }
 
 type Props = {
@@ -298,6 +435,20 @@ function StatusBadge({
   return <span className="quiz-badge quiz-badge--ready">{t('quiz.list.statusReady')}</span>
 }
 
+/** Re-renders once a second while `active` so the live timer/active-phase
+ *  duration tick. Returns the current epoch ms; the interval is torn down (and
+ *  never started) when inactive, so an idle card costs no recurring re-render. */
+function useNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    setNow(Date.now())
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [active])
+  return now
+}
+
 function GenerationProgress({
   progress,
   t,
@@ -305,16 +456,27 @@ function GenerationProgress({
   progress?: QuizProgress | undefined
   t: TFn
 }): JSX.Element {
+  const live = progress?.startedAt != null
+  const now = useNow(live)
   // No event yet → indeterminate bar + "Starting…". Once events flow we show
   // the step label, a x/y detail and a determinate fill.
   const label = progress ? stepLabel(progress, t) : t('quiz.list.stepStarting')
   const detail = progress ? stepDetail(progress, t) : null
   const pct = progress ? progressPercent(progress) : null
+  const elapsed = progress?.startedAt != null ? formatClock(now - progress.startedAt) : null
+  const timeline = progress?.timeline ?? []
   return (
     <div className="quiz-card__progress" role="status" aria-live="polite">
       <div className="quiz-card__progress-head">
-        <span className="quiz-card__progress-step">{label}</span>
-        {detail && <span className="quiz-card__progress-detail">{detail}</span>}
+        <span className="quiz-card__progress-step">
+          {label}
+          {detail && <span className="quiz-card__progress-detail"> · {detail}</span>}
+        </span>
+        {elapsed && (
+          <span className="quiz-card__progress-timer" aria-hidden="true">
+            {elapsed}
+          </span>
+        )}
       </div>
       <div className="quiz-card__progress-bar">
         <div
@@ -323,6 +485,32 @@ function GenerationProgress({
           aria-hidden="true"
         />
       </div>
+      {timeline.length > 0 && (
+        <ul className="quiz-card__timeline">
+          <li className="quiz-card__timeline-header">{t('quiz.list.stepsHeader')}</li>
+          {timeline.map((ph, i) => {
+            const done = ph.endedAt != null
+            const dur = (ph.endedAt ?? now) - ph.startedAt
+            return (
+              <li
+                key={`${ph.phase}-${i}`}
+                className={`quiz-card__timeline-row${done ? '' : ' quiz-card__timeline-row--active'}`}
+              >
+                <span className="quiz-card__timeline-icon" aria-hidden="true">
+                  {done ? <Check size={12} strokeWidth={3} /> : '●'}
+                </span>
+                <span className="quiz-card__timeline-name">
+                  {phaseLabel(ph.phase, progress, t)}
+                </span>
+                <span className="quiz-card__timeline-dur">
+                  {formatDuration(dur)}
+                  {!done && ' …'}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }

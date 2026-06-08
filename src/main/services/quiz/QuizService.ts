@@ -180,6 +180,10 @@ export class QuizService {
         groundingByTheme.set(slot.theme.id, chunks)
       }
 
+      // Theme context attached to each `question` event so the UI can show
+      // which theme produced it. Set before each batch call below.
+      let themeContext: { themeTitle: string; themeIndex: number; themeTotal: number } | null = null
+      const themeTotal = slots.length
       const emitAccepted = (
         questions: Array<Omit<AcceptedQuestion, 'ordinal'>>,
       ): QuizGenerationEvent[] => {
@@ -187,17 +191,27 @@ export class QuizService {
         for (const q of questions) {
           if (accepted.length >= deck.questionCount) break
           accepted.push({ ...q, ordinal: accepted.length })
-          events.push({ type: 'question', ordinal: accepted.length, total: deck.questionCount })
+          events.push({
+            type: 'question',
+            ordinal: accepted.length,
+            total: deck.questionCount,
+            ...(themeContext ?? {}),
+          })
         }
         return events
       }
 
       // One grammar-constrained batch call per allocated theme.
-      for (const slot of slots) {
+      for (let i = 0; i < slots.length; i += 1) {
+        const slot = slots[i]!
         if (abortSignal?.aborted) throw new Error('cancelled')
         if (accepted.length >= deck.questionCount) break
         const grounding = groundingByTheme.get(slot.theme.id) ?? []
         if (grounding.length === 0) continue
+        // Announce the theme before the (long) batch call so the UI shows the
+        // current theme even before any question of it completes.
+        themeContext = { themeTitle: slot.theme.title, themeIndex: i + 1, themeTotal }
+        yield { type: 'theme', themeIndex: i + 1, themeTotal, themeTitle: slot.theme.title }
         const need = Math.min(slot.budget, deck.questionCount - accepted.length)
         const batch = await generateQuestionsForTheme(llm, embedder, {
           language: deck.language,
@@ -224,6 +238,12 @@ export class QuizService {
         if (topUpAttempts >= maxTopUps) break
         const slot = heaviestFirst[topUpAttempts % heaviestFirst.length]!
         topUpAttempts += 1
+        const slotIndex = slots.indexOf(slot)
+        themeContext = {
+          themeTitle: slot.theme.title,
+          themeIndex: slotIndex >= 0 ? slotIndex + 1 : 1,
+          themeTotal,
+        }
         const grounding = groundingByTheme.get(slot.theme.id) ?? []
         const need = deck.questionCount - accepted.length
         const batch = await generateQuestionsForTheme(llm, embedder, {
