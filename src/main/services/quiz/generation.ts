@@ -80,9 +80,25 @@ export async function generateQuestionsForTheme(
   })
   let parsed = parseAndValidateArray(raw1, allowedChunkIds)
 
-  // Round 2: JSON-only retry if nothing parsed (grammar unavailable / ignored,
-  // e.g. Ollama, or a malformed body). The retry restates the contract.
+  // Round 2: JSON-only retry if nothing parsed. The retry restates the contract
+  // and is meant for "grammar unavailable / ignored (e.g. Ollama) or malformed
+  // body" — cases where the model would benefit from a more pointed prompt.
+  //
+  // On CPU we SKIP this retry: each retry is another 60-180s of decode and the
+  // dominant CPU failure mode is content-level (e.g. options-not-distinct on a
+  // 2B model couldn't come up with 4 distinct options once; it won't a second
+  // time either, since the prompt is the same and noThink is on). Returning a
+  // short deck quickly beats burning two minutes per theme on the same bad
+  // pattern. The 'X of Y questions generated' warning still fires for the user.
   if (parsed.length === 0) {
+    if (cpu) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[quiz] CPU: skipping JSON-retry for theme "${theme.title}" ` +
+          `(round1: ${snippet(raw1)})`,
+      )
+      return []
+    }
     const retry = await llm.generateRaw(buildJsonRetryPrompt(language, basePrompt), {
       jsonSchema: QUESTION_LIST_SCHEMA,
       maxTokens,

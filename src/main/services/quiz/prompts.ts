@@ -183,7 +183,7 @@ ${avoidBlock}
 Anforderungen:
 - Genau ${count} Fragen, alle klar voneinander verschieden.
 - Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
-- Jede Frage hat genau 4 Antwortmöglichkeiten, alle plausibel, genau EINE richtig.
+- Jede Frage hat genau 4 Antwortmöglichkeiten — ALLE VIER MÜSSEN UNTERSCHIEDLICH sein (keine Duplikate, keine Umformulierungen derselben Antwort), alle plausibel, genau EINE richtig.
 - Die Erklärung muss begründen, warum die richtige Antwort stimmt, und sich auf das Material stützen.
 - "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
 
@@ -216,7 +216,7 @@ ${avoidBlock}
 Requirements:
 - Exactly ${count} questions, all clearly distinct from each other.
 - Test understanding or application, NOT trivial recall.
-- Each question has exactly 4 plausible options, exactly ONE correct.
+- Each question has exactly 4 options — ALL FOUR MUST BE DISTINCT (no duplicates, no rewordings of the same answer), all plausible, exactly ONE correct.
 - The explanation must justify the correct answer using the material.
 - "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
 
