@@ -242,6 +242,97 @@ No preamble, no code fences, no extra fields.
 /no_think`
 }
 
+/** Mega-batch prompt: asks for ALL deck questions across ALL themes in ONE
+ *  call. CPU-only path — collapses N theme calls into 1 so prefill is paid
+ *  once instead of N times ( saves ~3-5 min on a 5-theme deck on 2B/CPU ).
+ *  Themes + all grounding chunks are stuffed into the single prompt; the model
+ *  is asked to distribute Q across themes by weight. */
+export interface DeckQuestionGenerationInput {
+  language: QuizLanguage
+  /** Pre-formatted theme list: each line is `- "Title" (Gewicht/weight N): summary`. */
+  themeBlock: string
+  /** All grounding chunks across themes, dedup'd and formatted with [chunk:N]
+   *  prefixes. */
+  groundingBlock: string
+  avoidStems: string[]
+  /** Total questions for the whole deck. */
+  count: number
+}
+
+export function buildDeckQuestionGenerationPrompt(input: DeckQuestionGenerationInput): string {
+  const { language, themeBlock, groundingBlock, avoidStems, count } = input
+  const avoidBlock =
+    avoidStems.length > 0 ? avoidStems.map((s) => `- ${s}`).join('\n') : '(noch keine — none yet)'
+  if (language === 'de') {
+    return `Du schreibst genau ${count} verschiedene Multiple-Choice-Fragen für eine Studierende.
+
+Themen (verteile die Fragen gleichmäßig nach Gewicht):
+${themeBlock}
+
+Quellmaterial (jeder Eintrag ist ein zitierbarer Chunk):
+${groundingBlock}
+
+Bereits gestellte Fragen (NICHT wiederholen, nicht umformulieren):
+${avoidBlock}
+
+Anforderungen:
+- Genau ${count} Fragen insgesamt, alle klar voneinander verschieden.
+- Verteile die Fragen sinnvoll über die Themen — gewichtigere Themen bekommen mehr Fragen.
+- Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
+- Jede Frage hat genau 4 Antwortmöglichkeiten — ALLE VIER MÜSSEN UNTERSCHIEDLICH sein (keine Duplikate, keine Umformulierungen derselben Antwort), alle plausibel, genau EINE richtig.
+- Die Erklärung muss begründen, warum die richtige Antwort stimmt, und sich auf das Material stützen.
+- "source_chunk_ids" enthält nur Chunk-IDs, die oben tatsächlich vorkommen, primär zuerst.
+
+Antworte AUSSCHLIESSLICH mit einem JSON-Array von ${count} Objekten:
+[
+  {
+    "stem": "...",
+    "options": ["A", "B", "C", "D"],
+    "correct_index": 0,
+    "explanation": "...",
+    "source_chunk_ids": [1, 2]
+  }
+]
+
+Kein Vorspann, kein Code-Block, keine zusätzlichen Felder.
+
+/no_think`
+  }
+  return `Write exactly ${count} distinct multiple-choice questions for a learner.
+
+Themes (distribute questions across themes by weight):
+${themeBlock}
+
+Source material (each entry is a citable chunk):
+${groundingBlock}
+
+Questions already asked (do NOT repeat, do NOT paraphrase):
+${avoidBlock}
+
+Requirements:
+- Exactly ${count} questions total, all clearly distinct from each other.
+- Distribute the questions sensibly across themes — heavier themes get more questions.
+- Test understanding or application, NOT trivial recall.
+- Each question has exactly 4 options — ALL FOUR MUST BE DISTINCT (no duplicates, no rewordings of the same answer), all plausible, exactly ONE correct.
+- The explanation must justify the correct answer using the material.
+- "source_chunk_ids" lists only chunk ids that actually appear above, primary first.
+
+Reply with ONLY a JSON array of ${count} objects:
+[
+  {
+    "stem": "...",
+    "options": ["A", "B", "C", "D"],
+    "correct_index": 0,
+    "explanation": "...",
+    "source_chunk_ids": [1, 2]
+  }
+]
+
+No preamble, no code fences, no extra fields.
+
+/no_think`
+}
+
 /** Retry prompt when the previous output failed JSON validation. We send it as
  *  a new generateRaw call (not a multi-turn chat) — the LLM provider's
  *  generateRaw is single-turn. The retry prompt restates the contract. */

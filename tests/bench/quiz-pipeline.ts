@@ -29,7 +29,10 @@ import type {
 } from '../../src/main/services/providers/types'
 import type { QuizLanguage } from '../../src/shared/quiz'
 import { extractThemesForDocument } from '../../src/main/services/quiz/themes'
-import { generateQuestionsForTheme } from '../../src/main/services/quiz/generation'
+import {
+  generateAllQuestionsForDeck,
+  generateQuestionsForTheme,
+} from '../../src/main/services/quiz/generation'
 import { REPO_MODELS_DIR } from '../evals/bridges/common'
 
 // Kept in sync with src/main/services/llm/LlamaService.ts LLM_PROFILES.
@@ -493,44 +496,74 @@ async function main(): Promise<void> {
     return
   }
 
-  // Stage 2: question generation per theme
+  // Stage 2: question generation
   console.log()
   const embedder = new FakeEmbedder()
-  const perThemeTimes: number[] = []
-  let totalQ = 0
   const N = Math.min(args.themesToBench, themes.length)
-  for (let i = 0; i < N; i += 1) {
-    const theme = themes[i]!
-    const grounding = chunks.slice(0, cpu ? 2 : 3)
+  const themesUsed = themes.slice(0, N)
+  const deckSize = N * args.count
+  let totalQ = 0
+  let tStage2Total: number
+
+  if (cpu) {
+    // Mega-call path: ONE call across all themes / grounding. Matches what
+    // QuizService.generate does on CPU.
+    const groundingByTheme = new Map<string, ChunkRow[]>()
+    for (const theme of themesUsed) groundingByTheme.set(theme.id, chunks.slice(0, 2))
     const tQ0 = performance.now()
-    const questions = await generateQuestionsForTheme(llm, embedder, {
+    const questions = await generateAllQuestionsForDeck(llm, embedder, {
       language: args.lang,
-      theme,
-      groundingChunks: grounding,
+      themes: themesUsed,
+      groundingByTheme,
       accepted: [],
-      count: args.count,
-      cpu,
+      count: deckSize,
     })
     const tQ1 = performance.now()
-    const dt = (tQ1 - tQ0) / 1000
-    perThemeTimes.push(dt)
-    totalQ += questions.length
+    tStage2Total = (tQ1 - tQ0) / 1000
+    totalQ = questions.length
     console.log(
-      `[stage 2] theme ${i + 1}/${N} "${theme.title}": ` +
-        `${questions.length}/${args.count}Q in ${dt.toFixed(1)}s`,
+      `[stage 2] CPU mega-call: ${questions.length}/${deckSize}Q in ${tStage2Total.toFixed(1)}s`,
     )
+    for (const q of questions) {
+      console.log(`            • "${q.themeTitle}" — ${q.stem.slice(0, 60)}…`)
+    }
+  } else {
+    // Per-theme loop (matches QuizService.generate on GPU).
+    const perThemeTimes: number[] = []
+    for (let i = 0; i < N; i += 1) {
+      const theme = themesUsed[i]!
+      const grounding = chunks.slice(0, 3)
+      const tQ0 = performance.now()
+      const questions = await generateQuestionsForTheme(llm, embedder, {
+        language: args.lang,
+        theme,
+        groundingChunks: grounding,
+        accepted: [],
+        count: args.count,
+        cpu,
+      })
+      const tQ1 = performance.now()
+      const dt = (tQ1 - tQ0) / 1000
+      perThemeTimes.push(dt)
+      totalQ += questions.length
+      console.log(
+        `[stage 2] theme ${i + 1}/${N} "${theme.title}": ` +
+          `${questions.length}/${args.count}Q in ${dt.toFixed(1)}s`,
+      )
+    }
+    tStage2Total = perThemeTimes.reduce((a, b) => a + b, 0)
+    const avg = perThemeTimes.length > 0 ? tStage2Total / perThemeTimes.length : 0
+    console.log(`[stage 2 total] ${tStage2Total.toFixed(1)}s (avg ${avg.toFixed(1)}s per theme)`)
   }
 
   const tTotal = (performance.now() - tThemes0) / 1000
-  const avgPerTheme =
-    perThemeTimes.length > 0 ? perThemeTimes.reduce((a, b) => a + b, 0) / perThemeTimes.length : 0
   console.log()
   console.log(rule())
   console.log('Summary')
   console.log(`  Themes extracted:   ${themes.length}`)
-  console.log(`  Q accepted/target:  ${totalQ}/${N * args.count}`)
+  console.log(`  Q accepted/target:  ${totalQ}/${deckSize}`)
   console.log(`  Theme extraction:   ${dtThemes.toFixed(1)}s`)
-  console.log(`  Avg per theme (Q):  ${avgPerTheme.toFixed(1)}s`)
+  console.log(`  Question gen:       ${tStage2Total.toFixed(1)}s`)
   console.log(`  Total wall time:    ${tTotal.toFixed(1)}s`)
   console.log(rule())
 
