@@ -7,8 +7,6 @@ pubDate: 2026-05-28
 tags: ['local-ai', 'architecture', 'privacy']
 ---
 
-> **Note:** First draft — will be edited before publication.
-
 In the discussion of AI tools, the word _"local"_ is often used as though it meant a single thing. A modern AI application in fact spans three separable stages, each of which can run locally or remotely. Anyone who does not pull the three apart ends up comparing products that differ on different axes — under a single label.
 
 This article is the reference that other pieces in the series link back to. It defines the three stages briefly and shows which combinations appear in practice.
@@ -35,12 +33,12 @@ The step most people think of as "the AI": the model produces an answer from que
 
 ## The combinations in practice
 
-Three stages, two possible locations (local/remote) per stage. Theoretically that gives eight combinations; in practice five are common:
+Three stages, two possible locations (local/remote) per stage. Theoretically that gives eight combinations; in practice you see five constellations — with A and B sharing the same locality profile and differing only in architecture:
 
 | #   | Training              | Retrieval/Index | Inference | Type                                                                                                      |
 | --- | --------------------- | --------------- | --------- | --------------------------------------------------------------------------------------------------------- |
 | A   | remote                | remote          | remote    | Classic cloud LLM (web chat tools) — the most common constellation                                        |
-| B   | remote                | remote          | remote    | Cloud RAG with third-party vector DB — same as A from the user's view                                     |
+| B   | remote                | remote          | remote    | ↳ Variant of A: cloud RAG with third-party vector DB — identical from the user's view                     |
 | C   | remote                | **local**       | remote    | "Hybrid": local index, cloud inference — uncommon, because the data still leaves the device for inference |
 | D   | remote                | **local**       | **local** | On-device RAG with open-weight model — e.g., LokLM                                                        |
 | E   | **local** (fine-tune) | **local**       | **local** | Specialised local system — mostly research/enterprise                                                     |
