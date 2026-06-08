@@ -54,14 +54,36 @@ const PROFILE_PATTERNS: Record<'lite' | 'full' | 'xl', RegExp[]> = {
 type Profile = 'lite' | 'full' | 'xl'
 
 /** STRICT profile resolver: returns null if no file matches the requested
- *  profile's regex patterns. Unlike LlmBridge.resolveLlmPath, does NOT fall
- *  through to "any non-embedder GGUF" — that fallback is exactly the bug that
- *  silently runs an 8B on CPU when you asked for lite. */
+ *  profile's regex patterns. */
 function resolveLlmPathStrict(profile: Profile): string | null {
   if (!existsSync(REPO_MODELS_DIR)) return null
   const entries = readdirSync(REPO_MODELS_DIR).filter((f) => f.toLowerCase().endsWith('.gguf'))
   const match = entries.find((f) => PROFILE_PATTERNS[profile].some((re) => re.test(f)))
   return match ? join(REPO_MODELS_DIR, match) : null
+}
+
+/** Permissive resolver: tries the requested profile first, then the other
+ *  profiles ( smallest-first when --cpu , largest-first otherwise ) , then any
+ *  non-embedder/reranker GGUF. Returns the chosen profile alongside the path so
+ *  the caller can warn loudly when it had to fall back — silently swapping an
+ *  8B in for lite is exactly the bug we just fixed in the previous commit. */
+function resolveLlmPathPermissive(
+  requested: Profile,
+  preferSmaller: boolean,
+): { path: string; chosen: Profile | null } | null {
+  const exact = resolveLlmPathStrict(requested)
+  if (exact) return { path: exact, chosen: requested }
+  const fallbackOrder: Profile[] = preferSmaller ? ['lite', 'full', 'xl'] : ['xl', 'full', 'lite']
+  for (const p of fallbackOrder) {
+    if (p === requested) continue
+    const path = resolveLlmPathStrict(p)
+    if (path) return { path, chosen: p }
+  }
+  // Catch-all: any non-embedder/reranker GGUF in models/.
+  if (!existsSync(REPO_MODELS_DIR)) return null
+  const entries = readdirSync(REPO_MODELS_DIR).filter((f) => f.toLowerCase().endsWith('.gguf'))
+  const fallback = entries.find((f) => !/embed|reranker|bge/i.test(f))
+  return fallback ? { path: join(REPO_MODELS_DIR, fallback), chosen: null } : null
 }
 
 interface Args {
@@ -84,26 +106,39 @@ function parseArgs(): Args {
   // Explicit --profile always wins so you can deliberately bench a heavier
   // model on CPU to measure the gap.
   const profileArg = get('--profile') as Profile | undefined
-  const profile: Profile = profileArg ?? (cpu ? 'lite' : 'full')
+  const requestedProfile: Profile = profileArg ?? (cpu ? 'lite' : 'full')
   const explicit = get('--model')
-  const modelPath = explicit ?? resolveLlmPathStrict(profile)
-  if (!modelPath) {
-    console.error(`bench: no GGUF matching profile='${profile}' found in ${REPO_MODELS_DIR}`)
-    console.error('')
-    console.error(`Profile '${profile}' looks for files matching:`)
-    for (const re of PROFILE_PATTERNS[profile]) console.error(`  ${re}`)
-    console.error('')
-    console.error('Either:')
-    console.error('  • Place a matching .gguf in models/')
-    console.error('  • Pass --model <path-to.gguf> to use a specific file')
-    console.error("  • Pass --profile full or --profile xl if that's what you have")
-    if (profile === 'lite') {
-      console.error('')
-      console.error('To grab a lite (4B) model:')
-      console.error('  https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507-GGUF')
-      console.error('  (Q4_K_M is ~2.5 GB — fast enough for CPU)')
+  let modelPath: string
+  let profile: Profile = requestedProfile
+  if (explicit) {
+    modelPath = explicit
+  } else {
+    // Permissive resolution: prefer requested profile, fall back to whatever is
+    // available so the bench can run with a dev's current models/ directory
+    // without forcing a separate 4B download. Loud warnings tell the operator
+    // when the fallback fires.
+    const r = resolveLlmPathPermissive(requestedProfile, cpu)
+    if (!r) {
+      console.error(`bench: no GGUF found in ${REPO_MODELS_DIR}`)
+      console.error('  • Place a .gguf in models/')
+      console.error('  • Or pass --model <path-to.gguf>')
+      process.exit(1)
     }
-    process.exit(1)
+    modelPath = r.path
+    if (r.chosen !== requestedProfile) {
+      console.warn(
+        `bench: no GGUF matching profile='${requestedProfile}', falling back to '${r.chosen ?? 'unknown'}' at ${modelPath}`,
+      )
+      if (cpu && r.chosen !== 'lite') {
+        console.warn(
+          `bench: running ${r.chosen ?? 'this'} on CPU will be SLOW (minutes per inference call)`,
+        )
+        console.warn(
+          `bench: to get a fast CPU run, drop a 4B GGUF into models/ (https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507-GGUF)`,
+        )
+      }
+      profile = r.chosen ?? requestedProfile
+    }
   }
   const lang = (get('--lang') ?? 'de') as QuizLanguage
   return {
