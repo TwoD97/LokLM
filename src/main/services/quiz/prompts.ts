@@ -45,17 +45,23 @@ export const THEME_LIST_SCHEMA = {
   },
 } as const
 
-/** Schema for the batch-of-MCQs array. */
+/** Schema for the batch-of-MCQs array. The array + options length bounds are
+ *  load-bearing, not cosmetic: without `minItems`/`maxItems` a weak model takes
+ *  the lazy path and emits `"options": []` (or a whole empty array), which then
+ *  fails validation → zero questions → the deck fails. Forcing exactly 4
+ *  options + ≥1 question makes the grammar reject those degenerate shapes.
+ *  node-llama-cpp 3.x honours these length keywords. */
 export const QUESTION_LIST_SCHEMA = {
   type: 'array',
+  minItems: 1,
   items: {
     type: 'object',
     properties: {
       stem: { type: 'string' },
-      options: { type: 'array', items: { type: 'string' } },
+      options: { type: 'array', items: { type: 'string' }, minItems: 4, maxItems: 4 },
       correct_index: { enum: [0, 1, 2, 3] },
       explanation: { type: 'string' },
-      source_chunk_ids: { type: 'array', items: { type: 'integer' } },
+      source_chunk_ids: { type: 'array', items: { type: 'integer' }, minItems: 1 },
     },
   },
 } as const
