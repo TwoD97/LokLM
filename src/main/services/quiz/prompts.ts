@@ -47,16 +47,21 @@ export const GROUNDING_CHUNK_CHARS_CPU = 500
 // stay in the TS validators since the grammar can't express them. These are
 // passed straight to llama.createGrammarForJsonSchema in the worker.
 
-/** Schema for the theme-extraction array. maxLength on title/summary keeps the
- *  grammar from letting a verbose model run away on CPU — terser themes are
- *  fine for what's downstream (just labels for grounding). */
+/** Schema for the theme-extraction array. Same lazy-path bug as
+ *  QUESTION_LIST_SCHEMA: without `minItems: 1` a weak / cold model finds the
+ *  shortest valid output, `[]`, and bails — observed on a 2B model on CPU
+ *  emitting `[ ]` in 8 characters of decode and ending the call. minLength on
+ *  title/summary similarly stops the model from satisfying the array bound
+ *  with empty-string themes. maxLength caps a verbose model so the grammar
+ *  doesn't let a tiny budget get blown on one theme. */
 export const THEME_LIST_SCHEMA = {
   type: 'array',
+  minItems: 1,
   items: {
     type: 'object',
     properties: {
-      title: { type: 'string', maxLength: 100 },
-      summary: { type: 'string', maxLength: 250 },
+      title: { type: 'string', minLength: 3, maxLength: 100 },
+      summary: { type: 'string', minLength: 10, maxLength: 250 },
       weight: { type: 'integer' },
     },
   },
@@ -80,15 +85,15 @@ export const QUESTION_LIST_SCHEMA = {
   items: {
     type: 'object',
     properties: {
-      stem: { type: 'string', maxLength: 160 },
+      stem: { type: 'string', minLength: 8, maxLength: 160 },
       options: {
         type: 'array',
-        items: { type: 'string', maxLength: 80 },
+        items: { type: 'string', minLength: 1, maxLength: 80 },
         minItems: 4,
         maxItems: 4,
       },
       correct_index: { enum: [0, 1, 2, 3] },
-      explanation: { type: 'string', maxLength: 220 },
+      explanation: { type: 'string', minLength: 8, maxLength: 220 },
       source_chunk_ids: { type: 'array', items: { type: 'integer' }, minItems: 1 },
     },
   },
