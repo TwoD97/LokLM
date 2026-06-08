@@ -354,6 +354,16 @@ export class LlamaService {
   }
 
   private recommendedProfileFromCache(profiles: AvailableProfile[]): LlmProfileName {
+    // CPU override comes first: a heavy model on CPU is multi-minutes per
+    // inference call ( ~80s prefill + ~100s decode for an 8B at 5 tok/s ),
+    // which makes the app effectively unusable. If we already know there's
+    // no GPU and lite is on disk, recommend lite ahead of any tier marker
+    // so the settings UI and autoLoad converge on the same answer.
+    const res = this.lastResources
+    if (res && !res.hasGpu) {
+      const liteAvailable = profiles.find((x) => x.name === 'lite')?.filename != null
+      if (liteAvailable) return 'lite'
+    }
     // Install-time tier wins — but only if its profile actually has a GGUF
     // on disk ( guards against a marker pointing at a tier whose download
     // failed ; then we fall through to the hardware heuristic ).
@@ -362,7 +372,6 @@ export class LlamaService {
       const d = profiles.find((x) => x.name === fromTier)
       if (d?.filename) return fromTier
     }
-    const res = this.lastResources
     if (!res) return recommendedProfile()
     const enriched = LLM_PROFILES.map((p) => {
       const d = profiles.find((x) => x.name === p.name)
@@ -395,10 +404,13 @@ export class LlamaService {
 
   async autoLoad(): Promise<void> {
     const profiles = discoverProfiles()
-    // We avoid kicking the planner's GPU probe on main , the worker probes
-    // inside loadModel and pushes back fresh resources. A cheap RAM-only
-    // snapshot is enough to pick the profile here.
-    const snapshot = this.planner.snapshot()
+    // Refreshed snapshot — used to be a RAM-only snapshot() to avoid the
+    // GPU-probe cost on main , but profile selection now uses hasGpu to
+    // override heavy tiers on CPU-only machines ( an 8B on CPU is multi-
+    // minutes per call , effectively unusable ) , so the ~100-500ms probe
+    // is worth it. The result is cached on the planner so subsequent
+    // callers don't re-probe.
+    const snapshot = await this.planner.refreshIfStale(60_000)
     this.lastResources = snapshot
 
     let preferredName: LlmProfileName
@@ -416,6 +428,23 @@ export class LlamaService {
       preferredName = (picked?.name as LlmProfileName | undefined) ?? recommendedProfile()
     } else {
       preferredName = this.selectedChoice
+    }
+
+    // CPU downgrade: regardless of how we got `preferredName` ( auto-pick OR
+    // explicit user choice OR install-time tier marker ) , if there's no GPU
+    // and lite is available , force lite. Reasoning: a Full / XL tier was
+    // chosen for hardware the user no longer has — running it on CPU is
+    // multi-minutes per call. The user can switch back via settings once
+    // they're on a GPU machine again.
+    if (!snapshot.hasGpu && preferredName !== 'lite') {
+      const liteAvailable = profiles.find((x) => x.name === 'lite')?.filename != null
+      if (liteAvailable) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[llm] no GPU detected — auto-downgrading from '${preferredName}' to 'lite' for usability`,
+        )
+        preferredName = 'lite'
+      }
     }
 
     const path = this.resolveSelectedPath(profiles, preferredName)
