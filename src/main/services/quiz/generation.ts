@@ -11,6 +11,9 @@ import {
   buildBatchQuestionGenerationPrompt,
   QUESTION_LIST_SCHEMA,
   PER_QUESTION_TOKEN_BUDGET,
+  PER_QUESTION_TOKEN_BUDGET_CPU,
+  GROUNDING_CHUNK_CHARS,
+  GROUNDING_CHUNK_CHARS_CPU,
 } from './prompts'
 import { extractJsonObjects } from './jsonSalvage'
 
@@ -25,6 +28,8 @@ export interface GenerateQuestionsForThemeInput {
   accepted: AcceptedQuestion[]
   /** Number of accepted questions to aim for from this theme in one call. */
   count: number
+  /** CPU inference — shorter grounding slices + tighter output budget. */
+  cpu?: boolean | undefined
   abortSignal?: AbortSignal
 }
 
@@ -46,11 +51,12 @@ export async function generateQuestionsForTheme(
   embedder: EmbedderProvider,
   input: GenerateQuestionsForThemeInput,
 ): Promise<Array<Omit<AcceptedQuestion, 'ordinal'>>> {
-  const { theme, groundingChunks, accepted, language, count, abortSignal } = input
+  const { theme, groundingChunks, accepted, language, count, cpu, abortSignal } = input
   if (groundingChunks.length === 0 || count <= 0) return []
 
+  const chunkChars = cpu ? GROUNDING_CHUNK_CHARS_CPU : GROUNDING_CHUNK_CHARS
   const groundingBlock = groundingChunks
-    .map((c) => `[chunk:${c.id}] ${c.text.replace(/\s+/g, ' ').slice(0, 1200)}`)
+    .map((c) => `[chunk:${c.id}] ${c.text.replace(/\s+/g, ' ').slice(0, chunkChars)}`)
     .join('\n')
   const allowedChunkIds = new Set(groundingChunks.map((c) => c.id))
   const avoidStems = accepted.map((a) => a.stem)
@@ -63,7 +69,7 @@ export async function generateQuestionsForTheme(
     avoidStems,
     count,
   })
-  const maxTokens = count * PER_QUESTION_TOKEN_BUDGET
+  const maxTokens = count * (cpu ? PER_QUESTION_TOKEN_BUDGET_CPU : PER_QUESTION_TOKEN_BUDGET)
 
   // Round 1: grammar-constrained batch call.
   const raw1 = await llm.generateRaw(basePrompt, {

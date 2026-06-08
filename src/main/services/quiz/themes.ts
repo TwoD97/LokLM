@@ -11,6 +11,7 @@ import {
   THEME_PROMPT_RESERVE_TOKENS,
   THEME_OUTPUT_RESERVE_TOKENS,
   THEME_EXTRACTION_MAX_TOKENS,
+  THEME_EXTRACTION_MAX_TOKENS_CPU,
   THEME_LIST_SCHEMA,
   FALLBACK_CONTEXT_TOKENS,
 } from './prompts'
@@ -45,9 +46,16 @@ export interface ExtractThemesForDocInput {
   language: QuizLanguage
   /** Approximate themes to request from the LLM (across all windows). */
   targetCount: number
+  /** CPU inference — applies hard work-caps (fewer windows, tighter output
+   *  budget) so a slow run finishes instead of timing out. */
+  cpu?: boolean | undefined
   /** Cancellation, plumbed through generateRaw. */
   abortSignal?: AbortSignal
 }
+
+/** On CPU we sample at most this many windows (evenly spaced) instead of
+ *  extracting from the whole doc, trading coverage for finishing. */
+const CPU_MAX_WINDOWS = 2
 
 /** A consecutive run of chunks whose combined text fits one extraction call. */
 interface ChunkWindow {
@@ -83,7 +91,7 @@ export async function extractThemesForDocument(
   deps: ThemeExtractorDeps,
   input: ExtractThemesForDocInput,
 ): Promise<QuizTheme[]> {
-  const { docId, docTitle, chunks, language, targetCount, abortSignal } = input
+  const { docId, docTitle, chunks, language, targetCount, cpu, abortSignal } = input
   if (chunks.length === 0) return []
 
   const contextTokens =
@@ -93,7 +101,11 @@ export async function extractThemesForDocument(
     contextTokens - THEME_PROMPT_RESERVE_TOKENS - THEME_OUTPUT_RESERVE_TOKENS,
   )
 
-  const windows = packWindows(chunks, budget)
+  const allWindows = packWindows(chunks, budget)
+  // CPU cap: keep at most CPU_MAX_WINDOWS, sampled evenly across the doc so we
+  // still cover beginning + end instead of only the opening section.
+  const windows = cpu ? sampleEvenly(allWindows, CPU_MAX_WINDOWS) : allWindows
+  const maxTokens = cpu ? THEME_EXTRACTION_MAX_TOKENS_CPU : THEME_EXTRACTION_MAX_TOKENS
   // Scale the per-window ask down so all windows together total ≈ targetCount,
   // but always request at least 1 (a window with content should yield a theme).
   const perWindow = Math.max(1, Math.round(targetCount / windows.length))
@@ -106,7 +118,7 @@ export async function extractThemesForDocument(
     const prompt = buildThemeExtractionPrompt({ language, docTitle, body, targetCount: perWindow })
     const raw = await deps.llm.generateRaw(prompt, {
       jsonSchema: THEME_LIST_SCHEMA,
-      maxTokens: THEME_EXTRACTION_MAX_TOKENS,
+      maxTokens,
       noThink: true,
       ...(abortSignal ? { abortSignal } : {}),
     })
@@ -166,6 +178,19 @@ function parseThemeJson(raw: string): RawTheme[] {
         : 1
     if (!title || !summary) continue
     out.push({ title: title.slice(0, 200), summary: summary.slice(0, 500), weight })
+  }
+  return out
+}
+
+/** Pick at most `max` items spaced evenly across the list (always includes the
+ *  first; spreads the rest so we sample beginning..end rather than a prefix). */
+function sampleEvenly<T>(items: T[], max: number): T[] {
+  if (items.length <= max) return items
+  if (max <= 1) return items.slice(0, Math.max(0, max))
+  const out: T[] = []
+  for (let i = 0; i < max; i += 1) {
+    const idx = Math.round((i * (items.length - 1)) / (max - 1))
+    out.push(items[idx]!)
   }
   return out
 }

@@ -120,13 +120,14 @@ describe('extractThemesForDocument', () => {
   // A single canned response (string) replies the same JSON every call. An
   // array replies one entry per call, in order — used to assert per-window
   // calls in the windowed extractor.
-  function fakeLlm(response: string | string[], contextTokens = 0): LlmProvider {
+  function fakeLlm(response: string | string[], contextTokens = 0, cpu = false): LlmProvider {
     const queue = Array.isArray(response) ? [...response] : null
     return {
       ask: vi.fn(),
       generateRaw: vi.fn(async () => (queue ? (queue.shift() ?? '[]') : response)),
       generateTitle: vi.fn(),
       contextWindowTokens: () => contextTokens,
+      isCpuInference: () => cpu,
       isReady: () => true,
       getStatus: () => ({ ready: true, message: null, identity: 'fake' }),
       getModelStatus: () => ({
@@ -238,6 +239,49 @@ describe('extractThemesForDocument', () => {
     expect([...union].sort((a, b) => a - b)).toEqual([1, 2, 3])
     // Stable per-(doc,theme) ids across windows.
     expect(themes.map((t) => t.id)).toEqual(['7:0', '7:1', '7:2'])
+  })
+
+  it('caps theme-extraction to <=2 windows on CPU, sampled across the doc', async () => {
+    // 4 chunks at 6000 tokens each → 4 windows at the 8192 fallback budget.
+    // On CPU we keep at most 2, sampled evenly (first + last).
+    const llm = fakeLlm('[{"title":"T","summary":"s","weight":1}]')
+    const chunks = [
+      chunk(1, 'aaa', 6000),
+      chunk(2, 'bbb', 6000),
+      chunk(3, 'ccc', 6000),
+      chunk(4, 'ddd', 6000),
+    ]
+    const themes = await extractThemesForDocument(
+      { llm, documents: {} as never },
+      {
+        docId: 9,
+        docTitle: 'Big Doc',
+        chunks,
+        language: 'en',
+        targetCount: 4,
+        cpu: true,
+      },
+    )
+    // Two windows → two calls (vs four without the cap).
+    expect(llm.generateRaw).toHaveBeenCalledTimes(2)
+    expect(themes).toHaveLength(2)
+    // Evenly sampled: first window (chunk 1) + last window (chunk 4), not 1+2.
+    expect(themes.map((t) => t.groundingChunkIds)).toEqual([[1], [4]])
+  })
+
+  it('uses all windows when not on CPU (GPU keeps current behavior)', async () => {
+    const llm = fakeLlm('[{"title":"T","summary":"s","weight":1}]', 0, false)
+    const chunks = [
+      chunk(1, 'aaa', 6000),
+      chunk(2, 'bbb', 6000),
+      chunk(3, 'ccc', 6000),
+      chunk(4, 'ddd', 6000),
+    ]
+    await extractThemesForDocument(
+      { llm, documents: {} as never },
+      { docId: 9, docTitle: 'Doc', chunks, language: 'en', targetCount: 4, cpu: false },
+    )
+    expect(llm.generateRaw).toHaveBeenCalledTimes(4)
   })
 
   it('uses the live context window when contextTokens is not overridden', async () => {

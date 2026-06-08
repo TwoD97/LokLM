@@ -22,9 +22,23 @@ export const FALLBACK_CONTEXT_TOKENS = 8192
  *  batch call = count * PER_QUESTION_TOKEN_BUDGET, bounding runaway generation. */
 export const PER_QUESTION_TOKEN_BUDGET = 320
 
+/** Per-question cap on CPU. Only modestly tighter than GPU: the grammar now
+ *  forces 4 full options + an explanation, so cutting this too low truncates a
+ *  valid question mid-generation. CPU savings come from fewer themes/windows and
+ *  smaller grounding (less prefill), not from clipping needed output. */
+export const PER_QUESTION_TOKEN_BUDGET_CPU = 300
+
 /** maxTokens cap for one windowed theme-extraction call. Windows ask for only a
  *  few themes so this is plenty, and it bounds runaway generation. */
 export const THEME_EXTRACTION_MAX_TOKENS = 1024
+
+/** Tighter theme-extraction cap on CPU inference. */
+export const THEME_EXTRACTION_MAX_TOKENS_CPU = 640
+
+/** Grounding-chunk char slice fed into the batch prompt. Shorter on CPU so the
+ *  prompt is cheaper to ingest. */
+export const GROUNDING_CHUNK_CHARS = 1200
+export const GROUNDING_CHUNK_CHARS_CPU = 700
 
 // node-llama-cpp GbnfJsonSchema objects. The grammar enforces JSON *syntax* +
 // the value shapes here (enum for correct_index, integer/string arrays); the

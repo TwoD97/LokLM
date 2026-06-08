@@ -170,6 +170,10 @@ class RegistryLlmProvider implements LlmProvider {
     return this.active().contextWindowTokens()
   }
 
+  isCpuInference(): boolean {
+    return this.active().isCpuInference?.() ?? false
+  }
+
   isReady(): boolean {
     return this.active().isReady()
   }

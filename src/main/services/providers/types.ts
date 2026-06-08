@@ -32,6 +32,11 @@ export interface LlmProvider {
   /** Live max context window in tokens, or 0 if unknown (callers fall back to
    *  FALLBACK_CONTEXT_TOKENS). */
   contextWindowTokens(): number
+  /** True when the loaded model is running on CPU. Optional so test mocks and
+   *  providers that can't tell (or are always GPU-class) don't have to
+   *  implement it — callers read it as `llm.isCpuInference?.() ?? false` and
+   *  treat unknown as not-CPU so a GPU run is never wrongly throttled. */
+  isCpuInference?(): boolean
   isReady(): boolean
   getStatus(): ProviderStatus
   /** Hint for the LLM/QA layer — drives the chat header "via X" pill. */
