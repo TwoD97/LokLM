@@ -272,8 +272,8 @@ describe('generateQuestionsForTheme', () => {
     const gpuOpts = gpuCall[1] as { maxTokens?: number }
     // Shorter grounding slice (700 vs 1200 chars) → shorter prompt on CPU.
     expect(cpuPrompt.length).toBeLessThan(gpuPrompt.length)
-    expect(cpuPrompt).toContain('L'.repeat(700))
-    expect(cpuPrompt).not.toContain('L'.repeat(701))
+    expect(cpuPrompt).toContain('L'.repeat(500))
+    expect(cpuPrompt).not.toContain('L'.repeat(501))
     // Tighter per-question output budget on CPU.
     expect(cpuOpts.maxTokens).toBeLessThan(gpuOpts.maxTokens!)
   })

@@ -54,8 +54,11 @@ export interface ExtractThemesForDocInput {
 }
 
 /** On CPU we sample at most this many windows (evenly spaced) instead of
- *  extracting from the whole doc, trading coverage for finishing. */
-const CPU_MAX_WINDOWS = 2
+ *  extracting from the whole doc, trading coverage for finishing. Aggressive
+ *  setting: one window per doc — only the opening section is themed. Combined
+ *  with THEME_EXTRACTION_MAX_TOKENS_CPU + schema maxLength caps, this is the
+ *  difference between "viable on CPU" and "minutes per doc". */
+const CPU_MAX_WINDOWS = 1
 
 /** A consecutive run of chunks whose combined text fits one extraction call. */
 interface ChunkWindow {

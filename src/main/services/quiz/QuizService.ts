@@ -21,10 +21,10 @@ const TARGET_THEMES_FACTOR = 1.5
 const TARGET_THEMES_FACTOR_CPU = 1.0
 /** Grounding chunks per theme: fewer on CPU to keep prompts cheap. */
 const GROUNDING_TOPK = 6
-const GROUNDING_TOPK_CPU = 3
+const GROUNDING_TOPK_CPU = 2
 /** Outline-path retrieval breadth (themes without window grounding ids). */
 const OUTLINE_TOPK = 5
-const OUTLINE_TOPK_CPU = 3
+const OUTLINE_TOPK_CPU = 2
 
 export class QuizService {
   constructor(
@@ -232,7 +232,10 @@ export class QuizService {
         .filter((s) => (groundingByTheme.get(s.theme.id) ?? []).length > 0)
         .sort((a, b) => b.theme.weight - a.theme.weight)
       let topUpAttempts = 0
-      const maxTopUps = deck.questionCount
+      // Skip top-up on CPU: each retry is another minutes-long LLM call. We'd
+      // rather hand the user a short deck quickly than make them wait another
+      // ~5 min per missing question. The 'short deck' warning still fires below.
+      const maxTopUps = cpu ? 0 : deck.questionCount
       while (accepted.length < deck.questionCount && heaviestFirst.length > 0) {
         if (abortSignal?.aborted) throw new Error('cancelled')
         if (topUpAttempts >= maxTopUps) break
