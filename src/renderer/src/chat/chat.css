@@ -8,7 +8,7 @@
 }
 .chat__header {
   padding: 0 20px;
-  border-bottom: 1px solid #1f2a3a;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -35,7 +35,7 @@
   border-radius: 6px;
   background: transparent;
   border: none;
-  color: #9aaac0;
+  color: var(--fg-2);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -43,12 +43,12 @@
     color 120ms ease;
 }
 .chat__header-action:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #d6dbe2;
+  background: var(--bg-elev);
+  color: var(--fg-0);
 }
 .chat__header-action:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 .chat__messages {
   flex: 1 1 0;
@@ -91,8 +91,8 @@
   list-style: none;
   margin: 0 0 6px;
   padding: 8px 12px;
-  background: rgba(20, 34, 53, 0.55);
-  border: 1px solid #1f2a3a;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -106,28 +106,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #9aaac0;
+  color: var(--fg-2);
 }
 .chat__pipeline-row--done {
-  color: #cdd4dd;
+  color: var(--fg-1);
 }
 .chat__pipeline-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #243a55;
-  border: 1px solid #2c4c7a;
+  background: var(--border-strong);
+  border: 1px solid var(--border-strong);
   flex-shrink: 0;
 }
 .chat__pipeline-row--running .chat__pipeline-dot {
   background: transparent;
-  border-color: #5a9bff;
+  border-color: var(--accent);
   box-shadow: 0 0 0 0 rgba(90, 155, 255, 0.6);
   animation: chat-pipeline-pulse 1.1s ease-out infinite;
 }
 .chat__pipeline-row--done .chat__pipeline-dot {
-  background: #5a9bff;
-  border-color: #5a9bff;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .chat__pipeline-label {
   flex-shrink: 0;
@@ -157,7 +157,7 @@
   }
 }
 .chat__input-wrap {
-  border-top: 1px solid #1f2a3a;
+  border-top: 1px solid var(--border);
   padding: 10px 20px;
   flex-shrink: 0;
 }
@@ -176,9 +176,9 @@
   resize: none;
   padding: 9px 12px;
   border-radius: 10px;
-  background: #0f1a2a;
+  background: var(--bg-0);
   color: inherit;
-  border: 1px solid #243a55;
+  border: 1px solid var(--border);
   box-sizing: border-box;
   font-family: inherit;
   font-size: 14px;
@@ -187,8 +187,8 @@
 }
 .chat__input:focus {
   outline: none;
-  border-color: #3b6fb8;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 .chat__send {
   display: inline-flex;
@@ -198,9 +198,9 @@
   height: 40px;
   padding: 0;
   border-radius: 10px;
-  background: #1d3c66;
-  color: #d6e3f5;
-  border: 1px solid #2c4c7a;
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -209,21 +209,21 @@
     opacity 120ms ease;
 }
 .chat__send:hover:not([disabled]) {
-  background: #234c80;
-  color: #ffffff;
+  background: var(--accent);
+  color: #fff;
 }
 .chat__send[disabled] {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .chat__send--cancel {
-  background: #5a1f1f;
-  border-color: #7a2c2c;
-  color: #f0d4d4;
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error);
 }
 .chat__send--cancel:hover {
-  background: #6f2828;
-  color: #ffffff;
+  background: var(--error);
+  color: #fff;
 }
 .bubble {
   max-width: 100%;
@@ -237,21 +237,21 @@
 .bubble--user {
   align-self: flex-end;
   max-width: min(78%, 620px);
-  background: #1d3c66;
-  color: #e6efff;
+  background: var(--accent-soft-strong);
+  color: var(--fg-0);
   /* User messages are plain text — preserve manual line breaks. */
   white-space: pre-wrap;
 }
 .bubble--assistant {
   align-self: flex-start;
-  background: #142235;
-  border: 1px solid #1f2a3a;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
 }
 .bubble--refusal {
   align-self: flex-start;
-  background: #2a1a1a;
-  border: 1px solid #4a2828;
-  color: #f0d4d4;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: inherit;
   white-space: pre-wrap;
 }
 .bubble--assistant > :first-child,
@@ -302,21 +302,21 @@
 }
 .bubble--assistant blockquote,
 .bubble--refusal blockquote {
-  border-left: 2px solid #243a55;
+  border-left: 2px solid var(--border-strong);
   margin: 0 0 10px;
   padding: 2px 0 2px 12px;
   opacity: 0.85;
 }
 .bubble--assistant pre,
 .bubble--refusal pre {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-2);
   padding: 10px 12px;
   border-radius: 4px;
   overflow-x: auto;
   margin: 0 0 10px;
 }
 .bubble code {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-2);
   padding: 1px 5px;
   border-radius: 3px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -332,9 +332,9 @@
   padding: 1px 6px;
   margin: 0 2px;
   border-radius: 999px;
-  background: #1d3c66;
-  color: #d6e3f5;
-  border: 1px solid #2c4c7a;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
   cursor: pointer;
   text-decoration: none;
   vertical-align: baseline;
@@ -349,8 +349,8 @@
   z-index: 100;
 }
 .confirm-modal {
-  background: #0f1a2a;
-  border: 1px solid #243a55;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px 22px;
   max-width: 340px;
@@ -378,10 +378,10 @@
   max-width: 100%;
   height: min(900px, 92vh);
   max-height: 100%;
-  background: #0c1624;
-  border: 1px solid #243a55;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-2);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -395,9 +395,9 @@
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 230, 100, 0.12);
-  color: #f0d97a;
-  border: 1px solid rgba(255, 230, 100, 0.3);
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
   white-space: nowrap;
   cursor: pointer;
   font: inherit;
@@ -408,11 +408,11 @@
     border-color 0.15s ease;
 }
 .source-viewer__highlight-hint:hover {
-  background: rgba(255, 230, 100, 0.2);
-  border-color: rgba(255, 230, 100, 0.5);
+  background: var(--warning-bg);
+  border-color: var(--warning);
 }
 .source-viewer__highlight-hint:focus-visible {
-  outline: 2px solid rgba(255, 230, 100, 0.7);
+  outline: 2px solid var(--warning);
   outline-offset: 1px;
 }
 .source-viewer__highlight-hint:disabled {
@@ -421,7 +421,7 @@
 }
 .source-viewer__header {
   padding: 0 20px;
-  border-bottom: 1px solid #1f2a3a;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -457,8 +457,10 @@
   margin: 0;
   font-size: 13.5px;
   line-height: 1.6;
-  color: #e6efff;
+  color: var(--fg-0);
 }
+/* Search highlight — intentionally a fixed yellow in both themes; a tinted
+   token would lose the "this is the matched text" signal. */
 .source-viewer__mark {
   background: rgba(255, 213, 79, 0.32);
   color: inherit;
@@ -469,24 +471,24 @@
 .source-viewer__doc {
   font-size: 13.5px;
   line-height: 1.55;
-  color: #d6dbe2;
+  color: var(--fg-1);
 }
 .source-viewer__doc-section {
   position: relative;
   padding: 2px 0;
 }
 .source-viewer__doc-section + .source-viewer__doc-section {
-  border-top: 1px dashed rgba(255, 255, 255, 0.04);
+  border-top: 1px dashed var(--border);
   margin-top: 12px;
   padding-top: 12px;
 }
 .source-viewer__doc-section--cited {
-  background: rgba(90, 155, 255, 0.06);
+  background: var(--accent-soft);
   border-radius: 6px;
   margin: 8px -12px;
   padding: 12px;
   scroll-margin-top: 12px;
-  box-shadow: inset 0 0 0 1px rgba(90, 155, 255, 0.25);
+  box-shadow: inset 0 0 0 1px var(--accent-glow);
 }
 .source-viewer__doc-section--cited::before {
   content: '';
@@ -496,7 +498,7 @@
   bottom: 8px;
   width: 3px;
   border-radius: 2px;
-  background: #5a9bff;
+  background: var(--accent);
 }
 .source-viewer__doc > :first-child,
 .source-viewer__doc-section > :first-child {
@@ -510,14 +512,14 @@
   margin: 0 0 10px;
 }
 .source-viewer__doc code {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-2);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .source-viewer__doc pre {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-2);
   padding: 10px 12px;
   border-radius: 4px;
   overflow-x: auto;
@@ -555,7 +557,7 @@
   margin: 2px 0;
 }
 .source-viewer__doc blockquote {
-  border-left: 2px solid #243a55;
+  border-left: 2px solid var(--border-strong);
   margin: 0 0 10px;
   padding: 2px 0 2px 12px;
   opacity: 0.85;
@@ -566,12 +568,12 @@
 }
 .source-viewer__doc th,
 .source-viewer__doc td {
-  border: 1px solid #1f2a3a;
+  border: 1px solid var(--border);
   padding: 4px 8px;
   font-size: 12.5px;
 }
 .source-viewer__doc a {
-  color: #7fb2ff;
+  color: var(--accent-hover);
 }
 .source-viewer__empty {
   opacity: 0.55;
@@ -579,9 +581,9 @@
   text-align: center;
 }
 .source-viewer__error {
-  color: #f0d4d4;
+  color: var(--error);
   padding: 12px;
-  background: #2a1a1a;
+  background: var(--error-bg);
   border-radius: 6px;
 }
 .pdf-doc {
@@ -597,19 +599,20 @@
   font-size: 13px;
 }
 .pdf-doc__loading {
-  color: #9aaac0;
+  color: var(--fg-2);
 }
 .pdf-doc__error {
-  color: #f0d4d4;
-  background: #2a1a1a;
+  color: var(--error);
+  background: var(--error-bg);
   border-radius: 6px;
   width: 100%;
 }
 .pdf-doc__page {
   position: relative;
+  /* Fixed white — a PDF page is paper; it stays white in both themes. */
   background: #ffffff;
   border-radius: 4px;
-  border: 1px solid #1f2a3a;
+  border: 1px solid var(--border);
   width: 100%;
   max-width: 900px;
   scroll-margin-top: 12px;
@@ -617,9 +620,9 @@
   overflow: hidden;
 }
 .pdf-doc__page--target {
-  border-color: #5a9bff;
+  border-color: var(--accent);
   box-shadow:
-    0 0 0 2px rgba(90, 155, 255, 0.35),
+    0 0 0 2px var(--accent-glow),
     0 4px 18px rgba(90, 155, 255, 0.15);
 }
 .pdf-doc__page-label {
@@ -630,6 +633,7 @@
   letter-spacing: 0.06em;
   padding: 1px 6px;
   border-radius: 999px;
+  /* Sits on the white page → fixed dark overlay regardless of theme. */
   background: rgba(0, 0, 0, 0.55);
   color: #d6dbe2;
   z-index: 1;
@@ -650,7 +654,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #5a6678;
+  color: var(--fg-3);
   pointer-events: none;
 }
 
@@ -702,6 +706,8 @@
 .pdf-doc__text-layer .markedContent {
   display: contents;
 }
+/* Search highlight on the PDF text layer — fixed yellow, same rationale as
+   .source-viewer__mark. */
 .pdf-doc__page-mark {
   background: rgba(255, 213, 79, 0.42);
   /* The two horizontal shadows extend the bg ~0.25em past either edge so

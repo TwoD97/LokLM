@@ -212,7 +212,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
           {!baseIsLoopback && o.allowRemoteOllama && (
             <div
               className="settings-probe settings-probe--ok"
-              style={{ background: 'rgba(255,170,60,0.12)', color: '#ffd28a' }}
+              style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
               title={t('settings.ollama.remoteHostWarningTitle')}
             >
               <Globe size={14} aria-hidden="true" />
