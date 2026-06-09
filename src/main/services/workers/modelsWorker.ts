@@ -296,6 +296,13 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     const opts: Record<string, unknown> = {
       contextSize: { min: minCtxBound, max: attemptMax },
       flashAttention: true,
+      // Bumps prefill throughput by halving the per-batch dispatch overhead.
+      // node-llama-cpp default is 512 ; for a ~1k-token theme-extraction prompt
+      // ( typical quiz pipeline ) that's two batches per prefill , each with
+      // setup cost. 1024 fits the whole prompt in one batch on the hot path.
+      // KV-cache memory grows linearly with batchSize but the extra ~ a few MB
+      // is well inside the headroom planLlm already reserves.
+      batchSize: 1024,
     }
     const kvEnum = enumNameFor(attemptType)
     if (kvEnum) {
