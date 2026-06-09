@@ -338,6 +338,7 @@ const stub: Api = {
   chat: {
     stream: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
+    conversationSwitched: () => Promise.resolve(),
     onEvent: () => () => undefined,
   },
   settings: {

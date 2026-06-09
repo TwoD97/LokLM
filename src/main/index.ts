@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
+import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
 import { FolderSyncService } from './services/documents/FolderSyncService'
@@ -12,6 +13,7 @@ import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfil
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
+import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwitch'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
@@ -320,6 +322,12 @@ async function applySettings(s: UserSettings): Promise<void> {
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)
   getRerankerService().setPlacement(s.advanced.reranker.placement)
+
+  // AP-9 §3.8 "Sperre": apply the auto-lock timeout. 0 ("nie") maps to an
+  // infinite timeout so the inactivity timer never trips (see inactivity.ts).
+  // Runs on every settings:update AND right after login/register, so a changed
+  // value takes effect immediately and the persisted value is restored on unlock.
+  getAuth().setInactivityMs(inactivityMsFromMinutes(s.security.autoLockMinutes))
 
   // Rebuild Ollama providers from the current config (best-effort — no probe here).
   // Loopback gate (defense in depth ; the UI already blocks this path , but a
@@ -1388,6 +1396,20 @@ function registerIpc(): void {
   )
   ipcMain.handle('chat:cancel', async (_e, streamId: string) => {
     activeStreams.get(streamId)?.abort()
+  })
+
+  // AP-9 §3.8 "Konv.-Wechsel": the renderer calls this when the user switches to
+  // a different conversation. When the setting is 'unload' we free the LLM
+  // eagerly (rather than waiting for LlamaService's idle timer); 'keep' is a
+  // no-op. shouldUnloadOnConversationSwitch skips the unload while any chat
+  // stream is live (activeStreams) so an in-flight answer is never killed.
+  ipcMain.handle('chat:conversationSwitched', async () => {
+    const mode = getSettingsService().get().runtime.conversationSwitch
+    if (shouldUnloadOnConversationSwitch(mode, activeStreams.size > 0)) {
+      await getLlamaService()
+        .unload()
+        .catch(() => undefined)
+    }
   })
 
   // quiz — see docs/superpowers/specs/2026-05-21-quiz-feature-design.md
