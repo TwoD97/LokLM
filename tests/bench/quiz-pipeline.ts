@@ -19,6 +19,7 @@
 
 import { performance } from 'node:perf_hooks'
 import { existsSync, readdirSync } from 'node:fs'
+import { cpus } from 'node:os'
 import { join } from 'node:path'
 import type { ChunkRow } from '../../src/main/db/database'
 import type { ModelStatus } from '../../src/shared/documents'
@@ -223,7 +224,11 @@ class BenchLlm implements LlmProvider {
     if (this.warmed) return
     const lib = await import('node-llama-cpp')
     const gpu = this.forceCpu ? false : 'auto'
-    this.llama = await lib.getLlama({ gpu })
+    // Use all but one CPU core. node-llama-cpp's default heuristic underuses
+    // physical cores ( observed ~2.4 tok/s decode on a 2B model on a machine
+    // with 8+ idle cores ). Matches the production modelsWorker.
+    const maxThreads = Math.max(1, cpus().length - 1)
+    this.llama = await lib.getLlama({ gpu, maxThreads })
     // node-llama-cpp exposes `.gpu` on the Llama instance — falsy when CPU.
     this.cpuDetected = !(this.llama as { gpu?: unknown }).gpu
     console.error(`[bench] loading ${this.modelPath}`)
