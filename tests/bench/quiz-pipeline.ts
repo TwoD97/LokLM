@@ -249,6 +249,9 @@ class BenchLlm implements LlmProvider {
       flashAttention: true,
       experimentalKvCacheKeyType: 'Q8_0',
       experimentalKvCacheValueType: 'Q8_0',
+      // Match production: bigger batchSize halves per-batch dispatch overhead
+      // for ~1k-token prompts.
+      batchSize: 1024,
     })
     this.session = new lib.LlamaChatSession({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
