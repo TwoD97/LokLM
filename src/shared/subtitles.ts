@@ -1,4 +1,7 @@
-import type { TranscriptSegment } from '@shared/transcription'
+// Pure transcript formatters + clock parsing, shared by the whisper worker
+// (parseClock) and the renderer (toTxt/toSrt/toVtt for copy + export). No
+// node/electron deps so both processes can import it.
+import type { TranscriptSegment } from './transcription'
 
 export function formatTimestamp(sec: number, mode: 'srt' | 'vtt'): string {
   const ms = Math.round(sec * 1000)

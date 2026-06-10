@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  toTxt,
-  toSrt,
-  toVtt,
-  formatTimestamp,
-  parseClock,
-} from '@main/services/transcription/subtitles'
+import { toTxt, toSrt, toVtt, formatTimestamp, parseClock } from '@shared/subtitles'
 import type { TranscriptSegment } from '@shared/transcription'
 
 const segs: TranscriptSegment[] = [
