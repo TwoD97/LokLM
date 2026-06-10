@@ -350,11 +350,37 @@ function useRecorder(onClip: (blob: File) => void): {
       return
     }
     setRecordError(null)
-    void navigator.mediaDevices
-      .getUserMedia({ audio: true })
+    // getUserMedia can be missing (no secure context / odd Electron build) or
+    // throw synchronously — both would bypass a plain .catch and leave the user
+    // with no feedback. Guard every step and surface the exact error.
+    const md = navigator.mediaDevices
+    if (!md || typeof md.getUserMedia !== 'function') {
+      console.error('[record] navigator.mediaDevices.getUserMedia unavailable', md)
+      setRecordError('tx.recUnavailable')
+      return
+    }
+    let pending: Promise<MediaStream>
+    try {
+      pending = md.getUserMedia({ audio: true })
+    } catch (err) {
+      console.error('[record] getUserMedia threw synchronously', err)
+      setRecordError(`Mic error: ${err instanceof Error ? err.name : String(err)}`)
+      return
+    }
+    void pending
       .then((stream) => {
         streamRef.current = stream
-        const rec = new MediaRecorder(stream)
+        let rec: MediaRecorder
+        try {
+          rec = new MediaRecorder(stream)
+        } catch (err) {
+          for (const tr of stream.getTracks()) tr.stop()
+          streamRef.current = null
+
+          console.error('[record] MediaRecorder construction failed', err)
+          setRecordError(`Recorder error: ${err instanceof Error ? err.name : String(err)}`)
+          return
+        }
         chunksRef.current = []
         rec.ondataavailable = (e) => {
           if (e.data.size > 0) chunksRef.current.push(e.data)
@@ -374,10 +400,16 @@ function useRecorder(onClip: (blob: File) => void): {
         timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000)
       })
       .catch((err: unknown) => {
-        // Permission denied / no device — surface it instead of failing silently.
+        console.error('[record] getUserMedia rejected', err)
         setRecording(false)
         const name = err instanceof Error ? err.name : ''
-        setRecordError(name === 'NotFoundError' ? 'tx.recNoDevice' : 'tx.recDenied')
+        setRecordError(
+          name === 'NotFoundError'
+            ? 'tx.recNoDevice'
+            : name === 'NotAllowedError'
+              ? 'tx.recDenied'
+              : `Mic error: ${name || String(err)}`,
+        )
       })
   }, [recording, onClip])
 
