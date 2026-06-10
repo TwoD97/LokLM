@@ -60,7 +60,7 @@ export class TranscriptionService {
           task: opts.task,
           language: opts.language,
           threads,
-          gpu: false,
+          gpu: opts.gpu ?? false,
         }))
       } finally {
         offP()
