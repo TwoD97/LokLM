@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { toTxt, toSrt, toVtt, formatTimestamp } from '@main/services/transcription/subtitles'
+import {
+  toTxt,
+  toSrt,
+  toVtt,
+  formatTimestamp,
+  parseClock,
+} from '@main/services/transcription/subtitles'
 import type { TranscriptSegment } from '@shared/transcription'
 
 const segs: TranscriptSegment[] = [
@@ -28,5 +34,10 @@ describe('subtitles', () => {
   })
   it('renders a WEBVTT header', () => {
     expect(toVtt(segs).startsWith('WEBVTT\n\n')).toBe(true)
+  })
+  it('parses HH:MM:SS.mmm and HH:MM:SS,mmm clocks to seconds', () => {
+    expect(parseClock('00:00:07.600')).toBeCloseTo(7.6)
+    expect(parseClock('01:01:01,250')).toBeCloseTo(3661.25)
+    expect(Number.isNaN(parseClock('nonsense'))).toBe(true)
   })
 })
