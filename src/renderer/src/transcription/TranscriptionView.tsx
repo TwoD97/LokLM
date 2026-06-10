@@ -34,7 +34,6 @@ function collapseSpeakers(segments: TranscriptSegment[]): TranscriptSegment[] {
 export function TranscriptionView({ workspaceId }: { workspaceId: number | null }): JSX.Element {
   const t = useT()
   const { state, queue, transcribe, transcribeMany, cancel, reset } = useTranscription()
-  const [task, setTask] = useState<TranscriptionOptions['task']>('transcribe')
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
   const [diarize, setDiarize] = useState(false)
   const [speakers, setSpeakers] = useState('')
@@ -56,17 +55,18 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
 
   const opts: TranscriptionOptions = useMemo(
     () => ({
-      task,
+      // Transcribe only: Whisper's translate task can only target English, so we
+      // don't expose it. Model is hardcoded to the bundled base for v1 (size
+      // choice will move to install profiles); GPU is auto — the worker attempts
+      // Vulkan/Metal and falls back to CPU on its own.
+      task: 'transcribe',
       language,
-      // Model is hardcoded to the bundled base for v1; size choice will move to
-      // install profiles. GPU is auto: the worker attempts Vulkan/Metal and
-      // falls back to CPU on its own.
       model: 'base',
       gpu: true,
       diarize,
       ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
     }),
-    [task, language, diarize, speakers],
+    [language, diarize, speakers],
   )
 
   const onFiles = useCallback(
@@ -126,20 +126,6 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
       {state.phase === 'idle' && queue.length === 0 && (
         <div className="transcription__idle">
           <div className="transcription__controls">
-            <div className="transcription__seg" role="group">
-              <button
-                className={task === 'transcribe' ? 'is-active' : ''}
-                onClick={() => setTask('transcribe')}
-              >
-                {t('tx.task.transcribe')}
-              </button>
-              <button
-                className={task === 'translate' ? 'is-active' : ''}
-                onClick={() => setTask('translate')}
-              >
-                {t('tx.task.translate')}
-              </button>
-            </div>
             <label className="transcription__field" title={t('tx.languageHint')}>
               {t('tx.language')}
               <select
