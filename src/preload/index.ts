@@ -86,6 +86,15 @@ const api = {
       | { ok: false; reason: 'no_user' | 'locked_session' | 'bad_password' }
       | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
     > => ipcRenderer.invoke('auth:verifyPassword', { password }),
+    changePassword: (
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<
+      | { ok: true }
+      | { ok: false; reason: 'locked_session' | 'no_user' | 'bad_password' }
+      | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+      | { ok: false; reason: 'weak_password'; message: string }
+    > => ipcRenderer.invoke('auth:changePassword', { currentPassword, newPassword }),
     onState: (cb: (state: AuthStatus) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, state: AuthStatus): void => cb(state)
       ipcRenderer.on('auth:state', listener)

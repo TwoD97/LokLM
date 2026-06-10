@@ -674,6 +674,15 @@ function registerIpc(): void {
     getAuth().verifyPassword(input.password),
   )
 
+  // AP-9 Account §3.8: change the vault password (re-key the DEK). Requires the
+  // current password; recovery codes keep working. No auth-state broadcast —
+  // the session stays unlocked, the renderer just flashes success.
+  ipcMain.handle(
+    'auth:changePassword',
+    async (_e, input: { currentPassword: string; newPassword: string }) =>
+      getAuth().changePassword(input.currentPassword, input.newPassword),
+  )
+
   // frameless-window controls , React titlebar calls these.
   ipcMain.handle('window:minimize', (e) => {
     BrowserWindow.fromWebContents(e.sender)?.minimize()

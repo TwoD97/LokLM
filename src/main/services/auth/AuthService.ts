@@ -431,6 +431,63 @@ export class AuthService {
   }
 
   /**
+   * Changes the vault password on an unlocked session (AP-9 Account §3.8).
+   * Re-wraps the live DEK under a fresh password-KEK; the encrypted body and the
+   * recovery entries are left untouched, so recovery codes keep working. The
+   * current password is required and verified via verifyPassword (which also
+   * rate-limits a wrong guess), so a passer-by at an open session can't re-key
+   * the vault without knowing it.
+   */
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<
+    | { ok: true }
+    | { ok: false; reason: 'locked_session' | 'no_user' | 'bad_password' }
+    | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+    | { ok: false; reason: 'weak_password'; message: string }
+  > {
+    const verified = await this.verifyPassword(currentPassword)
+    if (!verified.ok) return verified
+
+    try {
+      validatePassword(newPassword)
+    } catch (e) {
+      return {
+        ok: false,
+        reason: 'weak_password',
+        message: e instanceof Error ? e.message : String(e),
+      }
+    }
+
+    // verifyPassword confirmed the session is unlocked, so dek + liveHeader are
+    // both set; the guard is just to satisfy the type narrowing.
+    if (!this.dek || !this.liveHeader) return { ok: false, reason: 'locked_session' }
+
+    const newSalt = randomBytes(KEK_SALT_BYTES)
+    const newKek = await deriveKEK(newPassword, Buffer.from(newSalt))
+    const newWrappedDek = wrapKey(newKek, this.dek)
+    newKek.fill(0)
+
+    // Build the re-keyed header as a candidate and only swap it into the live
+    // session AFTER the write succeeds — mirroring reset()/register(). Mutating
+    // this.liveHeader in place before the write would leave the session holding
+    // the new wrap on a write failure; a later unrelated persist (auto-lock,
+    // setDisplayName, settings autosave) would then silently commit a password
+    // change the caller saw fail. recoveryEntries + DEK are left untouched, so
+    // recovery codes keep working.
+    const newHeader: AuthHeader = {
+      ...this.liveHeader,
+      passwordSalt: newSalt.toString('base64'),
+      passwordWrappedDek: newWrappedDek,
+    }
+    const newBody = await this.encryptCurrentDb(this.dek)
+    await this.writeVault(newHeader, newBody)
+    this.liveHeader = newHeader
+    return { ok: true }
+  }
+
+  /**
    * Mutates the in-memory AuthHeader displayName and re-persists the vault.
    * Throws on invalid input. No-op when locked.
    */
@@ -582,6 +639,15 @@ export class AuthService {
     ])
     await fs.mkdir(dirname(this.vaultFilePath), { recursive: true })
     const tmp = this.vaultFilePath + '.tmp'
+    // KNOWN LIMITATION (security review 2026-06-10 — accepted, hardening tracked
+    // as a follow-up): tmp-write + rename is atomic w.r.t. OLD vs NEW *content*
+    // (the old vault stays intact until the rename), but there is no durability
+    // fence. The temp file's data blocks are not fsync'd before the rename (nor
+    // the directory after), so on power loss / crash the rename can become
+    // durable before the new bytes flush, leaving a present, right-sized vault
+    // that fails its AES-GCM tag — openable by neither password NOR a recovery
+    // code (single-file design, no second copy). Fix when revisited: fh.sync()
+    // the temp file before rename; dir-fsync on POSIX.
     await fs.writeFile(tmp, out, { mode: 0o600 })
     await fs.rename(tmp, this.vaultFilePath)
   }

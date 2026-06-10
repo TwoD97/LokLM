@@ -101,6 +101,16 @@ export const settingsDict: DomainDict = {
     'settings.profile.recoverySub': 'Vault is locked behind your passphrase and password.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Recovery passphrase set',
+    'settings.profile.changePassword': 'Change password',
+    'settings.profile.changePasswordSub': 'Re-keys your vault. Recovery codes keep working.',
+    'settings.profile.currentPassword': 'Current password',
+    'settings.profile.newPassword': 'New password',
+    'settings.profile.confirmPassword': 'Confirm new password',
+    'settings.profile.changePasswordAction': 'Change password',
+    'settings.profile.pwMismatch': "New passwords don't match.",
+    'settings.profile.pwWrongCurrent': 'Current password is incorrect.',
+    'settings.profile.pwRateLimited': 'Too many attempts — try again in a few minutes.',
+    'settings.profile.pwError': 'Could not change the password.',
     'settings.profile.saved': 'saved',
 
     // ReindexGateModal
@@ -364,6 +374,17 @@ export const settingsDict: DomainDict = {
       'Der Vault ist durch deine Passphrase und dein Passwort gesperrt.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Wiederherstellungs-Passphrase gesetzt',
+    'settings.profile.changePassword': 'Passwort ändern',
+    'settings.profile.changePasswordSub':
+      'Verschlüsselt deinen Tresor neu. Recovery-Codes bleiben gültig.',
+    'settings.profile.currentPassword': 'Aktuelles Passwort',
+    'settings.profile.newPassword': 'Neues Passwort',
+    'settings.profile.confirmPassword': 'Neues Passwort bestätigen',
+    'settings.profile.changePasswordAction': 'Passwort ändern',
+    'settings.profile.pwMismatch': 'Neue Passwörter stimmen nicht überein.',
+    'settings.profile.pwWrongCurrent': 'Aktuelles Passwort ist falsch.',
+    'settings.profile.pwRateLimited': 'Zu viele Versuche — bitte in ein paar Minuten erneut.',
+    'settings.profile.pwError': 'Passwort konnte nicht geändert werden.',
     'settings.profile.saved': 'gespeichert',
 
     // ReindexGateModal
