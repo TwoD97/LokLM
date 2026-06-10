@@ -12,6 +12,8 @@ export interface TranscriptionOptions {
   diarize: boolean
   /** Explicit speaker count; omit for auto-detect. */
   speakers?: number
+  /** Use GPU (Vulkan/Metal auto-detected by the binding) if available. */
+  gpu?: boolean
 }
 
 export interface TranscriptSegment {
