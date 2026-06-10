@@ -64,7 +64,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
+    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 -w smart-whisper || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",
@@ -129,6 +129,8 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.0",
+    "sherpa-onnx": "^1.13.2",
+    "smart-whisper": "^0.8.1",
     "tesseract.js": "^6.0.1"
   },
   "build": {
@@ -221,7 +223,8 @@
       "electron",
       "@electron/rebuild",
       "node-llama-cpp",
-      "@mongodb-js/zstd"
+      "@mongodb-js/zstd",
+      "smart-whisper"
     ],
     "overrides": {
       "esbuild": "0.25.12"
