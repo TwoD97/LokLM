@@ -11,6 +11,7 @@ export const transcriptionDict: DomainDict = {
     'tx.recording': 'Recording… {secs}s',
     'tx.recDenied': 'Microphone blocked. Allow mic access in your OS privacy settings, then retry.',
     'tx.recNoDevice': 'No microphone found.',
+    'tx.recUnavailable': 'Microphone capture is unavailable in this build.',
     'tx.task.transcribe': 'Transcribe',
     'tx.task.translate': 'Translate → EN',
     'tx.language': 'Audio language',
@@ -51,6 +52,7 @@ export const transcriptionDict: DomainDict = {
     'tx.recDenied':
       'Mikrofon blockiert. Mikrofonzugriff in den System-Datenschutzeinstellungen erlauben und erneut versuchen.',
     'tx.recNoDevice': 'Kein Mikrofon gefunden.',
+    'tx.recUnavailable': 'Mikrofonaufnahme ist in diesem Build nicht verfügbar.',
     'tx.task.transcribe': 'Transkribieren',
     'tx.task.translate': 'Übersetzen → EN',
     'tx.language': 'Audiosprache',
