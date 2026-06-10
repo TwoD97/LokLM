@@ -37,6 +37,9 @@ export const chatDict: DomainDict = {
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} tok/s',
     'chat.metricsTokens': ' · {count} tok',
+    // Grounding badge — per-answer citation trust signal
+    'chat.groundingOne': 'Grounded · 1 source',
+    'chat.groundingMany': 'Grounded · {count} sources',
     // SourceViewer
     'chat.sourceViewer': 'Source viewer',
     'chat.chunkFallback': 'Chunk #{id}',
@@ -88,6 +91,9 @@ export const chatDict: DomainDict = {
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} Tok/s',
     'chat.metricsTokens': ' · {count} Tok',
+    // Grounding badge — per-answer citation trust signal
+    'chat.groundingOne': 'Belegt · 1 Quelle',
+    'chat.groundingMany': 'Belegt · {count} Quellen',
     // SourceViewer
     'chat.sourceViewer': 'Quellenansicht',
     'chat.chunkFallback': 'Chunk #{id}',

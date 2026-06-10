@@ -1263,6 +1263,23 @@ export class QuizzesRepo {
     `)
   }
 
+  /** Cold-boot / post-unlock sweep: a deck still 'generating' is orphaned from a
+   *  session that was locked, navigated away from, or crashed mid-run — the
+   *  in-memory generation stream that owned it is gone, so it would otherwise
+   *  spin forever. Flip them to 'failed' so the UI surfaces them and the user
+   *  can retry. MUST run at startup/unlock, before any new generation starts.
+   *  Returns row count. */
+  async resetStuckDecks(): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE quiz_decks
+         SET status = 'failed',
+             error = 'Generation was interrupted (app closed or locked). Retry to regenerate.'
+       WHERE status = 'generating'
+       RETURNING id
+    `)
+    return r.rows.length
+  }
+
   async getDeck(deckId: number): Promise<QuizDeck | null> {
     const r = await this.db.execute(sql`
       SELECT id, workspace_id, name, document_ids, question_count,

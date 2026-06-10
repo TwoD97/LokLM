@@ -18,11 +18,20 @@ test.describe('download section', () => {
   })
 
   test('linux card links to a .run installer asset', async ({ page }) => {
-    const link = page.locator('[data-platform-link="linux"]')
+    const link = page.locator('[data-platform-link="linux"][data-asset-variant="run"]')
     await expect(link).toBeVisible()
     const href = await link.getAttribute('href')
     expect(href).toMatch(/LokLM-Setup-.*\.run$/)
     expect(href).toContain('/v')
+  })
+
+  test('linux card also offers a .deb variant button ( may be coming-soon )', async ({ page }) => {
+    // .deb is the new variant — its button may be disabled while the
+    // release pipeline is still warming up the artefact , so we only
+    // assert that the card surfaces a recognisable element for it.
+    const card = page.locator('[data-platform="linux"]')
+    await expect(card).toBeVisible()
+    await expect(card).toContainText(/\.deb/)
   })
 
   test('macOS card links to a .dmg asset (DE)', async ({ page }) => {

@@ -34,6 +34,7 @@ import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerank
 import { SettingsService } from './services/settings/SettingsService'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
+import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
@@ -51,13 +52,22 @@ function brandAsset(file: string): string {
 let authService: AuthService | null = null
 let didFinalPersist = false
 
+// In-flight quiz generation streams, keyed by streamId. Module-scoped (not
+// local to registerIpc) so the lock handler can abort them: a quiz generation
+// runs for minutes on CPU, and (auto-)locking mid-run would otherwise leave it
+// pegging the worker and writing to the database we're about to tear down.
+const activeQuizStreams = new Map<string, AbortController>()
+
 function getAuth(): AuthService {
   if (!authService) {
     authService = new AuthService(app.getPath('userData'))
     authService.setOnLock(() => {
-      // Inactivity auto-lock fires here too — kill any pending warmup so a
-      // backfill kicked off seconds before the lock doesn't try to use the
-      // database we just zeroed.
+      // Inactivity auto-lock fires here too — abort any in-flight quiz
+      // generation first so it stops pegging the worker and won't write to the
+      // database we're about to zero (the row is reconciled to 'failed' by the
+      // resetStuckDecks sweep on next unlock). Then kill any pending warmup so a
+      // backfill kicked off seconds before the lock doesn't try to use it.
+      for (const ctrl of activeQuizStreams.values()) ctrl.abort()
       cancelPostLoginWarmup()
       resetSessionServices()
       broadcastAuthState()
@@ -608,6 +618,14 @@ function registerIpc(): void {
       await getDocumentService()
         .sweepOrphanedIndexing()
         .catch(() => undefined)
+      // Same orphan problem for quiz decks: a deck left 'generating' by a
+      // locked/closed/navigated-away session would spin forever. Flip stuck
+      // decks to 'failed' so the user sees them and can retry.
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .resetStuckDecks()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
     },
@@ -641,6 +659,14 @@ function registerIpc(): void {
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
       await getDocumentService()
         .sweepOrphanedIndexing()
+        .catch(() => undefined)
+      // Same orphan problem for quiz decks: a deck left 'generating' by a
+      // locked/closed/navigated-away session would spin forever. Flip stuck
+      // decks to 'failed' so the user sees them and can retry.
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .resetStuckDecks()
         .catch(() => undefined)
       schedulePostLoginWarmup()
     }
@@ -1374,7 +1400,10 @@ function registerIpc(): void {
           if (ev.type === 'token') {
             tokenBuffer.push(ev.text)
             if (firstTokenTime == null) firstTokenTime = performance.now()
-            tokenCount += 1
+            // Each token event may coalesce several native tokens (the 8 ms
+            // batcher). Count the underlying tokens, not the events, so the
+            // persisted tokens/sec matches the live metric ChatView shows.
+            tokenCount += ev.count ?? 1
           } else if (ev.type === 'citation')
             citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
           else if (ev.type === 'refusal') {
@@ -1406,8 +1435,22 @@ function registerIpc(): void {
               assistantContent,
               { ttftMs, tokensPerSec, tokenCount },
             )
-            if (citations.length > 0) {
-              await conversations.persistCitations(asst.id, citations)
+            // Reconcile citations: persist ONLY the fed chunks the model
+            // actually cited in its answer, not every chunk we fed it. Without
+            // this the DB recorded all fedHits as "citations" regardless of
+            // whether the answer referenced them, so the persisted set never
+            // matched the chips the renderer derives from [doc:X, chunk:Y]
+            // markers — and a hallucinated marker had nothing to validate
+            // against. citations[] is already restricted to fedHits, so the
+            // intersection with the answer's markers is the faithful set.
+            const citedKeys = new Set(
+              extractCitationMarkers(body).map((m) => `${m.documentId}-${m.chunkId}`),
+            )
+            const groundedCitations = citations.filter((c) =>
+              citedKeys.has(`${c.doc_id}-${c.chunk_id}`),
+            )
+            if (groundedCitations.length > 0) {
+              await conversations.persistCitations(asst.id, groundedCitations)
             }
           }
         }
@@ -1464,7 +1507,6 @@ function registerIpc(): void {
     await quizzes.setDeckStatus(deckId, 'generating', null)
   })
 
-  const activeQuizStreams = new Map<string, AbortController>()
   ipcMain.handle('quiz:generate', async (e, streamId: string, deckId: number) => {
     const ctrl = new AbortController()
     activeQuizStreams.set(streamId, ctrl)

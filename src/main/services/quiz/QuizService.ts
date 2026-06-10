@@ -16,6 +16,15 @@ import { allocateSlots, dedupThemes, extractThemesForDocument } from './themes'
 import { generateQuestionsForTheme } from './generation'
 
 const TARGET_THEMES_FACTOR = 1.5
+/** Fewer themes on CPU — each theme is an LLM round-trip, so we trade breadth
+ *  for finishing. */
+const TARGET_THEMES_FACTOR_CPU = 1.0
+/** Grounding chunks per theme: fewer on CPU to keep prompts cheap. */
+const GROUNDING_TOPK = 6
+const GROUNDING_TOPK_CPU = 2
+/** Outline-path retrieval breadth (themes without window grounding ids). */
+const OUTLINE_TOPK = 5
+const OUTLINE_TOPK_CPU = 2
 
 export class QuizService {
   constructor(
@@ -75,6 +84,9 @@ export class QuizService {
     const documents = this.db.documents()
     const llm = this.registry.llm()
     const embedder = this.registry.embedder()
+    // CPU inference is far slower — apply hard work-caps so a run finishes
+    // (trading completeness) rather than stalling and flipping to Failed.
+    const cpu = llm.isCpuInference?.() ?? false
 
     const deck = await quizzes.getDeck(deckId)
     if (!deck) {
@@ -87,9 +99,10 @@ export class QuizService {
       yield { type: 'stage', stage: 'extracting-themes' }
       const docIds = deck.documentIds
       const themes: QuizTheme[] = []
+      const themesFactor = cpu ? TARGET_THEMES_FACTOR_CPU : TARGET_THEMES_FACTOR
       const targetPerDoc = Math.max(
         2,
-        Math.ceil((deck.questionCount * TARGET_THEMES_FACTOR) / Math.max(1, docIds.length)),
+        Math.ceil((deck.questionCount * themesFactor) / Math.max(1, docIds.length)),
       )
       let emptyDocCount = 0
       for (let i = 0; i < docIds.length; i += 1) {
@@ -116,6 +129,7 @@ export class QuizService {
             chunks: readyChunks,
             language: deck.language,
             targetCount: targetPerDoc,
+            cpu,
             ...(abortSignal ? { abortSignal } : {}),
           },
         )
@@ -162,10 +176,14 @@ export class QuizService {
       const groundingByTheme = new Map<string, ChunkRow[]>()
       for (const slot of slots) {
         if (abortSignal?.aborted) throw new Error('cancelled')
-        const chunks = await this.resolveGrounding(deck.workspaceId, slot.theme)
+        const chunks = await this.resolveGrounding(deck.workspaceId, slot.theme, cpu)
         groundingByTheme.set(slot.theme.id, chunks)
       }
 
+      // Theme context attached to each `question` event so the UI can show
+      // which theme produced it. Set before each batch call below.
+      let themeContext: { themeTitle: string; themeIndex: number; themeTotal: number } | null = null
+      const themeTotal = slots.length
       const emitAccepted = (
         questions: Array<Omit<AcceptedQuestion, 'ordinal'>>,
       ): QuizGenerationEvent[] => {
@@ -173,17 +191,33 @@ export class QuizService {
         for (const q of questions) {
           if (accepted.length >= deck.questionCount) break
           accepted.push({ ...q, ordinal: accepted.length })
-          events.push({ type: 'question', ordinal: accepted.length, total: deck.questionCount })
+          events.push({
+            type: 'question',
+            ordinal: accepted.length,
+            total: deck.questionCount,
+            ...(themeContext ?? {}),
+          })
         }
         return events
       }
 
-      // One grammar-constrained batch call per allocated theme.
-      for (const slot of slots) {
+      // One grammar-constrained batch call per allocated theme. Per-theme
+      // short-circuits naturally on small models : the call asks for `slot.budget`
+      // questions but the model often emits 1 and stops at the array close , so
+      // decode wall time per call stays short. A mega-call ( one LLM call across
+      // all themes ) was tried and lost : it forced the model to keep grinding
+      // through count=N questions , and the extra decode outweighed the prefill
+      // savings ( ~23 min , 2/6 Q vs ~14 min , 3/6 Q on a 2B / CPU bench ).
+      for (let i = 0; i < slots.length; i += 1) {
+        const slot = slots[i]!
         if (abortSignal?.aborted) throw new Error('cancelled')
         if (accepted.length >= deck.questionCount) break
         const grounding = groundingByTheme.get(slot.theme.id) ?? []
         if (grounding.length === 0) continue
+        // Announce the theme before the (long) batch call so the UI shows the
+        // current theme even before any question of it completes.
+        themeContext = { themeTitle: slot.theme.title, themeIndex: i + 1, themeTotal }
+        yield { type: 'theme', themeIndex: i + 1, themeTotal, themeTitle: slot.theme.title }
         const need = Math.min(slot.budget, deck.questionCount - accepted.length)
         const batch = await generateQuestionsForTheme(llm, embedder, {
           language: deck.language,
@@ -191,6 +225,7 @@ export class QuizService {
           groundingChunks: grounding,
           accepted,
           count: need,
+          cpu,
           ...(abortSignal ? { abortSignal } : {}),
         })
         for (const ev of emitAccepted(batch)) yield ev
@@ -198,17 +233,25 @@ export class QuizService {
 
       // Top-up: if we're short, re-call the heaviest themes that have grounding
       // for the remaining count. Bounded by maxTopUps so a model that keeps
-      // producing dups/invalid output can't spin forever.
+      // producing dups/invalid output can't spin forever. Skipped on CPU — each
+      // retry is another minutes-long LLM call and the short deck warning below
+      // makes the gap visible.
       const heaviestFirst = [...slots]
         .filter((s) => (groundingByTheme.get(s.theme.id) ?? []).length > 0)
         .sort((a, b) => b.theme.weight - a.theme.weight)
       let topUpAttempts = 0
-      const maxTopUps = deck.questionCount
+      const maxTopUps = cpu ? 0 : deck.questionCount
       while (accepted.length < deck.questionCount && heaviestFirst.length > 0) {
         if (abortSignal?.aborted) throw new Error('cancelled')
         if (topUpAttempts >= maxTopUps) break
         const slot = heaviestFirst[topUpAttempts % heaviestFirst.length]!
         topUpAttempts += 1
+        const slotIndex = slots.indexOf(slot)
+        themeContext = {
+          themeTitle: slot.theme.title,
+          themeIndex: slotIndex >= 0 ? slotIndex + 1 : 1,
+          themeTotal,
+        }
         const grounding = groundingByTheme.get(slot.theme.id) ?? []
         const need = deck.questionCount - accepted.length
         const batch = await generateQuestionsForTheme(llm, embedder, {
@@ -217,6 +260,7 @@ export class QuizService {
           groundingChunks: grounding,
           accepted,
           count: need,
+          cpu,
           ...(abortSignal ? { abortSignal } : {}),
         })
         if (batch.length === 0) continue
@@ -265,7 +309,11 @@ export class QuizService {
   /** Resolve grounding chunks for a theme. Whole-doc themes carry IDs from
    *  Stage 1 → load by id. Outline themes have empty groundingChunkIds → use
    *  the retrieval index keyed on the theme title, scoped to the theme's doc. */
-  private async resolveGrounding(workspaceId: number, theme: QuizTheme): Promise<ChunkRow[]> {
+  private async resolveGrounding(
+    workspaceId: number,
+    theme: QuizTheme,
+    cpu = false,
+  ): Promise<ChunkRow[]> {
     const documents = this.db.documents()
     if (theme.groundingChunkIds.length > 0) {
       const allChunks = await documents.listChunksForDocument(theme.docId)
@@ -277,14 +325,17 @@ export class QuizService {
       return filtered
         .slice()
         .sort((a, b) => (b.token_count ?? 0) - (a.token_count ?? 0))
-        .slice(0, 6)
+        .slice(0, cpu ? GROUNDING_TOPK_CPU : GROUNDING_TOPK)
         .sort((a, b) => a.ordinal - b.ordinal)
     }
     // Outline path: retrieve top-K relevant chunks for the theme title,
     // scoped to this theme's source document.
-    const hits = await this.retrieval.search(workspaceId, `${theme.title} — ${theme.summary}`, 5, {
-      activeDocumentIds: [theme.docId],
-    })
+    const hits = await this.retrieval.search(
+      workspaceId,
+      `${theme.title} — ${theme.summary}`,
+      cpu ? OUTLINE_TOPK_CPU : OUTLINE_TOPK,
+      { activeDocumentIds: [theme.docId] },
+    )
     const allChunks = await documents.listChunksForDocument(theme.docId)
     const byId = new Map(allChunks.map((c) => [c.id, c]))
     const out: ChunkRow[] = []

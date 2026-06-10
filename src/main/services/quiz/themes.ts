@@ -11,9 +11,11 @@ import {
   THEME_PROMPT_RESERVE_TOKENS,
   THEME_OUTPUT_RESERVE_TOKENS,
   THEME_EXTRACTION_MAX_TOKENS,
+  THEME_EXTRACTION_MAX_TOKENS_CPU,
   THEME_LIST_SCHEMA,
   FALLBACK_CONTEXT_TOKENS,
 } from './prompts'
+import { extractJsonObjects } from './jsonSalvage'
 
 const DEDUP_COSINE_THRESHOLD = 0.85
 
@@ -44,9 +46,19 @@ export interface ExtractThemesForDocInput {
   language: QuizLanguage
   /** Approximate themes to request from the LLM (across all windows). */
   targetCount: number
+  /** CPU inference — applies hard work-caps (fewer windows, tighter output
+   *  budget) so a slow run finishes instead of timing out. */
+  cpu?: boolean | undefined
   /** Cancellation, plumbed through generateRaw. */
   abortSignal?: AbortSignal
 }
+
+/** On CPU we sample at most this many windows (evenly spaced) instead of
+ *  extracting from the whole doc, trading coverage for finishing. Aggressive
+ *  setting: one window per doc — only the opening section is themed. Combined
+ *  with THEME_EXTRACTION_MAX_TOKENS_CPU + schema maxLength caps, this is the
+ *  difference between "viable on CPU" and "minutes per doc". */
+const CPU_MAX_WINDOWS = 1
 
 /** A consecutive run of chunks whose combined text fits one extraction call. */
 interface ChunkWindow {
@@ -82,7 +94,7 @@ export async function extractThemesForDocument(
   deps: ThemeExtractorDeps,
   input: ExtractThemesForDocInput,
 ): Promise<QuizTheme[]> {
-  const { docId, docTitle, chunks, language, targetCount, abortSignal } = input
+  const { docId, docTitle, chunks, language, targetCount, cpu, abortSignal } = input
   if (chunks.length === 0) return []
 
   const contextTokens =
@@ -92,7 +104,11 @@ export async function extractThemesForDocument(
     contextTokens - THEME_PROMPT_RESERVE_TOKENS - THEME_OUTPUT_RESERVE_TOKENS,
   )
 
-  const windows = packWindows(chunks, budget)
+  const allWindows = packWindows(chunks, budget)
+  // CPU cap: keep at most CPU_MAX_WINDOWS, sampled evenly across the doc so we
+  // still cover beginning + end instead of only the opening section.
+  const windows = cpu ? sampleEvenly(allWindows, CPU_MAX_WINDOWS) : allWindows
+  const maxTokens = cpu ? THEME_EXTRACTION_MAX_TOKENS_CPU : THEME_EXTRACTION_MAX_TOKENS
   // Scale the per-window ask down so all windows together total ≈ targetCount,
   // but always request at least 1 (a window with content should yield a theme).
   const perWindow = Math.max(1, Math.round(targetCount / windows.length))
@@ -105,11 +121,17 @@ export async function extractThemesForDocument(
     const prompt = buildThemeExtractionPrompt({ language, docTitle, body, targetCount: perWindow })
     const raw = await deps.llm.generateRaw(prompt, {
       jsonSchema: THEME_LIST_SCHEMA,
-      maxTokens: THEME_EXTRACTION_MAX_TOKENS,
+      maxTokens,
       noThink: true,
       ...(abortSignal ? { abortSignal } : {}),
     })
     const parsed = parseThemeJson(raw)
+    if (parsed.length === 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[quiz] no themes parsed for doc ${docId} ("${docTitle}"); raw output: ${snippet(raw)}`,
+      )
+    }
     const windowChunkIds = w.chunks.map((c) => c.id)
     for (const t of parsed) {
       out.push({
@@ -133,22 +155,22 @@ interface RawTheme {
   weight: number
 }
 
-/** Pull a JSON array out of the model's response, tolerating leading/trailing
- *  prose and code fences. */
+/** Pull themes out of the model's response, tolerating leading/trailing prose,
+ *  code fences, AND truncation. Rather than parsing the whole `[...]` slice in
+ *  one JSON.parse (which throws — and loses everything — if the model was cut
+ *  off mid-array), we extract each top-level object by brace-matching and parse
+ *  them independently, stopping at the first that fails to parse but keeping the
+ *  valid prefix. */
 function parseThemeJson(raw: string): RawTheme[] {
   const cleaned = stripCodeFences(raw)
-  const start = cleaned.indexOf('[')
-  const end = cleaned.lastIndexOf(']')
-  if (start < 0 || end <= start) return []
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleaned.slice(start, end + 1))
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
   const out: RawTheme[] = []
-  for (const item of parsed) {
+  for (const objText of extractJsonObjects(cleaned)) {
+    let item: unknown
+    try {
+      item = JSON.parse(objText)
+    } catch {
+      break // truncated tail — keep what we have
+    }
     if (typeof item !== 'object' || item === null) continue
     const o = item as Record<string, unknown>
     const title = typeof o.title === 'string' ? o.title.trim() : ''
@@ -161,6 +183,27 @@ function parseThemeJson(raw: string): RawTheme[] {
     out.push({ title: title.slice(0, 200), summary: summary.slice(0, 500), weight })
   }
   return out
+}
+
+/** Pick at most `max` items spaced evenly across the list (always includes the
+ *  first; spreads the rest so we sample beginning..end rather than a prefix). */
+function sampleEvenly<T>(items: T[], max: number): T[] {
+  if (items.length <= max) return items
+  if (max <= 1) return items.slice(0, Math.max(0, max))
+  const out: T[] = []
+  for (let i = 0; i < max; i += 1) {
+    const idx = Math.round((i * (items.length - 1)) / (max - 1))
+    out.push(items[idx]!)
+  }
+  return out
+}
+
+/** First ~1000 chars of raw model output for actionable logs (one line). Long
+ *  enough to capture a full short theme list (titles + summaries) so
+ *  post-mortem reads aren't truncated mid-shape. */
+function snippet(raw: string): string {
+  const oneLine = raw.replace(/\s+/g, ' ').trim()
+  return oneLine.length > 1000 ? `${oneLine.slice(0, 1000)}…` : oneLine || '(empty)'
 }
 
 function stripCodeFences(text: string): string {

@@ -38,7 +38,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg"],
+    "targets": ["nsis", "dmg", "deb"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -50,6 +50,12 @@
     "category": "Productivity",
     "shortDescription": "LokLM",
     "longDescription": "LokLM ( Lokaler KI-Wissensassistent ). Native Rust + WebView2 launcher that fetches the app from the LokLM CDN and places it into the user profile.",
-    "copyright": "© Projektgruppe LokLM ( MIT )"
+    "copyright": "© Projektgruppe LokLM ( MIT )",
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional"
+      }
+    }
   }
 }

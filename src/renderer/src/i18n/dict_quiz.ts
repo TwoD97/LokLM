@@ -23,6 +23,13 @@ export const quizDict: DomainDict = {
     'quiz.runner.elapsedTime': 'Elapsed time',
     'quiz.runner.scoring': 'Scoring…',
     'quiz.runner.finish': 'Finish',
+    'quiz.runner.modeAria': 'Quiz mode',
+    'quiz.runner.modePractice': 'Practice',
+    'quiz.runner.modeTest': 'Test',
+    'quiz.runner.modePracticeHint': 'Reveal each answer as you go',
+    'quiz.runner.modeTestHint': 'Answer everything, then see your results',
+    'quiz.runner.submit': 'Submit',
+    'quiz.runner.answered': '{answered} / {total} answered',
 
     // QuizResults
     'quiz.results.heading': 'Results',
@@ -55,11 +62,14 @@ export const quizDict: DomainDict = {
     'quiz.list.statusReady': 'Ready',
     'quiz.list.stepStarting': 'Starting…',
     'quiz.list.stepExtracting': 'Reading documents',
+    'quiz.list.stepExtractingDocs': 'Reading documents ({count} docs)',
     'quiz.list.stepMerging': 'Merging themes',
     'quiz.list.stepAllocating': 'Preparing questions',
     'quiz.list.stepGenerating': 'Writing questions',
     'quiz.list.stepDocProgress': 'Document {current} / {total}',
     'quiz.list.stepQuestionProgress': '{current} / {total}',
+    'quiz.list.stepThemeProgress': 'theme {current}/{total}',
+    'quiz.list.stepsHeader': 'steps',
 
     // QuizDeckHistory
     'quiz.history.loading': 'Loading history…',
@@ -86,6 +96,13 @@ export const quizDict: DomainDict = {
     'quiz.runner.elapsedTime': 'Verstrichene Zeit',
     'quiz.runner.scoring': 'Auswertung…',
     'quiz.runner.finish': 'Abschließen',
+    'quiz.runner.modeAria': 'Quiz-Modus',
+    'quiz.runner.modePractice': 'Üben',
+    'quiz.runner.modeTest': 'Test',
+    'quiz.runner.modePracticeHint': 'Antwort sofort nach jeder Frage anzeigen',
+    'quiz.runner.modeTestHint': 'Alles beantworten, dann Ergebnis ansehen',
+    'quiz.runner.submit': 'Abgeben',
+    'quiz.runner.answered': '{answered} / {total} beantwortet',
 
     // QuizResults
     'quiz.results.heading': 'Ergebnisse',
@@ -118,11 +135,14 @@ export const quizDict: DomainDict = {
     'quiz.list.statusReady': 'Bereit',
     'quiz.list.stepStarting': 'Wird gestartet…',
     'quiz.list.stepExtracting': 'Dokumente werden gelesen',
+    'quiz.list.stepExtractingDocs': 'Dokumente werden gelesen ({count} Dok.)',
     'quiz.list.stepMerging': 'Themen werden zusammengeführt',
     'quiz.list.stepAllocating': 'Fragen werden vorbereitet',
     'quiz.list.stepGenerating': 'Fragen werden geschrieben',
     'quiz.list.stepDocProgress': 'Dokument {current} / {total}',
     'quiz.list.stepQuestionProgress': '{current} / {total}',
+    'quiz.list.stepThemeProgress': 'Thema {current}/{total}',
+    'quiz.list.stepsHeader': 'Schritte',
 
     // QuizDeckHistory
     'quiz.history.loading': 'Verlauf wird geladen…',
