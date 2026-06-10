@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Document, IndexProgress } from '@shared/documents'
+import type { Document, IndexProgress, LibrarySearchHit } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
 import { DocumentPreview } from './DocumentPreview'
 import { SummaryModal } from './SummaryModal'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
+import { LibrarySearchBar } from './LibrarySearchBar'
+import { SearchResults } from './SearchResults'
+import { useLibrarySearch } from './useLibrarySearch'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
+import { SourceViewer } from '../chat/SourceViewer'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { useT } from '../i18n'
 import './library.css'
 
@@ -31,6 +36,16 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   // here while the PasswordRetypeGate is up. On confirm we run the gated
   // exportDocument flow.
   const [exportPending, setExportPending] = useState<Document | null>(null)
+  // AP-6 search state (query/filters/sort/hits) + the clicked hit whose source
+  // is open in the SourceViewer modal. Null = no source open.
+  const search = useLibrarySearch(workspaceId)
+  const [sourceHit, setSourceHit] = useState<{ chunkId: number; documentTitle: string } | null>(
+    null,
+  )
+  const onOpenHit = useCallback(
+    (h: LibrarySearchHit) => setSourceHit({ chunkId: h.chunkId, documentTitle: h.documentTitle }),
+    [],
+  )
 
   const refreshDocs = useCallback(async (id: number) => {
     setDocs(await window.api.documents.list(id))
@@ -200,23 +215,52 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           </button>
         </div>
       )}
-      {/* Pass the callbacks straight , each is already useCallback'd above, so
-       *  DocumentRow's React.memo can actually skip re-renders for rows whose
-       *  doc + progress didn't change. Wrapping them inline with arrows used
-       *  to mint fresh fns each render and defeat the memo. */}
-      <DocumentTable
-        docs={docs}
-        progress={progress}
-        onDelete={onDelete}
-        onReindex={onReindex}
-        onReveal={onReveal}
-        onOpenExternal={onOpenExternal}
-        onReplace={onReplace}
-        onRefresh={onRefresh}
-        onRead={onRead}
-        onExport={onExport}
-        onSummarize={onSummarize}
+      <LibrarySearchBar
+        query={search.query}
+        onQueryChange={search.setQuery}
+        onClear={search.clear}
+        filters={search.filters}
+        onTypesChange={search.setTypes}
+        onDateChange={search.setDate}
+        onSizeChange={search.setSize}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        active={search.active}
+        resultCount={search.status === 'done' ? search.hits.length : undefined}
       />
+      {/* Search mode replaces the browse table while a query is active. When the
+       *  field is empty the normal document list returns. */}
+      {search.active ? (
+        <SearchResults hits={search.hits} status={search.status} onOpen={onOpenHit} />
+      ) : (
+        /* Pass the callbacks straight , each is already useCallback'd above, so
+         *  DocumentRow's React.memo can actually skip re-renders for rows whose
+         *  doc + progress didn't change. Wrapping them inline with arrows used
+         *  to mint fresh fns each render and defeat the memo. */
+        <DocumentTable
+          docs={docs}
+          progress={progress}
+          onDelete={onDelete}
+          onReindex={onReindex}
+          onReveal={onReveal}
+          onOpenExternal={onOpenExternal}
+          onReplace={onReplace}
+          onRefresh={onRefresh}
+          onRead={onRead}
+          onExport={onExport}
+          onSummarize={onSummarize}
+        />
+      )}
+      {sourceHit && (
+        <ErrorBoundary label={t('library.previewDoc')} onError={() => setSourceHit(null)}>
+          <SourceViewer
+            chunkId={sourceHit.chunkId}
+            documentTitle={sourceHit.documentTitle}
+            messageText={null}
+            onClose={() => setSourceHit(null)}
+          />
+        </ErrorBoundary>
+      )}
       {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
       {summaryDoc && <SummaryModal doc={summaryDoc} onClose={() => setSummaryDoc(null)} />}
       <PasswordRetypeGate
