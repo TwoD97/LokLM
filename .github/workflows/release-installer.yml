@@ -313,9 +313,26 @@ jobs:
         with:
           workspaces: installer-wizard/src-tauri
           cache-on-failure: true
+          # MUST mirror runs-on : the cache carries compiled binaries
+          # ( ~/.cargo/bin/cargo-tauri , target/ build scripts ) whose glibc
+          # floor is the image they were built on. The default key has no
+          # image version , so the old ubuntu-latest ( 24.04 ) cache was
+          # restored onto 22.04 and cargo-tauri died with
+          # `GLIBC_2.39 not found` ( v0.4.0 release run ).
+          key: ubuntu-22.04
 
       - name: Install tauri-cli
-        run: cargo install tauri-cli --version "^2.0" --locked
+        # `cargo install` skips when a binary with the target version is
+        # already in ~/.cargo/bin — but a cache-restored binary from a
+        # different runner image can be ABI-incompatible while still
+        # version-matching. Probe that it actually executes ; force the
+        # reinstall when it doesn't.
+        run: |
+          if cargo tauri --version; then
+            cargo install tauri-cli --version "^2.0" --locked
+          else
+            cargo install tauri-cli --version "^2.0" --locked --force
+          fi
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
         # Five-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
