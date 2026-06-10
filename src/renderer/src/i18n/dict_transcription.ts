@@ -34,6 +34,8 @@ export const transcriptionDict: DomainDict = {
     'tx.decodeError': "Couldn't read this audio file.",
     'tx.download': 'Download',
     'tx.needWorkspace': 'Select a workspace first to save the transcript.',
+    'tx.saveAll': 'Save all to workspace',
+    'tx.clear': 'Clear',
   },
   de: {
     'tx.title': 'Transkription',
@@ -64,5 +66,7 @@ export const transcriptionDict: DomainDict = {
     'tx.decodeError': 'Diese Audiodatei konnte nicht gelesen werden.',
     'tx.download': 'Herunterladen',
     'tx.needWorkspace': 'Wähle zuerst einen Arbeitsbereich, um das Transkript zu speichern.',
+    'tx.saveAll': 'Alle in Arbeitsbereich speichern',
+    'tx.clear': 'Leeren',
   },
 }
