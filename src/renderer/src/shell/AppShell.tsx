@@ -152,7 +152,7 @@ export function AppShell(): JSX.Element {
         onClearScope={() => void onClearScope()}
       />
       <main className="app-shell__main">
-        {activeWorkspaceId == null && (
+        {activeWorkspaceId == null && activeView !== 'transcription' && (
           <div className="app-shell__empty">{t('shell.selectWorkspaceFirst')}</div>
         )}
         {activeView === 'library' && activeWorkspaceId != null && (
