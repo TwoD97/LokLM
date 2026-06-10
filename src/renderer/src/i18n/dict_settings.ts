@@ -38,6 +38,10 @@ export const settingsDict: DomainDict = {
     'settings.basic.badgeAuto': 'auto',
     'settings.basic.badgeAvailable': 'available',
     'settings.basic.badgeMissing': 'download via Models panel',
+    'settings.basic.reloadConfirmTitle': 'Reload model?',
+    'settings.basic.reloadConfirmBody':
+      'Switching to the {profile} profile reloads the local model (unload + load). This can take a few seconds to a couple of minutes depending on size.',
+    'settings.basic.reloadConfirmAction': 'Switch & reload',
     'settings.basic.systemInfo': 'System info',
     'settings.basic.idleTag': 'idle',
     'settings.basic.systemInfoSubIdle':
@@ -295,6 +299,10 @@ export const settingsDict: DomainDict = {
     'settings.basic.badgeAuto': 'auto',
     'settings.basic.badgeAvailable': 'verfügbar',
     'settings.basic.badgeMissing': 'über Modelle-Panel laden',
+    'settings.basic.reloadConfirmTitle': 'Modell neu laden?',
+    'settings.basic.reloadConfirmBody':
+      'Der Wechsel auf das Profil {profile} lädt das lokale Modell neu (entladen + laden). Das kann je nach Größe einige Sekunden bis ein paar Minuten dauern.',
+    'settings.basic.reloadConfirmAction': 'Wechseln & neu laden',
     'settings.basic.systemInfo': 'Systeminfo',
     'settings.basic.idleTag': 'inaktiv',
     'settings.basic.systemInfoSubIdle':
