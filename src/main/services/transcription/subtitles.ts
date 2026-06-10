@@ -11,6 +11,16 @@ export function formatTimestamp(sec: number, mode: 'srt' | 'vtt'): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}${sep}${pad(millis, 3)}`
 }
 
+/** Parse a "HH:MM:SS.mmm" / "HH:MM:SS,mmm" clock string to seconds. Used to
+ *  convert the whisper binding's segment timestamps into our numeric model. */
+export function parseClock(clock: string): number {
+  const m = clock.trim().match(/^(\d+):(\d{2}):(\d{2})[.,](\d{1,3})$/)
+  if (!m) return Number.NaN
+  const [, h, min, s, frac] = m
+  const millis = Number(frac!.padEnd(3, '0'))
+  return Number(h) * 3600 + Number(min) * 60 + Number(s) + millis / 1000
+}
+
 function line(s: TranscriptSegment): string {
   return s.speaker ? `${s.speaker}: ${s.text}` : s.text
 }
