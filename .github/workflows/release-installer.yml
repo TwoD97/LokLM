@@ -247,12 +247,17 @@ jobs:
           /tmp/mc.exe ls "$DEST"
 
   build-linux:
-    name: Build .run installer + upload to minio
-    runs-on: ubuntu-latest
+    name: Build .run + .deb installers + upload to minio
+    # Ubuntu 22.04 ( glibc 2.35 ) is the baseline. The runner's glibc
+    # becomes the floor for the bundled binary , so 24.04 ( glibc 2.39 )
+    # would lock out 22.04 users at install time.
+    runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.resolve.outputs.version }}
-      sha256: ${{ steps.hash.outputs.sha256 }}
-      size: ${{ steps.hash.outputs.size }}
+      sha256_run: ${{ steps.hash.outputs.sha256_run }}
+      size_run: ${{ steps.hash.outputs.size_run }}
+      sha256_deb: ${{ steps.hash.outputs.sha256_deb }}
+      size_deb: ${{ steps.hash.outputs.size_deb }}
     steps:
       - uses: actions/checkout@v4
 
@@ -280,12 +285,13 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Install Tauri's system deps + makeself
+      - name: Install Tauri's system deps + makeself + fakeroot
         # Tauri 2.x on Linux links against webkit2gtk-4.1 ( required ) and
         # libayatana-appindicator3-1 ( for tray icons , not used by the
         # wizard but Tauri's build script checks for it ). librsvg2-dev
         # is needed for SVG-based icon rendering at build time.
         # makeself is the self-extractor we wrap wizard + payload into.
+        # fakeroot is required by tauri-cli's deb bundler.
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -293,7 +299,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            makeself
+            makeself \
+            fakeroot
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -311,36 +318,50 @@ jobs:
         run: cargo install tauri-cli --version "^2.0" --locked
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
-        # Four-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
+        # Five-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
         #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir ; cuda stripped)
         #   package:linux:archive  → release/payload-linux-x64.tar.zst + cuda-linux-x64.tar.zst
         #                            + sha256 sidecars + installer-wizard/payload-manifest.json regen
         #                            ( payload archive still produced/uploaded as a fallback )
         #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm
-        #                            ( cargo tauri build ; bakes manifest baseUrl + hashes )
+        #                            + target/release/bundle/deb/*.deb
+        #                            ( cargo tauri build --bundles deb ; bakes manifest baseUrl + hashes )
         #   package:linux:stub     → release/LokLM-Setup-linux-x64.run
         #                            ( makeself embeds wizard + LICENSE + linux-unpacked ; the wizard
         #                              installs from the bundled payload via ../linux-unpacked.
         #                              cuda is still fetched from minio if the user opts in )
+        #   package:linux:deb      → release/LokLM-Setup-linux-x64.deb
+        #                            ( copies tauri's deb to the stable public filename )
         env:
           LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
         run: pnpm package:linux
 
-      - name: Compute sha256 + size
+      - name: Compute sha256 + size ( .run + .deb )
         id: hash
         shell: bash
         run: |
           V="${{ steps.resolve.outputs.version }}"
-          APP="release/LokLM-Setup-linux-x64.run"
-          if [ ! -f "$APP" ]; then
-            echo "expected artefact missing: $APP"; ls -la release/; exit 1
-          fi
-          SHA=$(sha256sum "$APP" | awk '{print $1}')
-          SIZE=$(stat -c%s "$APP")
-          echo "$SHA  $(basename "$APP")" > "${APP}.sha256"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "built $APP , size=$SIZE sha256=$SHA"
+          RUN="release/LokLM-Setup-linux-x64.run"
+          DEB="release/LokLM-Setup-linux-x64.deb"
+          for f in "$RUN" "$DEB"; do
+            if [ ! -f "$f" ]; then
+              echo "expected artefact missing: $f"; ls -la release/; exit 1
+            fi
+          done
+          SHA_RUN=$(sha256sum "$RUN" | awk '{print $1}')
+          SIZE_RUN=$(stat -c%s "$RUN")
+          echo "$SHA_RUN  $(basename "$RUN")" > "${RUN}.sha256"
+          SHA_DEB=$(sha256sum "$DEB" | awk '{print $1}')
+          SIZE_DEB=$(stat -c%s "$DEB")
+          echo "$SHA_DEB  $(basename "$DEB")" > "${DEB}.sha256"
+          {
+            echo "sha256_run=$SHA_RUN"
+            echo "size_run=$SIZE_RUN"
+            echo "sha256_deb=$SHA_DEB"
+            echo "size_deb=$SIZE_DEB"
+          } >> "$GITHUB_OUTPUT"
+          echo "built $RUN , size=$SIZE_RUN sha256=$SHA_RUN"
+          echo "built $DEB , size=$SIZE_DEB sha256=$SHA_DEB"
 
       - name: Install mc
         run: |
@@ -357,12 +378,16 @@ jobs:
           V="${{ steps.resolve.outputs.version }}"
           DEST="s3target/loklm-installers/v${V}/"
           /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          # User-facing installer + sha256. Payload archive is the v0.3.1+
-          # CDN fallback ( embedded in the .run primarily ) ; cuda addon is
-          # still fetched from PUBLIC_INSTALLER_BASE_URL at install time.
+          # User-facing installers ( .run for makeself / generic distros ;
+          # .deb for Ubuntu/Debian ) + sha256 sidecars. Payload archive is
+          # the v0.3.1+ CDN fallback ( embedded in the .run primarily ) ;
+          # cuda addon is still fetched from PUBLIC_INSTALLER_BASE_URL at
+          # install time.
           for f in \
             release/LokLM-Setup-linux-x64.run \
             release/LokLM-Setup-linux-x64.run.sha256 \
+            release/LokLM-Setup-linux-x64.deb \
+            release/LokLM-Setup-linux-x64.deb.sha256 \
             release/payload-linux-x64.tar.zst \
             release/payload-linux-x64.tar.zst.sha256 \
             release/cuda-linux-x64.tar.zst \
@@ -513,13 +538,23 @@ jobs:
             "${{ needs.build-windows.outputs.sha256 }}" \
             "${{ needs.build-windows.outputs.size }}"
 
-      - name: Patch releases.ts (linux)
+      - name: Patch releases.ts (linux .run)
         run: |
           node scripts/bump-release.mjs \
             "${{ needs.build-linux.outputs.version }}" \
             linux \
-            "${{ needs.build-linux.outputs.sha256 }}" \
-            "${{ needs.build-linux.outputs.size }}"
+            "${{ needs.build-linux.outputs.sha256_run }}" \
+            "${{ needs.build-linux.outputs.size_run }}" \
+            LokLM-Setup-linux-x64.run
+
+      - name: Patch releases.ts (linux .deb)
+        run: |
+          node scripts/bump-release.mjs \
+            "${{ needs.build-linux.outputs.version }}" \
+            linux \
+            "${{ needs.build-linux.outputs.sha256_deb }}" \
+            "${{ needs.build-linux.outputs.size_deb }}" \
+            LokLM-Setup-linux-x64.deb
 
       - name: Patch releases.ts (macos)
         run: |
@@ -586,7 +621,8 @@ jobs:
             echo ""
             echo "**Base:** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
-            echo "- Windows: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
-            echo "- Linux:   ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
-            echo "- macOS:   ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
+            echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
+            echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
+            echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
+            echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
           } >> "$GITHUB_STEP_SUMMARY"

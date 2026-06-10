@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { QuizListView } from './QuizListView'
+import { QuizListView, reduceProgress, formatDuration, type QuizProgress } from './QuizListView'
 import type { QuizDeckSummary } from '@shared/quiz'
 
 const NOW = Math.floor(Date.now() / 1000)
@@ -234,5 +234,99 @@ describe('QuizListView', () => {
     )
     fireEvent.click(screen.getByText('New Quiz'))
     expect(onCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the theme name + x/y detail during question generation', () => {
+    const t0 = Date.now() - 47_000
+    const progress: QuizProgress = {
+      stage: 'generating-questions',
+      themeTitle: 'Photosynthesis',
+      themeIndex: 2,
+      themeTotal: 4,
+      ordinal: 6,
+      total: 10,
+      startedAt: t0,
+      timeline: [{ phase: 'generating-questions', startedAt: t0 }],
+    }
+    render(
+      <QuizListView
+        decks={[makeDeck({ id: 1, status: 'generating' })]}
+        progress={new Map([[1, progress]])}
+        onCreate={() => undefined}
+        onStart={() => undefined}
+        onDelete={() => undefined}
+        onRetry={() => undefined}
+      />,
+    )
+    // Detail line shows the active step label, theme position + title, and x/y.
+    // "Writing questions" renders twice (header label + timeline row) — that's
+    // expected: the active phase appears in both the headline and the timeline.
+    expect(screen.getAllByText(/Writing questions/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/theme 2\/4 "Photosynthesis"/)).toBeInTheDocument()
+    expect(screen.getByText(/6 \/ 10/)).toBeInTheDocument()
+  })
+
+  it('renders a multi-phase timeline with per-phase durations', () => {
+    const now = Date.now()
+    const progress: QuizProgress = {
+      stage: 'generating-questions',
+      themeTitle: 'Cells',
+      themeIndex: 1,
+      themeTotal: 2,
+      ordinal: 1,
+      total: 10,
+      docCount: 4,
+      startedAt: now - 47_000,
+      timeline: [
+        { phase: 'extracting-themes', startedAt: now - 47_000, endedAt: now - 35_000 },
+        { phase: 'merging-themes', startedAt: now - 35_000, endedAt: now - 32_000 },
+        { phase: 'generating-questions', startedAt: now - 32_000 },
+      ],
+    }
+    render(
+      <QuizListView
+        decks={[makeDeck({ id: 1, status: 'generating' })]}
+        progress={new Map([[1, progress]])}
+        onCreate={() => undefined}
+        onStart={() => undefined}
+        onDelete={() => undefined}
+        onRetry={() => undefined}
+      />,
+    )
+    // Three timeline rows with the doc-count, merge, and active writing phase.
+    expect(screen.getByText(/Reading documents \(4 docs\)/)).toBeInTheDocument()
+    expect(screen.getByText('12s')).toBeInTheDocument() // extracting duration
+    expect(screen.getByText('3s')).toBeInTheDocument() // merge duration
+    // Active phase shows a live, growing duration with the trailing ellipsis.
+    expect(screen.getByText(/32s …/)).toBeInTheDocument()
+  })
+
+  it('reduceProgress closes the prior phase and opens the next on a stage change', () => {
+    const t0 = 1000
+    const afterStage = reduceProgress(undefined, { type: 'stage', stage: 'extracting-themes' }, t0)!
+    expect(afterStage.startedAt).toBe(t0)
+    expect(afterStage.timeline).toEqual([{ phase: 'extracting-themes', startedAt: t0 }])
+
+    const t1 = 5000
+    const afterTheme = reduceProgress(
+      afterStage,
+      { type: 'theme', themeIndex: 1, themeTotal: 3, themeTitle: 'Photosynthesis' },
+      t1,
+    )!
+    expect(afterTheme.stage).toBe('generating-questions')
+    expect(afterTheme.themeTitle).toBe('Photosynthesis')
+    // First phase is closed at t1; the new phase is open.
+    expect(afterTheme.timeline).toEqual([
+      { phase: 'extracting-themes', startedAt: t0, endedAt: t1 },
+      { phase: 'generating-questions', startedAt: t1 },
+    ])
+    // startedAt is preserved across events (live-timer base).
+    expect(afterTheme.startedAt).toBe(t0)
+  })
+
+  it('formatDuration switches from Ns to m:ss at one minute', () => {
+    expect(formatDuration(12_000)).toBe('12s')
+    expect(formatDuration(59_000)).toBe('59s')
+    expect(formatDuration(72_000)).toBe('1:12')
   })
 })

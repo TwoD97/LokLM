@@ -1,6 +1,6 @@
 {
-  "name": "loklm-rag-eval-10",
-  "comment": "5 klein (<=4B) + 5 mittel (7-14B) , gemischt nach familien. paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
+  "name": "loklm-rag-eval-15",
+  "comment": "5 klein (<=4B) + 5 mittel (7-14B) + qwen3-8b + Qwen3.5-Reihe (2b/4b/9b/27b) = 15 modelle. paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
   "models": [
     {
       "label": "qwen3-4b-instruct",

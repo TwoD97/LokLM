@@ -118,25 +118,13 @@ fn payload_dir() -> Option<PathBuf> {
     None
 }
 
-fn license_file_path() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let exe_dir = exe.parent()?;
-    let alongside = exe_dir.join("LICENSE");
-    if alongside.exists() {
-        return Some(alongside);
-    }
-    let dev = exe_dir
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("LICENSE");
-    if dev.exists() {
-        Some(dev)
-    } else {
-        None
-    }
-}
+// LICENSE embedded at compile time. The .run ( makeself ) layout shipped
+// LICENSE alongside the wizard binary , but the .deb layout installs the
+// binary to /usr/bin/loklm where no such sibling exists — and Tauri's
+// deb resource-path resolution depends on bundler internals we don't want
+// to track. Embedding the bytes sidesteps the whole question : same source
+// of truth ( repo LICENSE at build time ) across .run / .deb / dev.
+const EMBEDDED_LICENSE: &str = include_str!("../../../../LICENSE");
 
 // ----------------------------------------------------------------
 // Existing install detection
@@ -565,8 +553,7 @@ pub fn get_state() -> InstallerState {
 }
 
 pub fn get_license() -> Option<String> {
-    let path = license_file_path()?;
-    std::fs::read_to_string(path).ok()
+    Some(EMBEDDED_LICENSE.to_string())
 }
 
 pub fn launch(app_exe_path: &str) -> Result<(), String> {

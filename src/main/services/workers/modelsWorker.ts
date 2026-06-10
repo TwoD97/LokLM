@@ -15,6 +15,7 @@
 // concurrent ask never overlaps a load. Inference (embed / rank / ask) is
 // async at the native layer and can interleave freely between requests.
 
+import { cpus } from 'node:os'
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
 import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
 import type {
@@ -187,10 +188,16 @@ async function ensureBackend(
     return ['auto']
   })()
   let lastErr: unknown = null
+  // Use all but one CPU core for decode/prefill. node-llama-cpp's default
+  // heuristic underuses physical cores on Windows ( observed ~2.4 tok/s
+  // decode on a 2B model where the machine has 8+ idle cores ). Capping to
+  // cpus().length - 1 leaves one core for the OS / Electron main loop so the
+  // UI stays responsive during long inference.
+  const maxThreads = Math.max(1, cpus().length - 1)
   for (const gpu of order) {
     try {
       onMessage(`Initialising llama backend (${gpu === false ? 'cpu' : gpu})…`)
-      const llama = await lib.getLlama({ gpu })
+      const llama = await lib.getLlama({ gpu, maxThreads })
       llamaBackend = llama
       const obj = llama as { gpu?: string | false }
       backendGpuLabel = obj.gpu === false ? 'cpu' : (obj.gpu ?? null) || null
@@ -289,6 +296,13 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     const opts: Record<string, unknown> = {
       contextSize: { min: minCtxBound, max: attemptMax },
       flashAttention: true,
+      // Bumps prefill throughput by halving the per-batch dispatch overhead.
+      // node-llama-cpp default is 512 ; for a ~1k-token theme-extraction prompt
+      // ( typical quiz pipeline ) that's two batches per prefill , each with
+      // setup cost. 1024 fits the whole prompt in one batch on the hot path.
+      // KV-cache memory grows linearly with batchSize but the extra ~ a few MB
+      // is well inside the headroom planLlm already reserves.
+      batchSize: 1024,
     }
     const kvEnum = enumNameFor(attemptType)
     if (kvEnum) {

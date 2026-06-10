@@ -5,6 +5,8 @@ import {
   currentRelease,
   downloadUrl,
   formatSize,
+  getAssets,
+  type AssetVariant,
   type Platform,
   type ReleaseAsset,
 } from '~/data/releases'
@@ -13,34 +15,64 @@ const lang = getLangFromUrl(Astro.url)
 
 interface PlatformMeta {
   platform: Platform
-  buttonKey: UIKey
   iconPaths: string
 }
 
 const platformMeta: Record<Platform, PlatformMeta> = {
   windows: {
     platform: 'windows',
-    buttonKey: 'download.button.windows',
     iconPaths:
       'M0 3.449L9.75 2.1v9.451H0V3.449zM10.949 1.929L24 0v11.4H10.949V1.929zM0 12.6h9.75v9.451L0 20.699V12.6zM10.949 12.6H24V24l-13.051-1.929V12.6z',
   },
   macos: {
     platform: 'macos',
-    buttonKey: 'download.button.macos',
     iconPaths:
       'M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.493-.12-1.09.42-2.24 1.1-2.99.788-.85 2.02-1.51 3.064-1.583zM3.5 8.86C3.5 6.4 5.41 4.96 7.45 4.96c1.05 0 2.1.6 2.92.6.78 0 2.04-.71 3.45-.59 0 0 2.07.15 3.4 1.58-1.04.6-3.32 2.05-3.32 5.06 0 3.46 3.04 4.66 3.04 4.66s-2.31 6.6-5.4 6.6c-1.06 0-1.92-.69-3.03-.69-1.13 0-2.19.7-3.04.7C2.07 22.88 0 16.2 0 11.45 0 8.84 1.55 8.86 3.5 8.86z',
   },
   linux: {
     platform: 'linux',
-    buttonKey: 'download.button.linux',
     iconPaths:
       'M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489.123.797.508 1.566 1.176 2.235.668.668 1.43 1.054 2.218 1.184a3.42 3.42 0 0 0 2.402-.461c1.116-.69 2.046-1.778 2.713-2.93.66-1.137 1.05-2.36 1.05-3.58 0-1.221.391-2.444 1.05-3.58.667-1.153 1.598-2.241 2.714-2.93a3.42 3.42 0 0 0 2.402-.461c.788-.13 1.55-.516 2.218-1.184.668-.669 1.053-1.438 1.176-2.235.123-.805-.01-1.657-.287-2.489-.59-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298A6.392 6.392 0 0 0 12.504 0z',
   },
 }
 
-const assets: ReleaseAsset[] = currentRelease.assets
-const windowsAsset = assets.find((a) => a.platform === 'windows')
-const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset : undefined
+// Each card represents a platform and may host multiple buttons ( one
+// per asset variant ). Manifest order is preserved.
+interface PlatformCard {
+  platform: Platform
+  assets: ReleaseAsset[]
+  anyAvailable: boolean
+}
+
+const orderedPlatforms: Platform[] = ['windows', 'macos', 'linux']
+const cards: PlatformCard[] = orderedPlatforms.map((p) => {
+  const assetsForPlatform = getAssets(p)
+  return {
+    platform: p,
+    assets: assetsForPlatform,
+    anyAvailable: assetsForPlatform.some((a) => a.available),
+  }
+})
+
+function buttonKey(platform: Platform, variant?: AssetVariant): UIKey {
+  if (platform === 'linux' && variant) {
+    return variant === 'deb' ? 'download.button.linux.deb' : 'download.button.linux.run'
+  }
+  return `download.button.${platform}` as UIKey
+}
+
+// Top-of-card size shown for the "primary" download for each platform.
+// We pick the first available asset per card so the card has a stable
+// size readout even if a secondary variant is missing.
+function primaryAsset(card: PlatformCard): ReleaseAsset | undefined {
+  return card.assets.find((a) => a.available)
+}
+
+// Checksum block at the bottom of the card. Windows is the canonical
+// "primary" asset for the headline numbers — falls back gracefully if
+// it isn't available.
+const windowsCard = cards.find((c) => c.platform === 'windows')
+const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
 ---
 
 <section id="download" class="relative py-20 sm:py-28">
@@ -88,9 +120,10 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
 
       <div class="relative grid grid-cols-1 sm:grid-cols-3 gap-3" data-platform-grid>
         {
-          assets.map((asset) => {
-            const meta = platformMeta[asset.platform]
-            const isAvailable = asset.available
+          cards.map((card) => {
+            const meta = platformMeta[card.platform]
+            const headline = primaryAsset(card)
+            const isAvailable = card.anyAvailable
             return (
               <div
                 class:list={[
@@ -99,7 +132,7 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
                     ? 'bg-white/[0.03] border border-[color:var(--color-border)] hover:border-[color:var(--color-accent)]/40'
                     : 'bg-white/[0.015] border border-dashed border-white/[0.08] opacity-60',
                 ]}
-                data-platform={asset.platform}
+                data-platform={card.platform}
               >
                 <div class="flex items-start gap-3 mb-3">
                   <div
@@ -122,11 +155,11 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
                   </div>
                   <div class="min-w-0">
                     <p class="mono uppercase tracking-wider text-[0.65rem] text-[color:var(--color-fg-3)]">
-                      {asset.platform}
+                      {card.platform}
                     </p>
-                    {isAvailable ? (
+                    {headline ? (
                       <p class="mono text-xs text-[color:var(--color-fg-1)] truncate">
-                        {formatSize(asset.sizeBytes)}
+                        {formatSize(headline.sizeBytes)}
                       </p>
                     ) : (
                       <p class="text-xs text-[color:var(--color-fg-2)]">
@@ -136,38 +169,45 @@ const primaryAvailable = windowsAsset && windowsAsset.available ? windowsAsset :
                   </div>
                 </div>
 
-                {isAvailable ? (
-                  <a
-                    href={downloadUrl(asset)}
-                    class="btn-primary w-full text-sm py-3"
-                    data-platform-link={asset.platform}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.4"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3v12" />
-                      <path d="m6 9 6 6 6-6" />
-                      <path d="M5 21h14" />
-                    </svg>
-                    {t(lang, meta.buttonKey)}
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    class="w-full text-sm py-3 rounded-[10px] border border-white/[0.06] bg-white/[0.02] text-[color:var(--color-fg-3)] mono uppercase tracking-wider text-xs cursor-not-allowed"
-                  >
-                    {t(lang, 'download.comingSoon')}
-                  </button>
-                )}
+                <div class="flex flex-col gap-2">
+                  {card.assets.map((asset) =>
+                    asset.available ? (
+                      <a
+                        href={downloadUrl(asset)}
+                        class="btn-primary w-full text-sm py-3"
+                        data-platform-link={card.platform}
+                        data-asset-variant={asset.variant ?? ''}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.4"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 3v12" />
+                          <path d="m6 9 6 6 6-6" />
+                          <path d="M5 21h14" />
+                        </svg>
+                        {t(lang, buttonKey(card.platform, asset.variant))}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        class="w-full text-sm py-3 rounded-[10px] border border-white/[0.06] bg-white/[0.02] text-[color:var(--color-fg-3)] mono uppercase tracking-wider text-xs cursor-not-allowed"
+                      >
+                        {card.platform === 'linux' && asset.variant
+                          ? `${t(lang, buttonKey(card.platform, asset.variant))} — ${t(lang, 'download.comingSoon')}`
+                          : t(lang, 'download.comingSoon')}
+                      </button>
+                    ),
+                  )}
+                </div>
 
                 <span
                   class="absolute -top-2 left-4 hidden mono uppercase tracking-wider text-[0.6rem] px-2 py-0.5 rounded-full bg-[color:var(--color-accent)] text-white"

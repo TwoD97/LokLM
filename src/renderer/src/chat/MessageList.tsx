@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { StageName } from '@shared/documents'
 import { MessageBubble } from './MessageBubble'
-import { useT } from '../i18n'
+import { useT, type TFn } from '../i18n'
 
 type StreamMetrics = {
   ttftMs: number | null
@@ -26,6 +26,10 @@ type LocalMessage =
       isRefusal?: boolean
       metrics?: StreamMetrics
       pipeline?: StageRow[]
+      /** Persisted citations for this turn (the chunks fed AND cited). Present
+       *  on re-hydrated/finished turns, undefined while streaming. Drives both
+       *  marker validation in the bubble and the grounding badge below it. */
+      citations?: Array<{ documentId: number; chunkId: number }>
     }
 
 type Props = {
@@ -52,6 +56,19 @@ function fmtMs(ms: number | undefined): string {
   if (ms === undefined) return ''
   if (ms >= 1000) return `${(ms / 1000).toFixed(2)} s`
   return `${ms} ms`
+}
+
+// Per-answer trust signal: "Grounded · N source(s)" when the model cited at
+// least one fed chunk. Only the positive case is shown — an answer that cited
+// nothing (a refusal, a greeting, or a genuinely ungrounded reply) gets no
+// badge rather than a false "unverified" flag, since re-hydrated refusals carry
+// no isRefusal marker to distinguish them.
+function GroundingBadge({ count, t }: { count: number; t: TFn }): JSX.Element {
+  return (
+    <div className="chat__grounding chat__grounding--ok" role="status">
+      {t(count === 1 ? 'chat.groundingOne' : 'chat.groundingMany', { count })}
+    </div>
+  )
 }
 
 function pipelineTotalMs(pipeline: StageRow[]): number {
@@ -141,8 +158,14 @@ export function MessageList({
                 role={m.role}
                 content={m.content}
                 {...(m.role === 'assistant' && m.isRefusal ? { isRefusal: true } : {})}
+                {...(m.role === 'assistant' && m.citations ? { citations: m.citations } : {})}
                 onCitationClick={onCitationClick}
               />
+              {m.role === 'assistant' &&
+                !m.streaming &&
+                !m.isRefusal &&
+                m.citations &&
+                m.citations.length > 0 && <GroundingBadge count={m.citations.length} t={t} />}
               {m.role === 'assistant' && m.metrics && m.metrics.ttftMs != null && (
                 <div className="chat__metrics">
                   {pipelineMs > 0 && t('chat.metricsPipeline', { ms: fmtMs(pipelineMs) })}

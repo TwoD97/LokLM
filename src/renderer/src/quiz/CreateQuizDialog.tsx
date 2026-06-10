@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Document } from '@shared/documents'
 import type { CreateQuizInput, QuizDeck, QuizQuestionCount } from '@shared/quiz'
 import { useT } from '../i18n'
@@ -21,10 +21,27 @@ export function CreateQuizDialog({
   const t = useT()
   const [name, setName] = useState('')
   const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set())
+  // Default count : 10 on GPU , 5 on CPU. A 10-Q deck on a 2B model on CPU
+  // takes ~35-40 min ( per the quiz-pipeline bench ) ; 5-Q halves that to ~18
+  // min , which is the difference between 'I'll wait' and 'I'll close it'.
+  // We probe the LLM status once on mount and update the default — the user
+  // can still pick 10 or 20 if they want to wait. Initialised to 10 so the
+  // probe just shrinks it ( never inflates ) when CPU is detected.
   const [count, setCount] = useState<QuizQuestionCount>(10)
   const [language, setLanguage] = useState<'auto' | 'de' | 'en'>('auto')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userTouchedCount, setUserTouchedCount] = useState(false)
+
+  useEffect(() => {
+    void window.api.llm.status().then((s) => {
+      if (userTouchedCount) return
+      if (s.gpu === 'cpu') setCount(5)
+    })
+    // Only probe on mount ; subsequent gpu changes shouldn't override what the
+    // user has now seen / decided.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const readyDocs = useMemo(() => documents.filter((d) => d.status === 'ready'), [documents])
 
@@ -109,7 +126,10 @@ export function CreateQuizDialog({
               key={n}
               type="button"
               className={`quiz-segmented__btn ${count === n ? 'quiz-segmented__btn--active' : ''}`}
-              onClick={() => setCount(n)}
+              onClick={() => {
+                setCount(n)
+                setUserTouchedCount(true)
+              }}
             >
               {n}
             </button>

@@ -190,6 +190,35 @@ describe('QuizRunner', () => {
     expect(screen.getByText('1 / 2')).toBeInTheDocument()
   })
 
+  it('test mode defers reveal, lets you answer all, then submits the full payload', async () => {
+    const questions = [makeQuestion(1, 1, 'Q1'), makeQuestion(2, 2, 'Q2')]
+    const { finishSpy } = setupApiSpies({ questions })
+    render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    await screen.findByText('Q1')
+
+    // Switch to Test mode before answering.
+    fireEvent.click(screen.getByText('Test'))
+
+    // Q1: pick the correct option — no explanation should appear (reveal is
+    // deferred to the results screen in test mode).
+    fireEvent.click(screen.getByText('q1-correct'))
+    expect(screen.queryByText('Explanation 1')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Next'))
+
+    // Q2: pick a wrong option (q2-w is original index 0; correctIndex is 2).
+    await screen.findByText('Q2')
+    fireEvent.click(screen.getByText('q2-w'))
+    fireEvent.click(screen.getByText('Submit'))
+
+    await waitFor(() => expect(finishSpy).toHaveBeenCalledTimes(1))
+    const [, payload] = finishSpy.mock.calls[0]!
+    expect(payload).toHaveLength(2)
+    const byQ = new Map(payload.map((p) => [p.questionId, p.selectedIndex]))
+    expect(byQ.get(1)).toBe(1)
+    expect(byQ.get(2)).toBe(0)
+    expect(await screen.findByText('Results')).toBeInTheDocument()
+  })
+
   it('clicking the citation chip mounts the source-viewer modal', async () => {
     setupApiSpies({ questions: [makeQuestion(1, 1)] })
     // SourceViewer fetches via getChunkWithContext; the setupTests stub already

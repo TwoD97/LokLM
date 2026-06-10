@@ -20,6 +20,7 @@ describe('ChatView', () => {
         workspaceId={1}
         currentConversationId={null}
         activeDocumentIds={[]}
+        documents={[]}
         onConversationChange={() => undefined}
       />,
     )
