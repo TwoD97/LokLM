@@ -155,9 +155,6 @@ docs/api/
 /models/
 # Tesseract traineddata cache (fetched by scripts/download-tessdata.mjs, ~28 MB)
 /tessdata/
-# Bundled transcription assets (fetched by scripts/fetch-transcription-models.mjs)
-/whisper/
-/diarization/
 LokLM.zip
 
 docs/superpowers/
