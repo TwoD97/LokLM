@@ -1,29 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { join } from 'node:path'
-import {
-  getWhisperDir,
-  getDiarizationDir,
-  getDiarizationModelPaths,
-} from '@main/services/transcription/paths'
+import { resolveWhisperModel, getDiarizationModelPaths } from '@main/services/transcription/paths'
 
-describe('transcription paths (no-electron context)', () => {
-  beforeEach(() => {
-    delete process.env['LOKLM_WHISPER_DIR']
-    delete process.env['LOKLM_DIARIZATION_DIR']
-  })
+// In the vitest (no-electron) context, getModelSearchDirs() resolves to
+// [<cwd>/models], matching dev behavior.
+const modelsDir = join(process.cwd(), 'models')
 
-  it('falls back to <cwd>/whisper and <cwd>/diarization', () => {
-    expect(getWhisperDir()).toBe(join(process.cwd(), 'whisper'))
-    expect(getDiarizationDir()).toBe(join(process.cwd(), 'diarization'))
-  })
-
-  it('honors the override env vars', () => {
-    process.env['LOKLM_WHISPER_DIR'] = '/tmp/w'
-    process.env['LOKLM_DIARIZATION_DIR'] = '/tmp/d'
-    expect(getWhisperDir()).toBe('/tmp/w')
+describe('transcription paths', () => {
+  it('resolves diarization model paths under the models search dir', () => {
     expect(getDiarizationModelPaths()).toEqual({
-      segmentation: join('/tmp/d', 'segmentation.onnx'),
-      embedding: join('/tmp/d', 'embedding.onnx'),
+      segmentation: join(modelsDir, 'diarize-segmentation.onnx'),
+      embedding: join(modelsDir, 'diarize-embedding.onnx'),
     })
+  })
+
+  it('returns null for a whisper model that is not installed', () => {
+    expect(resolveWhisperModel('medium')).toBeNull()
   })
 })
