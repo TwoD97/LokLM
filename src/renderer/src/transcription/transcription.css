@@ -113,3 +113,34 @@
   color: #f85149;
   padding: 12px 0;
 }
+.transcription__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1, #9aa4ad);
+  font-size: 13px;
+  cursor: pointer;
+}
+.transcription__speakers-input {
+  width: 64px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.transcription__speakers-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.transcription__speaker-input {
+  width: 130px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
