@@ -4,12 +4,7 @@ import { useTranscription } from './useTranscription'
 import { SpeakerLabels } from './SpeakerLabels'
 import { TranscriptList } from './TranscriptList'
 import { toTxt, toSrt, toVtt } from '@shared/subtitles'
-import type {
-  TranscriptionOptions,
-  TranscriptSegment,
-  WhisperModelId,
-  WhisperModelStatus,
-} from '@shared/transcription'
+import type { TranscriptionOptions, TranscriptSegment } from '@shared/transcription'
 import './transcription.css'
 
 /** Apply user speaker renames to a segment list (for display + export + save). */
@@ -22,28 +17,31 @@ function applyNames(
   )
 }
 
+/** Show a speaker label only when it changes from the previous segment, so a
+ *  run of consecutive lines from one speaker isn't labelled on every line. */
+function collapseSpeakers(segments: TranscriptSegment[]): TranscriptSegment[] {
+  let prev: string | undefined
+  return segments.map((s) => {
+    const show = s.speaker && s.speaker !== prev
+    prev = s.speaker
+    // Keep the segment (with its speaker) when the label should show; otherwise
+    // return a copy without the speaker key (omit, not undefined, for
+    // exactOptionalPropertyTypes).
+    return show ? s : { start: s.start, end: s.end, text: s.text }
+  })
+}
+
 export function TranscriptionView({ workspaceId }: { workspaceId: number | null }): JSX.Element {
   const t = useT()
   const { state, queue, transcribe, transcribeMany, cancel, reset } = useTranscription()
   const [task, setTask] = useState<TranscriptionOptions['task']>('transcribe')
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
-  const [model, setModel] = useState<WhisperModelId>('base')
-  const [models, setModels] = useState<WhisperModelStatus[]>([])
   const [diarize, setDiarize] = useState(false)
   const [speakers, setSpeakers] = useState('')
-  const [gpu, setGpu] = useState(false)
   const [over, setOver] = useState(false)
   const [saved, setSaved] = useState(false)
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    void window.api.transcription.modelStatus().then((m) => {
-      setModels(m)
-      const present = m.find((x) => x.present)
-      if (present) setModel((cur) => (m.find((x) => x.id === cur)?.present ? cur : present.id))
-    })
-  }, [])
 
   // Seed the rename map from the distinct speakers once a diarized run finishes.
   useEffect(() => {
@@ -60,12 +58,15 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
     () => ({
       task,
       language,
-      model,
+      // Model is hardcoded to the bundled base for v1; size choice will move to
+      // install profiles. GPU is auto: the worker attempts Vulkan/Metal and
+      // falls back to CPU on its own.
+      model: 'base',
+      gpu: true,
       diarize,
-      gpu,
       ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
     }),
-    [task, language, model, diarize, gpu, speakers],
+    [task, language, diarize, speakers],
   )
 
   const onFiles = useCallback(
@@ -82,27 +83,28 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
     [onFiles],
   )
 
-  const { recording, seconds, toggleRecord } = useRecorder((blob) => onFile(blob))
+  const { recording, seconds, recordError, toggleRecord } = useRecorder((blob) => onFile(blob))
 
-  const renamed = useMemo(
-    () => applyNames(state.segments, speakerNames),
-    [state.segments, speakerNames],
-  )
   const distinctSpeakers = useMemo(
     () => [...new Set(state.segments.map((s) => s.speaker).filter(Boolean))] as string[],
     [state.segments],
+  )
+  // renamed (full per-segment speakers) → collapsed (label only on change).
+  const display = useMemo(
+    () => collapseSpeakers(applyNames(state.segments, speakerNames)),
+    [state.segments, speakerNames],
   )
 
   const onSave = useCallback(async () => {
     if (workspaceId == null) return
     const ext = distinctSpeakers.length > 0 ? 'md' : 'txt'
-    await window.api.transcription.saveToWorkspace(workspaceId, toTxt(renamed), ext)
+    await window.api.transcription.saveToWorkspace(workspaceId, toTxt(display), ext)
     setSaved(true)
-  }, [workspaceId, renamed, distinctSpeakers])
+  }, [workspaceId, display, distinctSpeakers])
 
   const onExport = useCallback(
     (fmt: 'txt' | 'srt' | 'vtt') => {
-      const body = fmt === 'srt' ? toSrt(renamed) : fmt === 'vtt' ? toVtt(renamed) : toTxt(renamed)
+      const body = fmt === 'srt' ? toSrt(display) : fmt === 'vtt' ? toVtt(display) : toTxt(display)
       const url = URL.createObjectURL(new Blob([body], { type: 'text/plain' }))
       const a = document.createElement('a')
       a.href = url
@@ -110,7 +112,7 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
       a.click()
       URL.revokeObjectURL(url)
     },
-    [renamed],
+    [display],
   )
 
   return (
@@ -138,7 +140,7 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
                 {t('tx.task.translate')}
               </button>
             </div>
-            <label className="transcription__field">
+            <label className="transcription__field" title={t('tx.languageHint')}>
               {t('tx.language')}
               <select
                 value={language}
@@ -147,20 +149,6 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
                 <option value="auto">{t('tx.lang.auto')}</option>
                 <option value="de">Deutsch</option>
                 <option value="en">English</option>
-              </select>
-            </label>
-            <label className="transcription__field">
-              {t('tx.model')}
-              <select value={model} onChange={(e) => setModel(e.target.value as WhisperModelId)}>
-                {(models.length > 0
-                  ? models
-                  : [{ id: 'base', present: true } as WhisperModelStatus]
-                ).map((m) => (
-                  <option key={m.id} value={m.id} disabled={!m.present}>
-                    {m.id}
-                    {m.present ? '' : ` (${t('tx.modelMissing')})`}
-                  </option>
-                ))}
               </select>
             </label>
           </div>
@@ -185,16 +173,14 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
                 title={t('tx.speakers')}
               />
             )}
-            <label className="transcription__check">
-              <input type="checkbox" checked={gpu} onChange={(e) => setGpu(e.target.checked)} />
-              {t('tx.gpu')}
-            </label>
             <button
               className={`transcription__record ${recording ? 'is-recording' : ''}`}
               onClick={toggleRecord}
             >
+              {recording && <span className="transcription__rec-dot" aria-hidden="true" />}
               {recording ? t('tx.recording', { secs: seconds }) : t('tx.record')}
             </button>
+            {recordError && <span className="transcription__rec-error">{t(recordError)}</span>}
           </div>
 
           <button
@@ -253,7 +239,7 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
           <div className="transcription__actions">
             <button
               className="transcription__btn"
-              onClick={() => void navigator.clipboard.writeText(toTxt(renamed))}
+              onClick={() => void navigator.clipboard.writeText(toTxt(display))}
             >
               {t('tx.copy')}
             </button>
@@ -292,7 +278,7 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
           {state.segments.length === 0 ? (
             <div className="transcription__status">{t('tx.noSpeech')}</div>
           ) : (
-            <TranscriptBody segments={renamed} />
+            <TranscriptBody segments={display} />
           )}
         </div>
       )}
@@ -327,11 +313,14 @@ function TranscriptBody({ segments }: { segments: TranscriptSegment[] }): JSX.El
 function useRecorder(onClip: (blob: File) => void): {
   recording: boolean
   seconds: number
+  recordError: string | null
   toggleRecord: () => void
 } {
   const [recording, setRecording] = useState(false)
   const [seconds, setSeconds] = useState(0)
+  const [recordError, setRecordError] = useState<string | null>(null)
   const recRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -340,33 +329,57 @@ function useRecorder(onClip: (blob: File) => void): {
     timerRef.current = null
   }
 
-  useEffect(() => () => stopTimer(), [])
+  // Unmounting mid-recording must release the OS mic device, or it stays held
+  // until the app restarts. Stop the recorder + every track on cleanup.
+  useEffect(
+    () => () => {
+      stopTimer()
+      try {
+        recRef.current?.stop()
+      } catch {
+        /* already stopped */
+      }
+      for (const tr of streamRef.current?.getTracks() ?? []) tr.stop()
+    },
+    [],
+  )
 
   const toggleRecord = useCallback(() => {
     if (recording) {
       recRef.current?.stop()
       return
     }
-    void navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-      const rec = new MediaRecorder(stream)
-      chunksRef.current = []
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-      rec.onstop = () => {
-        stopTimer()
+    setRecordError(null)
+    void navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        streamRef.current = stream
+        const rec = new MediaRecorder(stream)
+        chunksRef.current = []
+        rec.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data)
+        }
+        rec.onstop = () => {
+          stopTimer()
+          setRecording(false)
+          for (const tr of stream.getTracks()) tr.stop()
+          streamRef.current = null
+          const blob = new File(chunksRef.current, 'recording.webm', { type: 'audio/webm' })
+          onClip(blob)
+        }
+        recRef.current = rec
+        rec.start()
+        setRecording(true)
+        setSeconds(0)
+        timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000)
+      })
+      .catch((err: unknown) => {
+        // Permission denied / no device — surface it instead of failing silently.
         setRecording(false)
-        for (const tr of stream.getTracks()) tr.stop()
-        const blob = new File(chunksRef.current, 'recording.webm', { type: 'audio/webm' })
-        onClip(blob)
-      }
-      recRef.current = rec
-      rec.start()
-      setRecording(true)
-      setSeconds(0)
-      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000)
-    })
+        const name = err instanceof Error ? err.name : ''
+        setRecordError(name === 'NotFoundError' ? 'tx.recNoDevice' : 'tx.recDenied')
+      })
   }, [recording, onClip])
 
-  return { recording, seconds, toggleRecord }
+  return { recording, seconds, recordError, toggleRecord }
 }
