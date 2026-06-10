@@ -33,6 +33,11 @@ use tokio::fs::File;
 #[serde(rename_all = "camelCase")]
 pub struct ModelManifest {
     pub version: String,
+    // Tier-independent models downloaded for every install (whisper +
+    // diarization for the transcription feature). Optional so older manifests
+    // without it still parse.
+    #[serde(default)]
+    pub common: Vec<ModelEntry>,
     pub tiers: HashMap<String, TierBundle>,
 }
 
@@ -60,6 +65,8 @@ pub enum ModelRole {
     Llm,
     Embedder,
     Reranker,
+    Whisper,
+    Diarization,
 }
 
 // Compile-time-bake the manifest into the binary. The .json lives at the
@@ -135,6 +142,9 @@ where
     F: FnMut(ProgressEvent) + Send,
 {
     let bundle = bundle_for_tier(tier);
+    // Common models (whisper + diarization for transcription) download for every
+    // tier, alongside the tier's GGUFs, into the same models/ dir.
+    let common = &manifest().common;
     let models_dir = install_dir.join("models");
     tokio::fs::create_dir_all(&models_dir)
         .await
@@ -142,11 +152,12 @@ where
 
     let client = build_client();
 
-    let bundle_total = bundle.total_size_bytes.max(1);
+    let common_total: u64 = common.iter().map(|m| m.size_bytes).sum();
+    let bundle_total = (bundle.total_size_bytes + common_total).max(1);
     let mut downloaded_far: u64 = 0;
-    let mut results = Vec::with_capacity(bundle.models.len());
+    let mut results = Vec::with_capacity(common.len() + bundle.models.len());
 
-    for entry in &bundle.models {
+    for entry in common.iter().chain(bundle.models.iter()) {
         let target = models_dir.join(&entry.filename);
         // Idempotency : if a complete file with the right size + sha256
         // exists , skip. Useful for retries after a mid-bundle failure.
@@ -399,6 +410,22 @@ mod tests {
         assert!(m.tiers.contains_key("lite"));
         assert!(m.tiers.contains_key("standard"));
         assert!(m.tiers.contains_key("pro"));
+    }
+
+    #[test]
+    fn common_has_whisper_and_two_diarization_models() {
+        let m = manifest();
+        let roles: Vec<ModelRole> = m.common.iter().map(|c| c.role).collect();
+        assert!(roles.contains(&ModelRole::Whisper), "common missing whisper");
+        assert!(
+            roles.iter().filter(|r| **r == ModelRole::Diarization).count() >= 2,
+            "common needs segmentation + embedding diarization models"
+        );
+        for c in &m.common {
+            assert!(c.url.starts_with("https://"), "{} bad url", c.id);
+            assert!(!c.filename.is_empty(), "{} empty filename", c.id);
+            assert!(c.size_bytes > 0, "{} zero size", c.id);
+        }
     }
 
     #[test]
