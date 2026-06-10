@@ -543,7 +543,14 @@ function getRetrievalService(): RetrievalService {
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), documentsWorker)
+  documentService ??= new DocumentService(
+    getAuth(),
+    getProviderRegistry(),
+    documentsWorker,
+    // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
+    // ingest path (import, reindex, refresh, folder-sync).
+    () => getSettingsService().get().retrieval,
+  )
   return documentService
 }
 
@@ -1311,6 +1318,12 @@ function registerIpc(): void {
       // basic.language and is unaffected by this. )
       const answerLang = getSettingsService().get().basic.answerLanguage
       if (answerLang === 'de' || answerLang === 'en') opts.language = answerLang
+
+      // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
+      // setting. The renderer never pins opts.topK, so this always applies for
+      // chat; the configured value overrides the per-query adaptiveTopK
+      // heuristic (which remains the fallback for quiz / eval callers).
+      if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
 
       const conversations =
         opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
