@@ -10,7 +10,7 @@
 
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { parseClock } from '../transcription/subtitles'
+import { parseClock } from '@shared/subtitles'
 import type {
   TxWorkerRequest,
   TxWorkerResponse,

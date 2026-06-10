@@ -4,11 +4,12 @@ import { Sidebar, usePinnedSidebar } from './Sidebar'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
 import { QuizView } from '../quiz/QuizView'
+import { TranscriptionView } from '../transcription/TranscriptionView'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import './shell.css'
 
-type ViewKind = 'library' | 'chat' | 'quiz'
+type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription'
 
 export function AppShell(): JSX.Element {
   const t = useT()
@@ -176,6 +177,7 @@ export function AppShell(): JSX.Element {
             documents={workspaceDocs}
           />
         )}
+        {activeView === 'transcription' && <TranscriptionView workspaceId={activeWorkspaceId} />}
       </main>
       {confirmDeleteWorkspace && (
         <ConfirmModal

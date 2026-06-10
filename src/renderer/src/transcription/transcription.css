@@ -1,0 +1,115 @@
+.transcription {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.transcription__header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.transcription__controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.transcription__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1, #9aa4ad);
+  font-size: 13px;
+}
+.transcription__field select {
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.transcription__seg {
+  display: inline-flex;
+  border: 1px solid var(--border, #30363d);
+  border-radius: var(--radius, 10px);
+  overflow: hidden;
+}
+.transcription__seg button {
+  padding: 6px 12px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 0;
+  cursor: pointer;
+}
+.transcription__seg button.is-active {
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+.transcription__record {
+  padding: 6px 14px;
+  border-radius: var(--radius, 10px);
+  border: 1px solid var(--border, #30363d);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  cursor: pointer;
+}
+.transcription__record.is-recording {
+  border-color: #f85149;
+  color: #f85149;
+}
+.transcription__drop {
+  width: 100%;
+  min-height: 160px;
+  border: 2px dashed var(--border, #30363d);
+  border-radius: var(--radius, 10px);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-1, #9aa4ad);
+  cursor: pointer;
+  font-size: 14px;
+}
+.transcription__drop--over {
+  border-color: var(--accent, #3b82f6);
+  color: var(--fg-0, #e6edf3);
+}
+.transcription__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-1, #9aa4ad);
+  padding: 12px 0;
+}
+.transcription__bar {
+  flex: 1;
+  max-width: 320px;
+}
+.transcription__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.transcription__btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #30363d);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  cursor: pointer;
+}
+.transcription__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.transcription__body {
+  line-height: 1.55;
+}
+.transcription__body p {
+  margin: 0 0 8px;
+}
+.transcription__error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f85149;
+  padding: 12px 0;
+}
