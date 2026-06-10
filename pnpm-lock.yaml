@@ -14,6 +14,9 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.4.5
         version: 0.4.5
+      '@kutalia/whisper-node-addon':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@napi-rs/canvas':
         specifier: ^0.1.65
         version: 0.1.100
@@ -59,9 +62,6 @@ importers:
       sherpa-onnx:
         specifier: ^1.13.2
         version: 1.13.2
-      smart-whisper:
-        specifier: ^0.8.1
-        version: 0.8.1
       tesseract.js:
         specifier: ^6.0.1
         version: 6.0.1(encoding@0.1.13)
@@ -774,6 +774,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@kutalia/whisper-node-addon@1.1.0':
+    resolution: {integrity: sha512-tfTQcvllmgO+X5Vmk+a+iF/dXj0LCS/oJgbLALPA2T8JKOQ2LhCozj5wjFZyEZ8JqivNhlewSpTSFlV/A/ofbA==}
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -3514,9 +3517,6 @@ packages:
   node-addon-api@1.7.2:
     resolution: {integrity: sha512-ibPK3iA+vaY1eEjESkQkM0BbCqFOaZMiXRTtdB0u7b4djtY6JnsjvPdUHVMg6xQt3B8fpTTWHI9A+ADjM9frzg==}
 
-  node-addon-api@7.1.1:
-    resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
-
   node-addon-api@8.7.0:
     resolution: {integrity: sha512-9MdFxmkKaOYVTV+XVRG8ArDwwQ77XIgIPyKASB1k3JPq3M8fGQQQE3YpMOrKm6g//Ktx8ivZr8xo1Qmtqub+GA==}
     engines: {node: ^18 || ^20 || >= 21}
@@ -4128,9 +4128,6 @@ packages:
   smart-buffer@4.2.0:
     resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==}
     engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
-
-  smart-whisper@0.8.1:
-    resolution: {integrity: sha512-0DnhD6Hq7kTpWAJxv057o8rkcZ2Sv2/ZpJZJjj/DT+8Ll/zH5EHQM1lSwk+W15AvfDPD3K2ku+MD2KCXD51z5A==}
 
   socks-proxy-agent@7.0.0:
     resolution: {integrity: sha512-Fgl0YPZ902wEsAyiQ+idGd1A7rSFx/ayC1CQVMw5P+EQx2V0SgpGtf6OKFhVjPflPUl9YMmEOnmfjCdMUsygww==}
@@ -5312,6 +5309,11 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@kutalia/whisper-node-addon@1.1.0':
+    dependencies:
+      node-abi: 3.92.0
+      node-addon-api: 8.7.0
 
   '@kwsites/file-exists@1.1.1':
     dependencies:
@@ -8370,8 +8372,6 @@ snapshots:
   node-addon-api@1.7.2:
     optional: true
 
-  node-addon-api@7.1.1: {}
-
   node-addon-api@8.7.0: {}
 
   node-api-headers@1.8.0: {}
@@ -9153,10 +9153,6 @@ snapshots:
       is-fullwidth-code-point: 5.1.0
 
   smart-buffer@4.2.0: {}
-
-  smart-whisper@0.8.1:
-    dependencies:
-      node-addon-api: 7.1.1
 
   socks-proxy-agent@7.0.0:
     dependencies:
