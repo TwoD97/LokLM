@@ -613,6 +613,15 @@ jobs:
             "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
 
       - name: Commit manifest bump
+        # Pushed over SSH with a write deploy key instead of GITHUB_TOKEN :
+        # main's ruleset requires PRs and on a personal repo the
+        # github-actions app can't be a bypass actor ( the v0.4.0 bump
+        # push was rejected with GH006 ). Deploy keys CAN bypass — the
+        # 'main-pr-required' ruleset lists DeployKey as a bypass actor ,
+        # and RELEASE_PUSH_SSH_KEY holds the key registered as
+        # 'release-manifest-push (CI bump-and-redeploy)'.
+        env:
+          RELEASE_PUSH_SSH_KEY: ${{ secrets.RELEASE_PUSH_SSH_KEY }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -622,7 +631,13 @@ jobs:
           fi
           git add website/src/data/releases.ts
           git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux + macos assets"
-          git push origin main
+          mkdir -p ~/.ssh
+          printf '%s\n' "$RELEASE_PUSH_SSH_KEY" > ~/.ssh/release_push_key
+          chmod 600 ~/.ssh/release_push_key
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/release_push_key -o StrictHostKeyChecking=yes" \
+            git push git@github.com:${{ github.repository }}.git HEAD:main
+          rm -f ~/.ssh/release_push_key
 
       - name: Clean up SSH key
         if: always()
