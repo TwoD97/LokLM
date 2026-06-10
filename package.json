@@ -130,7 +130,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.0",
-    "sherpa-onnx": "^1.13.2",
+    "sherpa-onnx-node": "^1.13.2",
     "tesseract.js": "^6.0.1"
   },
   "build": {
