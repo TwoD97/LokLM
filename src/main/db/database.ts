@@ -5,6 +5,7 @@ import { eq, desc, sql } from 'drizzle-orm'
 import * as schema from './schema'
 import { documents, chunks, workspaces } from './schema'
 import type { Document, NewDocument, NewChunk, Workspace } from './schema'
+import type { LibrarySearchOptions } from '../../shared/documents'
 
 // PgliteDatabase intersected with $client so migrate.ts can call client.exec()
 // for multi-statement SQL (drizzle's db.execute goes through prepared statements
@@ -137,6 +138,25 @@ export interface ChunkSearchOptions {
   /** Cap each document at this many chunks in the candidate pool via
    *  ROW_NUMBER(). Stops content-dense docs from monopolising the pool. */
   perDocK?: number
+}
+
+/** Raw row shape of DocumentsRepo.searchLibrary (AP-6). snake_case mirrors the
+ *  SQL projection; the IPC handler maps it to the camelCase LibrarySearchHit and
+ *  splits `headline`'s ⟦⟧ sentinels into segments. */
+export interface LibrarySearchRow {
+  chunk_id: number
+  document_id: number
+  document_title: string
+  doc_type: string
+  page_from: number | null
+  page_to: number | null
+  heading_path: string[] | null
+  score: number
+  added_at: number | null
+  byte_size: number | null
+  language: 'de' | 'en' | 'other' | null
+  /** ts_headline excerpt with ⟦…⟧ around matched terms (prefix-fallback when empty). */
+  headline: string
 }
 
 export class DocumentsRepo {
@@ -567,6 +587,120 @@ export class DocumentsRepo {
        LIMIT ${topK}
     `)
     return r.rows as unknown as SearchHit[]
+  }
+
+  // AP-6 (Pflichtenheft §3.5): lexical library search. Superset of searchChunks
+  // — same bilingual BM25 CTE — plus ts_headline highlighting, doc-type/date/size
+  // filters, a sort switch, and per-document dedup (one best chunk per doc). Kept
+  // separate from searchChunks (chat depends on that one) and from the model-backed
+  // hybrid RetrievalService (the library must search before any embedder loads).
+  //
+  // ts_headline wraps matched terms in ⟦…⟧ sentinels (U+27E6/7, never in real
+  // text) so the IPC layer can split into segments and the renderer renders
+  // <mark> without dangerouslySetInnerHTML. The headline config is picked per
+  // chunk language; COALESCE falls back to the other-language query, then to a
+  // whitespace-collapsed text prefix so every hit shows a non-empty excerpt.
+  async searchLibrary(
+    workspaceId: number,
+    query: string,
+    opts: LibrarySearchOptions = {},
+  ): Promise<LibrarySearchRow[]> {
+    const cleaned = query.trim()
+    if (!cleaned) return []
+    const typesLit = opts.types && opts.types.length > 0 ? '{' + opts.types.join(',') + '}' : null
+    const addedAfter = opts.addedAfter ?? null
+    const minBytes = opts.minBytes ?? null
+    const maxBytes = opts.maxBytes ?? null
+    const sort = opts.sort ?? 'relevance'
+    const topK = opts.topK && opts.topK > 0 ? opts.topK : 50
+
+    const r = await this.db.execute(sql`
+      WITH q AS (
+        SELECT
+          plainto_tsquery('german',  ${cleaned}) AS qg,
+          plainto_tsquery('english', ${cleaned}) AS qe
+      ),
+      qq AS (
+        SELECT
+          COALESCE(NULLIF(replace(qg::text, '&', '|'), '')::tsquery, ''::tsquery) ||
+          COALESCE(NULLIF(replace(qe::text, '&', '|'), '')::tsquery, ''::tsquery) AS query,
+          qg, qe
+        FROM q
+      ),
+      hits AS (
+        SELECT
+          c.id           AS chunk_id,
+          c.document_id  AS document_id,
+          d.title        AS document_title,
+          c.page_from    AS page_from,
+          c.page_to      AS page_to,
+          c.heading_path AS heading_path,
+          c.language     AS language,
+          d.added_at     AS added_at,
+          d.byte_size    AS byte_size,
+          CASE
+            WHEN lower(d.source_path) LIKE '%.pdf'  THEN 'pdf'
+            WHEN lower(d.source_path) LIKE '%.docx' THEN 'docx'
+            WHEN lower(d.source_path) LIKE '%.md' OR lower(d.source_path) LIKE '%.markdown' THEN 'md'
+            WHEN lower(d.source_path) ~ '\\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|c|h|cpp|hpp|cs|rb|php|swift|sh|sql|json|yaml|yml|toml|html|css|scss|xml)$' THEN 'code'
+            WHEN lower(d.source_path) LIKE '%.txt' OR lower(d.source_path) LIKE '%.rst' THEN 'txt'
+            ELSE 'txt'
+          END AS doc_type,
+          ts_rank_cd(
+            setweight(to_tsvector('german',  c.text), 'A') ||
+            setweight(to_tsvector('english', c.text), 'B'),
+            qq.query
+          ) AS score,
+          COALESCE(
+            NULLIF(
+              ts_headline(
+                CASE WHEN c.language = 'de' THEN 'german'::regconfig ELSE 'english'::regconfig END,
+                c.text,
+                CASE WHEN c.language = 'de'
+                     THEN COALESCE(NULLIF(qq.qg::text, '')::tsquery, qq.qe)
+                     ELSE COALESCE(NULLIF(qq.qe::text, '')::tsquery, qq.qg) END,
+                'StartSel=⟦, StopSel=⟧, MaxFragments=2, MaxWords=18, MinWords=6, HighlightAll=FALSE'
+              ),
+              ''
+            ),
+            left(regexp_replace(c.text, '\\s+', ' ', 'g'), 240)
+          ) AS headline
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        CROSS JOIN qq
+        WHERE qq.query::text <> ''
+          AND (setweight(to_tsvector('german',  c.text), 'A') ||
+               setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
+          AND d.workspace_id = ${workspaceId}
+          AND d.status = 'ready'
+          AND (${addedAfter}::bigint IS NULL OR d.added_at >= ${addedAfter}::bigint)
+          AND (${minBytes}::bigint IS NULL OR d.byte_size >= ${minBytes}::bigint)
+          AND (${maxBytes}::bigint IS NULL OR d.byte_size <= ${maxBytes}::bigint)
+      ),
+      filtered AS (
+        SELECT * FROM hits
+        WHERE ${typesLit}::text[] IS NULL OR doc_type = ANY(${typesLit}::text[])
+      ),
+      ranked AS (
+        SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY document_id
+                 ORDER BY score DESC, chunk_id
+               ) AS doc_rank
+          FROM filtered
+      )
+      SELECT chunk_id, document_id, document_title, doc_type, page_from, page_to,
+             heading_path, score, added_at, byte_size, language, headline
+        FROM ranked
+       WHERE doc_rank = 1
+       ORDER BY
+         CASE WHEN ${sort} = 'relevance' THEN score END DESC NULLS LAST,
+         CASE WHEN ${sort} = 'filename'  THEN lower(document_title) END ASC NULLS LAST,
+         CASE WHEN ${sort} = 'added'     THEN added_at END DESC NULLS LAST,
+         score DESC, document_id ASC
+       LIMIT ${topK}
+    `)
+    return r.rows as unknown as LibrarySearchRow[]
   }
 
   async searchChunksByVector(
