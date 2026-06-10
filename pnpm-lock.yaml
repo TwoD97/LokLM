@@ -59,7 +59,7 @@ importers:
       sharp:
         specifier: ^0.34.0
         version: 0.34.5
-      sherpa-onnx:
+      sherpa-onnx-node:
         specifier: ^1.13.2
         version: 1.13.2
       tesseract.js:
@@ -4064,8 +4064,38 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  sherpa-onnx@1.13.2:
-    resolution: {integrity: sha512-hheOLl4JlOzERco73u+1Q/LaNDdFChDe4r3+IlMYIO3wggBZrReHDSxWwRUIW+YLw3eLslyiXw/hfb75aOylEA==}
+  sherpa-onnx-darwin-arm64@1.13.2:
+    resolution: {integrity: sha512-sakY1+WH/Va/vhzwlhIKXaMr0ioKsJ55w785QH+VDFyUqq1+2InbmB3BgX5gyYKeuW40R0U0IW5c7wnMArhpdw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  sherpa-onnx-darwin-x64@1.13.2:
+    resolution: {integrity: sha512-VyiTiaU/QmBKh5ymEVefc86kMONyJxHaIKpAq0Cf60v/PGEfyfiFaWGGEJyysf8R8PXECB2YLv2wtKAomfcfcw==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherpa-onnx-linux-arm64@1.13.2:
+    resolution: {integrity: sha512-IJNyd6ORcMpy1oR2ZXGNidRiPuIh5KWoOYSIOhW9UQ/BUIY43P6fq8Y3XcFj1xNjBtwke7keMW9DA7ZPYxlYoQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherpa-onnx-linux-x64@1.13.2:
+    resolution: {integrity: sha512-CI2pTKgbOTOpAbm6cSwsFzJZ9qD+xcpEKPfmMCMI7KjaEePnTfky+FYxVBvllbYNk9DQznuTT0Ob9XsBhwtE/Q==}
+    cpu: [x64]
+    os: [linux]
+
+  sherpa-onnx-node@1.13.2:
+    resolution: {integrity: sha512-uIH6SA5Or4pb8HlCYWB3K54XkMtzdef4/tkw1amtIf8GB1tt6hQLpur9p2jSFNfTYRyzZ8XrXofxefXQ0A7EUA==}
+
+  sherpa-onnx-win-ia32@1.13.2:
+    resolution: {integrity: sha512-PJxFuZB6VcwxscP9whLdxBMhHWZ88Ax35LeKpAZWXIvFjIviX1yPJB1+ndhXvF9Nh1L8gPgO9MUBfC1BMKqzvw==}
+    cpu: [ia32]
+    os: [win32]
+
+  sherpa-onnx-win-x64@1.13.2:
+    resolution: {integrity: sha512-D11eEIW4LZLK6Q+yPGmpJ+45gV8EqiwcPNZiE/RoveBsasZCBtl3YXXqvH2APyHafhDk+L8pD/dDR7HdH3GZJw==}
+    cpu: [x64]
+    os: [win32]
 
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
@@ -9070,7 +9100,32 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  sherpa-onnx@1.13.2: {}
+  sherpa-onnx-darwin-arm64@1.13.2:
+    optional: true
+
+  sherpa-onnx-darwin-x64@1.13.2:
+    optional: true
+
+  sherpa-onnx-linux-arm64@1.13.2:
+    optional: true
+
+  sherpa-onnx-linux-x64@1.13.2:
+    optional: true
+
+  sherpa-onnx-node@1.13.2:
+    optionalDependencies:
+      sherpa-onnx-darwin-arm64: 1.13.2
+      sherpa-onnx-darwin-x64: 1.13.2
+      sherpa-onnx-linux-arm64: 1.13.2
+      sherpa-onnx-linux-x64: 1.13.2
+      sherpa-onnx-win-ia32: 1.13.2
+      sherpa-onnx-win-x64: 1.13.2
+
+  sherpa-onnx-win-ia32@1.13.2:
+    optional: true
+
+  sherpa-onnx-win-x64@1.13.2:
+    optional: true
 
   side-channel-list@1.0.1:
     dependencies:
