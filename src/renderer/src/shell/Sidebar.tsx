@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   GraduationCap,
+  Mic,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -14,7 +15,7 @@ import {
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
 
-type ViewKind = 'library' | 'chat' | 'quiz'
+type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription'
 
 type Props = {
   expanded: boolean
@@ -103,6 +104,14 @@ export function Sidebar({
           title={t('shell.navQuiz')}
         >
           <GraduationCap size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
+        </button>
+        <button
+          className={`sidebar__rail-btn ${activeView === 'transcription' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('transcription')}
+          aria-label={t('shell.navTranscription')}
+          title={t('shell.navTranscription')}
+        >
+          <Mic size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
         </button>
       </div>
       {expanded && (

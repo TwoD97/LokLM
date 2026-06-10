@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -115,6 +115,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.4.5",
+    "@kutalia/whisper-node-addon": "^1.1.0",
     "@napi-rs/canvas": "^0.1.65",
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
@@ -129,6 +130,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.0",
+    "sherpa-onnx-node": "^1.13.2",
     "tesseract.js": "^6.0.1"
   },
   "build": {
@@ -153,7 +155,9 @@
       "**/node_modules/@img/**",
       "**/node_modules/sharp/**",
       "**/node_modules/tesseract.js/**",
-      "**/node_modules/tesseract.js-core/**"
+      "**/node_modules/tesseract.js-core/**",
+      "**/node_modules/@kutalia/whisper-node-addon/**",
+      "**/node_modules/sherpa-onnx-*/**"
     ],
     "publish": null,
     "npmRebuild": false,
