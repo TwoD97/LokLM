@@ -20,6 +20,10 @@ export interface UserSettings {
      *  first token arrives. Default false — checklist collapses into a single
      *  "pipeline X ms" chip in the metrics row once tokens start streaming. */
     showPipelineSteps: boolean
+    /** UI colour theme. 'system' follows the OS preference; 'light'/'dark'
+     *  force it. Applied instantly in the renderer via
+     *  document.documentElement.dataset.theme (see theme/useTheme.ts). */
+    theme: 'system' | 'light' | 'dark'
   }
   advanced: {
     llm: {
@@ -54,18 +58,36 @@ export interface UserSettings {
       allowRemoteOllama: boolean
     }
   }
+  /** AP-9 retrieval/indexing knobs. Persisted here so the settings table holds
+   *  every AP-9 field; the UI controls + backend consumption land in a Partner
+   *  ticket (chunker.ts DEFAULT, RetrievalService/QAService.adaptiveTopK). */
+  retrieval: {
+    chunkSize: number // 500–8000
+    chunkOverlap: number // 0–500
+    topK: number // 3–30
+  }
+  /** AP-9 runtime behaviour. Partner ticket wires the model lifecycle. */
+  runtime: {
+    conversationSwitch: 'unload' | 'keep'
+  }
+  /** AP-9 security. Partner ticket wires AuthService.setInactivityMs
+   *  (autoLockMinutes * 60_000; 0 = never → timer disabled). */
+  security: {
+    autoLockMinutes: 5 | 15 | 60 | 0 // 0 = never
+  }
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
   schemaVersion: 1,
   basic: {
-    // English-first UI default ; users can switch to German.
-    language: 'en',
+    // German-first UI default per AP-9 ; users can switch to English.
+    language: 'de',
     // Auto by default : reply in the language the user writes in ( DE/EN ).
     // Picking 'de'/'en' locks the answer language regardless of the prompt.
     answerLanguage: 'auto',
     llmProfile: 'auto',
     showPipelineSteps: false,
+    theme: 'system',
   },
   advanced: {
     llm: { source: 'bundled', contextChoice: 'auto' },
@@ -81,6 +103,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
       allowRemoteOllama: false,
     },
   },
+  retrieval: { chunkSize: 2000, chunkOverlap: 200, topK: 10 },
+  runtime: { conversationSwitch: 'keep' },
+  security: { autoLockMinutes: 15 },
 }
 
 export const SETTINGS_KEY = 'user.settings'

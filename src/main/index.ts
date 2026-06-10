@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
+import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
 import { FolderSyncService } from './services/documents/FolderSyncService'
@@ -12,6 +13,7 @@ import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfil
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
+import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwitch'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
@@ -348,6 +350,12 @@ async function applySettings(s: UserSettings): Promise<void> {
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)
   getRerankerService().setPlacement(s.advanced.reranker.placement)
 
+  // AP-9 §3.8 "Sperre": apply the auto-lock timeout. 0 ("nie") maps to an
+  // infinite timeout so the inactivity timer never trips (see inactivity.ts).
+  // Runs on every settings:update AND right after login/register, so a changed
+  // value takes effect immediately and the persisted value is restored on unlock.
+  getAuth().setInactivityMs(inactivityMsFromMinutes(s.security.autoLockMinutes))
+
   // Rebuild Ollama providers from the current config (best-effort — no probe here).
   // Loopback gate (defense in depth ; the UI already blocks this path , but a
   // stale renderer or third-party IPC client must not be able to bypass it).
@@ -562,7 +570,14 @@ function getRetrievalService(): RetrievalService {
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(getAuth(), getProviderRegistry(), documentsWorker)
+  documentService ??= new DocumentService(
+    getAuth(),
+    getProviderRegistry(),
+    documentsWorker,
+    // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
+    // ingest path (import, reindex, refresh, folder-sync).
+    () => getSettingsService().get().retrieval,
+  )
   return documentService
 }
 
@@ -700,6 +715,15 @@ function registerIpc(): void {
   // same brute-force lockout as login.
   ipcMain.handle('auth:verifyPassword', async (_e, input: { password: string }) =>
     getAuth().verifyPassword(input.password),
+  )
+
+  // AP-9 Account §3.8: change the vault password (re-key the DEK). Requires the
+  // current password; recovery codes keep working. No auth-state broadcast —
+  // the session stays unlocked, the renderer just flashes success.
+  ipcMain.handle(
+    'auth:changePassword',
+    async (_e, input: { currentPassword: string; newPassword: string }) =>
+      getAuth().changePassword(input.currentPassword, input.newPassword),
   )
 
   // frameless-window controls , React titlebar calls these.
@@ -1390,6 +1414,12 @@ function registerIpc(): void {
       const answerLang = getSettingsService().get().basic.answerLanguage
       if (answerLang === 'de' || answerLang === 'en') opts.language = answerLang
 
+      // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
+      // setting. The renderer never pins opts.topK, so this always applies for
+      // chat; the configured value overrides the per-query adaptiveTopK
+      // heuristic (which remains the fallback for quiz / eval callers).
+      if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
+
       const conversations =
         opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
 
@@ -1491,6 +1521,20 @@ function registerIpc(): void {
   )
   ipcMain.handle('chat:cancel', async (_e, streamId: string) => {
     activeStreams.get(streamId)?.abort()
+  })
+
+  // AP-9 §3.8 "Konv.-Wechsel": the renderer calls this when the user switches to
+  // a different conversation. When the setting is 'unload' we free the LLM
+  // eagerly (rather than waiting for LlamaService's idle timer); 'keep' is a
+  // no-op. shouldUnloadOnConversationSwitch skips the unload while any chat
+  // stream is live (activeStreams) so an in-flight answer is never killed.
+  ipcMain.handle('chat:conversationSwitched', async () => {
+    const mode = getSettingsService().get().runtime.conversationSwitch
+    if (shouldUnloadOnConversationSwitch(mode, activeStreams.size > 0)) {
+      await getLlamaService()
+        .unload()
+        .catch(() => undefined)
+    }
   })
 
   // quiz — see docs/superpowers/specs/2026-05-21-quiz-feature-design.md

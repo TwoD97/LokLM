@@ -36,13 +36,13 @@ export function ReindexGateModal({
             {t('settings.reindex.bodyMid')} <code>{toIdentity}</code>{' '}
             {t('settings.reindex.bodyPost')}
           </p>
-          {error && <div style={{ color: '#ff8080', marginBottom: 12 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--error)', marginBottom: 12 }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button onClick={onCancel} disabled={busy}>
               {t('common.cancel')}
             </button>
             <button
-              style={{ background: '#2c5d4f', color: '#fff' }}
+              style={{ background: 'var(--success)', color: '#fff' }}
               disabled={busy}
               onClick={async () => {
                 setBusy(true)

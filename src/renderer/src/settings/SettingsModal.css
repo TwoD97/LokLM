@@ -987,3 +987,38 @@
   background: var(--bg-elev);
   color: var(--fg-0);
 }
+
+/* ── Slider control (settings) ─────────────────────────────────────────── */
+.settings-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+.settings-slider__input {
+  flex: 1;
+  min-width: 140px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.settings-slider__value {
+  min-width: 70px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-1);
+  font-size: 13px;
+}
+
+/* ── Light-mode contrast for warning/notice text built for a dark bg ─────── */
+:root[data-theme='light'] .settings-advanced-banner,
+:root[data-theme='light'] .settings-inline-warning {
+  color: #8a6d00;
+  background: rgba(240, 180, 41, 0.16);
+}
+:root[data-theme='light'] .settings-model-card__badge--missing {
+  color: #8a5a00;
+}
+:root[data-theme='light'] .settings-section__notice {
+  color: #2c4a7c;
+  background: rgba(123, 165, 234, 0.16);
+}
