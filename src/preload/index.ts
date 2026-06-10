@@ -92,6 +92,15 @@ const api = {
       | { ok: false; reason: 'no_user' | 'locked_session' | 'bad_password' }
       | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
     > => ipcRenderer.invoke('auth:verifyPassword', { password }),
+    changePassword: (
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<
+      | { ok: true }
+      | { ok: false; reason: 'locked_session' | 'no_user' | 'bad_password' }
+      | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+      | { ok: false; reason: 'weak_password'; message: string }
+    > => ipcRenderer.invoke('auth:changePassword', { currentPassword, newPassword }),
     onState: (cb: (state: AuthStatus) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, state: AuthStatus): void => cb(state)
       ipcRenderer.on('auth:state', listener)
@@ -333,6 +342,9 @@ const api = {
       opts?: AnswerOptions,
     ): Promise<void> => ipcRenderer.invoke('chat:stream', streamId, workspaceId, query, opts ?? {}),
     cancel: (streamId: string): Promise<void> => ipcRenderer.invoke('chat:cancel', streamId),
+    // AP-9 Konv.-Wechsel: signal a conversation switch so main can free the
+    // model when the user picked "unload" (no-op for "keep").
+    conversationSwitched: (): Promise<void> => ipcRenderer.invoke('chat:conversationSwitched'),
     onEvent: (streamId: string, cb: (ev: StreamEvent) => void): (() => void) => {
       const channel = `chat:stream-event:${streamId}`
       const listener = (_e: IpcRendererEvent, ev: StreamEvent): void => cb(ev)

@@ -25,6 +25,10 @@ export function BasicTab(): JSX.Element {
   const t = useT()
   const { settings, update, savedFlash } = useSettings()
   const [info, setInfo] = useState<SystemInfo | null>(null)
+  // AP-9 §3.8: switching the model profile reloads the LLM (unload + autoLoad).
+  // Gate it behind a confirmation so a stray card click can't kick off a
+  // multi-GB reload. pendingProfile holds the choice awaiting confirmation.
+  const [pendingProfile, setPendingProfile] = useState<LlmProfileChoice | null>(null)
 
   useEffect(() => {
     void window.api.llm.info().then(setInfo)
@@ -53,6 +57,21 @@ export function BasicTab(): JSX.Element {
           { value: 'en', label: 'English' },
         ]}
         onChange={(v) => void update({ basic: { language: v } })}
+      />
+
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">{t('settings.basic.theme')}</span>
+        <span className="settings-section-head__sub">{t('settings.basic.themeSub')}</span>
+      </div>
+      <Segmented
+        ariaLabel={t('settings.basic.theme')}
+        value={settings.basic.theme}
+        options={[
+          { value: 'system', label: t('settings.basic.themeSystem') },
+          { value: 'light', label: t('settings.basic.themeLight') },
+          { value: 'dark', label: t('settings.basic.themeDark') },
+        ]}
+        onChange={(v) => void update({ basic: { theme: v } })}
       />
 
       <div className="settings-section-head">
@@ -121,7 +140,9 @@ export function BasicTab(): JSX.Element {
               type="button"
               className={`settings-model-card ${active ? 'settings-model-card--active' : ''}`}
               disabled={!available}
-              onClick={() => void update({ basic: { llmProfile: p.value } })}
+              onClick={() => {
+                if (p.value !== settings.basic.llmProfile) setPendingProfile(p.value)
+              }}
             >
               <div className="settings-model-card__head">
                 <span className="settings-model-card__title">{p.label}</span>
@@ -182,6 +203,39 @@ export function BasicTab(): JSX.Element {
           <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
         </span>
       </div>
+
+      {pendingProfile && (
+        <div className="settings-backdrop" role="presentation">
+          <div className="settings-modal" style={{ width: 460 }} role="dialog" aria-modal="true">
+            <div className="settings-modal__body">
+              <h3 style={{ marginTop: 0 }}>{t('settings.basic.reloadConfirmTitle')}</h3>
+              <p>
+                {t('settings.basic.reloadConfirmBody', {
+                  profile:
+                    PROFILES.find((p) => p.value === pendingProfile)?.label ?? pendingProfile,
+                })}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button onClick={() => setPendingProfile(null)}>{t('common.cancel')}</button>
+                <button
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                  onClick={() => {
+                    const next = pendingProfile
+                    setPendingProfile(null)
+                    // Persist first so applySettings sets the selected profile in
+                    // main, THEN reload so autoLoad picks up the new choice.
+                    void update({ basic: { llmProfile: next } })
+                      .then(() => window.api.llm.reload())
+                      .catch(() => undefined)
+                  }}
+                >
+                  {t('settings.basic.reloadConfirmAction')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

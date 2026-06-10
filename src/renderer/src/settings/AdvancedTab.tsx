@@ -1,19 +1,31 @@
 import { useState } from 'react'
-import { AlertTriangle, BarChart3, Brain, Check, Plug, Search, type LucideIcon } from 'lucide-react'
+import {
+  AlertTriangle,
+  BarChart3,
+  Brain,
+  Check,
+  Plug,
+  Search,
+  SlidersHorizontal,
+  type LucideIcon,
+} from 'lucide-react'
 import { useSettings } from './useSettings'
 import { LlmSection } from './sections/LlmSection'
 import { EmbedderSection } from './sections/EmbedderSection'
 import { RerankerSection } from './sections/RerankerSection'
+import { IndexingSection } from './sections/IndexingSection'
 import { DiagnosticsSection } from './sections/DiagnosticsSection'
+import { BehaviorSection } from './sections/BehaviorSection'
 import { OllamaSection } from './OllamaSection'
 import { useT } from '../i18n'
 import { DEFAULT_SETTINGS } from '@shared/settings'
 
-type SubTab = 'llm' | 'retrieval' | 'ollama' | 'diagnostics'
+type SubTab = 'llm' | 'retrieval' | 'behavior' | 'ollama' | 'diagnostics'
 
 const SUBTABS: { id: SubTab; labelKey: string; Icon: LucideIcon }[] = [
   { id: 'llm', labelKey: 'settings.advanced.subtabLlm', Icon: Brain },
   { id: 'retrieval', labelKey: 'settings.advanced.subtabRetrieval', Icon: Search },
+  { id: 'behavior', labelKey: 'settings.advanced.subtabBehavior', Icon: SlidersHorizontal },
   { id: 'ollama', labelKey: 'settings.advanced.subtabOllama', Icon: Plug },
   { id: 'diagnostics', labelKey: 'settings.advanced.subtabDiagnostics', Icon: BarChart3 },
 ]
@@ -58,10 +70,12 @@ export function AdvancedTab(): JSX.Element {
       {sub === 'llm' && <LlmSection settings={settings} update={update} />}
       {sub === 'retrieval' && (
         <>
+          <IndexingSection settings={settings} update={update} />
           <EmbedderSection settings={settings} update={update} />
           <RerankerSection settings={settings} update={update} />
         </>
       )}
+      {sub === 'behavior' && <BehaviorSection settings={settings} update={update} />}
       {sub === 'ollama' && <OllamaSection settings={settings} update={update} />}
       {sub === 'diagnostics' && <DiagnosticsSection />}
 

@@ -22,6 +22,22 @@
   --error-bg: rgba(248, 81, 73, 0.1);
   --error-border: rgba(248, 81, 73, 0.35);
   --success: #3fb950;
+  --success-bg: rgba(63, 185, 80, 0.15);
+  --success-border: rgba(63, 185, 80, 0.4);
+
+  /* Amber/warning — no equivalent existed; used for missing-file banners,
+     mid-score tones, and the source-viewer highlight hint. */
+  --warning: #e3b341;
+  --warning-bg: rgba(227, 179, 65, 0.12);
+  --warning-border: rgba(227, 179, 65, 0.38);
+
+  /* Muted accent fills (chat user bubble, send button, citation chips, quiz
+     selected option). Translucent so they tint the adaptive surface beneath
+     instead of baking in a dark navy — that's what lets them flip in light
+     mode. --accent-soft-strong reads as a distinct filled chip; --accent-soft
+     as a faint wash. */
+  --accent-soft: rgba(59, 130, 246, 0.16);
+  --accent-soft-strong: rgba(59, 130, 246, 0.28);
 
   --brand-ink: #0b1b2b;
   --brand-paper: #f6f4ef;
@@ -55,6 +71,81 @@
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────
+ * Activated by document.documentElement.dataset.theme = 'light'
+ * (theme/useTheme.ts). Draft palette — review before release. */
+:root[data-theme='light'] {
+  --bg-0: #f6f7f9;
+  --bg-1: #ffffff;
+  --bg-2: #eceff3;
+  --bg-elev: rgba(31, 35, 40, 0.03);
+
+  --fg-0: #1f2328;
+  --fg-1: #424a53;
+  --fg-2: #636c76;
+  --fg-3: #8a929c;
+
+  --border: rgba(31, 35, 40, 0.12);
+  --border-strong: rgba(31, 35, 40, 0.22);
+
+  --accent: #2563eb;
+  --accent-hover: #3b82f6;
+  --accent-active: #1d4ed8;
+  --accent-glow: rgba(37, 99, 235, 0.22);
+
+  --error: #d1242f;
+  --error-bg: rgba(209, 36, 47, 0.08);
+  --error-border: rgba(209, 36, 47, 0.3);
+  --success: #1a7f37;
+  --success-bg: rgba(26, 127, 55, 0.12);
+  --success-border: rgba(26, 127, 55, 0.34);
+
+  --warning: #9a6700;
+  --warning-bg: rgba(154, 103, 0, 0.1);
+  --warning-border: rgba(154, 103, 0, 0.3);
+
+  --accent-soft: rgba(37, 99, 235, 0.1);
+  --accent-soft-strong: rgba(37, 99, 235, 0.16);
+
+  --ring: 0 0 0 3px rgba(37, 99, 235, 0.3);
+
+  --shadow-1: 0 1px 2px rgba(31, 35, 40, 0.1);
+  --shadow-2: 0 8px 24px rgba(31, 35, 40, 0.12);
+  --shadow-glow: 0 0 0 1px var(--border-strong), 0 12px 32px rgba(31, 35, 40, 0.14);
+
+  color-scheme: light;
+}
+
+/* Pre-JS first paint: honour the OS preference before useThemeEffect runs, so
+ * a light-mode OS doesn't flash the dark palette. Once JS sets data-theme the
+ * attribute selectors above win by specificity. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg-0: #f6f7f9;
+    --bg-1: #ffffff;
+    --bg-2: #eceff3;
+    --fg-0: #1f2328;
+    --fg-1: #424a53;
+    --fg-2: #636c76;
+    --fg-3: #8a929c;
+    --border: rgba(31, 35, 40, 0.12);
+    --border-strong: rgba(31, 35, 40, 0.22);
+    color-scheme: light;
+  }
+}
+
+/* ── Light-mode overrides for chrome built dark-only ──────────────────────
+ * Some chrome hardcodes dark backgrounds (e.g. the titlebar gradient). Under
+ * data-theme='light' those need a light surface so text/icons (which use the
+ * now-dark --fg tokens) stay legible. Full per-feature light polish (chat,
+ * quiz, library) is tracked in a follow-up ticket. */
+:root[data-theme='light'] .titlebar {
+  background: var(--bg-1);
+}
+:root[data-theme='light'] .titlebar__logo {
+  filter: none;
 }
 
 * {

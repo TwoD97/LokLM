@@ -17,6 +17,7 @@ import {
   tagChunkLanguages,
   type Chunk,
 } from './chunker'
+import { resolveChunkOptions } from './chunkOptions'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
@@ -45,6 +46,11 @@ export class DocumentService {
      *  streaming on the models worker). Tests construct DocumentService without
      *  one and the inline path is used as a fallback. */
     private readonly worker?: DocumentsWorkerClient,
+    /** AP-9 §3.8: supplies the user's configured chunk size/overlap so every
+     *  ingest path (import, reindex, refresh, folder-sync) chunks per the
+     *  indexing settings. Optional — tests omit it and the chunker DEFAULT
+     *  applies. An explicit ImportInput value still wins. */
+    private readonly retrievalDefaults?: () => { chunkSize: number; chunkOverlap: number },
   ) {}
 
   // ---- bounded indexing queue --------------------------------------------
@@ -358,6 +364,10 @@ export class DocumentService {
       // The worker path runs both parse + chunk off the main event loop so
       // the renderer stays responsive even on book-length PDFs ; the inline
       // path is the fallback for tests/contexts without a worker.
+      // AP-9 §3.8: chunk size/overlap come from the indexing settings (an
+      // explicit ImportInput value still wins). Every ingest path funnels
+      // through here, so all of them honour the sliders.
+      const effChunk = resolveChunkOptions(input, this.retrievalDefaults?.())
       let out: Chunk[]
       if (this.worker) {
         const chunkPayload: {
@@ -369,8 +379,8 @@ export class DocumentService {
           sourcePath: doc.sourcePath,
           documentId: doc.id,
         }
-        if (input.chunkSize !== undefined) chunkPayload.chunkSize = input.chunkSize
-        if (input.chunkOverlap !== undefined) chunkPayload.chunkOverlap = input.chunkOverlap
+        if (effChunk.chunkSize !== undefined) chunkPayload.chunkSize = effChunk.chunkSize
+        if (effChunk.chunkOverlap !== undefined) chunkPayload.chunkOverlap = effChunk.chunkOverlap
         // Surface scanned-page OCR progress under the parsing phase so a slow
         // OCR pass reads as progress, not a hang. Unregister once parse returns.
         const offOcr = this.worker.registerOcrProgress(doc.id, (done, total) =>
@@ -389,8 +399,8 @@ export class DocumentService {
         })
         send('chunking', 2)
         const chunkOpts: Parameters<typeof chunkPages>[1] = {}
-        if (input.chunkSize !== undefined) chunkOpts.maxChars = input.chunkSize
-        if (input.chunkOverlap !== undefined) chunkOpts.overlap = input.chunkOverlap
+        if (effChunk.chunkSize !== undefined) chunkOpts.maxChars = effChunk.chunkSize
+        if (effChunk.chunkOverlap !== undefined) chunkOpts.overlap = effChunk.chunkOverlap
         if (parsed.kind === 'markdown') {
           out = chunkMarkdown(parsed.sections, chunkOpts)
         } else if (parsed.kind === 'pdf' && parsed.sections.length > 0) {

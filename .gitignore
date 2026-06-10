@@ -178,6 +178,12 @@ release
 # Lokale Test-Notizen (Zugangsdaten / Recovery-Phrasen) — NIE committen
 test-notes/
 
+# Lokale Abgabe-Dokumente (Team-Abgabe) — nicht auf GitHub
+docs/abgabe/
+
+# Lokale Anleitung (nur für Dominik) — bleibt lokal, nicht auf GitHub
+tests/evals/ANLEITUNG-DOMINIK.md
+
 # Generated splash assets ( rebuilt by scripts/build-installer-splash.mjs
 # before package:win:installer ; source of truth is installer-ui/splash.html )
 resources/installer-splash.bmp

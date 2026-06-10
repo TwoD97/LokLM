@@ -17,6 +17,13 @@ export function ProfileTab(): JSX.Element {
   const [activePresetHue, setActivePresetHue] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
+  // AP-9 Account §3.8 "Passwort ändern" — own form state, kept out of the
+  // name/avatar `error`/`savedFlash` so the two sections don't cross-talk.
+  const [pwCurrent, setPwCurrent] = useState('')
+  const [pwNew, setPwNew] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwError, setPwError] = useState<string | null>(null)
+  const [pwBusy, setPwBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -128,6 +135,33 @@ export function ProfileTab(): JSX.Element {
     [savedName, flashSaved],
   )
 
+  const submitPassword = useCallback(async (): Promise<void> => {
+    setPwError(null)
+    if (pwNew !== pwConfirm) {
+      setPwError(t('settings.profile.pwMismatch'))
+      return
+    }
+    setPwBusy(true)
+    try {
+      const res = await window.api.auth.changePassword(pwCurrent, pwNew)
+      if (res.ok) {
+        setPwCurrent('')
+        setPwNew('')
+        setPwConfirm('')
+        flashSaved()
+        return
+      }
+      if (res.reason === 'weak_password') setPwError(res.message)
+      else if (res.reason === 'bad_password') setPwError(t('settings.profile.pwWrongCurrent'))
+      else if (res.reason === 'rate_limited') setPwError(t('settings.profile.pwRateLimited'))
+      else setPwError(t('settings.profile.pwError'))
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPwBusy(false)
+    }
+  }, [pwCurrent, pwNew, pwConfirm, t, flashSaved])
+
   return (
     <div>
       <div className="settings-profile-card">
@@ -229,6 +263,44 @@ export function ProfileTab(): JSX.Element {
         >
           {t('settings.profile.recoverySet')} <Check size={14} aria-hidden="true" />
         </span>
+      </div>
+
+      <div className="settings-section-head">
+        <span className="settings-section-head__title">{t('settings.profile.changePassword')}</span>
+        <span className="settings-section-head__sub">
+          {t('settings.profile.changePasswordSub')}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
+        <input
+          type="password"
+          autoComplete="current-password"
+          placeholder={t('settings.profile.currentPassword')}
+          value={pwCurrent}
+          onChange={(e) => setPwCurrent(e.target.value)}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('settings.profile.newPassword')}
+          value={pwNew}
+          onChange={(e) => setPwNew(e.target.value)}
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          placeholder={t('settings.profile.confirmPassword')}
+          value={pwConfirm}
+          onChange={(e) => setPwConfirm(e.target.value)}
+        />
+        <button
+          style={{ alignSelf: 'flex-start' }}
+          disabled={!pwCurrent || !pwNew || !pwConfirm || pwBusy}
+          onClick={() => void submitPassword()}
+        >
+          {t('settings.profile.changePasswordAction')}
+        </button>
+        {pwError && <div style={{ color: 'var(--error)', fontSize: 13 }}>{pwError}</div>}
       </div>
 
       <div style={{ marginTop: 14 }}>
