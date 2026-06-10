@@ -4,15 +4,15 @@
 
 | Feld                | Wert                            |
 | ------------------- | ------------------------------- |
-| Status              | Nicht durchgeführt              |
-| Ergebnis            | Offen                           |
+| Status              | Durchgeführt                    |
+| Ergebnis            | Bestanden                       |
 | Bereich             | Library / Suche                 |
 | Arbeitspaket        | AP-6                            |
 | Priorität           | Hoch                            |
-| Datum               |                                 |
+| Datum               | 2026-06-10                      |
 | Tester              | dominik.furlan@lbs4.salzburg.at |
-| Betriebssystem      |                                 |
-| App-Version / Build |                                 |
+| Betriebssystem      | Windows 11 Home (10.0.26200)    |
+| App-Version / Build | 0.3.1                           |
 
 ## Ziel
 
@@ -79,18 +79,18 @@ durch tx-, Integrations- und Komponententests automatisiert abgedeckt.
 
 | Prüfpunkte                                     | Ergebnis |
 | ---------------------------------------------- | -------- |
-| Library erreichbar?                            | Offen    |
-| Trefferliste erscheint beim Tippen?            | Offen    |
-| Name + Ort (Seite/Heading) sichtbar?           | Offen    |
-| Suchbegriff im Auszug hervorgehoben?           | Offen    |
-| Typ-Filter wirkt?                              | Offen    |
-| Datum-Filter wirkt?                            | Offen    |
-| Größe-Filter wirkt?                            | Offen    |
-| Sortierung Dateiname korrekt?                  | Offen    |
-| Sortierung Importdatum korrekt?                | Offen    |
-| Klick öffnet SourceViewer an richtiger Stelle? | Offen    |
-| Leeres Suchfeld → Browse-Ansicht zurück?       | Offen    |
-| Fehlermeldungen aufgetreten?                   | Offen    |
+| Library erreichbar?                            | OK       |
+| Trefferliste erscheint beim Tippen?            | OK       |
+| Name + Ort (Seite/Heading) sichtbar?           | OK       |
+| Suchbegriff im Auszug hervorgehoben?           | OK       |
+| Typ-Filter wirkt?                              | OK       |
+| Datum-Filter wirkt?                            | OK       |
+| Größe-Filter wirkt?                            | OK       |
+| Sortierung Dateiname korrekt?                  | OK       |
+| Sortierung Importdatum korrekt?                | OK       |
+| Klick öffnet SourceViewer an richtiger Stelle? | OK       |
+| Leeres Suchfeld → Browse-Ansicht zurück?       | OK       |
+| Fehlermeldungen aufgetreten?                   | Nein     |
 
 ## Notizen
 
