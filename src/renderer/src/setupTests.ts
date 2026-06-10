@@ -332,6 +332,29 @@ const stub: Api = {
     cancel: () => Promise.resolve(),
     onEvent: () => () => undefined,
   },
+  transcription: {
+    stageBegin: () => Promise.resolve('aud-1'),
+    stageChunk: () => Promise.resolve(),
+    stageCommit: (audioId: string, durationSec: number) =>
+      Promise.resolve({ audioId, durationSec }),
+    run: () => Promise.resolve(),
+    cancel: () => Promise.resolve(),
+    onEvent: () => () => undefined,
+    modelStatus: () => Promise.resolve([]),
+    saveToWorkspace: (workspaceId: number) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId,
+        title: 'transcript',
+        sourcePath: '/stub/transcript.txt',
+        mimeType: null,
+        byteSize: null,
+        status: 'pending' as const,
+        chunkCount: 0,
+        tokenCount: 0,
+        addedAt: Math.floor(Date.now() / 1000),
+      }),
+  },
   settings: {
     get: () => Promise.resolve(DEFAULT_SETTINGS),
     update: () => Promise.resolve(DEFAULT_SETTINGS),

@@ -9,6 +9,12 @@ import type {
 } from '../shared/authTypes'
 import type { UserSettings } from '../shared/settings'
 import type {
+  TranscriptionOptions,
+  TranscriptionEvent,
+  StagedAudio,
+  WhisperModelStatus,
+} from '../shared/transcription'
+import type {
   QuizDeck,
   QuizDeckSummary,
   QuizDeckWithQuestions,
@@ -335,6 +341,29 @@ const api = {
         ipcRenderer.removeListener(channel, listener)
       }
     },
+  },
+  transcription: {
+    stageBegin: (): Promise<string> => ipcRenderer.invoke('transcription:stageBegin'),
+    stageChunk: (audioId: string, bytes: Uint8Array): Promise<void> =>
+      ipcRenderer.invoke('transcription:stageChunk', audioId, bytes),
+    stageCommit: (audioId: string, durationSec: number): Promise<StagedAudio> =>
+      ipcRenderer.invoke('transcription:stageCommit', audioId, durationSec),
+    run: (streamId: string, audioId: string, opts: TranscriptionOptions): Promise<void> =>
+      ipcRenderer.invoke('transcription:run', streamId, audioId, opts),
+    cancel: (streamId: string): Promise<void> =>
+      ipcRenderer.invoke('transcription:cancel', streamId),
+    onEvent: (streamId: string, cb: (ev: TranscriptionEvent) => void): (() => void) => {
+      const channel = `transcription:event:${streamId}`
+      const listener = (_e: IpcRendererEvent, ev: TranscriptionEvent): void => cb(ev)
+      ipcRenderer.on(channel, listener)
+      return () => {
+        ipcRenderer.removeListener(channel, listener)
+      }
+    },
+    modelStatus: (): Promise<WhisperModelStatus[]> =>
+      ipcRenderer.invoke('transcription:modelStatus'),
+    saveToWorkspace: (workspaceId: number, text: string, ext: 'txt' | 'md'): Promise<Document> =>
+      ipcRenderer.invoke('transcription:saveToWorkspace', workspaceId, text, ext),
   },
   settings: {
     get: (): Promise<UserSettings> => ipcRenderer.invoke('settings:get'),

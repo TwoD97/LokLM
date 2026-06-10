@@ -17,6 +17,16 @@ import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
+import { TranscriptionWorkerClient } from './services/workers/TranscriptionWorkerClient'
+import { DiarizationWorkerClient } from './services/workers/DiarizationWorkerClient'
+import { TranscriptionService } from './services/transcription/TranscriptionService'
+import { WHISPER_MODELS } from './services/transcription/modelCatalog'
+import { resolveWhisperModel } from './services/transcription/paths'
+import type {
+  TranscriptionOptions,
+  TranscriptionEvent,
+  WhisperModelStatus,
+} from '../shared/transcription'
 import {
   checkAll as checkModelsAvailability,
   sweepLegacyUserDataModels,
@@ -152,6 +162,13 @@ const modelsWorker = new ModelsWorkerClient()
 // from model inference so a heavy/scanned PDF import never stutters chat-token
 // streaming or blocks main.
 const documentsWorker = new DocumentsWorkerClient()
+// Audio transcription (whisper via @kutalia/whisper-node-addon) and speaker
+// diarization (sherpa-onnx-node) each run in their OWN dedicated utilityProcess,
+// isolated from model inference + document parsing. The diarization worker is
+// spawned lazily on first use.
+const transcriptionWorker = new TranscriptionWorkerClient()
+const diarizationWorker = new DiarizationWorkerClient()
+const transcriptionService = new TranscriptionService(transcriptionWorker, diarizationWorker)
 // Post-login warmup runs on a small delay so the renderer can mount the main
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
@@ -1125,6 +1142,49 @@ function registerIpc(): void {
     return channel
   })
 
+  // transcription — whisper + diarization in dedicated utilityProcesses. The
+  // renderer decodes/resamples audio to 16 kHz mono and streams the PCM to a
+  // temp file via stageChunk; run() drives transcribe → (diarize → align) and
+  // forwards events on transcription:event:<streamId>.
+  ipcMain.handle('transcription:stageBegin', () => transcriptionService.stager.begin())
+  ipcMain.handle('transcription:stageChunk', async (_e, audioId: string, bytes: Uint8Array) => {
+    await transcriptionService.stager.chunk(audioId, bytes)
+  })
+  ipcMain.handle('transcription:stageCommit', async (_e, audioId: string, durationSec: number) => {
+    await transcriptionService.stager.commit(audioId, durationSec)
+    return { audioId, durationSec }
+  })
+  ipcMain.handle(
+    'transcription:run',
+    async (e, streamId: string, audioId: string, opts: TranscriptionOptions) => {
+      await transcriptionService.run(streamId, audioId, opts, (ev: TranscriptionEvent) => {
+        try {
+          if (!e.sender.isDestroyed()) e.sender.send(`transcription:event:${streamId}`, ev)
+        } catch {
+          /* renderer torn down — drop the event */
+        }
+      })
+    },
+  )
+  ipcMain.handle('transcription:cancel', (_e, streamId: string) => {
+    transcriptionService.cancel(streamId)
+  })
+  ipcMain.handle('transcription:modelStatus', (): WhisperModelStatus[] =>
+    (Object.keys(WHISPER_MODELS) as Array<keyof typeof WHISPER_MODELS>).map((id) => ({
+      id,
+      present: resolveWhisperModel(id) != null,
+      bytes: WHISPER_MODELS[id].bytes,
+      downloading: false,
+    })),
+  )
+  ipcMain.handle(
+    'transcription:saveToWorkspace',
+    async (e, workspaceId: number, text: string, ext: 'txt' | 'md') => {
+      const path = transcriptionService.writeTranscriptFile(text, ext)
+      return getDocumentService().importFile({ workspaceId, sourcePath: path, sender: e.sender })
+    },
+  )
+
   // embedder
   ipcMain.handle('embedder:status', async () =>
     composeEmbedderStatus(getEmbeddingService().getStatus()),
@@ -1549,6 +1609,14 @@ function createMainWindow(): BrowserWindow {
       sandbox: false,
     },
   })
+
+  // Allow microphone capture for in-app audio recording (transcription). Scoped
+  // to the media permission only; the renderer is our own trusted, isolated
+  // context (contextIsolation: true, nodeIntegration: false).
+  window.webContents.session.setPermissionRequestHandler((_wc, permission, cb) =>
+    cb(permission === 'media'),
+  )
+  window.webContents.session.setPermissionCheckHandler((_wc, permission) => permission === 'media')
 
   // mirror the OS maximize/unmaximize state to the renderer so the React
   // titlebar can swap the maximize <-> restore icon.
