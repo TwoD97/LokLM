@@ -53,24 +53,42 @@ function readPcm(path: string): Float32Array {
 
 async function onTranscribe(p: WhisperTranscribePayload): Promise<WhisperTranscribeResult> {
   const pcm = readPcm(p.audioPath)
-  const { transcription } = await addon.transcribe({
+  const base = {
     pcmf32: pcm,
     model: p.modelPath,
     language: p.language === 'auto' ? 'auto' : p.language,
     translate: p.task === 'translate',
-    use_gpu: p.gpu,
     n_threads: p.threads,
     no_prints: true,
     comma_in_time: false,
     progress_callback: (prog: unknown) =>
       send({ ev: 'progress', streamId: p.streamId, done: Number(prog) || 0, total: 100 }),
-  })
+  }
+  // Attempt GPU (the binding auto-detects Vulkan/Metal and silently uses CPU
+  // when there's no GPU). If GPU init actually throws, fall back to CPU so a
+  // flaky/unsupported GPU never fails the transcription.
+  let transcription: string[][] | string[]
+  try {
+    ;({ transcription } = await addon.transcribe({ ...base, use_gpu: p.gpu }))
+  } catch (err) {
+    if (!p.gpu) throw err
+    send({
+      ev: 'log',
+      level: 'warn',
+      message: `GPU transcription failed, using CPU: ${String(err)}`,
+    })
+    ;({ transcription } = await addon.transcribe({ ...base, use_gpu: false }))
+  }
   const segments: TranscriptSegment[] = []
   for (const row of transcription as string[][]) {
     if (Array.isArray(row) && row.length >= 3) {
       const text = String(row[2]).trim()
-      if (text.length > 0)
-        segments.push({ start: parseClock(row[0]!), end: parseClock(row[1]!), text })
+      const start = parseClock(row[0]!)
+      const end = parseClock(row[1]!)
+      // Drop rows with malformed timestamps — NaN start/end would corrupt
+      // alignment + srt/vtt formatting downstream.
+      if (text.length > 0 && !Number.isNaN(start) && !Number.isNaN(end))
+        segments.push({ start, end, text })
     }
   }
   return { segments }

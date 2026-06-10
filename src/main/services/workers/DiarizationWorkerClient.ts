@@ -110,7 +110,12 @@ export class DiarizationWorkerClient {
   }
 
   async ensureLoaded(p: DiarLoadPayload): Promise<void> {
-    if (this.loaded && this.loaded.segmentationPath === p.segmentationPath) return
+    if (
+      this.loaded &&
+      this.loaded.segmentationPath === p.segmentationPath &&
+      this.loaded.embeddingPath === p.embeddingPath
+    )
+      return
     await this.send('diar.load', p)
     this.loaded = p
   }

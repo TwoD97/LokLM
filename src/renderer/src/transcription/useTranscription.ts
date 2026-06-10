@@ -30,6 +30,7 @@ async function runOne(
   bytes: ArrayBuffer,
   opts: TranscriptionOptions,
   onEvent: (phase: TxPhase, partial: TranscriptSegment[], progress: TxState['progress']) => void,
+  onStart?: (streamId: string) => void,
 ): Promise<TranscriptSegment[]> {
   let decoded
   try {
@@ -46,6 +47,7 @@ async function runOne(
   await window.api.transcription.stageCommit(audioId, decoded.durationSec)
 
   const streamId = `tx-${++streamSeq}`
+  onStart?.(streamId)
   const acc: TranscriptSegment[] = []
   return new Promise<TranscriptSegment[]>((resolve, reject) => {
     const off = window.api.transcription.onEvent(streamId, (ev) => {
@@ -87,10 +89,13 @@ export function useTranscription(): {
   const transcribe = useCallback(async (bytes: ArrayBuffer, opts: TranscriptionOptions) => {
     setQueue([])
     setState({ ...IDLE, phase: 'decoding' })
-    streamIdRef.current = `tx-${streamSeq + 1}`
     try {
-      const segments = await runOne(bytes, opts, (phase, partial, progress) =>
-        setState((s) => ({ ...s, phase, segments: partial, progress })),
+      const segments = await runOne(
+        bytes,
+        opts,
+        (phase, partial, progress) =>
+          setState((s) => ({ ...s, phase, segments: partial, progress })),
+        (id) => (streamIdRef.current = id),
       )
       setState({ phase: 'done', segments, progress: null, error: null })
     } catch (err) {
@@ -109,8 +114,11 @@ export function useTranscription(): {
       setQueue((q) => setRow(q, i, { phase: 'decoding' }))
       try {
         const bytes = await files[i]!.arrayBuffer()
-        const segments = await runOne(bytes, opts, (phase) =>
-          setQueue((q) => setRow(q, i, { phase })),
+        const segments = await runOne(
+          bytes,
+          opts,
+          (phase) => setQueue((q) => setRow(q, i, { phase })),
+          (id) => (streamIdRef.current = id),
         )
         setQueue((q) => setRow(q, i, { phase: 'done', segments }))
       } catch (err) {

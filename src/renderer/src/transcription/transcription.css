@@ -54,9 +54,36 @@
   color: var(--fg-0, #e6edf3);
   cursor: pointer;
 }
+.transcription__record {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .transcription__record.is-recording {
   border-color: #f85149;
   color: #f85149;
+}
+.transcription__rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f85149;
+  animation: tx-rec-pulse 1s ease-in-out infinite;
+}
+@keyframes tx-rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+.transcription__rec-error {
+  color: #f85149;
+  font-size: 12px;
 }
 .transcription__drop {
   width: 100%;
