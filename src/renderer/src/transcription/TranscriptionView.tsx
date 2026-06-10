@@ -56,14 +56,17 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
     })
   }, [state.phase, state.segments])
 
-  const opts: TranscriptionOptions = {
-    task,
-    language,
-    model,
-    diarize,
-    gpu,
-    ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
-  }
+  const opts: TranscriptionOptions = useMemo(
+    () => ({
+      task,
+      language,
+      model,
+      diarize,
+      gpu,
+      ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
+    }),
+    [task, language, model, diarize, gpu, speakers],
+  )
 
   const onFiles = useCallback(
     async (files: File[]) => {
