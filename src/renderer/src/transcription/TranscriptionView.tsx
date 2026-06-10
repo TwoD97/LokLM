@@ -1,20 +1,68 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { useTranscription } from './useTranscription'
-import { toTxt } from '@shared/subtitles'
-import type { TranscriptionOptions, TranscriptSegment } from '@shared/transcription'
+import { SpeakerLabels } from './SpeakerLabels'
+import { toTxt, toSrt, toVtt } from '@shared/subtitles'
+import type {
+  TranscriptionOptions,
+  TranscriptSegment,
+  WhisperModelId,
+  WhisperModelStatus,
+} from '@shared/transcription'
 import './transcription.css'
+
+/** Apply user speaker renames to a segment list (for display + export + save). */
+function applyNames(
+  segments: TranscriptSegment[],
+  names: Record<string, string>,
+): TranscriptSegment[] {
+  return segments.map((s) =>
+    s.speaker && names[s.speaker] ? { ...s, speaker: names[s.speaker]! } : s,
+  )
+}
 
 export function TranscriptionView({ workspaceId }: { workspaceId: number | null }): JSX.Element {
   const t = useT()
   const { state, transcribe, cancel, reset } = useTranscription()
   const [task, setTask] = useState<TranscriptionOptions['task']>('transcribe')
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
+  const [model, setModel] = useState<WhisperModelId>('base')
+  const [models, setModels] = useState<WhisperModelStatus[]>([])
+  const [diarize, setDiarize] = useState(false)
+  const [speakers, setSpeakers] = useState('')
+  const [gpu, setGpu] = useState(false)
   const [over, setOver] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const opts: TranscriptionOptions = { task, language, model: 'base', diarize: false }
+  useEffect(() => {
+    void window.api.transcription.modelStatus().then((m) => {
+      setModels(m)
+      const present = m.find((x) => x.present)
+      if (present) setModel((cur) => (m.find((x) => x.id === cur)?.present ? cur : present.id))
+    })
+  }, [])
+
+  // Seed the rename map from the distinct speakers once a diarized run finishes.
+  useEffect(() => {
+    if (state.phase !== 'done') return
+    const distinct = [...new Set(state.segments.map((s) => s.speaker).filter(Boolean))] as string[]
+    setSpeakerNames((prev) => {
+      const next: Record<string, string> = {}
+      for (const sp of distinct) next[sp] = prev[sp] ?? sp
+      return next
+    })
+  }, [state.phase, state.segments])
+
+  const opts: TranscriptionOptions = {
+    task,
+    language,
+    model,
+    diarize,
+    gpu,
+    ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
+  }
 
   const onFile = useCallback(
     async (file: File | undefined) => {
@@ -27,11 +75,34 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
 
   const { recording, seconds, toggleRecord } = useRecorder((blob) => void onFile(blob))
 
+  const renamed = useMemo(
+    () => applyNames(state.segments, speakerNames),
+    [state.segments, speakerNames],
+  )
+  const distinctSpeakers = useMemo(
+    () => [...new Set(state.segments.map((s) => s.speaker).filter(Boolean))] as string[],
+    [state.segments],
+  )
+
   const onSave = useCallback(async () => {
     if (workspaceId == null) return
-    await window.api.transcription.saveToWorkspace(workspaceId, toTxt(state.segments), 'txt')
+    const ext = distinctSpeakers.length > 0 ? 'md' : 'txt'
+    await window.api.transcription.saveToWorkspace(workspaceId, toTxt(renamed), ext)
     setSaved(true)
-  }, [workspaceId, state.segments])
+  }, [workspaceId, renamed, distinctSpeakers])
+
+  const onExport = useCallback(
+    (fmt: 'txt' | 'srt' | 'vtt') => {
+      const body = fmt === 'srt' ? toSrt(renamed) : fmt === 'vtt' ? toVtt(renamed) : toTxt(renamed)
+      const url = URL.createObjectURL(new Blob([body], { type: 'text/plain' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `transcript.${fmt}`
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+    [renamed],
+  )
 
   return (
     <div className="transcription">
@@ -64,6 +135,46 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
                 <option value="de">Deutsch</option>
                 <option value="en">English</option>
               </select>
+            </label>
+            <label className="transcription__field">
+              {t('tx.model')}
+              <select value={model} onChange={(e) => setModel(e.target.value as WhisperModelId)}>
+                {(models.length > 0
+                  ? models
+                  : [{ id: 'base', present: true } as WhisperModelStatus]
+                ).map((m) => (
+                  <option key={m.id} value={m.id} disabled={!m.present}>
+                    {m.id}
+                    {m.present ? '' : ` (${t('tx.modelMissing')})`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="transcription__controls">
+            <label className="transcription__check">
+              <input
+                type="checkbox"
+                checked={diarize}
+                onChange={(e) => setDiarize(e.target.checked)}
+              />
+              {t('tx.diarize')}
+            </label>
+            {diarize && (
+              <input
+                className="transcription__speakers-input"
+                type="number"
+                min={1}
+                placeholder={t('tx.speakersAuto')}
+                value={speakers}
+                onChange={(e) => setSpeakers(e.target.value)}
+                title={t('tx.speakers')}
+              />
+            )}
+            <label className="transcription__check">
+              <input type="checkbox" checked={gpu} onChange={(e) => setGpu(e.target.checked)} />
+              {t('tx.gpu')}
             </label>
             <button
               className={`transcription__record ${recording ? 'is-recording' : ''}`}
@@ -128,10 +239,23 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
           <div className="transcription__actions">
             <button
               className="transcription__btn"
-              onClick={() => void navigator.clipboard.writeText(toTxt(state.segments))}
+              onClick={() => void navigator.clipboard.writeText(toTxt(renamed))}
             >
               {t('tx.copy')}
             </button>
+            <select
+              className="transcription__btn"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) onExport(e.target.value as 'txt' | 'srt' | 'vtt')
+                e.target.value = ''
+              }}
+            >
+              <option value="">{t('tx.export')}</option>
+              <option value="txt">.txt</option>
+              <option value="srt">.srt</option>
+              <option value="vtt">.vtt</option>
+            </select>
             <button
               className="transcription__btn"
               onClick={() => void onSave()}
@@ -144,10 +268,17 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
               {t('tx.again')}
             </button>
           </div>
+          {distinctSpeakers.length > 0 && (
+            <SpeakerLabels
+              originals={distinctSpeakers}
+              names={speakerNames}
+              onRename={(orig, name) => setSpeakerNames((p) => ({ ...p, [orig]: name }))}
+            />
+          )}
           {state.segments.length === 0 ? (
             <div className="transcription__status">{t('tx.noSpeech')}</div>
           ) : (
-            <TranscriptBody segments={state.segments} />
+            <TranscriptBody segments={renamed} />
           )}
         </div>
       )}
