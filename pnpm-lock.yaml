@@ -14,6 +14,9 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.4.5
         version: 0.4.5
+      '@kutalia/whisper-node-addon':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@napi-rs/canvas':
         specifier: ^0.1.65
         version: 0.1.100
@@ -56,6 +59,9 @@ importers:
       sharp:
         specifier: ^0.34.0
         version: 0.34.5
+      sherpa-onnx-node:
+        specifier: ^1.13.2
+        version: 1.13.2
       tesseract.js:
         specifier: ^6.0.1
         version: 6.0.1(encoding@0.1.13)
@@ -768,6 +774,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@kutalia/whisper-node-addon@1.1.0':
+    resolution: {integrity: sha512-tfTQcvllmgO+X5Vmk+a+iF/dXj0LCS/oJgbLALPA2T8JKOQ2LhCozj5wjFZyEZ8JqivNhlewSpTSFlV/A/ofbA==}
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -4055,6 +4064,39 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
+  sherpa-onnx-darwin-arm64@1.13.2:
+    resolution: {integrity: sha512-sakY1+WH/Va/vhzwlhIKXaMr0ioKsJ55w785QH+VDFyUqq1+2InbmB3BgX5gyYKeuW40R0U0IW5c7wnMArhpdw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  sherpa-onnx-darwin-x64@1.13.2:
+    resolution: {integrity: sha512-VyiTiaU/QmBKh5ymEVefc86kMONyJxHaIKpAq0Cf60v/PGEfyfiFaWGGEJyysf8R8PXECB2YLv2wtKAomfcfcw==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherpa-onnx-linux-arm64@1.13.2:
+    resolution: {integrity: sha512-IJNyd6ORcMpy1oR2ZXGNidRiPuIh5KWoOYSIOhW9UQ/BUIY43P6fq8Y3XcFj1xNjBtwke7keMW9DA7ZPYxlYoQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherpa-onnx-linux-x64@1.13.2:
+    resolution: {integrity: sha512-CI2pTKgbOTOpAbm6cSwsFzJZ9qD+xcpEKPfmMCMI7KjaEePnTfky+FYxVBvllbYNk9DQznuTT0Ob9XsBhwtE/Q==}
+    cpu: [x64]
+    os: [linux]
+
+  sherpa-onnx-node@1.13.2:
+    resolution: {integrity: sha512-uIH6SA5Or4pb8HlCYWB3K54XkMtzdef4/tkw1amtIf8GB1tt6hQLpur9p2jSFNfTYRyzZ8XrXofxefXQ0A7EUA==}
+
+  sherpa-onnx-win-ia32@1.13.2:
+    resolution: {integrity: sha512-PJxFuZB6VcwxscP9whLdxBMhHWZ88Ax35LeKpAZWXIvFjIviX1yPJB1+ndhXvF9Nh1L8gPgO9MUBfC1BMKqzvw==}
+    cpu: [ia32]
+    os: [win32]
+
+  sherpa-onnx-win-x64@1.13.2:
+    resolution: {integrity: sha512-D11eEIW4LZLK6Q+yPGmpJ+45gV8EqiwcPNZiE/RoveBsasZCBtl3YXXqvH2APyHafhDk+L8pD/dDR7HdH3GZJw==}
+    cpu: [x64]
+    os: [win32]
+
   side-channel-list@1.0.1:
     resolution: {integrity: sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==}
     engines: {node: '>= 0.4'}
@@ -5297,6 +5339,11 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@kutalia/whisper-node-addon@1.1.0':
+    dependencies:
+      node-abi: 3.92.0
+      node-addon-api: 8.7.0
 
   '@kwsites/file-exists@1.1.1':
     dependencies:
@@ -9052,6 +9099,33 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
+
+  sherpa-onnx-darwin-arm64@1.13.2:
+    optional: true
+
+  sherpa-onnx-darwin-x64@1.13.2:
+    optional: true
+
+  sherpa-onnx-linux-arm64@1.13.2:
+    optional: true
+
+  sherpa-onnx-linux-x64@1.13.2:
+    optional: true
+
+  sherpa-onnx-node@1.13.2:
+    optionalDependencies:
+      sherpa-onnx-darwin-arm64: 1.13.2
+      sherpa-onnx-darwin-x64: 1.13.2
+      sherpa-onnx-linux-arm64: 1.13.2
+      sherpa-onnx-linux-x64: 1.13.2
+      sherpa-onnx-win-ia32: 1.13.2
+      sherpa-onnx-win-x64: 1.13.2
+
+  sherpa-onnx-win-ia32@1.13.2:
+    optional: true
+
+  sherpa-onnx-win-x64@1.13.2:
+    optional: true
 
   side-channel-list@1.0.1:
     dependencies:

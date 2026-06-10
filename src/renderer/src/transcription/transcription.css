@@ -1,0 +1,209 @@
+.transcription {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.transcription__header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.transcription__controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.transcription__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1, #9aa4ad);
+  font-size: 13px;
+}
+.transcription__field select {
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.transcription__seg {
+  display: inline-flex;
+  border: 1px solid var(--border, #30363d);
+  border-radius: var(--radius, 10px);
+  overflow: hidden;
+}
+.transcription__seg button {
+  padding: 6px 12px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 0;
+  cursor: pointer;
+}
+.transcription__seg button.is-active {
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+.transcription__record {
+  padding: 6px 14px;
+  border-radius: var(--radius, 10px);
+  border: 1px solid var(--border, #30363d);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  cursor: pointer;
+}
+.transcription__record {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.transcription__record.is-recording {
+  border-color: #f85149;
+  color: #f85149;
+}
+.transcription__rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f85149;
+  animation: tx-rec-pulse 1s ease-in-out infinite;
+}
+@keyframes tx-rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+.transcription__rec-error {
+  color: #f85149;
+  font-size: 12px;
+}
+.transcription__drop {
+  width: 100%;
+  min-height: 160px;
+  border: 2px dashed var(--border, #30363d);
+  border-radius: var(--radius, 10px);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-1, #9aa4ad);
+  cursor: pointer;
+  font-size: 14px;
+}
+.transcription__drop--over {
+  border-color: var(--accent, #3b82f6);
+  color: var(--fg-0, #e6edf3);
+}
+.transcription__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-1, #9aa4ad);
+  padding: 12px 0;
+}
+.transcription__bar {
+  flex: 1;
+  max-width: 320px;
+}
+.transcription__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.transcription__btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #30363d);
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  cursor: pointer;
+}
+.transcription__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.transcription__body {
+  line-height: 1.55;
+}
+.transcription__body p {
+  margin: 0 0 8px;
+}
+.transcription__error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f85149;
+  padding: 12px 0;
+}
+.transcription__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1, #9aa4ad);
+  font-size: 13px;
+  cursor: pointer;
+}
+.transcription__speakers-input {
+  width: 64px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.transcription__speakers-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.transcription__speaker-input {
+  width: 130px;
+  background: var(--bg-1, #161b22);
+  color: var(--fg-0, #e6edf3);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+.transcription__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.transcription__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border, #30363d);
+}
+.transcription__row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transcription__row-state {
+  color: var(--fg-1, #9aa4ad);
+  font-size: 13px;
+  min-width: 90px;
+}
+.transcription__row-state.is-done {
+  color: #3fb950;
+}
+.transcription__row-state.is-error {
+  color: #f85149;
+}
+.transcription__row-err {
+  color: #f85149;
+  font-size: 12px;
+}
+.transcription__row-save {
+  padding: 4px 10px;
+}

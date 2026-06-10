@@ -26,6 +26,11 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           modelsWorker: resolve(__dirname, 'src/main/services/workers/modelsWorker.ts'),
           documentsWorker: resolve(__dirname, 'src/main/services/workers/documentsWorker.ts'),
+          transcriptionWorker: resolve(
+            __dirname,
+            'src/main/services/workers/transcriptionWorker.ts',
+          ),
+          diarizationWorker: resolve(__dirname, 'src/main/services/workers/diarizationWorker.ts'),
         },
       },
     },
