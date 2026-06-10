@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -155,7 +155,9 @@
       "**/node_modules/@img/**",
       "**/node_modules/sharp/**",
       "**/node_modules/tesseract.js/**",
-      "**/node_modules/tesseract.js-core/**"
+      "**/node_modules/tesseract.js-core/**",
+      "**/node_modules/@kutalia/whisper-node-addon/**",
+      "**/node_modules/sherpa-onnx-*/**"
     ],
     "publish": null,
     "npmRebuild": false,
