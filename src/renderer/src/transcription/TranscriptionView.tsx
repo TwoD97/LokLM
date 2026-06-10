@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { useTranscription } from './useTranscription'
 import { SpeakerLabels } from './SpeakerLabels'
+import { TranscriptList } from './TranscriptList'
 import { toTxt, toSrt, toVtt } from '@shared/subtitles'
 import type {
   TranscriptionOptions,
@@ -23,7 +24,7 @@ function applyNames(
 
 export function TranscriptionView({ workspaceId }: { workspaceId: number | null }): JSX.Element {
   const t = useT()
-  const { state, transcribe, cancel, reset } = useTranscription()
+  const { state, queue, transcribe, transcribeMany, cancel, reset } = useTranscription()
   const [task, setTask] = useState<TranscriptionOptions['task']>('transcribe')
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
   const [model, setModel] = useState<WhisperModelId>('base')
@@ -64,16 +65,21 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
     ...(diarize && speakers.trim() !== '' ? { speakers: Math.max(1, Number(speakers)) } : {}),
   }
 
-  const onFile = useCallback(
-    async (file: File | undefined) => {
-      if (!file) return
+  const onFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return
       setSaved(false)
-      await transcribe(await file.arrayBuffer(), opts)
+      if (files.length === 1) await transcribe(await files[0]!.arrayBuffer(), opts)
+      else await transcribeMany(files, opts)
     },
-    [transcribe, opts],
+    [transcribe, transcribeMany, opts],
+  )
+  const onFile = useCallback(
+    (file: File | undefined) => void onFiles(file ? [file] : []),
+    [onFiles],
   )
 
-  const { recording, seconds, toggleRecord } = useRecorder((blob) => void onFile(blob))
+  const { recording, seconds, toggleRecord } = useRecorder((blob) => onFile(blob))
 
   const renamed = useMemo(
     () => applyNames(state.segments, speakerNames),
@@ -108,7 +114,11 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
     <div className="transcription">
       <header className="transcription__header">{t('tx.title')}</header>
 
-      {state.phase === 'idle' && (
+      {queue.length > 0 && (
+        <TranscriptList rows={queue} workspaceId={workspaceId} onClear={reset} />
+      )}
+
+      {state.phase === 'idle' && queue.length === 0 && (
         <div className="transcription__idle">
           <div className="transcription__controls">
             <div className="transcription__seg" role="group">
@@ -196,7 +206,7 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
             onDrop={(e) => {
               e.preventDefault()
               setOver(false)
-              void onFile(e.dataTransfer.files[0])
+              void onFiles(Array.from(e.dataTransfer.files))
             }}
           >
             {t('tx.drop')}
@@ -205,8 +215,9 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
             ref={fileRef}
             type="file"
             accept="audio/*"
+            multiple
             hidden
-            onChange={(e) => void onFile(e.target.files?.[0])}
+            onChange={(e) => void onFiles(Array.from(e.target.files ?? []))}
           />
         </div>
       )}
