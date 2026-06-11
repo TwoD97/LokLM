@@ -101,6 +101,12 @@ export const settingsDict: DomainDict = {
     'settings.profile.recoverySub': 'Vault is locked behind your passphrase and password.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Recovery passphrase set',
+    'settings.profile.newRecoveryButton': 'Request new recovery codes',
+    'settings.profile.newRecoveryTitle': 'New recovery codes',
+    'settings.profile.newRecoveryWarn':
+      'This invalidates your current recovery codes. Enter your password to continue.',
+    'settings.profile.newRecoveryGenerate': 'Generate',
+    'settings.profile.recoveryError': 'Could not regenerate the recovery codes.',
     'settings.profile.changePassword': 'Change password',
     'settings.profile.changePasswordSub': 'Re-keys your vault. Recovery codes keep working.',
     'settings.profile.currentPassword': 'Current password',
@@ -374,6 +380,12 @@ export const settingsDict: DomainDict = {
       'Der Vault ist durch deine Passphrase und dein Passwort gesperrt.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Wiederherstellungs-Passphrase gesetzt',
+    'settings.profile.newRecoveryButton': 'Neue Recovery-Codes anfordern',
+    'settings.profile.newRecoveryTitle': 'Neue Recovery-Codes',
+    'settings.profile.newRecoveryWarn':
+      'Damit werden deine aktuellen Recovery-Codes ungültig. Gib dein Passwort ein, um fortzufahren.',
+    'settings.profile.newRecoveryGenerate': 'Generieren',
+    'settings.profile.recoveryError': 'Recovery-Codes konnten nicht neu erstellt werden.',
     'settings.profile.changePassword': 'Passwort ändern',
     'settings.profile.changePasswordSub':
       'Verschlüsselt deinen Tresor neu. Recovery-Codes bleiben gültig.',

@@ -487,8 +487,14 @@ export class AuthService {
 
     const newSalt = randomBytes(KEK_SALT_BYTES)
     const newKek = await deriveKEK(newPassword, Buffer.from(newSalt))
-    const newWrappedDek = wrapKey(newKek, this.dek)
-    newKek.fill(0)
+    let newWrappedDek: WrappedKey
+    try {
+      // wrapKey can throw if an auto-lock zeroed this.dek during the argon2
+      // await above; the finally keeps the KEK wipe exception-safe.
+      newWrappedDek = wrapKey(newKek, this.dek)
+    } finally {
+      newKek.fill(0)
+    }
 
     // Build the re-keyed header as a candidate and only swap it into the live
     // session AFTER the write succeeds — mirroring reset()/register(). Mutating
@@ -506,6 +512,60 @@ export class AuthService {
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader
     return { ok: true }
+  }
+
+  /**
+   * Regenerates the recovery passphrase on an unlocked session (AP-9 Account
+   * §3.8). Wraps the live DEK under a fresh recovery KEK and replaces the
+   * recovery entry, so the previous codes stop working; the password wrap and
+   * the encrypted body are untouched. The current password is required (reuses
+   * verifyPassword, which rate-limits), so a passer-by at an open session can't
+   * mint themselves a fresh recovery code. The new passphrase is returned once
+   * for the user to record — it is never persisted in the clear.
+   */
+  async regenerateRecovery(
+    currentPassword: string,
+  ): Promise<
+    | { ok: true; passphrase: string[] }
+    | { ok: false; reason: 'locked_session' | 'no_user' | 'bad_password' }
+    | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+  > {
+    const verified = await this.verifyPassword(currentPassword)
+    if (!verified.ok) return verified
+
+    // verifyPassword confirmed the session is unlocked; the guard satisfies the
+    // type narrowing.
+    if (!this.dek || !this.liveHeader) return { ok: false, reason: 'locked_session' }
+
+    const wordlist = getWordlist(this.liveHeader.recoveryLang)
+    const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
+    const salt = randomBytes(KEK_SALT_BYTES)
+    const kek = await deriveKEK(passphrase.join(' '), Buffer.from(salt))
+    let newEntry: RecoveryEntry
+    try {
+      // wrapKey can throw if an auto-lock zeroed this.dek during the argon2
+      // await above; the finally keeps the KEK wipe exception-safe.
+      newEntry = {
+        salt: salt.toString('base64'),
+        wrappedDek: wrapKey(kek, this.dek),
+        createdAt: nowSec(),
+        usedAt: null,
+      }
+    } finally {
+      kek.fill(0)
+    }
+
+    // Candidate header, swapped in only after the write succeeds (same pattern
+    // as changePassword/reset). Replacing recoveryEntries invalidates the old
+    // codes; the password wrap + DEK are left untouched.
+    const newHeader: AuthHeader = {
+      ...this.liveHeader,
+      recoveryEntries: [newEntry],
+    }
+    const newBody = await this.encryptCurrentDb(this.dek)
+    await this.writeVault(newHeader, newBody)
+    this.liveHeader = newHeader
+    return { ok: true, passphrase }
   }
 
   /**

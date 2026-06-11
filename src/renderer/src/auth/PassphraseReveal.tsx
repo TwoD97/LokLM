@@ -15,7 +15,9 @@ export function PassphraseReveal({ words, title, onAcknowledge }: Props): JSX.El
 
   const copy = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(words.join(' '))
+      // Main-process copy: auto-clears the clipboard after ~60 s so the
+      // passphrase doesn't linger for clipboard history / cloud sync.
+      await window.api.auth.copySecret(words.join(' '))
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {

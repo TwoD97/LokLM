@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { AuthService } from './services/auth/AuthService'
@@ -726,6 +726,31 @@ function registerIpc(): void {
     async (_e, input: { currentPassword: string; newPassword: string }) =>
       getAuth().changePassword(input.currentPassword, input.newPassword),
   )
+
+  // AP-9 Account §3.8: regenerate the recovery passphrase. Requires the current
+  // password; replaces the recovery entry (old codes stop working) without
+  // touching the password wrap or the body. Returns the new passphrase once.
+  ipcMain.handle('auth:regenerateRecovery', async (_e, input: { currentPassword: string }) =>
+    getAuth().regenerateRecovery(input.currentPassword),
+  )
+
+  // Copies a secret (recovery passphrase) and clears the clipboard after a
+  // short TTL — but only if it still holds that exact text, so we never wipe
+  // something the user copied afterwards. Without this the passphrase would sit
+  // in the OS clipboard indefinitely, where the Windows clipboard history
+  // (Win+V) and Cloud-Clipboard sync can pick it up.
+  ipcMain.handle('clipboard:copySecret', async (_e, text: string) => {
+    if (typeof text !== 'string' || text.length === 0) return
+    clipboard.writeText(text)
+    const timer = setTimeout(() => {
+      try {
+        if (clipboard.readText() === text) clipboard.clear()
+      } catch {
+        /* clipboard unavailable — nothing to clean */
+      }
+    }, 60_000)
+    if (typeof timer.unref === 'function') timer.unref()
+  })
 
   // frameless-window controls , React titlebar calls these.
   ipcMain.handle('window:minimize', (e) => {

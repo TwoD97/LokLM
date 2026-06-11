@@ -103,6 +103,17 @@ const api = {
       | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
       | { ok: false; reason: 'weak_password'; message: string }
     > => ipcRenderer.invoke('auth:changePassword', { currentPassword, newPassword }),
+    regenerateRecovery: (
+      currentPassword: string,
+    ): Promise<
+      | { ok: true; passphrase: string[] }
+      | { ok: false; reason: 'locked_session' | 'no_user' | 'bad_password' }
+      | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
+    > => ipcRenderer.invoke('auth:regenerateRecovery', { currentPassword }),
+    /** Copies a secret to the OS clipboard; the main process clears it again
+     *  after ~60 s if it still holds that exact text (clipboard-history /
+     *  cloud-sync hygiene). */
+    copySecret: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:copySecret', text),
     onState: (cb: (state: AuthStatus) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, state: AuthStatus): void => cb(state)
       ipcRenderer.on('auth:state', listener)
