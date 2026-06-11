@@ -5,7 +5,6 @@
 
 export type QuizDeckStatus = 'generating' | 'ready' | 'failed'
 export type QuizLanguage = 'de' | 'en'
-export type QuizQuestionCount = 5 | 10 | 20
 
 export interface QuizDeck {
   id: number
@@ -69,21 +68,26 @@ export interface CreateQuizInput {
   workspaceId: number
   name: string
   documentIds: number[]
-  questionCount: QuizQuestionCount
   language?: QuizLanguage | 'auto'
 }
 
+/** Pre-generation preview for the create dialog: how many questions the
+ *  selected material supports. Computed from stored chunk stats — no LLM. */
+export interface QuizEstimate {
+  questionCount: number
+  unitCount: number
+}
+
 export type QuizGenerationEvent =
-  | { type: 'stage'; stage: 'extracting-themes' | 'merging-themes' | 'allocating' }
-  | { type: 'doc-themes'; docId: number; docIndex: number; docTotal: number; themeCount: number }
-  | { type: 'theme'; themeIndex: number; themeTotal: number; themeTitle: string }
+  | { type: 'plan'; unitCount: number; questionTarget: number }
+  | { type: 'unit'; unitIndex: number; unitTotal: number; unitTitle: string }
   | {
       type: 'question'
       ordinal: number
       total: number
-      themeTitle?: string
-      themeIndex?: number
-      themeTotal?: number
+      unitTitle?: string
+      unitIndex?: number
+      unitTotal?: number
     }
   | { type: 'warning'; message: string }
   | { type: 'done'; deckId: number }
