@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { generateQuestionsForUnit } from '../../src/main/services/quiz/generation'
+import { PER_UNIT_MAX_QUESTIONS } from '../../src/main/services/quiz/prompts'
 import type { QuizUnit } from '../../src/main/services/quiz/units'
 import type { ChunkRow } from '../../src/main/db/database'
 import type { LlmProvider } from '../../src/main/services/providers/types'
@@ -24,7 +25,6 @@ function makeUnit(chunks: ChunkRow[], overrides: Partial<QuizUnit> = {}): QuizUn
     docTitle: 'Crypto Lecture',
     chunks,
     tokens: chunks.reduce((s, c) => s + (c.token_count ?? 0), 0),
-    quota: 1,
     title: 'Key Exchange',
     ...overrides,
   }
@@ -55,34 +55,43 @@ const mcq = (stem: string, chunkId = 1): Record<string, unknown> => ({
 })
 
 describe('generateQuestionsForUnit', () => {
-  it('returns validated questions from exactly one LLM call', async () => {
-    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2')])])
+  it('returns however many validated questions the model decided to write, in one call', async () => {
+    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2'), mcq('Q3'), mcq('Q4')])])
     const out = await generateQuestionsForUnit(llm, {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X is X.'), makeChunk(2, 'More about X.')]),
       acceptedStems: [],
-      count: 2,
     })
-    expect(out.map((q) => q.stem)).toEqual(['Q1', 'Q2'])
+    expect(out.map((q) => q.stem)).toEqual(['Q1', 'Q2', 'Q3', 'Q4'])
     expect(llm.generateRaw).toHaveBeenCalledTimes(1)
   })
 
-  it('passes a schema bounded to `count` items and a proportional maxTokens', async () => {
+  it('bounds the call with the per-unit ceiling schema and proportional maxTokens', async () => {
     const llm = fakeLlm([JSON.stringify([mcq('Q1')])])
     await generateQuestionsForUnit(llm, {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')]),
       acceptedStems: [],
-      count: 2,
     })
     const opts = (llm.generateRaw as ReturnType<typeof vi.fn>).mock.calls[0]![1] as {
       jsonSchema?: { maxItems?: number }
       maxTokens?: number
       noThink?: boolean
     }
-    expect(opts.jsonSchema?.maxItems).toBe(2)
-    expect(opts.maxTokens).toBeGreaterThanOrEqual(2 * 320)
+    expect(opts.jsonSchema?.maxItems).toBe(PER_UNIT_MAX_QUESTIONS)
+    expect(opts.maxTokens).toBeGreaterThanOrEqual(PER_UNIT_MAX_QUESTIONS * 320)
     expect(opts.noThink).toBe(true)
+  })
+
+  it('keeps at most the per-unit ceiling even if the model returns more', async () => {
+    const many = Array.from({ length: PER_UNIT_MAX_QUESTIONS + 3 }, (_, i) => mcq(`Q${i}`))
+    const llm = fakeLlm([JSON.stringify(many)])
+    const out = await generateQuestionsForUnit(llm, {
+      language: 'en',
+      unit: makeUnit([makeChunk(1, 'X')]),
+      acceptedStems: [],
+    })
+    expect(out).toHaveLength(PER_UNIT_MAX_QUESTIONS)
   })
 
   it('includes citable chunk markers, the doc title and the unit title in the prompt', async () => {
@@ -91,23 +100,11 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(7, 'Diffie-Hellman exchanges keys.')]),
       acceptedStems: [],
-      count: 1,
     })
     const prompt = (llm.generateRaw as ReturnType<typeof vi.fn>).mock.calls[0]![0] as string
     expect(prompt).toContain('[chunk:7]')
     expect(prompt).toContain('Crypto Lecture')
     expect(prompt).toContain('Key Exchange')
-  })
-
-  it('caps the output at `count` even if the model returns more', async () => {
-    const llm = fakeLlm([JSON.stringify([mcq('Q1'), mcq('Q2'), mcq('Q3')])])
-    const out = await generateQuestionsForUnit(llm, {
-      language: 'en',
-      unit: makeUnit([makeChunk(1, 'X')]),
-      acceptedStems: [],
-      count: 2,
-    })
-    expect(out).toHaveLength(2)
   })
 
   it('drops stems that duplicate accepted stems after normalization', async () => {
@@ -116,7 +113,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')]),
       acceptedStems: ['what is tls'],
-      count: 2,
     })
     expect(out.map((q) => q.stem)).toEqual(['Fresh question'])
   })
@@ -127,7 +123,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')]),
       acceptedStems: [],
-      count: 2,
     })
     expect(out.map((q) => q.stem)).toEqual(['What is TLS?'])
   })
@@ -138,7 +133,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')]),
       acceptedStems: [],
-      count: 2,
     })
     expect(out).toEqual([])
     expect(llm.generateRaw).toHaveBeenCalledTimes(1)
@@ -152,7 +146,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')]),
       acceptedStems: [],
-      count: 2,
     })
     expect(out.map((q) => q.stem)).toEqual(['Q1', 'Q2'])
     expect(llm.generateRaw).toHaveBeenCalledTimes(1)
@@ -164,7 +157,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([]),
       acceptedStems: [],
-      count: 1,
     })
     expect(out).toEqual([])
     expect(llm.generateRaw).not.toHaveBeenCalled()
@@ -176,7 +168,6 @@ describe('generateQuestionsForUnit', () => {
       language: 'en',
       unit: makeUnit([makeChunk(1, 'X')], { title: 'Hash Functions' }),
       acceptedStems: [],
-      count: 1,
     })
     expect(out[0]!.themeTitle).toBe('Hash Functions')
   })

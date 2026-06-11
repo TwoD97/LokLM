@@ -114,10 +114,8 @@ describe('CreateQuizDialog', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
   })
 
-  it('shows the derived question estimate once documents are selected', async () => {
-    const estimateSpy = vi
-      .spyOn(window.api.quiz, 'estimate')
-      .mockResolvedValue({ questionCount: 12, unitCount: 7 })
+  it('shows the section estimate once documents are selected', async () => {
+    const estimateSpy = vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ unitCount: 7 })
     render(
       <CreateQuizDialog
         workspaceId={1}
@@ -126,14 +124,16 @@ describe('CreateQuizDialog', () => {
         onCreated={() => undefined}
       />,
     )
-    expect(screen.queryByText(/≈/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/sections/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText(/Doc 1/i))
     await waitFor(() => expect(estimateSpy).toHaveBeenCalledWith([1]))
-    expect(await screen.findByText(/≈ 12 questions from 7 sections/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/7 sections — the AI decides how many questions each needs/),
+    ).toBeInTheDocument()
   })
 
   it('shows the empty-material hint when the estimate is zero', async () => {
-    vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ questionCount: 0, unitCount: 0 })
+    vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ unitCount: 0 })
     render(
       <CreateQuizDialog
         workspaceId={1}

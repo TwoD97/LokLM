@@ -7,10 +7,15 @@ import type { LlmProvider } from '../providers/types'
 import type { QuizLanguage } from '../../../shared/quiz'
 import type { AcceptedQuestion } from './types'
 import type { QuizUnit } from './units'
-import { buildUnitQuestionPrompt, questionListSchema, PER_QUESTION_TOKEN_BUDGET } from './prompts'
+import {
+  buildUnitQuestionPrompt,
+  QUESTION_LIST_SCHEMA,
+  PER_QUESTION_TOKEN_BUDGET,
+  PER_UNIT_MAX_QUESTIONS,
+} from './prompts'
 import { extractJsonObjects } from './jsonSalvage'
 
-/** Slack on top of count × per-question budget so the array close bracket and
+/** Slack on top of the per-question budgets so the array close bracket and
  *  whitespace never get clipped by maxTokens. */
 const MAX_TOKENS_HEADROOM = 64
 
@@ -20,20 +25,21 @@ export interface GenerateQuestionsForUnitInput {
   /** Stems already accepted across the deck — duplicates (normalized exact
    *  match) are dropped. */
   acceptedStems: string[]
-  /** Questions to ask for in this single call (the unit's quota). */
-  count: number
   abortSignal?: AbortSignal
 }
 
-/** Produce UP TO `count` validated questions for one unit in ONE call. Bad or
- *  partially bad output yields whatever valid subset parsed (possibly empty)
- *  — the deck simply ships shorter. */
+/** Produce the questions for one unit in ONE call. The MODEL decides how many
+ *  the material needs (coverage brief in the prompt), bounded only by the
+ *  PER_UNIT_MAX_QUESTIONS anti-runaway ceiling. maxTokens covers the ceiling,
+ *  but the grammar lets the model close the array early, so a one-idea unit
+ *  costs one question's worth of decode, not eight. Bad or partially bad
+ *  output yields whatever valid subset parsed (possibly empty). */
 export async function generateQuestionsForUnit(
   llm: LlmProvider,
   input: GenerateQuestionsForUnitInput,
 ): Promise<Array<Omit<AcceptedQuestion, 'ordinal'>>> {
-  const { unit, language, count, acceptedStems, abortSignal } = input
-  if (unit.chunks.length === 0 || count <= 0) return []
+  const { unit, language, acceptedStems, abortSignal } = input
+  if (unit.chunks.length === 0) return []
 
   // Full chunk text — units are budget-bounded at build time, so no slicing.
   const groundingBlock = unit.chunks
@@ -46,12 +52,11 @@ export async function generateQuestionsForUnit(
     docTitle: unit.docTitle,
     unitTitle: unit.title,
     groundingBlock,
-    count,
   })
 
   const raw = await llm.generateRaw(prompt, {
-    jsonSchema: questionListSchema(count),
-    maxTokens: count * PER_QUESTION_TOKEN_BUDGET + MAX_TOKENS_HEADROOM,
+    jsonSchema: QUESTION_LIST_SCHEMA,
+    maxTokens: PER_UNIT_MAX_QUESTIONS * PER_QUESTION_TOKEN_BUDGET + MAX_TOKENS_HEADROOM,
     noThink: true,
     ...(abortSignal ? { abortSignal } : {}),
   })
@@ -68,7 +73,7 @@ export async function generateQuestionsForUnit(
   const seen = new Set(acceptedStems.map(normalizeForCompare))
   const out: Array<Omit<AcceptedQuestion, 'ordinal'>> = []
   for (const q of parsed) {
-    if (out.length >= count) break
+    if (out.length >= PER_UNIT_MAX_QUESTIONS) break
     const key = normalizeForCompare(q.stem)
     if (seen.has(key)) continue
     seen.add(key)

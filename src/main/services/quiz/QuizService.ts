@@ -15,7 +15,7 @@ import type {
 } from '../../../shared/quiz'
 import type { AcceptedQuestion } from './types'
 import { generateQuestionsForUnit } from './generation'
-import { planQuiz, MAX_QUESTIONS, MAX_QUESTIONS_CPU, type QuizUnitDoc } from './units'
+import { planQuiz, type QuizUnitDoc } from './units'
 
 export class QuizService {
   constructor(
@@ -44,12 +44,6 @@ export class QuizService {
     return 'en'
   }
 
-  /** Deck size cap: bounds worst-case generation time. Lower on CPU. */
-  private questionCap(): number {
-    const cpu = this.registry.llm().isCpuInference?.() ?? false
-    return cpu ? MAX_QUESTIONS_CPU : MAX_QUESTIONS
-  }
-
   /** Load (docId, title, non-empty chunks) for each existing document. */
   private async loadUnitDocs(
     documentIds: number[],
@@ -74,17 +68,18 @@ export class QuizService {
     return { unitDocs, warnings }
   }
 
-  /** Create-dialog preview: question count the selected material supports.
-   *  Pure chunk-stat math — runs in milliseconds, no LLM. */
+  /** Create-dialog preview: how many material sections the selection yields.
+   *  Pure chunk-stat math — runs in milliseconds, no LLM. The question count
+   *  is the model's per-section decision, unknowable before generation. */
   async estimate(documentIds: number[]): Promise<QuizEstimate> {
     const { unitDocs } = await this.loadUnitDocs(documentIds)
-    const plan = planQuiz(unitDocs, this.questionCap())
-    return { questionCount: plan.questionCount, unitCount: plan.units.length }
+    return { unitCount: planQuiz(unitDocs).units.length }
   }
 
   /** Create the deck row up-front with status='generating' so the renderer
-   *  has something to render while the pipeline runs. question_count stores
-   *  the planned (derived) count; generate() re-plans and updates it. */
+   *  has something to render while the pipeline runs. question_count starts
+   *  at 0 (unknown — the model decides per unit) and settles to the persisted
+   *  row count when generation finishes. */
   async createDeckRow(input: CreateQuizInput): Promise<QuizDeck> {
     validateCreateInput(input)
     const language = await this.resolveLanguage(
@@ -92,12 +87,11 @@ export class QuizService {
       input.documentIds,
       input.language,
     )
-    const { questionCount } = await this.estimate(input.documentIds)
     return this.db.quizzes().createDeck({
       workspaceId: input.workspaceId,
       name: input.name.trim(),
       documentIds: input.documentIds,
-      questionCount,
+      questionCount: 0,
       language,
     })
   }
@@ -107,8 +101,8 @@ export class QuizService {
    *  On success the deck row flips to status='ready' and questions are
    *  persisted. On any unrecoverable failure status flips to 'failed' with
    *  a populated `error` column. Cancellation flips to 'failed' with
-   *  error='cancelled'. A deck that lands short of the plan still ships as
-   *  'ready' (with a warning event) — there is deliberately no retry. */
+   *  error='cancelled'. Deck size is whatever the model produced across all
+   *  units — there is no target and deliberately no retry. */
   async *generate(deckId: number, abortSignal?: AbortSignal): AsyncIterable<QuizGenerationEvent> {
     const quizzes = this.db.quizzes()
     const llm = this.registry.llm()
@@ -124,19 +118,16 @@ export class QuizService {
       for (const message of warnings) yield { type: 'warning', message }
       if (abortSignal?.aborted) throw new Error('cancelled')
 
-      // Plan in code: section-aware units, 1-2 questions each, capped with an
-      // even stride spread. The plan is the source of truth for deck size —
-      // recompute rather than trusting the create-time estimate (documents
-      // may have been re-indexed since).
-      const { units, questionCount: target } = planQuiz(unitDocs, this.questionCap())
+      // Plan in code: section-aware units covering ALL the material. How many
+      // questions each unit yields is the model's decision during generation.
+      const { units } = planQuiz(unitDocs)
       if (units.length === 0) {
         const msg = 'no indexable content in selected documents'
         await quizzes.setDeckStatus(deckId, 'failed', msg)
         yield { type: 'error', message: msg }
         return
       }
-      await quizzes.updateDeckQuestionCount(deckId, target)
-      yield { type: 'plan', unitCount: units.length, questionTarget: target }
+      yield { type: 'plan', unitCount: units.length }
 
       // One grammar-constrained call per unit. Small prompts by construction
       // (units are token-bounded), so the same code path serves GPU and CPU.
@@ -144,22 +135,18 @@ export class QuizService {
       for (let i = 0; i < units.length; i += 1) {
         const unit = units[i]!
         if (abortSignal?.aborted) throw new Error('cancelled')
-        if (accepted.length >= target) break
         yield { type: 'unit', unitIndex: i + 1, unitTotal: units.length, unitTitle: unit.title }
         const batch = await generateQuestionsForUnit(llm, {
           language: deck.language,
           unit,
           acceptedStems: accepted.map((a) => a.stem),
-          count: Math.min(unit.quota, target - accepted.length),
           ...(abortSignal ? { abortSignal } : {}),
         })
         for (const q of batch) {
-          if (accepted.length >= target) break
           accepted.push({ ...q, ordinal: accepted.length })
           yield {
             type: 'question',
             ordinal: accepted.length,
-            total: target,
             unitTitle: unit.title,
             unitIndex: i + 1,
             unitTotal: units.length,
@@ -171,12 +158,6 @@ export class QuizService {
         await quizzes.setDeckStatus(deckId, 'failed', 'no questions accepted by validation')
         yield { type: 'error', message: 'no questions accepted by validation' }
         return
-      }
-      if (accepted.length < target) {
-        yield {
-          type: 'warning',
-          message: `${accepted.length} of ${target} questions generated`,
-        }
       }
 
       await quizzes.insertQuestions(
