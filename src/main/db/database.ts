@@ -1263,6 +1263,14 @@ export class QuizzesRepo {
     `)
   }
 
+  /** Question count is derived from the material: planned at generation start,
+   *  then settled to the persisted row count (score displays divide by it). */
+  async updateDeckQuestionCount(deckId: number, questionCount: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE quiz_decks SET question_count = ${questionCount} WHERE id = ${deckId}
+    `)
+  }
+
   /** Cold-boot / post-unlock sweep: a deck still 'generating' is orphaned from a
    *  session that was locked, navigated away from, or crashed mid-run — the
    *  in-memory generation stream that owned it is gone, so it would otherwise
