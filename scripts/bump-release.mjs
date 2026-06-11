@@ -3,6 +3,7 @@
 // für einen platform-asset. wird vom release-workflow nach erfolgreichem
 // build aufgerufen. usage:
 //   node scripts/bump-release.mjs <version> <platform> <sha256> <sizeBytes> [<file>]
+//   node scripts/bump-release.mjs <version> <platform> --unavailable [<file>]
 //
 // idempotent , gleicher input → gleicher output. fails wenn kein matchendes
 // asset im manifest gefunden wird.
@@ -10,17 +11,30 @@
 // <file> ist optional und disambiguiert , wenn eine platform mehrere assets
 // hat ( seit v0.3.2 : Linux hat .run + .deb ). Wird er weggelassen , greift
 // der Default in defaultFileName() — pro platform genau ein asset.
+//
+// --unavailable flippt nur available:false ( website blendet den download-
+// button aus ) und lässt sha256/sizeBytes UND die globale version/releasedAt
+// unangetastet — wird vom workflow für platforms benutzt deren build in
+// einem full release fehlschlug ; die erfolgreichen patches bumpen die
+// version bereits.
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-const [, , version, platform, sha256, sizeArg, fileArg] = process.argv
-if (!version || !platform || !sha256 || !sizeArg) {
-  console.error('usage: bump-release.mjs <version> <platform> <sha256> <sizeBytes> [<file>]')
+const [, , version, platform, third, fourth, fifth] = process.argv
+const unavailable = third === '--unavailable'
+const sha256 = unavailable ? null : third
+const sizeArg = unavailable ? null : fourth
+const fileArg = unavailable ? fourth : fifth
+if (!version || !platform || (!unavailable && (!sha256 || !sizeArg))) {
+  console.error(
+    'usage: bump-release.mjs <version> <platform> <sha256> <sizeBytes> [<file>]\n' +
+      '       bump-release.mjs <version> <platform> --unavailable [<file>]',
+  )
   process.exit(1)
 }
-const sizeBytes = Number.parseInt(sizeArg, 10)
-if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+const sizeBytes = unavailable ? 0 : Number.parseInt(sizeArg, 10)
+if (!unavailable && (!Number.isFinite(sizeBytes) || sizeBytes <= 0)) {
   console.error(`invalid sizeBytes: ${sizeArg}`)
   process.exit(1)
 }
@@ -29,20 +43,19 @@ const fileName = fileArg || defaultFileName(platform)
 const path = resolve('website/src/data/releases.ts')
 const src = await readFile(path, 'utf8')
 
-// versions-string updaten (currentRelease.version).
+// versions-string updaten (currentRelease.version). --unavailable lässt
+// die globalen felder in ruhe — sonst würde ein fehlgeschlagener build
+// die version moven obwohl sein asset auf dem alten stand bleibt.
 const versionRe = /(\bversion:\s*)'[^']*'/
 const releasedAtRe = /(\breleasedAt:\s*)'[^']*'/
 const today = new Date().toISOString().slice(0, 10)
 
-let next = src
-  .replace(versionRe, `$1'${version}'`)
-  .replace(releasedAtRe, `$1'${today}'`)
+let next = unavailable
+  ? src
+  : src.replace(versionRe, `$1'${version}'`).replace(releasedAtRe, `$1'${today}'`)
 
 // Alle blocks der platform sammeln , dann nach file disambiguieren.
-const blockRe = new RegExp(
-  `\\{\\s*platform:\\s*'${platform}'[^}]*?\\}`,
-  'gs',
-)
+const blockRe = new RegExp(`\\{\\s*platform:\\s*'${platform}'[^}]*?\\}`, 'gs')
 const candidates = [...next.matchAll(blockRe)]
 if (candidates.length === 0) {
   console.error(`no asset block found for platform=${platform}`)
@@ -60,18 +73,22 @@ if (!target) {
 }
 
 let block = target[0]
-block = block
-  .replace(/(\bfile:\s*)'[^']*'/, `$1'${fileName}'`)
-  .replace(/(\bsizeBytes:\s*)\d+/, `$1${sizeBytes}`)
-  .replace(/(\bsha256:\s*)'[^']*'/, `$1'${sha256}'`)
-  .replace(/(\bavailable:\s*)(true|false)/, '$1true')
+block = unavailable
+  ? block.replace(/(\bavailable:\s*)(true|false)/, '$1false')
+  : block
+      .replace(/(\bfile:\s*)'[^']*'/, `$1'${fileName}'`)
+      .replace(/(\bsizeBytes:\s*)\d+/, `$1${sizeBytes}`)
+      .replace(/(\bsha256:\s*)'[^']*'/, `$1'${sha256}'`)
+      .replace(/(\bavailable:\s*)(true|false)/, '$1true')
 
 next = next.slice(0, target.index) + block + next.slice(target.index + target[0].length)
 
 await writeFile(path, next)
 console.log(
-  `patched releases.ts , version=${version} platform=${platform} file=${fileName} ` +
-    `sha256=${sha256.slice(0, 12)}… size=${sizeBytes}`,
+  unavailable
+    ? `patched releases.ts , platform=${platform} file=${fileName} available=false`
+    : `patched releases.ts , version=${version} platform=${platform} file=${fileName} ` +
+        `sha256=${sha256.slice(0, 12)}… size=${sizeBytes}`,
 )
 
 function defaultFileName(p) {
