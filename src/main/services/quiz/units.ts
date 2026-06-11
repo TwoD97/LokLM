@@ -5,6 +5,7 @@
 // docs/superpowers/specs/2026-06-11-quiz-chunk-generation-design.md.
 
 import type { ChunkRow } from '../../db/database'
+import { estimateTokens } from '../llm/prompt'
 
 /** Hard size cap per unit — keeps every generation prompt small and cheap. */
 export const UNIT_MAX_TOKENS = 1800
@@ -15,10 +16,6 @@ export const TWO_QUESTION_THRESHOLD = 900
 /** Deck ceilings: bound worst-case generation time on big documents. */
 export const MAX_QUESTIONS = 30
 export const MAX_QUESTIONS_CPU = 10
-
-/** Same rough ratio the old theme path used; only a fallback for chunks whose
- *  token_count is missing. */
-const CHARS_PER_TOKEN = 3.5
 
 export interface QuizUnitDoc {
   docId: number
@@ -38,8 +35,9 @@ export interface QuizUnit {
   title: string
 }
 
+// estimateTokens is only a fallback for chunks whose token_count is missing.
 function chunkTokens(c: ChunkRow): number {
-  return c.token_count ?? Math.ceil(c.text.length / CHARS_PER_TOKEN)
+  return c.token_count ?? estimateTokens(c.text)
 }
 
 /** Build units for all documents. Units never span documents. */

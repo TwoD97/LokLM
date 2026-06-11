@@ -1525,6 +1525,10 @@ function registerIpc(): void {
   ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
     const quizzes = getAuth().requireDatabase().quizzes()
     await quizzes.clearQuestions(deckId)
+    // Derived counts: the re-plan can change the deck size, so attempts scored
+    // against the old count must go too (a 20/30 score against a re-planned
+    // 12-question deck would render as >100 %).
+    await quizzes.deleteAttempts(deckId)
     await quizzes.setDeckStatus(deckId, 'generating', null)
   })
 
