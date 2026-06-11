@@ -28,6 +28,22 @@ name: Release installer
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-x64.exe
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
+#
+# Per-platform releases ( v0.4.0+ ) :
+#   - tag push baut immer alle drei platforms.
+#   - workflow_dispatch nimmt zusätzlich `platforms` ( kommaliste aus
+#     windows,linux,macos — default all ) für single-platform hotfixes.
+#   - bump-and-redeploy läuft sobald MINDESTENS EIN build durchkam ;
+#     fehlgeschlagene platforms werden via bump-release.mjs --unavailable
+#     auf available:false geflippt ( website blendet den button aus ) statt
+#     das ganze release zu blocken. Re-release später per dispatch.
+#   - ACHTUNG : downloadUrl() baut /v<version>/<file> aus der EINEN
+#     globalen currentRelease.version für ALLE platforms. Ein partial
+#     release muss deshalb die live-version aus releases.ts wiederverwenden
+#     ( overwrite-in-place im selben v<V>/ minio-ordner ) — der guard im
+#     bump-job erzwingt das. Für einen versionierten hotfix : branch vom
+#     release-tag , fix cherry-picken , dispatch auf dem branch mit der
+#     live-version.
 on:
   push:
     tags: ['v*']
@@ -36,6 +52,11 @@ on:
       version:
         description: 'Version ohne v-prefix , z.b. 0.1.0'
         required: true
+        type: string
+      platforms:
+        description: 'Kommaliste aus windows,linux,macos — oder all. Partial releases müssen die live-version aus releases.ts wiederverwenden ( /v<version>/-URL-pfad ist global ).'
+        required: false
+        default: 'all'
         type: string
 
 # nur eine release-pipeline pro version gleichzeitig.
@@ -49,6 +70,8 @@ permissions:
 jobs:
   build-windows:
     name: Build .exe + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'windows')
     runs-on: windows-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -248,6 +271,8 @@ jobs:
 
   build-linux:
     name: Build .run + .deb installers + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'linux')
     # Ubuntu 22.04 ( glibc 2.35 ) is the baseline. The runner's glibc
     # becomes the floor for the bundled binary , so 24.04 ( glibc 2.39 )
     # would lock out 22.04 users at install time.
@@ -399,6 +424,8 @@ jobs:
 
   build-macos:
     name: Build .dmg + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'macos')
     runs-on: macos-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -513,12 +540,52 @@ jobs:
   bump-and-redeploy:
     name: Bump manifest + redeploy website
     needs: [build-windows, build-linux, build-macos]
+    # Läuft sobald mindestens EIN platform-build durchkam ( und der run
+    # nicht cancelled wurde ). Fehlgeschlagene platforms blocken das
+    # release nicht mehr — sie werden unten auf available:false geflippt
+    # und später per dispatch ( platforms=<platform> ) nachgeliefert.
+    if: ${{ !cancelled() && (needs.build-windows.result == 'success' || needs.build-linux.result == 'success' || needs.build-macos.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version (tag oder dispatch-input)
+        # Eigene resolution statt needs.build-windows.outputs.version —
+        # bei einem partial release ohne windows wäre der output leer.
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Guard partial release ( version muss live-manifest matchen )
+        # downloadUrl() baut /v<version>/<file> aus der EINEN globalen
+        # currentRelease.version für ALLE platforms. Würde ein partial
+        # release die version moven , zeigten die nicht neu gebauten
+        # platforms auf einen v<neu>/-ordner in dem ihre files fehlen →
+        # tote download-links. Partial = overwrite-in-place der live-
+        # version ; nur ein full release ( alle drei jobs gelaufen , egal
+        # ob einzelne failed ) darf die version bewegen.
+        if: ${{ contains(needs.*.result, 'skipped') }}
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          CUR=$(sed -n "s/^[[:space:]]*version: '\([^']*\)',$/\1/p" website/src/data/releases.ts | head -1)
+          if [ "$V" != "$CUR" ]; then
+            echo "::error::partial release mit version v${V} , aber live-manifest ist v${CUR}. Partial releases müssen die live-version wiederverwenden ( sonst brechen die download-URLs der übrigen platforms ). Für einen versionierten hotfix : alle platforms releasen."
+            exit 1
+          fi
+          echo "partial release ok , overwrite-in-place für v${V}"
 
       - uses: pnpm/action-setup@v4
 
@@ -531,38 +598,58 @@ jobs:
             website/pnpm-lock.yaml
 
       - name: Patch releases.ts (windows)
+        if: needs.build-windows.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-windows.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             windows \
             "${{ needs.build-windows.outputs.sha256 }}" \
             "${{ needs.build-windows.outputs.size }}"
 
       - name: Patch releases.ts (linux .run)
+        if: needs.build-linux.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-linux.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             linux \
             "${{ needs.build-linux.outputs.sha256_run }}" \
             "${{ needs.build-linux.outputs.size_run }}" \
             LokLM-Setup-linux-x64.run
 
       - name: Patch releases.ts (linux .deb)
+        if: needs.build-linux.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-linux.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             linux \
             "${{ needs.build-linux.outputs.sha256_deb }}" \
             "${{ needs.build-linux.outputs.size_deb }}" \
             LokLM-Setup-linux-x64.deb
 
+      - name: Mark windows unavailable ( build failed )
+        if: needs.build-windows.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" windows --unavailable
+
+      - name: Mark linux unavailable ( build failed )
+        if: needs.build-linux.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.run
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.deb
+
       - name: Patch releases.ts (macos)
+        if: needs.build-macos.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-macos.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             macos \
             "${{ needs.build-macos.outputs.sha256 }}" \
             "${{ needs.build-macos.outputs.size }}"
+
+      - name: Mark macos unavailable ( build failed )
+        if: needs.build-macos.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" macos --unavailable
 
       - name: Install website deps
         working-directory: website
@@ -603,8 +690,14 @@ jobs:
             echo "manifest unverändert , skip commit"
             exit 0
           fi
+          # Commit-message listet nur die platforms die wirklich gebaut
+          # wurden ( partial releases / failure-toleranz ).
+          LIST=""
+          if [ "${{ needs.build-windows.result }}" = "success" ]; then LIST="windows"; fi
+          if [ "${{ needs.build-linux.result }}" = "success" ]; then LIST="${LIST:+$LIST + }linux"; fi
+          if [ "${{ needs.build-macos.result }}" = "success" ]; then LIST="${LIST:+$LIST + }macos"; fi
           git add website/src/data/releases.ts
-          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux + macos assets"
+          git commit -m "release , v${{ steps.resolve.outputs.version }} , ${LIST} assets"
           git push origin main
 
       - name: Clean up SSH key
@@ -615,14 +708,26 @@ jobs:
         env:
           PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
         run: |
-          V="${{ needs.build-windows.outputs.version }}"
+          V="${{ steps.resolve.outputs.version }}"
           {
             echo "## Release v${V} — install URLs"
             echo ""
             echo "**Base:** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
-            echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
-            echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
-            echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
-            echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
+            if [ "${{ needs.build-windows.result }}" = "success" ]; then
+              echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
+            else
+              echo "- Windows:    ( ${{ needs.build-windows.result }} )"
+            fi
+            if [ "${{ needs.build-linux.result }}" = "success" ]; then
+              echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
+              echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
+            else
+              echo "- Linux:      ( ${{ needs.build-linux.result }} )"
+            fi
+            if [ "${{ needs.build-macos.result }}" = "success" ]; then
+              echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
+            else
+              echo "- macOS:      ( ${{ needs.build-macos.result }} )"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
