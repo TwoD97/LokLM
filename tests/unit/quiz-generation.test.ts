@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseAndValidate } from '../../src/main/services/quiz/generation'
+import { normalizeForCompare, parseAndValidate } from '../../src/main/services/quiz/generation'
 
 const allowed = new Set([10, 11, 12])
 
@@ -110,5 +110,62 @@ describe('parseAndValidate', () => {
     const result = parseAndValidate(JSON.stringify(obj), allowed)
     // Set iteration order = insertion order. We passed [10, 11, 12].
     expect(result?.sourceChunkIds).toEqual([10])
+  })
+
+  it('rejects options that are duplicates after normalization', () => {
+    const bad = JSON.stringify({
+      stem: 'Capital of Germany?',
+      options: ['Berlin.', 'berlin', 'Hamburg', 'Munich'],
+      correct_index: 0,
+      explanation: 'x',
+      source_chunk_ids: [10],
+    })
+    expect(parseAndValidate(bad, allowed)).toBeNull()
+  })
+
+  it('rejects when the correct option is an all-of-the-above pattern', () => {
+    const bad = JSON.stringify({
+      stem: 'Which statements hold?',
+      options: ['Only A', 'Only B', 'All of the above!', 'Only C'],
+      correct_index: 2,
+      explanation: 'x',
+      source_chunk_ids: [10],
+    })
+    expect(parseAndValidate(bad, allowed)).toBeNull()
+  })
+
+  it('rejects when the correct option is a German none-of-the-above pattern', () => {
+    const bad = JSON.stringify({
+      stem: 'Welche Aussagen stimmen?',
+      options: ['Nur A', 'Nur B', 'Nur C', 'Keine der genannten Antworten'],
+      correct_index: 3,
+      explanation: 'x',
+      source_chunk_ids: [10],
+    })
+    expect(parseAndValidate(bad, allowed)).toBeNull()
+  })
+
+  it('accepts none-of-the-above as a mere distractor', () => {
+    const ok = JSON.stringify({
+      stem: 'Which statements hold?',
+      options: ['Only A', 'None of the above', 'Only B', 'Only C'],
+      correct_index: 0,
+      explanation: 'x',
+      source_chunk_ids: [10],
+    })
+    expect(parseAndValidate(ok, allowed)).not.toBeNull()
+  })
+})
+
+describe('normalizeForCompare', () => {
+  it('lowercases, trims, strips punctuation and collapses whitespace', () => {
+    expect(normalizeForCompare('  What is   TLS?! ')).toBe('what is tls')
+    expect(normalizeForCompare('Berlin.')).toBe(normalizeForCompare('berlin'))
+  })
+
+  it('treats reworded punctuation-only variants of a stem as equal', () => {
+    expect(normalizeForCompare('Was ist der Sitzungsschlüssel?')).toBe(
+      normalizeForCompare('was ist der sitzungsschlüssel'),
+    )
   })
 })
