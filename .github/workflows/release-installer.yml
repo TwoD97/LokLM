@@ -700,12 +700,25 @@ jobs:
             "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
 
       - name: Commit manifest bump
+        # main ist PR-only ( ruleset main-pr-required ) und der GITHUB_TOKEN
+        # kann nicht bypassen — GitHub lässt die Actions-app auf user-owned
+        # repos nicht als bypass-actor zu ( API 422 , v0.4.0 mac-hotfix-run
+        # scheiterte mit GH013 ). Deploy keys stehen auf der bypass-liste ,
+        # also pusht dieser step über ssh mit dem write-deploy-key aus
+        # MANIFEST_DEPLOY_KEY ( "release workflow manifest bump" in den
+        # repo deploy keys ).
+        env:
+          MANIFEST_DEPLOY_KEY: ${{ secrets.MANIFEST_DEPLOY_KEY }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git diff --quiet website/src/data/releases.ts; then
             echo "manifest unverändert , skip commit"
             exit 0
+          fi
+          if [ -z "$MANIFEST_DEPLOY_KEY" ]; then
+            echo "::error::MANIFEST_DEPLOY_KEY secret fehlt — der manifest-commit kann das PR-only main nicht erreichen."
+            exit 1
           fi
           # Commit-message listet nur die platforms die wirklich gebaut
           # wurden ( partial releases / failure-toleranz ).
@@ -715,11 +728,16 @@ jobs:
           if [ "${{ needs.build-macos.result }}" = "success" ]; then LIST="${LIST:+$LIST + }macos"; fi
           git add website/src/data/releases.ts
           git commit -m "release , v${{ steps.resolve.outputs.version }} , ${LIST} assets"
-          git push origin main
+          mkdir -p ~/.ssh
+          printf '%s\n' "$MANIFEST_DEPLOY_KEY" > ~/.ssh/manifest_key
+          chmod 600 ~/.ssh/manifest_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/manifest_key -o StrictHostKeyChecking=yes" \
+            git push git@github.com:${{ github.repository }}.git HEAD:main
 
       - name: Clean up SSH key
         if: always()
-        run: rm -f ~/.ssh/deploy_key
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/manifest_key
 
       - name: Record install URLs in run summary
         env:
