@@ -1022,3 +1022,25 @@
   color: #2c4a7c;
   background: rgba(123, 165, 234, 0.16);
 }
+
+/* ── RecoveryCodesModal: solid surface for the reused auth-card ───────────
+ * PassphraseReveal/auth-card carry the login screen's glassmorphism — a
+ * hardcoded dark translucent gradient + backdrop-filter built for the bgfx
+ * blobs. Nested under .settings-backdrop (which has its own backdrop-filter)
+ * the card's blur can't sample its backdrop, the glass goes near-transparent,
+ * and the passphrase words become unreadable in BOTH themes. Scope a solid
+ * token surface here; the login screen keeps its glass. */
+.settings-recovery-scope .auth-card {
+  background: var(--bg-1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+}
+.settings-recovery-scope .auth-card::before {
+  display: none; /* gradient-border pseudo, part of the glass look */
+}
+.settings-recovery-scope .passphrase-grid li {
+  background: var(--bg-2);
+  border-color: var(--border);
+}

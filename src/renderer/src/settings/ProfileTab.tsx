@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
 import { Avatar } from '../components/Avatar'
+import { RecoveryCodesModal } from './RecoveryCodesModal'
 import { useT } from '../i18n'
 
 // Six hand-picked HSL hues across the wheel — enough variety that any
@@ -24,6 +25,7 @@ export function ProfileTab(): JSX.Element {
   const [pwConfirm, setPwConfirm] = useState('')
   const [pwError, setPwError] = useState<string | null>(null)
   const [pwBusy, setPwBusy] = useState(false)
+  const [recoveryModalOpen, setRecoveryModalOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -264,6 +266,12 @@ export function ProfileTab(): JSX.Element {
           {t('settings.profile.recoverySet')} <Check size={14} aria-hidden="true" />
         </span>
       </div>
+      <div style={{ marginTop: 10 }}>
+        <button type="button" onClick={() => setRecoveryModalOpen(true)}>
+          {t('settings.profile.newRecoveryButton')}
+        </button>
+      </div>
+      {recoveryModalOpen && <RecoveryCodesModal onClose={() => setRecoveryModalOpen(false)} />}
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">{t('settings.profile.changePassword')}</span>
