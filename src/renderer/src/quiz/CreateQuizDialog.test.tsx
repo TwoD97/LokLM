@@ -87,7 +87,7 @@ describe('CreateQuizDialog', () => {
     expect(screen.queryByText('Failed doc')).not.toBeInTheDocument()
   })
 
-  it('calls createDeck with the entered name, selected docs, count and language', async () => {
+  it('calls createDeck with the entered name, selected docs and language', async () => {
     const createSpy = vi.spyOn(window.api.quiz, 'createDeck').mockResolvedValue(makeDeck('My Q'))
     const onCreated = vi.fn()
     render(
@@ -101,7 +101,6 @@ describe('CreateQuizDialog', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My Q' } })
     fireEvent.click(screen.getByLabelText('A'))
     fireEvent.click(screen.getByLabelText('B'))
-    fireEvent.click(screen.getByText('20'))
     fireEvent.click(screen.getByText('Deutsch'))
     fireEvent.click(screen.getByText('Generate'))
 
@@ -110,10 +109,43 @@ describe('CreateQuizDialog', () => {
       workspaceId: 7,
       name: 'My Q',
       documentIds: [1, 2],
-      questionCount: 20,
       language: 'de',
     })
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
+  })
+
+  it('shows the derived question estimate once documents are selected', async () => {
+    const estimateSpy = vi
+      .spyOn(window.api.quiz, 'estimate')
+      .mockResolvedValue({ questionCount: 12, unitCount: 7 })
+    render(
+      <CreateQuizDialog
+        workspaceId={1}
+        documents={[makeDoc(1)]}
+        onCancel={() => undefined}
+        onCreated={() => undefined}
+      />,
+    )
+    expect(screen.queryByText(/≈/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText(/Doc 1/i))
+    await waitFor(() => expect(estimateSpy).toHaveBeenCalledWith([1]))
+    expect(await screen.findByText(/≈ 12 questions from 7 sections/)).toBeInTheDocument()
+  })
+
+  it('shows the empty-material hint when the estimate is zero', async () => {
+    vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ questionCount: 0, unitCount: 0 })
+    render(
+      <CreateQuizDialog
+        workspaceId={1}
+        documents={[makeDoc(1)]}
+        onCancel={() => undefined}
+        onCreated={() => undefined}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText(/Doc 1/i))
+    expect(
+      await screen.findByText(/No indexable content in the selected documents/),
+    ).toBeInTheDocument()
   })
 
   it('surfaces backend validation errors as inline text', async () => {
