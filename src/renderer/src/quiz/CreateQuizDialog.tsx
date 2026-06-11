@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Document } from '@shared/documents'
-import type { CreateQuizInput, QuizDeck, QuizQuestionCount } from '@shared/quiz'
+import type { CreateQuizInput, QuizDeck, QuizEstimate } from '@shared/quiz'
 import { useT } from '../i18n'
 
 type Props = {
@@ -9,8 +9,6 @@ type Props = {
   onCancel: () => void
   onCreated: (deck: QuizDeck) => void
 }
-
-const COUNTS: QuizQuestionCount[] = [5, 10, 20]
 
 export function CreateQuizDialog({
   workspaceId,
@@ -21,32 +19,41 @@ export function CreateQuizDialog({
   const t = useT()
   const [name, setName] = useState('')
   const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set())
-  // Default count : 10 on GPU , 5 on CPU. A 10-Q deck on a 2B model on CPU
-  // takes ~35-40 min ( per the quiz-pipeline bench ) ; 5-Q halves that to ~18
-  // min , which is the difference between 'I'll wait' and 'I'll close it'.
-  // We probe the LLM status once on mount and update the default — the user
-  // can still pick 10 or 20 if they want to wait. Initialised to 10 so the
-  // probe just shrinks it ( never inflates ) when CPU is detected.
-  const [count, setCount] = useState<QuizQuestionCount>(10)
   const [language, setLanguage] = useState<'auto' | 'de' | 'en'>('auto')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [userTouchedCount, setUserTouchedCount] = useState(false)
+  // Question count is derived from the material (1-2 per section-unit, capped)
+  // — no picker. This preview comes from chunk-stat math in the main process,
+  // so it's exact for the current index state and costs no model time.
+  const [estimate, setEstimate] = useState<QuizEstimate | null>(null)
 
   useEffect(() => {
-    void window.api.llm.status().then((s) => {
-      if (userTouchedCount) return
-      if (s.gpu === 'cpu') setCount(5)
-    })
-    // Only probe on mount ; subsequent gpu changes shouldn't override what the
-    // user has now seen / decided.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (selectedDocs.size === 0) {
+      setEstimate(null)
+      return
+    }
+    let stale = false
+    const ids = [...selectedDocs]
+    // Small debounce so rapid checkbox toggling doesn't queue a burst of IPC.
+    const handle = setTimeout(() => {
+      window.api.quiz
+        .estimate(ids)
+        .then((est) => {
+          if (!stale) setEstimate(est)
+        })
+        .catch(() => {
+          if (!stale) setEstimate(null)
+        })
+    }, 150)
+    return () => {
+      stale = true
+      clearTimeout(handle)
+    }
+  }, [selectedDocs])
 
   const readyDocs = useMemo(() => documents.filter((d) => d.status === 'ready'), [documents])
 
-  const canSubmit =
-    !submitting && name.trim().length > 0 && selectedDocs.size > 0 && COUNTS.includes(count)
+  const canSubmit = !submitting && name.trim().length > 0 && selectedDocs.size > 0
 
   const toggleDoc = (id: number): void => {
     setSelectedDocs((prev) => {
@@ -66,7 +73,6 @@ export function CreateQuizDialog({
         workspaceId,
         name: name.trim(),
         documentIds: [...selectedDocs],
-        questionCount: count,
         language,
       }
       const deck = await window.api.quiz.createDeck(input)
@@ -116,25 +122,19 @@ export function CreateQuizDialog({
             ))}
           </ul>
         )}
-      </div>
-
-      <div className="quiz-field">
-        <span className="quiz-field__label">{t('quiz.create.questionsLabel')}</span>
-        <div className="quiz-segmented">
-          {COUNTS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={`quiz-segmented__btn ${count === n ? 'quiz-segmented__btn--active' : ''}`}
-              onClick={() => {
-                setCount(n)
-                setUserTouchedCount(true)
-              }}
-            >
-              {n}
-            </button>
+        {estimate !== null &&
+          (estimate.questionCount > 0 ? (
+            <p className="quiz-create__estimate">
+              {t('quiz.create.estimate', {
+                count: estimate.questionCount,
+                sections: estimate.unitCount,
+              })}
+            </p>
+          ) : (
+            <p className="quiz-create__estimate quiz-create__estimate--empty">
+              {t('quiz.create.estimateEmpty')}
+            </p>
           ))}
-        </div>
       </div>
 
       <div className="quiz-field">
