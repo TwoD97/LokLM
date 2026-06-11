@@ -24,7 +24,7 @@ import type { ModelStatus } from '../../src/shared/documents'
 import type { LlmProvider, ProviderStatus } from '../../src/main/services/providers/types'
 import type { QuizLanguage } from '../../src/shared/quiz'
 import { generateQuestionsForUnit } from '../../src/main/services/quiz/generation'
-import { planQuiz, MAX_QUESTIONS, MAX_QUESTIONS_CPU } from '../../src/main/services/quiz/units'
+import { planQuiz } from '../../src/main/services/quiz/units'
 import { REPO_MODELS_DIR } from '../evals/bridges/common'
 
 // Kept in sync with src/main/services/llm/LlamaService.ts LLM_PROFILES.
@@ -425,19 +425,17 @@ async function main(): Promise<void> {
   const docTitle = args.lang === 'de' ? 'Hybride Verschlüsselung' : 'Hybrid Encryption'
   console.log(`\nDoc: ${chunks.length} chunks, ${docText.length} chars total`)
 
-  // Stage 1: pure-code plan (units + derived question count). No LLM.
-  const cap = cpu ? MAX_QUESTIONS_CPU : MAX_QUESTIONS
+  // Stage 1: pure-code plan (section units). No LLM. How many questions each
+  // unit yields is the model's decision during generation.
   const tPlan0 = performance.now()
-  const { units, questionCount } = planQuiz([{ docId: 1, docTitle, chunks }], cap)
+  const { units } = planQuiz([{ docId: 1, docTitle, chunks }])
   const dtPlan = (performance.now() - tPlan0) / 1000
-  console.log(
-    `[plan] ${units.length} units → ${questionCount} questions in ${(dtPlan * 1000).toFixed(1)}ms`,
-  )
+  console.log(`[plan] ${units.length} units in ${(dtPlan * 1000).toFixed(1)}ms`)
   for (const u of units) {
-    console.log(`         • "${u.title}" (${u.tokens} tok, quota ${u.quota})`)
+    console.log(`         • "${u.title}" (${u.tokens} tok)`)
   }
 
-  // Stage 2: one grammar-constrained call per unit.
+  // Stage 2: one grammar-constrained call per unit; the model decides count.
   console.log()
   const acceptedStems: string[] = []
   let totalQ = 0
@@ -450,7 +448,6 @@ async function main(): Promise<void> {
       language: args.lang,
       unit,
       acceptedStems,
-      count: unit.quota,
     })
     const dt = (performance.now() - tQ0) / 1000
     perUnitTimes.push(dt)
@@ -458,7 +455,7 @@ async function main(): Promise<void> {
     acceptedStems.push(...questions.map((q) => q.stem))
     console.log(
       `[gen] unit ${i + 1}/${units.length} "${unit.title}": ` +
-        `${questions.length}/${unit.quota}Q in ${dt.toFixed(1)}s`,
+        `${questions.length}Q in ${dt.toFixed(1)}s`,
     )
   }
   const tGenTotal = (performance.now() - tGen0) / 1000
@@ -468,7 +465,7 @@ async function main(): Promise<void> {
   console.log(rule())
   console.log('Summary')
   console.log(`  Units planned:      ${units.length}`)
-  console.log(`  Q accepted/target:  ${totalQ}/${questionCount}`)
+  console.log(`  Questions written:  ${totalQ}`)
   console.log(
     `  Question gen:       ${tGenTotal.toFixed(1)}s (avg ${avgPerUnit.toFixed(1)}s per unit)`,
   )

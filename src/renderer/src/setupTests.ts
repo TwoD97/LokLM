@@ -400,7 +400,7 @@ const stub: Api = {
         language: 'en' as const,
         createdAt: Math.floor(Date.now() / 1000),
       }),
-    estimate: () => Promise.resolve({ questionCount: 8, unitCount: 5 }),
+    estimate: () => Promise.resolve({ unitCount: 5 }),
     deleteDeck: () => Promise.resolve(),
     regenerateDeck: () => Promise.resolve(),
     generate: () => Promise.resolve(),

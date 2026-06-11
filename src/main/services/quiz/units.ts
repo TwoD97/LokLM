@@ -1,8 +1,10 @@
 // Context-aware quiz units, built in code from the chunks already stored in
 // the DB — no LLM involved. A unit is a run of consecutive chunks that stays
 // inside one top-level section and inside a token budget; each unit later
-// becomes exactly one question-generation call. See
-// docs/superpowers/specs/2026-06-11-quiz-chunk-generation-design.md.
+// becomes exactly one question-generation call. How many questions a unit
+// yields is the MODEL's decision (coverage of the material), not a function
+// of unit size — see PER_UNIT_MAX_QUESTIONS in prompts.ts for the only bound.
+// See docs/superpowers/specs/2026-06-11-quiz-chunk-generation-design.md.
 
 import type { ChunkRow } from '../../db/database'
 import { estimateTokens } from '../llm/prompt'
@@ -11,11 +13,6 @@ import { estimateTokens } from '../llm/prompt'
 export const UNIT_MAX_TOKENS = 1800
 /** Units below this are merged into a neighbour — too thin to ask anything. */
 export const UNIT_MIN_TOKENS = 250
-/** Units at/above this carry 2 questions; smaller ones carry 1. */
-export const TWO_QUESTION_THRESHOLD = 900
-/** Deck ceilings: bound worst-case generation time on big documents. */
-export const MAX_QUESTIONS = 30
-export const MAX_QUESTIONS_CPU = 10
 
 export interface QuizUnitDoc {
   docId: number
@@ -29,8 +26,6 @@ export interface QuizUnit {
   /** Consecutive chunks composing this unit, ordinal order. */
   chunks: ChunkRow[]
   tokens: number
-  /** Questions to ask for this unit — sized by token count. */
-  quota: 1 | 2
   /** Section heading (or doc title fallback) — stored as themeTitle. */
   title: string
 }
@@ -127,51 +122,13 @@ function toUnit(p: Pack, d: QuizUnitDoc): QuizUnit {
     docTitle: d.docTitle,
     chunks: p.chunks,
     tokens: p.tokens,
-    quota: p.tokens >= TWO_QUESTION_THRESHOLD ? 2 : 1,
     title,
   }
 }
 
-/** Enforce the deck cap. Under the cap: all units, untouched. Over it: split
- *  the unit list into k = min(n, cap) stride windows and keep the most
- *  token-dense unit of each window — deterministic, even coverage across the
- *  material (this structural spread is what replaces semantic dedup). If the
- *  picks' quotas still exceed the cap, demote quota-2 picks to 1 in ascending
- *  token order until they fit. */
-export function selectUnits(units: QuizUnit[], cap: number): QuizUnit[] {
-  const total = units.reduce((s, u) => s + u.quota, 0)
-  if (total <= cap) return units
-
-  const k = Math.min(units.length, cap)
-  const picks: QuizUnit[] = []
-  for (let i = 0; i < k; i += 1) {
-    const start = Math.floor((i * units.length) / k)
-    const end = Math.floor(((i + 1) * units.length) / k)
-    let best = units[start]!
-    for (let j = start + 1; j < end; j += 1) {
-      if (units[j]!.tokens > best.tokens) best = units[j]!
-    }
-    picks.push(best)
-  }
-
-  let sum = picks.reduce((s, u) => s + u.quota, 0)
-  if (sum <= cap) return picks
-  const result = picks.map((u) => ({ ...u }))
-  const demotable = result.filter((u) => u.quota === 2).sort((a, b) => a.tokens - b.tokens)
-  for (const u of demotable) {
-    if (sum <= cap) break
-    u.quota = 1
-    sum -= 1
-  }
-  return result
-}
-
-/** Full plan: build units from chunk stats, apply the cap, derive the deck's
- *  question count. Pure + cheap — also used for the create-dialog estimate. */
-export function planQuiz(
-  docs: QuizUnitDoc[],
-  cap: number,
-): { units: QuizUnit[]; questionCount: number } {
-  const units = selectUnits(buildUnits(docs), cap)
-  return { units, questionCount: units.reduce((s, u) => s + u.quota, 0) }
+/** Full plan: every unit, in document order. No cap and no sampling — the
+ *  deck covers all the material, and the per-unit question count is the
+ *  model's call. Pure + cheap — also used for the create-dialog preview. */
+export function planQuiz(docs: QuizUnitDoc[]): { units: QuizUnit[] } {
+  return { units: buildUnits(docs) }
 }

@@ -22,9 +22,9 @@ export function CreateQuizDialog({
   const [language, setLanguage] = useState<'auto' | 'de' | 'en'>('auto')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Question count is derived from the material (1-2 per section-unit, capped)
-  // — no picker. This preview comes from chunk-stat math in the main process,
-  // so it's exact for the current index state and costs no model time.
+  // No question-count picker: the model decides how many questions each
+  // section needs during generation. The preview shows the section count,
+  // computed from chunk stats in the main process at zero model cost.
   const [estimate, setEstimate] = useState<QuizEstimate | null>(null)
 
   useEffect(() => {
@@ -123,12 +123,9 @@ export function CreateQuizDialog({
           </ul>
         )}
         {estimate !== null &&
-          (estimate.questionCount > 0 ? (
+          (estimate.unitCount > 0 ? (
             <p className="quiz-create__estimate">
-              {t('quiz.create.estimate', {
-                count: estimate.questionCount,
-                sections: estimate.unitCount,
-              })}
+              {t('quiz.create.estimate', { sections: estimate.unitCount })}
             </p>
           ) : (
             <p className="quiz-create__estimate quiz-create__estimate--empty">

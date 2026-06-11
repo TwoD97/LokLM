@@ -10,7 +10,7 @@ export const quizDict: DomainDict = {
     'quiz.create.namePlaceholder': 'e.g. Chapter 3 — Functions',
     'quiz.create.documentsLabel': 'Documents',
     'quiz.create.noDocuments': 'No indexed documents in this workspace. Import a file first.',
-    'quiz.create.estimate': '≈ {count} questions from {sections} sections',
+    'quiz.create.estimate': '{sections} sections — the AI decides how many questions each needs',
     'quiz.create.estimateEmpty': 'No indexable content in the selected documents.',
     'quiz.create.languageLabel': 'Language',
     'quiz.create.languageAuto': 'Auto',
@@ -63,7 +63,6 @@ export const quizDict: DomainDict = {
     'quiz.list.statusReady': 'Ready',
     'quiz.list.stepStarting': 'Starting…',
     'quiz.list.stepGenerating': 'Writing questions',
-    'quiz.list.stepQuestionProgress': '{current} / {total}',
     'quiz.list.stepUnitProgress': 'section {current}/{total}',
     'quiz.list.stepsHeader': 'steps',
 
@@ -79,7 +78,8 @@ export const quizDict: DomainDict = {
     'quiz.create.documentsLabel': 'Dokumente',
     'quiz.create.noDocuments':
       'Keine indizierten Dokumente in diesem Arbeitsbereich. Importiere zuerst eine Datei.',
-    'quiz.create.estimate': '≈ {count} Fragen aus {sections} Abschnitten',
+    'quiz.create.estimate':
+      '{sections} Abschnitte — die KI entscheidet die Fragenanzahl pro Abschnitt',
     'quiz.create.estimateEmpty': 'Kein indizierbarer Inhalt in den ausgewählten Dokumenten.',
     'quiz.create.languageLabel': 'Sprache',
     'quiz.create.languageAuto': 'Auto',
@@ -132,7 +132,6 @@ export const quizDict: DomainDict = {
     'quiz.list.statusReady': 'Bereit',
     'quiz.list.stepStarting': 'Wird gestartet…',
     'quiz.list.stepGenerating': 'Fragen werden geschrieben',
-    'quiz.list.stepQuestionProgress': '{current} / {total}',
     'quiz.list.stepUnitProgress': 'Abschnitt {current}/{total}',
     'quiz.list.stepsHeader': 'Schritte',
 

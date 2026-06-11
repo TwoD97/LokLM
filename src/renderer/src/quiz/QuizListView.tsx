@@ -33,9 +33,8 @@ export interface QuizPhase {
  *  QuizGenerationEvent stream. Undefined until the first event arrives. */
 export interface QuizProgress {
   stage: QuizPhaseName
-  /** questions accepted so far / planned total (total set by the plan event). */
+  /** questions accepted so far — no total; the model decides per unit. */
   ordinal?: number
-  total?: number
   /** which unit (section) is being written. */
   unitTitle?: string
   unitIndex?: number
@@ -46,10 +45,13 @@ export interface QuizProgress {
   timeline?: QuizPhase[]
 }
 
-/** Questions are the whole pipeline now, so the bar is simply accepted/planned. */
+/** Units are the only known denominator (question count is the model's call),
+ *  so the bar tracks completed units: the active unit counts once its first
+ *  question lands. */
 function progressPercent(p: QuizProgress): number {
-  if (!p.total) return 4
-  return Math.min(100, Math.round(((p.ordinal ?? 0) / p.total) * 100))
+  if (!p.unitTotal) return 4
+  const done = Math.max(0, (p.unitIndex ?? 1) - 1)
+  return Math.min(100, Math.round((done / p.unitTotal) * 100))
 }
 
 function stepLabel(_p: QuizProgress, t: TFn): string {
@@ -64,8 +66,8 @@ function stepDetail(p: QuizProgress, t: TFn): string | null {
       t('quiz.list.stepUnitProgress', { current: p.unitIndex ?? 0, total: p.unitTotal }) + title,
     )
   }
-  if (p.total) {
-    parts.push(t('quiz.list.stepQuestionProgress', { current: p.ordinal ?? 0, total: p.total }))
+  if (p.ordinal) {
+    parts.push(t('quiz.list.questions', { count: p.ordinal }))
   }
   return parts.length > 0 ? parts.join(' · ') : null
 }
@@ -119,7 +121,6 @@ export function reduceProgress(
         ...prev,
         stage: 'generating-questions',
         ordinal: prev?.ordinal ?? 0,
-        total: ev.questionTarget,
         unitTotal: ev.unitCount,
         startedAt,
         timeline,
@@ -139,7 +140,6 @@ export function reduceProgress(
         ...prev,
         stage: 'generating-questions',
         ordinal: ev.ordinal,
-        total: ev.total,
         ...(ev.unitTitle != null ? { unitTitle: ev.unitTitle } : {}),
         ...(ev.unitIndex != null ? { unitIndex: ev.unitIndex } : {}),
         ...(ev.unitTotal != null ? { unitTotal: ev.unitTotal } : {}),
@@ -253,9 +253,12 @@ function DeckCard({
         <StatusBadge status={deck.status} t={t} />
       </div>
       <div className="quiz-card__meta">
-        <span className="quiz-card__meta-chip">
-          {t('quiz.list.questions', { count: deck.questionCount })}
-        </span>
+        {/* Count is unknown (0) until generation settles it — no chip until then. */}
+        {deck.questionCount > 0 && (
+          <span className="quiz-card__meta-chip">
+            {t('quiz.list.questions', { count: deck.questionCount })}
+          </span>
+        )}
         <span className="quiz-card__meta-chip">
           {t(deck.documentIds.length === 1 ? 'quiz.list.fileCount' : 'quiz.list.fileCountPlural', {
             count: deck.documentIds.length,

@@ -236,7 +236,7 @@ describe('QuizListView', () => {
     expect(onCreate).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the unit name + x/y detail during question generation', () => {
+  it('renders the unit name + questions-written detail during generation', () => {
     const t0 = Date.now() - 47_000
     const progress: QuizProgress = {
       stage: 'generating-questions',
@@ -244,7 +244,6 @@ describe('QuizListView', () => {
       unitIndex: 2,
       unitTotal: 4,
       ordinal: 6,
-      total: 10,
       startedAt: t0,
       timeline: [{ phase: 'generating-questions', startedAt: t0 }],
     }
@@ -258,23 +257,19 @@ describe('QuizListView', () => {
         onRetry={() => undefined}
       />,
     )
-    // Detail line shows the active step label, unit position + title, and x/y.
+    // Detail line shows the active step label, unit position + title, and the
+    // running question count (no denominator — the model decides per unit).
     // "Writing questions" renders twice (header label + timeline row) — that's
     // expected: the active phase appears in both the headline and the timeline.
     expect(screen.getAllByText(/Writing questions/).length).toBeGreaterThan(0)
     expect(screen.getByText(/section 2\/4 "Photosynthesis"/)).toBeInTheDocument()
-    expect(screen.getByText(/6 \/ 10/)).toBeInTheDocument()
+    expect(screen.getByText(/6 questions/)).toBeInTheDocument()
   })
 
   it('reduceProgress folds plan → unit → question into one writing phase', () => {
     const t0 = 1000
-    const afterPlan = reduceProgress(
-      undefined,
-      { type: 'plan', unitCount: 4, questionTarget: 6 },
-      t0,
-    )!
+    const afterPlan = reduceProgress(undefined, { type: 'plan', unitCount: 4 }, t0)!
     expect(afterPlan.startedAt).toBe(t0)
-    expect(afterPlan.total).toBe(6)
     expect(afterPlan.unitTotal).toBe(4)
     expect(afterPlan.timeline).toEqual([{ phase: 'generating-questions', startedAt: t0 }])
 
@@ -293,11 +288,11 @@ describe('QuizListView', () => {
 
     const afterQuestion = reduceProgress(
       afterUnit,
-      { type: 'question', ordinal: 1, total: 6, unitTitle: 'Photosynthesis' },
+      { type: 'question', ordinal: 1, unitTitle: 'Photosynthesis' },
       6000,
     )!
     expect(afterQuestion.ordinal).toBe(1)
-    expect(afterQuestion.total).toBe(6)
+    expect(afterQuestion.unitTitle).toBe('Photosynthesis')
   })
 
   it('formatDuration switches from Ns to m:ss at one minute', () => {

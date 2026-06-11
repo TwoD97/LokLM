@@ -71,20 +71,20 @@ export interface CreateQuizInput {
   language?: QuizLanguage | 'auto'
 }
 
-/** Pre-generation preview for the create dialog: how many questions the
- *  selected material supports. Computed from stored chunk stats — no LLM. */
+/** Pre-generation preview for the create dialog: how many material sections
+ *  (units) the selection yields. The question count itself is the model's
+ *  decision per section, so it is unknown until generation finishes. */
 export interface QuizEstimate {
-  questionCount: number
   unitCount: number
 }
 
 export type QuizGenerationEvent =
-  | { type: 'plan'; unitCount: number; questionTarget: number }
+  | { type: 'plan'; unitCount: number }
   | { type: 'unit'; unitIndex: number; unitTotal: number; unitTitle: string }
   | {
       type: 'question'
+      /** Questions accepted so far. No total — the model decides per unit. */
       ordinal: number
-      total: number
       unitTitle?: string
       unitIndex?: number
       unitTotal?: number

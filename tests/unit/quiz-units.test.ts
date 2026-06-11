@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildUnits,
-  selectUnits,
   planQuiz,
   UNIT_MAX_TOKENS,
   UNIT_MIN_TOKENS,
-  TWO_QUESTION_THRESHOLD,
 } from '../../src/main/services/quiz/units'
-import type { QuizUnit } from '../../src/main/services/quiz/units'
 import type { ChunkRow } from '../../src/main/db/database'
 
 let nextId = 1
@@ -34,7 +31,7 @@ function doc(
   return { docId: overrides.docId ?? 1, docTitle: overrides.docTitle ?? 'Doc', chunks }
 }
 
-function unitTokens(units: QuizUnit[]): number[] {
+function unitTokens(units: ReturnType<typeof buildUnits>): number[] {
   return units.map((u) => u.tokens)
 }
 
@@ -113,17 +110,6 @@ describe('buildUnits', () => {
     expect(unitTokens(units)).toEqual([120])
   })
 
-  it('assigns quota 2 at TWO_QUESTION_THRESHOLD tokens and above, else 1', () => {
-    expect(TWO_QUESTION_THRESHOLD).toBe(900)
-    const units = buildUnits([
-      doc([
-        chunk({ ordinal: 0, token_count: 899, heading_path: ['Ch1'] }),
-        chunk({ ordinal: 1, token_count: 900, heading_path: ['Ch2'] }),
-      ]),
-    ])
-    expect(units.map((u) => u.quota)).toEqual([1, 2])
-  })
-
   it('titles a unit with the last heading element of its largest chunk', () => {
     const units = buildUnits([
       doc([chunk({ ordinal: 0, token_count: 400, heading_path: ['Ch 3', 'Functions'] })]),
@@ -166,63 +152,15 @@ describe('buildUnits', () => {
     ])
     expect(units[0]!.tokens).toBe(1000)
   })
-})
 
-describe('selectUnits', () => {
-  function unitOf(tokens: number, quota: 1 | 2, id: number): QuizUnit {
-    return {
-      docId: 1,
-      docTitle: 'Doc',
-      chunks: [chunk({ id, token_count: tokens })],
-      tokens,
-      quota,
-      title: `U${id}`,
-    }
-  }
-
-  it('returns all units unchanged when the cap covers the total quota', () => {
-    const units = [unitOf(500, 1, 1), unitOf(500, 1, 2)]
-    expect(selectUnits(units, 30)).toEqual(units)
-  })
-
-  it('picks the densest unit per stride window, preserving order', () => {
-    const tokens = [300, 400, 500, 300, 300, 600, 700, 300, 300, 800]
-    const units = tokens.map((t, i) => unitOf(t, 1, i))
-    const picked = selectUnits(units, 5)
-    expect(picked.map((u) => u.chunks[0]!.id)).toEqual([1, 2, 5, 6, 9])
-  })
-
-  it('demotes quota-2 picks in ascending token order until the cap is met', () => {
-    const units = [unitOf(1000, 2, 1), unitOf(1500, 2, 2), unitOf(1200, 2, 3)]
-    const picked = selectUnits(units, 5)
-    expect(picked.map((u) => u.quota)).toEqual([1, 2, 2])
-  })
-
-  it('is deterministic for repeated calls', () => {
-    const units = Array.from({ length: 20 }, (_, i) => unitOf(300 + (i % 7) * 100, 1, i))
-    const a = selectUnits(units, 8)
-    const b = selectUnits(units, 8)
-    expect(a).toEqual(b)
+  it('does not expose any per-unit question quota — the model decides coverage', () => {
+    const units = buildUnits([doc([chunk({ ordinal: 0, token_count: 120 })])])
+    expect('quota' in units[0]!).toBe(false)
   })
 })
 
 describe('planQuiz', () => {
-  it('derives the question count from unit quotas when under the cap', () => {
-    const plan = planQuiz(
-      [
-        doc([
-          chunk({ ordinal: 0, token_count: 1000, heading_path: ['Ch1'] }),
-          chunk({ ordinal: 1, token_count: 400, heading_path: ['Ch2'] }),
-        ]),
-      ],
-      30,
-    )
-    // 1000 tokens → quota 2, 400 tokens → quota 1.
-    expect(plan.questionCount).toBe(3)
-    expect(plan.units).toHaveLength(2)
-  })
-
-  it('never exceeds the cap', () => {
+  it('returns every unit — no cap, no sampling', () => {
     const docs = [
       doc(
         Array.from({ length: 40 }, (_, i) =>
@@ -230,12 +168,11 @@ describe('planQuiz', () => {
         ),
       ),
     ]
-    const plan = planQuiz(docs, 30)
-    expect(plan.questionCount).toBeLessThanOrEqual(30)
-    expect(plan.questionCount).toBeGreaterThan(0)
+    const plan = planQuiz(docs)
+    expect(plan.units).toHaveLength(40)
   })
 
   it('returns an empty plan for empty input', () => {
-    expect(planQuiz([], 30)).toEqual({ units: [], questionCount: 0 })
+    expect(planQuiz([])).toEqual({ units: [] })
   })
 })
