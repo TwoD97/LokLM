@@ -41,7 +41,7 @@ async function walk(dir, baseDir, entries = []) {
     if (st.isDirectory()) {
       await walk(full, baseDir, entries)
     } else if (st.isFile()) {
-      entries.push({ full, rel, size: st.size, mtime: st.mtime })
+      entries.push({ full, rel, size: st.size, mtime: st.mtime, mode: st.mode })
     }
   }
   return entries
@@ -66,7 +66,7 @@ export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
       {
         name: `${tarRoot}/${e.rel}`,
         size: e.size,
-        mode: 0o644,
+        mode: e.mode & 0o777,
         mtime: e.mtime,
         type: 'file',
       },

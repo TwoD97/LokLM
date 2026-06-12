@@ -490,7 +490,14 @@ els.next.addEventListener('click', async () => {
     return
   }
   if (active === 'finish') {
-    if (installResult?.appExePath) await window.installer.launch(installResult.appExePath)
+    if (installResult?.appExePath) {
+      try {
+        await window.installer.launch(installResult.appExePath)
+      } catch (err) {
+        alert('Launch failed: ' + err)
+        return
+      }
+    }
     await window.installer.close()
     return
   }
