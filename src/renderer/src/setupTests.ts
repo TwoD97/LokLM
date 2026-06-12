@@ -99,6 +99,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
     delete: () => Promise.resolve(),
     reindex: (id: number) =>
@@ -113,6 +114,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
     listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
@@ -127,6 +129,7 @@ const stub: Api = {
     keepMissing: () => Promise.resolve(),
     cancelIndexing: () => Promise.resolve(0),
     summarize: () => Promise.resolve({ summary: 'stub summary', cached: false }),
+    setPinned: () => Promise.resolve(),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
@@ -156,6 +159,7 @@ const stub: Api = {
         messages: [],
       }),
     generateTitle: () => Promise.resolve(null),
+    deleteMessage: () => Promise.resolve(),
     setActiveDocumentIds: () => Promise.resolve(),
   },
   models: {
@@ -364,6 +368,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
   },
   settings: {

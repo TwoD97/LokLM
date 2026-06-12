@@ -31,7 +31,10 @@ export class OllamaLlmProvider implements LlmProvider {
     for (const h of opts.conversationHistory ?? []) {
       messages.push({ role: h.role, content: h.content })
     }
-    messages.push({ role: 'user', content: buildPrompt(question, hits, [], this.language) })
+    messages.push({
+      role: 'user',
+      content: buildPrompt(question, hits, [], this.language, opts.pinnedHits),
+    })
 
     let acc = ''
     for await (const chunk of this.client.postNdjson<ChatChunk>(

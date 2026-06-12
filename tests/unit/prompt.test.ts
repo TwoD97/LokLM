@@ -65,6 +65,44 @@ describe('buildPrompt', () => {
     expect(out).toContain('truncated')
   })
 
+  // Pinned chunks lead the prompt so the [system][pinned] token prefix stays
+  // byte-identical across turns in a workspace — node-llama-cpp's sequence
+  // alignment then reuses its KV state instead of re-prefilling it every turn.
+  // History sits between pinned and RAG context so the history *prefix* (all
+  // turns but the newest) is also stable and reused.
+  describe('pinned context section', () => {
+    const history = [
+      { role: 'user' as const, content: 'first question' },
+      { role: 'assistant' as const, content: 'first answer' },
+    ]
+
+    it('renders pinned hits in a leading section, before history and RAG context', () => {
+      const out = buildPrompt('q', [hit(2, 'rag fact')], history, 'en', [hit(9, 'pinned fact')])
+      const pinnedIdx = out.indexOf('Context (pinned):')
+      const historyIdx = out.indexOf('Previous conversation')
+      const ragIdx = out.indexOf('Context:')
+      expect(pinnedIdx).toBe(0)
+      expect(out).toContain('[doc:9, chunk:9]')
+      expect(out).toContain('pinned fact')
+      expect(historyIdx).toBeGreaterThan(pinnedIdx)
+      expect(ragIdx).toBeGreaterThan(historyIdx)
+    })
+
+    it('omits Context: (none) when pinned content is present without RAG hits', () => {
+      const out = buildPrompt('q', [], undefined, 'en', [hit(9, 'pinned fact')])
+      expect(out).not.toContain('Context: (none)')
+      expect(out).toContain('Context (pinned):')
+      expect(out).toContain('pinned fact')
+    })
+
+    it('leaves the no-pin layout byte-identical to the legacy shape', () => {
+      const legacy = buildPrompt('q', [hit(1, 'fact')], history, 'en')
+      const explicit = buildPrompt('q', [hit(1, 'fact')], history, 'en', [])
+      expect(explicit).toBe(legacy)
+      expect(legacy).not.toContain('Context (pinned):')
+    })
+  })
+
   it('includes page number when present', () => {
     const h = { ...hit(7, 'text'), page_from: 42 }
     const out = buildPrompt('q', [h])

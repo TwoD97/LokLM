@@ -177,13 +177,32 @@ Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofer
 /no_think`
 }
 
+/**
+ * Section order is deliberate for KV-cache prefix reuse, most-stable first:
+ * pinned context (changes only when the user pins/unpins), then conversation
+ * history (grows append-only, so all but the newest turn is a stable prefix),
+ * then RAG context + question (change every turn). node-llama-cpp aligns each
+ * new prompt against the sequence's existing token state and only evaluates
+ * from the first differing token — with this layout, consecutive turns in a
+ * workspace re-prefill only the newest history entry + RAG block + question
+ * instead of the whole prompt.
+ */
 export function buildPrompt(
   question: string,
   hits: RetrievalHit[],
   history?: Array<{ role: 'user' | 'assistant'; content: string }>,
   responseLang?: ResponseLanguage,
+  pinnedHits?: RetrievalHit[],
 ): string {
   const sections: string[] = []
+
+  const renderHits = (list: RetrievalHit[]): string =>
+    list.map((h) => `${formatHitHeader(h, responseLang)}\n${h.text}`).join('\n\n---\n\n')
+
+  const hasPinned = pinnedHits !== undefined && pinnedHits.length > 0
+  if (hasPinned) {
+    sections.push(`Context (pinned):\n${renderHits(pinnedHits)}`)
+  }
 
   if (history && history.length > 0) {
     const lines: string[] = []
@@ -200,12 +219,11 @@ export function buildPrompt(
   }
 
   if (hits.length === 0) {
-    sections.push('Context: (none)')
+    // With pinned content present the model still has a Context section to
+    // answer from — emitting "(none)" here would nudge it toward refusing.
+    if (!hasPinned) sections.push('Context: (none)')
   } else {
-    const ctx = hits
-      .map((h) => `${formatHitHeader(h, responseLang)}\n${h.text}`)
-      .join('\n\n---\n\n')
-    sections.push(`Context:\n${ctx}`)
+    sections.push(`Context:\n${renderHits(hits)}`)
   }
 
   sections.push(`Question: ${question}`)

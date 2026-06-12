@@ -540,3 +540,9 @@
   padding: 32px 0;
   text-align: center;
 }
+
+.library__row-pinned-icon {
+  color: #5a9bff;
+  margin-right: 4px;
+  vertical-align: middle;
+}

@@ -1,7 +1,8 @@
-import type { Database } from '../../db/database'
+import type { Database, ChunkRow } from '../../db/database'
 import type { RetrievalService } from '../retrieval/RetrievalService'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
+import type { Document } from '../../db/schema'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
 import {
   REFUSAL_TEXT,
@@ -66,7 +67,11 @@ export class QAService {
      *  IPC and AbortSignal isn't structured-cloneable. */
     abortSignal?: AbortSignal,
   ): AsyncIterable<StreamEvent> {
-    void this.db // retained for parity with future enrichment paths
+    // Pinned docs are workspace-scoped "force into context" — fetched up-front
+    // so the refusal path can skip "no hits" when pinned content alone could
+    // answer the question, and so the packer can reserve budget for them.
+    const docsRepo = this.db.documents()
+    const pinnedDocs = await docsRepo.listPinned(workspaceId)
     const topK = opts.topK ?? adaptiveTopK(query)
     const threshold = opts.refusalThreshold ?? DEFAULT_REFUSAL_THRESHOLD
     // Answer language: forced when the caller set opts.language ('de'/'en'),
@@ -164,17 +169,21 @@ export class QAService {
       return
     }
 
-    // ---- 2. refusal path ----
+    // ---- 2. early refusal (below threshold) ----
+    // Caller-overridden refusalThreshold short-circuits here so we don't pay
+    // for the pinned-doc fetch + packing on a turn that's definitely going to
+    // refuse. The "no context at all" case is checked AFTER packing instead,
+    // so pinned-but-empty workspaces refuse cleanly instead of letting the
+    // model hallucinate from a (none) Context block.
     const topScore = hits[0]?.score ?? 0
-    if (hits.length === 0 || topScore < threshold) {
-      const reason = hits.length === 0 ? 'no_hits' : 'below_threshold'
+    if (hits.length > 0 && topScore < threshold) {
       const message = REFUSAL_TEXT[language]
       const suggestions = uniqueByDoc(hits, 3).map((h) => ({
         doc_id: h.document_id,
         title: h.document_title,
         score: h.score,
       }))
-      yield { type: 'refusal', reason, message, suggestions }
+      yield { type: 'refusal', reason: 'below_threshold', message, suggestions }
       yield { type: 'done', full_text: message, citations: [] }
       return
     }
@@ -187,14 +196,76 @@ export class QAService {
     // The LlamaService overflow-retry stays as a belt-and-suspenders fallback
     // for any non-QAService caller that passes unpacked hits.
     const ctxTokens = this.registry.llm().contextWindowTokens() || DEFAULT_CONTEXT_TOKENS
-    const contextBudget =
+    const totalBudget =
       ctxTokens -
       answerMaxTokens(ctxTokens) -
       estimateTokens(buildSystemPrompt(language)) -
       estimateHistoryTokens(opts.history) -
       estimateTokens(query) -
       CONTEXT_PACK_MARGIN_TOKENS
-    const fedHits = packHitsToBudget(hits, contextBudget, language)
+
+    // Reserve a slice of the budget for pinned-doc chunks so they're guaranteed
+    // a seat; RAG hits compete for the remainder. With no pinned docs the
+    // packer collapses to the previous behaviour (RAG gets everything).
+    const pinnedBudget = pinnedBudgetTokens(totalBudget, pinnedDocs.length)
+    const ragBudget = totalBudget - pinnedBudget
+
+    const pinnedHits: RetrievalHit[] = []
+    if (pinnedDocs.length > 0 && pinnedBudget > 0) {
+      // Per-doc fair share. The Math.max(1, …) gives the "keep at least one"
+      // guarantee even on tight budgets with many pinned docs; packHitsToBudget
+      // itself also keeps the top hit when its argument is below one chunk's
+      // cost, so combined this never drops a pinned doc entirely.
+      const perDocBudget = Math.max(1, Math.floor(pinnedBudget / pinnedDocs.length))
+      // Parallelize the per-doc fetches (separately try/catch'd so one corrupt
+      // chunks row degrades that doc only, not the whole turn).
+      const perDocResults = await Promise.all(
+        pinnedDocs.map(async (doc) => {
+          try {
+            const chunks = await docsRepo.listChunksForDocument(doc.id)
+            if (chunks.length === 0) return []
+            // Top-of-document chunks are the natural "summary" stand-in for a
+            // small model — coherent and ordered, beats a random sample.
+            return packHitsToBudget(chunksToPinnedHits(chunks, doc), perDocBudget, language)
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[qa] failed to load pinned doc ${doc.id}:`,
+              err instanceof Error ? err.message : err,
+            )
+            return []
+          }
+        }),
+      )
+      for (const list of perDocResults) pinnedHits.push(...list)
+    }
+    const packedRagHits = packHitsToBudget(hits, ragBudget, language)
+    // Pinned first: they lead the prompt (buildPrompt renders them as the
+    // opening section), which both gives them early-context weight on small
+    // models AND keeps the [system][pinned] token prefix stable across turns
+    // so the worker's sequence alignment reuses its KV state instead of
+    // re-prefilling pinned content every question. fedHits is the combined
+    // view for citations + the post-pack refusal check; the provider receives
+    // the two lists separately via ask(query, packedRagHits, { pinnedHits }).
+    const fedHits = [...pinnedHits, ...packedRagHits]
+
+    // ---- 2.7 post-pack refusal ----
+    // If NOTHING made it through — no RAG hits AND no pinned doc had usable
+    // chunks (status pending/failed/empty) — refuse explicitly. Without this
+    // the prompt would carry "Context: (none)" and we'd be relying on the
+    // model's system-prompt instruction to refuse, which small local models
+    // don't reliably honour.
+    if (fedHits.length === 0) {
+      const message = REFUSAL_TEXT[language]
+      const suggestions = uniqueByDoc(hits, 3).map((h) => ({
+        doc_id: h.document_id,
+        title: h.document_title,
+        score: h.score,
+      }))
+      yield { type: 'refusal', reason: 'no_hits', message, suggestions }
+      yield { type: 'done', full_text: message, citations: [] }
+      return
+    }
 
     // ---- 3. citations + streaming generation ----
     const citations = fedHits.map((h) => ({
@@ -227,6 +298,7 @@ export class QAService {
       const askOpts: AskOptions = {
         onChunk: collector,
       }
+      if (pinnedHits.length > 0) askOpts.pinnedHits = pinnedHits
       if (opts.history) askOpts.conversationHistory = opts.history
       // Forward the server-side cancel signal so chat:cancel tears down the
       // worker generation (the longest LLM call) — not just the contextualize
@@ -236,7 +308,7 @@ export class QAService {
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.
       await this.registry.llm().setLanguage(language)
-      const askPromise = this.registry.llm().ask(query, fedHits, askOpts)
+      const askPromise = this.registry.llm().ask(query, packedRagHits, askOpts)
       // drain the queue while ask is still running
       while (true) {
         if (queue.length > 0) {
@@ -277,6 +349,29 @@ export class QAService {
       citations,
     }
   }
+}
+
+// Of the available context budget, this fraction is reserved for pinned-doc
+// chunks (force-into-context). RAG hits compete for the remainder. 40% gives
+// a single pinned doc enough room on a tight 8K window without crowding out
+// retrieved hits, and shrinks per-doc if the user pins many.
+const PINNED_BUDGET_FRAC = 0.4
+
+// Absolute ceiling on the pinned share. Prefill cost scales linearly with
+// prompt tokens and nothing is KV-reused across turns (history precedes the
+// Context block, so the prefix changes every turn) — every pinned token is
+// re-prefilled on every question. On the real profile windows a pure fraction
+// explodes: 40% of a 32K budget is ~9.5K tokens, of 131K it's ~39K — tens of
+// seconds of prefill per turn. 4K tokens (~14K chars, roughly the first 7–10
+// pages) keeps pinning useful while bounding the per-turn cost; tight 8K
+// windows stay under the cap and are unaffected.
+export const PINNED_BUDGET_MAX_TOKENS = 4096
+
+/** Token budget reserved for pinned-doc chunks. Pure helper, exported for
+ *  tests; QAService.answer is the only production caller. */
+export function pinnedBudgetTokens(totalBudget: number, pinnedCount: number): number {
+  if (pinnedCount === 0 || totalBudget <= 0) return 0
+  return Math.min(Math.floor(totalBudget * PINNED_BUDGET_FRAC), PINNED_BUDGET_MAX_TOKENS)
 }
 
 const SLEEP_SENTINEL = Symbol('sleep')
@@ -371,6 +466,28 @@ function cleanRewrite(raw: string): string {
   let cleaned = firstLine.replace(/^[`'"\s]+|[`'"\s]+$/g, '').replace(REWRITE_PREAMBLES, '')
   cleaned = cleaned.replace(/^[`'"\s]+|[`'"\s]+$/g, '')
   return cleaned
+}
+
+/** Convert a pinned document's chunks (snake_case ChunkRow) into the camel-ish
+ *  RetrievalHit shape buildPrompt expects. Score is a synthetic 1.0 — pinned
+ *  chunks aren't ranked; the packer treats them in ordinal order. */
+function chunksToPinnedHits(
+  chunks: ChunkRow[],
+  doc: Pick<Document, 'id' | 'title'>,
+): RetrievalHit[] {
+  return chunks.map((c) => ({
+    chunk_id: c.id,
+    document_id: c.document_id,
+    document_title: doc.title,
+    ordinal: c.ordinal,
+    page_from: c.page_from,
+    page_to: c.page_to,
+    heading_path: c.heading_path,
+    text: c.text,
+    score: 1,
+    origin: 'whole_doc',
+    language: c.language,
+  }))
 }
 
 function uniqueByDoc(hits: RetrievalHit[], limit: number): RetrievalHit[] {

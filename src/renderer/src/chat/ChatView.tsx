@@ -177,6 +177,13 @@ export function ChatView({
     setMessages([])
   }, [onConversationChange])
 
+  const onCopyMessage = useCallback((content: string) => {
+    // No toast — modern OS clipboard write is reliable enough that confirming
+    // every copy creates noise rather than reassurance. If the API ever fails
+    // the catch quietly swallows it (browser permission denial in dev, etc.).
+    void navigator.clipboard.writeText(content).catch(() => undefined)
+  }, [])
+
   const onSend = useCallback(
     async (text: string) => {
       setBusy(true)
@@ -335,6 +342,64 @@ export function ChatView({
     if (activeStreamId) void window.api.chat.cancel(activeStreamId)
   }, [activeStreamId])
 
+  /**
+   * Re-roll the most recent assistant turn. Uses the persisted DB messages as
+   * the single source of truth for BOTH the user text and the ids to delete —
+   * the in-memory `messagesRef` could disagree with the DB after a partial
+   * persist + UI refresh, so reading both from getWithMessages avoids deleting
+   * the wrong pair.
+   *
+   * Deletes the trailing assistant + user from DB (chat:stream persists user
+   * up-front, so we'd otherwise double-record on the re-send), then drops the
+   * trailing pair from in-memory state and re-fires onSend with the same user
+   * text. Disabled while busy so two re-rolls can't interleave.
+   *
+   * Failure mode: if either delete fails, we surface an error and bail. The
+   * conversation may be left with a dangling user message (assistant deleted,
+   * user undeleted) — the next regular Send still works; the next Regenerate
+   * will re-try the cleanup. We deliberately don't re-create the deleted
+   * message: a local-Electron DB error is rare and the simpler degraded state
+   * is preferable to a re-create that could itself fail.
+   */
+  const onRegenerate = useCallback(async () => {
+    if (busy || currentConversationId == null) return
+    let lastUserText: string | null = null
+    let lastUserId: number | null = null
+    let lastAssistantId: number | null = null
+    try {
+      const data = await window.api.conversations.getWithMessages(currentConversationId)
+      for (let i = data.messages.length - 1; i >= 0; i--) {
+        const m = data.messages[i]
+        if (!m) continue
+        if (lastAssistantId == null && m.role === 'assistant') lastAssistantId = m.id
+        else if (lastUserId == null && m.role === 'user') {
+          lastUserId = m.id
+          lastUserText = m.content
+          break
+        }
+      }
+      if (lastUserText == null) return
+      // Drop assistant first so a failed user-delete leaves the conversation in
+      // an unambiguous "needs re-answer" state instead of "duplicate user".
+      if (lastAssistantId != null) await window.api.conversations.deleteMessage(lastAssistantId)
+      if (lastUserId != null) await window.api.conversations.deleteMessage(lastUserId)
+    } catch (err) {
+      console.error('[chat] regenerate failed', err)
+      window.alert(t('chat.regenerateFailed'))
+      return
+    }
+
+    // Drop the trailing user+assistant from the in-memory list; onSend will
+    // re-append fresh ones with the same query.
+    setMessages((prev) => {
+      const next = prev.slice()
+      if (next[next.length - 1]?.role === 'assistant') next.pop()
+      if (next[next.length - 1]?.role === 'user') next.pop()
+      return next
+    })
+    await onSend(lastUserText)
+  }, [busy, currentConversationId, onSend, t])
+
   const onDelete = useCallback(
     async (id: number) => {
       await window.api.conversations.delete(id)
@@ -403,6 +468,8 @@ export function ChatView({
           messages={messages}
           onCitationClick={onCitationClick}
           keepPipelineVisible={keepPipelineVisible}
+          onCopy={onCopyMessage}
+          {...(busy ? {} : { onRegenerate: () => void onRegenerate() })}
         />
         <ChatInput onSend={onSendForInput} busy={busy} onCancel={onCancel} />
       </section>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownView } from '../markdown/MarkdownView'
 import type { ChunkSource, DocumentChunk } from '@shared/documents'
 import { extractCitationSnippets } from '@shared/citationContext'
 import { applyHighlights, findFuzzyHighlights } from '@shared/fuzzyHighlight'
@@ -370,7 +369,7 @@ function TextDocumentBody({
             {isTarget ? (
               <HighlightedText text={c.text} snippets={snippets} />
             ) : renderMarkdown ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.text}</ReactMarkdown>
+              <MarkdownView>{c.text}</MarkdownView>
             ) : (
               <pre className="source-viewer__chunk-pre">{c.text}</pre>
             )}

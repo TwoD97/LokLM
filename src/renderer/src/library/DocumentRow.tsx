@@ -11,6 +11,8 @@ import {
   BookOpen,
   Download,
   FileText,
+  Pin,
+  PinOff,
 } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { useT } from '../i18n'
@@ -28,6 +30,7 @@ type Props = {
   onRead: (doc: Document) => void
   onExport: (doc: Document) => void
   onSummarize: (doc: Document) => void
+  onTogglePin: (doc: Document) => void
 }
 
 function DocumentRowImpl({
@@ -42,6 +45,7 @@ function DocumentRowImpl({
   onRead,
   onExport,
   onSummarize,
+  onTogglePin,
 }: Props): JSX.Element {
   const t = useT()
   const [menu, setMenu] = useState(false)
@@ -77,6 +81,9 @@ function DocumentRowImpl({
               aria-label={t('library.sourceMissing')}
               className="library__row-missing-icon"
             />
+          )}
+          {doc.pinned && (
+            <Pin size={12} aria-label={t('library.pinned')} className="library__row-pinned-icon" />
           )}
           {doc.title}
           {doc.language && <LanguageBadge language={doc.language} t={t} />}
@@ -119,6 +126,24 @@ function DocumentRowImpl({
             >
               <FileText size={14} aria-hidden="true" />
               {t('library.summarize')}
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false)
+                onTogglePin(doc)
+              }}
+            >
+              {doc.pinned ? (
+                <>
+                  <PinOff size={14} aria-hidden="true" />
+                  {t('library.unpin')}
+                </>
+              ) : (
+                <>
+                  <Pin size={14} aria-hidden="true" />
+                  {t('library.pin')}
+                </>
+              )}
             </button>
             <button
               onClick={() => {

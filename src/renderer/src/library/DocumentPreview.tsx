@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownView } from '../markdown/MarkdownView'
 import type { Document, DocumentChunk } from '@shared/documents'
 import { MultiPagePdfPreview } from '../chat/MultiPagePdfPreview'
 import { useT } from '../i18n'
@@ -135,7 +134,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
                     </span>
                   )}
                   {renderMarkdown ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.text}</ReactMarkdown>
+                    <MarkdownView>{c.text}</MarkdownView>
                   ) : (
                     <pre className="source-viewer__chunk-pre">{c.text}</pre>
                   )}

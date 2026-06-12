@@ -11,6 +11,9 @@ export const chatDict: DomainDict = {
     'chat.cancel': 'Cancel',
     'chat.sendMessage': 'Send message',
     'chat.sendHint': 'Send (Enter)',
+    'chat.copy': 'Copy',
+    'chat.regenerate': 'Regenerate',
+    'chat.regenerateFailed': 'Could not regenerate the previous turn. Try again.',
     // ChatHeader
     'chat.viaOllama': 'via Ollama',
     'chat.viaOllamaFallback': 'via Ollama → bundled (fallback)',
@@ -64,6 +67,10 @@ export const chatDict: DomainDict = {
     'chat.cancel': 'Abbrechen',
     'chat.sendMessage': 'Nachricht senden',
     'chat.sendHint': 'Senden (Enter)',
+    'chat.copy': 'Kopieren',
+    'chat.regenerate': 'Neu erzeugen',
+    'chat.regenerateFailed':
+      'Die letzte Antwort konnte nicht neu erzeugt werden. Bitte erneut versuchen.',
     // ChatHeader
     'chat.viaOllama': 'über Ollama',
     'chat.viaOllamaFallback': 'über Ollama → integriert (Fallback)',

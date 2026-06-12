@@ -128,7 +128,12 @@
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",
     "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "katex": "^0.16.22",
+    "highlight.js": "^11.11.1",
     "sharp": "^0.34.0",
     "sherpa-onnx-node": "^1.13.2",
     "tesseract.js": "^6.0.1"

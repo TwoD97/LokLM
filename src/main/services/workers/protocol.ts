@@ -64,6 +64,9 @@ export interface LlmAskPayload {
   // the prompt-builder module. Same with system prompt + max tokens.
   prompt: string
   maxTokens: number
+  // Enforce the system prompt's /no_think via node-llama-cpp's segment budget
+  // (budgets.thoughtTokens = 0) — the tag alone is unreliable for this GGUF.
+  noThink?: boolean
 }
 
 export interface LlmGenerateRawPayload {
