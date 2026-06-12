@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import type { Api } from '@preload/index'
-import { DEFAULT_SETTINGS } from '../../shared/settings'
+import { DEFAULT_SETTINGS, type UserSettings } from '../../shared/settings'
 
 // pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
 // Stub the module so any test that transitively imports MultiPagePdfPreview
@@ -28,6 +28,14 @@ afterEach(() => {
   cleanup()
 })
 
+// Renderer component tests assert against English UI strings. The product
+// default UI language is German (AP-9), so pin the stubbed settings to English
+// here to keep these tests deterministic and independent of the product default.
+const TEST_SETTINGS: UserSettings = {
+  ...DEFAULT_SETTINGS,
+  basic: { ...DEFAULT_SETTINGS.basic, language: 'en' },
+}
+
 const stub: Api = {
   auth: {
     status: () =>
@@ -45,6 +53,7 @@ const stub: Api = {
     reset: () =>
       Promise.resolve({ ok: true as const, passphrase: Array(18).fill('test') as string[] }),
     verifyPassword: () => Promise.resolve({ ok: true as const }),
+    changePassword: () => Promise.resolve({ ok: true as const }),
     onState: () => () => undefined,
     onLoginProgress: () => () => undefined,
   },
@@ -107,6 +116,7 @@ const stub: Api = {
       }),
     listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
+    searchLibrary: () => Promise.resolve([]),
     readDocumentBytes: () => Promise.resolve(null),
     revealSource: () => Promise.resolve({ ok: true as const, sourcePath: '/stub' }),
     openExternal: () => Promise.resolve({ ok: true as const }),
@@ -330,6 +340,7 @@ const stub: Api = {
   chat: {
     stream: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
+    conversationSwitched: () => Promise.resolve(),
     onEvent: () => () => undefined,
   },
   transcription: {
@@ -356,8 +367,8 @@ const stub: Api = {
       }),
   },
   settings: {
-    get: () => Promise.resolve(DEFAULT_SETTINGS),
-    update: () => Promise.resolve(DEFAULT_SETTINGS),
+    get: () => Promise.resolve(TEST_SETTINGS),
+    update: () => Promise.resolve(TEST_SETTINGS),
     getAvatar: () => Promise.resolve(null),
     setAvatar: () => Promise.resolve(),
     setDisplayName: () => Promise.resolve(),

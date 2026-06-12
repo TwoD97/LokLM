@@ -14,6 +14,11 @@ export const settingsDict: DomainDict = {
     // BasicTab
     'settings.basic.uiLanguage': 'Interface language',
     'settings.basic.uiLanguageSub': 'Language of the app interface.',
+    'settings.basic.theme': 'Theme',
+    'settings.basic.themeSub': 'Colour theme of the app. System follows your OS.',
+    'settings.basic.themeSystem': 'System',
+    'settings.basic.themeLight': 'Light',
+    'settings.basic.themeDark': 'Dark',
     'settings.basic.responseLanguage': 'Response language',
     'settings.basic.responseLanguageSub':
       'Auto replies in the language you write in (DE/EN). Pick one to lock it.',
@@ -33,6 +38,10 @@ export const settingsDict: DomainDict = {
     'settings.basic.badgeAuto': 'auto',
     'settings.basic.badgeAvailable': 'available',
     'settings.basic.badgeMissing': 'download via Models panel',
+    'settings.basic.reloadConfirmTitle': 'Reload model?',
+    'settings.basic.reloadConfirmBody':
+      'Switching to the {profile} profile reloads the local model (unload + load). This can take a few seconds to a couple of minutes depending on size.',
+    'settings.basic.reloadConfirmAction': 'Switch & reload',
     'settings.basic.systemInfo': 'System info',
     'settings.basic.idleTag': 'idle',
     'settings.basic.systemInfoSubIdle':
@@ -54,6 +63,23 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabRetrieval': 'Retrieval',
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnostics',
+    'settings.advanced.subtabBehavior': 'Behavior',
+
+    // BehaviorSection
+    'settings.behavior.title': 'Session & behavior',
+    'settings.behavior.sub': 'Model handling on conversation switch and automatic lock.',
+    'settings.behavior.convSwitch': 'On conversation switch',
+    'settings.behavior.convSwitchHint':
+      'Keep the model loaded when switching conversations, or unload it to free memory.',
+    'settings.behavior.convKeep': 'Keep loaded',
+    'settings.behavior.convUnload': 'Unload',
+    'settings.behavior.autoLock': 'Auto-lock',
+    'settings.behavior.autoLockHint': 'Lock the app after this many minutes of inactivity.',
+    'settings.behavior.lock5': '5 min',
+    'settings.behavior.lock15': '15 min',
+    'settings.behavior.lock60': '60 min',
+    'settings.behavior.lockNever': 'Never',
+
     'settings.advanced.resetCopy':
       'Restores every advanced setting to its default. Profile and Basic stay untouched.',
     'settings.advanced.reset': 'Reset advanced',
@@ -75,6 +101,16 @@ export const settingsDict: DomainDict = {
     'settings.profile.recoverySub': 'Vault is locked behind your passphrase and password.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Recovery passphrase set',
+    'settings.profile.changePassword': 'Change password',
+    'settings.profile.changePasswordSub': 'Re-keys your vault. Recovery codes keep working.',
+    'settings.profile.currentPassword': 'Current password',
+    'settings.profile.newPassword': 'New password',
+    'settings.profile.confirmPassword': 'Confirm new password',
+    'settings.profile.changePasswordAction': 'Change password',
+    'settings.profile.pwMismatch': "New passwords don't match.",
+    'settings.profile.pwWrongCurrent': 'Current password is incorrect.',
+    'settings.profile.pwRateLimited': 'Too many attempts — try again in a few minutes.',
+    'settings.profile.pwError': 'Could not change the password.',
     'settings.profile.saved': 'saved',
 
     // ReindexGateModal
@@ -195,6 +231,17 @@ export const settingsDict: DomainDict = {
     'settings.reranker.placementCpu': 'CPU',
     'settings.reranker.placementGpu': 'GPU',
 
+    // IndexingSection
+    'settings.indexing.title': 'Indexing & retrieval',
+    'settings.indexing.sub':
+      'How documents are split into chunks and how many passages are retrieved per question.',
+    'settings.indexing.chunkSize': 'Chunk size',
+    'settings.indexing.chunkSizeHint': 'Characters per chunk when indexing documents (500–8000).',
+    'settings.indexing.overlap': 'Chunk overlap',
+    'settings.indexing.overlapHint': 'Characters shared between adjacent chunks (0–500).',
+    'settings.indexing.topK': 'Retrieved passages (Top-K)',
+    'settings.indexing.topKHint': 'How many passages are pulled into context per question (3–30).',
+
     // DiagnosticsSection
     'settings.diag.title': 'Diagnostics',
     'settings.diag.sub': "Read-only snapshot of the planner's most recent decisions.",
@@ -237,6 +284,11 @@ export const settingsDict: DomainDict = {
     // BasicTab
     'settings.basic.uiLanguage': 'Anzeigesprache',
     'settings.basic.uiLanguageSub': 'Sprache der Benutzeroberfläche.',
+    'settings.basic.theme': 'Erscheinungsbild',
+    'settings.basic.themeSub': 'Farbschema der App. „System“ folgt dem Betriebssystem.',
+    'settings.basic.themeSystem': 'System',
+    'settings.basic.themeLight': 'Hell',
+    'settings.basic.themeDark': 'Dunkel',
     'settings.basic.responseLanguage': 'Antwortsprache',
     'settings.basic.responseLanguageSub':
       'Auto antwortet in deiner Eingabesprache (DE/EN). Oder fixiere eine.',
@@ -257,6 +309,10 @@ export const settingsDict: DomainDict = {
     'settings.basic.badgeAuto': 'auto',
     'settings.basic.badgeAvailable': 'verfügbar',
     'settings.basic.badgeMissing': 'über Modelle-Panel laden',
+    'settings.basic.reloadConfirmTitle': 'Modell neu laden?',
+    'settings.basic.reloadConfirmBody':
+      'Der Wechsel auf das Profil {profile} lädt das lokale Modell neu (entladen + laden). Das kann je nach Größe einige Sekunden bis ein paar Minuten dauern.',
+    'settings.basic.reloadConfirmAction': 'Wechseln & neu laden',
     'settings.basic.systemInfo': 'Systeminfo',
     'settings.basic.idleTag': 'inaktiv',
     'settings.basic.systemInfoSubIdle':
@@ -279,6 +335,23 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabRetrieval': 'Retrieval',
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnose',
+    'settings.advanced.subtabBehavior': 'Verhalten',
+
+    // BehaviorSection
+    'settings.behavior.title': 'Sitzung & Verhalten',
+    'settings.behavior.sub': 'Modell-Handhabung beim Konversationswechsel und automatische Sperre.',
+    'settings.behavior.convSwitch': 'Beim Konversationswechsel',
+    'settings.behavior.convSwitchHint':
+      'Modell beim Wechsel geladen lassen oder entladen, um Speicher freizugeben.',
+    'settings.behavior.convKeep': 'Geladen lassen',
+    'settings.behavior.convUnload': 'Entladen',
+    'settings.behavior.autoLock': 'Automatische Sperre',
+    'settings.behavior.autoLockHint': 'App nach so vielen Minuten Inaktivität sperren.',
+    'settings.behavior.lock5': '5 Min.',
+    'settings.behavior.lock15': '15 Min.',
+    'settings.behavior.lock60': '60 Min.',
+    'settings.behavior.lockNever': 'Nie',
+
     'settings.advanced.resetCopy':
       'Setzt jede erweiterte Einstellung auf ihren Standard zurück. Profil und Allgemein bleiben unberührt.',
     'settings.advanced.reset': 'Erweitert zurücksetzen',
@@ -301,6 +374,17 @@ export const settingsDict: DomainDict = {
       'Der Vault ist durch deine Passphrase und dein Passwort gesperrt.',
     'settings.profile.status': 'Status',
     'settings.profile.recoverySet': 'Wiederherstellungs-Passphrase gesetzt',
+    'settings.profile.changePassword': 'Passwort ändern',
+    'settings.profile.changePasswordSub':
+      'Verschlüsselt deinen Tresor neu. Recovery-Codes bleiben gültig.',
+    'settings.profile.currentPassword': 'Aktuelles Passwort',
+    'settings.profile.newPassword': 'Neues Passwort',
+    'settings.profile.confirmPassword': 'Neues Passwort bestätigen',
+    'settings.profile.changePasswordAction': 'Passwort ändern',
+    'settings.profile.pwMismatch': 'Neue Passwörter stimmen nicht überein.',
+    'settings.profile.pwWrongCurrent': 'Aktuelles Passwort ist falsch.',
+    'settings.profile.pwRateLimited': 'Zu viele Versuche — bitte in ein paar Minuten erneut.',
+    'settings.profile.pwError': 'Passwort konnte nicht geändert werden.',
     'settings.profile.saved': 'gespeichert',
 
     // ReindexGateModal
@@ -424,6 +508,18 @@ export const settingsDict: DomainDict = {
     'settings.reranker.placementAuto': 'Auto',
     'settings.reranker.placementCpu': 'CPU',
     'settings.reranker.placementGpu': 'GPU',
+
+    // IndexingSection
+    'settings.indexing.title': 'Indexierung & Suche',
+    'settings.indexing.sub':
+      'Wie Dokumente in Chunks geteilt werden und wie viele Passagen pro Frage abgerufen werden.',
+    'settings.indexing.chunkSize': 'Chunkgröße',
+    'settings.indexing.chunkSizeHint': 'Zeichen pro Chunk beim Indexieren (500–8000).',
+    'settings.indexing.overlap': 'Überlappung',
+    'settings.indexing.overlapHint': 'Gemeinsame Zeichen zwischen benachbarten Chunks (0–500).',
+    'settings.indexing.topK': 'Abgerufene Passagen (Treffer-K)',
+    'settings.indexing.topKHint':
+      'Wie viele Passagen pro Frage in den Kontext geholt werden (3–30).',
 
     // DiagnosticsSection
     'settings.diag.title': 'Diagnose',

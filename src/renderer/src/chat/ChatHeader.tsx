@@ -29,7 +29,7 @@ export function ChatHeader({ title, onDelete }: Props): JSX.Element {
       {status && status.source === 'ollama' && (
         <span
           className="chat__header-source"
-          style={{ marginLeft: 8, color: '#9fb3cc', fontSize: 12 }}
+          style={{ marginLeft: 8, color: 'var(--fg-2)', fontSize: 12 }}
           title={status.fallback?.reason ?? undefined}
         >
           {status.fallback?.active ? t('chat.viaOllamaFallback') : t('chat.viaOllama')}

@@ -27,7 +27,10 @@ export function ConfirmModal({
         <p style={{ marginTop: 8, opacity: 0.8 }}>{body}</p>
         <div className="confirm-modal__actions">
           <button onClick={onCancel}>{cancel}</button>
-          <button onClick={onConfirm} style={{ background: '#5a1f1f', color: '#f0d4d4' }}>
+          <button
+            onClick={onConfirm}
+            style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
+          >
             {confirm}
           </button>
         </div>

@@ -12,7 +12,7 @@ function ErrorFallback({
 }): JSX.Element {
   const t = useT()
   return (
-    <div role="alert" style={{ padding: 16, color: '#f0d4d4' }}>
+    <div role="alert" style={{ padding: 16, color: 'var(--error)' }}>
       {label ? `${label}: ` : ''}
       {message || t('shell.unknownError')}
     </div>
