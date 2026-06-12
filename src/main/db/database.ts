@@ -360,6 +360,18 @@ export class DocumentsRepo {
     return row
   }
 
+  /** Lightweight id+title projection for the qa router's target-document
+   *  resolution. Deliberately NOT listDocumentsByWorkspace — that one runs a
+   *  LATERAL language aggregate per doc , far too heavy for a per-query
+   *  routing check. Only 'ready' docs: a doc still indexing (or failed) has
+   *  no chunks to summarize or cite. */
+  async listDocumentTitles(workspaceId: number): Promise<Array<{ id: number; title: string }>> {
+    return this.db
+      .select({ id: documents.id, title: documents.title })
+      .from(documents)
+      .where(sql`${documents.workspaceId} = ${workspaceId} AND ${documents.status} = 'ready'`)
+  }
+
   /** Single-query source-context fetch for the SourceViewer: the parent
    *  document + the cited chunk's page range + heading breadcrumb. Replaces
    *  the previous two-roundtrip (document + heading-path) IPC path. */

@@ -33,7 +33,7 @@ export class OllamaLlmProvider implements LlmProvider {
     }
     messages.push({
       role: 'user',
-      content: buildPrompt(question, hits, [], this.language, opts.pinnedHits),
+      content: buildPrompt(question, hits, [], this.language, opts.pinnedHits, opts.contextPreamble),
     })
 
     let acc = ''

@@ -71,6 +71,13 @@ export interface AskOptions {
    *  which node-llama-cpp's sequence alignment turns into KV-cache reuse —
    *  pinned content is prefilled once, not on every question. */
   pinnedHits?: RetrievalHit[]
+  /** Uncited background block rendered above the hits in the Context section
+   *  (see buildPrompt / buildSummaryPreamble). Used by the doc_summary route
+   *  to feed the cached whole-doc summary without touching the citation
+   *  contract — the preamble carries no [doc, chunk] id. Renders AFTER the
+   *  pinned section: it is per-turn volatile and must not break the stable
+   *  KV prefix pinnedHits exist to provide. */
+  contextPreamble?: string
 }
 
 export interface LlmProfile {
@@ -632,7 +639,14 @@ export class LlamaService {
       detector.reset()
       accumulated = ''
       loopAborted = false
-      const promptBody = buildPrompt(question, hits, history, this.language, opts.pinnedHits)
+      const promptBody = buildPrompt(
+        question,
+        hits,
+        history,
+        this.language,
+        opts.pinnedHits,
+        opts.contextPreamble,
+      )
       // noThink: the system prompt already ends in /no_think, but this GGUF
       // honours the tag unreliably — the segment budget is the switch that
       // actually sticks (mirrors the quiz path). Without it the model can

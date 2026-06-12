@@ -3,10 +3,12 @@ import type { RetrievalService } from '../retrieval/RetrievalService'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
 import type { Document } from '../../db/schema'
+import type { SummarizationService } from '../summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
 import {
   REFUSAL_TEXT,
   buildSystemPrompt,
+  buildSummaryPreamble,
   packHitsToBudget,
   answerMaxTokens,
   estimateTokens,
@@ -14,26 +16,35 @@ import {
   DEFAULT_CONTEXT_TOKENS,
   CONTEXT_PACK_MARGIN_TOKENS,
 } from '../llm/prompt'
+import { SUMMARY_MAX_TOKENS, SUMMARY_PROMPT_RESERVE_TOKENS } from '../summarize/prompt'
 import { detectResponseLanguage } from '../documents/languageDetector'
+import { classifyQueryBreadth, adaptiveTopK, resolveRoute, type QueryRoute } from './router'
 
-// 3 wins on the eval sweep (tests/evals/report/runs/2026-05-20T19-46-39…):
-// across Qwen3-8B, Granite-3.3-8B and Mistral-Nemo-12B, k=3 was best- or
-// tied-best on Nemotron-judged answer quality (~0.92), and TTFT scales
-// with prompt length so smaller k is also a latency win. Bigger k didn't
-// improve quality on this corpus and just slowed prefill.
-//
-// The eval set is mostly focused factoid questions ("what is X?", "wie funktioniert Y?").
-// For summary / comparison / list-style intents 3 chunks is too few — the
-// model can't see enough of the document to answer. classifyQueryBreadth
-// detects those and bumps topK; callers that pin opts.topK (evals, tests)
-// bypass the heuristic entirely.
-const FOCUSED_TOP_K = 3
-const BROAD_TOP_K = 8
-const SUMMARY_TOP_K = 12
+// Breadth classifier + adaptiveTopK moved to ./router (the route layer reuses
+// their patterns); re-exported here so existing imports (queryBreadth.test.ts,
+// eval configs) keep resolving against the historical path.
+export { classifyQueryBreadth, adaptiveTopK, type QueryBreadth } from './router'
+
 // RRF fuses 1/(60+rank) scores so even strong matches sit around 0.03–0.05.
 // The score gate is here purely to catch the empty-pool case; we rely on the
 // LLM itself to decline when the retrieved chunks don't actually answer.
 const DEFAULT_REFUSAL_THRESHOLD = 0
+
+// Chunk top-up depth for the doc_summary route. The cached summary is the
+// primary context; these are the doc's best reranked chunks packed into the
+// REMAINING budget so the model has citable excerpts. Deliberately ignores
+// the caller's opts.topK — that knob sizes the chunk pipeline, and on this
+// route chunks are the garnish, not the meal.
+const SUMMARY_ROUTE_TOP_K = 6
+
+// CPU guard for the doc_summary route on a summary-cache MISS: generating the
+// summary first means map-reduce over the whole doc BEFORE the first answer
+// token. On GPU that's tolerable (seconds); on CPU a doc spanning more than a
+// couple of generation windows is minutes of silence — worse than the topK-12
+// fragment behaviour this route replaces. Above this window estimate we fall
+// back to plain retrieval (the Library "Summarize" action remains the way to
+// warm the cache explicitly).
+const CPU_SUMMARY_MAX_WINDOWS = 2
 
 /**
  * Streaming RAG entry-point. Pipeline:
@@ -54,6 +65,7 @@ export class QAService {
     private readonly db: Database,
     private readonly retrieval: RetrievalService,
     private readonly registry: ProviderRegistry,
+    private readonly summarization: SummarizationService,
   ) {}
 
   async *answer(
@@ -103,12 +115,110 @@ export class QAService {
       }
     }
 
-    // ---- 0. contextualize the retrieval query against prior turns ----
+    // ---- 0. route ----
+    // Regex-first dispatch (ADR-0003): "summarize document X" goes to the
+    // cached whole-doc summarizer instead of pretending more chunks make a
+    // summary. The stage row only appears when summary intent actually fired —
+    // same no-op-row convention as expand_queries/rerank. Resolution misses
+    // (no / ambiguous title match) fall through to plain retrieval , never an
+    // error , never an LLM guess. The lazy getDocuments keeps non-summary
+    // queries at zero extra DB round-trips.
+    let route: QueryRoute = { kind: 'retrieval' }
+    // Summary text + title held until AFTER budget packing — the preamble
+    // wording depends on whether excerpt blocks actually survived the pack
+    // (buildSummaryPreamble's hasExcerpts variant).
+    let summaryInfo: { title: string; summary: string } | null = null
+    let summaryDocId: number | null = null
+    if (opts.routing !== false && classifyQueryBreadth(query) === 'summary') {
+      emitStage('route', 'start')
+      while (stageBuffer.length > 0) yield stageBuffer.shift()!
+      route = await resolveRoute(query, {
+        activeDocumentIds: opts.activeDocumentIds ?? null,
+        getDocuments: () => this.db.documents().listDocumentTitles(workspaceId),
+      })
+
+      // ---- doc_summary gates + summary fetch/generation ----
+      // On success the summary becomes an uncited Context preamble (Option A
+      // of ADR-0003 — the citation contract stays chunk-bound) and the chunk
+      // search below narrows to the target doc as a citation top-up. Every
+      // failure path falls through to plain retrieval — and the route 'done'
+      // detail reports the OUTCOME of these gates , not the resolution alone ,
+      // so the pipeline strip never claims a summary route that was abandoned.
+      let routeDetail = '→ retrieval'
+      let routeDoneEmitted = false
+      if (route.kind === 'doc_summary') {
+        const target = await this.db.documents().getDocument(route.documentId)
+        const llm = this.registry.llm()
+        const cached = Boolean(target?.summary && target.summary.trim().length > 0)
+        // Window estimate mirrors SummarizationService's packContentWindows
+        // budget math but works off the documents row (no chunk load) — it
+        // only gates the CPU fallback , a rough token count is enough.
+        const ctxTokensForGen = llm.contextWindowTokens() || DEFAULT_CONTEXT_TOKENS
+        const genBudget = Math.max(
+          1000,
+          ctxTokensForGen - SUMMARY_PROMPT_RESERVE_TOKENS - SUMMARY_MAX_TOKENS,
+        )
+        const estWindows = Math.ceil((target?.tokenCount ?? 0) / genBudget)
+        // isCpuInference is optional on the provider contract; unknown (Ollama)
+        // counts as not-CPU — same semantics as LlamaService's gpuLabel check.
+        const cpuInference = llm.isCpuInference?.() ?? false
+        // Status + workspace gate: the title-match path only ever sees 'ready'
+        // docs of this workspace (listDocumentTitles) , but the single-pin
+        // shortcut returns an unvalidated id. Summarizing a mid-index or
+        // failed doc would CACHE a partial-content summary that survives
+        // until the next reindex; a foreign-workspace id must not leak its
+        // summary into this chat either.
+        const eligible =
+          target != null && target.status === 'ready' && target.workspaceId === workspaceId
+        if (!eligible) {
+          routeDetail = '→ retrieval (doc not ready)'
+        } else if (!cached && cpuInference && estWindows > CPU_SUMMARY_MAX_WINDOWS) {
+          // Cache miss on a long doc with CPU inference: map-reduce before the
+          // first token would be minutes of silence. The Library "Summarize"
+          // action stays the way to warm the cache explicitly.
+          routeDetail = '→ retrieval (cpu guard)'
+        } else {
+          routeDetail = '→ summary'
+          emitStage('route', 'done', routeDetail)
+          routeDoneEmitted = true
+          emitStage('summarize', 'start')
+          while (stageBuffer.length > 0) yield stageBuffer.shift()!
+          try {
+            const res = await this.summarization.summarize(
+              route.documentId,
+              abortSignal ? { abortSignal } : {},
+            )
+            summaryInfo = { title: target.title, summary: res.summary }
+            summaryDocId = route.documentId
+            emitStage('summarize', 'done', res.cached ? 'cached' : 'generated')
+          } catch {
+            // SummarizationError (model_not_ready / no_content / failed) — the
+            // retrieval pipeline still answers. Aborts stop the stream.
+            if (abortSignal?.aborted) return
+            emitStage('summarize', 'done', 'failed — retrieval fallback')
+          }
+          while (stageBuffer.length > 0) yield stageBuffer.shift()!
+        }
+      }
+      if (!routeDoneEmitted) {
+        emitStage('route', 'done', routeDetail)
+        while (stageBuffer.length > 0) yield stageBuffer.shift()!
+      }
+    }
+
+    // ---- 0.5 contextualize the retrieval query against prior turns ----
     // The LLM still sees the user's literal question in the prompt; only the
     // text fed to BM25/dense/rerank is rewritten. Failures fall back to the
-    // raw query so a flaky LLM never blocks an answer.
+    // raw query so a flaky LLM never blocks an answer. Skipped on the summary
+    // route — the target doc is already resolved , and the top-up search is
+    // pinned to it anyway , so the rewrite LLM pass would buy nothing.
     let retrievalQuery = query
-    if (opts.contextualize === true && opts.history && opts.history.length > 0) {
+    if (
+      summaryDocId == null &&
+      opts.contextualize === true &&
+      opts.history &&
+      opts.history.length > 0
+    ) {
       emitStage('contextualize', 'start')
       // Drain immediately so the renderer sees the row before the (possibly
       // multi-hundred-ms) LLM rewrite call awaits.
@@ -138,12 +248,20 @@ export class QAService {
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
       if (opts.activeDocumentIds !== undefined)
         searchOpts.activeDocumentIds = opts.activeDocumentIds
+      // Summary route: the chunk search is a citation top-up within the
+      // resolved doc — pin it there and cap the depth (the summary preamble
+      // is the primary context; opts.topK sizes the chunk pipeline , not this).
+      if (summaryDocId != null) {
+        searchOpts.activeDocumentIds = [summaryDocId]
+        searchOpts.multiQuery = false
+      }
+      const effectiveTopK = summaryDocId != null ? SUMMARY_ROUTE_TOP_K : topK
       // Race the search promise against a short tick so we can drain the
       // stageBuffer mid-flight — RetrievalService emits its stage events from
       // inside the same awaited call, and without interleaving the renderer
       // wouldn't see them until search() resolved.
       const searchPromise = this.retrieval
-        .search(workspaceId, retrievalQuery, topK, searchOpts)
+        .search(workspaceId, retrievalQuery, effectiveTopK, searchOpts)
         .then((r) => ({ ok: true as const, hits: r }))
         .catch((err) => ({ ok: false as const, err }))
       while (true) {
@@ -174,9 +292,12 @@ export class QAService {
     // for the pinned-doc fetch + packing on a turn that's definitely going to
     // refuse. The "no context at all" case is checked AFTER packing instead,
     // so pinned-but-empty workspaces refuse cleanly instead of letting the
-    // model hallucinate from a (none) Context block.
+    // model hallucinate from a (none) Context block. Skipped entirely on the
+    // summary route: the cached summary IS the evidence , and a resolved doc
+    // whose chunks don't match the query phrasing must still get its summary
+    // answered (doc-pinned zero-hit fallback , ADR-0003).
     const topScore = hits[0]?.score ?? 0
-    if (hits.length > 0 && topScore < threshold) {
+    if (summaryInfo == null && hits.length > 0 && topScore < threshold) {
       const message = REFUSAL_TEXT[language]
       const suggestions = uniqueByDoc(hits, 3).map((h) => ({
         doc_id: h.document_id,
@@ -196,12 +317,23 @@ export class QAService {
     // The LlamaService overflow-retry stays as a belt-and-suspenders fallback
     // for any non-QAService caller that passes unpacked hits.
     const ctxTokens = this.registry.llm().contextWindowTokens() || DEFAULT_CONTEXT_TOKENS
+    // Stable-content-first fill order (ADR-0003): the pinned reserve and the
+    // summary preamble are budgeted up front — RAG chunk top-ups absorb the
+    // overflow , never the other way around. The preamble is budgeted with
+    // the hasExcerpts=true wording (the longer of the two variants differs
+    // by a handful of tokens — CONTEXT_PACK_MARGIN absorbs the delta); the
+    // final wording is picked after packing , once we know whether any
+    // excerpt blocks survived.
+    const preambleForBudget = summaryInfo
+      ? buildSummaryPreamble(language, summaryInfo.title, summaryInfo.summary, true)
+      : null
     const totalBudget =
       ctxTokens -
       answerMaxTokens(ctxTokens) -
       estimateTokens(buildSystemPrompt(language)) -
       estimateHistoryTokens(opts.history) -
       estimateTokens(query) -
+      (preambleForBudget ? estimateTokens(preambleForBudget) : 0) -
       CONTEXT_PACK_MARGIN_TOKENS
 
     // Reserve a slice of the budget for pinned-doc chunks so they're guaranteed
@@ -248,14 +380,21 @@ export class QAService {
     // view for citations + the post-pack refusal check; the provider receives
     // the two lists separately via ask(query, packedRagHits, { pinnedHits }).
     const fedHits = [...pinnedHits, ...packedRagHits]
+    // Final preamble wording: hasExcerpts when ANY citable block (pinned or
+    // RAG) made it into the prompt — only the truly block-free prompt gets
+    // the "answer uncited" variant.
+    const summaryPreamble = summaryInfo
+      ? buildSummaryPreamble(language, summaryInfo.title, summaryInfo.summary, fedHits.length > 0)
+      : null
 
     // ---- 2.7 post-pack refusal ----
     // If NOTHING made it through — no RAG hits AND no pinned doc had usable
     // chunks (status pending/failed/empty) — refuse explicitly. Without this
     // the prompt would carry "Context: (none)" and we'd be relying on the
     // model's system-prompt instruction to refuse, which small local models
-    // don't reliably honour.
-    if (fedHits.length === 0) {
+    // don't reliably honour. The summary route is exempt: its preamble IS the
+    // context , the prompt is never empty.
+    if (summaryPreamble == null && fedHits.length === 0) {
       const message = REFUSAL_TEXT[language]
       const suggestions = uniqueByDoc(hits, 3).map((h) => ({
         doc_id: h.document_id,
@@ -299,6 +438,7 @@ export class QAService {
         onChunk: collector,
       }
       if (pinnedHits.length > 0) askOpts.pinnedHits = pinnedHits
+      if (summaryPreamble) askOpts.contextPreamble = summaryPreamble
       if (opts.history) askOpts.conversationHistory = opts.history
       // Forward the server-side cancel signal so chat:cancel tears down the
       // worker generation (the longest LLM call) — not just the contextualize
@@ -500,77 +640,4 @@ function uniqueByDoc(hits: RetrievalHit[], limit: number): RetrievalHit[] {
     if (out.length >= limit) break
   }
   return out
-}
-
-export type QueryBreadth = 'focused' | 'broad' | 'summary'
-
-// Patterns deliberately tight: false-positives only cost prefill latency
-// (topK 3→8 or 3→12) , false-negatives leave the answer underspecified ,
-// which is the worse failure. When in doubt , stay focused.
-// Note on `\b` and German umlauts: JS regex `\b` is ASCII-only , so
-// `\bübersicht\b` does NOT match "übersicht" at start of string (the position
-// before 'ü' is not a word boundary because 'ü' isn't \w). Patterns containing
-// non-ASCII letters at their edges drop the `\b` and rely on the stem itself
-// being unique enough to avoid false positives.
-const SUMMARY_PATTERNS: RegExp[] = [
-  /\bsummari[sz]e\b/i,
-  /\bsummary\b/i,
-  /\btl;?dr\b/i,
-  /\boverview\b/i,
-  /\brecap\b/i,
-  /\bin (a |one )?(few|short) (words|sentences)\b/i,
-  /zusammenfass/i,
-  /kurzfassung/i,
-  /überblick/i,
-  /übersicht/i,
-  // "fasse … zusammen" / "fass das mal zusammen" — split verb , window-limited
-  /\bfass(e|t|en)?\b[^.?!\n]{0,40}\bzusammen\b/i,
-]
-
-const BROAD_PATTERNS: RegExp[] = [
-  /\blist (all|every|each|the)\b/i,
-  /\benumerate\b/i,
-  /\bwhat are (all|the)\b/i,
-  /\bwhich (ones|of|are)\b/i,
-  /\bevery\b/i,
-  /\beach of\b/i,
-  /\bcompare\b/i,
-  /\bcontrast\b/i,
-  /\bdifferences? between\b/i,
-  /\bsimilarit(y|ies)\b/i,
-  /\b(versus|vs\.?)\b/i,
-  /\balle\b/i,
-  /sämtliche/i,
-  /\bjede[rs]?\b/i,
-  /\bwelche\b/i,
-  /\bnenne\b/i,
-  /\bzähl(e|en)?\b[^.?!\n]{0,40}\bauf\b/i,
-  /\bvergleich/i,
-  /\bunterschied/i,
-  /gegenüber/i,
-]
-
-/**
- * Classify a query by how much of the document(s) it needs to see.
- * Summary > broad > focused. Pure , regex-only , no LLM call — runs on the
- * hot path before retrieval. Bilingual (DE/EN) to match the rest of the
- * pipeline.
- */
-export function classifyQueryBreadth(query: string): QueryBreadth {
-  if (SUMMARY_PATTERNS.some((p) => p.test(query))) return 'summary'
-  if (BROAD_PATTERNS.some((p) => p.test(query))) return 'broad'
-  return 'focused'
-}
-
-/** Maps classified breadth to a topK. Exported for tests and for callers
- *  that want the heuristic without going through QAService.answer. */
-export function adaptiveTopK(query: string): number {
-  switch (classifyQueryBreadth(query)) {
-    case 'summary':
-      return SUMMARY_TOP_K
-    case 'broad':
-      return BROAD_TOP_K
-    case 'focused':
-      return FOCUSED_TOP_K
-  }
 }

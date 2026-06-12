@@ -44,6 +44,46 @@ describe('buildPrompt', () => {
     expect(out).toContain('Context: (none)')
   })
 
+  it('renders the contextPreamble above the hits inside the Context block', () => {
+    const out = buildPrompt(
+      'worum geht es?',
+      [hit(7, 'Detailauszug.', 'Wochenbuch.pdf')],
+      undefined,
+      'de',
+      undefined,
+      'Document overview — "Wochenbuch.pdf" (background):\nKurzer Überblick.',
+    )
+    const ctxStart = out.indexOf('Context:')
+    const preambleAt = out.indexOf('Kurzer Überblick.')
+    const hitAt = out.indexOf('[doc:7, chunk:7]')
+    expect(ctxStart).toBeGreaterThanOrEqual(0)
+    expect(preambleAt).toBeGreaterThan(ctxStart)
+    expect(hitAt).toBeGreaterThan(preambleAt)
+  })
+
+  it('preamble with zero hits still renders a Context block, not (none)', () => {
+    const out = buildPrompt('worum geht es?', [], undefined, 'en', undefined, 'Overview text only.')
+    expect(out).not.toContain('Context: (none)')
+    expect(out).toContain('Overview text only.')
+  })
+
+  it('preamble renders AFTER the pinned section — never ahead of the stable prefix', () => {
+    const out = buildPrompt(
+      'q',
+      [hit(2, 'rag fact')],
+      undefined,
+      'en',
+      [hit(9, 'pinned fact')],
+      'Overview preamble.',
+    )
+    const pinnedAt = out.indexOf('Context (pinned):')
+    const preambleAt = out.indexOf('Overview preamble.')
+    const ragAt = out.indexOf('rag fact')
+    expect(pinnedAt).toBeGreaterThanOrEqual(0)
+    expect(preambleAt).toBeGreaterThan(pinnedAt)
+    expect(ragAt).toBeGreaterThan(preambleAt)
+  })
+
   it('embeds conversation history when provided', () => {
     const out = buildPrompt(
       'follow up',

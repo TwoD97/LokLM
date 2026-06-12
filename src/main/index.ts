@@ -505,6 +505,9 @@ function getQAService(): QAService {
       getAuth().requireDatabase(),
       getRetrievalService(),
       getProviderRegistry(),
+      // doc_summary route (ADR-0003): summary intent + resolved target doc →
+      // cached whole-doc summary as context instead of topK fragments.
+      getSummarizationService(),
     )
   }
   return qaService

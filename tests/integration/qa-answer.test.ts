@@ -11,6 +11,7 @@ import { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import { LlamaService } from '@main/services/llm/LlamaService'
 import { InProcessModelsClient, asModelsWorkerClient } from './helpers/InProcessModelsClient'
 import { QAService } from '@main/services/qa/QAService'
+import { SummarizationService } from '@main/services/summarize/SummarizationService'
 import { ProviderRegistry } from '@main/services/providers/Registry'
 import { BundledLlmProvider } from '@main/services/providers/bundled/BundledLlmProvider'
 import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
@@ -87,7 +88,7 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
       await llama.autoLoad()
       expect(llama.isReady()).toBe(true)
       const retrieval = new RetrievalService(db, registry)
-      const qa = new QAService(db, retrieval, registry)
+      const qa = new QAService(db, retrieval, registry, new SummarizationService(db, registry))
 
       const events: StreamEvent[] = []
       for await (const ev of qa.answer(ws.id, 'How are passwords hashed?', { topK: 4 })) {
@@ -134,7 +135,7 @@ describe.runIf(existsSync(EMBEDDER_PATH) && existsSync(LLM_PATH))(
       await llama.autoLoad()
       expect(llama.isReady()).toBe(true)
       const retrieval = new RetrievalService(db, registry)
-      const qa = new QAService(db, retrieval, registry)
+      const qa = new QAService(db, retrieval, registry, new SummarizationService(db, registry))
 
       const events: StreamEvent[] = []
       for await (const ev of qa.answer(ws.id, 'wie schütze ich passwörter', {
