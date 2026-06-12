@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Info, Settings as SettingsIcon, User } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { BasicTab } from './BasicTab'
@@ -17,10 +17,24 @@ type Props = {
 export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
   const t = useT()
   const [tab, setTab] = useState<Tab>('basic')
+  // Tracks whether the mouse press that precedes a click started on the
+  // backdrop itself. Without this, selecting text in a field and releasing the
+  // mouse over the backdrop fires a click whose target is the backdrop, which
+  // would close the modal mid-selection (the press began inside, not on it).
+  const backdropPressed = useRef(false)
 
+  // Reset to Basic when the modal opens — keyed on `open` ONLY. Keeping onClose
+  // out of these deps is load-bearing: App passes a fresh inline onClose every
+  // render and a settings update re-renders App, so depending on onClose here
+  // would snap the tab back to Basic on every setting change (e.g. dragging a
+  // slider in the Advanced tab).
+  useEffect(() => {
+    if (open) setTab('basic')
+  }, [open])
+
+  // Escape closes while the modal is open.
   useEffect(() => {
     if (!open) return
-    setTab('basic') // always reset to Basic on open
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
     }
@@ -31,7 +45,20 @@ export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
   if (!open) return null
 
   return (
-    <div className="settings-backdrop" onClick={onClose} role="presentation">
+    <div
+      className="settings-backdrop"
+      onMouseDown={(e) => {
+        backdropPressed.current = e.target === e.currentTarget
+      }}
+      onClick={(e) => {
+        // Close only on a genuine backdrop click — press AND release on the
+        // backdrop. A drag that started inside (text selection) leaves
+        // backdropPressed false even if the click resolves on the backdrop.
+        if (e.target === e.currentTarget && backdropPressed.current) onClose()
+        backdropPressed.current = false
+      }}
+      role="presentation"
+    >
       <div
         className="settings-modal"
         onClick={(e) => e.stopPropagation()}

@@ -132,6 +132,12 @@ export function ChatView({
 
   const openConversation = useCallback(
     async (id: number) => {
+      // AP-9 Konv.-Wechsel: on an actual switch, tell main we're leaving the
+      // current conversation so it can free the model under the "unload"
+      // setting. Best-effort + fire-and-forget; "keep" makes this a no-op.
+      if (id !== currentIdRef.current) {
+        void window.api.chat.conversationSwitched().catch(() => undefined)
+      }
       const data = await window.api.conversations.getWithMessages(id)
       onConversationChange(id, data.conversation.activeDocumentIds)
       setMessages(
