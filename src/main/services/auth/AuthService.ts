@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from 'node:crypto'
 import argon2 from 'argon2'
+import { intoSecure, secureWipe } from './secureMemory'
 import { Database } from '../../db/database'
 import {
   generatePassphrase as generatePassphraseShared,
@@ -204,12 +205,14 @@ export class AuthService {
       throw new Error('Display name must be 3–32 characters.')
     }
 
-    const dek = randomBytes(DEK_BYTES)
+    // Session-lifetime key → guarded + mlock'd memory from the start , so it
+    // can never be paged out to disk. ( intoSecure wipes the randomBytes temp. )
+    const dek = intoSecure(randomBytes(DEK_BYTES))
 
     const passwordSalt = randomBytes(KEK_SALT_BYTES)
     const passwordKek = await deriveKEK(input.password, Buffer.from(passwordSalt))
     const passwordWrappedDek = wrapKey(passwordKek, dek)
-    passwordKek.fill(0)
+    secureWipe(passwordKek)
 
     // one recovery entry , derived from the canonicalized passphrase.
     const wordlist = getWordlist(input.recoveryLang)
@@ -222,7 +225,7 @@ export class AuthService {
       createdAt: nowSec(),
       usedAt: null,
     }
-    recoveryKek.fill(0)
+    secureWipe(recoveryKek)
 
     const header: AuthHeader = {
       version: 4,
@@ -264,7 +267,7 @@ export class AuthService {
     const passwordSalt = Buffer.from(vault.header.passwordSalt, 'base64')
     const passwordKek = await deriveKEK(password, Buffer.from(passwordSalt))
     const dek = unwrapKey(passwordKek, vault.header.passwordWrappedDek)
-    passwordKek.fill(0)
+    secureWipe(passwordKek)
 
     if (!dek) {
       this.recordFailure()
@@ -277,7 +280,7 @@ export class AuthService {
     emit('decrypting')
     const snapshotBlob = decryptBody(vault.body, dek)
     if (snapshotBlob == null) {
-      dek.fill(0)
+      secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
       )
@@ -292,7 +295,7 @@ export class AuthService {
     try {
       database = await Database.create(undefined, snapshotBlob)
     } catch (err) {
-      dek.fill(0)
+      secureWipe(dek)
       throw err
     }
     this.dek = dek
@@ -330,13 +333,13 @@ export class AuthService {
     const salt = Buffer.from(header.passwordSalt, 'base64')
     const kek = await deriveKEK(password, salt)
     const probe = unwrapKey(kek, header.passwordWrappedDek)
-    kek.fill(0)
+    secureWipe(kek)
     if (!probe) {
       this.recordFailure()
       return { ok: false, reason: 'bad_password' }
     }
     // got the DEK , zero it immediately , the verify only confirms identity.
-    probe.fill(0)
+    secureWipe(probe)
     this.touch()
     return { ok: true }
   }
@@ -380,7 +383,7 @@ export class AuthService {
       const salt = Buffer.from(entry.salt, 'base64')
       const kek = await deriveKEK(words.join(' '), salt)
       const candidate = unwrapKey(kek, entry.wrappedDek)
-      kek.fill(0)
+      secureWipe(kek)
       if (candidate) {
         dek = candidate
         matchedIdx = i
@@ -397,7 +400,7 @@ export class AuthService {
     const newPasswordSalt = randomBytes(KEK_SALT_BYTES)
     const newPasswordKek = await deriveKEK(input.newPassword, Buffer.from(newPasswordSalt))
     const newPasswordWrappedDek = wrapKey(newPasswordKek, dek)
-    newPasswordKek.fill(0)
+    secureWipe(newPasswordKek)
 
     const newPassphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
     const newRecoverySalt = randomBytes(KEK_SALT_BYTES)
@@ -408,7 +411,7 @@ export class AuthService {
       createdAt: nowSec(),
       usedAt: null,
     }
-    newRecoveryKek.fill(0)
+    secureWipe(newRecoveryKek)
 
     const newHeader: AuthHeader = {
       ...vault.header,
@@ -427,7 +430,7 @@ export class AuthService {
     // from here, so we must not touch the file.
     const snapshotBlob = decryptBody(vault.body, dek)
     if (snapshotBlob == null) {
-      dek.fill(0)
+      secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
       )
@@ -438,7 +441,7 @@ export class AuthService {
     try {
       database = await Database.create(undefined, snapshotBlob)
     } catch (err) {
-      dek.fill(0)
+      secureWipe(dek)
       throw err
     }
     this.dek = dek
@@ -488,7 +491,7 @@ export class AuthService {
     const newSalt = randomBytes(KEK_SALT_BYTES)
     const newKek = await deriveKEK(newPassword, Buffer.from(newSalt))
     const newWrappedDek = wrapKey(newKek, this.dek)
-    newKek.fill(0)
+    secureWipe(newKek)
 
     // Build the re-keyed header as a candidate and only swap it into the live
     // session AFTER the write succeeds — mirroring reset()/register(). Mutating
@@ -711,7 +714,7 @@ export class AuthService {
 
   private zeroKey(): void {
     if (this.dek) {
-      this.dek.fill(0)
+      secureWipe(this.dek)
       this.dek = null
     }
   }
@@ -770,7 +773,9 @@ export class AuthService {
 async function deriveKEK(secret: string, salt: Buffer): Promise<Buffer> {
   // argon2id raw output IS the KEK. wrong-secret detection comes from the
   // AES-GCM auth-tag failing during unwrap , no separate verifier needed.
-  return argon2.hash(secret, { ...ARGON_OPTS, salt })
+  // intoSecure moves it off argon2's unpinned heap Buffer ( wiping that one )
+  // into mlock'd memory for the short window the KEK is alive.
+  return intoSecure(await argon2.hash(secret, { ...ARGON_OPTS, salt }))
 }
 
 function wrapKey(kek: Buffer, dek: Buffer): WrappedKey {
@@ -793,7 +798,9 @@ function unwrapKey(kek: Buffer, wrapped: WrappedKey): Buffer | null {
     const tag = blob.subarray(blob.length - AES_TAG_BYTES)
     const decipher = createDecipheriv(AES_ALGO, kek, nonce)
     decipher.setAuthTag(tag)
-    return Buffer.concat([decipher.update(ct), decipher.final()])
+    // The unwrapped DEK lives for the whole session — hand it back in mlock'd
+    // memory and wipe the transient concat Buffer it briefly passed through.
+    return intoSecure(Buffer.concat([decipher.update(ct), decipher.final()]))
   } catch {
     return null
   }
