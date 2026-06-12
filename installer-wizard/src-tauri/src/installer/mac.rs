@@ -325,6 +325,16 @@ where
         .map_err(|e| format!("payload extract : {}", e))?;
     let _ = std::fs::remove_file(&payload_archive_path);
 
+    // The archive builder historically packed every file with mode 0o644,
+    // stripping the execute bit from binaries.  Re-apply +x to Contents/MacOS
+    // so launchd can spawn the app ( covers both old and new CDN archives ).
+    let macos_dir = staging.join(APP_BUNDLE).join("Contents").join("MacOS");
+    if macos_dir.exists() {
+        let _ = Command::new("/bin/chmod")
+            .args(["-R", "+x", &macos_dir.display().to_string()])
+            .output();
+    }
+
     // No CUDA branch on mac : payload-manifest.json deliberately omits the
     // `cuda` key for mac-arm64 and mac-x64 ( see payload_manifest.rs ) ,
     // and the renderer hides the checkbox. If options.download_cuda
@@ -364,6 +374,13 @@ where
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
     ditto(&source, &install_dir).map_err(|e| e.to_string())?;
 
+    // Strip quarantine xattr so macOS 15 Gatekeeper doesn't block the app.
+    // Do NOT re-sign with --deep --force: that strips Electron's JIT
+    // entitlement ( com.apple.security.cs.allow-jit ) and breaks V8.
+    let _ = Command::new("/usr/bin/xattr")
+        .args(["-d", "com.apple.quarantine", &install_dir.display().to_string()])
+        .output();
+
     progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &app_bin_path).map_err(|e| e.to_string())?;
 
@@ -399,7 +416,9 @@ where
 
     Ok(InstallResult {
         install_dir: install_dir.display().to_string(),
-        app_exe_path: app_bin_path.display().to_string(),
+        // Pass the .app bundle path, not the binary. `open <binary>` makes
+        // macOS treat it as a document and opens it in TextEdit.
+        app_exe_path: install_dir.display().to_string(),
     })
 }
 
@@ -419,12 +438,22 @@ pub fn get_license() -> Option<String> {
 }
 
 pub fn launch(app_exe_path: &str) -> Result<(), String> {
-    // `open` runs the .app under the user's LaunchServices session , the
-    // mac equivalent of the explorer.exe trampoline windows.rs uses to
-    // drop any inherited elevated token before the app starts.
-    Command::new("/usr/bin/open")
-        .arg(app_exe_path)
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    // -W : wait for the app to finish launching so we capture its exit code.
+    // -n : always open a new instance even if one is already running.
+    let out = Command::new("/usr/bin/open")
+        .args(["-n", app_exe_path])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        Err(format!(
+            "open exited {}: {} {}",
+            out.status,
+            stderr.trim(),
+            stdout.trim()
+        ))
+    }
 }
