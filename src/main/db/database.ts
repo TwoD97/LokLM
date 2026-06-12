@@ -1263,6 +1263,14 @@ export class QuizzesRepo {
     `)
   }
 
+  /** Question count is derived from the material: planned at generation start,
+   *  then settled to the persisted row count (score displays divide by it). */
+  async updateDeckQuestionCount(deckId: number, questionCount: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE quiz_decks SET question_count = ${questionCount} WHERE id = ${deckId}
+    `)
+  }
+
   /** Cold-boot / post-unlock sweep: a deck still 'generating' is orphaned from a
    *  session that was locked, navigated away from, or crashed mid-run — the
    *  in-memory generation stream that owned it is gone, so it would otherwise
@@ -1370,12 +1378,18 @@ export class QuizzesRepo {
   }
 
   /** Wipe existing questions for a deck. Used by regenerate before re-running
-   *  the pipeline. Attempts are NOT cleared (the old questionIds in answers
-   *  point into rows that no longer exist — we accept that; regenerate is a
-   *  deliberate user action, the history of *prior* generations is fine to
-   *  break). */
+   *  the pipeline. */
   async clearQuestions(deckId: number): Promise<void> {
     await this.db.execute(sql`DELETE FROM quiz_questions WHERE deck_id = ${deckId}`)
+  }
+
+  /** Wipe attempt history for a deck. Regenerate MUST call this alongside
+   *  clearQuestions: question counts are derived from the material now, so a
+   *  re-plan can shrink the deck and old scores (e.g. 20/30) would render
+   *  against the new, smaller denominator (20/12 → >100 %). Regenerate is a
+   *  deliberate user action; prior history is fine to break. */
+  async deleteAttempts(deckId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM quiz_attempts WHERE deck_id = ${deckId}`)
   }
 
   async startAttempt(deckId: number): Promise<QuizAttempt> {

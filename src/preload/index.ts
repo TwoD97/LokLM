@@ -20,6 +20,7 @@ import type {
   QuizDeckWithQuestions,
   QuizAttempt,
   CreateQuizInput,
+  QuizEstimate,
   QuizGenerationEvent,
 } from '../shared/quiz'
 import type {
@@ -403,6 +404,8 @@ const api = {
       ipcRenderer.invoke('quiz:get-deck', deckId),
     createDeck: (input: CreateQuizInput): Promise<QuizDeck> =>
       ipcRenderer.invoke('quiz:create-deck', input),
+    estimate: (documentIds: number[]): Promise<QuizEstimate> =>
+      ipcRenderer.invoke('quiz:estimate', documentIds),
     deleteDeck: (deckId: number): Promise<void> => ipcRenderer.invoke('quiz:delete-deck', deckId),
     regenerateDeck: (deckId: number): Promise<void> =>
       ipcRenderer.invoke('quiz:regenerate-deck', deckId),

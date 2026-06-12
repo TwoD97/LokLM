@@ -10,7 +10,8 @@ export const quizDict: DomainDict = {
     'quiz.create.namePlaceholder': 'e.g. Chapter 3 — Functions',
     'quiz.create.documentsLabel': 'Documents',
     'quiz.create.noDocuments': 'No indexed documents in this workspace. Import a file first.',
-    'quiz.create.questionsLabel': 'Questions',
+    'quiz.create.estimate': '{sections} sections — the AI decides how many questions each needs',
+    'quiz.create.estimateEmpty': 'No indexable content in the selected documents.',
     'quiz.create.languageLabel': 'Language',
     'quiz.create.languageAuto': 'Auto',
     'quiz.create.languageDe': 'Deutsch',
@@ -61,14 +62,8 @@ export const quizDict: DomainDict = {
     'quiz.list.statusFailed': 'Failed',
     'quiz.list.statusReady': 'Ready',
     'quiz.list.stepStarting': 'Starting…',
-    'quiz.list.stepExtracting': 'Reading documents',
-    'quiz.list.stepExtractingDocs': 'Reading documents ({count} docs)',
-    'quiz.list.stepMerging': 'Merging themes',
-    'quiz.list.stepAllocating': 'Preparing questions',
     'quiz.list.stepGenerating': 'Writing questions',
-    'quiz.list.stepDocProgress': 'Document {current} / {total}',
-    'quiz.list.stepQuestionProgress': '{current} / {total}',
-    'quiz.list.stepThemeProgress': 'theme {current}/{total}',
+    'quiz.list.stepUnitProgress': 'section {current}/{total}',
     'quiz.list.stepsHeader': 'steps',
 
     // QuizDeckHistory
@@ -83,7 +78,9 @@ export const quizDict: DomainDict = {
     'quiz.create.documentsLabel': 'Dokumente',
     'quiz.create.noDocuments':
       'Keine indizierten Dokumente in diesem Arbeitsbereich. Importiere zuerst eine Datei.',
-    'quiz.create.questionsLabel': 'Fragen',
+    'quiz.create.estimate':
+      '{sections} Abschnitte — die KI entscheidet die Fragenanzahl pro Abschnitt',
+    'quiz.create.estimateEmpty': 'Kein indizierbarer Inhalt in den ausgewählten Dokumenten.',
     'quiz.create.languageLabel': 'Sprache',
     'quiz.create.languageAuto': 'Auto',
     'quiz.create.languageDe': 'Deutsch',
@@ -134,14 +131,8 @@ export const quizDict: DomainDict = {
     'quiz.list.statusFailed': 'Fehlgeschlagen',
     'quiz.list.statusReady': 'Bereit',
     'quiz.list.stepStarting': 'Wird gestartet…',
-    'quiz.list.stepExtracting': 'Dokumente werden gelesen',
-    'quiz.list.stepExtractingDocs': 'Dokumente werden gelesen ({count} Dok.)',
-    'quiz.list.stepMerging': 'Themen werden zusammengeführt',
-    'quiz.list.stepAllocating': 'Fragen werden vorbereitet',
     'quiz.list.stepGenerating': 'Fragen werden geschrieben',
-    'quiz.list.stepDocProgress': 'Dokument {current} / {total}',
-    'quiz.list.stepQuestionProgress': '{current} / {total}',
-    'quiz.list.stepThemeProgress': 'Thema {current}/{total}',
+    'quiz.list.stepUnitProgress': 'Abschnitt {current}/{total}',
     'quiz.list.stepsHeader': 'Schritte',
 
     // QuizDeckHistory

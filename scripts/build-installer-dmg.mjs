@@ -6,13 +6,15 @@
 //
 // Pipeline order :
 //   1. cargo tauri build               ( produces .../bundle/macos/LokLM.app )
-//   2. npx create-dmg <app> <out-dir>  ( wraps the .app into a .dmg )
-//   3. rename to release/LokLM-mac.dmg ( stable filename ; matches v0.2.x
+//   2. copy LICENSE into Contents/Resources ( get_license() reads it ;
+//      win/linux ship it via their stub packaging instead )
+//   3. npx create-dmg <app> <out-dir>  ( wraps the .app into a .dmg )
+//   4. rename to release/LokLM-mac.dmg ( stable filename ; matches v0.2.x
 //      naming so website + bump-release.mjs + workflow paths stay unchanged )
 
 import { spawn } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
-import { rm, readdir, rename } from 'node:fs/promises'
+import { copyFile, mkdir, rm, readdir, rename } from 'node:fs/promises'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -93,7 +95,19 @@ async function main() {
     }
   }
 
-  // 2) Pack into a DMG via create-dmg ( npm ).
+  // 2) Ship the repo LICENSE inside the .app. stub.nsi ( win ) and the
+  //    makeself stage ( linux ) place LICENSE next to the wizard binary ,
+  //    but tauri's app bundler adds nothing — so mac.rs's get_license()
+  //    found no file and the wizard's license page dead-ended ( accept
+  //    toggle stays locked , Next stays disabled ). Contents/Resources is
+  //    license_file_path()'s second lookup candidate. Must happen BEFORE
+  //    any future codesign step — mutating the bundle afterwards would
+  //    invalidate the signature.
+  const resourcesDir = join(built, 'Contents', 'Resources')
+  await mkdir(resourcesDir, { recursive: true })
+  await copyFile(join(ROOT, 'LICENSE'), join(resourcesDir, 'LICENSE'))
+
+  // 3) Pack into a DMG via create-dmg ( npm ).
   //    --no-code-sign : GitHub-hosted macos runners have no Developer ID
   //    in the keychain , and we don't import one ( no APPLE_CERTIFICATE
   //    secret is set , unlike WINDOWS_CERT_PFX_BASE64 on the win job ).
@@ -108,7 +122,7 @@ async function main() {
   console.log('npx create-dmg ...')
   await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite', '--no-code-sign'])
 
-  // 3) create-dmg names its output "<AppName> <version>.dmg" by default
+  // 4) create-dmg names its output "<AppName> <version>.dmg" by default
   //    ( e.g. "LokLM 0.3.0.dmg" ). Rename to the stable LokLM-mac.dmg so
   //    the website's download button URL is stable across releases.
   const produced = (await readdir(releaseDir)).find(

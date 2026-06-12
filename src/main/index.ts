@@ -503,11 +503,7 @@ function getQAService(): QAService {
 
 function getQuizService(): QuizService {
   if (!quizService) {
-    quizService = new QuizService(
-      getAuth().requireDatabase(),
-      getRetrievalService(),
-      getProviderRegistry(),
-    )
+    quizService = new QuizService(getAuth().requireDatabase(), getProviderRegistry())
   }
   return quizService
 }
@@ -1507,11 +1503,20 @@ function registerIpc(): void {
   ipcMain.handle(
     'quiz:create-deck',
     async (_e, input: import('../shared/quiz').CreateQuizInput) => {
-      // QuizService.createDeckRow validates name/count/docs and resolves
+      // QuizService.createDeckRow validates name/docs and resolves
       // language from 'auto' before insert.
       return getQuizService().createDeckRow(input)
     },
   )
+
+  // Create-dialog preview: derived question count for a document selection.
+  // Pure chunk-stat math in the service — no LLM call, returns in ms.
+  ipcMain.handle('quiz:estimate', async (_e, documentIds: number[]) => {
+    if (!Array.isArray(documentIds) || documentIds.some((id) => !Number.isInteger(id))) {
+      throw new Error('documentIds must be an array of integers')
+    }
+    return getQuizService().estimate(documentIds)
+  })
 
   ipcMain.handle('quiz:delete-deck', async (_e, deckId: number) => {
     await getAuth().requireDatabase().quizzes().deleteDeck(deckId)
@@ -1520,6 +1525,10 @@ function registerIpc(): void {
   ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
     const quizzes = getAuth().requireDatabase().quizzes()
     await quizzes.clearQuestions(deckId)
+    // Derived counts: the re-plan can change the deck size, so attempts scored
+    // against the old count must go too (a 20/30 score against a re-planned
+    // 12-question deck would render as >100 %).
+    await quizzes.deleteAttempts(deckId)
     await quizzes.setDeckStatus(deckId, 'generating', null)
   })
 
