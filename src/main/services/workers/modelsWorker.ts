@@ -31,6 +31,7 @@ import type {
   EmbedderLoadResult,
   RerankerLoadResult,
 } from './protocol'
+import { fitsUtilityContext, UTILITY_CONTEXT_MAX_TOKENS } from './llmRouting'
 
 // utilityProcess provides process.parentPort with postMessage / on('message').
 declare const process: NodeJS.Process & {
@@ -50,6 +51,13 @@ let backendGpuLabel: string | null = null
 let llmModel: unknown = null
 let llmContext: unknown = null
 let llmSession: unknown = null
+// Small dedicated context for raw utility generations (contextualize, expand-
+// queries, titles, small quiz calls). Keeps them OFF the main chat sequence so
+// its KV state — the stable [system][pinned][history] prompt prefix — survives
+// between asks and per-turn chat prefill stays cheap. Null when creation
+// failed (tight VRAM/RAM); raw gens then share the main session as before.
+let llmUtilityContext: { getSequence: () => unknown; contextSize?: number } | null = null
+let llmUtilitySession: unknown = null
 let llmLanguage: 'de' | 'en' = 'de'
 
 let embedderModel: unknown = null
@@ -275,6 +283,9 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   let maxCtxBound = Math.min(initialPlan.contextSize, payload.profileDefaultContext)
   let context: { getSequence: () => unknown } | null = null
   let activePlan = initialPlan
+  // KV element type of the attempt that succeeded — reused for the utility
+  // context so both contexts share the same quantization trade-off.
+  let successKvEnum: 'Q8_0' | 'Q4_0' | null = null
 
   const enumNameFor = (t: KvCacheType): 'Q8_0' | 'Q4_0' | null =>
     t === 'q8_0' ? 'Q8_0' : t === 'q4_0' ? 'Q4_0' : null
@@ -320,6 +331,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
         }
       ).createContext(opts)
       activePlan = attemptPlan
+      successKvEnum = kvEnum
       break
     } catch (err) {
       maxCtxBound = Math.max(minCtxBound, Math.floor(attemptMax / 2))
@@ -349,9 +361,50 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     systemPrompt: llmSystemPrompt,
   })
 
+  // Small second context for raw utility generations so they don't erase the
+  // main sequence's KV state (the stable [system][pinned][history] prompt
+  // prefix that makes per-turn chat prefill cheap). Best-effort: on tight
+  // VRAM/RAM the createContext throws and raw gens share the main session,
+  // which is exactly the pre-utility-context behaviour.
+  let utilityContext: { getSequence: () => unknown; contextSize?: number } | null = null
+  let utilitySession: unknown = null
+  try {
+    const utilOpts: Record<string, unknown> = {
+      contextSize: { min: 1024, max: Math.min(UTILITY_CONTEXT_MAX_TOKENS, activePlan.contextSize) },
+      flashAttention: true,
+      batchSize: 512,
+    }
+    if (successKvEnum) {
+      utilOpts.experimentalKvCacheKeyType = successKvEnum
+      utilOpts.experimentalKvCacheValueType = successKvEnum
+    }
+    utilityContext = await (
+      model as {
+        createContext: (
+          o: Record<string, unknown>,
+        ) => Promise<{ getSequence: () => unknown; contextSize?: number }>
+      }
+    ).createContext(utilOpts)
+    utilitySession = new (
+      lib as { LlamaChatSession: new (o: unknown) => unknown }
+    ).LlamaChatSession({
+      contextSequence: utilityContext.getSequence(),
+      systemPrompt: llmSystemPrompt,
+    })
+  } catch (err) {
+    log(
+      'warn',
+      `utility context creation failed — raw generations will share the main context: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    utilityContext = null
+    utilitySession = null
+  }
+
   llmModel = model
   llmContext = context
   llmSession = session
+  llmUtilityContext = utilityContext
+  llmUtilitySession = utilitySession
   // Post-load resource snapshot so the dashboard sees the remaining free VRAM.
   let postResources = resources
   try {
@@ -370,12 +423,16 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
 
 async function llmUnloadInternal(): Promise<void> {
   try {
+    if (llmUtilitySession && hasDispose(llmUtilitySession)) await llmUtilitySession.dispose()
+    if (llmUtilityContext && hasDispose(llmUtilityContext)) await llmUtilityContext.dispose()
     if (llmSession && hasDispose(llmSession)) await llmSession.dispose()
     if (llmContext && hasDispose(llmContext)) await llmContext.dispose()
     if (llmModel && hasDispose(llmModel)) await llmModel.dispose()
   } catch {
     /* ignore */
   }
+  llmUtilitySession = null
+  llmUtilityContext = null
   llmSession = null
   llmContext = null
   llmModel = null
@@ -436,6 +493,7 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
         signal?: AbortSignal
         maxTokens?: number
         repeatPenalty?: typeof REPEAT_PENALTY
+        budgets?: { thoughtTokens: number }
       },
     ) => Promise<string>
     resetChatHistory?: () => void
@@ -451,12 +509,17 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   activeAborts.set(payload.streamId, ctrl)
   if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
   try {
-    const raw = await session.prompt(payload.prompt, {
+    const promptOpts: Parameters<typeof session.prompt>[1] = {
       maxTokens: payload.maxTokens,
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
       onTextChunk: (chunk: string) => bufferToken(payload.streamId, chunk),
-    })
+    }
+    // Same segment-aware switch llmGenerateRaw uses for the quiz path: the
+    // /no_think tag in the system prompt is unreliable for this GGUF, while
+    // a zero thought-token budget actually suppresses the think segment.
+    if (payload.noThink) promptOpts.budgets = { thoughtTokens: 0 }
+    const raw = await session.prompt(payload.prompt, promptOpts)
     return { raw }
   } finally {
     activeAborts.delete(payload.streamId)
@@ -467,9 +530,32 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   }
 }
 
+/** True when the raw generation should run on the dedicated utility context.
+ *  Tokenizes the prompt with the loaded model (exact count); falls back to the
+ *  chars/3.5 estimate if the binding throws. */
+function routeToUtility(payload: LlmGenerateRawPayload): boolean {
+  if (!llmUtilitySession || !llmUtilityContext) return false
+  const ctxSize = llmUtilityContext.contextSize
+  if (typeof ctxSize !== 'number' || ctxSize <= 0) return false
+  let promptTokens: number
+  try {
+    const model = llmModel as { tokenize?: (t: string) => unknown[] } | null
+    promptTokens = model?.tokenize
+      ? model.tokenize(payload.prompt).length
+      : Math.ceil(payload.prompt.length / 3.5)
+  } catch {
+    promptTokens = Math.ceil(payload.prompt.length / 3.5)
+  }
+  return fitsUtilityContext(promptTokens, payload.maxTokens, ctxSize)
+}
+
 async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: string }> {
   if (!llmSession) throw new Error('Model is not loaded.')
-  const session = llmSession as {
+  // Small generations go to the utility context so the main chat sequence
+  // keeps its KV prefix; oversized ones (large quiz prompts pack toward the
+  // main window) fall back to the main session with history save/restore.
+  const useUtility = routeToUtility(payload)
+  const session = (useUtility ? llmUtilitySession : llmSession) as {
     prompt: (
       text: string,
       options: {
@@ -487,11 +573,16 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   const ctrl = new AbortController()
   activeAborts.set(payload.streamId, ctrl)
   if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
+  // History save/restore only matters on the main session — the utility
+  // session has no chat state worth preserving (it's reset per call), and
+  // skipping the restore avoids wiping the main session's lastEvaluation.
   let saved: unknown[] | undefined
-  try {
-    saved = session.getChatHistory?.()
-  } catch {
-    saved = undefined
+  if (!useUtility) {
+    try {
+      saved = session.getChatHistory?.()
+    } catch {
+      saved = undefined
+    }
   }
   try {
     session.resetChatHistory?.()
@@ -522,7 +613,7 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
     return { raw }
   } finally {
     activeAborts.delete(payload.streamId)
-    if (saved && session.setChatHistory) {
+    if (!useUtility && saved && session.setChatHistory) {
       try {
         session.setChatHistory(saved)
       } catch {
@@ -532,10 +623,8 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   }
 }
 
-function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
-  llmLanguage = lang
-  llmSystemPrompt = systemPrompt
-  const session = llmSession as {
+function patchSessionSystemPrompt(target: unknown, systemPrompt: string): void {
+  const session = target as {
     getChatHistory?: () => Array<{ type: string; text?: string }>
     setChatHistory?: (h: Array<{ type: string; text?: string }>) => void
   } | null
@@ -549,6 +638,13 @@ function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
   } catch {
     /* swallow */
   }
+}
+
+function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
+  llmLanguage = lang
+  llmSystemPrompt = systemPrompt
+  patchSessionSystemPrompt(llmSession, systemPrompt)
+  patchSessionSystemPrompt(llmUtilitySession, systemPrompt)
 }
 
 // ---- Embedder -------------------------------------------------------------

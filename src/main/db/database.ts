@@ -275,6 +275,23 @@ export class DocumentsRepo {
     await this.db.update(documents).set({ summary }).where(eq(documents.id, documentId))
   }
 
+  /** Toggle a document's "pinned" flag — when true, the QA packer prepends
+   *  top-of-document chunks from this doc to every chat turn in its workspace
+   *  before RAG hits, guaranteeing it's always in context. */
+  async setPinned(documentId: number, pinned: boolean): Promise<void> {
+    await this.db.update(documents).set({ pinned }).where(eq(documents.id, documentId))
+  }
+
+  /** Pinned docs for a workspace, in pin order (then alphabetical). The QA
+   *  packer fetches this once per turn. */
+  async listPinned(workspaceId: number): Promise<Document[]> {
+    return this.db
+      .select()
+      .from(documents)
+      .where(sql`${documents.workspaceId} = ${workspaceId} AND ${documents.pinned} = true`)
+      .orderBy(documents.title)
+  }
+
   /** Cold-boot orphan sweep: a doc still flagged 'indexing'/'pending' is left
    *  over from a previous session that crashed (or was killed) mid-import — the
    *  in-memory queue that owned it is gone, so it would otherwise spin forever.
@@ -312,6 +329,7 @@ export class DocumentsRepo {
              d.source_mtime   AS "sourceMtime",
              d.missing_at     AS "missingAt",
              d.missing_dismissed_at AS "missingDismissedAt",
+             d.pinned         AS "pinned",
              agg.language
         FROM documents d
         LEFT JOIN LATERAL (
@@ -993,6 +1011,12 @@ export class ConversationsRepo {
 
   async delete(id: number): Promise<void> {
     await this.db.execute(sql`DELETE FROM conversations WHERE id = ${id}`)
+  }
+
+  /** Delete a single message (and, via FK cascade, its citations). Used by the
+   *  chat Regenerate flow to drop the last assistant turn before re-streaming. */
+  async deleteMessage(messageId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM messages WHERE id = ${messageId}`)
   }
 
   async appendMessage(

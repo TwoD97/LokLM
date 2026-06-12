@@ -18,6 +18,7 @@ function makeDoc(id: number, status: Document['status'] = 'ready', title = `Doc 
     chunkCount: 5,
     tokenCount: 500,
     addedAt: NOW,
+    pinned: false,
   }
 }
 

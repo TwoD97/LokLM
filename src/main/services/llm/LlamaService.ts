@@ -65,6 +65,12 @@ export interface AskOptions {
   tools?: Record<string, unknown>
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   historyQuestion?: string
+  /** Pinned-doc chunks, kept separate from the positional RAG hits so
+   *  buildPrompt can render them as the LEADING prompt section. That makes the
+   *  [system][pinned] token prefix byte-stable across turns in a workspace,
+   *  which node-llama-cpp's sequence alignment turns into KV-cache reuse —
+   *  pinned content is prefilled once, not on every question. */
+  pinnedHits?: RetrievalHit[]
 }
 
 export interface LlmProfile {
@@ -626,8 +632,20 @@ export class LlamaService {
       detector.reset()
       accumulated = ''
       loopAborted = false
-      const promptBody = buildPrompt(question, hits, history, this.language)
-      const { raw } = await client.llmAsk({ streamId, question, prompt: promptBody, maxTokens })
+      const promptBody = buildPrompt(question, hits, history, this.language, opts.pinnedHits)
+      // noThink: the system prompt already ends in /no_think, but this GGUF
+      // honours the tag unreliably — the segment budget is the switch that
+      // actually sticks (mirrors the quiz path). Without it the model can
+      // spend hundreds of decode-tokens inside <think>…</think>, which the
+      // ThinkFilter hides — so the renderer's "prefill" stage stays open and
+      // bills all that thinking time to prefill.
+      const { raw } = await client.llmAsk({
+        streamId,
+        question,
+        prompt: promptBody,
+        maxTokens,
+        noThink: true,
+      })
       if (opts.onChunk) {
         const tail = filter.flush()
         // Synthesized tails count as one batched event (the ThinkFilter
@@ -747,7 +765,11 @@ export class LlamaService {
     hits: RetrievalHit[],
     opts: AskOptions,
   ): Promise<string> {
-    const out = renderFallback(question, hits, this.language)
+    // Pinned hits are part of what the user expects the model to "see" — list
+    // them in the fallback snippet view too, ahead of the ranked RAG hits.
+    const allHits =
+      opts.pinnedHits && opts.pinnedHits.length > 0 ? [...opts.pinnedHits, ...hits] : hits
+    const out = renderFallback(question, allHits, this.language)
     if (opts.onChunk) {
       for (const piece of chunkifyForStream(out)) {
         if (opts.abortSignal?.aborted) break

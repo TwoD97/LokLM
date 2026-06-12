@@ -1018,6 +1018,11 @@ function registerIpc(): void {
       throw err
     }
   })
+  // Pin/unpin a document — pinned docs get prepended to the QA context packer
+  // for every chat turn in their workspace (see PINNED_BUDGET_FRAC in QAService).
+  ipcMain.handle('documents:setPinned', async (_e, documentId: number, pinned: boolean) => {
+    await getAuth().requireDatabase().documents().setPinned(documentId, pinned)
+  })
 
   // Returns every chunk of a document, ordered by ordinal. The SourceViewer
   // modal uses this to render the whole document and scroll the cited chunk
@@ -1123,6 +1128,12 @@ function registerIpc(): void {
   ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
     getAuth().requireDatabase().conversations().getWithMessages(id),
   )
+  // Used by the chat Regenerate action — the renderer deletes the last
+  // assistant turn before re-streaming the same user question. Citations
+  // cascade-drop automatically via the FK.
+  ipcMain.handle('conversations:deleteMessage', async (_e, messageId: number) => {
+    await getAuth().requireDatabase().conversations().deleteMessage(messageId)
+  })
 
   // Generate a chat title from the first user/assistant exchange. Idempotent
   // by design — the renderer fires this once on the first round-trip; if the

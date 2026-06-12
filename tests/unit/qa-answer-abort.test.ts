@@ -34,7 +34,10 @@ describe('QAService.answer abort propagation', () => {
     const retrieval = {
       search: vi.fn().mockResolvedValue([hit]),
     } as unknown as RetrievalService
-    const db = {} as unknown as Database
+    // answer() fetches pinned docs up-front; no pins in this scenario.
+    const db = {
+      documents: () => ({ listPinned: vi.fn().mockResolvedValue([]) }),
+    } as unknown as Database
 
     const qa = new QAService(db, retrieval, registry)
     const controller = new AbortController()

@@ -33,6 +33,11 @@ export interface Document {
    *  Drives the library row badge. Single-doc fetches (`getDocument`) skip
    *  the aggregation so the field is omitted there. */
   language?: 'de' | 'en' | 'mixed' | null
+  /** "Force into context" flag — set via Library row "Pin" action. When true,
+   *  the QA packer prepends top-of-document chunks from this doc before RAG
+   *  hits, so the model always sees it. Added in raw migration 0009; column is
+   *  NOT NULL DEFAULT false, so this field is always present. */
+  pinned: boolean
 }
 
 export interface Workspace {

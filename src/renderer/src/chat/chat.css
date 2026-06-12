@@ -6,6 +6,34 @@
   min-width: 0;
   overflow: hidden;
 }
+
+/* Per-message hover toolbar (Copy / Regenerate). Sits between the bubble and
+ * the grounding badge so it doesn't interfere with citation-chip clicks. */
+.chat__msg-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.chat__message-row:hover .chat__msg-actions {
+  opacity: 1;
+}
+.chat__msg-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #243a55;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.chat__msg-action:hover {
+  border-color: #5a9bff;
+  background: rgba(90, 155, 255, 0.08);
+}
 .chat__header {
   padding: 0 20px;
   border-bottom: 1px solid var(--border);

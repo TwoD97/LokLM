@@ -187,6 +187,11 @@ const api = {
      *  a `code: message` error ('no_content' | 'model_not_ready' | 'failed'). */
     summarize: (documentId: number): Promise<{ summary: string; cached: boolean }> =>
       ipcRenderer.invoke('documents:summarize', documentId),
+    /** Force-into-context flag. Pinned docs are prepended to every chat turn's
+     *  context block (top chunks of the doc, sharing PINNED_BUDGET_FRAC of the
+     *  packer's budget). Toggled from the Library row menu. */
+    setPinned: (documentId: number, pinned: boolean): Promise<void> =>
+      ipcRenderer.invoke('documents:setPinned', documentId, pinned),
     revealSource: (
       id: number,
     ): Promise<
@@ -256,6 +261,10 @@ const api = {
       ipcRenderer.invoke('conversations:getWithMessages', id),
     generateTitle: (id: number): Promise<string | null> =>
       ipcRenderer.invoke('conversations:generateTitle', id),
+    /** Delete a single message (cascades to its citations). Used by the chat
+     *  Regenerate flow to drop the last assistant turn before re-streaming. */
+    deleteMessage: (messageId: number): Promise<void> =>
+      ipcRenderer.invoke('conversations:deleteMessage', messageId),
     setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
       ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
   },

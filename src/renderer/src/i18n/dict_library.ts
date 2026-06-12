@@ -21,6 +21,10 @@ export const libraryDict: DomainDict = {
     'library.summaryFailed': 'Could not summarize: {message}',
     'library.summaryModelNotReady': 'Load a language model first, then try again.',
     'library.summaryNoContent': 'This document has no indexed text to summarize.',
+    'library.pin': 'Pin to chat',
+    'library.unpin': 'Unpin from chat',
+    'library.pinned': 'Pinned — always in chat context',
+    'library.pinFailed': 'Could not change pin state: {message}',
     // DocumentTable
     'library.empty': 'No documents yet. Import files via drag-and-drop.',
     'library.colTitle': 'Title',
@@ -120,6 +124,10 @@ export const libraryDict: DomainDict = {
     'library.summaryFailed': 'Zusammenfassung fehlgeschlagen: {message}',
     'library.summaryModelNotReady': 'Lade zuerst ein Sprachmodell und versuche es erneut.',
     'library.summaryNoContent': 'Dieses Dokument hat keinen indexierten Text zum Zusammenfassen.',
+    'library.pin': 'In Chat anheften',
+    'library.unpin': 'Aus Chat lösen',
+    'library.pinned': 'Angeheftet — immer im Chat-Kontext',
+    'library.pinFailed': 'Pinning konnte nicht geändert werden: {message}',
     // DocumentTable
     'library.empty': 'Noch keine Dokumente. Dateien per Drag-Drop importieren.',
     'library.colTitle': 'Titel',

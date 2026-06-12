@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { transformCitationMarkers } from '@shared/citationMarkers'
+import { MarkdownView } from '../markdown/MarkdownView'
 import { CitationChip } from './CitationChip'
 
 type Role = 'user' | 'assistant'
@@ -55,9 +54,7 @@ function MessageBubbleImpl({
   const { text } = transformCitationMarkers(content, citedKeys)
   return (
     <div className={`bubble ${isRefusal ? 'bubble--refusal' : 'bubble--assistant'}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {text}
-      </ReactMarkdown>
+      <MarkdownView components={components}>{text}</MarkdownView>
     </div>
   )
 }
