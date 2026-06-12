@@ -51,10 +51,12 @@ type Props = {
 // i18n key per stage, resolved via useT() at render so the checklist follows
 // the response-language setting like the rest of the UI.
 const STAGE_LABEL_KEY: Record<StageName, string> = {
+  route: 'chat.stageRoute',
   contextualize: 'chat.stageContextualize',
   expand_queries: 'chat.stageExpandQueries',
   retrieve: 'chat.stageRetrieve',
   rerank: 'chat.stageRerank',
+  summarize: 'chat.stageSummarize',
   prefill: 'chat.stagePrefill',
 }
 

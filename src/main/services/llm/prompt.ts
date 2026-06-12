@@ -193,6 +193,15 @@ export function buildPrompt(
   history?: Array<{ role: 'user' | 'assistant'; content: string }>,
   responseLang?: ResponseLanguage,
   pinnedHits?: RetrievalHit[],
+  /** Optional uncited block rendered at the top of the Context section —
+   *  the doc_summary route feeds the cached whole-doc summary here. It is
+   *  background material, NOT a citable source: it carries no
+   *  [doc, chunk] header on purpose (ADR-0003, "Option A"), so the
+   *  system prompt's "use only ids you have actually seen" keeps holding.
+   *  Deliberately AFTER the pinned section: the preamble is per-turn volatile
+   *  (resolved doc + packing outcome) , and anything ahead of the pinned
+   *  block would break the stable KV prefix the section order above buys. */
+  contextPreamble?: string,
 ): string {
   const sections: string[] = []
 
@@ -218,16 +227,51 @@ export function buildPrompt(
     sections.push(`Previous conversation in this chat:\n${lines.join('\n\n')}`)
   }
 
-  if (hits.length === 0) {
+  const blocks: string[] = []
+  if (contextPreamble) blocks.push(contextPreamble)
+  if (hits.length > 0) blocks.push(renderHits(hits))
+  if (blocks.length === 0) {
     // With pinned content present the model still has a Context section to
     // answer from — emitting "(none)" here would nudge it toward refusing.
     if (!hasPinned) sections.push('Context: (none)')
   } else {
-    sections.push(`Context:\n${renderHits(hits)}`)
+    sections.push(`Context:\n${blocks.join('\n\n---\n\n')}`)
   }
 
   sections.push(`Question: ${question}`)
   return sections.join('\n\n')
+}
+
+/** Preamble block for the doc_summary route: the cached whole-doc summary,
+ *  labelled so the model treats it as background and keeps its citations on
+ *  the excerpt blocks that follow. Localized per response language — unlike
+ *  the bare Context:/Question: headers this block carries a behavioral
+ *  instruction the system prompt does NOT anchor, and free-form English
+ *  inside an otherwise German prompt is exactly the cross-lingual
+ *  instruction-following weakness the native-prompt research above warns
+ *  about at the 4B–8B end.
+ *
+ *  `hasExcerpts` switches the citation instruction: with excerpt blocks the
+ *  model is pointed at them; without (doc-pinned zero-hit fallback) telling
+ *  it to "cite the blocks below" would point at nothing while the system
+ *  prompt still demands per-claim ids — so it is told to answer uncited
+ *  instead. */
+export function buildSummaryPreamble(
+  lang: ResponseLanguage,
+  title: string,
+  summary: string,
+  hasExcerpts: boolean,
+): string {
+  if (lang === 'de') {
+    const instruction = hasExcerpts
+      ? 'keine Zitat-ID — belege konkrete Aussagen mit den Auszugsblöcken unten'
+      : 'für diesen Überblick gibt es keine Zitat-ID — antworte daraus und füge keine Zitatmarker ein'
+    return `Dokumentüberblick — „${title}“ (Hintergrund, aus dem gesamten Dokument abgeleitet; ${instruction}):\n${summary}`
+  }
+  const instruction = hasExcerpts
+    ? 'no citation id — cite the excerpt blocks below for specific claims'
+    : 'no citation id exists for this overview — answer from it and do not emit citation markers'
+  return `Document overview — "${title}" (background derived from the full document; ${instruction}):\n${summary}`
 }
 
 export function renderFallback(

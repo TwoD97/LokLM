@@ -3,6 +3,7 @@ import { QAService } from '@main/services/qa/QAService'
 import type { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
 import type { Database } from '@main/db/database'
+import type { SummarizationService } from '@main/services/summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent } from '@shared/documents'
 import type { AskOptions } from '@main/services/llm/LlamaService'
 
@@ -38,8 +39,9 @@ describe('QAService.answer abort propagation', () => {
     const db = {
       documents: () => ({ listPinned: vi.fn().mockResolvedValue([]) }),
     } as unknown as Database
+    const summarization = { summarize: vi.fn() } as unknown as SummarizationService
 
-    const qa = new QAService(db, retrieval, registry)
+    const qa = new QAService(db, retrieval, registry, summarization)
     const controller = new AbortController()
 
     const events: StreamEvent[] = []

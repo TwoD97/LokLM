@@ -49,7 +49,10 @@ const TITLE_STOPWORDS = new Set([
   'sind',
 ])
 
-function nonStopwordTokens(text: string): string[] {
+/** Shared query/title tokenizer. Exported for the qa router's target-document
+ *  resolution so "summarize my Wochenbuch" matches titles by exactly the same
+ *  rules as applyTitleBoost. */
+export function nonStopwordTokens(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^a-zA-Z0-9äöüß]+/)

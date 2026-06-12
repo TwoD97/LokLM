@@ -273,13 +273,23 @@ export type RefusalReason = 'no_hits' | 'below_threshold'
 /** Pipeline stages emitted as `stage` events so the renderer can show real-time
  *  progress before the first token arrives. Order is roughly the chronological
  *  order each stage runs in QAService / RetrievalService.
+ *    - route          : routing decision — only emitted when a non-default route
+ *                       fires (same "no no-op rows" convention as expand/rerank)
  *    - contextualize  : LLM rewrites a follow-up into a standalone retrieval query
  *    - expand_queries : multiQuery — LLM paraphrases the query for recall
  *    - retrieve       : BM25 + dense fusion (always runs)
  *    - rerank         : cross-encoder pass over the candidate pool
+ *    - summarize      : whole-doc summary fetch/generation (doc_summary route)
  *    - prefill        : time between citations sent and first generated token
  */
-export type StageName = 'contextualize' | 'expand_queries' | 'retrieve' | 'rerank' | 'prefill'
+export type StageName =
+  | 'route'
+  | 'contextualize'
+  | 'expand_queries'
+  | 'retrieve'
+  | 'rerank'
+  | 'summarize'
+  | 'prefill'
 
 export type StreamEvent =
   | {
@@ -327,6 +337,11 @@ export interface AnswerOptions {
    *  otherwise return zero relevant chunks. No-op when history is empty or
    *  the LLM is not loaded. */
   contextualize?: boolean
+  /** Query routing (doc_summary / corpus / retrieval). Defaults to ON for the
+   *  chat path; evals and tests pin `routing: false` to get the plain chunk
+   *  pipeline regardless of query phrasing — the same escape hatch contract
+   *  as pinning opts.topK against adaptiveTopK. */
+  routing?: boolean
   /** When set, the chat:stream handler persists the user message before
    *  streaming, then persists the assistant message + citations on `done`
    *  (or on `refusal`, with citations=[]). Errors are not persisted. */
