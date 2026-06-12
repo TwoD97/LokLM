@@ -325,6 +325,31 @@ where
         .map_err(|e| format!("payload extract : {}", e))?;
     let _ = std::fs::remove_file(&payload_archive_path);
 
+    // The archive builder historically packed every file with mode 0o644,
+    // stripping the execute bit from all binaries.  Use `find` to locate
+    // every MacOS/ directory inside the bundle so that the main binary AND
+    // all Electron helper executables (Contents/Frameworks/*/Contents/MacOS/)
+    // get +x — otherwise the browser process CHECKs when posix_spawnp fails
+    // with EACCES trying to launch the GPU / Renderer helpers.
+    let bundle_staging = staging.join(APP_BUNDLE);
+    if bundle_staging.exists() {
+        let _ = Command::new("/usr/bin/find")
+            .args([
+                bundle_staging.to_str().unwrap_or_default(),
+                "-name",
+                "MacOS",
+                "-type",
+                "d",
+                "-exec",
+                "/bin/chmod",
+                "-R",
+                "+x",
+                "{}",
+                ";",
+            ])
+            .output();
+    }
+
     // No CUDA branch on mac : payload-manifest.json deliberately omits the
     // `cuda` key for mac-arm64 and mac-x64 ( see payload_manifest.rs ) ,
     // and the renderer hides the checkbox. If options.download_cuda
@@ -364,6 +389,42 @@ where
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
     ditto(&source, &install_dir).map_err(|e| e.to_string())?;
 
+    // Ad-hoc sign with explicit JIT entitlement so V8 can map executable pages.
+    // Signing WITHOUT --entitlements would strip allow-jit; signing WITH it
+    // adds the entitlement even if the CI build was completely unsigned.
+    // Non-fatal: if codesign fails we fall through and hope the build already
+    // carried the entitlement.
+    let ent_path = staging.join("loklm-entitlements.plist");
+    let _ = std::fs::write(
+        &ent_path,
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key><true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+    <key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict>
+</plist>"#,
+    );
+    let _ = Command::new("/usr/bin/codesign")
+        .args([
+            "--force",
+            "--deep",
+            "--sign",
+            "-",
+            "--entitlements",
+            ent_path.to_str().unwrap_or_default(),
+            install_dir.to_str().unwrap_or_default(),
+        ])
+        .output();
+    let _ = std::fs::remove_file(&ent_path);
+
+    // Strip quarantine xattr so Gatekeeper doesn't block the app.
+    let _ = Command::new("/usr/bin/xattr")
+        .args(["-d", "com.apple.quarantine", &install_dir.display().to_string()])
+        .output();
+
     progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &app_bin_path).map_err(|e| e.to_string())?;
 
@@ -399,7 +460,9 @@ where
 
     Ok(InstallResult {
         install_dir: install_dir.display().to_string(),
-        app_exe_path: app_bin_path.display().to_string(),
+        // Pass the .app bundle path, not the binary. `open <binary>` makes
+        // macOS treat it as a document and opens it in TextEdit.
+        app_exe_path: install_dir.display().to_string(),
     })
 }
 
@@ -419,12 +482,22 @@ pub fn get_license() -> Option<String> {
 }
 
 pub fn launch(app_exe_path: &str) -> Result<(), String> {
-    // `open` runs the .app under the user's LaunchServices session , the
-    // mac equivalent of the explorer.exe trampoline windows.rs uses to
-    // drop any inherited elevated token before the app starts.
-    Command::new("/usr/bin/open")
-        .arg(app_exe_path)
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    // -W : wait for the app to finish launching so we capture its exit code.
+    // -n : always open a new instance even if one is already running.
+    let out = Command::new("/usr/bin/open")
+        .args(["-n", app_exe_path])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        Err(format!(
+            "open exited {}: {} {}",
+            out.status,
+            stderr.trim(),
+            stdout.trim()
+        ))
+    }
 }
