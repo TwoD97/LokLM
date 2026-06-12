@@ -326,12 +326,27 @@ where
     let _ = std::fs::remove_file(&payload_archive_path);
 
     // The archive builder historically packed every file with mode 0o644,
-    // stripping the execute bit from binaries.  Re-apply +x to Contents/MacOS
-    // so launchd can spawn the app ( covers both old and new CDN archives ).
-    let macos_dir = staging.join(APP_BUNDLE).join("Contents").join("MacOS");
-    if macos_dir.exists() {
-        let _ = Command::new("/bin/chmod")
-            .args(["-R", "+x", &macos_dir.display().to_string()])
+    // stripping the execute bit from all binaries.  Use `find` to locate
+    // every MacOS/ directory inside the bundle so that the main binary AND
+    // all Electron helper executables (Contents/Frameworks/*/Contents/MacOS/)
+    // get +x — otherwise the browser process CHECKs when posix_spawnp fails
+    // with EACCES trying to launch the GPU / Renderer helpers.
+    let bundle_staging = staging.join(APP_BUNDLE);
+    if bundle_staging.exists() {
+        let _ = Command::new("/usr/bin/find")
+            .args([
+                bundle_staging.to_str().unwrap_or_default(),
+                "-name",
+                "MacOS",
+                "-type",
+                "d",
+                "-exec",
+                "/bin/chmod",
+                "-R",
+                "+x",
+                "{}",
+                ";",
+            ])
             .output();
     }
 
@@ -374,9 +389,38 @@ where
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
     ditto(&source, &install_dir).map_err(|e| e.to_string())?;
 
-    // Strip quarantine xattr so macOS 15 Gatekeeper doesn't block the app.
-    // Do NOT re-sign with --deep --force: that strips Electron's JIT
-    // entitlement ( com.apple.security.cs.allow-jit ) and breaks V8.
+    // Ad-hoc sign with explicit JIT entitlement so V8 can map executable pages.
+    // Signing WITHOUT --entitlements would strip allow-jit; signing WITH it
+    // adds the entitlement even if the CI build was completely unsigned.
+    // Non-fatal: if codesign fails we fall through and hope the build already
+    // carried the entitlement.
+    let ent_path = staging.join("loklm-entitlements.plist");
+    let _ = std::fs::write(
+        &ent_path,
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key><true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+    <key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict>
+</plist>"#,
+    );
+    let _ = Command::new("/usr/bin/codesign")
+        .args([
+            "--force",
+            "--deep",
+            "--sign",
+            "-",
+            "--entitlements",
+            ent_path.to_str().unwrap_or_default(),
+            install_dir.to_str().unwrap_or_default(),
+        ])
+        .output();
+    let _ = std::fs::remove_file(&ent_path);
+
+    // Strip quarantine xattr so Gatekeeper doesn't block the app.
     let _ = Command::new("/usr/bin/xattr")
         .args(["-d", "com.apple.quarantine", &install_dir.display().to_string()])
         .output();
