@@ -32,6 +32,7 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
     "tests/integration/**/*.ts",
+    "tests/fixtures/**/*.ts",
     "tests/tx/**/*.ts",
     "tests/e2e/**/*.ts",
     "tests/evals/**/*.ts",
