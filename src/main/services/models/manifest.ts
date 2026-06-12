@@ -38,14 +38,14 @@ export interface ModelManifestEntry {
 }
 
 /**
- * v0.2.2 ship-set: the medium LLM (Qwen3-8B) + the embedder + the reranker.
- * The lite LLM and the pro LLM are not required and aren't surfaced here;
- * the existing `pnpm models:lite` / `pnpm models:pro` scripts still work in
- * dev for anyone testing those tiers.
+ * Legacy first-launch set: embedder + reranker ONLY. The LLM entry
+ * (Qwen3-8B, the v0.2.2 ship-set) was retired in v0.4.x: the installer
+ * wizard owns LLM acquisition since v0.3.0 (tier bundles), and keeping an
+ * LLM here meant any install where the tier marker wasn't found re-pulled
+ * an obsolete 5 GB model next to the wizard's current one. LLM discovery is
+ * filename-pattern-based (LlamaService.discoverProfiles), so whatever GGUF
+ * the wizard installed keeps working without a manifest entry.
  *
- * Approximate totals: ~6.05 GB download on first launch.
- */
-/**
  * Sizes + SHA256s pinned against the local validated copies on the build
  * machine on 2026-05-19. HuggingFace serves stable bytes for
  * `resolve/main/<file>` URLs, so a download from the same revision should
@@ -73,17 +73,6 @@ export const MODEL_MANIFEST: ModelManifestEntry[] = [
     url: 'https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf',
     sizeBytes: 438_376_864,
     sha256: 'e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673',
-    required: true,
-  },
-  {
-    id: 'Qwen_Qwen3-8B-Q4_K_M',
-    label: 'Language Model',
-    description: 'Qwen3-8B (Q4_K_M) — the assistant that answers your questions.',
-    kind: 'llm',
-    filename: 'Qwen_Qwen3-8B-Q4_K_M.gguf',
-    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf',
-    sizeBytes: 5_027_784_224,
-    sha256: '54fffa050078e984116639c83dfb64b5aa6d4cd474e018b076777c632bbccccd',
     required: true,
   },
 ]

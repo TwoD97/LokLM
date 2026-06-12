@@ -40,7 +40,7 @@ export interface TierMarker {
 
 const MARKER_FILENAME = 'loklm-tier.json'
 
-type ElectronApp = { isPackaged: boolean }
+type ElectronApp = { isPackaged: boolean; getPath?: (name: string) => string }
 
 let cachedApp: ElectronApp | null | undefined = undefined
 function getAppOrNull(): ElectronApp | null {
@@ -56,15 +56,53 @@ function getAppOrNull(): ElectronApp | null {
 }
 
 /**
- * Resolves the install directory the wizard wrote the marker to. Returns
- * null in dev (`!app.isPackaged`) and in vitest / tsx-script contexts. The
- * packaged-Windows + packaged-Linux layouts both put the marker as a direct
- * sibling of the running executable.
+ * Directories the wizard may have written the marker to, in priority order.
+ * Pure — takes its inputs explicitly so tests can exercise every platform
+ * without an electron runtime.
+ *
+ * Windows + Linux: the marker is a direct sibling of the executable
+ * ( <install-dir>/loklm-tier.json ). macOS: the .app bundle is signed and
+ * read-only, so the wizard writes marker + models to
+ * ~/Library/Application Support/LokLM instead — which is exactly Electron's
+ * userData dir ( productName "LokLM" on both sides ). The exec-sibling dir
+ * stays first so a hypothetical future bundle-relative layout would win.
  */
-function getInstallDir(): string | null {
+export function getMarkerCandidateDirs(
+  platform: NodeJS.Platform,
+  execPath: string,
+  userDataDir: string | null,
+): string[] {
+  const dirs = [dirname(execPath)]
+  if (platform === 'darwin' && userDataDir) dirs.push(userDataDir)
+  return dirs
+}
+
+function getUserDataDirOrNull(app: ElectronApp): string | null {
+  try {
+    return app.getPath?.('userData') ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolves the marker file the wizard wrote, trying each platform candidate
+ * dir. Returns null in dev (`!app.isPackaged`), in vitest / tsx-script
+ * contexts, and when no candidate contains the file.
+ */
+function findMarkerFile(): string | null {
   const app = getAppOrNull()
   if (!app || !app.isPackaged) return null
-  return dirname(process.execPath)
+  const candidates = getMarkerCandidateDirs(
+    process.platform,
+    process.execPath,
+    getUserDataDirOrNull(app),
+  )
+  for (const dir of candidates) {
+    const path = join(dir, MARKER_FILENAME)
+    if (existsSync(path)) return path
+  }
+  return null
 }
 
 let cachedMarker: TierMarker | null | undefined = undefined
@@ -74,20 +112,15 @@ let cachedMarker: TierMarker | null | undefined = undefined
  * doesn't change while the app is running, and a missed read shouldn't be
  * retried every time. Returns null when:
  *   - we're in dev or test (no install dir)
- *   - the marker file doesn't exist (pre-v0.3.0 install, the legacy path)
+ *   - the marker file doesn't exist in any candidate dir (pre-v0.3.0
+ *     install, the legacy path)
  *   - the file exists but parses as garbage (treated as missing; log + null)
  */
 export function readTierMarker(): TierMarker | null {
   if (cachedMarker !== undefined) return cachedMarker
 
-  const installDir = getInstallDir()
-  if (!installDir) {
-    cachedMarker = null
-    return null
-  }
-
-  const path = join(installDir, MARKER_FILENAME)
-  if (!existsSync(path)) {
+  const path = findMarkerFile()
+  if (!path) {
     cachedMarker = null
     return null
   }
