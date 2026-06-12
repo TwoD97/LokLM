@@ -78,6 +78,7 @@
     "db:check": "drizzle-kit check"
   },
   "devDependencies": {
+    "@electron/fuses": "^2.1.2",
     "@electron/rebuild": "^3.7.1",
     "@eslint/js": "^9.16.0",
     "@mongodb-js/zstd": "^7.0.0",
@@ -136,6 +137,7 @@
     "highlight.js": "^11.11.1",
     "sharp": "^0.34.0",
     "sherpa-onnx-node": "^1.13.2",
+    "sodium-native": "^5.1.0",
     "tesseract.js": "^6.0.1"
   },
   "build": {
@@ -155,6 +157,7 @@
       "!**/node_modules/@node-llama-cpp/{win-x64-cuda,win-x64-cuda-ext,linux-x64-cuda,linux-x64-cuda-ext}/**"
     ],
     "asar": true,
+    "afterPack": "scripts/after-pack-fuses.cjs",
     "asarUnpack": [
       "**/node_modules/@napi-rs/canvas*/**",
       "**/node_modules/@img/**",
@@ -230,7 +233,8 @@
       "electron",
       "@electron/rebuild",
       "node-llama-cpp",
-      "@mongodb-js/zstd"
+      "@mongodb-js/zstd",
+      "sodium-native"
     ],
     "overrides": {
       "esbuild": "0.25.12"

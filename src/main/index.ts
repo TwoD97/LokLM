@@ -1705,10 +1705,18 @@ function createMainWindow(): BrowserWindow {
     frame: false,
     backgroundColor: '#0B1B2B',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      // index.cjs , not .mjs : sandboxed preloads can't be ES modules , so the
+      // preload build emits CommonJS ( see electron.vite.config.ts ).
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Full Chromium sandbox for the renderer. The app ingests untrusted
+      // documents ( PDFs through pdfjs , OCR'd images , markdown ) — if one of
+      // them lands a renderer exploit , the sandbox is what keeps it away from
+      // the filesystem and the unlocked vault in main. The preload only uses
+      // contextBridge / ipcRenderer / webUtils , all sandbox-safe.
+      sandbox: true,
+      webviewTag: false,
     },
   })
 
@@ -1727,11 +1735,6 @@ function createMainWindow(): BrowserWindow {
 
   window.once('ready-to-show', () => window.show())
 
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
-    return { action: 'deny' }
-  })
-
   const devServerUrl = process.env['ELECTRON_RENDERER_URL']
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
@@ -1741,6 +1744,48 @@ function createMainWindow(): BrowserWindow {
 
   return window
 }
+
+// Hardening for every webContents the app ever creates ( main window today ,
+// anything added later inherits it automatically ). Renderer content includes
+// untrusted text — document chunks and LLM output rendered by react-markdown —
+// so links in it are attacker-influenced :
+//   - window.open / target=_blank : never create a child window. Hand the URL
+//     to the OS browser only when the scheme is http(s)/mailto , so a crafted
+//     file:// , smb:// or custom-protocol link can't launch a local handler.
+//   - will-navigate : the SPA never navigates top-level. Allow only the dev
+//     server ( HMR full-reload ) and a same-URL reload ; block everything else
+//     so a renderer compromise can't load remote content into our context.
+//   - webviews : disabled in webPreferences , and refused here again in case a
+//     future window forgets the flag.
+function isSafeExternalUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' || u.protocol === 'http:' || u.protocol === 'mailto:'
+  } catch {
+    return false
+  }
+}
+
+app.on('web-contents-created', (_e, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    const devServerUrl = process.env['ELECTRON_RENDERER_URL']
+    if (devServerUrl && url.startsWith(devServerUrl)) return
+    if (url === contents.getURL()) return // location.reload()
+    event.preventDefault()
+  })
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault()
+  })
+})
+
+// Process-wide renderer sandbox , on top of the per-window webPreferences
+// flag : a window added later that forgets sandbox: true would otherwise run
+// unsandboxed without anyone noticing. Must be called before app ready.
+app.enableSandbox()
 
 // Only one process is allowed to touch the encrypted vault at a time. Two
 // instances would race on loklm.vault.tmp during persistSnapshot and could
