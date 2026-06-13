@@ -33,6 +33,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
+    "test:cov:apt1": "vitest run tests/unit/chunker.test.ts tests/unit/parser.test.ts tests/unit/rrf.test.ts src/shared/citationMarkers.test.ts tests/unit/auth-crypto.test.ts tests/unit/auth-service-guards.test.ts tests/integration/auth-flow.test.ts tests/integration/auth-e2e.test.ts tests/integration/change-password.test.ts --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include=src/main/services/documents/chunker.ts --coverage.include=src/main/services/documents/parser.ts --coverage.include=src/main/services/retrieval/rrf.ts --coverage.include=src/shared/citationMarkers.ts --coverage.include=src/main/services/auth/AuthService.ts",
     "test:unit": "vitest run --project node --project web",
     "test:wizard-frontend": "vitest run --project wizard-frontend",
     "test:integration": "vitest run --project integration",
