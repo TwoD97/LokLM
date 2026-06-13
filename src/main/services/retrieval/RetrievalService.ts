@@ -98,6 +98,15 @@ export interface RetrievalOptions {
    *  fields. When `undefined` (the default), RetrievalService auto-detects from
    *  the LLM backend: no GPU → preset on, GPU → preset off. */
   cpuOptimized?: boolean
+  /** Hierarchical doc pre-filter (DocumentSummaryIndex, ADR-0003). When on AND
+   *  the embedder is loaded AND documents have summary embeddings, the query is
+   *  first matched against per-document summary embeddings; the top
+   *  `docPrefilterTopN` documents narrow the chunk search (intersected into
+   *  activeDocumentIds). Default OFF — gated so it can be A/B-evaluated against
+   *  flat retrieval before any default flip. Degrades to a no-op (no narrowing)
+   *  when nothing clears the similarity threshold, so it never starves recall. */
+  docPrefilter?: boolean
+  docPrefilterTopN?: number
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -138,6 +147,10 @@ const DEFAULT_SHORT_CHUNK_MIN_CHARS = 200
 const DEFAULT_RECENCY_BOOST = 1.1
 const DEFAULT_RECENCY_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
 const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
+// How many top documents the hierarchical pre-filter keeps when docPrefilter is
+// on. 5 mirrors LlamaIndex's drill-down top_k corrected up from its brittle
+// default of 1 — enough that one bad summary match doesn't lose the answer.
+const DEFAULT_DOC_PREFILTER_TOPN = 5
 
 export class RetrievalService {
   constructor(
@@ -154,12 +167,38 @@ export class RetrievalService {
     const trimmed = query.trim()
     if (!trimmed) return []
 
-    const activeIds =
+    let activeIds =
       opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
     const perDocCap =
       opts.perDocCandidateCap === undefined
         ? DEFAULT_PER_DOC_CAP
         : Math.max(0, opts.perDocCandidateCap)
+
+    // ------- 0a. hierarchical doc pre-filter (opt-in, default off) -------
+    // Narrow chunk retrieval to the documents whose SUMMARY is closest to the
+    // query, before any chunk search runs. No-op unless docPrefilter is on and
+    // the embedder is loaded; a doc set that clears nothing leaves activeIds
+    // untouched (never narrows to nothing). When activeIds is already set
+    // (source focus), the prefilter intersects within it.
+    if (opts.docPrefilter && this.registry.embedder().isReady()) {
+      try {
+        const embedder = this.registry.embedder()
+        const vecs = await embedder.embed([trimmed])
+        const qVec = vecs[0]
+        if (qVec && qVec.length > 0) {
+          const topN = opts.docPrefilterTopN ?? DEFAULT_DOC_PREFILTER_TOPN
+          const topDocs = await this.db
+            .documents()
+            .topDocumentsBySummarySimilarity(workspaceId, Array.from(qVec), topN, {
+              activeDocumentIds: activeIds,
+            })
+          if (topDocs.length > 0) activeIds = topDocs.map((d) => d.id)
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[retrieval] doc-prefilter failed, using flat retrieval:', err)
+      }
+    }
 
     // CPU-mode trigger: explicit flag wins; otherwise auto-detect from the LLM
     // backend. When the LLM has no GPU label, every CPU-heavy retrieval stage

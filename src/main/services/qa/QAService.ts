@@ -161,12 +161,31 @@ export class QAService {
         emitStage('route', 'done', '→ corpus')
         emitStage('corpus', 'start')
         while (stageBuffer.length > 0) yield stageBuffer.shift()!
+        // Summary-embedding signal (DocumentSummaryIndex, ADR-0003): embed the
+        // theme so docs that are ABOUT it but share no literal token still
+        // surface. Best-effort + lazy — needs the embedder up AND docs with
+        // summary embeddings; otherwise searchDocumentsByTheme falls back to
+        // the title/summary ILIKE + chunk doc_aggs signals. NOT an LLM call.
+        let themeEmbedding: number[] | null = null
+        if (route.themeTokens.length > 0) {
+          const embedder = this.registry.embedder()
+          if (embedder.isReady()) {
+            try {
+              const vecs = await embedder.embed([route.themeTokens.join(' ')])
+              const v = vecs[0]
+              if (v && v.length > 0) themeEmbedding = Array.from(v)
+            } catch {
+              /* fall back to literal matching */
+            }
+          }
+        }
         let corpusDocs: CorpusDoc[]
         try {
           corpusDocs = await this.db
             .documents()
             .searchDocumentsByTheme(workspaceId, route.themeTokens, {
               activeDocumentIds: opts.activeDocumentIds ?? null,
+              themeEmbedding,
             })
         } catch (err) {
           yield { type: 'error', message: err instanceof Error ? err.message : String(err) }

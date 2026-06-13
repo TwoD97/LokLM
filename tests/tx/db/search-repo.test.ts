@@ -519,4 +519,114 @@ describe('DocumentsRepo.searchLibrary (tx)', () => {
       })
     })
   })
+
+  describe('summary embedding (DocumentSummaryIndex)', () => {
+    // Axis-aligned 1024-dim vectors: same axis → cosine ~1.0 , different axis →
+    // ~0.11 (below the 0.2 corpus threshold). 0.01 floor keeps norms non-zero
+    // (pgvector cosine on an all-zero vector is undefined).
+    const evec = (axis: number): number[] => {
+      const v = new Array(DIM).fill(0.01)
+      v[axis] = 1
+      return v
+    }
+    const seedDocWithSummaryEmbedding = async (
+      tx: Tx,
+      wsId: number,
+      title: string,
+      axis: number,
+    ): Promise<number> => {
+      const [doc] = await tx
+        .insert(documents)
+        .values({ workspaceId: wsId, title, sourcePath: '/' + title, status: 'ready' })
+        .returning()
+      const repo = new DocumentsRepo(tx as never)
+      await repo.setSummary(doc!.id, `${title} summary text`)
+      await repo.setSummaryEmbedding(doc!.id, evec(axis), 'bundled:bge-m3')
+      return doc!.id
+    }
+
+    it('setSummary nulls a previously stored embedding (summary changed → stale)', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const id = await seedDocWithSummaryEmbedding(tx, ws!.id, 'doc', 0)
+        const repo = new DocumentsRepo(tx as never)
+        expect(await repo.countDocsMissingSummaryEmbedding(ws!.id)).toBe(0)
+        await repo.setSummary(id, 'a different summary')
+        expect(await repo.countDocsMissingSummaryEmbedding(ws!.id)).toBe(1)
+      })
+    })
+
+    it('listDocsMissingSummaryEmbedding returns summarized-but-unembedded docs only', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const repo = new DocumentsRepo(tx as never)
+        // (a) summary + embedding → not missing
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'embedded', 0)
+        // (b) summary , no embedding → missing
+        const [b] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'summ-only', sourcePath: '/b', status: 'ready' })
+          .returning()
+        await repo.setSummary(b!.id, 'has summary, no embedding')
+        // (c) no summary → not a candidate
+        await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'nosumm', sourcePath: '/c', status: 'ready' })
+        const missing = await repo.listDocsMissingSummaryEmbedding(ws!.id, 10)
+        expect(missing.map((m) => m.id)).toEqual([b!.id])
+        expect(missing[0]!.summary).toContain('has summary')
+      })
+    })
+
+    it('purgeSummaryEmbeddingsByIdentity nulls only the matching identity', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const repo = new DocumentsRepo(tx as never)
+        // 'keep' stays on the active stem (bundled) , 'stale' is on a foreign
+        // stem that the purge should null — leaving only 'stale' unembedded.
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'keep', 0)
+        const stale = await seedDocWithSummaryEmbedding(tx, ws!.id, 'stale', 1)
+        await repo.setSummaryEmbedding(stale, evec(1), 'ollama:nomic-embed-text')
+        expect((await repo.distinctSummaryEmbedderIdentities(ws!.id)).sort()).toEqual([
+          'bundled:bge-m3',
+          'ollama:nomic-embed-text',
+        ])
+        const purged = await repo.purgeSummaryEmbeddingsByIdentity(
+          ws!.id,
+          'ollama:nomic-embed-text',
+        )
+        expect(purged).toBe(1)
+        const missing = await repo.listDocsMissingSummaryEmbedding(ws!.id, 10)
+        expect(missing.map((m) => m.id)).toEqual([stale]) // keep still embedded
+      })
+    })
+
+    it('topDocumentsBySummarySimilarity returns on-theme docs above threshold, ranked', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const near = await seedDocWithSummaryEmbedding(tx, ws!.id, 'near', 0)
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'far', 5) // ~0.11 cosine < 0.2
+        const repo = new DocumentsRepo(tx as never)
+        const top = await repo.topDocumentsBySummarySimilarity(ws!.id, evec(0), 5)
+        expect(top.map((t) => t.id)).toEqual([near])
+        expect(top[0]!.score).toBeGreaterThan(0.9)
+      })
+    })
+
+    it('searchDocumentsByTheme embedding arm includes a doc with no literal match', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'alpha', 0)
+        const repo = new DocumentsRepo(tx as never)
+        // token matches no title/summary/chunk text → literal arm finds nothing
+        const literalOnly = await repo.searchDocumentsByTheme(ws!.id, ['zzznomatch'])
+        expect(literalOnly).toEqual([])
+        // same token but with a near theme embedding → embedding arm includes it
+        const withVec = await repo.searchDocumentsByTheme(ws!.id, ['zzznomatch'], {
+          themeEmbedding: evec(0),
+        })
+        expect(withVec.map((r) => r.title)).toEqual(['alpha'])
+      })
+    })
+  })
 })

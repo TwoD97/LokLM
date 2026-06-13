@@ -351,6 +351,7 @@ function buildFakes(opts: {
   status?: string
   docWorkspaceId?: number
   corpusDocs?: Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>
+  embedderReady?: boolean
   summarizeImpl?: () => Promise<{ summary: string; cached: boolean }>
 }): {
   qa: QAService
@@ -358,6 +359,7 @@ function buildFakes(opts: {
   summarize: ReturnType<typeof vi.fn>
   search: ReturnType<typeof vi.fn>
   searchDocumentsByTheme: ReturnType<typeof vi.fn>
+  embed: ReturnType<typeof vi.fn>
 } {
   const llmAsk = vi.fn(async (...args: [string, RetrievalHit[], AskOptions]) => {
     void args
@@ -369,7 +371,12 @@ function buildFakes(opts: {
     isCpuInference: () => opts.cpu ?? false,
     ask: llmAsk,
   }
-  const registry = { llm: () => llm } as unknown as ProviderRegistry
+  // Embedder fake — default NOT ready, so the corpus theme-embedding arm stays
+  // off and themeEmbedding is null (the literal path). Set embedderReady to
+  // exercise the summary-embedding signal.
+  const embed = vi.fn().mockResolvedValue([new Float32Array([0.1, 0.2, 0.3])])
+  const embedder = { isReady: () => opts.embedderReady ?? false, embed }
+  const registry = { llm: () => llm, embedder: () => embedder } as unknown as ProviderRegistry
   const search = vi.fn().mockResolvedValue([mkHit(11, 1, 'TudosaDenys_Wochenbuch.pdf')])
   const retrieval = { search } as unknown as RetrievalService
   const searchDocumentsByTheme = vi.fn().mockResolvedValue(opts.corpusDocs ?? [])
@@ -399,6 +406,7 @@ function buildFakes(opts: {
     summarize,
     search,
     searchDocumentsByTheme,
+    embed,
   }
 }
 
@@ -519,7 +527,11 @@ describe('QAService corpus route', () => {
     const { qa, llmAsk, search, searchDocumentsByTheme } = buildFakes({ corpusDocs })
     const events = await collect(qa, 'wie viele dokumente habe ich zu strom?')
 
-    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], { activeDocumentIds: null })
+    // embedder not ready (default) → no theme embedding, literal path only
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
+      activeDocumentIds: null,
+      themeEmbedding: null,
+    })
     expect(llmAsk).not.toHaveBeenCalled()
     expect(search).not.toHaveBeenCalled()
 
@@ -558,6 +570,27 @@ describe('QAService corpus route', () => {
     await collect(qa, 'wie viele dokumente habe ich zu strom?', { activeDocumentIds: [1, 2] })
     expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
       activeDocumentIds: [1, 2],
+      themeEmbedding: null,
+    })
+  })
+
+  it('embeds the theme and passes it through when the embedder is ready', async () => {
+    const { qa, searchDocumentsByTheme, embed } = buildFakes({ corpusDocs, embedderReady: true })
+    await collect(qa, 'wie viele dokumente habe ich zu strom?')
+    expect(embed).toHaveBeenCalledWith(['strom'])
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
+      activeDocumentIds: null,
+      themeEmbedding: [expect.closeTo(0.1, 5), expect.closeTo(0.2, 5), expect.closeTo(0.3, 5)],
+    })
+  })
+
+  it('themeless count does not embed (nothing to match semantically)', async () => {
+    const { qa, embed, searchDocumentsByTheme } = buildFakes({ corpusDocs, embedderReady: true })
+    await collect(qa, 'wie viele dokumente habe ich?')
+    expect(embed).not.toHaveBeenCalled()
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, [], {
+      activeDocumentIds: null,
+      themeEmbedding: null,
     })
   })
 
