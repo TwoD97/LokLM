@@ -32,9 +32,17 @@ import type {
 // why one file: wrapped DEK and ciphertext live or die together. if the
 // header gets deleted or quarantined the snapshot is gone even with the
 // right password or passphrase , so splitting them gains nothing and adds
-// a failure mode. one file means either the vault is fine or its gone ,
-// nothing in between. atomic rename keeps header and body in sync , and
+// a failure mode. atomic rename keeps header and body in sync , and
 // backups are just one file to copy.
+//
+// crash safety , two layers (mechanics in writeVaultNow):
+//   1. tmp-write + fsync + rename — the new bytes are durable on disk before
+//      the rename exists , so the primary is always either the old or the new
+//      generation , never a torn mix. covers app crash AND power loss.
+//   2. loklm.vault.bak — byte-copy of the last successful persist , written
+//      after the primary swap. read fallback when the primary goes missing
+//      (av quarantine , manual delete) or fails structure/tag checks (bit
+//      rot). to truly start over both files have to be deleted.
 //
 // crypto layers (same as v3):
 //   - DEK , 32 random bytes , encrypts the snapshot body
@@ -131,10 +139,12 @@ export function isLockedError(err: unknown): boolean {
  * login()/register() and lock()/logout().
  *
  * files under userData/:
- *   loklm.vault   one file , header (wrapped DEKs + metadata) + AES-GCM(DEK)(pglite tar dump)
+ *   loklm.vault       one file , header (wrapped DEKs + metadata) + AES-GCM(DEK)(pglite tar dump)
+ *   loklm.vault.bak   byte-copy of the last successful persist , read fallback (see writeVaultNow)
  */
 export class AuthService {
   private readonly vaultFilePath: string
+  private readonly vaultBackupPath: string
 
   // live session state , only set between login()/register() and lock().
   // liveHeader doubles as a "is the vault on disk?" answer for status() while
@@ -162,6 +172,7 @@ export class AuthService {
 
   constructor(userDataDir: string) {
     this.vaultFilePath = join(userDataDir, 'loklm.vault')
+    this.vaultBackupPath = this.vaultFilePath + '.bak'
   }
 
   // -------------------------------------------------------------------------
@@ -278,11 +289,26 @@ export class AuthService {
     // and body live together so any failure here is just file corruption ,
     // not an auth/snapshot drift.
     emit('decrypting')
-    const snapshotBlob = decryptBody(vault.body, dek)
+    let snapshotBlob = decryptBody(vault.body, dek)
+    if (snapshotBlob == null && vault.source === 'primary') {
+      // primary body failed its gcm tag. the DEK is install-lifetime , it
+      // opens any generation's body — so the backup can rescue the last good
+      // persist even though we keep the primary's (intact) header for the
+      // session. the next persist rewrites both files and self-heals.
+      const backup = await this.readBackupQuiet()
+      if (backup) {
+        snapshotBlob = decryptBody(backup.body, dek)
+        if (snapshotBlob != null) {
+          console.warn(
+            '[auth] vault body corrupt , restored last good generation from loklm.vault.bak',
+          )
+        }
+      }
+    }
     if (snapshotBlob == null) {
       secureWipe(dek)
       throw new Error(
-        'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
+        'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
       )
     }
 
@@ -426,13 +452,25 @@ export class AuthService {
     // this a corrupt body (decryptBody → null) would fall through to a FRESH
     // EMPTY database and writeVault would then overwrite the still-recoverable
     // ciphertext with that empty snapshot — i.e. the recovery flow would wipe
-    // the very data it exists to save. Restore-from-backup is the only path
-    // from here, so we must not touch the file.
-    const snapshotBlob = decryptBody(vault.body, dek)
+    // the very data it exists to save. Try the .bak generation first (the DEK
+    // is install-lifetime , it opens any generation's body); if that fails too
+    // an external backup is the only path left , so we must not touch the file.
+    let snapshotBlob = decryptBody(vault.body, dek)
+    if (snapshotBlob == null && vault.source === 'primary') {
+      const backup = await this.readBackupQuiet()
+      if (backup) {
+        snapshotBlob = decryptBody(backup.body, dek)
+        if (snapshotBlob != null) {
+          console.warn(
+            '[auth] vault body corrupt , reset continues from the loklm.vault.bak generation',
+          )
+        }
+      }
+    }
     if (snapshotBlob == null) {
       secureWipe(dek)
       throw new Error(
-        'Vault body failed to decrypt — file is corrupt. Restore from backup if available.',
+        'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
       )
     }
     // Only commit the DEK once the DB actually loads ; zero it on any failure
@@ -582,38 +620,80 @@ export class AuthService {
     return vault?.header ?? null
   }
 
-  private async readVault(): Promise<{ header: AuthHeader; body: EncryptedBody } | null> {
+  /** primary vault with automatic fallback to loklm.vault.bak when the primary
+   *  is missing or structurally broken. `source` tells callers which file the
+   *  bytes came from , so the body-decrypt fallback in login()/reset() knows
+   *  whether a backup retry is still worth attempting. null = no vault at all
+   *  (not registered). throws when the primary is corrupt AND no usable backup
+   *  exists — that error names the primary , the one worth reporting. */
+  private async readVault(): Promise<{
+    header: AuthHeader
+    body: EncryptedBody
+    source: 'primary' | 'backup'
+  } | null> {
+    let primaryErr: unknown = null
+    try {
+      const primary = await this.readVaultFrom(this.vaultFilePath)
+      if (primary) return { ...primary, source: 'primary' }
+    } catch (err) {
+      primaryErr = err
+    }
+    const backup = await this.readBackupQuiet()
+    if (backup) {
+      console.warn(
+        '[auth] primary vault missing or unreadable , serving loklm.vault.bak:',
+        primaryErr ?? 'ENOENT',
+      )
+      return { ...backup, source: 'backup' }
+    }
+    if (primaryErr) throw primaryErr
+    return null
+  }
+
+  /** backup read that never throws — a corrupt backup must not mask the
+   *  primary's state , it just drops out as a fallback option. */
+  private async readBackupQuiet(): Promise<{ header: AuthHeader; body: EncryptedBody } | null> {
+    try {
+      return await this.readVaultFrom(this.vaultBackupPath)
+    } catch {
+      return null
+    }
+  }
+
+  private async readVaultFrom(
+    path: string,
+  ): Promise<{ header: AuthHeader; body: EncryptedBody } | null> {
     let raw: Buffer
     try {
-      raw = await fs.readFile(this.vaultFilePath)
+      raw = await fs.readFile(path)
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return null
       throw err
     }
     if (raw.length < HEADER_OFFSET) {
-      throw new Error(`Vault file at ${this.vaultFilePath} is truncated (too short for header).`)
+      throw new Error(`Vault file at ${path} is truncated (too short for header).`)
     }
     const magic = raw.subarray(0, VAULT_MAGIC.length)
     if (!timingSafeEqual(magic, VAULT_MAGIC)) {
       throw new Error(
-        `Vault file at ${this.vaultFilePath} is not a LokLM v4 vault. Delete it to start over, or restore from a backup.`,
+        `Vault file at ${path} is not a LokLM v4 vault. Delete it to start over, or restore from a backup.`,
       )
     }
     const headerLen = raw.readUInt32BE(VAULT_MAGIC.length)
     const bodyOffset = HEADER_OFFSET + headerLen
     if (raw.length < bodyOffset + AES_NONCE_BYTES + AES_TAG_BYTES) {
-      throw new Error(`Vault file at ${this.vaultFilePath} is truncated (header.len=${headerLen}).`)
+      throw new Error(`Vault file at ${path} is truncated (header.len=${headerLen}).`)
     }
     const headerJson = raw.subarray(HEADER_OFFSET, bodyOffset).toString('utf8')
     let header: AuthHeader
     try {
       header = JSON.parse(headerJson) as AuthHeader
     } catch {
-      throw new Error(`Vault header is not valid JSON in ${this.vaultFilePath}.`)
+      throw new Error(`Vault header is not valid JSON in ${path}.`)
     }
     if (header.version !== 4) {
       throw new Error(
-        `Vault header version ${header.version} is not supported by this build. Delete ${this.vaultFilePath} to start over.`,
+        `Vault header version ${header.version} is not supported by this build. Delete ${path} to start over.`,
       )
     }
     const nonce = raw.subarray(bodyOffset, bodyOffset + AES_NONCE_BYTES)
@@ -663,17 +743,62 @@ export class AuthService {
     ])
     await fs.mkdir(dirname(this.vaultFilePath), { recursive: true })
     const tmp = this.vaultFilePath + '.tmp'
-    // KNOWN LIMITATION (security review 2026-06-10 — accepted, hardening tracked
-    // as a follow-up): tmp-write + rename is atomic w.r.t. OLD vs NEW *content*
-    // (the old vault stays intact until the rename), but there is no durability
-    // fence. The temp file's data blocks are not fsync'd before the rename (nor
-    // the directory after), so on power loss / crash the rename can become
-    // durable before the new bytes flush, leaving a present, right-sized vault
-    // that fails its AES-GCM tag — openable by neither password NOR a recovery
-    // code (single-file design, no second copy). Fix when revisited: fh.sync()
-    // the temp file before rename; dir-fsync on POSIX.
-    await fs.writeFile(tmp, out, { mode: 0o600 })
+    // layer 1 , durability fence (closes the known limitation from the
+    // security review 2026-06-10): fsync the tmp's data blocks BEFORE the
+    // rename. without it ntfs/ext4 journal the rename ahead of the data
+    // flush , and a power loss could leave a present , right-sized vault
+    // that fails its gcm tag. with the fence the rename only ever swaps in
+    // durable bytes — the primary is always either the old or the new
+    // generation , never a torn mix. (a crash before the rename just leaves
+    // a stale .tmp that the next attempt truncates.)
+    await this.writeFileSynced(tmp, out)
     await fs.rename(tmp, this.vaultFilePath)
+    // posix: fsync the directory so the rename itself survives power loss.
+    // windows can't open directories — the FlushFileBuffers above is the
+    // fence ntfs gives us , and a lost rename there still leaves the old
+    // (valid) vault in place.
+    await this.syncDir(dirname(this.vaultFilePath))
+    // layer 2 , backup generation: same verified bytes again under .bak ,
+    // written only after the primary swap succeeded. covers what the fence
+    // can't — bit rot , av quarantine , a manually deleted primary. always
+    // the SAME generation as the primary , so a password change re-keys the
+    // backup in the same persist and the old password dies with it.
+    // best-effort: a failed backup write must not fail the persist (the
+    // primary is already live) , but a stale .bak must not linger either —
+    // it could still open under pre-rekey credentials — so drop it on error.
+    try {
+      await this.writeFileSynced(this.vaultBackupPath, out)
+    } catch (err) {
+      console.warn('[auth] vault backup write failed , dropping loklm.vault.bak:', err)
+      await fs.rm(this.vaultBackupPath, { force: true }).catch(() => undefined)
+    }
+  }
+
+  /** write + fsync , data is durable on disk before the caller proceeds.
+   *  goes through fs.writeFile(handle , ...) rather than handle.writeFile so
+   *  the write-serialization test can keep spying on the fs.promises export. */
+  private async writeFileSynced(path: string, data: Buffer): Promise<void> {
+    const fh = await fs.open(path, 'w', 0o600)
+    try {
+      await fs.writeFile(fh, data)
+      await fh.sync()
+    } finally {
+      await fh.close()
+    }
+  }
+
+  private async syncDir(dir: string): Promise<void> {
+    if (process.platform === 'win32') return
+    try {
+      const dh = await fs.open(dir, 'r')
+      try {
+        await dh.sync()
+      } finally {
+        await dh.close()
+      }
+    } catch {
+      /* best-effort , not every filesystem lets you fsync a directory */
+    }
   }
 
   private async persistSnapshot(): Promise<void> {
