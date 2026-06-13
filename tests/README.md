@@ -31,7 +31,7 @@ Daneben gibt es noch eine separate Säule für Qualitäts-Evals:
 | `pnpm test:cov`            | Vitest mit Coverage-Report (v8).                                          |
 | `pnpm test:e2e`            | Playwright e2e gegen die gebaute App. Baut vorher automatisch mit.        |
 | `pnpm test:e2e:headed`     | Wie oben, aber mit sichtbarem Fenster für lokales Debuggen.               |
-| `pnpm test:all`            | Vitest + Playwright nacheinander. Was die CI fährt.                       |
+| `pnpm test:all`            | Vitest + Playwright nacheinander. Lokaler Komplett-Durchlauf.             |
 | `pnpm evals:generate`      | Synthetisches Dataset für Quality-Evals aus den Sample-Docs erzeugen.     |
 | `pnpm evals:run`           | Pipeline-Configs gegen das jüngste Dataset durchlaufen, Report schreiben. |
 | `pnpm evals:build-library` | Distractor-Library für Scale-Tests bauen (`-- --size tiny/small/...`).    |
