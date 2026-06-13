@@ -1533,7 +1533,13 @@ function registerIpc(): void {
             const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
             const elapsedSinceFirst =
               firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
-            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
+            // tokenCount > 1: a single synthesized token (e.g. the corpus
+            // route's whole templated answer in one event) has no meaningful
+            // rate — elapsedSinceFirst is just the event-loop gap to here , so
+            // tokenCount/elapsed yields a bogus 100s–1000s tok/s. Persist null
+            // instead so the metrics chip omits the rate for non-streamed turns.
+            const tokensPerSec =
+              tokenCount > 1 && elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
             const asst = await conversations.appendMessage(
               opts.conversationId,
               'assistant',

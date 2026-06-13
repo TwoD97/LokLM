@@ -57,6 +57,7 @@ const STAGE_LABEL_KEY: Record<StageName, string> = {
   retrieve: 'chat.stageRetrieve',
   rerank: 'chat.stageRerank',
   summarize: 'chat.stageSummarize',
+  corpus: 'chat.stageCorpus',
   prefill: 'chat.stagePrefill',
 }
 

@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   resolveRoute,
   resolveTargetDocument,
+  detectCorpusIntent,
+  extractThemeTokens,
   TITLE_MATCH_MIN_COVERAGE,
   type RouteDocument,
 } from '@main/services/qa/router'
@@ -134,6 +136,81 @@ describe('resolveTargetDocument', () => {
   })
 })
 
+describe('detectCorpusIntent', () => {
+  describe('count', () => {
+    const cases = [
+      'wie viele dokumente habe ich zu strom und spannung?',
+      'wieviele dokumente gibt es zum thema optik?',
+      'anzahl der dokumente über neuronale netze',
+      'how many documents do I have about transformers?',
+      'how many of my documents cover RAG?',
+      'what is the number of documents in this workspace?',
+    ]
+    for (const q of cases) {
+      it(`"${q}" → count`, () => {
+        expect(detectCorpusIntent(q)).toBe('count')
+      })
+    }
+  })
+
+  describe('list', () => {
+    const cases = [
+      'which documents cover the wave equation?',
+      'list my documents about chemistry',
+      'what documents do I have about electronics?',
+      'welche dokumente behandeln die schlüsselableitung?',
+      'welche meiner dateien gehen über die prüfung?',
+      'zeig mir alle dokumente zu LokLM',
+      // "in welchem dokument steht X" — a locate question; listing the docs
+      // that mention X is the right answer shape (RAGFlow doc_aggs use case)
+      'in welchem dokument steht die formel zur kondensatorladung?',
+    ]
+    for (const q of cases) {
+      it(`"${q}" → list`, () => {
+        expect(detectCorpusIntent(q)).toBe('list')
+      })
+    }
+  })
+
+  describe('null (scope noun not the counted/listed object)', () => {
+    const cases = [
+      'how many pages does the document have?', // counts pages , not docs
+      'how many volts are needed for the circuit?',
+      'wie viele seiten hat das dokument?',
+      'wie viele themen behandelt das skript?',
+      'the documents say the KDF is argon2id — why?', // no intent phrase
+      'compare the documents on optics', // breadth , not corpus
+      'fasse alle dokumente zusammen', // summary intent , not corpus
+      'what is a document store?',
+      // scope noun is the OBJECT of a content question , not the counted thing:
+      'how many documents does chapter 3 mention?', // "does … mention"
+      "list the documents' shortcomings", // possessive
+      'number of sources cited in chapter 4', // "cited" participle
+      'which sources does the author trust?', // "does"
+    ]
+    for (const q of cases) {
+      it(`"${q}" → null`, () => {
+        expect(detectCorpusIntent(q)).toBe(null)
+      })
+    }
+  })
+})
+
+describe('extractThemeTokens', () => {
+  const cases: Array<[string, string[]]> = [
+    ['wie viele dokumente habe ich zu strom und spannung?', ['strom', 'spannung']],
+    ['which documents cover the wave equation?', ['wave', 'equation']],
+    ['welche dokumente behandeln neuronale netze?', ['neuronale', 'netze']],
+    ['how many documents do I have?', []],
+    ['liste alle dokumente', []],
+  ]
+  for (const [q, expected] of cases) {
+    it(`"${q}" → [${expected.join(', ')}]`, () => {
+      expect(extractThemeTokens(q)).toEqual(expected)
+    })
+  }
+})
+
 describe('resolveRoute', () => {
   const ctx = (
     overrides: Partial<{ activeDocumentIds: number[] | null; docs: RouteDocument[] }> = {},
@@ -191,6 +268,62 @@ describe('resolveRoute', () => {
     }
     expect(await resolveRoute('summarize the wochenbuch', c)).toEqual({ kind: 'retrieval' })
   })
+
+  it('corpus intent wins over everything and never pays the docs fetch', async () => {
+    const c = ctx()
+    expect(await resolveRoute('wie viele dokumente habe ich zu strom?', c)).toEqual({
+      kind: 'corpus',
+      intent: 'count',
+      themeTokens: ['strom'],
+    })
+    expect(c.getDocuments).not.toHaveBeenCalled()
+  })
+
+  describe('workspace-pin fallback (pinnedFallbackDocumentId)', () => {
+    it('"fasse das zusammen" + one pinned doc → that doc as last resort', async () => {
+      const c = { ...ctx(), pinnedFallbackDocumentId: 4 }
+      expect(await resolveRoute('fasse das zusammen', c)).toEqual({
+        kind: 'doc_summary',
+        documentId: 4,
+      })
+    })
+
+    it('an explicit title match always beats the pin — pinning is emphasis, not focus', async () => {
+      const c = { ...ctx(), pinnedFallbackDocumentId: 4 }
+      expect(await resolveRoute('fasse mein wochenbuch zusammen', c)).toEqual({
+        kind: 'doc_summary',
+        documentId: 1,
+      })
+    })
+
+    it('an ambiguous title tie does NOT fall through to the pin', async () => {
+      const twins: RouteDocument[] = [
+        { id: 10, title: 'Laborbericht Optik' },
+        { id: 11, title: 'Laborbericht Mechanik' },
+      ]
+      const c = { ...ctx({ docs: twins }), pinnedFallbackDocumentId: 4 }
+      expect(await resolveRoute('fasse den laborbericht zusammen', c)).toEqual({
+        kind: 'retrieval',
+      })
+    })
+
+    it('does NOT summarize a pinned doc scoped OUT of the conversation focus', async () => {
+      // active focus = docs 2 & 3 ; the workspace pin (doc 4) is not in it.
+      // Every other path treats activeDocumentIds as a hard filter , so the
+      // pin fallback must too — otherwise "fasse das zusammen" summarizes a
+      // doc the user explicitly scoped out.
+      const c = { ...ctx({ activeDocumentIds: [2, 3] }), pinnedFallbackDocumentId: 4 }
+      expect(await resolveRoute('fasse das zusammen', c)).toEqual({ kind: 'retrieval' })
+    })
+
+    it('fires when the pin IS within the conversation focus', async () => {
+      const c = { ...ctx({ activeDocumentIds: [2, 4] }), pinnedFallbackDocumentId: 4 }
+      expect(await resolveRoute('fasse das zusammen', c)).toEqual({
+        kind: 'doc_summary',
+        documentId: 4,
+      })
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -217,12 +350,14 @@ function buildFakes(opts: {
   cpu?: boolean
   status?: string
   docWorkspaceId?: number
+  corpusDocs?: Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>
   summarizeImpl?: () => Promise<{ summary: string; cached: boolean }>
 }): {
   qa: QAService
   llmAsk: ReturnType<typeof vi.fn>
   summarize: ReturnType<typeof vi.fn>
   search: ReturnType<typeof vi.fn>
+  searchDocumentsByTheme: ReturnType<typeof vi.fn>
 } {
   const llmAsk = vi.fn(async (...args: [string, RetrievalHit[], AskOptions]) => {
     void args
@@ -237,6 +372,7 @@ function buildFakes(opts: {
   const registry = { llm: () => llm } as unknown as ProviderRegistry
   const search = vi.fn().mockResolvedValue([mkHit(11, 1, 'TudosaDenys_Wochenbuch.pdf')])
   const retrieval = { search } as unknown as RetrievalService
+  const searchDocumentsByTheme = vi.fn().mockResolvedValue(opts.corpusDocs ?? [])
   const documentsRepo = {
     // answer() fetches workspace-pinned docs up-front; none in these scenarios.
     listPinned: vi.fn().mockResolvedValue([]),
@@ -249,6 +385,7 @@ function buildFakes(opts: {
       summary: opts.summary ?? null,
       tokenCount: opts.tokenCount ?? 2000,
     }),
+    searchDocumentsByTheme,
   }
   const db = { documents: () => documentsRepo } as unknown as Database
   const summarize = vi.fn(
@@ -256,7 +393,13 @@ function buildFakes(opts: {
       (async () => ({ summary: 'Cached overview of the Wochenbuch.', cached: true })),
   )
   const summarization = { summarize } as unknown as SummarizationService
-  return { qa: new QAService(db, retrieval, registry, summarization), llmAsk, summarize, search }
+  return {
+    qa: new QAService(db, retrieval, registry, summarization),
+    llmAsk,
+    summarize,
+    search,
+    searchDocumentsByTheme,
+  }
 }
 
 async function collect(qa: QAService, query: string, answerOpts = {}): Promise<StreamEvent[]> {
@@ -363,5 +506,97 @@ describe('QAService doc_summary route', () => {
     const events = await collect(qa, 'fasse mein wochenbuch zusammen')
     expect(events.some((e) => e.type === 'refusal')).toBe(false)
     expect(events.some((e) => e.type === 'done')).toBe(true)
+  })
+})
+
+describe('QAService corpus route', () => {
+  const corpusDocs = [
+    { id: 1, title: 'Strom und Spannung — Grundlagen', chunkHits: 5, firstChunkId: 11 },
+    { id: 2, title: 'Netzteil Notizen', chunkHits: 2, firstChunkId: 21 },
+  ]
+
+  it('answers a count query from the documents table — no LLM, no chunk retrieval', async () => {
+    const { qa, llmAsk, search, searchDocumentsByTheme } = buildFakes({ corpusDocs })
+    const events = await collect(qa, 'wie viele dokumente habe ich zu strom?')
+
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], { activeDocumentIds: null })
+    expect(llmAsk).not.toHaveBeenCalled()
+    expect(search).not.toHaveBeenCalled()
+
+    const done = events.find((e) => e.type === 'done')
+    expect(done).toBeDefined()
+    if (done?.type === 'done') {
+      expect(done.full_text).toContain('**2**')
+      expect(done.full_text).toContain('[doc:1, chunk:11]')
+      expect(done.full_text).toContain('[doc:2, chunk:21]')
+      expect(done.citations).toEqual([
+        { doc_id: 1, chunk_id: 11, score: 1 },
+        { doc_id: 2, chunk_id: 21, score: 0.4 },
+      ])
+    }
+    // stage telemetry: route → corpus , lookup reported the doc count
+    expect(
+      events.some((e) => e.type === 'stage' && e.stage === 'route' && e.detail === '→ corpus'),
+    ).toBe(true)
+    expect(
+      events.some((e) => e.type === 'stage' && e.stage === 'corpus' && e.detail === '2 docs'),
+    ).toBe(true)
+  })
+
+  it('zero theme matches → existing refusal contract, no generation', async () => {
+    const { qa, llmAsk } = buildFakes({ corpusDocs: [] })
+    const events = await collect(qa, 'which documents cover quantum chromodynamics?')
+    expect(llmAsk).not.toHaveBeenCalled()
+    const refusal = events.find((e) => e.type === 'refusal')
+    expect(refusal).toBeDefined()
+    if (refusal?.type === 'refusal') expect(refusal.reason).toBe('no_hits')
+    expect(events.some((e) => e.type === 'done')).toBe(true)
+  })
+
+  it('respects the source-focus pin', async () => {
+    const { qa, searchDocumentsByTheme } = buildFakes({ corpusDocs })
+    await collect(qa, 'wie viele dokumente habe ich zu strom?', { activeDocumentIds: [1, 2] })
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
+      activeDocumentIds: [1, 2],
+    })
+  })
+
+  it('routing: false keeps corpus queries on the chunk pipeline', async () => {
+    const { qa, search, searchDocumentsByTheme } = buildFakes({ corpusDocs })
+    await collect(qa, 'wie viele dokumente habe ich zu strom?', { routing: false })
+    expect(searchDocumentsByTheme).not.toHaveBeenCalled()
+    expect(search).toHaveBeenCalled()
+  })
+
+  it('every emitted citation marker appears in the rendered text — no phantoms past the cap', async () => {
+    // >CORPUS_LIST_MAX docs with a chunk-less doc inside the top 20. The
+    // citation list must be slice-then-filter (mirroring the rendered list) ,
+    // not filter-then-slice , or a doc from past the cut gets a citation event
+    // whose marker is hidden behind "… und N weitere".
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      id: i + 1,
+      title: `doc ${i + 1}`,
+      chunkHits: 25 - i,
+      firstChunkId: i === 5 ? null : (i + 1) * 100,
+    }))
+    const { qa } = buildFakes({ corpusDocs: many })
+    const events = await collect(qa, 'wie viele dokumente habe ich zu strom?')
+    const done = events.find((e) => e.type === 'done')
+    const citationEvents = events.filter((e) => e.type === 'citation')
+    expect(done?.type).toBe('done')
+    if (done?.type === 'done') {
+      // citations on the done event match the streamed citation events
+      expect(done.citations).toEqual(
+        citationEvents.map((e) =>
+          e.type === 'citation' ? { doc_id: e.doc_id, chunk_id: e.chunk_id, score: e.score } : null,
+        ),
+      )
+      // and EVERY citation's marker is present in the rendered answer text
+      for (const c of done.citations) {
+        expect(done.full_text).toContain(`[doc:${c.doc_id}, chunk:${c.chunk_id}]`)
+      }
+      // the chunk-less doc at rank 6 contributes no citation
+      expect(done.citations.some((c) => c.doc_id === 6)).toBe(false)
+    }
   })
 })

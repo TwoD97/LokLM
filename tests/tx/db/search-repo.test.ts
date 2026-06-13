@@ -362,4 +362,161 @@ describe('DocumentsRepo.searchLibrary (tx)', () => {
       expect(hits.map((h) => h.document_title)).toEqual(['in'])
     })
   })
+  describe('searchDocumentsByTheme (corpus route)', () => {
+    it('ranks by chunk BM25 hits and returns the first chunk id per doc', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [a] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Grundlagen', sourcePath: '/a', status: 'ready' })
+          .returning()
+        const [b] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Notizen', sourcePath: '/b', status: 'ready' })
+          .returning()
+        const [c] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Kochbuch', sourcePath: '/c', status: 'ready' })
+          .returning()
+        const [a0] = await tx
+          .insert(chunks)
+          .values({
+            documentId: a!.id,
+            ordinal: 0,
+            text: 'Strom ist der Fluss von Ladung',
+            tokenCount: 6,
+          })
+          .returning()
+        await tx.insert(chunks).values([
+          { documentId: a!.id, ordinal: 1, text: 'Strom und Spannung im Detail', tokenCount: 5 },
+          { documentId: b!.id, ordinal: 0, text: 'Notiz über Strom im Labor', tokenCount: 5 },
+          { documentId: c!.id, ordinal: 0, text: 'Pfannkuchen mit Butter', tokenCount: 4 },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'])
+        expect(rows.map((r) => r.id)).toEqual([a!.id, b!.id])
+        expect(rows[0]!.chunkHits).toBe(2)
+        expect(rows[1]!.chunkHits).toBe(1)
+        expect(rows[0]!.firstChunkId).toBe(a0!.id)
+      })
+    })
+
+    it('title and summary matches count even with zero chunk hits', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [titled] = await tx
+          .insert(documents)
+          .values({
+            workspaceId: ws!.id,
+            title: 'Strom Formelsammlung',
+            sourcePath: '/t',
+            status: 'ready',
+          })
+          .returning()
+        const [summarized] = await tx
+          .insert(documents)
+          .values({
+            workspaceId: ws!.id,
+            title: 'Skript Kapitel 3',
+            sourcePath: '/s',
+            status: 'ready',
+            summary: 'Behandelt strom und widerstand im gleichstromkreis.',
+          })
+          .returning()
+        await tx.insert(chunks).values([
+          {
+            documentId: titled!.id,
+            ordinal: 0,
+            text: 'Formeln ohne das Themenwort',
+            tokenCount: 4,
+          },
+          {
+            documentId: summarized!.id,
+            ordinal: 0,
+            text: 'Inhalt ohne das Themenwort',
+            tokenCount: 4,
+          },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'])
+        expect(rows.map((r) => r.id).sort()).toEqual([titled!.id, summarized!.id].sort())
+        expect(rows.every((r) => r.chunkHits === 0)).toBe(true)
+      })
+    })
+
+    it('empty theme returns every ready doc (count-all questions)', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'eins', sourcePath: '/1', status: 'ready' },
+          { workspaceId: ws!.id, title: 'zwei', sourcePath: '/2', status: 'ready' },
+          { workspaceId: ws!.id, title: 'drei', sourcePath: '/3', status: 'indexing' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, [])
+        expect(rows.map((r) => r.title).sort()).toEqual(['eins', 'zwei'])
+      })
+    })
+
+    it('respects the activeDocumentIds pin', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [a] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'a strom', sourcePath: '/a', status: 'ready' })
+          .returning()
+        await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'b strom', sourcePath: '/b', status: 'ready' })
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'], {
+          activeDocumentIds: [a!.id],
+        })
+        expect(rows.map((r) => r.id)).toEqual([a!.id])
+      })
+    })
+
+    it('escapes ILIKE wildcards in theme tokens — "100%" is a literal % , not match-all', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        // 'Kapitel 100 von 200' contains "100" but no literal '%' — with broken
+        // escaping the pattern degrades to %100% and matches this; with correct
+        // escaping (\%) it must NOT. '100% Erfolg' contains a literal '%' and
+        // must match. Title-only docs (no chunks) so only the ILIKE branch fires.
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'Kapitel 100 von 200', sourcePath: '/k', status: 'ready' },
+          { workspaceId: ws!.id, title: '100% Erfolg', sourcePath: '/e', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['100%'])
+        expect(rows.map((r) => r.title)).toEqual(['100% Erfolg'])
+      })
+    })
+
+    it('a bare "%" token is a literal percent, never a match-everything wildcard', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'plain title', sourcePath: '/p', status: 'ready' },
+          { workspaceId: ws!.id, title: '50 % Rabatt', sourcePath: '/r', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['%'])
+        expect(rows.map((r) => r.title)).toEqual(['50 % Rabatt'])
+      })
+    })
+
+    it('underscore in a theme token is literal, not a single-char wildcard', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'aXb variant', sourcePath: '/x', status: 'ready' },
+          { workspaceId: ws!.id, title: 'a_b literal', sourcePath: '/u', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['a_b'])
+        expect(rows.map((r) => r.title)).toEqual(['a_b literal'])
+      })
+    })
+  })
 })

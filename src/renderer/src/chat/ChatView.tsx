@@ -245,7 +245,12 @@ export function ChatView({
             tokenCount += ev.count ?? 1
             const ttftMs = firstTokenTime - sendTime
             const elapsedSinceFirst = (performance.now() - firstTokenTime) / 1000
-            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
+            // tokenCount > 1 guard mirrors the main-process persistence path:
+            // a single synthesized token (corpus route's one-shot templated
+            // answer) has no real rate, so leave the chip's tok/s blank rather
+            // than show a meaningless 100s–1000s figure.
+            const tokensPerSec =
+              tokenCount > 1 && elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
             next[next.length - 1] = {
               ...last,
               content: last.content + ev.text,

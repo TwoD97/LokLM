@@ -18,7 +18,14 @@ import {
 } from '../llm/prompt'
 import { SUMMARY_MAX_TOKENS, SUMMARY_PROMPT_RESERVE_TOKENS } from '../summarize/prompt'
 import { detectResponseLanguage } from '../documents/languageDetector'
-import { classifyQueryBreadth, adaptiveTopK, resolveRoute, type QueryRoute } from './router'
+import {
+  classifyQueryBreadth,
+  adaptiveTopK,
+  detectCorpusIntent,
+  resolveRoute,
+  type QueryRoute,
+} from './router'
+import { renderCorpusAnswer, CORPUS_LIST_MAX, type CorpusDoc } from './corpusAnswer'
 
 // Breadth classifier + adaptiveTopK moved to ./router (the route layer reuses
 // their patterns); re-exported here so existing imports (queryBreadth.test.ts,
@@ -117,8 +124,9 @@ export class QAService {
 
     // ---- 0. route ----
     // Regex-first dispatch (ADR-0003): "summarize document X" goes to the
-    // cached whole-doc summarizer instead of pretending more chunks make a
-    // summary. The stage row only appears when summary intent actually fired —
+    // cached whole-doc summarizer , "how many / which documents about X" to
+    // the documents table — instead of pretending chunk top-k can answer
+    // either. The stage row only appears when a route pattern actually fired —
     // same no-op-row convention as expand_queries/rerank. Resolution misses
     // (no / ambiguous title match) fall through to plain retrieval , never an
     // error , never an LLM guess. The lazy getDocuments keeps non-summary
@@ -129,13 +137,74 @@ export class QAService {
     // (buildSummaryPreamble's hasExcerpts variant).
     let summaryInfo: { title: string; summary: string } | null = null
     let summaryDocId: number | null = null
-    if (opts.routing !== false && classifyQueryBreadth(query) === 'summary') {
+    if (
+      opts.routing !== false &&
+      (detectCorpusIntent(query) !== null || classifyQueryBreadth(query) === 'summary')
+    ) {
       emitStage('route', 'start')
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
       route = await resolveRoute(query, {
         activeDocumentIds: opts.activeDocumentIds ?? null,
         getDocuments: () => this.db.documents().listDocumentTitles(workspaceId),
+        // Exactly one workspace-pinned doc = the implied subject of "fasse
+        // das zusammen" — but only as last resort behind title matching.
+        pinnedFallbackDocumentId: pinnedDocs.length === 1 ? pinnedDocs[0]!.id : null,
       })
+
+      // ---- corpus route: answered from the documents table , no LLM ----
+      // A count is exact or it is wrong — the answer is templated (DE/EN) and
+      // each listed doc carries a [doc, chunk] marker on its first chunk so
+      // chips , persistence reconciliation and SourceViewer work unchanged.
+      // Zero matches → the existing refusal contract (GraphRAG's zero-evidence
+      // guard: fixed localized text , no generation).
+      if (route.kind === 'corpus') {
+        emitStage('route', 'done', '→ corpus')
+        emitStage('corpus', 'start')
+        while (stageBuffer.length > 0) yield stageBuffer.shift()!
+        let corpusDocs: CorpusDoc[]
+        try {
+          corpusDocs = await this.db
+            .documents()
+            .searchDocumentsByTheme(workspaceId, route.themeTokens, {
+              activeDocumentIds: opts.activeDocumentIds ?? null,
+            })
+        } catch (err) {
+          yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
+          return
+        }
+        emitStage('corpus', 'done', `${corpusDocs.length} docs`)
+        while (stageBuffer.length > 0) yield stageBuffer.shift()!
+
+        if (corpusDocs.length === 0) {
+          const message = REFUSAL_TEXT[language]
+          yield { type: 'refusal', reason: 'no_hits', message, suggestions: [] }
+          yield { type: 'done', full_text: message, citations: [] }
+          return
+        }
+
+        // Citations must mirror renderCorpusAnswer's list EXACTLY: it slices to
+        // CORPUS_LIST_MAX first, THEN drops markers for chunk-less docs. Doing
+        // filter-then-slice here would pull a doc from past the cut into the
+        // citation set whose marker appears nowhere in the rendered text.
+        const maxHits = Math.max(1, ...corpusDocs.map((d) => d.chunkHits))
+        const citations = corpusDocs
+          .slice(0, CORPUS_LIST_MAX)
+          .filter((d) => d.firstChunkId != null)
+          .map((d) => ({
+            doc_id: d.id,
+            chunk_id: d.firstChunkId!,
+            score: d.chunkHits / maxHits,
+          }))
+        for (const c of citations) {
+          yield { type: 'citation', ...c }
+        }
+        const text = renderCorpusAnswer(language, route.intent, route.themeTokens, corpusDocs, {
+          scoped: (opts.activeDocumentIds?.length ?? 0) > 0,
+        })
+        yield { type: 'token', text, count: 1 }
+        yield { type: 'done', full_text: text, citations }
+        return
+      }
 
       // ---- doc_summary gates + summary fetch/generation ----
       // On success the summary becomes an uncited Context preamble (Option A

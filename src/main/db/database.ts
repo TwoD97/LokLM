@@ -372,6 +372,98 @@ export class DocumentsRepo {
       .where(sql`${documents.workspaceId} = ${workspaceId} AND ${documents.status} = 'ready'`)
   }
 
+  /** Corpus route (ADR-0003): which ready documents are about `theme`.
+   *  Matching is the union of three signals , cheapest trust-order first:
+   *    - title ILIKE per theme token (a doc named after the theme is about it)
+   *    - cached summary ILIKE (when the lazy summary exists , its text is the
+   *      best aboutness proxy short of the Phase-3 summary embeddings)
+   *    - BM25 chunk hits grouped per document (RAGFlow's doc_aggs: docs that
+   *      MENTION the theme — the fallback that needs no summary at all) ,
+   *      same bilingual OR-of-terms tsquery as searchChunks so the two stay
+   *      consistent about what "matches" means.
+   *  chunk_hits carries the per-doc mention count for ranking; first_chunk_id
+   *  gives the renderer a valid [doc, chunk] citation target (the citations
+   *  table FK is chunk-bound , a doc-level reference cites its first chunk).
+   *  Empty theme = the whole workspace (count-all questions).
+   *  `activeDocumentIds` mirrors retrieval's source-focus pin. */
+  async searchDocumentsByTheme(
+    workspaceId: number,
+    themeTokens: string[],
+    opts: { activeDocumentIds?: number[] | null } = {},
+  ): Promise<Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>> {
+    const activeIds =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
+    const activeLit = activeIds == null ? null : '{' + activeIds.join(',') + '}'
+    const theme = themeTokens.join(' ').trim()
+    // ILIKE patterns per token, bound as scalar parameters (NOT a hand-built
+    // array literal — the array-literal parser eats the LIKE escape backslash ,
+    // turning "100%" back into a match-everything pattern). Escape LIKE
+    // wildcards so a literal % / _ in a theme token stays literal; backslash
+    // is ILIKE's default escape char and survives parameter binding intact.
+    const likePatterns =
+      themeTokens.length === 0
+        ? null
+        : themeTokens.map((t) => '%' + t.replace(/[\\%_]/g, '\\$&') + '%')
+    // Theme membership clause: a doc is "about" the theme if its chunks match
+    // the bilingual tsquery (doc_aggs) OR its title/summary contains any theme
+    // token. No theme → every (filtered) doc qualifies.
+    const themeClause =
+      likePatterns == null
+        ? sql`TRUE`
+        : sql`(tc.hits > 0 OR ${sql.join(
+            likePatterns.map(
+              (p) => sql`d.title ILIKE ${p} OR (d.summary IS NOT NULL AND d.summary ILIKE ${p})`,
+            ),
+            sql` OR `,
+          )})`
+
+    const r = await this.db.execute(sql`
+      WITH q AS (
+        SELECT
+          NULLIF(replace(plainto_tsquery('german',  ${theme})::text, '&', '|'), '')::tsquery AS qg,
+          NULLIF(replace(plainto_tsquery('english', ${theme})::text, '&', '|'), '')::tsquery AS qe
+      ),
+      qq AS (
+        SELECT COALESCE(qg, ''::tsquery) || COALESCE(qe, ''::tsquery) AS query FROM q
+      ),
+      theme_chunks AS (
+        SELECT c.document_id, COUNT(*)::int AS hits
+          FROM chunks c
+          JOIN documents d ON d.id = c.document_id
+         CROSS JOIN qq
+         WHERE qq.query::text <> ''
+           AND (setweight(to_tsvector('german',  c.text), 'A') ||
+                setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
+           AND d.workspace_id = ${workspaceId}
+           AND d.status = 'ready'
+         GROUP BY c.document_id
+      )
+      SELECT d.id,
+             d.title,
+             COALESCE(tc.hits, 0) AS "chunkHits",
+             fc.first_chunk_id    AS "firstChunkId"
+        FROM documents d
+        LEFT JOIN theme_chunks tc ON tc.document_id = d.id
+        LEFT JOIN LATERAL (
+          SELECT id AS first_chunk_id FROM chunks
+           WHERE document_id = d.id
+           ORDER BY ordinal ASC
+           LIMIT 1
+        ) fc ON TRUE
+       WHERE d.workspace_id = ${workspaceId}
+         AND d.status = 'ready'
+         AND (${activeLit}::int[] IS NULL OR d.id = ANY(${activeLit}::int[]))
+         AND ${themeClause}
+       ORDER BY COALESCE(tc.hits, 0) DESC, d.title ASC, d.id ASC
+    `)
+    return r.rows as unknown as Array<{
+      id: number
+      title: string
+      chunkHits: number
+      firstChunkId: number | null
+    }>
+  }
+
   /** Single-query source-context fetch for the SourceViewer: the parent
    *  document + the cited chunk's page range + heading breadcrumb. Replaces
    *  the previous two-roundtrip (document + heading-path) IPC path. */
