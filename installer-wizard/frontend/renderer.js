@@ -52,6 +52,7 @@ const els = {
   cudaRow: document.getElementById('cuda-row'),
   cudaDownload: document.getElementById('cuda-download'),
   cudaHelp: document.getElementById('cuda-help'),
+  ollamaConnector: document.getElementById('ollama-connector'),
   installSummary: document.getElementById('install-summary'),
   progressFill: document.getElementById('progress-fill'),
   progressLabel: document.getElementById('progress-label'),
@@ -87,6 +88,10 @@ function options() {
     // the wizard is built for mac , so this round-trips as false on mac
     // even if the user somehow toggled it.
     downloadCuda: els.cudaDownload?.checked === true,
+    // Opt-in , default off. Persisted into the tier marker ; the main app
+    // keeps the whole Ollama connector ( settings tab + IPC ) locked unless
+    // the user ticked this at install time.
+    enableOllamaConnector: els.ollamaConnector?.checked === true,
   }
 }
 
@@ -518,6 +523,7 @@ els.licenseAccept.addEventListener('change', render)
 els.desktopShortcut.addEventListener('change', render)
 els.startMenuShortcut.addEventListener('change', render)
 els.autostart.addEventListener('change', render)
+els.ollamaConnector?.addEventListener('change', render)
 
 for (const radio of els.tierRadios) {
   radio.addEventListener('change', () => {

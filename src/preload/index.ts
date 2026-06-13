@@ -24,6 +24,13 @@ import type {
   QuizGenerationEvent,
 } from '../shared/quiz'
 import type {
+  TranslateOptions,
+  TranslateResult,
+  TranslationLanguage,
+  TranslatorStatus,
+} from '../shared/translation'
+import type { WriteResult, WritingMode } from '../shared/writing'
+import type {
   Document,
   Workspace,
   IndexProgress,
@@ -412,6 +419,8 @@ const api = {
         | { ok: true; version: string; models: string[] }
         | { ok: false; kind: string; message: string }
       >,
+    // Install-time opt-in from the tier marker; false locks the settings panel.
+    connectorEnabled: (): Promise<boolean> => ipcRenderer.invoke('ollama:connectorEnabled'),
   },
   logs: {
     openFolder: (): Promise<void> => ipcRenderer.invoke('logs:openFolder'),
@@ -460,6 +469,42 @@ const api = {
     ): Promise<QuizAttempt> => ipcRenderer.invoke('quiz:finish-attempt', attemptId, answers),
     listAttempts: (deckId: number): Promise<QuizAttempt[]> =>
       ipcRenderer.invoke('quiz:list-attempts', deckId),
+  },
+  translation: {
+    status: (): Promise<TranslatorStatus> => ipcRenderer.invoke('translation:status'),
+    /** Downloads the MADLAD model (~2.76 GB). Progress events arrive on the
+     *  models progress channel (subscribeProgress) with ids `translator-*`. */
+    install: (): Promise<void> => ipcRenderer.invoke('translation:install'),
+    cancelInstall: (): Promise<void> => ipcRenderer.invoke('translation:cancelInstall'),
+    translate: (text: string, opts: TranslateOptions): Promise<TranslateResult> =>
+      ipcRenderer.invoke('translation:translate', text, opts),
+    languages: (): Promise<TranslationLanguage[]> => ipcRenderer.invoke('translation:languages'),
+    /** Indexed text of a document (chunks joined) , for translating a whole doc. */
+    documentText: (documentId: number): Promise<{ title: string; text: string }> =>
+      ipcRenderer.invoke('translation:documentText', documentId),
+    /** Save a translation as a new workspace document (chunked + embedded like
+     *  any import). Returns the created Document. */
+    saveDocument: (
+      workspaceId: number,
+      title: string,
+      text: string,
+      target: string,
+    ): Promise<Document> =>
+      ipcRenderer.invoke('translation:saveDocument', workspaceId, title, text, target),
+    onStatus: (cb: (s: TranslatorStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: TranslatorStatus): void => cb(s)
+      ipcRenderer.on('translation:status', listener)
+      return () => {
+        ipcRenderer.removeListener('translation:status', listener)
+      }
+    },
+  },
+  writing: {
+    /** DeepL-Write-style rewrite of `text` in the given mode , on the bundled
+     *  LLM. Same-language (no translation). Rejects with `<code>: <message>`
+     *  ('empty' | 'too_long' | 'model_not_ready' | 'failed'). */
+    improve: (text: string, mode: WritingMode): Promise<WriteResult> =>
+      ipcRenderer.invoke('writing:improve', text, mode),
   },
 }
 

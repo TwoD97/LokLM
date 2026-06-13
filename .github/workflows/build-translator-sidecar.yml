@@ -1,0 +1,152 @@
+name: Build translator sidecar
+
+# Builds the loklm-translator MT sidecar (CTranslate2 + SentencePiece) once per
+# platform and uploads the prebuilt binaries to minio , so the release workflow
+# can FETCH them rather than compile CTranslate2 from source on every release
+# (a 10-25 min cold CPU build , 30+ min with CUDA — far too heavy per release).
+#
+# Run this manually after changing sidecars/translator/** (or bumping the CT2 /
+# SentencePiece tags in its CMakeLists). The release workflow's
+# "Fetch prebuilt translator sidecar" step pulls whatever this last published.
+#
+# Layout on minio ( authenticated build-time fetch , NOT the end-user download ):
+#   loklm-installers/translator-sidecar/<plat>/cpu/   loklm-translator(.exe)
+#   loklm-installers/translator-sidecar/<plat>/cuda/  loklm-translator-cuda(.exe) + CUDA libs
+# CUDA is NVIDIA-only , so mac has a cpu/ tree only.
+#
+# NOTE ( Denys / release-owner ) : this can't be exercised from a dev box —
+# verify the CUDA-toolkit action version + the minio paths on first run. The
+# CUDA build needs nvcc but NOT a GPU ( it bakes compute_89 PTX that the user's
+# card JITs at runtime ) , so a GPU-less runner is fine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cuda_version:
+        description: 'CUDA toolkit version for the GPU build (win/linux)'
+        required: false
+        default: '12.6.0'
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'sidecars/translator/**'
+      - 'scripts/build-translator-sidecar.ps1'
+      - '.github/workflows/build-translator-sidecar.yml'
+
+concurrency:
+  group: build-translator-sidecar
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------- Windows ---
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.19
+        id: cuda
+        with:
+          cuda: ${{ github.event.inputs.cuda_version || '12.6.0' }}
+          # nvcc + libraries are enough ; no driver/GPU needed to compile.
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
+
+      - name: Build CPU + CUDA sidecar
+        shell: pwsh
+        run: |
+          pwsh scripts/build-translator-sidecar.ps1
+          pwsh scripts/build-translator-sidecar.ps1 -Cuda
+
+      - name: Upload to minio
+        shell: bash
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/win-x64"
+          /tmp/mc.exe cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc.exe cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
+          /tmp/mc.exe ls --recursive "$BASE/"
+
+  # ------------------------------------------------------------------ Linux ---
+  linux:
+    # Match the release runner so the glibc floor of the shipped binary is the
+    # same ( ubuntu-22.04 = glibc 2.35 ).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - name: Install build deps (cmake, pwsh)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+          # PowerShell for the build script.
+          sudo apt-get install -y wget apt-transport-https software-properties-common
+          wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
+          sudo apt-get update && sudo apt-get install -y powershell
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.19
+        with:
+          cuda: ${{ github.event.inputs.cuda_version || '12.6.0' }}
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
+
+      - name: Build CPU + CUDA sidecar
+        run: |
+          pwsh scripts/build-translator-sidecar.ps1
+          pwsh scripts/build-translator-sidecar.ps1 -Cuda
+
+      - name: Upload to minio
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/linux-x64"
+          /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
+          /tmp/mc ls --recursive "$BASE/"
+
+  # ------------------------------------------------------------------- macOS ---
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - name: Install build deps (cmake, pwsh)
+        run: brew install cmake powershell
+
+      - name: Build CPU sidecar (no CUDA on macOS)
+        run: pwsh scripts/build-translator-sidecar.ps1
+
+      - name: Upload to minio (arm64 + x64 share the build host arch)
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-arm64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          # macos-latest is arm64. An x64 mac binary needs a separate x64 build
+          # (cross-compile or an intel runner) — TODO when a mac-x64 GPU/CPU
+          # split is needed; for now publish arm64 under both keys is WRONG , so
+          # only arm64 is published here.
+          BASE="s3/loklm-installers/translator-sidecar/mac-arm64"
+          /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc ls --recursive "$BASE/"

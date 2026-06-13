@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
-import { Copy, RefreshCcw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Copy, Languages, RefreshCcw } from 'lucide-react'
 import type { StageName } from '@shared/documents'
 import { MessageBubble } from './MessageBubble'
+import { TranslationPanel } from './TranslationPanel'
 import { useT, type TFn } from '../i18n'
 
 type StreamMetrics = {
@@ -99,6 +100,9 @@ export function MessageList({
   // scrolls up away from the bottom, and back on when they scroll back down.
   const stickyRef = useRef(true)
   const rafRef = useRef<number | null>(null)
+  // At most one open translate panel — keyed by message id. The panel itself
+  // owns everything else (status , target , result); see TranslationPanel.
+  const [translateOpenId, setTranslateOpenId] = useState<string | null>(null)
 
   // Coalesce scroll-to-bottom updates so token-by-token streaming doesn't
   // queue dozens of scrollTop writes per frame.
@@ -193,6 +197,15 @@ export function MessageList({
                   >
                     <Copy size={14} aria-hidden="true" />
                   </button>
+                  <button
+                    type="button"
+                    className="chat__msg-action"
+                    onClick={() => setTranslateOpenId((prev) => (prev === m.id ? null : m.id))}
+                    aria-label={t('chat.translate')}
+                    title={t('chat.translate')}
+                  >
+                    <Languages size={14} aria-hidden="true" />
+                  </button>
                   {idx === lastFinishedAssistantIdx && onRegenerate && (
                     <button
                       type="button"
@@ -205,6 +218,9 @@ export function MessageList({
                     </button>
                   )}
                 </div>
+              )}
+              {m.role === 'assistant' && !m.streaming && translateOpenId === m.id && (
+                <TranslationPanel content={m.content} onClose={() => setTranslateOpenId(null)} />
               )}
               {m.role === 'assistant' &&
                 !m.streaming &&

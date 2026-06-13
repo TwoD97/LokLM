@@ -17,8 +17,12 @@ import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwi
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
+import { WritingService, WritingError } from './services/writing/WritingService'
+import type { WritingMode } from '../shared/writing'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
+import { TranslationService } from './services/translation/TranslationService'
+import { TRANSLATION_LANGUAGES, type TranslateOptions } from '../shared/translation'
 import { TranscriptionWorkerClient } from './services/workers/TranscriptionWorkerClient'
 import { DiarizationWorkerClient } from './services/workers/DiarizationWorkerClient'
 import { TranscriptionService } from './services/transcription/TranscriptionService'
@@ -49,7 +53,7 @@ import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
-import { readTierMarker } from './services/tier/TierMarker'
+import { readTierMarker, isOllamaConnectorEnabled } from './services/tier/TierMarker'
 import { initLogger, getLogDir } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -109,6 +113,7 @@ function resetSessionServices(): void {
   qaService = null
   quizService = null
   summarizationService = null
+  writingService = null
   providerRegistry = null
   settingsService = null
   // Watchers hold OS handles on the user's folders ; they must not survive a
@@ -150,9 +155,11 @@ let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let quizService: QuizService | null = null
 let summarizationService: SummarizationService | null = null
+let writingService: WritingService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
+let translationService: TranslationService | null = null
 
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
@@ -214,6 +221,27 @@ function schedulePostLoginWarmup(): void {
 function getModelDownloader(): ModelDownloader {
   modelDownloader ??= new ModelDownloader()
   return modelDownloader
+}
+
+function getTranslationService(): TranslationService {
+  if (!translationService) {
+    translationService = new TranslationService(getModelDownloader(), (status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('translation:status', status)
+        } catch {
+          /* renderer torn down — drop the event */
+        }
+      }
+    })
+    // Kill the sidecar with the app. It also exits on its own when stdin
+    // closes (see sidecars/translator/src/main.cpp) — this is the polite
+    // first attempt , the stdin-EOF exit is the orphan backstop.
+    app.once('before-quit', () => {
+      void translationService?.dispose().catch(() => undefined)
+    })
+  }
+  return translationService
 }
 
 function getWorkspaceService(): WorkspaceService {
@@ -358,14 +386,20 @@ async function applySettings(s: UserSettings): Promise<void> {
   getAuth().setInactivityMs(inactivityMsFromMinutes(s.security.autoLockMinutes))
 
   // Rebuild Ollama providers from the current config (best-effort — no probe here).
-  // Loopback gate (defense in depth ; the UI already blocks this path , but a
-  // stale renderer or third-party IPC client must not be able to bypass it).
-  // Non-loopback baseUrl without allowRemoteOllama => treat as "no ollama
-  // configured" , the registry stays bundled-only.
+  // Install-time opt-in gate first : an install whose tier marker says the
+  // user didn't tick the Ollama-connector checkbox never builds providers ,
+  // regardless of what the persisted settings contain (e.g. a vault restored
+  // from an opted-in machine).
+  // Then the loopback gate (defense in depth ; the UI already blocks this
+  // path , but a stale renderer or third-party IPC client must not be able
+  // to bypass it). Non-loopback baseUrl without allowRemoteOllama => treat
+  // as "no ollama configured" , the registry stays bundled-only.
   const o = s.advanced.ollama
   const remoteOk = isLoopbackBaseUrl(o.baseUrl) || o.allowRemoteOllama
   const haveOllama =
-    remoteOk && Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+    isOllamaConnectorEnabled() &&
+    remoteOk &&
+    Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
   if (haveOllama) {
     const client = new OllamaClient({
       baseUrl: o.baseUrl,
@@ -528,6 +562,13 @@ function getSummarizationService(): SummarizationService {
     )
   }
   return summarizationService
+}
+
+function getWritingService(): WritingService {
+  if (!writingService) {
+    writingService = new WritingService(getProviderRegistry())
+  }
+  return writingService
 }
 
 function getRerankerService(): RerankerService {
@@ -1211,6 +1252,81 @@ function registerIpc(): void {
     return channel
   })
 
+  // translation — MADLAD via the loklm-translator sidecar (optional feature ,
+  // model downloaded on demand). Install progress rides the existing
+  // models:subscribeProgress channel — the file ids are `translator-*`. The
+  // active-download inactivity guard above covers these downloads too , same
+  // ModelDownloader instance.
+  ipcMain.handle('translation:status', async () => getTranslationService().status())
+  ipcMain.handle('translation:install', async () => {
+    await getTranslationService().install()
+  })
+  ipcMain.handle('translation:cancelInstall', async () => {
+    getTranslationService().cancelInstall()
+  })
+  ipcMain.handle('translation:translate', async (_e, text: string, opts: TranslateOptions) =>
+    getTranslationService().translate(text, opts),
+  )
+  ipcMain.handle('translation:languages', async () => TRANSLATION_LANGUAGES)
+  // Pull a document's indexed text (chunks joined in order) for translation.
+  // Reuses the same chunk store the summarizer reads — no re-parse of the
+  // original file.
+  ipcMain.handle('translation:documentText', async (_e, documentId: number) => {
+    const repo = getAuth().requireDatabase().documents()
+    const doc = await repo.getDocument(documentId)
+    if (!doc) throw new Error('Document not found')
+    const chunks = await repo.listChunksForDocument(documentId)
+    return { title: doc.title, text: chunks.map((c) => c.text).join('\n\n') }
+  })
+  // Save a translation as a new document in the workspace , routed through the
+  // normal import pipeline so it gets chunked + embedded like any other doc.
+  ipcMain.handle(
+    'translation:saveDocument',
+    async (e, workspaceId: number, title: string, text: string, target: string) => {
+      const { mkdirSync, writeFileSync } = await import('node:fs')
+      // A per-save timestamped subdir keeps the source_path unique (the
+      // (workspace_id, source_path) index rejects a re-save otherwise) while
+      // the filename — and thus the imported doc's title — stays readable.
+      const dir = join(app.getPath('temp'), 'loklm-translations', String(Date.now()))
+      mkdirSync(dir, { recursive: true })
+      const base =
+        title
+          .replace(/\.[a-z0-9]{1,8}$/i, '') // drop the source extension (report.pdf → report)
+          .replace(/[\\/:*?"<>|\r\n]/g, '_')
+          .slice(0, 100)
+          .trim() || 'document'
+      const path = join(dir, `${base} (${target}).md`)
+      writeFileSync(path, text, 'utf8')
+      return getDocumentService().importFile({ workspaceId, sourcePath: path, sender: e.sender })
+    },
+  )
+
+  // writing — DeepL-Write-style rewriting on the bundled chat LLM. generateRaw
+  // won't auto-load , so ensure the bundled model is warming before we ask
+  // (the post-login warmup usually beat us here; this covers the cold case).
+  // Skipped when the user is on external Ollama — its provider reports ready
+  // by reachability and there's no local GGUF to load.
+  ipcMain.handle('writing:improve', async (_e, text: string, mode: WritingMode) => {
+    const reg = getProviderRegistry()
+    if (!reg.llm().isReady() && reg.getLlmSource() !== 'ollama') {
+      // ensureLoaded (not autoLoad): no-op if ready , and shares the warmup's
+      // in-flight load instead of racing a second one. Log a load failure —
+      // otherwise it surfaces only as a downstream 'model_not_ready'.
+      try {
+        await getLlamaService().ensureLoaded()
+      } catch (err) {
+        console.error('[writing] LLM load failed before rewrite:', err)
+      }
+    }
+    try {
+      return await getWritingService().improve(text, mode)
+    } catch (err) {
+      if (err instanceof WritingError) throw new Error(`${err.code}: ${err.message}`)
+      console.error('[writing] rewrite failed:', err)
+      throw err
+    }
+  })
+
   // transcription — whisper + diarization in dedicated utilityProcesses. The
   // renderer decodes/resamples audio to 16 kHz mono and streams the PCM to a
   // temp file via stageChunk; run() drives transcribe → (diarize → align) and
@@ -1364,9 +1480,22 @@ function registerIpc(): void {
   // probing leaks the configured bearer token to a non-loopback host the
   // moment the request fires , so refuse the call until allowRemoteOllama
   // has been confirmed via the PasswordRetypeGate.
+  // Install-time opt-in : whether the tier marker says the user ticked the
+  // Ollama-connector checkbox in the wizard. The renderer uses this to lock
+  // the whole Ollama settings panel ; the probe handler below enforces it
+  // again so a stale renderer can't reach an external host anyway.
+  ipcMain.handle('ollama:connectorEnabled', async () => isOllamaConnectorEnabled())
+
   ipcMain.handle(
     'ollama:probe',
     async (_e, cfg: { baseUrl: string; bearerToken: string | null; timeoutMs: number }) => {
+      if (!isOllamaConnectorEnabled()) {
+        return {
+          ok: false as const,
+          kind: 'connector-disabled' as const,
+          message: 'Ollama-Connector bei der Installation nicht aktiviert.',
+        }
+      }
       if (!isLoopbackBaseUrl(cfg.baseUrl)) {
         const allowed = getSettingsService().get().advanced.ollama.allowRemoteOllama
         if (!allowed) {

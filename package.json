@@ -53,6 +53,9 @@
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
     "evals:rejudge": "tsx tests/evals/answer/rejudge.ts",
     "evals:patterns": "tsx tests/evals/answer/failure-patterns.ts",
+    "evals:translation:data": "tsx tests/evals/translation/download-flores.ts",
+    "evals:translation": "tsx tests/evals/translation/run-pack.ts",
+    "evals:translation:report": "tsx tests/evals/translation/report.ts",
     "pod:start": "tsx tests/evals/runpod/pod.ts start",
     "pod:stop": "tsx tests/evals/runpod/pod.ts stop",
     "pod:status": "tsx tests/evals/runpod/pod.ts status",
@@ -72,7 +75,9 @@
     "models:pro": "node scripts/download-models.mjs pro",
     "models:all": "node scripts/download-models.mjs all",
     "models:evals": "node scripts/download-models.mjs evals",
+    "models:translation": "node scripts/download-models.mjs translation",
     "tessdata": "node scripts/download-tessdata.mjs",
+    "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
@@ -101,6 +106,7 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.13.0",
     "husky": "^9.1.7",
+    "hyparquet": "^1.26.0",
     "jsdom": "^25.0.1",
     "lint-staged": "^15.2.11",
     "prettier": "^3.4.2",
@@ -123,6 +129,8 @@
     "drizzle-orm": "^0.45.2",
     "eld": "^2.0.3",
     "electron-log": "^5.4.4",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
     "lucide-react": "^1.16.0",
     "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
@@ -133,8 +141,6 @@
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
-    "katex": "^0.16.22",
-    "highlight.js": "^11.11.1",
     "sharp": "^0.34.0",
     "sherpa-onnx-node": "^1.13.2",
     "sodium-native": "^5.1.0",
@@ -185,6 +191,14 @@
       {
         "from": "tessdata",
         "to": "tessdata"
+      },
+      {
+        "from": "sidecars/translator/dist",
+        "to": "translator",
+        "filter": [
+          "**/*",
+          "!*-cuda*"
+        ]
       }
     ],
     "win": {

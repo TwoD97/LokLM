@@ -20,11 +20,12 @@ Referenced from [Pflichtenheft](../../Pflichtenheft_LokLM.md) §1.5 as `[ADR-NNN
 
 ## Index
 
-| #    | Titel                                                                                          | Status   |
-| ---- | ---------------------------------------------------------------------------------------------- | -------- |
-| 0001 | [Argon2id als Passwort-/Passphrase-KDF](0001-argon2id-password-kdf.md)                         | accepted |
-| 0002 | [Envelope-Encryption: DEK + KEK-Wrapping mit AES-256-GCM](0002-envelope-encryption-aes-gcm.md) | accepted |
-| 0003 | [Query-Routing + Per-Dokument-Summary-Index](0003-query-routing-und-summary-index.md)          | accepted |
+| #    | Titel                                                                                                 | Status   |
+| ---- | ----------------------------------------------------------------------------------------------------- | -------- |
+| 0001 | [Argon2id als Passwort-/Passphrase-KDF](0001-argon2id-password-kdf.md)                                | accepted |
+| 0002 | [Envelope-Encryption: DEK + KEK-Wrapping mit AES-256-GCM](0002-envelope-encryption-aes-gcm.md)        | accepted |
+| 0003 | [Query-Routing + Per-Dokument-Summary-Index](0003-query-routing-und-summary-index.md)                 | accepted |
+| 0004 | [Adaptive Modell-Residency: Usage-Lernen + kostenbewusstes Caching](0004-adaptive-model-residency.md) | proposed |
 
 ## Verwandte Dokumente
 

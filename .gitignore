@@ -173,6 +173,17 @@ tests/e2e/.playwright-report/
 # Eval reports (regenerated per run, can be large with per-question.jsonl + LLM text)
 tests/evals/report/
 
+# FLORES-200 devtest slice (CC-BY-SA-4.0, re-fetched via pnpm evals:translation:data)
+tests/evals/translation/data/
+
+# Wikipedia-survival eval corpus (CC-BY-SA-4.0, re-fetched via fetch-wikipedia-corpus.ts).
+# Raw article text + chunks are regenerable ; the committed dataset under
+# data/datasets/ already embeds the chunks. Keep README + manifest (provenance).
+tests/evals/data/corpora/wikipedia-survival/*.txt
+tests/evals/data/corpora/wikipedia-survival/chunks.json
+# Question-generation staging (batch / gen / verified JSONL intermediates).
+tests/evals/data/staging/wiki-gen/
+
 release
 
 # Lokale Test-Notizen (Zugangsdaten / Recovery-Phrasen) — NIE committen

@@ -136,6 +136,30 @@ export interface HighlightedSegment {
   highlighted: boolean
 }
 
+/**
+ * Case-insensitive literal-substring ranges of `query` inside `text`. Used to
+ * light up the matched part of a filename in library search results — the
+ * filename arm of searchLibrary matches the raw title with an ILIKE on the full
+ * query , so this highlights exactly that: every contiguous occurrence of the
+ * trimmed query. No occurrence (the row came from a content match) → no range.
+ *
+ * Offsets are computed on the lower-cased copies , which stay length-aligned
+ * with the original for the scripts filenames use (Latin + German umlauts).
+ */
+export function findLiteralHighlights(text: string, query: string): HighlightRange[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle || !text) return []
+  const hay = text.toLowerCase()
+  const ranges: HighlightRange[] = []
+  for (let from = 0; ; ) {
+    const idx = hay.indexOf(needle, from)
+    if (idx === -1) break
+    ranges.push({ start: idx, end: idx + needle.length })
+    from = idx + needle.length
+  }
+  return ranges
+}
+
 export function applyHighlights(text: string, ranges: HighlightRange[]): HighlightedSegment[] {
   if (ranges.length === 0) return [{ text, highlighted: false }]
   const sorted = [...ranges].sort((a, b) => a.start - b.start)

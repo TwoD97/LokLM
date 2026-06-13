@@ -48,6 +48,12 @@ pub struct InstallOptions {
     // detects an NVIDIA Pascal+ card. Hidden on mac entirely.
     #[serde(default)]
     pub download_cuda: bool,
+    // v0.4.1+ : opt-in for the external Ollama connector. Default false —
+    // the user has to tick the checkbox on the options page ( "at your own
+    // risk" wording lives there ). Persisted into the tier marker ; the
+    // main app keeps the connector locked when this is false.
+    #[serde(default)]
+    pub enable_ollama_connector: bool,
 }
 
 fn default_tier() -> Tier {
@@ -73,6 +79,10 @@ pub struct TierMarker<'a> {
     pub installer_version: &'a str,
     pub hardware: Option<&'a serde_json::Value>,
     pub models: Vec<ModelManifestEntry>,
+    // Install-time opt-in for the external Ollama connector. Markers from
+    // installers older than this field simply lack the key ; the main app
+    // treats a missing key as "enabled" so pre-existing setups keep working.
+    pub ollama_connector: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -108,6 +118,7 @@ pub fn write_tier_marker(
                 sha256: d.sha256.clone(),
             })
             .collect(),
+        ollama_connector: options.enable_ollama_connector,
     };
 
     let path = install_dir.join(TIER_MARKER_FILENAME);

@@ -36,6 +36,12 @@ export interface TierMarker {
   installerVersion: string
   hardware?: HardwareSnapshot | null
   models: ModelManifestEntry[]
+  /** Install-time opt-in for the external Ollama connector (wizard options
+   *  page, default unchecked). Markers written before the field existed
+   *  (≤ v0.4.0) parse to `true` — those installs predate the opt-in and may
+   *  already rely on a configured Ollama backend; only an explicit `false`
+   *  locks the connector. */
+  ollamaConnector: boolean
 }
 
 const MARKER_FILENAME = 'loklm-tier.json'
@@ -139,6 +145,7 @@ export function readTierMarker(): TierMarker | null {
       installerVersion: typeof parsed.installerVersion === 'string' ? parsed.installerVersion : '',
       hardware: parsed.hardware ?? null,
       models: Array.isArray(parsed.models) ? parsed.models : [],
+      ollamaConnector: parsed.ollamaConnector !== false,
     }
     return cachedMarker
   } catch (err) {
@@ -150,6 +157,17 @@ export function readTierMarker(): TierMarker | null {
 
 function isValidTier(v: unknown): v is Tier {
   return v === 'lite' || v === 'standard' || v === 'pro'
+}
+
+/**
+ * Single source of truth for "did this install opt in to the external Ollama
+ * connector". True when the marker says so, and true on the no-marker paths
+ * (dev, test, pre-v0.3.0 installs) — the opt-in only exists for installs the
+ * wizard wrote a marker for; everyone else keeps the historical behaviour.
+ */
+export function isOllamaConnectorEnabled(): boolean {
+  const marker = readTierMarker()
+  return marker === null || marker.ollamaConnector
 }
 
 /**

@@ -1,0 +1,4 @@
+# COMET-scoring für die translation-eval. torch SEPARAT davor installieren
+# (cu128-wheel für die 5090 / Blackwell , siehe score_comet.py docstring) ,
+# sonst zieht pip das cpu-wheel und das scoring dauert ewig.
+unbabel-comet>=2.2.4

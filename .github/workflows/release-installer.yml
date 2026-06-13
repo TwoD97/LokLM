@@ -143,6 +143,27 @@ jobs:
         shell: pwsh
         run: choco install nsis -y --no-progress
 
+      - name: Fetch prebuilt translator sidecar
+        # Pulls the prebuilt MT sidecar (published by the 'Build translator
+        # sidecar' workflow) into sidecars/translator/{dist,dist-cuda} so
+        # package:win:payload ships the CPU binary in the base payload and
+        # package:win:archive folds the self-contained CUDA set into
+        # cuda-win-x64.tar.zst. Non-fatal — a missing prebuilt just warns and
+        # the release ships without translation ( re-run the sidecar workflow ).
+        shell: bash
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/win-x64"
+          mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
+          /tmp/mc.exe cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          /tmp/mc.exe cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
+
       - name: Build payload + wizard + bundle ( pnpm package:win )
         # Four-stage pipeline ( v0.3.1+ embedded-payload model ) :
         #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder ; cuda stripped)
@@ -358,6 +379,21 @@ jobs:
           else
             cargo install tauri-cli --version "^2.0" --locked --force
           fi
+
+      - name: Fetch prebuilt translator sidecar
+        # See the Windows job for rationale. Non-fatal warn on a missing prebuilt.
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/linux-x64"
+          mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
+          /tmp/mc cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          /tmp/mc cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
         # Five-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
