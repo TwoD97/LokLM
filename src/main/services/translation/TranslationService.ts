@@ -157,6 +157,32 @@ export class TranslationService {
     return null
   }
 
+  private spawnSidecar(bin: string, modelDir: string): TranslatorSidecar {
+    return new TranslatorSidecar({
+      binPath: bin,
+      // --device auto: the sidecar uses the GPU when one has enough free VRAM ,
+      // else CPU (a CPU-only binary always reports cpu). No-op for the CPU build.
+      args: ['--model', modelDir, '--device', 'auto'],
+      events: {
+        onStateChange: (s, detail) => {
+          if (s === 'starting') this.setState('starting')
+          else if (s === 'ready') this.setState('ready')
+          else {
+            // exited — crash or dispose. Keep an explicit error state only for
+            // crashes; a clean dispose lands back on 'installed'.
+            this.sidecar = null
+            if (this.state === 'starting' || this.state === 'ready') {
+              this.lastError = detail ?? null
+              this.setState(this.locateModelDir() ? 'installed' : 'not_installed')
+            }
+          }
+        },
+        // eslint-disable-next-line no-console
+        onLog: (line) => console.warn(`[translator] ${line}`),
+      },
+    })
+  }
+
   private async ensureSidecar(): Promise<TranslatorSidecar> {
     if (this.sidecar?.isRunning()) {
       // Possibly still loading — start() is idempotent and resolves on ready.
@@ -176,37 +202,38 @@ export class TranslationService {
       )
     }
 
-    const sidecar = new TranslatorSidecar({
-      binPath: bin,
-      args: ['--model', modelDir],
-      events: {
-        onStateChange: (s, detail) => {
-          if (s === 'starting') this.setState('starting')
-          else if (s === 'ready') this.setState('ready')
-          else {
-            // exited — crash or dispose. Keep an explicit error state only for
-            // crashes; a clean dispose lands back on 'installed'.
-            this.sidecar = null
-            if (this.state === 'starting' || this.state === 'ready') {
-              this.lastError = detail ?? null
-              this.setState(this.locateModelDir() ? 'installed' : 'not_installed')
-            }
-          }
-        },
-        // eslint-disable-next-line no-console
-        onLog: (line) => console.warn(`[translator] ${line}`),
-      },
-    })
-    this.sidecar = sidecar
-
     try {
+      const sidecar = this.spawnSidecar(bin, modelDir)
+      this.sidecar = sidecar
       await sidecar.start()
+      return sidecar
     } catch (err) {
+      // The GPU binary can fail to even start on a machine without the NVIDIA
+      // driver (missing nvcuda.dll) — the wizard gates the CUDA payload on GPU
+      // detection , but retry on the CPU binary defensively so translation still
+      // works rather than hard-failing.
+      const cpuBin = resolveTranslatorBinary({ cpuOnly: true })
+      if (cpuBin && cpuBin !== bin) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[translator] GPU sidecar failed to start (${err instanceof Error ? err.message : err}); falling back to CPU`,
+        )
+        try {
+          const fallback = this.spawnSidecar(cpuBin, modelDir)
+          this.sidecar = fallback
+          await fallback.start()
+          return fallback
+        } catch (err2) {
+          this.sidecar = null
+          this.lastError = err2 instanceof Error ? err2.message : String(err2)
+          this.setState('error')
+          throw err2
+        }
+      }
       this.sidecar = null
       this.lastError = err instanceof Error ? err.message : String(err)
       this.setState('error')
       throw err
     }
-    return sidecar
   }
 }

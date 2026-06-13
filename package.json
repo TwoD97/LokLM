@@ -194,7 +194,11 @@
       },
       {
         "from": "sidecars/translator/dist",
-        "to": "translator"
+        "to": "translator",
+        "filter": [
+          "**/*",
+          "!*-cuda*"
+        ]
       }
     ],
     "win": {

@@ -321,6 +321,69 @@ describe('DocumentsRepo.searchLibrary (tx)', () => {
     })
   })
 
+  it('matches a document by its filename even when the term is absent from the content', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // The term lives only in the filename. FTS tokenisation collapses the
+      // compound name into one token and would never split "Tudosa" back out ,
+      // so this only surfaces via the ILIKE title arm.
+      await seedDoc(tx, ws!.id, {
+        title: 'Laborbericht_Proxmox.Tudosa.pdf',
+        sourcePath: '/Laborbericht_Proxmox.Tudosa.pdf',
+        text: 'Inhalt ohne den gesuchten Namen im Fließtext',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'Tudosa')
+      expect(hits.map((h) => h.document_title)).toEqual(['Laborbericht_Proxmox.Tudosa.pdf'])
+    })
+  })
+
+  it('ranks a filename match above a content-only match under relevance sort', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // body-only hit: strong content rank but no title match
+      await seedDoc(tx, ws!.id, {
+        title: 'random-body-mentions.md',
+        sourcePath: '/random.md',
+        text: 'rankterm rankterm rankterm shows up only in the body',
+      })
+      // filename-only hit: zero content rank but a title match — must tier first
+      await seedDoc(tx, ws!.id, {
+        title: 'rankterm-named.md',
+        sourcePath: '/rankterm-named.md',
+        text: 'the body of this file never mentions the query at all',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'rankterm')
+      expect(hits.map((h) => h.document_title).sort()).toEqual([
+        'random-body-mentions.md',
+        'rankterm-named.md',
+      ])
+      expect(hits[0]!.document_title).toBe('rankterm-named.md')
+    })
+  })
+
+  it('escapes LIKE wildcards in the filename arm — "doc_v1" is literal , not single-char', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // 'docXv1' would match an unescaped '%doc_v1%' (the _ as any-char) but must
+      // NOT once the underscore is escaped; 'doc_v1.md' is the literal hit.
+      await seedDoc(tx, ws!.id, {
+        title: 'docXv1.md',
+        sourcePath: '/x.md',
+        text: 'irrelevant body',
+      })
+      await seedDoc(tx, ws!.id, {
+        title: 'doc_v1.md',
+        sourcePath: '/u.md',
+        text: 'also irrelevant body',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'doc_v1')
+      expect(hits.map((h) => h.document_title)).toEqual(['doc_v1.md'])
+    })
+  })
+
   it('collapses a document with several matching chunks to one best hit', async () => {
     await withTransaction(async (tx) => {
       const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()

@@ -38,7 +38,8 @@ don't rely on kill alone).
 ## Build
 
 ```
-pwsh scripts/build-translator-sidecar.ps1
+pwsh scripts/build-translator-sidecar.ps1            # CPU (default)
+pwsh scripts/build-translator-sidecar.ps1 -Cuda      # NVIDIA GPU build
 ```
 
 Stages `dist/loklm-translator(.exe)` , which electron-builder ships to
@@ -49,6 +50,65 @@ app then reports the translator as unavailable instead of failing the build.
 Cold build fetches CTranslate2 (pinned tag in CMakeLists.txt) + SentencePiece
 and takes 10-25 min. Versions are pinned in CMakeLists.txt; the CT2 API used
 here is the v4.x `Translator(ModelLoader, ReplicaPoolConfig)` shape.
+
+## CPU vs GPU
+
+The sidecar picks its device at runtime from `--device auto|cpu|cuda` (the app
+passes `auto`):
+
+- **auto** — CUDA when a device is present AND ≥4 GiB VRAM is free (enough for
+  the int8 3B model + buffers) , otherwise CPU. So a missing/small/busy GPU
+  degrades cleanly instead of OOM-ing. The chosen device is reported in the
+  `ready` frame (`"device":"cuda"|"cpu"`).
+- CPU uses **physical** cores (not logical) — int8 GEMM is bandwidth-bound and
+  hyperthreads slow it down (measured 8C/16T: 8 threads 4.4s vs 16 threads
+  10.4s for one batch). Detection: Windows `GetLogicalProcessorInformationEx` ,
+  macOS `hw.physicalcpu` , Linux `/proc/cpuinfo` physical/core-id pairs.
+
+**GPU is NVIDIA-only** — CTranslate2 has no Metal or ROCm backend , so macOS
+and AMD always run CPU (Apple-silicon NEON is the fastest CPU path). The `-Cuda`
+build needs the CUDA Toolkit (nvcc) and bakes in compute capabilities via
+`-DCUDA_ARCH_LIST=` (default `8.0;8.6;8.9+PTX` — native Ampere/Ada SASS plus
+PTX). CT2 4.6.0 routes through the legacy `FindCUDA` arch path , whose
+`select_compute_arch.cmake` (CMake ≤3.30) predates Blackwell — naming `12.0`
+fails with "arch_bin wasn't set" , so the `+PTX` is how newer cards (Hopper ,
+Blackwell) are covered : the driver JIT-compiles `compute_89` PTX at first launch.
+
+### Shipping the GPU build (prebuilt-artifact model)
+
+The CUDA binary (`loklm-translator-cuda`) dynamically links the CUDA runtime ,
+so it will NOT start without the NVIDIA driver. It rides in the **same CUDA
+archive the wizard already offers for the node-llama-cpp CUDA backend** — one
+"GPU acceleration" choice (an install-time extra download) covers both the LLM
+and translation. The base installer never carries it.
+
+Because compiling CTranslate2 from source per-release is far too heavy
+(10-25 min CPU , 30+ min CUDA , per platform) , the binaries are **prebuilt and
+fetched** , the same way the GGUF model and node-llama-cpp binaries are:
+
+1. **`.github/workflows/build-translator-sidecar.yml`** (manual / on sidecar
+   changes) builds CPU + CUDA per platform and uploads to
+   `minio/loklm-installers/translator-sidecar/<plat>/{cpu,cuda}/`. `-Cuda` stages
+   a **self-contained `dist-cuda/`** — the `-cuda` binary plus its redistributable
+   CUDA libs (cudart, cublas, cublasLt, nvrtc, nvrtc-builtins) copied from
+   `CUDA_PATH` on the build box. (No GPU needed to _compile_ — it bakes
+   `compute_89` PTX the user's card JITs at runtime.)
+2. The **release workflow**'s "Fetch prebuilt translator sidecar" step pulls
+   those into `dist/` (CPU) + `dist-cuda/` (CUDA) before `pnpm package:*`.
+3. `package:<plat>:payload` ships `dist/` to `resources/translator/` ,
+   **filtered to exclude `*-cuda*`** , so the base install carries only CPU.
+4. `package:<plat>:archive` — `build-cuda-archive.mjs` packs the whole
+   self-contained `dist-cuda/` into `cuda-<plat>.tar.zst` under
+   `resources/translator/` (~+396 MB compressed on top of the LLM's CUDA). It
+   needs **no CUDA toolkit on the release box** — the libs are already in
+   `dist-cuda/`.
+
+At runtime `resolveTranslatorBinary()` prefers `-cuda` when present (after a CUDA
+install , or `dist-cuda/` in dev) ; if it fails to start (no driver) the service
+retries on the CPU binary. macOS has no CUDA archive — always CPU.
+
+The YAML workflows can't be exercised from a dev box — verify the
+`Jimver/cuda-toolkit` action version + the minio paths on the first CI run.
 
 ## Model files
 

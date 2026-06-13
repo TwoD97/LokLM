@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, Check, Save } from 'lucide-react'
 import type { ModelDownloadEvent } from '@preload/index'
 import type { Document, Workspace } from '@shared/documents'
@@ -156,6 +156,25 @@ export function TranslationView(): JSX.Element {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  // Linked scrolling for side-by-side comparison: mirror the panes by scroll
+  // *fraction* (not pixels) since source and translation differ in height. The
+  // guard stops the programmatic scroll on one pane from echoing back off the
+  // other's scroll event into a feedback loop.
+  const sourceRef = useRef<HTMLTextAreaElement>(null)
+  const outputRef = useRef<HTMLDivElement>(null)
+  const syncing = useRef(false)
+  const mirrorScroll = (from: HTMLElement | null, to: HTMLElement | null): void => {
+    if (!from || !to || syncing.current) return
+    const fromMax = from.scrollHeight - from.clientHeight
+    const toMax = to.scrollHeight - to.clientHeight
+    if (fromMax <= 0 || toMax <= 0) return
+    syncing.current = true
+    to.scrollTop = (from.scrollTop / fromMax) * toMax
+    requestAnimationFrame(() => {
+      syncing.current = false
+    })
+  }
+
   return (
     <div className="translation-view">
       <header className="translation-view__header">
@@ -302,9 +321,11 @@ export function TranslationView(): JSX.Element {
                 )}
               </div>
               <textarea
+                ref={sourceRef}
                 className="translation-view__textarea"
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
+                onScroll={() => mirrorScroll(sourceRef.current, outputRef.current)}
                 placeholder={
                   loadingDoc ? t('translation.loadingDoc') : t('translation.sourcePlaceholder')
                 }
@@ -360,7 +381,11 @@ export function TranslationView(): JSX.Element {
                   </button>
                 )}
               </div>
-              <div className="translation-view__output">
+              <div
+                className="translation-view__output"
+                ref={outputRef}
+                onScroll={() => mirrorScroll(outputRef.current, sourceRef.current)}
+              >
                 {error ? (
                   <span className="translation-view__output-error">{error}</span>
                 ) : result ? (

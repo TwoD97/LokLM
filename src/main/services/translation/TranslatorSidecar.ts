@@ -40,17 +40,42 @@ export interface TranslatorSidecarOptions {
  * Locate the sidecar binary. Order: explicit env override (tests , unusual
  * setups) → packaged resources (electron-builder extraResources) → the dev
  * build outputs from scripts/build-translator-sidecar.ps1.
+ *
+ * The CUDA variant (`-cuda`) is preferred when present: it's only ever staged
+ * on machines that can run it (the CUDA payload , or a dev box that ran the
+ * build with -Cuda) , and it auto-falls-back to CPU when no GPU is free. The
+ * plain binary is CPU-only and is the universal default.
  */
-export function resolveTranslatorBinary(): string | null {
-  const exe = process.platform === 'win32' ? 'loklm-translator.exe' : 'loklm-translator'
-  const candidates = [
-    process.env.LOKLM_TRANSLATOR_BIN,
-    process.resourcesPath ? join(process.resourcesPath, 'translator', exe) : undefined,
-    join(process.cwd(), 'sidecars', 'translator', 'dist', exe),
-    join(process.cwd(), 'sidecars', 'translator', 'build', 'bin', exe),
-  ]
-  for (const c of candidates) {
-    if (c && existsSync(c)) return c
+export function resolveTranslatorBinary(opts?: { cpuOnly?: boolean }): string | null {
+  const win = process.platform === 'win32'
+  const cpu = win ? 'loklm-translator.exe' : 'loklm-translator'
+  const cuda = win ? 'loklm-translator-cuda.exe' : 'loklm-translator-cuda'
+  const dirs = [
+    process.resourcesPath ? join(process.resourcesPath, 'translator') : undefined,
+    // dev: the -Cuda build stages a self-contained dist-cuda/ (binary + libs);
+    // checked before dist/ so the GPU binary wins on a dev box.
+    join(process.cwd(), 'sidecars', 'translator', 'dist-cuda'),
+    join(process.cwd(), 'sidecars', 'translator', 'dist'),
+    join(process.cwd(), 'sidecars', 'translator', 'build', 'bin'),
+  ].filter((d): d is string => d != null)
+
+  // Explicit override (tests/unusual setups) — but not for the cpuOnly retry ,
+  // which must reach the CPU binary even if the override points at the GPU one.
+  if (
+    !opts?.cpuOnly &&
+    process.env.LOKLM_TRANSLATOR_BIN &&
+    existsSync(process.env.LOKLM_TRANSLATOR_BIN)
+  ) {
+    return process.env.LOKLM_TRANSLATOR_BIN
+  }
+  // GPU-capable binary (shipped in the CUDA payload) wins , then fall back to
+  // the universal CPU binary. cpuOnly skips the GPU one entirely.
+  const names = opts?.cpuOnly ? [cpu] : [cuda, cpu]
+  for (const name of names) {
+    for (const dir of dirs) {
+      const p = join(dir, name)
+      if (existsSync(p)) return p
+    }
   }
   return null
 }
