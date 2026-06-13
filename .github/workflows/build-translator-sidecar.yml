@@ -55,14 +55,14 @@ jobs:
         id: cuda
         with:
           cuda: ${{ github.event.inputs.cuda_version || '12.6.0' }}
-          # nvcc + libraries are enough ; no driver/GPU needed to compile. These
-          # network-installer component names are verified working since 0.4.0 ,
-          # so they're left unchanged. cuBLASLt 12.x needs nvJitLink64.dll , but
-          # the Windows cublas component bundles it into CUDA's bin/ — the build
-          # script stages it with an optional nvJitLink64_*.dll glob ( no extra
-          # sub-package , which avoids risking this known-good install list ).
-          method: 'network'
-          sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
+          # Full LOCAL install ( not network + sub-packages ): CT2 4.6.0's legacy
+          # find_package(CUDA) needs the cuBLAS dev import lib ( cublas.lib ->
+          # CUDA_cublas_LIBRARY ) , which the network 'cublas' sub-package omits
+          # ( runtime DLL only ) — the build died at 'CUDA_cublas_LIBRARY NOTFOUND'.
+          # The full installer lays down the standard lib/x64 layout legacy FindCUDA
+          # expects ( i.e. what makes it build on a normal dev box ). nvcc bakes PTX
+          # so no GPU is needed. Slower install , but the only reliable option here.
+          method: 'local'
 
       # CPU is the baseline that must ship on every machine , so it builds + uploads
       # FIRST and unconditionally. CUDA ( GPU acceleration ) is a bonus built
