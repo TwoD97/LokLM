@@ -118,3 +118,26 @@ set_target_properties(loklm-translator PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin
   RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin
 )
+
+# Linux GPU only: the redistributable CUDA libs (libcudart/libcublas/libcublasLt/
+# libnvrtc + libnvrtc-builtins) ship co-located with the binary in dist-cuda/ ,
+# NOT in a system lib dir. Windows resolves DLLs from the executable's own
+# directory automatically; the Linux loader does NOT — without an rpath it only
+# searches (DT_RPATH/RUNPATH)/LD_LIBRARY_PATH/ldconfig, so the co-located .so set
+# is unfindable and the sidecar fails to start. Bake $ORIGIN (the binary's own
+# dir) into the runpath so it resolves its CUDA libs from dist-cuda/ at runtime.
+# We copy the build-tree binary directly (no `make install`) , so BUILD_RPATH is
+# the one that ends up in the shipped binary; set INSTALL_RPATH too defensively.
+# --disable-new-dtags forces DT_RPATH instead of DT_RUNPATH: DT_RUNPATH is only
+# consulted for the executable's OWN direct DT_NEEDED , so a transitive load
+# (libcublas pulling in libcublasLt , libnvrtc -> libnvrtc-builtins) would miss
+# the co-located lib; DT_RPATH is searched process-wide , covering the whole
+# closure from one $ORIGIN entry. macOS is CPU-only here (static CT2 , no CUDA) ,
+# so it needs no rpath.
+if(WITH_CUDA AND UNIX AND NOT APPLE)
+  set_target_properties(loklm-translator PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
+  )
+  target_link_options(loklm-translator PRIVATE "-Wl,--disable-new-dtags")
+endif()

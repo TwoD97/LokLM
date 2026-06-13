@@ -393,6 +393,11 @@ jobs:
           mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
           /tmp/mc cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
           /tmp/mc cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          # mc cp drops the +x bit on download. Restore it so the CPU binary
+          # shipped into linux-unpacked/ ( the embedded .run/.deb installer path )
+          # is spawnable. ( The archive builders also force +x , covering the
+          # payload/cuda .tar.zst paths. )
+          find sidecars/translator/dist sidecars/translator/dist-cuda -type f -name 'loklm-translator*' -exec chmod +x {} + 2>/dev/null || true
           ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
 
       - name: Build payload + wizard + bundle ( pnpm package:linux )
@@ -528,6 +533,31 @@ jobs:
 
       - name: Install tauri-cli
         run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Fetch prebuilt translator sidecar ( per-arch )
+        # The mac translator is CPU-only ( CT2 has no Metal backend ) and , unlike
+        # win/linux , BOTH arch payloads are built on this one arm64 runner — so
+        # each arch needs its OWN matching binary , fetched into a per-arch dir.
+        # build-mac-payloads.mjs stages dist-mac-<arch>/ into dist/ before each
+        # electron-builder run so extraResources ships the right binary per arch.
+        # Published by the 'Build translator sidecar' workflow ( macos-arm64 +
+        # macos-x64 jobs ). Non-fatal — a missing prebuilt just warns and that
+        # arch ships without translation.
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-arm64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar"
+          mkdir -p sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64
+          /tmp/mc cp --recursive "$BASE/mac-arm64/cpu/" sidecars/translator/dist-mac-arm64/ || echo "::warning::no prebuilt mac-arm64 translator sidecar — Apple-Silicon translation absent"
+          /tmp/mc cp --recursive "$BASE/mac-x64/cpu/"  sidecars/translator/dist-mac-x64/  || echo "::warning::no prebuilt mac-x64 translator sidecar — Intel-mac translation absent"
+          # Restore the +x bit mc cp drops on download ( build-payload-archive
+          # also forces it , but keep the staged binary runnable end-to-end ).
+          find sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64 -type f -name 'loklm-translator*' -exec chmod +x {} + 2>/dev/null || true
+          ls -R sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64 || true
 
       - name: Build payload + wizard + dmg ( pnpm package:mac )
         # Three-stage pipeline ( v0.3.0+ download-stub model ) :
