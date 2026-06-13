@@ -17,6 +17,8 @@ import { modelsDict } from './dict_models'
 import { quizDict } from './dict_quiz'
 import { commonDict } from './dict_common'
 import { transcriptionDict } from './dict_transcription'
+import { translationDict } from './dict_translation'
+import { writingDict } from './dict_writing'
 
 const DOMAINS = [
   authDict,
@@ -28,6 +30,8 @@ const DOMAINS = [
   quizDict,
   commonDict,
   transcriptionDict,
+  translationDict,
+  writingDict,
 ]
 
 function merge(locale: Locale): Record<string, string> {

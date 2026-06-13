@@ -8,11 +8,14 @@
 //   node scripts/download-models.mjs embedder     # just the embedder
 //   node scripts/download-models.mjs evals        # 10-model pool + Mistral-Small judge
 //                                                 # for tests/evals/answer/model-pack.json
+//   node scripts/download-models.mjs translation  # ship-trio + gemma Q4/Q6 for
+//                                                 # tests/evals/translation/
 //
 // Re-running is safe: existing files are skipped. If a similar file already
 // matches the profile pattern (e.g. you renamed it), the script also skips.
 //
-// `evals` tier does NOT include `all` — these are eval-only , not shipped.
+// `evals` / `translation` tiers do NOT include `all` — eval-only , not shipped.
+// `tier` may be a string or an array when a file belongs to several pools.
 
 import {
   createWriteStream,
@@ -112,12 +115,22 @@ const MODELS = [
     skipPattern: /phi.*4.*mini/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'translation'],
     purpose: 'Eval pool — Gemma-3-4B-it (best DE in 4B tier)',
     filename: 'gemma-3-4b-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf',
     sizeGB: 3.0,
-    skipPattern: /gemma.*3.*4b.*it/i,
+    // Q4 only — der Q6-eintrag unten hat sein eigenes pattern , sonst
+    // blockt ein vorhandenes Q4-file den Q6-download.
+    skipPattern: /gemma.*3.*4b.*it.*Q4/i,
+  },
+  {
+    tier: 'translation',
+    purpose: 'Translation-Eval — Gemma-3-4B-it Q6_K (fallback-kandidat für schwache sprachen)',
+    filename: 'google_gemma-3-4b-it-Q6_K.gguf',
+    url: 'https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q6_K.gguf',
+    sizeGB: 3.3,
+    skipPattern: /gemma.*3.*4b.*it.*Q6/i,
   },
   {
     tier: 'evals',
@@ -174,7 +187,7 @@ const MODELS = [
   // (no-think) Qwen3-8B/14B (thinking-on) deutlich geschlagen hat.
 
   {
-    tier: 'evals',
+    tier: ['evals', 'translation'],
     purpose: 'Eval pool — Qwen3.5-2B (small , NON-thinking default — kontroll-modell)',
     filename: 'Qwen3.5-2B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
@@ -182,16 +195,18 @@ const MODELS = [
     skipPattern: /qwen3\.5.*2b/i,
   },
   {
-    tier: 'evals',
-    purpose: 'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
+    tier: ['evals', 'translation'],
+    purpose:
+      'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
     filename: 'Qwen3.5-4B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
     sizeGB: 2.8,
     skipPattern: /qwen3\.5.*4b/i,
   },
   {
-    tier: 'evals',
-    purpose: 'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
+    tier: ['evals', 'translation'],
+    purpose:
+      'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
     filename: 'Qwen3.5-9B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf',
     sizeGB: 5.7,
@@ -223,6 +238,8 @@ const TIER_INCLUDES = {
   pro: ['embedder', 'lite', 'medium', 'pro'],
   all: ['embedder', 'lite', 'medium', 'pro'],
   evals: ['embedder', 'evals'],
+  // translation-eval braucht keinen embedder — nur die 5 LLMs aus dem pack.
+  translation: ['translation'],
 }
 
 // ---- main ------------------------------------------------------------------
@@ -237,7 +254,9 @@ if (!want) {
 
 if (!existsSync(MODELS_DIR)) mkdirSync(MODELS_DIR, { recursive: true })
 
-const queue = MODELS.filter((m) => want.includes(m.tier))
+const queue = MODELS.filter((m) =>
+  (Array.isArray(m.tier) ? m.tier : [m.tier]).some((t) => want.includes(t)),
+)
 console.log(`LokLM model downloader — tier: ${tierArg}`)
 console.log(`Target directory: ${MODELS_DIR}`)
 console.log(`Models in this tier: ${queue.length}`)

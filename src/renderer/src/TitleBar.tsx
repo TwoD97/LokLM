@@ -1,11 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
 
 type DotState = EmbedderState | RerankerState | ModelState
 type DotSource = 'bundled' | 'ollama'
+
+// The translation model and whisper STT both run locally-only and have their
+// own state vocabularies; collapse them onto the shared dot states so they
+// read in the titlebar exactly like the LLM / embedder / reranker dots.
+function translatorDotState(s: TranslatorStatus): DotState {
+  switch (s.state) {
+    case 'ready':
+      return 'ready'
+    case 'downloading':
+    case 'starting':
+      return 'loading'
+    case 'installed':
+      return 'idle'
+    case 'error':
+      return 'failed'
+    case 'not_installed':
+    default:
+      return 'unloaded'
+  }
+}
 
 // Maps the raw service state + source onto the pill text shown in the hover
 // tooltip. Mirrors the LLM chat-header pill vocabulary ("Local"/"Remote") so
@@ -108,6 +129,11 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     message: null,
     source: 'bundled',
   })
+  const [translation, setTranslation] = useState<TranslatorStatus | null>(null)
+  // Whisper has no live status push (it loads per-transcription) , so we only
+  // know presence/download state. 'idle' once a model is on disk = ready to
+  // use; refreshed on window focus to catch a download done in the STT view.
+  const [whisper, setWhisper] = useState<DotState>('unloaded')
 
   useEffect(() => {
     void window.api.window.isMaximized().then(setMaximized)
@@ -143,6 +169,25 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
       setLlm({ state: s.state, message: s.message, source: s.source }),
     )
     return () => off()
+  }, [])
+
+  useEffect(() => {
+    void window.api.translation.status().then(setTranslation)
+    const off = window.api.translation.onStatus(setTranslation)
+    return () => off()
+  }, [])
+
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.api.transcription.modelStatus().then((models) => {
+        if (models.some((m) => m.downloading)) setWhisper('loading')
+        else if (models.some((m) => m.present)) setWhisper('idle')
+        else setWhisper('unloaded')
+      })
+    }
+    refresh()
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
   }, [])
 
   return (
@@ -202,6 +247,15 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
             message={reranker.message}
           />
         )}
+        {translation && translation.sidecarAvailable && (
+          <StatusDot
+            label="Translation"
+            state={translatorDotState(translation)}
+            source="bundled"
+            message={translation.message}
+          />
+        )}
+        <StatusDot label="STT" state={whisper} source="bundled" message={null} />
       </div>
 
       <div className="titlebar__spacer" />

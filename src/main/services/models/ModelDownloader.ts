@@ -17,11 +17,26 @@
 
 import { createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 
-import { getManifestEntry, type ModelManifestEntry } from './manifest'
+import { getManifestEntry } from './manifest'
 import { getDownloadTargetDir } from './paths'
+
+/**
+ * The subset of ModelManifestEntry the downloader actually needs. Callers
+ * outside the first-launch manifest (the translator model , see
+ * services/translation/manifest.ts) describe their files with this shape and
+ * go through `downloadEntry` directly — no manifest registration , no model
+ * gating. `filename` may contain `/` separators; parent dirs are created.
+ */
+export interface DownloadableFile {
+  id: string
+  filename: string
+  url: string
+  sizeBytes: number
+  sha256?: string
+}
 
 export type DownloadPhase = 'downloading' | 'verifying' | 'complete' | 'error' | 'cancelled'
 
@@ -86,6 +101,13 @@ export class ModelDownloader {
   async download(id: string): Promise<void> {
     const entry = getManifestEntry(id)
     if (!entry) throw new Error(`Unknown model id: ${id}`)
+    return this.downloadEntry(entry)
+  }
+
+  /** Same contract as download() , but for files that don't live in the
+   *  first-launch manifest. Progress events carry `entry.id` as usual. */
+  async downloadEntry(entry: DownloadableFile): Promise<void> {
+    const id = entry.id
     if (this.active.has(id)) {
       // Already running — silent no-op so the renderer can call download()
       // idempotently when retrying.
@@ -96,8 +118,10 @@ export class ModelDownloader {
     this.active.set(id, ctrl)
 
     const dir = getDownloadTargetDir()
-    mkdirSync(dir, { recursive: true })
     const target = join(dir, entry.filename)
+    // dirname , not dir: nested filenames ("translator/<model>/model.bin")
+    // need their parents created too.
+    mkdirSync(dirname(target), { recursive: true })
     const partial = `${target}.partial`
 
     try {
@@ -131,7 +155,7 @@ export class ModelDownloader {
   }
 
   private async runOnce(
-    entry: ModelManifestEntry,
+    entry: DownloadableFile,
     target: string,
     partial: string,
     signal: AbortSignal,

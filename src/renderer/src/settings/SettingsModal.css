@@ -1022,3 +1022,21 @@
   color: #2c4a7c;
   background: rgba(123, 165, 234, 0.16);
 }
+
+/* ── Translation section ──────────────────────────────────────────────── */
+.settings-modal__body .settings-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-0);
+  color: var(--fg-1);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.settings-modal__body .settings-btn:hover:not(:disabled) {
+  border-color: #5a9bff;
+}
+.settings-modal__body .settings-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -371,10 +371,24 @@ Lizenztext wird geladen ...</pre
                   >NVIDIA GPU-Beschleunigung herunterladen</strong
                 >
                 <small data-i18n="options.cudaDesc"
-                  >Etwa 280 MB zusätzlicher Download. Aktiviert CUDA für deutlich schnellere
-                  Inferenz auf NVIDIA-Karten.</small
+                  >Etwa 680 MB zusätzlicher Download. Aktiviert CUDA auf NVIDIA-Karten für deutlich
+                  schnellere Verarbeitung — Sprachmodell und Dokumentübersetzung.</small
                 >
                 <small id="cuda-help" class="cuda-help"></small>
+              </span>
+            </label>
+            <label class="toggle-row">
+              <input id="ollama-connector" type="checkbox" />
+              <span>
+                <strong data-i18n="options.ollamaTitle"
+                  >Externen Ollama-Connector aktivieren (optional)</strong
+                >
+                <small data-i18n="options.ollamaDesc"
+                  >LokLM kann eine selbst betriebene Ollama-Instanz statt der mitgelieferten Modelle
+                  nutzen. Nutzung auf eigenes Risiko: LokLM prüft weder Herkunft noch Verhalten
+                  extern geladener Modelle. Ohne Häkchen bleibt der Connector in der App
+                  deaktiviert.</small
+                >
               </span>
             </label>
           </div>

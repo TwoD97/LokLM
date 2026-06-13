@@ -42,6 +42,10 @@ export interface LlmBridgeOpts {
   language?: ResponseLanguage
   /** label baked into `name` / shown in reports. */
   label?: string
+  /** override für den system-prompt. Default ist der produktions-RAG-prompt
+   *  (buildSystemPrompt) — die translation-eval setzt hier ihren eigenen ,
+   *  weil sie sprachfähigkeit misst , nicht RAG-verhalten. */
+  systemPrompt?: string
 }
 
 export interface LlmRunResult {
@@ -141,7 +145,7 @@ export class LlmBridge {
     this.session = new lib.LlamaChatSession({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       contextSequence: (this.context as { getSequence: () => unknown }).getSequence() as any,
-      systemPrompt: buildSystemPrompt(this.language),
+      systemPrompt: this.opts.systemPrompt ?? buildSystemPrompt(this.language),
     })
     this.warmed = true
   }
@@ -199,12 +203,21 @@ export class LlmBridge {
     }
   }
 
-  /** One-shot generation for the judge path. Does NOT preserve chat history
-   *  before/after (judge owns its own session, history doesn't matter). */
-  async generateRaw(prompt: string, opts: { abortSignal?: AbortSignal } = {}): Promise<string> {
+  /** One-shot generation for the judge + translation paths. Does NOT preserve
+   *  chat history before/after (each call owns its own turn). `noThink` maps
+   *  auf budgets.thoughtTokens=0 — derselbe segment-aware switch den der
+   *  produktions-worker für chat/quiz nutzt (das /no_think-tag allein ist für
+   *  Qwen-GGUFs unzuverlässig , siehe modelsWorker.ts). */
+  async generateRaw(
+    prompt: string,
+    opts: { abortSignal?: AbortSignal; maxTokens?: number; noThink?: boolean } = {},
+  ): Promise<string> {
     await this.warm()
     const session = this.session as {
-      prompt: (t: string, o: { signal?: AbortSignal }) => Promise<string>
+      prompt: (
+        t: string,
+        o: { signal?: AbortSignal; maxTokens?: number; budgets?: { thoughtTokens: number } },
+      ) => Promise<string>
       resetChatHistory?: () => void
     }
     try {
@@ -212,8 +225,14 @@ export class LlmBridge {
     } catch {
       /* ignore */
     }
-    const rawOpts: { signal?: AbortSignal } = {}
+    const rawOpts: {
+      signal?: AbortSignal
+      maxTokens?: number
+      budgets?: { thoughtTokens: number }
+    } = {}
     if (opts.abortSignal) rawOpts.signal = opts.abortSignal
+    if (opts.maxTokens !== undefined) rawOpts.maxTokens = opts.maxTokens
+    if (opts.noThink) rawOpts.budgets = { thoughtTokens: 0 }
     const raw = await session.prompt(prompt, rawOpts)
     return stripThink(raw).trim()
   }

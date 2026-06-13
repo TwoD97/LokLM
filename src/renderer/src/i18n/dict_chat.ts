@@ -14,6 +14,19 @@ export const chatDict: DomainDict = {
     'chat.copy': 'Copy',
     'chat.regenerate': 'Regenerate',
     'chat.regenerateFailed': 'Could not regenerate the previous turn. Try again.',
+    // TranslationPanel
+    'chat.translate': 'Translate',
+    'chat.translateTitle': 'Translate',
+    'chat.translateTargetAria': 'Target language',
+    'chat.translateAction': 'Translate',
+    'chat.translateBusy': 'Translating…',
+    'chat.translateBusyHint':
+      'First use loads the translation model — this can take a few seconds.',
+    'chat.translateClose': 'Close translation',
+    'chat.translateNotInstalled':
+      'Translation model not installed. Download it under Settings → Advanced → Translation.',
+    'chat.translateMetaDetected': 'MADLAD-400 · {from} → {to} · {s} s',
+    'chat.translateMeta': 'MADLAD-400 · → {to} · {s} s',
     // ChatHeader
     'chat.viaOllama': 'via Ollama',
     'chat.viaOllamaFallback': 'via Ollama → bundled (fallback)',
@@ -74,6 +87,19 @@ export const chatDict: DomainDict = {
     'chat.regenerate': 'Neu erzeugen',
     'chat.regenerateFailed':
       'Die letzte Antwort konnte nicht neu erzeugt werden. Bitte erneut versuchen.',
+    // TranslationPanel
+    'chat.translate': 'Übersetzen',
+    'chat.translateTitle': 'Übersetzen',
+    'chat.translateTargetAria': 'Zielsprache',
+    'chat.translateAction': 'Übersetzen',
+    'chat.translateBusy': 'Übersetzt…',
+    'chat.translateBusyHint':
+      'Beim ersten Mal wird das Übersetzungsmodell geladen — das kann einige Sekunden dauern.',
+    'chat.translateClose': 'Übersetzung schließen',
+    'chat.translateNotInstalled':
+      'Übersetzungsmodell nicht installiert. Download unter Einstellungen → Erweitert → Übersetzung.',
+    'chat.translateMetaDetected': 'MADLAD-400 · {from} → {to} · {s} s',
+    'chat.translateMeta': 'MADLAD-400 · → {to} · {s} s',
     // ChatHeader
     'chat.viaOllama': 'über Ollama',
     'chat.viaOllamaFallback': 'über Ollama → integriert (Fallback)',

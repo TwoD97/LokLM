@@ -64,6 +64,30 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnostics',
     'settings.advanced.subtabBehavior': 'Behavior',
+    'settings.advanced.subtabTranslation': 'Translation',
+
+    // TranslationSection
+    'settings.translation.title': 'Translation',
+    'settings.translation.sub':
+      'Offline machine translation (MADLAD-400 , 400+ languages). Optional download.',
+    'settings.translation.status': 'Status',
+    'settings.translation.stateNotInstalled': 'Not installed',
+    'settings.translation.stateDownloading': 'Downloading…',
+    'settings.translation.stateInstalled': 'Installed — starts on first use',
+    'settings.translation.stateStarting': 'Starting (loading model)…',
+    'settings.translation.stateReady': 'Ready',
+    'settings.translation.stateError': 'Error',
+    'settings.translation.install': 'Download (~2.8 GB)',
+    'settings.translation.retry': 'Retry',
+    'settings.translation.cancel': 'Cancel',
+    'settings.translation.installHint':
+      'Runs fully local on the CPU. One-time download of the translation model (~2.8 GB disk , ~3.2 GB RAM while in use).',
+    'settings.translation.sidecarMissing':
+      'The translator component is missing from this build — translation is unavailable.',
+    'settings.translation.progress': '{pct}% — {received} / {total}',
+    'settings.translation.progressIndeterminate': 'Downloading…',
+    'settings.translation.usageHint':
+      'Use the translate button under an answer in the chat to translate it.',
 
     // BehaviorSection
     'settings.behavior.title': 'Session & behavior',
@@ -264,6 +288,9 @@ export const settingsDict: DomainDict = {
     'settings.about.modelsHeading': 'Bundled model weights',
     'settings.about.modelsSub':
       'Local LLM and retrieval models downloaded into the models/ directory on first run.',
+    'settings.about.runtimeHeading': 'Native runtimes and other components',
+    'settings.about.runtimeSub':
+      'Native libraries shipped with the application and their licenses. The canonical list is THIRD_PARTY_NOTICES.md.',
     'settings.about.showApacheText': 'Apache License 2.0 — full text',
     'settings.about.hideApacheText': 'Hide Apache License notice',
     'settings.about.apacheNote':
@@ -336,6 +363,30 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnose',
     'settings.advanced.subtabBehavior': 'Verhalten',
+    'settings.advanced.subtabTranslation': 'Übersetzung',
+
+    // TranslationSection
+    'settings.translation.title': 'Übersetzung',
+    'settings.translation.sub':
+      'Offline-Maschinenübersetzung (MADLAD-400 , 400+ Sprachen). Optionaler Download.',
+    'settings.translation.status': 'Status',
+    'settings.translation.stateNotInstalled': 'Nicht installiert',
+    'settings.translation.stateDownloading': 'Wird heruntergeladen…',
+    'settings.translation.stateInstalled': 'Installiert — startet bei erster Nutzung',
+    'settings.translation.stateStarting': 'Startet (Modell wird geladen)…',
+    'settings.translation.stateReady': 'Bereit',
+    'settings.translation.stateError': 'Fehler',
+    'settings.translation.install': 'Herunterladen (~2,8 GB)',
+    'settings.translation.retry': 'Erneut versuchen',
+    'settings.translation.cancel': 'Abbrechen',
+    'settings.translation.installHint':
+      'Läuft vollständig lokal auf der CPU. Einmaliger Download des Übersetzungsmodells (~2,8 GB Speicher , ~3,2 GB RAM bei Nutzung).',
+    'settings.translation.sidecarMissing':
+      'Die Übersetzungskomponente fehlt in diesem Build — Übersetzung ist nicht verfügbar.',
+    'settings.translation.progress': '{pct} % — {received} / {total}',
+    'settings.translation.progressIndeterminate': 'Wird heruntergeladen…',
+    'settings.translation.usageHint':
+      'Antworten lassen sich im Chat über den Übersetzen-Button unter der Antwort übersetzen.',
 
     // BehaviorSection
     'settings.behavior.title': 'Sitzung & Verhalten',
@@ -543,6 +594,9 @@ export const settingsDict: DomainDict = {
     'settings.about.modelsHeading': 'Gebündelte Modell-Gewichte',
     'settings.about.modelsSub':
       'Lokale LLM- und Retrieval-Modelle, die beim ersten Start in das Verzeichnis models/ geladen werden.',
+    'settings.about.runtimeHeading': 'Native Laufzeiten und weitere Komponenten',
+    'settings.about.runtimeSub':
+      'Mit der Anwendung ausgelieferte native Bibliotheken und ihre Lizenzen. Die kanonische Liste ist THIRD_PARTY_NOTICES.md.',
     'settings.about.showApacheText': 'Apache License 2.0 — vollständiger Text',
     'settings.about.hideApacheText': 'Apache-Lizenz-Hinweis ausblenden',
     'settings.about.apacheNote':

@@ -18,6 +18,7 @@ import { join } from 'node:path'
 import {
   getMarkerCandidateDirs,
   readTierMarker,
+  isOllamaConnectorEnabled,
   __resetTierMarkerCacheForTest,
 } from '../../src/main/services/tier/TierMarker'
 
@@ -75,6 +76,18 @@ describe('getMarkerCandidateDirs', () => {
     expect(
       getMarkerCandidateDirs('darwin', '/Applications/LokLM.app/Contents/MacOS/LokLM', null),
     ).toEqual(['/Applications/LokLM.app/Contents/MacOS'])
+  })
+})
+
+describe('isOllamaConnectorEnabled', () => {
+  it('returns true on the no-marker path ( dev / test / pre-v0.3.0 )', () => {
+    // The install-time opt-in only exists for wizard-written markers. No
+    // marker → historical behavior , connector available. The disabled path
+    // ( marker with ollamaConnector:false → false ) needs the fake-electron
+    // harness deferred to Phase 4 ; the parse-side contract is : a missing
+    // key reads as true ( ≤ v0.4.0 markers predate the field ) , only an
+    // explicit false locks the connector.
+    expect(isOllamaConnectorEnabled()).toBe(true)
   })
 })
 

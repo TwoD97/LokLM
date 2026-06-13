@@ -1,0 +1,31 @@
+{
+  "name": "loklm-translation-tiers",
+  "comment": "Die 3 ship-modelle (Qwen3.5 2B/4B/9B , Q4_K_M wie im installer-manifest) gegen Gemma-3-4B als fallback-kandidat. Gemma in Q4 (schon im evals-pool , isoliert modell-vs-quant) UND Q6 (der eigentliche kandidat , pnpm models:translation). tier steuert die verdict-zuordnung im report: lite/standard/pro werden gegen die baseline-eintraege verglichen.",
+  "models": [
+    {
+      "label": "qwen3.5-2b",
+      "tier": "lite",
+      "path": "models/Qwen3.5-2B-Q4_K_M.gguf"
+    },
+    {
+      "label": "qwen3.5-4b",
+      "tier": "standard",
+      "path": "models/Qwen3.5-4B-Q4_K_M.gguf"
+    },
+    {
+      "label": "qwen3.5-9b",
+      "tier": "pro",
+      "path": "models/Qwen3.5-9B-Q4_K_M.gguf"
+    },
+    {
+      "label": "gemma-3-4b-q4",
+      "tier": "baseline",
+      "path": "models/gemma-3-4b-it-Q4_K_M.gguf"
+    },
+    {
+      "label": "gemma-3-4b-q6",
+      "tier": "baseline",
+      "path": "models/google_gemma-3-4b-it-Q6_K.gguf"
+    }
+  ]
+}

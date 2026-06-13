@@ -886,6 +886,14 @@ export class DocumentsRepo {
     const maxBytes = opts.maxBytes ?? null
     const sort = opts.sort ?? 'relevance'
     const topK = opts.topK && opts.topK > 0 ? opts.topK : 50
+    // Filename arm: a doc must also surface when the query is in its filename ,
+    // not just its content. FTS tokenisation collapses compound filenames
+    // ("Laborbericht_Proxmox.Tudosa.pdf" → a single file/host token) so it never
+    // splits "Tudosa" back out — we match the raw title with an escaped ILIKE
+    // instead , the same trick searchDocumentsByTheme uses. Escape LIKE
+    // wildcards so a literal % / _ in the query stays literal; the backslash is
+    // ILIKE's default escape char and survives scalar parameter binding intact.
+    const titleLike = '%' + cleaned.replace(/[\\%_]/g, '\\$&') + '%'
 
     const r = await this.db.execute(sql`
       WITH q AS (
@@ -919,6 +927,7 @@ export class DocumentsRepo {
             WHEN lower(d.source_path) LIKE '%.txt' OR lower(d.source_path) LIKE '%.rst' THEN 'txt'
             ELSE 'txt'
           END AS doc_type,
+          (d.title ILIKE ${titleLike}) AS title_match,
           ts_rank_cd(
             setweight(to_tsvector('german',  c.text), 'A') ||
             setweight(to_tsvector('english', c.text), 'B'),
@@ -941,9 +950,12 @@ export class DocumentsRepo {
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         CROSS JOIN qq
-        WHERE qq.query::text <> ''
-          AND (setweight(to_tsvector('german',  c.text), 'A') ||
-               setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
+        WHERE (
+                (qq.query::text <> '' AND
+                 (setweight(to_tsvector('german',  c.text), 'A') ||
+                  setweight(to_tsvector('english', c.text), 'B')) @@ qq.query)
+                OR d.title ILIKE ${titleLike}
+              )
           AND d.workspace_id = ${workspaceId}
           AND d.status = 'ready'
           AND (${addedAfter}::bigint IS NULL OR d.added_at >= ${addedAfter}::bigint)
@@ -967,6 +979,7 @@ export class DocumentsRepo {
         FROM ranked
        WHERE doc_rank = 1
        ORDER BY
+         CASE WHEN ${sort} = 'relevance' THEN title_match::int END DESC NULLS LAST,
          CASE WHEN ${sort} = 'relevance' THEN score END DESC NULLS LAST,
          CASE WHEN ${sort} = 'filename'  THEN lower(document_title) END ASC NULLS LAST,
          CASE WHEN ${sort} = 'added'     THEN added_at END DESC NULLS LAST,
