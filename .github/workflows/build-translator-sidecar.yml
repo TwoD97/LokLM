@@ -61,13 +61,14 @@ jobs:
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
 
-      - name: Build CPU + CUDA sidecar
+      # CPU is the baseline that must ship on every machine , so it builds + uploads
+      # FIRST and unconditionally. CUDA ( GPU acceleration ) is a bonus built
+      # best-effort afterwards — a CUDA failure must never strand the CPU sidecar.
+      - name: Build CPU sidecar
         shell: pwsh
-        run: |
-          pwsh scripts/build-translator-sidecar.ps1
-          pwsh scripts/build-translator-sidecar.ps1 -Cuda
+        run: pwsh scripts/build-translator-sidecar.ps1
 
-      - name: Upload to minio
+      - name: Upload CPU sidecar to minio
         shell: bash
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -78,8 +79,31 @@ jobs:
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
           /tmp/mc.exe cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc.exe ls --recursive "$BASE/cpu/"
+
+      - name: Build CUDA sidecar ( best-effort )
+        # Windows CUDA currently needs the VS-integration the CI toolkit install
+        # omits ( CMake's VS generator can't find the CUDA toolset ) — tracked as a
+        # follow-up. Best-effort so a miss never fails the job / blocks CPU.
+        id: cudabuild
+        continue-on-error: true
+        shell: pwsh
+        run: pwsh scripts/build-translator-sidecar.ps1 -Cuda
+
+      - name: Upload CUDA sidecar to minio ( if it built )
+        if: steps.cudabuild.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/win-x64"
           /tmp/mc.exe cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
-          /tmp/mc.exe ls --recursive "$BASE/"
+          /tmp/mc.exe ls --recursive "$BASE/cuda/"
 
   # ------------------------------------------------------------------ Linux ---
   linux:
@@ -112,16 +136,35 @@ jobs:
           # BOTH must go via non-cuda-sub-packages or apt can't find them. The
           # -dev variants bring the headers + unversioned .so symlink CT2 needs to
           # COMPILE/link; cccl brings the thrust/cub headers CT2's CUDA kernels
-          # include; libcublas-dev pulls libcublasLt; libnvjitlink is cuBLASLt's
-          # runtime dep. ( v0.2.19's old "cublas" sub-package -> cuda-cublas-12-6 ,
-          # which does not exist , would have failed the install. )
+          # include; libcublas-dev pulls libcublasLt; libcurand-dev brings
+          # curand_kernel.h ( CT2's GPU sampling kernels #include it ); libnvjitlink
+          # is cuBLASLt's runtime dep. ( v0.2.19's old "cublas" sub-package ->
+          # cuda-cublas-12-6 , which does not exist , would have failed the install. )
           sub-packages: '["nvcc", "cudart-dev", "nvrtc", "cccl"]'
-          non-cuda-sub-packages: '["libcublas-dev", "libnvjitlink"]'
+          non-cuda-sub-packages: '["libcublas-dev", "libcurand-dev", "libnvjitlink"]'
 
-      - name: Build CPU + CUDA sidecar
+      # CPU is the baseline that must ship on every machine , so it builds + uploads
+      # FIRST and unconditionally. CUDA ( GPU acceleration ) is a bonus built
+      # best-effort afterwards — a CUDA failure must never strand the CPU sidecar.
+      - name: Build CPU sidecar
+        run: pwsh scripts/build-translator-sidecar.ps1
+
+      - name: Upload CPU sidecar to minio
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: |
-          pwsh scripts/build-translator-sidecar.ps1
-          pwsh scripts/build-translator-sidecar.ps1 -Cuda
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/linux-x64"
+          /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc ls --recursive "$BASE/cpu/"
+
+      - name: Build CUDA sidecar ( best-effort )
+        id: cudabuild
+        continue-on-error: true
+        run: pwsh scripts/build-translator-sidecar.ps1 -Cuda
 
       - name: Verify CUDA sidecar resolves all libs from $ORIGIN ( clean-box sim )
         # The release box has no CUDA toolkit and the end-user box has only the
@@ -131,6 +174,9 @@ jobs:
         # toolkit path instead of this dir , would crash the sidecar on a user
         # box. libcuda.so ( the driver ) is legitimately absent on this GPU-less
         # runner and ships with the user's driver , so it's excluded.
+        id: cudaverify
+        if: steps.cudabuild.outcome == 'success'
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -143,7 +189,7 @@ jobs:
             /=>/ {
               name=$1; path=$3;
               if (name ~ /^libcuda\.so/) next;
-              if (name ~ /^(libcudart|libcublas|libcublasLt|libnvrtc|libnvrtc-builtins|libnvJitLink|libcusparse|libcusolver)/) {
+              if (name ~ /^(libcudart|libcublas|libcublasLt|libnvrtc|libnvrtc-builtins|libnvJitLink|libcurand|libcusparse|libcusolver)/) {
                 if (path !~ ("^" here)) print;
               }
             }' /tmp/ldd.txt || true)
@@ -154,7 +200,9 @@ jobs:
           fi
           echo "all CUDA redist libs resolve from \$ORIGIN — OK"
 
-      - name: Upload to minio
+      - name: Upload CUDA sidecar to minio ( if built + verified )
+        if: steps.cudabuild.outcome == 'success' && steps.cudaverify.outcome == 'success'
+        continue-on-error: true
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
@@ -163,9 +211,8 @@ jobs:
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc
           /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/linux-x64"
-          /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
           /tmp/mc cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
-          /tmp/mc ls --recursive "$BASE/"
+          /tmp/mc ls --recursive "$BASE/cuda/"
 
   # ----------------------------------------------------------- macOS (arm64) ---
   # Apple Silicon (M1/M2/M3/M4). CT2 has no Metal backend , so mac is CPU-only on
