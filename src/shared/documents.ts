@@ -280,6 +280,7 @@ export type RefusalReason = 'no_hits' | 'below_threshold'
  *    - retrieve       : BM25 + dense fusion (always runs)
  *    - rerank         : cross-encoder pass over the candidate pool
  *    - summarize      : whole-doc summary fetch/generation (doc_summary route)
+ *    - corpus         : documents-table count/list lookup (corpus route, no LLM)
  *    - prefill        : time between citations sent and first generated token
  */
 export type StageName =
@@ -289,6 +290,7 @@ export type StageName =
   | 'retrieve'
   | 'rerank'
   | 'summarize'
+  | 'corpus'
   | 'prefill'
 
 export type StreamEvent =

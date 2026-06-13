@@ -112,7 +112,10 @@ export interface RouteDocument {
   title: string
 }
 
-export type QueryRoute = { kind: 'doc_summary'; documentId: number } | { kind: 'retrieval' }
+export type QueryRoute =
+  | { kind: 'doc_summary'; documentId: number }
+  | { kind: 'corpus'; intent: 'count' | 'list'; themeTokens: string[] }
+  | { kind: 'retrieval' }
 
 export interface RouteContext {
   /** NotebookLM-style source pin from the conversation. Exactly one pinned
@@ -123,6 +126,11 @@ export interface RouteContext {
    *  when a route pattern actually fired , so the common focused-query path
    *  stays pure-regex with zero DB round-trips. */
   getDocuments: () => Promise<RouteDocument[]>
+  /** When the workspace has exactly ONE pinned doc ("force into context") ,
+   *  its id — used as the summary target of last resort when title matching
+   *  yields nothing. Unlike activeDocumentIds it never short-circuits an
+   *  explicit title match: pinning is emphasis , not focus. */
+  pinnedFallbackDocumentId?: number | null
 }
 
 // Title-match acceptance gates for resolveTargetDocument. No upstream project
@@ -234,12 +242,187 @@ export function resolveTargetDocument(
   return { kind: 'resolved', documentId: best.id }
 }
 
+// ---------------------------------------------------------------------------
+// Corpus route — "how many / which documents about X"
+// ---------------------------------------------------------------------------
+//
+// Two-part gate following RAGFlow's production is_row_count_question shape:
+// a count/list INTENT phrase must be applied DIRECTLY to a document-scope
+// noun. A loose co-occurrence window is not enough — "how many pages does
+// the document have" counts pages , not documents , and must stay on the
+// chunk pipeline. So the scope noun has to follow the intent phrase with at
+// most a few articles/possessives in between ("how many of my documents" ,
+// "wie viele meiner dokumente"). Same tight-pattern philosophy as the
+// breadth classifier above: chunk top-k still produces SOMETHING for a
+// missed corpus query , while a false corpus hit replaces a real answer
+// with a document listing. Scope nouns are umlaut-free , `\b` is safe.
+const SCOPE_NOUN =
+  '(?:documents?|docs?|files?|sources?|pdfs?|notes?|dokumente?n?|dateien?|quellen?|unterlagen|notizen)'
+const FILLER_EN = '(?:(?:of|my|the|all|these|those|such)\\s+){0,3}'
+const FILLER_DE = '(?:(?:der|die|den|des|von|an|meiner|meine|meinen|aller|dieser|diesen)\\s+){0,3}'
+
+// Reject the scope noun being the OBJECT of a content question rather than the
+// thing counted/listed. Two shapes the bare gate over-matched:
+//   - possessive: "list the documents' shortcomings" → asks about shortcomings
+//   - content auxiliary/participle right after: "how many documents does
+//     chapter 3 mention?" , "number of sources cited in chapter 4" → content
+// "do" is deliberately NOT blocked — "documents do i have" is the valid
+// possessive shape — only "does"/"did". Verbs describing the doc↔theme link
+// ("documents cover/behandeln/steht …") stay valid corpus queries. "are/is"
+// stay unblocked too: "how many documents are in this workspace" is a real
+// count , and over-blocking would cost it (false-negative > false-positive is
+// the wrong trade only when the missed query had no other answer — corpus
+// misses still fall through to chunk retrieval).
+const SCOPE_TAIL = `\\b(?!['’]|\\s+(?:does|did|cited)\\b)`
+
+const CORPUS_COUNT_PATTERNS: RegExp[] = [
+  new RegExp(`\\bhow many\\s+${FILLER_EN}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\bnumber of\\s+${FILLER_EN}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\bwie ?viele\\s+${FILLER_DE}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\banzahl\\s+${FILLER_DE}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+]
+
+const CORPUS_LIST_PATTERNS: RegExp[] = [
+  new RegExp(`\\bwhich\\s+${FILLER_EN}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\bwhat\\s+${FILLER_EN}${SCOPE_NOUN}\\b[^.?!\\n]{0,30}\\bdo i have\\b`, 'i'),
+  new RegExp(`\\blist\\s+${FILLER_EN}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\bwelche[mrns]?\\s+${FILLER_DE}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(`\\bliste\\s+${FILLER_DE}${SCOPE_NOUN}${SCOPE_TAIL}`, 'i'),
+  new RegExp(
+    `\\bzeig(?:e|t)?\\s+(?:mir\\s+)?${FILLER_DE}(?:alle\\s+)?${SCOPE_NOUN}${SCOPE_TAIL}`,
+    'i',
+  ),
+]
+
+// Tokens removed (on top of stopwords) when extracting the THEME from a
+// corpus query: the intent/scope vocabulary itself plus possession/filler
+// words. Whatever survives is the topic — "wie viele dokumente habe ich zu
+// strom und spannung" → ["strom", "spannung"]. An empty result is valid and
+// means "count everything in the workspace".
+const CORPUS_FILLER_TOKENS = new Set([
+  // intent + scope (EN)
+  'how',
+  'many',
+  'number',
+  'which',
+  'what',
+  'list',
+  'documents',
+  'document',
+  'docs',
+  'doc',
+  'files',
+  'file',
+  'sources',
+  'source',
+  'pdfs',
+  'pdf',
+  'notes',
+  'note',
+  // possession / filler (EN)
+  'do',
+  'i',
+  'have',
+  'got',
+  'my',
+  'me',
+  'all',
+  'there',
+  'cover',
+  'covers',
+  'covering',
+  'about',
+  'regarding',
+  'concerning',
+  'topic',
+  // intent + scope (DE)
+  'wie',
+  'viele',
+  'anzahl',
+  'welche',
+  'welchem',
+  'welcher',
+  'welches',
+  'welchen',
+  'liste',
+  'zeig',
+  'zeige',
+  'zeigt',
+  'dokumente',
+  'dokumenten',
+  'dokument',
+  'dateien',
+  'datei',
+  'quellen',
+  'quelle',
+  'unterlagen',
+  'notizen',
+  // possession / filler (DE)
+  'alle',
+  'aller',
+  'allen',
+  'habe',
+  'hab',
+  'ich',
+  'mir',
+  'mich',
+  'mein',
+  'meine',
+  'meiner',
+  'meinen',
+  'gibt',
+  'es',
+  'zum',
+  'zur',
+  'thema',
+  'über',
+  'ueber',
+  'behandeln',
+  'behandelt',
+  'decken',
+  'deckt',
+  'ab',
+  'gehen',
+  'geht',
+  'handeln',
+  'handelt',
+  'steht',
+  'stehen',
+  'enthalten',
+  'enthält',
+])
+
+export type CorpusIntent = 'count' | 'list'
+
+/** Corpus gate: count/list intent applied directly to a document-scope noun.
+ *  Returns the intent or null. Pure regex, no I/O. */
+export function detectCorpusIntent(query: string): CorpusIntent | null {
+  if (CORPUS_COUNT_PATTERNS.some((p) => p.test(query))) return 'count'
+  if (CORPUS_LIST_PATTERNS.some((p) => p.test(query))) return 'list'
+  return null
+}
+
+/** Residual topic tokens of a corpus query — query minus stopwords minus the
+ *  corpus intent/scope/filler vocabulary. Empty = workspace-wide. */
+export function extractThemeTokens(query: string): string[] {
+  return nonStopwordTokens(query).filter((t) => !CORPUS_FILLER_TOKENS.has(t))
+}
+
 /**
  * Decide the route for a query. Async only for the lazy documents fetch —
  * queries without route intent return synchronously-fast without touching
  * the DB. Never throws on resolution failure; every miss is `retrieval`.
+ *
+ * Precedence: corpus (tightest gate — needs intent AND scope) > doc_summary
+ * (summary intent + pin/title resolution) > retrieval. A query matching
+ * neither gate never pays a DB round-trip.
  */
 export async function resolveRoute(query: string, ctx: RouteContext): Promise<QueryRoute> {
+  const corpusIntent = detectCorpusIntent(query)
+  if (corpusIntent) {
+    return { kind: 'corpus', intent: corpusIntent, themeTokens: extractThemeTokens(query) }
+  }
+
   if (classifyQueryBreadth(query) !== 'summary') return { kind: 'retrieval' }
 
   const active = ctx.activeDocumentIds
@@ -260,5 +443,20 @@ export async function resolveRoute(query: string, ctx: RouteContext): Promise<Qu
 
   const res = resolveTargetDocument(query, candidates)
   if (res.kind === 'resolved') return { kind: 'doc_summary', documentId: res.documentId }
+  // Workspace-pin fallback: "fasse das zusammen" with exactly one pinned doc
+  // means that doc. Deliberately WEAKER than the conversation source-focus
+  // pin above — it only catches queries the title matcher couldn't place at
+  // all. A 'none' is an empty signal the pin may fill; an 'ambiguous' is a
+  // real tie between named candidates , and silently picking an unrelated
+  // pinned doc over either would be the wrong-doc failure mode again.
+  // It must also RESPECT the conversation source-focus: every other path
+  // (chunk search , corpus , title candidates) treats activeDocumentIds as a
+  // hard filter , so a pinned doc the user scoped OUT of this conversation
+  // must not become the summary target either.
+  const pinId = ctx.pinnedFallbackDocumentId
+  const pinInFocus = active == null || active.length === 0 || active.includes(pinId ?? -1)
+  if (res.kind === 'none' && pinId != null && pinInFocus) {
+    return { kind: 'doc_summary', documentId: pinId }
+  }
   return { kind: 'retrieval' }
 }
