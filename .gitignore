@@ -173,6 +173,9 @@ tests/e2e/.playwright-report/
 # Eval reports (regenerated per run, can be large with per-question.jsonl + LLM text)
 tests/evals/report/
 
+# FLORES-200 devtest slice (CC-BY-SA-4.0, re-fetched via pnpm evals:translation:data)
+tests/evals/translation/data/
+
 release
 
 # Lokale Test-Notizen (Zugangsdaten / Recovery-Phrasen) — NIE committen
