@@ -78,11 +78,12 @@ jobs:
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
-          # `mc mirror` ( contents-sync ) , NOT `cp --recursive src/ dst/` : on
-          # Windows mc.exe the trailing-slash-means-contents convention doesn't
-          # hold and it nests the dir ( cpu/dist/loklm-translator.exe ) , which the
-          # release fetch then misplaces. mirror is unambiguous on every platform.
-          /tmp/mc.exe mirror --overwrite sidecars/translator/dist/ "$BASE/cpu/"
+          # Windows mc.exe mishandles directory transfers: `cp --recursive src/ dst/`
+          # NESTS the dir ( cpu/dist/loklm-translator.exe ) and `mirror` errors on
+          # the local list comparison ( "Object name contains unsupported
+          # characters" , uploads 0 B ). The CPU dir is a single binary , so copy
+          # it to an EXACT object key — the one primitive that's reliable here.
+          /tmp/mc.exe cp sidecars/translator/dist/loklm-translator.exe "$BASE/cpu/loklm-translator.exe"
           /tmp/mc.exe ls --recursive "$BASE/cpu/"
 
       - name: Build CUDA sidecar ( best-effort )
@@ -106,7 +107,11 @@ jobs:
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
-          /tmp/mc.exe mirror --overwrite sidecars/translator/dist-cuda/ "$BASE/cuda/"
+          # Per-file explicit cp ( same Windows mc.exe caveat as the CPU upload ).
+          # dist-cuda/ holds the -cuda exe + redistributable DLLs.
+          for f in sidecars/translator/dist-cuda/*; do
+            /tmp/mc.exe cp "$f" "$BASE/cuda/$(basename "$f")"
+          done
           /tmp/mc.exe ls --recursive "$BASE/cuda/"
 
   # ------------------------------------------------------------------ Linux ---
