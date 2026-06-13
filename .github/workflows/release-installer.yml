@@ -160,8 +160,12 @@ jobs:
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
           mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
-          /tmp/mc.exe cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
-          /tmp/mc.exe cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          # `mc mirror` ( contents-sync ) , NOT `cp --recursive src/ dst/` : Windows
+          # mc.exe nests the dir with cp ( dist/cpu/... ) , which misplaces the
+          # binary. mirror lands files flat in dist/ + dist-cuda/ as the packager
+          # expects. Non-fatal — a missing prebuilt just warns ( CPU-only / none ).
+          /tmp/mc.exe mirror --overwrite "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          /tmp/mc.exe mirror --overwrite "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
           ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
 
       - name: Build payload + wizard + bundle ( pnpm package:win )

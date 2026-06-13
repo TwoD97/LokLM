@@ -78,7 +78,11 @@ jobs:
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
-          /tmp/mc.exe cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          # `mc mirror` ( contents-sync ) , NOT `cp --recursive src/ dst/` : on
+          # Windows mc.exe the trailing-slash-means-contents convention doesn't
+          # hold and it nests the dir ( cpu/dist/loklm-translator.exe ) , which the
+          # release fetch then misplaces. mirror is unambiguous on every platform.
+          /tmp/mc.exe mirror --overwrite sidecars/translator/dist/ "$BASE/cpu/"
           /tmp/mc.exe ls --recursive "$BASE/cpu/"
 
       - name: Build CUDA sidecar ( best-effort )
@@ -102,7 +106,7 @@ jobs:
           curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
-          /tmp/mc.exe cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
+          /tmp/mc.exe mirror --overwrite sidecars/translator/dist-cuda/ "$BASE/cuda/"
           /tmp/mc.exe ls --recursive "$BASE/cuda/"
 
   # ------------------------------------------------------------------ Linux ---
@@ -225,7 +229,14 @@ jobs:
         with: { node-version: 24 }
 
       - name: Install build deps (cmake, pwsh)
-        run: brew install cmake powershell
+        run: |
+          # macOS runners ship cmake + pwsh pre-installed; only install if
+          # missing. ( `brew install powershell` over the pre-installed copy
+          # fails at the `brew link` step — dotnet/powershell already linked. )
+          command -v cmake >/dev/null || brew install cmake
+          command -v pwsh  >/dev/null || brew install powershell
+          cmake --version
+          pwsh --version
 
       - name: Build CPU sidecar (no CUDA on macOS)
         run: pwsh scripts/build-translator-sidecar.ps1
@@ -255,7 +266,14 @@ jobs:
         with: { node-version: 24 }
 
       - name: Install build deps (cmake, pwsh)
-        run: brew install cmake powershell
+        run: |
+          # macOS runners ship cmake + pwsh pre-installed; only install if
+          # missing. ( `brew install powershell` over the pre-installed copy
+          # fails at the `brew link` step — dotnet/powershell already linked. )
+          command -v cmake >/dev/null || brew install cmake
+          command -v pwsh  >/dev/null || brew install powershell
+          cmake --version
+          pwsh --version
 
       - name: Build CPU sidecar (no CUDA on macOS)
         run: pwsh scripts/build-translator-sidecar.ps1
