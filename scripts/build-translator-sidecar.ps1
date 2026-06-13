@@ -92,9 +92,11 @@ if ($IsWindows) {
   # the versioned filename (cublas64_12.dll) is exactly what the loader wants —
   # copy it verbatim.
   $required = @('cudart64_*.dll', 'cublas64_*.dll', 'cublasLt64_*.dll', 'nvrtc64_*.dll', 'nvrtc-builtins64_*.dll')
-  # cuBLASLt 12.x imports nvJitLink64_*.dll. Best-effort: a miss must NOT fail the
-  # (already-working) Windows build , so it is a warning , not a throw.
-  $optional = @('nvJitLink64_*.dll')
+  # cuBLASLt 12.x can pull in nvJitLink ( delay-loaded on Windows -> the sidecar
+  # starts without it , but a cuBLASLt JIT path would need it on a clean box ).
+  # CUDA 12.6 names it nvJitLink_120_0.dll ( NOT nvJitLink64_* ) , so glob broadly.
+  # Best-effort: a miss is a warning , not a throw ( matches the Linux closure ).
+  $optional = @('nvJitLink*.dll')
   foreach ($pat in ($required + $optional)) {
     $hit = $null
     foreach ($d in $libDirs) {
