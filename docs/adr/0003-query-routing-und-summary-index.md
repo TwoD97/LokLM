@@ -38,6 +38,15 @@ Drei produktive Open-Source-Implementierungen desselben Problems wurden im Quell
 
 Routing-Fehler **erroren nie und fragen nie das LLM**. Das ist die bewusste Inversion von LlamaIndex' `RouterQueryEngine`, das bei mehrdeutiger Selektion `ValueError` wirft: Bei uns fällt ein nicht-auflösbarer Treffer still auf `retrieval` zurück — dort produziert die Chunk-Pipeline immer _irgendetwas_, während eine falsche Routing-Entscheidung eine echte Antwort durch eine Dokumentliste / das falsche Summary ersetzt. Daher die durchgehende Regel: **False-Negative ist die billigere Fehlentscheidung.**
 
+### Multi-Question-Messages (Decomposition)
+
+Eine Chat-Nachricht kann mehrere distinkte Fragen enthalten („Was ist argon2id? Und wie viele Dokumente habe ich zum Vault?"). Ohne Behandlung wären drei Fehlermodi aktiv: (1) das Routing wählt **einen** Gewinner für die ganze Nachricht — die corpus-Regex greift auf der zweiten Hälfte und die erste Frage fällt still weg ; (2) der Dense-Embedder bekommt **einen** Vektor für mehrere Themen, ein Zentroid, der keines gut trifft ; (3) das kleine lokale Modell beantwortet oft nur den auffälligsten Teil.
+
+`splitQuestions(query)` ([retrieval/heuristics.ts](../../src/main/services/retrieval/heuristics.ts)) zerlegt die Nachricht **rein heuristisch** (Split nur an `?`-Grenzen, kein LLM, hot-path-safe). Konservativ: ein „and"/„und" **innerhalb** einer Frage („Unterschied zwischen X und Y?", „wie funktioniert X und warum?") bleibt zusammen, weil nur an `?` getrennt wird — ein False-Merge (Status quo) ist billiger als ein False-Split. Daraus zwei Eingriffe:
+
+- **Router-Guard:** eine compound Message umgeht die single-intent-Routen (corpus/doc*summary beantworten je \_ein* Ding) und geht auf `retrieval`.
+- **Retrieval-Decomposition** ([RetrievalService](../../src/main/services/retrieval/RetrievalService.ts)): jede Teilfrage wird separat retrievt, die Pools werden RRF-fusioniert (dieselbe Maschinerie wie `multiQuery`, nur sind die Varianten die Teilfragen statt Paraphrasen — und heuristisch statt LLM-generiert). Das Modell bekommt **eine** zusammengeführte Kontext-Menge mit Coverage über alle Themen und beantwortet die ganze Nachricht. Default on (`decomposeQuestions`, opt-out für Evals) ; nimmt Vorrang vor der Paraphrase-Expansion. **Eine** Antwort, kein separater Pro-Frage-Stream — der Citation/Streaming-Vertrag bleibt unverändert.
+
 ### Prompt-Komposition + Citation-Vertrag (Option A)
 
 Phase 1 traf auf das parallel entwickelte Pinned-Docs-Feature (`dd62973`). Beide stellen dem Prompt Inhalt voran. Die Auflösung (in [prompt.ts `buildPrompt`](../../src/main/services/llm/prompt.ts)):

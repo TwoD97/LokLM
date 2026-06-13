@@ -279,6 +279,34 @@ describe('resolveRoute', () => {
     expect(c.getDocuments).not.toHaveBeenCalled()
   })
 
+  describe('compound messages bypass the single-intent routes (ADR-0003)', () => {
+    it('a corpus question alongside another question → retrieval, not corpus', async () => {
+      // The corpus regex matches the 2nd half ; without the compound guard the
+      // WHOLE message would route to corpus and drop "what is argon2id".
+      const c = ctx()
+      expect(
+        await resolveRoute('what is argon2id? how many documents do I have about the vault?', c),
+      ).toEqual({ kind: 'retrieval' })
+    })
+
+    it('a summarize question alongside another question → retrieval, not doc_summary', async () => {
+      expect(
+        await resolveRoute(
+          'fasse mein wochenbuch zusammen? und was ist die schlüsselableitung?',
+          ctx(),
+        ),
+      ).toEqual({ kind: 'retrieval' })
+    })
+
+    it('a single corpus question is unaffected', async () => {
+      expect(await resolveRoute('wie viele dokumente habe ich zu strom?', ctx())).toEqual({
+        kind: 'corpus',
+        intent: 'count',
+        themeTokens: ['strom'],
+      })
+    })
+  })
+
   describe('workspace-pin fallback (pinnedFallbackDocumentId)', () => {
     it('"fasse das zusammen" + one pinned doc → that doc as last resort', async () => {
       const c = { ...ctx(), pinnedFallbackDocumentId: 4 }

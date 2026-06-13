@@ -13,7 +13,7 @@
 // below-margin resolution falls through to retrieval). Precedence follows the
 // ADR: explicit doc pin > unambiguous title match > default retrieval.
 
-import { nonStopwordTokens } from '../retrieval/heuristics'
+import { nonStopwordTokens, splitQuestions } from '../retrieval/heuristics'
 
 export type QueryBreadth = 'focused' | 'broad' | 'summary'
 
@@ -418,6 +418,13 @@ export function extractThemeTokens(query: string): string[] {
  * neither gate never pays a DB round-trip.
  */
 export async function resolveRoute(query: string, ctx: RouteContext): Promise<QueryRoute> {
+  // Compound messages (multiple distinct questions) bypass the single-intent
+  // special routes: corpus and doc_summary each answer ONE thing, so on a
+  // multi-question turn they'd silently drop the rest. Retrieval — with
+  // RetrievalService's sub-question decomposition — covers every part via the
+  // fused chunk pool. (ADR-0003 multi-question handling.)
+  if (splitQuestions(query).length > 1) return { kind: 'retrieval' }
+
   const corpusIntent = detectCorpusIntent(query)
   if (corpusIntent) {
     return { kind: 'corpus', intent: corpusIntent, themeTokens: extractThemeTokens(query) }
