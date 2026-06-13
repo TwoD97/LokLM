@@ -160,8 +160,15 @@ jobs:
           /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           BASE="s3/loklm-installers/translator-sidecar/win-x64"
           mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
-          /tmp/mc.exe cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
-          /tmp/mc.exe cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          # Windows mc.exe dir-transfers are unreliable ( `cp --recursive` nests ,
+          # `mirror` errors on the list comparison ) , so fetch per-object: the CPU
+          # binary explicitly , and each CUDA file by name. Non-fatal — a missing
+          # prebuilt just warns ( CPU-only , or none ).
+          /tmp/mc.exe cp "$BASE/cpu/loklm-translator.exe" sidecars/translator/dist/loklm-translator.exe || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          for f in $(/tmp/mc.exe ls "$BASE/cuda/" 2>/dev/null | awk '{print $NF}'); do
+            /tmp/mc.exe cp "$BASE/cuda/$f" "sidecars/translator/dist-cuda/$f" || true
+          done
+          [ -n "$(ls -A sidecars/translator/dist-cuda 2>/dev/null)" ] || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
           ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
 
       - name: Build payload + wizard + bundle ( pnpm package:win )

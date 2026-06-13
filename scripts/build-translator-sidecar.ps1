@@ -34,7 +34,13 @@ $root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $src = Join-Path $root 'sidecars/translator'
 $build = Join-Path $src ($Cuda ? 'build-cuda' : 'build')
 
-$cfgArgs = @('-S', $src, '-B', $build, "-DCMAKE_BUILD_TYPE=$Config")
+# CMake 4.x ( what `brew install cmake` now ships on the mac runners ) dropped
+# compatibility with cmake_minimum_required < 3.5 , which CTranslate2 4.6.0's
+# vendored ruy/cpuinfo/clog still declares — so configure hard-errors. This flag
+# is the documented escape hatch ( raises the effective policy floor to 3.5 for
+# those sub-projects ). Harmless on the older CMake the linux/windows runners
+# use ( the var is simply unused there ).
+$cfgArgs = @('-S', $src, '-B', $build, "-DCMAKE_BUILD_TYPE=$Config", '-DCMAKE_POLICY_VERSION_MINIMUM=3.5')
 if ($Cuda) {
   $cfgArgs += @('-DWITH_CUDA=ON', "-DCUDA_ARCH_LIST=$CudaArchList")
 }
