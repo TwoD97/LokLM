@@ -109,6 +109,24 @@ export class SummarizationService {
       throw new SummarizationError('The model returned an empty summary.', 'failed')
     }
     await repo.setSummary(documentId, summary)
+    // Warm the summary-embedding index inline when the embedder is already up
+    // (ADR-0003): the corpus route + hierarchical prefilter can then use this
+    // doc immediately instead of waiting for the idle backfill. Best-effort —
+    // any failure leaves the embedding NULL for the backfill to fill. Not
+    // gated by the CPU guard: embedding is a single cheap forward pass, not
+    // the multi-window LLM generation that guard is about.
+    try {
+      const embedder = this.registry.embedder()
+      if (embedder.isReady()) {
+        const vecs = await embedder.embed([summary])
+        const vec = vecs[0]
+        if (vec && vec.length > 0) {
+          await repo.setSummaryEmbedding(documentId, Array.from(vec), embedder.identity())
+        }
+      }
+    } catch {
+      /* embedding is best-effort; the idle backfill will retry */
+    }
     return { summary, cached: false }
   }
 
