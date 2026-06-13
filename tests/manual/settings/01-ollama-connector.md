@@ -66,3 +66,35 @@ Expected: avatar preview updates in the modal. Close and reopen — avatar persi
 4. Click "Remove" to clear avatar.
 
 Expected: avatar reverts to deterministic-color initials based on display name.
+
+## Scenario 7 — Install-time opt-in gate (packaged build only)
+
+The connector is an installation option: the wizard's options page has an
+"Enable the external Ollama connector" checkbox (default **unchecked**, with
+at-your-own-risk wording). The choice is written to `loklm-tier.json` as
+`ollamaConnector: true|false`.
+
+1. Run the installer wizard, leave the Ollama checkbox unticked, finish the install.
+2. Launch LokLM → Settings → Advanced.
+
+Expected: there is **no Ollama subtab at all** (only LLM, Retrieval, Behavior,
+Diagnostics) — no flash of it on open either. `loklm-tier.json` in the install
+dir contains `"ollamaConnector": false`.
+
+3. Re-run the installer over the same dir, this time tick the checkbox.
+4. Relaunch LokLM → Settings → Advanced.
+
+Expected: the Ollama subtab is back with the normal config UI from Scenario 1
+(marker now says `true`).
+
+Edge cases:
+
+- Hand-edit `loklm-tier.json` → delete the `ollamaConnector` key entirely →
+  relaunch. Expected: connector available (markers from ≤ v0.4.0 installers
+  predate the field; missing key reads as enabled so existing setups keep
+  working).
+- Dev build (`pnpm dev`): no marker exists → connector always available.
+- With the connector locked and a vault that already has Ollama sources
+  persisted (restored from an opted-in machine): chat must run on the bundled
+  model — the main process refuses to build Ollama providers regardless of
+  what the settings say, and `ollama:probe` answers `connector-disabled`.

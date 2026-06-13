@@ -108,6 +108,9 @@
         cudaHelpNvidia: 'Empfohlen für deine NVIDIA-Karte ({gpu}).',
         cudaHelpOther: 'Nicht erforderlich für deine GPU ({gpu} — Vulkan ist bereits enthalten).',
         cudaHelpNoGpu: 'Keine GPU erkannt; CUDA wird nicht benötigt.',
+        ollamaTitle: 'Externen Ollama-Connector aktivieren (optional)',
+        ollamaDesc:
+          'LokLM kann eine selbst betriebene Ollama-Instanz statt der mitgelieferten Modelle nutzen. Nutzung auf eigenes Risiko: LokLM prüft weder Herkunft noch Verhalten extern geladener Modelle. Ohne Häkchen bleibt der Connector in der App deaktiviert.',
       },
       install: {
         kicker: 'Installieren',
@@ -256,6 +259,9 @@
         cudaHelpNvidia: 'Recommended for your NVIDIA card ({gpu}).',
         cudaHelpOther: 'Not needed for your GPU ({gpu} — Vulkan is already included).',
         cudaHelpNoGpu: 'No GPU detected; CUDA is not required.',
+        ollamaTitle: 'Enable the external Ollama connector (optional)',
+        ollamaDesc:
+          'LokLM can use a self-hosted Ollama instance instead of the bundled models. Use at your own risk: LokLM does not vet the origin or behaviour of externally loaded models. Left unchecked, the connector stays disabled in the app.',
       },
       install: {
         kicker: 'Install',

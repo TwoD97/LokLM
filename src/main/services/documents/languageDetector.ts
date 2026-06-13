@@ -64,6 +64,19 @@ export async function detectChunkLanguage(text: string): Promise<ChunkLanguage |
   return bucket(result.language)
 }
 
+/** Raw ISO-639-1 detection for callers that need more than the 3-bucket
+ *  schema enum — the translation layer reports the detected source language
+ *  alongside the translated text. Same reliability gating as the chunk
+ *  variant : null rather than a guess. */
+export async function detectIsoLanguage(text: string): Promise<string | null> {
+  const trimmed = text.trim()
+  if (trimmed.length < MIN_CHARS_FOR_DETECTION) return null
+  const eld = await getEld()
+  const result = eld.detect(trimmed)
+  if (!result.language || !result.isReliable()) return null
+  return result.language
+}
+
 /** Pick the chat response language (DE/EN only) for a user query. Uses eld
  *  when the query is long enough to score reliably , else a cheap regex guess
  *  — chat prompts are routinely shorter than eld's reliable floor. Anything

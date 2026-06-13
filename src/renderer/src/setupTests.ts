@@ -380,6 +380,7 @@ const stub: Api = {
   },
   ollama: {
     probe: () => Promise.resolve({ ok: true as const, version: '0.0.0', models: [] as string[] }),
+    connectorEnabled: () => Promise.resolve(true),
   },
   providers: {
     onFallback: () => () => undefined,
@@ -441,6 +442,36 @@ const stub: Api = {
         answers: [],
       }),
     listAttempts: () => Promise.resolve([]),
+  },
+  translation: {
+    status: () =>
+      Promise.resolve({ state: 'not_installed' as const, message: null, sidecarAvailable: false }),
+    install: () => Promise.resolve(),
+    cancelInstall: () => Promise.resolve(),
+    translate: () => Promise.resolve({ text: '', detected: null, sentences: 0, ms: 0 }),
+    languages: () => Promise.resolve([]),
+    documentText: () => Promise.resolve({ title: '', text: '' }),
+    saveDocument: (workspaceId: number, title: string) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId,
+        title,
+        sourcePath: '/stub/translation.md',
+        mimeType: 'text/markdown',
+        byteSize: null,
+        status: 'pending' as const,
+        chunkCount: 0,
+        tokenCount: 0,
+        addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
+      }),
+    onStatus: () => () => undefined,
+  },
+  writing: {
+    improve: (
+      _text: string,
+      mode: 'improve' | 'formal' | 'casual' | 'concise' | 'expand' | 'simplify',
+    ) => Promise.resolve({ text: '', detected: 'en' as const, mode }),
   },
 }
 
