@@ -41,7 +41,10 @@ concurrency:
 jobs:
   # ---------------------------------------------------------------- Windows ---
   windows:
-    runs-on: windows-latest
+    # Pinned to windows-2022 ( VS 2022 ) , not windows-latest: the latter is
+    # mid-migration to Windows Server 2025 + VS 2026 ( 2026-06 ) , which breaks
+    # vcvars/VS discovery for the CUDA build. 2022 matches the working CPU build.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,10 +89,26 @@ jobs:
           /tmp/mc.exe cp sidecars/translator/dist/loklm-translator.exe "$BASE/cpu/loklm-translator.exe"
           /tmp/mc.exe ls --recursive "$BASE/cpu/"
 
+      # --- Windows GPU build prep: Ninja + the MSVC dev env ----------------------
+      # CMake's default VS generator aborts at project(CXX CUDA) because the network
+      # CUDA install doesn't drop the VS MSBuild integration (.props). The Ninja
+      # generator sidesteps that: it finds the toolkit on PATH and lets nvcc drive
+      # cl.exe directly. Ninja isn't on the runner PATH , and ( unlike the VS
+      # generator ) Ninja does NOT auto-load vcvars — so set up both here , AFTER the
+      # CPU build/upload ( which keeps using the working VS generator , untouched ).
+      - name: Set up MSVC dev environment ( nvcc host compiler )
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Install Ninja
+        shell: pwsh
+        run: choco install ninja -y --no-progress
+
       - name: Build CUDA sidecar ( best-effort )
-        # Windows CUDA currently needs the VS-integration the CI toolkit install
-        # omits ( CMake's VS generator can't find the CUDA toolset ) — tracked as a
-        # follow-up. Best-effort so a miss never fails the job / blocks CPU.
+        # Uses the Ninja generator ( forced in build-translator-sidecar.ps1 on
+        # Windows ) so nvcc finds cl.exe via the vcvars loaded above , no VS CUDA
+        # integration needed. Still best-effort so a CUDA hiccup never fails the
+        # job / blocks the CPU sidecar.
         id: cudabuild
         continue-on-error: true
         shell: pwsh

@@ -44,6 +44,17 @@ $cfgArgs = @('-S', $src, '-B', $build, "-DCMAKE_BUILD_TYPE=$Config", '-DCMAKE_PO
 if ($Cuda) {
   $cfgArgs += @('-DWITH_CUDA=ON', "-DCUDA_ARCH_LIST=$CudaArchList")
 }
+if ($Cuda -and $IsWindows) {
+  # Windows GPU: force the single-config Ninja generator for the CUDA build. The
+  # default VS generator needs the CUDA MSBuild integration (.props) the CI
+  # toolkit install omits , so project(CXX CUDA) aborts in
+  # CMakeDetermineCUDACompiler. Ninja resolves the toolkit via PATH and lets nvcc
+  # drive cl.exe directly ( the workflow loads vcvars + puts ninja on PATH before
+  # this runs ). NOT "Ninja Multi-Config" — CT2 4.6.0's legacy FindCUDA mis-expands
+  # ${CONFIGURATION} there ; single-config + the -DCMAKE_BUILD_TYPE above is right.
+  # The CPU build keeps the default VS generator ( it builds in a separate dir ).
+  $cfgArgs = @('-G', 'Ninja') + $cfgArgs
+}
 cmake @cfgArgs
 if ($LASTEXITCODE -ne 0) { throw "cmake configure failed ($LASTEXITCODE)" }
 
