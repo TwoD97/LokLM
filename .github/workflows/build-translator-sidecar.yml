@@ -48,11 +48,16 @@ jobs:
         with: { node-version: 24 }
 
       - name: Install CUDA toolkit
-        uses: Jimver/cuda-toolkit@v0.2.19
+        uses: Jimver/cuda-toolkit@v0.2.35
         id: cuda
         with:
           cuda: ${{ github.event.inputs.cuda_version || '12.6.0' }}
-          # nvcc + libraries are enough ; no driver/GPU needed to compile.
+          # nvcc + libraries are enough ; no driver/GPU needed to compile. These
+          # network-installer component names are verified working since 0.4.0 ,
+          # so they're left unchanged. cuBLASLt 12.x needs nvJitLink64.dll , but
+          # the Windows cublas component bundles it into CUDA's bin/ — the build
+          # script stages it with an optional nvJitLink64_*.dll glob ( no extra
+          # sub-package , which avoids risking this known-good install list ).
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
 
@@ -97,16 +102,57 @@ jobs:
           sudo apt-get update && sudo apt-get install -y powershell
 
       - name: Install CUDA toolkit
-        uses: Jimver/cuda-toolkit@v0.2.19
+        uses: Jimver/cuda-toolkit@v0.2.35
         with:
           cuda: ${{ github.event.inputs.cuda_version || '12.6.0' }}
           method: 'network'
-          sub-packages: '["nvcc", "cudart", "cublas", "nvrtc"]'
+          # Linux network method = apt. sub-packages map to cuda-<name>-<maj>-<min>
+          # and non-cuda-sub-packages to <name>-<maj>-<min>. cuBLAS ships as
+          # libcublas* ( NOT cuda-cublas* ) and nvJitLink as libnvjitlink* , so
+          # BOTH must go via non-cuda-sub-packages or apt can't find them. The
+          # -dev variants bring the headers + unversioned .so symlink CT2 needs to
+          # COMPILE/link; cccl brings the thrust/cub headers CT2's CUDA kernels
+          # include; libcublas-dev pulls libcublasLt; libnvjitlink is cuBLASLt's
+          # runtime dep. ( v0.2.19's old "cublas" sub-package -> cuda-cublas-12-6 ,
+          # which does not exist , would have failed the install. )
+          sub-packages: '["nvcc", "cudart-dev", "nvrtc", "cccl"]'
+          non-cuda-sub-packages: '["libcublas-dev", "libnvjitlink"]'
 
       - name: Build CPU + CUDA sidecar
         run: |
           pwsh scripts/build-translator-sidecar.ps1
           pwsh scripts/build-translator-sidecar.ps1 -Cuda
+
+      - name: Verify CUDA sidecar resolves all libs from $ORIGIN ( clean-box sim )
+        # The release box has no CUDA toolkit and the end-user box has only the
+        # NVIDIA driver — so the staged dist-cuda/ binary must resolve EVERY
+        # non-driver lib from its co-located $ORIGIN set. Any CUDA redist lib that
+        # ldd can't find here ( e.g. libnvJitLink.so.12 ) , or that resolves to a
+        # toolkit path instead of this dir , would crash the sidecar on a user
+        # box. libcuda.so ( the driver ) is legitimately absent on this GPU-less
+        # runner and ships with the user's driver , so it's excluded.
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sidecars/translator/dist-cuda
+          HERE="$(pwd)"
+          echo "staged files:"; ls -la
+          env -u LD_LIBRARY_PATH ldd ./loklm-translator-cuda | tee /tmp/ldd.txt || true
+          BAD=$(awk -v here="$HERE" '
+            /not found/ { if ($1 !~ /^libcuda\.so/) print; next }
+            /=>/ {
+              name=$1; path=$3;
+              if (name ~ /^libcuda\.so/) next;
+              if (name ~ /^(libcudart|libcublas|libcublasLt|libnvrtc|libnvrtc-builtins|libnvJitLink|libcusparse|libcusolver)/) {
+                if (path !~ ("^" here)) print;
+              }
+            }' /tmp/ldd.txt || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::CUDA sidecar has redist libs not co-located in dist-cuda/ (would crash on a clean NVIDIA box):"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "all CUDA redist libs resolve from \$ORIGIN — OK"
 
       - name: Upload to minio
         env:
@@ -121,9 +167,11 @@ jobs:
           /tmp/mc cp --recursive sidecars/translator/dist-cuda/ "$BASE/cuda/"
           /tmp/mc ls --recursive "$BASE/"
 
-  # ------------------------------------------------------------------- macOS ---
-  macos:
-    runs-on: macos-latest
+  # ----------------------------------------------------------- macOS (arm64) ---
+  # Apple Silicon (M1/M2/M3/M4). CT2 has no Metal backend , so mac is CPU-only on
+  # every chip — there is no cuda/ tree , just cpu/.
+  macos-arm64:
+    runs-on: macos-latest # macos-latest is Apple-Silicon (arm64).
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,7 +183,7 @@ jobs:
       - name: Build CPU sidecar (no CUDA on macOS)
         run: pwsh scripts/build-translator-sidecar.ps1
 
-      - name: Upload to minio (arm64 + x64 share the build host arch)
+      - name: Upload to minio (mac-arm64/cpu)
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
@@ -143,10 +191,36 @@ jobs:
         run: |
           curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-arm64/mc && chmod +x /tmp/mc
           /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          # macos-latest is arm64. An x64 mac binary needs a separate x64 build
-          # (cross-compile or an intel runner) — TODO when a mac-x64 GPU/CPU
-          # split is needed; for now publish arm64 under both keys is WRONG , so
-          # only arm64 is published here.
           BASE="s3/loklm-installers/translator-sidecar/mac-arm64"
+          /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
+          /tmp/mc ls --recursive "$BASE/"
+
+  # ------------------------------------------------------------- macOS (x64) ---
+  # Intel Macs. The old Intel image (macos-13) was retired 2025-12-04 ;
+  # macos-15-intel is the current — and last — x86_64 runner (GA until ~2027).
+  # Without this job an x64 mac would get NO translator at all : the arm64 binary
+  # can't run on Intel , so translation would simply be absent there.
+  macos-x64:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+
+      - name: Install build deps (cmake, pwsh)
+        run: brew install cmake powershell
+
+      - name: Build CPU sidecar (no CUDA on macOS)
+        run: pwsh scripts/build-translator-sidecar.ps1
+
+      - name: Upload to minio (mac-x64/cpu)
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-amd64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/mac-x64"
           /tmp/mc cp --recursive sidecars/translator/dist/ "$BASE/cpu/"
           /tmp/mc ls --recursive "$BASE/"

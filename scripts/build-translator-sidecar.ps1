@@ -70,17 +70,60 @@ if (-not $cudaRoot) { throw 'CUDA_PATH not set — cannot collect the CUDA runti
 $libDirs = $IsWindows `
   ? @((Join-Path $cudaRoot 'bin/x64'), (Join-Path $cudaRoot 'bin')) `
   : @((Join-Path $cudaRoot 'lib64'), (Join-Path $cudaRoot 'targets/x86_64-linux/lib'))
-$patterns = $IsWindows `
-  ? @('cudart64_*.dll', 'cublas64_*.dll', 'cublasLt64_*.dll', 'nvrtc64_*.dll', 'nvrtc-builtins64_*.dll') `
-  : @('libcudart.so*', 'libcublas.so*', 'libcublasLt.so*', 'libnvrtc.so*', 'libnvrtc-builtins.so*')
-foreach ($pat in $patterns) {
-  $hit = $null
-  foreach ($d in $libDirs) {
-    if (Test-Path $d) { $hit = Get-ChildItem -Path $d -Filter $pat -ErrorAction SilentlyContinue | Select-Object -First 1 }
-    if ($hit) { break }
+if ($IsWindows) {
+  # Windows resolves a DLL by its on-disk name from the exe's own directory , so
+  # the versioned filename (cublas64_12.dll) is exactly what the loader wants —
+  # copy it verbatim.
+  $required = @('cudart64_*.dll', 'cublas64_*.dll', 'cublasLt64_*.dll', 'nvrtc64_*.dll', 'nvrtc-builtins64_*.dll')
+  # cuBLASLt 12.x imports nvJitLink64_*.dll. Best-effort: a miss must NOT fail the
+  # (already-working) Windows build , so it is a warning , not a throw.
+  $optional = @('nvJitLink64_*.dll')
+  foreach ($pat in ($required + $optional)) {
+    $hit = $null
+    foreach ($d in $libDirs) {
+      if (Test-Path $d) { $hit = Get-ChildItem -Path $d -Filter $pat -ErrorAction SilentlyContinue | Select-Object -First 1 }
+      if ($hit) { break }
+    }
+    if (-not $hit) {
+      if ($optional -contains $pat) { Write-Warning "optional CUDA lib '$pat' not found — skipping"; continue }
+      throw "CUDA lib '$pat' not found under: $($libDirs -join ', ')"
+    }
+    Copy-Item $hit.FullName (Join-Path $distCuda $hit.Name) -Force
   }
-  if (-not $hit) { throw "CUDA lib '$pat' not found under: $($libDirs -join ', ')" }
-  Copy-Item $hit.FullName (Join-Path $distCuda $hit.Name) -Force
+} else {
+  # Linux: the loader resolves a shared lib by its SONAME (e.g. libcublas.so.12) ,
+  # which is the name baked into the binary's DT_NEEDED — NOT the unversioned
+  # libcublas.so dev symlink (which a naive glob's first lexicographic match would
+  # grab) , and not the fully-versioned libcublas.so.12.x.y real file. Stage each
+  # lib's real content under its EXACT SONAME so the co-located set resolves via
+  # the $ORIGIN rpath at runtime. objdump (binutils , pulled in by build-essential)
+  # reads the SONAME field straight from the ELF.
+  $requiredBases = @('cudart', 'cublas', 'cublasLt', 'nvrtc', 'nvrtc-builtins')
+  # libnvJitLink.so.12 is a runtime DT_NEEDED of cuBLASLt 12.x. Best-effort here ,
+  # but the build job's ldd self-check FAILS if it turns out to be needed+missing.
+  $optionalBases = @('nvJitLink')
+  foreach ($base in ($requiredBases + $optionalBases)) {
+    $cand = $null
+    foreach ($d in $libDirs) {
+      if (Test-Path $d) {
+        # Versioned files only (libX.so.*). The longest-name match is the real
+        # fully-versioned file ( the .NET matcher may also admit the bare
+        # libX.so dev symlink , but the length sort always discards it ).
+        $cand = Get-ChildItem -Path $d -Filter "lib$base.so.*" -ErrorAction SilentlyContinue |
+          Sort-Object { $_.Name.Length } -Descending | Select-Object -First 1
+      }
+      if ($cand) { break }
+    }
+    if (-not $cand) {
+      if ($optionalBases -contains $base) { Write-Warning "optional CUDA lib 'lib$base.so.*' not found — skipping ( ldd check will catch it if truly needed )"; continue }
+      throw "CUDA lib 'lib$base.so.*' not found under: $($libDirs -join ', ')"
+    }
+    $sonameLine = (& objdump -p $cand.FullName | Select-String -Pattern 'SONAME').Line
+    $soname = ($sonameLine -match 'SONAME\s+(\S+)') ? $matches[1] : $cand.Name
+    # Copy-Item follows the symlink chain and writes the real content under the
+    # SONAME filename — exactly the name the dynamic loader will request.
+    Copy-Item $cand.FullName (Join-Path $distCuda $soname) -Force
+  }
 }
 $count = (Get-ChildItem $distCuda).Count
 Write-Host "staged $cudaName + CUDA libs ($count files) -> $distCuda"

@@ -105,8 +105,12 @@ export async function buildCudaArchive({
 
   for (const e of allEntries) {
     const buf = await readFile(e.full)
+    // The CUDA sidecar binary must be executable; the CUDA libs (.so/.dll) and
+    // node-llama-cpp variant files stay 0o644. ( Hardcoding 0o644 for every
+    // entry shipped the -cuda binary non-executable -> spawn EACCES on linux. )
+    const isSidecar = /\/resources\/translator\/loklm-translator(-cuda)?(\.exe)?$/i.test(e.tarPath)
     pack.entry(
-      { name: e.tarPath, size: e.size, mode: 0o644, mtime: e.mtime, type: 'file' },
+      { name: e.tarPath, size: e.size, mode: isSidecar ? 0o755 : 0o644, mtime: e.mtime, type: 'file' },
       buf,
     )
   }
