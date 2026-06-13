@@ -103,3 +103,32 @@ describe('RetrievalService doc pre-filter', () => {
     expect(topDocs).not.toHaveBeenCalled()
   })
 })
+
+describe('RetrievalService question decomposition (ADR-0003)', () => {
+  it('retrieves each sub-question separately for a compound message', async () => {
+    const { rs, searchChunks } = buildRetrieval({})
+    await rs.search(1, 'what is argon2id? how does the vault encrypt the db?', 5, { ...FLAT })
+    // one BM25 searchChunks call per sub-question (the RRF fusion then combines)
+    expect(searchChunks.mock.calls.map((c) => c[1])).toEqual([
+      'what is argon2id?',
+      'how does the vault encrypt the db?',
+    ])
+  })
+
+  it('a single question retrieves once (no decomposition)', async () => {
+    const { rs, searchChunks } = buildRetrieval({})
+    await rs.search(1, 'what is argon2id?', 5, { ...FLAT })
+    expect(searchChunks.mock.calls.map((c) => c[1])).toEqual(['what is argon2id?'])
+  })
+
+  it('decomposeQuestions:false keeps the whole message as one query', async () => {
+    const { rs, searchChunks } = buildRetrieval({})
+    await rs.search(1, 'what is argon2id? how does the vault encrypt the db?', 5, {
+      ...FLAT,
+      decomposeQuestions: false,
+    })
+    expect(searchChunks.mock.calls.map((c) => c[1])).toEqual([
+      'what is argon2id? how does the vault encrypt the db?',
+    ])
+  })
+})

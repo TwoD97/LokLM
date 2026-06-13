@@ -7,6 +7,7 @@ import {
   applyShortChunkPenalty,
   applyRecencyBoost,
   applyLanguageMatchBoost,
+  splitQuestions,
 } from './heuristics'
 import type { ResponseLanguage } from '../llm/prompt'
 
@@ -107,6 +108,13 @@ export interface RetrievalOptions {
    *  when nothing clears the similarity threshold, so it never starves recall. */
   docPrefilter?: boolean
   docPrefilterTopN?: number
+  /** Decompose a multi-question message into sub-questions (split on '?') and
+   *  retrieve each separately, RRF-fusing the pools so every topic gets
+   *  coverage instead of one diluted centroid vector (ADR-0003). Default ON —
+   *  it's a pure heuristic (no LLM, hot-path safe) that only fires on a
+   *  genuinely compound message. Takes precedence over paraphrase expansion:
+   *  the sub-questions ARE the variants. Set false to A/B it in evals. */
+  decomposeQuestions?: boolean
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -217,9 +225,20 @@ export class RetrievalService {
     // Only fire the stage event when expansion will actually do work — i.e.
     // multiQuery is on AND an LLM is loaded. Otherwise we'd flash an
     // "expand_queries" row in the UI for a no-op.
+    // Compound-message decomposition (ADR-0003): a turn with multiple distinct
+    // questions retrieves each separately and RRF-fuses the pools, so every
+    // topic gets coverage. Pure heuristic — no LLM — so it runs regardless of
+    // the CPU preset, and TAKES PRECEDENCE over paraphrase expansion (the
+    // sub-questions are the variants). Only fires on a genuinely compound
+    // message; otherwise splitQuestions returns the single query.
+    const subQuestions = (opts.decomposeQuestions ?? true) ? splitQuestions(trimmed) : [trimmed]
     const llmReadyForExpansion = effectiveMultiQuery && this.registry.llm().isReady()
     let queries: string[]
-    if (llmReadyForExpansion) {
+    if (subQuestions.length > 1) {
+      onStage?.('expand_queries', 'start')
+      queries = subQuestions
+      onStage?.('expand_queries', 'done', `${queries.length} questions`)
+    } else if (llmReadyForExpansion) {
       onStage?.('expand_queries', 'start')
       queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery)
       onStage?.('expand_queries', 'done', `${queries.length} variants`)
