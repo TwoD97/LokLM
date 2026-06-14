@@ -8,6 +8,10 @@ Grundregel des Kapitels: **keine Lizenzbehauptung ohne Quelle.** Jede Aussage st
 
 ## 18.1 Modellrollen
 
+Tabelle 18.1 ordnet jeder Modellrolle Aufgabe und App-Standard zu.
+
+**Tabelle 18.1:** Modellrollen und Standardmodelle.
+
 | Rolle | Aufgabe | Standard (App) |
 | --- | --- | --- |
 | **Embedder** | Query/Chunk → Vektor (dense Retrieval) | BGE-M3 (`bge-m3`, MIT) |
@@ -21,7 +25,9 @@ Der Judge ist **kein** App-Bestandteil — er existiert nur in der Eval-Säule (
 
 ## 18.2 Lizenz-Klassen — was „offen" konkret bedeutet
 
-Der Begriff „Open Source" wird bei KI-Modellen oft unsauber verwendet. Das Projekt unterscheidet bewusst:
+Der Begriff „Open Source" wird bei KI-Modellen oft unsauber verwendet. Das Projekt unterscheidet bewusst (Tabelle 18.2):
+
+**Tabelle 18.2:** Lizenz-Klassen für KI-Modelle.
 
 | Begriff | Bedeutung | Beispiel |
 | --- | --- | --- |
@@ -55,7 +61,9 @@ Wichtig: `allowedInDefaultMatrix` kann auch bei OSI-permissiver Lizenz `false` s
 
 ## 18.4 Ausgeschlossene Klassen
 
-Folgende Modelle/Klassen sind aus der Default-Matrix **ausgeschlossen** (`allowedInDefaultMatrix: false`), mit der jeweiligen Begründung aus der Registry:
+Folgende Modelle/Klassen sind aus der Default-Matrix **ausgeschlossen** (`allowedInDefaultMatrix: false`), mit der jeweiligen Begründung aus der Registry (Tabelle 18.3):
+
+**Tabelle 18.3:** Aus der Default-Matrix ausgeschlossene Modelle.
 
 | Modell | `declaredLicense` | `licenseClass` | Ausschlussgrund |
 | --- | --- | --- | --- |
@@ -82,7 +90,7 @@ Die `notes` sind bewusst detailliert — sie dokumentieren **wo** die Lizenz gep
 
 ### Gate (`tests/evals/license/validate-model-licenses.ts`)
 
-Das Gate liest die Registry plus die drei Pack-Dateien (`model-pack.json`, `embedder-pack.json`, `reranker-pack.json`) und den Judge (`mistral-small-3.2-24b`), prüft jeden Pack-Eintrag gegen die Registry und gibt eine Tabelle + Exit-Code aus:
+Das Gate liest die Registry plus die drei Pack-Dateien (`model-pack.json`, `embedder-pack.json`, `reranker-pack.json`) und den Judge (`mistral-small-3.2-24b`), prüft jeden Pack-Eintrag gegen die Registry und gibt eine Tabelle + Exit-Code aus. Abbildung 18.1 zeigt den Prüffluss des License-Gates.
 
 ```mermaid
 flowchart LR
@@ -95,11 +103,15 @@ flowchart LR
   GATE -->|Verletzung| FAIL["exit 1 — VIOLATION pro Modell"]
 ```
 
+**Abbildung 18.1:** Prüffluss des License-Gates.
+
 Verletzungsgründe, die das Gate ausgibt: „NOT in license registry", „registry role != pack role", „licenseClass … is not osi-permissive", „allowedInDefaultMatrix=false", sowie Label-Dubletten über Packs. Damit ist sichergestellt, dass **kein** nicht-permissives Modell unbemerkt in einen Default-Matrix-Lauf gerät.
 
 ### Default-Pack — die zugelassenen Modelle
 
-Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwort-LLMs alle Apache-2.0 oder MIT:
+Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwort-LLMs alle Apache-2.0 oder MIT (Tabelle 18.4):
+
+**Tabelle 18.4:** Antwort-LLMs des OSI-Default-Packs nach Lizenz.
 
 | Lizenz | Antwort-LLMs |
 | --- | --- |
@@ -123,6 +135,10 @@ Auch innerhalb der OSI-Modelle hält die Registry technische Vorbehalte fest, di
 ---
 
 ## 18.7 Risiken durch Modelllizenzen
+
+Tabelle 18.5 fasst die lizenzbezogenen Risiken samt Gegenmaßnahmen zusammen.
+
+**Tabelle 18.5:** Risiken durch Modelllizenzen und Gegenmaßnahmen.
 
 | Risiko | Wirkung | Gegenmaßnahme |
 | --- | --- | --- |

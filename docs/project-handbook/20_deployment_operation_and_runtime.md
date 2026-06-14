@@ -4,6 +4,10 @@ Dieses Kapitel beschreibt, wie LokLM gebaut, lokal betrieben und ausgeliefert wi
 
 ## 20.1 Benötigte Umgebung
 
+Tabelle 20.1 fasst die benötigte Umgebung zusammen.
+
+**Tabelle 20.1:** Benötigte Build- und Laufzeitumgebung.
+
 | Voraussetzung | Wert | Quelle |
 | --- | --- | --- |
 | Node.js | ≥ 24 | `engines` in [package.json](../../package.json) |
@@ -16,6 +20,10 @@ Hinweis aus dem Projektbetrieb: Der Installer-Build benötigt Rust/Tauri und ist
 
 ## 20.2 Lokaler Start (Entwicklung)
 
+Tabelle 20.2 listet die Befehle für den lokalen Entwicklungsstart.
+
+**Tabelle 20.2:** Befehle für Entwicklung und Build.
+
 | Befehl | Wirkung |
 | --- | --- |
 | `pnpm dev` | `electron-vite dev` — Dev-Server mit HMR, gelockerte CSP nur im Dev |
@@ -26,6 +34,10 @@ Hinweis aus dem Projektbetrieb: Der Installer-Build benötigt Rust/Tauri und ist
 Betriebshinweis zum Dev-Start: Damit `pnpm dev` nicht beim `BrowserWindow`-Import abstürzt, muss die Umgebung `ELECTRON_RUN_AS_NODE` ungesetzt sein und die Sandbox beim Start deaktiviert werden — andernfalls scheitert der Start. Dies ist eine lokale Entwicklungs-Eigenheit, nicht das Verhalten der gepackten App.
 
 ## 20.3 Tests
+
+Tabelle 20.3 nennt die verfügbaren Test-Befehle.
+
+**Tabelle 20.3:** Test-Befehle und ihre Bereiche.
 
 | Befehl | Bereich |
 | --- | --- |
@@ -40,6 +52,10 @@ Die Playwright-E2E-Suite für die Electron-App läuft in der lokalen/CI-Umgebung
 
 ## 20.4 Datenbank-Skripte
 
+Tabelle 20.4 gibt die Datenbank-Skripte wieder.
+
+**Tabelle 20.4:** Datenbank-Skripte für Migration und Inspektion.
+
 | Befehl | Wirkung |
 | --- | --- |
 | `pnpm db:generate` | `drizzle-kit generate` — neue Migration aus Schema ableiten |
@@ -50,7 +66,9 @@ Zur Laufzeit werden beim Entsperren der Datenbank zuerst die generierten Drizzle
 
 ## 20.5 Modelle: Download und Tiers
 
-LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts/download-models.mjs](../../scripts/download-models.mjs) die Modelle nach Tier (Re-Run überspringt vorhandene Dateien):
+LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts/download-models.mjs](../../scripts/download-models.mjs) die Modelle nach Tier (Re-Run überspringt vorhandene Dateien); Tabelle 20.5 zeigt die Download-Befehle:
+
+**Tabelle 20.5:** Befehle für den Modell-Download nach Tier.
 
 | Befehl | Inhalt |
 | --- | --- |
@@ -66,7 +84,9 @@ LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts
 
 **Required-Modelle** (First-Launch-Gating) sind ausschließlich **Embedder + Reranker** ([src/main/services/models/manifest.ts](../../src/main/services/models/manifest.ts)) — beide werden mit SHA-256 verifiziert. Das **LLM ist nicht mehr Teil des Laufzeit-Manifests**: Seit v0.3.0 besitzt der Installer-Wizard die LLM-Akquise per Tier-Bundle; LLM-Erkennung erfolgt zur Laufzeit über Dateinamen-Pattern (`LlamaService.discoverProfiles`).
 
-**Tier-↔-Profil-Zuordnung** (Installer-Wahl bestimmt das LLM-Profil, [src/main/services/llm/LlamaService.ts](../../src/main/services/llm/LlamaService.ts)):
+**Tier-↔-Profil-Zuordnung** (Installer-Wahl bestimmt das LLM-Profil, [src/main/services/llm/LlamaService.ts](../../src/main/services/llm/LlamaService.ts)); Tabelle 20.6 stellt die Zuordnung dar:
+
+**Tabelle 20.6:** Zuordnung von Tier zu LLM-Profil.
 
 | Tier (Installer) | LLM-Profil | Modell (ungefähr) | Hardware-Ziel |
 | --- | --- | --- | --- |
@@ -92,7 +112,9 @@ Die App wird je Plattform gepackt (Befehle aus [package.json](../../package.json
 
 ## 20.7 Laufzeit-Footprint und Modell-Residenz
 
-Zur Laufzeit hostet LokLM mehrere Runtimes mit unterschiedlichem Geräteprofil ([docs/adr/0004-adaptive-model-residency.md](../../docs/adr/0004-adaptive-model-residency.md)):
+Zur Laufzeit hostet LokLM mehrere Runtimes mit unterschiedlichem Geräteprofil ([docs/adr/0004-adaptive-model-residency.md](../../docs/adr/0004-adaptive-model-residency.md)); Tabelle 20.7 fasst die Runtimes zusammen:
+
+**Tabelle 20.7:** Laufzeit-Runtimes und ihre Gerätewahl.
 
 | Modell | Runtime | Gerätewahl heute |
 | --- | --- | --- |

@@ -8,9 +8,11 @@ Quellen für dieses Kapitel: `tests/README.md`, `tests/manual/README.md`, `tests
 
 ---
 
-## 1. Teststrategie und Pflichtenheft-Bezug
+## 19.1 Teststrategie und Pflichtenheft-Bezug
 
-LokLM folgt einer fünfstufigen Testpyramide plus einer separaten Eval-Säule. Die Ebenen decken §8 (Testkonzept) des Pflichtenhefts ab (Quelle: `tests/README.md`):
+LokLM folgt einer fünfstufigen Testpyramide plus einer separaten Eval-Säule. Die Ebenen decken §8 (Testkonzept) des Pflichtenhefts ab (Quelle: `tests/README.md`). Tabelle 19.1 ordnet die Pflichtenheft-Punkte den Testebenen und Ordnern zu.
+
+**Tabelle 19.1:** Pflichtenheft-Punkte und Testebenen.
 
 | Pflichtenheft | Ebene | Ordner / Konvention |
 |---|---|---|
@@ -21,6 +23,8 @@ LokLM folgt einer fünfstufigen Testpyramide plus einer separaten Eval-Säule. D
 | §8.5 Eval-Set / RAG-Qualität | Quality-Evals | `tests/evals/` |
 
 Leitprinzip (aus `tests/README.md`): „von schnell und isoliert nach langsam und realistisch". Redundanz quer durch die Pyramide ist **gewollt** — derselbe Bereich (z. B. `AuthService`) wird auf mehreren Ebenen berührt; Vollständigkeit pro Ebene ist nicht das Ziel.
+
+Abbildung 19.1 zeigt die Testpyramide und die separate Eval-Säule.
 
 ```mermaid
 flowchart TD
@@ -34,17 +38,21 @@ flowchart TD
     EV -. eigene Säule, kein Pass/Fail .-> M
 ```
 
+**Abbildung 19.1:** Testpyramide und Eval-Säule.
+
 ---
 
-## 2. Automatisierte Tests (Vitest)
+## 19.2 Automatisierte Tests (Vitest)
 
-### 2.1 Unit-Tests (§8.1)
+### 19.2.1 Unit-Tests (§8.1)
 
 Unit-Tests liegen teils **co-located** neben dem Modul (`Foo.ts` → `Foo.test.ts`, z. B. `src/shared/citationMarkers.test.ts`) und teils unter `tests/unit/` (56 Dateien zum Stichtag, u. a. `chunker.test.ts`, `parser.test.ts`, `rrf.test.ts`, `eval-metrics.test.ts`, `license-validator.test.ts`, `matrix-manifest.test.ts`). Sie laufen ohne externe Services: PGlite in-process, Argon2 nativ/lokal, OCR gemockt, keine Netzwerkzugriffe.
 
-### 2.2 Integrationstests (§8.2)
+### 19.2.2 Integrationstests (§8.2)
 
-`tests/integration/` zieht mehrere Module in-Process zusammen, gegen eine **echte In-Memory-PGlite** (inkl. pgvector, Drizzle- + Raw-SQL-Migrationen), gestartet über `AuthService.register` — keine Mocks. Die drei §8.2-E2E-Suiten (AP-T.2):
+`tests/integration/` zieht mehrere Module in-Process zusammen, gegen eine **echte In-Memory-PGlite** (inkl. pgvector, Drizzle- + Raw-SQL-Migrationen), gestartet über `AuthService.register` — keine Mocks. Die drei §8.2-E2E-Suiten (AP-T.2) sind in Tabelle 19.2 zusammengefasst.
+
+**Tabelle 19.2:** Integrations-E2E-Suiten (AP-T.2).
 
 | Suite | Datei | Inhalt |
 |---|---|---|
@@ -52,14 +60,18 @@ Unit-Tests liegen teils **co-located** neben dem Modul (`Foo.ts` → `Foo.test.t
 | RetrievalService E2E | `tests/integration/retrieval-corpus-e2e.test.ts` | 60-Chunk-Korpus, 10 Fragen treffen ihre `##`-Sektion im Top-5, In-Prozess-Determinismus |
 | Auth E2E §8.2 | `tests/integration/auth-e2e.test.ts` | Voller Round-Trip: Register → Login → Verschlüsseln → Neustart → Entschlüsseln → Recovery-Reset → neuer Login |
 
-### 2.3 Transaktionstests (§8.2)
+### 19.2.3 Transaktionstests (§8.2)
+
+Tabelle 19.3 listet die transaktionalen Testebenen und ihre Isolation.
+
+**Tabelle 19.3:** Transaktionale Testebenen und Isolation.
 
 | Ebene | Ordner | Isolation |
 |---|---|---|
 | Transaktional DB | `tests/tx/db/` | `BEGIN/ROLLBACK` pro Test (u. a. `documents-repo`, `search-repo`, `embedding-repo`, `conversations-repo`, `schema-objects`) |
 | Transaktional Vault | `tests/tx/vault/` | Voller Vault-Round-Trip register → dump → encrypt → load (`round-trip.test.ts`, `crash-resilience.test.ts`) |
 
-### 2.4 Reproduktion und Laufzeit
+### 19.2.4 Reproduktion und Laufzeit
 
 - Voll-Suite (unit + int + tx): `pnpm test`. Coverage: `pnpm test:cov` (v8).
 - AP-T.2-Suiten zusammen lokal ~70 s (< 5 min gefordert); CI-Job (integration + tx) ~2:40 min (Quelle: `ap-t2-abschluss-doku.md`).
@@ -67,9 +79,11 @@ Unit-Tests liegen teils **co-located** neben dem Modul (`Foo.ts` → `Foo.test.t
 
 ---
 
-## 3. Coverage AP-T.1 (§8.1, Branch ≥ 70 %, Statements ≥ 80 %)
+## 19.3 Coverage AP-T.1 (§8.1, Branch ≥ 70 %, Statements ≥ 80 %)
 
-Nachweis: `pnpm run test:cov:apt1` (Quelle: `docs/work/ap-t1-abschluss-doku.md`). Alle fünf Zielmodule erfüllen **beide** Schwellen.
+Nachweis: `pnpm run test:cov:apt1` (Quelle: `docs/work/ap-t1-abschluss-doku.md`). Alle fünf Zielmodule erfüllen **beide** Schwellen, wie Tabelle 19.4 belegt.
+
+**Tabelle 19.4:** Coverage der AP-T.1-Zielmodule.
 
 | Modul | Tests | % Statements (≥ 80) | % Branch (≥ 70) |
 |---|---|---|---|
@@ -85,9 +99,11 @@ Nachweis: `pnpm run test:cov:apt1` (Quelle: `docs/work/ap-t1-abschluss-doku.md`)
 
 ---
 
-## 4. Manuelle Tests (§8.3)
+## 19.4 Manuelle Tests (§8.3)
 
-Markdown-Anleitungen unter `tests/manual/`, Schritt für Schritt an einer gebauten/lauffähigen App abzuarbeiten — kein Script. Themenbezogene Ordner und die M-Szenario-Liste:
+Markdown-Anleitungen unter `tests/manual/`, Schritt für Schritt an einer gebauten/lauffähigen App abzuarbeiten — kein Script. Tabelle 19.5 listet die themenbezogenen Ordner.
+
+**Tabelle 19.5:** Themenbezogene manuelle Testanleitungen.
 
 | Bereich | Datei(en) |
 |---|---|
@@ -97,7 +113,9 @@ Markdown-Anleitungen unter `tests/manual/`, Schritt für Schritt an einer gebaut
 | Settings | `settings/01-ollama-connector.md` |
 | Hardware | `hardware/01-hardware-smoke-test.md` |
 
-M-Szenarien (§8.3, AP-T.3b) unter `tests/manual/m-szenarien/`:
+M-Szenarien (§8.3, AP-T.3b) unter `tests/manual/m-szenarien/` sind in Tabelle 19.6 aufgeführt.
+
+**Tabelle 19.6:** M-Szenarien und Durchführungsstatus.
 
 | Nr. | Szenario | Status |
 |---|---|---|
@@ -114,7 +132,7 @@ M-Szenarien (§8.3, AP-T.3b) unter `tests/manual/m-szenarien/`:
 
 ---
 
-## 5. Smoke-Tests
+## 19.5 Smoke-Tests
 
 - **Hardware-Smoke-Test** (`tests/manual/hardware/01-hardware-smoke-test.md`): manueller Lauf auf unterschiedlicher Hardware (GPU/CPU-only), deckt OS-Spezifika und Modell-Residency ab, die in CI nicht reproduzierbar sind.
 - **Eval-Smoke**: `pnpm evals:run` läuft mit Fake-Stub-Configs (`defaultConfigs()`, kein LLM-Load) als schneller CI-tauglicher Smoke; `pnpm evals:sweep -- --limit 10` als 10-Fragen-Smoke pro Config (Quelle: `tests/evals/README.md`).
@@ -122,17 +140,19 @@ M-Szenarien (§8.3, AP-T.3b) unter `tests/manual/m-szenarien/`:
 
 ---
 
-## 6. Eval-Tests (Quality-Evals, §8.5)
+## 19.6 Eval-Tests (Quality-Evals, §8.5)
 
 Eigene Säule neben der Pyramide (`tests/evals/`): es wird **nicht Korrektheit** geprüft (Pass/Fail), sondern **Qualität** einer probabilistischen Pipeline — Zahlen (recall@k, MRR, nDCG, Span-Recall) im Config-Vergleich. „Eine Eval schlägt nicht fehl — sie schneidet besser oder schlechter ab." (Quelle: `tests/evals/README.md`).
 
-### 6.1 Eval-Dev-Set (AP-E.1)
+### 19.6.1 Eval-Dev-Set (AP-E.1)
 
 `tests/evals/data/cases.jsonl` — **80 Fälle**: 24 DE / 56 EN (30/70), 48 beantwortbar / 20 Refusal / 12 teilweise (60/25/15), über fünf Sample-Docs. Schema je Fall: `id, lang, workspace_seed, question, expected_chunk_ids, expected_answer_substring, expected_refusal`. Validator/Loader `tests/unit/eval-cases.test.ts` (386 Tests) prüft Schema, Verteilung, eindeutige IDs, das **wörtliche** Vorkommen jedes Belegs im referenzierten Chunk und pinnt den Chunker `fixed-512-64`. Die 15 versiegelten Hold-out-Fälle (AP-E1b, R5-Echo-Kammer-Schutz) liegen separat als `tests/evals/data/holdout/dominik-15.jsonl` (Branch `dom/ap-e1b-holdout`, bewusst nicht gepusht).
 
-### 6.2 Matrix-Eval (AP-E.2) — kartesischer RAG-Sweep
+### 19.6.2 Matrix-Eval (AP-E.2) — kartesischer RAG-Sweep
 
-AP-E.2 evaluiert die RAG-Pipeline als kartesisches Produkt über vier Achsen (Quellen: `tests/evals/README.md`, `tests/evals/answer/matrix-manifest.ts`, die Packs unter `tests/evals/answer/`):
+AP-E.2 evaluiert die RAG-Pipeline als kartesisches Produkt über vier Achsen (Quellen: `tests/evals/README.md`, `tests/evals/answer/matrix-manifest.ts`, die Packs unter `tests/evals/answer/`). Tabelle 19.7 zeigt die vier Matrix-Achsen.
+
+**Tabelle 19.7:** Achsen des kartesischen RAG-Sweeps.
 
 | Achse | Anzahl | Pack / Quelle |
 |---|---|---|
@@ -147,13 +167,15 @@ Daraus: Retrieval-Configs = 8 × 3 × 1 = **24**; Zellen = 24 × 15 = **360**; L
 
 LAP-Dataset zum Stichtag: `lap-dataset.json` mit **2.322 Chunks**, **163 deutschen RAG-Fragen** (148 answerable + 15 refusal), verifizierten Gold-Spans (Quelle: `projektstatusbericht-2026-06-14.md`).
 
-### 6.3 Span-Recall-Metrik (chunker-unabhängig)
+### 19.6.3 Span-Recall-Metrik (chunker-unabhängig)
 
 `tests/evals/metrics-span.ts` (+ `tests/unit/eval-metrics-span.test.ts`, `chunker-spans.test.ts`) misst Retrieval über **Zeichen-Offset-Overlap** zwischen retrievten Chunks und Gold-Spans im Quelldokument — bewusst **chunker-unabhängig**, damit unterschiedliche Chunkings über dieselben Gold-Spans vergleichbar bleiben. Span-r@10 / nDCG liegen pro Lauf in `result.json` (nicht in der summary-Tabelle).
 
-### 6.4 Judge und Paper-Aggregation
+### 19.6.4 Judge und Paper-Aggregation
 
 `pnpm evals:sweep -- --judge` lädt ein XL-Profil-Modell als Bewerter und scort jede Antwort entlang **correctness**, **groundedness**, **helpfulness**. Composite: `2 × judge.score + 1 × recall@5 − 0.5 × (TTFT_p50_ms / 1000)`. `evals:datasets` (Multi-Datensatz-Schleife) und `evals:paper` (`aggregate-paper.ts` → `paper-table.csv`/`.tex`) automatisieren den Weg zur papierfertigen Tabelle. Diese A/B/C-Schicht ist implementiert und unit-getestet (`matrix-configs.test.ts`, `matrix-manifest.test.ts`, `paper-aggregate.test.ts`).
+
+Abbildung 19.2 zeigt die Eval-Pipeline von den Sample-Docs bis zur papierfertigen Tabelle.
 
 ```mermaid
 flowchart LR
@@ -165,9 +187,15 @@ flowchart LR
     JUDGE --> PAPER["evals:paper<br/>paper-table.csv / .tex"]
 ```
 
+**Abbildung 19.2:** Eval-Pipeline bis zur Paper-Tabelle.
+
 ---
 
-## 7. Validatoren, Lizenz- und Datenchecks
+## 19.7 Validatoren, Lizenz- und Datenchecks
+
+Tabelle 19.8 fasst die Validatoren sowie Lizenz- und Datenchecks zusammen.
+
+**Tabelle 19.8:** Validatoren, Lizenz- und Datenchecks.
 
 | Check | Datei | Wirkung |
 |---|---|---|
@@ -181,9 +209,11 @@ Der Lizenz-Gate ist die Grundlage dafür, dass nur OSI-permissive Modelle (Apach
 
 ---
 
-## 8. Continuous Integration (`.github/workflows/checks.yml`)
+## 19.8 Continuous Integration (`.github/workflows/checks.yml`)
 
-CI läuft auf PRs und auf jeden push außer `main` (`main` hat einen eigenen Deploy-Workflow). Ehrlicher Stand der CI-Entwicklung:
+CI läuft auf PRs und auf jeden push außer `main` (`main` hat einen eigenen Deploy-Workflow). Tabelle 19.9 zeigt den ehrlichen Stand der CI-Jobs.
+
+**Tabelle 19.9:** Continuous-Integration-Jobs und Status.
 
 | Job | Was läuft | Status |
 |---|---|---|
@@ -194,7 +224,11 @@ CI läuft auf PRs und auf jeden push außer `main` (`main` hat einen eigenen Dep
 
 ---
 
-## 9. Bekannte Lücken (ehrlich)
+## 19.9 Bekannte Lücken (ehrlich)
+
+Tabelle 19.10 dokumentiert die bekannten Lücken samt Beleg.
+
+**Tabelle 19.10:** Bekannte Test- und CI-Lücken.
 
 | Lücke | Detail | Beleg |
 |---|---|---|
