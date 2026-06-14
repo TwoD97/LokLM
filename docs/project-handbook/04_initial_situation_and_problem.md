@@ -8,7 +8,9 @@ Gleichzeitig sind KI-Chatassistenten zur breit verfügbaren Hilfe geworden — s
 
 ## 4.2 Problemstellung: Cloud-LLMs gegen lokale Vertraulichkeit
 
-Daraus ergibt sich der zentrale Zielkonflikt des Projekts:
+Daraus ergibt sich der zentrale Zielkonflikt des Projekts (Tabelle 4.1):
+
+**Tabelle 4.1:** Zielkonflikt Cloud-LLM gegenüber lokaler Vertraulichkeit.
 
 | Pol                         | Eigenschaft                                                                                       |
 | --------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -27,6 +29,10 @@ Sprachmodelle können plausibel klingende, aber sachlich falsche Antworten erzeu
 - **Ehrlichkeit statt Erfindung:** Enthalten die eigenen Dokumente keine Antwort, verweigert das System ehrlich, statt zu erfinden (Z-4).
 
 ## 4.4 Technische Herausforderungen
+
+Tabelle 4.2 fasst die technischen Herausforderungen und die gewählten Lösungsansätze zusammen.
+
+**Tabelle 4.2:** Technische Herausforderungen und Lösungsansätze.
 
 | Herausforderung                         | Beschreibung                                                                                              |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |

@@ -11,6 +11,10 @@ Das Handbuch dient zwei Funktionen:
 
 ## 1.2 Zielgruppe
 
+Tabelle 1.1 fasst die Zielgruppen und ihr jeweiliges Nutzungsinteresse zusammen.
+
+**Tabelle 1.1:** Zielgruppen des Handbuchs und ihr Nutzungsinteresse.
+
 | Zielgruppe                         | Nutzungsinteresse                                                                                  |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
 | **Entwickler / Repo-Besucher**     | Einstieg in Architektur, Services, Datenfluss und Build; Orientierung vor dem ersten Code-Beitrag |
