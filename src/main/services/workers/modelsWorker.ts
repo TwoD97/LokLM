@@ -33,6 +33,25 @@ import type {
 } from './protocol'
 import { fitsUtilityContext, UTILITY_CONTEXT_MAX_TOKENS } from './llmRouting'
 
+// --- GPU enablement inside the utility process (load-bearing) ----------------
+// Before loading a GPU binary on Windows, node-llama-cpp FORCES a compatibility
+// check (getShouldTestBinaryBeforeLoading hardcodes it for any Windows GPU
+// build) that FORKS a short-lived child to test-load the .node binary. When
+// running inside Electron it forks via `process.execPath` — which here is
+// electron.exe. Without ELECTRON_RUN_AS_NODE the child launches as a full
+// Electron app instead of Node, never signals "ready", and the test is judged
+// "failed" — so node-llama-cpp concludes no GPU binary is usable and silently
+// falls all the way back to CPU. On a CUDA machine (e.g. RTX 5090) the model
+// then loads on CPU even though `inspect gpu` reports CUDA available with full
+// VRAM. Setting this here (the worker is already spawned, so parentPort is
+// wired and unaffected) makes that test child run as Node, the binary test
+// passes, and CUDA/Vulkan latch. Must be set before the FIRST getLlama call —
+// the planner's VRAM probe (refreshIfStale) can run getLlama before
+// ensureBackend, so module scope is the only safe place.
+if (process.env['ELECTRON_RUN_AS_NODE'] == null) {
+  process.env['ELECTRON_RUN_AS_NODE'] = '1'
+}
+
 // utilityProcess provides process.parentPort with postMessage / on('message').
 declare const process: NodeJS.Process & {
   parentPort: {
@@ -245,7 +264,12 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     gpu: null,
   })
   const lib = await import('node-llama-cpp')
-  const llama = await ensureBackend(false, (msg) => pushStatus('llm', { message: msg }))
+  // 'cpu' forces the CPU backend; 'gpu'/'auto' let getLlama auto-detect (GPU
+  // first, CPU fallback). The shared-backend singleton means whichever service
+  // inits first wins — see LlmLoadPayload.placement.
+  const llama = await ensureBackend(payload.placement === 'cpu', (msg) =>
+    pushStatus('llm', { message: msg }),
+  )
   pushStatus('llm', { gpu: backendGpuLabel, message: 'Loading model weights…' })
 
   // Probe resources BEFORE the weights allocate so planLlm's freeVram math
@@ -253,6 +277,13 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   // service warmups don't each re-probe VRAM (post-load is still forced).
   const resources = await planner.refreshIfStale()
   const weightsBytes = payload.weightsBytes || ggufWeightBytes(payload.modelPath)
+  // When the user pinned CPU, plan KV against RAM rather than VRAM the backend
+  // won't use — otherwise planLlm budgets context for VRAM that's never
+  // allocated. Clone so the planner's cached snapshot isn't mutated.
+  const planResources =
+    payload.placement === 'cpu'
+      ? { ...resources, hasGpu: false, freeVramGB: 0, totalVramGB: 0 }
+      : resources
 
   const model = await (
     llama as {
@@ -273,7 +304,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     profileName: payload.profileName ?? 'full',
     profileDefaultContext: payload.profileDefaultContext,
     weightsBytes,
-    resources,
+    resources: planResources,
     userContextChoice: userChoice,
   })
 
@@ -299,7 +330,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
             profileName: payload.profileName ?? 'full',
             profileDefaultContext: maxCtxBound,
             weightsBytes,
-            resources,
+            resources: planResources,
             userContextChoice: userChoice,
             forceKvType: attemptType,
           })
@@ -418,7 +449,23 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     message: 'Ready.',
     gpu: backendGpuLabel,
   })
-  return { plan: activePlan, resources: postResources, gpuLabel: backendGpuLabel }
+  const onGpu = backendGpuLabel != null && backendGpuLabel !== 'cpu'
+  const resolvedPlacement: 'cpu' | 'gpu' = onGpu ? 'gpu' : 'cpu'
+  const placementReason =
+    payload.placement === 'cpu'
+      ? 'cpu: forced by setting'
+      : onGpu
+        ? `gpu: ${backendGpuLabel} backend`
+        : payload.placement === 'gpu'
+          ? 'cpu: no GPU backend available — fell back'
+          : 'cpu: no GPU backend detected'
+  return {
+    plan: activePlan,
+    resources: postResources,
+    gpuLabel: backendGpuLabel,
+    resolvedPlacement,
+    placementReason,
+  }
 }
 
 async function llmUnloadInternal(): Promise<void> {
@@ -440,7 +487,9 @@ async function llmUnloadInternal(): Promise<void> {
 
 async function llmUnload(): Promise<void> {
   await llmUnloadInternal()
-  pushStatus('llm', { state: 'unloaded', message: 'Model unloaded.' })
+  // Clear the device label so a stale 'cuda'/'cpu' doesn't leak into the status
+  // bar after the model is gone (e.g. when the user flips to remote Ollama).
+  pushStatus('llm', { state: 'unloaded', message: 'Model unloaded.', gpu: null })
 }
 
 // node-llama-cpp's default repeat penalty (lastTokens=64, penalty=1.1) is too

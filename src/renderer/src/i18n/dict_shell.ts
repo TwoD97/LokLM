@@ -23,6 +23,10 @@ export const shellDict: DomainDict = {
     'shell.statusFailed': 'Failed · {where}',
     'shell.statusUnloaded': 'Unloaded · {where}',
     'shell.statusIdle': 'Idle · {where}',
+    'shell.deviceCpu': 'CPU',
+    'shell.deviceGpu': 'GPU ({backend})',
+    'shell.deviceGpuShort': 'GPU',
+    'shell.runningOn': 'Running on {device}',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Create or select a workspace first.',
@@ -74,6 +78,10 @@ export const shellDict: DomainDict = {
     'shell.statusFailed': 'Fehlgeschlagen · {where}',
     'shell.statusUnloaded': 'Entladen · {where}',
     'shell.statusIdle': 'Inaktiv · {where}',
+    'shell.deviceCpu': 'CPU',
+    'shell.deviceGpu': 'GPU ({backend})',
+    'shell.deviceGpuShort': 'GPU',
+    'shell.runningOn': 'Läuft auf {device}',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Erstelle oder wähle zuerst einen Workspace.',
