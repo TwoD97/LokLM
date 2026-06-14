@@ -29,18 +29,24 @@ export interface SourceChunk {
 export type QuestionIntent = 'focused' | 'broad' | 'summary'
 
 export interface GeneratedQuestion {
-  /** referenz auf den chunk der die antwort enthalten sollte. Bei broad/summary
-   *  ist das der "primäre" Chunk; das vollständige Set steht in requiredChunkIds. */
+  /** referenz auf den chunk der die antwort enthalten sollte. */
   chunkId: string
   /** die generierte frage */
   question: string
-  /** Multi-Relevant-Ground-Truth: alle Chunks , die in den Top-K auftauchen
-   *  sollten , damit die Frage gut beantwortet werden kann. Fehlt das Feld ,
-   *  fällt die Eval auf `[chunkId]` zurück (Backward-Compat mit dem alten
-   *  Single-Relevant-Datensatz). */
+  /** Multi-Relevant-Ground-Truth (siehe requiredChunkSet). */
   requiredChunkIds?: string[]
-  /** Welcher Intent-Bucket. Default 'focused' für rückwärtskompatible Datensätze. */
+  /** Welcher Intent-Bucket. Default 'focused' für alte Datensätze. */
   intent?: QuestionIntent
+  /** Chunker-unabhängige Gold-Spans für span-basiertes Retrieval-Scoring.
+   *  Vom LAP-Konverter aus den (required) Chunk-Offsets aufgelöst. Fehlt →
+   *  die Eval fällt auf chunkId-basiertes Matching zurück. */
+  goldSpans?: { docId: string; start: number; end: number }[]
+  /** sprache der frage, für DE/EN-Auswertung. */
+  lang?: 'de' | 'en'
+  /** erwartet das system eine ablehnung (antwort nicht im korpus)? */
+  expectedRefusal?: boolean
+  /** kern-phrase die in einer korrekten antwort vorkommen sollte (für den judge). */
+  expectedAnswerSubstring?: string
   /** optionale begründung / kategorie aus dem generator (für debugging) */
   meta?: Record<string, string>
 }
