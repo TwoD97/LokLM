@@ -15,11 +15,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 
 | Paket / Ergebnis | Beleg | Verantwortlich |
 |---|---|---|
-| **v0.4.0** — Audio-Transkriptions-Subsystem (Whisper + Sprecher-Diarisation, Batch-Queue, Export) + Quiz-Rework | Release `f468477`/`53384c3`; macOS `ce5c0df` | Denis Tudosa |
-| **v0.4.1** — Windows-GPU-Translator-Sidecar + Multi-OS-Release-Härtung | Release `ea66671` (13.06.) | Denis Tudosa |
-| **Quiz-Generierung neu aufgebaut** (chunk-getrieben, modell-bestimmte Fragenanzahl, CPU-Pfade) | gemerged `1f327e0` (12.06.) | Denis Tudosa |
-| **Electron-Sicherheitshärtung** (echte CSP, Renderer-Sandbox, Navigations-Guards, Fuses, mlock-Schlüsselspeicher) | gemerged `04b318d` (`main`) | Denis Tudosa |
-| **QA-Routing Phasen 1–3** (Doc-Summary-Route, Korpus-/Aggregations-Route, Mehrfragen-Decomposition, ADR-0003) | gemerged (`main`); `fa19771`, `83fc8e8`, `d395a54`, `96161b6` | Denis Tudosa |
+| **v0.4.0** — Audio-Transkriptions-Subsystem (Whisper + Sprecher-Diarisation, Batch-Queue, Export) + Quiz-Rework | Release `f468477`/`53384c3`; macOS `ce5c0df` | Denys Tudosa |
+| **v0.4.1** — Windows-GPU-Translator-Sidecar + Multi-OS-Release-Härtung | Release `ea66671` (13.06.) | Denys Tudosa |
+| **Quiz-Generierung neu aufgebaut** (chunk-getrieben, modell-bestimmte Fragenanzahl, CPU-Pfade) | gemerged `1f327e0` (12.06.) | Denys Tudosa |
+| **Electron-Sicherheitshärtung** (echte CSP, Renderer-Sandbox, Navigations-Guards, Fuses, mlock-Schlüsselspeicher) | gemerged `04b318d` (`main`) | Denys Tudosa |
+| **QA-Routing Phasen 1–3** (Doc-Summary-Route, Korpus-/Aggregations-Route, Mehrfragen-Decomposition, ADR-0003) | gemerged (`main`); `fa19771`, `83fc8e8`, `d395a54`, `96161b6` | Denys Tudosa |
 | **AP-6 Library-Suche** (Filter/Sortierung, manuelles DoD-Szenario bestanden) | **PR #12 gemerged** `d24ef59` (10.06.) | Dominik Furlan |
 | **AP-9 Settings** (alle Felder: Behavior, Indexing-/Retrieval-Slider, Account-Sektion, Light-Mode) | **PR #13 gemerged** `45b8133` (10.06.) | Dominik Furlan |
 | **SEO-Cornerstone #5 / Eval-Automatisierung / Test-Szenarien (AP-T.3b)** | **PR #9/#11/#14 gemerged** (08.06.) | Dominik Furlan |

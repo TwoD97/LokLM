@@ -6,12 +6,12 @@ Das Projekt wurde von einem **Zwei-Personen-Team** mit klar getrennten Verantwor
 
 | Name              | Rolle                          | Kern-Verantwortung                                                                 |
 | ----------------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| **Denis Tudosa**  | Projekt-Owner / Projektleiter  | Architektur, Backend, Auth/Krypto, RAG-Core, Chunking, Installer/Release, Quiz, Transkription, QA-Routing |
+| **Denys Tudosa**  | Projekt-Owner / Projektleiter  | Architektur, Backend, Auth/Krypto, RAG-Core, Chunking, Installer/Release, Quiz, Transkription, QA-Routing |
 | **Dominik Furlan**| Dokumentations-Owner & Tester  | Test-Säule (Unit/Integration/Eval), UI/UX (Auth-UI, Suche, Settings), Dokumentation, Eval-Authoring, Verteilungs-Website |
 
 Die Rollentrennung ist auch eine **Qualitätssicherungs-Maßnahme**: Der Tester ist nicht zugleich Autor der getesteten Backend-Logik. Das senkt das Echo-Kammer-Risiko bei der Evaluierung (Risiko R5).
 
-## 7.2 Denis Tudosa — Projekt-Owner
+## 7.2 Denys Tudosa — Projekt-Owner
 
 | Feld                     | Angabe                                                                                                                  |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -45,9 +45,9 @@ Die Rollentrennung ist auch eine **Qualitätssicherungs-Maßnahme**: Der Tester 
 | AP-E1b (Hold-out) | Dominik | umgesetzt (lokal, R5-geschützt)                |
 | AP-E.2 Phase 1 (Metrik + LAP-Dataset) | Dominik | umgesetzt (lokal)             |
 | AP-E.2 Phase 2 (GPU-Sweep) | Dominik | **in Arbeit / offen**                      |
-| v0.4.0/v0.4.1 (Transkription, Quiz, Härtung, Sidecar) | Denis | released |
-| QA-Routing (ADR-0003) | Denis | gemerged (`main`)                          |
-| Electron-Sicherheitshärtung | Denis | gemerged (`main`)                    |
+| v0.4.0/v0.4.1 (Transkription, Quiz, Härtung, Sidecar) | Denys | released |
+| QA-Routing (ADR-0003) | Denys | gemerged (`main`)                          |
+| Electron-Sicherheitshärtung | Denys | gemerged (`main`)                    |
 
 ## 7.5 Zusammenarbeit und Team-Regeln
 
@@ -56,8 +56,8 @@ Die Zusammenarbeit folgt den im Lastenheft (§13) vereinbarten Dimensionen (Info
 - **GitHub** mit täglichen Commits, Pull-Request-Workflow und Code-Review (Leserecht des Projektbetreuers);
 - **Kanban (Vikunja)** zur AP-/Task-Steuerung;
 - **Outline** als internes Doku-/Wissens-Wiki (AP-Abschluss-Dokumente);
-- **wöchentliche Briefings** (Denis → Dominik) und wöchentliche Projektstatusberichte als Wissens- und Übergabe-Mechanismus (auch als Ausfall-Absicherung, Risiken R3/R7).
+- **wöchentliche Briefings** (Denys → Dominik) und wöchentliche Projektstatusberichte als Wissens- und Übergabe-Mechanismus (auch als Ausfall-Absicherung, Risiken R3/R7).
 
 > WARN durch Team zu ergaenzen — Bei Patt-Entscheidungen sieht das Lastenheft (§13) eine außenstehende, nicht involvierte Person als Entscheider anhand der sachlich stärkeren Argumente vor. Ob ein solcher Fall im Projektverlauf eingetreten ist, ist beim Team zu ergänzen.
 
-> WARN zu verifizieren — Die Schreibweise des Projekt-Owner-Vornamens variiert in den Quellen („Denys" in Lasten-/Pflichtenheft, „Denis" in den Statusberichten). Dieses Handbuch verwendet einheitlich „Denis Tudosa"; die korrekte Form ist vor der gebundenen Abgabe festzulegen.
+Verbindliche Schreibweise: **Denys Tudosa** (Lasten-/Pflichtenheft); die Projektstatusberichte verwenden abweichend „Denis".

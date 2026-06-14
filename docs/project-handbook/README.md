@@ -4,6 +4,8 @@
 
 Stand: **2026-06-14** · Handbuch-Version **0.1** · Projektstand nach ca. 9 Wochen Projektarbeit
 
+> 🚧 **Entwicklungsstand — in Arbeit.** Dieses Handbuch ist ein **lebendes Dokument** und entsteht **während** der laufenden Projektentwicklung. Der vorliegende Stand ist eine **datierte Momentaufnahme**; eine **finale Durchsicht und Konsolidierung steht noch aus** (offene Punkte: [HANDBOOK_STATUS.md](HANDBOOK_STATUS.md) und [OPEN_QUESTIONS_FOR_TEAM.md](OPEN_QUESTIONS_FOR_TEAM.md)). Erst nach dieser Schluss-Durchsicht erfolgen Export/Bindung und eine etwaige Veröffentlichung. Bis dahin bleibt alles lokal.
+
 ---
 
 ## Kurzbeschreibung

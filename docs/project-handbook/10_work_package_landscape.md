@@ -3,7 +3,7 @@
 Diese Datei gibt einen vollständigen Überblick über alle erkennbaren Arbeitspakete (APs)
 des Projekts LokLM — sowohl die formal als AP-IDs geführten (vor allem Dominiks Test-,
 Eval- und UI-Pakete) als auch die aus Commits/PRs/Releases ableitbaren Partner-Pakete
-von Denis Tudosa (Chunking/Auth/RAG/Installer). APs mit eindeutigem Ticket-/DoD-Beleg
+von Denys Tudosa (Chunking/Auth/RAG/Installer). APs mit eindeutigem Ticket-/DoD-Beleg
 sind als solche markiert; aus Commits/Releases **abgeleitete** Pakete tragen einen
 Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline) liegt.
 
@@ -18,7 +18,7 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 - **Status:** fertig = gemergt/released bzw. DoD nachweislich erfüllt · teilweise =
   Kern fertig, Restposten offen · offen = in Arbeit/nicht abgeschlossen · verworfen =
   bewusst aufgegeben · unklar = Beleglage unzureichend.
-- **Rolle:** D = Dominik Furlan (Doku/Tests/UI/Eval) · P = Denis Tudosa (Partner;
+- **Rolle:** D = Dominik Furlan (Doku/Tests/UI/Eval) · P = Denys Tudosa (Partner;
   Chunking/Auth/RAG/Installer).
 - **Priorität:** abgeleitet aus Meilenstein-/Gate-Bezug; ohne formale Skala (siehe
   `08_project_management_kanban_outline.md`).
@@ -37,7 +37,7 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 | AP-E1b | 15 Hold-out-Fälle (R5-Schutz) | Eval | D | versiegeltes Hold-out gegen Echo-Kammer-Effekt | `dominik-15.jsonl` (9 ans / 4 ref / 2 partial) | **fertig** (Branch, lokal/R5-geschützt) | mittel | Commit `701bef1`; `ap-e1-abschluss-doku.md` (Abgrenzung) | AP-E.1-Korpus |
 | AP-E.2 | Kartesische RAG-Matrix-Eval | Eval | D | Embedder×Reranker×Chunker×LLM-Sweep über LAP-Korpus, Span-Recall/nDCG | Phase 1: Span-Metrik, LAP→Dataset-Converter, Matrix-Bridges, Pre-Run-Manifest, OSI-Lizenz-Gate; LAP-Dataset (2.322 Chunks, 163 DE-Fragen) | **teilweise** (Phase 1 lokal umgesetzt; **Phase 2 GPU-Sweep offen**) | hoch | Branch `dom/ap-e2-matrix-eval`; Commits `6a5e27e`…`5c89369`; `projektstatusbericht-2026-06-14.md` | AP-E.1/E1b, GPU (RunPod) |
 
-## 2. Partner-/Projekt-Pakete (Denis Tudosa, aus Commits/PRs/Releases abgeleitet)
+## 2. Partner-/Projekt-Pakete (Denys Tudosa, aus Commits/PRs/Releases abgeleitet)
 
 > ⚠️ zu verifizieren: Die folgenden Pakete sind aus Commit-Bereichen, PR-Titeln,
 > Release-Tags und den Projektstatusberichten **abgeleitet**; sie tragen im Repo nicht
@@ -81,7 +81,7 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 - **Dominiks APs** konzentrieren sich auf die **Test-/Eval-/UI-Säule** (AP-6, AP-9,
   AP-T.1/T.2/T.3b, AP-E.1/E1b/E.2) plus die Website-/SEO-Inhalte und die
   Eval-Automatisierung. Sie sind durchgängig mit Abschluss-Dokus + DoD-Tabellen belegt.
-- **Denis' Pakete** tragen die **App-/RAG-/Installer-/Release-Substanz** und sind über
+- **Denys' Pakete** tragen die **App-/RAG-/Installer-/Release-Substanz** und sind über
   Releases (v0.1.x–v0.4.x) und die wöchentlichen Berichte belegt, aber seltener mit
   formaler AP-ID versehen.
 - **Offene/teilweise Pakete** (Stand 14.06.): AP-E.2 Phase 2 (GPU-Sweep), die Test-PRs

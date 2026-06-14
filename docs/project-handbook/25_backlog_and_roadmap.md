@@ -44,9 +44,9 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 
 | Schuld | Gemeldet an | Empfehlung |
 |---|---|---|
-| `searchChunks` / `searchChunksByVector` ohne Tie-Break im `ORDER BY` | Denis (Logik-Domäne) | zweiter Sortierschlüssel (`document_id`/`chunk_id`) → Cross-Session-Determinismus |
-| `document-import.test.ts` nutzt fixes `setTimeout(2000)` | Denis | auf Polling-`waitFor` umstellen (Flake-Risiko) |
-| Auth-Krypto-Wrapper nur per `export` test-sichtbar gemacht | Denis | optional später in `auth/crypto.ts` auslagern (kein AP-T.1-Eingriff) |
+| `searchChunks` / `searchChunksByVector` ohne Tie-Break im `ORDER BY` | Denys (Logik-Domäne) | zweiter Sortierschlüssel (`document_id`/`chunk_id`) → Cross-Session-Determinismus |
+| `document-import.test.ts` nutzt fixes `setTimeout(2000)` | Denys | auf Polling-`waitFor` umstellen (Flake-Risiko) |
+| Auth-Krypto-Wrapper nur per `export` test-sichtbar gemacht | Denys | optional später in `auth/crypto.ts` auslagern (kein AP-T.1-Eingriff) |
 | Coverage-Nachweis AP-T.1 noch scoped (`test:cov:apt1`) | — | nach #19-Merge auf Voll-Suite-Lauf + dauerhaftes Threshold-Gate umstellen |
 
 ## 6. Doku-Lücken

@@ -21,10 +21,10 @@
 
 | Name              | Rolle                          | Verantwortungsbereich                                                             |
 | ----------------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| **Denis Tudosa**  | Projekt-Owner                  | Chunking, Authentifizierung/Krypto, RAG-Core, Installer/Release, Quiz, Transkription, QA-Routing |
+| **Denys Tudosa**  | Projekt-Owner                  | Chunking, Authentifizierung/Krypto, RAG-Core, Installer/Release, Quiz, Transkription, QA-Routing |
 | **Dominik Furlan**| Dokumentations-Owner & Tester  | Dokumentation, Testabdeckung (Unit/Integration/Eval), UI/UX (Suche, Settings)    |
 
-> WARN zu verifizieren — Im Lastenheft/Pflichtenheft erscheint der Vorname des Projekt-Owners als „Denys Tudosa", in den Projektstatusberichten als „Denis Tudosa". Dieses Handbuch verwendet einheitlich „Denis Tudosa"; die abweichende Schreibweise in den Vertragsdokumenten ist beim Team zu klären.
+Verbindliche Schreibweise: **Denys Tudosa** (Lasten-/Pflichtenheft); die Projektstatusberichte verwenden abweichend „Denis".
 
 ---
 

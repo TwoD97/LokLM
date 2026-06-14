@@ -1,6 +1,6 @@
 # Testing und Qualitätssicherung
 
-Stand: **2026-06-14**. Test-Owner: **Dominik Furlan** (Dokumentation & Tests, UI/UX). Denis Tudosa (Projekt-Owner: Chunking/Auth/RAG/Installer) ergänzt punktuell Co-Located-Unit-Tests zu dem Code, den er selbst implementiert.
+Stand: **2026-06-14**. Test-Owner: **Dominik Furlan** (Dokumentation & Tests, UI/UX). Denys Tudosa (Projekt-Owner: Chunking/Auth/RAG/Installer) ergänzt punktuell Co-Located-Unit-Tests zu dem Code, den er selbst implementiert.
 
 Quellen für dieses Kapitel: `tests/README.md`, `tests/manual/README.md`, `tests/manual/m-szenarien/README.md`, `tests/evals/README.md`, `tests/e2e/README.md`, `.github/workflows/checks.yml`, `docs/work/ap-t1-abschluss-doku.md`, `docs/work/ap-t2-abschluss-doku.md`, `docs/work/ap-e1-abschluss-doku.md`, `docs/work/laborberichte/Laborbericht_LokLM_2026-06-12.md`.
 
@@ -81,7 +81,7 @@ Nachweis: `pnpm run test:cov:apt1` (Quelle: `docs/work/ap-t1-abschluss-doku.md`)
 
 **Abweichung vom Ticket-Wortlaut, bewusst dokumentiert:** Das Ticket nennt einen „PBKDF2-Wrapper". Implementiert ist **Argon2id** ([ADR-0001](23_decision_log.md)) — getestet werden die real implementierten Wrapper (Argon2id + AES-256-GCM), nicht der nie existierende PBKDF2-Pfad. Der `AuthService`-Branch-Wert (74.17 %) erreicht die Schwelle erst kombiniert mit den Auth-Integrationstests; reine Wrapper-Unit-Tests heben die Datei nur auf ~67 % (Session-/Vault-Logik braucht den echten Tresor). Die DoD nennt `pnpm test --coverage` (Gesamtsuite), nicht „Unit allein".
 
-> Der `export` der vier Krypto-Wrapper (`deriveKEK`/`wrapKey`/`unwrapKey`/`decryptBody`) ist rein test-getrieben (keine Logikänderung, nur Sichtbarkeit der Fehler-Branches). An Denis als Domänen-Owner gemeldet, nicht eigenmächtig in die Auth-Logik eingegriffen.
+> Der `export` der vier Krypto-Wrapper (`deriveKEK`/`wrapKey`/`unwrapKey`/`decryptBody`) ist rein test-getrieben (keine Logikänderung, nur Sichtbarkeit der Fehler-Branches). An Denys als Domänen-Owner gemeldet, nicht eigenmächtig in die Auth-Logik eingegriffen.
 
 ---
 
@@ -204,4 +204,4 @@ CI läuft auf PRs und auf jeden push außer `main` (`main` hat einen eigenen Dep
 | **Kein dauerhaftes Coverage-Threshold-Gate** | `vitest coverage.thresholds` ist (noch) nicht als Merge-Gate verdrahtet; der AP-T.1-Nachweis ist scoped (`test:cov:apt1`), bis PR #19 den Test-Job in `main` bringt. | `ap-t1-abschluss-doku.md` „Offene Fragen" |
 | **AP-E.2 Phase 2 (GPU-Sweep) offen** | Metrik + LAP-Dataset (Phase 1) stehen; der eigentliche Multi-Pod-GPU-Sweep über die Matrix ist vor der Abgabe noch nicht gefahren; Teile der Matrix-Verdrahtung sind noch uncommittet. | `projektstatusbericht-2026-06-14.md` |
 
-An die Logik-Domäne (Denis) gemeldet, nicht eigenmächtig geändert: `searchChunks`/`searchChunksByVector` ohne Tie-Break im `ORDER BY` (Cross-Session-Determinismus nicht garantiert) und ein fixes `setTimeout(2000)` in `document-import.test.ts` (latentes Flake-Risiko). Quelle: `ap-t2-abschluss-doku.md` §3.
+An die Logik-Domäne (Denys) gemeldet, nicht eigenmächtig geändert: `searchChunks`/`searchChunksByVector` ohne Tie-Break im `ORDER BY` (Cross-Session-Determinismus nicht garantiert) und ein fixes `setTimeout(2000)` in `document-import.test.ts` (latentes Flake-Risiko). Quelle: `ap-t2-abschluss-doku.md` §3.

@@ -10,10 +10,10 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 | ADR | Status | Datum | Owner |
 |---|---|---|---|
-| [0001](#d1) Argon2id als KDF | accepted | 2026-05-14 | Denis |
-| [0002](#d2) Envelope-Encryption AES-256-GCM | accepted | 2026-05-14 | Denis |
-| [0003](#d3) Query-Routing + Summary-Index | accepted | 2026-06-13 | Denis |
-| [0004](#d4) Adaptive Modell-Residency | **proposed** | 2026-06-13 | Denis |
+| [0001](#d1) Argon2id als KDF | accepted | 2026-05-14 | Denys |
+| [0002](#d2) Envelope-Encryption AES-256-GCM | accepted | 2026-05-14 | Denys |
+| [0003](#d3) Query-Routing + Summary-Index | accepted | 2026-06-13 | Denys |
+| [0004](#d4) Adaptive Modell-Residency | **proposed** | 2026-06-13 | Denys |
 
 ---
 

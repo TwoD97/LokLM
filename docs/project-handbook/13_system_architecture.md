@@ -32,9 +32,7 @@ Die Renderer-↔-Main-Kommunikation läuft ausschließlich über `ipcRenderer.in
 
 `auth:*`, `window:*`, `workspaces:*`, `documents:*`, `conversations:*`, `models:*`, `embedder:*`, `reranker:*`, `llm:*`, `search:*`, `chat:*`, `transcription:*`, `settings:*`, `ollama:*`, `quiz:*`, `translation:*`, `writing:*`, `logs:*`.
 
-> WARN zu verifizieren
-
-Die exakte Gesamtzahl der Handler liegt in der Größenordnung von rund 100 (vorgegebener Richtwert ~105); eine maschinelle Zählung über `ipcMain.handle(` wurde für dieses Handbuch nicht durchgeführt.
+Eine maschinelle Zählung über `ipcMain.handle(` in [src/main/index.ts](../../src/main/index.ts) ergibt **105 Handler** (Stand 2026-06-14).
 
 Streaming-Kanäle (Chat, Quiz, Transkription, Modell-Download) arbeiten mit pro-Stream-IDs: Der Handler `chat:stream` sendet Token/Citation/Stage-Ereignisse auf einem dynamischen Kanal `chat:stream-event:<streamId>`, abbrechbar über `chat:cancel` per `AbortController`. Status-Pushes (`llm:status`, `embedder:status`, `reranker:status`, `auth:state`, `provider:fallback`) werden an **alle** offenen Fenster gesendet.
 

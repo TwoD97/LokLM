@@ -157,7 +157,7 @@ Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integr
 
 - **Electron-Runtime fehlt in CI:** mehrere Suiten importieren `electron` → Ladefehler auf
   Ubuntu. Gelöst über den Electron-Stub statt Deaktivierung der Suiten.
-- **An Denis gemeldet (nur Hinweis):** (1) `searchChunks`/`searchChunksByVector` ohne
+- **An Denys gemeldet (nur Hinweis):** (1) `searchChunks`/`searchChunksByVector` ohne
   Tie-Break im `ORDER BY` → Cross-Session-Determinismus nicht garantiert (Empfehlung:
   zweiter Sortierschlüssel); (2) `document-import.test.ts` mit fixem `setTimeout(2000)` →
   Flake-Risiko (Empfehlung: Polling-`waitFor`).
@@ -215,7 +215,7 @@ Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests g
 
 ---
 
-## 4. Auth- und Krypto-Fundament (Kern, Partner / Denis)
+## 4. Auth- und Krypto-Fundament (Kern, Partner / Denys)
 
 **Status:** fertig (Fundament aus Phase 1, fortlaufend gehärtet).
 
@@ -255,7 +255,7 @@ als AP-T.2-Suite ausgebaut.
 
 ---
 
-## 5. RAG-Core und QA-Routing (Kern, Partner / Denis)
+## 5. RAG-Core und QA-Routing (Kern, Partner / Denys)
 
 **Status:** fertig (`main`), fortlaufend erweitert.
 
@@ -304,7 +304,7 @@ Quelltext studiert und in einer Adopt/Reject-Tabelle gegen die LokLM-Constraints
 
 ---
 
-## 6. Installer-Pivot (Kern, Partner / Denis; Wizard-UI: Dominik)
+## 6. Installer-Pivot (Kern, Partner / Denys; Wizard-UI: Dominik)
 
 **Status:** fertig — zwei aufeinanderfolgende Pivots; Multi-OS-Härtung fortlaufend.
 
@@ -345,7 +345,7 @@ PR #10 (Linux `.deb`); Tags v0.2.7–v0.3.0.
 
 ---
 
-## 7. Audio-Transkription (Partner / Denis, v0.4.0)
+## 7. Audio-Transkription (Partner / Denys, v0.4.0)
 
 **Status:** fertig (Release v0.4.0).
 
@@ -401,7 +401,7 @@ Schutz separat und für den Partner während der Entwicklung nicht einsehbar; De
 davon disjunkt (Dedup-Guard). **Status:** fertig (Branch, lokal). Verweis:
 `ap-e1-abschluss-doku.md`.
 
-### Translation-Eval + GPU-Translator-Sidecar (Partner / Denis, v0.4.1)
+### Translation-Eval + GPU-Translator-Sidecar (Partner / Denys, v0.4.1)
 
 Übersetzungs-Eval-Feature + plattformübergreifender GPU-Translator-Sidecar (Windows-GPU mit
 Ninja + CUDA-Toolkit + nvJitLink), MADLAD-Modell via Installer-Wizard. **Status:** fertig
@@ -417,7 +417,7 @@ Ninja + CUDA-Toolkit + nvJitLink), MADLAD-Modell via Installer-Wizard. **Status:
 | Merge der Test-/Eval-PRs #19, #24, #25 | Tests/Eval | Dominik + Review |
 | AP-9 Account-Recovery (PR #18) | Auth/UI | Dominik |
 | Auto-Update-Strategie (Velopack vs. electron-updater) | DevOps | beide / PAG |
-| Multi-OS-Auslieferungs-Härtung (Mac/Linux produktiv) | Installer | Denis |
+| Multi-OS-Auslieferungs-Härtung (Mac/Linux produktiv) | Installer | Denys |
 | E2E-Playwright-Suite in CI (kann Electron nicht starten) | Tests/CI | offen |
 | Eval/Modell-Tests als CI-Gate (Schwellen/Budget) | CI | beide / PAG |
 
