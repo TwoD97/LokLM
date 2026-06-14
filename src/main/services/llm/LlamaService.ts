@@ -231,6 +231,11 @@ export class LlamaService {
   private gpuLabel: string | null = null
   private selectedChoice: LlmProfileChoice = 'auto'
   private selectedContext: LlmContextChoice = 'auto'
+  private selectedPlacement: 'auto' | 'cpu' | 'gpu' = 'auto'
+  // Where the last load actually landed + why — surfaced in systemInfo for the
+  // status bar / settings. Null until a load has happened.
+  private resolvedPlacement: 'cpu' | 'gpu' | null = null
+  private placementReason: string | null = null
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
@@ -315,6 +320,9 @@ export class LlamaService {
       resources: this.lastResources,
       lastLlmPlan: this.lastPlan,
       selectedContext: this.selectedContext,
+      placementChoice: this.selectedPlacement,
+      resolvedPlacement: this.resolvedPlacement,
+      placementReason: this.placementReason,
     }
   }
 
@@ -328,6 +336,14 @@ export class LlamaService {
 
   setSelectedContext(choice: LlmContextChoice): void {
     this.selectedContext = choice
+  }
+
+  setSelectedPlacement(choice: 'auto' | 'cpu' | 'gpu'): void {
+    this.selectedPlacement = choice
+  }
+
+  getSelectedPlacement(): 'auto' | 'cpu' | 'gpu' {
+    return this.selectedPlacement
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
@@ -513,6 +529,7 @@ export class LlamaService {
         profileDefaultContext: profile?.contextSize ?? 32768,
         weightsBytes: ggufWeightBytes(modelPath),
         userContextChoice: this.selectedContext,
+        placement: this.selectedPlacement,
         language: this.language,
         envContextOverride: envOverride,
         systemPrompt: buildSystemPrompt(this.language),
@@ -520,6 +537,8 @@ export class LlamaService {
       this.lastPlan = result.plan
       this.lastResources = result.resources
       this.gpuLabel = result.gpuLabel
+      this.resolvedPlacement = result.resolvedPlacement
+      this.placementReason = result.placementReason
       this.lastUsedAt = Date.now()
       this.startIdleTimer()
     } catch (err) {

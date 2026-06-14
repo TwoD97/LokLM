@@ -29,6 +29,11 @@ export interface UserSettings {
     llm: {
       source: ProviderSource
       contextChoice: LlmContextChoice
+      /** LLM compute device. 'auto' lets the loader pick (GPU when a backend
+       *  latches, else CPU); 'cpu'/'gpu' pin it. Mirrors embedder/reranker
+       *  placement. Changing it reloads the model so the new device takes
+       *  effect before the next answer. */
+      placement: 'auto' | 'cpu' | 'gpu'
     }
     embedder: {
       source: ProviderSource
@@ -90,7 +95,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
     theme: 'system',
   },
   advanced: {
-    llm: { source: 'bundled', contextChoice: 'auto' },
+    llm: { source: 'bundled', contextChoice: 'auto', placement: 'auto' },
     embedder: { source: 'bundled', placement: 'auto' },
     reranker: { enabled: true, source: 'bundled', placement: 'auto' },
     ollama: {

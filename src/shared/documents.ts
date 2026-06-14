@@ -266,6 +266,14 @@ export interface SystemInfo extends ModelStatus {
   lastLlmPlan: unknown | null
   /** Currently active context-size choice — 'auto' or a pinned number. */
   selectedContext: LlmContextChoice
+  /** The user's LLM device choice (auto/cpu/gpu). Mirrors EmbedderInfo. */
+  placementChoice: 'auto' | 'cpu' | 'gpu'
+  /** Where the LLM backend actually landed at the last load — 'gpu' (cuda/
+   *  vulkan/metal latched) or 'cpu'. Null until a load has happened. */
+  resolvedPlacement: 'cpu' | 'gpu' | null
+  /** Human-readable rationale for resolvedPlacement (backend label or fallback
+   *  reason). Null until a load has happened. */
+  placementReason: string | null
 }
 
 export type RefusalReason = 'no_hits' | 'below_threshold'

@@ -316,6 +316,9 @@ const stub: Api = {
         resources: null,
         lastLlmPlan: null,
         selectedContext: 'auto' as const,
+        placementChoice: 'auto' as const,
+        resolvedPlacement: null,
+        placementReason: null,
       }),
     reload: () =>
       Promise.resolve({
@@ -337,6 +340,9 @@ const stub: Api = {
         resources: null,
         lastLlmPlan: null,
         selectedContext: 'auto' as const,
+        placementChoice: 'auto' as const,
+        resolvedPlacement: null,
+        placementReason: null,
       }),
     setProfile: () => Promise.resolve(),
     onStatus: () => () => undefined,

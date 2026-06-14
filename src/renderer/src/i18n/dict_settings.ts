@@ -188,6 +188,13 @@ export const settingsDict: DomainDict = {
     'settings.llm.contextSizeHint':
       'Auto sizes against free VRAM. Override only if you know your budget.',
     'settings.llm.ctxAuto': 'Auto',
+    'settings.llm.placement': 'Compute device',
+    'settings.llm.placementHint':
+      'Where the model runs. Auto prefers the GPU when available. Changing this reloads the model.',
+    'settings.llm.placementAria': 'LLM compute device',
+    'settings.llm.placementAuto': 'Auto',
+    'settings.llm.placementCpu': 'CPU',
+    'settings.llm.placementGpu': 'GPU',
 
     // EmbedderSection
     'settings.embedder.title': 'Embedder',
@@ -460,6 +467,13 @@ export const settingsDict: DomainDict = {
     'settings.llm.bundled': 'Gebündelt',
     'settings.llm.externalOllama': 'Externes Ollama',
     'settings.llm.configureOllamaFirst': 'Zuerst Ollama einrichten',
+    'settings.llm.placement': 'Recheneinheit',
+    'settings.llm.placementHint':
+      'Wo das Modell läuft. Auto bevorzugt die GPU, sofern verfügbar. Eine Änderung lädt das Modell neu.',
+    'settings.llm.placementAria': 'LLM-Recheneinheit',
+    'settings.llm.placementAuto': 'Auto',
+    'settings.llm.placementCpu': 'CPU',
+    'settings.llm.placementGpu': 'GPU',
     'settings.llm.contextSize': 'Kontextgröße',
     'settings.llm.contextSizeHint':
       'Auto bemisst sich am freien VRAM. Nur überschreiben, wenn du dein Budget kennst.',
