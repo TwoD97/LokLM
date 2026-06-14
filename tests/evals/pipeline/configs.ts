@@ -1,6 +1,7 @@
 import { FixedSizeChunker, type Chunker } from './Chunker'
 import { FakeEmbedder, type Embedder } from './Embedder'
 import { NoopReranker, type Reranker } from './Reranker'
+import { MATRIX_CHUNKER_SPECS } from '../answer/matrix-manifest'
 // Bridges importieren electron transitiv (via src/main/services/models/paths.ts).
 // Statisch geladen würden defaults sich nicht mehr unter `tsx` ohne electron-
 // shim laufen lassen , daher dynamische imports innerhalb von sweepConfigs().
@@ -362,26 +363,12 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
     })),
   ]
 
-  const chunkValues = [
-    {
-      name: 'c256',
-      partial: {
-        chunker: new FixedSizeChunker({ name: 'fixed-256-32', size: 256, overlap: 32 }),
-      } as Partial<PipelineConfig>,
-    },
-    {
-      name: 'c512',
-      partial: {
-        chunker: new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 }),
-      } as Partial<PipelineConfig>,
-    },
-    {
-      name: 'c1024',
-      partial: {
-        chunker: new FixedSizeChunker({ name: 'fixed-1024-128', size: 1024, overlap: 128 }),
-      } as Partial<PipelineConfig>,
-    },
-  ]
+  const chunkValues = MATRIX_CHUNKER_SPECS.map((s) => ({
+    name: `c${s.size}`,
+    partial: {
+      chunker: new FixedSizeChunker({ name: s.name, size: s.size, overlap: s.overlap }),
+    } as Partial<PipelineConfig>,
+  }))
 
   return cartesian(base, [
     { axis: 'emb', values: embValues },

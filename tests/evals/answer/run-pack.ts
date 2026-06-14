@@ -43,7 +43,12 @@ import {
   useRunDir,
   type DatasetInfo,
 } from '../runDir'
-import { parseShard, selectShard, buildMatrixManifest } from './matrix-manifest'
+import {
+  parseShard,
+  selectShard,
+  buildMatrixManifest,
+  MATRIX_CHUNKER_NAMES,
+} from './matrix-manifest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -168,7 +173,7 @@ async function main(): Promise<void> {
     const manifest = buildMatrixManifest({
       embedders: embPack.embedders,
       rerankers: rrPack.rerankers,
-      chunkers: ['fixed-256-32', 'fixed-512-64', 'fixed-1024-128'],
+      chunkers: MATRIX_CHUNKER_NAMES,
       models: selectedModels,
       dataset: {
         path: datasetPath,
