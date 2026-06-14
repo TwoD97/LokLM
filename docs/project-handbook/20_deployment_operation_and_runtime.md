@@ -102,7 +102,7 @@ Zur Laufzeit hostet LokLM mehrere Runtimes mit unterschiedlichem Geräteprofil (
 | Translator (MADLAD-400-3B) | CTranslate2-Sidecar | Binärwahl `-cuda` vs. CPU beim Spawn |
 | Transcription (Whisper) | eigener utilityProcess | Binär/Build |
 
-Das Placement ist **heute statisch**: einmal zur Ladezeit entschieden, nie revidiert. Embedder/Reranker bleiben nach dem ersten Load warm (GGUF-Reload kostet Sekunden); nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`). Die in ADR-0004 vorgeschlagene adaptive Residenz-Policy ist **vorgeschlagen, nicht implementiert**.
+Das Placement ist **heute statisch**: einmal zur Ladezeit entschieden, nie revidiert. Embedder/Reranker bleiben nach dem ersten Load warm (GGUF-Reload kostet Sekunden); nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`). Die in ADR-0004 „Adaptive Model Residency" vorgeschlagene adaptive Residenz-Policy ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden).
 
 ## 20.8 Bekannte Laufzeitprobleme
 

@@ -22,7 +22,7 @@ Wissen liegt verstreut in Dateien, Skripten und Notizen; es belegbar zu zitieren
 
 In rund neun Wochen wurde von der Projekt-Initialisierung bis zum Release **v0.4.1** geliefert. Die Releasereihe **v0.1.x → v0.4.x** umfasst u. a. das Auth-/Krypto-Fundament, den Datenbank-Layer, die Verteilungs-Website auf eigener Domain, die komplette Release-Pipeline (GitHub Actions → CDN + Backup-Mirror), die Provider-Abstraktion (gebündelt + optional Ollama), Dokumentenimport inkl. DOCX, Suche/Filter, Settings, Chat mit Streaming und Quellenanzeige sowie spätere Erweiterungen (Audio-Transkription, Quiz-Generator, QA-Routing, Electron-Sicherheitshärtung). Die Test- und Eval-Säule (Unit-, Integrations- und Eval-Tests) ist weit ausgebaut.
 
-> WARN zu verifizieren — Der Auftrag nennt einen Release-Bereich „v0.1.1–v0.4.2"; die vorliegenden Statusberichte belegen Releases bis einschließlich v0.4.1 (13.06.2026). Ein Release v0.4.2 ist in den gelesenen Quellen nicht belegt und beim Team zu bestätigen.
+Zum Release-Bereich: Der Auftrag nennt „v0.1.1–v0.4.2". v0.4.2 existiert als **Release-Commit (`783ca4b`), aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v0.4.1**. Die per Tag markierten Releases reichen also bis einschließlich v0.4.1 (13.06.2026); v0.4.2 ist bislang nur ein Release-Commit (14.06.2026) ohne zugehörigen Tag.
 
 ## 2.5 Größte offene Punkte
 

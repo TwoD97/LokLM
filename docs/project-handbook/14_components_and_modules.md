@@ -135,7 +135,7 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 
 ## 14.11 Geteilte Infrastruktur
 
-- **ResourcePlanner** ([embeddings/ResourcePlanner.ts](../../src/main/services/embeddings/ResourcePlanner.ts)) — berechnet Placement (CPU/GPU) und Footprints (`ggufWeightBytes` + KV); heute Einmal-Advisor zur Ladezeit (ADR-0004 würde ihn zum lebenden Live-Budget erweitern).
+- **ResourcePlanner** ([embeddings/ResourcePlanner.ts](../../src/main/services/embeddings/ResourcePlanner.ts)) — berechnet Placement (CPU/GPU) und Footprints (`ggufWeightBytes` + KV); heute Einmal-Advisor zur Ladezeit. Die in ADR-0004 „Adaptive Model Residency" skizzierte Erweiterung zum lebenden Live-Budget ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden).
 - **ModelLoadLock** ([concurrency/ModelLoadLock.ts](../../src/main/services/concurrency/ModelLoadLock.ts)) — serialisiert die schweren nativen Loads.
 - **Worker-Clients** ([workers/](../../src/main/services/workers/)) — `ModelsWorkerClient`, `DocumentsWorkerClient`, `TranscriptionWorkerClient`, `DiarizationWorkerClient` multiplexen Request/Response per ID und fächern Status-/Token-Pushes aus.
 - **TierMarker** ([tier/TierMarker.ts](../../src/main/services/tier/TierMarker.ts)) — liest den vom Installer geschriebenen `loklm-tier.json` (Tier lite/standard/pro, Hardware-Snapshot, Ollama-Opt-in). `null` = Dev/Test/Pre-v0.3.0 → Legacy-Pfad.

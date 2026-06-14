@@ -20,22 +20,22 @@ hängen.
 | --- | --- | --- | --- | --- | --- |
 | 00 | Deckblatt | vollstaendig | ja (Lasten-/Pflichtenheft, Statusberichte) | Vorname Projekt-Owner geklärt → verbindlich **Denys** (Statusberichte abweichend „Denis"); offen nur noch v0.4.2-Tag | mittel |
 | 01 | Vorwort & Zweck | vollstaendig | ja (eigene Festlegung + Quellen) | — | niedrig |
-| 02 | Management Summary | zu pruefen | ja (Statusberichte) | Release-Bereich v0.4.2 unbestätigt; interne Domains | mittel |
+| 02 | Management Summary | zu pruefen | ja (Statusberichte) | v0.4.2 geklärt → Release-Commit (`783ca4b`), kein Git-Tag (höchster Tag v0.4.1); offen nur noch interne Domains | mittel |
 | 03 | Projektauftrag | vollstaendig | ja (Lasten-/Pflichtenheft) | Scope geklärt → Transkription/Quiz als bewusste Scope-Erweiterung über den Mindestumfang | mittel |
 | 04 | Ausgangslage & Problem | zu pruefen | ja (Lastenheft, Statusbericht) | Org-Auswirkungen Partnerausfall KW 23 | niedrig |
 | 05 | Ziele & Erfolgskriterien | zu pruefen | ja (Pflichtenheft §1.2/§11) | gemessene Zielwerte (Recall@5/Citation/Refusal) hängen am Eval-Sweep; Usability-Test + HW-Matrix | hoch |
 | 06 | Umfang & Abgrenzung | vollstaendig | ja (Lastenheft §5/§10, Pflichtenheft §1.3) | Scope geklärt → Transkription/Quiz bewusste Scope-Erweiterung, kein zugesicherter v1-Mindest-Liefergegenstand | mittel |
 | 07 | Team, Rollen | zu pruefen | ja (Pflichtenheft §9.2, Statusberichte) | Vorname-Schreibweise geklärt → **Denys**; offen nur noch Patt-Entscheidungsfall | mittel |
 | 08 | Projektmanagement (Kanban/Outline) | zu pruefen | teilweise (in-Repo-Spiegelung belegbar; Board/Wiki extern) | Board-Aufbau, Outline-Hierarchie, Prioritätsskala, exakte Task-Nrn. — extern | hoch |
-| 09 | Versionierung & GitHub | zu pruefen | ja (Git-/PR-/Tag-Historie) | Rolle von `development`; v0.4.2 Tag vs. Commit | mittel |
+| 09 | Versionierung & GitHub | zu pruefen | ja (Git-/PR-/Tag-Historie) | v0.4.2 geklärt → nur Release-Commit (`783ca4b`), kein Git-Tag (höchster Tag v0.4.1); offen nur noch Rolle von `development` | mittel |
 | 10 | AP-Landkarte | zu pruefen | ja (Abschluss-Dokus + Commits/PRs) | Partner-AP-Benennung aus Commits rekonstruiert (Vikunja-Bestätigung) | mittel |
 | 11 | AP-Details | zu pruefen | ja (Abschluss-Dokus, ADRs, Commits) | AP-E.2 Phase-2-Lauf-/Auswertungsstand; Partner-Implementierungsdetails | hoch |
 | 12 | Systemüberblick | vollstaendig | ja (Quellcode-Belege) | — | niedrig |
-| 13 | Technische Architektur | zu pruefen | ja (Quellcode, ADRs) | IPC-Handler-Gesamtzahl geklärt → **105** (maschinell gezählt 2026-06-14); offen nur noch ADR-0004-Implementierungsstand | niedrig |
+| 13 | Technische Architektur | zu pruefen | ja (Quellcode, ADRs) | IPC-Handler-Gesamtzahl geklärt → **105** (maschinell gezählt 2026-06-14); ADR-0004-Implementierungsstand geklärt → NICHT implementiert (kein `placement/`-Code), reiner Design-Vorschlag (PROPOSED) | niedrig |
 | 14 | Komponenten & Module | vollstaendig | ja (src/main/services-Belege) | — | niedrig |
 | 15 | Datenpipeline & Eval-Daten | zu pruefen | teilweise (LAP-Korpus/Fragen gitignored) | Kennzahlen ~90 Docs / 2.322 Chunks / 163 Fragen aus Projektangabe, nachzuzählen | hoch |
 | 16 | RAG-/KI-Pipeline | vollstaendig | ja (Quellcode-Belege) | — | niedrig |
-| 17 | Eval-Matrix | zu pruefen | ja (Code/Packs) | Zellenzahl 360 vs. 399 Design; GPU-Sweep (Phase 2) offen; „72"-Kommentar im Code veraltet | hoch |
+| 17 | Eval-Matrix | zu pruefen | ja (Code/Packs) | „72"-Kommentar geklärt → real **24 Retrieval-Configs** (Chunker-Achse hat nur 1 Eintrag), Quelltext-Kommentar veraltet; Gesamt bleibt 360; offen nur noch Zellenzahl 360 vs. 399 Design + GPU-Sweep (Phase 2) | hoch |
 | 18 | Modellauswahl & Lizenzen | zu pruefen | ja (License-Registry verifiziert 2026-06-14) | Re-Prüfung der Registry vor Abgabe; einzelne technische Caveats | mittel |
 | 19 | Testing & QA | zu pruefen | ja (Test-READMEs, Abschluss-Dokus) | M-Szenarien nicht protokolliert; CI-Test-Job hängt an PR #19; Coverage-Gate | hoch |
 | 20 | Deployment & Laufzeit | zu pruefen | ja (package.json, Installer-README) | RunPod-Betriebsdetails extern; AP-E.2-Sweep offen | mittel |
