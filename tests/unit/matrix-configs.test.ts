@@ -13,6 +13,9 @@ describe('matrixConfigs', () => {
       expect(c.reranker).toBeTruthy()
       expect(c.chunker).toBeTruthy()
     }
+    // all configs share ONE LlmBridge instance — sweep dedups warm() by llm
+    // identity, so the under-test LLM loads once, not 63×.
+    expect(new Set(cfgs.map((c) => c.llm)).size).toBe(1)
   })
 
   it('gives every embedder a unique name (embedding-cache-key safety)', async () => {
