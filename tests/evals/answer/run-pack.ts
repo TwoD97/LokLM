@@ -226,11 +226,10 @@ async function main(): Promise<void> {
 
   for (let i = 0; i < selectedModels.length; i++) {
     const m = selectedModels[i]!
-    const expectedConfigDir = join(runRootDir, 'configs', sanitize(`answer@${m.label}`))
-    const resultPath = join(expectedConfigDir, 'result.json')
-    if (existsSync(resultPath)) {
+    const doneMarker = join(runRootDir, 'configs', `.done-${sanitize(m.label)}`)
+    if (existsSync(doneMarker)) {
       console.error(
-        `[orchestrator] [${i + 1}/${selectedModels.length}] ${m.label} — bereits da , skip`,
+        `[orchestrator] [${i + 1}/${selectedModels.length}] ${m.label} — bereits fertig , skip`,
       )
       skipped.push(m.label)
       continue
@@ -263,6 +262,7 @@ async function main(): Promise<void> {
     )
     try {
       await runSweep(sweepArgs)
+      await writeFile(doneMarker, new Date().toISOString(), 'utf-8')
       console.error(`[orchestrator] ${m.label} fertig`)
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err)
