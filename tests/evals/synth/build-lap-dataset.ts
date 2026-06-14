@@ -4,10 +4,11 @@
 //     --questions <jsonl>      (pflicht: kuratierte fragen, eine pro zeile)
 //     [--out <path>]
 //
-// Chunked den korpus deterministisch (referenz-chunker 512/64, mit char-
-// offsets), liest die fragen-jsonl, filtert auf bekannte chunkIds, löst pro
-// frage goldSpans aus den (required) chunk-offsets auf und schreibt das
-// dataset im bestehenden {chunks, questions}-format — angereichert um spans.
+// Liest alle .txt/.md-Dateien im korpus-dir, chunked deterministisch
+// (referenz-chunker 512/64, mit char-offsets), liest die fragen-jsonl,
+// filtert auf bekannte chunkIds, löst pro frage goldSpans aus den (required)
+// chunk-offsets auf und schreibt das dataset im bestehenden
+// {chunks, questions}-format — angereichert um spans.
 
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
 import { extname, join, basename, dirname } from 'node:path'
@@ -140,7 +141,7 @@ function parseArgs(argv: string[]): { corpus?: string; questions?: string; out?:
 }
 
 // Nur als CLI ausführen, nicht beim import aus dem test.
-if (process.argv[1] && process.argv[1].endsWith('build-lap-dataset.ts')) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(err)
     process.exit(1)
