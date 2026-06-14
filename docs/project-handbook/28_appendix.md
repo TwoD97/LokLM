@@ -6,9 +6,13 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 
 ---
 
-## 1. Wichtige Befehle
+## 28.1 Wichtige Befehle
 
-### 1.1 Entwicklung & Build
+Die Befehlsreferenz (aus `package.json`) gliedert sich in die Tabellen 28.1–28.6.
+
+### 28.1.1 Entwicklung & Build
+
+**Tabelle 28.1:** Befehle für Entwicklung und Build.
 
 | Befehl | Zweck |
 |---|---|
@@ -20,7 +24,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 | `pnpm format` / `pnpm format:check` | Prettier schreiben / prüfen |
 | `pnpm doc` | API-Doku generieren (typedoc) |
 
-### 1.2 Tests
+### 28.1.2 Tests
+
+**Tabelle 28.2:** Test-Befehle.
 
 | Befehl | Zweck |
 |---|---|
@@ -33,7 +39,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 
 > WARN Status unklar: `pnpm test:e2e` ist im `package.json` verdrahtet, die `tests/e2e/`-Suite läuft jedoch derzeit nicht (Playwright kann Electron nicht starten). Siehe Kapitel 24/25.
 
-### 1.3 Modelle (`models:*`)
+### 28.1.3 Modelle (`models:*`)
+
+**Tabelle 28.3:** Befehle für den Modell-Download.
 
 | Befehl | Zweck |
 |---|---|
@@ -45,7 +53,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 | `pnpm models:translation` | Übersetzungsmodelle |
 | `pnpm tessdata` | OCR-Sprachdaten (Tesseract) laden |
 
-### 1.4 Evaluation (`evals:*`)
+### 28.1.4 Evaluation (`evals:*`)
+
+**Tabelle 28.4:** Evaluierungs-Befehle.
 
 | Befehl | Zweck |
 |---|---|
@@ -60,7 +70,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 | `pnpm evals:rejudge` / `:patterns` | Antworten neu bewerten / Fehlermuster |
 | `pnpm pod:start` / `:stop` / `:status` | RunPod-GPU-Pod steuern |
 
-### 1.5 Paketierung (`package:*`)
+### 28.1.5 Paketierung (`package:*`)
+
+**Tabelle 28.5:** Paketierungs-Befehle.
 
 | Befehl | Zweck |
 |---|---|
@@ -70,7 +82,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 
 > WARN Annahme, bitte pruefen: Der lokale `package:win:wizard`-Schritt benötigt die Rust-/Tauri-Toolchain; ohne `cargo` schlägt der Wizard-Build fehl (offizielle Installer entstehen auf dem Rechner des Projekt-Owners).
 
-### 1.6 Datenbank
+### 28.1.6 Datenbank
+
+**Tabelle 28.6:** Datenbank-Befehle.
 
 | Befehl | Zweck |
 |---|---|
@@ -80,7 +94,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 
 ---
 
-## 2. Relevante repo-relative Pfade
+## 28.2 Relevante repo-relative Pfade
+
+**Tabelle 28.7:** Relevante repo-relative Pfade.
 
 | Pfad | Inhalt |
 |---|---|
@@ -103,7 +119,9 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 
 ---
 
-## 3. Quellendateien-Liste (Basis dieses Clusters)
+## 28.3 Quellendateien-Liste (Basis dieses Clusters)
+
+**Tabelle 28.8:** Quellendateien dieses Kapitels.
 
 | Datei | Verwendung |
 |---|---|
@@ -115,11 +133,11 @@ Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json
 | `docs/work/ap-e1-abschluss-doku.md` | AP-E.1 Eval-Dev-Set |
 | `package.json` | Skripte für diesen Anhang |
 
-> WARN Quelle fehlt: Die in der Aufgabenstellung genannten `EXPORT_NOTES` existieren als Datei im Repo noch nicht; das Export-Ziel ist derzeit nur das Verzeichnis `docs/project-handbook/export/` (mit `.gitkeep`). Sobald eine `EXPORT_NOTES.md` (Build-/Export-Anleitung des Handbuchs) angelegt ist, hier verlinken.
+Die Build-/Export-Anleitung des Handbuchs steht in [EXPORT_NOTES.md](EXPORT_NOTES.md); das Export-Ziel ist das Verzeichnis `docs/project-handbook/export/`.
 
 ---
 
-## 4. Matrix-Eval — Achsen (Referenz)
+## 28.4 Matrix-Eval — Achsen (Referenz)
 
 Aus `tests/evals/answer/matrix-manifest.ts`. Die Größe einer Matrix-Konfiguration:
 
@@ -132,6 +150,6 @@ Chunker-Achse aktuell `fixed-512-64` (512/64, passend zum LAP-Dataset); der Chun
 
 ---
 
-## 5. Verweis auf den Export
+## 28.5 Verweis auf den Export
 
-Das fertige Handbuch wird nach `docs/project-handbook/export/` ausgegeben (zusammengeführte/PDF-Form). Bildmaterial liegt unter `docs/project-handbook/assets/`. Detail-Anleitung zum Export-Build siehe EXPORT_NOTES, sobald angelegt (s. Abschnitt 3).
+Das fertige Handbuch wird nach `docs/project-handbook/export/` ausgegeben (zusammengeführte/PDF-Form). Bildmaterial liegt unter `docs/project-handbook/assets/`. Detail-Anleitung zum Export-Build siehe [EXPORT_NOTES.md](EXPORT_NOTES.md).
