@@ -5,10 +5,9 @@
  */
 
 export type TranslatorState =
-  /** Model files missing — install() downloads ~2.76 GB. */
+  /** Model files missing — provisioned by the installer wizard , not the app.
+   *  The UI points the user back to re-running the LokLM installer. */
   | 'not_installed'
-  /** install() in flight; progress comes via the download event channel. */
-  | 'downloading'
   /** Files present , sidecar not running. First translate() starts it. */
   | 'installed'
   /** Sidecar spawned , model loading (5-30 s from cold disk). */

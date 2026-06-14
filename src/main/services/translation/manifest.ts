@@ -1,52 +1,36 @@
 /**
  * MADLAD-400-3B-MT converted to CTranslate2 int8 — the four files the
- * loklm-translator sidecar needs at runtime. Downloaded on demand by
- * TranslationService , deliberately NOT part of MODEL_MANIFEST: translation
- * is optional and must not gate the first-launch flow.
+ * loklm-translator sidecar needs at runtime.
  *
- * Sizes + SHA256 pinned from the huggingface API on 2026-06-12 (LFS oids for
- * model.bin + sentencepiece.model , locally hashed for the two git-stored
- * small files). TODO: mirror the four files into the LokLM HF org like the
- * tier bundles and repoint BASE — a third-party personal repo is not a
- * distribution channel we control.
+ * These are provisioned by the INSTALLER WIZARD , not the app : the wizard's
+ * model-manifest.json carries them in its `common[]` set ( role "translation" ,
+ * mirrored to our minio at s3.ltwodl.com/loklm-installers/models/translator/... )
+ * and writes them under <install>/models/translator/madlad400-3b-mt-ct2-int8/.
+ * The app only LOCATES them ( TranslationService.locateModelDir ) — it never
+ * downloads, matching LokLM's principle that large assets land at install time.
+ *
+ * Sizes pinned from the HuggingFace API on 2026-06-12 and re-verified against
+ * the minio mirror on 2026-06-14. The wizard verifies sha256 on download ; the
+ * app only needs the filenames + sizes to recognise a complete install.
  */
 
-import type { DownloadableFile } from '../models/ModelDownloader'
-
-/** Subdirectory under the models download dir holding the CT2 model. */
+/** Subdirectory under the models dir holding the CT2 model — must match the
+ *  subpath in the wizard manifest's translation `filename` fields. */
 export const TRANSLATOR_MODEL_DIRNAME = 'translator/madlad400-3b-mt-ct2-int8'
 
-const BASE = 'https://huggingface.co/santhosh/madlad400-3b-ct2/resolve/main'
+/** A model file as the app sees it on disk: relative path + expected size.
+ *  No URL — the app does not download these (the wizard does). */
+export interface TranslatorFile {
+  /** Path relative to the models dir, e.g. `${TRANSLATOR_MODEL_DIRNAME}/model.bin`. */
+  filename: string
+  sizeBytes: number
+}
 
-export const TRANSLATOR_FILES: DownloadableFile[] = [
-  {
-    id: 'translator-model',
-    filename: `${TRANSLATOR_MODEL_DIRNAME}/model.bin`,
-    url: `${BASE}/model.bin`,
-    sizeBytes: 2_950_208_251,
-    sha256: 'f3c87256a2c888100c179d7dcd7f41df17c767469546c59d32c7dde86c740a6b',
-  },
-  {
-    id: 'translator-spm',
-    filename: `${TRANSLATOR_MODEL_DIRNAME}/sentencepiece.model`,
-    url: `${BASE}/sentencepiece.model`,
-    sizeBytes: 4_427_844,
-    sha256: 'ef11ac9a22c7503492f56d48dce53be20e339b63605983e9f27d2cd0e0f3922c',
-  },
-  {
-    id: 'translator-vocab',
-    filename: `${TRANSLATOR_MODEL_DIRNAME}/shared_vocabulary.json`,
-    url: `${BASE}/shared_vocabulary.json`,
-    sizeBytes: 5_477_099,
-    sha256: 'c327551ce3ca6efc7b437e11a267f79979893332dda8a1d146e2c950815193f8',
-  },
-  {
-    id: 'translator-config',
-    filename: `${TRANSLATOR_MODEL_DIRNAME}/config.json`,
-    url: `${BASE}/config.json`,
-    sizeBytes: 190,
-    sha256: 'a428c51cd35517554523b3c6b6974a5928bc35e82b130869a543566a34a83b93',
-  },
+export const TRANSLATOR_FILES: TranslatorFile[] = [
+  { filename: `${TRANSLATOR_MODEL_DIRNAME}/model.bin`, sizeBytes: 2_950_208_251 },
+  { filename: `${TRANSLATOR_MODEL_DIRNAME}/sentencepiece.model`, sizeBytes: 4_427_844 },
+  { filename: `${TRANSLATOR_MODEL_DIRNAME}/shared_vocabulary.json`, sizeBytes: 5_477_099 },
+  { filename: `${TRANSLATOR_MODEL_DIRNAME}/config.json`, sizeBytes: 190 },
 ]
 
 export const TRANSLATOR_TOTAL_BYTES = TRANSLATOR_FILES.reduce((n, f) => n + f.sizeBytes, 0)

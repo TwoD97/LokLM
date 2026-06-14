@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, Check, Save } from 'lucide-react'
-import type { ModelDownloadEvent } from '@preload/index'
 import type { Document, Workspace } from '@shared/documents'
 import type { TranslateResult, TranslationLanguage, TranslatorStatus } from '@shared/translation'
 import { useSettings } from '../settings/useSettings'
@@ -10,17 +9,11 @@ import './translation.css'
 // Standalone translation page (DeepL-style): paste text on the left , pick a
 // target language , get the translation on the right. Two source modes — free
 // text , or a document pulled from a workspace which can be saved back as a new
-// translated document. Self-contained: it owns the model-download flow too , so
-// a first-time user can land here , download MADLAD , and translate without
-// going through Settings.
+// translated document. The MADLAD model is provisioned by the installer wizard
+// ( not downloaded in-app ) ; when it's absent this page points the user back to
+// the LokLM installer rather than offering a download.
 
 type SourceMode = 'text' | 'document'
-
-function fmtBytes(n: number): string {
-  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`
-  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`
-  return `${Math.max(1, Math.round(n / 1024))} KB`
-}
 
 export function TranslationView(): JSX.Element {
   const t = useT()
@@ -29,7 +22,6 @@ export function TranslationView(): JSX.Element {
 
   const [status, setStatus] = useState<TranslatorStatus | null>(null)
   const [languages, setLanguages] = useState<TranslationLanguage[]>([])
-  const [progress, setProgress] = useState<ModelDownloadEvent | null>(null)
 
   const [source, setSource] = useState('')
   const [target, setTarget] = useState<string>(uiLang)
@@ -55,18 +47,9 @@ export function TranslationView(): JSX.Element {
     void window.api.translation.status().then((s) => mounted && setStatus(s))
     void window.api.translation.languages().then((l) => mounted && setLanguages(l))
     const offStatus = window.api.translation.onStatus((s) => setStatus(s))
-    let offProgress: (() => void) | null = null
-    let cancelled = false
-    void window.api.models
-      .onProgress((ev: ModelDownloadEvent) => {
-        if (ev.id.startsWith('translator-')) setProgress(ev)
-      })
-      .then((off) => (cancelled ? off() : (offProgress = off)))
     return () => {
       mounted = false
-      cancelled = true
       offStatus()
-      if (offProgress) offProgress()
     }
   }, [])
 
@@ -189,63 +172,18 @@ export function TranslationView(): JSX.Element {
         </div>
       )}
 
-      {/* Not installed / downloading / error → install card. */}
+      {/* Not installed / sidecar error → point back to the installer. The
+          model is wizard-provisioned ; there is no in-app download. */}
       {status !== null && !ready && !sidecarMissing && (
         <div className="translation-view__install">
-          <p className="translation-view__install-copy">{t('settings.translation.installHint')}</p>
-          {state === 'downloading' ? (
-            <>
-              <div className="translation-view__progress-bar">
-                <div
-                  className="translation-view__progress-fill"
-                  style={{
-                    width:
-                      progress && progress.totalBytes > 0
-                        ? `${Math.min(100, (progress.bytesReceived / progress.totalBytes) * 100)}%`
-                        : '0%',
-                  }}
-                />
-              </div>
-              <div className="translation-view__progress-text">
-                {progress
-                  ? t('settings.translation.progress', {
-                      pct:
-                        progress.totalBytes > 0
-                          ? Math.round((progress.bytesReceived / progress.totalBytes) * 100)
-                          : 0,
-                      received: fmtBytes(progress.bytesReceived),
-                      total: fmtBytes(progress.totalBytes),
-                    })
-                  : t('settings.translation.progressIndeterminate')}
-              </div>
-              <button
-                className="translation-view__btn"
-                onClick={() => void window.api.translation.cancelInstall()}
-              >
-                {t('settings.translation.cancel')}
-              </button>
-            </>
-          ) : (
-            <>
-              {state === 'error' && status.message && (
-                <div className="translation-view__notice translation-view__notice--warn">
-                  <AlertTriangle size={16} aria-hidden="true" />
-                  <span>{status.message}</span>
-                </div>
-              )}
-              <button
-                className="translation-view__btn translation-view__btn--primary"
-                onClick={() => {
-                  setProgress(null)
-                  void window.api.translation.install().catch(() => undefined)
-                }}
-              >
-                {state === 'error'
-                  ? t('settings.translation.retry')
-                  : t('settings.translation.install')}
-              </button>
-            </>
-          )}
+          <div className="translation-view__notice translation-view__notice--warn">
+            <AlertTriangle size={16} aria-hidden="true" />
+            <span>
+              {state === 'error' && status.message
+                ? status.message
+                : t('settings.translation.notInstalledHint')}
+            </span>
+          </div>
         </div>
       )}
 

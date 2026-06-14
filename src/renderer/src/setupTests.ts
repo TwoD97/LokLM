@@ -446,8 +446,6 @@ const stub: Api = {
   translation: {
     status: () =>
       Promise.resolve({ state: 'not_installed' as const, message: null, sidecarAvailable: false }),
-    install: () => Promise.resolve(),
-    cancelInstall: () => Promise.resolve(),
     translate: () => Promise.resolve({ text: '', detected: null, sentences: 0, ms: 0 }),
     languages: () => Promise.resolve([]),
     documentText: () => Promise.resolve({ title: '', text: '' }),
