@@ -69,23 +69,17 @@ export const settingsDict: DomainDict = {
     // TranslationSection
     'settings.translation.title': 'Translation',
     'settings.translation.sub':
-      'Offline machine translation (MADLAD-400 , 400+ languages). Optional download.',
+      'Offline machine translation (MADLAD-400 , 400+ languages). Installed by the LokLM installer.',
     'settings.translation.status': 'Status',
     'settings.translation.stateNotInstalled': 'Not installed',
-    'settings.translation.stateDownloading': 'Downloading…',
     'settings.translation.stateInstalled': 'Installed — starts on first use',
     'settings.translation.stateStarting': 'Starting (loading model)…',
     'settings.translation.stateReady': 'Ready',
     'settings.translation.stateError': 'Error',
-    'settings.translation.install': 'Download (~2.8 GB)',
-    'settings.translation.retry': 'Retry',
-    'settings.translation.cancel': 'Cancel',
-    'settings.translation.installHint':
-      'Runs fully local on the CPU. One-time download of the translation model (~2.8 GB disk , ~3.2 GB RAM while in use).',
+    'settings.translation.notInstalledHint':
+      'The translation model isn’t installed. Re-run the LokLM installer to add offline translation (~2.8 GB).',
     'settings.translation.sidecarMissing':
       'The translator component is missing from this build — translation is unavailable.',
-    'settings.translation.progress': '{pct}% — {received} / {total}',
-    'settings.translation.progressIndeterminate': 'Downloading…',
     'settings.translation.usageHint':
       'Use the translate button under an answer in the chat to translate it.',
 
@@ -368,23 +362,17 @@ export const settingsDict: DomainDict = {
     // TranslationSection
     'settings.translation.title': 'Übersetzung',
     'settings.translation.sub':
-      'Offline-Maschinenübersetzung (MADLAD-400 , 400+ Sprachen). Optionaler Download.',
+      'Offline-Maschinenübersetzung (MADLAD-400 , 400+ Sprachen). Wird vom LokLM-Installationsprogramm installiert.',
     'settings.translation.status': 'Status',
     'settings.translation.stateNotInstalled': 'Nicht installiert',
-    'settings.translation.stateDownloading': 'Wird heruntergeladen…',
     'settings.translation.stateInstalled': 'Installiert — startet bei erster Nutzung',
     'settings.translation.stateStarting': 'Startet (Modell wird geladen)…',
     'settings.translation.stateReady': 'Bereit',
     'settings.translation.stateError': 'Fehler',
-    'settings.translation.install': 'Herunterladen (~2,8 GB)',
-    'settings.translation.retry': 'Erneut versuchen',
-    'settings.translation.cancel': 'Abbrechen',
-    'settings.translation.installHint':
-      'Läuft vollständig lokal auf der CPU. Einmaliger Download des Übersetzungsmodells (~2,8 GB Speicher , ~3,2 GB RAM bei Nutzung).',
+    'settings.translation.notInstalledHint':
+      'Das Übersetzungsmodell ist nicht installiert. Führen Sie das LokLM-Installationsprogramm erneut aus, um die Offline-Übersetzung hinzuzufügen (~2,8 GB).',
     'settings.translation.sidecarMissing':
       'Die Übersetzungskomponente fehlt in diesem Build — Übersetzung ist nicht verfügbar.',
-    'settings.translation.progress': '{pct} % — {received} / {total}',
-    'settings.translation.progressIndeterminate': 'Wird heruntergeladen…',
     'settings.translation.usageHint':
       'Antworten lassen sich im Chat über den Übersetzen-Button unter der Antwort übersetzen.',
 

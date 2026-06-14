@@ -67,6 +67,7 @@ pub enum ModelRole {
     Reranker,
     Whisper,
     Diarization,
+    Translation,
 }
 
 // Compile-time-bake the manifest into the binary. The .json lives at the
@@ -159,6 +160,17 @@ where
 
     for entry in common.iter().chain(bundle.models.iter()) {
         let target = models_dir.join(&entry.filename);
+        // The filename may carry a subpath ( e.g. the translation model lands
+        // in translator/madlad400-3b-mt-ct2-int8/model.bin ). The shared
+        // download primitive opens the .partial straight at `target` and never
+        // mkdirs , so create any intermediate directories here first. For the
+        // flat-filename case parent == models_dir , and create_dir_all on an
+        // existing dir is a no-op , so this is unconditional + harmless.
+        if let Some(parent) = target.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("mkdir {} failed : {}", parent.display(), e))?;
+        }
         // Idempotency : if a complete file with the right size + sha256
         // exists , skip. Useful for retries after a mid-bundle failure.
         if let Some(observed_sha) = existing_complete(&target, entry).await? {
@@ -406,10 +418,41 @@ mod tests {
     #[test]
     fn manifest_parses_at_startup() {
         let m = manifest();
-        assert_eq!(m.version, "0.3.0");
+        assert_eq!(m.version, "0.4.0");
         assert!(m.tiers.contains_key("lite"));
         assert!(m.tiers.contains_key("standard"));
         assert!(m.tiers.contains_key("pro"));
+    }
+
+    #[test]
+    fn common_has_translation_model_with_subpath_filenames() {
+        let m = manifest();
+        let translation: Vec<&ModelEntry> = m
+            .common
+            .iter()
+            .filter(|c| c.role == ModelRole::Translation)
+            .collect();
+        // The MADLAD CT2 model is four files , all wizard-provisioned via common[].
+        assert_eq!(translation.len(), 4, "expected 4 translation files in common[]");
+        for c in &translation {
+            // Subpath filename so the files land where the app's locateModelDir
+            // looks ( <models>/translator/madlad400-3b-mt-ct2-int8/<file> ). The
+            // downloader must mkdir these intermediate dirs.
+            assert!(
+                c.filename.starts_with("translator/madlad400-3b-mt-ct2-int8/"),
+                "{} filename '{}' missing the translator subpath",
+                c.id,
+                c.filename
+            );
+            // Mirrored to our own minio — not a third-party repo.
+            assert!(
+                c.url.starts_with("https://s3.ltwodl.com/loklm-installers/"),
+                "{} url '{}' is not on our minio",
+                c.id,
+                c.url
+            );
+            assert!(c.sha256.is_some(), "{} must pin a sha256", c.id);
+        }
     }
 
     #[test]

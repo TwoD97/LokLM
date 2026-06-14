@@ -15,7 +15,6 @@ function translatorDotState(s: TranslatorStatus): DotState {
   switch (s.state) {
     case 'ready':
       return 'ready'
-    case 'downloading':
     case 'starting':
       return 'loading'
     case 'installed':
