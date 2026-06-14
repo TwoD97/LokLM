@@ -101,8 +101,9 @@ export class EmbedderBridge implements Embedder {
 
   async embed(text: string): Promise<number[]> {
     await this.warm()
-    const cleaned = sanitize(applyPrefix(this.opts.queryPrefix, text))
-    if (cleaned.length === 0) return new Array<number>(this._dim || 1).fill(0)
+    const cleanedText = sanitize(text)
+    if (cleanedText.length === 0) return new Array<number>(this._dim || 1).fill(0)
+    const cleaned = applyPrefix(this.opts.queryPrefix, cleanedText)
     const ctx = this.context as {
       getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
     }
@@ -118,11 +119,12 @@ export class EmbedderBridge implements Embedder {
       // embed() so the corpus is not prefixed as a query. The corpus-build path
       // in sweep.ts caches the result across configs (once per embedder ×
       // chunker × corpus).
-      const cleaned = sanitize(applyPrefix(this.opts.docPrefix, t))
-      if (cleaned.length === 0) {
+      const cleanedText = sanitize(t)
+      if (cleanedText.length === 0) {
         out.push(new Array<number>(this._dim || 1).fill(0))
         continue
       }
+      const cleaned = applyPrefix(this.opts.docPrefix, cleanedText)
       const ctx = this.context as {
         getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
       }
