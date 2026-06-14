@@ -117,13 +117,15 @@ Tabelle 14.7 fasst den LlamaService zusammen.
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | Fassade für das gebündelte Chat-/Generierungs-LLM (`node-llama-cpp` im `modelsWorker`) |
-| **Eingaben** | Frage + gepackte Hits + AskOptions (pinnedHits, contextPreamble, history, abortSignal); Profil-/Kontext-Wahl |
+| **Eingaben** | Frage + gepackte Hits + AskOptions (pinnedHits, contextPreamble, history, abortSignal); Profil-, Kontext- und Geräte-Wahl (`placement` auto/cpu/gpu) |
 | **Verarbeitung** | Profil-↔-GGUF-Bindung (lite=Qwen3.5-2B, full=4B, xl=9B + Fallback-Pattern für ältere Modelle); Prompt-Bau, Token-Batching (~8 ms), Think-Filter, Loop-Detector, Kontext-Overflow-Retry |
 | **Ausgaben** | gestreamte Tokens (über `onChunk`), Volltext; `llm:status` |
 | **Dateien** | [llm/LlamaService.ts](../../src/main/services/llm/LlamaService.ts), [llm/prompt.ts](../../src/main/services/llm/prompt.ts), [llm/conversationSwitch.ts](../../src/main/services/llm/conversationSwitch.ts) |
 | **Abhängigkeiten** | `ModelsWorkerClient`, `ResourcePlanner`, `TierMarker` |
 | **Status** | umgesetzt |
 | **Grenzen** | Geteilter Worker verträgt **keine parallele** Inferenz (sonst 0xC0000005 auf knappen Maschinen) — Inferenz ist serialisiert; Idle-Eviction Default 30 min |
+
+Die Geräte-Wahl (`placement` auto/cpu/gpu) spiegelt Embedder/Reranker; das tatsächlich aufgelöste Gerät (`resolvedPlacement`) und der Grund werden im `SystemInfo` geführt und in der Status-Bar als CUDA-/CPU-Chip angezeigt (`eba08e3`).
 
 ## 14.8 QAService + Router
 

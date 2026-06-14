@@ -47,4 +47,4 @@ Eine spätere **gebundene PDF- bzw. Buch-Version** des Projekthandbuchs ist für
 
 ---
 
-*Projekthandbuch LokLM · Version 0.1 · Stand 2026-06-14*
+*Projekthandbuch LokLM · Version 0.1 · Stand 2026-06-15*

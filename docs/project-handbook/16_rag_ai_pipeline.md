@@ -134,7 +134,7 @@ Tabelle 16.3 beschreibt die einzelnen Stufen mit Funktion und Wirkung.
 | **wholeDocFallback** | `expandSmallDocs` | bei kleinen Docs (≤ 8 Chunks) das **ganze** Doc statt eines Fragments |
 | **Reranker** | `RerankerService` (`src/main/services/retrieval/RerankerService.ts`) | Cross-Encoder **BGE-Reranker-v2-M3** (`bge-reranker-v2-m3-Q4_K_M.gguf`), optional |
 
-**CPU-Preset.** Ohne GPU (auto-erkannt über das GPU-Label des LLM-Backends) schaltet die Pipeline ein TTFT-Preset: Rerank und Multi-Query default aus, kleinerer Kandidaten-Pool (`CPU_FANOUT`, `CPU_MAX_CANDIDATES`). Explizite Optionen gewinnen immer. Reranker und Embedder **degradieren still**: fehlt das Modell, läuft die Pipeline ohne sie weiter (BM25 [24]/RRF [8] bzw. RRF-Ordnung).
+**CPU-Preset.** Ohne GPU (auto-erkannt über das GPU-Label des LLM-Backends) schaltet die Pipeline ein TTFT-Preset: Rerank und Multi-Query default aus, kleinerer Kandidaten-Pool (`CPU_FANOUT`, `CPU_MAX_CANDIDATES`). Explizite Optionen gewinnen immer. Reranker und Embedder **degradieren still**: fehlt das Modell, läuft die Pipeline ohne sie weiter (BM25 [24]/RRF [8] bzw. RRF-Ordnung). Hinweis: Die GPU-Erkennung im `modelsWorker` war zeitweise fehlerhaft — `node-llama-cpp` validiert GPU-Binaries über einen Kindprozess, der im Utility-Process als Electron statt als Node startete und scheiterte, worauf das Backend still auf CPU zurückfiel (und die Query-Expansion fälschlich auf das Lite-Profil herabstufte). Der `ELECTRON_RUN_AS_NODE=1`-Fix (`eba08e3`) lässt CUDA korrekt einrasten, sodass das CPU-Preset nur noch auf echten CPU-Maschinen greift.
 
 ---
 

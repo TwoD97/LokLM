@@ -23,7 +23,7 @@ Tabelle 1.1 fasst die Zielgruppen und ihr jeweiliges Nutzungsinteresse zusammen.
 
 ## 1.3 Dokumentationsstand
 
-Das Handbuch hat den Stand **2026-06-14** (Handbuch-Version 0.1), entsprechend ca. **9 Wochen Projektarbeit**. Es bezieht sich auf den Release-Stand bis einschließlich **v0.4.1** (Windows-GPU-Translator-Sidecar + Multi-OS-Release-Härtung) und den Branch-Stand der Test-/Eval-Säule (AP-T.1/T.2, AP-E.1/E1b/E.2). Der Pflichtenheft-Stand ist Version 1.1.2 (Nachtrag Sprint-4/5).
+Das Handbuch hat den Stand **2026-06-15** (Handbuch-Version 0.1); die Status- und Projektangaben bilden ca. **9 Wochen Projektarbeit** (Stand 2026-06-14) ab, die technischen Kapitel sind mit dem `main`-Stand bis Commit `6bacd60` abgeglichen — nachträglich aufgenommen wurden die LLM-Geräteauswahl (`eba08e3`) und die Vault-Crash-Resilienz (`f4009b1`). Es bezieht sich auf den Release-Stand bis einschließlich **v0.4.1** (Windows-GPU-Translator-Sidecar + Multi-OS-Release-Härtung) und den Branch-Stand der Test-/Eval-Säule (AP-T.1/T.2, AP-E.1/E1b/E.2). Der Pflichtenheft-Stand ist Version 1.1.2 (Nachtrag Sprint-4/5).
 
 Das Handbuch bildet einen **Projektstand**, kein abgeschlossenes Endprodukt ab. Einige Bereiche sind bewusst noch in Arbeit; sie werden im Text klar als solche gekennzeichnet (siehe 1.4).
 
