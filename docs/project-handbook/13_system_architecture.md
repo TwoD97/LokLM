@@ -127,13 +127,11 @@ Die zentralen Entscheidungen sind in `docs/adr/` dokumentiert:
 | [ADR-0001](../../docs/adr/0001-argon2id-password-kdf.md) | argon2id als Passwort-/Passphrase-KDF | accepted | Schlüsselableitung im AuthService |
 | [ADR-0002](../../docs/adr/0002-envelope-encryption-aes-gcm.md) | Envelope-Encryption: DEK + KEK-Wrapping (AES-256-GCM) | accepted | Tresor-Format v4, ein-Datei-Layout |
 | [ADR-0003](../../docs/adr/0003-query-routing-und-summary-index.md) | Query-Routing + Per-Dokument-Summary-Index | accepted | corpus/doc_summary/retrieval-Routen, Decomposition |
-| [ADR-0004](../../docs/adr/0004-adaptive-model-residency.md) | Adaptive Modell-Residency (Usage-Lernen, GDSF-Caching) | proposed | geplante Steuerung der Modell-Verweildauer |
+| [ADR-0004](../../docs/adr/0004-adaptive-model-residency.md) | Adaptive Modell-Residency (Usage-Lernen, GDSF-Caching) | proposed | Design-Vorschlag, nicht implementiert |
 
-ADR-0004 ist **vorgeschlagen, nicht implementiert** — heute ist das Placement statisch: `ResourcePlanner` entscheidet einmal zur Ladezeit; Embedder/Reranker bleiben nach dem ersten Load warm, nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`).
+ADR-0004 „Adaptive Model Residency" ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden). Heute ist das Placement statisch: `ResourcePlanner` entscheidet einmal zur Ladezeit; Embedder/Reranker bleiben nach dem ersten Load warm, nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`).
 
-> WARN Status unklar
-
-ADR-0004 beschreibt eine geplante Schichtenarchitektur (UsageJournal, DemandModel, PlacementPolicy, ResidencyManager, SpeculativePreloader). Ob davon zum Handbuchstand bereits Teile gebaut sind, ist durch das Team zu bestätigen; die genannten `src/main/services/placement/*`-Dateien sind im ADR als „geplant, neu" markiert.
+ADR-0004 beschreibt eine geplante Schichtenarchitektur (UsageJournal, DemandModel, PlacementPolicy, ResidencyManager, SpeculativePreloader). Davon ist zum Handbuchstand **nichts gebaut**: Es existiert kein Verzeichnis `src/main/services/placement/`, und keines der Symbole `ResidencyManager` / `UsageJournal` / `DemandModel` / `PlacementPolicy` / `SpeculativePreloader` kommt im Code vor (grep leer). Die im ADR genannten `src/main/services/placement/*`-Dateien sind dort als „geplant, neu" markiert.
 
 ## 13.7 Laufzeitumgebung und Abhängigkeiten
 

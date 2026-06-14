@@ -112,7 +112,7 @@ Im Berichtszeitraum als „Electron-Sicherheitshärtung" gemerged (`04b318d`, Qu
 ## 6. Datenschutzrisiken
 
 - **Offline-Grundsatz:** Nutzerinhalte und (geplantes) Usage-Journal verlassen die Maschine nie; kein Netzwerkpfad berührt diese Daten (ADR-0004). Das ist die zentrale Datenschutz-Eigenschaft des Produkts.
-- **Verhaltensdaten (ADR-0004, PROPOSED):** Das adaptive Modell-Residency-Feature würde ein `usage_events`-Log anlegen (welches Feature wann). Vault-verschlüsselt, nie übertragen, über die Settings vollständig löschbar — als ausdrücklicher Audit-Punkt markiert.
+- **Verhaltensdaten (ADR-0004, PROPOSED):** Das adaptive Modell-Residency-Feature würde ein `usage_events`-Log anlegen (welches Feature wann). Es ist jedoch ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden); zur Laufzeit wird derzeit kein solches Usage-Journal geführt. Wäre es gebaut, wäre es vault-verschlüsselt, nie übertragen, über die Settings vollständig löschbar — als ausdrücklicher Audit-Punkt markiert.
 - **OCR / externe Modelle:** OCR läuft lokal (tessdata-Cache); keine Cloud-OCR. Eval-Datasets können über Anthropic generiert werden (API-Key), aber das betrifft Test-Korpora, nicht Nutzerinhalte.
 - **Eval-Korpora-Lizenz:** Synthetische Sample-Docs sind selbst verfasst/lizenzfrei; externe Korpora (FLORES-200, Wikipedia) tragen CC-BY-SA-4.0 mit erhaltener Provenance.
 

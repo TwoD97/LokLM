@@ -142,11 +142,12 @@ Releases werden über Git-Tags markiert. Die Tag-Historie (mit echten Erstellung
 ab (frühe Init-Phase). Minor-Bumps markieren funktionale Sprünge (z. B. v0.3.0
 Installer-Pivot, v0.4.0 Audio), Patch-Bumps Fixes/Härtung.
 
-> ⚠️ zu verifizieren: Die Prompt-Vorgabe nennt „Tags v0.1.1–v0.4.2". Ein Release
-> **v0.4.2** existiert im Repo als Release-**Commit** (`783ca4b`, „release , v0.4.2 ,
-> windows + linux + macos assets", 14.06.), ist aber zum Erhebungszeitpunkt **noch
-> nicht als Git-Tag** gesetzt (kein `v0.4.2` in `git tag -l`). Höchster gesetzter Tag
-> ist `v0.4.1`. Ob v0.4.2 noch getaggt wird, ist durch das Team zu bestätigen.
+**Hinweis zu v0.4.2.** Die Prompt-Vorgabe nennt „Tags v0.1.1–v0.4.2". v0.4.2 existiert
+im Repo als **Release-Commit (`783ca4b`**, „release , v0.4.2 , windows + linux + macos
+assets", 14.06.), **aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v0.4.1**
+(`git tag -l` listet nur bis `v0.4.1`, kein `v0.4.2`). Die obige Tag-Tabelle endet daher
+korrekt bei v0.4.1; v0.4.2 ist bislang ausschließlich ein Release-Commit ohne
+zugehörigen Tag.
 
 ## 6. Trennung Code / Daten / Doku
 
