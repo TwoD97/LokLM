@@ -112,11 +112,11 @@ Span-Metrik + Bridges unter `tests/evals/`.
 
 Die drei End-to-End-Tests aus Pflichtenheft/Strukturplan §8.2 — DocumentService,
 RetrievalService, Auth — gegen **reale Services und echte Datenbank** (PGlite), ohne
-Mocks, plus den ersten echten vitest-CI-Job im Repository.
+Mocks, plus den ersten echten vitest-CI-Job [11] im Repository.
 
 ### Technische Umsetzung
 
-Alle drei Suiten booten eine echte In-Memory-**PGlite** (inkl. pgvector + Drizzle- und
+Alle drei Suiten booten eine echte In-Memory-**PGlite** [3] (inkl. pgvector [4] + Drizzle [5]- und
 Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integrationstests
 (`mkdtemp` + `AuthService` + `WorkspaceService`, `importFile` mit Fake-Sender, Polling auf
 `IndexProgress`-Phase `done`). Tabelle 11.1 fasst die drei Suiten zusammen.
@@ -135,7 +135,7 @@ Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integr
 - **RetrievalService E2E:** 60-Chunk-Korpus, jede der 10 Fragen muss ihre `##`-Sektion
   im Top-5 treffen; In-Prozess-Determinismus; alle nicht-deterministischen Stellschrauben
   (Rerank, Multi-Query, Recency-Boost, Whole-Doc-Fallback) fixiert. Läuft gegen das
-  **echte BGE-M3-GGUF** (in-process), per `describe.runIf(GGUF vorhanden)` gegated.
+  **echte BGE-M3-GGUF** [17] (in-process), per `describe.runIf(GGUF vorhanden)` gegated.
 - **Auth E2E §8.2:** voller Round-Trip Register → Login → Verschlüsseln → Neustart →
   Entschlüsseln → Recovery-Reset → neuer Login, mit Datenpersistenz-Prüfung über den
   verschlüsselten Vault-Snapshot.
@@ -143,7 +143,7 @@ Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integr
   60 Chunks / 10 Fragen, DE+EN), gegen den echten BGE-M3 eindeutig auflösbar verifiziert.
 - **Erster vitest-CI-Job:** `.github/workflows/checks.yml` um `pnpm test:integration` +
   `pnpm test:tx` ergänzt (Timeout 15 min) — der **erste** Test-Job im Repo (CI baute
-  bisher nur die Website). Damit vitest auf Ubuntu ohne Electron-Runtime lädt, wurde ein
+  bisher nur die Website). Damit vitest auf Ubuntu ohne Electron-Runtime [1] lädt, wurde ein
   schlanker **Electron-Stub** ergänzt (`tests/helpers/electron-stub.ts` + Alias in
   `vitest.workspace.ts`).
 
@@ -228,10 +228,10 @@ Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests g
 Lokaler, offline arbeitender Tresor (Vault) mit passwortabgeleiteter Verschlüsselung und
 Recovery-Mechanismus — das Sicherheits-Fundament für die gesamte App.
 
-- **Schlüsselableitung:** **Argon2id** statt PBKDF2 ([ADR-0001](../adr/0001-argon2id-password-kdf.md)),
+- **Schlüsselableitung:** **Argon2id** [6] statt PBKDF2 ([ADR-0001](../adr/0001-argon2id-password-kdf.md)),
   memory-hard gegen GPU/ASIC-Angriffe.
 - **Envelope-Encryption:** Passwort-KEK umschließt einen Daten-Schlüssel (DEK);
-  Dokumente/Daten werden mit AES-256-GCM verschlüsselt
+  Dokumente/Daten werden mit AES-256-GCM [7] verschlüsselt
   ([ADR-0002](../adr/0002-envelope-encryption-aes-gcm.md)). Recovery läuft über eine
   18-Wort-Passphrase, die den DEK separat umschließt — Passwort-Reset ohne Datenverlust.
 - **Persistenz:** Drizzle-ORM über **PGlite** (Postgres-in-Process) mit pgvector; das
@@ -265,11 +265,11 @@ als AP-T.2-Suite ausgebaut.
 
 ### Ziel und Pipeline
 
-Retrieval-augmented Generation über die Nutzer-Dokumente, vollständig offline, mit
-klickbaren Quellenverweisen. Die Basis-Pipeline kombiniert **BM25 + Dense-Retrieval + RRF**
-(Reciprocal Rank Fusion), optionalem Reranking, gefolgt von der LLM-Antwort mit
+Retrieval-augmented Generation [26] über die Nutzer-Dokumente, vollständig offline, mit
+klickbaren Quellenverweisen. Die Basis-Pipeline kombiniert **BM25 [24] + Dense-Retrieval + RRF**
+(Reciprocal Rank Fusion) [8], optionalem Reranking, gefolgt von der LLM-Antwort mit
 Citation-Markern (`[doc:X, chunk:Y]`). Die Provider-Abstraktion erlaubt Bundled-Modelle
-oder externes Ollama (Phase 4).
+oder externes Ollama [22] (Phase 4).
 
 ### QA-Routing (ADR-0003, Phase 17)
 
@@ -287,7 +287,7 @@ Hot-Path) mit drei Routen ein, Präzedenz `corpus > doc_summary > retrieval`:
 
 Ergänzend: **Multi-Question-Decomposition** (Zerlegung an `?`-Grenzen, separates Retrieval
 je Teilfrage, RRF-Fusion) und ein **Per-Dokument-Summary-Embedding-Index** (Migration
-0010, `vector(1024)`, sequenzieller Cosine-Scan statt HNSW). Der ADR ist bemerkenswert
+0010, `vector(1024)`, sequenzieller Cosine-Scan statt HNSW [25]). Der ADR ist bemerkenswert
 gründlich: Drei produktive OSS-Implementierungen (LlamaIndex, GraphRAG, RAGFlow) wurden im
 Quelltext studiert und in einer Adopt/Reject-Tabelle gegen die LokLM-Constraints
 (CPU-Preset, kein-LLM-vor-Retrieval, offline) abgewogen.
@@ -300,7 +300,7 @@ Quelltext studiert und in einer Adopt/Reject-Tabelle gegen die LokLM-Constraints
 
 - **Embedder-Identity & Re-Index-Gate** — stale Chunks bei Embedder-Wechsel purgen,
   Dimension-Mismatch ablehnen (Phase 4).
-- **OCR** für gescannte PDFs/Bilder + dedizierter Documents-Worker + Orphan-Sweep
+- **OCR** [13] für gescannte PDFs/Bilder + dedizierter Documents-Worker + Orphan-Sweep
   (Phase 9, v0.3.1).
 - **Robustheits-Fixes** (Embedder-Count, QA-Cancel, Download-Write-Errors; Phase 9).
 
@@ -321,7 +321,7 @@ Dominik baute zunächst einen aufwendigen **Custom-NSIS-Wizard** (17-Task-TDD-Pl
 dark-themed Design, SVG→BMP3-Exporter mit `sharp`, fünf Test-Tiers inkl. makensis-Lint und
 Artifact-Smoke-Test). Trotz funktionierender Pipeline wurde der Stack **verworfen**: Der
 Maintenance-Overhead (makensis-Toolchain, BMP3-Pflichtformat, NSIS-Sprache) stand in keinem
-guten Verhältnis zum Mehrwert. Ersatz: **electron-builder Portable-Target** (7zSD-Self-
+guten Verhältnis zum Mehrwert. Ersatz: **electron-builder Portable-Target** [27] (7zSD-Self-
 Extractor) — übernimmt Splash, Self-Extract und UAC out-of-the-box. Dominik lieferte
 parallel das moderne **Electron-Bootstrapper-UI** (`installer-ui/`, HTML/CSS-Splash, i18n
 DE/EN, Retry-Button). Problem dabei: `cp()` versuchte `app.asar` als Verzeichnis zu
@@ -331,7 +331,7 @@ kopieren (Electron macht asar-Inhalte transparent) → in `process.noAsar`-Block
 ### Pivot 2 — Embedded-Payload → Download-Stub + Multi-OS-Wizard (Phase 8, v0.3.0)
 
 Die eingebettete Modell-Payload (~500 MB) wurde gedroppt; der Installer schrumpfte auf
-**~8 MB (lzma)**. Ein plattformübergreifender **Rust/Tauri-Wizard** (Windows/Linux/macOS)
+**~8 MB (lzma)**. Ein plattformübergreifender **Rust/Tauri-Wizard** [28] (Windows/Linux/macOS)
 lädt die Modelle zur Laufzeit nach (Payload-Manifest-Reader mit per-Target-URL + optionaler
 CUDA-Checkbox, tar.zst-Extract mit Traversal-Guard, Mac-LaunchAgent + Uninstaller). Viele
 Plattform-Detail-Probleme wurden gelöst (Win11-IDT-Blockade → Umbenennung; `taskkill`
@@ -353,8 +353,8 @@ PR #10 (Linux `.deb`); Tags v0.2.7–v0.3.0.
 
 **Status:** fertig (Release v0.4.0).
 
-Vollständiges Transkriptions-Subsystem: **Whisper** (`@kutalia/whisper-node-addon`) für die
-Transkription + **Sprecher-Diarisation** (`sherpa-onnx-node`), als getrennte Worker
+Vollständiges Transkriptions-Subsystem: **Whisper** [18] (`@kutalia/whisper-node-addon`) für die
+Transkription + **Sprecher-Diarisation** [19] (`sherpa-onnx-node`), als getrennte Worker
 (Protokoll + Client + Vite-Entry), Service + IPC + Mikrofon-Permission, Renderer-View mit
 Batch-/Ordner-Queue, Export-Menü, Modell-Picker und GPU-Toggle. Modell-Akquise über den
 Installer (nicht in-App). Native Addons via `asarUnpack` + `electron-rebuild`. Problem:
@@ -408,7 +408,7 @@ davon disjunkt (Dedup-Guard). **Status:** fertig (Branch, lokal). Verweis:
 ### Translation-Eval + GPU-Translator-Sidecar (Partner / Denys, v0.4.1)
 
 Übersetzungs-Eval-Feature + plattformübergreifender GPU-Translator-Sidecar (Windows-GPU mit
-Ninja + CUDA-Toolkit + nvJitLink), MADLAD-Modell via Installer-Wizard. **Status:** fertig
+Ninja + CUDA-Toolkit + nvJitLink), MADLAD-Modell [20] via Installer-Wizard. **Status:** fertig
 (PRs #20–#23, #26; v0.4.1). Verweis: `projektstatusbericht-2026-06-14.md` (Phase 17).
 
 ---

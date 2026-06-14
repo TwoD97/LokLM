@@ -118,7 +118,7 @@ Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwo
 | Apache-2.0 | `qwen3-4b-instruct`, `qwen3-8b`, `qwen3-14b`, `qwen3.5-{2b,4b,9b,27b}`, `granite-{3.3-8b,4.1-3b}`, `mistral-nemo-12b`, `ministral-3-14b`, `eurollm-9b`, `smollm3-3b` |
 | MIT | `phi-4-mini`, `phi-4-14b` |
 
-Embedder (alle OSI): `bge-m3` (MIT), `e5-base`/`e5-large` (MIT), `arctic-l-v2`, `qwen3-emb-0.6b`/`qwen3-emb-4b`, `granite-emb`, `nomic-v2` (Apache-2.0). Reranker: `bge-reranker-v2-m3` (Apache-2.0), `bge-reranker-base` (MIT). Judge: `mistral-small-3.2-24b` (Apache-2.0).
+Embedder (alle OSI): `bge-m3` [17] (MIT), `e5-base`/`e5-large` (MIT), `arctic-l-v2`, `qwen3-emb-0.6b`/`qwen3-emb-4b`, `granite-emb`, `nomic-v2` (Apache-2.0). Reranker: `bge-reranker-v2-m3` (Apache-2.0), `bge-reranker-base` (MIT). Judge: `mistral-small-3.2-24b` (Apache-2.0).
 
 ---
 
