@@ -46,11 +46,11 @@ flowchart TD
 
 ### 19.2.1 Unit-Tests (§8.1)
 
-Unit-Tests liegen teils **co-located** neben dem Modul (`Foo.ts` → `Foo.test.ts`, z. B. `src/shared/citationMarkers.test.ts`) und teils unter `tests/unit/` (56 Dateien zum Stichtag, u. a. `chunker.test.ts`, `parser.test.ts`, `rrf.test.ts`, `eval-metrics.test.ts`, `license-validator.test.ts`, `matrix-manifest.test.ts`). Sie laufen ohne externe Services: PGlite in-process, Argon2 nativ/lokal, OCR gemockt, keine Netzwerkzugriffe.
+Die automatisierten Unit-, Integrations- und Transaktionstests laufen unter Vitest [11]. Unit-Tests liegen teils **co-located** neben dem Modul (`Foo.ts` → `Foo.test.ts`, z. B. `src/shared/citationMarkers.test.ts`) und teils unter `tests/unit/` (56 Dateien zum Stichtag, u. a. `chunker.test.ts`, `parser.test.ts`, `rrf.test.ts`, `eval-metrics.test.ts`, `license-validator.test.ts`, `matrix-manifest.test.ts`). Sie laufen ohne externe Services: PGlite [3] in-process, Argon2 nativ/lokal, OCR gemockt, keine Netzwerkzugriffe.
 
 ### 19.2.2 Integrationstests (§8.2)
 
-`tests/integration/` zieht mehrere Module in-Process zusammen, gegen eine **echte In-Memory-PGlite** (inkl. pgvector, Drizzle- + Raw-SQL-Migrationen), gestartet über `AuthService.register` — keine Mocks. Die drei §8.2-E2E-Suiten (AP-T.2) sind in Tabelle 19.2 zusammengefasst.
+`tests/integration/` zieht mehrere Module in-Process zusammen, gegen eine **echte In-Memory-PGlite** (inkl. pgvector [4], Drizzle [5]- + Raw-SQL-Migrationen), gestartet über `AuthService.register` — keine Mocks. Die drei §8.2-E2E-Suiten (AP-T.2) sind in Tabelle 19.2 zusammengefasst.
 
 **Tabelle 19.2:** Integrations-E2E-Suiten (AP-T.2).
 
@@ -93,7 +93,7 @@ Nachweis: `pnpm run test:cov:apt1` (Quelle: `docs/work/ap-t1-abschluss-doku.md`)
 | Citation-Parser (`citationMarkers.ts`) | `src/shared/citationMarkers.test.ts` | 96.29 | 88.88 |
 | Auth-Hashing-Wrapper (`AuthService.ts`) | `tests/unit/auth-crypto.test.ts` + `auth-service-guards.test.ts` | 83.05 | 74.17 |
 
-**Abweichung vom Ticket-Wortlaut, bewusst dokumentiert:** Das Ticket nennt einen „PBKDF2-Wrapper". Implementiert ist **Argon2id** ([ADR-0001](23_decision_log.md)) — getestet werden die real implementierten Wrapper (Argon2id + AES-256-GCM), nicht der nie existierende PBKDF2-Pfad. Der `AuthService`-Branch-Wert (74.17 %) erreicht die Schwelle erst kombiniert mit den Auth-Integrationstests; reine Wrapper-Unit-Tests heben die Datei nur auf ~67 % (Session-/Vault-Logik braucht den echten Tresor). Die DoD nennt `pnpm test --coverage` (Gesamtsuite), nicht „Unit allein".
+**Abweichung vom Ticket-Wortlaut, bewusst dokumentiert:** Das Ticket nennt einen „PBKDF2-Wrapper". Implementiert ist **Argon2id** [6] ([ADR-0001](23_decision_log.md)) — getestet werden die real implementierten Wrapper (Argon2id + AES-256-GCM [7]), nicht der nie existierende PBKDF2-Pfad. Der `AuthService`-Branch-Wert (74.17 %) erreicht die Schwelle erst kombiniert mit den Auth-Integrationstests; reine Wrapper-Unit-Tests heben die Datei nur auf ~67 % (Session-/Vault-Logik braucht den echten Tresor). Die DoD nennt `pnpm test --coverage` (Gesamtsuite), nicht „Unit allein".
 
 > Der `export` der vier Krypto-Wrapper (`deriveKEK`/`wrapKey`/`unwrapKey`/`decryptBody`) ist rein test-getrieben (keine Logikänderung, nur Sichtbarkeit der Fehler-Branches). An Denys als Domänen-Owner gemeldet, nicht eigenmächtig in die Auth-Logik eingegriffen.
 
@@ -150,7 +150,7 @@ Eigene Säule neben der Pyramide (`tests/evals/`): es wird **nicht Korrektheit**
 
 ### 19.6.2 Matrix-Eval (AP-E.2) — kartesischer RAG-Sweep
 
-AP-E.2 evaluiert die RAG-Pipeline als kartesisches Produkt über vier Achsen (Quellen: `tests/evals/README.md`, `tests/evals/answer/matrix-manifest.ts`, die Packs unter `tests/evals/answer/`). Tabelle 19.7 zeigt die vier Matrix-Achsen.
+AP-E.2 evaluiert die RAG [26]-Pipeline als kartesisches Produkt über vier Achsen (Quellen: `tests/evals/README.md`, `tests/evals/answer/matrix-manifest.ts`, die Packs unter `tests/evals/answer/`). Tabelle 19.7 zeigt die vier Matrix-Achsen.
 
 **Tabelle 19.7:** Achsen des kartesischen RAG-Sweeps.
 

@@ -1,6 +1,6 @@
 # Sicherheit, Datenschutz und sensible Daten
 
-Stand: **2026-06-14**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
+Stand: **2026-06-14**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
 
 Quellen für dieses Kapitel: `docs/adr/0001-argon2id-password-kdf.md`, `docs/adr/0002-envelope-encryption-aes-gcm.md`, `docs/adr/0004-adaptive-model-residency.md`, `.gitignore`, `.env.example`, `tests/evals/model-license-registry.json`, `docs/work/projektstatusbericht-2026-06-14.md`.
 
@@ -67,7 +67,7 @@ Lizenz-/Korpus-Daten (FLORES-200, Wikipedia-survival) sind als CC-BY-SA-4.0 mark
 
 ### 21.4.1 Schlüsselableitung — Argon2id (ADR-0001)
 
-KDF für Passwort **und** Recovery-Passphrase: **Argon2id** (PHC-Gewinner, RFC 9106), Profil exakt wie Bitwarden (siehe Tabelle 21.4):
+KDF für Passwort **und** Recovery-Passphrase: **Argon2id** [6] (PHC-Gewinner, RFC 9106), Profil exakt wie Bitwarden (siehe Tabelle 21.4):
 
 **Tabelle 21.4:** Argon2id-Parameter (Bitwarden-Profil).
 
@@ -84,7 +84,7 @@ Das 32-Byte-Raw-Output **ist** der KEK — kein separater Verifier-Hash (verhind
 
 ### 21.4.2 Envelope-Encryption — AES-256-GCM (ADR-0002)
 
-Einziges On-Disk-Artefakt: `loklm.vault` (Mode `0o600`, atomar via `write tmp → rename`). Ein zufälliger **DEK** (32 Byte, nie im Klartext auf Platte) verschlüsselt den kompletten PGlite-Tar-Dump (AES-256-GCM, 12-Byte-Nonce, 16-Byte-Tag). Der DEK wird je Geheimnis unter einem aus Argon2id abgeleiteten **KEK** gewrappt (Passwort-Wrap + Recovery-Wrap). Abbildung 21.1 zeigt den Schlüsselfluss von Passwort und Recovery-Passphrase bis zum entschlüsselten Tresor-Inhalt.
+Einziges On-Disk-Artefakt: `loklm.vault` (Mode `0o600`, atomar via `write tmp → rename`). Ein zufälliger **DEK** (32 Byte, nie im Klartext auf Platte) verschlüsselt den kompletten PGlite-Tar-Dump (AES-256-GCM [7], 12-Byte-Nonce, 16-Byte-Tag). Der DEK wird je Geheimnis unter einem aus Argon2id abgeleiteten **KEK** gewrappt (Passwort-Wrap + Recovery-Wrap). Abbildung 21.1 zeigt den Schlüsselfluss von Passwort und Recovery-Passphrase bis zum entschlüsselten Tresor-Inhalt.
 
 ```mermaid
 flowchart TD
