@@ -10,13 +10,17 @@ export interface Shard {
 }
 
 /** The chunker axis of the matrix — single source of truth, used by both
- *  matrixConfigs() (builds FixedSizeChunker) and run-pack --summary. */
+ *  matrixConfigs() (builds FixedSizeChunker) and run-pack --summary.
+ *
+ *  NUR EINE Größe: sweep.ts re-chunkt NICHT pro Config (es nutzt den
+ *  vor-gechunkten `dataset.chunks`), daher wäre eine Mehr-Größen-Achse hier
+ *  wirkungslos (3× identische Ergebnisse). Der Chunk-Größen-Vergleich läuft
+ *  korrekt als separate Läufe: pro Größe ein eigenes Dataset bauen
+ *  (build-lap-dataset mit anderem Chunker) und über die span-recall-Metrik
+ *  (chunker-unabhängige goldSpans) vergleichen. Diese Größe muss zum Chunking
+ *  des verwendeten Datasets passen (LAP-Dataset = 512/64). */
 export const MATRIX_CHUNKER_SPECS: ReadonlyArray<{ name: string; size: number; overlap: number }> =
-  [
-    { name: 'fixed-256-32', size: 256, overlap: 32 },
-    { name: 'fixed-512-64', size: 512, overlap: 64 },
-    { name: 'fixed-1024-128', size: 1024, overlap: 128 },
-  ]
+  [{ name: 'fixed-512-64', size: 512, overlap: 64 }]
 /** chunker.name list for display/manifest. */
 export const MATRIX_CHUNKER_NAMES: string[] = MATRIX_CHUNKER_SPECS.map((s) => s.name)
 
