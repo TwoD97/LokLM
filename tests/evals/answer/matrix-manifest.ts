@@ -26,3 +26,74 @@ export function parseShard(s: string): Shard {
 export function selectShard<T>(items: T[], index: number, total: number): T[] {
   return items.filter((_, i) => i % total === index)
 }
+
+export interface ManifestInput {
+  embedders: { label: string }[]
+  rerankers: { label: string }[]
+  chunkers: string[]
+  models: { label: string }[]
+  dataset: {
+    path: string
+    numChunks: number
+    numQuestions: number
+    numRefusal: number
+    langs: Record<string, number>
+  }
+  /** seconds per answer+judge run for the runtime estimate. */
+  secondsPerRun?: number
+  /** present when this run is one shard of n. */
+  shard?: Shard
+}
+
+export interface Manifest {
+  retrievalConfigs: number
+  cells: number
+  runs: number
+  markdown: string
+}
+
+export function buildMatrixManifest(input: ManifestInput): Manifest {
+  const rerankAxis = input.rerankers.length + 1 // + SkipReranker
+  const retrievalConfigs = input.embedders.length * rerankAxis * input.chunkers.length
+  const cells = retrievalConfigs * input.models.length
+  const runs = cells * input.dataset.numQuestions
+  const secs = input.secondsPerRun ?? 20
+  const totalHours = (runs * secs) / 3600
+
+  const langStr = Object.entries(input.dataset.langs)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ')
+  const lines: string[] = [
+    `# Matrix Pre-Run Manifest`,
+    ``,
+    input.shard
+      ? `**Shard ${input.shard.index}/${input.shard.total}**`
+      : `**Single run (no sharding)**`,
+    ``,
+    `## Embedder (${input.embedders.length})`,
+    ...input.embedders.map((e) => `- ${e.label}`),
+    ``,
+    `## Reranker (${input.rerankers.length + 1})`,
+    `- SkipReranker (kein Rerank)`,
+    ...input.rerankers.map((r) => `- ${r.label}`),
+    ``,
+    `## Chunker (${input.chunkers.length})`,
+    ...input.chunkers.map((c) => `- ${c}`),
+    ``,
+    `## Antwort-LLMs (${input.models.length}${input.shard ? ` , dieser Shard` : ``})`,
+    ...input.models.map((m) => `- ${m.label}`),
+    ``,
+    `## Daten`,
+    `- Dataset: ${input.dataset.path}`,
+    `- Chunks: ${input.dataset.numChunks}`,
+    `- Fragen: ${input.dataset.numQuestions} (davon ${input.dataset.numRefusal} Refusal) , Sprache: ${langStr}`,
+    ``,
+    `## Größe`,
+    `- Retrieval-Configs (Emb × [Skip+RR] × Chunk): **${retrievalConfigs}**`,
+    `- Zellen (× ${input.models.length} LLMs): **${cells}**`,
+    `- Läufe (× ${input.dataset.numQuestions} Fragen, Antwort+Judge): **${runs.toLocaleString('de-DE')}**`,
+    `- Grobe Laufzeit @ ${secs}s/Lauf: **~${totalHours.toFixed(0)} GPU-Stunden** (${(totalHours / 24).toFixed(1)} Tage seriell)`,
+    ``,
+  ]
+  return { retrievalConfigs, cells, runs, markdown: lines.join('\n') }
+}
