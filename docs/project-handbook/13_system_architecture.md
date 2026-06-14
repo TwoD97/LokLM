@@ -22,7 +22,7 @@ Die Worker-Eintrittspunkte sind als eigene Rollup-Inputs in [electron.vite.confi
 
 ### Warum diese Trennung?
 
-- **Renderer-Sandbox als Sicherheitsgrenze:** Die App verarbeitet *untrusted* Inhalte — PDFs durch `pdfjs`, OCR-Bilder, Markdown, sowie LLM-Ausgaben, die per `react-markdown` gerendert werden. Die volle Chromium-Sandbox (`sandbox: true`, zusätzlich prozessweit `app.enableSandbox()`) hält einen möglichen Renderer-Exploit vom Dateisystem und vom entschlüsselten Tresor in Main fern. Da sandboxed Preloads keine ES-Module laden können, wird der Preload bewusst als CommonJS (`index.cjs`) gebaut.
+- **Renderer-Sandbox als Sicherheitsgrenze:** Die App verarbeitet *untrusted* Inhalte — PDFs durch `pdfjs` [14], OCR-Bilder, Markdown, sowie LLM-Ausgaben, die per `react-markdown` gerendert werden. Die volle Chromium-Sandbox (`sandbox: true`, zusätzlich prozessweit `app.enableSandbox()`) hält einen möglichen Renderer-Exploit vom Dateisystem und vom entschlüsselten Tresor in Main fern. Da sandboxed Preloads keine ES-Module laden können, wird der Preload bewusst als CommonJS (`index.cjs`) gebaut.
 - **Modell-Inferenz im eigenen Prozess:** Schwere GGUF-Loads und Inferenz liefen früher auf dem Main-Thread und blockierten dort den Event-Loop (u. a. die VRAM-Probe bei `getLlama`-Init). Sie sind in den `modelsWorker` ausgelagert; eine FIFO-Mutex dort serialisiert die `loadModel`-Aufrufe über LLM/Embedder/Reranker.
 - **Parsing isoliert vom Inferenz-Pfad:** Ein schweres oder gescanntes PDF darf das Token-Streaming des Chats nicht stören — daher ein separater `documentsWorker`. Transkription und Diarisierung erhalten je einen eigenen Prozess, isoliert sowohl vom Modell- als auch vom Parsing-Pfad.
 
@@ -155,8 +155,8 @@ ADR-0004 beschreibt eine geplante Schichtenarchitektur (UsageJournal, DemandMode
 
 ## 13.7 Laufzeitumgebung und Abhängigkeiten
 
-- **Node ≥ 24**, **pnpm 10.x** (Package-Manager), TypeScript 5.6, Electron 42, `electron-vite` als Build-Werkzeug. Belege: `engines` und `packageManager` in [package.json](../../package.json).
-- **Native Module:** `node-llama-cpp` [2] (LLM/Embedder/Reranker), `argon2` (Argon2id-KDF [6]), `sodium-native` (Secure-Memory), `@kutalia/whisper-node-addon`, `sherpa-onnx-node`, `sharp`/`@napi-rs/canvas`/`tesseract.js` (Bild/OCR), `@electric-sql/pglite` + `pgvector`. Diese werden über `pnpm.onlyBuiltDependencies` und `electron-rebuild` für Electron gebaut.
+- **Node ≥ 24**, **pnpm 10.x** (Package-Manager), TypeScript 5.6, Electron 42, `electron-vite` [10] als Build-Werkzeug. Belege: `engines` und `packageManager` in [package.json](../../package.json).
+- **Native Module:** `node-llama-cpp` [2] (LLM/Embedder/Reranker), `argon2` (Argon2id-KDF [6]), `sodium-native` (Secure-Memory) [16], `@kutalia/whisper-node-addon`, `sherpa-onnx-node`, `sharp`/`@napi-rs/canvas`/`tesseract.js` (Bild/OCR), `@electric-sql/pglite` + `pgvector`. Diese werden über `pnpm.onlyBuiltDependencies` und `electron-rebuild` für Electron gebaut.
 - **CSP:** Die ausgelieferte Content-Security-Policy ist strikt (`script-src 'self'`); nur unter `electron-vite dev` wird sie für HMR/react-refresh gelockert (Plugin `cspDevRelax`, `apply: 'serve'`), sodass die Lockerung nie in einen Build leckt. Beleg: [electron.vite.config.ts](../../electron.vite.config.ts).
 - **Web-Härtung:** `setWindowOpenHandler` öffnet externe Links nur für `http(s)`/`mailto` im OS-Browser; `will-navigate` blockt jede Top-Level-Navigation außer Dev-Server/Reload; Webviews sind deaktiviert. Beleg: `web-contents-created`-Handler in [src/main/index.ts](../../src/main/index.ts).
 - **Single-Instance-Lock:** Nur ein Prozess darf den Tresor anfassen — `app.requestSingleInstanceLock()` verhindert ein Wettrennen zweier Instanzen auf `loklm.vault.tmp`.

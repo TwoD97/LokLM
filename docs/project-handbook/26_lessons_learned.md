@@ -22,7 +22,7 @@ Bei sauberem Retrieval und belegpflichtiger Antwort liefern auch kleinere LLMs b
 
 ### 26.1.4 Spec ≠ aktueller Schema-Stand
 
-Mehrfach wich der real implementierte Stand vom Ticket-/Spec-Wortlaut ab — und der Code war richtig: Die `text_search`-Spalte (§8.2) war durch einen GIN-Expression-Index (`idx_chunks_fts`, Migration 0006) ersetzt; der „PBKDF2-Wrapper" war bewusst durch **Argon2id** ersetzt (ADR-0001). **Lehre:** Tests gegen das **heutige Äquivalent** schreiben und die Abweichung dokumentieren, nicht eine tote Spec nachbauen. (AP-T.2-/AP-T.1-Abschluss-Doku.)
+Mehrfach wich der real implementierte Stand vom Ticket-/Spec-Wortlaut ab — und der Code war richtig: Die `text_search`-Spalte (§8.2) war durch einen GIN-Expression-Index (`idx_chunks_fts`, Migration 0006) ersetzt; der „PBKDF2-Wrapper" war bewusst durch **Argon2id** [6] ersetzt (ADR-0001). **Lehre:** Tests gegen das **heutige Äquivalent** schreiben und die Abweichung dokumentieren, nicht eine tote Spec nachbauen. (AP-T.2-/AP-T.1-Abschluss-Doku.)
 
 ### 26.1.5 Determinismus muss erzwungen werden
 
@@ -62,7 +62,7 @@ Der Matrix-Lauf zieht fremde Embedder-/Reranker-/LLM-Gewichte. `evals:matrix-run
 
 ### 26.3.2 Memory-hard KDF statt schwacher Default-Wahl
 
-Die bewusste Wahl **Argon2id** (Bitwarden-Profil `m=64 MiB, t=3, p=4`) statt PBKDF2 ist als ADR-0001 dokumentiert (PBKDF2 ist speicherarm, GPU-/ASIC-billig). Verschlüsselung als **Envelope-Schema** (AES-256-GCM, ADR-0002). **Lehre:** Sicherheitsentscheidungen als ADR festhalten — der Ticket-Wortlaut altert, die Begründung muss bleiben.
+Die bewusste Wahl **Argon2id** (Bitwarden-Profil `m=64 MiB, t=3, p=4`) statt PBKDF2 ist als ADR-0001 dokumentiert (PBKDF2 ist speicherarm, GPU-/ASIC-billig). Verschlüsselung als **Envelope-Schema** (AES-256-GCM [7], ADR-0002). **Lehre:** Sicherheitsentscheidungen als ADR festhalten — der Ticket-Wortlaut altert, die Begründung muss bleiben.
 
 ### 26.3.3 Sicherheitshärtung gehört in die Plattform, nicht in den Feature-Code
 
