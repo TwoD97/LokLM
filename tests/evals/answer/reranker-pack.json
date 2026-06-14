@@ -1,0 +1,8 @@
+{
+  "name": "loklm-matrix-rerankers-2",
+  "comment": "Reranker-Achse (zusaetzlich zu SkipReranker, der in matrixConfigs fix dazukommt). Beide echte Cross-Encoder ueber rankAll. Qwen3-Reranker bewusst NICHT hier (mainline-broken).",
+  "rerankers": [
+    { "label": "bge-reranker-v2-m3", "file": "bge-reranker-v2-m3-Q4_K_M.gguf" },
+    { "label": "jina-reranker-v2", "file": "jina-reranker-v2-base-multilingual-q4_k_m.gguf" }
+  ]
+}
