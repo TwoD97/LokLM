@@ -26,7 +26,8 @@ export function spansOverlap(a: Span, b: Span): boolean {
 }
 
 /** 1-basierter Rang des ersten retrievten Spans, der irgendeinen Gold-Span
- *  überlappt. null wenn keiner überlappt. */
+ *  überlappt. null wenn keiner überlappt. An empty `gold` array always yields
+ *  null, since no overlap is possible. */
 export function spanHitRank(spans: Span[], gold: Span[]): number | null {
   for (let i = 0; i < spans.length; i++) {
     for (const g of gold) {
