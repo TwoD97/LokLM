@@ -225,7 +225,7 @@ function getModelDownloader(): ModelDownloader {
 
 function getTranslationService(): TranslationService {
   if (!translationService) {
-    translationService = new TranslationService(getModelDownloader(), (status) => {
+    translationService = new TranslationService((status) => {
       for (const win of BrowserWindow.getAllWindows()) {
         try {
           win.webContents.send('translation:status', status)
@@ -1252,18 +1252,12 @@ function registerIpc(): void {
     return channel
   })
 
-  // translation — MADLAD via the loklm-translator sidecar (optional feature ,
-  // model downloaded on demand). Install progress rides the existing
-  // models:subscribeProgress channel — the file ids are `translator-*`. The
-  // active-download inactivity guard above covers these downloads too , same
-  // ModelDownloader instance.
+  // translation — MADLAD via the loklm-translator sidecar. The model is
+  // provisioned by the installer wizard ( model-manifest.json , role
+  // "translation" ) ; the app only locates it and runs the sidecar. No
+  // in-app download path — a missing model points the user back to the
+  // installer ( see TranslationView / TranslationSection ).
   ipcMain.handle('translation:status', async () => getTranslationService().status())
-  ipcMain.handle('translation:install', async () => {
-    await getTranslationService().install()
-  })
-  ipcMain.handle('translation:cancelInstall', async () => {
-    getTranslationService().cancelInstall()
-  })
   ipcMain.handle('translation:translate', async (_e, text: string, opts: TranslateOptions) =>
     getTranslationService().translate(text, opts),
   )

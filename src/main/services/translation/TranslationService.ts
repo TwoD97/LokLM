@@ -1,17 +1,17 @@
 /**
- * Orchestrates the MADLAD translation layer: model download (on demand , via
- * the shared ModelDownloader) , sidecar lifecycle (lazy start on first
- * translate , resident until quit) , sentence segmentation and reassembly.
+ * Orchestrates the MADLAD translation layer: locating the wizard-provisioned
+ * model , sidecar lifecycle (lazy start on first translate , resident until
+ * quit) , sentence segmentation and reassembly.
  *
- * Deliberately NOT part of the first-launch model gating — translation is an
- * optional feature; a missing model or missing sidecar binary degrades to a
- * clear status , never to a broken app.
+ * The model is provisioned by the INSTALLER WIZARD ( model-manifest.json ,
+ * role "translation" ) , never downloaded by the app — a missing model or
+ * missing sidecar binary degrades to a clear status that points the user back
+ * to the installer , never to a broken app.
  */
 
 import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { ModelDownloader } from '../models/ModelDownloader'
 import { detectIsoLanguage } from '../documents/languageDetector'
 import { getModelSearchDirs } from '../models/paths'
 import type {
@@ -43,10 +43,7 @@ export class TranslationService {
   private state: TranslatorState
   private lastError: string | null = null
 
-  constructor(
-    private readonly downloader: ModelDownloader,
-    private readonly onStatus?: (s: TranslatorStatus) => void,
-  ) {
+  constructor(private readonly onStatus?: (s: TranslatorStatus) => void) {
     this.state = this.locateModelDir() ? 'installed' : 'not_installed'
   }
 
@@ -61,36 +58,6 @@ export class TranslationService {
       message: this.lastError,
       sidecarAvailable: resolveTranslatorBinary() !== null,
     }
-  }
-
-  /** Download the four model files (~2.76 GB). Progress is published through
-   *  the shared ModelDownloader listeners (ids `translator-*`). */
-  async install(): Promise<void> {
-    if (this.state === 'downloading') return
-    if (this.locateModelDir()) {
-      this.setState('installed')
-      return
-    }
-    this.lastError = null
-    this.setState('downloading')
-    try {
-      // Sequential on purpose: parallel multi-GB streams thrash the disk and
-      // the per-file progress events would interleave confusingly in the UI.
-      for (const f of TRANSLATOR_FILES) {
-        await this.downloader.downloadEntry(f)
-      }
-      // downloadEntry resolves quietly on user cancel — re-check the disk
-      // instead of assuming success.
-      this.setState(this.locateModelDir() ? 'installed' : 'not_installed')
-    } catch (err) {
-      this.lastError = err instanceof Error ? err.message : String(err)
-      this.setState('error')
-      throw err
-    }
-  }
-
-  cancelInstall(): void {
-    for (const f of TRANSLATOR_FILES) this.downloader.cancel(f.id)
   }
 
   async translate(text: string, opts: TranslateOptions): Promise<TranslateResult> {

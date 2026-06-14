@@ -472,10 +472,6 @@ const api = {
   },
   translation: {
     status: (): Promise<TranslatorStatus> => ipcRenderer.invoke('translation:status'),
-    /** Downloads the MADLAD model (~2.76 GB). Progress events arrive on the
-     *  models progress channel (subscribeProgress) with ids `translator-*`. */
-    install: (): Promise<void> => ipcRenderer.invoke('translation:install'),
-    cancelInstall: (): Promise<void> => ipcRenderer.invoke('translation:cancelInstall'),
     translate: (text: string, opts: TranslateOptions): Promise<TranslateResult> =>
       ipcRenderer.invoke('translation:translate', text, opts),
     languages: (): Promise<TranslationLanguage[]> => ipcRenderer.invoke('translation:languages'),
