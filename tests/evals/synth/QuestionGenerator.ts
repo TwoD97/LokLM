@@ -9,6 +9,11 @@ export interface SourceChunk {
   docId: string
   /** der chunk-text selbst */
   text: string
+  /** char-offset (inklusiv) des chunk-fensters im quell-dokument. optional für
+   *  rückwärtskompatibilität mit alten datasets ohne spans. */
+  start?: number
+  /** char-offset (exklusiv) des chunk-fensters im quell-dokument. */
+  end?: number
 }
 
 /**
