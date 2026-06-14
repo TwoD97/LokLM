@@ -153,7 +153,7 @@ Tabelle 18.5 fasst die lizenzbezogenen Risiken samt Gegenmaßnahmen zusammen.
 
 ## 18.8 Abgrenzung zu den App-Dependencies
 
-Dieses Kapitel betrifft **KI-Modell-Lizenzen** (GGUF-Gewichte). Die Lizenzen der **Software-Abhängigkeiten** (npm/Electron/React/PGlite/Drizzle …) sind separat in `docs/licenses.md` geführt — dort sind alle direkten Produktions- und Dev-Dependencies mit Version, Lizenz und Copyright-Inhaber gelistet (überwiegend MIT/Apache-2.0/BSD, keine Copyleft-Dependency in der Distribution). Das eigene Projekt steht unter **MIT** (`LICENSE`).
+Dieses Kapitel betrifft **KI-Modell-Lizenzen** (GGUF-Gewichte). Die Lizenzen der **Software-Abhängigkeiten** (npm/Electron/React [9]/PGlite/Drizzle …) sind separat in `docs/licenses.md` geführt — dort sind alle direkten Produktions- und Dev-Dependencies mit Version, Lizenz und Copyright-Inhaber gelistet (überwiegend MIT/Apache-2.0/BSD, keine Copyleft-Dependency in der Distribution). Das eigene Projekt steht unter **MIT** (`LICENSE`).
 
 ---
 

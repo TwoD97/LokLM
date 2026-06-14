@@ -37,7 +37,7 @@ Solche Marker sind ein **Ehrlichkeits-Instrument**: Sie kennzeichnen, dass eine 
 
 - **AP-E.2 Phase 2 (GPU-Matrix-Sweep)** ist **offen** — das Dataset (LAP-Korpus, 2.322 Chunks, 163 deutsche Fragen) steht, der eigentliche Embedder × Reranker × Chunker × LLM-Sweep auf GPU und dessen Auswertung für den Abgabe-Laborbericht stehen aber noch aus.
 - **AP-T.1, AP-T.2 und AP-E.1** sind umgesetzt, befinden sich aber teils noch in **PR-Review** (AP-T.2 #19, AP-E.1 #25) bzw. auf einem unpushed Branch (AP-T.1).
-- Die **Playwright-E2E-Suite** für die Electron-App läuft **nicht in CI** — Playwright kann Electron im Runner nicht starten (`--remote-debugging-port=0`); die Website-E2E-Tests sind davon nicht betroffen.
+- Die **Playwright-E2E-Suite** [12] für die Electron-App läuft **nicht in CI** — Playwright kann Electron im Runner nicht starten (`--remote-debugging-port=0`); die Website-E2E-Tests sind davon nicht betroffen.
 
 ## 1.5 Umgang mit anonymisierten Daten
 
