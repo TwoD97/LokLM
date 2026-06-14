@@ -325,7 +325,11 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
   const base: PipelineConfig = {
     name: 'm',
     chunker: new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 }),
-    embedder: new EmbedderBridge({ placement: 'cpu', label: 'bge-m3' }),
+    // GPU placement: the LAP matrix corpus is large (~2.3k chunks) and
+    // node-llama-cpp embeds one chunk per decode — on CPU that is ~10 min per
+    // embedder, on GPU ~30-40s. Embedder (<=2.5GB) + reranker (~0.5GB) +
+    // under-test LLM (~5GB) fit easily; the judge runs in a later, separate pass.
+    embedder: new EmbedderBridge({ placement: 'auto', label: 'bge-m3' }),
     reranker: new SkipReranker(),
     topKToRerank: 20,
     topKToLLM: 5,
@@ -336,7 +340,7 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
     name: e.label,
     partial: {
       embedder: new EmbedderBridge({
-        placement: 'cpu',
+        placement: 'auto',
         label: e.label,
         modelPath: resolve(modelsDir, e.file),
         ...(e.queryPrefix ? { queryPrefix: e.queryPrefix } : {}),
