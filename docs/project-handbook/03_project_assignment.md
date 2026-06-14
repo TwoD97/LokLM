@@ -2,7 +2,9 @@
 
 ## 3.1 Auftrag und Rahmen
 
-Der Projektauftrag ist im **Lastenheft** (`docs/Lastenheft.md`, Version 1.0, signiert 08.05.2026) und im **Pflichtenheft** (`docs/Pflichtenheft.md`, Version 1.1.2) festgehalten.
+Der Projektauftrag ist im **Lastenheft** (`docs/Lastenheft.md`, Version 1.0, signiert 08.05.2026) und im **Pflichtenheft** (`docs/Pflichtenheft.md`, Version 1.1.2) festgehalten. Die Eckdaten fasst Tabelle 3.1 zusammen.
+
+**Tabelle 3.1:** Eckdaten des Projektauftrags.
 
 | Feld              | Angabe                                                  |
 | ----------------- | ------------------------------------------------------ |
@@ -44,6 +46,10 @@ Das Lastenheft legt den technischen Rahmen fest (Lastenheft §8):
 Die konkrete technische Umsetzung dieses Rahmens ist im Pflichtenheft spezifiziert (siehe Handbuch-Kapitel zur Architektur und Datenmodell).
 
 ## 3.5 Erwartete Deliverables
+
+Tabelle 3.2 listet die erwarteten Deliverables und ihren Bezug zu den Vertragsdokumenten.
+
+**Tabelle 3.2:** Erwartete Deliverables und ihr Bezug zu Lasten-/Pflichtenheft.
 
 | Deliverable                                | Bezug                                  |
 | ------------------------------------------ | -------------------------------------- |

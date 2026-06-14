@@ -10,6 +10,10 @@ Wissen liegt verstreut in Dateien, Skripten und Notizen; es belegbar zu zitieren
 
 ## 2.3 Zentrale technische Bestandteile
 
+Tabelle 2.1 nennt die zentralen technischen Bestandteile und ihre Umsetzung.
+
+**Tabelle 2.1:** Zentrale technische Bestandteile von LokLM.
+
 | Bestandteil                 | Umsetzung                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Lokaler Betrieb**         | Electron-Desktop-App; In-Process-Datenbank (pglite / WASM-Postgres) + lokales Sprachmodell (node-llama-cpp, GGUF); keine externen KI-APIs |
@@ -25,6 +29,10 @@ In rund neun Wochen wurde von der Projekt-Initialisierung bis zum Release **v0.4
 Zum Release-Bereich: Der Auftrag nennt „v0.1.1–v0.4.2". v0.4.2 existiert als **Release-Commit (`783ca4b`), aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v0.4.1**. Die per Tag markierten Releases reichen also bis einschließlich v0.4.1 (13.06.2026); v0.4.2 ist bislang nur ein Release-Commit (14.06.2026) ohne zugehörigen Tag.
 
 ## 2.5 Größte offene Punkte
+
+Die größten offenen Punkte zum Handbuchstand fasst Tabelle 2.2 zusammen.
+
+**Tabelle 2.2:** Größte offene Punkte zum Handbuchstand.
 
 | Offener Punkt                         | Stand                                                                                           |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------- |
