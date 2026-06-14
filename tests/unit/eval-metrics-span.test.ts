@@ -31,6 +31,9 @@ describe('spanHitRank', () => {
   it('returns null when nothing overlaps', () => {
     expect(spanHitRank([span('d', 0, 100)], [span('d', 500, 600)])).toBeNull()
   })
+  it('returns null for empty gold array', () => {
+    expect(spanHitRank([{ docId: 'd', start: 0, end: 100 }], [])).toBeNull()
+  })
 })
 
 describe('recallAtKSpan / mrrSpan / ndcgAtKSpan', () => {
@@ -52,8 +55,14 @@ describe('recallAtKSpan / mrrSpan / ndcgAtKSpan', () => {
   it('mrr uses reciprocal rank', () => {
     expect(mrrSpan([hitAt2])).toBeCloseTo(0.5, 5)
   })
+  it('mrr averages over mixed hit and miss', () => {
+    expect(mrrSpan([hitAt2, miss])).toBeCloseTo(0.25, 5)
+  })
   it('ndcg discounts by log2(rank+1)', () => {
     expect(ndcgAtKSpan([hitAt2], 5)).toBeCloseTo(1 / Math.log2(3), 5)
+  })
+  it('ndcg averages over mixed hit and miss', () => {
+    expect(ndcgAtKSpan([hitAt2, miss], 5)).toBeCloseTo(1 / Math.log2(3) / 2, 5)
   })
   it('all metrics return 0 on empty input', () => {
     expect(recallAtKSpan([], 5)).toBe(0)
