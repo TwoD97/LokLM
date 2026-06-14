@@ -48,6 +48,12 @@ export interface LlmLoadPayload {
   profileDefaultContext: number
   weightsBytes: number
   userContextChoice: LlmContextChoice
+  /** User device choice for the LLM backend. 'cpu' forces getLlama({gpu:false});
+   *  'gpu'/'auto' let it auto-detect (GPU-first with CPU fallback). Mirrors the
+   *  embedder/reranker placement knob. NOTE: all three services share one llama
+   *  backend in the worker, so the first service to init wins the CPU/GPU choice;
+   *  with the GPU detection fix in place, auto converges them on GPU. */
+  placement: PlacementChoice
   language: 'de' | 'en'
   envContextOverride: number | null
   // Full system prompt built on the main side from src/main/services/llm/prompt.ts.
@@ -111,6 +117,13 @@ export interface LlmLoadResult {
   plan: LlmPlan
   resources: SystemResources
   gpuLabel: string | null
+  /** Where the LLM backend actually landed — 'gpu' when a real backend latched
+   *  (gpuLabel is cuda/vulkan/metal), 'cpu' otherwise. Surfaced in the status
+   *  bar + settings so the user sees the resolved device, not just their choice. */
+  resolvedPlacement: 'cpu' | 'gpu'
+  /** Human-readable rationale for the resolved placement (e.g. the backend
+   *  label, or why it fell back to CPU). */
+  placementReason: string
 }
 
 export interface EmbedderLoadResult {

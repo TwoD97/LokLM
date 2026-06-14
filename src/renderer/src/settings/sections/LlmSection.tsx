@@ -50,6 +50,28 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
               onChange={(v) => void update({ advanced: { llm: { source: v } } })}
             />
           </div>
+          <div className="settings-row">
+            <div className="settings-row__label">
+              <span className="settings-row__label-text">{t('settings.llm.placement')}</span>
+              <span className="settings-row__hint">{t('settings.llm.placementHint')}</span>
+            </div>
+            <Segmented
+              ariaLabel={t('settings.llm.placementAria')}
+              value={a.placement}
+              options={[
+                { value: 'auto', label: t('settings.llm.placementAuto') },
+                { value: 'cpu', label: t('settings.llm.placementCpu') },
+                { value: 'gpu', label: t('settings.llm.placementGpu') },
+              ]}
+              // Reload so the new device takes effect before the next answer
+              // ("pull before starting") — same pattern as the profile switch.
+              onChange={(v) =>
+                void update({ advanced: { llm: { placement: v } } }).then(() =>
+                  window.api.llm.reload(),
+                )
+              }
+            />
+          </div>
           <div className="settings-block">
             <div className="settings-block__head">
               <div className="settings-block__head-text">
