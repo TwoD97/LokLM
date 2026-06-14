@@ -8,7 +8,7 @@ Alle Pfadangaben sind repo-relativ (`src/main/services/...`).
 
 ## 16.1 RAG-Grundidee
 
-LokLM ist ein **Retrieval-Augmented-Generation**-System über die **eigenen** Dokumente des Nutzers, vollständig lokal/offline. Die Kernregel: das LLM darf nur aus den tatsächlich abgerufenen Dokument-Ausschnitten antworten und muss jeden Beleg mit einem `[doc:<id>, chunk:<id>]`-Marker zitieren. Findet das Retrieval nichts Belastbares, lehnt das System ab, statt zu halluzinieren. Das ist der Kern der Quellenverifikation, die das Projekt verspricht.
+LokLM ist ein **Retrieval-Augmented-Generation**-System [26] über die **eigenen** Dokumente des Nutzers, vollständig lokal/offline. Die Kernregel: das LLM darf nur aus den tatsächlich abgerufenen Dokument-Ausschnitten antworten und muss jeden Beleg mit einem `[doc:<id>, chunk:<id>]`-Marker zitieren. Findet das Retrieval nichts Belastbares, lehnt das System ab, statt zu halluzinieren. Das ist der Kern der Quellenverifikation, die das Projekt verspricht.
 
 Der gesamte Hot Path ist **regex-/heuristik-first**: vor dem eigentlichen Retrieval läuft **kein** LLM-Call (ADR-0003). Auf der CPU-Variante (Lite-Profil) ist das essenziell, weil jeder zusätzliche LLM-Pass Sekunden kostet.
 
@@ -134,7 +134,7 @@ Tabelle 16.3 beschreibt die einzelnen Stufen mit Funktion und Wirkung.
 | **wholeDocFallback** | `expandSmallDocs` | bei kleinen Docs (≤ 8 Chunks) das **ganze** Doc statt eines Fragments |
 | **Reranker** | `RerankerService` (`src/main/services/retrieval/RerankerService.ts`) | Cross-Encoder **BGE-Reranker-v2-M3** (`bge-reranker-v2-m3-Q4_K_M.gguf`), optional |
 
-**CPU-Preset.** Ohne GPU (auto-erkannt über das GPU-Label des LLM-Backends) schaltet die Pipeline ein TTFT-Preset: Rerank und Multi-Query default aus, kleinerer Kandidaten-Pool (`CPU_FANOUT`, `CPU_MAX_CANDIDATES`). Explizite Optionen gewinnen immer. Reranker und Embedder **degradieren still**: fehlt das Modell, läuft die Pipeline ohne sie weiter (BM25/RRF bzw. RRF-Ordnung).
+**CPU-Preset.** Ohne GPU (auto-erkannt über das GPU-Label des LLM-Backends) schaltet die Pipeline ein TTFT-Preset: Rerank und Multi-Query default aus, kleinerer Kandidaten-Pool (`CPU_FANOUT`, `CPU_MAX_CANDIDATES`). Explizite Optionen gewinnen immer. Reranker und Embedder **degradieren still**: fehlt das Modell, läuft die Pipeline ohne sie weiter (BM25 [24]/RRF [8] bzw. RRF-Ordnung).
 
 ---
 
@@ -153,7 +153,7 @@ Der Quelltext-Kommentar ist hier ehrlich: kleine lokale Modelle honorieren die S
 
 ## 16.6 LLM-Bridges / ProviderRegistry
 
-Die App trennt **Modellrolle** von **Backend** über die `ProviderRegistry` (`src/main/services/providers/Registry.ts`). Pro Rolle gibt es ein `bundled`-Backend und optional ein `ollama`-Backend; die Zuordnung samt Fallback-Verhalten zeigt Tabelle 16.4.
+Die App trennt **Modellrolle** von **Backend** über die `ProviderRegistry` (`src/main/services/providers/Registry.ts`). Pro Rolle gibt es ein `bundled`-Backend und optional ein `ollama`-Backend [22]; die Zuordnung samt Fallback-Verhalten zeigt Tabelle 16.4.
 
 **Tabelle 16.4:** Backends und Fallback je Modellrolle.
 

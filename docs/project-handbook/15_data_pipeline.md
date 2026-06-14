@@ -1,6 +1,6 @@
 # 15 — Datenpipeline und Eval-Datensätze
 
-Dieses Kapitel beschreibt, wie aus Roh-Dokumenten verarbeitbare Eingaben für das RAG-System (Kapitel 16) und für die Eval-Matrix (Kapitel 17) werden: die Datenquellen, die Chunking-Stufe, der Aufbau des LAP-Eval-Datensatzes mit Gold-Spans, sowie die Speicherorte, Datenqualitäts-Risiken und aktuellen Grenzen.
+Dieses Kapitel beschreibt, wie aus Roh-Dokumenten verarbeitbare Eingaben für das RAG-System [26] (Kapitel 16) und für die Eval-Matrix (Kapitel 17) werden: die Datenquellen, die Chunking-Stufe, der Aufbau des LAP-Eval-Datensatzes mit Gold-Spans, sowie die Speicherorte, Datenqualitäts-Risiken und aktuellen Grenzen.
 
 Es gibt im Projekt **zwei getrennte Daten-Welten**, die nicht verwechselt werden dürfen (Tabelle 15.1):
 
