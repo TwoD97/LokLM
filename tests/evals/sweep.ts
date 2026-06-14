@@ -713,6 +713,8 @@ function formatResult(r: ConfigResult): string {
 
 function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: string): string {
   const env = envSnapshot()
+  // Span-Metriken: die Tabelle zeigt r@5span + MRRspan als schnellen Blick ;
+  // die vollen span-Werte (recall@10, nDCG@10) stehen in configs/<name>/result.json.
   const header = [
     `# Sweep-Report`,
     ``,
