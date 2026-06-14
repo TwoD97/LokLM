@@ -157,6 +157,9 @@ docs/api/
 /tessdata/
 LokLM.zip
 
+# AP-E.2 matrix pre-run manifest (generated artifact — un-ignore on request)
+/matrix-manifest.md
+
 docs/superpowers/
 docs/work/
 .superpowers
