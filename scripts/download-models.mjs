@@ -279,8 +279,9 @@ const MODELS = [
     skipPattern: /granite-embedding-278m/i,
   },
   {
-    tier: 'matrix',
-    purpose: 'Matrix embedder — multilingual-e5-base (Q8_0, MIT ; query:/passage: prefixes)',
+    tier: 'matrix-risk',
+    purpose:
+      'EXCLUDED embedder — multilingual-e5-base (Q8_0, MIT). GGUF-arch "xlmr" lädt NICHT in node-llama-cpp 3.18.1 (b8390). bert-arch-GGUF gesucht; bis dahin nicht in der Default-Matrix.',
     filename: 'multilingual-e5-base-q8_0.gguf',
     url: 'https://huggingface.co/cstr/multilingual-e5-base-GGUF/resolve/main/multilingual-e5-base-q8_0.gguf',
     sizeGB: 0.3,
