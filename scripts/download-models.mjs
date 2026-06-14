@@ -91,7 +91,7 @@ const MODELS = [
   // download 404s , the repo got renamed or the file moved , fix it here.
 
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3-4B-Instruct-2507 (no-think variant , clean JSON)',
     filename: 'Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
@@ -99,7 +99,7 @@ const MODELS = [
     skipPattern: /qwen3.*4b.*instruct.*2507/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix-risk'],
     purpose: 'Eval pool — Llama-3.2-3B-Instruct',
     filename: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
@@ -107,7 +107,7 @@ const MODELS = [
     skipPattern: /llama.*3\.2.*3b.*instruct/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Phi-4-mini-instruct (3.8B)',
     filename: 'microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
@@ -115,7 +115,7 @@ const MODELS = [
     skipPattern: /phi.*4.*mini/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix-risk'],
     purpose: 'Eval pool — Gemma-3-4B-it (best DE in 4B tier)',
     filename: 'gemma-3-4b-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf',
@@ -133,7 +133,7 @@ const MODELS = [
     skipPattern: /gemma.*3.*4b.*it.*Q6/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — SmolLM3-3B (outsider)',
     filename: 'HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
@@ -141,7 +141,7 @@ const MODELS = [
     skipPattern: /smollm3.*3b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3-14B (mid-tier flagship)',
     filename: 'Qwen_Qwen3-14B-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Qwen_Qwen3-14B-GGUF/resolve/main/Qwen_Qwen3-14B-Q4_K_M.gguf',
@@ -150,7 +150,7 @@ const MODELS = [
     skipPattern: /qwen3.*14b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Phi-4 14B (STEM reasoning , ACHTUNG: nur 16k ctx)',
     // bartowski/microsoft_phi-4-GGUF antwortete 2026-05 mit HTTP 401 (gated) ,
     // unsloth-mirror ist offen und identische gewichte. skipPattern matched
@@ -162,7 +162,7 @@ const MODELS = [
     skipPattern: /(^microsoft_phi-4-Q|^phi-4-Q)/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix-risk'],
     purpose: 'Eval pool — Hermes-3-Llama-3.1-8B (outsider , steuerbar)',
     filename: 'Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
     url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
@@ -170,7 +170,7 @@ const MODELS = [
     skipPattern: /hermes.*3.*llama.*3\.1.*8b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose:
       'Eval judge — Mistral-Small-3.2-24B-Instruct-2506 (Q5_K_M , fixed judge fuer pack-run)',
     filename: 'mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q5_K_M.gguf',
@@ -187,7 +187,7 @@ const MODELS = [
   // (no-think) Qwen3-8B/14B (thinking-on) deutlich geschlagen hat.
 
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose: 'Eval pool — Qwen3.5-2B (small , NON-thinking default — kontroll-modell)',
     filename: 'Qwen3.5-2B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
@@ -195,7 +195,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*2b/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose:
       'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
     filename: 'Qwen3.5-4B-Q4_K_M.gguf',
@@ -204,7 +204,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*4b/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose:
       'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
     filename: 'Qwen3.5-9B-Q4_K_M.gguf',
@@ -213,7 +213,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*9b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3.5-27B (dense , thinking-on default — passt knapp auf 5090 Q4)',
     filename: 'Qwen3.5-27B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf',
@@ -263,7 +263,7 @@ const MODELS = [
     skipPattern: /qwen3-embedding-4b/i,
   },
   {
-    tier: 'matrix',
+    tier: 'matrix-risk',
     purpose: 'Matrix embedder — EmbeddingGemma-300m (Q8_0, 768d, on-device)',
     filename: 'embeddinggemma-300M-Q8_0.gguf',
     url: 'https://huggingface.co/unsloth/embeddinggemma-300m-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf',
@@ -280,6 +280,30 @@ const MODELS = [
   },
   {
     tier: 'matrix',
+    purpose: 'Matrix embedder — multilingual-e5-base (Q8_0, MIT ; query:/passage: prefixes)',
+    filename: 'multilingual-e5-base-q8_0.gguf',
+    url: 'https://huggingface.co/cstr/multilingual-e5-base-GGUF/resolve/main/multilingual-e5-base-q8_0.gguf',
+    sizeGB: 0.3,
+    skipPattern: /multilingual-e5-base/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — nomic-embed-text-v2-moe (Q4_K_M, Apache-2.0 ; search_query:/search_document: prefixes)',
+    filename: 'nomic-embed-text-v2-moe.Q4_K_M.gguf',
+    url: 'https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe-GGUF/resolve/main/nomic-embed-text-v2-moe.Q4_K_M.gguf',
+    sizeGB: 0.5,
+    skipPattern: /nomic-embed-text-v2/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix reranker — bge-reranker-base (F16, MIT ; cross-encoder rankAll)',
+    filename: 'bge-reranker-base-F16.gguf',
+    url: 'https://huggingface.co/sinjab/bge-reranker-base-F16-GGUF/resolve/main/bge-reranker-base-F16.gguf',
+    sizeGB: 1.1,
+    skipPattern: /bge-reranker-base/i,
+  },
+  {
+    tier: 'matrix-risk',
     purpose: 'Matrix reranker — jina-reranker-v2-base-multilingual (Q4_K_M, cross-encoder ; mainline-converted)',
     filename: 'jina-reranker-v2-base-multilingual-q4_k_m.gguf',
     url: 'https://huggingface.co/minhtd14/jina-reranker-v2-base-multilingual-Q4_K_M-GGUF/resolve/main/jina-reranker-v2-base-multilingual-q4_k_m.gguf',
@@ -287,7 +311,7 @@ const MODELS = [
     skipPattern: /jina-reranker-v2/i,
   },
   {
-    tier: 'matrix',
+    tier: 'matrix-risk',
     purpose: 'Matrix LLM — Gemma 4 E4B-it (Q4_K_M ; needs llama.cpp >= 2026-04)',
     filename: 'gemma-4-E4B-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf',
@@ -354,7 +378,7 @@ const TIER_INCLUDES = {
   evals: ['embedder', 'evals'],
   // translation-eval braucht keinen embedder — nur die 5 LLMs aus dem pack.
   translation: ['translation'],
-  matrix: ['embedder', 'evals', 'matrix'],
+  matrix: ['embedder', 'matrix'],
   'matrix-risk': ['matrix-risk'],
 }
 

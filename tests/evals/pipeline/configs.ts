@@ -280,7 +280,7 @@ export async function answerConfigs(): Promise<PipelineConfig[]> {
  * Matrix-Sweep: voller kartesischer Raum Embedder × Reranker × Chunker bei
  * festem Antwort-LLM. Liest embedder-pack.json und reranker-pack.json aus
  * tests/evals/answer/ und baut daraus alle 3 Achsen:
- *   7 embedder × (1 skip + 2 reranker) × 3 chunker = 63 configs.
+ *   8 embedder × (1 skip + 2 reranker) × 3 chunker = 72 configs.
  *
  * CACHE-FALLE: label fließt in embedding-cache-key
  * `${embedder.name}::${chunker.name}::${corpus.length}` (sweep.ts).
