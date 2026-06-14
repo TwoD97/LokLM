@@ -41,7 +41,7 @@ export class RerankerBridge implements Reranker {
 
   constructor(private readonly opts: RerankerBridgeOpts = {}) {
     this.placement = opts.placement ?? 'auto'
-    this.name = opts.label ? `bge-reranker:${opts.label}` : `bge-reranker:${this.placement}`
+    this.name = opts.label ?? `reranker:${this.placement}`
   }
 
   async warm(): Promise<void> {
@@ -76,7 +76,6 @@ export class RerankerBridge implements Reranker {
         ),
       )
     } catch (err) {
-       
       console.warn('[reranker-bridge] rankAll failed, falling back to initial order:', err)
       return items.map((it, i) => ({ text: it.text, score: it.initialScore, initialIndex: i }))
     }
