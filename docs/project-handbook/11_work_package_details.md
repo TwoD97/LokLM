@@ -9,7 +9,7 @@ unter `docs/work/` (gitignored), ADRs unter `docs/adr/`, Commit-/PR-Historie.
 
 ---
 
-## 1. AP-E.2 — Kartesische RAG-Matrix-Evaluation (Kern, Dominik)
+## 11.1 AP-E.2 — Kartesische RAG-Matrix-Evaluation (Kern, Dominik)
 
 **Status:** teilweise — Phase 1 lokal umgesetzt; **Phase 2 (GPU-Sweep) offen**.
 **Branch:** `dom/ap-e2-matrix-eval`.
@@ -104,7 +104,7 @@ Span-Metrik + Bridges unter `tests/evals/`.
 
 ---
 
-## 2. AP-T.2 — Integrationstests (§8.2 E2E) (Kern, Dominik)
+## 11.2 AP-T.2 — Integrationstests (§8.2 E2E) (Kern, Dominik)
 
 **Status:** fertig (Code), im Review — **PR #19**. **Branch:** `dom/ap-t2-integrationstests`.
 
@@ -119,7 +119,9 @@ Mocks, plus den ersten echten vitest-CI-Job im Repository.
 Alle drei Suiten booten eine echte In-Memory-**PGlite** (inkl. pgvector + Drizzle- und
 Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integrationstests
 (`mkdtemp` + `AuthService` + `WorkspaceService`, `importFile` mit Fake-Sender, Polling auf
-`IndexProgress`-Phase `done`).
+`IndexProgress`-Phase `done`). Tabelle 11.1 fasst die drei Suiten zusammen.
+
+**Tabelle 11.1:** Integrationstest-Suiten (AP-T.2).
 
 | Suite | Datei | Tests | CI | Laufzeit |
 |---|---|---|---|---|
@@ -174,7 +176,7 @@ Commits `3e0a4d2`, `9644d60`, `48255ab`.
 
 ---
 
-## 3. AP-T.1 — Unit-Tests ≥70 % Branch-Coverage (Dominik)
+## 11.3 AP-T.1 — Unit-Tests ≥70 % Branch-Coverage (Dominik)
 
 **Status:** fertig (Code), im Review — **PR #24**. **Branch:** `dom/ap-t1-unit-tests`.
 
@@ -182,7 +184,9 @@ Commits `3e0a4d2`, `9644d60`, `48255ab`.
 
 Vitest-Unit-Tests mit Branch-Coverage ≥70 % (und Statement-Coverage ≥80 %) in den
 Kernmodulen `chunker`, `parser`, RetrievalService-RRF, Citation-Parser und den
-Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests grün).
+Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests grün). Tabelle 11.2 zeigt die erreichte Coverage je Modul.
+
+**Tabelle 11.2:** Unit-Test-Coverage je Kernmodul (AP-T.1).
 
 | Modul | % Stmts (≥80) | % Branch (≥70) |
 |---|---|---|
@@ -215,7 +219,7 @@ Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests g
 
 ---
 
-## 4. Auth- und Krypto-Fundament (Kern, Partner / Denys)
+## 11.4 Auth- und Krypto-Fundament (Kern, Partner / Denys)
 
 **Status:** fertig (Fundament aus Phase 1, fortlaufend gehärtet).
 
@@ -238,7 +242,7 @@ Recovery-Mechanismus — das Sicherheits-Fundament für die gesamte App.
 - **Argon2-Flake** unter parallelem Test-Load → Timeouts auf 45 s erhöht (Commit `16ffe4a`).
 - **Vault-Writes serialisiert**, Login-/Auto-Lock-Fehlerpfade aufgeräumt (`c1f106b`).
 - **Electron-Sicherheitshärtung:** mlock-geschützter Schlüsselspeicher zusätzlich zu CSP,
-  Sandbox, Fuses (`04b318d`, siehe Abschnitt 6).
+  Sandbox, Fuses (`04b318d`, siehe Abschnitt 11.6).
 
 ### Verifizierter Stand (Gate G2)
 
@@ -255,7 +259,7 @@ als AP-T.2-Suite ausgebaut.
 
 ---
 
-## 5. RAG-Core und QA-Routing (Kern, Partner / Denys)
+## 11.5 RAG-Core und QA-Routing (Kern, Partner / Denys)
 
 **Status:** fertig (`main`), fortlaufend erweitert.
 
@@ -304,7 +308,7 @@ Quelltext studiert und in einer Adopt/Reject-Tabelle gegen die LokLM-Constraints
 
 ---
 
-## 6. Installer-Pivot (Kern, Partner / Denys; Wizard-UI: Dominik)
+## 11.6 Installer-Pivot (Kern, Partner / Denys; Wizard-UI: Dominik)
 
 **Status:** fertig — zwei aufeinanderfolgende Pivots; Multi-OS-Härtung fortlaufend.
 
@@ -345,7 +349,7 @@ PR #10 (Linux `.deb`); Tags v0.2.7–v0.3.0.
 
 ---
 
-## 7. Audio-Transkription (Partner / Denys, v0.4.0)
+## 11.7 Audio-Transkription (Partner / Denys, v0.4.0)
 
 **Status:** fertig (Release v0.4.0).
 
@@ -360,7 +364,7 @@ Mic-Recorder-Robustheit → „Bulletproof-Recorder" mit exakter Fehlermeldung (
 
 ---
 
-## 8. Kleinere Arbeitspakete (knapp)
+## 11.8 Kleinere Arbeitspakete (knapp)
 
 ### AP-6 — Library-Suche & Filter (Dominik, PR #12 gemergt)
 
@@ -409,7 +413,11 @@ Ninja + CUDA-Toolkit + nvJitLink), MADLAD-Modell via Installer-Wizard. **Status:
 
 ---
 
-## 9. Querschnitt: Was offen bleibt (Stand 14.06.2026)
+## 11.9 Querschnitt: Was offen bleibt (Stand 14.06.2026)
+
+Tabelle 11.3 listet die offenen Punkte mit Bereich und Verantwortlichkeit.
+
+**Tabelle 11.3:** Offene Punkte (Stand 14.06.2026).
 
 | Offener Punkt | Bereich | Verantwortlich |
 |---|---|---|

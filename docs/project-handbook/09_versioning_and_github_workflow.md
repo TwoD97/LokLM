@@ -7,7 +7,7 @@ Kapitel beschreibt das Branch-Konzept, die Commit-/PR-/Merge-Logik, die Tag-Stra
 die saubere Trennung von Code/Daten/Doku sowie den Umgang mit großen und sensiblen
 Dateien.
 
-## 1. Warum Versionierung für dieses Projekt zentral war
+## 9.1 Warum Versionierung für dieses Projekt zentral war
 
 LokLM ist ein Zwei-Personen-Projekt mit **getrennten Domänen** (Denys: Chunking/Auth/
 RAG/Installer; Dominik: UI/Tests/Doku/Eval). Ohne diszipliniertes Branching hätten sich
@@ -22,9 +22,11 @@ unverzichtbar:
 3. **Auslieferung** — die Release-Pipeline (GitHub Actions) hängt direkt an Tags/Pushes;
    Versionierung ist also nicht nur Buchführung, sondern produktiver Auslieferungspfad.
 
-## 2. Branch-Konzept
+## 9.2 Branch-Konzept
 
-Das Repository nutzt mehrere Branch-Klassen mit klar getrennten Rollen:
+Das Repository nutzt mehrere Branch-Klassen mit klar getrennten Rollen (Tabelle 9.1):
+
+**Tabelle 9.1:** Branch-Klassen und ihre Rollen.
 
 | Branch-Klasse | Beispiel | Rolle |
 |---|---|---|
@@ -52,7 +54,7 @@ einen Branch eindeutig einem Arbeitspaket **und** einem Bearbeiter zuordenbar.
 „mergebar, alle Checks grün" ist und „nur durch die Review-Freigabe gehalten" wird
 (z. B. AP-T.2 / PR #19).
 
-## 3. Commit-Konvention
+## 9.3 Commit-Konvention
 
 Commits folgen einem **kommagetrennten Präfix-Schema**, das Typ, Bereich/AP und
 Kurzbeschreibung trennt:
@@ -77,11 +79,13 @@ AP-Chronik liefert.
 > Hinweis: Commit-Nachrichten enthalten projektgemäß **keine** Co-Authorship- oder
 > Werkzeug-Vermerke; das ist eine bewusste Team-Regel.
 
-## 4. Pull-Request- und Merge-Logik
+## 9.4 Pull-Request- und Merge-Logik
 
 **Branch-pro-AP → PR → `main`.** Der Standardfluss ist: AP-Branch entwickeln, PR gegen
 `main` öffnen, CI grün, Review, Merge. Stand 14.06.2026 existieren **26 Pull-Requests**.
-Die folgende Tabelle ist aus den GitHub-PR-Daten (echte Merge-Zeitstempel) abgeleitet:
+Die folgende Tabelle ist aus den GitHub-PR-Daten (echte Merge-Zeitstempel) abgeleitet (Tabelle 9.2):
+
+**Tabelle 9.2:** Pull-Requests #1–#26 mit Bereich, Status und Merge-Datum.
 
 | PR | Titel (gekürzt) | Bereich | Status | Merge-Datum |
 |---|---|---|---|---|
@@ -121,9 +125,11 @@ automatische Dependabot-Upgrades (astro/vite/vitest), die noch zu prüfen sind.
 > #9/#11/#12/#13/#14" bestätigen sich (alle gemergt 08.–10.06.); die „in Review"
 > befindlichen #19/#24/#25 bestätigen sich ebenfalls. Zusätzlich offen ist #18.
 
-## 5. Tag-Strategie (semantische Versionierung)
+## 9.5 Tag-Strategie (semantische Versionierung)
 
-Releases werden über Git-Tags markiert. Die Tag-Historie (mit echten Erstellungsdaten):
+Releases werden über Git-Tags markiert. Die Tag-Historie (mit echten Erstellungsdaten; Tabelle 9.3):
+
+**Tabelle 9.3:** Git-Tag-Historie (semantische Versionierung).
 
 | Tag | Datum | Inhalt (Kurz) |
 |---|---|---|
@@ -149,10 +155,12 @@ assets", 14.06.), **aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v
 korrekt bei v0.4.1; v0.4.2 ist bislang ausschließlich ein Release-Commit ohne
 zugehörigen Tag.
 
-## 6. Trennung Code / Daten / Doku
+## 9.6 Trennung Code / Daten / Doku
 
 Eine zentrale `.gitignore`-Entscheidung sorgt dafür, dass nur **Code und Provenienz**
-versioniert werden, nicht aber große, regenerierbare oder sensible Inhalte:
+versioniert werden, nicht aber große, regenerierbare oder sensible Inhalte (Tabelle 9.4):
+
+**Tabelle 9.4:** Trennung von versioniertem und ausgeschlossenem Inhalt (`.gitignore`).
 
 | Klasse | Beispiel-Pfad | Im Git? | Begründung (aus `.gitignore`) |
 |---|---|---|---|
@@ -174,7 +182,7 @@ sensibel** ist (Code, Test-Fixtures, Dataset-Manifeste, ADRs). Ausgeschlossen wi
 (CC-BY-SA-4.0) bleibt bewusst nur das **Manifest + die abgeleiteten Chunks** versioniert
 (Provenienz-Nachweis), der Rohtext wird per Skript nachgeladen.
 
-## 7. Umgang mit sensiblen und großen Dateien
+## 9.7 Umgang mit sensiblen und großen Dateien
 
 - **Sensible Daten** werden grundsätzlich nicht committed: API-/CDN-Keys liegen in
   `.env`/CI-Secrets (`<API_KEY>`, `<TOKEN>`), lokale Test-Notizen mit Recovery-Phrasen
@@ -190,10 +198,12 @@ sensibel** ist (Code, Test-Fixtures, Dataset-Manifeste, ADRs). Ausgeschlossen wi
   ein vom lokalen Build verändertes `payload-manifest.json` gezielt auf den committeten
   Stand zurückgesetzt wurde, damit `main` sauber bleibt.
 
-## 8. CI/CD-Anbindung
+## 9.8 CI/CD-Anbindung
 
 Vier GitHub-Actions-Workflows hängen an der Versionierung
-(`.github/workflows/`):
+(`.github/workflows/`; Tabelle 9.5):
+
+**Tabelle 9.5:** GitHub-Actions-Workflows und ihre Auslöser.
 
 | Workflow | Auslöser | Funktion |
 |---|---|---|
@@ -209,7 +219,7 @@ RetrievalService-E2E **skippt in CI** (BGE-M3-GGUF liegt nicht im Runner) und is
 lokal abgesichert. Die Playwright-E2E-Suite für die Electron-App **läuft nicht in CI**
 (kann Electron mit `--remote-debugging-port=0` nicht starten) — siehe Test-Kapitel.
 
-## 9. Zusammenfassung
+## 9.9 Zusammenfassung
 
 Git/GitHub trägt in LokLM vier Rollen gleichzeitig: **Versionsverwaltung** (Branches,
 Tags), **Kollaboration** (PRs, Reviews, Branch-Protection auf `main`), **CI/CD**

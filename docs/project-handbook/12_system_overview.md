@@ -10,7 +10,9 @@ Quellen: [package.json](../../package.json) (`description`, Abhängigkeiten `nod
 
 ## 12.2 Hauptmodule auf einen Blick
 
-Das System gliedert sich grob in fünf funktionale Blöcke:
+Das System gliedert sich grob in fünf funktionale Blöcke (Tabelle 12.1):
+
+**Tabelle 12.1:** Funktionale Hauptmodule von LokLM.
 
 | Block | Aufgabe | Wesentliche Bestandteile |
 | --- | --- | --- |
@@ -46,6 +48,8 @@ Die Anwendung deckt mehrere Kern-Anwendungsfälle ab, die alle auf demselben ver
 - **Schlüsselmaterial** (DEK, KEKs) existiert nur im Arbeitsspeicher, in `mlock`-gesichertem, beim Sperren genullten Speicher (siehe ADR-0001/0002 und 13_system_architecture.md).
 
 ## 12.5 Übersichtsdiagramm
+
+Abbildung 12.1 zeigt die Grobstruktur des Systems.
 
 ```mermaid
 flowchart TB
@@ -90,5 +94,7 @@ flowchart TB
     Docs --> MW
     Feat --> TW
 ```
+
+**Abbildung 12.1:** Systemüberblick — Renderer, Main-Prozess, Worker-Prozesse, In-Memory-Datenbank und Tresor.
 
 Das Diagramm zeigt die Grobstruktur: Der Renderer kommuniziert ausschließlich über die abgesicherte IPC-Brücke mit dem Main-Prozess; rechenintensive Modell- und Parsing-Arbeit ist in eigene Worker-Prozesse ausgelagert; persistente Daten leben in der In-Memory-Datenbank, die verschlüsselt im Tresor gesichert wird. Die technische Tiefe dazu folgt in Kapitel 13.
