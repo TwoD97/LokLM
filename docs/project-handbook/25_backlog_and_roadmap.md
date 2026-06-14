@@ -6,7 +6,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 
 ---
 
-## 1. Muss als Nächstes
+## 25.1 Muss als Nächstes
+
+**Tabelle 25.1:** Abgabekritische Backlog-Punkte.
+
+Tabelle 25.1 listet die Punkte, die als Nächstes anstehen.
 
 | Punkt | AP / Bezug | Begründung |
 |---|---|---|
@@ -14,7 +18,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 | **Test-PRs mergen** | AP-T.2 #19, AP-E.1 #25, AP-T.1 #24 | #19 ist mergebar (alle Checks grün); nach #19-Merge greift der vitest-CI-Job auch für #24/#25. Damit ist die §8.2-/§8.1-Testabdeckung im Integrationsstand verankert. |
 | **AP-E1b in den Eval-Workflow einbinden** | AP-E1b | Hold-out-Set (15 Fälle) als separaten Validierungslauf führen — Echo-Chamber-Schutz (R5) für die Eval-Aussage. |
 
-## 2. Sollte bald
+## 25.2 Sollte bald
+
+**Tabelle 25.2:** Mittelfristige Backlog-Punkte.
+
+Tabelle 25.2 nennt die mittelfristig nötigen Punkte.
 
 | Punkt | Bezug | Begründung |
 |---|---|---|
@@ -23,7 +31,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 | **QA-Routing gegen reale Workspaces validieren** | ADR-0003 | Korpus-/Decomposition-Route am echten Nutzer-Workspace gegenprüfen (nicht nur Sample-Korpus). |
 | **Mac-/Linux-Auslieferung produktiv stabilisieren** | v0.4.x | Translator-Sidecar in den regulären Build-Pfad; Diarisations-Modelle für Mac/Linux verifizieren. |
 
-## 3. Später / Optional
+## 25.3 Später / Optional
+
+**Tabelle 25.3:** Optionale Backlog-Punkte ohne Termindruck.
+
+Tabelle 25.3 fasst die optionalen Punkte zusammen.
 
 | Punkt | Bezug |
 |---|---|
@@ -31,7 +43,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 | **Mehr-Größen-Chunker-Vergleich** über separate Dataset-Läufe (chunker-unabhängige Span-Recall-Metrik) | AP-E.2 |
 | **Pfad-/Wortlaut-Angleichungen im Pflichtenheft** (`eval/cases.json` → `tests/evals/data/cases.jsonl`; PBKDF2 → Argon2id) | AP-E.1 / AP-T.1, kosmetisch |
 
-## 4. Blocker
+## 25.4 Blocker
+
+**Tabelle 25.4:** Aktuelle Blocker und Status.
+
+Tabelle 25.4 zeigt die offenen Blocker.
 
 | Blocker | Wirkung | Status |
 |---|---|---|
@@ -40,7 +56,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 | **BGE-M3-GGUF nicht im CI-Runner** | RetrievalService-E2E skippt in CI | Team-Entscheidung über Modell-Download-Step ausstehend |
 | **EV-Zertifikat** | SmartScreen-Warnung bei Windows-Install bleibt | Budget-/Beschaffungsfrage |
 
-## 5. Technische Schulden
+## 25.5 Technische Schulden
+
+**Tabelle 25.5:** Technische Schulden und Empfehlungen.
+
+Tabelle 25.5 listet die bekannten technischen Schulden.
 
 | Schuld | Gemeldet an | Empfehlung |
 |---|---|---|
@@ -49,7 +69,11 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 | Auth-Krypto-Wrapper nur per `export` test-sichtbar gemacht | Denys | optional später in `auth/crypto.ts` auslagern (kein AP-T.1-Eingriff) |
 | Coverage-Nachweis AP-T.1 noch scoped (`test:cov:apt1`) | — | nach #19-Merge auf Voll-Suite-Lauf + dauerhaftes Threshold-Gate umstellen |
 
-## 6. Doku-Lücken
+## 25.6 Doku-Lücken
+
+**Tabelle 25.6:** Offene Dokumentations-Lücken.
+
+Tabelle 25.6 fasst die offenen Doku-Lücken zusammen.
 
 | Lücke | Status |
 |---|---|
@@ -61,9 +85,13 @@ Lesart der Prioritäten: **Muss als Nächstes** = blockiert die Abgabe bzw. den 
 
 ---
 
-## 7. Offene Entscheidungen (PAG / Team)
+## 25.7 Offene Entscheidungen (PAG / Team)
 
 Aus dem Projektstatusbericht 2026-06-14:
+
+**Tabelle 25.7:** Offene Entscheidungen für PAG und Team.
+
+Tabelle 25.7 nennt die offenen Entscheidungen.
 
 | Entscheidung | Kern |
 |---|---|
@@ -75,7 +103,7 @@ Aus dem Projektstatusbericht 2026-06-14:
 
 ---
 
-## 8. Nächste konkrete Schritte
+## 25.8 Nächste konkrete Schritte
 
 1. **PR #19 mergen** (review-frei, alle Checks grün) → CI-Test-Job in `main` aktiv → danach #24 und #25 mergen.
 2. **RunPod-Pod starten** (`pnpm pod:start`), Matrix-Modelle ziehen (`pnpm models:matrix`), Sweep fahren (`pnpm evals:matrix-run`), Ergebnisse aggregieren (`pnpm evals:paper`).
