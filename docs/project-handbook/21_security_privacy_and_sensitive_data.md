@@ -1,6 +1,6 @@
 # Sicherheit, Datenschutz und sensible Daten
 
-Stand: **2026-06-14**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
+Stand: **2026-06-15**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
 
 Quellen für dieses Kapitel: `docs/adr/0001-argon2id-password-kdf.md`, `docs/adr/0002-envelope-encryption-aes-gcm.md`, `docs/adr/0004-adaptive-model-residency.md`, `.gitignore`, `.env.example`, `tests/evals/model-license-registry.json`, `docs/work/projektstatusbericht-2026-06-14.md`.
 
@@ -84,7 +84,7 @@ Das 32-Byte-Raw-Output **ist** der KEK — kein separater Verifier-Hash (verhind
 
 ### 21.4.2 Envelope-Encryption — AES-256-GCM (ADR-0002)
 
-Einziges On-Disk-Artefakt: `loklm.vault` (Mode `0o600`, atomar via `write tmp → rename`). Ein zufälliger **DEK** (32 Byte, nie im Klartext auf Platte) verschlüsselt den kompletten PGlite-Tar-Dump (AES-256-GCM [7], 12-Byte-Nonce, 16-Byte-Tag). Der DEK wird je Geheimnis unter einem aus Argon2id abgeleiteten **KEK** gewrappt (Passwort-Wrap + Recovery-Wrap). Abbildung 21.1 zeigt den Schlüsselfluss von Passwort und Recovery-Passphrase bis zum entschlüsselten Tresor-Inhalt.
+Einziges primäres On-Disk-Artefakt: `loklm.vault` (Mode `0o600`), geschrieben mit Durability-Fence (`write tmp → fsync → rename`, auf POSIX zusätzlich Directory-fsync) und einer byte-identischen Sicherungskopie `loklm.vault.bak` (Crash-Resilienz, siehe unten). Ein zufälliger **DEK** (32 Byte, nie im Klartext auf Platte) verschlüsselt den kompletten PGlite-Tar-Dump (AES-256-GCM [7], 12-Byte-Nonce, 16-Byte-Tag). Der DEK wird je Geheimnis unter einem aus Argon2id abgeleiteten **KEK** gewrappt (Passwort-Wrap + Recovery-Wrap). Abbildung 21.1 zeigt den Schlüsselfluss von Passwort und Recovery-Passphrase bis zum entschlüsselten Tresor-Inhalt.
 
 ```mermaid
 flowchart TD
@@ -101,7 +101,9 @@ flowchart TD
 
 **Abbildung 21.1:** Envelope-Encryption — Schlüsselfluss des Vaults.
 
-Folgen (ADR-0002): Passwort-Reset re-wrappt nur den 32-Byte-DEK (konstanter Aufwand, kein Re-Encrypt des ganzen Tresors); falsches Passwort → falscher KEK → GCM-Auth-Tag schlägt fehl → `unwrapKey` gibt `null`. Trade-off: **DEK-Rotation ist nicht möglich** ohne Komplett-Re-Encrypt (akzeptiert für Single-User-Lokal-App), und **Vault-Korruption ist fatal** (einzige zu sichernde Datei).
+Folgen (ADR-0002): Passwort-Reset re-wrappt nur den 32-Byte-DEK (konstanter Aufwand, kein Re-Encrypt des ganzen Tresors); falsches Passwort → falscher KEK → GCM-Auth-Tag schlägt fehl → `unwrapKey` gibt `null`. Trade-off: **DEK-Rotation ist nicht möglich** ohne Komplett-Re-Encrypt (akzeptiert für Single-User-Lokal-App).
+
+**Crash-Resilienz (`f4009b1`).** Eine einzelne korrupte oder fehlende Tresordatei ist **nicht mehr fatal** — zwei Schichten sichern den letzten guten Stand: (1) der **Durability-Fence** (`fsync` der Temp-Datei vor dem `rename`) schließt den im Security-Review 2026-06-10 dokumentierten Torn-Write-Fall, bei dem ein Stromausfall sonst einen vorhandenen, richtig großen, aber GCM-tag-ungültigen Tresor hinterlassen konnte; (2) **`loklm.vault.bak`**, eine Byte-Kopie des letzten erfolgreichen Persists, dient als Lese-Fallback bei Quarantäne durch Virenscanner, versehentlicher Löschung oder Bit-Rot. Der installationsweite DEK öffnet jede Generation, sodass die Sicherung beim nächsten Persist self-healt; ein Passwort-Wechsel erneuert die `.bak` mit (das alte Passwort öffnet auch den Fallback nicht). Erst wenn **beide** Dateien zerstört sind, ist der Tresor verloren (Beleg: `tests/tx/vault/crash-resilience.test.ts`).
 
 ---
 
@@ -118,6 +120,8 @@ Im Berichtszeitraum als „Electron-Sicherheitshärtung" gemerged (`04b318d`, Qu
 | **Navigations-Guards** | Verhindert Navigation/Window-Open zu fremden Origins |
 | **Electron Fuses** | Build-Zeit-Härtung (z. B. `RunAsNode`, Node-Options abschalten) |
 | **mlock-geschützter Schlüsselspeicher** | KEK/DEK im RAM gegen Swapping auf Platte gesichert |
+
+Implementierungsdetail (`f4009b1`): Der Schlüsselspeicher nutzt `sodium_mlock` auf normalen Buffers, **nicht** den guarded Allocator `sodium_malloc` — Electron 42 (Node 24 / V8) verbietet externe ArrayBuffers, die `sodium_malloc` zurückgäbe. Das Swap-Pinning (der eigentliche Schutz gegen Auslesen des Pagefiles) bleibt erhalten; die Guard-Pages entfallen. Ist `mlock` nicht verfügbar (fehlender Prebuild oder `RLIMIT_MEMLOCK`=0), wird beim Laden geprüft und sicher auf genullte Buffers degradiert.
 
 > WARN zu verifizieren — die genaue Fuses-/CSP-Konfiguration ist aus dem Projektstatusbericht zusammengefasst; für eine prüfbare Aufstellung sind die Build-Konfig und die Window-Erzeugung in `src/main/` heranzuziehen (außerhalb des Test-/Doku-Owners von Dominik, Domäne Denys).
 

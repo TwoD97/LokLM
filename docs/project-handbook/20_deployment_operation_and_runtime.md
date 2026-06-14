@@ -118,13 +118,13 @@ Zur Laufzeit hostet LokLM mehrere Runtimes mit unterschiedlichem Geräteprofil (
 
 | Modell | Runtime | Gerätewahl heute |
 | --- | --- | --- |
-| LLM (Qwen3.5) | node-llama-cpp, geteilter Worker | GPU bei Init, sonst CPU-Downgrade |
+| LLM (Qwen3.5) | node-llama-cpp, geteilter Worker | Nutzer-Wahl **auto/cpu/gpu**; bei `auto` GPU-first mit CPU-Fallback |
 | Embedder (BGE-M3) | node-llama-cpp, geteilter Worker | Placement zur Ladezeit (`planAux`) |
 | Reranker (BGE-v2-M3) | node-llama-cpp, geteilter Worker | Placement zur Ladezeit |
 | Translator (MADLAD-400-3B) | CTranslate2-Sidecar | Binärwahl `-cuda` vs. CPU beim Spawn |
 | Transcription (Whisper) | eigener utilityProcess | Binär/Build |
 
-Das Placement ist **heute statisch**: einmal zur Ladezeit entschieden, nie revidiert. Embedder/Reranker bleiben nach dem ersten Load warm (GGUF-Reload kostet Sekunden); nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`). Die in ADR-0004 „Adaptive Model Residency" vorgeschlagene adaptive Residenz-Policy ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden).
+Das Placement ist **zur Ladezeit fixiert** und wird nicht adaptiv revidiert (ADR-0004 unten); für das LLM ist die Gerätewahl seit `eba08e3` jedoch **nutzergesteuert**: die Einstellung `advanced.llm.placement` (auto/cpu/gpu, analog zu Embedder/Reranker) lädt das Modell bei Änderung neu, damit das Gerät vor der nächsten Antwort greift, und die Status-Bar zeigt über `resolvedPlacement` das tatsächlich aktive Gerät (CUDA-/CPU-Chip). Embedder/Reranker bleiben nach dem ersten Load warm (GGUF-Reload kostet Sekunden); nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`). Die in ADR-0004 „Adaptive Model Residency" vorgeschlagene adaptive Residenz-Policy ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden).
 
 ## 20.8 Bekannte Laufzeitprobleme
 
