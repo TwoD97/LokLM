@@ -76,6 +76,8 @@
     "models:pro": "node scripts/download-models.mjs pro",
     "models:all": "node scripts/download-models.mjs all",
     "models:evals": "node scripts/download-models.mjs evals",
+    "models:matrix": "node scripts/download-models.mjs matrix",
+    "models:matrix:risk": "node scripts/download-models.mjs matrix-risk",
     "models:translation": "node scripts/download-models.mjs translation",
     "tessdata": "node scripts/download-tessdata.mjs",
     "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1",
