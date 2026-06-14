@@ -5,6 +5,9 @@ import { NoopReranker, type Reranker } from './Reranker'
 // Statisch geladen würden defaults sich nicht mehr unter `tsx` ohne electron-
 // shim laufen lassen , daher dynamische imports innerhalb von sweepConfigs().
 import type { LlmBridge } from '../bridges/LlmBridge'
+import { readFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // Eine PipelineConfig ist ein bundle aus chunker + embedder + reranker + den
 // sweep-scalars (topKToRerank, topKToLLM) und optional einem LLM-bridge.
@@ -292,9 +295,6 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
     import('../bridges/RerankerBridge'),
     import('../bridges/LlmBridge'),
   ])
-  const { readFile } = await import('node:fs/promises')
-  const { dirname, join, resolve } = await import('node:path')
-  const { fileURLToPath } = await import('node:url')
   const here = dirname(fileURLToPath(import.meta.url))
   const modelsDir = resolve(here, '..', '..', '..', 'models')
   const packsDir = join(here, '..', 'answer')
