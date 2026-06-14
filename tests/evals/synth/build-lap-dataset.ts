@@ -26,6 +26,8 @@ export interface LapDataset {
   questions: GeneratedQuestion[]
 }
 
+// goldSpans und meta werden bewusst nicht aus dem Input gelesen: goldSpans
+// werden aus den Chunk-Offsets neu abgeleitet; meta wird ignoriert.
 interface RawQuestion {
   chunkId?: unknown
   question?: unknown
@@ -68,7 +70,11 @@ export async function buildLapDataset(opts: {
       continue
     }
     if (typeof obj.chunkId !== 'string' || typeof obj.question !== 'string') continue
-    if (!chunkById.has(obj.chunkId)) continue
+    // Refusal-Fragen haben keine Antwort im Korpus → kein gültiger chunkId ; sie
+    // werden behalten (Antwort-/Judge-Phase prüft, ob das System korrekt ablehnt).
+    // Nicht-refusal-Fragen mit unbekanntem chunkId sind Kurationsfehler → raus.
+    const isRefusal = obj.expectedRefusal === true
+    if (!isRefusal && !chunkById.has(obj.chunkId)) continue
 
     const q: GeneratedQuestion = { chunkId: obj.chunkId, question: obj.question }
     if (Array.isArray(obj.requiredChunkIds)) {
