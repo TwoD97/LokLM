@@ -4,6 +4,10 @@ Das Projekt wurde von einem **Zwei-Personen-Team** mit klar getrennten Verantwor
 
 ## 7.1 Rollenübersicht
 
+Tabelle 7.1 gibt die Rollenübersicht des Zwei-Personen-Teams.
+
+**Tabelle 7.1:** Rollenübersicht des Teams.
+
 | Name              | Rolle                          | Kern-Verantwortung                                                                 |
 | ----------------- | ------------------------------ | --------------------------------------------------------------------------------- |
 | **Denys Tudosa**  | Projekt-Owner / Projektleiter  | Architektur, Backend, Auth/Krypto, RAG-Core, Chunking, Installer/Release, Quiz, Transkription, QA-Routing |
@@ -12,6 +16,10 @@ Das Projekt wurde von einem **Zwei-Personen-Team** mit klar getrennten Verantwor
 Die Rollentrennung ist auch eine **Qualitätssicherungs-Maßnahme**: Der Tester ist nicht zugleich Autor der getesteten Backend-Logik. Das senkt das Echo-Kammer-Risiko bei der Evaluierung (Risiko R5).
 
 ## 7.2 Denys Tudosa — Projekt-Owner
+
+Tabelle 7.2 fasst Verantwortung und Beiträge des Projekt-Owners zusammen.
+
+**Tabelle 7.2:** Verantwortungsbereich und Beiträge von Denys Tudosa.
 
 | Feld                     | Angabe                                                                                                                  |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +31,10 @@ Die Rollentrennung ist auch eine **Qualitätssicherungs-Maßnahme**: Der Tester 
 
 ## 7.3 Dominik Furlan — Dokumentations-Owner & Tester
 
+Tabelle 7.3 fasst Verantwortung und Beiträge des Dokumentations-Owners und Testers zusammen.
+
+**Tabelle 7.3:** Verantwortungsbereich und Beiträge von Dominik Furlan.
+
 | Feld                     | Angabe                                                                                                                  |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | **Verantwortungsbereich**| Gesamte Test-Säule (Unit-, Integrations-, Eval-Tests); UI/UX in den ihm zugeordneten Bereichen; Eval-Set-Authoring inkl. Hold-out; Dokumentation (Handbuch, Anwenderhandbuch, ADR-Mitschrieb); Verteilungs-Website-Tests; DOCX-Import (UI-/Spec-seitig) |
@@ -32,6 +44,10 @@ Die Rollentrennung ist auch eine **Qualitätssicherungs-Maßnahme**: Der Tester 
 | **Offene Klärungen**     | AP-T.2 (#19) und AP-E.1 (#25) mergen, AP-T.1-Branch pushen + PR; AP-E.2 GPU-Sweep durchziehen und in den Laborbericht überführen; AP-E1b als separaten Validierungslauf einbinden; Multi-Hardware-Matrix (AP-T.4) abschließen |
 
 ## 7.4 Aktueller AP-Status (Stand 2026-06-14)
+
+Tabelle 7.4 zeigt den aktuellen Arbeitspaket-Status.
+
+**Tabelle 7.4:** Aktueller Arbeitspaket-Status (Stand 2026-06-14).
 
 | AP        | Owner   | Stand                                                  |
 | --------- | ------- | ------------------------------------------------------ |

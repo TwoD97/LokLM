@@ -2,7 +2,9 @@
 
 ## 6.1 Was das Projekt umfasst
 
-LokLM umfasst eine **vollständige, lokal lauffähige Desktop-Anwendung** mit den folgenden funktionalen Säulen (Lastenheft §5, Pflichtenheft §3):
+LokLM umfasst eine **vollständige, lokal lauffähige Desktop-Anwendung** mit den folgenden funktionalen Säulen (Lastenheft §5, Pflichtenheft §3; Tabelle 6.1):
+
+**Tabelle 6.1:** Funktionale Säulen von LokLM.
 
 | Säule                       | Inhalt                                                                                                |
 | --------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -24,6 +26,8 @@ Nicht Bestandteil (vollständige Liste in Kapitel 05 und Pflichtenheft §1.3): C
 Die optionalen **Kann-Erweiterungen** — lokales Feintuning (QLoRA), code-bewusste Aufteilung, automatische Zusammenfassungen — sind **keine Zusicherung** und nur nach Erreichen eines stabilen Mindestumfangs vorgesehen (Go/No-Go-Gate G3, Pflichtenheft §9.4).
 
 ## 6.3 Kern- und unterstützende Teile
+
+Abbildung 6.1 ordnet die Bestandteile in Kern, unterstützende Teile und Erweiterungen.
 
 ```mermaid
 flowchart TB
@@ -51,9 +55,13 @@ flowchart TB
     Kern --> Erweiterung
 ```
 
+**Abbildung 6.1:** Gliederung in Kern (Mindestumfang), unterstützende Teile und Scope-Erweiterungen.
+
 ## 6.4 Partner- und Teilbereiche (Schnittstellen)
 
-Die Arbeit ist klar zwischen den beiden Teammitgliedern aufgeteilt (Detailtabelle in Kapitel 07). Die wichtigste interne Schnittstelle ist die **IPC-Grenze** zwischen Renderer (React-UI) und Hauptprozess (Node-Services) über `window.api`/contextBridge:
+Die Arbeit ist klar zwischen den beiden Teammitgliedern aufgeteilt (Detailtabelle in Kapitel 07). Die wichtigste interne Schnittstelle ist die **IPC-Grenze** zwischen Renderer (React-UI) und Hauptprozess (Node-Services) über `window.api`/contextBridge (Tabelle 6.2):
+
+**Tabelle 6.2:** Verantwortungsbereiche und ihre wechselseitigen Schnittstellen.
 
 | Bereich (Owner)                          | Schnittstelle zum jeweils anderen Bereich                                    |
 | ---------------------------------------- | ---------------------------------------------------------------------------- |
@@ -64,7 +72,9 @@ Die Test- und Eval-Säule bildet eine **Verifikations-Schnittstelle** über beid
 
 ## 6.5 Scope-Erweiterungen über den Mindestumfang
 
-Im Projektverlauf wurden Funktionen integriert, die über den ursprünglichen Lastenheft-Mindestumfang hinausgehen:
+Im Projektverlauf wurden Funktionen integriert, die über den ursprünglichen Lastenheft-Mindestumfang hinausgehen (Tabelle 6.3):
+
+**Tabelle 6.3:** Scope-Erweiterungen über den Mindestumfang.
 
 | Erweiterung               | Release | Bezug                                          |
 | ------------------------- | ------- | ---------------------------------------------- |
@@ -77,6 +87,10 @@ Im Projektverlauf wurden Funktionen integriert, die über den ursprünglichen La
 Transkription (NZ-6) und Quiz waren ursprünglich nicht im Mindestumfang. Audio-Transkription und Quiz sind eine **bewusste Scope-Erweiterung über den Mindestumfang** und kein zugesicherter v1-Mindest-Liefergegenstand; das Lastenheft (§10) grenzt Transkription ausdrücklich ab.
 
 ## 6.6 Plattform-Abgrenzung
+
+Tabelle 6.4 grenzt die unterstützten Plattformen ab.
+
+**Tabelle 6.4:** Plattform-Abgrenzung.
 
 | Plattform | Status                                                                                 |
 | --------- | -------------------------------------------------------------------------------------- |
