@@ -16,7 +16,11 @@ welche **im Repository nachprüfbaren Artefakte** die externen Werkzeuge spiegel
 > durch das Team zu ergänzen. Die folgenden Aussagen zur in-Repo-Spiegelung sind
 > belegbar; die Beschreibung der Board-/Wiki-Mechanik ist allgemein gehalten.
 
-## 1. Werkzeuglandschaft im Überblick
+## 8.1 Werkzeuglandschaft im Überblick
+
+Tabelle 8.1 gibt einen Überblick der eingesetzten Werkzeuge und ihrer Belegbarkeit aus dem Repository.
+
+**Tabelle 8.1:** Werkzeuglandschaft und Repo-Belegbarkeit.
 
 | Werkzeug | Zweck | Ablageort | Belegbarkeit aus dem Repo |
 |---|---|---|---|
@@ -28,9 +32,9 @@ welche **im Repository nachprüfbaren Artefakte** die externen Werkzeuge spiegel
 Die internen Domains aller selbst gehosteten Dienste sind im Handbuch durchgängig als
 `<PRIVATE_DOMAIN>` maskiert (Outline, Vikunja und MinIO laufen unter derselben
 Domain-Familie). In den lokalen Abschluss-Dokus stehen die echten Links als
-Arbeitshilfe; diese Dokus sind bewusst gitignored (siehe Abschnitt 3).
+Arbeitshilfe; diese Dokus sind bewusst gitignored (siehe Abschnitt 8.3).
 
-## 2. Kanban-Logik (Vikunja)
+## 8.2 Kanban-Logik (Vikunja)
 
 > ⚠️ Annahme, bitte pruefen: Die folgende Spalten-/Status-/Prioritätslogik
 > beschreibt das **übliche** Vorgehen, wie es sich aus den Abschluss-Dokus und
@@ -68,7 +72,7 @@ Querverweis im Outline-Dokument fälschlich auf `/tasks/18` (RRF-Task des Partne
 statt `/tasks/17` (M3-Auth) zeigte — ein Beispiel dafür, dass Board und Wiki manuell
 synchron gehalten werden mussten.
 
-## 3. Outline-Dokumentation als Spezifikations- und Abnahme-Ebene
+## 8.3 Outline-Dokumentation als Spezifikations- und Abnahme-Ebene
 
 Outline diente als **Single Source of Truth** für Anforderungen und Abnahme:
 
@@ -85,7 +89,9 @@ Outline diente als **Single Source of Truth** für Anforderungen und Abnahme:
 ### In-Repo-Artefakte, die Vikunja/Outline spiegeln
 
 Damit die externen Werkzeuge nachvollziehbar bleiben (und gegen nachträgliche
-Manipulation geschützt sind), existieren im Repo bzw. lokal mehrere Artefakt-Typen:
+Manipulation geschützt sind), existieren im Repo bzw. lokal mehrere Artefakt-Typen (Tabelle 8.2):
+
+**Tabelle 8.2:** In-Repo-/lokale Artefakte, die Vikunja und Outline spiegeln.
 
 | Artefakt | Pfad | Funktion | Im Git? |
 |---|---|---|---|
@@ -117,10 +123,10 @@ Die Vorlagen folgen exakt der Outline-Seitenstruktur, damit sie abschnittsweise
 6. **Links** — Vikunja-Task, Outline-Seite, Pflichtenheft, PR, ADRs.
 7. **Status-Update <Datum>** — der Text, der 1:1 als Vikunja-/Outline-Status-Kommentar dient.
 
-## 4. Wie die neun Wochen nachvollziehbar werden
+## 8.4 Wie die neun Wochen nachvollziehbar werden
 
 Der Projektverlauf ist über mehrere, sich überlappende Spuren dokumentiert — keine
-einzelne Quelle trägt allein, aber zusammen ergeben sie eine lückenlose Chronik:
+einzelne Quelle trägt allein, aber zusammen ergeben sie eine lückenlose Chronik (Abbildung 8.1):
 
 ```mermaid
 flowchart LR
@@ -152,6 +158,8 @@ flowchart LR
     AR -->|begründet| CM
 ```
 
+**Abbildung 8.1:** Zusammenspiel von externer Steuerung, lokalen Nachweisen und GitHub über die AP-ID.
+
 **Drei Nachweis-Spuren:**
 
 1. **Wöchentliche Projektstatusberichte** (`projektstatusbericht-2026-05-22.md`,
@@ -177,7 +185,7 @@ flowchart LR
 > weiterer Projektstatusbericht; der Abschluss dieser Wochen ist durch das Team zu
 > ergänzen, sobald die offenen Pakete (AP-E.2 Phase 2, Test-PR-Merges) abgenommen sind.
 
-## 5. Verbindung Kanban ↔ Outline ↔ Doku ↔ GitHub
+## 8.5 Verbindung Kanban ↔ Outline ↔ Doku ↔ GitHub
 
 Der Kreislauf, mit dem ein Arbeitspaket von der Karte bis ins `main` läuft:
 

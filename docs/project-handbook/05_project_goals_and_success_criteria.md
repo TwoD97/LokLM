@@ -4,6 +4,10 @@ Dieses Kapitel führt Haupt-, Neben- und Nicht-Ziele sowie die messbaren Erfolgs
 
 ## 5.1 Hauptziele (SMART)
 
+Tabelle 5.1 listet die fünf Hauptziele mit Messgröße und Termin.
+
+**Tabelle 5.1:** Hauptziele (SMART) mit Messgröße und Termin.
+
 | ID  | Ziel (Benutzersicht)            | Messung                                                                                                  | Termin     |
 | --- | ------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------- |
 | **Z-1** | **Datenhoheit** — Dokumente, Fragen und Antworten verlassen das Gerät im Standardbetrieb nicht; auch Anmeldung und Passwort-Wiederherstellung ohne Drittdienst | Wireshark-Mitschnitt über 30 min Standardnutzung: 0 ausgehende Verbindungen außerhalb Loopback | 12.06.2026 |
@@ -13,6 +17,10 @@ Dieses Kapitel führt Haupt-, Neben- und Nicht-Ziele sowie die messbaren Erfolgs
 | **Z-5** | **Lieferbar zum Schulende** — Download, Installation und erster beantworteter Chat ohne IT-Unterstützung, mit deutschem Handbuch | Projektseite online, Installer lädt; Usability-Test 3 Erstnutzer erreichen ersten Chat ≤ 30 min; Handbuch deckt alle 11 Mindestbestandteile ab | 26.06.2026 |
 
 ## 5.2 Nebenziele (Soll-Anforderungen)
+
+Tabelle 5.2 fasst die Soll-Anforderungen zusammen.
+
+**Tabelle 5.2:** Nebenziele (Soll-Anforderungen).
 
 | Nebenziel                | Beschreibung                                                                          | Lastenheft |
 | ------------------------ | ------------------------------------------------------------------------------------- | ---------- |
@@ -27,7 +35,9 @@ Dieses Kapitel führt Haupt-, Neben- und Nicht-Ziele sowie die messbaren Erfolgs
 
 ## 5.3 Nicht-Ziele
 
-Bewusst nicht enthalten in Version 1 (Pflichtenheft §1.3, Lastenheft §10):
+Bewusst nicht enthalten in Version 1 (Pflichtenheft §1.3, Lastenheft §10) — siehe Tabelle 5.3:
+
+**Tabelle 5.3:** Nicht-Ziele der Version 1 mit Begründung.
 
 | Nicht-Ziel                                                  | Begründung (Kurzform)                              |
 | ----------------------------------------------------------- | -------------------------------------------------- |
@@ -46,7 +56,9 @@ Bewusst nicht enthalten in Version 1 (Pflichtenheft §1.3, Lastenheft §10):
 
 ## 5.4 Erfolgs- / Abnahmekriterien
 
-Maßgeblich sind die Abnahmekriterien des Pflichtenhefts (§11). Auszug mit den zentralen messbaren Schwellen:
+Maßgeblich sind die Abnahmekriterien des Pflichtenhefts (§11). Auszug mit den zentralen messbaren Schwellen (Tabelle 5.4):
+
+**Tabelle 5.4:** Erfolgs-/Abnahmekriterien (Auszug der messbaren Schwellen).
 
 | Kriterium                                              | Schwelle / Bedingung                                                         |
 | ------------------------------------------------------ | --------------------------------------------------------------------------- |
@@ -61,7 +73,9 @@ Maßgeblich sind die Abnahmekriterien des Pflichtenhefts (§11). Auszug mit den 
 
 ## 5.5 Aktuelle Zielerreichung (Stand 2026-06-14)
 
-Die folgende Einschätzung beruht auf den Projektstatusberichten und dem Repository-Stand. Der **gemessene Erreichungsgrad einzelner Zahlenziele** (z. B. exakte Recall@5- oder Citation-Accuracy-Werte) ist erst nach der ausstehenden GPU-Matrix-Auswertung belastbar.
+Die folgende Einschätzung beruht auf den Projektstatusberichten und dem Repository-Stand. Der **gemessene Erreichungsgrad einzelner Zahlenziele** (z. B. exakte Recall@5- oder Citation-Accuracy-Werte) ist erst nach der ausstehenden GPU-Matrix-Auswertung belastbar (Tabelle 5.5).
+
+**Tabelle 5.5:** Aktuelle Zielerreichung (Stand 2026-06-14).
 
 | Ziel | Stand                                                                                                       | Bewertung |
 | ---- | ----------------------------------------------------------------------------------------------------------- | --------- |
