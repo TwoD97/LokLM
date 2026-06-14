@@ -64,16 +64,33 @@ die Schul-Abgabe.
 | 27 | [27_glossary.md](27_glossary.md) | Glossar |
 | 28 | [28_appendix.md](28_appendix.md) | Anhang (Befehle, Pfade, Quellen, Matrix-Referenz) |
 
+### Front-/Schlussteil (gebundene Fassung)
+
+Diese Teile umrahmen den Hauptteil in der gebundenen Version (Reihenfolge: siehe
+[BOOK_MANIFEST.md](BOOK_MANIFEST.md)). Inhaltsverzeichnis, Abbildungs- und
+Tabellenverzeichnis werden beim Export automatisch erzeugt.
+
+| Teil | Datei | Inhalt |
+| --- | --- | --- |
+| Frontteil | [front_10_kurzfassung.md](front_10_kurzfassung.md) | Kurzfassung / Abstract |
+| Frontteil | [front_20_abkuerzungsverzeichnis.md](front_20_abkuerzungsverzeichnis.md) | Abkürzungsverzeichnis |
+| Schlussteil | [back_10_literaturverzeichnis.md](back_10_literaturverzeichnis.md) | Literaturverzeichnis (externe Quellen, IEEE) |
+| Schlussteil | [back_20_selbststaendigkeitserklaerung.md](back_20_selbststaendigkeitserklaerung.md) | Selbstständigkeitserklärung |
+
 ### Steuerdateien (Handbuch-Verwaltung)
 
 | Datei | Zweck |
 | --- | --- |
 | [README.md](README.md) | Diese Startseite (Titel, Inhaltsverzeichnis, Lesehinweis) |
+| [STYLE_GUIDE.md](STYLE_GUIDE.md) | Stil-, Struktur- und Belegregeln (akademische Konventionen) |
+| [TERMINOLOGY.md](TERMINOLOGY.md) | Begriffs-/Schreibweisen-Register (kanonische Schreibweisen) |
+| [BOOK_MANIFEST.md](BOOK_MANIFEST.md) | Bind-Reihenfolge der gebundenen Fassung |
 | [HANDBOOK_STATUS.md](HANDBOOK_STATUS.md) | Kapitelweise Statusübersicht (begonnen/teilweise/vollständig/zu prüfen) |
-| [SOURCE_MAP.md](SOURCE_MAP.md) | Quellenkarte (Quelle → Kapitel, Vertrauensgrad) |
+| [SOURCE_MAP.md](SOURCE_MAP.md) | Quellenkarte (interne Provenienz → Kapitel, Vertrauensgrad) |
 | [OPEN_QUESTIONS_FOR_TEAM.md](OPEN_QUESTIONS_FOR_TEAM.md) | Gezielte Rückfragen ans Team |
 | [SENSITIVE_DATA_CHECKLIST.md](SENSITIVE_DATA_CHECKLIST.md) | Sensitivdaten-Checkliste + Secret-Sweep-Befund |
 | [EXPORT_NOTES.md](EXPORT_NOTES.md) | Export-Anleitung (Markdown → PDF/Buch) |
+| [RELEASE_AUDIT.md](RELEASE_AUDIT.md) | v1.0.0-Audit-Checkliste vor der Bindung |
 
 ---
 

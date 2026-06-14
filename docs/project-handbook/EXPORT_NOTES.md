@@ -10,18 +10,27 @@ gebundene **PDF-/Buch-Version** überführt wird. Stand: **2026-06-14**. Ausgabe
 
 ---
 
-## 1. Kapitelreihenfolge (Build-Manifest)
+## 1. Bind-Reihenfolge (Build-Manifest)
 
-Die Hauptkapitel werden in numerischer Reihenfolge zusammengeführt; die Steuerdateien
-(README, HANDBOOK_STATUS, SOURCE_MAP, OPEN_QUESTIONS_FOR_TEAM, SENSITIVE_DATA_CHECKLIST,
-EXPORT_NOTES) gehören **nicht** in die gebundene Fassung (interne Verwaltung) — höchstens
+Die maßgebliche Reihenfolge steuert **[BOOK_MANIFEST.md](BOOK_MANIFEST.md)** — nicht mehr
+der nackte Glob. Der Aufbau:
+
+```
+Frontteil:  00_cover · front_10_kurzfassung · [TOC] · [Abbildungsverz.] ·
+            [Tabellenverz.] · front_20_abkuerzungsverzeichnis
+Hauptteil:  01_preface… · 02_management_summary · 03 … 28_appendix
+Schlussteil: back_10_literaturverzeichnis · back_20_selbststaendigkeitserklaerung
+```
+
+`[TOC]`, `[Abbildungsverz.]` und `[Tabellenverz.]` werden beim Export **automatisch**
+erzeugt (siehe Abschnitt 2/3). Die Steuerdateien (README, HANDBOOK_STATUS, SOURCE_MAP,
+OPEN_QUESTIONS_FOR_TEAM, SENSITIVE_DATA_CHECKLIST, EXPORT_NOTES, STYLE_GUIDE, TERMINOLOGY,
+BOOK_MANIFEST, RELEASE_AUDIT) gehören **nicht** in die gebundene Fassung — höchstens
 SOURCE_MAP/OPEN_QUESTIONS als Anhang, falls gewünscht.
 
-```
-00_cover · 01_preface… · 02_management_summary · 03 … 28_appendix
-```
-
-Glob-Reihenfolge (POSIX-Sortierung): `[0-2][0-9]_*.md`.
+Die explizite Dateiliste aus dem Manifest wird Pandoc/typst in dieser Reihenfolge übergeben
+(der frühere Glob `[0-2][0-9]_*.md` deckt nur den Hauptteil ab und ist als Fallback weiter
+gültig).
 
 ---
 
@@ -35,11 +44,16 @@ oder **mdbook** (am schnellsten für ein navigierbares HTML/PDF-Buch).
 Vollständigste Kontrolle über Buch-Layout (Deckblatt, TOC, Seitenzahlen, Kapitelumbrüche).
 
 ```bash
-# Reihenfolge garantieren, dann zu PDF rendern (XeLaTeX für Unicode/Umlaute)
-pandoc $(ls docs/project-handbook/[0-2][0-9]_*.md | sort) \
+# Dateien in Manifest-Reihenfolge (Frontteil → Hauptteil → Schlussteil), dann zu PDF rendern
+H=docs/project-handbook
+pandoc \
+  $H/00_cover.md $H/front_10_kurzfassung.md $H/front_20_abkuerzungsverzeichnis.md \
+  $(ls $H/[0-2][1-9]_*.md $H/1[0-9]_*.md $H/2[0-8]_*.md 2>/dev/null | sort) \
+  $H/back_10_literaturverzeichnis.md $H/back_20_selbststaendigkeitserklaerung.md \
   --from gfm \
   --pdf-engine=xelatex \
   --toc --toc-depth=2 \
+  -V lof=true -V lot=true \
   --number-sections \
   --top-level-division=chapter \
   -V documentclass=report \
@@ -47,12 +61,20 @@ pandoc $(ls docs/project-handbook/[0-2][0-9]_*.md | sort) \
   -V geometry:margin=2.5cm \
   -V mainfont="DejaVu Serif" \
   -V monofont="DejaVu Sans Mono" \
-  -o docs/project-handbook/export/LokLM-Projekthandbuch.pdf
+  -o $H/export/LokLM-Projekthandbuch.pdf
 ```
+
+> Die Dateiliste ist in [BOOK_MANIFEST.md](BOOK_MANIFEST.md) verbindlich festgelegt; das
+> obige `ls`-Muster deckt nur den Hauptteil `01`–`28` ab. Am robustesten ist es, die
+> Reihenfolge direkt aus dem Manifest zu übernehmen (oder ein Pandoc-`defaults.yaml` mit
+> expliziter `input-files`-Liste zu pflegen).
 
 Hinweise:
 - **XeLaTeX/LuaLaTeX** statt pdfLaTeX wählen — wegen der durchgängigen Umlaute und
   Sonderzeichen (UTF-8).
+- `-V lof=true -V lot=true` erzeugt **Abbildungs-** und **Tabellenverzeichnis**
+  (`\listoffigures` / `\listoftables`); Voraussetzung sind beschriftete Abbildungen/Tabellen
+  gemäß [STYLE_GUIDE.md](STYLE_GUIDE.md) Abschnitt 6.
 - `--top-level-division=chapter` macht aus jeder `#`-Überschrift ein LaTeX-Kapitel →
   saubere Kapitelumbrüche und Seitenzahlen.
 - Mermaid-Diagramme rendert Pandoc **nicht** native — siehe Abschnitt 4.
@@ -94,6 +116,11 @@ als Markdown→LaTeX-Konverter vorschalten (`pandoc -t latex`), dann manuell in 
 | --- | --- |
 | **Deckblatt** | `00_cover.md` als Titelseite; in Pandoc/LaTeX via Titelblock oder eigene `\maketitle`-Seite. Projekt, Version 0.1, Stand 2026-06-14, Team, Auftraggeber. |
 | **Inhaltsverzeichnis** | automatisch generieren (`--toc --toc-depth=2`). Das README-TOC ist für die Verwaltung; im Buch das gerenderte TOC nutzen. |
+| **Kurzfassung** | `front_10_kurzfassung.md` in den Frontteil (vor TOC), siehe [BOOK_MANIFEST.md](BOOK_MANIFEST.md). |
+| **Abbildungs-/Tabellenverzeichnis** | automatisch via `-V lof=true -V lot=true`; setzt beschriftete Abbildungen/Tabellen voraus ([STYLE_GUIDE.md](STYLE_GUIDE.md) §6). |
+| **Abkürzungsverzeichnis** | `front_20_abkuerzungsverzeichnis.md` in den Frontteil (nach den Verzeichnissen). |
+| **Literaturverzeichnis** | `back_10_literaturverzeichnis.md` in den Schlussteil; externe Quellen IEEE-numerisch `[n]`. |
+| **Selbstständigkeitserklärung** | `back_20_selbststaendigkeitserklaerung.md` ans Ende; Name/Datum/Unterschrift vor dem Druck setzen. |
 | **Seitenzahlen** | über die Dokumentklasse (`report`/`book`); Frontmatter (Deckblatt/TOC) römisch, Hauptteil arabisch, falls gewünscht. |
 | **Kapitelumbrüche** | jedes `00_…`-`28_…` beginnt auf neuer Seite (`--top-level-division=chapter` bzw. `\chapter`). |
 | **Bilder/Diagramme** | unter `assets/` ablegen; Pfade in den Kapiteln repo-relativ halten. |
