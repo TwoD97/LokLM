@@ -4,6 +4,10 @@ Dieses Kapitel beschreibt die wichtigsten Service-Module des Main-Prozesses einz
 
 ## 14.1 AuthService
 
+Tabelle 14.1 fasst den AuthService zusammen.
+
+**Tabelle 14.1:** Steckbrief des AuthService.
+
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | Registrierung, Login/Logout, Sperre, Passwortänderung, Recovery; Lebenszyklus des verschlüsselten Tresors und des In-Memory-DEK |
@@ -18,6 +22,10 @@ Dieses Kapitel beschreibt die wichtigsten Service-Module des Main-Prozesses einz
 Der DEK bleibt über die gesamte Installationslebensdauer gleich; ein Passwort-Reset wrappt ihn nur neu, sodass die Bibliothek erhalten bleibt. Schlüsselmaterial liegt in `mlock`-gesichertem Speicher und wird beim Sperren genullt.
 
 ## 14.2 DocumentService + Chunker + Parser
+
+Tabelle 14.2 fasst DocumentService, Chunker und Parser zusammen.
+
+**Tabelle 14.2:** Steckbrief von DocumentService, Chunker und Parser.
 
 | Aspekt | Beschreibung |
 | --- | --- |
@@ -34,6 +42,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 
 ## 14.3 FolderSyncService
 
+Tabelle 14.3 fasst den FolderSyncService zusammen.
+
+**Tabelle 14.3:** Steckbrief des FolderSyncService.
+
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | Pro-Workspace überwachte Ordner; automatische Nachführung von Neu-/Änderungs-/Verschwinde-Ereignissen |
@@ -46,6 +58,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 | **Grenzen** | Watcher halten OS-Handles und werden bei Sperre/Logout gestoppt (kein Übertritt auf ein anderes Konto); verschwundene Dateien bleiben durchsuchbar, bis der Nutzer „Behalten"/„Entfernen" entscheidet |
 
 ## 14.4 EmbeddingService + EmbeddingBackfillService
+
+Tabelle 14.4 fasst EmbeddingService und EmbeddingBackfillService zusammen.
+
+**Tabelle 14.4:** Steckbrief von EmbeddingService und Backfill.
 
 | Aspekt | Beschreibung |
 | --- | --- |
@@ -60,6 +76,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 
 ## 14.5 RetrievalService
 
+Tabelle 14.5 fasst den RetrievalService zusammen.
+
+**Tabelle 14.5:** Steckbrief des RetrievalService.
+
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | Hybride Retrieval-Pipeline: Multi-Query-Expansion → BM25 + dense + RRF → Reranking → Diversifizierung → Nachbar-/Whole-Doc-Expansion |
@@ -72,6 +92,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 | **Grenzen** | Stages 0 (Expansion) und 2 (Rerank) degradieren still, wenn das benötigte Modell nicht geladen ist |
 
 ## 14.6 RerankerService
+
+Tabelle 14.6 fasst den RerankerService zusammen.
+
+**Tabelle 14.6:** Steckbrief des RerankerService.
 
 | Aspekt | Beschreibung |
 | --- | --- |
@@ -86,6 +110,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 
 ## 14.7 LlamaService
 
+Tabelle 14.7 fasst den LlamaService zusammen.
+
+**Tabelle 14.7:** Steckbrief des LlamaService.
+
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | Fassade für das gebündelte Chat-/Generierungs-LLM (`node-llama-cpp` im `modelsWorker`) |
@@ -98,6 +126,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 | **Grenzen** | Geteilter Worker verträgt **keine parallele** Inferenz (sonst 0xC0000005 auf knappen Maschinen) — Inferenz ist serialisiert; Idle-Eviction Default 30 min |
 
 ## 14.8 QAService + Router
+
+Tabelle 14.8 fasst QAService und Router zusammen.
+
+**Tabelle 14.8:** Steckbrief von QAService und Router.
 
 | Aspekt | Beschreibung |
 | --- | --- |
@@ -112,6 +144,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 
 ## 14.9 ModelDownloader + ProviderRegistry
 
+Tabelle 14.9 fasst ModelDownloader und ProviderRegistry zusammen.
+
+**Tabelle 14.9:** Steckbrief von ModelDownloader und ProviderRegistry.
+
 | Aspekt | Beschreibung |
 | --- | --- |
 | **Zweck** | `ModelDownloader`: Stream-Download von GGUFs (Resume, SHA-256/Size-Verify, Cancel, ratenbegrenzte Progress-Events). `ProviderRegistry`: Abstraktion bundled vs. Ollama je LLM/Embedder/Reranker mit Auto-Fallback |
@@ -124,6 +160,10 @@ Markdown wird sektionsbewusst gechunkt: Sektionsgrenzen werden nie überschritte
 | **Grenzen** | Das LLM ist **nicht** mehr im Laufzeit-Manifest (seit v0.4.x) — der Installer-Wizard besitzt die LLM-Akquise per Tier-Bundle; LLM-Erkennung läuft filename-pattern-basiert |
 
 ## 14.10 Quiz / Summarization / Writing / Transcription / Translation
+
+Tabelle 14.10 fasst die weiteren Feature-Module zusammen.
+
+**Tabelle 14.10:** Übersicht der weiteren Feature-Module.
 
 | Modul | Zweck & Kern | Dateien | Status / Grenzen |
 | --- | --- | --- | --- |

@@ -16,7 +16,9 @@ Die Matrix ist ein **kartesisches Produkt** über die Achsen Embedder × Reranke
 
 ## 17.2 Achsen und Member
 
-Die Achsen werden aus Pack-Dateien unter `tests/evals/answer/` gelesen und in `matrixConfigs()` (`tests/evals/pipeline/configs.ts`) zum kartesischen Produkt zusammengesetzt.
+Die Achsen werden aus Pack-Dateien unter `tests/evals/answer/` gelesen und in `matrixConfigs()` (`tests/evals/pipeline/configs.ts`) zum kartesischen Produkt zusammengesetzt. Tabelle 17.1 listet die Achsen und ihre Member im aktuellen Repo-Stand auf.
+
+**Tabelle 17.1:** Achsen der Eval-Matrix und ihre Member.
 
 | Achse | Member im Repo-Stand (2026-06-14) | Quelle |
 | --- | --- | --- |
@@ -44,7 +46,9 @@ Läufe             = Zellen × Fragen (Antwort + Judge)   = 360 × 163 = 58 680
 
 ## 17.3 Judge
 
-Der Judge bewertet die generierte Antwort. Standard-Muster: **LLM-as-Judge** (`tests/evals/judge/Judge.ts`, `LocalLlmJudge`).
+Der Judge bewertet die generierte Antwort. Standard-Muster: **LLM-as-Judge** (`tests/evals/judge/Judge.ts`, `LocalLlmJudge`). Tabelle 17.2 fasst die zentralen Eigenschaften des Judge zusammen.
+
+**Tabelle 17.2:** Eigenschaften des LLM-as-Judge.
 
 | Eigenschaft | Wert |
 | --- | --- |
@@ -68,6 +72,10 @@ Es gibt drei Metrik-Familien. Alle Retrieval-Metriken werden über die **reranke
 
 ### Retrieval, chunk-id-basiert (`tests/evals/metrics.ts`)
 
+Tabelle 17.3 erläutert die chunk-id-basierten Retrieval-Metriken.
+
+**Tabelle 17.3:** Chunk-id-basierte Retrieval-Metriken.
+
 | Metrik | Bedeutung |
 | --- | --- |
 | `recall@1 / @5 / @10` | Anteil der Fragen, bei denen der Gold-Chunk in den Top-k steht (single-relevant) |
@@ -79,6 +87,10 @@ Es gibt drei Metrik-Familien. Alle Retrieval-Metriken werden über die **reranke
 
 ### Retrieval, span-basiert / chunker-unabhängig (`tests/evals/metrics-span.ts`)
 
+Tabelle 17.4 erläutert die span-basierten, chunker-unabhängigen Retrieval-Metriken.
+
+**Tabelle 17.4:** Span-basierte Retrieval-Metriken.
+
 | Metrik | Bedeutung |
 | --- | --- |
 | `recall@5 span / @10 span` | Treffer, wenn ein retrievter Chunk-Span einen Gold-Span **überlappt** (statt exaktem `chunkId`-Match) |
@@ -88,6 +100,10 @@ Es gibt drei Metrik-Familien. Alle Retrieval-Metriken werden über die **reranke
 Der Span-Treffer nutzt halb-offene Intervall-Überlappung im **selben** Dokument (`spansOverlap`). Das ist die Voraussetzung dafür, dass **dieselbe** Gold-Wahrheit gegen **jede** Chunk-Größe bewertbar ist — die Chunker-Achse läuft als separate Datasets, vergleichbar nur über diese span-Metrik. Hinweis: in der `summary.md`-Tabelle erscheinen nur `r@5 span` + `MRR span` als Schnellblick; die vollen Span-Werte (`recall@10 span`, `nDCG@10 span`) stehen in `configs/<name>/result.json` (Kommentar in `sweep.ts`).
 
 ### Antwortqualität (Judge) + Latenz/Ressourcen
+
+Tabelle 17.5 listet die Metriken für Antwortqualität, Latenz und Ressourcen samt ihrer Quelle.
+
+**Tabelle 17.5:** Metriken für Antwortqualität, Latenz und Ressourcen.
 
 | Metrik | Quelle |
 | --- | --- |
@@ -101,6 +117,8 @@ Der `composite`-Score ist die Ranking-Größe: Qualität (Judge ×2, Recall ×1)
 ---
 
 ## 17.5 2-Pass-Sweep und Orchestrierung
+
+Abbildung 17.1 zeigt den Ablauf von Orchestrator, 2-Pass-Sweep und Aggregation.
 
 ```mermaid
 flowchart TD
@@ -117,6 +135,8 @@ flowchart TD
   P2 --> RES["configs/<name>/result.json<br/>+ per-question.jsonl"]
   RES --> AGG["Aggregat: summary.md +<br/>ranking.md + summary.json"]
 ```
+
+**Abbildung 17.1:** Ablauf von Orchestrator und 2-Pass-Sweep.
 
 **Warum 2-Pass?** Prüfling-LLM (~5 GB) und Judge-LLM (Mistral-Small-3.2-24B, deutlich größer) sind so **nie gleichzeitig resident** — auf einer 32-GB-Maschine bleibt das System responsiv. Erst alle Antworten unter dem Prüfling generieren, dann sämtliche Bridges entladen, dann den Judge laden und die in-memory gesammelten Records bewerten (`sweep.ts`).
 
@@ -146,6 +166,10 @@ flowchart TD
 ---
 
 ## 17.7 Aktueller Stand und nächste Schritte
+
+Tabelle 17.6 gibt den Phasenstand der Eval-Säule wieder.
+
+**Tabelle 17.6:** Phasenstand der Eval-Säule.
 
 | Phase | Inhalt | Status |
 | --- | --- | --- |
