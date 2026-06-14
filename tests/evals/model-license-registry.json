@@ -334,8 +334,8 @@
       "licenseUrl": "https://huggingface.co/intfloat/multilingual-e5-base",
       "licenseClass": "osi-permissive",
       "allowedInDefaultMatrix": true,
-      "inDefaultPack": true,
-      "notes": "MIT license confirmed via HF API metadata tag (license:mit); no separate LICENSE file in the repo root (404), which is normal for HF-hosted models declaring license in card front-matter only. GGUF repo cstr/multilingual-e5-base-GGUF contains Q4_K (259 MB) and Q8_0 (302 MB) variants; Q8_0 selected as preferred quantization. Model supports 100+ languages with 768-dim embeddings (mean-pool).",
+      "inDefaultPack": false,
+      "notes": "MIT license confirmed via HF API metadata tag (license:mit); no separate LICENSE file in the repo root (404), normal for HF-hosted models declaring license in card front-matter only. License is fine, but EXCLUDED from the default pack on 2026-06-14 for a TECHNICAL reason: the cstr/multilingual-e5-base-GGUF Q8_0 declares model architecture 'xlmr', which node-llama-cpp 3.18.1 (llama.cpp b8390) cannot load ('unknown model architecture: xlmr'). Its sibling multilingual-e5-large loads only because that GGUF declares 'bert'. Re-add once a 'bert'-arch multilingual-e5-base GGUF is found and load-tested. Model supports 100+ languages with 768-dim embeddings (mean-pool).",
       "verifiedAt": "2026-06-14"
     },
     {
