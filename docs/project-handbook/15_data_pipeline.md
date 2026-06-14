@@ -2,7 +2,9 @@
 
 Dieses Kapitel beschreibt, wie aus Roh-Dokumenten verarbeitbare Eingaben für das RAG-System (Kapitel 16) und für die Eval-Matrix (Kapitel 17) werden: die Datenquellen, die Chunking-Stufe, der Aufbau des LAP-Eval-Datensatzes mit Gold-Spans, sowie die Speicherorte, Datenqualitäts-Risiken und aktuellen Grenzen.
 
-Es gibt im Projekt **zwei getrennte Daten-Welten**, die nicht verwechselt werden dürfen:
+Es gibt im Projekt **zwei getrennte Daten-Welten**, die nicht verwechselt werden dürfen (Tabelle 15.1):
+
+**Tabelle 15.1:** Produktiv- und Eval-Daten-Welten im Vergleich.
 
 | Welt | Zweck | Chunker | Speicher |
 | --- | --- | --- | --- |
@@ -34,7 +36,9 @@ Für die Messung (Kapitel 17) gibt es mehrere Korpora unter `tests/evals/data/`.
 
 ## 15.2 LAP-Korpus
 
-Das **LAP-Korpus** ist die Datenbasis der Eval-Matrix (Kapitel 17). Es besteht aus realen, deutsch- und englischsprachigen Dokumenten.
+Das **LAP-Korpus** ist die Datenbasis der Eval-Matrix (Kapitel 17). Es besteht aus realen, deutsch- und englischsprachigen Dokumenten. Tabelle 15.2 fasst die Kennzahlen zusammen.
+
+**Tabelle 15.2:** Kennzahlen des LAP-Korpus.
 
 | Kennzahl | Wert | Quelle |
 | --- | --- | --- |
@@ -69,7 +73,7 @@ Der entscheidende Punkt: `start`/`end` sind die **rohen Fenstergrenzen** vor dem
 
 ## 15.3 Dataset-Erstellung — build-lap-dataset.ts → LapDataset
 
-Der Konverter `tests/evals/synth/build-lap-dataset.ts` baut aus Korpus + kuratierten Fragen ein `LapDataset`:
+Der Konverter `tests/evals/synth/build-lap-dataset.ts` baut aus Korpus + kuratierten Fragen ein `LapDataset`. Abbildung 15.1 zeigt den Datenfluss von Korpus und Fragen zum fertigen `LapDataset`.
 
 ```mermaid
 flowchart TD
@@ -82,6 +86,8 @@ flowchart TD
   C --> G
   G --> H["LapDataset<br/>{ chunker, chunks, questions }"]
 ```
+
+**Abbildung 15.1:** Datenfluss der LAP-Dataset-Erstellung.
 
 Ablauf im Detail (`buildLapDataset`):
 
@@ -99,7 +105,9 @@ Bemerkenswert: `goldSpans` und `meta` werden **nicht** aus dem Input übernommen
 
 ## 15.4 Gold-Wahrheit — Gold-Chunks, Gold-Spans, Intent
 
-Jede Frage trägt eine mehrstufige Ground-Truth (`GeneratedQuestion` in `tests/evals/synth/QuestionGenerator.ts`):
+Jede Frage trägt eine mehrstufige Ground-Truth (`GeneratedQuestion` in `tests/evals/synth/QuestionGenerator.ts`), die Tabelle 15.3 auflistet.
+
+**Tabelle 15.3:** Felder der Gold-Wahrheit je Frage.
 
 | Feld | Bedeutung | Verwendung |
 | --- | --- | --- |
@@ -117,6 +125,10 @@ Der `intent`-Wert spiegelt bewusst die Heuristik `classifyQueryBreadth` aus der 
 
 ### Fragenmenge
 
+Tabelle 15.4 nennt die Größe der LAP-Fragenmenge.
+
+**Tabelle 15.4:** Umfang der LAP-Fragenmenge.
+
 | Kennzahl | Wert | Quelle |
 | --- | --- | --- |
 | DE-Fragen gesamt | 163 | Projektangabe |
@@ -128,6 +140,10 @@ Der `intent`-Wert spiegelt bewusst die Heuristik `classifyQueryBreadth` aus der 
 ---
 
 ## 15.5 Speicherorte (gitignored)
+
+Tabelle 15.5 listet die Artefakte der Eval-Datenpipeline und ihren Versionierungs-Status.
+
+**Tabelle 15.5:** Speicherorte und Status der Eval-Artefakte.
 
 | Artefakt | Pfad | Status |
 | --- | --- | --- |
@@ -141,6 +157,10 @@ Der Grund für das Gitignoren des Korpus: die Roh-Dokumente sind teils urheberre
 ---
 
 ## 15.6 Datenqualitäts-Risiken
+
+Tabelle 15.6 fasst die Datenqualitäts-Risiken mit Wirkung und Gegenmaßnahme zusammen.
+
+**Tabelle 15.6:** Datenqualitäts-Risiken und Gegenmaßnahmen.
 
 | Risiko | Wirkung | Gegenmaßnahme / Status |
 | --- | --- | --- |

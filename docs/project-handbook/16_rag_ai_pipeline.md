@@ -18,6 +18,8 @@ Der gesamte Hot Path ist **regex-/heuristik-first**: vor dem eigentlichen Retrie
 
 Einstiegspunkt ist `QAService.answer(workspaceId, query, opts, abortSignal)` (`src/main/services/qa/QAService.ts`). Die Methode ist ein **AsyncIterable** von Stream-Events (`stage`, `citation`, `token`, `refusal`, `done`, `error`) — der Renderer konsumiert sie live, der Eval-Harness sammelt sie zu einem Endergebnis.
 
+Abbildung 16.1 zeigt den End-to-End-Fluss von der Nutzer-Frage bis zur Antwort.
+
 ```mermaid
 flowchart TD
   Q["Nutzer-Frage"] --> LANG["Antwortsprache bestimmen<br/>opts.language ?? detectResponseLanguage(query)"]
@@ -37,6 +39,8 @@ flowchart TD
   REF1 -->|ja| RX["refusal + done"]
   REF2 -->|ja| RX
 ```
+
+**Abbildung 16.1:** End-to-End-Fluss in `QAService.answer`.
 
 Die Stufen im Einzelnen:
 
@@ -58,7 +62,9 @@ Die Stufen im Einzelnen:
 
 ## 16.3 Routing (ADR-0003)
 
-`resolveRoute(query, ctx)` (`src/main/services/qa/router.ts`) entscheidet **rein heuristisch** zwischen drei Strategien. Präzedenz: **`corpus` > `doc_summary` > `retrieval`**.
+`resolveRoute(query, ctx)` (`src/main/services/qa/router.ts`) entscheidet **rein heuristisch** zwischen drei Strategien. Präzedenz: **`corpus` > `doc_summary` > `retrieval`**. Die drei Routen und ihre Auslöser fasst Tabelle 16.1 zusammen.
+
+**Tabelle 16.1:** Routing-Strategien und ihre Auslöser.
 
 | Route | Auslöser | Antwortweg | LLM? |
 | --- | --- | --- | --- |
@@ -74,7 +80,9 @@ Drei Designprinzipien aus ADR-0003:
 
 ### queryBreadth → topK
 
-Parallel zur Route klassifiziert `classifyQueryBreadth` die **Breite** der Frage und mappt sie auf ein topK (`adaptiveTopK`):
+Parallel zur Route klassifiziert `classifyQueryBreadth` die **Breite** der Frage und mappt sie auf ein topK (`adaptiveTopK`); die Zuordnung zeigt Tabelle 16.2.
+
+**Tabelle 16.2:** Zuordnung von Query-Breite zu topK.
 
 | Breadth | topK | Beispiel |
 | --- | --- | --- |
@@ -90,6 +98,8 @@ Die Default `focused`=3 ist empirisch belegt: laut Kommentar im Quelltext (`rout
 
 `RetrievalService.search` (`src/main/services/retrieval/RetrievalService.ts`) ist die hybride Such-Pipeline. Stufen in Reihenfolge:
 
+Abbildung 16.2 zeigt die Stufen der hybriden Retrieval-Pipeline.
+
 ```mermaid
 flowchart LR
   Q["Query"] --> P0["0a. Doc-Prefilter<br/>(opt-in, default off)"]
@@ -104,6 +114,12 @@ flowchart LR
   DIV --> EXP["3. wholeDocFallback +<br/>neighbour expansion"]
   EXP --> OUT["RetrievalHit[]"]
 ```
+
+**Abbildung 16.2:** Hybride Retrieval-Pipeline mit RRF und Rerank.
+
+Tabelle 16.3 beschreibt die einzelnen Stufen mit Funktion und Wirkung.
+
+**Tabelle 16.3:** Stufen der Retrieval-Pipeline.
 
 | Stufe | Funktion | Bemerkung |
 | --- | --- | --- |
@@ -137,7 +153,9 @@ Der Quelltext-Kommentar ist hier ehrlich: kleine lokale Modelle honorieren die S
 
 ## 16.6 LLM-Bridges / ProviderRegistry
 
-Die App trennt **Modellrolle** von **Backend** über die `ProviderRegistry` (`src/main/services/providers/Registry.ts`). Pro Rolle gibt es ein `bundled`-Backend und optional ein `ollama`-Backend:
+Die App trennt **Modellrolle** von **Backend** über die `ProviderRegistry` (`src/main/services/providers/Registry.ts`). Pro Rolle gibt es ein `bundled`-Backend und optional ein `ollama`-Backend; die Zuordnung samt Fallback-Verhalten zeigt Tabelle 16.4.
+
+**Tabelle 16.4:** Backends und Fallback je Modellrolle.
 
 | Rolle | Bundled-Backend | Fallback |
 | --- | --- | --- |
@@ -151,7 +169,9 @@ Die schwere GGUF-Arbeit läuft nicht im Main-Prozess, sondern in einem **Utility
 
 ### LLM-Profile
 
-`LlamaService` (`src/main/services/llm/LlamaService.ts`) bindet Modelle über drei Profile an die Hardware:
+`LlamaService` (`src/main/services/llm/LlamaService.ts`) bindet Modelle über drei Profile an die Hardware (Tabelle 16.5).
+
+**Tabelle 16.5:** LLM-Profile mit Modell, Kontextfenster und Ziel-RAM.
 
 | Profil | Modell (v0.2.7-Lineup) | Kontextfenster | Ziel-RAM |
 | --- | --- | --- | --- |
@@ -165,6 +185,10 @@ Die schwere GGUF-Arbeit läuft nicht im Main-Prozess, sondern in einem **Utility
 
 ## 16.7 Modellrollen (Überblick)
 
+Tabelle 16.6 gibt einen Überblick über die drei Modellrollen mit Standard-Modell und Lizenz.
+
+**Tabelle 16.6:** Modellrollen mit Standard-Modell und Lizenz.
+
 | Rolle | Standard-Modell | Lizenz | Aufgabe |
 | --- | --- | --- | --- |
 | Embedder | BGE-M3 (`bge-m3`) | MIT | Query/Chunk → 1024-dim Vektor (dense Retrieval) |
@@ -176,6 +200,10 @@ Diese Rollen sind in der Eval-Matrix (Kapitel 17) jeweils eine eigene Achse; die
 ---
 
 ## 16.8 Grenzen und Risiken
+
+Tabelle 16.7 fasst die bekannten Grenzen und Risiken der Pipeline zusammen.
+
+**Tabelle 16.7:** Bekannte Grenzen und Risiken der Pipeline.
 
 | Thema | Grenze / Risiko |
 | --- | --- |
