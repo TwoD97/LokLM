@@ -23,7 +23,11 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 - **Priorität:** abgeleitet aus Meilenstein-/Gate-Bezug; ohne formale Skala (siehe
   `08_project_management_kanban_outline.md`).
 
-## 1. Formal geführte Arbeitspakete (mit AP-ID)
+## 10.1 Formal geführte Arbeitspakete (mit AP-ID)
+
+Tabelle 10.1 listet die formal als AP-ID geführten Arbeitspakete.
+
+**Tabelle 10.1:** Formal geführte Arbeitspakete (mit AP-ID).
 
 | AP-ID | Titel | Bereich | Rolle | Ziel | Ergebnis/Deliverable | Status | Prio | Nachweis | Abhängigkeiten |
 |---|---|---|---|---|---|---|---|---|---|
@@ -37,12 +41,14 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 | AP-E1b | 15 Hold-out-Fälle (R5-Schutz) | Eval | D | versiegeltes Hold-out gegen Echo-Kammer-Effekt | `dominik-15.jsonl` (9 ans / 4 ref / 2 partial) | **fertig** (Branch, lokal/R5-geschützt) | mittel | Commit `701bef1`; `ap-e1-abschluss-doku.md` (Abgrenzung) | AP-E.1-Korpus |
 | AP-E.2 | Kartesische RAG-Matrix-Eval | Eval | D | Embedder×Reranker×Chunker×LLM-Sweep über LAP-Korpus, Span-Recall/nDCG | Phase 1: Span-Metrik, LAP→Dataset-Converter, Matrix-Bridges, Pre-Run-Manifest, OSI-Lizenz-Gate; LAP-Dataset (2.322 Chunks, 163 DE-Fragen) | **teilweise** (Phase 1 lokal umgesetzt; **Phase 2 GPU-Sweep offen**) | hoch | Branch `dom/ap-e2-matrix-eval`; Commits `6a5e27e`…`5c89369`; `projektstatusbericht-2026-06-14.md` | AP-E.1/E1b, GPU (RunPod) |
 
-## 2. Partner-/Projekt-Pakete (Denys Tudosa, aus Commits/PRs/Releases abgeleitet)
+## 10.2 Partner-/Projekt-Pakete (Denys Tudosa, aus Commits/PRs/Releases abgeleitet)
 
 > ⚠️ zu verifizieren: Die folgenden Pakete sind aus Commit-Bereichen, PR-Titeln,
 > Release-Tags und den Projektstatusberichten **abgeleitet**; sie tragen im Repo nicht
 > immer eine formale AP-ID. Benennung und Abgrenzung sind durch das Team (Vikunja/
 > Outline) zu bestätigen.
+
+**Tabelle 10.2:** Aus Commits/PRs/Releases abgeleitete Partner-Pakete.
 
 | Paket | Bereich | Rolle | Ziel | Ergebnis/Deliverable | Status | Prio | Nachweis |
 |---|---|---|---|---|---|---|---|
@@ -68,7 +74,9 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 | Multi-OS-Release-Härtung (Mac-Installer/DMG) | Installer/DevOps | P | stabile Mac-/Linux-Auslieferung | DMG-LICENSE, chmod/Signing-Fixes, per-Plattform-Dispatch | **teilweise** (Härtung fortlaufend) | mittel | `…06-14.md` (Phase 16); Hotfix-Branches |
 | Auto-Update-Strategie | DevOps | P/beide | finale Update-Strategie festlegen | Velopack-Spec lag vor; durch Download-Stub teils adressiert | **offen** (Entscheidung ausstehend) | mittel | „Notwendige Entscheidungen" in allen drei Berichten |
 
-## 3. Verworfene / abgelöste Pakete
+## 10.3 Verworfene / abgelöste Pakete
+
+**Tabelle 10.3:** Verworfene oder abgelöste Pakete.
 
 | Paket | Warum verworfen | Nachweis |
 |---|---|---|
@@ -76,7 +84,7 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 | Embedded-Modell-Payload im Installer (~500 MB) | auf ~8 MB Download-Stub umgestellt (Bandbreite/Größe); v0.3.1 bettet sie teilweise wieder ein (Defender-Reputation) | `…06-07.md` (Phase 8/9) |
 | „PBKDF2-Wrapper" (Pflichtenheft-Wortlaut) | zugunsten von memory-hard Argon2id verworfen (GPU/ASIC-Resistenz) | ADR-0001; `ap-t1-abschluss-doku.md` |
 
-## 4. Querschnittsbeobachtungen
+## 10.4 Querschnittsbeobachtungen
 
 - **Dominiks APs** konzentrieren sich auf die **Test-/Eval-/UI-Säule** (AP-6, AP-9,
   AP-T.1/T.2/T.3b, AP-E.1/E1b/E.2) plus die Website-/SEO-Inhalte und die
