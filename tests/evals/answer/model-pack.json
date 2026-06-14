@@ -1,6 +1,6 @@
 {
-  "name": "loklm-rag-eval-15",
-  "comment": "5 klein (<=4B) + 5 mittel (7-14B) + qwen3-8b + Qwen3.5-Reihe (2b/4b/9b/27b) = 15 modelle. paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
+  "name": "loklm-rag-eval-19",
+  "comment": "15 basis + 4 neue für AP-E.2 Matrix (gemma-4-e4b , ministral-3-14b , eurollm-9b , granite-4.1-3b) = 19 modelle. Teuken/Phi-5/Qwen3-Reranker bewusst draußen (mainline-broken bzw. existiert nicht). paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
   "models": [
     {
       "label": "qwen3-4b-instruct",
@@ -89,6 +89,30 @@
     {
       "label": "qwen3.5-27b",
       "path": "models/Qwen3.5-27B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "gemma-4-e4b",
+      "path": "models/gemma-4-E4B-it-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "ministral-3-14b",
+      "path": "models/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "eurollm-9b",
+      "path": "models/EuroLLM-9B-Instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "granite-4.1-3b",
+      "path": "models/granite-4.1-3b-Q4_K_M.gguf",
       "contextSize": 8192,
       "language": "de"
     }
