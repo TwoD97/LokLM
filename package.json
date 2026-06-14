@@ -54,6 +54,7 @@
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
     "evals:matrix-run": "tsx tests/evals/answer/run-pack.ts --configs matrix",
     "evals:matrix-summary": "tsx tests/evals/answer/run-pack.ts --configs matrix --summary",
+    "evals:licenses:check": "tsx tests/evals/license/validate-model-licenses.ts",
     "evals:rejudge": "tsx tests/evals/answer/rejudge.ts",
     "evals:patterns": "tsx tests/evals/answer/failure-patterns.ts",
     "evals:translation:data": "tsx tests/evals/translation/download-flores.ts",
