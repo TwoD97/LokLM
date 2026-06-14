@@ -47,10 +47,13 @@ Neue Kapitel sowie beim Audit nachzuziehende Kapitel orientieren sich an dieser 
 
 ## 3. Überschriften & Nummerierung
 
-- Genau **eine `#`-H1 je Kapiteldatei**; Unterabschnitte mit `##`, `###` (max. drei Ebenen
-  im Fließtext).
-- **Keine** manuelle Kapitelnummer in die Überschrift schreiben — die Nummerierung erzeugt
-  der Export (`--number-sections`, `--top-level-division=chapter`).
+- Genau **eine `#`-H1 je Kapiteldatei** (Kapiteltitel **ohne** Nummer); Unterabschnitte mit
+  `##`, `###` (max. drei Ebenen im Fließtext).
+- **Manuelle Abschnittsnummern** im Muster `N.M` (`N` = Kapitelnummer aus dem Dateinamen),
+  z. B. `## 13.1 Schichten und Prozesse` — so wie in allen bestehenden Kapiteln. Die
+  Kapitelnummer selbst setzt der Export (`--top-level-division=chapter`); die manuellen
+  Abschnittsnummern sitzen darunter. Daher beim Export **kein** `--number-sections`
+  (sonst doppelte Nummern) — siehe [EXPORT_NOTES.md](EXPORT_NOTES.md).
 - Überschriften sind **substantivisch** und knapp (keine ganzen Sätze).
 
 ---
@@ -92,11 +95,12 @@ Das Handbuch trennt **interne** (Repo-) von **externen** Belegen:
 
 ## 6. Abbildungen & Tabellen
 
-- **Beschriftung Pflicht:** Abbildungen mit „Abbildung N: …", Tabellen mit „Tabelle N: …"
-  (fortlaufend). Nur beschriftete Objekte erscheinen im automatisch erzeugten Abbildungs-/
-  Tabellenverzeichnis.
+- **Beschriftung Pflicht:** Abbildungen mit „**Abbildung K.n:** …" (unter der Abbildung),
+  Tabellen mit „**Tabelle K.n:** …" (über der Tabelle); `K` = Kapitelnummer, `n` fortlaufend
+  je Kapitel (analog zu den manuellen Abschnittsnummern, Abschnitt 3). Nur beschriftete
+  Objekte erscheinen im Abbildungs-/Tabellenverzeichnis.
 - **Querverweis im Text:** jede Abbildung/Tabelle wird im Fließtext referenziert
-  („… siehe Abbildung N").
+  („… siehe Abbildung K.n").
 - **Diagramme:** `mermaid`-Codeblöcke werden **vor dem Export** zu statischen Bildern
   (SVG/PNG) gerendert und unter [assets/](assets/) abgelegt (repo-relative Pfade); siehe
   [EXPORT_NOTES.md](EXPORT_NOTES.md) Abschnitt 4.

@@ -4,7 +4,9 @@ Dieses Kapitel beschreibt die technische Schichtung von LokLM, die Datenflüsse,
 
 ## 13.1 Schichten und Prozesse
 
-LokLM ist eine Electron-Anwendung mit strikter Prozess-Trennung. Es gibt drei Electron-Standard-Schichten plus eine Reihe ausgelagerter Worker-Prozesse:
+LokLM ist eine Electron-Anwendung [1] mit strikter Prozess-Trennung. Es gibt drei Electron-Standard-Schichten plus eine Reihe ausgelagerter Worker-Prozesse (Tabelle 13.1):
+
+**Tabelle 13.1:** Prozess-Topologie — Electron-Schichten und ausgelagerte Worker-Prozesse.
 
 | Schicht | Prozess | Verantwortung | Quelle |
 | --- | --- | --- | --- |
@@ -38,6 +40,10 @@ Streaming-Kanäle (Chat, Quiz, Transkription, Modell-Download) arbeiten mit pro-
 
 ## 13.3 Lokale vs. externe Komponenten
 
+Tabelle 13.2 stellt die lokal gebündelten Standard-Komponenten den optionalen externen gegenüber.
+
+**Tabelle 13.2:** Lokale Standard- gegenüber optionalen externen Komponenten.
+
 | Komponente | Standard | Extern (optional) |
 | --- | --- | --- |
 | Sprachmodell (LLM) | gebündeltes GGUF (`node-llama-cpp`) | Ollama-LLM (`OllamaLlmProvider`) |
@@ -53,7 +59,7 @@ Der externe Ollama-Connector ist **doppelt gesichert**: Er ist nur nutzbar, wenn
 
 ## 13.4 Datenhaltung: PGlite + pgvector + Drizzle
 
-Die Persistenz nutzt eine **In-Memory-PGlite-Instanz** (PostgreSQL kompiliert nach WASM) mit der `vector`-Erweiterung, angesprochen über Drizzle-ORM ([src/main/db/database.ts](../../src/main/db/database.ts)). Die Datenbank ist bewusst in-memory: Die dauerhafte Persistenz ist der verschlüsselte Snapshot im Tresor, nicht ein Verzeichnis auf der Platte. Beim Entsperren wird der Snapshot dechiffriert und über `loadDataDir` eingespielt; beim Sperren/Beenden ruft `AuthService` `dump()`, verschlüsselt das Ergebnis und schreibt es zurück.
+Die Persistenz nutzt eine **In-Memory-PGlite-Instanz** [3] (PostgreSQL kompiliert nach WASM) mit der `vector`-Erweiterung (pgvector [4]), angesprochen über Drizzle-ORM [5] ([src/main/db/database.ts](../../src/main/db/database.ts)). Die Datenbank ist bewusst in-memory: Die dauerhafte Persistenz ist der verschlüsselte Snapshot im Tresor, nicht ein Verzeichnis auf der Platte. Beim Entsperren wird der Snapshot dechiffriert und über `loadDataDir` eingespielt; beim Sperren/Beenden ruft `AuthService` `dump()`, verschlüsselt das Ergebnis (AES-256-GCM [7], ADR-0002) und schreibt es zurück.
 
 Das Schema ([src/main/db/schema.ts](../../src/main/db/schema.ts)) umfasst die Tabellen `workspaces`, `workspace_sync_folders`, `documents`, `chunks`, `conversations`, `messages`, `citations`, `settings`, `quiz_decks`, `quiz_questions`, `quiz_attempts`, `document_tags`. Die Migrationen sind zweigeteilt: generierte Drizzle-Migrationen aus `drizzle/` **und** rohe SQL-Extras (`0001`–`0010`) unter [src/main/db/migrations/](../../src/main/db/migrations/), die nach den Drizzle-Migrationen ausgeführt werden ([src/main/db/migrate.ts](../../src/main/db/migrate.ts)). Die rohen Migrationen liefern u. a. Trigger/Funktionen, den HNSW-Vektorindex, die FTS-Spalten, Sync-Metadaten, die 3NF-Normalisierung, Chunk-Sprache, Dokument-Summary und Summary-Embedding.
 
@@ -62,6 +68,8 @@ Wesentliche Retrieval-relevante DB-Operationen: `searchChunks` (bilinguale BM25,
 ## 13.5 Datenflüsse
 
 ### Login / Entsperren
+
+Abbildung 13.1 skizziert den Ablauf vom Passwort bis zur entsperrten Datenbank.
 
 ```mermaid
 sequenceDiagram
@@ -81,7 +89,11 @@ sequenceDiagram
     Note over A: schedulePostLoginWarmup() (+1.5s):<br/>Backfill, Sync-Watcher, LLM-autoLoad
 ```
 
+**Abbildung 13.1:** Login-/Entsperr-Datenfluss — Argon2id-Schlüsselableitung und AES-GCM-Entschlüsselung des Tresor-Snapshots.
+
 ### Chat-Anfrage (RAG mit Zitaten)
+
+Abbildung 13.2 zeigt den Retrieval-gestützten Antwortpfad mit Zitaten.
 
 ```mermaid
 flowchart LR
@@ -102,9 +114,13 @@ flowchart LR
     LLM --> ANS[Antwort]
 ```
 
-Der Chat-Pfad ist bewusst **regex-first** (Routing ohne LLM auf dem Hot-Path) und degradiert sauber: fehlt ein Embedder, läuft Retrieval BM25-only; fehlt der Reranker, bleibt die RRF-Reihenfolge. Belege: [src/main/services/qa/QAService.ts](../../src/main/services/qa/QAService.ts), [src/main/services/retrieval/RetrievalService.ts](../../src/main/services/retrieval/RetrievalService.ts).
+**Abbildung 13.2:** Chat-Anfrage als RAG-Datenfluss — Routing, hybrides Retrieval, RRF-Fusion, optionaler Reranker und Token-Streaming.
+
+Der Chat-Pfad ist bewusst **regex-first** (Routing ohne LLM auf dem Hot-Path) und degradiert sauber: fehlt ein Embedder, läuft Retrieval BM25-only; fehlt der Reranker, bleibt die RRF-Reihenfolge (Reciprocal Rank Fusion [8]). Belege: [src/main/services/qa/QAService.ts](../../src/main/services/qa/QAService.ts), [src/main/services/retrieval/RetrievalService.ts](../../src/main/services/retrieval/RetrievalService.ts).
 
 ### Dokument-Import
+
+Abbildung 13.3 stellt die Import-Pipeline von der Datei bis zum Vektor dar.
 
 ```mermaid
 flowchart LR
@@ -116,11 +132,15 @@ flowchart LR
     EMB --> VEC["chunks.embedding = vector(1024)"]
 ```
 
+**Abbildung 13.3:** Dokument-Import-Pipeline — Parsing/OCR, Chunking, Sprach-Tagging, Persistenz und Embedding.
+
 Parsing/OCR/Chunking laufen im `documentsWorker`, das Embedding im `modelsWorker`. Eine beschränkte Indexierungs-Queue (max. 2 gleichzeitige Jobs) verhindert, dass das Ablegen eines ganzen Ordners N Pipelines gleichzeitig startet. Beleg: [src/main/services/documents/DocumentService.ts](../../src/main/services/documents/DocumentService.ts) (`MAX_CONCURRENT_INDEXING = 2`).
 
 ## 13.6 Wichtige Architekturentscheidungen (ADRs)
 
-Die zentralen Entscheidungen sind in `docs/adr/` dokumentiert:
+Die zentralen Entscheidungen sind in `docs/adr/` dokumentiert (Tabelle 13.3):
+
+**Tabelle 13.3:** Architektur-relevante Architecture Decision Records (ADRs).
 
 | ADR | Thema | Status | Architektur-Bezug |
 | --- | --- | --- | --- |
@@ -136,7 +156,7 @@ ADR-0004 beschreibt eine geplante Schichtenarchitektur (UsageJournal, DemandMode
 ## 13.7 Laufzeitumgebung und Abhängigkeiten
 
 - **Node ≥ 24**, **pnpm 10.x** (Package-Manager), TypeScript 5.6, Electron 42, `electron-vite` als Build-Werkzeug. Belege: `engines` und `packageManager` in [package.json](../../package.json).
-- **Native Module:** `node-llama-cpp` (LLM/Embedder/Reranker), `argon2` (KDF), `sodium-native` (Secure-Memory), `@kutalia/whisper-node-addon`, `sherpa-onnx-node`, `sharp`/`@napi-rs/canvas`/`tesseract.js` (Bild/OCR), `@electric-sql/pglite` + `pgvector`. Diese werden über `pnpm.onlyBuiltDependencies` und `electron-rebuild` für Electron gebaut.
+- **Native Module:** `node-llama-cpp` [2] (LLM/Embedder/Reranker), `argon2` (Argon2id-KDF [6]), `sodium-native` (Secure-Memory), `@kutalia/whisper-node-addon`, `sherpa-onnx-node`, `sharp`/`@napi-rs/canvas`/`tesseract.js` (Bild/OCR), `@electric-sql/pglite` + `pgvector`. Diese werden über `pnpm.onlyBuiltDependencies` und `electron-rebuild` für Electron gebaut.
 - **CSP:** Die ausgelieferte Content-Security-Policy ist strikt (`script-src 'self'`); nur unter `electron-vite dev` wird sie für HMR/react-refresh gelockert (Plugin `cspDevRelax`, `apply: 'serve'`), sodass die Lockerung nie in einen Build leckt. Beleg: [electron.vite.config.ts](../../electron.vite.config.ts).
 - **Web-Härtung:** `setWindowOpenHandler` öffnet externe Links nur für `http(s)`/`mailto` im OS-Browser; `will-navigate` blockt jede Top-Level-Navigation außer Dev-Server/Reload; Webviews sind deaktiviert. Beleg: `web-contents-created`-Handler in [src/main/index.ts](../../src/main/index.ts).
 - **Single-Instance-Lock:** Nur ein Prozess darf den Tresor anfassen — `app.requestSingleInstanceLock()` verhindert ein Wettrennen zweier Instanzen auf `loklm.vault.tmp`.

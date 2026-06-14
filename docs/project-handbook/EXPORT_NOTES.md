@@ -54,9 +54,9 @@ pandoc \
   --pdf-engine=xelatex \
   --toc --toc-depth=2 \
   -V lof=true -V lot=true \
-  --number-sections \
   --top-level-division=chapter \
   -V documentclass=report \
+  -V secnumdepth=0 \
   -V lang=de-DE \
   -V geometry:margin=2.5cm \
   -V mainfont="DejaVu Serif" \
@@ -76,7 +76,18 @@ Hinweise:
   (`\listoffigures` / `\listoftables`); Voraussetzung sind beschriftete Abbildungen/Tabellen
   gemäß [STYLE_GUIDE.md](STYLE_GUIDE.md) Abschnitt 6.
 - `--top-level-division=chapter` macht aus jeder `#`-Überschrift ein LaTeX-Kapitel →
-  saubere Kapitelumbrüche und Seitenzahlen.
+  saubere Kapitelumbrüche und Seitenzahlen. Da die Hauptkapitel `01`–`28` der Reihe nach
+  den LaTeX-Kapiteln 1–28 entsprechen, deckt sich die automatische Kapitelnummer mit der
+  Dateinummer.
+- **Keine** `--number-sections`: Die Abschnitte tragen **manuelle** Nummern (`13.1`, `13.2`
+  …, siehe [STYLE_GUIDE.md](STYLE_GUIDE.md) §3). `-V secnumdepth=0` nummeriert automatisch
+  **nur** die Kapitel; die Abschnitte behalten ihre manuellen Nummern (kein Doppeln wie
+  „13.1 13.1 …").
+- **Front-/Schlussteil unnummeriert:** Kurzfassung, Abkürzungs-/Literaturverzeichnis und
+  Selbstständigkeitserklärung sollen als **unnummerierte** Kapitel (`\chapter*`) erscheinen
+  und die Kapitelzählung nicht verschieben. Das beim Export setzen (z. B. Lua-Filter oder
+  `\chapter*`-Mapping je Frontteil-Datei) — die Markdown-Quelle bleibt sauber (keine
+  Pandoc-Attribute im Text).
 - Mermaid-Diagramme rendert Pandoc **nicht** native — siehe Abschnitt 4.
 
 ### Option B — mdbook (HTML-Buch + Druck-PDF)
