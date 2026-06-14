@@ -62,11 +62,26 @@ wichtigste Treiber vor der gebundenen Abgabe:
    (Kap. 00, 07).
 4. **CI-/Test-Verankerung** → vitest-CI-Job hängt an Merge von PR #19 (Kap. 19, 22, 24).
 
+## Front-/Schlussteil & Konventions-Dateien (für die Bindung)
+
+Zur bindefähigen Aufrüstung sind Front-/Schlussteil-Gerüste und Konventionsdateien angelegt
+(Reihenfolge: [BOOK_MANIFEST.md](BOOK_MANIFEST.md)). Sie wachsen mit; ihre Vollständigkeit
+prüft das [RELEASE_AUDIT.md](RELEASE_AUDIT.md).
+
+| Datei | Status | Offen |
+| --- | --- | --- |
+| `front_10_kurzfassung.md` | Gerüst | Ergebniszahlen nach AP-E.2-Sweep; optional EN-Abstract |
+| `front_20_abkuerzungsverzeichnis.md` | vollstaendig (Erstbestand) | Abgleich gegen finalen Text beim Audit |
+| `back_10_literaturverzeichnis.md` | Gerüst | füllt sich mit externen `[n]`-Zitaten |
+| `back_20_selbststaendigkeitserklaerung.md` | Gerüst | Wortlaut/KI-Hinweis gem. Schul-Vorgabe; Unterschrift |
+| `STYLE_GUIDE.md` / `TERMINOLOGY.md` / `BOOK_MANIFEST.md` / `RELEASE_AUDIT.md` | vollstaendig | laufende Pflege beim Mitwachsen |
+
 ## Gesamteinschätzung
 
-Das Handbuch ist **inhaltlich vollständig geschrieben** (alle 29 Hauptkapitel + 6
-Steuerdateien). Kein Kapitel ist `leer`, `begonnen` oder `teilweise` im Sinne fehlender
+Das Handbuch ist **inhaltlich vollständig geschrieben** (alle 29 Hauptkapitel + Steuer- und
+Buch-Dateien). Kein Kapitel ist `leer`, `begonnen` oder `teilweise` im Sinne fehlender
 Inhalte. Die durchgängige `zu pruefen`-Einstufung spiegelt die bewusste Ehrlichkeit der
 Marker-Konvention wider: Die Aussagen stehen, sind aber an wenigen, klar benannten
 Stellen vor der finalen Abgabe durch das Team zu bestätigen — insbesondere nach Abschluss
-des AP-E.2-Sweeps.
+des AP-E.2-Sweeps. Der finale Reife-Check vor der Bindung erfolgt über
+[RELEASE_AUDIT.md](RELEASE_AUDIT.md).

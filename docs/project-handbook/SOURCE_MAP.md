@@ -4,6 +4,13 @@ Quellenkarte des Projekthandbuchs: welche Quelle welche Information liefert, in 
 Kapiteln sie verwendet wird, wie hoch der Vertrauensgrad ist und was noch zu prüfen
 bleibt. Stand: **2026-06-14**.
 
+> **Abgrenzung zum Literaturverzeichnis:** Diese Karte ist die **interne** Provenienz- und
+> Vertrauensgrad-Übersicht (Repo-Pfade, lokale und externe Werkzeuge) und Teil der internen
+> Verwaltung. **Externe** Quellen, die im Fließtext mit `[n]` zitiert werden (Tools,
+> Frameworks, Standards, Paper), werden zusätzlich als bindefähige Einträge im
+> [Literaturverzeichnis](back_10_literaturverzeichnis.md) geführt. Zitierregeln:
+> [STYLE_GUIDE.md](STYLE_GUIDE.md) Abschnitt 5.
+
 ## Legende
 
 - **Vertrauensgrad:**
@@ -36,7 +43,7 @@ bleibt. Stand: **2026-06-14**.
 
 | Quelle | Datei / Ordner | Ort | Verwendete Information | Verwendet in Kapitel | Vertrauensgrad | Offene Prüfung |
 | --- | --- | --- | --- | --- | --- | --- |
-| Main-Prozess | `src/main/index.ts`, `src/main/services/` | Repo | Service-Topologie, IPC-Handler, Worker-Clients, Härtung | 12, 13, 14, 16 | hoch | IPC-Handler-Gesamtzahl (~105) nicht maschinell gezählt |
+| Main-Prozess | `src/main/index.ts`, `src/main/services/` | Repo | Service-Topologie, IPC-Handler, Worker-Clients, Härtung | 12, 13, 14, 16 | hoch | IPC-Handler-Gesamtzahl maschinell gezählt = **105** (2026-06-14) |
 | DB-Schema/Migrationen | `src/main/db/schema.ts`, `src/main/db/migrations/` | Repo | Tabellen, Trigger/Funktionen, HNSW, FTS-Index, Summary-Index | 13, 14, 15 | hoch | — |
 | Retrieval/RAG | `src/main/services/retrieval/`, `qa/`, `embeddings/`, `llm/` | Repo | Hybride Pipeline, RRF, Reranking, Routing, Refusal, Profile | 14, 16 | hoch | — |
 | Installer-Wizard | `installer-wizard/` | Repo | Tauri-Wizard, Tier-Marker, Payload-Modell | 06, 11, 20 | hoch | Build erfordert Rust/Tauri (lokal nicht überall) |
