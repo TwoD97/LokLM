@@ -6,7 +6,11 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 ---
 
-## 1. Formale ADRs
+## 23.1 Formale ADRs
+
+Tabelle 23.1 listet die vier formalen ADRs mit Status und Owner.
+
+**Tabelle 23.1:** Übersicht der formalen ADRs.
 
 | ADR | Status | Datum | Owner |
 |---|---|---|---|
@@ -19,6 +23,10 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 ### <a id="d1"></a>D1 — ADR-0001: Argon2id als Passwort-/Passphrase-KDF
 
+Tabelle 23.2 fasst die Eckdaten von ADR-0001 zusammen.
+
+**Tabelle 23.2:** Eckdaten ADR-0001 (Argon2id-KDF).
+
 | Feld | Inhalt |
 |---|---|
 | **Entscheidung** | Argon2id (`m=64 MiB, t=3, p=4`, 32-Byte-Raw-Output = KEK) als KDF für Passwort und Recovery-Passphrase |
@@ -29,6 +37,10 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 | **Status** | accepted; getestet als Argon2id-Wrapper (AP-T.1), **nicht** als „PBKDF2-Wrapper" (Ticket-Wortlaut veraltet) |
 
 ### <a id="d2"></a>D2 — ADR-0002: Envelope-Encryption (DEK + KEK-Wrapping, AES-256-GCM)
+
+Tabelle 23.3 fasst die Eckdaten von ADR-0002 zusammen.
+
+**Tabelle 23.3:** Eckdaten ADR-0002 (Envelope-Encryption).
 
 | Feld | Inhalt |
 |---|---|
@@ -41,6 +53,10 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 ### <a id="d3"></a>D3 — ADR-0003: Query-Routing + Per-Dokument-Summary-Index
 
+Tabelle 23.4 fasst die Eckdaten von ADR-0003 zusammen.
+
+**Tabelle 23.4:** Eckdaten ADR-0003 (Query-Routing).
+
 | Feld | Inhalt |
 |---|---|
 | **Entscheidung** | Regex-first-Dispatcher routet zwischen `corpus` (typisierte SQL, kein LLM), `doc_summary` (gecachter Whole-Doc-Summary) und `retrieval` (Default); Multi-Question-Decomposition heuristisch an `?`-Grenzen; Per-Dokument-Summary-Embedding (Migration 0010) |
@@ -51,6 +67,10 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 | **Status** | accepted |
 
 ### <a id="d4"></a>D4 — ADR-0004: Adaptive Modell-Residency (Usage-Lernen + kostenbewusstes Caching)
+
+Tabelle 23.5 fasst die Eckdaten von ADR-0004 zusammen.
+
+**Tabelle 23.5:** Eckdaten ADR-0004 (Adaptive Modell-Residency).
 
 | Feld | Inhalt |
 |---|---|
@@ -63,7 +83,11 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 ---
 
-## 2. Prozess- / Tooling-Entscheidungen
+## 23.2 Prozess- / Tooling-Entscheidungen
+
+Tabelle 23.6 dokumentiert die Prozess- und Tooling-Entscheidungen.
+
+**Tabelle 23.6:** Prozess- und Tooling-Entscheidungen.
 
 | Datum / Zeitraum | Entscheidung | Kontext | Alternativen | Begründung | Konsequenz | Status | Quelle |
 |---|---|---|---|---|---|---|---|
@@ -79,7 +103,7 @@ Quellen: `docs/adr/0001`–`0004`, `docs/adr/README.md`, `docs/work/projektstatu
 
 ---
 
-## 3. Querverweise
+## 23.3 Querverweise
 
 - Krypto-Entscheidungen (D1/D2) im Sicherheitskontext: [Sicherheit & Datenschutz](21_security_privacy_and_sensitive_data.md).
 - Lizenz-Gate und Span-Metrik im Test-/Eval-Kontext: [Testing & QA](19_testing_and_quality_assurance.md).

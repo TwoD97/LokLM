@@ -9,9 +9,13 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 
 ---
 
-## 1. Statusbilanz nach Kategorien
+## 24.1 Statusbilanz nach Kategorien
 
-### 1.1 Fertig (im Integrationsstand `main` bzw. als Release-Tag)
+### 24.1.1 Fertig (im Integrationsstand `main` bzw. als Release-Tag)
+
+Tabelle 24.1 listet die fertig integrierten Pakete mit Beleg und Verantwortlichkeit.
+
+**Tabelle 24.1:** Fertige Pakete im Integrationsstand.
 
 | Paket / Ergebnis | Beleg | Verantwortlich |
 |---|---|---|
@@ -24,7 +28,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 | **AP-9 Settings** (alle Felder: Behavior, Indexing-/Retrieval-Slider, Account-Sektion, Light-Mode) | **PR #13 gemerged** `45b8133` (10.06.) | Dominik Furlan |
 | **SEO-Cornerstone #5 / Eval-Automatisierung / Test-Szenarien (AP-T.3b)** | **PR #9/#11/#14 gemerged** (08.06.) | Dominik Furlan |
 
-### 1.2 Teilweise fertig (Code umgesetzt, in PR-Review oder lokal auf Branch)
+### 24.1.2 Teilweise fertig (Code umgesetzt, in PR-Review oder lokal auf Branch)
+
+Tabelle 24.2 zeigt die teilweise fertigen Pakete mit aktuellem Stand.
+
+**Tabelle 24.2:** Teilweise fertige Pakete (PR-Review oder Branch).
 
 | Paket | Stand | Beleg |
 |---|---|---|
@@ -34,7 +42,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 | **AP-E1b — 15 Hold-out-Testfälle** | Code fertig, lokal/Branch (R5-versiegelt, bewusst nicht gepusht) | `701bef1` |
 | **AP-E.2 — Kartesische RAG-Matrix-Eval, Phase 1** (Span-Recall-Metrik, LAP-Dataset) | Phase-1-Code fertig; Matrix-Verdrahtung teils noch uncommittet | `6a5e27e`, `cd10138`, `862ec05` u. a. |
 
-### 1.3 Offen / in aktiver Entwicklung
+### 24.1.3 Offen / in aktiver Entwicklung
+
+Tabelle 24.3 fasst die offenen, in aktiver Entwicklung befindlichen Punkte zusammen.
+
+**Tabelle 24.3:** Offene Punkte in aktiver Entwicklung.
 
 | Punkt | Begründung |
 |---|---|
@@ -42,7 +54,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 | **Auswertung Span-Recall / nDCG für den Abgabe-Laborbericht** | hängt am Phase-2-Sweep |
 | **AP-E1b in den Eval-Workflow einbinden** | Hold-out als separater Validierungslauf (Echo-Chamber-Schutz) noch zu fahren |
 
-### 1.4 Blockiert / eingeschränkt
+### 24.1.4 Blockiert / eingeschränkt
+
+Tabelle 24.4 nennt die blockierten bzw. eingeschränkten Punkte und die Art der Blockade.
+
+**Tabelle 24.4:** Blockierte und eingeschränkte Punkte.
 
 | Punkt | Art der Blockade |
 |---|---|
@@ -50,7 +66,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 | **Lokaler Installer-Build (Wizard)** | Rust-/Tauri-Toolchain (`cargo`) nicht auf dem Arbeitsrechner; offizielle Installer entstehen auf dem Rechner des Projekt-Owners (Laborbericht 2026-05-29). |
 | **RetrievalService-E2E in CI** | modell-gated, **skippt in CI** (BGE-M3-GGUF nicht im Runner); läuft lokal mit Modell grün. Team-Entscheidung über Modell-Download-Step offen. |
 
-### 1.5 Verworfen / bewusst abweichend umgesetzt
+### 24.1.5 Verworfen / bewusst abweichend umgesetzt
+
+Tabelle 24.5 dokumentiert verworfene bzw. bewusst abweichend umgesetzte Punkte.
+
+**Tabelle 24.5:** Verworfene und abweichend umgesetzte Punkte.
 
 | Punkt | Entscheidung |
 |---|---|
@@ -59,7 +79,11 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 | **`eval/cases.json` (Ticket-Pfad)** | umgesetzt als `tests/evals/data/cases.jsonl` (JSONL, etablierte Repo-Konvention). |
 | **Mehr-Größen-Chunker-Achse in der Matrix** | wirkungslos, da der Sweep nicht pro Config re-chunkt; Chunk-Größen-Vergleich läuft als separate Dataset-Läufe über die chunker-unabhängige Span-Recall-Metrik. |
 
-### 1.6 Nur geplant (Future Work, kein Code)
+### 24.1.6 Nur geplant (Future Work, kein Code)
+
+Tabelle 24.6 listet die nur geplanten Punkte (Future Work) mit Quelle.
+
+**Tabelle 24.6:** Nur geplante Punkte (Future Work).
 
 | Punkt | Quelle |
 |---|---|
@@ -71,26 +95,26 @@ Quellen für dieses Kapitel: `docs/work/projektstatusbericht-2026-06-14.md`, `do
 
 ---
 
-## 2. Reifegrade
+## 24.2 Reifegrade
 
-### 2.1 Technische Reife
+### 24.2.1 Technische Reife
 
 Der funktionale Kern ist ausgeliefert: zwei Releases (v0.4.0/v0.4.1) auf allen drei Plattformen (Win/Linux/macOS), RAG-Pipeline produktiv, Audio-Transkription, Quiz, Übersetzung und QA-Routing integriert. Sicherheitshärtung (CSP, Sandbox, Fuses, mlock, Argon2id-Vault) ist auf `main`. **Reif** in der Windows-Linie; **in Härtung** für Mac/Linux-Auslieferung (Translator-Sidecar, Diarisations-Modelle noch zu stabilisieren). Auto-Update-Strategie noch offen.
 
-### 2.2 Dokumentationsreife
+### 24.2.2 Dokumentationsreife
 
 ADR-0001 bis ADR-0004 vorhanden (`docs/adr/`), Pflichtenheft + Lastenheft im Repo, Laborberichte und Projektstatusbericht geführt. Pro Test-/Eval-Paket existiert eine Abschluss-Doku (Outline/Vikunja-Vorlage, gitignored). **Mittel bis hoch**; das Projekt-Handbuch selbst ist in Erstellung. Lücke: Abgabe-Laborbericht zur Matrix-Eval steht noch aus (hängt am GPU-Sweep).
 
-### 2.3 Testreife
+### 24.2.3 Testreife
 
 Vier-Säulen-Aufbau weitgehend fertig: Unit (AP-T.1, ≥70 % Branch in 5 Kernmodulen), Integration/E2E (AP-T.2, drei §8.2-Suiten), Eval-Dev-Set (AP-E.1, 80 Fälle) und Hold-out (AP-E1b, 15 Fälle). Erster vitest-CI-Job läuft grün (integration + tx). **Einschränkungen:** RetrievalService-E2E skippt in CI (modell-gated); Playwright-E2E unrunnable; Coverage-Nachweis AP-T.1 noch lokal-scoped (`test:cov:apt1`), bis PR #19 in `main` ist. **Mittel bis hoch**, der CI-Gate-Ausbau ist die offene Stellschraube.
 
-### 2.4 Betriebsreife
+### 24.2.4 Betriebsreife
 
 App ist installierbar und beim Anwender lauffähig (Windows). **Offene Betriebsfragen:** EV-Zertifikat gegen SmartScreen-Warnung (Budget-/Beschaffungsfrage), Auto-Update-Strategie (Velopack vs. electron-updater, Update-Server, Rollback), produktive Mac-/Linux-Auslieferung. **Mittel** — kernfunktional einsatzbereit, betriebliche Härtung (Signing, Update-Pfad) noch offen.
 
 ---
 
-## 3. Kurzfazit
+## 24.3 Kurzfazit
 
 Nach 9 Wochen ist LokLM **funktional ausgeliefert** (v0.4.1, drei Plattformen) und die **Test-/Eval-Säule weitgehend aufgebaut**. Der wesentliche offene Block ist die **AP-E.2-GPU-Matrix-Auswertung** für den Abgabe-Laborbericht (Phase 2). Drei Test-/Eval-PRs (#19, #24, #25) sind review-bereit und warten nur auf Merge-Freigabe; die betriebliche Härtung (Signing, Auto-Update, Mac/Linux) bleibt als Roadmap-Thema.

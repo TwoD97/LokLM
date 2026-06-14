@@ -6,7 +6,11 @@ Quellen: `docs/work/projektstatusbericht-2026-06-14.md`, `docs/work/projektstatu
 
 ---
 
-## 1. Risikotabelle
+## 22.1 Risikotabelle
+
+Die folgende Übersicht listet die projektrelevanten Risiken mit Status und Rest-Risiko auf (Tabelle 22.1).
+
+**Tabelle 22.1:** Risiken, Gegenmaßnahmen und Rest-Risiko.
 
 | # | Risiko / Problem | Ursache | Auswirkung | Gegenmaßnahme | Status | Rest-Risiko | Quelle |
 |---|---|---|---|---|---|---|---|
@@ -29,7 +33,9 @@ Quellen: `docs/work/projektstatusbericht-2026-06-14.md`, `docs/work/projektstatu
 
 ---
 
-## 2. Priorisierung (offene Risiken mit hohem Rest-Risiko)
+## 22.2 Priorisierung (offene Risiken mit hohem Rest-Risiko)
+
+Abbildung 22.1 zeigt die Abhängigkeit der abgabe-kritischen offenen Risiken.
 
 ```mermaid
 flowchart LR
@@ -43,13 +49,15 @@ flowchart LR
     classDef mid fill:#fff3cd,stroke:#a80
 ```
 
+**Abbildung 22.1:** Priorisierung der offenen Risiken (R8 → R6).
+
 Die beiden abgabe-kritischen Posten sind **R8** (Phase-2-Sweep) und das daran hängende **R6** (Rechenkosten/Scope). Beide liegen im Verantwortungsbereich von Dominik (Eval-Säule) und hängen an einer Team-Entscheidung zum endgültigen Matrix-Scope (Anzahl Zellen/Modelle/Datensätze) sowie an verfügbarer RunPod-GPU-Zeit.
 
 > WARN Status unklar — R8/R6 sind zum Stichtag offen; ob der vollständige 360-Zellen-Sweep bis zur Abgabe-Deadline gefahren werden kann, hängt von GPU-Budget und Scope-Bestätigung ab. Ein retrieval-only-Lauf (`--no-llm`, deterministisch, schnell) ist als Fallback möglich.
 
 ---
 
-## 3. Querverweise
+## 22.3 Querverweise
 
 - Test-/CI-Lücken (R2/R3/R4) im Detail: [Testing & QA](19_testing_and_quality_assurance.md) §8–9.
 - Krypto-/Secret-/Zertifikat-Risiken (R9/R10/R13/R14): [Sicherheit & Datenschutz](21_security_privacy_and_sensitive_data.md).
