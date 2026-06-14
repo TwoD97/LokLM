@@ -374,6 +374,9 @@ async function applySettings(s: UserSettings): Promise<void> {
   void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
+  // LLM device placement — also a per-load setting; the LlmSection triggers an
+  // llm:reload after changing it so the new device takes effect immediately.
+  getLlamaService().setSelectedPlacement(s.advanced.llm.placement)
 
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)

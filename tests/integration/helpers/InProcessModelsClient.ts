@@ -144,6 +144,8 @@ export class InProcessModelsClient {
         },
         resources: DUMMY_RESOURCES,
         gpuLabel: null,
+        resolvedPlacement: payload.placement === 'gpu' ? 'gpu' : 'cpu',
+        placementReason: 'in-process test client',
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
