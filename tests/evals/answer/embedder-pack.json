@@ -1,8 +1,11 @@
 {
-  "name": "loklm-matrix-embedders-7",
-  "comment": "Embedder-Achse der AP-E.2 Matrix. queryPrefix gilt fuer embed() (Frage), docPrefix fuer embedBatch() (Korpus). Pooling kommt aus GGUF-Metadaten. Label MUSS eindeutig sein (Embedding-Cache-Key).",
+  "name": "loklm-matrix-embedders-osi-8",
+  "comment": "NUR OSI (Apache/MIT). embeddinggemma (Gemma) raus. queryPrefix=embed(), docPrefix=embedBatch(). label=cache-key. Stand 2026-06-14.",
   "embedders": [
-    { "label": "bge-m3", "file": "bge-m3-Q4_K_M.gguf" },
+    {
+      "label": "bge-m3",
+      "file": "bge-m3-Q4_K_M.gguf"
+    },
     {
       "label": "e5-large",
       "file": "multilingual-e5-large-q8_0.gguf",
@@ -25,11 +28,20 @@
       "queryPrefix": "Instruct: Given a question, retrieve passages that answer it\nQuery: "
     },
     {
-      "label": "embeddinggemma",
-      "file": "embeddinggemma-300M-Q8_0.gguf",
-      "queryPrefix": "task: search result | query: ",
-      "docPrefix": "title: none | text: "
+      "label": "granite-emb",
+      "file": "granite-embedding-278m-multilingual-Q4_K_M.gguf"
     },
-    { "label": "granite-emb", "file": "granite-embedding-278m-multilingual-Q4_K_M.gguf" }
+    {
+      "label": "e5-base",
+      "file": "multilingual-e5-base-q8_0.gguf",
+      "queryPrefix": "query: ",
+      "docPrefix": "passage: "
+    },
+    {
+      "label": "nomic-v2",
+      "file": "nomic-embed-text-v2-moe.Q4_K_M.gguf",
+      "queryPrefix": "search_query: ",
+      "docPrefix": "search_document: "
+    }
   ]
 }
