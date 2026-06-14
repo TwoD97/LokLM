@@ -8,14 +8,14 @@ kann und ihre Priorität. Stand: **2026-06-14**.
 
 - **Prio:** `hoch` = abgabekritisch (blockiert belastbare Aussage) · `mittel` = vor
   Abgabe zu klären · `niedrig` = kosmetisch/optional.
-- **Wer:** D = Dominik Furlan (Doku/Tests/UI/Eval) · P = Denis Tudosa (Projekt-Owner,
+- **Wer:** D = Dominik Furlan (Doku/Tests/UI/Eval) · P = Denys Tudosa (Projekt-Owner,
   Chunking/Auth/RAG/Installer) · PAG = Projektauftraggeber/Betreuung · Team = beide.
 
 ## 1. Eval-Matrix & Zielerreichung (abgabekritisch)
 
 | # | Frage | Betrifft | Warum wichtig | Wer | Prio |
 | --- | --- | --- | --- | --- | --- |
-| Q1 | Ist der AP-E.2 Phase-2-GPU-Sweep (Embedder × Reranker × Chunker × LLM) bereits gefahren? Wenn ja: wann, mit welchem Scope, wo liegen die Ergebnisse? | 05, 11, 15, 17, 22, 24, 25 | Erst danach sind die gemessenen Zielwerte (Recall@5, Citation Accuracy, Refusal Rate) und der Abgabe-Laborbericht belastbar. | D | hoch |
+| Q1 | Ist der AP-E.2 Phase-2-GPU-Sweep (Embedder × Reranker × Chunker × LLM) bereits gefahren? Wenn ja: wann, mit welchem Scope, wo liegen die Ergebnisse? **Antwort 2026-06-14:** Phase-2-Sweep noch nicht gefahren (in Vorbereitung). | 05, 11, 15, 17, 22, 24, 25 | Erst danach sind die gemessenen Zielwerte (Recall@5, Citation Accuracy, Refusal Rate) und der Abgabe-Laborbericht belastbar. | D | hoch |
 | Q2 | Wie lautet die **endgültige** Matrix-Zellenzahl des Abgabe-Laufs? Code-Stand ergibt 8 × 3 × 1 × 15 = **360**; Design-Skizze nannte ~399. | 02, 17, 22, 23 | Die Zahl steht in mehreren Kapiteln und muss konsistent dem real gefahrenen Lauf entsprechen. | D / Team | hoch |
 | Q3 | Sind die LAP-Kennzahlen **~90 Dokumente / 2.322 Chunks / 163 DE-Fragen (148 answerable + 15 refusal)** aus dem final gebauten Dataset bestätigt? (Korpus ist gitignored, Zahlen aus Projektangabe.) | 11, 15, 17, 24 | Mehrfach zitierte Kennzahlen ohne committeten Beleg; vor Abgabe aus `lap-dataset.json` nachzuzählen. | D | hoch |
 | Q4 | Wird das Pflichtenheft-Abnahmeziel (Refusal Rate ≥ 75 %, Citation Accuracy ≥ 85 %) erreicht? | 05 | Kern-Abnahmekriterium; aktuell „Messung offen". | D / PAG | hoch |
@@ -29,21 +29,21 @@ kann und ihre Priorität. Stand: **2026-06-14**.
 | Q7 | Gab es im Projektverlauf eine **Patt-Entscheidung** mit Hinzuziehung einer außenstehenden Person (Lastenheft §13)? | 07 | Im Handbuch als offene Frage markiert; falls eingetreten, zu dokumentieren. | Team | niedrig |
 | Q8 | Existierte eine **formale Prioritätsskala** auf dem Board (Hoch/Mittel/Niedrig je Karte)? | 08, 10 | Im Repo kein Beleg; Priorisierung bisher nur über Meilensteine/Gates abgeleitet. | Team | niedrig |
 
-## 3. Partner-AP-Details (Domäne Denis)
+## 3. Partner-AP-Details (Domäne Denys)
 
 | # | Frage | Betrifft | Warum wichtig | Wer | Prio |
 | --- | --- | --- | --- | --- | --- |
 | Q9 | Stimmt die aus Commits/PRs/Releases **rekonstruierte AP-Benennung** der Partner-Pakete (Auth-Fundament, Provider-Abstraktion, Installer-Pivots, Transkription, QA-Routing, Translator-Sidecar) mit den realen Vikunja-/Outline-Tickets überein? | 10, 11 | Partner-APs tragen im Repo nicht immer eine formale AP-ID; Benennung ist abgeleitet. | P | mittel |
 | Q10 | Welche Teile von **ADR-0004 (Adaptive Modell-Residency, PROPOSED)** sind bereits gebaut? Die `src/main/services/placement/*`-Dateien sind im ADR als „geplant, neu" markiert. | 13, 14, 20, 21 | Bestimmt, ob das Feature als „geplant" oder „teilweise umgesetzt" darzustellen ist. | P | mittel |
 | Q11 | Kann eine prüfbare Aufstellung der **Electron-Härtung** (genaue Fuses-/CSP-Konfiguration aus Build-Konfig + Window-Erzeugung) beigesteuert werden? | 21 | Derzeit aus dem Statusbericht zusammengefasst, nicht aus der Build-Konfig verifiziert (Partner-Domäne). | P | mittel |
-| Q12 | Wie viele **IPC-Handler** existieren tatsächlich (Richtwert ~105)? Eine maschinelle Zählung über `ipcMain.handle(` wurde nicht durchgeführt. | 13 | Konkrete Zahl im Handbuch als „zu verifizieren" markiert. | P | niedrig |
+| Q12 | ✅ **Beantwortet 2026-06-14:** Eine maschinelle Zählung über `ipcMain.handle(` in `src/main/index.ts` ergibt **exakt 105 Handler**. (Ursprünglich: Wie viele **IPC-Handler** existieren tatsächlich (Richtwert ~105)? Eine maschinelle Zählung war nicht durchgeführt.) | 13 | Konkrete Zahl im Handbuch als „zu verifizieren" markiert. | P | niedrig |
 
 ## 4. Versionen, Releases & Benennung
 
 | # | Frage | Betrifft | Warum wichtig | Wer | Prio |
 | --- | --- | --- | --- | --- | --- |
 | Q13 | Wird **v0.4.2** noch als Git-Tag gesetzt? Es existiert als Release-Commit (`783ca4b`, 14.06.), aber nicht als Tag; höchster Tag ist v0.4.1. | 02, 09 | Der Auftrag nennt einen Release-Bereich bis v0.4.2; das Handbuch muss Commit vs. Tag korrekt unterscheiden. | P / Team | mittel |
-| Q14 | Welche **Schreibweise des Projekt-Owner-Vornamens** ist verbindlich — „Denys" (Lasten-/Pflichtenheft) oder „Denis" (Statusberichte)? Das Handbuch verwendet einheitlich „Denis Tudosa". | 00, 07 | Vor der gedruckten Abgabe muss die Form einheitlich und korrekt sein. | Team | mittel |
+| Q14 | ✅ **Beantwortet 2026-06-14:** Verbindlich ist **Denys** (Lasten-/Pflichtenheft); die Projektstatusberichte verwenden abweichend „Denis". Das Handbuch wurde durchgängig auf „Denys Tudosa" umgestellt. (Ursprünglich: Welche **Schreibweise des Projekt-Owner-Vornamens** ist verbindlich — „Denys" oder „Denis"?) | 00, 07 | Vor der gedruckten Abgabe muss die Form einheitlich und korrekt sein. | Team | mittel |
 | Q15 | Welche Rolle hat der Branch **`development`** im täglichen Fluss (Vorintegrationsstand vs. abgelegt)? | 09 | Im Handbuch als plausible Einordnung markiert, nicht eindeutig aus dem Repo ableitbar. | P | niedrig |
 
 ## 5. Lizenz- & Compliance-Bestätigungen
@@ -58,10 +58,10 @@ kann und ihre Priorität. Stand: **2026-06-14**.
 
 | # | Frage | Betrifft | Warum wichtig | Wer | Prio |
 | --- | --- | --- | --- | --- | --- |
-| Q19 | Wurde der **Usability-Test mit 3 Erstnutzern** (Z-5, „erster Chat ≤ 30 min") durchgeführt und protokolliert? | 05 | Soll-Anforderung/Abnahme; im Repo nicht als abgeschlossen belegt. | D / Team | mittel |
+| Q19 | Wurde der **Usability-Test mit 3 Erstnutzern** (Z-5, „erster Chat ≤ 30 min") durchgeführt und protokolliert? **Antwort 2026-06-14:** Usability-Test noch nicht durchgeführt/protokolliert. | 05 | Soll-Anforderung/Abnahme; im Repo nicht als abgeschlossen belegt. | D / Team | mittel |
 | Q20 | Liegt der **Multi-Hardware-Matrix-Bericht** (AP-T.4, ≥ 3 von 4 Konfigurationen) vor? | 05, 19 | Abnahmekriterium; bisher offen. | D | mittel |
 | Q21 | Sind die **M-Szenarien M3/M4/M8–M11** mittlerweile durchgeführt und protokolliert (nicht nur als Anleitung angelegt)? | 19 | DoD verlangt mindestens einen dokumentierten Durchlauf vor Abgabe. | D | mittel |
-| Q22 | Gelten **Audio-Transkription und Quiz** (über NZ-6 hinaus) als zugesicherte v1-Liefergegenstände oder als bewusste Scope-Erweiterung über den Mindestumfang? | 03, 06 | Beeinflusst, wie die Abgabe gegen das Lastenheft (§10 grenzt Transkription ab) gewertet wird. | Team / PAG | mittel |
+| Q22 | ✅ **Beantwortet 2026-06-14:** Audio-Transkription und Quiz gelten als **bewusste Scope-Erweiterung über den Mindestumfang** (kein zugesicherter v1-Mindest-Liefergegenstand; Lastenheft §10 grenzt Transkription ab). (Ursprünglich: Gelten **Audio-Transkription und Quiz** als zugesicherte v1-Liefergegenstände oder als bewusste Scope-Erweiterung?) | 03, 06 | Beeinflusst, wie die Abgabe gegen das Lastenheft (§10 grenzt Transkription ab) gewertet wird. | Team / PAG | mittel |
 | Q23 | Sollen **macOS-Release-Payloads** publiziert werden, oder bleibt macOS „Build-Pipeline vorhanden, kein zugesicherter v1-Liefergegenstand"? | 06, 24 | Plattform-Abgrenzung; aktuell ehrlich als nicht-publiziert geführt. | P / Team | mittel |
 
 ## 7. Betrieb & Auslieferung

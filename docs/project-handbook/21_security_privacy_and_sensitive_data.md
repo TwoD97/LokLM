@@ -105,7 +105,7 @@ Im Berichtszeitraum als „Electron-Sicherheitshärtung" gemerged (`04b318d`, Qu
 | **Electron Fuses** | Build-Zeit-Härtung (z. B. `RunAsNode`, Node-Options abschalten) |
 | **mlock-geschützter Schlüsselspeicher** | KEK/DEK im RAM gegen Swapping auf Platte gesichert |
 
-> WARN zu verifizieren — die genaue Fuses-/CSP-Konfiguration ist aus dem Projektstatusbericht zusammengefasst; für eine prüfbare Aufstellung sind die Build-Konfig und die Window-Erzeugung in `src/main/` heranzuziehen (außerhalb des Test-/Doku-Owners von Dominik, Domäne Denis).
+> WARN zu verifizieren — die genaue Fuses-/CSP-Konfiguration ist aus dem Projektstatusbericht zusammengefasst; für eine prüfbare Aufstellung sind die Build-Konfig und die Window-Erzeugung in `src/main/` heranzuziehen (außerhalb des Test-/Doku-Owners von Dominik, Domäne Denys).
 
 ---
 

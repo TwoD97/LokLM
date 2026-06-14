@@ -9,7 +9,7 @@ Dateien.
 
 ## 1. Warum Versionierung für dieses Projekt zentral war
 
-LokLM ist ein Zwei-Personen-Projekt mit **getrennten Domänen** (Denis: Chunking/Auth/
+LokLM ist ein Zwei-Personen-Projekt mit **getrennten Domänen** (Denys: Chunking/Auth/
 RAG/Installer; Dominik: UI/Tests/Doku/Eval). Ohne diszipliniertes Branching hätten sich
 die beiden Arbeitsstränge ständig blockiert. Drei Gründe machten Versionierung
 unverzichtbar:
@@ -94,7 +94,7 @@ Die folgende Tabelle ist aus den GitHub-PR-Daten (echte Merge-Zeitstempel) abgel
 | #7 | Cornerstone #4 Quellenverweise | Content | gemergt | 28.05. |
 | #8 | Cornerstone #5 Taxonomie (Erstentwurf) | Content | gemergt | 02.06. |
 | #9 | Cornerstone #5 Taxonomie (Finalisierung) | Content | gemergt | 08.06. |
-| #10 | Linux `.deb`-Artefakt + glibc-Baseline | Installer (Denis) | gemergt | 08.06. |
+| #10 | Linux `.deb`-Artefakt + glibc-Baseline | Installer (Denys) | gemergt | 08.06. |
 | #11 | Eval-Automatisierung (Handover-Infra) | Eval (Dominik) | gemergt | 08.06. |
 | #12 | AP-6 Suche/Filter (Library) | Feature (Dominik) | gemergt | 10.06. |
 | #13 | AP-9 Settings-UI (Theme/Sprache/Felder) | Feature (Dominik) | gemergt | 10.06. |
@@ -104,13 +104,13 @@ Die folgende Tabelle ist aus den GitHub-PR-Daten (echte Merge-Zeitstempel) abgel
 | #17 | Bump vitest 2 → 3 | Dependabot | **offen** | — |
 | #18 | AP-9: Account — neue Recovery-Codes | Feature (Dominik) | **offen** | — |
 | #19 | AP-T.2 Integrationstests (§8.2 E2E) | Test (Dominik) | **offen (Review)** | — |
-| #20 | Translation-Eval | RAG/Translation (Denis) | gemergt | 13.06. |
-| #21 | v0.4.1 Translator-Sidecar Cross-Platform | Release (Denis) | gemergt | 13.06. |
-| #22 | Sidecar-Build grün auf allen Plattformen | CI (Denis) | gemergt | 13.06. |
-| #23 | Windows-GPU-Sidecar (Ninja/CUDA) | CI (Denis) | gemergt | 13.06. |
+| #20 | Translation-Eval | RAG/Translation (Denys) | gemergt | 13.06. |
+| #21 | v0.4.1 Translator-Sidecar Cross-Platform | Release (Denys) | gemergt | 13.06. |
+| #22 | Sidecar-Build grün auf allen Plattformen | CI (Denys) | gemergt | 13.06. |
+| #23 | Windows-GPU-Sidecar (Ninja/CUDA) | CI (Denys) | gemergt | 13.06. |
 | #24 | AP-T.1 Unit-Tests ≥70 % Branch | Test (Dominik) | **offen (Review)** | — |
 | #25 | AP-E.1 Eval-Dev-Set (80 Fälle) | Eval (Dominik) | **offen (Review)** | — |
-| #26 | Translation: MADLAD via Installer-Wizard | Translation (Denis) | gemergt | 14.06. |
+| #26 | Translation: MADLAD via Installer-Wizard | Translation (Denys) | gemergt | 14.06. |
 
 **Belegte Lesart der offenen PRs:** #19 (AP-T.2), #24 (AP-T.1), #25 (AP-E.1) sind
 umgesetzt und review-bereit (alle CI-Checks grün), warten aber auf die Review-Freigabe;

@@ -8,7 +8,7 @@ Der Projektauftrag ist im **Lastenheft** (`docs/Lastenheft.md`, Version 1.0, sig
 | ----------------- | ------------------------------------------------------ |
 | **Auftraggeber**  | Landesberufsschule 4 Salzburg                          |
 | **Projektbetreuer** | Christoph Wirrer                                      |
-| **Auftragnehmer** | Projektgruppe LokLM (Denis Tudosa, Dominik Furlan)     |
+| **Auftragnehmer** | Projektgruppe LokLM (Denys Tudosa, Dominik Furlan)     |
 | **Projektart**    | Schulische Projektarbeit (Lehrgang), ca. 9 Wochen      |
 | **Laufzeit**      | 04.05.2026 – 26.06.2026                                |
 | **Lizenz**        | MIT (Open Source, keine kommerzielle Auslieferung)     |
@@ -68,4 +68,4 @@ Die konkrete technische Umsetzung dieses Rahmens ist im Pflichtenheft spezifizie
 
 Nicht Bestandteil der ersten Version sind insbesondere (Lastenheft §10, Pflichtenheft §1.3): Cloudspeicherung und externe KI-APIs, Multi-Device-Synchronisation, Mehrbenutzerbetrieb auf einer Instanz, mobile Apps und Browser-Erweiterungen, OCR für gescannte PDFs, Audio-/Videotranskription als Kernumfang, externe/gemeinsam genutzte Datenbanken sowie Zwei-Faktor-Authentifizierung. Die optionalen Kann-Erweiterungen (lokales Feintuning, code-bewusste Aufteilung, automatische Zusammenfassungen) sind keine Zusicherung und nur bei Restzeit vorgesehen. Die vollständige Abgrenzung ist in Kapitel 06 dieses Handbuchs aufgeführt.
 
-> WARN Annahme, bitte pruefen — Im späteren Projektverlauf wurde ein Audio-Transkriptions-Subsystem (Whisper + Diarisation) tatsächlich umgesetzt (Release v0.4.0), obwohl Transkription im Lastenheft (§10) als nicht-Bestandteil abgegrenzt war. Dies ist als bewusste Scope-Erweiterung über den Mindestumfang hinaus zu werten und beim Team einzuordnen.
+Im späteren Projektverlauf wurde ein Audio-Transkriptions-Subsystem (Whisper + Diarisation) umgesetzt (Release v0.4.0), obwohl Transkription im Lastenheft (§10) als nicht-Bestandteil abgegrenzt ist. Audio-Transkription und Quiz sind eine **bewusste Scope-Erweiterung über den Mindestumfang** und kein zugesicherter v1-Mindest-Liefergegenstand.

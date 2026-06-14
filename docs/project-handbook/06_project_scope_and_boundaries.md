@@ -57,10 +57,10 @@ Die Arbeit ist klar zwischen den beiden Teammitgliedern aufgeteilt (Detailtabell
 
 | Bereich (Owner)                          | Schnittstelle zum jeweils anderen Bereich                                    |
 | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| **Backend/RAG/Auth (Denis Tudosa)**      | stellt Services + IPC-Kanäle bereit (`AuthService`, `DocumentService`, `RetrievalService`, `EmbeddingService`, `LlamaService`, `ChunkerService`, `ParserService`) |
+| **Backend/RAG/Auth (Denys Tudosa)**      | stellt Services + IPC-Kanäle bereit (`AuthService`, `DocumentService`, `RetrievalService`, `EmbeddingService`, `LlamaService`, `ChunkerService`, `ParserService`) |
 | **UI/Tests/Doku (Dominik Furlan)**       | konsumiert IPC in der UI (Suche AP-6, Settings AP-9, Auth-UI AP-2.2), testet die Services (AP-T.1/T.2), erstellt Eval-Set + Doku |
 
-Die Test- und Eval-Säule bildet eine **Verifikations-Schnittstelle** über beide Bereiche: Sie prüft die von Denis gebauten Services (Retrieval, Chunking, Auth) gegen reale Datenbestände und misst die Antwortqualität.
+Die Test- und Eval-Säule bildet eine **Verifikations-Schnittstelle** über beide Bereiche: Sie prüft die von Denys gebauten Services (Retrieval, Chunking, Auth) gegen reale Datenbestände und misst die Antwortqualität.
 
 ## 6.5 Scope-Erweiterungen über den Mindestumfang
 
@@ -74,7 +74,7 @@ Im Projektverlauf wurden Funktionen integriert, die über den ursprünglichen La
 | Übersetzung + Windows-GPU-Translator-Sidecar | v0.4.1 | plattformübergreifend                  |
 | Linux-AppImage            | ab v0.2.x | Nachtrag v1.1.1 (NZ-8 angepasst)            |
 
-> WARN Annahme, bitte pruefen — Transkription (NZ-6) und Quiz waren ursprünglich nicht im Mindestumfang. Ihre Umsetzung ist eine über den Pflichtumfang hinausgehende Leistung; ob sie als zugesicherter Liefergegenstand der v1-Abgabe gelten sollen, ist beim Team zu klären.
+Transkription (NZ-6) und Quiz waren ursprünglich nicht im Mindestumfang. Audio-Transkription und Quiz sind eine **bewusste Scope-Erweiterung über den Mindestumfang** und kein zugesicherter v1-Mindest-Liefergegenstand; das Lastenheft (§10) grenzt Transkription ausdrücklich ab.
 
 ## 6.6 Plattform-Abgrenzung
 

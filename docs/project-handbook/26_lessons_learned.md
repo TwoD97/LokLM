@@ -38,7 +38,7 @@ Die Q&A-Generierung am LAP-Korpus brachte **Meta-Fragen und OCR-Artefakte** zuta
 
 ### 2.1 Worktree-Isolation und Branch-Schutz
 
-Getrennte Worktrees/Branches pro Arbeitspaket hielten Test-/Doku-Arbeit (Dominik) und Logik-/Release-Arbeit (Denis) sauber entkoppelt, auch bei parallelem Arbeiten an `main`. Hartregel **„auf `main` erst Branch, dann Edit"** verhinderte versehentliche Direkteingriffe in den Integrationsstand. Das **R5-versiegelte Hold-out** (AP-E1b, bewusst nicht gepusht) ist eine bewusste Isolation gegen den Echo-Chamber-Effekt — der Eval-Autor darf das Hold-out während der Entwicklung nicht sehen.
+Getrennte Worktrees/Branches pro Arbeitspaket hielten Test-/Doku-Arbeit (Dominik) und Logik-/Release-Arbeit (Denys) sauber entkoppelt, auch bei parallelem Arbeiten an `main`. Hartregel **„auf `main` erst Branch, dann Edit"** verhinderte versehentliche Direkteingriffe in den Integrationsstand. Das **R5-versiegelte Hold-out** (AP-E1b, bewusst nicht gepusht) ist eine bewusste Isolation gegen den Echo-Chamber-Effekt — der Eval-Autor darf das Hold-out während der Entwicklung nicht sehen.
 
 ### 2.2 Personalausfall ist ein Projektrisiko, das man dokumentieren muss
 

@@ -1,7 +1,7 @@
 # Projektmanagement — Kanban-Board (Vikunja) und Outline-Dokumentation als Steuerung
 
 Das Projekt LokLM wurde über rund neun Wochen (08.05.2026 bis 14.06.2026) von einem
-Zwei-Personen-Team getragen: **Denis Tudosa** (Projekt-Owner, Domänen Chunking, Auth,
+Zwei-Personen-Team getragen: **Denys Tudosa** (Projekt-Owner, Domänen Chunking, Auth,
 RAG, Installer) und **Dominik Furlan** (Dokumentation, Tests, UI/UX). Die Steuerung
 lief über drei ineinandergreifende Ebenen: ein **Kanban-Board (Vikunja)** für den
 Arbeitsfluss, eine **Wissens-/Spezifikationsdokumentation (Outline)** für Inhalte und
