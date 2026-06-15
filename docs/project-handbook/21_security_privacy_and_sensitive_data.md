@@ -1,6 +1,6 @@
 # Sicherheit, Datenschutz und sensible Daten
 
-Stand: **2026-06-15**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
+Stand: **2026-06-16**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
 
 Quellen für dieses Kapitel: `docs/adr/0001-argon2id-password-kdf.md`, `docs/adr/0002-envelope-encryption-aes-gcm.md`, `docs/adr/0004-adaptive-model-residency.md`, `.gitignore`, `.env.example`, `docs/work/projektstatusbericht-2026-06-14.md`.
 

@@ -90,6 +90,7 @@ Tabellenverzeichnis werden beim Export automatisch erzeugt.
 | [OPEN_QUESTIONS_FOR_TEAM.md](OPEN_QUESTIONS_FOR_TEAM.md) | Gezielte Rückfragen ans Team |
 | [SENSITIVE_DATA_CHECKLIST.md](SENSITIVE_DATA_CHECKLIST.md) | Sensitivdaten-Checkliste + Secret-Sweep-Befund |
 | [EXPORT_NOTES.md](EXPORT_NOTES.md) | Export-Anleitung (Markdown → PDF/Buch) |
+| [ROADMAP_TO_V1.md](ROADMAP_TO_V1.md) | Lebende To-do-/Reifeliste bis zur gebundenen v1.0.0 |
 | [RELEASE_AUDIT.md](RELEASE_AUDIT.md) | v1.0.0-Audit-Checkliste vor der Bindung |
 
 ---
