@@ -1,6 +1,6 @@
 # Anhang
 
-Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json` (Stand v0.4.1, pnpm 10.33.4, Node ≥ 24). Wo Modelle/GPU nötig sind, ist das vermerkt.
+Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json` (Stand v0.4.6, pnpm 10.33.4, Node ≥ 24). Wo Modelle/GPU nötig sind, ist das vermerkt.
 
 > WARN Keine sensiblen Rohdaten: API-/S3-Keys, Tokens, interne Domains und absolute lokale Pfade gehören nicht in dieses Handbuch — als Platzhalter behandeln (`<API_KEY>`, `<TOKEN>`, `<PRIVATE_DOMAIN>`, `<INTERNAL_PATH>`).
 
@@ -49,7 +49,6 @@ Die Befehlsreferenz (aus `package.json`) gliedert sich in die Tabellen 28.1–28
 | `pnpm models:lite` / `:medium` / `:pro` | LLM-Tier laden |
 | `pnpm models:all` | alle Standardmodelle |
 | `pnpm models:evals` | Modelle für die Eval-Läufe |
-| `pnpm models:matrix` | Matrix-Modelle (vorab `evals:licenses:check`) |
 | `pnpm models:translation` | Übersetzungsmodelle |
 | `pnpm tessdata` | OCR-Sprachdaten (Tesseract) laden |
 
@@ -62,10 +61,8 @@ Die Befehlsreferenz (aus `package.json`) gliedert sich in die Tabellen 28.1–28
 | `pnpm evals:generate` | synthetisches Dataset erzeugen |
 | `pnpm evals:run` | Eval-Lauf |
 | `pnpm evals:sweep` | Konfigurations-Sweep |
-| `pnpm evals:build-lap` | LAP-Dataset bauen (Korpus → Dataset) |
-| `pnpm evals:matrix-run` | Matrix-Sweep (vorab Lizenz-Gate) |
-| `pnpm evals:matrix-summary` | Matrix-Zusammenfassung (Pre-Run-Manifest) |
-| `pnpm evals:licenses:check` | Modell-Lizenzen validieren (Gate vor Download/Run) |
+| `pnpm evals:build-library` | Bibliotheks-/Korpus-Aufbau (`tests/evals/scale/build-library.ts`) |
+| `pnpm evals:matrix` | Matrix-Sweep (`--configs matrix`) |
 | `pnpm evals:paper` | Ergebnisse fürs Abgabe-Paper aggregieren |
 | `pnpm evals:rejudge` / `:patterns` | Antworten neu bewerten / Fehlermuster |
 | `pnpm pod:start` / `:stop` / `:status` | RunPod-GPU-Pod steuern |
@@ -106,12 +103,10 @@ Die Befehlsreferenz (aus `package.json`) gliedert sich in die Tabellen 28.1–28
 | `src/main/db/migrations/` | DB-Migrationen (u. a. 0006 `idx_chunks_fts`) |
 | `tests/unit/` | Unit-Tests (AP-T.1) |
 | `tests/integration/` | Integrations-/E2E-Tests (AP-T.2, §8.2) |
-| `tests/fixtures/retrieval/korpus.ts` | reproduzierbares Retrieval-Korpus (10 Dok/60 Chunks/10 Fragen) |
-| `tests/evals/data/cases.jsonl` | Eval-Dev-Set (AP-E.1, 80 Fälle) |
-| `tests/evals/data/holdout/dominik-15.jsonl` | Hold-out (AP-E1b, 15 Fälle, R5) |
-| `tests/evals/answer/matrix-manifest.ts` | Matrix-Achsen + Laufzeit-Manifest (AP-E.2) |
+| `tests/integration/retrieval-pipeline.test.ts` | Retrieval-Integrationstest (BM25+Dense-Fusion auf seeded Mini-Korpus) |
+| `tests/evals/data/datasets/` | Eval-Datasets (zeitgestempelte JSON; ohne `--dataset` wird das jüngste genommen) |
+| `tests/evals/pipeline/configs.ts` | Matrix-Achsen (Funktion `matrixConfigs`) (AP-E.2) |
 | `tests/evals/answer/run-pack.ts` | Matrix-Lauf-Treiber |
-| `tests/evals/license/` | Modell-Lizenz-Validierung |
 | `docs/adr/` | Architecture Decision Records (0001–0004) |
 | `docs/Pflichtenheft.md`, `docs/Lastenheft.md` | Anforderungsdokumente |
 | `docs/project-handbook/` | dieses Handbuch |
@@ -139,12 +134,14 @@ Die Build-/Export-Anleitung des Handbuchs steht in [EXPORT_NOTES.md](EXPORT_NOTE
 
 ## 28.4 Matrix-Eval — Achsen (Referenz)
 
-Aus `tests/evals/answer/matrix-manifest.ts`. Die Größe einer Matrix-Konfiguration:
+Aus `tests/evals/pipeline/configs.ts` (Funktion `matrixConfigs`). Die Größe einer Matrix-Konfiguration:
 
 - **Retrieval-Configs** = Embedder × (Reranker + 1 `SkipReranker`) × Chunker
 - **Zellen** = Retrieval-Configs × Antwort-LLMs
 - **Läufe** = Zellen × Fragen (Antwort + Judge)
-- **Laufzeit** = Läufe × Sekunden/Lauf → GPU-Stunden (per `buildMatrixManifest`)
+- **Laufzeit** = Läufe × Sekunden/Lauf → GPU-Stunden
+
+> WARN zu verifizieren: wie die GPU-Stunden-/Laufzeit-Schaetzung im aktuellen Code abgeleitet wird (kein `buildMatrixManifest` im Tree).
 
 Chunker-Achse aktuell `fixed-512-64` (512/64, passend zum LAP-Dataset); der Chunk-Größen-Vergleich läuft als separate Dataset-Läufe über die chunker-unabhängige Span-Recall-Metrik.
 

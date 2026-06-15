@@ -384,9 +384,13 @@ hält alle Felder als typisierte Slots; der Main-Konsum (autoLock, conversationS
 Chunk-Werte, Modell-Reload) ist verdrahtet. **Status:** Kern fertig/gemergt (10.06.);
 Account-Recovery-Teil als PR #18 offen. Verweis: `ap-9-partner-fields.md`.
 
-> Hinweis zur Auto-Lock-Falle (für den Partner dokumentiert): `setInactivityMs` macht
-> `Math.max(60_000, ms)`, daher ergäbe `0` keine „nie"-Sperre, sondern 1 Minute — ein
-> echter Disable-Pfad ist nötig (`ap-9-partner-fields.md`).
+> Hinweis zur Auto-Lock-„nie"-Option (gelöst): `setInactivityMs` clampt zwar weiterhin
+> mit `Math.max(60_000, ms)` (`src/main/services/auth/AuthService.ts`), doch der Helfer
+> `inactivityMsFromMinutes` (`src/main/services/auth/inactivity.ts`) bildet den
+> Einstellwert `0` („nie") auf `+Infinity` ab; dieser Wert überlebt den Clamp und lässt
+> die Sperrbedingung `idle >= inactivityMs` nie wahr werden, deaktiviert das Auto-Lock
+> also effektiv. Verdrahtet in `src/main/index.ts`
+> (`setInactivityMs(inactivityMsFromMinutes(s.security.autoLockMinutes))`).
 
 ### AP-T.3b — Manuelle Test-Szenarien (Dominik, PR #14 gemergt)
 

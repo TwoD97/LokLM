@@ -152,8 +152,10 @@ Installer-Pivot, v0.4.0 Audio), Patch-Bumps Fixes/Härtung.
 im Repo als **Release-Commit (`783ca4b`**, „release , v0.4.2 , windows + linux + macos
 assets", 14.06.), **aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v0.4.1**
 (`git tag -l` listet nur bis `v0.4.1`, kein `v0.4.2`). Die obige Tag-Tabelle endet daher
-korrekt bei v0.4.1; v0.4.2 ist bislang ausschließlich ein Release-Commit ohne
-zugehörigen Tag.
+korrekt bei v0.4.1. Stand 15.06.2026 reicht die Release-Commit-Kette auf `main` jedoch
+bereits bis v0.4.6 (`package.json` = 0.4.6: Commits v0.4.3 `1f2f40b`, v0.4.4 `4d8d66c`,
+v0.4.5 `619d0d8`, v0.4.6 `af59c25`, alle 15.06.); ein zugehöriger Git-Tag wurde für v0.4.2
+bis v0.4.6 (noch) nicht gesetzt — der höchste gesetzte Tag bleibt `v0.4.1`.
 
 ## 9.6 Trennung Code / Daten / Doku
 
@@ -165,7 +167,7 @@ versioniert werden, nicht aber große, regenerierbare oder sensible Inhalte (Tab
 | Klasse | Beispiel-Pfad | Im Git? | Begründung (aus `.gitignore`) |
 |---|---|---|---|
 | **App-Code** | `src/main/...`, `installer-ui/...` | ja | Kern des Produkts |
-| **Test-Code + Eval-Daten** | `tests/evals/data/cases.jsonl`, `tests/fixtures/retrieval/korpus.ts` | ja | reproduzierbare Test-/Eval-Grundlage (63 getrackte Dateien unter `tests/evals/data`) |
+| **Test-Code + Eval-Daten** | `tests/evals/data/datasets/*.json`, `tests/evals/data/sample-docs/*.txt` | ja | reproduzierbare Test-/Eval-Grundlage (63 getrackte Dateien unter `tests/evals/data`) |
 | **GGUF-Modelle** | `/models/` | **nein** | „Top-level GGUF cache only" — mehrere GB, zur Laufzeit/per Installer geladen |
 | **OCR-Trainingsdaten** | `/tessdata/` | **nein** | ~28 MB, via Skript nachladbar |
 | **Eval-Reports** | `tests/evals/report/` | **nein** | „regenerated per run, can be large" |
@@ -192,8 +194,10 @@ sensibel** ist (Code, Test-Fixtures, Dataset-Manifeste, ADRs). Ausgeschlossen wi
   sondern zur Laufzeit/über den Installer geladen. Der Installer selbst durchlief
   deshalb einen Pivot von ~500 MB eingebetteter Payload auf einen ~8 MB Download-Stub
   (siehe `11_work_package_details.md`, AP Installer-Pivot).
-- **Release-Assets** liegen nicht im Repo, sondern werden von der Pipeline gebaut und
-  zu Bunny-CDN (primär) + MinIO (Backup-Mirror) hochgeladen.
+- **Release-Assets** liegen nicht im Repo, sondern werden von der Pipeline gebaut, in den
+  MinIO-Bucket (`s3.ltwodl.com/loklm-installers/v<V>/`) geladen und öffentlich über
+  Bunny-CDN ausgeliefert; MinIO dient zugleich als Backup-Spiegel (Fallback bei
+  Bunny-CDN-Ausfall).
 - **Build-Artefakt-Drift** wurde aktiv vermieden: Der Laborbericht 29.05. vermerkt, dass
   ein vom lokalen Build verändertes `payload-manifest.json` gezielt auf den committeten
   Stand zurückgesetzt wurde, damit `main` sauber bleibt.
@@ -209,8 +213,8 @@ Vier GitHub-Actions-Workflows hängen an der Versionierung
 |---|---|---|
 | `deploy-website.yml` | Push auf `main` (Website) | baut + deployt die Landingpage |
 | `checks.yml` | PR | Website-Build + (seit AP-T.2) erster vitest-Job (integration + tx) |
-| `release-installer.yml` | Release | baut Multi-OS-Installer, Upload Bunny + MinIO |
-| `build-translator-sidecar.yml` | Release/CI | baut den GPU-Translator-Sidecar (Win/Linux/macOS) |
+| `release-installer.yml` | Release | baut Multi-OS-Installer, Upload nach MinIO, Auslieferung über Bunny-CDN |
+| `build-translator-sidecar.yml` | manuell (`workflow_dispatch`) oder Push auf `main` unter `sidecars/translator/**` | baut den GPU-Translator-Sidecar (Win/Linux/macOS) |
 
 **Wichtige Einschränkung (ehrlich gekennzeichnet):** Lange Zeit baute die CI **nur die
 Website** — der erste echte Test-Job (`checks.yml`, integration + tx) entstand erst mit

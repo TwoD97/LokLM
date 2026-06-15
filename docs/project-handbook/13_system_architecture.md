@@ -26,7 +26,7 @@ Die Worker-Eintrittspunkte sind als eigene Rollup-Inputs in [electron.vite.confi
 - **Modell-Inferenz im eigenen Prozess:** Schwere GGUF-Loads und Inferenz liefen früher auf dem Main-Thread und blockierten dort den Event-Loop (u. a. die VRAM-Probe bei `getLlama`-Init). Sie sind in den `modelsWorker` ausgelagert; eine FIFO-Mutex dort serialisiert die `loadModel`-Aufrufe über LLM/Embedder/Reranker. Damit `node-llama-cpp` im Utility-Process die GPU-Binaries korrekt validiert (der Test-Kindprozess startete dort sonst als Electron statt als Node und scheiterte → stiller CPU-Fallback trotz verfügbarer CUDA-GPU), wird `ELECTRON_RUN_AS_NODE=1` im Worker gesetzt (`eba08e3`).
 - **Parsing isoliert vom Inferenz-Pfad:** Ein schweres oder gescanntes PDF darf das Token-Streaming des Chats nicht stören — daher ein separater `documentsWorker`. Transkription und Diarisierung erhalten je einen eigenen Prozess, isoliert sowohl vom Modell- als auch vom Parsing-Pfad.
 
-Belege für die Prozess-Topologie: Konstruktion von `ModelsWorkerClient`, `DocumentsWorkerClient`, `TranscriptionWorkerClient`, `DiarizationWorkerClient` in [src/main/index.ts](../../src/main/index.ts) (Z. 169–181).
+Belege für die Prozess-Topologie: Konstruktion von `ModelsWorkerClient`, `DocumentsWorkerClient`, `TranscriptionWorkerClient`, `DiarizationWorkerClient` in [src/main/index.ts](../../src/main/index.ts) (Z. 170–180).
 
 ## 13.2 IPC-Oberfläche
 
@@ -34,7 +34,7 @@ Die Renderer-↔-Main-Kommunikation läuft ausschließlich über `ipcRenderer.in
 
 `auth:*`, `window:*`, `workspaces:*`, `documents:*`, `conversations:*`, `models:*`, `embedder:*`, `reranker:*`, `llm:*`, `search:*`, `chat:*`, `transcription:*`, `settings:*`, `ollama:*`, `quiz:*`, `translation:*`, `writing:*`, `logs:*`.
 
-Eine maschinelle Zählung über `ipcMain.handle(` in [src/main/index.ts](../../src/main/index.ts) ergibt **105 Handler** (Stand 2026-06-14).
+Eine maschinelle Zählung über `ipcMain.handle(` in [src/main/index.ts](../../src/main/index.ts) ergibt **103 Handler** (Stand 2026-06-16).
 
 Streaming-Kanäle (Chat, Quiz, Transkription, Modell-Download) arbeiten mit pro-Stream-IDs: Der Handler `chat:stream` sendet Token/Citation/Stage-Ereignisse auf einem dynamischen Kanal `chat:stream-event:<streamId>`, abbrechbar über `chat:cancel` per `AbortController`. Status-Pushes (`llm:status`, `embedder:status`, `reranker:status`, `auth:state`, `provider:fallback`) werden an **alle** offenen Fenster gesendet.
 
@@ -53,7 +53,7 @@ Tabelle 13.2 stellt die lokal gebündelten Standard-Komponenten den optionalen e
 | Transkription | Whisper (lokales Addon) | — |
 | Datenbank | PGlite (In-Memory, WASM) | — |
 
-Die Quellenumschaltung kapselt die **`ProviderRegistry`** ([src/main/services/providers/Registry.ts](../../src/main/services/providers/Registry.ts)): Sie hält je ein `bundled`/`ollama`-Paar für LLM, Embedder und Reranker und entscheidet pro Aufruf, welcher Provider aktiv ist. Bei einem Netzwerk-/Timeout-/Server-Fehler eines Ollama-LLM/Reranker fällt sie **automatisch auf den gebündelten Provider zurück** (`onFallback`-Event, das die Chat-Header-Pille auf „bundled, fallback aktiv" umschaltet).
+Die Quellenumschaltung kapselt die **`ProviderRegistry`** ([src/main/services/providers/Registry.ts](../../src/main/services/providers/Registry.ts)): Sie hält je ein `bundled`/`ollama`-Paar für LLM, Embedder und Reranker und entscheidet pro Aufruf, welcher Provider aktiv ist. Bei einem Netzwerk-/Timeout-/Server-Fehler eines Ollama-LLM fällt sie **automatisch auf den gebündelten Provider zurück** und löst das `onFallback`-Event aus, das die Chat-Header-Pille auf „bundled, fallback aktiv" umschaltet; der Ollama-Reranker fällt im Fehlerfall ebenfalls automatisch auf bundled zurück, jedoch **still** (ohne Event/Pille).
 
 Der externe Ollama-Connector ist **doppelt gesichert**: Er ist nur nutzbar, wenn er bei der Installation im Wizard freigeschaltet wurde (Tier-Marker `ollamaConnector`, [src/main/services/tier/TierMarker.ts](../../src/main/services/tier/TierMarker.ts)), und ein nicht-loopback `baseUrl` erfordert zusätzlich die explizite Freigabe `allowRemoteOllama` (Loopback-Gate als Defense-in-Depth, [src/main/index.ts](../../src/main/index.ts) `applySettings`).
 
@@ -155,7 +155,7 @@ ADR-0004 beschreibt eine geplante Schichtenarchitektur (UsageJournal, DemandMode
 
 ## 13.7 Laufzeitumgebung und Abhängigkeiten
 
-- **Node ≥ 24**, **pnpm 10.x** (Package-Manager), TypeScript 5.6, Electron 42, `electron-vite` [10] als Build-Werkzeug. Belege: `engines` und `packageManager` in [package.json](../../package.json).
+- **Node ≥ 24**, **pnpm 10.x** (Package-Manager), TypeScript 5.9, Electron 42, `electron-vite` [10] als Build-Werkzeug. Belege: `engines` und `packageManager` in [package.json](../../package.json).
 - **Native Module:** `node-llama-cpp` [2] (LLM/Embedder/Reranker), `argon2` (Argon2id-KDF [6]), `sodium-native` (Secure-Memory) [16], `@kutalia/whisper-node-addon`, `sherpa-onnx-node`, `sharp`/`@napi-rs/canvas`/`tesseract.js` (Bild/OCR), `@electric-sql/pglite` + `pgvector`. Diese werden über `pnpm.onlyBuiltDependencies` und `electron-rebuild` für Electron gebaut.
 - **CSP:** Die ausgelieferte Content-Security-Policy ist strikt (`script-src 'self'`); nur unter `electron-vite dev` wird sie für HMR/react-refresh gelockert (Plugin `cspDevRelax`, `apply: 'serve'`), sodass die Lockerung nie in einen Build leckt. Beleg: [electron.vite.config.ts](../../electron.vite.config.ts).
 - **Web-Härtung:** `setWindowOpenHandler` öffnet externe Links nur für `http(s)`/`mailto` im OS-Browser; `will-navigate` blockt jede Top-Level-Navigation außer Dev-Server/Reload; Webviews sind deaktiviert. Beleg: `web-contents-created`-Handler in [src/main/index.ts](../../src/main/index.ts).

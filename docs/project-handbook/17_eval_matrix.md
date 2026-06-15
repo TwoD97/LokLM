@@ -1,8 +1,10 @@
-# 17 — Eval-Matrix
+# Eval-Matrix
 
 Dieses Kapitel beschreibt die Eval-Säule des Projekts: warum es eine Matrix-Auswertung gibt, aus welchen Achsen sie besteht, welche Metriken erhoben werden, wie der Judge funktioniert, und — ehrlich — was die Matrix leistet und was nicht. Stand: die **Code-Säule (Phase 1) ist fertig**, der **eigentliche GPU-Sweep (Phase 2) ist offen**.
 
 Alle Pfade sind repo-relativ (`tests/evals/...`).
+
+> WARN zu verifizieren — Die hier beschriebene Matrix-Eval (`tests/evals/answer/matrix-manifest.ts`, `embedder-pack.json`/`reranker-pack.json`, License-Gate `validate-model-licenses.ts`, `buildMatrixManifest`) liegt auf dem Branch `dom/ap-e2-matrix-eval` und ist **noch nicht nach `main` gemergt**. Auf `main` realisiert nur `matrixConfigs()` (`tests/evals/pipeline/configs.ts`) eine reduzierte Baseline (1 Embedder, Reranker-Achse). Dieses Kapitel dokumentiert den AP-E.2-Deliverable-Stand des Branches; vor der gebundenen Abgabe ist der Merge-Stand zu prüfen.
 
 ---
 

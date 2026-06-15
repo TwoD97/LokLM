@@ -2,6 +2,8 @@
 
 Dieses Kapitel beschreibt, wie aus Roh-Dokumenten verarbeitbare Eingaben für das RAG-System [26] (Kapitel 16) und für die Eval-Matrix (Kapitel 17) werden: die Datenquellen, die Chunking-Stufe, der Aufbau des LAP-Eval-Datensatzes mit Gold-Spans, sowie die Speicherorte, Datenqualitäts-Risiken und aktuellen Grenzen.
 
+> WARN zu verifizieren — Die hier beschriebene AP-E.2-Eval-Datenpipeline (`tests/evals/synth/build-lap-dataset.ts`, Gold-Spans, Char-Offsets, `LapDataset`) liegt auf dem Branch `dom/ap-e2-matrix-eval` und ist **noch nicht nach `main` gemergt**. Auf `main` existiert nur die Baseline (`generate-dataset.ts`/`assemble-dataset.ts`, `tests/evals/data/sample-docs/`, ohne Gold-Spans). Dieses Kapitel dokumentiert den AP-E.2-Deliverable-Stand des Branches; vor der gebundenen Abgabe ist der Merge-Stand zu prüfen.
+
 Es gibt im Projekt **zwei getrennte Daten-Welten**, die nicht verwechselt werden dürfen (Tabelle 15.1):
 
 **Tabelle 15.1:** Produktiv- und Eval-Daten-Welten im Vergleich.

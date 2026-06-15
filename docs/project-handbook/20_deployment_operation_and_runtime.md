@@ -12,7 +12,7 @@ Tabelle 20.1 fasst die benötigte Umgebung zusammen.
 | --- | --- | --- |
 | Node.js | ≥ 24 | `engines` in [package.json](../../package.json) |
 | Package-Manager | pnpm 10.x | `packageManager` in [package.json](../../package.json) |
-| Build-Werkzeug | electron-vite 2.x, Electron 42 | devDependencies |
+| Build-Werkzeug | electron-vite 4.x, Electron 42 | devDependencies |
 | Native Toolchain | wird per `electron-rebuild`/`pnpm.onlyBuiltDependencies` für Electron gebaut (`argon2`, `node-llama-cpp`, `sodium-native`, `@mongodb-js/zstd`) | `postinstall`-Script |
 | Installer-Build | Rust-Toolchain (msvc/gnu) + Tauri-CLI ^2.0 | [installer-wizard/README.md](../../installer-wizard/README.md) |
 
@@ -72,14 +72,13 @@ LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts
 
 | Befehl | Inhalt |
 | --- | --- |
-| `pnpm models:embedder` | nur BGE-M3-Embedder |
+| `pnpm models:embedder` | Embedder (BGE-M3) + Reranker (BGE-v2-M3) |
 | `pnpm models:lite` | Lite-LLM + Embedder |
 | `pnpm models:medium` | 4B + 8B + Embedder |
 | `pnpm models:pro` | bis Nemotron-30B |
 | `pnpm models:all` | gesamtes Ship-Bundle |
 | `pnpm models:evals` | Eval-Modellpool + Judge-Modell |
-| `pnpm models:matrix` | Matrix-Eval-Pool (mit Lizenz-Check) |
-| `pnpm models:translation` | Übersetzungs-Trio (MADLAD/Gemma) |
+| `pnpm models:translation` | Übersetzungs-Eval-Pool (Gemma Q4/Q6 + Qwen3.5 2B/4B/9B); das Produktiv-MADLAD-400-3B liefert der Installer-Wizard |
 | `pnpm tessdata` | OCR-Traineddata (Tesseract) |
 
 **Required-Modelle** (First-Launch-Gating) sind ausschließlich **Embedder + Reranker** ([src/main/services/models/manifest.ts](../../src/main/services/models/manifest.ts)) — beide werden mit SHA-256 verifiziert. Das **LLM ist nicht mehr Teil des Laufzeit-Manifests**: Seit v0.3.0 besitzt der Installer-Wizard die LLM-Akquise per Tier-Bundle; LLM-Erkennung erfolgt zur Laufzeit über Dateinamen-Pattern (`LlamaService.discoverProfiles`).
@@ -94,7 +93,7 @@ LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts
 | standard | full | Qwen3.5-4B | 16 GB+ |
 | pro | xl | Qwen3.5-9B | High-End-GPU, 32 GB+ |
 
-Die Modelle werden von HuggingFace (`resolve/main/<file>`-URLs) gezogen. Der Embedder ist `bge-m3-Q4_K_M.gguf` (~0,75 GB), der Reranker `bge-reranker-v2-m3-Q4_K_M.gguf` (~0,4 GB).
+Die Modelle werden von HuggingFace (`resolve/main/<file>`-URLs) gezogen. Der Embedder ist `bge-m3-Q4_K_M.gguf` (~0,4 GB), der Reranker `bge-reranker-v2-m3-Q4_K_M.gguf` (~0,4 GB).
 
 ## 20.6 Paketierung und Installer
 
