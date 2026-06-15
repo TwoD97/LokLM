@@ -54,7 +54,7 @@ Vergleichszahlen liefern.
   Abbruch (`0bf771a`).
 - **Lizenz-Gate (OSI-strict)** — ein Lizenz-Validator gated die Matrix-Skripte und den
   Download-Tier auf OSI-konforme, offene Modelle; das Pack umfasst OSI-only-Modelle
-  (15 LLM / 8 Embedder / 2 Reranker) plus ein separates Open-Weights-Risiko-Pack
+  (15 LLM / 7 Embedder / 2 Reranker) plus ein separates Open-Weights-Risiko-Pack
   (`f1418f6`, `7e817d9`, `5c89369`, `cd214a8`). Verifizierbar über `evals:licenses:check`.
 
 **Relevante Dateien:** `tests/evals/answer/matrix-manifest.ts` (Shard-/Chunker-Achse +
