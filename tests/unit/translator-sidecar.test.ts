@@ -39,7 +39,7 @@ function fake(script: string, opts?: { startTimeoutMs?: number }): TranslatorSid
   return new TranslatorSidecar({
     binPath: process.execPath,
     args: ['-e', script],
-    startTimeoutMs: opts?.startTimeoutMs,
+    ...(opts?.startTimeoutMs !== undefined ? { startTimeoutMs: opts.startTimeoutMs } : {}),
   })
 }
 

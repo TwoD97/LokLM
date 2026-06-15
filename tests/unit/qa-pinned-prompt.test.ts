@@ -3,6 +3,7 @@ import { QAService } from '@main/services/qa/QAService'
 import type { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
 import type { Database } from '@main/db/database'
+import type { SummarizationService } from '@main/services/summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent } from '@shared/documents'
 import type { AskOptions } from '@main/services/llm/LlamaService'
 
@@ -60,7 +61,8 @@ describe('QAService.answer pinned-hit plumbing', () => {
       }),
     } as unknown as Database
 
-    const qa = new QAService(db, retrieval, registry)
+    const summarization = { summarize: vi.fn() } as unknown as SummarizationService
+    const qa = new QAService(db, retrieval, registry, summarization)
     const events: StreamEvent[] = []
     for await (const ev of qa.answer(1, 'how?', { topK: 1 })) {
       events.push(ev)
