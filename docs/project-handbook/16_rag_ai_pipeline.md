@@ -117,6 +117,8 @@ flowchart LR
 
 **Abbildung 16.2:** Hybride Retrieval-Pipeline mit RRF und Rerank.
 
+> Hinweis: Bei aktivem Reranker (GPU-/Default-Pfad, `effectiveRerank = true`) wird der Heuristikblock (titleBoost/shortChunkPenalty/recencyBoost/languageMatchBoost) **vor** dem Rerank bewusst übersprungen — der Cross-Encoder vergibt die Scores ohnehin neu — und **danach** auf die Rerank-Ausgabe angewandt, erst dann folgt documentDiversity. Nur ohne Reranker (CPU-Preset oder explizit `rerank: false`) laufen die Heuristiken vor der Diversifizierung. Abbildung 16.2 zeigt vereinfacht den rerank-losen Pfad. Beleg: `RetrievalService.search` (Blöcke „1b. score adjustments BEFORE rerank" / „2b. re-apply the same heuristics to the rerank output", `src/main/services/retrieval/RetrievalService.ts`).
+
 Tabelle 16.3 beschreibt die einzelnen Stufen mit Funktion und Wirkung.
 
 **Tabelle 16.3:** Stufen der Retrieval-Pipeline.

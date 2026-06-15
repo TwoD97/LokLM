@@ -2,7 +2,7 @@
 
 **Lokaler KI-Wissensassistent mit Quellenverifikation**
 
-Stand: **2026-06-15** · Handbuch-Version **0.1** · Projektstand nach ca. 9 Wochen Projektarbeit; technische Kapitel mit `main` bis Commit `6bacd60` abgeglichen (post-v0.4.2: GPU-Geräteauswahl, Vault-Crash-Resilienz)
+Stand: **2026-06-16** · Handbuch-Version **0.1** · Projektstand nach ca. 9 Wochen Projektarbeit; technische Kapitel mit `main` (v0.4.6) abgeglichen. Test-/Eval-Deliverables (AP-E.1/E.2/T.1/T.2) liegen auf noch nicht gemergten Feature-Branches — siehe Marker in Kap. 11/15/17/19.
 
 > 🚧 **Entwicklungsstand — in Arbeit.** Dieses Handbuch ist ein **lebendes Dokument** und entsteht **während** der laufenden Projektentwicklung. Der vorliegende Stand ist eine **datierte Momentaufnahme**; eine **finale Durchsicht und Konsolidierung steht noch aus** (offene Punkte: [HANDBOOK_STATUS.md](HANDBOOK_STATUS.md) und [OPEN_QUESTIONS_FOR_TEAM.md](OPEN_QUESTIONS_FOR_TEAM.md)). Erst nach dieser Schluss-Durchsicht erfolgen Export/Bindung und eine etwaige Veröffentlichung. Bis dahin bleibt alles lokal.
 
@@ -135,4 +135,4 @@ AP-Abschluss-Dokus) liegen unter `docs/work/` und sind bewusst gitignored.
 
 ---
 
-*Projekthandbuch LokLM · Version 0.1 · Stand 2026-06-15*
+*Projekthandbuch LokLM · Version 0.1 · Stand 2026-06-16*

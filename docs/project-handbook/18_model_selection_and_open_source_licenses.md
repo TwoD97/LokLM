@@ -2,7 +2,9 @@
 
 Dieses Kapitel dokumentiert, **welche** Modelle in welcher Rolle eingesetzt werden, **warum** die Standard-Matrix (Kapitel 17) ausschließlich OSI-permissive Modelle enthält, und **wie** diese Disziplin maschinell durchgesetzt wird (License-Registry + License-Gate). Es ist die juristisch-organisatorische Klammer um die KI-Säule.
 
-Grundregel des Kapitels: **keine Lizenzbehauptung ohne Quelle.** Jede Aussage stützt sich auf die geprüfte License-Registry (`tests/evals/model-license-registry.json`, `verifiedAt: 2026-06-14`); unklare Fälle sind als „unknown / zu prüfen" markiert.
+Grundregel des Kapitels: **keine Lizenzbehauptung ohne Quelle.** Jede Aussage soll sich auf die geplante License-Registry (`tests/evals/model-license-registry.json`, Kopf `verifiedAt: "2026-06-14"`) stützen; unklare Fälle sind als „unknown / zu prüfen" markiert.
+
+> ⚠ Status unklar — Der in diesem Kapitel beschriebene Durchsetzungs-Mechanismus (License-Registry `tests/evals/model-license-registry.json` und License-Gate `tests/evals/license/validate-model-licenses.ts` mit `validateLicenses()`) existiert auf `main` (HEAD `af59c25`) NICHT. Beide Dateien wurden mit Commit `f1418f6` ausschließlich auf dem Feature-Branch `dom/ap-e2-matrix-eval` angelegt; dieser ist kein Vorfahre von `main` und damit nicht Teil des Auslieferungsstands. Bis zum Merge beschreibt dieses Kapitel einen Soll-/Konzept-Stand, nicht den realen `main`-Code. Auf `main` existiert lediglich der Eval-Pool `tests/evals/answer/model-pack.json` (ohne Lizenzfelder).
 
 ---
 
@@ -48,6 +50,8 @@ Solche Klauseln sind in einer Lehr-/Abgabe-Software ein Compliance-Risiko und di
 
 ## 18.3 Lizenzanforderung der Standard-Matrix
 
+> ⚠ zu verifizieren — Das hier beschriebene License-Gate (`validate-model-licenses.ts`, Bedingungen `licenseClass === "osi-permissive"` und `allowedInDefaultMatrix === true`, `ok=false` bei Verletzung) ist auf `main` nicht vorhanden. Es gibt dort weder die Datei noch ein npm-Skript `evals:licenses:check` (beides nur auf Branch `dom/ap-e2-matrix-eval`). Die genannten Felder kommen im `main`-Code nicht vor.
+
 Die Default-Matrix lässt **nur** Modelle zu, die **beide** Bedingungen erfüllen (`validate-model-licenses.ts`):
 
 1. `licenseClass === "osi-permissive"` (Apache-2.0 / MIT / BSD), **und**
@@ -60,6 +64,8 @@ Wichtig: `allowedInDefaultMatrix` kann auch bei OSI-permissiver Lizenz `false` s
 ---
 
 ## 18.4 Ausgeschlossene Klassen
+
+> ⚠ zu verifizieren — Der Ausschlussmechanismus (`allowedInDefaultMatrix: false`) existiert auf `main` nicht. `llama-3.2-3b`, `gemma-3-4b` und `hermes-3-8b` sind auf `main` weiterhin Teil des Eval-Pools `tests/evals/answer/model-pack.json` und werden in `scripts/download-models.mjs` im `tier: 'evals'` explizit heruntergeladen (Pool-Kommentar: „covers Qwen / Llama / Phi / Gemma / Mistral / Granite / Hermes / SmolLM3"). Tabelle 18.3 beschreibt eine Soll-Vorgabe des Branches `dom/ap-e2-matrix-eval`, nicht den `main`-Stand.
 
 Folgende Modelle/Klassen sind aus der Default-Matrix **ausgeschlossen** (`allowedInDefaultMatrix: false`), mit der jeweiligen Begründung aus der Registry (Tabelle 18.3):
 
@@ -90,6 +96,8 @@ Die `notes` sind bewusst detailliert — sie dokumentieren **wo** die Lizenz gep
 
 ### Gate (`tests/evals/license/validate-model-licenses.ts`)
 
+> ⚠ zu verifizieren — Von den drei genannten Pack-Dateien existiert auf `main` nur `tests/evals/answer/model-pack.json` (Pfad: `tests/evals/answer/`, nicht `tests/evals/`). `embedder-pack.json` und `reranker-pack.json` existieren im Repo nicht. Da das Gate auf `main` fehlt, liest auch nichts diese Dateien. In Abbildung 18.1 sind die Knoten `P2 embedder-pack.json (8)` und `P3 reranker-pack.json (2)` daher nur Soll-Stand des Branches `dom/ap-e2-matrix-eval`.
+
 Das Gate liest die Registry plus die drei Pack-Dateien (`model-pack.json`, `embedder-pack.json`, `reranker-pack.json`) und den Judge (`mistral-small-3.2-24b`), prüft jeden Pack-Eintrag gegen die Registry und gibt eine Tabelle + Exit-Code aus. Abbildung 18.1 zeigt den Prüffluss des License-Gates.
 
 ```mermaid
@@ -108,6 +116,8 @@ flowchart LR
 Verletzungsgründe, die das Gate ausgibt: „NOT in license registry", „registry role != pack role", „licenseClass … is not osi-permissive", „allowedInDefaultMatrix=false", sowie Label-Dubletten über Packs. Damit ist sichergestellt, dass **kein** nicht-permissives Modell unbemerkt in einen Default-Matrix-Lauf gerät.
 
 ### Default-Pack — die zugelassenen Modelle
+
+> ⚠ zu verifizieren — Die reale `tests/evals/answer/model-pack.json` auf `main` ist ein Eval-Pool ohne Lizenzfilter: Sie trägt KEINE Lizenzfelder (kein `inDefaultPack`, `licenseClass`, `declaredLicense` oder `allowedInDefaultMatrix`; je Eintrag nur `label`, `path`, `contextSize`, `language`). Sie enthält u. a. `llama-3.2-3b`, `gemma-3-4b`, `hermes-3-8b` (in Tabelle 18.3 als ausgeschlossen geführt) und enthält KEIN `granite-4.1-3b`, `ministral-3-14b` oder `eurollm-9b`. Tabelle 18.4 ist daher gegen den realen Pack abzugleichen; der Bezug auf einen „OSI-Default-Pack" mit `inDefaultPack: true` gilt nur für Branch `dom/ap-e2-matrix-eval`.
 
 Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwort-LLMs alle Apache-2.0 oder MIT (Tabelle 18.4):
 

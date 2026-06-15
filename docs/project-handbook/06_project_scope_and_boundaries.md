@@ -9,7 +9,7 @@ LokLM umfasst eine **vollständige, lokal lauffähige Desktop-Anwendung** mit de
 | Säule                       | Inhalt                                                                                                |
 | --------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **Anmeldung & Sicherheit**  | Registrierung, Login/Logout, Passwort-Wiederherstellung über lokale Recovery-Codes, argon2id-Hashing, Inaktivitäts-Sperre, verschlüsselte lokale Persistenz |
-| **Dokumentenverwaltung**    | Import von PDF, Markdown, Text, Quellcode, optional DOCX; Arbeitsbereiche (Workspaces); CRUD; Hintergrund-Indexierung mit Fortschrittsanzeige |
+| **Dokumentenverwaltung**    | Import von PDF, Markdown, Text, Quellcode, DOCX (mammoth, OOXML → Markdown); Arbeitsbereiche (Workspaces); CRUD; Hintergrund-Indexierung mit Fortschrittsanzeige |
 | **Suche & Retrieval**       | bilinguale Volltextsuche (`tsvector` DE/EN) + semantische Vektorsuche (`pgvector`/HNSW); RRF-Fusion; Cross-Encoder-Reranking (in höheren Tiers); Suche/Filter im Workspace |
 | **Chat & Antwort**          | Chat-Oberfläche mit gestreamten Antworten; Promptaufbau aus abgerufenen Chunks; Verweigerungslogik |
 | **Quellenverifikation**     | klickbare Citations `[doc:<id>, chunk:<id>]`; SourceViewer mit Originalpassage und Kontext         |
@@ -21,7 +21,9 @@ Zusätzlich wurden über den ursprünglichen Mindestumfang hinaus weitere Featur
 
 ## 6.2 Was das Projekt nicht umfasst
 
-Nicht Bestandteil (vollständige Liste in Kapitel 05 und Pflichtenheft §1.3): Cloud-Sync, Antworten aus Internetwissen, Mehrbenutzerbetrieb, mobile/Browser-Versionen, OCR, externe/gemeinsame Datenbanken, Zwei-Faktor-Authentifizierung, automatisches Modell-Auto-Update und kostenpflichtige Funktionen. Diese Abgrenzungen folgen direkt aus dem Lokalitäts- und Datenschutzprinzip oder dem schulischen Zeitrahmen.
+Nicht Bestandteil (vollständige Liste in Kapitel 05 und Pflichtenheft §1.3): Cloud-Sync, Antworten aus Internetwissen, Mehrbenutzerbetrieb, mobile/Browser-Versionen, externe/gemeinsame Datenbanken, Zwei-Faktor-Authentifizierung, automatisches Modell-Auto-Update und kostenpflichtige Funktionen. Diese Abgrenzungen folgen direkt aus dem Lokalitäts- und Datenschutzprinzip oder dem schulischen Zeitrahmen.
+
+OCR war ursprünglich abgegrenzt, wurde jedoch im Projektverlauf implementiert und ausgeliefert (siehe 6.5).
 
 Die optionalen **Kann-Erweiterungen** — lokales Feintuning (QLoRA), code-bewusste Aufteilung, automatische Zusammenfassungen — sind **keine Zusicherung** und nur nach Erreichen eines stabilen Mindestumfangs vorgesehen (Go/No-Go-Gate G3, Pflichtenheft §9.4).
 
@@ -81,7 +83,8 @@ Im Projektverlauf wurden Funktionen integriert, die über den ursprünglichen La
 | Audio-Transkription (Whisper + Sprecher-Diarisation) | v0.4.0 | über NZ-6 hinaus; bewusste Erweiterung |
 | Quiz-Generator (chunk-getrieben) | v0.4.0/Rework | Lernunterstützung                      |
 | QA-Routing (doc-summary/Korpus + Decomposition) | v0.4.1 | ADR-0003                              |
-| Übersetzung + Windows-GPU-Translator-Sidecar | v0.4.1 | plattformübergreifend                  |
+| Übersetzung (MADLAD via CTranslate2-Sidecar, plattformübergreifend; CPU-Basis für Windows/Linux/macOS, optionale CUDA/GPU-Variante für Windows/Linux) | v0.4.1 | plattformübergreifend                  |
+| OCR für gescannte PDFs und Bilddateien (Hybrid-OCR, tesseract.js, deu+eng) | v0.4.x | über Mindestumfang hinaus; belegt in src/main/services/documents/ocr.ts |
 | Linux-AppImage            | ab v0.2.x | Nachtrag v1.1.1 (NZ-8 angepasst)            |
 
 Transkription (NZ-6) und Quiz waren ursprünglich nicht im Mindestumfang. Audio-Transkription und Quiz sind eine **bewusste Scope-Erweiterung über den Mindestumfang** und kein zugesicherter v1-Mindest-Liefergegenstand; das Lastenheft (§10) grenzt Transkription ausdrücklich ab.

@@ -2,7 +2,7 @@
 
 Stand: **2026-06-15**. LokLM ist eine rein lokale, offline arbeitende Single-User-Desktop-App (Electron [1]). Das Bedrohungsmodell ist daher konsequent „Angreifer mit Festplattenzugriff auf den lokalen Tresor" — nicht ein Cloud-/Multi-Tenant-Modell.
 
-Quellen für dieses Kapitel: `docs/adr/0001-argon2id-password-kdf.md`, `docs/adr/0002-envelope-encryption-aes-gcm.md`, `docs/adr/0004-adaptive-model-residency.md`, `.gitignore`, `.env.example`, `tests/evals/model-license-registry.json`, `docs/work/projektstatusbericht-2026-06-14.md`.
+Quellen für dieses Kapitel: `docs/adr/0001-argon2id-password-kdf.md`, `docs/adr/0002-envelope-encryption-aes-gcm.md`, `docs/adr/0004-adaptive-model-residency.md`, `.gitignore`, `.env.example`, `docs/work/projektstatusbericht-2026-06-14.md`.
 
 ---
 
@@ -17,7 +17,7 @@ Tabelle 21.1 ordnet die sensiblen Datenklassen ihrer Behandlung zu.
 | **Benutzergeheimnisse** | Vault-Passwort, 18-Wort-Recovery-Passphrase | Nie im Klartext persistiert; durchlaufen Argon2id; Schlüssel mlock-geschützt im Speicher (ADR-0001/0002) |
 | **Nutzerinhalte** | Importierte Dokumente, Chunks, Chat-Verläufe, Embeddings/Vektoren | Vollständig im verschlüsselten `loklm.vault` (AES-256-GCM) |
 | **Verhaltensdaten** | Geplantes Usage-Journal (welches Feature wann genutzt, ADR-0004 PROPOSED) | Vault-verschlüsselt, verlässt die Maschine nie, vollständig löschbar |
-| **API-Keys / Tokens (lokal, Eval)** | RunPod-, AWS/S3-, Anthropic-Keys, Ollama-Bearer-Token | Nur in lokaler `.env` (gitignored), **nicht** auf GitHub |
+| **API-Keys / Tokens (lokal, Eval)** | RunPod-, Anthropic-Keys, Ollama-Bearer-Token | Nur in lokaler `.env` (gitignored), **nicht** auf GitHub |
 | **Lokale Test-Notizen** | Zugangsdaten, Recovery-Phrasen aus manuellen Tests | `test-notes/` (gitignored), nie committen |
 | **Modelle / Datasets** | GGUF-Gewichte, tessdata, regenerierbare Eval-Korpora | `/models/`, `/tessdata/`, große Eval-Reports gitignored |
 
@@ -31,7 +31,7 @@ Quelle: `.gitignore`. Die für Sicherheit/Datenschutz relevanten Einträge sind 
 
 | Pfad / Muster | Grund |
 |---|---|
-| `.env`, `.env.*` (außer `.env.example`) | **Live-Secrets** (RunPod/AWS/S3/Anthropic-Keys). Niemals auf GitHub. |
+| `.env`, `.env.*` (außer `.env.example`) | **Live-Secrets** (RunPod-/Anthropic-Keys, Ollama-Bearer-Token). Niemals auf GitHub. |
 | `/models/` | GGUF-Gewichte (groß, teils lizenz-sensitiv) — Cache, nicht im Repo |
 | `/tessdata/` | Tesseract-Traineddata (~28 MB), per Script nachladbar |
 | `docs/work/` | Interne Arbeitsstände (Projektstatusberichte, Abschluss-Dokus, Laborberichte) |
@@ -59,7 +59,7 @@ Lizenz-/Korpus-Daten (FLORES-200, Wikipedia-survival) sind als CC-BY-SA-4.0 mark
 | `RUNPOD_API_KEY`, `RUNPOD_POD_ID` | RunPod-Control-Plane (`pod:start/stop/status`) | Sensitiv |
 | `OLLAMA_LLM_MODEL` / `_EMBEDDER_` / `_RERANKER_MODEL` | Modell-Pull-Liste | Nicht sensitiv |
 
-> WICHTIG: In der lokalen, gitignoreten `.env` liegen **Live-RunPod-/AWS-/S3-Keys**. Sie sind nicht auf GitHub, eine **Rotation wird empfohlen**, bevor das Repo öffentlich breiter geteilt wird. Im Handbuch werden diese Werte ausschließlich als `<API_KEY>` / `<S3_KEY>` / `<TOKEN>` genannt — **niemals** mit echten Werten.
+> WICHTIG: In der lokalen, gitignoreten `.env` liegen **Live-RunPod- und Anthropic-Keys sowie ein optionaler Ollama-Bearer-Token**. Sie sind nicht auf GitHub, eine **Rotation wird empfohlen**, bevor das Repo öffentlich breiter geteilt wird. Im Handbuch werden diese Werte ausschließlich als `<API_KEY>` / `<TOKEN>` genannt — **niemals** mit echten Werten.
 
 ---
 
