@@ -4,7 +4,7 @@ Dieses Kapitel beschreibt die Eval-Säule des Projekts: warum es eine Matrix-Aus
 
 Alle Pfade sind repo-relativ (`tests/evals/...`).
 
-> WARN zu verifizieren — Die hier beschriebene Matrix-Eval (`tests/evals/answer/matrix-manifest.ts`, `embedder-pack.json`/`reranker-pack.json`, License-Gate `validate-model-licenses.ts`, `buildMatrixManifest`) liegt auf dem Branch `dom/ap-e2-matrix-eval` und ist **noch nicht nach `main` gemergt**. Auf `main` realisiert nur `matrixConfigs()` (`tests/evals/pipeline/configs.ts`) eine reduzierte Baseline (1 Embedder, Reranker-Achse). Dieses Kapitel dokumentiert den AP-E.2-Deliverable-Stand des Branches; vor der gebundenen Abgabe ist der Merge-Stand zu prüfen.
+> WARN zu verifizieren — Die hier beschriebene Matrix-Eval (`tests/evals/answer/matrix-manifest.ts`, `embedder-pack.json`/`reranker-pack.json`, License-Gate `validate-model-licenses.ts`, `buildMatrixManifest`) liegt auf dem Branch `dom/ap-e2-matrix-eval` und ist **noch nicht nach `main` gemergt**. Auf `main` realisiert nur `matrixConfigs()` (`tests/evals/pipeline/configs.ts`) eine reduzierte Baseline (1 Embedder, Reranker-Achse). Dieses Kapitel ist am **2026-06-16 gegen den Branch-Stand verifiziert und korrigiert** (Zellenzahl 360→**315**, Embedder 8→**7** — `e5-base` nicht ladbar, Configs 24→**21**); offen bleibt nur der **Merge-Stand** vor der gebundenen Abgabe.
 
 ---
 
@@ -33,7 +33,7 @@ Die Achsen werden aus Pack-Dateien unter `tests/evals/answer/` gelesen und in `m
 
 Der Manifest-Helfer (`answer/matrix-manifest.ts`) rechnet die Achsen so zusammen:
 
-```
+```text
 Reranker-Achse   = rerankers + 1 (SkipReranker)        = 2 + 1 = 3
 Retrieval-Configs = Embedder × Reranker-Achse × Chunker = 7 × 3 × 1 = 21
 Zellen            = Retrieval-Configs × Antwort-LLMs    = 21 × 15   = 315

@@ -22,7 +22,7 @@ Stand der Liste: **2026-06-16**.
 | | Aufgabe | Wer | Kapitel | Status |
 | --- | --- | --- | --- | --- |
 | A1 | main-Sync auf **v0.4.6** (Delta-Audit, Commit `e5b0227`) | C | 06/09/11–14/16/18/20/21/23/28 | ☑ |
-| A2 | **Branch-Audit** der AP-/Eval-Kapitel gegen ihre Branches (`dom/ap-e2-matrix-eval`, `dom/ap-e1-eval-set`, `dom/ap-t1-unit-tests`, `dom/ap-t2-integrationstests`) statt gegen main. **Kap. 17 + Matrix-Zahlen erledigt** (Commit `392a1a4`: 360→315 Zellen, 8→7 Embedder, 24→21 Configs — über Kap. 11/17/18/19/22/23). Offen: **Kap. 15** (Datenpipeline: `build-lap-dataset.ts`, Gold-Spans) gegen Branch; Rest von Kap. 11/19 (AP-T.1/T.2/E.1) | C | 11, 15, 17, 19 | 🌿 ◐ |
+| A2 | **Branch-Audit** der AP-/Eval-Kapitel gegen ihre Branches (`dom/ap-e2-matrix-eval`, `dom/ap-e1-eval-set`, `dom/ap-t1-unit-tests`, `dom/ap-t2-integrationstests`) statt gegen main. **Kap. 17 + Matrix-Zahlen erledigt** (Commit `392a1a4`: 360→315 Zellen, 8→7 Embedder, 24→21 Configs — über Kap. 11/17/18/19/22/23). **Kap. 15 verifiziert** (2026-06-16: Chunker-Offsets, `goldSpans`, alle `GeneratedQuestion`-Felder, `buildLapDataset` — 1:1 korrekt, keine Änderung nötig). Offen: Rest von Kap. 11/19 (AP-T.1/T.2/E.1 gegen `dom/ap-t1…`/`dom/ap-t2…`/`dom/ap-e1…`) | C | 11, 15, 17, 19 | 🌿 ◐ |
 | A3 | Erneuter main-Delta-Check vor Abgabe (`git log 783ca4b..main`, HEAD prüfen) | C | techn. Kap. | ☐ |
 | A4 | Marker-Sweep: jeden `> WARN`-Marker auflösen **oder** bewusst belassen + begründen | C/T | alle | ◐ |
 
