@@ -87,7 +87,11 @@ Session bereitgestellt; enthält bereits `MEMORY.md` + `project-handbook.md`), i
 Der Session-Handoff (`.remember/remember.md`) ist nur für **laufende, halbfertige**
 Kapitelarbeit zuständig; **persistente** Fakten gehören in die Memory-Dateien oben.
 
-## Vor der Bindung
+## Reife & Bindung
 
-Vor dem Bump auf v1.0.0 und dem Export die Checkliste
+Das Handbuch wächst entlang der **lebenden Roadmap**
+[ROADMAP_TO_V1.md](docs/project-handbook/ROADMAP_TO_V1.md) — die laufend gepflegte To-do-/
+Reifeliste bis zur bindefähigen **v1.0.0**. **In jeder Session aktuell halten:** erledigte
+Punkte abhaken (☑, nicht löschen), neue ergänzen, Blocker als ⛔/🌿 markieren. Vor dem Bump
+auf v1.0.0 und dem Export zusätzlich die Abnahme-Checkliste
 [RELEASE_AUDIT.md](docs/project-handbook/RELEASE_AUDIT.md) vollständig abarbeiten.

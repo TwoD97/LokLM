@@ -83,5 +83,6 @@ Buch-Dateien). Kein Kapitel ist `leer`, `begonnen` oder `teilweise` im Sinne feh
 Inhalte. Die durchgängige `zu pruefen`-Einstufung spiegelt die bewusste Ehrlichkeit der
 Marker-Konvention wider: Die Aussagen stehen, sind aber an wenigen, klar benannten
 Stellen vor der finalen Abgabe durch das Team zu bestätigen — insbesondere nach Abschluss
-des AP-E.2-Sweeps. Der finale Reife-Check vor der Bindung erfolgt über
-[RELEASE_AUDIT.md](RELEASE_AUDIT.md).
+des AP-E.2-Sweeps. Der Weg bis zur bindefähigen v1.0.0 wird laufend in
+[ROADMAP_TO_V1.md](ROADMAP_TO_V1.md) verfolgt; der finale Reife-Check vor der Bindung erfolgt
+über [RELEASE_AUDIT.md](RELEASE_AUDIT.md).
