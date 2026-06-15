@@ -171,7 +171,9 @@
       "**/node_modules/tesseract.js/**",
       "**/node_modules/tesseract.js-core/**",
       "**/node_modules/@kutalia/whisper-node-addon/**",
-      "**/node_modules/sherpa-onnx-*/**"
+      "**/node_modules/sherpa-onnx-*/**",
+      "**/node_modules/node-llama-cpp/**",
+      "**/node_modules/@node-llama-cpp/**"
     ],
     "publish": null,
     "npmRebuild": false,
