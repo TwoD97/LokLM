@@ -24,7 +24,7 @@ Die Achsen werden aus Pack-Dateien unter `tests/evals/answer/` gelesen und in `m
 
 | Achse | Member im Repo-Stand (2026-06-14) | Quelle |
 | --- | --- | --- |
-| **Embedder** | 8: `bge-m3`, `e5-large`, `arctic-l-v2`, `qwen3-emb-0.6b`, `qwen3-emb-4b`, `granite-emb`, `e5-base`, `nomic-v2` | `embedder-pack.json` |
+| **Embedder** | 7: `bge-m3`, `e5-large`, `arctic-l-v2`, `qwen3-emb-0.6b`, `qwen3-emb-4b`, `granite-emb`, `nomic-v2` (`e5-base` entfernt — GGUF-Architektur „xlmr" von node-llama-cpp 3.18.1 nicht ladbar; Pack `…-osi-7`) | `embedder-pack.json` |
 | **Reranker** | 2 + Skip: `bge-reranker-v2-m3`, `bge-reranker-base` (+ `SkipReranker` automatisch) | `reranker-pack.json` |
 | **Chunker** | 1: `fixed-512-64` | `MATRIX_CHUNKER_SPECS` (`answer/matrix-manifest.ts`) |
 | **Antwort-LLM** | 15: u. a. `qwen3.5-{2b,4b,9b,27b}`, `qwen3-{4b-instruct,8b,14b}`, `phi-4-{mini,14b}`, `granite-{3.3-8b,4.1-3b}`, `mistral-nemo-12b`, `ministral-3-14b`, `eurollm-9b`, `smollm3-3b` | `model-pack.json` |
@@ -35,14 +35,14 @@ Der Manifest-Helfer (`answer/matrix-manifest.ts`) rechnet die Achsen so zusammen
 
 ```
 Reranker-Achse   = rerankers + 1 (SkipReranker)        = 2 + 1 = 3
-Retrieval-Configs = Embedder × Reranker-Achse × Chunker = 8 × 3 × 1 = 24
-Zellen            = Retrieval-Configs × Antwort-LLMs    = 24 × 15   = 360
-Läufe             = Zellen × Fragen (Antwort + Judge)   = 360 × 163 = 58 680
+Retrieval-Configs = Embedder × Reranker-Achse × Chunker = 7 × 3 × 1 = 21
+Zellen            = Retrieval-Configs × Antwort-LLMs    = 21 × 15   = 315
+Läufe             = Zellen × Fragen (Antwort + Judge)   = 315 × 163 = 51 345
 ```
 
-> ⚠ Status unklar — Die ursprüngliche Design-Skizze nannte **7 Embedder × 3 Reranker × 1 Chunker × 19 LLMs = 399 Zellen**. Der aktuelle Code-/Pack-Stand ergibt **8 × 3 × 1 × 15 = 360 Zellen** (15 OSI-LLMs nach Lizenz-Gate, 8 Embedder, 2+Skip Reranker, 1 Chunker). Die Differenz erklärt sich durch das Lizenz-Gate (Kapitel 18): einige ursprünglich gelistete LLMs (Llama-/Gemma-/Hermes-Klassen) wurden aus der Default-Matrix entfernt. Maßgeblich ist der Code-Stand (360); die finale Zahl ist nach dem GPU-Sweep aus dem geschriebenen `summary.json` zu bestätigen.
+> ⚠ Status unklar — Die ursprüngliche Design-Skizze nannte **7 Embedder × 3 Reranker × 1 Chunker × 19 LLMs = 399 Zellen**. Der aktuelle Code-/Pack-Stand (`embedder-pack.json` = `…-osi-7`, gelesen von `matrixConfigs()`) ergibt **7 × 3 × 1 × 15 = 315 Zellen** (15 OSI-LLMs nach Lizenz-Gate, **7** Embedder — `e5-base` wegen nicht ladbarer GGUF-Architektur „xlmr" entfernt —, 2+Skip Reranker, 1 Chunker). Die Differenz zur Design-Skizze (399) erklärt sich durch das Lizenz-Gate (Kapitel 18, LLM-Klassen Llama/Gemma/Hermes entfernt) und den entfallenen `e5-base`-Embedder. Maßgeblich ist der Code-/Pack-Stand (**315**); die finale Zahl ist nach dem GPU-Sweep aus dem geschriebenen `summary.json` zu bestätigen.
 
-**Belegte Klarstellung zur „72":** Der Kommentar in `matrixConfigs()` (`configs.ts`) spricht von „8 embedder × (1 skip + 2 reranker) × 3 chunker = 72 configs". Real sind es **24 Retrieval-Configs**: Die tatsächliche Chunker-Achse `MATRIX_CHUNKER_SPECS` (`answer/matrix-manifest.ts`) enthält **nur einen** Eintrag (`fixed-512-64`), also `8 × (2 + 1) × 1 = 24`. `sweep.ts` re-chunkt **nicht** pro Config (es nutzt die vor-gechunkten `dataset.chunks`); eine Mehr-Größen-Achse hier wäre wirkungslos (3× identische Ergebnisse). Der Chunk-Größen-Vergleich läuft korrekt als **separate Läufe** über die chunker-unabhängige Span-Metrik (siehe 17.4 und Kapitel 15.7). Der „72"-Kommentar im Quelltext ist insofern **veraltet/irreführend** (die Chunker-Achse hat faktisch nur 1 Eintrag) und sollte auf 24 korrigiert werden. Die Gesamt-Zellenzahl bleibt unberührt bei **360** (24 Retrieval-Configs × 15 Antwort-LLMs).
+**Belegte Klarstellung zur „72":** Der Kommentar in `matrixConfigs()` (`configs.ts`, Z. 283) spricht von „8 embedder × (1 skip + 2 reranker) × 3 chunker = 72 configs". Real sind es **21 Retrieval-Configs**: Das `embedder-pack.json` enthält **7** Embedder (nicht 8 — `e5-base` entfernt), und die Chunker-Achse `MATRIX_CHUNKER_SPECS` (`answer/matrix-manifest.ts`) enthält **nur einen** Eintrag (`fixed-512-64`, nicht 3), also `7 × (2 + 1) × 1 = 21`. `sweep.ts` re-chunkt **nicht** pro Config (es nutzt die vor-gechunkten `dataset.chunks`); eine Mehr-Größen-Achse hier wäre wirkungslos (identische Ergebnisse). Der Chunk-Größen-Vergleich läuft korrekt als **separate Läufe** über die chunker-unabhängige Span-Metrik (siehe 17.4 und Kapitel 15.7). Der „72"-Kommentar im Quelltext ist somit **doppelt veraltet** (7 statt 8 Embedder, 1 statt 3 Chunker) und sollte auf 21 korrigiert werden. Die Gesamt-Zellenzahl ist entsprechend **315** (21 Retrieval-Configs × 15 Antwort-LLMs).
 
 ---
 
@@ -179,7 +179,7 @@ Tabelle 17.6 gibt den Phasenstand der Eval-Säule wieder.
 | Phase 2 | eigentlicher GPU-Sweep über die volle Matrix (RunPod) | **offen** |
 | Phase 3–5 | LAP-Doku, Auswertung/Interpretation, Aufnahme ins Abgabe-Paper | **offen** |
 
-> ⚠ Status unklar — Der vollständige GPU-Matrix-Sweep (Phase 2) ist zum Stand 2026-06-14 **noch nicht** durchgeführt. Es existiert ein früher Teil-Run (`tests/evals/report/runs/2026-06-06T18-08-58_af20084/`, nur die `matrix_*norr/bge-rr`-Retrieval-Configs), aber keine vollständige 360-Zellen-Auswertung mit Judge. Endgültige Zahlen liegen erst nach dem GPU-Sweep vor.
+> ⚠ Status unklar — Der vollständige GPU-Matrix-Sweep (Phase 2) ist zum Stand 2026-06-14 **noch nicht** durchgeführt. Es existiert ein früher Teil-Run (`tests/evals/report/runs/2026-06-06T18-08-58_af20084/`, nur die `matrix_*norr/bge-rr`-Retrieval-Configs), aber keine vollständige 315-Zellen-Auswertung mit Judge. Endgültige Zahlen liegen erst nach dem GPU-Sweep vor.
 
 **Nötige Smoke-Tests vor dem großen Lauf:**
 

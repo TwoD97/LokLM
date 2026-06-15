@@ -130,6 +130,8 @@ Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwo
 
 Embedder (alle OSI): `bge-m3` [17] (MIT), `e5-base`/`e5-large` (MIT), `arctic-l-v2`, `qwen3-emb-0.6b`/`qwen3-emb-4b`, `granite-emb`, `nomic-v2` (Apache-2.0). Reranker: `bge-reranker-v2-m3` (Apache-2.0), `bge-reranker-base` (MIT). Judge: `mistral-small-3.2-24b` (Apache-2.0).
 
+`e5-base` ist zwar OSI-lizenziert (MIT), wird aber **technisch** aus dem aktiven Matrix-Pack (`…-osi-7`) ausgeschlossen, weil seine GGUF-Architektur „xlmr" von node-llama-cpp 3.18.1 nicht geladen wird. Die Matrix nutzt daher **7** Embedder (Kapitel 17), nicht 8.
+
 ---
 
 ## 18.6 Offene Lizenzprüfungen und Caveats

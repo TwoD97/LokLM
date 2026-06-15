@@ -19,7 +19,7 @@ Die folgende Übersicht listet die projektrelevanten Risiken mit Status und Rest
 | R3 | **CI baute lange nur die Website** | Erst spät ein vitest-Test-Job (integration + tx) ergänzt | Lange kein automatisierter Test-Gate; Regressionen nur lokal sichtbar | Erster vitest-Job in PR #19 (Electron-Stub für grünen Ubuntu-Lauf) | **teilw. gelöst** | mittel — Job hängt an Merge von PR #19 in `main` | `checks.yml`, `Laborbericht_…2026-06-12.md` |
 | R4 | **RetrievalService-E2E modell-gated, skippt in CI** | BGE-M3-GGUF liegt nicht im CI-Runner | Retrieval-Roundtrip in CI ungetestet (lokal grün) | `describe.runIf(GGUF)`; offene Team-Entscheidung über Modell-Download-Step in der Pipeline | **offen** | gering–mittel — lokal verifiziert, CI-Lücke | `ap-t2-abschluss-doku.md` §3 |
 | R5 | **Echo-Kammer / Eval-Overfitting** | Dev-Set und Hold-out könnten dieselben Fragen enthalten | Eval-Zahlen überschätzen die echte Qualität | 15 versiegelte Hold-out-Fälle (AP-E1b, separat, von Denys nicht einsehbar) + automatischer Dedup-Guard im Validator | **gemindert** | gering | `ap-e1-abschluss-doku.md` |
-| R6 | **Eval-Matrix-Rechenkosten** | Kartesisches Produkt (8 Embedder × 3 Reranker-Optionen × 1 Chunker × 15 LLMs = 360 Zellen, × 163 Fragen × Antwort+Judge) | Hoher GPU-Stunden-Bedarf; Deadline-Risiko für den Abgabe-Laborbericht | Multi-Pod-Sharding (`parseShard`/`selectShard`, round-robin), Pre-Run-Manifest mit GPU-Stunden-Schätzung, retrieval-only-Default (`--no-llm`), `--limit`-Smoke; Scope-Entscheidung offen | **offen** | hoch — Phase 2 vor Abgabe noch nicht gefahren | `matrix-manifest.ts`, `tests/evals/README.md` |
+| R6 | **Eval-Matrix-Rechenkosten** | Kartesisches Produkt (7 Embedder × 3 Reranker-Optionen × 1 Chunker × 15 LLMs = 315 Zellen, × 163 Fragen × Antwort+Judge) | Hoher GPU-Stunden-Bedarf; Deadline-Risiko für den Abgabe-Laborbericht | Multi-Pod-Sharding (`parseShard`/`selectShard`, round-robin), Pre-Run-Manifest mit GPU-Stunden-Schätzung, retrieval-only-Default (`--no-llm`), `--limit`-Smoke; Scope-Entscheidung offen | **offen** | hoch — Phase 2 vor Abgabe noch nicht gefahren | `matrix-manifest.ts`, `tests/evals/README.md` |
 | R7 | **Modelllizenz-Risiko** | Manche starke Modelle (Llama/Gemma/Hermes, jina-reranker-v2) sind nicht OSI-permissiv (Gemma-Terms, CC-BY-NC) | Lizenzverstoß bei kommerzieller Nutzung / Abgabe | Lizenz-Gate: `validate-model-licenses.ts` lässt nur `osi-permissive` + `allowedInDefaultMatrix=true`; `model-license-registry.json` (verifiziert 2026-06-14); non-OSI-Modelle aus den Packs entfernt | **gemindert** | gering | `model-license-registry.json`, `license-validator.test.ts` |
 | R8 | **AP-E.2 Phase 2 offen vor Abgabe** | GPU-Sweep noch nicht durchgeführt; Teile der Matrix-Verdrahtung uncommittet | Abgabe-Paper/Laborbericht ohne ausgewertete Matrix-Ergebnisse | LAP-Dataset (2.322 Chunks, 163 DE-Fragen) + Span-Recall-Metrik stehen (Phase 1); Sweep auf RunPod-GPU als nächster Schritt eingeplant | **offen** | hoch | `projektstatusbericht-2026-06-14.md` |
 | R9 | **Secrets in lokaler `.env`** | Live-RunPod-/AWS-/S3-Keys liegen lokal | Bei versehentlichem Commit / Repo-Öffnung: Key-Leak | `.env`/`.env.*` gitignored (nur `.env.example` mit Platzhaltern); `test-notes/`, `docs/abgabe/` ebenfalls gitignored | **gemindert** | mittel — Rotation empfohlen, da Live-Keys lokal vorhanden | `.gitignore`, `.env.example` |
@@ -40,7 +40,7 @@ Abbildung 22.1 zeigt die Abhängigkeit der abgabe-kritischen offenen Risiken.
 ```mermaid
 flowchart LR
     R8["R8 AP-E.2 Phase 2<br/>GPU-Sweep offen"]:::high
-    R6["R6 Matrix-Rechenkosten<br/>360 Zellen × 163 Fragen"]:::high
+    R6["R6 Matrix-Rechenkosten<br/>315 Zellen × 163 Fragen"]:::high
     R2["R2 E2E-Playwright<br/>auf CI kaputt"]:::mid
     R10["R10 EV-Zertifikat<br/>SmartScreen"]:::mid
     R9["R9 Secrets in .env<br/>Rotation empfohlen"]:::mid
@@ -53,7 +53,7 @@ flowchart LR
 
 Die beiden abgabe-kritischen Posten sind **R8** (Phase-2-Sweep) und das daran hängende **R6** (Rechenkosten/Scope). Beide liegen im Verantwortungsbereich von Dominik (Eval-Säule) und hängen an einer Team-Entscheidung zum endgültigen Matrix-Scope (Anzahl Zellen/Modelle/Datensätze) sowie an verfügbarer RunPod-GPU-Zeit.
 
-> WARN Status unklar — R8/R6 sind zum Stichtag offen; ob der vollständige 360-Zellen-Sweep bis zur Abgabe-Deadline gefahren werden kann, hängt von GPU-Budget und Scope-Bestätigung ab. Ein retrieval-only-Lauf (`--no-llm`, deterministisch, schnell) ist als Fallback möglich.
+> WARN Status unklar — R8/R6 sind zum Stichtag offen; ob der vollständige 315-Zellen-Sweep bis zur Abgabe-Deadline gefahren werden kann, hängt von GPU-Budget und Scope-Bestätigung ab. Ein retrieval-only-Lauf (`--no-llm`, deterministisch, schnell) ist als Fallback möglich.
 
 ---
 

@@ -156,14 +156,14 @@ AP-E.2 evaluiert die RAG [26]-Pipeline als kartesisches Produkt über vier Achse
 
 | Achse | Anzahl | Pack / Quelle |
 |---|---|---|
-| Embedder | 8 | `embedder-pack.json` (bge-m3, e5-large, arctic-l-v2, qwen3-emb-0.6b/4b, granite-emb, e5-base, nomic-v2) |
+| Embedder | 7 | `embedder-pack.json` (`…-osi-7`: bge-m3, e5-large, arctic-l-v2, qwen3-emb-0.6b/4b, granite-emb, nomic-v2; `e5-base` entfernt — GGUF-Arch „xlmr" nicht ladbar) |
 | Reranker | 2 + SkipReranker = 3 | `reranker-pack.json` (bge-reranker-v2-m3, bge-reranker-base) + automatischer Skip |
 | Chunker | 1 (`fixed-512-64`) | `MATRIX_CHUNKER_SPECS` — Chunk-Größe wird als **separate Dataset-Läufe** verglichen, nicht in der Matrix (sweep re-chunkt nicht pro Config) |
 | Antwort-LLM | 15 | `model-pack.json` (`loklm-matrix-llms-osi-15`, nur OSI-permissiv) |
 
-Daraus: Retrieval-Configs = 8 × 3 × 1 = **24**; Zellen = 24 × 15 = **360**; Läufe = 360 × 163 DE-Fragen (Antwort + Judge). Der Pre-Run-Manifest (`buildMatrixManifest`) schätzt daraus die GPU-Stunden.
+Daraus: Retrieval-Configs = 7 × 3 × 1 = **21**; Zellen = 21 × 15 = **315**; Läufe = 315 × 163 DE-Fragen (Antwort + Judge). Der Pre-Run-Manifest (`buildMatrixManifest`) schätzt daraus die GPU-Stunden.
 
-> WARN Status unklar — die ursprüngliche Design-Größe lag bei ~399 Zellen; die committeten OSI-Packs ergeben 360 Zellen, nachdem non-OSI-Modelle (Llama/Gemma/Hermes, jina-reranker) ausgeschlossen wurden. Die exakte Zellenzahl des Abgabe-Laufs hängt vom final bestätigten Scope ab (offene Team-Entscheidung).
+> WARN Status unklar — die ursprüngliche Design-Größe lag bei ~399 Zellen; die committeten OSI-Packs ergeben **315 Zellen** (7 Embedder × 3 Reranker-Achse × 1 Chunker × 15 LLMs), nachdem non-OSI-Modelle (Llama/Gemma/Hermes, jina-reranker) und der nicht ladbare `e5-base`-Embedder ausgeschlossen wurden. Die exakte Zellenzahl des Abgabe-Laufs hängt vom final bestätigten Scope ab (offene Team-Entscheidung).
 
 LAP-Dataset zum Stichtag: `lap-dataset.json` mit **2.322 Chunks**, **163 deutschen RAG-Fragen** (148 answerable + 15 refusal), verifizierten Gold-Spans (Quelle: `projektstatusbericht-2026-06-14.md`).
 
