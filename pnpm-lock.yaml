@@ -117,7 +117,7 @@ importers:
         version: 18.3.7(@types/react@18.3.31)
       '@vitejs/plugin-react':
         specifier: ^4.7.0
-        version: 4.7.0(vite@5.4.21(@types/node@22.19.21))
+        version: 4.7.0(vite@6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0))
       '@vitest/coverage-v8':
         specifier: ^2.1.9
         version: 2.1.9(vitest@2.1.9(@types/node@22.19.21)(jsdom@25.0.1))
@@ -132,7 +132,7 @@ importers:
         version: 25.1.8(electron-builder-squirrel-windows@25.1.8)
       electron-vite:
         specifier: ^2.3.0
-        version: 2.3.0(vite@5.4.21(@types/node@22.19.21))
+        version: 2.3.0(vite@6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0))
       eslint:
         specifier: ^9.39.4
         version: 9.39.4
@@ -188,8 +188,8 @@ importers:
         specifier: ^8.61.0
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
       vite:
-        specifier: ^5.4.21
-        version: 5.4.21(@types/node@22.19.21)
+        specifier: ^6.4.2
+        version: 6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.21)(jsdom@25.0.1)
@@ -4719,6 +4719,46 @@ packages:
       terser:
         optional: true
 
+  vite@6.4.2:
+    resolution: {integrity: sha512-2N/55r4JDJ4gdrCvGgINMy+HH3iRpNIz8K6SFwVsA+JbQScLiC+clmAxBgwiSPgcG9U15QmvqCGWzMbqda5zGQ==}
+    engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^18.0.0 || ^20.0.0 || >=22.0.0
+      jiti: '>=1.21.0'
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      sass-embedded: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.16.0
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      jiti:
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+
   vitest@2.1.9:
     resolution: {integrity: sha512-MSmPM9REYqDGBI8439mA4mWhV5sKmDlBKWIYbA3lRb2PTHACE0mgKwA8yQ2xq9vxDTuk4iPrECBAEW2aoFXY0Q==}
     engines: {node: ^18.0.0 || >=20.0.0}
@@ -6027,7 +6067,7 @@ snapshots:
 
   '@ungap/structured-clone@1.3.1': {}
 
-  '@vitejs/plugin-react@4.7.0(vite@5.4.21(@types/node@22.19.21))':
+  '@vitejs/plugin-react@4.7.0(vite@6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
@@ -6035,7 +6075,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 5.4.21(@types/node@22.19.21)
+      vite: 6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -6938,7 +6978,7 @@ snapshots:
 
   electron-to-chromium@1.5.372: {}
 
-  electron-vite@2.3.0(vite@5.4.21(@types/node@22.19.21)):
+  electron-vite@2.3.0(vite@6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)):
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7)
@@ -6946,7 +6986,7 @@ snapshots:
       esbuild: 0.25.12
       magic-string: 0.30.21
       picocolors: 1.1.1
-      vite: 5.4.21(@types/node@22.19.21)
+      vite: 6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -10052,6 +10092,20 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.21
       fsevents: 2.3.3
+
+  vite@6.4.2(@types/node@22.19.21)(tsx@4.22.4)(yaml@2.9.0):
+    dependencies:
+      esbuild: 0.25.12
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rollup: 4.62.0
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 22.19.21
+      fsevents: 2.3.3
+      tsx: 4.22.4
+      yaml: 2.9.0
 
   vitest@2.1.9(@types/node@22.19.21)(jsdom@25.0.1):
     dependencies:
