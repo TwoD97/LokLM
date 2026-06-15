@@ -95,9 +95,11 @@ export class QAService {
     const threshold = opts.refusalThreshold ?? DEFAULT_REFUSAL_THRESHOLD
     // Answer language: forced when the caller set opts.language ('de'/'en'),
     // otherwise auto — detect it from the query (Auto mode). detectResponseLanguage
-    // only loads eld for queries long enough to score reliably ; short prompts
-    // take the regex path, so the common case stays cheap.
-    const language = opts.language ?? (await detectResponseLanguage(query))
+    // runs eld on every prompt (its isReliable() gates trust), so short German
+    // prompts like "Fasse Kapitel 3 zusammen" classify correctly instead of
+    // defaulting to English. opts.fallbackLanguage (the user's UI language) is
+    // used only for the genuinely ambiguous tail eld can't score.
+    const language = opts.language ?? (await detectResponseLanguage(query, opts.fallbackLanguage))
 
     // Stage events emitted from inside awaited helpers (RetrievalService) land
     // here; we drain the buffer between awaits and re-yield as StreamEvents.

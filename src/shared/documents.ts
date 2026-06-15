@@ -337,6 +337,12 @@ export interface AnswerOptions {
   topK?: number
   refusalThreshold?: number
   language?: 'de' | 'en'
+  /** Auto mode only: the language to answer in when per-turn detection can't
+   *  confidently classify the query (short / ambiguous prompt). The chat:stream
+   *  handler sets this to the user's UI language so a German-UI user typing a
+   *  short, umlaut-free prompt isn't silently answered in English. Ignored when
+   *  `language` is set (that forces the language outright). */
+  fallbackLanguage?: 'de' | 'en'
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   rerank?: boolean
   multiQuery?: boolean

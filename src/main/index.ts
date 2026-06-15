@@ -1582,8 +1582,16 @@ function registerIpc(): void {
       // unconditionally — Auto is now an explicit opt-in, so detection no longer
       // silently overrides a manual DE/EN choice. ( The UI language lives in
       // basic.language and is unaffected by this. )
-      const answerLang = getSettingsService().get().basic.answerLanguage
-      if (answerLang === 'de' || answerLang === 'en') opts.language = answerLang
+      const basic = getSettingsService().get().basic
+      if (basic.answerLanguage === 'de' || basic.answerLanguage === 'en') {
+        opts.language = basic.answerLanguage
+      } else {
+        // Auto: eld classifies the prompt per-turn (it handles short German like
+        // "Fasse Kapitel 3 zusammen" fine). For the genuinely ambiguous tail eld
+        // can't score ("ok", a bare number), answer in the user's UI language
+        // rather than a hardcoded English.
+        opts.fallbackLanguage = basic.language
+      }
 
       // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
       // setting. The renderer never pins opts.topK, so this always applies for
