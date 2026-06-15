@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { downmixToMono, resampleLinear, floatToBytes } from '@renderer/audio/resample'
+import { downmixToMono, resampleLinear, floatToBytes } from './resample'
 
 describe('audio resample', () => {
   it('averages channels to mono', () => {
