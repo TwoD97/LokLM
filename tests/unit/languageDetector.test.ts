@@ -80,18 +80,33 @@ describe('detectResponseLanguage', () => {
     expect(await detectResponseLanguage(q)).toBe('en')
   })
 
-  // Short queries sit below eld's reliable floor, so the regex fallback runs
-  // (no eld load) — umlauts / German function words mark DE, else EN.
-  it('falls back to regex for short German queries (umlaut)', async () => {
-    expect(await detectResponseLanguage('Wofür?')).toBe('de')
+  // eld is consulted for EVERY prompt — no char-count floor. A short, umlaut-free
+  // German prompt with no whitelisted function word ("Fasse Kapitel 3 zusammen")
+  // is reliably detected as German by eld and used to be misrouted to English by
+  // the regex when eld was gated behind a length floor. eld wins even when the
+  // fallback (UI language) is English, proving it's a real detection.
+  it('detects short umlaut-free German via eld (no char floor)', async () => {
+    expect(await detectResponseLanguage('Fasse Kapitel 3 zusammen', 'en')).toBe('de')
   })
 
-  it('falls back to regex for short German queries (function word)', async () => {
-    expect(await detectResponseLanguage('Was ist das?')).toBe('de')
+  it('detects short English via eld even with a German fallback', async () => {
+    expect(await detectResponseLanguage('hi there', 'de')).toBe('en')
   })
 
-  it('falls back to English for short ambiguous queries', async () => {
-    expect(await detectResponseLanguage('hi there')).toBe('en')
+  // eld marks a very short umlaut prompt unreliable; the regex umlaut signal
+  // then marks DE, ahead of the fallback.
+  it('uses the umlaut regex signal when eld is not confident', async () => {
+    expect(await detectResponseLanguage('Wofür?', 'en')).toBe('de')
+  })
+
+  // Genuinely ambiguous: eld unreliable AND no German regex signal — defer to
+  // the caller's fallback (the UI language) instead of assuming English.
+  it('falls back to the given language for a genuinely ambiguous prompt', async () => {
+    expect(await detectResponseLanguage('ok', 'de')).toBe('de')
+  })
+
+  it('defaults the fallback to English when none is given (back-compat)', async () => {
+    expect(await detectResponseLanguage('ok')).toBe('en')
   })
 })
 
