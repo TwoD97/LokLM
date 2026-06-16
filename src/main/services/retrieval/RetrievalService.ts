@@ -1,4 +1,5 @@
 import type { ChunkRow, Database, SearchHit } from '../../db/database'
+import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { StageName } from '../../../shared/documents'
 import { fuseRrf } from './rrf'
@@ -177,6 +178,10 @@ export class RetrievalService {
     private readonly db: Database,
     private readonly registry: ProviderRegistry,
     private readonly vectorSearch?: VectorSearchFn,
+    /** ADR-0005 cutover: when provided, the relational/BM25 reads run against the
+     *  workspace's encrypted libSQL store instead of PGlite. Opened on demand;
+     *  left undefined in isolated tests (pgvector/PGlite path). */
+    private readonly getWorkspaceDb?: (workspaceId: number) => Promise<WorkspaceDb>,
   ) {}
 
   async search(
@@ -187,6 +192,10 @@ export class RetrievalService {
   ): Promise<RetrievalHit[]> {
     const trimmed = query.trim()
     if (!trimmed) return []
+
+    // ADR-0005: resolve the workspace's libSQL store once (opens it); all
+    // relational/BM25 reads below route to it. null → legacy PGlite path.
+    const wsdb = this.getWorkspaceDb ? await this.getWorkspaceDb(workspaceId) : null
 
     let activeIds =
       opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
@@ -208,11 +217,15 @@ export class RetrievalService {
         const qVec = vecs[0]
         if (qVec && qVec.length > 0) {
           const topN = opts.docPrefilterTopN ?? DEFAULT_DOC_PREFILTER_TOPN
-          const topDocs = await this.db
-            .documents()
-            .topDocumentsBySummarySimilarity(workspaceId, Array.from(qVec), topN, {
-              activeDocumentIds: activeIds,
-            })
+          const topDocs = wsdb
+            ? await wsdb.topDocumentsBySummarySimilarity(Array.from(qVec), topN, {
+                activeDocumentIds: activeIds,
+              })
+            : await this.db
+                .documents()
+                .topDocumentsBySummarySimilarity(workspaceId, Array.from(qVec), topN, {
+                  activeDocumentIds: activeIds,
+                })
           if (topDocs.length > 0) activeIds = topDocs.map((d) => d.id)
         }
       } catch (err) {
@@ -276,7 +289,7 @@ export class RetrievalService {
     // sequentially when they come back. Was a serial for-loop , every extra
     // variant added one full retrieval round-trip to TTFT.
     const perVariant = await Promise.all(
-      queries.map((q) => this.retrieveSingle(workspaceId, q, candidateK, searchOpts)),
+      queries.map((q) => this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb)),
     )
     let pool: SearchHit[] = []
     for (const [bm25, vector] of perVariant) {
@@ -363,10 +376,11 @@ export class RetrievalService {
       withWhole = await this.expandSmallDocs(
         withWhole,
         opts.wholeDocThreshold ?? DEFAULT_WHOLE_DOC_THRESHOLD,
+        wsdb,
       )
     }
     if ((opts.neighbourRadius ?? 0) > 0) {
-      withWhole = await this.expandNeighbours(withWhole, opts.neighbourRadius!)
+      withWhole = await this.expandNeighbours(withWhole, opts.neighbourRadius!, wsdb)
     }
 
     return withWhole.map(toHit)
@@ -381,8 +395,11 @@ export class RetrievalService {
     q: string,
     candidateK: number,
     searchOpts: { activeDocumentIds: number[] | null; perDocK?: number },
+    wsdb: WorkspaceDb | null,
   ): Promise<[SearchHit[], SearchHit[]]> {
-    const bm25Promise = this.db.documents().searchChunks(workspaceId, q, candidateK, searchOpts)
+    const bm25Promise = wsdb
+      ? wsdb.searchChunks(q, candidateK, searchOpts)
+      : this.db.documents().searchChunks(workspaceId, q, candidateK, searchOpts)
     // The provider contract throws on failure (no embedder model on disk,
     // Ollama unreachable, etc.) where the old EmbeddingService returned null.
     // Wrap in try/catch to preserve the user-visible "no embedder → BM25-only"
@@ -499,10 +516,13 @@ export class RetrievalService {
   private async expandSmallDocs(
     items: HitWithOrigin[],
     threshold: number,
+    wsdb: WorkspaceDb | null,
   ): Promise<HitWithOrigin[]> {
     if (items.length === 0) return items
     const docIds = Array.from(new Set(items.map((it) => it.hit.document_id)))
-    const counts = await this.db.documents().getChunkCounts(docIds)
+    const counts = wsdb
+      ? await wsdb.getChunkCounts(docIds)
+      : await this.db.documents().getChunkCounts(docIds)
     // Only expand the doc-ids whose primary chunk was a top hit AND whose
     // total chunk count is below the threshold. Larger docs get the chunk
     // they got from the ranker, no expansion.
@@ -518,7 +538,9 @@ export class RetrievalService {
     const seen = new Set(items.map((it) => it.hit.chunk_id))
     const additions: HitWithOrigin[] = []
     for (const docId of expandIds) {
-      const docChunks = await this.db.documents().listChunksForDocument(docId)
+      const docChunks = wsdb
+        ? await wsdb.listChunksForDocument(docId)
+        : await this.db.documents().listChunksForDocument(docId)
       const sample = items.find((it) => it.hit.document_id === docId)?.hit
       const title = sample?.document_title ?? ''
       for (const c of docChunks) {
@@ -535,13 +557,19 @@ export class RetrievalService {
     return interleaveByDocument(items, additions)
   }
 
-  private async expandNeighbours(items: HitWithOrigin[], radius: number): Promise<HitWithOrigin[]> {
+  private async expandNeighbours(
+    items: HitWithOrigin[],
+    radius: number,
+    wsdb: WorkspaceDb | null,
+  ): Promise<HitWithOrigin[]> {
     if (items.length === 0) return items
     const seeds = items
       .filter((it) => it.origin === 'primary')
       .map((it) => ({ documentId: it.hit.document_id, ordinal: it.hit.ordinal }))
     if (seeds.length === 0) return items
-    const neighbours = await this.db.documents().getNeighbourChunks(seeds, radius)
+    const neighbours = wsdb
+      ? await wsdb.getNeighbourChunks(seeds, radius)
+      : await this.db.documents().getNeighbourChunks(seeds, radius)
     const seen = new Set(items.map((it) => it.hit.chunk_id))
     const titlesByDoc = new Map<number, string>()
     for (const it of items) {
