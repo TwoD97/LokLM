@@ -15,11 +15,11 @@ Tabelle 1.1 fasst die Zielgruppen und ihr jeweiliges Nutzungsinteresse zusammen.
 
 **Tabelle 1.1:** Zielgruppen des Handbuchs und ihr Nutzungsinteresse.
 
-| Zielgruppe                         | Nutzungsinteresse                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Entwickler / Repo-Besucher**     | Einstieg in Architektur, Services, Datenfluss und Build; Orientierung vor dem ersten Code-Beitrag |
-| **Prüfer / Projektbetreuung**      | Abgleich von Anforderung (Lasten-/Pflichtenheft) und Umsetzung; Beurteilung des Projektabschlusses |
-| **Projektteam**                    | Gemeinsame Referenz für Entscheidungen, Status und offene Punkte; Übergabe-Grundlage              |
+| Zielgruppe                     | Nutzungsinteresse                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Entwickler / Repo-Besucher** | Einstieg in Architektur, Services, Datenfluss und Build; Orientierung vor dem ersten Code-Beitrag  |
+| **Prüfer / Projektbetreuung**  | Abgleich von Anforderung (Lasten-/Pflichtenheft) und Umsetzung; Beurteilung des Projektabschlusses |
+| **Projektteam**                | Gemeinsame Referenz für Entscheidungen, Status und offene Punkte; Übergabe-Grundlage               |
 
 ## 1.3 Dokumentationsstand
 
@@ -33,22 +33,23 @@ Wo der Umsetzungsstand offen, unklar oder noch nicht belegbar ist, steht im Flie
 
 > WARN Status unklar
 
-Solche Marker sind ein **Ehrlichkeits-Instrument**: Sie kennzeichnen, dass eine Aussage durch das Team zu bestätigen oder durch eine Quelle zu belegen ist, statt einen falschen Anschein von Vollständigkeit zu erwecken. Drei Bereiche sind nach aktuellem Stand ausdrücklich noch nicht abgeschlossen:
+Solche Marker sind ein **Ehrlichkeits-Instrument**: Sie kennzeichnen, dass eine Aussage durch das Team zu bestätigen oder durch eine Quelle zu belegen ist, statt einen falschen Anschein von Vollständigkeit zu erwecken. Zwei Bereiche sind nach aktuellem Stand ausdrücklich noch nicht abgeschlossen:
 
 - **AP-E.2 Phase 2 (GPU-Matrix-Sweep)** ist **offen** — das Dataset (LAP-Korpus, 2.322 Chunks, 163 deutsche Fragen) steht, der eigentliche Embedder × Reranker × Chunker × LLM-Sweep auf GPU und dessen Auswertung für den Abgabe-Laborbericht stehen aber noch aus.
-- **AP-T.1, AP-T.2 und AP-E.1** sind umgesetzt, befinden sich aber teils noch in **PR-Review** (AP-T.2 #19, AP-E.1 #25) bzw. auf einem unpushed Branch (AP-T.1).
 - Die **Playwright-E2E-Suite** [12] für die Electron-App läuft **nicht in CI** — Playwright kann Electron im Runner nicht starten (`--remote-debugging-port=0`); die Website-E2E-Tests sind davon nicht betroffen.
+
+Die Test-/Eval-Arbeitspakete **AP-T.1, AP-T.2 und AP-E.1** sind inzwischen vollständig **nach `main` gemergt** (PRs #24, #19, #25; Stand 2026-06-16) und damit abgeschlossen; das Hold-out-Set **AP-E.1b** folgt als PR #28.
 
 ## 1.5 Umgang mit anonymisierten Daten
 
 Aus Sicherheits- und Datenschutzgründen enthält dieses Handbuch **keine sensiblen Daten**. Folgende Inhalte sind durchgängig durch Platzhalter ersetzt:
 
-| Original                                              | Platzhalter         |
-| ----------------------------------------------------- | ------------------- |
-| RunPod-/AWS-/S3-Schlüssel und Tokens                  | `<API_KEY>` / `<S3_KEY>` / `<TOKEN>` |
-| Interne Dienst-Domains (Outline, Vikunja, MinIO)      | `<PRIVATE_DOMAIN>`  |
-| Persönliche E-Mail-Adressen                           | `<EMAIL>`           |
-| Absolute lokale Pfade mit Benutzernamen               | `<INTERNAL_PATH>`   |
+| Original                                         | Platzhalter                          |
+| ------------------------------------------------ | ------------------------------------ |
+| RunPod-/AWS-/S3-Schlüssel und Tokens             | `<API_KEY>` / `<S3_KEY>` / `<TOKEN>` |
+| Interne Dienst-Domains (Outline, Vikunja, MinIO) | `<PRIVATE_DOMAIN>`                   |
+| Persönliche E-Mail-Adressen                      | `<EMAIL>`                            |
+| Absolute lokale Pfade mit Benutzernamen          | `<INTERNAL_PATH>`                    |
 
 Kurze, repo-relative Pfade (z. B. `src/main/services/`, `tests/evals/`) sind erlaubt und erwünscht, da sie zur technischen Nachvollziehbarkeit beitragen und keine sensiblen Informationen offenlegen.
 
