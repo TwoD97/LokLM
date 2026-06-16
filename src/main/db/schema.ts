@@ -126,6 +126,13 @@ export const chunks = pgTable(
     headingPath: jsonb('heading_path').$type<string[]>(),
     embedding: vector('embedding', { dimensions: 1024 }),
     embedderIdentity: text('embedder_identity').notNull().default('bundled:bge-m3'),
+    // ADR-0005: "is this chunk embedded?" marker, decoupled from the pgvector
+    // `embedding` column. In the app, chunk vectors live in the per-workspace
+    // LanceDB store and `embedding` stays NULL, so the backfill bookkeeping
+    // (countChunksMissingEmbedding / listChunksMissingEmbedding) keys off this
+    // instead. Set true by setChunkEmbedding(sBatch) and markChunksEmbedded;
+    // reset by the model-swap purges. Added in raw migration 0011.
+    embedded: boolean('embedded').notNull().default(false),
     // Per-chunk detected language from eld (mig 0007). Values: 'de' | 'en' |
     // 'other'. Nullable for legacy rows ingested before detection was wired —
     // the prompt formatter treats NULL as "unknown" and omits the cross-language

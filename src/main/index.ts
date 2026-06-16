@@ -305,12 +305,19 @@ function vectorSink(
   return getWorkspaceVectorService().upsert(workspaceId, records)
 }
 
+/** Bound removal passed to ingestion/backfill — drops chunk vectors from the
+ *  per-workspace encrypted Lance store (reindex, model-swap purge). */
+function vectorRemove(workspaceId: number, chunkIds: number[]): Promise<void> {
+  return getWorkspaceVectorService().remove(workspaceId, chunkIds)
+}
+
 function getBackfillService(): EmbeddingBackfillService {
   if (!backfillService) {
     backfillService = new EmbeddingBackfillService(
       getAuth().requireDatabase(),
       getProviderRegistry(),
       vectorSink,
+      vectorRemove,
     )
   }
   return backfillService
@@ -648,8 +655,10 @@ function getDocumentService(): DocumentService {
     // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
     // ingest path (import, reindex, refresh, folder-sync).
     () => getSettingsService().get().retrieval,
-    // ADR-0005: mirror embeddings into the per-workspace encrypted Lance store.
+    // ADR-0005: mirror embeddings into the per-workspace encrypted Lance store,
+    // and drop a document's vectors from it on reindex.
     vectorSink,
+    vectorRemove,
   )
   return documentService
 }
@@ -929,7 +938,18 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle('documents:delete', async (_e, id: number) => {
-    await getAuth().requireDatabase().documents().deleteDocument(id)
+    // ADR-0005: capture the doc's workspace + chunk ids before the cascade
+    // delete, then drop those vectors from the encrypted Lance store. (Hydrate
+    // already filters orphans, so this is for space, not correctness.)
+    const repo = getAuth().requireDatabase().documents()
+    const doc = await repo.getDocument(id)
+    const chunkIds = doc ? await repo.chunkIdsForDocument(id) : []
+    await repo.deleteDocument(id)
+    if (doc && chunkIds.length > 0) {
+      await getWorkspaceVectorService()
+        .remove(doc.workspaceId, chunkIds)
+        .catch((err) => console.warn(`[documents] Lance remove on delete failed:`, err))
+    }
   })
 
   // Export = reveal the original file in the OS file manager. The bytes stay

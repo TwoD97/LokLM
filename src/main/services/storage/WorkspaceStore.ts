@@ -158,6 +158,15 @@ export class WorkspaceStore {
     return this.open(entry.id)
   }
 
+  /** Keeps the manifest entry's display name in sync with a relational rename.
+   *  No-op if there's no entry yet (it'll pick up the name on first ensure). */
+  async rename(id: number, name: string): Promise<void> {
+    const entry = this.manifest.workspaces.find((w) => w.id === id)
+    if (!entry || entry.name === name) return
+    entry.name = name
+    await this.persistManifest(this.manifest)
+  }
+
   /** Sets the auto-load default workspace. */
   async setDefault(id: number | null): Promise<void> {
     if (id != null) this.requireEntry(id)

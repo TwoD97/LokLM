@@ -51,14 +51,18 @@ export class DocumentService {
      *  indexing settings. Optional — tests omit it and the chunker DEFAULT
      *  applies. An explicit ImportInput value still wins. */
     private readonly retrievalDefaults?: () => { chunkSize: number; chunkOverlap: number },
-    /** ADR-0005: mirrors freshly-computed embeddings into the per-workspace
-     *  encrypted LanceDB store (where retrieval reads them). PGlite remains the
-     *  embedding-bookkeeping + identity source of truth (dual-write). Optional —
-     *  tests omit it and only the pgvector column is written. */
+    /** ADR-0005: writes freshly-computed embeddings into the per-workspace
+     *  encrypted LanceDB store (where retrieval reads them). When present,
+     *  vectors go to Lance only and PGlite records just the `embedded` marker;
+     *  tests omit it and the legacy pgvector column is written instead. */
     private readonly vectorSink?: (
       workspaceId: number,
       records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
     ) => Promise<void>,
+    /** ADR-0005: drops a document's chunk vectors from the Lance store before a
+     *  reindex (chunks are deleted + recreated with new ids, so the old vectors
+     *  would otherwise be orphaned). Optional — tests omit it. */
+    private readonly vectorRemove?: (workspaceId: number, chunkIds: number[]) => Promise<void>,
   ) {}
 
   // ---- bounded indexing queue --------------------------------------------
@@ -184,6 +188,7 @@ export class DocumentService {
       throw new Error(`Document ${documentId} not found`)
     }
     const { stat, hash } = await this.statAndHashOrThrow(newPath)
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId) // wipes chunks, sets status='pending'
     await repo.setSourceMetadata(documentId, {
       sourcePath: newPath,
@@ -253,6 +258,7 @@ export class DocumentService {
       await repo.setSourceMetadata(documentId, { sourceMtime: mtime })
       return 'unchanged'
     }
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId)
     await repo.setSourceMetadata(documentId, {
       byteSize: stat.size,
@@ -278,6 +284,7 @@ export class DocumentService {
     const doc = await repo.getDocument(documentId)
     if (!doc) throw new Error(`Document ${documentId} not found`)
     const { stat, hash } = await this.statAndHashOrThrow(doc.sourcePath)
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId)
     await repo.setSourceMetadata(documentId, {
       byteSize: stat.size,
@@ -299,6 +306,23 @@ export class DocumentService {
 
   /** Shared file-validation path used by importFile + replaceSource. Returns
    *  stat + hash in one read so callers don't double-stream the file. */
+  /** ADR-0005: drop a document's current chunk vectors from the Lance store
+   *  before a reindex/delete wipes the chunks. Must run BEFORE reindexDocument
+   *  (which deletes the chunk rows). No-op without a vectorRemove hook. */
+  private async purgeDocumentVectors(documentId: number): Promise<void> {
+    if (!this.vectorRemove) return
+    const repo = this.auth.requireDatabase().documents()
+    const doc = await repo.getDocument(documentId)
+    if (!doc) return
+    const ids = await repo.chunkIdsForDocument(documentId)
+    if (ids.length === 0) return
+    try {
+      await this.vectorRemove(doc.workspaceId, ids)
+    } catch (err) {
+      console.warn(`[documents] vector remove failed for doc #${documentId}:`, err)
+    }
+  }
+
   private async statAndHashOrThrow(sourcePath: string): Promise<{ stat: Stats; hash: string }> {
     if (!isSupported(sourcePath)) {
       throw new ImportError(
@@ -503,24 +527,24 @@ export class DocumentService {
           if (id != null) writes.push({ id, vector: v })
         }
         if (writes.length > 0) {
-          await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
-          // ADR-0005: mirror into the workspace's encrypted Lance store, the
-          // index retrieval actually searches. Best-effort — a Lance failure
-          // must not fail the import (pgvector still has the data; the next
-          // open's migrateIfNeeded backfills Lance from it).
           if (this.vectorSink) {
-            try {
-              await this.vectorSink(
-                doc.workspaceId,
-                writes.map((w) => ({
-                  chunkId: w.id,
-                  documentId: doc.id,
-                  vector: Array.from(w.vector),
-                })),
-              )
-            } catch (err) {
-              console.warn(`[documents] vector sink failed for doc #${doc.id}:`, err)
-            }
+            // ADR-0005 app path: vectors go to the workspace's encrypted LanceDB
+            // store; PGlite only records the embedded marker + identity.
+            await this.vectorSink(
+              doc.workspaceId,
+              writes.map((w) => ({
+                chunkId: w.id,
+                documentId: doc.id,
+                vector: Array.from(w.vector),
+              })),
+            )
+            await repo.markChunksEmbedded(
+              writes.map((w) => w.id),
+              activeIdentity,
+            )
+          } else {
+            // Legacy / isolated-test path: store vectors in the pgvector column.
+            await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
           }
         }
       }

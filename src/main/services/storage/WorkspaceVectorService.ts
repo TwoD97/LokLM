@@ -68,10 +68,14 @@ export class WorkspaceVectorService {
     if (this.migrated.has(workspaceId)) return
     this.migrated.add(workspaceId)
     if ((await store.count()) > 0) return
-    const legacy = await this.auth.requireDatabase().documents().listChunkVectors(workspaceId)
+    const repo = this.auth.requireDatabase().documents()
+    const legacy = await repo.listChunkVectors(workspaceId)
     if (legacy.length > 0) {
       await store.upsert(legacy)
       await store.buildIndex()
+      // Reclaim the in-memory PGlite footprint: the vectors now live in Lance,
+      // the `embedded` marker stays set, so retrieval + bookkeeping are intact.
+      await repo.clearLegacyVectors(workspaceId)
     }
   }
 }

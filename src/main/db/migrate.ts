@@ -21,6 +21,7 @@ const RAW_MIGRATIONS = [
   '0008_document_summary.sql',
   '0009_document_pinning.sql',
   '0010_document_summary_embedding.sql',
+  '0011_chunk_embedded_marker.sql',
 ]
 
 function isPackaged(): boolean {

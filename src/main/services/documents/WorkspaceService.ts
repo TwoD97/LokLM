@@ -22,7 +22,14 @@ export class WorkspaceService {
 
   async rename(id: number, name: string): Promise<void> {
     this.validateName(name)
-    await this.auth.requireDatabase().workspaces().rename(id, name.trim())
+    const trimmed = name.trim()
+    await this.auth.requireDatabase().workspaces().rename(id, trimmed)
+    // ADR-0005: keep the manifest entry's name in sync (cosmetic, best-effort).
+    try {
+      await this.auth.getWorkspaceStore().rename(id, trimmed)
+    } catch {
+      /* no manifest entry yet — it'll take the name on first ensure */
+    }
   }
 
   async delete(id: number): Promise<void> {
