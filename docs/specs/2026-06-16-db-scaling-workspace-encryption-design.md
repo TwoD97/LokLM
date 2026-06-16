@@ -1,7 +1,7 @@
 # Design: DB-Skalierung + Per-Workspace-Verschlüsselung
 
 **Datum:** 2026-06-16
-**Status:** Implementiert + verdrahtet (Engine, Vault-v5, Retrieval/Ingestion-Dual-Write, Default-Workspace-UI, v4→v5-Migration). Eine Optimierung bewusst zurückgestellt (pgvector-Spalte entfernen — siehe unten). Nur in Node verifizierbar; Electron-Packaging (Native-Rebuild) + UI-Runtime ungetestet.
+**Status:** Vollständig implementiert + verdrahtet (Engine, Vault-v5, Retrieval/Ingestion auf LanceDB-only, Default-Workspace-UI, v4→v5-Migration, pgvector entkoppelt). Verbleibt nur Packaging (Electron-Native-Rebuild) + Live-App-UI-Durchlauf — in dieser Node-Umgebung nicht ausführbar.
 **Entscheidung:** [ADR-0005](../adr/0005-per-workspace-scaled-encrypted-vector-store.md)
 
 Dieses Dokument ist der Umsetzungsplan zu ADR-0005: vom heutigen In-Memory-PGlite-
@@ -75,20 +75,36 @@ Schnittstellen + verifizierbare Krypto-Primitive.
 als v5 (gerahmter Body, Magic `LOKLM05\0`) geschrieben — tx-getestet inkl.
 Recovery-Reset. Kein Datenverlust; pro-Workspace-Vektoren migrieren lazy (Phase 3.3).
 
-### Verbleibende Optimierung (bewusst zurückgestellt) — pgvector-Spalte entfernen
+### Phase 5 — pgvector-Spalte entkoppelt (erledigt, kein Dual-Write mehr)
 
-Aktuell **Dual-Write**: Vektoren liegen in LanceDB _und_ der `chunks.embedding`-
-Spalte. Der volle Speicher-/Scale-Gewinn (Vektoren nur noch auf Platte in LanceDB)
-verlangt, die „missing embedding"-Buchhaltung von der `embedding`-Spalte zu lösen:
+Vektoren liegen im App-Pfad **nur noch in LanceDB**; die `chunks.embedding`-Spalte
+bleibt NULL. Die „missing embedding"-Buchhaltung wurde von der Spalte gelöst:
 
-- neue Spalte `chunks.embedded boolean` (Migration 0011) + `countChunksMissingEmbedding`
-  / `listChunksMissingEmbedding` darauf umstellen,
-- `distinctEmbedderIdentities` + `purgeEmbeddings*` (Model-Swap-Re-Embed) von der
-  `embedding`-Spalte auf `embedder_identity`/`embedded` + LanceDB-`remove` umstellen,
-- dann in `DocumentService`/`Backfill` den pgvector-Write weglassen (nur Marker).
+1. ✅ Migration 0011: Spalte `chunks.embedded boolean` + Backfill aus der
+   Alt-Spalte + Partial-Index `idx_chunks_unembedded`.
+2. ✅ `countChunksMissingEmbedding` / `listChunksMissingEmbedding` /
+   `distinctEmbedderIdentities` keyen auf `embedded`.
+3. ✅ `markChunksEmbedded` (Marker ohne Vektor) für den Sink-Only-Pfad;
+   `set/setBatch` setzen den Marker mit.
+4. ✅ Model-Swap-Purges (`purgeEmbeddings*`) resetten den Marker, geben die ids
+   zurück → `EmbeddingBackfillService` entfernt sie aus LanceDB (`vectorPurge`).
+5. ✅ `DocumentService`/`Backfill` schreiben Vektoren **nur** nach LanceDB +
+   `markChunksEmbedded` (kein pgvector-Write). Reindex/Delete entfernen die
+   Vektoren aus LanceDB (`purgeDocumentVectors`, `documents:delete`-IPC).
+6. ✅ `migrateIfNeeded` kopiert Alt-Vektoren nach LanceDB **und** nullt die
+   pgvector-Spalte (`clearLegacyVectors`) → Speicher-Reclaim für Bestands-User.
 
-Diese Kette berührt die Model-Swap-Semantik und ist erst mit laufender App sinnvoll
-zu verifizieren — daher getrennt vom hier verifizierten Dual-Write-Stand.
+Verifiziert in `tests/tx/vault/workspace-vector-lifecycle.test.ts` (Sink-Only,
+Model-Swap-Purge inkl. Lance-Removal, Legacy-Migration + Spalten-Reclaim) sowie
+dem unveränderten Model-Swap-Integrationstest (`embedder-identity`).
+
+### Tatsächlich verbleibend (Packaging, nicht Code-Logik)
+
+- Electron-ABI-Native-Rebuild von `@lancedb/lancedb` in der `pnpm install`/
+  `electron-builder`-Pipeline + `extraResources` + `THIRD_PARTY_NOTICES`-Eintrag.
+- Live-App-Durchlauf der neuen Sidebar-Steuerung (hier nur unit-/typgeprüft).
+- `chunks.embedding`-Spalte/HNSW-Index könnten später ganz entfallen (heute nur
+  noch vom Legacy-/Test-Pfad genutzt); harmlos, da im App-Pfad NULL.
 
 ## Bedrohungsmodell-Delta (vs. ADR-0002)
 

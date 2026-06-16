@@ -25,12 +25,16 @@ export class EmbeddingBackfillService {
   constructor(
     private readonly db: Database,
     private readonly registry: ProviderRegistry,
-    /** ADR-0005: mirrors backfilled embeddings into the per-workspace encrypted
-     *  LanceDB store (dual-write; pgvector stays the bookkeeping source). Optional. */
+    /** ADR-0005: writes backfilled embeddings into the per-workspace encrypted
+     *  LanceDB store. When present, vectors go to Lance only and PGlite records
+     *  just the `embedded` marker (markChunksEmbedded); when absent (isolated
+     *  tests) the vector is stored in the legacy pgvector column. */
     private readonly vectorSink?: (
       workspaceId: number,
       records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
     ) => Promise<void>,
+    /** ADR-0005: removes stale vectors from the Lance store on a model-swap purge. */
+    private readonly vectorPurge?: (workspaceId: number, chunkIds: number[]) => Promise<void>,
   ) {}
 
   subscribe(cb: (s: BackfillStatus) => void): () => void {
@@ -86,14 +90,23 @@ export class EmbeddingBackfillService {
     const incompatibleIdentities = existingIdentities.filter(
       (id) => embedderModelStem(id) !== activeStem,
     )
-    let purged = 0
+    const purgedIds: number[] = []
     for (const id of incompatibleIdentities) {
-      purged += await this.db.documents().purgeEmbeddingsByIdentity(workspaceId, id)
+      purgedIds.push(...(await this.db.documents().purgeEmbeddingsByIdentity(workspaceId, id)))
     }
-    if (purged > 0) {
+    if (purgedIds.length > 0) {
+      // ADR-0005: the stale vectors also live in LanceDB — drop them there so
+      // they aren't served until the loop below re-embeds with the new model.
+      if (this.vectorPurge) {
+        try {
+          await this.vectorPurge(workspaceId, purgedIds)
+        } catch (err) {
+          console.warn('[backfill] vector purge (Lance) failed:', err)
+        }
+      }
       // eslint-disable-next-line no-console
       console.warn(
-        `[backfill] purged ${purged} stale chunks (stem ${incompatibleIdentities
+        `[backfill] purged ${purgedIds.length} stale chunks (stem ${incompatibleIdentities
           .map(embedderModelStem)
           .join(', ')} != ${activeStem})`,
       )
@@ -157,14 +170,17 @@ export class EmbeddingBackfillService {
           }
           if (writes.length > 0) {
             try {
-              await this.db.documents().setChunkEmbeddingsBatch(writes, activeIdentity)
-              // ADR-0005: mirror into the encrypted Lance store (best-effort).
               if (this.vectorSink) {
-                try {
-                  await this.vectorSink(workspaceId, sinkRecords)
-                } catch (err) {
-                  console.warn('[backfill] vector sink failed (pgvector still written):', err)
-                }
+                // ADR-0005 app path: vectors go to LanceDB only; PGlite just
+                // records the embedded marker + identity (no pgvector write).
+                await this.vectorSink(workspaceId, sinkRecords)
+                await this.db.documents().markChunksEmbedded(
+                  writes.map((w) => w.id),
+                  activeIdentity,
+                )
+              } else {
+                // Legacy / isolated-test path: store the vector in pgvector.
+                await this.db.documents().setChunkEmbeddingsBatch(writes, activeIdentity)
               }
               madeProgress = writes.length
             } catch (err) {

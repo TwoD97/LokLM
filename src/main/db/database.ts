@@ -683,11 +683,13 @@ export class DocumentsRepo {
   }
 
   async countChunksMissingEmbedding(workspaceId: number): Promise<number> {
+    // ADR-0005: keys off the `embedded` marker, not the pgvector column — in the
+    // app chunk vectors live in LanceDB and `embedding` stays NULL.
     const r = await this.db.execute(sql`
       SELECT count(*)::int AS n
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
-       WHERE d.workspace_id = ${workspaceId} AND c.embedding IS NULL
+       WHERE d.workspace_id = ${workspaceId} AND c.embedded = false
     `)
     return (r.rows as { n: number }[])[0]?.n ?? 0
   }
@@ -700,7 +702,7 @@ export class DocumentsRepo {
       SELECT c.id, c.text, c.document_id
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
-       WHERE d.workspace_id = ${workspaceId} AND c.embedding IS NULL
+       WHERE d.workspace_id = ${workspaceId} AND c.embedded = false
        ORDER BY c.id
        LIMIT ${limit}
     `)
@@ -711,9 +713,43 @@ export class DocumentsRepo {
     const lit = '[' + vector.join(',') + ']'
     await this.db.execute(sql`
       UPDATE chunks
-         SET embedding = ${lit}::vector, embedder_identity = ${identity}
+         SET embedding = ${lit}::vector, embedder_identity = ${identity}, embedded = true
        WHERE id = ${chunkId}
     `)
+  }
+
+  /** Marks chunks embedded WITHOUT storing the vector in pgvector (ADR-0005).
+   *  The app's sink-only path writes vectors to LanceDB and uses this to keep
+   *  the PGlite bookkeeping (countChunksMissingEmbedding) correct + record the
+   *  embedder identity for model-swap detection. */
+  async markChunksEmbedded(chunkIds: number[], identity: string): Promise<void> {
+    if (chunkIds.length === 0) return
+    const idLit = '{' + chunkIds.map((n) => Math.trunc(n)).join(',') + '}'
+    await this.db.execute(sql`
+      UPDATE chunks
+         SET embedder_identity = ${identity}, embedded = true
+       WHERE id = ANY(${idLit}::int[])
+    `)
+  }
+
+  /** Chunk ids belonging to a document — for removing its vectors from the
+   *  LanceDB store before a delete/reindex (ADR-0005). */
+  async chunkIdsForDocument(documentId: number): Promise<number[]> {
+    const r = await this.db.execute(sql`SELECT id FROM chunks WHERE document_id = ${documentId}`)
+    return (r.rows as Array<{ id: number }>).map((row) => row.id)
+  }
+
+  /** Nulls the legacy pgvector column after a workspace's vectors have been
+   *  migrated into LanceDB, reclaiming the in-memory PGlite footprint while
+   *  leaving `embedded` set (the chunks are still embedded, just in Lance). */
+  async clearLegacyVectors(workspaceId: number): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE chunks SET embedding = NULL
+       WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedding IS NOT NULL
+      RETURNING id
+    `)
+    return r.rows.length
   }
 
   /** Batch variant of setChunkEmbedding. The API exists so callers can pass
@@ -735,45 +771,52 @@ export class DocumentsRepo {
       const lit = '[' + r.vector.join(',') + ']'
       await this.db.execute(sql`
         UPDATE chunks
-           SET embedding = ${lit}::vector, embedder_identity = ${identity}
+           SET embedding = ${lit}::vector, embedder_identity = ${identity}, embedded = true
          WHERE id = ${r.id}
       `)
     }
   }
 
-  /** Nulls out the embedding for every chunk whose stored identity differs from `keep`. */
-  async purgeEmbeddingsNotMatching(workspaceId: number, keep: string): Promise<number> {
+  /** Un-embeds every chunk whose stored identity differs from `keep` (model
+   *  swap): nulls the legacy vector AND resets the `embedded` marker so the
+   *  backfill re-embeds. Returns the affected chunk ids so the caller can drop
+   *  their now-stale vectors from the LanceDB store (ADR-0005). */
+  async purgeEmbeddingsNotMatching(workspaceId: number, keep: string): Promise<number[]> {
     const r = await this.db.execute(sql`
-      UPDATE chunks SET embedding = NULL
+      UPDATE chunks SET embedding = NULL, embedded = false
        WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedded = true
          AND embedder_identity <> ${keep}
       RETURNING id
     `)
-    return r.rows.length
+    return (r.rows as Array<{ id: number }>).map((row) => row.id)
   }
 
-  /** Distinct embedder identities present in non-null chunk embeddings for the
+  /** Distinct embedder identities present among embedded chunks for the
    *  workspace. Used by the backfill to decide whether existing vectors are
-   *  stem-compatible with the active embedder — see embedderModelStem(). */
+   *  stem-compatible with the active embedder — see embedderModelStem(). Keys
+   *  off the `embedded` marker (ADR-0005), not the pgvector column. */
   async distinctEmbedderIdentities(workspaceId: number): Promise<string[]> {
     const r = await this.db.execute(sql`
       SELECT DISTINCT embedder_identity
         FROM chunks
        WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
-         AND embedding IS NOT NULL
+         AND embedded = true
     `)
     return (r.rows as Array<{ embedder_identity: string }>).map((row) => row.embedder_identity)
   }
 
-  /** Nulls out the embedding for chunks tagged with this exact identity. */
-  async purgeEmbeddingsByIdentity(workspaceId: number, identity: string): Promise<number> {
+  /** Un-embeds chunks tagged with this exact identity (nulls vector + resets the
+   *  marker). Returns affected ids for LanceDB removal. */
+  async purgeEmbeddingsByIdentity(workspaceId: number, identity: string): Promise<number[]> {
     const r = await this.db.execute(sql`
-      UPDATE chunks SET embedding = NULL
+      UPDATE chunks SET embedding = NULL, embedded = false
        WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedded = true
          AND embedder_identity = ${identity}
       RETURNING id
     `)
-    return r.rows.length
+    return (r.rows as Array<{ id: number }>).map((row) => row.id)
   }
 
   async ensureVectorIndex(): Promise<void> {
