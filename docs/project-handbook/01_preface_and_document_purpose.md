@@ -56,3 +56,18 @@ Kurze, repo-relative Pfade (z. B. `src/main/services/`, `tests/evals/`) sind erl
 ## 1.6 Charakter des Dokuments
 
 Das Handbuch ist sachlich und technisch präzise gehalten. Es bevorzugt belegbare Fakten mit Quellenbezug auf konkrete Repository-Dateien. Es bildet den **Projektstand** ab — also eine Momentaufnahme einer laufenden Arbeit — und erhebt nicht den Anspruch, ein fertiges, in jedem Detail finalisiertes Endprodukt zu beschreiben. Die finale, gebundene Fassung folgt zur Schul-Abgabe.
+
+## 1.7 Versionierung des Handbuchs und Snapshot-Politik
+
+Das Handbuch trägt eine **eigene Versionsnummer** (aktuell **0.1**), unabhängig von der Produktversion der Anwendung. Es wächst als **lebendes Dokument** bis zur bindefähigen **Version 1.0.0** und wird dabei laufend an den realen Stand der Anwendung angepasst (neue Releases, gemergte Arbeitspakete, korrigierte Kennzahlen, aufgelöste Marker).
+
+Jede Handbuch-Version **fixiert einen definierten App-/Code-Stand** — die Versionsnummer der Anwendung samt Commit, auf den sich die technischen Kapitel beziehen (Tabelle 1.2). Damit ist jederzeit eindeutig, welchen Produktstand das Handbuch beschreibt.
+
+**Tabelle 1.2:** Handbuch-Version und dokumentierter App-Stand.
+
+| Handbuch-Version  | Dokumentierter App-Stand                                   | Stand       |
+| ----------------- | ---------------------------------------------------------- | ----------- |
+| 0.1               | v0.4.6 (`af59c25`) zzgl. Branch-Stand der Test-/Eval-Säule | 2026-06-16  |
+| 1.0.0 _(geplant)_ | Abgabe-Release der Abgabewoche (22.–26.06.2026)            | bei Bindung |
+
+**Snapshot-Politik — Einfrieren bei der Bindung.** Vor dem Versions-Bump auf 1.0.0 wird die Abnahme-Checkliste [RELEASE_AUDIT.md](RELEASE_AUDIT.md) vollständig abgearbeitet; anschließend wird die Fassung **gebunden bzw. gedruckt**. Diese gebundene Abgabefassung ist ein **eingefrorener Snapshot**: Sie hält genau den dann dokumentierten App-Stand fest. **Spätere Änderungen an der Anwendung** — gleich ob noch vor 1.0.0 (etwa ein weiteres Release) oder danach — werden zwar in die _lebende_ Fassung des Handbuchs eingearbeitet, **ändern eine bereits gebundene oder gedruckte Fassung jedoch nicht.** Die gedruckte Version 1.0.0 bleibt der verbindliche **Original-Stand der Abgabe**; eine etwaige Weiterführung erfolgt in einer neuen, höheren Handbuch-Version. Den Weg von 0.1 bis 1.0.0 verfolgt die lebende [ROADMAP_TO_V1.md](ROADMAP_TO_V1.md).
