@@ -124,6 +124,7 @@
     "@electric-sql/pglite": "^0.4.6",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@lancedb/lancedb": "^0.30.0",
+    "@libsql/client": "^0.17.4",
     "@napi-rs/canvas": "^0.1.100",
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
