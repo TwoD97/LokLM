@@ -4,6 +4,7 @@ import { secureWipe } from '../auth/secureMemory'
 import { createWorkspaceKey, unwrapWorkspaceKey } from '../auth/workspaceKeys'
 import { EncryptedWorkspaceDir } from './encryptedWorkspaceDir'
 import { LanceWorkspaceStore } from './LanceWorkspaceStore'
+import { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
 import type { VectorStore } from './VectorStore'
 import {
   emptyManifest,
@@ -32,6 +33,8 @@ interface ActiveWorkspace {
   id: number
   encDir: EncryptedWorkspaceDir
   store: LanceWorkspaceStore
+  /** Per-workspace relational + FTS store (encrypted libSQL), keyed by the WDEK. */
+  db: WorkspaceDb
   wdek: Buffer
 }
 
@@ -153,8 +156,35 @@ export class WorkspaceStore {
       datasetDir,
     })
     await store.open()
-    this.active = { id, encDir, store, wdek }
+    // Per-workspace relational/FTS store: an encrypted libSQL file in the
+    // workspace dir (NOT inside enc/work — libSQL self-encrypts transparently),
+    // keyed by this workspace's WDEK as hex.
+    let db: WorkspaceDb
+    try {
+      db = await WorkspaceDb.open(
+        join(this.baseDir, entry.dir, 'meta.db'),
+        wdek.toString('hex'),
+        id,
+      )
+    } catch (err) {
+      await store.close()
+      await encDir.close({ discard: true })
+      secureWipe(wdek)
+      throw err
+    }
+    this.active = { id, encDir, store, db, wdek }
     return store
+  }
+
+  /** Opens (if needed) workspace `id` and returns its relational/FTS store. */
+  async openDb(id: number): Promise<WorkspaceDb> {
+    await this.open(id)
+    return this.active!.db
+  }
+
+  /** The open workspace's relational/FTS store, or null when none is open. */
+  currentDb(): WorkspaceDb | null {
+    return this.active?.db ?? null
   }
 
   /** Opens the default workspace (configured → newest → none). Null if there
@@ -200,6 +230,7 @@ export class WorkspaceStore {
           entry.vectorCount = await a.store.count()
         }
       }
+      a.db.close()
       await a.store.close()
       await a.encDir.close({ ...(opts.discard ? { discard: true } : {}) })
       if (!opts.discard) await this.persistManifest(this.manifest)
