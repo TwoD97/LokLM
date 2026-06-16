@@ -17,7 +17,7 @@ Chat-Oberfläche befragen können. Jede Antwort enthält klickbare **Quellenverw
 die zugrundeliegenden Textstellen; findet sich keine passende Quelle, verweigert das
 System ehrlich, statt zu erfinden. Die Anwendung arbeitet im Standardbetrieb vollständig
 lokal (lokales Sprachmodell + In-Process-Datenbank); eine Internetverbindung ist nur
-einmalig für Installation und First-Launch-Modell-Download erforderlich.
+einmalig für Installation und die Modell-Akquise des Installer-Wizards erforderlich.
 
 Das Handbuch ergänzt die beiden Vertragsdokumente — **Lastenheft** und **Pflichtenheft** —
 um eine durchgängige, erzählende Darstellung des realen Umsetzungsstands (abgeleitet aus

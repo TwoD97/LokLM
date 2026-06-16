@@ -12,10 +12,10 @@ Daraus ergibt sich der zentrale Zielkonflikt des Projekts (Tabelle 4.1):
 
 **Tabelle 4.1:** Zielkonflikt Cloud-LLM gegenüber lokaler Vertraulichkeit.
 
-| Pol                         | Eigenschaft                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Cloud-LLM (Status quo)**  | Hohe Antwortqualität, aber Inhalte verlassen das Gerät; problematisch für DSGVO-relevante, schulische oder interne Unterlagen |
-| **Lokale Vertraulichkeit**  | Daten bleiben auf dem Gerät, aber ohne Assistenz bleibt eigenes Wissen schwer durchsuchbar und nicht belegbar zitierbar |
+| Pol                        | Eigenschaft                                                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Cloud-LLM (Status quo)** | Hohe Antwortqualität, aber Inhalte verlassen das Gerät; problematisch für DSGVO-relevante, schulische oder interne Unterlagen |
+| **Lokale Vertraulichkeit** | Daten bleiben auf dem Gerät, aber ohne Assistenz bleibt eigenes Wissen schwer durchsuchbar und nicht belegbar zitierbar       |
 
 Für viele reale Unterlagen — Prüfungsmaterial, interne Dokumentation, persönliche Aufzeichnungen — ist die Übermittlung an einen externen Dienst **nicht akzeptabel**. Damit fällt die naheliegende Cloud-Lösung aus, und der Nutzen eines Chatassistenten bleibt ungenutzt.
 
@@ -34,13 +34,13 @@ Tabelle 4.2 fasst die technischen Herausforderungen und die gewählten Lösungsa
 
 **Tabelle 4.2:** Technische Herausforderungen und Lösungsansätze.
 
-| Herausforderung                         | Beschreibung                                                                                              |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Lokale Modellinferenz**               | Ein Sprachmodell und ein Embedding-Modell müssen auf Endgeräte-Hardware (auch ohne dedizierte GPU) lauffähig sein — gelöst über quantisierte GGUF-Modelle und node-llama-cpp (Vulkan/CUDA/CPU-adaptiv). |
-| **Hybride Suche ohne Server**           | Volltext- und Vektorsuche müssen ohne externen Datenbankserver funktionieren — gelöst über In-Process-Postgres (pglite/WASM) mit `tsvector` und `pgvector`/HNSW. |
-| **Belastbare Quellenangaben**           | Antworten müssen auf exakte Chunks zurückführbar sein; dies erfordert ein durchdachtes Chunking, Citation-Format und einen SourceViewer. |
-| **Verweigerung statt Halluzination**    | Es braucht eine robuste Schwellenwert-Logik, die schwache Treffer als „keine Antwort" einordnet.         |
-| **Reproduzierbarkeit der Auslieferung** | ~6 GB Modell-Payload sind nicht beliebig in einen Installer packbar; gelöst über Slim-Installer + First-Launch-Download aus eigenen, gespiegelten Buckets. |
+| Herausforderung                         | Beschreibung                                                                                                                                                                                                                                  |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lokale Modellinferenz**               | Ein Sprachmodell und ein Embedding-Modell müssen auf Endgeräte-Hardware (auch ohne dedizierte GPU) lauffähig sein — gelöst über quantisierte GGUF-Modelle und node-llama-cpp (Vulkan/CUDA/CPU-adaptiv).                                       |
+| **Hybride Suche ohne Server**           | Volltext- und Vektorsuche müssen ohne externen Datenbankserver funktionieren — gelöst über In-Process-Postgres (pglite/WASM) mit `tsvector` und `pgvector`/HNSW.                                                                              |
+| **Belastbare Quellenangaben**           | Antworten müssen auf exakte Chunks zurückführbar sein; dies erfordert ein durchdachtes Chunking, Citation-Format und einen SourceViewer.                                                                                                      |
+| **Verweigerung statt Halluzination**    | Es braucht eine robuste Schwellenwert-Logik, die schwache Treffer als „keine Antwort" einordnet.                                                                                                                                              |
+| **Reproduzierbarkeit der Auslieferung** | ~6 GB Modell-Payload sind nicht beliebig in einen Installer packbar; gelöst über einen Slim-Installer, dessen Wizard die Modelle per Tier-Bundle aus eigenen, gespiegelten Buckets bezieht (seit v0.4.7 kein In-App-Erststart-Download mehr). |
 
 ## 4.5 Organisatorische Herausforderungen
 
