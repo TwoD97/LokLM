@@ -38,20 +38,20 @@ Stand der Liste: **2026-06-16**.
 
 ## C. Formaler Apparat / Buch-Bausteine
 
-|     | Aufgabe                                                                                                                                                           | Wer | Datei                                      | Status |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------ | ------ |
-| C1  | **Kurzfassung** finalisieren (Ergebniszahlen nach B1) + optional EN-Abstract                                                                                      | C/T | `front_10_kurzfassung.md`                  | ◐      |
-| C2  | **Literaturverzeichnis**: Paper-/Norm-Detailangaben am Original verifizieren (`[6]`–`[8]`, `[17]`–`[26]`); Nummerierung auf Erscheinungsreihenfolge konsolidieren | C   | `back_10_literaturverzeichnis.md`          | ☐      |
-| C3  | **Abkürzungsverzeichnis** gegen den finalen Text abgleichen (vollständig, keine Karteileichen)                                                                    | C   | `front_20_abkuerzungsverzeichnis.md`       | ☐      |
-| C4  | **Selbstständigkeitserklärung**: Wortlaut + KI-Hinweis gem. LBS4-Vorgabe, Name/Datum/Unterschrift                                                                 | T   | `back_20_selbststaendigkeitserklaerung.md` | ⛔     |
-| C5  | `mammoth [15]` aus der Tabellenzelle (Kap. 10) in eine Fließtext-Nennung verschieben (einzige Tabellen-Zitierung)                                                 | C   | 10                                         | ☐      |
+|     | Aufgabe                                                                                                                                                                                                | Wer | Datei                                      | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------------------------------------------ | ------ |
+| C1  | **Kurzfassung** finalisieren (Ergebniszahlen nach B1) + optional EN-Abstract                                                                                                                           | C/T | `front_10_kurzfassung.md`                  | ◐      |
+| C2  | **Literaturverzeichnis**: Paper-/Norm-Detailangaben am Original verifizieren (`[6]`–`[8]`, `[17]`–`[26]`); Nummerierung auf Erscheinungsreihenfolge konsolidieren                                      | C   | `back_10_literaturverzeichnis.md`          | ☐      |
+| C3  | **Abkürzungsverzeichnis** gegen den finalen Text abgleichen — **2026-06-16:** 8 fehlende Standard-Akronyme (CPU/PDF/DOCX/API/SEO/YAML/UTF-8/KI) ergänzt; Voll-Abgleich + Karteileichen beim v1.0-Audit | C   | `front_20_abkuerzungsverzeichnis.md`       | ◐      |
+| C4  | **Selbstständigkeitserklärung**: Wortlaut + KI-Hinweis gem. LBS4-Vorgabe, Name/Datum/Unterschrift                                                                                                      | T   | `back_20_selbststaendigkeitserklaerung.md` | ⛔     |
+| C5  | `mammoth [15]` aus der Tabellenzelle (Kap. 10) in Fließtext verschoben (Kap. 10) — **erledigt 2026-06-16**                                                                                             | C   | 10                                         | ☑      |
 
 ## D. Konsistenz / Stil
 
 |     | Aufgabe                                                                                                                                                | Wer | Status                               |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------------------------------------ |
 | D1  | **Stand-Daten** vereinheitlichen: Status-Snapshot (2026-06-14) vs. Dokument-/Code-Stand sauber trennen; Einzel-Stand-Zeilen (z. B. Kap. 21) angleichen | C   | ◐                                    |
-| D2  | Terminologie gegen [TERMINOLOGY.md](TERMINOLOGY.md) final prüfen (z. B. „Denys", Versionsschreibweisen)                                                | C   | ☐                                    |
+| D2  | Terminologie gegen [TERMINOLOGY.md](TERMINOLOGY.md) final prüfen (z. B. „Denys", Versionsschreibweisen) — **2026-06-16 verifiziert: keine Verstöße**   | C   | ☑                                    |
 | D3  | Volle [STYLE_GUIDE.md](STYLE_GUIDE.md)-Konformität aller Kapitel (Kapitelschablone, Tempus/Person)                                                     | C   | ☐                                    |
 | D4  | Nummerierung/Beschriftungen final prüfen (alle `K.M`, `Tabelle/Abbildung K.n`)                                                                         | C   | ☑ (Stand 06-16, vor Abgabe re-check) |
 
