@@ -2,7 +2,7 @@
 
 Alphabetisch geordnete Begriffe aus dem LokLM-Projekt, je 1–2 Sätze. Projektspezifische Belege verweisen auf Repo-Pfade.
 
----
+## 27.1 Allgemeine Begriffe
 
 **BM25** — Klassischer lexikalischer Ranking-Algorithmus (Term-Frequenz/Dokumentlänge); in LokLM die textbasierte Such-Komponente, deren Treffer per RRF mit der Vektor-Suche fusioniert werden.
 
@@ -58,7 +58,7 @@ Alphabetisch geordnete Begriffe aus dem LokLM-Projekt, je 1–2 Sätze. Projekts
 
 ---
 
-## Projektspezifische Begriffe
+## 27.2 Projektspezifische Begriffe
 
 **AP (Arbeitspaket)** — Abgegrenzte Aufgabeneinheit mit eigenem Ticket/DoD (z. B. AP-E.2, AP-T.1).
 
