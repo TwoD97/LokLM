@@ -1,0 +1,23 @@
+diff --git a/dist/bindings/getLlama.js b/dist/bindings/getLlama.js
+index a76da01781e2f0bd99480bcbb35c18f75bfcd9d9..d7745e28b0b4c1727d643673d8a978c1afb914f3 100644
+--- a/dist/bindings/getLlama.js
++++ b/dist/bindings/getLlama.js
+@@ -553,6 +553,15 @@ function loadBindingModule(bindingModulePath) {
+     }
+ }
+ function getShouldTestBinaryBeforeLoading({ isPrebuiltBinary, platform, platformInfo, buildMetadata }) {
++    // LokLM patch: skip the prebuilt-binary self-test. node-llama-cpp runs this
++    // test by forking a child process; inside our Electron utility-process
++    // models worker that child can't load node-llama-cpp's dependencies from
++    // inside app.asar, so the test always fails and node-llama-cpp silently
++    // falls back to the CPU binary (the GPU is never used in packaged builds).
++    // We ship known-good prebuilt binaries that the main process already loads
++    // and inits successfully, so skipping the test is safe and is the only way
++    // to use the GPU binary from the packaged worker. Original logic below.
++    return false;
+     if (platform === "linux") {
+         if (isPrebuiltBinary)
+             return true;
+diff --git a/templates/README.md b/templates/README.md
+deleted file mode 100644
+index c47d3c3ae991accbfae308db67101ef5bc66c4c2..0000000000000000000000000000000000000000
