@@ -8,21 +8,21 @@ LokLM ist eine Electron-Anwendung [1] mit strikter Prozess-Trennung. Es gibt dre
 
 **Tabelle 13.1:** Prozess-Topologie — Electron-Schichten und ausgelagerte Worker-Prozesse.
 
-| Schicht | Prozess | Verantwortung | Quelle |
-| --- | --- | --- | --- |
-| **Renderer** | Chromium (sandboxed) | React-UI, keine Node-Integration, kein Dateisystemzugriff | [src/renderer/](../../src/renderer/), `sandbox: true` in [src/main/index.ts](../../src/main/index.ts) |
-| **Preload** | Chromium-Preload (CommonJS) | `contextBridge`-Brücke `window.api`, einzige erlaubte IPC-Oberfläche | [src/preload/index.ts](../../src/preload/index.ts) |
-| **Main** | Node.js (Electron) | Service-Layer, IPC-Handler, Auth/Tresor, Datenbankzugriff | [src/main/index.ts](../../src/main/index.ts), [src/main/services/](../../src/main/services/) |
-| **modelsWorker** | utilityProcess | LLM-, Embedder-, Reranker-Inferenz (`node-llama-cpp`) | [src/main/services/workers/modelsWorker.ts](../../src/main/services/workers/modelsWorker.ts) |
-| **documentsWorker** | utilityProcess | Parsing, OCR, Chunking | [src/main/services/workers/documentsWorker.ts](../../src/main/services/workers/documentsWorker.ts) |
-| **transcriptionWorker** | utilityProcess | Whisper-Transkription | [src/main/services/workers/transcriptionWorker.ts](../../src/main/services/workers/transcriptionWorker.ts) |
-| **diarizationWorker** | utilityProcess (lazy) | Sprecher-Diarisierung (`sherpa-onnx`) | [src/main/services/workers/diarizationWorker.ts](../../src/main/services/workers/diarizationWorker.ts) |
+| Schicht                 | Prozess                     | Verantwortung                                                        | Quelle                                                                                                     |
+| ----------------------- | --------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Renderer**            | Chromium (sandboxed)        | React-UI, keine Node-Integration, kein Dateisystemzugriff            | [src/renderer/](../../src/renderer/), `sandbox: true` in [src/main/index.ts](../../src/main/index.ts)      |
+| **Preload**             | Chromium-Preload (CommonJS) | `contextBridge`-Brücke `window.api`, einzige erlaubte IPC-Oberfläche | [src/preload/index.ts](../../src/preload/index.ts)                                                         |
+| **Main**                | Node.js (Electron)          | Service-Layer, IPC-Handler, Auth/Tresor, Datenbankzugriff            | [src/main/index.ts](../../src/main/index.ts), [src/main/services/](../../src/main/services/)               |
+| **modelsWorker**        | utilityProcess              | LLM-, Embedder-, Reranker-Inferenz (`node-llama-cpp`)                | [src/main/services/workers/modelsWorker.ts](../../src/main/services/workers/modelsWorker.ts)               |
+| **documentsWorker**     | utilityProcess              | Parsing, OCR, Chunking                                               | [src/main/services/workers/documentsWorker.ts](../../src/main/services/workers/documentsWorker.ts)         |
+| **transcriptionWorker** | utilityProcess              | Whisper-Transkription                                                | [src/main/services/workers/transcriptionWorker.ts](../../src/main/services/workers/transcriptionWorker.ts) |
+| **diarizationWorker**   | utilityProcess (lazy)       | Sprecher-Diarisierung (`sherpa-onnx`)                                | [src/main/services/workers/diarizationWorker.ts](../../src/main/services/workers/diarizationWorker.ts)     |
 
 Die Worker-Eintrittspunkte sind als eigene Rollup-Inputs in [electron.vite.config.ts](../../electron.vite.config.ts) deklariert und werden zur Laufzeit über `utilityProcess.fork(out/main/<name>.js)` geladen.
 
 ### Warum diese Trennung?
 
-- **Renderer-Sandbox als Sicherheitsgrenze:** Die App verarbeitet *untrusted* Inhalte — PDFs durch `pdfjs` [14], OCR-Bilder, Markdown, sowie LLM-Ausgaben, die per `react-markdown` gerendert werden. Die volle Chromium-Sandbox (`sandbox: true`, zusätzlich prozessweit `app.enableSandbox()`) hält einen möglichen Renderer-Exploit vom Dateisystem und vom entschlüsselten Tresor in Main fern. Da sandboxed Preloads keine ES-Module laden können, wird der Preload bewusst als CommonJS (`index.cjs`) gebaut.
+- **Renderer-Sandbox als Sicherheitsgrenze:** Die App verarbeitet _untrusted_ Inhalte — PDFs durch `pdfjs` [14], OCR-Bilder, Markdown, sowie LLM-Ausgaben, die per `react-markdown` gerendert werden. Die volle Chromium-Sandbox (`sandbox: true`, zusätzlich prozessweit `app.enableSandbox()`) hält einen möglichen Renderer-Exploit vom Dateisystem und vom entschlüsselten Tresor in Main fern. Da sandboxed Preloads keine ES-Module laden können, wird der Preload bewusst als CommonJS (`index.cjs`) gebaut.
 - **Modell-Inferenz im eigenen Prozess:** Schwere GGUF-Loads und Inferenz liefen früher auf dem Main-Thread und blockierten dort den Event-Loop (u. a. die VRAM-Probe bei `getLlama`-Init). Sie sind in den `modelsWorker` ausgelagert; eine FIFO-Mutex dort serialisiert die `loadModel`-Aufrufe über LLM/Embedder/Reranker. Damit `node-llama-cpp` im Utility-Process die GPU-Binaries korrekt validiert (der Test-Kindprozess startete dort sonst als Electron statt als Node und scheiterte → stiller CPU-Fallback trotz verfügbarer CUDA-GPU), wird `ELECTRON_RUN_AS_NODE=1` im Worker gesetzt (`eba08e3`).
 - **Parsing isoliert vom Inferenz-Pfad:** Ein schweres oder gescanntes PDF darf das Token-Streaming des Chats nicht stören — daher ein separater `documentsWorker`. Transkription und Diarisierung erhalten je einen eigenen Prozess, isoliert sowohl vom Modell- als auch vom Parsing-Pfad.
 
@@ -34,7 +34,7 @@ Die Renderer-↔-Main-Kommunikation läuft ausschließlich über `ipcRenderer.in
 
 `auth:*`, `window:*`, `workspaces:*`, `documents:*`, `conversations:*`, `models:*`, `embedder:*`, `reranker:*`, `llm:*`, `search:*`, `chat:*`, `transcription:*`, `settings:*`, `ollama:*`, `quiz:*`, `translation:*`, `writing:*`, `logs:*`.
 
-Eine maschinelle Zählung über `ipcMain.handle(` in [src/main/index.ts](../../src/main/index.ts) ergibt **103 Handler** (Stand 2026-06-16).
+Eine maschinelle Zählung über `ipcMain.handle(` in [src/main/index.ts](../../src/main/index.ts) ergibt **105 Handler** (Stand 2026-06-16, `main` v0.4.7; auf v0.4.6 `af59c25` waren es 103).
 
 Streaming-Kanäle (Chat, Quiz, Transkription, Modell-Download) arbeiten mit pro-Stream-IDs: Der Handler `chat:stream` sendet Token/Citation/Stage-Ereignisse auf einem dynamischen Kanal `chat:stream-event:<streamId>`, abbrechbar über `chat:cancel` per `AbortController`. Status-Pushes (`llm:status`, `embedder:status`, `reranker:status`, `auth:state`, `provider:fallback`) werden an **alle** offenen Fenster gesendet.
 
@@ -44,14 +44,14 @@ Tabelle 13.2 stellt die lokal gebündelten Standard-Komponenten den optionalen e
 
 **Tabelle 13.2:** Lokale Standard- gegenüber optionalen externen Komponenten.
 
-| Komponente | Standard | Extern (optional) |
-| --- | --- | --- |
+| Komponente         | Standard                            | Extern (optional)                |
+| ------------------ | ----------------------------------- | -------------------------------- |
 | Sprachmodell (LLM) | gebündeltes GGUF (`node-llama-cpp`) | Ollama-LLM (`OllamaLlmProvider`) |
-| Embedder | BGE-M3 GGUF | Ollama-Embedder |
-| Reranker | BGE-Reranker-v2-M3 GGUF | Ollama-Reranker |
-| Übersetzung | MADLAD-Sidecar (CTranslate2) | — |
-| Transkription | Whisper (lokales Addon) | — |
-| Datenbank | PGlite (In-Memory, WASM) | — |
+| Embedder           | BGE-M3 GGUF                         | Ollama-Embedder                  |
+| Reranker           | BGE-Reranker-v2-M3 GGUF             | Ollama-Reranker                  |
+| Übersetzung        | MADLAD-Sidecar (CTranslate2)        | —                                |
+| Transkription      | Whisper (lokales Addon)             | —                                |
+| Datenbank          | PGlite (In-Memory, WASM)            | —                                |
 
 Die Quellenumschaltung kapselt die **`ProviderRegistry`** ([src/main/services/providers/Registry.ts](../../src/main/services/providers/Registry.ts)): Sie hält je ein `bundled`/`ollama`-Paar für LLM, Embedder und Reranker und entscheidet pro Aufruf, welcher Provider aktiv ist. Bei einem Netzwerk-/Timeout-/Server-Fehler eines Ollama-LLM fällt sie **automatisch auf den gebündelten Provider zurück** und löst das `onFallback`-Event aus, das die Chat-Header-Pille auf „bundled, fallback aktiv" umschaltet; der Ollama-Reranker fällt im Fehlerfall ebenfalls automatisch auf bundled zurück, jedoch **still** (ohne Event/Pille).
 
@@ -142,12 +142,12 @@ Die zentralen Entscheidungen sind in `docs/adr/` dokumentiert (Tabelle 13.3):
 
 **Tabelle 13.3:** Architektur-relevante Architecture Decision Records (ADRs).
 
-| ADR | Thema | Status | Architektur-Bezug |
-| --- | --- | --- | --- |
-| [ADR-0001](../../docs/adr/0001-argon2id-password-kdf.md) | argon2id als Passwort-/Passphrase-KDF | accepted | Schlüsselableitung im AuthService |
-| [ADR-0002](../../docs/adr/0002-envelope-encryption-aes-gcm.md) | Envelope-Encryption: DEK + KEK-Wrapping (AES-256-GCM) | accepted | Tresor-Format v4, ein-Datei-Layout |
-| [ADR-0003](../../docs/adr/0003-query-routing-und-summary-index.md) | Query-Routing + Per-Dokument-Summary-Index | accepted | corpus/doc_summary/retrieval-Routen, Decomposition |
-| [ADR-0004](../../docs/adr/0004-adaptive-model-residency.md) | Adaptive Modell-Residency (Usage-Lernen, GDSF-Caching) | proposed | Design-Vorschlag, nicht implementiert |
+| ADR                                                                | Thema                                                  | Status   | Architektur-Bezug                                  |
+| ------------------------------------------------------------------ | ------------------------------------------------------ | -------- | -------------------------------------------------- |
+| [ADR-0001](../../docs/adr/0001-argon2id-password-kdf.md)           | argon2id als Passwort-/Passphrase-KDF                  | accepted | Schlüsselableitung im AuthService                  |
+| [ADR-0002](../../docs/adr/0002-envelope-encryption-aes-gcm.md)     | Envelope-Encryption: DEK + KEK-Wrapping (AES-256-GCM)  | accepted | Tresor-Format v4, ein-Datei-Layout                 |
+| [ADR-0003](../../docs/adr/0003-query-routing-und-summary-index.md) | Query-Routing + Per-Dokument-Summary-Index             | accepted | corpus/doc_summary/retrieval-Routen, Decomposition |
+| [ADR-0004](../../docs/adr/0004-adaptive-model-residency.md)        | Adaptive Modell-Residency (Usage-Lernen, GDSF-Caching) | proposed | Design-Vorschlag, nicht implementiert              |
 
 ADR-0004 „Adaptive Model Residency" ist ein **Design-Vorschlag (ADR-0004, Status PROPOSED) — im aktuellen Stand NICHT implementiert** (kein `src/main/.../placement/`-Code vorhanden). Heute ist das Placement statisch: `ResourcePlanner` entscheidet einmal zur Ladezeit; Embedder/Reranker bleiben nach dem ersten Load warm, nur das LLM hat eine Idle-Eviction (Default 30 min, `LOKLM_LLM_IDLE_MS`).
 
