@@ -257,6 +257,9 @@
       "esbuild": "0.25.12",
       "tmp": ">=0.2.6",
       "vite": "^6"
+    },
+    "patchedDependencies": {
+      "node-llama-cpp": "patches/node-llama-cpp.patch"
     }
   }
 }
