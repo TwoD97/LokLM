@@ -81,7 +81,7 @@ LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts
 | `pnpm models:translation` | Übersetzungs-Eval-Pool (Gemma Q4/Q6 + Qwen3.5 2B/4B/9B); das Produktiv-MADLAD-400-3B liefert der Installer-Wizard |
 | `pnpm tessdata`           | OCR-Traineddata (Tesseract)                                                                                       |
 
-**Required-Modelle** (First-Launch-Gating) sind ausschließlich **Embedder + Reranker** ([src/main/services/models/manifest.ts](../../src/main/services/models/manifest.ts)) — beide werden mit SHA-256 verifiziert. Das **LLM ist nicht mehr Teil des Laufzeit-Manifests**: Seit v0.3.0 besitzt der Installer-Wizard die LLM-Akquise per Tier-Bundle; LLM-Erkennung erfolgt zur Laufzeit über Dateinamen-Pattern (`LlamaService.discoverProfiles`).
+**Required-Modelle** im Laufzeit-Manifest sind ausschließlich **Embedder + Reranker** ([src/main/services/models/manifest.ts](../../src/main/services/models/manifest.ts)) — beide werden mit SHA-256 verifiziert und über `models:status`/`allRequiredReady` auf Bereitschaft geprüft; seit v0.4.7 ohne In-App-Erststart-Downloader (ein fehlendes Required-Modell erscheint als _not-ready_-Dienst, kein Download-Prompt). Das **LLM ist nicht mehr Teil des Laufzeit-Manifests**: Seit v0.3.0 besitzt der Installer-Wizard die LLM-Akquise per Tier-Bundle; LLM-Erkennung erfolgt zur Laufzeit über Dateinamen-Pattern (`LlamaService.discoverProfiles`).
 
 **Tier-↔-Profil-Zuordnung** (Installer-Wahl bestimmt das LLM-Profil, [src/main/services/llm/LlamaService.ts](../../src/main/services/llm/LlamaService.ts)); Tabelle 20.6 stellt die Zuordnung dar:
 

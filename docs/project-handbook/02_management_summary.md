@@ -2,7 +2,7 @@
 
 ## 2.1 Was wurde gebaut
 
-**LokLM** ist eine lokale, offline lauffähige Desktop-Anwendung (Electron), mit der Benutzer eigene Dokumente — PDF, Markdown, Text, Quellcode, optional DOCX — importieren, in benannten Arbeitsbereichen organisieren und über eine Chat-Oberfläche befragen können. Jede Antwort enthält **klickbare Quellenverweise**, über die der Benutzer zur Originaltextstelle springt und die Aussage selbst überprüft. Die Anwendung arbeitet im Standardbetrieb vollständig lokal; eine Internetverbindung ist nur einmalig für Installation und den First-Launch-Modell-Download erforderlich.
+**LokLM** ist eine lokale, offline lauffähige Desktop-Anwendung (Electron), mit der Benutzer eigene Dokumente — PDF, Markdown, Text, Quellcode, optional DOCX — importieren, in benannten Arbeitsbereichen organisieren und über eine Chat-Oberfläche befragen können. Jede Antwort enthält **klickbare Quellenverweise**, über die der Benutzer zur Originaltextstelle springt und die Aussage selbst überprüft. Die Anwendung arbeitet im Standardbetrieb vollständig lokal; eine Internetverbindung ist nur einmalig für Installation und die Modell-Akquise des Installer-Wizards erforderlich.
 
 ## 2.2 Welches Problem wird gelöst
 
