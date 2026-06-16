@@ -4,6 +4,8 @@ import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from '
 import argon2 from 'argon2'
 import { intoSecure, secureWipe } from './secureMemory'
 import { Database } from '../../db/database'
+import { WorkspaceStore } from '../storage/WorkspaceStore'
+import { emptyManifest, type VaultManifest } from '../../../shared/workspaceStorage'
 import {
   generatePassphrase as generatePassphraseShared,
   normalisePassphrase as normalisePassphraseShared,
@@ -53,7 +55,7 @@ import type {
 //     re-wrap it under fresh KEKs and re-encrypt the body with a new nonce ,
 //     so library content survives the recovery flow.
 interface AuthHeader {
-  version: 4
+  version: 4 | 5
   displayName: string
   passwordSalt: string // base64(32) — KEK derivation salt for password
   passwordWrappedDek: WrappedKey // DEK encrypted under password-KEK
@@ -98,7 +100,15 @@ const ARGON_OPTS = {
 const AES_ALGO = 'aes-256-gcm' as const
 const AES_NONCE_BYTES = 12
 const AES_TAG_BYTES = 16
-const VAULT_MAGIC = Buffer.from('LOKLM04\0') // 8 bytes , bump when the on-disk layout changes
+// v5 (ADR-0005): the encrypted body is framed as
+//   manifestLen(4 BE) ‖ manifestJSON ‖ tar(pglite-dump)
+// so the VaultManifest (workspace list, defaultWorkspaceId, wrapped WDEKs) rides
+// inside the same encrypted body as the snapshot. v4 bodies are bare tar with no
+// frame; they are read transparently (manifest = empty) and rewritten as v5 on
+// the next persist. The magic byte distinguishes the two on disk.
+const VAULT_MAGIC_V4 = Buffer.from('LOKLM04\0') // 8 bytes — legacy, read-only
+const VAULT_MAGIC_V5 = Buffer.from('LOKLM05\0') // 8 bytes — current write format
+const VAULT_MAGIC = VAULT_MAGIC_V5 // written by writeVaultNow
 const HEADER_LEN_BYTES = 4
 const HEADER_OFFSET = VAULT_MAGIC.length + HEADER_LEN_BYTES
 
@@ -154,6 +164,11 @@ export class AuthService {
   private dek: Buffer | null = null
   private database: Database | null = null
   private liveHeader: AuthHeader | null = null
+  // VaultManifest (ADR-0005): which workspaces exist, the default, each wrapped
+  // WDEK. Lives inside the encrypted body; mutated via the WorkspaceStore, which
+  // calls back into persistSnapshot() to re-encrypt the body.
+  private manifest: VaultManifest = emptyManifest()
+  private workspaceStore: WorkspaceStore | null = null
   private lastActivity = Date.now()
   private inactivityMs = DEFAULT_INACTIVITY_MS
   private inactivityTimer: NodeJS.Timeout | null = null
@@ -170,7 +185,10 @@ export class AuthService {
   // persists race on the shared loklm.vault.tmp file.
   private vaultWriteChain: Promise<void> = Promise.resolve()
 
+  private readonly userDataDir: string
+
   constructor(userDataDir: string) {
+    this.userDataDir = userDataDir
     this.vaultFilePath = join(userDataDir, 'loklm.vault')
     this.vaultBackupPath = this.vaultFilePath + '.bak'
   }
@@ -239,7 +257,7 @@ export class AuthService {
     secureWipe(recoveryKek)
 
     const header: AuthHeader = {
-      version: 4,
+      version: 5,
       displayName,
       passwordSalt: passwordSalt.toString('base64'),
       passwordWrappedDek,
@@ -249,6 +267,7 @@ export class AuthService {
     }
 
     this.dek = dek
+    this.manifest = emptyManifest()
     this.database = await Database.create(undefined)
     const body = await this.encryptCurrentDb(dek)
     await this.writeVault(header, body)
@@ -289,23 +308,23 @@ export class AuthService {
     // and body live together so any failure here is just file corruption ,
     // not an auth/snapshot drift.
     emit('decrypting')
-    let snapshotBlob = decryptBody(vault.body, dek)
-    if (snapshotBlob == null && vault.source === 'primary') {
+    let parsed = openBody(vault.body, vault.header.version, dek)
+    if (parsed == null && vault.source === 'primary') {
       // primary body failed its gcm tag. the DEK is install-lifetime , it
       // opens any generation's body — so the backup can rescue the last good
       // persist even though we keep the primary's (intact) header for the
       // session. the next persist rewrites both files and self-heals.
       const backup = await this.readBackupQuiet()
       if (backup) {
-        snapshotBlob = decryptBody(backup.body, dek)
-        if (snapshotBlob != null) {
+        parsed = openBody(backup.body, backup.header.version, dek)
+        if (parsed != null) {
           console.warn(
             '[auth] vault body corrupt , restored last good generation from loklm.vault.bak',
           )
         }
       }
     }
-    if (snapshotBlob == null) {
+    if (parsed == null) {
       secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
@@ -319,14 +338,18 @@ export class AuthService {
     // resident — matches the zeroing on every other failure path here.
     let database: Database
     try {
-      database = await Database.create(undefined, snapshotBlob)
+      database = await Database.create(undefined, parsed.snapshot)
     } catch (err) {
       secureWipe(dek)
       throw err
     }
     this.dek = dek
     this.database = database
+    // migrate-on-load: a v4 vault is read transparently, then re-headered to v5
+    // so the next persist writes the framed (manifest-carrying) body.
+    vault.header.version = 5
     this.liveHeader = vault.header
+    this.manifest = parsed.manifest
     this.failures = []
     this.startInactivityTimer()
     emit('ready')
@@ -373,6 +396,15 @@ export class AuthService {
   async lock(): Promise<void> {
     if (!this.dek || !this.database) return
     try {
+      // Close the active workspace first — it re-encrypts its files, wipes the
+      // plaintext working copy, and refreshes the manifest (which persistSnapshot
+      // then commits inside the vault body). Best-effort: a workspace close
+      // failure must not strand the session unlocked.
+      if (this.workspaceStore) {
+        await this.workspaceStore.close().catch((err) => {
+          console.warn('[auth] workspace store close failed during lock:', err)
+        })
+      }
       await this.persistSnapshot()
     } finally {
       await this.shutdownDatabase()
@@ -441,6 +473,7 @@ export class AuthService {
 
     const newHeader: AuthHeader = {
       ...vault.header,
+      version: 5,
       passwordSalt: newPasswordSalt.toString('base64'),
       passwordWrappedDek: newPasswordWrappedDek,
       recoveryEntries: [newEntry],
@@ -455,19 +488,19 @@ export class AuthService {
     // the very data it exists to save. Try the .bak generation first (the DEK
     // is install-lifetime , it opens any generation's body); if that fails too
     // an external backup is the only path left , so we must not touch the file.
-    let snapshotBlob = decryptBody(vault.body, dek)
-    if (snapshotBlob == null && vault.source === 'primary') {
+    let parsed = openBody(vault.body, vault.header.version, dek)
+    if (parsed == null && vault.source === 'primary') {
       const backup = await this.readBackupQuiet()
       if (backup) {
-        snapshotBlob = decryptBody(backup.body, dek)
-        if (snapshotBlob != null) {
+        parsed = openBody(backup.body, backup.header.version, dek)
+        if (parsed != null) {
           console.warn(
             '[auth] vault body corrupt , reset continues from the loklm.vault.bak generation',
           )
         }
       }
     }
-    if (snapshotBlob == null) {
+    if (parsed == null) {
       secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
@@ -477,13 +510,14 @@ export class AuthService {
     // rather than leaving key material resident (mirrors login()).
     let database: Database
     try {
-      database = await Database.create(undefined, snapshotBlob)
+      database = await Database.create(undefined, parsed.snapshot)
     } catch (err) {
       secureWipe(dek)
       throw err
     }
     this.dek = dek
     this.database = database
+    this.manifest = parsed.manifest
     const newBody = await this.encryptCurrentDb(dek)
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader
@@ -576,6 +610,26 @@ export class AuthService {
     }
     this.touch()
     return this.database
+  }
+
+  /** The per-workspace encrypted vector store (ADR-0005), bound to the live
+   *  master DEK + manifest. Lazily built; throws LockedError when locked.
+   *  Mutations call back into persistSnapshot() so the manifest is committed
+   *  inside the encrypted vault body. */
+  getWorkspaceStore(): WorkspaceStore {
+    if (!this.dek || !this.database) throw new LockedError()
+    this.touch()
+    if (!this.workspaceStore) {
+      this.workspaceStore = new WorkspaceStore({
+        baseDir: join(this.userDataDir, 'workspaces'),
+        masterDek: this.dek,
+        manifest: this.manifest,
+        persistManifest: async () => {
+          await this.persistSnapshot()
+        },
+      })
+    }
+    return this.workspaceStore
   }
 
   isUnlocked(): boolean {
@@ -673,10 +727,12 @@ export class AuthService {
     if (raw.length < HEADER_OFFSET) {
       throw new Error(`Vault file at ${path} is truncated (too short for header).`)
     }
-    const magic = raw.subarray(0, VAULT_MAGIC.length)
-    if (!timingSafeEqual(magic, VAULT_MAGIC)) {
+    const magic = raw.subarray(0, VAULT_MAGIC_V5.length)
+    const isV4 = magic.length === VAULT_MAGIC_V4.length && timingSafeEqual(magic, VAULT_MAGIC_V4)
+    const isV5 = magic.length === VAULT_MAGIC_V5.length && timingSafeEqual(magic, VAULT_MAGIC_V5)
+    if (!isV4 && !isV5) {
       throw new Error(
-        `Vault file at ${path} is not a LokLM v4 vault. Delete it to start over, or restore from a backup.`,
+        `Vault file at ${path} is not a LokLM vault. Delete it to start over, or restore from a backup.`,
       )
     }
     const headerLen = raw.readUInt32BE(VAULT_MAGIC.length)
@@ -691,7 +747,7 @@ export class AuthService {
     } catch {
       throw new Error(`Vault header is not valid JSON in ${path}.`)
     }
-    if (header.version !== 4) {
+    if (header.version !== 4 && header.version !== 5) {
       throw new Error(
         `Vault header version ${header.version} is not supported by this build. Delete ${path} to start over.`,
       )
@@ -812,15 +868,21 @@ export class AuthService {
   private async encryptCurrentDb(dek: Buffer): Promise<EncryptedBody> {
     if (!this.database) throw new Error('encryptCurrentDb called without a live database')
     const blob = await this.database.dump()
-    // Buffer.from(ArrayBuffer) is a view , no copy of the bytes. We feed it
-    // straight to cipher.update and skip the intermediate `plaintext` local +
-    // the Buffer.concat of update/final. That used to triple-buffer the whole
-    // snapshot at peak; now we keep just the cipher chunks + the final
-    // writeVault concat.
-    const plaintextView = Buffer.from(await blob.arrayBuffer())
+    // v5 framed plaintext: manifestLen(4 BE) ‖ manifestJSON ‖ tar. Each piece is
+    // fed to cipher.update separately (GCM is a stream cipher, so concatenated
+    // updates == one update over the concatenation) — no extra full-body buffer.
+    const tar = Buffer.from(await blob.arrayBuffer())
+    const manifestJson = Buffer.from(JSON.stringify(this.manifest), 'utf8')
+    const lenBuf = Buffer.alloc(4)
+    lenBuf.writeUInt32BE(manifestJson.length, 0)
     const nonce = randomBytes(AES_NONCE_BYTES)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
-    const chunks = [cipher.update(plaintextView), cipher.final()]
+    const chunks = [
+      cipher.update(lenBuf),
+      cipher.update(manifestJson),
+      cipher.update(tar),
+      cipher.final(),
+    ]
     const tag = cipher.getAuthTag()
     return { nonce, tag, ciphertextChunks: chunks }
   }
@@ -838,6 +900,10 @@ export class AuthService {
   }
 
   private zeroKey(): void {
+    // Drop the workspace store handle — it held a reference to the DEK we are
+    // about to wipe. A fresh one is built on the next getWorkspaceStore().
+    this.workspaceStore = null
+    this.manifest = emptyManifest()
     if (this.dek) {
       secureWipe(this.dek)
       this.dek = null
@@ -931,18 +997,49 @@ function unwrapKey(kek: Buffer, wrapped: WrappedKey): Buffer | null {
   }
 }
 
-function decryptBody(body: EncryptedBody, dek: Buffer): Blob | null {
+function decryptBodyRaw(body: EncryptedBody, dek: Buffer): Buffer | null {
   try {
     const decipher = createDecipheriv(AES_ALGO, dek, body.nonce)
     decipher.setAuthTag(body.tag)
     // Feed each ciphertext chunk through update , no need to Buffer.concat
     // them first. Most read paths give us a single-chunk array (whole file
-    // read in one go); write paths have 2 chunks (update + final).
+    // read in one go); write paths have several (manifest len + manifest + tar).
     const decoded: Buffer[] = []
     for (const chunk of body.ciphertextChunks) decoded.push(decipher.update(chunk))
     decoded.push(decipher.final())
-    const plaintext = Buffer.concat(decoded)
-    return new Blob([new Uint8Array(plaintext)])
+    return Buffer.concat(decoded)
+  } catch {
+    return null
+  }
+}
+
+/** Splits a decrypted body into its manifest + pglite snapshot. v5 bodies are
+ *  framed (manifestLen ‖ manifestJSON ‖ tar); v4 bodies are bare tar and yield
+ *  an empty manifest (migrated to v5 on the next persist). */
+function parseVaultBody(
+  plain: Buffer,
+  version: 4 | 5,
+): { manifest: VaultManifest; snapshot: Blob } {
+  if (version >= 5) {
+    const len = plain.readUInt32BE(0)
+    const manifest = JSON.parse(plain.subarray(4, 4 + len).toString('utf8')) as VaultManifest
+    const tar = plain.subarray(4 + len)
+    return { manifest, snapshot: new Blob([new Uint8Array(tar)]) }
+  }
+  return { manifest: emptyManifest(), snapshot: new Blob([new Uint8Array(plain)]) }
+}
+
+/** Decrypt + frame-parse in one step. null when the GCM tag fails (wrong key /
+ *  corrupt body) or the frame is malformed. */
+function openBody(
+  body: EncryptedBody,
+  version: 4 | 5,
+  dek: Buffer,
+): { manifest: VaultManifest; snapshot: Blob } | null {
+  const plain = decryptBodyRaw(body, dek)
+  if (!plain) return null
+  try {
+    return parseVaultBody(plain, version)
   } catch {
     return null
   }
