@@ -31,7 +31,9 @@ Abkürzungen werden bei Ersterwähnung im Text ausgeschrieben und hier ergänzt
 | KDF         | Key Derivation Function                                                |
 | KEK         | Key Encryption Key                                                     |
 | KI          | Künstliche Intelligenz                                                 |
+| KW          | Kalenderwoche                                                          |
 | LLM         | Large Language Model                                                   |
+| MAU         | Monthly Active Users (monatlich aktive Nutzer)                         |
 | MCQ         | Multiple Choice Question                                               |
 | MIT         | MIT-Lizenz (permissive Open-Source-Lizenz)                             |
 | MRR         | Mean Reciprocal Rank                                                   |
@@ -39,6 +41,7 @@ Abkürzungen werden bei Ersterwähnung im Text ausgeschrieben und hier ergänzt
 | NSIS        | Nullsoft Scriptable Install System                                     |
 | OCR         | Optical Character Recognition                                          |
 | OSI         | Open Source Initiative                                                 |
+| PBKDF2      | Password-Based Key Derivation Function 2                               |
 | PDF         | Portable Document Format                                               |
 | PR          | Pull Request                                                           |
 | QA          | Quality Assurance                                                      |
@@ -49,6 +52,7 @@ Abkürzungen werden bei Ersterwähnung im Text ausgeschrieben und hier ergänzt
 | SEO         | Search Engine Optimization                                             |
 | SMART       | Specific, Measurable, Achievable, Relevant, Time-bound (Zielkriterien) |
 | TTFT        | Time To First Token                                                    |
+| UE          | Unterrichtseinheit                                                     |
 | UI/UX       | User Interface / User Experience                                       |
 | UTF-8       | 8-Bit Unicode Transformation Format                                    |
 | WASM        | WebAssembly                                                            |

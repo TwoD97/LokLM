@@ -13,7 +13,7 @@ Verifikations-Marker, weil ihre exakte Ticket-Abgrenzung extern (Vikunja/Outline
 > Projektstatusbericht und der Commit-/PR-Historie **rekonstruiert** und durch das Team
 > zu bestätigen.
 
-## Legende
+**Legende der nachstehenden Tabellen:**
 
 - **Status:** fertig = gemergt/released bzw. DoD nachweislich erfüllt · teilweise =
   Kern fertig, Restposten offen · offen = in Arbeit/nicht abgeschlossen · verworfen =
