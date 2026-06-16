@@ -3,7 +3,7 @@
 Verbindliche **Bind-Reihenfolge** der gebundenen Fassung. Diese Datei — nicht der nackte
 Glob `[0-2][0-9]_*.md` — bestimmt, welche Dateien in welcher Reihenfolge in die
 PDF-/Buch-Fassung einfließen. So lassen sich **Front- und Schlussteil** ohne Umnummerierung
-der festnummerierten Kapitel `00`–`28` einbinden. Stand: **2026-06-14**.
+der festnummerierten Kapitel `00`–`28` einbinden. Stand: **2026-06-16**.
 
 Build-Anleitung und Werkzeuge: [EXPORT_NOTES.md](EXPORT_NOTES.md).
 
@@ -51,7 +51,9 @@ seitige Gliederung).
 
 `README.md`, `HANDBOOK_STATUS.md`, `SOURCE_MAP.md`, `OPEN_QUESTIONS_FOR_TEAM.md`,
 `SENSITIVE_DATA_CHECKLIST.md`, `EXPORT_NOTES.md`, `STYLE_GUIDE.md`, `TERMINOLOGY.md`,
-`BOOK_MANIFEST.md`, `RELEASE_AUDIT.md`.
+`BOOK_MANIFEST.md`, `RELEASE_AUDIT.md`, `ROADMAP_TO_V1.md`. Bilder/Diagramme liegen unter
+`assets/` (inkl. `assets/README.md`) und werden über die Kapitel referenziert, nicht separat
+gebunden.
 
 Optional als zusätzlicher Anhang aufnehmbar: `SOURCE_MAP.md` und/oder
 `OPEN_QUESTIONS_FOR_TEAM.md` (Entscheidung beim Audit).

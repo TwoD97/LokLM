@@ -47,6 +47,7 @@ Stand der Liste: **2026-06-16**.
 | C3  | **Abkürzungsverzeichnis** gegen den finalen Text abgleichen — **2026-06-16:** 8 fehlende Standard-Akronyme (CPU/PDF/DOCX/API/SEO/YAML/UTF-8/KI) ergänzt; Voll-Abgleich + Karteileichen beim v1.0-Audit                                                                                                                                                                                                                            | C   | `front_20_abkuerzungsverzeichnis.md`       | ◐      |
 | C4  | **Selbstständigkeitserklärung**: Wortlaut + KI-Hinweis gem. LBS4-Vorgabe, Name/Datum/Unterschrift                                                                                                                                                                                                                                                                                                                                 | T   | `back_20_selbststaendigkeitserklaerung.md` | ⛔     |
 | C5  | `mammoth [15]` aus der Tabellenzelle (Kap. 10) in Fließtext verschoben (Kap. 10) — **erledigt 2026-06-16**                                                                                                                                                                                                                                                                                                                        | C   | 10                                         | ☑      |
+| C6  | **Buch-Struktur-Integrität** (RELEASE_AUDIT §7): Manifest ↔ Dateien ↔ README-TOC ↔ Diagramme deckungsgleich — **2026-06-16 verifiziert:** 29 Kap. (00–28) vollzählig, README-TOC = 29 Zeilen, 8 Teile decken 01–28 lückenlos, **17 Inline-mermaid = 17 Captions = 17 SVGs**. Fix: `ROADMAP_TO_V1.md` in Manifest-Ausschlussliste ergänzt, Manifest-Stand → 2026-06-16                                                             | C   | `BOOK_MANIFEST.md`                         | ☑      |
 
 ## D. Konsistenz / Stil
 
@@ -59,11 +60,11 @@ Stand der Liste: **2026-06-16**.
 
 ## E. Export / Bindung
 
-|     | Aufgabe                                                                                                                                                                   | Wer | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------ |
-| E1  | **Mermaid-Diagramme** → SVG nach `assets/` rendern — **2026-06-16: 15/15 gerendert** (mmdc 11.15; Kap.-21-Kanten-Label gequotet). Kapitel-`.md` behalten inline-`mermaid` | C/T | ☑      |
-| E2  | **Probebuild** über [BOOK_MANIFEST.md](BOOK_MANIFEST.md) (Pandoc/typst) fehlerfrei; Front-/Schlussteil unnummeriert, Verzeichnisse erzeugt                                | T   | ☐      |
-| E3  | Sichtprüfung gerendertes PDF (Deckblatt, Seitenzahlen, Umlaute, Diagramme)                                                                                                | T   | ☐      |
+|     | Aufgabe                                                                                                                                                                                                                                                      | Wer | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------ |
+| E1  | **Mermaid-Diagramme** → SVG nach `assets/` rendern — **2026-06-16: 17/17 gerendert** (mmdc 11.15; inkl. GANTT `abb-8-2` + Netzplan `abb-8-3`; Kap.-21-Kanten-Label gequotet). Kapitel-`.md` behalten inline-`mermaid`; Caption↔SVG 17/17 deckungsgleich (C6) | C/T | ☑      |
+| E2  | **Probebuild** über [BOOK_MANIFEST.md](BOOK_MANIFEST.md) (Pandoc/typst) fehlerfrei; Front-/Schlussteil unnummeriert, Verzeichnisse erzeugt                                                                                                                   | T   | ☐      |
+| E3  | Sichtprüfung gerendertes PDF (Deckblatt, Seitenzahlen, Umlaute, Diagramme)                                                                                                                                                                                   | T   | ☐      |
 
 ## F. Sicherheit / Anonymisierung
 
