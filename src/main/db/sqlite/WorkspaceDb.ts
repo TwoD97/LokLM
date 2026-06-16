@@ -1,6 +1,26 @@
 import { createClient, type Client, type InArgs } from '@libsql/client'
 import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
 import type { SearchHit, ChunkSearchOptions, ChunkRow } from '../database'
+import type {
+  QuizDeck,
+  QuizDeckStatus,
+  QuizDeckSummary,
+  QuizDeckWithQuestions,
+  QuizLanguage,
+  QuizQuestion,
+  QuizAttempt,
+  QuizAttemptAnswer,
+} from '../../../shared/quiz'
+
+export interface NewQuizQuestion {
+  ordinal: number
+  stem: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+  sourceChunkIds: number[]
+  themeTitle: string
+}
 
 // One workspace's relational + full-text store: an encrypted libSQL (SQLite)
 // file (ADR-0005). Replaces the in-memory PGlite layer for the per-workspace
@@ -482,9 +502,7 @@ export class WorkspaceDb {
     return r.rows.map((row) => ({ id: Number(row.id), title: String(row.title) }))
   }
 
-  async getCitedChunkSource(
-    chunkId: number,
-  ): Promise<{
+  async getCitedChunkSource(chunkId: number): Promise<{
     document: WsDocument
     pageFrom: number | null
     pageTo: number | null
@@ -851,6 +869,228 @@ export class WorkspaceDb {
   }
 
   // ---- row mappers --------------------------------------------------------
+
+  // ---- sync folders -------------------------------------------------------
+
+  async getSyncFolders(): Promise<string[]> {
+    const r = await this.client.execute(`SELECT path FROM sync_folders ORDER BY path`)
+    return r.rows.map((row) => String(row.path))
+  }
+
+  async setSyncFolders(folders: string[]): Promise<void> {
+    const stmts = [{ sql: `DELETE FROM sync_folders`, args: [] as InArgs }]
+    for (const p of folders) {
+      stmts.push({ sql: `INSERT OR IGNORE INTO sync_folders (path) VALUES (?)`, args: [p] })
+    }
+    await this.client.batch(stmts, 'write')
+  }
+
+  // ---- quiz ---------------------------------------------------------------
+
+  async createDeck(input: {
+    name: string
+    documentIds: number[]
+    questionCount: number
+    language: QuizLanguage
+  }): Promise<QuizDeck> {
+    const r = await this.client.execute({
+      sql: `INSERT INTO quiz_decks (name, document_ids, question_count, language)
+            VALUES (?, ?, ?, ?)
+            RETURNING id, name, document_ids, question_count, status, error, language, created_at`,
+      args: [input.name, JSON.stringify(input.documentIds), input.questionCount, input.language],
+    })
+    return this.toDeck(r.rows[0]!)
+  }
+
+  async setDeckStatus(deckId: number, status: QuizDeckStatus, error: string | null): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE quiz_decks SET status = ?, error = ? WHERE id = ?`,
+      args: [status, error, deckId],
+    })
+  }
+
+  async updateDeckQuestionCount(deckId: number, questionCount: number): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE quiz_decks SET question_count = ? WHERE id = ?`,
+      args: [questionCount, deckId],
+    })
+  }
+
+  async resetStuckDecks(): Promise<number> {
+    const r = await this.client.execute(
+      `UPDATE quiz_decks SET status = 'failed',
+              error = 'Generation was interrupted (app closed or locked). Retry to regenerate.'
+        WHERE status = 'generating' RETURNING id`,
+    )
+    return r.rows.length
+  }
+
+  async getDeck(deckId: number): Promise<QuizDeck | null> {
+    const r = await this.client.execute({
+      sql: `SELECT id, name, document_ids, question_count, status, error, language, created_at
+              FROM quiz_decks WHERE id = ?`,
+      args: [deckId],
+    })
+    return r.rows[0] ? this.toDeck(r.rows[0]) : null
+  }
+
+  async listDecks(): Promise<QuizDeckSummary[]> {
+    const r = await this.client.execute(
+      `SELECT d.id, d.name, d.document_ids, d.question_count, d.status, d.error, d.language, d.created_at,
+              COUNT(a.id) FILTER (WHERE a.finished_at IS NOT NULL) AS attempt_count,
+              (SELECT score FROM quiz_attempts WHERE deck_id = d.id AND finished_at IS NOT NULL
+                ORDER BY finished_at DESC, id DESC LIMIT 1) AS last_score,
+              (SELECT finished_at FROM quiz_attempts WHERE deck_id = d.id AND finished_at IS NOT NULL
+                ORDER BY finished_at DESC, id DESC LIMIT 1) AS last_finished_at
+         FROM quiz_decks d LEFT JOIN quiz_attempts a ON a.deck_id = d.id
+        GROUP BY d.id ORDER BY d.created_at DESC, d.id DESC`,
+    )
+    return r.rows.map((row) => ({
+      ...this.toDeck(row),
+      attemptCount: Number(row.attempt_count ?? 0),
+      lastScore: row.last_score == null ? null : Number(row.last_score),
+      lastFinishedAt: row.last_finished_at == null ? null : Number(row.last_finished_at),
+    }))
+  }
+
+  async deleteDeck(deckId: number): Promise<void> {
+    await this.client.execute({ sql: `DELETE FROM quiz_decks WHERE id = ?`, args: [deckId] })
+  }
+
+  async listQuestions(deckId: number): Promise<QuizQuestion[]> {
+    const r = await this.client.execute({
+      sql: `SELECT id, deck_id, ordinal, stem, options, correct_index, explanation, source_chunk_ids, theme_title
+              FROM quiz_questions WHERE deck_id = ? ORDER BY ordinal ASC, id ASC`,
+      args: [deckId],
+    })
+    return r.rows.map((row) => this.toQuestion(row))
+  }
+
+  async getDeckWithQuestions(deckId: number): Promise<QuizDeckWithQuestions | null> {
+    const deck = await this.getDeck(deckId)
+    if (!deck) return null
+    return { deck, questions: await this.listQuestions(deckId) }
+  }
+
+  async insertQuestions(deckId: number, items: NewQuizQuestion[]): Promise<void> {
+    if (items.length === 0) return
+    await this.client.batch(
+      items.map((q) => ({
+        sql: `INSERT INTO quiz_questions
+                (deck_id, ordinal, stem, options, correct_index, explanation, source_chunk_ids, theme_title)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          deckId,
+          q.ordinal,
+          q.stem,
+          JSON.stringify(q.options),
+          q.correctIndex,
+          q.explanation,
+          JSON.stringify(q.sourceChunkIds),
+          q.themeTitle,
+        ] as InArgs,
+      })),
+      'write',
+    )
+  }
+
+  async clearQuestions(deckId: number): Promise<void> {
+    await this.client.execute({
+      sql: `DELETE FROM quiz_questions WHERE deck_id = ?`,
+      args: [deckId],
+    })
+  }
+
+  async deleteAttempts(deckId: number): Promise<void> {
+    await this.client.execute({
+      sql: `DELETE FROM quiz_attempts WHERE deck_id = ?`,
+      args: [deckId],
+    })
+  }
+
+  async startAttempt(deckId: number): Promise<QuizAttempt> {
+    const r = await this.client.execute({
+      sql: `INSERT INTO quiz_attempts (deck_id) VALUES (?)
+            RETURNING id, deck_id, started_at, finished_at, score, answers`,
+      args: [deckId],
+    })
+    return this.toAttempt(r.rows[0]!)
+  }
+
+  async finishAttempt(
+    attemptId: number,
+    answers: QuizAttemptAnswer[],
+    score: number,
+  ): Promise<QuizAttempt> {
+    const r = await this.client.execute({
+      sql: `UPDATE quiz_attempts SET finished_at = unixepoch(), answers = ?, score = ?
+             WHERE id = ?
+            RETURNING id, deck_id, started_at, finished_at, score, answers`,
+      args: [JSON.stringify(answers), score, attemptId],
+    })
+    return this.toAttempt(r.rows[0]!)
+  }
+
+  async listAttempts(deckId: number): Promise<QuizAttempt[]> {
+    const r = await this.client.execute({
+      sql: `SELECT id, deck_id, started_at, finished_at, score, answers
+              FROM quiz_attempts WHERE deck_id = ?
+             ORDER BY finished_at DESC NULLS LAST, started_at DESC, id DESC`,
+      args: [deckId],
+    })
+    return r.rows.map((row) => this.toAttempt(row))
+  }
+
+  async getAttempt(attemptId: number): Promise<QuizAttempt | null> {
+    const r = await this.client.execute({
+      sql: `SELECT id, deck_id, started_at, finished_at, score, answers FROM quiz_attempts WHERE id = ?`,
+      args: [attemptId],
+    })
+    return r.rows[0] ? this.toAttempt(r.rows[0]) : null
+  }
+
+  // ---- row mappers --------------------------------------------------------
+
+  private toDeck(row: Record<string, unknown>): QuizDeck {
+    return {
+      id: Number(row.id),
+      workspaceId: this.workspaceId,
+      name: String(row.name),
+      documentIds: row.document_ids ? (JSON.parse(String(row.document_ids)) as number[]) : [],
+      questionCount: Number(row.question_count),
+      status: String(row.status) as QuizDeckStatus,
+      error: (row.error ?? null) as string | null,
+      language: String(row.language) as QuizLanguage,
+      createdAt: Number(row.created_at),
+    }
+  }
+
+  private toQuestion(row: Record<string, unknown>): QuizQuestion {
+    return {
+      id: Number(row.id),
+      deckId: Number(row.deck_id),
+      ordinal: Number(row.ordinal),
+      stem: String(row.stem),
+      options: row.options ? (JSON.parse(String(row.options)) as string[]) : [],
+      correctIndex: Number(row.correct_index),
+      explanation: String(row.explanation),
+      sourceChunkIds: row.source_chunk_ids
+        ? (JSON.parse(String(row.source_chunk_ids)) as number[])
+        : [],
+      themeTitle: String(row.theme_title),
+    }
+  }
+
+  private toAttempt(row: Record<string, unknown>): QuizAttempt {
+    return {
+      id: Number(row.id),
+      deckId: Number(row.deck_id),
+      startedAt: Number(row.started_at),
+      finishedAt: row.finished_at == null ? null : Number(row.finished_at),
+      score: row.score == null ? null : Number(row.score),
+      answers: row.answers ? (JSON.parse(String(row.answers)) as QuizAttemptAnswer[]) : [],
+    }
+  }
 
   private toDoc(row: Record<string, unknown>): WsDocument {
     return {
