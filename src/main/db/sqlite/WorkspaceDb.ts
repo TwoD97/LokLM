@@ -1,6 +1,6 @@
 import { createClient, type Client, type InArgs } from '@libsql/client'
 import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
-import type { SearchHit, ChunkSearchOptions } from '../database'
+import type { SearchHit, ChunkSearchOptions, ChunkRow } from '../database'
 
 // One workspace's relational + full-text store: an encrypted libSQL (SQLite)
 // file (ADR-0005). Replaces the in-memory PGlite layer for the per-workspace
@@ -35,6 +35,83 @@ export interface DocumentRow {
   workspace_id?: number
 }
 
+/** Full document shape (camelCase), mirroring the PGlite Document the renderer +
+ *  services consume, plus the aggregate `language` from listDocuments. */
+export interface WsDocument {
+  id: number
+  workspaceId: number
+  title: string
+  sourcePath: string
+  mimeType: string | null
+  byteSize: number | null
+  status: string
+  chunkCount: number
+  tokenCount: number
+  addedAt: number
+  contentHash: string | null
+  sourceMtime: number | null
+  missingAt: number | null
+  missingDismissedAt: number | null
+  summary: string | null
+  pinned: boolean
+  language: string | null
+}
+
+export interface ConversationRow {
+  id: number
+  workspaceId: number
+  title: string | null
+  activeDocumentIds: number[]
+  createdAt: number
+  lastActivityAt: number
+  messageCount: number
+}
+
+export interface MessageRow {
+  id: number
+  conversationId: number
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  createdAt: number
+  ttftMs: number | null
+  tokensPerSec: number | null
+  tokenCount: number | null
+}
+
+/** Summary embeddings are stored as a BLOB of float32 (ADR-0003): hundreds of
+ *  docs per workspace, so cosine is computed in JS rather than needing a vector
+ *  index. f32ToBlob / blobToF32 round-trip the column; cosine on normalised
+ *  BGE-M3 vectors. */
+function f32ToBlob(v: number[]): Uint8Array {
+  return new Uint8Array(new Float32Array(v).buffer)
+}
+function blobToF32(b: unknown): Float32Array | null {
+  if (b == null) return null
+  const buf =
+    b instanceof ArrayBuffer
+      ? new Uint8Array(b)
+      : b instanceof Uint8Array
+        ? b
+        : Buffer.isBuffer(b)
+          ? new Uint8Array(b.buffer, b.byteOffset, b.byteLength)
+          : null
+  if (!buf) return null
+  return new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4))
+}
+function cosine(a: number[], b: Float32Array): number {
+  let dot = 0
+  let na = 0
+  let nb = 0
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) {
+    dot += a[i]! * b[i]!
+    na += a[i]! * a[i]!
+    nb += b[i]! * b[i]!
+  }
+  if (na === 0 || nb === 0) return 0
+  return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
 /** Splits a user query into FTS5-safe OR-of-terms (recall-oriented; bm25 ranks).
  *  Each term is double-quoted so FTS5 operators in user input can't inject. */
 function toMatchQuery(query: string): string {
@@ -47,14 +124,19 @@ function toMatchQuery(query: string): string {
 }
 
 export class WorkspaceDb {
-  private constructor(private readonly client: Client) {}
+  private constructor(
+    private readonly client: Client,
+    /** The relational workspace id this file belongs to — stamped onto returned
+     *  rows so callers keep the cross-workspace-id shape they had under PGlite. */
+    readonly workspaceId: number,
+  ) {}
 
   /** Opens (creating + migrating) a workspace's encrypted libSQL file. `keyHex`
    *  is the workspace WDEK as hex (libSQL takes a string encryptionKey). */
-  static async open(filePath: string, keyHex: string): Promise<WorkspaceDb> {
+  static async open(filePath: string, keyHex: string, workspaceId: number): Promise<WorkspaceDb> {
     const client = createClient({ url: `file:${filePath}`, encryptionKey: keyHex })
     await client.executeMultiple(WORKSPACE_SCHEMA_SQL)
-    return new WorkspaceDb(client)
+    return new WorkspaceDb(client, workspaceId)
   }
 
   close(): void {
@@ -285,6 +367,557 @@ export class WorkspaceDb {
       if (hit) out.push({ ...hit, score: s.score })
     }
     return out
+  }
+
+  // ---- document metadata / lifecycle -------------------------------------
+
+  async setSourceMetadata(
+    documentId: number,
+    fields: {
+      sourcePath?: string
+      title?: string
+      mimeType?: string | null
+      byteSize?: number | null
+      contentHash?: string | null
+      sourceMtime?: number | null
+    },
+  ): Promise<void> {
+    const map: Record<string, string> = {
+      sourcePath: 'source_path',
+      title: 'title',
+      mimeType: 'mime_type',
+      byteSize: 'byte_size',
+      contentHash: 'content_hash',
+      sourceMtime: 'source_mtime',
+    }
+    const sets: string[] = []
+    const args: InArgs = []
+    for (const [k, col] of Object.entries(map)) {
+      if (k in fields) {
+        sets.push(`${col} = ?`)
+        args.push((fields as Record<string, unknown>)[k] as never)
+      }
+    }
+    if (sets.length === 0) return
+    args.push(documentId)
+    await this.client.execute({ sql: `UPDATE documents SET ${sets.join(', ')} WHERE id = ?`, args })
+  }
+
+  async findByPath(sourcePath: string): Promise<DocumentRow | null> {
+    const r = await this.client.execute({
+      sql: `SELECT id, title, source_path, status FROM documents WHERE source_path = ? LIMIT 1`,
+      args: [sourcePath],
+    })
+    return (r.rows[0] as unknown as DocumentRow) ?? null
+  }
+
+  async markMissing(documentId: number): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET missing_at = COALESCE(missing_at, unixepoch()) WHERE id = ?`,
+      args: [documentId],
+    })
+  }
+
+  async clearMissing(documentId: number): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET missing_at = NULL, missing_dismissed_at = NULL WHERE id = ?`,
+      args: [documentId],
+    })
+  }
+
+  async dismissMissing(documentId: number): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET missing_dismissed_at = unixepoch() WHERE id = ?`,
+      args: [documentId],
+    })
+  }
+
+  async listMissingUnacknowledged(): Promise<WsDocument[]> {
+    const r = await this.client.execute(
+      `SELECT * FROM documents
+        WHERE missing_at IS NOT NULL
+          AND (missing_dismissed_at IS NULL OR missing_dismissed_at < missing_at)
+        ORDER BY missing_at DESC, id DESC`,
+    )
+    return r.rows.map((row) => this.toDoc(row))
+  }
+
+  async setPinned(documentId: number, pinned: boolean): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET pinned = ? WHERE id = ?`,
+      args: [pinned ? 1 : 0, documentId],
+    })
+  }
+
+  async listPinned(): Promise<WsDocument[]> {
+    const r = await this.client.execute(`SELECT * FROM documents WHERE pinned = 1 ORDER BY title`)
+    return r.rows.map((row) => this.toDoc(row))
+  }
+
+  async resetStuckIndexing(): Promise<number> {
+    const r = await this.client.execute(
+      `UPDATE documents SET status = 'failed' WHERE status IN ('indexing', 'pending') RETURNING id`,
+    )
+    return r.rows.length
+  }
+
+  /** Documents with a per-document aggregate language (mig 0007 equivalent):
+   *  dominant ≥70% → 'de'|'en', mixed otherwise, null when nothing detected. */
+  async listDocuments(): Promise<WsDocument[]> {
+    const r = await this.client.execute(`
+      SELECT d.*, (
+        SELECT CASE
+          WHEN SUM(c.language IS NOT NULL) = 0 THEN NULL
+          WHEN CAST(SUM(c.language = 'de') AS REAL) / SUM(c.language IS NOT NULL) >= 0.7 THEN 'de'
+          WHEN CAST(SUM(c.language = 'en') AS REAL) / SUM(c.language IS NOT NULL) >= 0.7 THEN 'en'
+          ELSE 'mixed'
+        END FROM chunks c WHERE c.document_id = d.id
+      ) AS language
+      FROM documents d ORDER BY d.added_at DESC`)
+    return r.rows.map((row) => this.toDoc(row))
+  }
+
+  async listDocumentTitles(): Promise<Array<{ id: number; title: string }>> {
+    const r = await this.client.execute(`SELECT id, title FROM documents WHERE status = 'ready'`)
+    return r.rows.map((row) => ({ id: Number(row.id), title: String(row.title) }))
+  }
+
+  async getCitedChunkSource(
+    chunkId: number,
+  ): Promise<{
+    document: WsDocument
+    pageFrom: number | null
+    pageTo: number | null
+    headingPath: string[] | null
+  } | null> {
+    const r = await this.client.execute({
+      sql: `SELECT d.*, c.page_from AS c_page_from, c.page_to AS c_page_to, c.heading_path AS c_heading_path
+              FROM chunks c JOIN documents d ON d.id = c.document_id WHERE c.id = ? LIMIT 1`,
+      args: [chunkId],
+    })
+    const row = r.rows[0]
+    if (!row) return null
+    return {
+      document: this.toDoc(row),
+      pageFrom: row.c_page_from == null ? null : Number(row.c_page_from),
+      pageTo: row.c_page_to == null ? null : Number(row.c_page_to),
+      headingPath: row.c_heading_path ? (JSON.parse(String(row.c_heading_path)) as string[]) : null,
+    }
+  }
+
+  // ---- summaries + summary embeddings (ADR-0003) --------------------------
+
+  async setSummary(documentId: number, summary: string | null): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET summary = ?, summary_embedding = NULL, summary_embedder_identity = NULL WHERE id = ?`,
+      args: [summary, documentId],
+    })
+  }
+
+  async setSummaryEmbedding(documentId: number, vector: number[], identity: string): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE documents SET summary_embedding = ?, summary_embedder_identity = ? WHERE id = ?`,
+      args: [f32ToBlob(vector), identity, documentId],
+    })
+  }
+
+  async listDocsMissingSummaryEmbedding(
+    limit: number,
+  ): Promise<Array<{ id: number; summary: string }>> {
+    const r = await this.client.execute({
+      sql: `SELECT id, summary FROM documents
+             WHERE status = 'ready' AND summary IS NOT NULL AND summary_embedding IS NULL
+             ORDER BY id LIMIT ?`,
+      args: [limit],
+    })
+    return r.rows.map((row) => ({ id: Number(row.id), summary: String(row.summary) }))
+  }
+
+  async countDocsMissingSummaryEmbedding(): Promise<number> {
+    const r = await this.client.execute(
+      `SELECT count(*) AS n FROM documents WHERE status = 'ready' AND summary IS NOT NULL AND summary_embedding IS NULL`,
+    )
+    return Number(r.rows[0]!.n)
+  }
+
+  async distinctSummaryEmbedderIdentities(): Promise<string[]> {
+    const r = await this.client.execute(
+      `SELECT DISTINCT summary_embedder_identity AS i FROM documents
+        WHERE summary_embedding IS NOT NULL AND summary_embedder_identity IS NOT NULL`,
+    )
+    return r.rows.map((row) => String(row.i))
+  }
+
+  async purgeSummaryEmbeddingsByIdentity(identity: string): Promise<number> {
+    const r = await this.client.execute({
+      sql: `UPDATE documents SET summary_embedding = NULL, summary_embedder_identity = NULL
+             WHERE summary_embedder_identity = ? RETURNING id`,
+      args: [identity],
+    })
+    return r.rows.length
+  }
+
+  /** Top documents by summary-embedding cosine (ADR-0003 hierarchical prefilter).
+   *  Cosine in JS over the BLOB embeddings (few hundred docs). */
+  async topDocumentsBySummarySimilarity(
+    queryVec: number[],
+    k: number,
+    opts: { activeDocumentIds?: number[] | null; minSimilarity?: number } = {},
+  ): Promise<Array<{ id: number; score: number }>> {
+    if (queryVec.length === 0 || k <= 0) return []
+    const minSim = opts.minSimilarity ?? 0.2
+    const active =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0
+        ? new Set(opts.activeDocumentIds)
+        : null
+    const r = await this.client.execute(
+      `SELECT id, summary_embedding FROM documents
+        WHERE status = 'ready' AND summary_embedding IS NOT NULL`,
+    )
+    const scored: Array<{ id: number; score: number }> = []
+    for (const row of r.rows) {
+      const id = Number(row.id)
+      if (active && !active.has(id)) continue
+      const vec = blobToF32(row.summary_embedding)
+      if (!vec) continue
+      const score = cosine(queryVec, vec)
+      if (score >= minSim) scored.push({ id, score })
+    }
+    scored.sort((a, b) => b.score - a.score)
+    return scored.slice(0, k)
+  }
+
+  /** Corpus route (ADR-0003): documents about a theme. Union of FTS5 chunk
+   *  mentions, title/summary LIKE, and (optional) summary-embedding cosine. */
+  async searchDocumentsByTheme(
+    themeTokens: string[],
+    opts: {
+      activeDocumentIds?: number[] | null
+      themeEmbedding?: number[] | null
+      similarityThreshold?: number
+    } = {},
+  ): Promise<Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>> {
+    const active =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0
+        ? new Set(opts.activeDocumentIds)
+        : null
+    // chunk-mention counts per document via FTS5 (empty theme → no FTS signal)
+    const hits = new Map<number, number>()
+    const match = toMatchQuery(themeTokens.join(' '))
+    if (match) {
+      const r = await this.client.execute({
+        sql: `SELECT c.document_id AS did, count(*) AS n
+                FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid
+                JOIN documents d ON d.id = c.document_id
+               WHERE chunks_fts MATCH ? AND d.status = 'ready'
+               GROUP BY c.document_id`,
+        args: [match],
+      })
+      for (const row of r.rows) hits.set(Number(row.did), Number(row.n))
+    }
+    const likes = themeTokens.map((t) => `%${t.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`)
+    const threshold = opts.similarityThreshold ?? 0.2
+    const useEmb = !!(opts.themeEmbedding && opts.themeEmbedding.length > 0)
+    const r = await this.client.execute(
+      `SELECT id, title, lower(title) AS lt, lower(COALESCE(summary, '')) AS ls, summary_embedding,
+              (SELECT id FROM chunks WHERE document_id = documents.id ORDER BY ordinal LIMIT 1) AS first_chunk_id
+         FROM documents WHERE status = 'ready'`,
+    )
+    const out: Array<{
+      id: number
+      title: string
+      chunkHits: number
+      firstChunkId: number | null
+    }> = []
+    for (const row of r.rows) {
+      const id = Number(row.id)
+      if (active && !active.has(id)) continue
+      const h = hits.get(id) ?? 0
+      const lt = String(row.lt)
+      const ls = String(row.ls)
+      const likeMatch =
+        likes.length === 0 ||
+        h > 0 ||
+        likes.some((p) => {
+          const needle = p.slice(1, -1).replace(/\\([\\%_])/g, '$1')
+          return lt.includes(needle) || ls.includes(needle)
+        })
+      let member = likes.length === 0 ? true : likeMatch
+      if (!member && useEmb) {
+        const vec = blobToF32(row.summary_embedding)
+        if (vec && cosine(opts.themeEmbedding!, vec) >= threshold) member = true
+      }
+      if (member) {
+        out.push({
+          id,
+          title: String(row.title),
+          chunkHits: h,
+          firstChunkId: row.first_chunk_id == null ? null : Number(row.first_chunk_id),
+        })
+      }
+    }
+    out.sort((a, b) => b.chunkHits - a.chunkHits || a.title.localeCompare(b.title) || a.id - b.id)
+    return out
+  }
+
+  // ---- chunk context / neighbours ----------------------------------------
+
+  async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
+    const r = await this.client.execute({
+      sql: `SELECT id, document_id, ordinal, text, token_count, page_from, page_to, heading_path, language
+              FROM chunks WHERE document_id = ? ORDER BY ordinal`,
+      args: [documentId],
+    })
+    return r.rows.map((row) => this.toChunkRow(row))
+  }
+
+  async getChunkCounts(documentIds: number[]): Promise<Map<number, number>> {
+    if (documentIds.length === 0) return new Map()
+    const r = await this.client.execute({
+      sql: `SELECT document_id AS did, count(*) AS n FROM chunks
+             WHERE document_id IN (${documentIds.map(() => '?').join(',')}) GROUP BY document_id`,
+      args: documentIds.map((n) => Math.trunc(n)),
+    })
+    const map = new Map<number, number>()
+    for (const row of r.rows) map.set(Number(row.did), Number(row.n))
+    return map
+  }
+
+  async getChunkWithContext(
+    chunkId: number,
+    before: number,
+    after: number,
+  ): Promise<
+    Array<{
+      id: number
+      documentId: number
+      ordinal: number
+      text: string
+      tokenCount: number | null
+      pageFrom: number | null
+      pageTo: number | null
+      isTarget: boolean
+    }>
+  > {
+    const r = await this.client.execute({
+      sql: `WITH t AS (SELECT document_id, ordinal FROM chunks WHERE id = ?)
+            SELECT c.id, c.document_id, c.ordinal, c.text, c.token_count, c.page_from, c.page_to,
+                   (c.id = ?) AS is_target
+              FROM chunks c, t
+             WHERE c.document_id = t.document_id
+               AND c.ordinal BETWEEN t.ordinal - ? AND t.ordinal + ?
+             ORDER BY c.ordinal`,
+      args: [chunkId, chunkId, before, after],
+    })
+    return r.rows.map((row) => ({
+      id: Number(row.id),
+      documentId: Number(row.document_id),
+      ordinal: Number(row.ordinal),
+      text: String(row.text),
+      tokenCount: row.token_count == null ? null : Number(row.token_count),
+      pageFrom: row.page_from == null ? null : Number(row.page_from),
+      pageTo: row.page_to == null ? null : Number(row.page_to),
+      isTarget: Number(row.is_target) === 1,
+    }))
+  }
+
+  async getNeighbourChunks(
+    seeds: Array<{ documentId: number; ordinal: number }>,
+    radius: number,
+  ): Promise<ChunkRow[]> {
+    if (seeds.length === 0 || radius <= 0) return []
+    const clauses = seeds
+      .map(() => `(c.document_id = ? AND c.ordinal BETWEEN ? AND ?)`)
+      .join(' OR ')
+    const args: InArgs = []
+    for (const s of seeds) args.push(s.documentId, s.ordinal - radius, s.ordinal + radius)
+    const r = await this.client.execute({
+      sql: `SELECT DISTINCT c.id, c.document_id, c.ordinal, c.text, c.token_count, c.page_from,
+                   c.page_to, c.heading_path, c.language
+              FROM chunks c WHERE ${clauses} ORDER BY c.document_id, c.ordinal`,
+      args,
+    })
+    return r.rows.map((row) => this.toChunkRow(row))
+  }
+
+  // ---- conversations / messages / citations ------------------------------
+
+  async createConversation(
+    title?: string | null,
+    activeDocumentIds?: number[],
+  ): Promise<ConversationRow> {
+    const r = await this.client.execute({
+      sql: `INSERT INTO conversations (title, active_document_ids) VALUES (?, ?)
+            RETURNING id, title, active_document_ids, created_at`,
+      args: [title ?? null, JSON.stringify(activeDocumentIds ?? [])],
+    })
+    return this.toConversation(r.rows[0]!, Number(r.rows[0]!.created_at), 0)
+  }
+
+  async setConversationTitle(id: number, title: string | null): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE conversations SET title = ? WHERE id = ?`,
+      args: [title, id],
+    })
+  }
+
+  async setActiveDocumentIds(conversationId: number, ids: number[]): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE conversations SET active_document_ids = ? WHERE id = ?`,
+      args: [JSON.stringify(ids), conversationId],
+    })
+  }
+
+  async listConversations(): Promise<ConversationRow[]> {
+    const r = await this.client.execute(
+      `SELECT c.id, c.title, c.active_document_ids, c.created_at,
+              COALESCE(MAX(m.created_at), c.created_at) AS last_activity_at,
+              COUNT(m.id) AS message_count
+         FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id
+        GROUP BY c.id ORDER BY last_activity_at DESC, c.id DESC`,
+    )
+    return r.rows.map((row) =>
+      this.toConversation(row, Number(row.last_activity_at), Number(row.message_count)),
+    )
+  }
+
+  async deleteConversation(id: number): Promise<void> {
+    await this.client.execute({ sql: `DELETE FROM conversations WHERE id = ?`, args: [id] })
+  }
+
+  async deleteMessage(messageId: number): Promise<void> {
+    await this.client.execute({ sql: `DELETE FROM messages WHERE id = ?`, args: [messageId] })
+  }
+
+  async appendMessage(
+    conversationId: number,
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
+  ): Promise<MessageRow> {
+    const r = await this.client.execute({
+      sql: `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count)
+            VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count`,
+      args: [
+        conversationId,
+        role,
+        content,
+        metrics?.ttftMs ?? null,
+        metrics?.tokensPerSec ?? null,
+        metrics?.tokenCount ?? null,
+      ],
+    })
+    return this.toMessage(r.rows[0]!)
+  }
+
+  async persistCitations(
+    messageId: number,
+    items: Array<{ chunk_id: number; score?: number | null }>,
+  ): Promise<void> {
+    if (items.length === 0) return
+    await this.client.batch(
+      items.map((it) => ({
+        sql: `INSERT INTO citations (message_id, chunk_id, score) VALUES (?, ?, ?)`,
+        args: [messageId, it.chunk_id, it.score ?? null] as InArgs,
+      })),
+      'write',
+    )
+  }
+
+  async getConversationWithMessages(
+    conversationId: number,
+  ): Promise<{ conversation: ConversationRow; messages: MessageRow[] } | null> {
+    const c = await this.client.execute({
+      sql: `SELECT c.id, c.title, c.active_document_ids, c.created_at,
+                   COALESCE(MAX(m.created_at), c.created_at) AS last_activity_at,
+                   COUNT(m.id) AS message_count
+              FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id
+             WHERE c.id = ? GROUP BY c.id`,
+      args: [conversationId],
+    })
+    if (!c.rows[0] || c.rows[0].id == null) return null
+    const conversation = this.toConversation(
+      c.rows[0],
+      Number(c.rows[0].last_activity_at),
+      Number(c.rows[0].message_count),
+    )
+    const m = await this.client.execute({
+      sql: `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count
+              FROM messages WHERE conversation_id = ? ORDER BY id`,
+      args: [conversationId],
+    })
+    return { conversation, messages: m.rows.map((row) => this.toMessage(row)) }
+  }
+
+  // ---- row mappers --------------------------------------------------------
+
+  private toDoc(row: Record<string, unknown>): WsDocument {
+    return {
+      id: Number(row.id),
+      workspaceId: this.workspaceId,
+      title: String(row.title),
+      sourcePath: String(row.source_path),
+      mimeType: (row.mime_type ?? null) as string | null,
+      byteSize: row.byte_size == null ? null : Number(row.byte_size),
+      status: String(row.status),
+      chunkCount: Number(row.chunk_count ?? 0),
+      tokenCount: Number(row.token_count ?? 0),
+      addedAt: Number(row.added_at),
+      contentHash: (row.content_hash ?? null) as string | null,
+      sourceMtime: row.source_mtime == null ? null : Number(row.source_mtime),
+      missingAt: row.missing_at == null ? null : Number(row.missing_at),
+      missingDismissedAt:
+        row.missing_dismissed_at == null ? null : Number(row.missing_dismissed_at),
+      summary: (row.summary ?? null) as string | null,
+      pinned: Number(row.pinned ?? 0) === 1,
+      language: (row.language ?? null) as string | null,
+    }
+  }
+
+  private toChunkRow(row: Record<string, unknown>): ChunkRow {
+    return {
+      id: Number(row.id),
+      document_id: Number(row.document_id),
+      ordinal: Number(row.ordinal),
+      text: String(row.text),
+      token_count: row.token_count == null ? null : Number(row.token_count),
+      page_from: row.page_from == null ? null : Number(row.page_from),
+      page_to: row.page_to == null ? null : Number(row.page_to),
+      heading_path: row.heading_path ? (JSON.parse(String(row.heading_path)) as string[]) : null,
+      language: (row.language ?? null) as 'de' | 'en' | 'other' | null,
+    }
+  }
+
+  private toConversation(
+    row: Record<string, unknown>,
+    lastActivityAt: number,
+    messageCount: number,
+  ): ConversationRow {
+    return {
+      id: Number(row.id),
+      workspaceId: this.workspaceId,
+      title: (row.title ?? null) as string | null,
+      activeDocumentIds: row.active_document_ids
+        ? (JSON.parse(String(row.active_document_ids)) as number[])
+        : [],
+      createdAt: Number(row.created_at),
+      lastActivityAt,
+      messageCount,
+    }
+  }
+
+  private toMessage(row: Record<string, unknown>): MessageRow {
+    return {
+      id: Number(row.id),
+      conversationId: Number(row.conversation_id),
+      role: String(row.role) as 'user' | 'assistant' | 'system',
+      content: String(row.content),
+      createdAt: Number(row.created_at),
+      ttftMs: row.ttft_ms == null ? null : Number(row.ttft_ms),
+      tokensPerSec: row.tokens_per_sec == null ? null : Number(row.tokens_per_sec),
+      tokenCount: row.token_count == null ? null : Number(row.token_count),
+    }
   }
 
   private toHit(row: Record<string, unknown>): SearchHit {

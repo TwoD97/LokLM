@@ -46,7 +46,7 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
   }
 
   it('stores documents + chunks and BM25-ranks FTS5 search', async () => {
-    const db = await WorkspaceDb.open(dbPath, keyHex)
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
     await seed(db)
     const hits = await db.searchChunks('fox', 5)
     expect(hits.length).toBeGreaterThan(0)
@@ -58,7 +58,7 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
   })
 
   it('tracks the embedded marker and re-derives missing/embedded counts', async () => {
-    const db = await WorkspaceDb.open(dbPath, keyHex)
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
     await seed(db)
     expect(await db.countChunksMissingEmbedding()).toBe(3)
     const missing = await db.listChunksMissingEmbedding(10)
@@ -77,7 +77,7 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
   })
 
   it('hydrates vector hits (Lance ids+scores) into SearchHit rows', async () => {
-    const db = await WorkspaceDb.open(dbPath, keyHex)
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
     const docId = await seed(db)
     const ids = await db.chunkIdsForDocument(docId)
     const hits = await db.hydrateChunkHits([
@@ -91,7 +91,7 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
   })
 
   it('reindex wipes chunks + resets the document; FTS stays consistent', async () => {
-    const db = await WorkspaceDb.open(dbPath, keyHex)
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
     const docId = await seed(db)
     await db.reindexDocument(docId)
     expect(await db.chunkIdsForDocument(docId)).toHaveLength(0)
@@ -100,8 +100,82 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
     db.close()
   })
 
+  it('ranks documents by summary-embedding cosine + theme search', async () => {
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
+    const a = await db.addDocument({ title: 'Photosynthesis', sourcePath: '/a', status: 'ready' })
+    const b = await db.addDocument({ title: 'Tax law', sourcePath: '/b', status: 'ready' })
+    await db.persistChunks(a.id, [
+      {
+        ordinal: 0,
+        text: 'chlorophyll converts sunlight',
+        pageFrom: null,
+        pageTo: null,
+        tokenCount: 3,
+      },
+    ])
+    await db.persistChunks(b.id, [
+      {
+        ordinal: 0,
+        text: 'income brackets and deductions',
+        pageFrom: null,
+        pageTo: null,
+        tokenCount: 3,
+      },
+    ])
+    await db.setSummary(a.id, 'about plants and light')
+    await db.setSummaryEmbedding(a.id, [1, 0, 0], 'bundled:bge-m3')
+    await db.setSummary(b.id, 'about taxes')
+    await db.setSummaryEmbedding(b.id, [0, 1, 0], 'bundled:bge-m3')
+
+    const top = await db.topDocumentsBySummarySimilarity([0.9, 0.1, 0], 5, { minSimilarity: 0.5 })
+    expect(top[0]!.id).toBe(a.id)
+    expect(top.find((t) => t.id === b.id)).toBeUndefined() // below threshold
+
+    const theme = await db.searchDocumentsByTheme(['chlorophyll'])
+    expect(theme.map((t) => t.id)).toContain(a.id)
+    expect(theme.find((t) => t.id === a.id)!.chunkHits).toBeGreaterThan(0)
+
+    expect(await db.countDocsMissingSummaryEmbedding()).toBe(0)
+    expect((await db.distinctSummaryEmbedderIdentities()).sort()).toEqual(['bundled:bge-m3'])
+    db.close()
+  })
+
+  it('round-trips conversations, messages, citations', async () => {
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
+    const docId = await seed(db)
+    const chunkIds = await db.chunkIdsForDocument(docId)
+    const conv = await db.createConversation('Chat', [docId])
+    expect(conv.activeDocumentIds).toEqual([docId])
+    const um = await db.appendMessage(conv.id, 'user', 'what about foxes?')
+    const am = await db.appendMessage(conv.id, 'assistant', 'foxes are clever', {
+      ttftMs: 12,
+      tokensPerSec: 30,
+      tokenCount: 3,
+    })
+    await db.persistCitations(am.id, [{ chunk_id: chunkIds[2]!, score: 0.9 }])
+
+    const list = await db.listConversations()
+    expect(list[0]!.messageCount).toBe(2)
+    const full = await db.getConversationWithMessages(conv.id)
+    expect(full!.messages.map((m) => m.id)).toEqual([um.id, am.id])
+    expect(full!.messages[1]!.tokenCount).toBe(3)
+    db.close()
+  })
+
+  it('returns chunk context windows and neighbours', async () => {
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
+    const docId = await seed(db)
+    const ids = await db.chunkIdsForDocument(docId)
+    const ctx = await db.getChunkWithContext(ids[1]!, 1, 1)
+    expect(ctx.map((c) => c.ordinal)).toEqual([0, 1, 2])
+    expect(ctx.find((c) => c.id === ids[1])!.isTarget).toBe(true)
+    const neigh = await db.getNeighbourChunks([{ documentId: docId, ordinal: 0 }], 1)
+    expect(neigh.map((c) => c.ordinal)).toEqual([0, 1])
+    db.close()
+  })
+
   it('is encrypted at rest and rejects the wrong key', async () => {
-    const db = await WorkspaceDb.open(dbPath, keyHex)
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
     await seed(db)
     db.close()
 
@@ -110,11 +184,11 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
     expect(raw.includes(Buffer.from('quick brown fox'))).toBe(false)
 
     // correct key reopens
-    const ok = await WorkspaceDb.open(dbPath, keyHex)
+    const ok = await WorkspaceDb.open(dbPath, keyHex, 1)
     expect((await ok.searchChunks('fox', 5)).length).toBeGreaterThan(0)
     ok.close()
 
     // wrong key fails
-    await expect(WorkspaceDb.open(dbPath, randomBytes(32).toString('hex'))).rejects.toThrow()
+    await expect(WorkspaceDb.open(dbPath, randomBytes(32).toString('hex'), 1)).rejects.toThrow()
   })
 })
