@@ -30,7 +30,7 @@ Beispiele für die später zu zitierenden Quelltypen:
 
 > **Hinweis:** Software-Einträge tragen die **exakte Version aus `package.json`** (Stand
 > 2026-06-14) und sind über die angegebene Bezugsquelle nachprüfbar. Bibliografische Details
-> der wissenschaftlichen Quellen und Normen sind nach bestem Wissen zusammengestellt; vor
+> der wissenschaftlichen Quellen und Normen wurden am 2026-06-16 gegen die Originale verifiziert ([6]–[8], [17]–[26]; Korrektur bei [17], Seitenangabe bei [24] ergänzt); finale Gegenprüfung vor
 > der Bindung am Original gegenzuprüfen ([RELEASE_AUDIT.md](RELEASE_AUDIT.md) §3). Die
 > Nummerierung wird beim v1.0-Audit auf strikte Erscheinungsreihenfolge konsolidiert.
 
@@ -66,7 +66,7 @@ Beispiele für die später zu zitierenden Quelltypen:
 
 [16] libsodium-Projekt, „sodium-native, Version 5.1.0," npm-Registry. [Online]. Verfügbar: <https://www.npmjs.com/package/sodium-native> (Zugriff: 2026-06-14).
 
-[17] Beijing Academy of Artificial Intelligence (BAAI), „BGE-M3: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embedding," 2024. arXiv:2402.03216.
+[17] J. Chen, S. Xiao, P. Zhang, K. Luo, D. Lian und Z. Liu, „M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation," 2024. arXiv:2402.03216. (Modell „BGE-M3", Beijing Academy of Artificial Intelligence.)
 
 [18] A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey und I. Sutskever, „Robust Speech Recognition via Large-Scale Weak Supervision (Whisper)," OpenAI, 2022. arXiv:2212.04356.
 
@@ -80,7 +80,7 @@ Beispiele für die später zu zitierenden Quelltypen:
 
 [23] PostgreSQL Global Development Group, „PostgreSQL." [Online]. Verfügbar: <https://www.postgresql.org/> (Zugriff: 2026-06-14).
 
-[24] S. Robertson und H. Zaragoza, „The Probabilistic Relevance Framework: BM25 and Beyond," Foundations and Trends in Information Retrieval, Bd. 3, Nr. 4, 2009.
+[24] S. Robertson und H. Zaragoza, „The Probabilistic Relevance Framework: BM25 and Beyond," Foundations and Trends in Information Retrieval, Bd. 3, Nr. 4, S. 333–389, 2009.
 
 [25] Y. A. Malkov und D. A. Yashunin, „Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs," IEEE Trans. Pattern Anal. Mach. Intell., 2020. arXiv:1603.09320.
 
