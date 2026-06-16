@@ -739,6 +739,20 @@ export class DocumentsRepo {
     return (r.rows as Array<{ id: number }>).map((row) => row.id)
   }
 
+  /** Resets the `embedded` marker for a workspace so the backfill re-embeds —
+   *  used by the recovery path when a Lance store was lost/corrupt but chunks
+   *  are still marked embedded (ADR-0005). Chunk text in the vault is the source
+   *  of truth, so the vectors regenerate; no permanent data loss. Returns count. */
+  async resetEmbeddedMarkers(workspaceId: number): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE chunks SET embedded = false, embedding = NULL
+       WHERE document_id IN (SELECT id FROM documents WHERE workspace_id = ${workspaceId})
+         AND embedded = true
+      RETURNING id
+    `)
+    return r.rows.length
+  }
+
   /** Nulls the legacy pgvector column after a workspace's vectors have been
    *  migrated into LanceDB, reclaiming the in-memory PGlite footprint while
    *  leaving `embedded` set (the chunks are still embedded, just in Lance). */

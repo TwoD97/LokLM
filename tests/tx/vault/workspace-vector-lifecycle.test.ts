@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, readdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
@@ -119,4 +119,53 @@ describe('workspace vector lifecycle (clean cut)', () => {
     expect(await embeddingNullCount(db, chunkIds)).toBe(3) // column reclaimed
     expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(0) // still embedded
   }, 60_000)
+
+  it('recovers from a corrupt at-rest store: no content loss, vectors re-scheduled', async () => {
+    const db = auth.requireDatabase()
+    const ws = await db.workspaces().create('W')
+    const { docId, chunkIds } = await seedChunks(db, ws.id, 3)
+    const vsvc = new WorkspaceVectorService(auth)
+    await vsvc.upsert(
+      ws.id,
+      chunkIds.map((id, i) => ({ chunkId: id, documentId: docId, vector: vec(i) })),
+    )
+    await db.documents().markChunksEmbedded(chunkIds, 'bundled:bge-m3')
+    await auth.lock() // persists the encrypted enc/ store + the vault
+
+    // simulate disk corruption / a torn power-loss write: flip a byte in an enc file
+    const encDir = join(userDataDir, 'workspaces', `ws-${ws.id}`, 'enc')
+    const findFile = async (d: string): Promise<string | null> => {
+      for (const e of await readdir(d, { withFileTypes: true })) {
+        const p = join(d, e.name)
+        if (e.isDirectory()) {
+          const hit = await findFile(p)
+          if (hit) return hit
+        } else if ((await stat(p)).size > 0) return p
+      }
+      return null
+    }
+    const victim = await findFile(encDir)
+    expect(victim).not.toBeNull()
+    const buf = await readFile(victim!)
+    buf.writeUInt8(buf.readUInt8(buf.length - 1) ^ 0xff, buf.length - 1)
+    await writeFile(victim!, buf)
+
+    // restart + reopen: must not throw, store recovers empty, markers reset so
+    // the backfill re-embeds from chunk text — and the text itself is intact.
+    const auth2 = new AuthService(userDataDir)
+    expect((await auth2.login('Test12345!')).ok).toBe(true)
+    const db2 = auth2.requireDatabase()
+    const vsvc2 = new WorkspaceVectorService(auth2)
+
+    expect(await vsvc2.search(ws.id, vec(0), 5)).toHaveLength(0) // store quarantined → empty
+    expect(await db2.documents().countChunksMissingEmbedding(ws.id)).toBe(3) // re-embed pending
+    // no content loss: chunk text survived in the vault
+    const texts = (
+      await db2.db.execute(
+        sql`SELECT text FROM chunks WHERE document_id = ${docId} ORDER BY ordinal`,
+      )
+    ).rows as Array<{ text: string }>
+    expect(texts.map((t) => t.text)).toEqual(['t0', 't1', 't2'])
+    await auth2.lock()
+  }, 90_000)
 })

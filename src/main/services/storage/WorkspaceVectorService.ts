@@ -18,7 +18,7 @@ export interface VectorSearchOpts {
 }
 
 export class WorkspaceVectorService {
-  private readonly migrated = new Set<number>()
+  private readonly reconciled = new Set<number>()
 
   constructor(private readonly auth: AuthService) {}
 
@@ -53,7 +53,7 @@ export class WorkspaceVectorService {
     const wsStore = this.auth.getWorkspaceStore()
     await wsStore.ensure(workspaceId, await this.workspaceName(workspaceId))
     const store = await wsStore.open(workspaceId)
-    await this.migrateIfNeeded(workspaceId, store)
+    await this.reconcileOnOpen(workspaceId, store)
     return store
   }
 
@@ -62,20 +62,31 @@ export class WorkspaceVectorService {
     return list.find((w) => w.id === workspaceId)?.name ?? `ws-${workspaceId}`
   }
 
-  /** One-time, idempotent copy of legacy pgvector embeddings → Lance, the first
-   *  time a workspace's (empty) store is opened. */
-  private async migrateIfNeeded(workspaceId: number, store: VectorStore): Promise<void> {
-    if (this.migrated.has(workspaceId)) return
-    this.migrated.add(workspaceId)
-    if ((await store.count()) > 0) return
+  /** Idempotent (once per session) reconciliation the first time a workspace's
+   *  store is opened, covering two cases when the Lance store is empty:
+   *   1. Upgrade: legacy pgvector embeddings exist → migrate them into Lance and
+   *      null the column (reclaim the in-memory PGlite footprint).
+   *   2. Recovery: no vectors anywhere but chunks are marked embedded → the
+   *      Lance store was lost/corrupt (e.g. quarantined on open); reset the
+   *      markers so the backfill re-embeds from chunk text (no data loss — the
+   *      vault holds the text). */
+  private async reconcileOnOpen(workspaceId: number, store: VectorStore): Promise<void> {
+    if (this.reconciled.has(workspaceId)) return
+    this.reconciled.add(workspaceId)
+    if ((await store.count()) > 0) return // vectors present — nothing to do
     const repo = this.auth.requireDatabase().documents()
     const legacy = await repo.listChunkVectors(workspaceId)
     if (legacy.length > 0) {
       await store.upsert(legacy)
       await store.buildIndex()
-      // Reclaim the in-memory PGlite footprint: the vectors now live in Lance,
-      // the `embedded` marker stays set, so retrieval + bookkeeping are intact.
       await repo.clearLegacyVectors(workspaceId)
+      return
+    }
+    const reset = await repo.resetEmbeddedMarkers(workspaceId)
+    if (reset > 0) {
+      console.warn(
+        `[workspace ${workspaceId}] ${reset} chunks have no vector — marked for re-embedding`,
+      )
     }
   }
 }
