@@ -5,6 +5,7 @@ import argon2 from 'argon2'
 import { intoSecure, secureWipe } from './secureMemory'
 import { Database } from '../../db/database'
 import { WorkspaceStore } from '../storage/WorkspaceStore'
+import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
 import { emptyManifest, type VaultManifest } from '../../../shared/workspaceStorage'
 import {
   generatePassphrase as generatePassphraseShared,
@@ -630,6 +631,14 @@ export class AuthService {
       })
     }
     return this.workspaceStore
+  }
+
+  /** Opens (if needed) and returns a workspace's encrypted relational/FTS store
+   *  (libSQL, ADR-0005). The single most important cutover seam: services move
+   *  from the global PGlite `requireDatabase()` to this per-workspace store.
+   *  Throws LockedError when the session is locked. */
+  async getWorkspaceDb(workspaceId: number): Promise<WorkspaceDb> {
+    return this.getWorkspaceStore().openDb(workspaceId)
   }
 
   isUnlocked(): boolean {
