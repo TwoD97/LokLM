@@ -2,15 +2,16 @@ import type { AuthService } from '../auth/AuthService'
 import type { SearchHit } from '../../db/database'
 import type { VectorRecord, VectorStore } from './VectorStore'
 
-// Bridge between the app's relational world (workspace ids, chunk text in PGlite)
-// and the per-workspace encrypted LanceDB vector stores (ADR-0005).
+// Bridge between the per-workspace relational store (encrypted SQLite) and the
+// per-workspace encrypted LanceDB vector store (ADR-0005).
 //
-// - ensures the VaultManifest has an entry mirroring each relational workspace,
+// - ensures the VaultManifest has an entry for the workspace,
 // - opens the active workspace's encrypted Lance store on demand,
-// - on first open, migrates any legacy pgvector embeddings for that workspace
-//   into Lance so existing libraries keep working after the swap,
 // - search() returns fully-hydrated SearchHit rows (Lance gives ids+scores, the
-//   text/title/page come from PGlite by chunkId), so callers are unchanged.
+//   text/title/page come from the workspace SQLite by chunkId),
+// - on first open, if the Lance store is empty but chunks are marked embedded
+//   (vectors lost/corrupt), resets the markers so the backfill re-embeds from
+//   chunk text (the SQLite store holds the text — no data loss).
 
 export interface VectorSearchOpts {
   activeDocumentIds?: number[] | null
@@ -46,43 +47,37 @@ export class WorkspaceVectorService {
       ...(active && active.length > 0 ? { activeDocumentIds: active } : {}),
       ...(opts.perDocK ? { perDocK: opts.perDocK } : {}),
     })
-    return this.auth.requireDatabase().documents().hydrateChunkHits(hits, workspaceId)
+    const metaDb = await this.auth.getWorkspaceDb(workspaceId)
+    return metaDb.hydrateChunkHits(hits)
   }
 
   private async storeFor(workspaceId: number): Promise<VectorStore> {
     const wsStore = this.auth.getWorkspaceStore()
-    await wsStore.ensure(workspaceId, await this.workspaceName(workspaceId))
+    await wsStore.ensure(workspaceId, this.workspaceName(workspaceId))
     const store = await wsStore.open(workspaceId)
     await this.reconcileOnOpen(workspaceId, store)
     return store
   }
 
-  private async workspaceName(workspaceId: number): Promise<string> {
-    const list = await this.auth.requireDatabase().workspaces().list()
-    return list.find((w) => w.id === workspaceId)?.name ?? `ws-${workspaceId}`
+  private workspaceName(workspaceId: number): string {
+    return (
+      this.auth
+        .getWorkspaceStore()
+        .list()
+        .find((w) => w.id === workspaceId)?.name ?? `ws-${workspaceId}`
+    )
   }
 
-  /** Idempotent (once per session) reconciliation the first time a workspace's
-   *  store is opened, covering two cases when the Lance store is empty:
-   *   1. Upgrade: legacy pgvector embeddings exist → migrate them into Lance and
-   *      null the column (reclaim the in-memory PGlite footprint).
-   *   2. Recovery: no vectors anywhere but chunks are marked embedded → the
-   *      Lance store was lost/corrupt (e.g. quarantined on open); reset the
-   *      markers so the backfill re-embeds from chunk text (no data loss — the
-   *      vault holds the text). */
+  /** Idempotent (once per session): the first time a workspace's Lance store is
+   *  opened and found empty while chunks are still marked embedded, the vectors
+   *  were lost/corrupt (e.g. quarantined on open) — reset the markers in the
+   *  workspace SQLite so the backfill re-embeds from chunk text (no data loss). */
   private async reconcileOnOpen(workspaceId: number, store: VectorStore): Promise<void> {
     if (this.reconciled.has(workspaceId)) return
     this.reconciled.add(workspaceId)
     if ((await store.count()) > 0) return // vectors present — nothing to do
-    const repo = this.auth.requireDatabase().documents()
-    const legacy = await repo.listChunkVectors(workspaceId)
-    if (legacy.length > 0) {
-      await store.upsert(legacy)
-      await store.buildIndex()
-      await repo.clearLegacyVectors(workspaceId)
-      return
-    }
-    const reset = await repo.resetEmbeddedMarkers(workspaceId)
+    const metaDb = await this.auth.getWorkspaceDb(workspaceId)
+    const reset = await metaDb.resetEmbeddedMarkers()
     if (reset > 0) {
       console.warn(
         `[workspace ${workspaceId}] ${reset} chunks have no vector — marked for re-embedding`,
