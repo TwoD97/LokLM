@@ -45,6 +45,8 @@ export interface NewDocumentInput {
   mimeType?: string | null
   byteSize?: number | null
   status?: string
+  contentHash?: string | null
+  sourceMtime?: number | null
 }
 
 export interface DocumentRow {
@@ -170,27 +172,37 @@ export class WorkspaceDb {
 
   // ---- documents ----------------------------------------------------------
 
-  async addDocument(input: NewDocumentInput): Promise<DocumentRow> {
+  async addDocument(input: NewDocumentInput): Promise<WsDocument> {
     const r = await this.client.execute({
-      sql: `INSERT INTO documents (title, source_path, mime_type, byte_size, status)
-            VALUES (?, ?, ?, ?, ?) RETURNING id, title, source_path, status`,
+      sql: `INSERT INTO documents (title, source_path, mime_type, byte_size, status, content_hash, source_mtime)
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
       args: [
         input.title,
         input.sourcePath,
         input.mimeType ?? null,
         input.byteSize ?? null,
         input.status ?? 'pending',
+        input.contentHash ?? null,
+        input.sourceMtime ?? null,
       ],
     })
-    return r.rows[0] as unknown as DocumentRow
+    return this.toDoc(r.rows[0]!)
   }
 
-  async getDocument(id: number): Promise<DocumentRow | null> {
+  async getDocument(id: number): Promise<WsDocument | null> {
     const r = await this.client.execute({
-      sql: `SELECT id, title, source_path, status FROM documents WHERE id = ?`,
+      sql: `SELECT * FROM documents WHERE id = ?`,
       args: [id],
     })
-    return (r.rows[0] as unknown as DocumentRow) ?? null
+    return r.rows[0] ? this.toDoc(r.rows[0]) : null
+  }
+
+  async findByWorkspaceAndPath(sourcePath: string): Promise<WsDocument | null> {
+    const r = await this.client.execute({
+      sql: `SELECT * FROM documents WHERE source_path = ? LIMIT 1`,
+      args: [sourcePath],
+    })
+    return r.rows[0] ? this.toDoc(r.rows[0]) : null
   }
 
   async setDocumentStatus(id: number, status: string): Promise<void> {
@@ -224,11 +236,13 @@ export class WorkspaceDb {
 
   // ---- chunks -------------------------------------------------------------
 
-  async persistChunks(documentId: number, items: NewChunk[]): Promise<void> {
-    if (items.length === 0) return
+  /** Inserts chunks (FTS synced via triggers) and returns their ids in input
+   *  order, so the caller can upsert vectors into LanceDB + mark them embedded. */
+  async persistChunks(documentId: number, items: NewChunk[]): Promise<number[]> {
+    if (items.length === 0) return []
     const stmts = items.map((c) => ({
       sql: `INSERT INTO chunks (document_id, ordinal, text, token_count, page_from, page_to, heading_path, language)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       args: [
         documentId,
         c.ordinal,
@@ -240,11 +254,13 @@ export class WorkspaceDb {
         c.language ?? null,
       ] as InArgs,
     }))
-    await this.client.batch(stmts, 'write')
+    const results = await this.client.batch(stmts, 'write')
+    const ids = results.map((r) => Number(r.rows[0]!.id))
     await this.client.execute({
       sql: `UPDATE documents SET chunk_count = (SELECT count(*) FROM chunks WHERE document_id = ?) WHERE id = ?`,
       args: [documentId, documentId],
     })
+    return ids
   }
 
   async chunkIdsForDocument(documentId: number): Promise<number[]> {
