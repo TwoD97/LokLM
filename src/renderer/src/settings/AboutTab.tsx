@@ -11,18 +11,11 @@ type Notice = {
 
 const NPM_APACHE: Notice[] = [
   {
-    name: '@electric-sql/pglite',
-    copyright: 'Copyright (c) ElectricSQL and contributors',
+    name: '@lancedb/lancedb',
+    copyright: 'Copyright (c) LanceDB contributors',
     license: 'Apache-2.0',
-    source: 'https://github.com/electric-sql/pglite',
-    use: 'In-process PostgreSQL via WASM — workspace metadata DB.',
-  },
-  {
-    name: 'drizzle-orm',
-    copyright: 'Copyright (c) Drizzle Team and contributors',
-    license: 'Apache-2.0',
-    source: 'https://github.com/drizzle-team/drizzle-orm',
-    use: 'Typed SQL builder + migration runner.',
+    source: 'https://github.com/lancedb/lancedb',
+    use: 'Per-workspace on-disk vector store (ANN search over chunk embeddings).',
   },
   {
     name: 'pdf-parse',
@@ -124,6 +117,13 @@ const MODELS_MIT: Notice[] = [
 ]
 
 const RUNTIME_OTHER: Notice[] = [
+  {
+    name: 'better-sqlite3-multiple-ciphers',
+    copyright: 'Copyright (c) Joshua Wise and contributors; SQLite is public domain',
+    license: 'MIT',
+    source: 'https://github.com/m4heshd/better-sqlite3-multiple-ciphers',
+    use: 'Encrypted per-workspace relational + FTS5 store (SQLCipher/AES).',
+  },
   {
     name: 'llama.cpp (via node-llama-cpp)',
     copyright: 'Copyright (c) Georgi Gerganov and contributors',

@@ -1,5 +1,5 @@
 import type { AuthService } from '../auth/AuthService'
-import type { SearchHit } from '../../db/database'
+import type { SearchHit } from '../../db/types'
 import type { VectorRecord, VectorStore } from './VectorStore'
 
 // Bridge between the per-workspace relational store (encrypted SQLite) and the

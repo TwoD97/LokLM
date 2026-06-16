@@ -1,4 +1,4 @@
-import type { SearchHit } from '@main/db/database'
+import type { SearchHit } from '@main/db/types'
 
 export const RRF_K = 60
 

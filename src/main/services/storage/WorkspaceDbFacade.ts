@@ -8,7 +8,7 @@ import type {
   NewChunk,
   NewQuizQuestion,
 } from '../../db/sqlite/WorkspaceDb'
-import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/database'
+import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/types'
 import type { LibrarySearchOptions, Workspace } from '../../../shared/documents'
 import type {
   QuizDeck,
