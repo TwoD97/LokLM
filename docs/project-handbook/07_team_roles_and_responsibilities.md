@@ -77,3 +77,24 @@ Die Zusammenarbeit folgt den im Lastenheft (§13) vereinbarten Dimensionen (Info
 > WARN durch Team zu ergaenzen — Bei Patt-Entscheidungen sieht das Lastenheft (§13) eine außenstehende, nicht involvierte Person als Entscheider anhand der sachlich stärkeren Argumente vor. Ob ein solcher Fall im Projektverlauf eingetreten ist, ist beim Team zu ergänzen.
 
 Verbindliche Schreibweise: **Denys Tudosa** (Lasten-/Pflichtenheft); die Projektstatusberichte verwenden abweichend „Denis".
+
+## 7.6 Ressourcenplan (PHB K13)
+
+Das Projekt setzt zwei Arten von Ressourcen ein: **personelle** (das Zwei-Personen-Team) und **technische** (Entwickler-/Ziel-Hardware sowie externe Dienste).
+
+**Personelle Ressourcen.** Das Team besteht aus zwei Personen mit der in §7.1–7.3 beschriebenen Rollenteilung. Die geplante Kapazität liegt bei ca. **18–19 Std/Woche pro Person** über acht Wochen (4 Unterrichtseinheiten/Woche im Lehrgang plus Eigenleistung), zusammen **294 geplante Stunden** (Denys 149, Dominik 145; Aufwandsplan siehe [§8.9](08_project_management_kanban_outline.md)).
+
+**Technische Ressourcen.** Tabelle 7.5 fasst die eingesetzten Hardware- und Infrastruktur-Ressourcen zusammen.
+
+**Tabelle 7.5:** Technische Ressourcen (Entwicklung, Ziel, extern).
+
+| Ressource                 | Einsatz                                                                           | Quelle / Hinweis                                              |
+| ------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Entwickler-Arbeitsplätze  | Windows-Entwicklungsrechner (Code, Tests, lokale Modelle)                         | je Teammitglied                                               |
+| Ziel-Endgerät (Mindest)   | Windows 10/11 64-bit, 4 Kerne, 8 GB RAM, 8 GB Platz, integrierte GPU              | Pflichtenheft §2.4                                            |
+| Ziel-Endgerät (empfohlen) | Windows 11, 8+ Kerne, 16+ GB RAM, 35 GB Platz, NVIDIA-GPU ≥6 GB VRAM (CUDA)       | Pflichtenheft §2.4                                            |
+| Externe GPU (Eval)        | RunPod-GPU-Pod für die AP-E.2-Matrix-Eval und Judge-Läufe                         | nur Projektzeit, laufzeitabhängig kostenpflichtig             |
+| Verteilung / Hosting      | Hetzner-VM (Verteilungs-Webseite) + Bunny CDN / MinIO-Mirror (Installer-Download) | Release-Pipeline (AP-1.4)                                     |
+| Modelle / Daten           | GGUF-Modelle, tessdata, Eval-Korpora — lokal/gitignored, per Skript nachladbar    | siehe [Kapitel 21](21_security_privacy_and_sensitive_data.md) |
+
+Die einzige laufzeitabhängige Kostenposition sind die **externen GPU-Stunden** (RunPod) für die Eval-Matrix; alle übrigen Ressourcen sind Eigenleistung bzw. bereits vorhandene Hardware.

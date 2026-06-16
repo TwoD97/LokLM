@@ -22,12 +22,12 @@ Tabelle 8.1 gibt einen Überblick der eingesetzten Werkzeuge und ihrer Belegbark
 
 **Tabelle 8.1:** Werkzeuglandschaft und Repo-Belegbarkeit.
 
-| Werkzeug | Zweck | Ablageort | Belegbarkeit aus dem Repo |
-|---|---|---|---|
-| **Vikunja** (Kanban) | Arbeitspakete als Karten, Status/Priorität, Sprint-Fluss | extern, `<PRIVATE_DOMAIN>` (`tasks.<…>`) | nur indirekt (Task-Links in Abschluss-Dokus) |
-| **Outline** (Wiki) | Pflichtenheft, AP-Spezifikationen, Akzeptanzkriterien, ADRs | extern, `<PRIVATE_DOMAIN>` (`notes.<…>`) | nur indirekt (Seiten-Links in Abschluss-Dokus) |
-| **MinIO** (Objektspeicher) | Release-Backup-Mirror, Bericht-Snapshots | extern, `<PRIVATE_DOMAIN>` | indirekt (Release-Pipeline) |
-| **GitHub** (`TwoD97/LokLM`) | Code, Daten, Doku, PRs, Tags, CI | öffentlich | vollständig |
+| Werkzeug                    | Zweck                                                       | Ablageort                                | Belegbarkeit aus dem Repo                      |
+| --------------------------- | ----------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| **Vikunja** (Kanban)        | Arbeitspakete als Karten, Status/Priorität, Sprint-Fluss    | extern, `<PRIVATE_DOMAIN>` (`tasks.<…>`) | nur indirekt (Task-Links in Abschluss-Dokus)   |
+| **Outline** (Wiki)          | Pflichtenheft, AP-Spezifikationen, Akzeptanzkriterien, ADRs | extern, `<PRIVATE_DOMAIN>` (`notes.<…>`) | nur indirekt (Seiten-Links in Abschluss-Dokus) |
+| **MinIO** (Objektspeicher)  | Release-Backup-Mirror, Bericht-Snapshots                    | extern, `<PRIVATE_DOMAIN>`               | indirekt (Release-Pipeline)                    |
+| **GitHub** (`TwoD97/LokLM`) | Code, Daten, Doku, PRs, Tags, CI                            | öffentlich                               | vollständig                                    |
 
 Die internen Domains aller selbst gehosteten Dienste sind im Handbuch durchgängig als
 `<PRIVATE_DOMAIN>` maskiert (Outline, Vikunja und MinIO laufen unter derselben
@@ -53,8 +53,8 @@ Fertig. Die Status-Lesart der Projektstatusberichte spiegelt genau diese Stufen
 (`projektstatusbericht-2026-06-14.md`):
 
 - „in Arbeit" = noch in Entwicklung, kein PR.
-- „PR offen" = umgesetzt, Pull-Request/Review ausstehend (entspricht Spalte *Review*).
-- „gemerged/released" = im Integrationsstand `main` bzw. als Release-Tag (Spalte *Fertig*).
+- „PR offen" = umgesetzt, Pull-Request/Review ausstehend (entspricht Spalte _Review_).
+- „gemerged/released" = im Integrationsstand `main` bzw. als Release-Tag (Spalte _Fertig_).
 - „Branch (lokal/unpushed)" = umgesetzt, aber noch nicht im Abgabestand.
 
 **Priorisierung.** Belege für eine formale Prioritätsskala liegen im Repo nicht vor.
@@ -79,8 +79,8 @@ Outline diente als **Single Source of Truth** für Anforderungen und Abnahme:
 - **Pflichtenheft / Lastenheft** als zentrale Anforderungsdokumente (Outline-Seite
   „Pflichtenheft"; im Repo zusätzlich `Pflichtenheft_LokLM.md`, allerdings gitignored,
   und `docs/work/# Lastenheft.md`, im README verlinkt).
-- **Pro AP eine Outline-Seite** mit den Abschnitten *Kontext*, *Akzeptanzkriterien
-  (Definition of Done)*, *Technisches Vorgehen*, *Offene Fragen*, *Status-Update*.
+- **Pro AP eine Outline-Seite** mit den Abschnitten _Kontext_, _Akzeptanzkriterien
+  (Definition of Done)_, _Technisches Vorgehen_, _Offene Fragen_, _Status-Update_.
   Die Struktur ist in den lokalen Abschluss-Dokus exakt gespiegelt (siehe unten).
 - **Pflichtenheft-Paragrafen** als Referenz: AP-T.1 → §8.1, AP-T.2 → §8.2,
   AP-E.1 → §8.5 (belegt in den jeweiligen Abschluss-Dokus). Diese Paragraf-Verweise
@@ -93,13 +93,13 @@ Manipulation geschützt sind), existieren im Repo bzw. lokal mehrere Artefakt-Ty
 
 **Tabelle 8.2:** In-Repo-/lokale Artefakte, die Vikunja und Outline spiegeln.
 
-| Artefakt | Pfad | Funktion | Im Git? |
-|---|---|---|---|
-| AP-Abschluss-Dokus | `docs/work/ap-*-abschluss-doku.md` | Copy-Paste-Vorlage 1:1 nach Outline-AP-Seite (Kontext, DoD, Vorgehen, Status) + Vikunja-Status-Update | nein (gitignored) |
-| Partner-Handover | `docs/work/ap-9-partner-fields.md` | offene Felder/Aufgaben an den Partner übergeben | nein (gitignored) |
-| Projektstatusberichte | `docs/work/projektstatusbericht-<Enddatum>.md` | wöchentlicher Steuerungsbericht (Status, Termine, Entscheidungen) | nein (gitignored) |
-| Laborberichte | `docs/work/laborberichte/Laborbericht_LokLM_<Datum>.md` | Tages-/Sprint-Protokoll mit Nachweisen | nein (gitignored) |
-| ADRs | `docs/adr/000X-*.md` | Architektur-Entscheidungen, von Outline referenziert | **ja** (committed) |
+| Artefakt              | Pfad                                                    | Funktion                                                                                              | Im Git?            |
+| --------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------ |
+| AP-Abschluss-Dokus    | `docs/work/ap-*-abschluss-doku.md`                      | Copy-Paste-Vorlage 1:1 nach Outline-AP-Seite (Kontext, DoD, Vorgehen, Status) + Vikunja-Status-Update | nein (gitignored)  |
+| Partner-Handover      | `docs/work/ap-9-partner-fields.md`                      | offene Felder/Aufgaben an den Partner übergeben                                                       | nein (gitignored)  |
+| Projektstatusberichte | `docs/work/projektstatusbericht-<Enddatum>.md`          | wöchentlicher Steuerungsbericht (Status, Termine, Entscheidungen)                                     | nein (gitignored)  |
+| Laborberichte         | `docs/work/laborberichte/Laborbericht_LokLM_<Datum>.md` | Tages-/Sprint-Protokoll mit Nachweisen                                                                | nein (gitignored)  |
+| ADRs                  | `docs/adr/000X-*.md`                                    | Architektur-Entscheidungen, von Outline referenziert                                                  | **ja** (committed) |
 
 **Warum gitignored?** Der gesamte Ordner `docs/work/` ist in `.gitignore` ausgenommen
 (Zeile `docs/work/`). Das ist bewusst: Die Abschluss-Dokus enthalten echte interne
@@ -189,16 +189,16 @@ flowchart LR
 
 Der Kreislauf, mit dem ein Arbeitspaket von der Karte bis ins `main` läuft:
 
-1. **Karte (Vikunja)** wird mit AP-ID angelegt, Status *Backlog/In Arbeit*.
+1. **Karte (Vikunja)** wird mit AP-ID angelegt, Status _Backlog/In Arbeit_.
 2. **Spezifikation (Outline)** definiert Kontext + Definition of Done (mit
    Pflichtenheft-§-Verweis).
 3. **Branch (GitHub)** `dom/<ap>` wird von `main` abgezweigt; Commits tragen den
    AP-ID-Präfix.
-4. **Pull-Request** gegen `main`; Status der Karte → *Review*.
+4. **Pull-Request** gegen `main`; Status der Karte → _Review_.
 5. **Abschluss-Doku** (`docs/work/`) wird geschrieben: DoD-Soll/Ist, Nachweise,
    Status-Update-Text; dieser Text wandert per Copy-Paste zurück nach Outline
    (Status-Update) und Vikunja (Kommentar).
-6. **Merge** nach `main` → Karte *Fertig*; ggf. Release-Tag.
+6. **Merge** nach `main` → Karte _Fertig_; ggf. Release-Tag.
 7. Der **Projektstatusbericht** der Woche fasst alle so abgeschlossenen Karten
    zusammen und führt offene als „PR offen"/„in Arbeit".
 
@@ -210,3 +210,106 @@ muss.
 > ⚠️ durch Team zu ergaenzen: Der genaue Board-Aufbau (Listen, Labels, Sprints in
 > Vikunja) sowie die Outline-Seitenhierarchie sind extern und sollten für die Abgabe
 > als Screenshot/Export ergänzt werden, da sie aus dem Repo nicht ableitbar sind.
+
+---
+
+## 8.6 Meilensteinplan (PHB K11)
+
+Der Meilensteinplan strukturiert die acht Projektwochen entlang prüfbarer Zwischenstände. Quelle: [Pflichtenheft](../Pflichtenheft.md) §9.3. Tabelle 8.3 listet die acht Meilensteine M1–M8.
+
+**Tabelle 8.3:** Meilensteine M1–M8 mit Datum und Erfüllungskriterium.
+
+| Nr  | Meilenstein                       | Datum      | Erfüllungs-Kriterium                                                    |
+| --- | --------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| M1  | Projekt-Setup abgeschlossen       | 08.05.2026 | Repo, Toolchain, Lastenheft signiert                                    |
+| M2  | Pflichtenheft signiert            | 15.05.2026 | Pflichtenheft freigegeben                                               |
+| M3  | Auth-Backend integration-getestet | 29.05.2026 | E2E-Test §8.2 läuft grün                                                |
+| M4  | Embeddings + RRF integriert       | 12.06.2026 | RetrievalService liefert RRF-fusionierte Treffer; Eval-Baseline messbar |
+| M5  | Feature-Freeze                    | 12.06.2026 | alle Muss + Soll umgesetzt; nur noch Bugfix                             |
+| M6  | Integrationstests bestanden       | 19.06.2026 | M1–M11 manuell durchgeführt, dokumentiert                               |
+| M7  | Abgabe-Dokumente fertig           | 24.06.2026 | gedruckt + digital, vom Projektleiter freigegeben                       |
+| M8  | Präsentation                      | 26.06.2026 | live durchgeführt                                                       |
+
+An drei Meilensteinen hängen **Go/No-Go-Gates** (Pflichtenheft §9.4): **G1** (Ende KW 1, Lastenheft signiert — letzte Scope-Änderung), **G2** (Ende KW 4, Auth-Backend integration-getestet — sonst wird der BGE-M3-Stretch gestrichen) und **G3** (Ende KW 6, Feature-Freeze — entscheidet, ob die Pufferwoche für den QLoRA-Stretch oder reine Stabilisierung genutzt wird).
+
+## 8.7 Zeitplan / GANTT (PHB K12)
+
+Abbildung 8.2 zeigt den Zeitplan über die acht Projektwochen (04.05.–26.06.2026) als GANTT-Diagramm, gegliedert in Setup/Planung, Umsetzung und Stabilisierung/Abgabe, mit den Meilensteinen M2–M8 als Marker. Quelle: Wochenplan [Pflichtenheft](../Pflichtenheft.md) §9.1.
+
+```mermaid
+gantt
+    title LokLM Projektzeitplan 8 Wochen 04.05.-26.06.2026
+    dateFormat YYYY-MM-DD
+    axisFormat %d.%m
+    section Setup und Planung
+    W1 Setup Lastenheft Teamregeln        :2026-05-04, 5d
+    W2 Pflichtenheft Ziele Risiko Auftrag :2026-05-11, 5d
+    section Umsetzung
+    W3 Auth abschliessen DOCX-Import       :2026-05-18, 5d
+    W4 Embeddings HNSW Auth-UI             :2026-05-25, 5d
+    W5 RRF-Fusion Settings-UI Homepage     :2026-06-01, 5d
+    W6 Eval-Set Synthetic-Data Tests       :2026-06-08, 5d
+    section Stabilisierung und Abgabe
+    W7 Pufferwoche Integrationstests       :2026-06-15, 5d
+    W8 Praesentation Abgabe                :2026-06-22, 5d
+    section Meilensteine
+    M2 Pflichtenheft signiert :milestone, 2026-05-15, 0d
+    M3 Auth-E2E gruen         :milestone, 2026-05-29, 0d
+    M4 M5 Embeddings Freeze   :milestone, 2026-06-12, 0d
+    M6 Integrationstests      :milestone, 2026-06-19, 0d
+    M7 Abgabe-Dokumente       :milestone, 2026-06-24, 0d
+    M8 Praesentation          :milestone, 2026-06-26, 0d
+```
+
+**Abbildung 8.2:** Projektzeitplan (GANTT) über acht Wochen mit Meilensteinen.
+
+## 8.8 Netzplan / Abhängigkeiten
+
+Der Netzplan in Abbildung 8.3 zeigt die Abhängigkeiten zwischen den Arbeitspaket-Gruppen, abgeleitet aus den `Vorgänger`/`Nachfolger`-Spalten des Projektstrukturplans ([Pflichtenheft](../Pflichtenheft.md) §9.2; Details in [Kapitel 10](10_work_package_landscape.md)). Dargestellt ist die **Gruppen-Ebene** (AP-1 … AP-12); der vollständige paketgenaue Vorgänger/Nachfolger-Plan steht im PSP.
+
+```mermaid
+flowchart LR
+    S["AP-1 Setup"] --> A["AP-2 Auth"]
+    S --> I["AP-3 Import"]
+    A --> DB["AP-5 DB + Workspaces"]
+    I --> CH["AP-4 Chunking + Index"]
+    CH --> RRF["AP-4.4 RRF-Fusion"]
+    DB --> SR["AP-6 Suche + Filter"]
+    RRF --> SR
+    A --> CHAT["AP-7 Chat"]
+    DB --> CHAT
+    RRF --> CHAT
+    CHAT --> SRC["AP-8 Quellenanzeige"]
+    A --> SET["AP-9 Settings"]
+    RRF --> EV["AP-E.1 / E.2 Eval"]
+    S --> T["AP-T.1-T.4 Tests"]
+    CHAT --> REL["AP-1.4 / 1.5 Release"]
+    REL --> DIST["AP-D.1-D.4 Verteilung + Doku"]
+    SRC --> ABG["AP-12 Abgabe + Praesentation"]
+    SET --> ABG
+    EV --> ABG
+    T --> ABG
+    DIST --> ABG
+```
+
+**Abbildung 8.3:** Netzplan — Abhängigkeiten der Arbeitspaket-Gruppen.
+
+## 8.9 Kosten- und Aufwandsplan (PHB K13)
+
+Das Vorhaben ist ein reines Schul-/Eigenleistungsprojekt ohne Sach- oder Lizenzkosten; der „Kostenplan" ist daher ein **Aufwandsplan** in Personenstunden. Quelle: [Pflichtenheft](../Pflichtenheft.md) §9.2. Geplant sind **294 Stunden** ohne Stretch, aufgeteilt auf die beiden Teammitglieder (Tabelle 8.4).
+
+**Tabelle 8.4:** Geplanter Aufwand je Teammitglied.
+
+| Posten                                                                                           | Stunden |
+| ------------------------------------------------------------------------------------------------ | ------- |
+| Denys Tudosa (Code, Architektur, Eval-Harness, Release, Präsentation)                            | 149     |
+| Dominik Furlan (Auth-UI, DOCX, Settings-UI, Tests, Doku, Synthetic Data, Homepage, Präsentation) | 145     |
+| **Summe geplant (ohne Stretch)**                                                                 | **294** |
+| Stretch (Kann) AP-10.1 QLoRA (nur Denys, nur nach G3)                                            | +25     |
+| **Summe maximal (mit Stretch)**                                                                  | **319** |
+
+Über acht Wochen entspricht das ca. **18–19 Std/Woche pro Person** — vereinbar mit der schulischen Projektzeit (4 UE/Woche) plus moderater Eigenleistung. Der **paketgenaue Aufwand je AP** ist im Projektstrukturplan ([Kapitel 10](10_work_package_landscape.md)) bzw. der AP-Tabelle (Pflichtenheft §9.2) ausgewiesen.
+
+> WARN zu verifizieren — Die Summe der **einzelnen** AP-Aufwände (inkl. der Nachtrag-v1.1.1-Pakete AP-1.4/1.5, +20 h) liegt bei ~314 h und damit über der Personen-Plansumme von 294 h; die beiden Sichten sind vor der gebundenen Abgabe zu konsolidieren (Personen-Summe laut §9.2 maßgeblich).
+
+Die **tatsächlich** geleisteten Stunden werden im Projektabschlussbericht den geplanten gegenübergestellt (siehe [Kapitel 24](24_current_status_after_9_weeks.md), PHB K15).
