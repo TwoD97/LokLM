@@ -64,29 +64,54 @@ export async function detectChunkLanguage(text: string): Promise<ChunkLanguage |
   return bucket(result.language)
 }
 
-/** Pick the chat response language (DE/EN only) for a user query. Uses eld
- *  when the query is long enough to score reliably , else a cheap regex guess
- *  — chat prompts are routinely shorter than eld's reliable floor. Anything
- *  that isn't German collapses to English (the two supported answer
- *  languages). The regex path never touches eld , so short prompts ( and the
- *  test suite ) stay synchronous-fast and don't pay the ~140 MB load. */
-export async function detectResponseLanguage(query: string): Promise<'de' | 'en'> {
-  const trimmed = query.trim()
-  if (trimmed.length >= MIN_CHARS_FOR_DETECTION) {
-    const eld = await getEld()
-    const result = eld.detect(trimmed)
-    if (result.language && result.isReliable()) return result.language === 'de' ? 'de' : 'en'
-  }
-  return regexGuessDeEn(trimmed)
+/** Raw ISO-639-1 detection for callers that need more than the 3-bucket
+ *  schema enum — the translation layer reports the detected source language
+ *  alongside the translated text. Same reliability gating as the chunk
+ *  variant : null rather than a guess. */
+export async function detectIsoLanguage(text: string): Promise<string | null> {
+  const trimmed = text.trim()
+  if (trimmed.length < MIN_CHARS_FOR_DETECTION) return null
+  const eld = await getEld()
+  const result = eld.detect(trimmed)
+  if (!result.language || !result.isReliable()) return null
+  return result.language
 }
 
-/** Sub-threshold fallback : German umlauts / common function words mark DE ,
- *  everything else is EN. Mirrors the heuristic QAService used before eld. */
-function regexGuessDeEn(text: string): 'de' | 'en' {
+/** Pick the chat response language (DE/EN only) for a user query. eld is
+ *  consulted for EVERY prompt — its own isReliable() gates trust, so there is
+ *  no char-count floor here (unlike the per-chunk detector, where "undetected"
+ *  is a valid outcome). eld reliably tags real chat prompts down to ~12 chars
+ *  ("Gib mir die Hauptpunkte", "Was ist das?"); gating it behind a length floor
+ *  used to force those into the regex, which then misread umlaut-free German as
+ *  English. Anything eld scores that isn't German collapses to English (the two
+ *  supported answer languages).
+ *
+ *  When eld is NOT confident (very short / noisy input — isReliable() === false),
+ *  a positive German regex signal (umlaut / function word) still marks DE
+ *  ("Wofür?"); failing that, `fallback` is returned. Auto mode passes the user's
+ *  UI language as `fallback` so a genuinely ambiguous prompt is answered in the
+ *  language the user actually uses instead of a hardcoded English. Defaults to
+ *  'en' so non-chat callers are unchanged. */
+export async function detectResponseLanguage(
+  query: string,
+  fallback: 'de' | 'en' = 'en',
+): Promise<'de' | 'en'> {
+  const trimmed = query.trim()
+  const eld = await getEld()
+  const result = eld.detect(trimmed)
+  if (result.language && result.isReliable()) return result.language === 'de' ? 'de' : 'en'
+  return regexGuessDeEn(trimmed, fallback)
+}
+
+/** Sub-threshold fallback : German umlauts / common function words mark DE.
+ *  With no positive German signal the text is too short for eld to score, so we
+ *  defer to `fallback` (the caller's known preference / UI language) rather than
+ *  assuming English. Mirrors the heuristic QAService used before eld. */
+function regexGuessDeEn(text: string, fallback: 'de' | 'en' = 'en'): 'de' | 'en' {
   if (/[äöüß]/i.test(text)) return 'de'
   if (/\b(was|wie|wer|wo|wann|warum|welche|der|die|das|ist|sind|und|nicht|ein|eine)\b/i.test(text))
     return 'de'
-  return 'en'
+  return fallback
 }
 
 /** Batch variant — detects every chunk's text in sequence and returns the

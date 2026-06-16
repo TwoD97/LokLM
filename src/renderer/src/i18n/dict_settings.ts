@@ -64,6 +64,24 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnostics',
     'settings.advanced.subtabBehavior': 'Behavior',
+    'settings.advanced.subtabTranslation': 'Translation',
+
+    // TranslationSection
+    'settings.translation.title': 'Translation',
+    'settings.translation.sub':
+      'Offline machine translation (MADLAD-400 , 400+ languages). Installed by the LokLM installer.',
+    'settings.translation.status': 'Status',
+    'settings.translation.stateNotInstalled': 'Not installed',
+    'settings.translation.stateInstalled': 'Installed — starts on first use',
+    'settings.translation.stateStarting': 'Starting (loading model)…',
+    'settings.translation.stateReady': 'Ready',
+    'settings.translation.stateError': 'Error',
+    'settings.translation.notInstalledHint':
+      'The translation model isn’t installed. Re-run the LokLM installer to add offline translation (~2.8 GB).',
+    'settings.translation.sidecarMissing':
+      'The translator component is missing from this build — translation is unavailable.',
+    'settings.translation.usageHint':
+      'Use the translate button under an answer in the chat to translate it.',
 
     // BehaviorSection
     'settings.behavior.title': 'Session & behavior',
@@ -194,6 +212,13 @@ export const settingsDict: DomainDict = {
     'settings.llm.contextSizeHint':
       'Auto sizes against free VRAM. Override only if you know your budget.',
     'settings.llm.ctxAuto': 'Auto',
+    'settings.llm.placement': 'Compute device',
+    'settings.llm.placementHint':
+      'Where the model runs. Auto prefers the GPU when available. Changing this reloads the model.',
+    'settings.llm.placementAria': 'LLM compute device',
+    'settings.llm.placementAuto': 'Auto',
+    'settings.llm.placementCpu': 'CPU',
+    'settings.llm.placementGpu': 'GPU',
 
     // EmbedderSection
     'settings.embedder.title': 'Embedder',
@@ -270,6 +295,9 @@ export const settingsDict: DomainDict = {
     'settings.about.modelsHeading': 'Bundled model weights',
     'settings.about.modelsSub':
       'Local LLM and retrieval models downloaded into the models/ directory on first run.',
+    'settings.about.runtimeHeading': 'Native runtimes and other components',
+    'settings.about.runtimeSub':
+      'Native libraries shipped with the application and their licenses. The canonical list is THIRD_PARTY_NOTICES.md.',
     'settings.about.showApacheText': 'Apache License 2.0 — full text',
     'settings.about.hideApacheText': 'Hide Apache License notice',
     'settings.about.apacheNote':
@@ -342,6 +370,24 @@ export const settingsDict: DomainDict = {
     'settings.advanced.subtabOllama': 'Ollama',
     'settings.advanced.subtabDiagnostics': 'Diagnose',
     'settings.advanced.subtabBehavior': 'Verhalten',
+    'settings.advanced.subtabTranslation': 'Übersetzung',
+
+    // TranslationSection
+    'settings.translation.title': 'Übersetzung',
+    'settings.translation.sub':
+      'Offline-Maschinenübersetzung (MADLAD-400 , 400+ Sprachen). Wird vom LokLM-Installationsprogramm installiert.',
+    'settings.translation.status': 'Status',
+    'settings.translation.stateNotInstalled': 'Nicht installiert',
+    'settings.translation.stateInstalled': 'Installiert — startet bei erster Nutzung',
+    'settings.translation.stateStarting': 'Startet (Modell wird geladen)…',
+    'settings.translation.stateReady': 'Bereit',
+    'settings.translation.stateError': 'Fehler',
+    'settings.translation.notInstalledHint':
+      'Das Übersetzungsmodell ist nicht installiert. Führen Sie das LokLM-Installationsprogramm erneut aus, um die Offline-Übersetzung hinzuzufügen (~2,8 GB).',
+    'settings.translation.sidecarMissing':
+      'Die Übersetzungskomponente fehlt in diesem Build — Übersetzung ist nicht verfügbar.',
+    'settings.translation.usageHint':
+      'Antworten lassen sich im Chat über den Übersetzen-Button unter der Antwort übersetzen.',
 
     // BehaviorSection
     'settings.behavior.title': 'Sitzung & Verhalten',
@@ -472,6 +518,13 @@ export const settingsDict: DomainDict = {
     'settings.llm.bundled': 'Gebündelt',
     'settings.llm.externalOllama': 'Externes Ollama',
     'settings.llm.configureOllamaFirst': 'Zuerst Ollama einrichten',
+    'settings.llm.placement': 'Recheneinheit',
+    'settings.llm.placementHint':
+      'Wo das Modell läuft. Auto bevorzugt die GPU, sofern verfügbar. Eine Änderung lädt das Modell neu.',
+    'settings.llm.placementAria': 'LLM-Recheneinheit',
+    'settings.llm.placementAuto': 'Auto',
+    'settings.llm.placementCpu': 'CPU',
+    'settings.llm.placementGpu': 'GPU',
     'settings.llm.contextSize': 'Kontextgröße',
     'settings.llm.contextSizeHint':
       'Auto bemisst sich am freien VRAM. Nur überschreiben, wenn du dein Budget kennst.',
@@ -555,6 +608,9 @@ export const settingsDict: DomainDict = {
     'settings.about.modelsHeading': 'Gebündelte Modell-Gewichte',
     'settings.about.modelsSub':
       'Lokale LLM- und Retrieval-Modelle, die beim ersten Start in das Verzeichnis models/ geladen werden.',
+    'settings.about.runtimeHeading': 'Native Laufzeiten und weitere Komponenten',
+    'settings.about.runtimeSub':
+      'Mit der Anwendung ausgelieferte native Bibliotheken und ihre Lizenzen. Die kanonische Liste ist THIRD_PARTY_NOTICES.md.',
     'settings.about.showApacheText': 'Apache License 2.0 — vollständiger Text',
     'settings.about.hideApacheText': 'Apache-Lizenz-Hinweis ausblenden',
     'settings.about.apacheNote':

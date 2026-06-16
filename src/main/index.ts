@@ -17,8 +17,12 @@ import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwi
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
+import { WritingService, WritingError } from './services/writing/WritingService'
+import type { WritingMode } from '../shared/writing'
 import { scoreAnswers } from './services/quiz/scoring'
 import { ModelDownloader, type DownloadEvent } from './services/models/ModelDownloader'
+import { TranslationService } from './services/translation/TranslationService'
+import { TRANSLATION_LANGUAGES, type TranslateOptions } from '../shared/translation'
 import { TranscriptionWorkerClient } from './services/workers/TranscriptionWorkerClient'
 import { DiarizationWorkerClient } from './services/workers/DiarizationWorkerClient'
 import { TranscriptionService } from './services/transcription/TranscriptionService'
@@ -49,7 +53,7 @@ import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
-import { readTierMarker } from './services/tier/TierMarker'
+import { readTierMarker, isOllamaConnectorEnabled } from './services/tier/TierMarker'
 import { initLogger, getLogDir } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -109,6 +113,7 @@ function resetSessionServices(): void {
   qaService = null
   quizService = null
   summarizationService = null
+  writingService = null
   providerRegistry = null
   settingsService = null
   // Watchers hold OS handles on the user's folders ; they must not survive a
@@ -150,9 +155,11 @@ let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let quizService: QuizService | null = null
 let summarizationService: SummarizationService | null = null
+let writingService: WritingService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
+let translationService: TranslationService | null = null
 
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
@@ -214,6 +221,27 @@ function schedulePostLoginWarmup(): void {
 function getModelDownloader(): ModelDownloader {
   modelDownloader ??= new ModelDownloader()
   return modelDownloader
+}
+
+function getTranslationService(): TranslationService {
+  if (!translationService) {
+    translationService = new TranslationService((status) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('translation:status', status)
+        } catch {
+          /* renderer torn down — drop the event */
+        }
+      }
+    })
+    // Kill the sidecar with the app. It also exits on its own when stdin
+    // closes (see sidecars/translator/src/main.cpp) — this is the polite
+    // first attempt , the stdin-EOF exit is the orphan backstop.
+    app.once('before-quit', () => {
+      void translationService?.dispose().catch(() => undefined)
+    })
+  }
+  return translationService
 }
 
 function getWorkspaceService(): WorkspaceService {
@@ -346,6 +374,9 @@ async function applySettings(s: UserSettings): Promise<void> {
   void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
+  // LLM device placement — also a per-load setting; the LlmSection triggers an
+  // llm:reload after changing it so the new device takes effect immediately.
+  getLlamaService().setSelectedPlacement(s.advanced.llm.placement)
 
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)
@@ -358,14 +389,20 @@ async function applySettings(s: UserSettings): Promise<void> {
   getAuth().setInactivityMs(inactivityMsFromMinutes(s.security.autoLockMinutes))
 
   // Rebuild Ollama providers from the current config (best-effort — no probe here).
-  // Loopback gate (defense in depth ; the UI already blocks this path , but a
-  // stale renderer or third-party IPC client must not be able to bypass it).
-  // Non-loopback baseUrl without allowRemoteOllama => treat as "no ollama
-  // configured" , the registry stays bundled-only.
+  // Install-time opt-in gate first : an install whose tier marker says the
+  // user didn't tick the Ollama-connector checkbox never builds providers ,
+  // regardless of what the persisted settings contain (e.g. a vault restored
+  // from an opted-in machine).
+  // Then the loopback gate (defense in depth ; the UI already blocks this
+  // path , but a stale renderer or third-party IPC client must not be able
+  // to bypass it). Non-loopback baseUrl without allowRemoteOllama => treat
+  // as "no ollama configured" , the registry stays bundled-only.
   const o = s.advanced.ollama
   const remoteOk = isLoopbackBaseUrl(o.baseUrl) || o.allowRemoteOllama
   const haveOllama =
-    remoteOk && Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
+    isOllamaConnectorEnabled() &&
+    remoteOk &&
+    Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
   if (haveOllama) {
     const client = new OllamaClient({
       baseUrl: o.baseUrl,
@@ -505,6 +542,9 @@ function getQAService(): QAService {
       getAuth().requireDatabase(),
       getRetrievalService(),
       getProviderRegistry(),
+      // doc_summary route (ADR-0003): summary intent + resolved target doc →
+      // cached whole-doc summary as context instead of topK fragments.
+      getSummarizationService(),
     )
   }
   return qaService
@@ -512,11 +552,7 @@ function getQAService(): QAService {
 
 function getQuizService(): QuizService {
   if (!quizService) {
-    quizService = new QuizService(
-      getAuth().requireDatabase(),
-      getRetrievalService(),
-      getProviderRegistry(),
-    )
+    quizService = new QuizService(getAuth().requireDatabase(), getProviderRegistry())
   }
   return quizService
 }
@@ -529,6 +565,13 @@ function getSummarizationService(): SummarizationService {
     )
   }
   return summarizationService
+}
+
+function getWritingService(): WritingService {
+  if (!writingService) {
+    writingService = new WritingService(getProviderRegistry())
+  }
+  return writingService
 }
 
 function getRerankerService(): RerankerService {
@@ -1047,6 +1090,11 @@ function registerIpc(): void {
       throw err
     }
   })
+  // Pin/unpin a document — pinned docs get prepended to the QA context packer
+  // for every chat turn in their workspace (see PINNED_BUDGET_FRAC in QAService).
+  ipcMain.handle('documents:setPinned', async (_e, documentId: number, pinned: boolean) => {
+    await getAuth().requireDatabase().documents().setPinned(documentId, pinned)
+  })
 
   // Returns every chunk of a document, ordered by ordinal. The SourceViewer
   // modal uses this to render the whole document and scroll the cited chunk
@@ -1152,6 +1200,12 @@ function registerIpc(): void {
   ipcMain.handle('conversations:getWithMessages', async (_e, id: number) =>
     getAuth().requireDatabase().conversations().getWithMessages(id),
   )
+  // Used by the chat Regenerate action — the renderer deletes the last
+  // assistant turn before re-streaming the same user question. Citations
+  // cascade-drop automatically via the FK.
+  ipcMain.handle('conversations:deleteMessage', async (_e, messageId: number) => {
+    await getAuth().requireDatabase().conversations().deleteMessage(messageId)
+  })
 
   // Generate a chat title from the first user/assistant exchange. Idempotent
   // by design — the renderer fires this once on the first round-trip; if the
@@ -1224,6 +1278,75 @@ function registerIpc(): void {
     // Clean up the listener when the renderer goes away.
     e.sender.once('destroyed', off)
     return channel
+  })
+
+  // translation — MADLAD via the loklm-translator sidecar. The model is
+  // provisioned by the installer wizard ( model-manifest.json , role
+  // "translation" ) ; the app only locates it and runs the sidecar. No
+  // in-app download path — a missing model points the user back to the
+  // installer ( see TranslationView / TranslationSection ).
+  ipcMain.handle('translation:status', async () => getTranslationService().status())
+  ipcMain.handle('translation:translate', async (_e, text: string, opts: TranslateOptions) =>
+    getTranslationService().translate(text, opts),
+  )
+  ipcMain.handle('translation:languages', async () => TRANSLATION_LANGUAGES)
+  // Pull a document's indexed text (chunks joined in order) for translation.
+  // Reuses the same chunk store the summarizer reads — no re-parse of the
+  // original file.
+  ipcMain.handle('translation:documentText', async (_e, documentId: number) => {
+    const repo = getAuth().requireDatabase().documents()
+    const doc = await repo.getDocument(documentId)
+    if (!doc) throw new Error('Document not found')
+    const chunks = await repo.listChunksForDocument(documentId)
+    return { title: doc.title, text: chunks.map((c) => c.text).join('\n\n') }
+  })
+  // Save a translation as a new document in the workspace , routed through the
+  // normal import pipeline so it gets chunked + embedded like any other doc.
+  ipcMain.handle(
+    'translation:saveDocument',
+    async (e, workspaceId: number, title: string, text: string, target: string) => {
+      const { mkdirSync, writeFileSync } = await import('node:fs')
+      // A per-save timestamped subdir keeps the source_path unique (the
+      // (workspace_id, source_path) index rejects a re-save otherwise) while
+      // the filename — and thus the imported doc's title — stays readable.
+      const dir = join(app.getPath('temp'), 'loklm-translations', String(Date.now()))
+      mkdirSync(dir, { recursive: true })
+      const base =
+        title
+          .replace(/\.[a-z0-9]{1,8}$/i, '') // drop the source extension (report.pdf → report)
+          .replace(/[\\/:*?"<>|\r\n]/g, '_')
+          .slice(0, 100)
+          .trim() || 'document'
+      const path = join(dir, `${base} (${target}).md`)
+      writeFileSync(path, text, 'utf8')
+      return getDocumentService().importFile({ workspaceId, sourcePath: path, sender: e.sender })
+    },
+  )
+
+  // writing — DeepL-Write-style rewriting on the bundled chat LLM. generateRaw
+  // won't auto-load , so ensure the bundled model is warming before we ask
+  // (the post-login warmup usually beat us here; this covers the cold case).
+  // Skipped when the user is on external Ollama — its provider reports ready
+  // by reachability and there's no local GGUF to load.
+  ipcMain.handle('writing:improve', async (_e, text: string, mode: WritingMode) => {
+    const reg = getProviderRegistry()
+    if (!reg.llm().isReady() && reg.getLlmSource() !== 'ollama') {
+      // ensureLoaded (not autoLoad): no-op if ready , and shares the warmup's
+      // in-flight load instead of racing a second one. Log a load failure —
+      // otherwise it surfaces only as a downstream 'model_not_ready'.
+      try {
+        await getLlamaService().ensureLoaded()
+      } catch (err) {
+        console.error('[writing] LLM load failed before rewrite:', err)
+      }
+    }
+    try {
+      return await getWritingService().improve(text, mode)
+    } catch (err) {
+      if (err instanceof WritingError) throw new Error(`${err.code}: ${err.message}`)
+      console.error('[writing] rewrite failed:', err)
+      throw err
+    }
   })
 
   // transcription — whisper + diarization in dedicated utilityProcesses. The
@@ -1379,9 +1502,22 @@ function registerIpc(): void {
   // probing leaks the configured bearer token to a non-loopback host the
   // moment the request fires , so refuse the call until allowRemoteOllama
   // has been confirmed via the PasswordRetypeGate.
+  // Install-time opt-in : whether the tier marker says the user ticked the
+  // Ollama-connector checkbox in the wizard. The renderer uses this to lock
+  // the whole Ollama settings panel ; the probe handler below enforces it
+  // again so a stale renderer can't reach an external host anyway.
+  ipcMain.handle('ollama:connectorEnabled', async () => isOllamaConnectorEnabled())
+
   ipcMain.handle(
     'ollama:probe',
     async (_e, cfg: { baseUrl: string; bearerToken: string | null; timeoutMs: number }) => {
+      if (!isOllamaConnectorEnabled()) {
+        return {
+          ok: false as const,
+          kind: 'connector-disabled' as const,
+          message: 'Ollama-Connector bei der Installation nicht aktiviert.',
+        }
+      }
       if (!isLoopbackBaseUrl(cfg.baseUrl)) {
         const allowed = getSettingsService().get().advanced.ollama.allowRemoteOllama
         if (!allowed) {
@@ -1471,8 +1607,16 @@ function registerIpc(): void {
       // unconditionally — Auto is now an explicit opt-in, so detection no longer
       // silently overrides a manual DE/EN choice. ( The UI language lives in
       // basic.language and is unaffected by this. )
-      const answerLang = getSettingsService().get().basic.answerLanguage
-      if (answerLang === 'de' || answerLang === 'en') opts.language = answerLang
+      const basic = getSettingsService().get().basic
+      if (basic.answerLanguage === 'de' || basic.answerLanguage === 'en') {
+        opts.language = basic.answerLanguage
+      } else {
+        // Auto: eld classifies the prompt per-turn (it handles short German like
+        // "Fasse Kapitel 3 zusammen" fine). For the genuinely ambiguous tail eld
+        // can't score ("ok", a bare number), answer in the user's UI language
+        // rather than a hardcoded English.
+        opts.fallbackLanguage = basic.language
+      }
 
       // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
       // setting. The renderer never pins opts.topK, so this always applies for
@@ -1548,7 +1692,13 @@ function registerIpc(): void {
             const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
             const elapsedSinceFirst =
               firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
-            const tokensPerSec = elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
+            // tokenCount > 1: a single synthesized token (e.g. the corpus
+            // route's whole templated answer in one event) has no meaningful
+            // rate — elapsedSinceFirst is just the event-loop gap to here , so
+            // tokenCount/elapsed yields a bogus 100s–1000s tok/s. Persist null
+            // instead so the metrics chip omits the rate for non-streamed turns.
+            const tokensPerSec =
+              tokenCount > 1 && elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
             const asst = await conversations.appendMessage(
               opts.conversationId,
               'assistant',
@@ -1611,11 +1761,20 @@ function registerIpc(): void {
   ipcMain.handle(
     'quiz:create-deck',
     async (_e, input: import('../shared/quiz').CreateQuizInput) => {
-      // QuizService.createDeckRow validates name/count/docs and resolves
+      // QuizService.createDeckRow validates name/docs and resolves
       // language from 'auto' before insert.
       return getQuizService().createDeckRow(input)
     },
   )
+
+  // Create-dialog preview: derived question count for a document selection.
+  // Pure chunk-stat math in the service — no LLM call, returns in ms.
+  ipcMain.handle('quiz:estimate', async (_e, documentIds: number[]) => {
+    if (!Array.isArray(documentIds) || documentIds.some((id) => !Number.isInteger(id))) {
+      throw new Error('documentIds must be an array of integers')
+    }
+    return getQuizService().estimate(documentIds)
+  })
 
   ipcMain.handle('quiz:delete-deck', async (_e, deckId: number) => {
     await getAuth().requireDatabase().quizzes().deleteDeck(deckId)
@@ -1624,6 +1783,10 @@ function registerIpc(): void {
   ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
     const quizzes = getAuth().requireDatabase().quizzes()
     await quizzes.clearQuestions(deckId)
+    // Derived counts: the re-plan can change the deck size, so attempts scored
+    // against the old count must go too (a 20/30 score against a re-planned
+    // 12-question deck would render as >100 %).
+    await quizzes.deleteAttempts(deckId)
     await quizzes.setDeckStatus(deckId, 'generating', null)
   })
 
@@ -1707,10 +1870,18 @@ function createMainWindow(): BrowserWindow {
     frame: false,
     backgroundColor: '#0B1B2B',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      // index.cjs , not .mjs : sandboxed preloads can't be ES modules , so the
+      // preload build emits CommonJS ( see electron.vite.config.ts ).
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Full Chromium sandbox for the renderer. The app ingests untrusted
+      // documents ( PDFs through pdfjs , OCR'd images , markdown ) — if one of
+      // them lands a renderer exploit , the sandbox is what keeps it away from
+      // the filesystem and the unlocked vault in main. The preload only uses
+      // contextBridge / ipcRenderer / webUtils , all sandbox-safe.
+      sandbox: true,
+      webviewTag: false,
     },
   })
 
@@ -1729,11 +1900,6 @@ function createMainWindow(): BrowserWindow {
 
   window.once('ready-to-show', () => window.show())
 
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
-    return { action: 'deny' }
-  })
-
   const devServerUrl = process.env['ELECTRON_RENDERER_URL']
   if (devServerUrl) {
     void window.loadURL(devServerUrl)
@@ -1743,6 +1909,48 @@ function createMainWindow(): BrowserWindow {
 
   return window
 }
+
+// Hardening for every webContents the app ever creates ( main window today ,
+// anything added later inherits it automatically ). Renderer content includes
+// untrusted text — document chunks and LLM output rendered by react-markdown —
+// so links in it are attacker-influenced :
+//   - window.open / target=_blank : never create a child window. Hand the URL
+//     to the OS browser only when the scheme is http(s)/mailto , so a crafted
+//     file:// , smb:// or custom-protocol link can't launch a local handler.
+//   - will-navigate : the SPA never navigates top-level. Allow only the dev
+//     server ( HMR full-reload ) and a same-URL reload ; block everything else
+//     so a renderer compromise can't load remote content into our context.
+//   - webviews : disabled in webPreferences , and refused here again in case a
+//     future window forgets the flag.
+function isSafeExternalUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' || u.protocol === 'http:' || u.protocol === 'mailto:'
+  } catch {
+    return false
+  }
+}
+
+app.on('web-contents-created', (_e, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    const devServerUrl = process.env['ELECTRON_RENDERER_URL']
+    if (devServerUrl && url.startsWith(devServerUrl)) return
+    if (url === contents.getURL()) return // location.reload()
+    event.preventDefault()
+  })
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault()
+  })
+})
+
+// Process-wide renderer sandbox , on top of the per-window webPreferences
+// flag : a window added later that forgets sandbox: true would otherwise run
+// unsandboxed without anyone noticing. Must be called before app ready.
+app.enableSandbox()
 
 // Only one process is allowed to touch the encrypted vault at a time. Two
 // instances would race on loklm.vault.tmp during persistSnapshot and could

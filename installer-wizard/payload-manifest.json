@@ -1,6 +1,6 @@
 {
-  "version": "0.3.1",
-  "baseUrl": "https://cdn.loklm.ai/v0.3.1",
+  "version": "0.4.0",
+  "baseUrl": "https://s3.ltwodl.com/loklm-installers/v0.4.0",
   "platforms": {
     "win-x64": {
       "payload": {
@@ -29,15 +29,15 @@
     "mac-arm64": {
       "payload": {
         "filename": "payload-mac-arm64.tar.zst",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "sizeBytes": 0
+        "sha256": "c766587bdba046da7d1f0048b09293e91ae8548f4ebb39842527bdefadc8b2bf",
+        "sizeBytes": 358048996
       }
     },
     "mac-x64": {
       "payload": {
         "filename": "payload-mac-x64.tar.zst",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "sizeBytes": 0
+        "sha256": "77eca95c2c59cde9acb37704630012455925f42ddf17ad01ad84146a43b60b2a",
+        "sizeBytes": 371097086
       }
     }
   }

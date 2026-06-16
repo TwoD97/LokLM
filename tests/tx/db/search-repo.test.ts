@@ -321,6 +321,69 @@ describe('DocumentsRepo.searchLibrary (tx)', () => {
     })
   })
 
+  it('matches a document by its filename even when the term is absent from the content', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // The term lives only in the filename. FTS tokenisation collapses the
+      // compound name into one token and would never split "Tudosa" back out ,
+      // so this only surfaces via the ILIKE title arm.
+      await seedDoc(tx, ws!.id, {
+        title: 'Laborbericht_Proxmox.Tudosa.pdf',
+        sourcePath: '/Laborbericht_Proxmox.Tudosa.pdf',
+        text: 'Inhalt ohne den gesuchten Namen im Fließtext',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'Tudosa')
+      expect(hits.map((h) => h.document_title)).toEqual(['Laborbericht_Proxmox.Tudosa.pdf'])
+    })
+  })
+
+  it('ranks a filename match above a content-only match under relevance sort', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // body-only hit: strong content rank but no title match
+      await seedDoc(tx, ws!.id, {
+        title: 'random-body-mentions.md',
+        sourcePath: '/random.md',
+        text: 'rankterm rankterm rankterm shows up only in the body',
+      })
+      // filename-only hit: zero content rank but a title match — must tier first
+      await seedDoc(tx, ws!.id, {
+        title: 'rankterm-named.md',
+        sourcePath: '/rankterm-named.md',
+        text: 'the body of this file never mentions the query at all',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'rankterm')
+      expect(hits.map((h) => h.document_title).sort()).toEqual([
+        'random-body-mentions.md',
+        'rankterm-named.md',
+      ])
+      expect(hits[0]!.document_title).toBe('rankterm-named.md')
+    })
+  })
+
+  it('escapes LIKE wildcards in the filename arm — "doc_v1" is literal , not single-char', async () => {
+    await withTransaction(async (tx) => {
+      const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+      // 'docXv1' would match an unescaped '%doc_v1%' (the _ as any-char) but must
+      // NOT once the underscore is escaped; 'doc_v1.md' is the literal hit.
+      await seedDoc(tx, ws!.id, {
+        title: 'docXv1.md',
+        sourcePath: '/x.md',
+        text: 'irrelevant body',
+      })
+      await seedDoc(tx, ws!.id, {
+        title: 'doc_v1.md',
+        sourcePath: '/u.md',
+        text: 'also irrelevant body',
+      })
+      const repo = new DocumentsRepo(tx as never)
+      const hits = await repo.searchLibrary(ws!.id, 'doc_v1')
+      expect(hits.map((h) => h.document_title)).toEqual(['doc_v1.md'])
+    })
+  })
+
   it('collapses a document with several matching chunks to one best hit', async () => {
     await withTransaction(async (tx) => {
       const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
@@ -360,6 +423,273 @@ describe('DocumentsRepo.searchLibrary (tx)', () => {
       const repo = new DocumentsRepo(tx as never)
       const hits = await repo.searchLibrary(ws1!.id, 'isolation')
       expect(hits.map((h) => h.document_title)).toEqual(['in'])
+    })
+  })
+  describe('searchDocumentsByTheme (corpus route)', () => {
+    it('ranks by chunk BM25 hits and returns the first chunk id per doc', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [a] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Grundlagen', sourcePath: '/a', status: 'ready' })
+          .returning()
+        const [b] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Notizen', sourcePath: '/b', status: 'ready' })
+          .returning()
+        const [c] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'Kochbuch', sourcePath: '/c', status: 'ready' })
+          .returning()
+        const [a0] = await tx
+          .insert(chunks)
+          .values({
+            documentId: a!.id,
+            ordinal: 0,
+            text: 'Strom ist der Fluss von Ladung',
+            tokenCount: 6,
+          })
+          .returning()
+        await tx.insert(chunks).values([
+          { documentId: a!.id, ordinal: 1, text: 'Strom und Spannung im Detail', tokenCount: 5 },
+          { documentId: b!.id, ordinal: 0, text: 'Notiz über Strom im Labor', tokenCount: 5 },
+          { documentId: c!.id, ordinal: 0, text: 'Pfannkuchen mit Butter', tokenCount: 4 },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'])
+        expect(rows.map((r) => r.id)).toEqual([a!.id, b!.id])
+        expect(rows[0]!.chunkHits).toBe(2)
+        expect(rows[1]!.chunkHits).toBe(1)
+        expect(rows[0]!.firstChunkId).toBe(a0!.id)
+      })
+    })
+
+    it('title and summary matches count even with zero chunk hits', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [titled] = await tx
+          .insert(documents)
+          .values({
+            workspaceId: ws!.id,
+            title: 'Strom Formelsammlung',
+            sourcePath: '/t',
+            status: 'ready',
+          })
+          .returning()
+        const [summarized] = await tx
+          .insert(documents)
+          .values({
+            workspaceId: ws!.id,
+            title: 'Skript Kapitel 3',
+            sourcePath: '/s',
+            status: 'ready',
+            summary: 'Behandelt strom und widerstand im gleichstromkreis.',
+          })
+          .returning()
+        await tx.insert(chunks).values([
+          {
+            documentId: titled!.id,
+            ordinal: 0,
+            text: 'Formeln ohne das Themenwort',
+            tokenCount: 4,
+          },
+          {
+            documentId: summarized!.id,
+            ordinal: 0,
+            text: 'Inhalt ohne das Themenwort',
+            tokenCount: 4,
+          },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'])
+        expect(rows.map((r) => r.id).sort()).toEqual([titled!.id, summarized!.id].sort())
+        expect(rows.every((r) => r.chunkHits === 0)).toBe(true)
+      })
+    })
+
+    it('empty theme returns every ready doc (count-all questions)', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'eins', sourcePath: '/1', status: 'ready' },
+          { workspaceId: ws!.id, title: 'zwei', sourcePath: '/2', status: 'ready' },
+          { workspaceId: ws!.id, title: 'drei', sourcePath: '/3', status: 'indexing' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, [])
+        expect(rows.map((r) => r.title).sort()).toEqual(['eins', 'zwei'])
+      })
+    })
+
+    it('respects the activeDocumentIds pin', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const [a] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'a strom', sourcePath: '/a', status: 'ready' })
+          .returning()
+        await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'b strom', sourcePath: '/b', status: 'ready' })
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['strom'], {
+          activeDocumentIds: [a!.id],
+        })
+        expect(rows.map((r) => r.id)).toEqual([a!.id])
+      })
+    })
+
+    it('escapes ILIKE wildcards in theme tokens — "100%" is a literal % , not match-all', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        // 'Kapitel 100 von 200' contains "100" but no literal '%' — with broken
+        // escaping the pattern degrades to %100% and matches this; with correct
+        // escaping (\%) it must NOT. '100% Erfolg' contains a literal '%' and
+        // must match. Title-only docs (no chunks) so only the ILIKE branch fires.
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'Kapitel 100 von 200', sourcePath: '/k', status: 'ready' },
+          { workspaceId: ws!.id, title: '100% Erfolg', sourcePath: '/e', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['100%'])
+        expect(rows.map((r) => r.title)).toEqual(['100% Erfolg'])
+      })
+    })
+
+    it('a bare "%" token is a literal percent, never a match-everything wildcard', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'plain title', sourcePath: '/p', status: 'ready' },
+          { workspaceId: ws!.id, title: '50 % Rabatt', sourcePath: '/r', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['%'])
+        expect(rows.map((r) => r.title)).toEqual(['50 % Rabatt'])
+      })
+    })
+
+    it('underscore in a theme token is literal, not a single-char wildcard', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await tx.insert(documents).values([
+          { workspaceId: ws!.id, title: 'aXb variant', sourcePath: '/x', status: 'ready' },
+          { workspaceId: ws!.id, title: 'a_b literal', sourcePath: '/u', status: 'ready' },
+        ])
+        const repo = new DocumentsRepo(tx as never)
+        const rows = await repo.searchDocumentsByTheme(ws!.id, ['a_b'])
+        expect(rows.map((r) => r.title)).toEqual(['a_b literal'])
+      })
+    })
+  })
+
+  describe('summary embedding (DocumentSummaryIndex)', () => {
+    // Axis-aligned 1024-dim vectors: same axis → cosine ~1.0 , different axis →
+    // ~0.11 (below the 0.2 corpus threshold). 0.01 floor keeps norms non-zero
+    // (pgvector cosine on an all-zero vector is undefined).
+    const evec = (axis: number): number[] => {
+      const v = new Array(DIM).fill(0.01)
+      v[axis] = 1
+      return v
+    }
+    const seedDocWithSummaryEmbedding = async (
+      tx: Tx,
+      wsId: number,
+      title: string,
+      axis: number,
+    ): Promise<number> => {
+      const [doc] = await tx
+        .insert(documents)
+        .values({ workspaceId: wsId, title, sourcePath: '/' + title, status: 'ready' })
+        .returning()
+      const repo = new DocumentsRepo(tx as never)
+      await repo.setSummary(doc!.id, `${title} summary text`)
+      await repo.setSummaryEmbedding(doc!.id, evec(axis), 'bundled:bge-m3')
+      return doc!.id
+    }
+
+    it('setSummary nulls a previously stored embedding (summary changed → stale)', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const id = await seedDocWithSummaryEmbedding(tx, ws!.id, 'doc', 0)
+        const repo = new DocumentsRepo(tx as never)
+        expect(await repo.countDocsMissingSummaryEmbedding(ws!.id)).toBe(0)
+        await repo.setSummary(id, 'a different summary')
+        expect(await repo.countDocsMissingSummaryEmbedding(ws!.id)).toBe(1)
+      })
+    })
+
+    it('listDocsMissingSummaryEmbedding returns summarized-but-unembedded docs only', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const repo = new DocumentsRepo(tx as never)
+        // (a) summary + embedding → not missing
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'embedded', 0)
+        // (b) summary , no embedding → missing
+        const [b] = await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'summ-only', sourcePath: '/b', status: 'ready' })
+          .returning()
+        await repo.setSummary(b!.id, 'has summary, no embedding')
+        // (c) no summary → not a candidate
+        await tx
+          .insert(documents)
+          .values({ workspaceId: ws!.id, title: 'nosumm', sourcePath: '/c', status: 'ready' })
+        const missing = await repo.listDocsMissingSummaryEmbedding(ws!.id, 10)
+        expect(missing.map((m) => m.id)).toEqual([b!.id])
+        expect(missing[0]!.summary).toContain('has summary')
+      })
+    })
+
+    it('purgeSummaryEmbeddingsByIdentity nulls only the matching identity', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const repo = new DocumentsRepo(tx as never)
+        // 'keep' stays on the active stem (bundled) , 'stale' is on a foreign
+        // stem that the purge should null — leaving only 'stale' unembedded.
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'keep', 0)
+        const stale = await seedDocWithSummaryEmbedding(tx, ws!.id, 'stale', 1)
+        await repo.setSummaryEmbedding(stale, evec(1), 'ollama:nomic-embed-text')
+        expect((await repo.distinctSummaryEmbedderIdentities(ws!.id)).sort()).toEqual([
+          'bundled:bge-m3',
+          'ollama:nomic-embed-text',
+        ])
+        const purged = await repo.purgeSummaryEmbeddingsByIdentity(
+          ws!.id,
+          'ollama:nomic-embed-text',
+        )
+        expect(purged).toBe(1)
+        const missing = await repo.listDocsMissingSummaryEmbedding(ws!.id, 10)
+        expect(missing.map((m) => m.id)).toEqual([stale]) // keep still embedded
+      })
+    })
+
+    it('topDocumentsBySummarySimilarity returns on-theme docs above threshold, ranked', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        const near = await seedDocWithSummaryEmbedding(tx, ws!.id, 'near', 0)
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'far', 5) // ~0.11 cosine < 0.2
+        const repo = new DocumentsRepo(tx as never)
+        const top = await repo.topDocumentsBySummarySimilarity(ws!.id, evec(0), 5)
+        expect(top.map((t) => t.id)).toEqual([near])
+        expect(top[0]!.score).toBeGreaterThan(0.9)
+      })
+    })
+
+    it('searchDocumentsByTheme embedding arm includes a doc with no literal match', async () => {
+      await withTransaction(async (tx) => {
+        const [ws] = await tx.insert(workspaces).values({ name: 'ws' }).returning()
+        await seedDocWithSummaryEmbedding(tx, ws!.id, 'alpha', 0)
+        const repo = new DocumentsRepo(tx as never)
+        // token matches no title/summary/chunk text → literal arm finds nothing
+        const literalOnly = await repo.searchDocumentsByTheme(ws!.id, ['zzznomatch'])
+        expect(literalOnly).toEqual([])
+        // same token but with a near theme embedding → embedding arm includes it
+        const withVec = await repo.searchDocumentsByTheme(ws!.id, ['zzznomatch'], {
+          themeEmbedding: evec(0),
+        })
+        expect(withVec.map((r) => r.title)).toEqual(['alpha'])
+      })
     })
   })
 })

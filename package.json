@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.4.0",
+  "version": "0.4.6",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -33,6 +33,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
+    "test:cov:apt1": "vitest run tests/unit/chunker.test.ts tests/unit/parser.test.ts tests/unit/parser-ocr.test.ts tests/unit/rrf.test.ts src/shared/citationMarkers.test.ts tests/unit/auth-crypto.test.ts tests/unit/auth-service-guards.test.ts tests/integration/auth-flow.test.ts tests/integration/auth-e2e.test.ts tests/integration/change-password.test.ts --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include=src/main/services/documents/chunker.ts --coverage.include=src/main/services/documents/parser.ts --coverage.include=src/main/services/retrieval/rrf.ts --coverage.include=src/shared/citationMarkers.ts --coverage.include=src/main/services/auth/AuthService.ts",
     "test:unit": "vitest run --project node --project web",
     "test:wizard-frontend": "vitest run --project wizard-frontend",
     "test:integration": "vitest run --project integration",
@@ -53,6 +54,9 @@
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
     "evals:rejudge": "tsx tests/evals/answer/rejudge.ts",
     "evals:patterns": "tsx tests/evals/answer/failure-patterns.ts",
+    "evals:translation:data": "tsx tests/evals/translation/download-flores.ts",
+    "evals:translation": "tsx tests/evals/translation/run-pack.ts",
+    "evals:translation:report": "tsx tests/evals/translation/report.ts",
     "pod:start": "tsx tests/evals/runpod/pod.ts start",
     "pod:stop": "tsx tests/evals/runpod/pod.ts stop",
     "pod:status": "tsx tests/evals/runpod/pod.ts status",
@@ -72,65 +76,75 @@
     "models:pro": "node scripts/download-models.mjs pro",
     "models:all": "node scripts/download-models.mjs all",
     "models:evals": "node scripts/download-models.mjs evals",
+    "models:translation": "node scripts/download-models.mjs translation",
     "tessdata": "node scripts/download-tessdata.mjs",
+    "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.1",
-    "@eslint/js": "^9.16.0",
+    "@electron/fuses": "^2.1.2",
+    "@electron/rebuild": "^4.0.4",
+    "@eslint/js": "^9.39.4",
     "@mongodb-js/zstd": "^7.0.0",
-    "@playwright/test": "^1.49.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.1.0",
-    "@types/node": "^22.10.1",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.19.21",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^3.2.6",
     "drizzle-kit": "^0.31.10",
-    "electron": "^42.0.0",
+    "electron": "^42.4.0",
     "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
-    "eslint": "^9.16.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
-    "globals": "^15.13.0",
+    "electron-vite": "^4.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^15.15.0",
     "husky": "^9.1.7",
+    "hyparquet": "^1.26.0",
     "jsdom": "^25.0.1",
-    "lint-staged": "^15.2.11",
-    "prettier": "^3.4.2",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.8.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tar-stream": "^3.2.0",
-    "tsx": "^4.21.0",
-    "typedoc": "^0.27.4",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.18.0",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "tsx": "^4.22.4",
+    "typedoc": "^0.27.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.61.0",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.4.5",
+    "@electric-sql/pglite": "^0.4.6",
     "@kutalia/whisper-node-addon": "^1.1.0",
-    "@napi-rs/canvas": "^0.1.65",
+    "@napi-rs/canvas": "^0.1.100",
     "argon2": "^0.44.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "eld": "^2.0.3",
     "electron-log": "^5.4.4",
-    "lucide-react": "^1.16.0",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.47",
+    "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",
     "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
-    "sharp": "^0.34.0",
+    "remark-math": "^6.0.0",
+    "sharp": "^0.34.5",
     "sherpa-onnx-node": "^1.13.2",
+    "sodium-native": "^5.1.0",
     "tesseract.js": "^6.0.1"
   },
   "build": {
@@ -150,6 +164,7 @@
       "!**/node_modules/@node-llama-cpp/{win-x64-cuda,win-x64-cuda-ext,linux-x64-cuda,linux-x64-cuda-ext}/**"
     ],
     "asar": true,
+    "afterPack": "scripts/after-pack-fuses.cjs",
     "asarUnpack": [
       "**/node_modules/@napi-rs/canvas*/**",
       "**/node_modules/@img/**",
@@ -157,7 +172,9 @@
       "**/node_modules/tesseract.js/**",
       "**/node_modules/tesseract.js-core/**",
       "**/node_modules/@kutalia/whisper-node-addon/**",
-      "**/node_modules/sherpa-onnx-*/**"
+      "**/node_modules/sherpa-onnx-*/**",
+      "**/node_modules/node-llama-cpp/**",
+      "**/node_modules/@node-llama-cpp/**"
     ],
     "publish": null,
     "npmRebuild": false,
@@ -177,6 +194,14 @@
       {
         "from": "tessdata",
         "to": "tessdata"
+      },
+      {
+        "from": "sidecars/translator/dist",
+        "to": "translator",
+        "filter": [
+          "**/*",
+          "!*-cuda*"
+        ]
       }
     ],
     "win": {
@@ -225,10 +250,13 @@
       "electron",
       "@electron/rebuild",
       "node-llama-cpp",
-      "@mongodb-js/zstd"
+      "@mongodb-js/zstd",
+      "sodium-native"
     ],
     "overrides": {
-      "esbuild": "0.25.12"
+      "esbuild": "0.25.12",
+      "tmp": ">=0.2.6",
+      "vite": "^6"
     }
   }
 }

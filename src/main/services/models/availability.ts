@@ -7,9 +7,9 @@
  */
 
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { MODEL_MANIFEST, type ModelManifestEntry } from './manifest'
-import { getDownloadTargetDir, resolveModelFile } from './paths'
+import { getDownloadTargetDir, resolveModelFile, resolveWizardModelsDir } from './paths'
 import type { ModelAvailability, ModelsStatus } from '../../../shared/documents'
 import { readTierMarker } from '../tier/TierMarker'
 
@@ -41,10 +41,11 @@ export function sweepLegacyUserDataModels(): { removed: number; freedBytes: numb
   if (readTierMarker() === null) return { removed: 0, freedBytes: 0 }
 
   const legacyDir = getDownloadTargetDir() // userData/models when packaged
-  // The wizard installs alongside the exe ( <install-dir>/models ). If the
-  // legacy dir happens to resolve to that ( shouldn't , but guard anyway ) ,
-  // skip — we'd be deleting the live models.
-  const wizardDir = join(dirname(process.execPath), 'models')
+  // Platform-aware wizard dir: exe-sibling on win/linux, but userData/models
+  // on macOS ( the wizard can't write into the signed .app bundle ). On mac
+  // the legacy dir and the wizard dir are therefore the SAME directory — this
+  // guard is what stops the sweep from deleting the wizard's live models.
+  const wizardDir = resolveWizardModelsDir()
   if (!existsSync(legacyDir) || legacyDir === wizardDir) {
     return { removed: 0, freedBytes: 0 }
   }

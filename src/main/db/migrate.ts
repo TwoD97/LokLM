@@ -19,6 +19,8 @@ const RAW_MIGRATIONS = [
   '0006_partial_3nf.sql',
   '0007_chunks_language.sql',
   '0008_document_summary.sql',
+  '0009_document_pinning.sql',
+  '0010_document_summary_embedding.sql',
 ]
 
 function isPackaged(): boolean {

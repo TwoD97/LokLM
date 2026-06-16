@@ -2,7 +2,17 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+    <!-- CSP. NB: the header name must be exactly "Content-Security-Policy" —
+         the historical "X-" prefixed form is silently ignored by Chromium , so
+         a typo here means NO policy at all. style-src 'unsafe-inline' is for
+         Vite-injected <style> tags ; img/media/worker blob: covers avatar
+         object-URLs , recorded audio and the pdfjs worker. The dev server
+         relaxes script-src + connect-src via the cspDevRelax plugin in
+         electron.vite.config.ts ( react-refresh preamble + HMR websocket ). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LokLM</title>
   </head>

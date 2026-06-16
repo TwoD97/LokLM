@@ -102,6 +102,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
     delete: () => Promise.resolve(),
     reindex: (id: number) =>
@@ -116,6 +117,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
     listChunksForDocument: () => Promise.resolve([] as Array<never>),
     getSourceForChunk: () => Promise.resolve(null),
@@ -130,6 +132,7 @@ const stub: Api = {
     keepMissing: () => Promise.resolve(),
     cancelIndexing: () => Promise.resolve(0),
     summarize: () => Promise.resolve({ summary: 'stub summary', cached: false }),
+    setPinned: () => Promise.resolve(),
     onIndexProgress: () => () => undefined,
   },
   conversations: {
@@ -159,6 +162,7 @@ const stub: Api = {
         messages: [],
       }),
     generateTitle: () => Promise.resolve(null),
+    deleteMessage: () => Promise.resolve(),
     setActiveDocumentIds: () => Promise.resolve(),
   },
   models: {
@@ -315,6 +319,9 @@ const stub: Api = {
         resources: null,
         lastLlmPlan: null,
         selectedContext: 'auto' as const,
+        placementChoice: 'auto' as const,
+        resolvedPlacement: null,
+        placementReason: null,
       }),
     reload: () =>
       Promise.resolve({
@@ -336,6 +343,9 @@ const stub: Api = {
         resources: null,
         lastLlmPlan: null,
         selectedContext: 'auto' as const,
+        placementChoice: 'auto' as const,
+        resolvedPlacement: null,
+        placementReason: null,
       }),
     setProfile: () => Promise.resolve(),
     onStatus: () => () => undefined,
@@ -367,6 +377,7 @@ const stub: Api = {
         chunkCount: 0,
         tokenCount: 0,
         addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
       }),
   },
   settings: {
@@ -378,6 +389,7 @@ const stub: Api = {
   },
   ollama: {
     probe: () => Promise.resolve({ ok: true as const, version: '0.0.0', models: [] as string[] }),
+    connectorEnabled: () => Promise.resolve(true),
   },
   providers: {
     onFallback: () => () => undefined,
@@ -408,12 +420,13 @@ const stub: Api = {
         workspaceId: input.workspaceId,
         name: input.name,
         documentIds: input.documentIds,
-        questionCount: input.questionCount,
+        questionCount: 10,
         status: 'generating' as const,
         error: null,
         language: 'en' as const,
         createdAt: Math.floor(Date.now() / 1000),
       }),
+    estimate: () => Promise.resolve({ unitCount: 5 }),
     deleteDeck: () => Promise.resolve(),
     regenerateDeck: () => Promise.resolve(),
     generate: () => Promise.resolve(),
@@ -438,6 +451,34 @@ const stub: Api = {
         answers: [],
       }),
     listAttempts: () => Promise.resolve([]),
+  },
+  translation: {
+    status: () =>
+      Promise.resolve({ state: 'not_installed' as const, message: null, sidecarAvailable: false }),
+    translate: () => Promise.resolve({ text: '', detected: null, sentences: 0, ms: 0 }),
+    languages: () => Promise.resolve([]),
+    documentText: () => Promise.resolve({ title: '', text: '' }),
+    saveDocument: (workspaceId: number, title: string) =>
+      Promise.resolve({
+        id: 1,
+        workspaceId,
+        title,
+        sourcePath: '/stub/translation.md',
+        mimeType: 'text/markdown',
+        byteSize: null,
+        status: 'pending' as const,
+        chunkCount: 0,
+        tokenCount: 0,
+        addedAt: Math.floor(Date.now() / 1000),
+        pinned: false,
+      }),
+    onStatus: () => () => undefined,
+  },
+  writing: {
+    improve: (
+      _text: string,
+      mode: 'improve' | 'formal' | 'casual' | 'concise' | 'expand' | 'simplify',
+    ) => Promise.resolve({ text: '', detected: 'en' as const, mode }),
   },
 }
 

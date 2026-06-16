@@ -54,6 +54,39 @@ function getAppOrNull(): ElectronApp | null {
   return cachedApp
 }
 
+/**
+ * Where the WIZARD installs models, per platform. Pure — takes its inputs
+ * explicitly so tests can exercise every platform without electron.
+ * Windows + Linux: <install-dir>/models next to the executable. macOS: the
+ * .app bundle is signed + read-only, so the wizard writes to
+ * ~/Library/Application Support/LokLM/models — which is exactly Electron's
+ * userData/models ( productName "LokLM" on both sides ).
+ */
+export function getWizardModelsDir(
+  platform: NodeJS.Platform,
+  execPath: string,
+  userDataDir: string | null,
+): string {
+  if (platform === 'darwin' && userDataDir) return join(userDataDir, 'models')
+  return join(dirname(execPath), 'models')
+}
+
+/** getWizardModelsDir bound to the running process. userData is only
+ *  resolvable inside a packaged electron runtime; elsewhere the exec-sibling
+ *  layout is returned (matching the win/linux contract). */
+export function resolveWizardModelsDir(): string {
+  const app = getAppOrNull()
+  let userData: string | null = null
+  if (app && app.isPackaged) {
+    try {
+      userData = app.getPath('userData')
+    } catch {
+      userData = null
+    }
+  }
+  return getWizardModelsDir(process.platform, process.execPath, userData)
+}
+
 /** Where the first-launch downloader writes. Always writable; safe to mkdir. */
 export function getDownloadTargetDir(): string {
   const app = getAppOrNull()

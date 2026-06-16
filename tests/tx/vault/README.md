@@ -35,11 +35,13 @@ also nicht in den schnellen integration-layer.
 mit DE-Wortliste, lock, neuer AuthService, login mit Passwort, status zeigt
 "unlocked" und der gleiche displayName.
 
+[`crash-resilience.test.ts`](./crash-resilience.test.ts) deckt die
+Korruptions-Fälle ab: `loklm.vault.bak` wird als Byte-Kopie geschrieben,
+gelöschte oder korrupte Primary fällt auf die .bak zurück (inkl. self-heal beim
+nächsten persist), beide kaputt → sauberer Fehler, und ein Passwort-Wechsel
+erneuert die .bak mit (altes Passwort öffnet auch den Fallback nicht).
+
 Vorlagen für weitere Tests:
 
-- Recovery-Round-Trip: register → lock → reset mit der Passphrase → login mit
-  neuem Passwort funktioniert, alte DB-Daten sind noch da.
-- Korruption: vault-Datei auf Disk truncate'n, neuer AuthService meldet
-  konsistent "no_user" oder "broken" anstatt zu crashen.
 - Version-Bump: alte v3-Datei einlesen sollte sauber fehlschlagen (sobald wir
   v5 oder höher haben).

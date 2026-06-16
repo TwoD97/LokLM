@@ -4,6 +4,7 @@ import {
   applyShortChunkPenalty,
   applyRecencyBoost,
   applyLanguageMatchBoost,
+  splitQuestions,
 } from '@main/services/retrieval/heuristics'
 import type { SearchHit } from '@main/db/database'
 
@@ -152,5 +153,57 @@ describe('applyLanguageMatchBoost', () => {
     expect(out[1]!.score).toBeCloseTo(1.0)
     expect(out[2]!.score).toBeCloseTo(1.0)
     expect(out[3]!.score).toBeCloseTo(1.0)
+  })
+})
+
+describe('splitQuestions (multi-question decomposition)', () => {
+  describe('splits genuinely compound messages', () => {
+    const cases: Array<[string, string[]]> = [
+      [
+        'What is argon2id? And how many documents do I have about the vault?',
+        ['What is argon2id?', 'And how many documents do I have about the vault?'],
+      ],
+      ['Was ist X? Wie funktioniert Y?', ['Was ist X?', 'Wie funktioniert Y?']],
+      // trailing non-question request after a '?' is its own segment
+      [
+        'What is argon2id? Tell me about the vault layout.',
+        ['What is argon2id?', 'Tell me about the vault layout.'],
+      ],
+    ]
+    for (const [q, expected] of cases) {
+      it(`"${q}"`, () => {
+        expect(splitQuestions(q)).toEqual(expected)
+      })
+    }
+  })
+
+  describe('does NOT split a single question', () => {
+    const cases = [
+      'What is argon2id?',
+      // "and" inside one question must stay together — the dangerous case
+      'What is the difference between argon2id and scrypt?',
+      'How does argon2id work and why 64 MiB?',
+      'Was ist der Unterschied zwischen X und Y?',
+      'no question mark here at all just a statement',
+      // disjunctive split punctuation — "or Y?" too short to be its own question
+      'Is it X? or Y?',
+      // trailing pleasantry filtered, not a sub-question
+      'What is argon2id? Thanks!',
+    ]
+    for (const q of cases) {
+      it(`"${q}" → [whole]`, () => {
+        expect(splitQuestions(q)).toEqual([q.trim()])
+      })
+    }
+  })
+
+  it('treats a pasted wall of questions (> max) as a single query', () => {
+    const many = Array.from({ length: 6 }, (_, i) => `What is concept ${i + 1}?`).join(' ')
+    expect(splitQuestions(many)).toEqual([many])
+  })
+
+  it('caps at the max sub-question count (exactly max splits)', () => {
+    const five = Array.from({ length: 5 }, (_, i) => `What is concept ${i + 1}?`).join(' ')
+    expect(splitQuestions(five)).toHaveLength(5)
   })
 })

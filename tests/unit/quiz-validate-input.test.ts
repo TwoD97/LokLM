@@ -7,7 +7,6 @@ function input(overrides: Partial<CreateQuizInput> = {}): CreateQuizInput {
     workspaceId: 1,
     name: 'Sample',
     documentIds: [1, 2],
-    questionCount: 5,
     ...overrides,
   }
 }
@@ -32,20 +31,6 @@ describe('validateCreateInput', () => {
 
   it('rejects empty documentIds', () => {
     expect(() => validateCreateInput(input({ documentIds: [] }))).toThrow(/at least one document/i)
-  })
-
-  it('rejects question counts outside the allowed set', () => {
-    for (const bad of [0, 1, 4, 7, 11, 25, 100] as number[]) {
-      expect(() => validateCreateInput(input({ questionCount: bad as 5 | 10 | 20 }))).toThrow(
-        /questionCount/,
-      )
-    }
-  })
-
-  it('accepts 5, 10, and 20', () => {
-    for (const ok of [5, 10, 20] as const) {
-      expect(() => validateCreateInput(input({ questionCount: ok }))).not.toThrow()
-    }
   })
 
   it('rejects non-integer workspaceId', () => {

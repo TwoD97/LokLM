@@ -1,11 +1,31 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
 import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
 
 type DotState = EmbedderState | RerankerState | ModelState
 type DotSource = 'bundled' | 'ollama'
+
+// The translation model and whisper STT both run locally-only and have their
+// own state vocabularies; collapse them onto the shared dot states so they
+// read in the titlebar exactly like the LLM / embedder / reranker dots.
+function translatorDotState(s: TranslatorStatus): DotState {
+  switch (s.state) {
+    case 'ready':
+      return 'ready'
+    case 'starting':
+      return 'loading'
+    case 'installed':
+      return 'idle'
+    case 'error':
+      return 'failed'
+    case 'not_installed':
+    default:
+      return 'unloaded'
+  }
+}
 
 // Maps the raw service state + source onto the pill text shown in the hover
 // tooltip. Mirrors the LLM chat-header pill vocabulary ("Local"/"Remote") so
@@ -40,28 +60,57 @@ function ariaText(
   return message ? `${base} — ${message}` : base
 }
 
+// Maps the raw backend label from ModelStatus.gpu ('cuda'|'vulkan'|'metal'|
+// 'cpu'|null) onto a short chip + a full hover-line. Null when unknown (no load
+// yet, or a remote source that doesn't report a device).
+function deviceLabel(t: TFn, gpu: string | null): { short: string; full: string } | null {
+  if (gpu == null) return null
+  if (gpu === 'cpu') {
+    const cpu = t('shell.deviceCpu')
+    return { short: cpu, full: t('shell.runningOn', { device: cpu }) }
+  }
+  const full = t('shell.deviceGpu', { backend: gpu.toUpperCase() })
+  return { short: t('shell.deviceGpuShort'), full: t('shell.runningOn', { device: full }) }
+}
+
 type DotProps = {
   label: string
   state: DotState
   source: DotSource
   message: string | null
   extraClass?: string
+  /** Compute-device chip (LLM only). Rendered visibly when the model is ready,
+   *  and always in the hover pill when known. */
+  device?: { short: string; full: string } | null
 }
 
-function StatusDot({ label, state, source, message, extraClass }: DotProps): JSX.Element {
+function StatusDot({ label, state, source, message, extraClass, device }: DotProps): JSX.Element {
   const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
+  const deviceIsCpu = device != null && device.short === t('shell.deviceCpu')
   return (
     <span
       className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
       role="img"
-      aria-label={ariaText(t, label, state, source, message)}
+      aria-label={
+        ariaText(t, label, state, source, message) +
+        (device && state === 'ready' ? ` — ${device.full}` : '')
+      }
     >
       <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
+      {device && state === 'ready' && (
+        <span
+          className={`titlebar__device titlebar__device--${deviceIsCpu ? 'cpu' : 'gpu'}`}
+          aria-hidden="true"
+        >
+          {device.short}
+        </span>
+      )}
       <span className="titlebar__pill" role="tooltip">
         <span className="titlebar__pill-label">{label}</span>
         <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
         <span className="titlebar__pill-text">{pillText(t, state, source)}</span>
+        {device && <span className="titlebar__pill-device">{device.full}</span>}
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
     </span>
@@ -103,11 +152,18 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     state: ModelState
     message: string | null
     source: DotSource
+    gpu: string | null
   }>({
     state: 'idle',
     message: null,
     source: 'bundled',
+    gpu: null,
   })
+  const [translation, setTranslation] = useState<TranslatorStatus | null>(null)
+  // Whisper has no live status push (it loads per-transcription) , so we only
+  // know presence/download state. 'idle' once a model is on disk = ready to
+  // use; refreshed on window focus to catch a download done in the STT view.
+  const [whisper, setWhisper] = useState<DotState>('unloaded')
 
   useEffect(() => {
     void window.api.window.isMaximized().then(setMaximized)
@@ -138,11 +194,30 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   useEffect(() => {
     void window.api.llm
       .status()
-      .then((s) => setLlm({ state: s.state, message: s.message, source: s.source }))
+      .then((s) => setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }))
     const off = window.api.llm.onStatus((s) =>
-      setLlm({ state: s.state, message: s.message, source: s.source }),
+      setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }),
     )
     return () => off()
+  }, [])
+
+  useEffect(() => {
+    void window.api.translation.status().then(setTranslation)
+    const off = window.api.translation.onStatus(setTranslation)
+    return () => off()
+  }, [])
+
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.api.transcription.modelStatus().then((models) => {
+        if (models.some((m) => m.downloading)) setWhisper('loading')
+        else if (models.some((m) => m.present)) setWhisper('idle')
+        else setWhisper('unloaded')
+      })
+    }
+    refresh()
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
   }, [])
 
   return (
@@ -187,7 +262,15 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
       </div>
 
       <div className="titlebar__status" aria-label={t('shell.modelStatus')}>
-        <StatusDot label="LLM" state={llm.state} source={llm.source} message={llm.message} />
+        <StatusDot
+          label="LLM"
+          state={llm.state}
+          source={llm.source}
+          message={llm.message}
+          // Device is only meaningful for the local engine; a remote Ollama
+          // session runs on the host's hardware, which we can't report.
+          device={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
+        />
         <StatusDot
           label="Embedder"
           state={embedder.state}
@@ -202,6 +285,15 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
             message={reranker.message}
           />
         )}
+        {translation && translation.sidecarAvailable && (
+          <StatusDot
+            label="Translation"
+            state={translatorDotState(translation)}
+            source="bundled"
+            message={translation.message}
+          />
+        )}
+        <StatusDot label="STT" state={whisper} source="bundled" message={null} />
       </div>
 
       <div className="titlebar__spacer" />

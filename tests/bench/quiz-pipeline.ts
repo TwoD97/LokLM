@@ -1,13 +1,12 @@
 // Wall-time benchmark for the quiz pipeline. Loads a real LLM via
 // node-llama-cpp (bypassing the production LlamaService, which is worker-only
-// and won't run under tsx) and drives the two hot-path stages directly:
+// and won't run under tsx) and drives the chunk-driven pipeline directly:
 //
-//   1. extractThemesForDocument  — per-doc theme extraction
-//   2. generateQuestionsForTheme — per-theme batch question generation
+//   1. planQuiz                 — pure-code unit building (no LLM, ~ms)
+//   2. generateQuestionsForUnit — one grammar-constrained call per unit
 //
-// Output: stage timings + tokens/s estimate. Embeddings are mocked because the
-// LLM dominates wall time on CPU by ~99%; mocking them keeps the bench
-// self-contained and removes a dependency on the bundled bge-m3.
+// Output: per-unit timings + totals. No embeddings anywhere — the rework
+// removed them from the quiz path entirely.
 //
 // Usage:
 //   pnpm test:quiz-pipeline                          # auto-discover lite, German
@@ -15,7 +14,6 @@
 //   pnpm test:quiz-pipeline -- --profile full        # use 8B model
 //   pnpm test:quiz-pipeline -- --model <path.gguf>   # explicit GGUF
 //   pnpm test:quiz-pipeline -- --lang en             # English test doc
-//   pnpm test:quiz-pipeline -- --count 3 --themes 2  # 3 Q per theme, bench 2 themes
 
 import { performance } from 'node:perf_hooks'
 import { existsSync, readdirSync } from 'node:fs'
@@ -23,14 +21,10 @@ import { cpus } from 'node:os'
 import { join } from 'node:path'
 import type { ChunkRow } from '../../src/main/db/database'
 import type { ModelStatus } from '../../src/shared/documents'
-import type {
-  EmbedderProvider,
-  LlmProvider,
-  ProviderStatus,
-} from '../../src/main/services/providers/types'
+import type { LlmProvider, ProviderStatus } from '../../src/main/services/providers/types'
 import type { QuizLanguage } from '../../src/shared/quiz'
-import { extractThemesForDocument } from '../../src/main/services/quiz/themes'
-import { generateQuestionsForTheme } from '../../src/main/services/quiz/generation'
+import { generateQuestionsForUnit } from '../../src/main/services/quiz/generation'
+import { planQuiz } from '../../src/main/services/quiz/units'
 import { REPO_MODELS_DIR } from '../evals/bridges/common'
 
 // Kept in sync with src/main/services/llm/LlamaService.ts LLM_PROFILES.
@@ -141,8 +135,6 @@ interface Args {
   modelPath: string
   cpu: boolean
   lang: QuizLanguage
-  count: number
-  themesToBench: number
   profile: Profile
 }
 
@@ -192,14 +184,7 @@ function parseArgs(): Args {
     }
   }
   const lang = (get('--lang') ?? 'de') as QuizLanguage
-  return {
-    modelPath,
-    cpu,
-    lang,
-    count: Number(get('--count') ?? '2'),
-    themesToBench: Number(get('--themes') ?? '3'),
-    profile,
-  }
+  return { modelPath, cpu, lang, profile }
 }
 
 /** Minimal LlmProvider for the bench: loads node-llama-cpp directly and
@@ -368,34 +353,6 @@ class BenchLlm implements LlmProvider {
   }
 }
 
-/** Deterministic fake embedder. The quiz pipeline only uses embeddings for
- *  stem-dedup at the end of generation; we don't measure that path here, so a
- *  fast deterministic stand-in is enough. */
-class FakeEmbedder implements EmbedderProvider {
-  async embed(texts: string[]): Promise<Float32Array[]> {
-    return texts.map((t) => {
-      const v = new Float32Array(32)
-      for (let i = 0; i < 32; i += 1) {
-        const ch = t.charCodeAt(i % Math.max(1, t.length)) || 0
-        v[i] = ((ch % 256) - 128) / 128
-      }
-      return v
-    })
-  }
-  dimension(): number {
-    return 32
-  }
-  identity(): string {
-    return 'bench-fake'
-  }
-  isReady(): boolean {
-    return true
-  }
-  async ensureReady(): Promise<void> {
-    /* no-op */
-  }
-}
-
 // Self-contained test docs: realistic Studienskript-ish prose so the model has
 // something concrete to extract themes from. German variant mirrors the topic
 // from the field failure that motivated this bench (Hybride Verschlüsselung).
@@ -420,30 +377,25 @@ Diffie-Hellman is an alternative key-exchange method, widely used in modern prot
 Forward secrecy is an important property of hybrid encryption systems: even if the long-term private key of a server is compromised, earlier sessions remain secure. This is achieved through ephemeral session keys — a fresh key is negotiated for each connection and discarded after the session ends. TLS 1.3 mandates forward secrecy by default through required ECDH key exchange with no RSA fallback.
 `.trim()
 
-/** Slice the test doc into ~2k-char chunks (≈ 570 tokens at 3.5 chars/token).
- *  Yields 2–3 chunks per doc, large enough for the CPU window cap to actually
- *  fire and small enough that the prompt prefill is reasonable. */
+/** One chunk per paragraph, each tagged with its own section heading so the
+ *  unit builder produces several units (≈ one per paragraph) — that exercises
+ *  the per-unit call loop the way a real sectioned document would. */
 function makeChunks(text: string, lang: QuizLanguage): ChunkRow[] {
-  const chunks: ChunkRow[] = []
-  const size = 2000
-  let ordinal = 0
-  for (let i = 0; i < text.length; i += size) {
-    const slice = text.slice(i, i + size)
-    if (slice.trim().length === 0) continue
-    ordinal += 1
-    chunks.push({
-      id: ordinal,
+  return text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .map((paragraph, i) => ({
+      id: i + 1,
       document_id: 1,
-      ordinal,
-      text: slice,
-      token_count: Math.ceil(slice.length / 3.5),
+      ordinal: i + 1,
+      text: paragraph,
+      token_count: Math.ceil(paragraph.length / 3.5),
       page_from: null,
       page_to: null,
-      heading_path: null,
+      heading_path: [lang === 'de' ? `Abschnitt ${i + 1}` : `Section ${i + 1}`],
       language: lang,
-    })
-  }
-  return chunks
+    }))
 }
 
 function rule(): string {
@@ -460,93 +412,63 @@ async function main(): Promise<void> {
 
   const cpu = llm.isCpuInference()
   console.log(rule())
-  console.log('Quiz pipeline bench')
+  console.log('Quiz pipeline bench (chunk-driven)')
   console.log(`  Model:      ${args.modelPath}`)
   console.log(`  Profile:    ${args.profile}`)
   console.log(`  Backend:    ${cpu ? 'CPU' : 'GPU'}`)
   console.log(`  Language:   ${args.lang}`)
-  console.log(`  Q per theme: ${args.count}`)
-  console.log(`  Themes:     ${args.themesToBench} (bench cap)`)
   console.log(`  Load time:  ${((tLoad1 - tLoad0) / 1000).toFixed(1)}s`)
   console.log(rule())
 
   const docText = args.lang === 'de' ? TEST_DOC_DE : TEST_DOC_EN
   const chunks = makeChunks(docText, args.lang)
+  const docTitle = args.lang === 'de' ? 'Hybride Verschlüsselung' : 'Hybrid Encryption'
   console.log(`\nDoc: ${chunks.length} chunks, ${docText.length} chars total`)
 
-  // Stage 1: theme extraction
-  console.log()
-  const tThemes0 = performance.now()
-  const themes = await extractThemesForDocument(
-    { llm, documents: {} as never },
-    {
-      docId: 1,
-      docTitle: args.lang === 'de' ? 'Hybride Verschlüsselung' : 'Hybrid Encryption',
-      chunks,
-      language: args.lang,
-      targetCount: 5,
-      cpu,
-    },
-  )
-  const tThemes1 = performance.now()
-  const dtThemes = (tThemes1 - tThemes0) / 1000
-  console.log(`[stage 1] theme extraction: ${themes.length} themes in ${dtThemes.toFixed(1)}s`)
-  for (const t of themes.slice(0, 5)) {
-    console.log(`            • "${t.title}" (weight ${t.weight})`)
+  // Stage 1: pure-code plan (section units). No LLM. How many questions each
+  // unit yields is the model's decision during generation.
+  const tPlan0 = performance.now()
+  const { units } = planQuiz([{ docId: 1, docTitle, chunks }])
+  const dtPlan = (performance.now() - tPlan0) / 1000
+  console.log(`[plan] ${units.length} units in ${(dtPlan * 1000).toFixed(1)}ms`)
+  for (const u of units) {
+    console.log(`         • "${u.title}" (${u.tokens} tok)`)
   }
 
-  if (themes.length === 0) {
-    console.log('\nNo themes returned — aborting question stage.')
-    await llm.unload()
-    return
-  }
-
-  // Stage 2: per-theme question generation. The mega-call alternative
-  // ( one LLM call across all themes ) was tried and lost on a 2B / CPU
-  // bench — see the QuizService comment for the empirical numbers.
+  // Stage 2: one grammar-constrained call per unit; the model decides count.
   console.log()
-  const embedder = new FakeEmbedder()
-  const N = Math.min(args.themesToBench, themes.length)
-  const themesUsed = themes.slice(0, N)
-  const deckSize = N * args.count
+  const acceptedStems: string[] = []
   let totalQ = 0
-  const perThemeTimes: number[] = []
-  for (let i = 0; i < N; i += 1) {
-    const theme = themesUsed[i]!
-    const grounding = chunks.slice(0, cpu ? 2 : 3)
+  const perUnitTimes: number[] = []
+  const tGen0 = performance.now()
+  for (let i = 0; i < units.length; i += 1) {
+    const unit = units[i]!
     const tQ0 = performance.now()
-    const questions = await generateQuestionsForTheme(llm, embedder, {
+    const questions = await generateQuestionsForUnit(llm, {
       language: args.lang,
-      theme,
-      groundingChunks: grounding,
-      accepted: [],
-      count: args.count,
-      cpu,
+      unit,
+      acceptedStems,
     })
-    const tQ1 = performance.now()
-    const dt = (tQ1 - tQ0) / 1000
-    perThemeTimes.push(dt)
+    const dt = (performance.now() - tQ0) / 1000
+    perUnitTimes.push(dt)
     totalQ += questions.length
+    acceptedStems.push(...questions.map((q) => q.stem))
     console.log(
-      `[stage 2] theme ${i + 1}/${N} "${theme.title}": ` +
-        `${questions.length}/${args.count}Q in ${dt.toFixed(1)}s`,
+      `[gen] unit ${i + 1}/${units.length} "${unit.title}": ` +
+        `${questions.length}Q in ${dt.toFixed(1)}s`,
     )
   }
-  const tStage2Total = perThemeTimes.reduce((a, b) => a + b, 0)
-  const avgPerTheme = perThemeTimes.length > 0 ? tStage2Total / perThemeTimes.length : 0
-  console.log(
-    `[stage 2 total] ${tStage2Total.toFixed(1)}s (avg ${avgPerTheme.toFixed(1)}s per theme)`,
-  )
+  const tGenTotal = (performance.now() - tGen0) / 1000
+  const avgPerUnit = perUnitTimes.length > 0 ? tGenTotal / perUnitTimes.length : 0
 
-  const tTotal = (performance.now() - tThemes0) / 1000
   console.log()
   console.log(rule())
   console.log('Summary')
-  console.log(`  Themes extracted:   ${themes.length}`)
-  console.log(`  Q accepted/target:  ${totalQ}/${deckSize}`)
-  console.log(`  Theme extraction:   ${dtThemes.toFixed(1)}s`)
-  console.log(`  Question gen:       ${tStage2Total.toFixed(1)}s`)
-  console.log(`  Total wall time:    ${tTotal.toFixed(1)}s`)
+  console.log(`  Units planned:      ${units.length}`)
+  console.log(`  Questions written:  ${totalQ}`)
+  console.log(
+    `  Question gen:       ${tGenTotal.toFixed(1)}s (avg ${avgPerUnit.toFixed(1)}s per unit)`,
+  )
   console.log(rule())
 
   await llm.unload()

@@ -16,11 +16,10 @@ import type { QuizDeckSummary, QuizGenerationEvent } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
 import { useT, type TFn } from '../i18n'
 
-export type QuizPhaseName =
-  | 'extracting-themes'
-  | 'merging-themes'
-  | 'allocating'
-  | 'generating-questions'
+/** Single-stage pipeline: units are planned in code (instant), then questions
+ *  stream in. The timeline machinery is kept generic but only ever holds the
+ *  one writing phase now. */
+export type QuizPhaseName = 'generating-questions'
 
 /** One phase in the per-deck timeline. `endedAt` is set once the next phase
  *  opens; the still-open (active) phase leaves it undefined. */
@@ -34,87 +33,47 @@ export interface QuizPhase {
  *  QuizGenerationEvent stream. Undefined until the first event arrives. */
 export interface QuizProgress {
   stage: QuizPhaseName
-  /** extracting-themes: which document is being read. */
-  docIndex?: number
-  docTotal?: number
-  /** extracting-themes: doc count surfaced in the timeline label. */
-  docCount?: number
-  /** generating-questions: how many questions accepted so far / target. */
+  /** questions accepted so far — no total; the model decides per unit. */
   ordinal?: number
-  total?: number
-  /** generating-questions: which allocated theme is being written. */
-  themeTitle?: string
-  themeIndex?: number
-  themeTotal?: number
+  /** which unit (section) is being written. */
+  unitTitle?: string
+  unitIndex?: number
+  unitTotal?: number
   /** epoch ms when the first event for this deck arrived (live timer base). */
   startedAt?: number
   /** ordered, closed+open phases for the step timeline. */
   timeline?: QuizPhase[]
 }
 
-/** Coarse weighted percentage across the 4 pipeline phases so the bar advances
- *  monotonically. Reading docs = 0–30 %, merge 38 %, prepare 45 %, writing
- *  questions = 50–100 % (the long phase gets the back half). */
+/** Units are the only known denominator (question count is the model's call),
+ *  so the bar tracks completed units: the active unit counts once its first
+ *  question lands. */
 function progressPercent(p: QuizProgress): number {
-  switch (p.stage) {
-    case 'extracting-themes':
-      return p.docTotal ? Math.round(((p.docIndex ?? 0) / p.docTotal) * 30) : 6
-    case 'merging-themes':
-      return 38
-    case 'allocating':
-      return 45
-    case 'generating-questions':
-      return p.total ? 50 + Math.round(((p.ordinal ?? 0) / p.total) * 50) : 50
-  }
+  if (!p.unitTotal) return 4
+  const done = Math.max(0, (p.unitIndex ?? 1) - 1)
+  return Math.min(100, Math.round((done / p.unitTotal) * 100))
 }
 
-function stepLabel(p: QuizProgress, t: TFn): string {
-  switch (p.stage) {
-    case 'extracting-themes':
-      return t('quiz.list.stepExtracting')
-    case 'merging-themes':
-      return t('quiz.list.stepMerging')
-    case 'allocating':
-      return t('quiz.list.stepAllocating')
-    case 'generating-questions':
-      return t('quiz.list.stepGenerating')
-  }
+function stepLabel(_p: QuizProgress, t: TFn): string {
+  return t('quiz.list.stepGenerating')
 }
 
 function stepDetail(p: QuizProgress, t: TFn): string | null {
-  if (p.stage === 'extracting-themes' && p.docTotal && p.docTotal > 1) {
-    return t('quiz.list.stepDocProgress', { current: p.docIndex ?? 0, total: p.docTotal })
+  const parts: string[] = []
+  if (p.unitTotal) {
+    const title = p.unitTitle ? ` "${p.unitTitle}"` : ''
+    parts.push(
+      t('quiz.list.stepUnitProgress', { current: p.unitIndex ?? 0, total: p.unitTotal }) + title,
+    )
   }
-  if (p.stage === 'generating-questions') {
-    const parts: string[] = []
-    if (p.themeTotal) {
-      const title = p.themeTitle ? ` "${p.themeTitle}"` : ''
-      parts.push(
-        t('quiz.list.stepThemeProgress', { current: p.themeIndex ?? 0, total: p.themeTotal }) +
-          title,
-      )
-    }
-    if (p.total) {
-      parts.push(t('quiz.list.stepQuestionProgress', { current: p.ordinal ?? 0, total: p.total }))
-    }
-    return parts.length > 0 ? parts.join(' · ') : null
+  if (p.ordinal) {
+    parts.push(t('quiz.list.questions', { count: p.ordinal }))
   }
-  return null
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
-function phaseLabel(phase: QuizPhaseName, p: QuizProgress | undefined, t: TFn): string {
-  switch (phase) {
-    case 'extracting-themes': {
-      const count = p?.docCount ?? p?.docTotal
-      return count ? t('quiz.list.stepExtractingDocs', { count }) : t('quiz.list.stepExtracting')
-    }
-    case 'merging-themes':
-      return t('quiz.list.stepMerging')
-    case 'allocating':
-      return t('quiz.list.stepAllocating')
-    case 'generating-questions':
-      return t('quiz.list.stepGenerating')
-  }
+function phaseLabel(_phase: QuizPhaseName, _p: QuizProgress | undefined, t: TFn): string {
+  return t('quiz.list.stepGenerating')
 }
 
 /** Human-readable duration: `Ns` under a minute, else `m:ss`. */
@@ -155,48 +114,37 @@ export function reduceProgress(
   now: number,
 ): QuizProgress | null {
   const startedAt = prev?.startedAt ?? now
-  const base = { startedAt, timeline: prev?.timeline ?? [] }
+  const timeline = advanceTimeline(prev?.timeline ?? [], 'generating-questions', now)
   switch (ev.type) {
-    case 'stage': {
-      const stage: QuizPhaseName =
-        ev.stage === 'extracting-themes'
-          ? 'extracting-themes'
-          : ev.stage === 'merging-themes'
-            ? 'merging-themes'
-            : 'allocating'
-      return { stage, startedAt, timeline: advanceTimeline(base.timeline, stage, now) }
-    }
-    case 'doc-themes':
-      return {
-        ...prev,
-        stage: 'extracting-themes',
-        docIndex: ev.docIndex,
-        docTotal: ev.docTotal,
-        docCount: ev.docTotal,
-        startedAt,
-        timeline: advanceTimeline(base.timeline, 'extracting-themes', now),
-      }
-    case 'theme':
+    case 'plan':
       return {
         ...prev,
         stage: 'generating-questions',
-        themeTitle: ev.themeTitle,
-        themeIndex: ev.themeIndex,
-        themeTotal: ev.themeTotal,
+        ordinal: prev?.ordinal ?? 0,
+        unitTotal: ev.unitCount,
         startedAt,
-        timeline: advanceTimeline(base.timeline, 'generating-questions', now),
+        timeline,
+      }
+    case 'unit':
+      return {
+        ...prev,
+        stage: 'generating-questions',
+        unitTitle: ev.unitTitle,
+        unitIndex: ev.unitIndex,
+        unitTotal: ev.unitTotal,
+        startedAt,
+        timeline,
       }
     case 'question':
       return {
         ...prev,
         stage: 'generating-questions',
         ordinal: ev.ordinal,
-        total: ev.total,
-        ...(ev.themeTitle != null ? { themeTitle: ev.themeTitle } : {}),
-        ...(ev.themeIndex != null ? { themeIndex: ev.themeIndex } : {}),
-        ...(ev.themeTotal != null ? { themeTotal: ev.themeTotal } : {}),
+        ...(ev.unitTitle != null ? { unitTitle: ev.unitTitle } : {}),
+        ...(ev.unitIndex != null ? { unitIndex: ev.unitIndex } : {}),
+        ...(ev.unitTotal != null ? { unitTotal: ev.unitTotal } : {}),
         startedAt,
-        timeline: advanceTimeline(base.timeline, 'generating-questions', now),
+        timeline,
       }
     default:
       return null
@@ -305,9 +253,12 @@ function DeckCard({
         <StatusBadge status={deck.status} t={t} />
       </div>
       <div className="quiz-card__meta">
-        <span className="quiz-card__meta-chip">
-          {t('quiz.list.questions', { count: deck.questionCount })}
-        </span>
+        {/* Count is unknown (0) until generation settles it — no chip until then. */}
+        {deck.questionCount > 0 && (
+          <span className="quiz-card__meta-chip">
+            {t('quiz.list.questions', { count: deck.questionCount })}
+          </span>
+        )}
         <span className="quiz-card__meta-chip">
           {t(deck.documentIds.length === 1 ? 'quiz.list.fileCount' : 'quiz.list.fileCountPlural', {
             count: deck.documentIds.length,

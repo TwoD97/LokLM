@@ -6,7 +6,9 @@ import {
   ChevronDown,
   ChevronRight,
   GraduationCap,
+  Languages,
   Mic,
+  PenLine,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -15,7 +17,7 @@ import {
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
 
-type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription'
+type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription' | 'translation' | 'writing'
 
 type Props = {
   expanded: boolean
@@ -112,6 +114,22 @@ export function Sidebar({
           title={t('shell.navTranscription')}
         >
           <Mic size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
+        </button>
+        <button
+          className={`sidebar__rail-btn ${activeView === 'translation' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('translation')}
+          aria-label={t('shell.navTranslation')}
+          title={t('shell.navTranslation')}
+        >
+          <Languages size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
+        </button>
+        <button
+          className={`sidebar__rail-btn ${activeView === 'writing' ? 'sidebar__rail-btn--active' : ''}`}
+          onClick={() => onViewChange('writing')}
+          aria-label={t('shell.navWriting')}
+          title={t('shell.navWriting')}
+        >
+          <PenLine size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
         </button>
       </div>
       {expanded && (

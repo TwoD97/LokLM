@@ -219,9 +219,30 @@ describe('quiz repo (integration)', () => {
     await quizzes.finishAttempt(attempt.id, [], 0)
     await quizzes.clearQuestions(deck.id)
     expect(await quizzes.listQuestions(deck.id)).toEqual([])
-    // Attempts survive — regenerate is a deliberate user action, prior
-    // attempt rows are stale-by-design but kept for audit visibility.
+    // clearQuestions itself leaves attempts alone — the regenerate IPC flow
+    // pairs it with deleteAttempts explicitly.
     expect(await quizzes.listAttempts(deck.id)).toHaveLength(1)
+  })
+
+  it('deleteAttempts wipes attempt history and updateDeckQuestionCount settles the count', async () => {
+    const ws = await new WorkspaceService(auth).create('WS')
+    const quizzes = auth.requireDatabase().quizzes()
+    const deck = await quizzes.createDeck({
+      workspaceId: ws.id,
+      name: 'D',
+      documentIds: [1],
+      questionCount: 30,
+      language: 'en',
+    })
+    const attempt = await quizzes.startAttempt(deck.id)
+    await quizzes.finishAttempt(attempt.id, [], 0)
+    // Regenerate flow: derived counts mean a re-plan can shrink the deck, so
+    // stale attempts (scored against the OLD count) must go with the questions.
+    await quizzes.deleteAttempts(deck.id)
+    expect(await quizzes.listAttempts(deck.id)).toEqual([])
+
+    await quizzes.updateDeckQuestionCount(deck.id, 12)
+    expect((await quizzes.getDeck(deck.id))?.questionCount).toBe(12)
   })
 
   it('deleting the workspace cascades through decks → questions → attempts', async () => {

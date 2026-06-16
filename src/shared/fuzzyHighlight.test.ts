@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyHighlights, findFuzzyHighlights } from './fuzzyHighlight'
+import { applyHighlights, findFuzzyHighlights, findLiteralHighlights } from './fuzzyHighlight'
 
 describe('findFuzzyHighlights', () => {
   it('finds an exact substring match', () => {
@@ -106,5 +106,31 @@ describe('applyHighlights', () => {
       { text: 'hello', highlighted: true },
       { text: ' world', highlighted: false },
     ])
+  })
+})
+
+describe('findLiteralHighlights', () => {
+  it('finds a case-insensitive substring inside a compound filename', () => {
+    const title = 'Laborbericht_Proxmox.Tudosa.pdf'
+    const ranges = findLiteralHighlights(title, 'tudosa')
+    expect(ranges).toHaveLength(1)
+    // slice comes off the original text , so casing is preserved
+    expect(title.slice(ranges[0]!.start, ranges[0]!.end)).toBe('Tudosa')
+  })
+
+  it('finds every occurrence', () => {
+    const ranges = findLiteralHighlights('ab AB ab', 'ab')
+    expect(ranges).toEqual([
+      { start: 0, end: 2 },
+      { start: 3, end: 5 },
+      { start: 6, end: 8 },
+    ])
+  })
+
+  it('returns [] when the query is absent, empty, or whitespace', () => {
+    expect(findLiteralHighlights('report.pdf', 'tudosa')).toEqual([])
+    expect(findLiteralHighlights('report.pdf', '')).toEqual([])
+    expect(findLiteralHighlights('report.pdf', '   ')).toEqual([])
+    expect(findLiteralHighlights('', 'report')).toEqual([])
   })
 })

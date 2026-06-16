@@ -41,7 +41,7 @@ async function walk(dir, baseDir, entries = []) {
     if (st.isDirectory()) {
       await walk(full, baseDir, entries)
     } else if (st.isFile()) {
-      entries.push({ full, rel, size: st.size, mtime: st.mtime })
+      entries.push({ full, rel, size: st.size, mtime: st.mtime, mode: st.mode })
     }
   }
   return entries
@@ -62,11 +62,17 @@ export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
 
   for (const e of entries) {
     const buf = await readFile(e.full)
+    const name = `${tarRoot}/${e.rel}`
+    // The translator sidecar must stay executable. mc cp ( release box ) drops
+    // the +x bit and Windows/NTFS has no notion of it , so force 0o755 for the
+    // binary regardless of the source mode — spawn() needs it on linux + mac.
+    // ( case-insensitive : win/linux use resources/ , mac uses Resources/ )
+    const isSidecar = /\/resources\/translator\/loklm-translator(-cuda)?(\.exe)?$/i.test(name)
     pack.entry(
       {
-        name: `${tarRoot}/${e.rel}`,
+        name,
         size: e.size,
-        mode: 0o644,
+        mode: isSidecar ? 0o755 : e.mode & 0o777,
         mtime: e.mtime,
         type: 'file',
       },

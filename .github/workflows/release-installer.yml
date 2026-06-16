@@ -28,6 +28,22 @@ name: Release installer
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-x64.exe
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
 #   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
+#
+# Per-platform releases ( v0.4.0+ ) :
+#   - tag push baut immer alle drei platforms.
+#   - workflow_dispatch nimmt zusätzlich `platforms` ( kommaliste aus
+#     windows,linux,macos — default all ) für single-platform hotfixes.
+#   - bump-and-redeploy läuft sobald MINDESTENS EIN build durchkam ;
+#     fehlgeschlagene platforms werden via bump-release.mjs --unavailable
+#     auf available:false geflippt ( website blendet den button aus ) statt
+#     das ganze release zu blocken. Re-release später per dispatch.
+#   - ACHTUNG : downloadUrl() baut /v<version>/<file> aus der EINEN
+#     globalen currentRelease.version für ALLE platforms. Ein partial
+#     release muss deshalb die live-version aus releases.ts wiederverwenden
+#     ( overwrite-in-place im selben v<V>/ minio-ordner ) — der guard im
+#     bump-job erzwingt das. Für einen versionierten hotfix : branch vom
+#     release-tag , fix cherry-picken , dispatch auf dem branch mit der
+#     live-version.
 on:
   push:
     tags: ['v*']
@@ -36,6 +52,11 @@ on:
       version:
         description: 'Version ohne v-prefix , z.b. 0.1.0'
         required: true
+        type: string
+      platforms:
+        description: 'Kommaliste aus windows,linux,macos — oder all. Partial releases müssen die live-version aus releases.ts wiederverwenden ( /v<version>/-URL-pfad ist global ).'
+        required: false
+        default: 'all'
         type: string
 
 # nur eine release-pipeline pro version gleichzeitig.
@@ -49,6 +70,8 @@ permissions:
 jobs:
   build-windows:
     name: Build .exe + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'windows')
     runs-on: windows-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -119,6 +142,34 @@ jobs:
         # already checks.
         shell: pwsh
         run: choco install nsis -y --no-progress
+
+      - name: Fetch prebuilt translator sidecar
+        # Pulls the prebuilt MT sidecar (published by the 'Build translator
+        # sidecar' workflow) into sidecars/translator/{dist,dist-cuda} so
+        # package:win:payload ships the CPU binary in the base payload and
+        # package:win:archive folds the self-contained CUDA set into
+        # cuda-win-x64.tar.zst. Non-fatal — a missing prebuilt just warns and
+        # the release ships without translation ( re-run the sidecar workflow ).
+        shell: bash
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
+          /tmp/mc.exe alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/win-x64"
+          mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
+          # Windows mc.exe dir-transfers are unreliable ( `cp --recursive` nests ,
+          # `mirror` errors on the list comparison ) , so fetch per-object: the CPU
+          # binary explicitly , and each CUDA file by name. Non-fatal — a missing
+          # prebuilt just warns ( CPU-only , or none ).
+          /tmp/mc.exe cp "$BASE/cpu/loklm-translator.exe" sidecars/translator/dist/loklm-translator.exe || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          for f in $(/tmp/mc.exe ls "$BASE/cuda/" 2>/dev/null | awk '{print $NF}'); do
+            /tmp/mc.exe cp "$BASE/cuda/$f" "sidecars/translator/dist-cuda/$f" || true
+          done
+          [ -n "$(ls -A sidecars/translator/dist-cuda 2>/dev/null)" ] || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
 
       - name: Build payload + wizard + bundle ( pnpm package:win )
         # Four-stage pipeline ( v0.3.1+ embedded-payload model ) :
@@ -248,6 +299,8 @@ jobs:
 
   build-linux:
     name: Build .run + .deb installers + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'linux')
     # Ubuntu 22.04 ( glibc 2.35 ) is the baseline. The runner's glibc
     # becomes the floor for the bundled binary , so 24.04 ( glibc 2.39 )
     # would lock out 22.04 users at install time.
@@ -334,6 +387,26 @@ jobs:
             cargo install tauri-cli --version "^2.0" --locked --force
           fi
 
+      - name: Fetch prebuilt translator sidecar
+        # See the Windows job for rationale. Non-fatal warn on a missing prebuilt.
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar/linux-x64"
+          mkdir -p sidecars/translator/dist sidecars/translator/dist-cuda
+          /tmp/mc cp --recursive "$BASE/cpu/"  sidecars/translator/dist/      || echo "::warning::no prebuilt CPU translator sidecar — translation absent"
+          /tmp/mc cp --recursive "$BASE/cuda/" sidecars/translator/dist-cuda/ || echo "::warning::no prebuilt CUDA translator sidecar — GPU translation absent"
+          # mc cp drops the +x bit on download. Restore it so the CPU binary
+          # shipped into linux-unpacked/ ( the embedded .run/.deb installer path )
+          # is spawnable. ( The archive builders also force +x , covering the
+          # payload/cuda .tar.zst paths. )
+          find sidecars/translator/dist sidecars/translator/dist-cuda -type f -name 'loklm-translator*' -exec chmod +x {} + 2>/dev/null || true
+          ls -R sidecars/translator/dist sidecars/translator/dist-cuda || true
+
       - name: Build payload + wizard + bundle ( pnpm package:linux )
         # Five-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
         #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir ; cuda stripped)
@@ -416,6 +489,8 @@ jobs:
 
   build-macos:
     name: Build .dmg + upload to minio
+    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
+    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'macos')
     runs-on: macos-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -465,6 +540,31 @@ jobs:
 
       - name: Install tauri-cli
         run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Fetch prebuilt translator sidecar ( per-arch )
+        # The mac translator is CPU-only ( CT2 has no Metal backend ) and , unlike
+        # win/linux , BOTH arch payloads are built on this one arm64 runner — so
+        # each arch needs its OWN matching binary , fetched into a per-arch dir.
+        # build-mac-payloads.mjs stages dist-mac-<arch>/ into dist/ before each
+        # electron-builder run so extraResources ships the right binary per arch.
+        # Published by the 'Build translator sidecar' workflow ( macos-arm64 +
+        # macos-x64 jobs ). Non-fatal — a missing prebuilt just warns and that
+        # arch ships without translation.
+        env:
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-arm64/mc && chmod +x /tmp/mc
+          /tmp/mc alias set s3 "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          BASE="s3/loklm-installers/translator-sidecar"
+          mkdir -p sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64
+          /tmp/mc cp --recursive "$BASE/mac-arm64/cpu/" sidecars/translator/dist-mac-arm64/ || echo "::warning::no prebuilt mac-arm64 translator sidecar — Apple-Silicon translation absent"
+          /tmp/mc cp --recursive "$BASE/mac-x64/cpu/"  sidecars/translator/dist-mac-x64/  || echo "::warning::no prebuilt mac-x64 translator sidecar — Intel-mac translation absent"
+          # Restore the +x bit mc cp drops on download ( build-payload-archive
+          # also forces it , but keep the staged binary runnable end-to-end ).
+          find sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64 -type f -name 'loklm-translator*' -exec chmod +x {} + 2>/dev/null || true
+          ls -R sidecars/translator/dist-mac-arm64 sidecars/translator/dist-mac-x64 || true
 
       - name: Build payload + wizard + dmg ( pnpm package:mac )
         # Three-stage pipeline ( v0.3.0+ download-stub model ) :
@@ -530,12 +630,52 @@ jobs:
   bump-and-redeploy:
     name: Bump manifest + redeploy website
     needs: [build-windows, build-linux, build-macos]
+    # Läuft sobald mindestens EIN platform-build durchkam ( und der run
+    # nicht cancelled wurde ). Fehlgeschlagene platforms blocken das
+    # release nicht mehr — sie werden unten auf available:false geflippt
+    # und später per dispatch ( platforms=<platform> ) nachgeliefert.
+    if: ${{ !cancelled() && (needs.build-windows.result == 'success' || needs.build-linux.result == 'success' || needs.build-macos.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version (tag oder dispatch-input)
+        # Eigene resolution statt needs.build-windows.outputs.version —
+        # bei einem partial release ohne windows wäre der output leer.
+        id: resolve
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          else
+            V="${GITHUB_REF#refs/tags/v}"
+          fi
+          if [ -z "$V" ]; then
+            echo "could not resolve version"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Guard partial release ( version muss live-manifest matchen )
+        # downloadUrl() baut /v<version>/<file> aus der EINEN globalen
+        # currentRelease.version für ALLE platforms. Würde ein partial
+        # release die version moven , zeigten die nicht neu gebauten
+        # platforms auf einen v<neu>/-ordner in dem ihre files fehlen →
+        # tote download-links. Partial = overwrite-in-place der live-
+        # version ; nur ein full release ( alle drei jobs gelaufen , egal
+        # ob einzelne failed ) darf die version bewegen.
+        if: ${{ contains(needs.*.result, 'skipped') }}
+        shell: bash
+        run: |
+          V="${{ steps.resolve.outputs.version }}"
+          CUR=$(sed -n "s/^[[:space:]]*version: '\([^']*\)',$/\1/p" website/src/data/releases.ts | head -1)
+          if [ "$V" != "$CUR" ]; then
+            echo "::error::partial release mit version v${V} , aber live-manifest ist v${CUR}. Partial releases müssen die live-version wiederverwenden ( sonst brechen die download-URLs der übrigen platforms ). Für einen versionierten hotfix : alle platforms releasen."
+            exit 1
+          fi
+          echo "partial release ok , overwrite-in-place für v${V}"
 
       - uses: pnpm/action-setup@v4
 
@@ -548,38 +688,58 @@ jobs:
             website/pnpm-lock.yaml
 
       - name: Patch releases.ts (windows)
+        if: needs.build-windows.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-windows.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             windows \
             "${{ needs.build-windows.outputs.sha256 }}" \
             "${{ needs.build-windows.outputs.size }}"
 
       - name: Patch releases.ts (linux .run)
+        if: needs.build-linux.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-linux.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             linux \
             "${{ needs.build-linux.outputs.sha256_run }}" \
             "${{ needs.build-linux.outputs.size_run }}" \
             LokLM-Setup-linux-x64.run
 
       - name: Patch releases.ts (linux .deb)
+        if: needs.build-linux.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-linux.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             linux \
             "${{ needs.build-linux.outputs.sha256_deb }}" \
             "${{ needs.build-linux.outputs.size_deb }}" \
             LokLM-Setup-linux-x64.deb
 
+      - name: Mark windows unavailable ( build failed )
+        if: needs.build-windows.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" windows --unavailable
+
+      - name: Mark linux unavailable ( build failed )
+        if: needs.build-linux.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.run
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.deb
+
       - name: Patch releases.ts (macos)
+        if: needs.build-macos.result == 'success'
         run: |
           node scripts/bump-release.mjs \
-            "${{ needs.build-macos.outputs.version }}" \
+            "${{ steps.resolve.outputs.version }}" \
             macos \
             "${{ needs.build-macos.outputs.sha256 }}" \
             "${{ needs.build-macos.outputs.size }}"
+
+      - name: Mark macos unavailable ( build failed )
+        if: needs.build-macos.result == 'failure'
+        run: |
+          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" macos --unavailable
 
       - name: Install website deps
         working-directory: website
@@ -613,15 +773,15 @@ jobs:
             "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
 
       - name: Commit manifest bump
-        # Pushed over SSH with a write deploy key instead of GITHUB_TOKEN :
-        # main's ruleset requires PRs and on a personal repo the
-        # github-actions app can't be a bypass actor ( the v0.4.0 bump
-        # push was rejected with GH006 ). Deploy keys CAN bypass — the
-        # 'main-pr-required' ruleset lists DeployKey as a bypass actor ,
-        # and RELEASE_PUSH_SSH_KEY holds the key registered as
-        # 'release-manifest-push (CI bump-and-redeploy)'.
+        # main ist PR-only ( ruleset main-pr-required ) und der GITHUB_TOKEN
+        # kann nicht bypassen — GitHub lässt die Actions-app auf user-owned
+        # repos nicht als bypass-actor zu ( API 422 , v0.4.0 mac-hotfix-run
+        # scheiterte mit GH013 ). Deploy keys stehen auf der bypass-liste ,
+        # also pusht dieser step über ssh mit dem write-deploy-key aus
+        # MANIFEST_DEPLOY_KEY ( "release workflow manifest bump" in den
+        # repo deploy keys ).
         env:
-          RELEASE_PUSH_SSH_KEY: ${{ secrets.RELEASE_PUSH_SSH_KEY }}
+          MANIFEST_DEPLOY_KEY: ${{ secrets.MANIFEST_DEPLOY_KEY }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -629,32 +789,53 @@ jobs:
             echo "manifest unverändert , skip commit"
             exit 0
           fi
+          if [ -z "$MANIFEST_DEPLOY_KEY" ]; then
+            echo "::error::MANIFEST_DEPLOY_KEY secret fehlt — der manifest-commit kann das PR-only main nicht erreichen."
+            exit 1
+          fi
+          # Commit-message listet nur die platforms die wirklich gebaut
+          # wurden ( partial releases / failure-toleranz ).
+          LIST=""
+          if [ "${{ needs.build-windows.result }}" = "success" ]; then LIST="windows"; fi
+          if [ "${{ needs.build-linux.result }}" = "success" ]; then LIST="${LIST:+$LIST + }linux"; fi
+          if [ "${{ needs.build-macos.result }}" = "success" ]; then LIST="${LIST:+$LIST + }macos"; fi
           git add website/src/data/releases.ts
-          git commit -m "release , v${{ needs.build-windows.outputs.version }} , windows + linux + macos assets"
+          git commit -m "release , v${{ steps.resolve.outputs.version }} , ${LIST} assets"
           mkdir -p ~/.ssh
-          printf '%s\n' "$RELEASE_PUSH_SSH_KEY" > ~/.ssh/release_push_key
-          chmod 600 ~/.ssh/release_push_key
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/release_push_key -o StrictHostKeyChecking=yes" \
+          printf '%s\n' "$MANIFEST_DEPLOY_KEY" > ~/.ssh/manifest_key
+          chmod 600 ~/.ssh/manifest_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/manifest_key -o StrictHostKeyChecking=yes" \
             git push git@github.com:${{ github.repository }}.git HEAD:main
-          rm -f ~/.ssh/release_push_key
 
       - name: Clean up SSH key
         if: always()
-        run: rm -f ~/.ssh/deploy_key
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/manifest_key
 
       - name: Record install URLs in run summary
         env:
           PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
         run: |
-          V="${{ needs.build-windows.outputs.version }}"
+          V="${{ steps.resolve.outputs.version }}"
           {
             echo "## Release v${V} — install URLs"
             echo ""
             echo "**Base:** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
             echo ""
-            echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
-            echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
-            echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
-            echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
+            if [ "${{ needs.build-windows.result }}" = "success" ]; then
+              echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
+            else
+              echo "- Windows:    ( ${{ needs.build-windows.result }} )"
+            fi
+            if [ "${{ needs.build-linux.result }}" = "success" ]; then
+              echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
+              echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
+            else
+              echo "- Linux:      ( ${{ needs.build-linux.result }} )"
+            fi
+            if [ "${{ needs.build-macos.result }}" = "success" ]; then
+              echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
+            else
+              echo "- macOS:      ( ${{ needs.build-macos.result }} )"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

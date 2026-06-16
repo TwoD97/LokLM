@@ -94,16 +94,15 @@ export class EmbeddingBackfillService {
     }
 
     const total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
-    if (total === 0) {
-      this.update({ workspaceId, state: 'done', done: 0, total: 0, message: null })
-      return
-    }
+    // Note: no early-return when total === 0 — the summary-embedding phase
+    // below still has to run (a workspace whose chunks are all embedded can
+    // still have freshly-cached summaries awaiting their vector).
     this.update({
       workspaceId,
       state: 'running',
       done: 0,
       total,
-      message: `Embedding ${total} pending chunks…`,
+      message: total > 0 ? `Embedding ${total} pending chunks…` : 'Embedding summaries…',
     })
 
     let done = 0
@@ -185,12 +184,28 @@ export class EmbeddingBackfillService {
         })
       }
       await this.db.documents().ensureVectorIndex()
+      // ---- summary-embedding phase (DocumentSummaryIndex, ADR-0003) ----
+      // Embeds already-cached summaries that have no vector yet. Pure embedder
+      // work — NO LLM generation here, so it's always safe to run (the "CPU
+      // generation-backfill off" decision is about generating summaries in the
+      // background, which we deliberately keep on-demand). Summaries get
+      // CREATED by the Library action / doc_summary route; this fills their
+      // embedding for the corpus route + hierarchical prefilter.
+      const summariesEmbedded = await this.backfillSummaryEmbeddings(
+        workspaceId,
+        embedder,
+        activeIdentity,
+        activeStem,
+      )
+      const parts: string[] = []
+      if (done > 0) parts.push(`${done} chunks`)
+      if (summariesEmbedded > 0) parts.push(`${summariesEmbedded} summaries`)
       this.update({
         workspaceId,
         state: 'done',
         done,
         total,
-        message: `Backfill complete (${done} chunks).`,
+        message: parts.length > 0 ? `Backfill complete (${parts.join(', ')}).` : null,
       })
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -203,6 +218,74 @@ export class EmbeddingBackfillService {
         message: err instanceof Error ? err.message : String(err),
       })
     }
+  }
+
+  /**
+   * Embed every cached-but-unembedded document summary in the workspace.
+   * Mirrors the chunk loop: purge summary vectors from an incompatible
+   * embedder stem first (so a model swap re-embeds), then page through the
+   * missing ones with the same runaway-loop guard. Returns the count embedded.
+   * Throws on a broken embedder / dimension mismatch (caught by run()'s catch).
+   */
+  private async backfillSummaryEmbeddings(
+    workspaceId: number,
+    embedder: ReturnType<ProviderRegistry['embedder']>,
+    activeIdentity: string,
+    activeStem: string,
+  ): Promise<number> {
+    const repo = this.db.documents()
+    // Same stem-compatibility purge as chunks: a genuine model swap nulls the
+    // old summary vectors so the loop below refills them with the active model.
+    const existing = await repo.distinctSummaryEmbedderIdentities(workspaceId)
+    for (const id of existing) {
+      if (embedderModelStem(id) !== activeStem) {
+        await repo.purgeSummaryEmbeddingsByIdentity(workspaceId, id)
+      }
+    }
+
+    let embedded = 0
+    let consecutiveNoProgress = 0
+    for (;;) {
+      const batch = await repo.listDocsMissingSummaryEmbedding(workspaceId, PAGE)
+      if (batch.length === 0) break
+      let vectors: Float32Array[] | null
+      try {
+        vectors = await embedder.embed(batch.map((b) => b.summary))
+      } catch {
+        vectors = null
+      }
+      let madeProgress = 0
+      if (vectors) {
+        for (let i = 0; i < batch.length; i++) {
+          const v = vectors[i]
+          const row = batch[i]
+          if (!v || v.length === 0 || !row) continue
+          await repo.setSummaryEmbedding(row.id, Array.from(v), activeIdentity)
+          madeProgress++
+        }
+      }
+      if (madeProgress === 0) {
+        consecutiveNoProgress++
+        if (consecutiveNoProgress >= 2) {
+          throw new Error(
+            `Embedder returned no usable vectors for ${batch.length} summaries ` +
+              `(sample doc ${batch[0]?.id}). Summary backfill aborted to avoid a ` +
+              `runaway loop.`,
+          )
+        }
+      } else {
+        consecutiveNoProgress = 0
+        embedded += madeProgress
+        this.update({
+          workspaceId,
+          state: 'running',
+          done: embedded,
+          total: embedded,
+          message: `Embedded ${embedded} summaries…`,
+        })
+      }
+    }
+    return embedded
   }
 
   private update(s: BackfillStatus): void {

@@ -74,6 +74,21 @@ Vollständige Versionsmatrix: Pflichtenheft Anhang B + `package.json`.
 In Entwicklung. AP-1.1 (Projekt-Skelett + Build-Pipeline) abgeschlossen.
 Folge-APs siehe Pflichtenheft §9.2.
 
+**Query-Routing (ADR-0003):** Chat-Anfragen werden regex-first auf drei Routen
+verteilt, statt jede Frage durch Chunk-Retrieval zu zwingen:
+
+- `doc_summary` — „fasse Dokument X zusammen" → gecachter Whole-Doc-Summary als
+  Kontext (statt topK-Fragmente).
+- `corpus` — „wie viele / welche Dokumente zu Y" → Antwort aus der
+  `documents`-Tabelle, ohne LLM.
+- `retrieval` — der Default ; jeder Routing-Miss fällt still hierher zurück.
+
+Dazu ein lazy per-Dokument-Summary-Embedding-Index (Mig 0010) für semantische
+Aboutness in der Corpus-Route und einen optionalen hierarchischen Doc-Prefilter
+(`RetrievalOptions.docPrefilter`, default off). Entwurf, Adopt/Reject gegenüber
+LlamaIndex / GraphRAG / RAGFlow und offene Punkte:
+[ADR-0003](docs/adr/0003-query-routing-und-summary-index.md).
+
 ## Lizenz
 
 [MIT](LICENSE)

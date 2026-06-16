@@ -160,6 +160,21 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     setSummaryDoc(d)
   }, [])
 
+  const onTogglePin = useCallback(
+    async (d: Document) => {
+      try {
+        await window.api.documents.setPinned(d.id, !d.pinned)
+      } catch (err) {
+        window.alert(
+          t('library.pinFailed', { message: err instanceof Error ? err.message : String(err) }),
+        )
+        return
+      }
+      void refreshDocs(workspaceId)
+    },
+    [workspaceId, refreshDocs, t],
+  )
+
   const onExport = useCallback((d: Document) => {
     setExportPending(d)
   }, [])
@@ -231,7 +246,12 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       {/* Search mode replaces the browse table while a query is active. When the
        *  field is empty the normal document list returns. */}
       {search.active ? (
-        <SearchResults hits={search.hits} status={search.status} onOpen={onOpenHit} />
+        <SearchResults
+          hits={search.hits}
+          status={search.status}
+          onOpen={onOpenHit}
+          query={search.query}
+        />
       ) : (
         /* Pass the callbacks straight , each is already useCallback'd above, so
          *  DocumentRow's React.memo can actually skip re-renders for rows whose
@@ -249,6 +269,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           onRead={onRead}
           onExport={onExport}
           onSummarize={onSummarize}
+          onTogglePin={onTogglePin}
         />
       )}
       {sourceHit && (

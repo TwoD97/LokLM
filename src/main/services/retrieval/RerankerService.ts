@@ -169,8 +169,13 @@ export class RerankerService {
     }
     const path = resolveRerankerPath()
     if (!path) {
+      // An absent model is NOT an error — reranking is optional (the lite tier
+      // ships without it) and RRF retrieval still works. Report the neutral
+      // 'unloaded' state so the TitleBar dot renders grey, not the red 'failed'
+      // we reserve for a model that IS present but fails to load (loadModel
+      // catch below). 'failed' here painted a red "reranker broken" dot on lite.
       this.setStatus({
-        state: 'failed',
+        state: 'unloaded',
         modelPath: bundledRerankerPath(),
         modelName: BUNDLED_RERANKER_FILE,
         message:

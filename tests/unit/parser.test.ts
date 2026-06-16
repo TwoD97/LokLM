@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { resolve } from 'node:path'
+import { writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { isSupported, parseFile, ImportError } from '@main/services/documents/parser'
 
 const FIX = resolve(__dirname, 'fixtures')
@@ -103,5 +105,24 @@ describe('parseFile (docx)', () => {
 
   it('throws ImportError for legacy .doc', async () => {
     await expect(parseFile('foo.doc')).rejects.toBeInstanceOf(ImportError)
+  })
+})
+
+describe('parseFile (plain text)', () => {
+  it('strips a leading UTF-8 BOM so it does not bleed into the first chunk', async () => {
+    const p = resolve(tmpdir(), `loklm-apt1-bom-${Date.now()}.txt`)
+    await writeFile(p, '﻿hello bom', 'utf8')
+    try {
+      const parsed = await parseFile(p)
+      expect(parsed.kind).toBe('text')
+      expect(parsed.fullText).toBe('hello bom')
+      expect(parsed.fullText.startsWith('﻿')).toBe(false)
+    } finally {
+      await rm(p, { force: true })
+    }
+  })
+
+  it('throws an unsupported-type ImportError for an unknown extension', async () => {
+    await expect(parseFile('mystery.xyz')).rejects.toMatchObject({ code: 'unsupported' })
   })
 })

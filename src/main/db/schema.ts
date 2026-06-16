@@ -6,6 +6,7 @@ import {
   integer,
   real,
   bigint,
+  boolean,
   customType,
   uniqueIndex,
   index,
@@ -87,6 +88,18 @@ export const documents = pgTable(
     // Library "Summarize" action). Nulled by reindex_document so it never goes
     // stale against changed content. Added in raw migration 0008.
     summary: text('summary'),
+    // "Force into context" flag — the QA packer prepends top-of-document chunks
+    // from every pinned doc before RAG hits, so a study session can guarantee a
+    // textbook chapter or notes file is always seen. Added in raw migration 0009.
+    pinned: boolean('pinned').notNull().default(false),
+    // Embedding of `summary` (DocumentSummaryIndex pattern, ADR-0003) — the
+    // corpus route's theme matching + optional hierarchical doc-prefilter.
+    // Lazy like the summary: NULL until the idle backfill embeds it; nulled
+    // alongside `summary` by reindex_document. Added in raw migration 0010.
+    summaryEmbedding: vector('summary_embedding', { dimensions: 1024 }),
+    // Which embedder produced summaryEmbedding (same discipline as
+    // chunks.embedderIdentity) — a model swap invalidates + re-embeds it.
+    summaryEmbedderIdentity: text('summary_embedder_identity'),
   },
   (t) => ({
     idxWorkspace: index('idx_documents_workspace').on(t.workspaceId),

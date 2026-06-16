@@ -13,6 +13,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
 import { rm, readdir, rename } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -106,7 +107,13 @@ async function main() {
   const dmgPath = join(releaseDir, 'LokLM-mac.dmg')
   if (existsSync(dmgPath)) await rm(dmgPath)
   console.log('npx create-dmg ...')
-  await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite', '--no-code-sign'])
+  // Run create-dmg from a temp dir so its sla.js never finds a license.txt /
+  // license.rtf in the project root and accidentally embeds an SLA.  An
+  // embedded SLA from the old hdiutil udifrez path shows "could not load" on
+  // macOS 15.  All paths passed to create-dmg are absolute so changing cwd is safe.
+  await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite', '--no-code-sign'], {
+    cwd: tmpdir(),
+  })
 
   // 3) create-dmg names its output "<AppName> <version>.dmg" by default
   //    ( e.g. "LokLM 0.3.0.dmg" ). Rename to the stable LokLM-mac.dmg so

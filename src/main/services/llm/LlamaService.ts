@@ -65,6 +65,19 @@ export interface AskOptions {
   tools?: Record<string, unknown>
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   historyQuestion?: string
+  /** Pinned-doc chunks, kept separate from the positional RAG hits so
+   *  buildPrompt can render them as the LEADING prompt section. That makes the
+   *  [system][pinned] token prefix byte-stable across turns in a workspace,
+   *  which node-llama-cpp's sequence alignment turns into KV-cache reuse —
+   *  pinned content is prefilled once, not on every question. */
+  pinnedHits?: RetrievalHit[]
+  /** Uncited background block rendered above the hits in the Context section
+   *  (see buildPrompt / buildSummaryPreamble). Used by the doc_summary route
+   *  to feed the cached whole-doc summary without touching the citation
+   *  contract — the preamble carries no [doc, chunk] id. Renders AFTER the
+   *  pinned section: it is per-turn volatile and must not break the stable
+   *  KV prefix pinnedHits exist to provide. */
+  contextPreamble?: string
 }
 
 export interface LlmProfile {
@@ -218,6 +231,11 @@ export class LlamaService {
   private gpuLabel: string | null = null
   private selectedChoice: LlmProfileChoice = 'auto'
   private selectedContext: LlmContextChoice = 'auto'
+  private selectedPlacement: 'auto' | 'cpu' | 'gpu' = 'auto'
+  // Where the last load actually landed + why — surfaced in systemInfo for the
+  // status bar / settings. Null until a load has happened.
+  private resolvedPlacement: 'cpu' | 'gpu' | null = null
+  private placementReason: string | null = null
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
@@ -302,6 +320,9 @@ export class LlamaService {
       resources: this.lastResources,
       lastLlmPlan: this.lastPlan,
       selectedContext: this.selectedContext,
+      placementChoice: this.selectedPlacement,
+      resolvedPlacement: this.resolvedPlacement,
+      placementReason: this.placementReason,
     }
   }
 
@@ -315,6 +336,14 @@ export class LlamaService {
 
   setSelectedContext(choice: LlmContextChoice): void {
     this.selectedContext = choice
+  }
+
+  setSelectedPlacement(choice: 'auto' | 'cpu' | 'gpu'): void {
+    this.selectedPlacement = choice
+  }
+
+  getSelectedPlacement(): 'auto' | 'cpu' | 'gpu' {
+    return this.selectedPlacement
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
@@ -500,6 +529,7 @@ export class LlamaService {
         profileDefaultContext: profile?.contextSize ?? 32768,
         weightsBytes: ggufWeightBytes(modelPath),
         userContextChoice: this.selectedContext,
+        placement: this.selectedPlacement,
         language: this.language,
         envContextOverride: envOverride,
         systemPrompt: buildSystemPrompt(this.language),
@@ -507,6 +537,8 @@ export class LlamaService {
       this.lastPlan = result.plan
       this.lastResources = result.resources
       this.gpuLabel = result.gpuLabel
+      this.resolvedPlacement = result.resolvedPlacement
+      this.placementReason = result.placementReason
       this.lastUsedAt = Date.now()
       this.startIdleTimer()
     } catch (err) {
@@ -626,8 +658,27 @@ export class LlamaService {
       detector.reset()
       accumulated = ''
       loopAborted = false
-      const promptBody = buildPrompt(question, hits, history, this.language)
-      const { raw } = await client.llmAsk({ streamId, question, prompt: promptBody, maxTokens })
+      const promptBody = buildPrompt(
+        question,
+        hits,
+        history,
+        this.language,
+        opts.pinnedHits,
+        opts.contextPreamble,
+      )
+      // noThink: the system prompt already ends in /no_think, but this GGUF
+      // honours the tag unreliably — the segment budget is the switch that
+      // actually sticks (mirrors the quiz path). Without it the model can
+      // spend hundreds of decode-tokens inside <think>…</think>, which the
+      // ThinkFilter hides — so the renderer's "prefill" stage stays open and
+      // bills all that thinking time to prefill.
+      const { raw } = await client.llmAsk({
+        streamId,
+        question,
+        prompt: promptBody,
+        maxTokens,
+        noThink: true,
+      })
       if (opts.onChunk) {
         const tail = filter.flush()
         // Synthesized tails count as one batched event (the ThinkFilter
@@ -747,7 +798,11 @@ export class LlamaService {
     hits: RetrievalHit[],
     opts: AskOptions,
   ): Promise<string> {
-    const out = renderFallback(question, hits, this.language)
+    // Pinned hits are part of what the user expects the model to "see" — list
+    // them in the fallback snippet view too, ahead of the ranked RAG hits.
+    const allHits =
+      opts.pinnedHits && opts.pinnedHits.length > 0 ? [...opts.pinnedHits, ...hits] : hits
+    const out = renderFallback(question, allHits, this.language)
     if (opts.onChunk) {
       for (const piece of chunkifyForStream(out)) {
         if (opts.abortSignal?.aborted) break

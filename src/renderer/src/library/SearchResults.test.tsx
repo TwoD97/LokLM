@@ -55,6 +55,32 @@ describe('SearchResults', () => {
     expect(screen.getByText(/before/)).toBeTruthy()
   })
 
+  it('highlights the matched substring of the filename', () => {
+    render(
+      <SearchResults
+        status="done"
+        hits={[hit({ documentTitle: 'Laborbericht_Proxmox.Tudosa.pdf' })]}
+        onOpen={() => {}}
+        query="Tudosa"
+      />,
+    )
+    const marked = screen.getByText('Tudosa')
+    expect(marked.tagName).toBe('MARK')
+  })
+
+  it('renders the filename plainly when the query is not in it (content-only hit)', () => {
+    render(
+      <SearchResults
+        status="done"
+        hits={[hit({ documentTitle: 'unrelated-name.pdf' })]}
+        onOpen={() => {}}
+        query="Tudosa"
+      />,
+    )
+    expect(screen.getByText('unrelated-name.pdf')).toBeTruthy()
+    expect(screen.queryByText('Tudosa')).toBeNull()
+  })
+
   it('shows a page label when the chunk has a page number', () => {
     render(
       <SearchResults status="done" hits={[hit({ pageFrom: 3, pageTo: 3 })]} onOpen={() => {}} />,

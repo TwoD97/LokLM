@@ -40,8 +40,8 @@ describe('chunkPages', () => {
     ]
     const chunks = chunkPages(pages, { maxChars: 100, overlap: 0 })
     expect(chunks).toHaveLength(2)
-    expect(chunks[0].pageFrom).toBe(1)
-    expect(chunks[1].pageFrom).toBe(7)
+    expect(chunks[0]!.pageFrom).toBe(1)
+    expect(chunks[1]!.pageFrom).toBe(7)
   })
 
   it('assigns sequential ordinals starting at 0 across pages', () => {
@@ -59,8 +59,8 @@ describe('chunkPages', () => {
     const pages: PageText[] = [{ num: 1, text }]
     const chunks = chunkPages(pages, { maxChars: 18, overlap: 4 })
     expect(chunks.length).toBeGreaterThan(1)
-    const tailOf0 = chunks[0].text.slice(-4)
-    expect(chunks[1].text.startsWith(tailOf0) || chunks[1].text.includes(tailOf0)).toBe(true)
+    const tailOf0 = chunks[0]!.text.slice(-4)
+    expect(chunks[1]!.text.startsWith(tailOf0) || chunks[1]!.text.includes(tailOf0)).toBe(true)
     // contract: every chunk respects maxChars even with overlap applied
     for (const c of chunks) expect(c.text.length).toBeLessThanOrEqual(18)
   })
@@ -72,14 +72,14 @@ describe('chunkPages', () => {
     ]
     const chunks = chunkPages(pages, { maxChars: 100, overlap: 0 })
     expect(chunks).toHaveLength(1)
-    expect(chunks[0].pageFrom).toBe(2)
+    expect(chunks[0]!.pageFrom).toBe(2)
   })
 
   it('uses defaults when no opts provided', () => {
     const pages: PageText[] = [{ num: 1, text: 'short' }]
     const chunks = chunkPages(pages)
     expect(chunks).toHaveLength(1)
-    expect(chunks[0].text).toBe('short')
+    expect(chunks[0]!.text).toBe('short')
   })
 
   it('returns null headingPath for non-markdown content', () => {

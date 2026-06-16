@@ -12,6 +12,13 @@ import type { LibrarySearchOptions } from '../../shared/documents'
 // and cannot handle multiple commands in one string).
 export type Db = PgliteDatabase<typeof schema> & { $client: PGlite }
 
+// Default cosine-similarity floor for the corpus route's summary-embedding
+// match (ADR-0003). ~0.2 mirrors RAGFlow's post-rerank similarity floor — high
+// enough that an unrelated summary doesn't sneak in , low enough that a
+// genuinely on-theme doc with different vocabulary still clears it. Callers
+// (searchDocumentsByTheme , topDocumentsBySummarySimilarity) can override.
+export const CORPUS_SUMMARY_SIM_THRESHOLD = 0.2
+
 /**
  * owns the PGlite + Drizzle pair for one unlocked session.
  *
@@ -270,9 +277,102 @@ export class DocumentsRepo {
 
   /** Cache (or clear) a document's lazily-computed summary. reindex_document
    *  nulls it automatically on content change; this is the write side for the
-   *  SummarizationService. */
+   *  SummarizationService. Also nulls the summary embedding + its identity: the
+   *  summary text just changed, so any stored embedding is of the OLD text and
+   *  the idle backfill must re-embed (ADR-0003). */
   async setSummary(documentId: number, summary: string | null): Promise<void> {
-    await this.db.update(documents).set({ summary }).where(eq(documents.id, documentId))
+    await this.db
+      .update(documents)
+      .set({ summary, summaryEmbedding: null, summaryEmbedderIdentity: null })
+      .where(eq(documents.id, documentId))
+  }
+
+  /** Write a document's summary embedding + the identity of the embedder that
+   *  produced it. Separate from setSummary (which NULLs the embedding) so the
+   *  backfill can fill the vector without wiping the summary it just read. */
+  async setSummaryEmbedding(documentId: number, vector: number[], identity: string): Promise<void> {
+    const lit = '[' + vector.join(',') + ']'
+    await this.db.execute(sql`
+      UPDATE documents
+         SET summary_embedding = ${lit}::vector, summary_embedder_identity = ${identity}
+       WHERE id = ${documentId}
+    `)
+  }
+
+  /** Documents whose summary exists but whose summary embedding is missing —
+   *  the idle-time backfill work list. Ordered by id for stable paging. */
+  async listDocsMissingSummaryEmbedding(
+    workspaceId: number,
+    limit: number,
+  ): Promise<Array<{ id: number; summary: string }>> {
+    const r = await this.db.execute(sql`
+      SELECT id, summary
+        FROM documents
+       WHERE workspace_id = ${workspaceId}
+         AND status = 'ready'
+         AND summary IS NOT NULL
+         AND summary_embedding IS NULL
+       ORDER BY id
+       LIMIT ${limit}
+    `)
+    return r.rows as Array<{ id: number; summary: string }>
+  }
+
+  async countDocsMissingSummaryEmbedding(workspaceId: number): Promise<number> {
+    const r = await this.db.execute(sql`
+      SELECT count(*)::int AS n
+        FROM documents
+       WHERE workspace_id = ${workspaceId}
+         AND status = 'ready'
+         AND summary IS NOT NULL
+         AND summary_embedding IS NULL
+    `)
+    return (r.rows as { n: number }[])[0]?.n ?? 0
+  }
+
+  /** Distinct embedder identities present in non-null summary embeddings —
+   *  mirrors distinctEmbedderIdentities (chunks) so the backfill can purge
+   *  summary vectors produced by an incompatible embedder stem. */
+  async distinctSummaryEmbedderIdentities(workspaceId: number): Promise<string[]> {
+    const r = await this.db.execute(sql`
+      SELECT DISTINCT summary_embedder_identity
+        FROM documents
+       WHERE workspace_id = ${workspaceId}
+         AND summary_embedding IS NOT NULL
+         AND summary_embedder_identity IS NOT NULL
+    `)
+    return (r.rows as Array<{ summary_embedder_identity: string }>).map(
+      (row) => row.summary_embedder_identity,
+    )
+  }
+
+  /** Nulls the summary embedding for docs tagged with this exact identity. */
+  async purgeSummaryEmbeddingsByIdentity(workspaceId: number, identity: string): Promise<number> {
+    const r = await this.db.execute(sql`
+      UPDATE documents
+         SET summary_embedding = NULL, summary_embedder_identity = NULL
+       WHERE workspace_id = ${workspaceId}
+         AND summary_embedder_identity = ${identity}
+      RETURNING id
+    `)
+    return r.rows.length
+  }
+
+  /** Toggle a document's "pinned" flag — when true, the QA packer prepends
+   *  top-of-document chunks from this doc to every chat turn in its workspace
+   *  before RAG hits, guaranteeing it's always in context. */
+  async setPinned(documentId: number, pinned: boolean): Promise<void> {
+    await this.db.update(documents).set({ pinned }).where(eq(documents.id, documentId))
+  }
+
+  /** Pinned docs for a workspace, in pin order (then alphabetical). The QA
+   *  packer fetches this once per turn. */
+  async listPinned(workspaceId: number): Promise<Document[]> {
+    return this.db
+      .select()
+      .from(documents)
+      .where(sql`${documents.workspaceId} = ${workspaceId} AND ${documents.pinned} = true`)
+      .orderBy(documents.title)
   }
 
   /** Cold-boot orphan sweep: a doc still flagged 'indexing'/'pending' is left
@@ -312,6 +412,7 @@ export class DocumentsRepo {
              d.source_mtime   AS "sourceMtime",
              d.missing_at     AS "missingAt",
              d.missing_dismissed_at AS "missingDismissedAt",
+             d.pinned         AS "pinned",
              agg.language
         FROM documents d
         LEFT JOIN LATERAL (
@@ -340,6 +441,178 @@ export class DocumentsRepo {
   async getDocument(id: number): Promise<Document | undefined> {
     const [row] = await this.db.select().from(documents).where(eq(documents.id, id))
     return row
+  }
+
+  /** Lightweight id+title projection for the qa router's target-document
+   *  resolution. Deliberately NOT listDocumentsByWorkspace — that one runs a
+   *  LATERAL language aggregate per doc , far too heavy for a per-query
+   *  routing check. Only 'ready' docs: a doc still indexing (or failed) has
+   *  no chunks to summarize or cite. */
+  async listDocumentTitles(workspaceId: number): Promise<Array<{ id: number; title: string }>> {
+    return this.db
+      .select({ id: documents.id, title: documents.title })
+      .from(documents)
+      .where(sql`${documents.workspaceId} = ${workspaceId} AND ${documents.status} = 'ready'`)
+  }
+
+  /** Corpus route (ADR-0003): which ready documents are about `theme`.
+   *  Matching is the union of three signals , cheapest trust-order first:
+   *    - title ILIKE per theme token (a doc named after the theme is about it)
+   *    - cached summary ILIKE (when the lazy summary exists , its text is the
+   *      best aboutness proxy short of the Phase-3 summary embeddings)
+   *    - BM25 chunk hits grouped per document (RAGFlow's doc_aggs: docs that
+   *      MENTION the theme — the fallback that needs no summary at all) ,
+   *      same bilingual OR-of-terms tsquery as searchChunks so the two stay
+   *      consistent about what "matches" means.
+   *  chunk_hits carries the per-doc mention count for ranking; first_chunk_id
+   *  gives the renderer a valid [doc, chunk] citation target (the citations
+   *  table FK is chunk-bound , a doc-level reference cites its first chunk).
+   *  Empty theme = the whole workspace (count-all questions).
+   *  `activeDocumentIds` mirrors retrieval's source-focus pin. */
+  async searchDocumentsByTheme(
+    workspaceId: number,
+    themeTokens: string[],
+    opts: {
+      activeDocumentIds?: number[] | null
+      /** Embedding of the theme (DocumentSummaryIndex, ADR-0003). When given ,
+       *  a doc ALSO qualifies if its summary embedding's cosine similarity is
+       *  ≥ `similarityThreshold` — catching docs that are about the theme but
+       *  share no literal token. Lazy: docs without a summary embedding just
+       *  fall back to the ILIKE / doc_aggs signals. */
+      themeEmbedding?: number[] | null
+      similarityThreshold?: number
+    } = {},
+  ): Promise<Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>> {
+    const activeIds =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
+    const activeLit = activeIds == null ? null : '{' + activeIds.join(',') + '}'
+    const theme = themeTokens.join(' ').trim()
+    // ILIKE patterns per token, bound as scalar parameters (NOT a hand-built
+    // array literal — the array-literal parser eats the LIKE escape backslash ,
+    // turning "100%" back into a match-everything pattern). Escape LIKE
+    // wildcards so a literal % / _ in a theme token stays literal; backslash
+    // is ILIKE's default escape char and survives parameter binding intact.
+    const likePatterns =
+      themeTokens.length === 0
+        ? null
+        : themeTokens.map((t) => '%' + t.replace(/[\\%_]/g, '\\$&') + '%')
+
+    // Optional summary-embedding signal. `sim` is cosine similarity (1 - dist)
+    // or NULL when the doc has no summary embedding / the caller gave no theme
+    // vector; `simClause` adds the threshold match to the membership test.
+    const useEmbedding = !!(opts.themeEmbedding && opts.themeEmbedding.length > 0)
+    const threshold = opts.similarityThreshold ?? CORPUS_SUMMARY_SIM_THRESHOLD
+    const simSelect = useEmbedding
+      ? sql`(1 - (d.summary_embedding <=> ${'[' + opts.themeEmbedding!.join(',') + ']'}::vector))`
+      : sql`NULL::float`
+
+    // Literal-match boolean , computed inside the CTE where d.* and tc.hits are
+    // in scope: a doc matches the theme literally if its chunks hit the
+    // bilingual tsquery (doc_aggs) OR its title/summary contains a theme token.
+    // No theme → every (filtered) doc matches.
+    const literalMatchExpr =
+      likePatterns == null
+        ? sql`TRUE`
+        : sql`(tc.hits > 0 OR ${sql.join(
+            likePatterns.map(
+              (p) => sql`d.title ILIKE ${p} OR (d.summary IS NOT NULL AND d.summary ILIKE ${p})`,
+            ),
+            sql` OR `,
+          )})`
+    // Outer membership: literal match OR (when a theme vector was supplied) a
+    // summary-embedding cosine ≥ threshold. The embedding arm only widens the
+    // set — a themeless query stays literal_match=TRUE for all.
+    const membership =
+      useEmbedding && likePatterns != null
+        ? sql`literal_match OR (sim IS NOT NULL AND sim >= ${threshold})`
+        : sql`literal_match`
+
+    const r = await this.db.execute(sql`
+      WITH q AS (
+        SELECT
+          NULLIF(replace(plainto_tsquery('german',  ${theme})::text, '&', '|'), '')::tsquery AS qg,
+          NULLIF(replace(plainto_tsquery('english', ${theme})::text, '&', '|'), '')::tsquery AS qe
+      ),
+      qq AS (
+        SELECT COALESCE(qg, ''::tsquery) || COALESCE(qe, ''::tsquery) AS query FROM q
+      ),
+      theme_chunks AS (
+        SELECT c.document_id, COUNT(*)::int AS hits
+          FROM chunks c
+          JOIN documents d ON d.id = c.document_id
+         CROSS JOIN qq
+         WHERE qq.query::text <> ''
+           AND (setweight(to_tsvector('german',  c.text), 'A') ||
+                setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
+           AND d.workspace_id = ${workspaceId}
+           AND d.status = 'ready'
+         GROUP BY c.document_id
+      ),
+      scored AS (
+        SELECT d.id,
+               d.title,
+               COALESCE(tc.hits, 0) AS hits,
+               ${simSelect}         AS sim,
+               ${literalMatchExpr}  AS literal_match,
+               fc.first_chunk_id    AS first_chunk_id
+          FROM documents d
+          LEFT JOIN theme_chunks tc ON tc.document_id = d.id
+          LEFT JOIN LATERAL (
+            SELECT id AS first_chunk_id FROM chunks
+             WHERE document_id = d.id
+             ORDER BY ordinal ASC
+             LIMIT 1
+          ) fc ON TRUE
+         WHERE d.workspace_id = ${workspaceId}
+           AND d.status = 'ready'
+           AND (${activeLit}::int[] IS NULL OR d.id = ANY(${activeLit}::int[]))
+      )
+      SELECT id,
+             title,
+             hits              AS "chunkHits",
+             first_chunk_id    AS "firstChunkId"
+        FROM scored
+       WHERE ${membership}
+       ORDER BY hits DESC, sim DESC NULLS LAST, title ASC, id ASC
+    `)
+    return r.rows as unknown as Array<{
+      id: number
+      title: string
+      chunkHits: number
+      firstChunkId: number | null
+    }>
+  }
+
+  /** Top documents by summary-embedding cosine similarity (DocumentSummaryIndex
+   *  hierarchical pre-filter, ADR-0003). Used by RetrievalService.docPrefilter
+   *  to narrow chunk retrieval to the most on-theme documents first. Only docs
+   *  that have a summary embedding participate; below `minSimilarity` are
+   *  dropped so an empty/irrelevant index yields an empty list (caller then
+   *  skips the pre-filter rather than constraining to nothing). */
+  async topDocumentsBySummarySimilarity(
+    workspaceId: number,
+    queryVec: number[],
+    k: number,
+    opts: { activeDocumentIds?: number[] | null; minSimilarity?: number } = {},
+  ): Promise<Array<{ id: number; score: number }>> {
+    if (queryVec.length === 0 || k <= 0) return []
+    const activeIds =
+      opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
+    const activeLit = activeIds == null ? null : '{' + activeIds.join(',') + '}'
+    const lit = '[' + queryVec.join(',') + ']'
+    const minSim = opts.minSimilarity ?? CORPUS_SUMMARY_SIM_THRESHOLD
+    const r = await this.db.execute(sql`
+      SELECT id, (1 - (summary_embedding <=> ${lit}::vector))::float AS score
+        FROM documents
+       WHERE workspace_id = ${workspaceId}
+         AND status = 'ready'
+         AND summary_embedding IS NOT NULL
+         AND (${activeLit}::int[] IS NULL OR id = ANY(${activeLit}::int[]))
+         AND (1 - (summary_embedding <=> ${lit}::vector)) >= ${minSim}
+       ORDER BY summary_embedding <=> ${lit}::vector ASC
+       LIMIT ${k}
+    `)
+    return r.rows as unknown as Array<{ id: number; score: number }>
   }
 
   /** Single-query source-context fetch for the SourceViewer: the parent
@@ -613,6 +886,14 @@ export class DocumentsRepo {
     const maxBytes = opts.maxBytes ?? null
     const sort = opts.sort ?? 'relevance'
     const topK = opts.topK && opts.topK > 0 ? opts.topK : 50
+    // Filename arm: a doc must also surface when the query is in its filename ,
+    // not just its content. FTS tokenisation collapses compound filenames
+    // ("Laborbericht_Proxmox.Tudosa.pdf" → a single file/host token) so it never
+    // splits "Tudosa" back out — we match the raw title with an escaped ILIKE
+    // instead , the same trick searchDocumentsByTheme uses. Escape LIKE
+    // wildcards so a literal % / _ in the query stays literal; the backslash is
+    // ILIKE's default escape char and survives scalar parameter binding intact.
+    const titleLike = '%' + cleaned.replace(/[\\%_]/g, '\\$&') + '%'
 
     const r = await this.db.execute(sql`
       WITH q AS (
@@ -646,6 +927,7 @@ export class DocumentsRepo {
             WHEN lower(d.source_path) LIKE '%.txt' OR lower(d.source_path) LIKE '%.rst' THEN 'txt'
             ELSE 'txt'
           END AS doc_type,
+          (d.title ILIKE ${titleLike}) AS title_match,
           ts_rank_cd(
             setweight(to_tsvector('german',  c.text), 'A') ||
             setweight(to_tsvector('english', c.text), 'B'),
@@ -668,9 +950,12 @@ export class DocumentsRepo {
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         CROSS JOIN qq
-        WHERE qq.query::text <> ''
-          AND (setweight(to_tsvector('german',  c.text), 'A') ||
-               setweight(to_tsvector('english', c.text), 'B')) @@ qq.query
+        WHERE (
+                (qq.query::text <> '' AND
+                 (setweight(to_tsvector('german',  c.text), 'A') ||
+                  setweight(to_tsvector('english', c.text), 'B')) @@ qq.query)
+                OR d.title ILIKE ${titleLike}
+              )
           AND d.workspace_id = ${workspaceId}
           AND d.status = 'ready'
           AND (${addedAfter}::bigint IS NULL OR d.added_at >= ${addedAfter}::bigint)
@@ -694,6 +979,7 @@ export class DocumentsRepo {
         FROM ranked
        WHERE doc_rank = 1
        ORDER BY
+         CASE WHEN ${sort} = 'relevance' THEN title_match::int END DESC NULLS LAST,
          CASE WHEN ${sort} = 'relevance' THEN score END DESC NULLS LAST,
          CASE WHEN ${sort} = 'filename'  THEN lower(document_title) END ASC NULLS LAST,
          CASE WHEN ${sort} = 'added'     THEN added_at END DESC NULLS LAST,
@@ -993,6 +1279,12 @@ export class ConversationsRepo {
 
   async delete(id: number): Promise<void> {
     await this.db.execute(sql`DELETE FROM conversations WHERE id = ${id}`)
+  }
+
+  /** Delete a single message (and, via FK cascade, its citations). Used by the
+   *  chat Regenerate flow to drop the last assistant turn before re-streaming. */
+  async deleteMessage(messageId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM messages WHERE id = ${messageId}`)
   }
 
   async appendMessage(
@@ -1397,6 +1689,14 @@ export class QuizzesRepo {
     `)
   }
 
+  /** Question count is derived from the material: planned at generation start,
+   *  then settled to the persisted row count (score displays divide by it). */
+  async updateDeckQuestionCount(deckId: number, questionCount: number): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE quiz_decks SET question_count = ${questionCount} WHERE id = ${deckId}
+    `)
+  }
+
   /** Cold-boot / post-unlock sweep: a deck still 'generating' is orphaned from a
    *  session that was locked, navigated away from, or crashed mid-run — the
    *  in-memory generation stream that owned it is gone, so it would otherwise
@@ -1504,12 +1804,18 @@ export class QuizzesRepo {
   }
 
   /** Wipe existing questions for a deck. Used by regenerate before re-running
-   *  the pipeline. Attempts are NOT cleared (the old questionIds in answers
-   *  point into rows that no longer exist — we accept that; regenerate is a
-   *  deliberate user action, the history of *prior* generations is fine to
-   *  break). */
+   *  the pipeline. */
   async clearQuestions(deckId: number): Promise<void> {
     await this.db.execute(sql`DELETE FROM quiz_questions WHERE deck_id = ${deckId}`)
+  }
+
+  /** Wipe attempt history for a deck. Regenerate MUST call this alongside
+   *  clearQuestions: question counts are derived from the material now, so a
+   *  re-plan can shrink the deck and old scores (e.g. 20/30) would render
+   *  against the new, smaller denominator (20/12 → >100 %). Regenerate is a
+   *  deliberate user action; prior history is fine to break. */
+  async deleteAttempts(deckId: number): Promise<void> {
+    await this.db.execute(sql`DELETE FROM quiz_attempts WHERE deck_id = ${deckId}`)
   }
 
   async startAttempt(deckId: number): Promise<QuizAttempt> {

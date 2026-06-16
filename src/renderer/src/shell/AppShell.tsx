@@ -5,11 +5,13 @@ import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
 import { QuizView } from '../quiz/QuizView'
 import { TranscriptionView } from '../transcription/TranscriptionView'
+import { TranslationView } from '../translation/TranslationView'
+import { WritingView } from '../writing/WritingView'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import './shell.css'
 
-type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription'
+type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription' | 'translation' | 'writing'
 
 export function AppShell(): JSX.Element {
   const t = useT()
@@ -152,9 +154,12 @@ export function AppShell(): JSX.Element {
         onClearScope={() => void onClearScope()}
       />
       <main className="app-shell__main">
-        {activeWorkspaceId == null && activeView !== 'transcription' && (
-          <div className="app-shell__empty">{t('shell.selectWorkspaceFirst')}</div>
-        )}
+        {activeWorkspaceId == null &&
+          activeView !== 'transcription' &&
+          activeView !== 'translation' &&
+          activeView !== 'writing' && (
+            <div className="app-shell__empty">{t('shell.selectWorkspaceFirst')}</div>
+          )}
         {activeView === 'library' && activeWorkspaceId != null && (
           <LibraryView
             workspaceId={activeWorkspaceId}
@@ -178,6 +183,8 @@ export function AppShell(): JSX.Element {
           />
         )}
         {activeView === 'transcription' && <TranscriptionView workspaceId={activeWorkspaceId} />}
+        {activeView === 'translation' && <TranslationView />}
+        {activeView === 'writing' && <WritingView />}
       </main>
       {confirmDeleteWorkspace && (
         <ConfirmModal

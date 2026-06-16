@@ -20,8 +20,16 @@ import type {
   QuizDeckWithQuestions,
   QuizAttempt,
   CreateQuizInput,
+  QuizEstimate,
   QuizGenerationEvent,
 } from '../shared/quiz'
+import type {
+  TranslateOptions,
+  TranslateResult,
+  TranslationLanguage,
+  TranslatorStatus,
+} from '../shared/translation'
+import type { WriteResult, WritingMode } from '../shared/writing'
 import type {
   Document,
   Workspace,
@@ -197,6 +205,11 @@ const api = {
      *  a `code: message` error ('no_content' | 'model_not_ready' | 'failed'). */
     summarize: (documentId: number): Promise<{ summary: string; cached: boolean }> =>
       ipcRenderer.invoke('documents:summarize', documentId),
+    /** Force-into-context flag. Pinned docs are prepended to every chat turn's
+     *  context block (top chunks of the doc, sharing PINNED_BUDGET_FRAC of the
+     *  packer's budget). Toggled from the Library row menu. */
+    setPinned: (documentId: number, pinned: boolean): Promise<void> =>
+      ipcRenderer.invoke('documents:setPinned', documentId, pinned),
     revealSource: (
       id: number,
     ): Promise<
@@ -266,6 +279,10 @@ const api = {
       ipcRenderer.invoke('conversations:getWithMessages', id),
     generateTitle: (id: number): Promise<string | null> =>
       ipcRenderer.invoke('conversations:generateTitle', id),
+    /** Delete a single message (cascades to its citations). Used by the chat
+     *  Regenerate flow to drop the last assistant turn before re-streaming. */
+    deleteMessage: (messageId: number): Promise<void> =>
+      ipcRenderer.invoke('conversations:deleteMessage', messageId),
     setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
       ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
   },
@@ -413,6 +430,8 @@ const api = {
         | { ok: true; version: string; models: string[] }
         | { ok: false; kind: string; message: string }
       >,
+    // Install-time opt-in from the tier marker; false locks the settings panel.
+    connectorEnabled: (): Promise<boolean> => ipcRenderer.invoke('ollama:connectorEnabled'),
   },
   logs: {
     openFolder: (): Promise<void> => ipcRenderer.invoke('logs:openFolder'),
@@ -436,6 +455,8 @@ const api = {
       ipcRenderer.invoke('quiz:get-deck', deckId),
     createDeck: (input: CreateQuizInput): Promise<QuizDeck> =>
       ipcRenderer.invoke('quiz:create-deck', input),
+    estimate: (documentIds: number[]): Promise<QuizEstimate> =>
+      ipcRenderer.invoke('quiz:estimate', documentIds),
     deleteDeck: (deckId: number): Promise<void> => ipcRenderer.invoke('quiz:delete-deck', deckId),
     regenerateDeck: (deckId: number): Promise<void> =>
       ipcRenderer.invoke('quiz:regenerate-deck', deckId),
@@ -459,6 +480,38 @@ const api = {
     ): Promise<QuizAttempt> => ipcRenderer.invoke('quiz:finish-attempt', attemptId, answers),
     listAttempts: (deckId: number): Promise<QuizAttempt[]> =>
       ipcRenderer.invoke('quiz:list-attempts', deckId),
+  },
+  translation: {
+    status: (): Promise<TranslatorStatus> => ipcRenderer.invoke('translation:status'),
+    translate: (text: string, opts: TranslateOptions): Promise<TranslateResult> =>
+      ipcRenderer.invoke('translation:translate', text, opts),
+    languages: (): Promise<TranslationLanguage[]> => ipcRenderer.invoke('translation:languages'),
+    /** Indexed text of a document (chunks joined) , for translating a whole doc. */
+    documentText: (documentId: number): Promise<{ title: string; text: string }> =>
+      ipcRenderer.invoke('translation:documentText', documentId),
+    /** Save a translation as a new workspace document (chunked + embedded like
+     *  any import). Returns the created Document. */
+    saveDocument: (
+      workspaceId: number,
+      title: string,
+      text: string,
+      target: string,
+    ): Promise<Document> =>
+      ipcRenderer.invoke('translation:saveDocument', workspaceId, title, text, target),
+    onStatus: (cb: (s: TranslatorStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, s: TranslatorStatus): void => cb(s)
+      ipcRenderer.on('translation:status', listener)
+      return () => {
+        ipcRenderer.removeListener('translation:status', listener)
+      }
+    },
+  },
+  writing: {
+    /** DeepL-Write-style rewrite of `text` in the given mode , on the bundled
+     *  LLM. Same-language (no translation). Rejects with `<code>: <message>`
+     *  ('empty' | 'too_long' | 'model_not_ready' | 'failed'). */
+    improve: (text: string, mode: WritingMode): Promise<WriteResult> =>
+      ipcRenderer.invoke('writing:improve', text, mode),
   },
 }
 

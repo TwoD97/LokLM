@@ -82,6 +82,41 @@ it('cuda archive extracted onto stripped payload reproduces full payload bit-for
   expect(Object.fromEntries(actualTree)).toEqual(Object.fromEntries(expectedTree))
 })
 
+it('places extraFiles (translator CUDA runtime) at their tar paths', async () => {
+  const extraSrc = join(work, 'extra')
+  await mkdir(extraSrc, { recursive: true })
+  await writeFile(join(extraSrc, 'loklm-translator-cuda.exe'), 'gpu-sidecar')
+  await writeFile(join(extraSrc, 'cublasLt64_13.dll'), 'cublas-lt')
+  const dest = 'win-unpacked/resources/translator'
+  const out = join(work, 'cuda-extras.tar.zst')
+  await buildCudaArchive({
+    platform: 'win-x64',
+    cudaSourceRoot: cudaSrc,
+    payloadRoot: 'win-unpacked/resources/app.asar.unpacked/node_modules/@node-llama-cpp',
+    outFile: out,
+    extraFiles: [
+      { full: join(extraSrc, 'loklm-translator-cuda.exe'), tarPath: `${dest}/loklm-translator-cuda.exe` },
+      { full: join(extraSrc, 'cublasLt64_13.dll'), tarPath: `${dest}/cublasLt64_13.dll` },
+    ],
+  })
+
+  const tar = await import('tar-stream')
+  const zstd = await import('@mongodb-js/zstd')
+  const raw = await zstd.decompress(await readFile(out))
+  const names = []
+  const extract = tar.extract()
+  await new Promise((resolve, reject) => {
+    extract.on('entry', (header, stream, next) => {
+      names.push(header.name)
+      stream.on('end', next).resume()
+    })
+    extract.on('finish', resolve).on('error', reject)
+    extract.end(raw)
+  })
+  expect(names).toContain(`${dest}/loklm-translator-cuda.exe`)
+  expect(names).toContain(`${dest}/cublasLt64_13.dll`)
+})
+
 it('rejects mac-* platform keys', async () => {
   await expect(
     buildCudaArchive({

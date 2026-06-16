@@ -33,6 +33,11 @@ export interface Document {
    *  Drives the library row badge. Single-doc fetches (`getDocument`) skip
    *  the aggregation so the field is omitted there. */
   language?: 'de' | 'en' | 'mixed' | null
+  /** "Force into context" flag — set via Library row "Pin" action. When true,
+   *  the QA packer prepends top-of-document chunks from this doc before RAG
+   *  hits, so the model always sees it. Added in raw migration 0009; column is
+   *  NOT NULL DEFAULT false, so this field is always present. */
+  pinned: boolean
 }
 
 export interface Workspace {
@@ -261,6 +266,14 @@ export interface SystemInfo extends ModelStatus {
   lastLlmPlan: unknown | null
   /** Currently active context-size choice — 'auto' or a pinned number. */
   selectedContext: LlmContextChoice
+  /** The user's LLM device choice (auto/cpu/gpu). Mirrors EmbedderInfo. */
+  placementChoice: 'auto' | 'cpu' | 'gpu'
+  /** Where the LLM backend actually landed at the last load — 'gpu' (cuda/
+   *  vulkan/metal latched) or 'cpu'. Null until a load has happened. */
+  resolvedPlacement: 'cpu' | 'gpu' | null
+  /** Human-readable rationale for resolvedPlacement (backend label or fallback
+   *  reason). Null until a load has happened. */
+  placementReason: string | null
 }
 
 export type RefusalReason = 'no_hits' | 'below_threshold'
@@ -268,13 +281,25 @@ export type RefusalReason = 'no_hits' | 'below_threshold'
 /** Pipeline stages emitted as `stage` events so the renderer can show real-time
  *  progress before the first token arrives. Order is roughly the chronological
  *  order each stage runs in QAService / RetrievalService.
+ *    - route          : routing decision — only emitted when a non-default route
+ *                       fires (same "no no-op rows" convention as expand/rerank)
  *    - contextualize  : LLM rewrites a follow-up into a standalone retrieval query
  *    - expand_queries : multiQuery — LLM paraphrases the query for recall
  *    - retrieve       : BM25 + dense fusion (always runs)
  *    - rerank         : cross-encoder pass over the candidate pool
+ *    - summarize      : whole-doc summary fetch/generation (doc_summary route)
+ *    - corpus         : documents-table count/list lookup (corpus route, no LLM)
  *    - prefill        : time between citations sent and first generated token
  */
-export type StageName = 'contextualize' | 'expand_queries' | 'retrieve' | 'rerank' | 'prefill'
+export type StageName =
+  | 'route'
+  | 'contextualize'
+  | 'expand_queries'
+  | 'retrieve'
+  | 'rerank'
+  | 'summarize'
+  | 'corpus'
+  | 'prefill'
 
 export type StreamEvent =
   | {
@@ -312,6 +337,12 @@ export interface AnswerOptions {
   topK?: number
   refusalThreshold?: number
   language?: 'de' | 'en'
+  /** Auto mode only: the language to answer in when per-turn detection can't
+   *  confidently classify the query (short / ambiguous prompt). The chat:stream
+   *  handler sets this to the user's UI language so a German-UI user typing a
+   *  short, umlaut-free prompt isn't silently answered in English. Ignored when
+   *  `language` is set (that forces the language outright). */
+  fallbackLanguage?: 'de' | 'en'
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   rerank?: boolean
   multiQuery?: boolean
@@ -322,6 +353,11 @@ export interface AnswerOptions {
    *  otherwise return zero relevant chunks. No-op when history is empty or
    *  the LLM is not loaded. */
   contextualize?: boolean
+  /** Query routing (doc_summary / corpus / retrieval). Defaults to ON for the
+   *  chat path; evals and tests pin `routing: false` to get the plain chunk
+   *  pipeline regardless of query phrasing — the same escape hatch contract
+   *  as pinning opts.topK against adaptiveTopK. */
+  routing?: boolean
   /** When set, the chat:stream handler persists the user message before
    *  streaming, then persists the assistant message + citations on `done`
    *  (or on `refusal`, with citations=[]). Errors are not persisted. */

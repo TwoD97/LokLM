@@ -11,6 +11,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # AP-T.2 : Integration- + TX-Tests in CI. Modell-gebundene Suiten (GGUF)
+  # skippen sich selbst via describe.runIf , der Rest läuft komplett.
+  tests:
+    name: Tests (integration + tx)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: TX tests (Schema, Trigger, Funktionen)
+        run: pnpm test:tx
+
   website:
     name: Website (astro check + build)
     runs-on: ubuntu-latest

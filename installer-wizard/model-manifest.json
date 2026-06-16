@@ -1,6 +1,6 @@
 {
   "$schema": "./model-manifest.schema.json",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "comment": [
     "Shared model-bundle manifest for the wizard ( Rust , installer/models.rs ) and",
     "the main app ( TS , src/main/services/tier/manifest.ts ). One source of truth ;",
@@ -14,6 +14,14 @@
     "  - unsloth/Qwen3.5-{2,4,9}B-GGUF                     ( the Qwen3.5 LLM family )",
     "  - lm-kit/bge-m3-gguf                                ( embedder )",
     "  - gpustack/bge-reranker-v2-m3-GGUF                  ( reranker )",
+    "  - santhosh/madlad400-3b-ct2                         ( MADLAD-400-3B-MT , translation )",
+    "",
+    "Translation note : the four MADLAD CT2 files are mirrored into our own minio",
+    "( s3.ltwodl.com/loklm-installers/models/translator/... ) rather than an HF",
+    "bucket — everything the wizard delivers lives on our S3 , and the sha256s are",
+    "pinned ( immutable once pushed ). They carry role 'translation' and a subpath",
+    "filename so they land in models/translator/madlad400-3b-mt-ct2-int8/ , exactly",
+    "where the app's TranslationService.locateModelDir() looks.",
     "",
     "Pro LLM note : bucket is named '-MTP-' ( multi-token prediction variant from",
     "Alibaba ) but the filename inside is plain Qwen3.5-9B-Q4_K_M.gguf — Unsloth",
@@ -65,6 +73,38 @@
       "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
       "sha256": "1a331345f04805badbb495c775a6ddffcdd1a732567d5ec8b3d5749e3c7a5e4b",
       "sizeBytes": 39593761
+    },
+    {
+      "id": "translator-model",
+      "role": "translation",
+      "filename": "translator/madlad400-3b-mt-ct2-int8/model.bin",
+      "url": "https://s3.ltwodl.com/loklm-installers/models/translator/madlad400-3b-mt-ct2-int8/model.bin",
+      "sha256": "f3c87256a2c888100c179d7dcd7f41df17c767469546c59d32c7dde86c740a6b",
+      "sizeBytes": 2950208251
+    },
+    {
+      "id": "translator-spm",
+      "role": "translation",
+      "filename": "translator/madlad400-3b-mt-ct2-int8/sentencepiece.model",
+      "url": "https://s3.ltwodl.com/loklm-installers/models/translator/madlad400-3b-mt-ct2-int8/sentencepiece.model",
+      "sha256": "ef11ac9a22c7503492f56d48dce53be20e339b63605983e9f27d2cd0e0f3922c",
+      "sizeBytes": 4427844
+    },
+    {
+      "id": "translator-vocab",
+      "role": "translation",
+      "filename": "translator/madlad400-3b-mt-ct2-int8/shared_vocabulary.json",
+      "url": "https://s3.ltwodl.com/loklm-installers/models/translator/madlad400-3b-mt-ct2-int8/shared_vocabulary.json",
+      "sha256": "c327551ce3ca6efc7b437e11a267f79979893332dda8a1d146e2c950815193f8",
+      "sizeBytes": 5477099
+    },
+    {
+      "id": "translator-config",
+      "role": "translation",
+      "filename": "translator/madlad400-3b-mt-ct2-int8/config.json",
+      "url": "https://s3.ltwodl.com/loklm-installers/models/translator/madlad400-3b-mt-ct2-int8/config.json",
+      "sha256": "a428c51cd35517554523b3c6b6974a5928bc35e82b130869a543566a34a83b93",
+      "sizeBytes": 190
     }
   ],
   "tiers": {

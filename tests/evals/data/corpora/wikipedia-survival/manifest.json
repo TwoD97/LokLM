@@ -1,0 +1,523 @@
+{
+  "source": {
+    "project": "en.wikipedia.org",
+    "lang": "en",
+    "license": "CC BY-SA 4.0",
+    "cite": "Wikipedia contributors , the free encyclopedia , https://www.wikipedia.org",
+    "fetchedAt": "2026-06-13T11:31:14.509Z"
+  },
+  "byTheme": {
+    "first-aid": [
+      "first-aid",
+      "cardiopulmonary-resuscitation",
+      "choking",
+      "wound",
+      "bleeding",
+      "bone-fracture",
+      "burn",
+      "hypothermia",
+      "heat-stroke",
+      "dehydration"
+    ],
+    "water-food": [
+      "water-purification",
+      "portable-water-purification",
+      "water-chlorination",
+      "solar-water-disinfection",
+      "boiling",
+      "food-preservation",
+      "canning",
+      "food-drying",
+      "fermentation-in-food-processing",
+      "foraging"
+    ],
+    "disease-sanitation": [
+      "cholera",
+      "dysentery",
+      "malaria",
+      "tetanus",
+      "typhoid-fever",
+      "oral-rehydration-therapy",
+      "sanitation",
+      "hand-washing",
+      "sepsis",
+      "hygiene"
+    ],
+    "wilderness-navigation": [
+      "compass",
+      "orienteering",
+      "celestial-navigation",
+      "knot",
+      "bowline",
+      "fire-making",
+      "survival-skills",
+      "navigation",
+      "dead-reckoning",
+      "topographic-map"
+    ],
+    "rebuild-tech": [
+      "soap",
+      "saponification",
+      "blacksmith",
+      "solar-power",
+      "electric-battery",
+      "charcoal",
+      "lime-material",
+      "concrete",
+      "windmill",
+      "water-wheel"
+    ]
+  },
+  "articles": [
+    {
+      "docId": "first-aid",
+      "theme": "first-aid",
+      "title": "First aid",
+      "pageid": 11296,
+      "url": "https://en.wikipedia.org/?curid=11296",
+      "chars": 27032,
+      "chunks": 61
+    },
+    {
+      "docId": "cardiopulmonary-resuscitation",
+      "theme": "first-aid",
+      "title": "Cardiopulmonary resuscitation",
+      "pageid": 66392,
+      "url": "https://en.wikipedia.org/?curid=66392",
+      "chars": 44381,
+      "chunks": 100
+    },
+    {
+      "docId": "choking",
+      "theme": "first-aid",
+      "title": "Choking",
+      "pageid": 166829,
+      "url": "https://en.wikipedia.org/?curid=166829",
+      "chars": 49633,
+      "chunks": 111
+    },
+    {
+      "docId": "wound",
+      "theme": "first-aid",
+      "title": "Wound",
+      "pageid": 338154,
+      "url": "https://en.wikipedia.org/?curid=338154",
+      "chars": 28336,
+      "chunks": 64
+    },
+    {
+      "docId": "bleeding",
+      "theme": "first-aid",
+      "title": "Bleeding",
+      "pageid": 146315,
+      "url": "https://en.wikipedia.org/?curid=146315",
+      "chars": 12443,
+      "chunks": 28
+    },
+    {
+      "docId": "bone-fracture",
+      "theme": "first-aid",
+      "title": "Bone fracture",
+      "pageid": 839943,
+      "url": "https://en.wikipedia.org/?curid=839943",
+      "chars": 22177,
+      "chunks": 50
+    },
+    {
+      "docId": "burn",
+      "theme": "first-aid",
+      "title": "Burn",
+      "pageid": 233082,
+      "url": "https://en.wikipedia.org/?curid=233082",
+      "chars": 29810,
+      "chunks": 67
+    },
+    {
+      "docId": "hypothermia",
+      "theme": "first-aid",
+      "title": "Hypothermia",
+      "pageid": 146879,
+      "url": "https://en.wikipedia.org/?curid=146879",
+      "chars": 26411,
+      "chunks": 59
+    },
+    {
+      "docId": "heat-stroke",
+      "theme": "first-aid",
+      "title": "Heat stroke",
+      "pageid": 24999087,
+      "url": "https://en.wikipedia.org/?curid=24999087",
+      "chars": 14758,
+      "chunks": 33
+    },
+    {
+      "docId": "dehydration",
+      "theme": "first-aid",
+      "title": "Dehydration",
+      "pageid": 155056,
+      "url": "https://en.wikipedia.org/?curid=155056",
+      "chars": 11251,
+      "chunks": 26
+    },
+    {
+      "docId": "water-purification",
+      "theme": "water-food",
+      "title": "Water purification",
+      "pageid": 214701,
+      "url": "https://en.wikipedia.org/?curid=214701",
+      "chars": 45320,
+      "chunks": 102
+    },
+    {
+      "docId": "portable-water-purification",
+      "theme": "water-food",
+      "title": "Portable water purification",
+      "pageid": 5301306,
+      "url": "https://en.wikipedia.org/?curid=5301306",
+      "chars": 23208,
+      "chunks": 52
+    },
+    {
+      "docId": "water-chlorination",
+      "theme": "water-food",
+      "title": "Water chlorination",
+      "pageid": 38840679,
+      "url": "https://en.wikipedia.org/?curid=38840679",
+      "chars": 9035,
+      "chunks": 21
+    },
+    {
+      "docId": "solar-water-disinfection",
+      "theme": "water-food",
+      "title": "Solar water disinfection",
+      "pageid": 30863822,
+      "url": "https://en.wikipedia.org/?curid=30863822",
+      "chars": 17400,
+      "chunks": 39
+    },
+    {
+      "docId": "boiling",
+      "theme": "water-food",
+      "title": "Boiling",
+      "pageid": 52636,
+      "url": "https://en.wikipedia.org/?curid=52636",
+      "chars": 11057,
+      "chunks": 25
+    },
+    {
+      "docId": "food-preservation",
+      "theme": "water-food",
+      "title": "Food preservation",
+      "pageid": 10834,
+      "url": "https://en.wikipedia.org/?curid=10834",
+      "chars": 23543,
+      "chunks": 53
+    },
+    {
+      "docId": "canning",
+      "theme": "water-food",
+      "title": "Canning",
+      "pageid": 198153,
+      "url": "https://en.wikipedia.org/?curid=198153",
+      "chars": 19631,
+      "chunks": 44
+    },
+    {
+      "docId": "food-drying",
+      "theme": "water-food",
+      "title": "Food drying",
+      "pageid": 158573,
+      "url": "https://en.wikipedia.org/?curid=158573",
+      "chars": 3525,
+      "chunks": 8
+    },
+    {
+      "docId": "fermentation-in-food-processing",
+      "theme": "water-food",
+      "title": "Fermentation in food processing",
+      "pageid": 6073980,
+      "url": "https://en.wikipedia.org/?curid=6073980",
+      "chars": 8155,
+      "chunks": 19
+    },
+    {
+      "docId": "foraging",
+      "theme": "water-food",
+      "title": "Foraging",
+      "pageid": 447986,
+      "url": "https://en.wikipedia.org/?curid=447986",
+      "chars": 20293,
+      "chunks": 46
+    },
+    {
+      "docId": "cholera",
+      "theme": "disease-sanitation",
+      "title": "Cholera",
+      "pageid": 7591,
+      "url": "https://en.wikipedia.org/?curid=7591",
+      "chars": 49994,
+      "chunks": 112
+    },
+    {
+      "docId": "dysentery",
+      "theme": "disease-sanitation",
+      "title": "Dysentery",
+      "pageid": 63764,
+      "url": "https://en.wikipedia.org/?curid=63764",
+      "chars": 16648,
+      "chunks": 38
+    },
+    {
+      "docId": "malaria",
+      "theme": "disease-sanitation",
+      "title": "Malaria",
+      "pageid": 20423,
+      "url": "https://en.wikipedia.org/?curid=20423",
+      "chars": 69483,
+      "chunks": 156
+    },
+    {
+      "docId": "tetanus",
+      "theme": "disease-sanitation",
+      "title": "Tetanus",
+      "pageid": 45831,
+      "url": "https://en.wikipedia.org/?curid=45831",
+      "chars": 21025,
+      "chunks": 47
+    },
+    {
+      "docId": "typhoid-fever",
+      "theme": "disease-sanitation",
+      "title": "Typhoid fever",
+      "pageid": 31596,
+      "url": "https://en.wikipedia.org/?curid=31596",
+      "chars": 40638,
+      "chunks": 91
+    },
+    {
+      "docId": "oral-rehydration-therapy",
+      "theme": "disease-sanitation",
+      "title": "Oral rehydration therapy",
+      "pageid": 1558567,
+      "url": "https://en.wikipedia.org/?curid=1558567",
+      "chars": 19974,
+      "chunks": 45
+    },
+    {
+      "docId": "sanitation",
+      "theme": "disease-sanitation",
+      "title": "Sanitation",
+      "pageid": 184729,
+      "url": "https://en.wikipedia.org/?curid=184729",
+      "chars": 25572,
+      "chunks": 58
+    },
+    {
+      "docId": "hand-washing",
+      "theme": "disease-sanitation",
+      "title": "Hand washing",
+      "pageid": 428502,
+      "url": "https://en.wikipedia.org/?curid=428502",
+      "chars": 29272,
+      "chunks": 66
+    },
+    {
+      "docId": "sepsis",
+      "theme": "disease-sanitation",
+      "title": "Sepsis",
+      "pageid": 158400,
+      "url": "https://en.wikipedia.org/?curid=158400",
+      "chars": 53939,
+      "chunks": 121
+    },
+    {
+      "docId": "hygiene",
+      "theme": "disease-sanitation",
+      "title": "Hygiene",
+      "pageid": 147020,
+      "url": "https://en.wikipedia.org/?curid=147020",
+      "chars": 42945,
+      "chunks": 96
+    },
+    {
+      "docId": "compass",
+      "theme": "wilderness-navigation",
+      "title": "Compass",
+      "pageid": 39316,
+      "url": "https://en.wikipedia.org/?curid=39316",
+      "chars": 30045,
+      "chunks": 68
+    },
+    {
+      "docId": "orienteering",
+      "theme": "wilderness-navigation",
+      "title": "Orienteering",
+      "pageid": 22520,
+      "url": "https://en.wikipedia.org/?curid=22520",
+      "chars": 25405,
+      "chunks": 57
+    },
+    {
+      "docId": "celestial-navigation",
+      "theme": "wilderness-navigation",
+      "title": "Celestial navigation",
+      "pageid": 143335,
+      "url": "https://en.wikipedia.org/?curid=143335",
+      "chars": 27049,
+      "chunks": 61
+    },
+    {
+      "docId": "knot",
+      "theme": "wilderness-navigation",
+      "title": "Knot",
+      "pageid": 17006,
+      "url": "https://en.wikipedia.org/?curid=17006",
+      "chars": 20285,
+      "chunks": 46
+    },
+    {
+      "docId": "bowline",
+      "theme": "wilderness-navigation",
+      "title": "Bowline",
+      "pageid": 37421,
+      "url": "https://en.wikipedia.org/?curid=37421",
+      "chars": 5841,
+      "chunks": 14
+    },
+    {
+      "docId": "fire-making",
+      "theme": "wilderness-navigation",
+      "title": "Fire making",
+      "pageid": 1678229,
+      "url": "https://en.wikipedia.org/?curid=1678229",
+      "chars": 10134,
+      "chunks": 23
+    },
+    {
+      "docId": "survival-skills",
+      "theme": "wilderness-navigation",
+      "title": "Survival skills",
+      "pageid": 1091948,
+      "url": "https://en.wikipedia.org/?curid=1091948",
+      "chars": 11984,
+      "chunks": 27
+    },
+    {
+      "docId": "navigation",
+      "theme": "wilderness-navigation",
+      "title": "Navigation",
+      "pageid": 21854,
+      "url": "https://en.wikipedia.org/?curid=21854",
+      "chars": 46189,
+      "chunks": 104
+    },
+    {
+      "docId": "dead-reckoning",
+      "theme": "wilderness-navigation",
+      "title": "Dead reckoning",
+      "pageid": 133345,
+      "url": "https://en.wikipedia.org/?curid=133345",
+      "chars": 20015,
+      "chunks": 45
+    },
+    {
+      "docId": "topographic-map",
+      "theme": "wilderness-navigation",
+      "title": "Topographic map",
+      "pageid": 70713,
+      "url": "https://en.wikipedia.org/?curid=70713",
+      "chars": 8212,
+      "chunks": 19
+    },
+    {
+      "docId": "soap",
+      "theme": "rebuild-tech",
+      "title": "Soap",
+      "pageid": 57875,
+      "url": "https://en.wikipedia.org/?curid=57875",
+      "chars": 17187,
+      "chunks": 39
+    },
+    {
+      "docId": "saponification",
+      "theme": "rebuild-tech",
+      "title": "Saponification",
+      "pageid": 268331,
+      "url": "https://en.wikipedia.org/?curid=268331",
+      "chars": 6044,
+      "chunks": 14
+    },
+    {
+      "docId": "blacksmith",
+      "theme": "rebuild-tech",
+      "title": "Blacksmith",
+      "pageid": 145092,
+      "url": "https://en.wikipedia.org/?curid=145092",
+      "chars": 36476,
+      "chunks": 82
+    },
+    {
+      "docId": "solar-power",
+      "theme": "rebuild-tech",
+      "title": "Solar power",
+      "pageid": 13690575,
+      "url": "https://en.wikipedia.org/?curid=13690575",
+      "chars": 27264,
+      "chunks": 61
+    },
+    {
+      "docId": "electric-battery",
+      "theme": "rebuild-tech",
+      "title": "Electric battery",
+      "pageid": 19174720,
+      "url": "https://en.wikipedia.org/?curid=19174720",
+      "chars": 36737,
+      "chunks": 83
+    },
+    {
+      "docId": "charcoal",
+      "theme": "rebuild-tech",
+      "title": "Charcoal",
+      "pageid": 21193982,
+      "url": "https://en.wikipedia.org/?curid=21193982",
+      "chars": 22773,
+      "chunks": 51
+    },
+    {
+      "docId": "lime-material",
+      "theme": "rebuild-tech",
+      "title": "Lime (material)",
+      "pageid": 1867624,
+      "url": "https://en.wikipedia.org/?curid=1867624",
+      "chars": 11757,
+      "chunks": 27
+    },
+    {
+      "docId": "concrete",
+      "theme": "rebuild-tech",
+      "title": "Concrete",
+      "pageid": 5371,
+      "url": "https://en.wikipedia.org/?curid=5371",
+      "chars": 68405,
+      "chunks": 153
+    },
+    {
+      "docId": "windmill",
+      "theme": "rebuild-tech",
+      "title": "Windmill",
+      "pageid": 43490,
+      "url": "https://en.wikipedia.org/?curid=43490",
+      "chars": 13512,
+      "chunks": 31
+    },
+    {
+      "docId": "water-wheel",
+      "theme": "rebuild-tech",
+      "title": "Water wheel",
+      "pageid": 150248,
+      "url": "https://en.wikipedia.org/?curid=150248",
+      "chars": 42759,
+      "chunks": 96
+    }
+  ]
+}

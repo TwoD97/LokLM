@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Copy, Languages, RefreshCcw } from 'lucide-react'
 import type { StageName } from '@shared/documents'
 import { MessageBubble } from './MessageBubble'
+import { TranslationPanel } from './TranslationPanel'
 import { useT, type TFn } from '../i18n'
 
 type StreamMetrics = {
@@ -40,15 +42,23 @@ type Props = {
    *  (false) is to collapse it into a "pipeline X ms" prefix on the metrics
    *  line. Controlled by `basic.showPipelineSteps` in user settings. */
   keepPipelineVisible: boolean
+  /** Copy a finished assistant message to the clipboard. */
+  onCopy: (content: string) => void
+  /** Re-roll the last assistant turn. Only shown for the most recent finished
+   *  assistant message; undefined while busy disables the action. */
+  onRegenerate?: () => void
 }
 
 // i18n key per stage, resolved via useT() at render so the checklist follows
 // the response-language setting like the rest of the UI.
 const STAGE_LABEL_KEY: Record<StageName, string> = {
+  route: 'chat.stageRoute',
   contextualize: 'chat.stageContextualize',
   expand_queries: 'chat.stageExpandQueries',
   retrieve: 'chat.stageRetrieve',
   rerank: 'chat.stageRerank',
+  summarize: 'chat.stageSummarize',
+  corpus: 'chat.stageCorpus',
   prefill: 'chat.stagePrefill',
 }
 
@@ -81,6 +91,8 @@ export function MessageList({
   messages,
   onCitationClick,
   keepPipelineVisible,
+  onCopy,
+  onRegenerate,
 }: Props): JSX.Element {
   const t = useT()
   const ref = useRef<HTMLDivElement>(null)
@@ -88,6 +100,9 @@ export function MessageList({
   // scrolls up away from the bottom, and back on when they scroll back down.
   const stickyRef = useRef(true)
   const rafRef = useRef<number | null>(null)
+  // At most one open translate panel — keyed by message id. The panel itself
+  // owns everything else (status , target , result); see TranslationPanel.
+  const [translateOpenId, setTranslateOpenId] = useState<string | null>(null)
 
   // Coalesce scroll-to-bottom updates so token-by-token streaming doesn't
   // queue dozens of scrollTop writes per frame.
@@ -122,10 +137,20 @@ export function MessageList({
       </div>
     )
   }
+  // Regenerate is only meaningful on the most recent FINISHED assistant turn —
+  // re-rolling an older message would orphan everything that came after it.
+  let lastFinishedAssistantIdx = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m && m.role === 'assistant' && !m.streaming) {
+      lastFinishedAssistantIdx = i
+      break
+    }
+  }
   return (
     <div className="chat__messages" ref={ref} onScroll={onScroll}>
       <div className="chat__inner">
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           // Show the inline checklist while we have stages. Default: only
           // pre-first-token (collapses into the metrics line on TTFT). When
           // `keepPipelineVisible` is on, the checklist stays mounted for the
@@ -161,6 +186,42 @@ export function MessageList({
                 {...(m.role === 'assistant' && m.citations ? { citations: m.citations } : {})}
                 onCitationClick={onCitationClick}
               />
+              {m.role === 'assistant' && !m.streaming && m.content.length > 0 && (
+                <div className="chat__msg-actions" role="toolbar">
+                  <button
+                    type="button"
+                    className="chat__msg-action"
+                    onClick={() => onCopy(m.content)}
+                    aria-label={t('chat.copy')}
+                    title={t('chat.copy')}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="chat__msg-action"
+                    onClick={() => setTranslateOpenId((prev) => (prev === m.id ? null : m.id))}
+                    aria-label={t('chat.translate')}
+                    title={t('chat.translate')}
+                  >
+                    <Languages size={14} aria-hidden="true" />
+                  </button>
+                  {idx === lastFinishedAssistantIdx && onRegenerate && (
+                    <button
+                      type="button"
+                      className="chat__msg-action"
+                      onClick={onRegenerate}
+                      aria-label={t('chat.regenerate')}
+                      title={t('chat.regenerate')}
+                    >
+                      <RefreshCcw size={14} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+              {m.role === 'assistant' && !m.streaming && translateOpenId === m.id && (
+                <TranslationPanel content={m.content} onClose={() => setTranslateOpenId(null)} />
+              )}
               {m.role === 'assistant' &&
                 !m.streaming &&
                 !m.isRefusal &&

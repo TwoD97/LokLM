@@ -16,7 +16,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  getMarkerCandidateDirs,
   readTierMarker,
+  isOllamaConnectorEnabled,
   __resetTierMarkerCacheForTest,
 } from '../../src/main/services/tier/TierMarker'
 
@@ -40,11 +42,60 @@ describe('readTierMarker', () => {
   })
 })
 
+describe('getMarkerCandidateDirs', () => {
+  it('windows: marker sits next to the executable only', () => {
+    expect(
+      getMarkerCandidateDirs(
+        'win32',
+        'C:\\Users\\x\\AppData\\Local\\Programs\\LokLM\\LokLM.exe',
+        'C:\\Users\\x\\AppData\\Roaming\\LokLM',
+      ),
+    ).toEqual(['C:\\Users\\x\\AppData\\Local\\Programs\\LokLM'])
+  })
+
+  it('linux: marker sits next to the executable only', () => {
+    expect(getMarkerCandidateDirs('linux', '/opt/loklm/loklm', '/home/x/.config/LokLM')).toEqual([
+      '/opt/loklm',
+    ])
+  })
+
+  it('darwin: also checks userData — the wizard cannot write into the signed .app bundle', () => {
+    expect(
+      getMarkerCandidateDirs(
+        'darwin',
+        '/Applications/LokLM.app/Contents/MacOS/LokLM',
+        '/Users/x/Library/Application Support/LokLM',
+      ),
+    ).toEqual([
+      '/Applications/LokLM.app/Contents/MacOS',
+      '/Users/x/Library/Application Support/LokLM',
+    ])
+  })
+
+  it('darwin without a userData dir falls back to the exec dir only', () => {
+    expect(
+      getMarkerCandidateDirs('darwin', '/Applications/LokLM.app/Contents/MacOS/LokLM', null),
+    ).toEqual(['/Applications/LokLM.app/Contents/MacOS'])
+  })
+})
+
+describe('isOllamaConnectorEnabled', () => {
+  it('returns true on the no-marker path ( dev / test / pre-v0.3.0 )', () => {
+    // The install-time opt-in only exists for wizard-written markers. No
+    // marker → historical behavior , connector available. The disabled path
+    // ( marker with ollamaConnector:false → false ) needs the fake-electron
+    // harness deferred to Phase 4 ; the parse-side contract is : a missing
+    // key reads as true ( ≤ v0.4.0 markers predate the field ) , only an
+    // explicit false locks the connector.
+    expect(isOllamaConnectorEnabled()).toBe(true)
+  })
+})
+
 /**
- * The packaged-path branch ( reads from `dirname(process.execPath)` ) is
- * harder to exercise without monkeypatching `process.execPath` , which
- * other tests share. We skip that here ; integration coverage in Phase 4
- * runs the wizard + reader end-to-end.
+ * The packaged-path branch ( reads from the candidate dirs ) is harder to
+ * exercise without monkeypatching `process.execPath` , which other tests
+ * share. The candidate-dir policy above is the pure, tested core ; the
+ * file-read loop is a thin existsSync iteration over it.
  */
 describe('readTierMarker — parsing', () => {
   let tmpDir: string
