@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant R as Renderer
+    participant A as AuthService
+    participant V as loklm.vault
+    participant DB as PGlite
+
+    R->>A: auth:login(password)
+    A->>V: readVault()
+    A->>A: argon2id(password, salt) → KEK
+    A->>A: AES-GCM unwrap → DEK
+    A->>V: AES-GCM decrypt body → Snapshot
+    A->>DB: Database.create(loadFromBlob=Snapshot)
+    DB->>DB: runMigrations()
+    A-->>R: auth:state (unlocked)
+    Note over A: schedulePostLoginWarmup() (+1.5s):<br/>Backfill, Sync-Watcher, LLM-autoLoad
