@@ -65,7 +65,7 @@ const chunkText: Record<string, string[]> = {}
 for (const c of chunkData.chunks) {
   const [docId, idxStr] = c.id.split('::')
   const idx = Number(idxStr)
-  ;(chunkText[docId] ??= [])[idx] = norm(c.text)
+  ;(chunkText[docId!] ??= [])[idx] = norm(c.text)
 }
 
 const cases = loadJsonl(casesPath)
@@ -140,8 +140,8 @@ describe('AP-E.1 eval cases (cases.jsonl)', () => {
       })
     } else {
       it('references valid chunk indices for its seeded doc', () => {
-        const docId = docIdOf(c.workspace_seed[0])
-        const chunks = chunkText[docId]
+        const docId = docIdOf(c.workspace_seed[0]!)
+        const chunks = chunkText[docId]!
         expect(c.expected_chunk_ids.length).toBeGreaterThanOrEqual(1)
         for (const idx of c.expected_chunk_ids) {
           expect(Number.isInteger(idx)).toBe(true)
@@ -155,8 +155,8 @@ describe('AP-E.1 eval cases (cases.jsonl)', () => {
         expect(typeof c.expected_answer_substring).toBe('string')
         const needle = norm(c.expected_answer_substring as string)
         expect(needle.length).toBeGreaterThan(0)
-        const docId = docIdOf(c.workspace_seed[0])
-        const haystack = c.expected_chunk_ids.map((idx) => chunkText[docId][idx]).join(' ')
+        const docId = docIdOf(c.workspace_seed[0]!)
+        const haystack = c.expected_chunk_ids.map((idx) => chunkText[docId]![idx]).join(' ')
         expect(haystack).toContain(needle)
       })
     }

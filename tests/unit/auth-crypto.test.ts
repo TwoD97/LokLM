@@ -69,7 +69,7 @@ describe('wrapKey / unwrapKey (AES-256-GCM key wrapping)', () => {
     const kek = randomBytes(32)
     const wrapped = wrapKey(kek, randomBytes(32))
     const blob = Buffer.from(wrapped.ciphertext, 'base64')
-    blob[0] ^= 0xff // flip a byte
+    blob[0] = blob[0]! ^ 0xff // flip a byte
     const tampered = { nonce: wrapped.nonce, ciphertext: blob.toString('base64') }
     expect(unwrapKey(kek, tampered)).toBeNull()
   })
@@ -123,7 +123,7 @@ describe('decryptBody (AES-256-GCM snapshot body)', () => {
   it('returns null when the auth tag is tampered', () => {
     const dek = randomBytes(32)
     const body = seal(dek, Buffer.from('x'))
-    body.tag[0] ^= 0xff
+    body.tag[0] = body.tag[0]! ^ 0xff
     expect(decryptBody(body, dek)).toBeNull()
   })
 })
