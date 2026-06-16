@@ -54,10 +54,10 @@ Tabelle 7.4 zeigt den aktuellen Arbeitspaket-Status.
 | AP-6 (Suche/Filter)                                   | Dominik | gemerged (PR #12)                  |
 | AP-9 (Settings)                                       | Dominik | gemerged (PR #13)                  |
 | AP-T.1 (Unit-Tests)                                   | Dominik | umgesetzt; PR #24 gemergt (16.06.) |
-| AP-T.2 (Integrationstests + CI)                       | Dominik | PR offen (#19), Checks grün        |
+| AP-T.2 (Integrationstests + CI)                       | Dominik | gemergt (PR #19, 16.06.)           |
 | AP-T.3b (manuelle M-Szenarien)                        | Dominik | gemerged (PR #14)                  |
 | AP-T.4 (Hardware-Matrix)                              | Dominik | offen                              |
-| AP-E.1 (Eval-Dev-Set)                                 | Dominik | PR offen (#25)                     |
+| AP-E.1 (Eval-Dev-Set)                                 | Dominik | gemergt (PR #25, 16.06.)           |
 | AP-E1b (Hold-out)                                     | Dominik | umgesetzt (lokal, R5-geschützt)    |
 | AP-E.2 Phase 1 (Metrik + LAP-Dataset)                 | Dominik | umgesetzt (lokal)                  |
 | AP-E.2 Phase 2 (GPU-Sweep)                            | Dominik | **in Arbeit / offen**              |
