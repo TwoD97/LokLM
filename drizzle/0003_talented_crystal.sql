@@ -1,1 +1,0 @@
-ALTER TABLE "chunks" ADD COLUMN "embedder_identity" text DEFAULT 'bundled:bge-m3' NOT NULL;

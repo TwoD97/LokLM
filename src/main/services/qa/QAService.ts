@@ -1,9 +1,9 @@
-import type { ChunkRow } from '../../db/database'
+import type { ChunkRow } from '../../db/types'
 import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { RetrievalService } from '../retrieval/RetrievalService'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
-import type { Document } from '../../db/schema'
+import type { WsDocument as Document } from '../../db/sqlite/WorkspaceDb'
 import type { SummarizationService } from '../summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
 import {
