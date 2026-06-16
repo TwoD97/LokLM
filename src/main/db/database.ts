@@ -695,16 +695,16 @@ export class DocumentsRepo {
   async listChunksMissingEmbedding(
     workspaceId: number,
     limit: number,
-  ): Promise<Array<{ id: number; text: string }>> {
+  ): Promise<Array<{ id: number; text: string; document_id: number }>> {
     const r = await this.db.execute(sql`
-      SELECT c.id, c.text
+      SELECT c.id, c.text, c.document_id
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
        WHERE d.workspace_id = ${workspaceId} AND c.embedding IS NULL
        ORDER BY c.id
        LIMIT ${limit}
     `)
-    return r.rows as Array<{ id: number; text: string }>
+    return r.rows as Array<{ id: number; text: string; document_id: number }>
   }
 
   async setChunkEmbedding(chunkId: number, vector: number[], identity: string): Promise<void> {
@@ -1062,6 +1062,74 @@ export class DocumentsRepo {
        LIMIT ${topK}
     `)
     return r.rows as unknown as SearchHit[]
+  }
+
+  /**
+   * Hydrates Lance vector hits (chunkId + documentId + score) into full
+   * SearchHit rows by joining chunks + documents in PGlite (ADR-0005). Used when
+   * the dense vectors live in the per-workspace LanceDB store instead of the
+   * pgvector column: Lance returns ids+scores, this fills in text/title/page/
+   * language and preserves the incoming score order. Drops ids whose document is
+   * not in the workspace or not 'ready' (mirrors searchChunksByVector's filter).
+   */
+  async hydrateChunkHits(
+    scored: Array<{ chunkId: number; documentId: number; score: number }>,
+    workspaceId: number,
+  ): Promise<SearchHit[]> {
+    if (scored.length === 0) return []
+    const idLit = '{' + scored.map((s) => Math.trunc(s.chunkId)).join(',') + '}'
+    const r = await this.db.execute(sql`
+      SELECT
+        c.id           AS chunk_id,
+        c.document_id  AS document_id,
+        d.title        AS document_title,
+        c.ordinal      AS ordinal,
+        c.page_from    AS page_from,
+        c.page_to      AS page_to,
+        c.heading_path AS heading_path,
+        c.text         AS text,
+        c.language     AS language,
+        d.added_at     AS added_at
+      FROM chunks c
+      JOIN documents d ON d.id = c.document_id
+      WHERE c.id = ANY(${idLit}::int[])
+        AND d.workspace_id = ${workspaceId}
+        AND d.status = 'ready'
+    `)
+    const byId = new Map<number, Record<string, unknown>>(
+      (r.rows as Array<{ chunk_id: number }>).map((row) => [row.chunk_id, row]),
+    )
+    const out: SearchHit[] = []
+    for (const s of scored) {
+      const row = byId.get(Math.trunc(s.chunkId))
+      if (row) out.push({ ...(row as unknown as SearchHit), score: s.score })
+    }
+    return out
+  }
+
+  /** Reads all chunk vectors for a workspace out of the legacy pgvector column,
+   *  for the one-time migration into the per-workspace LanceDB store (ADR-0005).
+   *  `embedding::text` round-trips the vector as "[a,b,…]". */
+  async listChunkVectors(
+    workspaceId: number,
+  ): Promise<Array<{ chunkId: number; documentId: number; vector: number[] }>> {
+    const r = await this.db.execute(sql`
+      SELECT c.id AS chunk_id, c.document_id AS document_id, c.embedding::text AS embedding
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+       WHERE d.workspace_id = ${workspaceId}
+         AND c.embedding IS NOT NULL
+    `)
+    return (r.rows as Array<{ chunk_id: number; document_id: number; embedding: string }>).map(
+      (row) => ({
+        chunkId: row.chunk_id,
+        documentId: row.document_id,
+        vector: row.embedding
+          .replace(/^\[|\]$/g, '')
+          .split(',')
+          .map(Number),
+      }),
+    )
   }
 
   async getChunkWithContext(

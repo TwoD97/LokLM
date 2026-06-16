@@ -17,6 +17,7 @@ export function AppShell(): JSX.Element {
   const t = useT()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<number | null>(null)
+  const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<number | null>(null)
   const [activeView, setActiveView] = useState<ViewKind>('library')
   const [pinned, togglePin] = usePinnedSidebar()
   const [peeking, setPeeking] = useState(false)
@@ -33,7 +34,24 @@ export function AppShell(): JSX.Element {
   const refreshWorkspaces = useCallback(async () => {
     const ws = await window.api.workspaces.list()
     setWorkspaces(ws)
-    setActiveWorkspaceId((current) => current ?? (ws.length > 0 ? ws[0]!.id : null))
+    // ADR-0005: on first load, honour the configured default workspace; fall
+    // back to the first workspace. Once a workspace is active, leave it alone.
+    const def = await window.api.workspaces.getDefault().catch(() => null)
+    setDefaultWorkspaceId(def)
+    setActiveWorkspaceId((current) => {
+      if (current != null) return current
+      if (def != null && ws.some((w) => w.id === def)) return def
+      return ws.length > 0 ? ws[0]!.id : null
+    })
+  }, [])
+
+  const handleSetDefaultWorkspace = useCallback(async (id: number) => {
+    // Toggle: clicking the current default clears it.
+    setDefaultWorkspaceId((current) => {
+      const next = current === id ? null : id
+      void window.api.workspaces.setDefault(next).catch(() => undefined)
+      return next
+    })
   }, [])
 
   useEffect(() => {
@@ -144,6 +162,8 @@ export function AppShell(): JSX.Element {
         onCreateWorkspace={(name) => void onCreateWorkspace(name)}
         onRenameWorkspace={(id, name) => void onRenameWorkspace(id, name)}
         onRequestDeleteWorkspace={setConfirmDeleteWorkspace}
+        defaultWorkspaceId={defaultWorkspaceId}
+        onSetDefaultWorkspace={(id) => void handleSetDefaultWorkspace(id)}
         onViewChange={setActiveView}
         onTogglePin={togglePin}
         onPeek={setPeeking}

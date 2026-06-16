@@ -160,10 +160,23 @@ const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
 // default of 1 — enough that one bad summary match doesn't lose the answer.
 const DEFAULT_DOC_PREFILTER_TOPN = 5
 
+/** Dense-search backend. When injected (the app wires the LanceDB-backed
+ *  WorkspaceVectorService here), retrieval reads vectors from the per-workspace
+ *  encrypted store instead of the pgvector column (ADR-0005). Returns the same
+ *  hydrated SearchHit[] shape as Database.searchChunksByVector, so the rest of
+ *  the pipeline is unchanged. Left undefined in isolated tests → pgvector path. */
+export type VectorSearchFn = (
+  workspaceId: number,
+  queryVec: number[],
+  topK: number,
+  opts: { activeDocumentIds: number[] | null; perDocK?: number },
+) => Promise<SearchHit[]>
+
 export class RetrievalService {
   constructor(
     private readonly db: Database,
     private readonly registry: ProviderRegistry,
+    private readonly vectorSearch?: VectorSearchFn,
   ) {}
 
   async search(
@@ -383,9 +396,12 @@ export class RetrievalService {
         if (!vec || vec.length === 0) return []
         // searchChunksByVector expects number[]; convert from the provider's
         // Float32Array. Array.from on a typed array materialises a plain Array.
-        return this.db
-          .documents()
-          .searchChunksByVector(workspaceId, Array.from(vec), candidateK, searchOpts)
+        const queryVec = Array.from(vec)
+        // Prefer the injected LanceDB-backed dense search (ADR-0005); fall back
+        // to the pgvector column when none is wired (isolated tests).
+        return this.vectorSearch
+          ? this.vectorSearch(workspaceId, queryVec, candidateK, searchOpts)
+          : this.db.documents().searchChunksByVector(workspaceId, queryVec, candidateK, searchOpts)
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn('[retrieval] embedder failed, falling back to BM25-only:', err)
