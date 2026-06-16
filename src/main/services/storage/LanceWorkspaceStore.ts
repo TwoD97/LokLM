@@ -1,117 +1,168 @@
+import * as lancedb from '@lancedb/lancedb'
+import type { Connection, Table, VectorQuery } from '@lancedb/lancedb'
 import type { VectorStore, VectorRecord, VectorSearchHit, VectorSearchOptions } from './VectorStore'
 import type { VectorIndexConfig } from '../../../shared/workspaceStorage'
 
-// LanceDB-backed, block-encrypted, per-workspace vector store (ADR-0005).
+// LanceDB-backed per-workspace vector store (ADR-0005).
 //
-// STATUS: scaffold. The interface, lifecycle, and encryption wiring are fixed;
-// the LanceDB calls are stubbed (throw) until the dependency lands. This keeps
-// the seam reviewable and the rest of the codebase compiling against the final
-// shape. Implementation steps are inline as TODO(ADR-0005).
+// Operates on a PLAINTEXT working directory — the at-rest encryption is handled
+// one layer up by EncryptedWorkspaceDir (decrypt-on-open / encrypt-on-close),
+// because LanceDB OSS exposes no JS hook to encrypt its own I/O (see ADR-0005 §3,
+// revision). So this class is "just" the engine adapter; it never sees the WDEK.
 //
-// Why LanceDB: it is the only truly embedded (in-process, no sidecar) vector
-// DB in the Node ecosystem, its Rust core does IVF-PQ / RaBitQ at billion scale
-// with ~1–5 ms latency from disk, and its on-disk format is a directory of
-// columnar files per dataset — which maps one-to-one onto "one directory per
-// workspace, load only the active one".
-//
-// Encryption: LanceDB OSS has no at-rest encryption, so we do not let it touch
-// the real filesystem directly. It is pointed at a custom ObjectStore whose
-// read/write go through EncryptedBlockFile (blockCipher.ts), keyed by this
-// workspace's WDEK. A query touches a few blocks; only those decrypt. That is
-// how we get "encrypt multiple files" + "don't decrypt the whole vault" without
-// surrendering disk-ANN performance.
+// Table schema (inferred from the first insert): { chunkId int, documentId int,
+// vector fixed-size-list<float32, dims> }. chunkId is the merge/delete key,
+// mirroring the chunks table PK so retrieval joins back to text unchanged.
 
-const NOT_IMPLEMENTED = (what: string): Error =>
-  new Error(
-    `LanceWorkspaceStore.${what} is not implemented yet — scaffold per ADR-0005. ` +
-      `Wire @lancedb/lancedb over the encrypted ObjectStore before enabling.`,
-  )
+const TABLE = 'vectors'
 
 export interface LanceWorkspaceStoreOptions {
   workspaceId: number
   config: VectorIndexConfig
-  /** Absolute path to this workspace's directory (holds the Lance dataset). */
-  dir: string
-  /** Unwrapped per-workspace data key (32 bytes, mlock'd). Used to key the
-   *  EncryptedBlockFile layer beneath LanceDB. Not owned by this class — the
-   *  WorkspaceStore that opened it wipes it on close. */
-  wdek: Buffer
+  /** Plaintext directory LanceDB connects to (provided by EncryptedWorkspaceDir). */
+  datasetDir: string
+}
+
+interface LanceRow {
+  chunkId: number
+  documentId: number
+  vector: number[]
+  // LanceDB's create/merge APIs take Record<string, unknown>[]; the index
+  // signature makes this concrete row shape assignable to that.
+  [k: string]: unknown
 }
 
 export class LanceWorkspaceStore implements VectorStore {
   readonly workspaceId: number
   readonly config: VectorIndexConfig
 
-  private readonly dir: string
-  private readonly wdek: Buffer
-  /** Lazily-opened LanceDB table handle. Typed `unknown` until the dependency
-   *  is added; the import is dynamic so this file carries no hard dep yet. */
-  private table: unknown = null
+  private readonly datasetDir: string
+  private conn: Connection | null = null
+  private table: Table | null = null
 
   constructor(opts: LanceWorkspaceStoreOptions) {
-    if (opts.wdek.length !== 32) throw new Error('LanceWorkspaceStore needs a 32-byte WDEK')
     this.workspaceId = opts.workspaceId
     this.config = opts.config
-    this.dir = opts.dir
-    this.wdek = opts.wdek
+    this.datasetDir = opts.datasetDir
   }
 
-  /**
-   * Opens (or creates) the workspace's Lance dataset over the encrypted
-   * ObjectStore. TODO(ADR-0005):
-   *   1. const lancedb = await import('@lancedb/lancedb')
-   *   2. build an ObjectStore whose get/put route through EncryptedBlockFile
-   *      (blockCipher.ts) keyed by this.wdek, rooted at this.dir
-   *   3. connect + openTable('vectors') | createTable with the
-   *      {chunkId, documentId, vector} schema and this.config
-   */
+  /** Connects and opens the table if it already exists. A brand-new workspace
+   *  has no table yet — it is created lazily on the first upsert (so the schema
+   *  is inferred from real vectors). */
   async open(): Promise<void> {
-    void this.dir
-    void this.wdek
-    throw NOT_IMPLEMENTED('open')
+    this.conn = await lancedb.connect(this.datasetDir)
+    const names = await this.conn.tableNames()
+    if (names.includes(TABLE)) {
+      this.table = await this.conn.openTable(TABLE)
+    }
   }
 
-  async upsert(_records: VectorRecord[]): Promise<void> {
-    // TODO(ADR-0005): table.mergeInsert('chunkId').whenMatchedUpdateAll()
-    //                 .whenNotMatchedInsertAll().execute(rows)
-    throw NOT_IMPLEMENTED('upsert')
+  async upsert(records: VectorRecord[]): Promise<void> {
+    if (records.length === 0) return
+    const rows: LanceRow[] = records.map((r) => ({
+      chunkId: r.chunkId,
+      documentId: r.documentId,
+      vector: r.vector,
+    }))
+    if (!this.table) {
+      const conn = this.requireConn()
+      // First write defines the schema (vector dim is taken from the data).
+      this.table = await conn.createTable(TABLE, rows)
+      return
+    }
+    await this.table
+      .mergeInsert('chunkId')
+      .whenMatchedUpdateAll()
+      .whenNotMatchedInsertAll()
+      .execute(rows)
   }
 
-  async remove(_chunkIds: number[]): Promise<void> {
-    // TODO(ADR-0005): table.delete(`chunkId IN (${ids.join(',')})`)
-    throw NOT_IMPLEMENTED('remove')
+  async remove(chunkIds: number[]): Promise<void> {
+    if (chunkIds.length === 0 || !this.table) return
+    await this.table.delete(`chunkId IN (${chunkIds.map((n) => Math.trunc(n)).join(',')})`)
   }
 
   async search(
-    _queryVector: number[],
-    _topK: number,
-    _opts?: VectorSearchOptions,
+    queryVector: number[],
+    topK: number,
+    opts: VectorSearchOptions = {},
   ): Promise<VectorSearchHit[]> {
-    // TODO(ADR-0005): table.search(vec).distanceType('cosine')
-    //   .where(activeDocumentIds filter).refineFactor(oversample).limit(topK)
-    //   then map distance -> (1 - distance) cosine similarity. Apply perDocK
-    //   diversity in the caller (RetrievalService) as today.
-    throw NOT_IMPLEMENTED('search')
+    if (!this.table || queryVector.length === 0 || topK <= 0) return []
+    const perDocK = opts.perDocK && opts.perDocK > 0 ? opts.perDocK : null
+    // Pull extra candidates when we need ANN recall headroom or have to cap per
+    // document, then trim after re-grouping.
+    const fetch = Math.max(topK, opts.oversample ?? topK, perDocK ? topK * 8 : 0)
+
+    // search(vector) yields a VectorQuery; the public type unions it with Query,
+    // so narrow before using the vector-only .distanceType().
+    let q = (this.table.search(queryVector) as VectorQuery).distanceType('cosine')
+    if (opts.activeDocumentIds && opts.activeDocumentIds.length > 0) {
+      q = q.where(`documentId IN (${opts.activeDocumentIds.map((n) => Math.trunc(n)).join(',')})`)
+    }
+    const raw = (await q.select(['chunkId', 'documentId']).limit(fetch).toArray()) as Array<{
+      chunkId: number
+      documentId: number
+      _distance: number
+    }>
+
+    // cosine _distance = 1 - cosine similarity → score back to [0,1] like pgvector.
+    let hits: VectorSearchHit[] = raw.map((r) => ({
+      chunkId: Number(r.chunkId),
+      documentId: Number(r.documentId),
+      score: 1 - r._distance,
+    }))
+
+    if (perDocK) {
+      const perDoc = new Map<number, number>()
+      hits = hits.filter((h) => {
+        const n = perDoc.get(h.documentId) ?? 0
+        if (n >= perDocK) return false
+        perDoc.set(h.documentId, n + 1)
+        return true
+      })
+    }
+    return hits.slice(0, topK)
   }
 
   async count(): Promise<number> {
-    // TODO(ADR-0005): return table.countRows()
-    throw NOT_IMPLEMENTED('count')
+    if (!this.table) return 0
+    return this.table.countRows()
   }
 
-  async buildIndex(_config?: VectorIndexConfig): Promise<void> {
-    // TODO(ADR-0005): table.createIndex('vector', { config: IvfPq / RaBitQ from
-    //                 this.config }) — skip when numSubVectors === 0 (flat).
-    throw NOT_IMPLEMENTED('buildIndex')
+  /** Builds the ANN index. Flat (numSubVectors === 0) workspaces skip it —
+   *  brute-force beats index maintenance below the threshold (suggestIndexConfig). */
+  async buildIndex(config: VectorIndexConfig = this.config): Promise<void> {
+    if (!this.table) return
+    if ((await this.table.countRows()) === 0) return
+    const index =
+      config.numSubVectors > 0
+        ? lancedb.Index.ivfPq({
+            distanceType: 'cosine',
+            numPartitions: config.numPartitions,
+            numSubVectors: config.numSubVectors,
+          })
+        : lancedb.Index.ivfFlat({
+            distanceType: 'cosine',
+            numPartitions: Math.max(1, config.numPartitions),
+          })
+    await this.table.createIndex('vector', { config: index, replace: true })
   }
 
   async flush(): Promise<void> {
-    throw NOT_IMPLEMENTED('flush')
+    // LanceDB writes are durable on execute(); compaction is a future
+    // optimisation. Nothing buffered to flush at this layer.
   }
 
   async close(): Promise<void> {
-    // Releasing the table handle is safe to call pre-open; real impl nulls it
-    // and lets the ObjectStore close its EncryptedBlockFile handles.
     this.table = null
+    if (this.conn) {
+      this.conn.close()
+      this.conn = null
+    }
+  }
+
+  private requireConn(): Connection {
+    if (!this.conn) throw new Error('LanceWorkspaceStore.open() not called')
+    return this.conn
   }
 }
