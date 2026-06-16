@@ -97,6 +97,21 @@ export interface MessageRow {
   tokenCount: number | null
 }
 
+export interface CitationRow {
+  id: number
+  messageId: number
+  chunkId: number
+  documentId: number
+  score: number | null
+  spanStart: number | null
+  spanEnd: number | null
+  createdAt: number
+}
+
+export interface MessageWithCitations extends MessageRow {
+  citations: CitationRow[]
+}
+
 /** Summary embeddings are stored as a BLOB of float32 (ADR-0003): hundreds of
  *  docs per workspace, so cosine is computed in JS. */
 function f32ToBlob(v: number[]): Buffer {
@@ -503,7 +518,7 @@ export class WorkspaceDb {
         const r = insert.get(
           documentId,
           c.ordinal,
-          c.text.split(' ').join(''),
+          c.text.split('\u0000').join(''),
           c.tokenCount,
           c.pageFrom,
           c.pageTo,
@@ -1082,7 +1097,7 @@ export class WorkspaceDb {
 
   async getConversationWithMessages(
     conversationId: number,
-  ): Promise<{ conversation: ConversationRow; messages: MessageRow[] } | null> {
+  ): Promise<{ conversation: ConversationRow; messages: MessageWithCitations[] } | null> {
     const c = this.one(
       `SELECT c.id, c.title, c.active_document_ids, c.created_at,
               COALESCE(MAX(m.created_at), c.created_at) AS last_activity_at,
@@ -1093,11 +1108,44 @@ export class WorkspaceDb {
     )
     if (!c || c.id == null) return null
     const conversation = this.toConversation(c, Number(c.last_activity_at), Number(c.message_count))
-    const messages = this.rows(
+    const messages: MessageWithCitations[] = this.rows(
       `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count
          FROM messages WHERE conversation_id = ? ORDER BY id`,
       [conversationId],
-    ).map((r) => this.toMessage(r))
+    ).map((r) => ({ ...this.toMessage(r), citations: [] as CitationRow[] }))
+    if (messages.length > 0) {
+      // document_id is derived via JOIN chunks (the citations table only stores
+      // chunk_id), mirroring the legacy PGlite getWithMessages shape so the chat
+      // history renderer keeps showing per-message sources.
+      const byMessage = new Map<number, CitationRow[]>()
+      for (const m of messages) byMessage.set(m.id, m.citations)
+      const placeholders = messages.map(() => '?').join(',')
+      const citRows = this.rows(
+        `SELECT cit.id AS id, cit.message_id AS message_id, cit.chunk_id AS chunk_id,
+                ch.document_id AS document_id, cit.score AS score,
+                cit.span_start AS span_start, cit.span_end AS span_end,
+                cit.created_at AS created_at
+           FROM citations cit
+           JOIN chunks ch ON ch.id = cit.chunk_id
+          WHERE cit.message_id IN (${placeholders})
+          ORDER BY cit.id`,
+        messages.map((m) => m.id),
+      )
+      for (const row of citRows) {
+        const list = byMessage.get(Number(row.message_id))
+        if (!list) continue
+        list.push({
+          id: Number(row.id),
+          messageId: Number(row.message_id),
+          chunkId: Number(row.chunk_id),
+          documentId: Number(row.document_id),
+          score: row.score == null ? null : Number(row.score),
+          spanStart: row.span_start == null ? null : Number(row.span_start),
+          spanEnd: row.span_end == null ? null : Number(row.span_end),
+          createdAt: Number(row.created_at),
+        })
+      }
+    }
     return { conversation, messages }
   }
 

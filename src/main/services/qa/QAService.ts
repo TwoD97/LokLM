@@ -1,4 +1,5 @@
-import type { Database, ChunkRow } from '../../db/database'
+import type { ChunkRow } from '../../db/database'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { RetrievalService } from '../retrieval/RetrievalService'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { AskOptions } from '../llm/LlamaService'
@@ -69,7 +70,7 @@ const CPU_SUMMARY_MAX_WINDOWS = 2
  */
 export class QAService {
   constructor(
-    private readonly db: Database,
+    private readonly db: WorkspaceDbFacade,
     private readonly retrieval: RetrievalService,
     private readonly registry: ProviderRegistry,
     private readonly summarization: SummarizationService,

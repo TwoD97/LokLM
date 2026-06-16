@@ -2,10 +2,12 @@ import { basename, extname } from 'node:path'
 import { statSync, type Stats } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { sql } from 'drizzle-orm'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
-import type { Document } from '../../db/schema'
+// ADR-0005: documents now come from the per-workspace encrypted SQLite store;
+// WsDocument is the camelCase row the facade returns (drop-in for the old
+// PGlite `Document` the renderer + services consume).
+import type { WsDocument as Document } from '../../db/sqlite/WorkspaceDb'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { DocumentsWorkerClient } from '../workers/DocumentsWorkerClient'
 import { ImportError, type IndexProgress } from './types'
@@ -164,7 +166,7 @@ export class DocumentService {
       workspaceId: input.workspaceId,
       title: basename(input.sourcePath),
       sourcePath: input.sourcePath,
-      mimeType: mime,
+      mimeType: mime ?? null,
       byteSize: stat.size,
       contentHash: hash,
       sourceMtime: Math.round(stat.mtimeMs),
@@ -494,7 +496,10 @@ export class DocumentService {
       }
 
       send('persisting', 4)
-      await repo.persistChunks(
+      // persistChunks returns the new chunk ids in insertion order, which is the
+      // same order as `out` (and therefore `vectors`). ADR-0005: this replaces
+      // the old document_id+ordinal re-query against the raw PGlite handle.
+      const chunkIds = await repo.persistChunks(
         doc.id,
         out.map((c) => ({
           ordinal: c.ordinal,
@@ -507,24 +512,12 @@ export class DocumentService {
         })),
       )
       if (vectors && activeIdentity) {
-        // chunks were just inserted; fetch their ids by document_id + ordinal
-        // and write embeddings in ONE multi-row UPDATE. Per-chunk UPDATEs were
-        // the dominant cost of large imports — a 500-chunk PDF was 500
-        // round-trips through the pglite JS boundary.
-        const db = this.auth.requireDatabase().db
-        const rows = await db.execute(sql`
-          SELECT id, ordinal FROM chunks WHERE document_id = ${doc.id} ORDER BY ordinal
-        `)
-        const byOrdinal = new Map<number, number>(
-          (rows.rows as { id: number; ordinal: number }[]).map((r) => [r.ordinal, r.id]),
-        )
         const writes: Array<{ id: number; vector: Float32Array }> = []
         for (let i = 0; i < out.length; i++) {
           const v = vectors[i]
-          const ord = out[i]?.ordinal
-          if (v == null || ord == null) continue
-          const id = byOrdinal.get(ord)
-          if (id != null) writes.push({ id, vector: v })
+          const id = chunkIds[i]
+          if (v == null || id == null) continue
+          writes.push({ id, vector: v })
         }
         if (writes.length > 0) {
           if (this.vectorSink) {

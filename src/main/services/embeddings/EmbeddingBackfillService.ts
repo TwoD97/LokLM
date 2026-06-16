@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron'
-import type { Database } from '../../db/database'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { BackfillStatus } from '../../../shared/documents'
 import { embedderModelStem } from './EmbeddingService'
@@ -23,7 +23,7 @@ export class EmbeddingBackfillService {
   private listeners: Array<(s: BackfillStatus) => void> = []
 
   constructor(
-    private readonly db: Database,
+    private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
     /** ADR-0005: writes backfilled embeddings into the per-workspace encrypted
      *  LanceDB store. When present, vectors go to Lance only and PGlite records

@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { sql } from 'drizzle-orm'
-import { Database } from '@main/db/database'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { AuthService } from '@main/services/auth/AuthService'
+import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { EmbeddingBackfillService } from '@main/services/embeddings/EmbeddingBackfillService'
 import { ProviderRegistry } from '@main/services/providers/Registry'
 import type {
@@ -9,11 +12,10 @@ import type {
   RerankerProvider,
 } from '@main/services/providers/types'
 
-// pgvector column on `chunks` is declared vector(1024) — both stub embedders
-// must produce 1024-dim output or setChunkEmbedding will fail with a
-// dimension-mismatch error. The identity round-trip is the only thing this
-// test exercises; vector content is irrelevant beyond "non-zero so cosine
-// doesn't blow up".
+// ADR-0005: chunk vectors now live in the per-workspace encrypted LanceDB store;
+// the SQLite `embedded` marker + `embedder_identity` track which embedder
+// produced them. This test exercises the identity round-trip + model-swap purge
+// against the facade; a vectorSink stub stands in for the LanceDB write.
 const DIM = 1024
 
 function mkEmbedder(id: string, seed = 0.1): EmbedderProvider {
@@ -48,15 +50,34 @@ function mkReranker(): RerankerProvider {
 }
 
 describe('embedder identity round-trip', () => {
-  let db: Database
+  let dir: string
+  let auth: AuthService
   let registry: ProviderRegistry
   let workspaceId: number
-  let chunkId: number
+  // Captures the vectors written to the (LanceDB-backed) sink so the test can
+  // prove a re-embed happened without a real Lance store.
+  let sink: Map<number, number[]>
+
+  const vectorSink = async (
+    _ws: number,
+    records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
+  ): Promise<void> => {
+    for (const r of records) sink.set(r.chunkId, r.vector)
+  }
+  const vectorRemove = async (_ws: number, chunkIds: number[]): Promise<void> => {
+    for (const id of chunkIds) sink.delete(id)
+  }
 
   beforeEach(async () => {
-    db = await Database.create(undefined)
-    const ws = await db.workspaces().create('w1')
+    dir = await mkdtemp(join(tmpdir(), 'loklm-emb-id-'))
+    auth = new AuthService(dir)
+    await auth.register({ displayName: 'Tst', password: 'Test12345!', recoveryLang: 'en' })
+    const ws = await new WorkspaceService(auth).create('w1')
     workspaceId = ws.id
+    await auth.activate(ws.id)
+    sink = new Map()
+
+    const db = auth.requireDatabase()
     const doc = await db.documents().addDocument({
       workspaceId: ws.id,
       title: 't',
@@ -70,11 +91,8 @@ describe('embedder identity round-trip', () => {
       .persistChunks(doc.id, [
         { ordinal: 0, text: 'hello', pageFrom: null, pageTo: null, tokenCount: 1 },
       ])
-    const r = await db.db.execute(sql`SELECT id FROM chunks WHERE document_id = ${doc.id}`)
-    chunkId = (r.rows as Array<{ id: number }>)[0]!.id
 
-    // Two embedders that produce distinct identities. Both 1024-dim so the
-    // pgvector column accepts writes from either; only `identity()` differs.
+    // Two embedders that produce distinct identities; only `identity()` differs.
     registry = new ProviderRegistry({
       llm: { bundled: mkLlm(), ollama: null },
       embedder: {
@@ -87,39 +105,43 @@ describe('embedder identity round-trip', () => {
   })
 
   afterEach(async () => {
-    await db.close()
+    await auth.lock().catch(() => undefined)
+    await rm(dir, { recursive: true, force: true })
   })
 
   it('tags newly-embedded chunks with the active embedder identity', async () => {
-    const svc = new EmbeddingBackfillService(db, registry)
-    await svc.run(workspaceId)
-    const r = await db.db.execute(sql`SELECT embedder_identity FROM chunks WHERE id = ${chunkId}`)
-    expect((r.rows as Array<{ embedder_identity: string }>)[0]!.embedder_identity).toBe(
-      'bundled:bge-m3',
+    const svc = new EmbeddingBackfillService(
+      auth.requireDatabase(),
+      registry,
+      vectorSink,
+      vectorRemove,
     )
+    await svc.run(workspaceId)
+    const ids = await auth.requireDatabase().documents().distinctEmbedderIdentities(workspaceId)
+    expect(ids).toContain('bundled:bge-m3')
+    expect(sink.size).toBe(1)
   })
 
   it('purges stale chunks and re-embeds on next run after embedder switch', async () => {
-    // First pass: bundled identity tags the chunk + writes a vector.
-    const svc = new EmbeddingBackfillService(db, registry)
-    await svc.run(workspaceId)
-    let r = await db.db.execute(
-      sql`SELECT embedder_identity, embedding FROM chunks WHERE id = ${chunkId}`,
+    const svc = new EmbeddingBackfillService(
+      auth.requireDatabase(),
+      registry,
+      vectorSink,
+      vectorRemove,
     )
-    let row = (r.rows as Array<{ embedder_identity: string; embedding: unknown }>)[0]!
-    expect(row.embedder_identity).toBe('bundled:bge-m3')
-    expect(row.embedding).not.toBeNull()
+    await svc.run(workspaceId)
+    expect(
+      await auth.requireDatabase().documents().distinctEmbedderIdentities(workspaceId),
+    ).toEqual(['bundled:bge-m3'])
+    expect(sink.size).toBe(1)
 
-    // Flip embedder source — registry now hands out the ollama embedder with
-    // a different identity. Backfill should purge the stale row (set
-    // embedding=NULL) then immediately re-embed it under the new identity.
+    // Flip embedder source — backfill should purge the stale chunk then
+    // immediately re-embed it under the new identity.
     registry.setEmbedderSource('ollama')
     await svc.run(workspaceId)
-    r = await db.db.execute(
-      sql`SELECT embedder_identity, embedding FROM chunks WHERE id = ${chunkId}`,
-    )
-    row = (r.rows as Array<{ embedder_identity: string; embedding: unknown }>)[0]!
-    expect(row.embedder_identity).toBe('ollama:nomic-embed-text')
-    expect(row.embedding).not.toBeNull()
+    expect(
+      await auth.requireDatabase().documents().distinctEmbedderIdentities(workspaceId),
+    ).toEqual(['ollama:nomic-embed-text'])
+    expect(sink.size).toBe(1)
   })
 })

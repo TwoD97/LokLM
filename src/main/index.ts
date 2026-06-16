@@ -375,7 +375,9 @@ function tierBaseDefaults(): UserSettings {
 function getSettingsService(): SettingsService {
   if (!settingsService) {
     settingsService = new SettingsService(
-      getAuth().requireDatabase(),
+      // ADR-0005: settings + avatar live in the encrypted vault body's kv store,
+      // which AuthService exposes (getKv/setKv/deleteKv) — no PGlite table.
+      getAuth(),
       () => getAuth().persistSnapshotIfUnlocked(),
       tierBaseDefaults(),
     )
@@ -848,6 +850,13 @@ function registerIpc(): void {
     getFolderSyncService().stop(id)
     await getWorkspaceService().delete(id)
   })
+  // ADR-0005: make a workspace the single ACTIVE one (opens its encrypted SQLite
+  // store + materialises its LanceDB vectors). The renderer calls this whenever
+  // the user switches workspace, so the id-keyed data ops (documents:get,
+  // conversations, quizzes, …) operate on the right workspace's store.
+  ipcMain.handle('workspaces:activate', async (_e, workspaceId: number) => {
+    await getAuth().activate(workspaceId)
+  })
   // ADR-0005: default workspace auto-loaded on unlock.
   ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())
   ipcMain.handle('workspaces:setDefault', async (_e, id: number | null) =>
@@ -1247,6 +1256,7 @@ function registerIpc(): void {
   ipcMain.handle('conversations:generateTitle', async (_e, id: number): Promise<string | null> => {
     const repo = getAuth().requireDatabase().conversations()
     const data = await repo.getWithMessages(id)
+    if (!data) return null
     if (data.conversation.title != null && data.conversation.title.trim().length > 0) {
       return data.conversation.title
     }

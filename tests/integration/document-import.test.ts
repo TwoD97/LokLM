@@ -26,6 +26,7 @@ describe('DocumentService.importFile (integration)', () => {
 
   it('imports a markdown file → ready, chunks present', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const path = join(dir, 'sample.md')
     await writeFile(path, '# Hello\n\nFirst paragraph.\n\nSecond paragraph.', 'utf-8')
 
@@ -49,6 +50,7 @@ describe('DocumentService.importFile (integration)', () => {
 
   it('imports a docx file → markdown-aware chunks with heading_path populated', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     // Copy the fixture into the temp dir — DocumentService stores sourcePath,
     // we don't want the test to mutate the committed fixture by accident.
     const path = join(dir, 'sample.docx')
@@ -87,6 +89,7 @@ describe('DocumentService.importFile (integration)', () => {
 
   it('rejects unsupported extensions', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     await expect(
       docs.importFile({ workspaceId: ws.id, sourcePath: '/tmp/foo.xyz' }),
@@ -95,6 +98,7 @@ describe('DocumentService.importFile (integration)', () => {
 
   it('rejects files over 50 MB', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const path = join(dir, 'big.txt')
     const fh = await (await import('node:fs/promises')).open(path, 'w')
     await fh.truncate(51 * 1024 * 1024)
@@ -112,6 +116,7 @@ describe('DocumentService.importFile (integration)', () => {
   // exercises the same flow end-to-end so the bug can't sneak back.
   it('reindex re-vectorizes an already-imported doc without insert collision', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const path = join(dir, 'sample.md')
     await writeFile(path, '# Hello\n\nBefore reindex.', 'utf-8')
 
@@ -152,6 +157,7 @@ describe('DocumentService.importFile (integration)', () => {
   // ImportError instead of the raw `insert into "documents"` SQL trace.
   it('importFile throws ImportError(already_imported) for a known (workspace, path)', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const path = join(dir, 'sample.md')
     await writeFile(path, '# Hello\n\nFirst paragraph.', 'utf-8')
 
@@ -170,6 +176,7 @@ describe('DocumentService.importFile (integration)', () => {
   // backlog rather than stalling after the first couple of jobs.
   it('drains a batch of imports through the bounded queue (all reach ready)', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const sent: IndexProgress[] = []
     const fakeSender = { send: (_ch: string, payload: IndexProgress) => sent.push(payload) }
     const docs = new DocumentService(auth)
@@ -200,6 +207,7 @@ describe('DocumentService.importFile (integration)', () => {
   // get flipped to 'failed'; 'ready' docs are untouched.
   it('sweepOrphanedIndexing flips stuck pending/indexing docs to failed', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const repo = auth.requireDatabase().documents()
     const base = {
       workspaceId: ws.id,
@@ -240,6 +248,7 @@ describe('DocumentService.importFile (integration)', () => {
   // leaves a consistent library: surviving docs = N − cancelled, none stuck.
   it('cancelWorkspaceIndexing removes queued imports and settles cleanly', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const N = 12
     for (let i = 0; i < N; i++) {
@@ -270,6 +279,7 @@ describe('DocumentService.importFile (integration)', () => {
     'reindex round-trips the Thinking_Fast_and_Slow PDF (user repro)',
     async () => {
       const ws = await new WorkspaceService(auth).create('WS')
+      await auth.activate(ws.id)
 
       const sent: IndexProgress[] = []
       const fakeSender = { send: (_ch: string, payload: IndexProgress) => sent.push(payload) }

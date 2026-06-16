@@ -58,6 +58,16 @@ export function AppShell(): JSX.Element {
     void refreshWorkspaces()
   }, [refreshWorkspaces])
 
+  // ADR-0005: activating a workspace opens its encrypted SQLite store and
+  // materialises its LanceDB vectors in main, and makes it the ACTIVE workspace
+  // the per-id data ops (documents:get, conversations, quizzes) resolve against.
+  // Fire it on every workspace switch, before the views below fetch id-keyed
+  // data, so they hit the right store.
+  useEffect(() => {
+    if (activeWorkspaceId == null) return
+    void window.api.workspaces.activate(activeWorkspaceId).catch(() => undefined)
+  }, [activeWorkspaceId])
+
   // Load docs for the active workspace; refresh on view switch back to chat
   // (covers deletions that happened in the Library) and on index-done events
   // (covers fresh imports).
