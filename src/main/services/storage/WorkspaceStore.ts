@@ -33,7 +33,7 @@ interface ActiveWorkspace {
   id: number
   encDir: EncryptedWorkspaceDir
   store: LanceWorkspaceStore
-  /** Per-workspace relational + FTS store (encrypted libSQL), keyed by the WDEK. */
+  /** Per-workspace relational + FTS store (encrypted SQLite), keyed by the WDEK. */
   db: WorkspaceDb
   wdek: Buffer
 }
@@ -156,8 +156,8 @@ export class WorkspaceStore {
       datasetDir,
     })
     await store.open()
-    // Per-workspace relational/FTS store: an encrypted libSQL file in the
-    // workspace dir (NOT inside enc/work — libSQL self-encrypts transparently),
+    // Per-workspace relational/FTS store: an encrypted SQLite file in the
+    // workspace dir (NOT inside enc/work — SQLite self-encrypts transparently),
     // keyed by this workspace's WDEK as hex.
     let db: WorkspaceDb
     try {

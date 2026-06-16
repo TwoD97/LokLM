@@ -642,7 +642,7 @@ function getRetrievalService(): RetrievalService {
       // ADR-0005: dense search reads from the per-workspace encrypted Lance store.
       (workspaceId, queryVec, topK, opts) =>
         getWorkspaceVectorService().search(workspaceId, queryVec, topK, opts),
-      // ADR-0005: relational/BM25 reads run against the workspace's libSQL store.
+      // ADR-0005: relational/BM25 reads run against the workspace's SQLite store.
       (workspaceId) => getAuth().getWorkspaceDb(workspaceId),
     )
   }

@@ -124,9 +124,10 @@
     "@electric-sql/pglite": "^0.4.6",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@lancedb/lancedb": "^0.30.0",
-    "@libsql/client": "^0.17.4",
     "@napi-rs/canvas": "^0.1.100",
+    "@types/better-sqlite3": "^7.6.13",
     "argon2": "^0.44.0",
+    "better-sqlite3-multiple-ciphers": "^12.10.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "eld": "^2.0.3",
@@ -252,7 +253,8 @@
       "@electron/rebuild",
       "node-llama-cpp",
       "@mongodb-js/zstd",
-      "sodium-native"
+      "sodium-native",
+      "better-sqlite3-multiple-ciphers"
     ],
     "overrides": {
       "esbuild": "0.25.12",
