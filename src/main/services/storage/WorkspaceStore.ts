@@ -29,13 +29,17 @@ import {
 
 const EMBED_DIMS = 1024 // BGE-M3
 
+// Two open costs, two lifetimes (ADR-0005):
+//  - meta.db (encrypted SQLite/SQLCipher): cheap to open (file handle + key, no
+//    materialisation). Several can be open at once, so background folder-sync can
+//    write text into any workspace. Kept in `metaDbs`, closed on lock.
+//  - LanceDB vectors: expensive (decrypt-on-open materialises enc/→work/). Bound
+//    to the single `active` workspace; switching deactivates the previous one.
+
 interface ActiveWorkspace {
   id: number
   encDir: EncryptedWorkspaceDir
   store: LanceWorkspaceStore
-  /** Per-workspace relational + FTS store (encrypted SQLite), keyed by the WDEK. */
-  db: WorkspaceDb
-  wdek: Buffer
 }
 
 export interface WorkspaceStoreDeps {
@@ -58,6 +62,10 @@ export class WorkspaceStore {
   private readonly dims: number
   private manifest: VaultManifest
   private active: ActiveWorkspace | null = null
+  /** All open per-workspace SQLite handles (cheap), keyed by workspace id, with
+   *  the unwrapped WDEK to wipe on close. Outlives workspace switches; cleared
+   *  on lock. */
+  private readonly metaDbs = new Map<number, { db: WorkspaceDb; wdek: Buffer }>()
 
   constructor(deps: WorkspaceStoreDeps) {
     this.baseDir = deps.baseDir
@@ -125,27 +133,46 @@ export class WorkspaceStore {
     return entry
   }
 
-  /** Opens a workspace for reads/writes, closing any currently-open one first.
-   *  Returns its VectorStore. */
-  async open(id: number): Promise<VectorStore> {
-    if (this.active?.id === id) return this.active.store
-    if (this.active) await this.close()
-
+  /** Opens (cheap) a workspace's encrypted SQLite store WITHOUT materialising its
+   *  LanceDB vectors. Several can be open at once — used by background folder-sync
+   *  + ingestion text writes for any workspace, and as the BM25/relational reader.
+   *  Cached for the session; closed on lock. */
+  async openMetaDb(id: number): Promise<WorkspaceDb> {
+    const existing = this.metaDbs.get(id)
+    if (existing) return existing.db
     const entry = this.requireEntry(id)
     const wdek = unwrapWorkspaceKey(this.masterDek, entry.wrappedKey)
     if (!wdek) throw new Error(`workspace ${id} key failed to unwrap (wrong/rotated master key?)`)
-
-    const encDir = new EncryptedWorkspaceDir(join(this.baseDir, entry.dir), wdek)
-    let datasetDir: string
+    const dir = join(this.baseDir, entry.dir)
+    await fs.mkdir(dir, { recursive: true })
+    let db: WorkspaceDb
     try {
-      datasetDir = await encDir.open()
+      db = await WorkspaceDb.open(join(dir, 'meta.db'), wdek.toString('hex'), id)
     } catch (err) {
       secureWipe(wdek)
       throw err
     }
+    this.metaDbs.set(id, { db, wdek })
+    return db
+  }
+
+  /** Opens a workspace's vector store (materialises LanceDB), making it the
+   *  single `active` workspace; deactivates any previous one. The cheap meta.db
+   *  is opened/reused alongside. Returns its VectorStore. */
+  async open(id: number): Promise<VectorStore> {
+    if (this.active?.id === id) return this.active.store
+    if (this.active) await this.deactivate()
+
+    // ensure the (cheap) meta db is open; reuse its unwrapped WDEK for LanceDB.
+    await this.openMetaDb(id)
+    const wdek = this.metaDbs.get(id)!.wdek
+    const entry = this.requireEntry(id)
+
+    const encDir = new EncryptedWorkspaceDir(join(this.baseDir, entry.dir), wdek)
+    const datasetDir = await encDir.open()
     if (encDir.recovered) {
       // Corrupt enc store was quarantined; vectors will be re-embedded from the
-      // vault's chunk text (WorkspaceVectorService.reconcileOnOpen). Reset the
+      // workspace's chunk text (WorkspaceVectorService.reconcileOnOpen). Reset the
       // cached count so the manifest reflects the empty-then-rebuilt store.
       entry.vectorCount = 0
       console.warn(`[workspace ${id}] recovered from a corrupt vector store`)
@@ -156,35 +183,18 @@ export class WorkspaceStore {
       datasetDir,
     })
     await store.open()
-    // Per-workspace relational/FTS store: an encrypted SQLite file in the
-    // workspace dir (NOT inside enc/work — SQLite self-encrypts transparently),
-    // keyed by this workspace's WDEK as hex.
-    let db: WorkspaceDb
-    try {
-      db = await WorkspaceDb.open(
-        join(this.baseDir, entry.dir, 'meta.db'),
-        wdek.toString('hex'),
-        id,
-      )
-    } catch (err) {
-      await store.close()
-      await encDir.close({ discard: true })
-      secureWipe(wdek)
-      throw err
-    }
-    this.active = { id, encDir, store, db, wdek }
+    this.active = { id, encDir, store }
     return store
   }
 
-  /** Opens (if needed) workspace `id` and returns its relational/FTS store. */
+  /** The relational/FTS store for `id` (cheap meta open). Alias kept for callers. */
   async openDb(id: number): Promise<WorkspaceDb> {
-    await this.open(id)
-    return this.active!.db
+    return this.openMetaDb(id)
   }
 
-  /** The open workspace's relational/FTS store, or null when none is open. */
+  /** The active workspace's relational store, or null when none is active. */
   currentDb(): WorkspaceDb | null {
-    return this.active?.db ?? null
+    return this.active ? (this.metaDbs.get(this.active.id)?.db ?? null) : null
   }
 
   /** Opens the default workspace (configured → newest → none). Null if there
@@ -216,34 +226,50 @@ export class WorkspaceStore {
     return this.active?.store ?? null
   }
 
-  /** Closes the active workspace: refresh its vector count, re-encrypt its files,
-   *  wipe the plaintext copy + WDEK. `discard` skips the re-encrypt (e.g. on a
-   *  workspace being deleted). */
-  async close(opts: { discard?: boolean } = {}): Promise<void> {
+  /** Deactivates the active workspace's VECTOR store: refresh its count,
+   *  re-encrypt its Lance files, wipe the plaintext copy. The meta.db stays open
+   *  (cheap). `discard` skips the re-encrypt (e.g. workspace deletion). */
+  private async deactivate(opts: { discard?: boolean } = {}): Promise<void> {
     const a = this.active
     if (!a) return
     this.active = null
-    try {
-      if (!opts.discard) {
-        const entry = this.manifest.workspaces.find((w) => w.id === a.id)
-        if (entry) {
-          entry.vectorCount = await a.store.count()
-        }
-      }
-      a.db.close()
-      await a.store.close()
-      await a.encDir.close({ ...(opts.discard ? { discard: true } : {}) })
-      if (!opts.discard) await this.persistManifest(this.manifest)
-    } finally {
-      secureWipe(a.wdek)
+    if (!opts.discard) {
+      const entry = this.manifest.workspaces.find((w) => w.id === a.id)
+      if (entry) entry.vectorCount = await a.store.count()
     }
+    await a.store.close()
+    await a.encDir.close({ ...(opts.discard ? { discard: true } : {}) })
+    if (!opts.discard) await this.persistManifest(this.manifest)
   }
 
-  /** Deletes a workspace: closes it if active, removes its directory + manifest
+  /** Full teardown (lock/logout): deactivate the vector store and close every
+   *  open meta.db, wiping all WDEKs. */
+  async close(opts: { discard?: boolean } = {}): Promise<void> {
+    await this.deactivate(opts)
+    for (const { db, wdek } of this.metaDbs.values()) {
+      try {
+        db.close()
+      } finally {
+        secureWipe(wdek)
+      }
+    }
+    this.metaDbs.clear()
+  }
+
+  /** Deletes a workspace: closes its stores, removes its directory + manifest
    *  entry, and clears the default if it pointed here. */
   async delete(id: number): Promise<void> {
     const entry = this.requireEntry(id)
-    if (this.active?.id === id) await this.close({ discard: true })
+    if (this.active?.id === id) await this.deactivate({ discard: true })
+    const meta = this.metaDbs.get(id)
+    if (meta) {
+      try {
+        meta.db.close()
+      } finally {
+        secureWipe(meta.wdek)
+      }
+      this.metaDbs.delete(id)
+    }
     await fs.rm(join(this.baseDir, entry.dir), { recursive: true, force: true })
     this.manifest.workspaces = this.manifest.workspaces.filter((w) => w.id !== id)
     if (this.manifest.defaultWorkspaceId === id) this.manifest.defaultWorkspaceId = null

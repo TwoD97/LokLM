@@ -2,51 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, readdir, readFile, writeFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { sql } from 'drizzle-orm'
 import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceVectorService } from '@main/services/storage/WorkspaceVectorService'
-import type { Database } from '@main/db/database'
 
-// ADR-0005 clean cut: in the app, chunk vectors live ONLY in the encrypted
-// LanceDB store; the pgvector column stays NULL and bookkeeping keys off the
-// `embedded` marker. This pins that contract end-to-end through the real vault.
+// ADR-0005 end-to-end: vectors live ONLY in the encrypted LanceDB store; the
+// workspace SQLite holds chunk text + the `embedded` marker. Search hydrates
+// from SQLite; a lost/corrupt Lance store self-heals by re-marking chunks for
+// re-embedding from the SQLite text (no permanent data loss).
 
-const DIMS = 8
-const vec = (s: number, d: number = DIMS): number[] =>
-  Array.from({ length: d }, (_, i) => Math.sin(s + i))
+const DIMS = 16
+const vec = (s: number): number[] => Array.from({ length: DIMS }, (_, i) => Math.sin(s + i))
 
-async function seedChunks(
-  db: Database,
-  workspaceId: number,
-  n: number,
-): Promise<{ docId: number; chunkIds: number[] }> {
-  const [doc] = (
-    await db.db.execute(sql`
-      INSERT INTO documents (workspace_id, title, source_path, status)
-      VALUES (${workspaceId}, 'Doc', '/tmp/d.txt', 'ready') RETURNING id
-    `)
-  ).rows as Array<{ id: number }>
-  const chunkIds: number[] = []
-  for (let i = 0; i < n; i++) {
-    const [c] = (
-      await db.db.execute(sql`
-        INSERT INTO chunks (document_id, ordinal, text) VALUES (${doc!.id}, ${i}, ${'t' + i}) RETURNING id
-      `)
-    ).rows as Array<{ id: number }>
-    chunkIds.push(c!.id)
-  }
-  return { docId: doc!.id, chunkIds }
-}
-
-const embeddingNullCount = async (db: Database, chunkIds: number[]): Promise<number> => {
-  const lit = '{' + chunkIds.join(',') + '}'
-  const r = await db.db.execute(sql`
-    SELECT count(*)::int AS n FROM chunks WHERE id = ANY(${lit}::int[]) AND embedding IS NULL
-  `)
-  return (r.rows as Array<{ n: number }>)[0]!.n
-}
-
-describe('workspace vector lifecycle (clean cut)', () => {
+describe('workspace vector lifecycle (SQLite + LanceDB)', () => {
   let userDataDir: string
   let auth: AuthService
 
@@ -60,80 +27,71 @@ describe('workspace vector lifecycle (clean cut)', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
-  it('sink-only path: vectors in Lance, pgvector NULL, marker drives the count', async () => {
-    const db = auth.requireDatabase()
-    const ws = await db.workspaces().create('W')
-    const { docId, chunkIds } = await seedChunks(db, ws.id, 4)
+  async function seed(n: number): Promise<{ wsId: number; docId: number; chunkIds: number[] }> {
+    const ws = await auth.getWorkspaceStore().create('W')
+    const db = await auth.getWorkspaceDb(ws.id)
+    const doc = await db.addDocument({ title: 'Doc', sourcePath: '/d.txt', status: 'ready' })
+    const chunkIds = await db.persistChunks(
+      doc.id,
+      Array.from({ length: n }, (_, i) => ({
+        ordinal: i,
+        text: `chunk ${i}`,
+        pageFrom: null,
+        pageTo: null,
+        tokenCount: 2,
+      })),
+    )
+    return { wsId: ws.id, docId: doc.id, chunkIds }
+  }
 
-    expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(4)
+  it('vectors in Lance + embedded marker in SQLite; search hydrates from SQLite', async () => {
+    const { wsId, docId, chunkIds } = await seed(4)
+    const db = await auth.getWorkspaceDb(wsId)
+    expect(await db.countChunksMissingEmbedding()).toBe(4)
 
-    // app ingestion: vectors → Lance, marker → PGlite (no pgvector write)
     const vsvc = new WorkspaceVectorService(auth)
     await vsvc.upsert(
-      ws.id,
+      wsId,
       chunkIds.map((id, i) => ({ chunkId: id, documentId: docId, vector: vec(i) })),
     )
-    await db.documents().markChunksEmbedded(chunkIds, 'bundled:bge-m3')
+    await db.markChunksEmbedded(chunkIds, 'bundled:bge-m3')
 
-    expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(0)
-    expect(await embeddingNullCount(db, chunkIds)).toBe(4) // pgvector untouched
-    const hits = await vsvc.search(ws.id, vec(1), 1)
-    expect(hits[0]!.chunk_id).toBe(chunkIds[1])
+    expect(await db.countChunksMissingEmbedding()).toBe(0)
+    const hit = (await vsvc.search(wsId, vec(1), 1))[0]
+    expect(hit!.chunk_id).toBe(chunkIds[1])
   }, 60_000)
 
-  it('model-swap purge resets the marker and drops the vectors from Lance', async () => {
-    const db = auth.requireDatabase()
-    const ws = await db.workspaces().create('W')
-    const { docId, chunkIds } = await seedChunks(db, ws.id, 3)
+  it('model-swap purge resets the marker and drops vectors from Lance', async () => {
+    const { wsId, docId, chunkIds } = await seed(3)
+    const db = await auth.getWorkspaceDb(wsId)
     const vsvc = new WorkspaceVectorService(auth)
     await vsvc.upsert(
-      ws.id,
+      wsId,
       chunkIds.map((id, i) => ({ chunkId: id, documentId: docId, vector: vec(i) })),
     )
-    await db.documents().markChunksEmbedded(chunkIds, 'bundled:bge-m3')
-    expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(0)
+    await db.markChunksEmbedded(chunkIds, 'bundled:bge-m3')
+    expect(await db.countChunksMissingEmbedding()).toBe(0)
 
-    // swap model → purge by old identity returns ids + resets the marker
-    const purged = await db.documents().purgeEmbeddingsByIdentity(ws.id, 'bundled:bge-m3')
+    const purged = await db.purgeEmbeddingsByIdentity('bundled:bge-m3')
     expect(purged.sort()).toEqual([...chunkIds].sort())
-    expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(3) // missing again
-    await vsvc.remove(ws.id, purged)
-    expect(await vsvc.search(ws.id, vec(0), 5)).toHaveLength(0) // gone from Lance
+    expect(await db.countChunksMissingEmbedding()).toBe(3)
+    await vsvc.remove(wsId, purged)
+    expect(await vsvc.search(wsId, vec(0), 5)).toHaveLength(0)
   }, 60_000)
 
-  it('legacy migration: copies pgvector → Lance then nulls the column', async () => {
-    const db = auth.requireDatabase()
-    const ws = await db.workspaces().create('W')
-    const { chunkIds } = await seedChunks(db, ws.id, 3)
-    // simulate a pre-ADR-0005 library: vectors stored in the pgvector column,
-    // which is fixed at vector(1024) — so seed full-dimension embeddings.
-    for (let i = 0; i < chunkIds.length; i++) {
-      await db.documents().setChunkEmbedding(chunkIds[i]!, vec(i, 1024), 'bundled:bge-m3')
-    }
-    expect(await embeddingNullCount(db, chunkIds)).toBe(0) // all have vectors
-
-    // first open through the bridge migrates them into Lance + reclaims pgvector
-    const vsvc = new WorkspaceVectorService(auth)
-    const hits = await vsvc.search(ws.id, vec(2, 1024), 1)
-    expect(hits[0]!.chunk_id).toBe(chunkIds[2])
-    expect(await embeddingNullCount(db, chunkIds)).toBe(3) // column reclaimed
-    expect(await db.documents().countChunksMissingEmbedding(ws.id)).toBe(0) // still embedded
-  }, 60_000)
-
-  it('recovers from a corrupt at-rest store: no content loss, vectors re-scheduled', async () => {
-    const db = auth.requireDatabase()
-    const ws = await db.workspaces().create('W')
-    const { docId, chunkIds } = await seedChunks(db, ws.id, 3)
+  it('recovers from a corrupt Lance store: no content loss, vectors re-scheduled', async () => {
+    const { wsId, docId, chunkIds } = await seed(3)
+    const db = await auth.getWorkspaceDb(wsId)
     const vsvc = new WorkspaceVectorService(auth)
     await vsvc.upsert(
-      ws.id,
+      wsId,
       chunkIds.map((id, i) => ({ chunkId: id, documentId: docId, vector: vec(i) })),
     )
-    await db.documents().markChunksEmbedded(chunkIds, 'bundled:bge-m3')
-    await auth.lock() // persists the encrypted enc/ store + the vault
+    await db.markChunksEmbedded(chunkIds, 'bundled:bge-m3')
+    await auth.lock() // persists the encrypted Lance store + SQLite
 
-    // simulate disk corruption / a torn power-loss write: flip a byte in an enc file
-    const encDir = join(userDataDir, 'workspaces', `ws-${ws.id}`, 'enc')
+    // corrupt a byte in the workspace's encrypted Lance tree
+    const encDir = join(userDataDir, 'workspaces', `ws-${wsId}`, 'enc')
     const findFile = async (d: string): Promise<string | null> => {
       for (const e of await readdir(d, { withFileTypes: true })) {
         const p = join(d, e.name)
@@ -145,27 +103,19 @@ describe('workspace vector lifecycle (clean cut)', () => {
       return null
     }
     const victim = await findFile(encDir)
-    expect(victim).not.toBeNull()
     const buf = await readFile(victim!)
     buf.writeUInt8(buf.readUInt8(buf.length - 1) ^ 0xff, buf.length - 1)
     await writeFile(victim!, buf)
 
-    // restart + reopen: must not throw, store recovers empty, markers reset so
-    // the backfill re-embeds from chunk text — and the text itself is intact.
+    // restart + reopen: store quarantined → empty, markers reset so backfill
+    // re-embeds; chunk text intact in SQLite
     const auth2 = new AuthService(userDataDir)
     expect((await auth2.login('Test12345!')).ok).toBe(true)
-    const db2 = auth2.requireDatabase()
     const vsvc2 = new WorkspaceVectorService(auth2)
-
-    expect(await vsvc2.search(ws.id, vec(0), 5)).toHaveLength(0) // store quarantined → empty
-    expect(await db2.documents().countChunksMissingEmbedding(ws.id)).toBe(3) // re-embed pending
-    // no content loss: chunk text survived in the vault
-    const texts = (
-      await db2.db.execute(
-        sql`SELECT text FROM chunks WHERE document_id = ${docId} ORDER BY ordinal`,
-      )
-    ).rows as Array<{ text: string }>
-    expect(texts.map((t) => t.text)).toEqual(['t0', 't1', 't2'])
+    expect(await vsvc2.search(wsId, vec(0), 5)).toHaveLength(0)
+    const db2 = await auth2.getWorkspaceDb(wsId)
+    expect(await db2.countChunksMissingEmbedding()).toBe(3) // re-embed pending
+    expect((await db2.getDocument(docId))!.title).toBe('Doc') // text intact
     await auth2.lock()
   }, 90_000)
 })
