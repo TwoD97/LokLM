@@ -1,6 +1,6 @@
 # ADR-0005 — Per-Workspace skalierter, verschlüsselter Vektor-Store (LanceDB + Block-Crypto)
 
-**Status:** proposed
+**Status:** accepted (Revision 2026-06-16: ObjectStore-Hook im Node-SDK nicht verfügbar → Decrypt-on-Open, siehe §3)
 **Datum:** 2026-06-16
 **Owner:** Denys
 **Bezug:** [ADR-0002](0002-envelope-encryption-aes-gcm.md) (Envelope-Encryption), [ADR-0003](0003-query-routing-und-summary-index.md) (Retrieval), [PH] §3.1.1 (Verschlüsselung), §3.2 (Retrieval/Skalierung)
@@ -11,7 +11,7 @@
 | Paket                  | Rolle in dieser Entscheidung                                                                                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@lancedb/lancedb`     | **Neu.** Embedded (In-Process, kein Sidecar) Vektor-DB. Rust-Kern, Native-Node-Bindings. IVF-PQ / RaBitQ auf Platte, ~1–5 ms bei Milliarden-Scale. Dataset = ein Verzeichnis pro Workspace. |
-| `node:crypto`          | Block-Crypto (`aes-256-gcm`) für den verschlüsselten ObjectStore unter LanceDB + WDEK-Wrapping. Gleiche Primitive wie ADR-0002, kein neues Krypto-Surface.                                  |
+| `node:crypto`          | Block-Crypto (`aes-256-gcm`) für die At-Rest-Verschlüsselung der Workspace-Dateien (Decrypt-on-Open, §3) + WDEK-Wrapping. Gleiche Primitive wie ADR-0002, kein neues Krypto-Surface.        |
 | `@electric-sql/pglite` | **Bestand, Rolle schrumpft.** Bleibt zunächst pro Workspace als Relationen-/FTS-Store (documents, chunks-Text, conversations, BM25). Hält _keine_ Vektoren mehr im WASM-Heap.               |
 | `argon2`               | Unverändert — leitet nur noch den Master-KEK ab (ADR-0001). WDEKs hängen am Master-DEK, nicht direkt an Argon2.                                                                             |
 
@@ -72,16 +72,46 @@ Nur der **aktive** Workspace ist geöffnet (`WorkspaceStore.open(id)`); Wechsel 
 - Columnar Dataset = Verzeichnis pro Workspace → 1:1-Mapping auf Topologie und „pro Workspace laden".
 - Indexparameter pro Workspace nach Größe ([`suggestIndexConfig`](../../src/shared/workspaceStorage.ts)): < 50k Vektoren → flach (Brute-Force schlägt Indexpflege), darüber IVF mit `numPartitions ≈ √rows`, PQ ~1 Byte / 8 dims.
 
-### 3. Verschlüsselung: Block-Level AES-256-GCM unter der Engine (für _alle_ Workspaces)
+### 3. Verschlüsselung: Block-verschlüsselt at-rest, Decrypt-on-Open pro Workspace
 
-LanceDB OSS hat keine At-Rest-Verschlüsselung, also lassen wir es **nicht** direkt aufs Dateisystem schreiben. Es bekommt einen **verschlüsselten ObjectStore**, dessen Reads/Writes durch [`EncryptedBlockFile`](../../src/main/services/storage/blockCipher.ts) laufen:
+> **Revision 2026-06-16.** Die ursprüngliche Idee — LanceDB durch einen
+> **verschlüsselten ObjectStore** schreiben zu lassen — wurde gegen die reale
+> API verifiziert und **verworfen**: `ObjectStoreRegistry` / `WrappingObjectStore`
+> existieren nur im **Rust-Kern**, sind im Node- (und selbst im Python-) SDK
+> _nicht_ exponiert (das Python-`Session`-Binding nimmt nur Cache-Größen). LanceDB
+> OSS hat keine At-Rest-Verschlüsselung für lokale Dateien (nur Cloud-KMS auf S3).
+> Ein In-Process-Block-Crypto-Hook wäre nur über einen Fork der nativen Bindings
+> machbar — zu groß/fragil. Gewählt (Q3): **Decrypt-on-Open pro Workspace.**
 
-- Blocklayout: `nonce(12) ‖ tag(16) ‖ ciphertext`. Default 64 KiB Klartext/Block.
-- Frischer 96-bit-Random-Nonce pro Write (Blöcke werden in-place überschrieben → Counter-Nonce riskierte (key,nonce)-Reuse).
-- **AAD = fileId ‖ blockIndex(uint64 BE):** bindet jeden Block an seine Position in einer konkreten Datei. Ein Angreifer kann Blöcke weder innerhalb noch zwischen Dateien (gleicher WS-Key) verschieben, ohne dass der Tag-Check failt → positionsgebundene Integrität.
-- Wrong-Key-Detection wieder rein über den GCM-Tag, kein separater Verifier (konsistent mit ADR-0002).
+Die Block-Crypto-Primitive aus [`blockCipher.ts`](../../src/main/services/storage/blockCipher.ts)
+bleiben unverändert die Grundlage — sie verschlüsseln jetzt die Dateien **at-rest**,
+nicht zur Laufzeit der Engine:
 
-Der `meta.db` (Relationen + Chunk-Text) ist klein genug für SQLCipher-artige Seitenverschlüsselung bzw. dasselbe Block-Layer. **Entscheidung Q2: „full block-level crypto" für jeden Workspace** — `EncryptionLevel` bleibt als Feld im Manifest (forward-compat), aktuell nur `'full'`.
+- **At-Rest:** Jede Workspace-Datei (Lance-Fragmente, Manifeste, `meta.db`) liegt
+  als Folge von AES-256-GCM-Blöcken im `enc/`-Verzeichnis des Workspaces.
+  Blocklayout `nonce(12) ‖ tag(16) ‖ ciphertext`, 64 KiB Klartext/Block, frischer
+  Random-Nonce pro Write, **AAD = relPath ‖ blockIndex** (bindet jeden Block an
+  Datei + Position; Reorder/Relocation scheitert am Tag). Wrong-Key-Detection
+  rein über den GCM-Tag (konsistent ADR-0002).
+- **Open:** Beim Öffnen eines Workspaces wird _nur dessen_ `enc/`-Baum in ein
+  0600-Arbeitsverzeichnis entschlüsselt; LanceDB läuft normal darauf. Entschlüsselt
+  wird **ein** Workspace (typ. wenige GB), nicht der 100–500-GB-Gesamtkorpus —
+  genau der Schmerz, den der Single-Vault hatte, ist damit auf die aktive
+  Workspace-Größe begrenzt.
+- **Close/Lock:** Geänderte/neue Arbeitsdateien werden zurück nach `enc/`
+  verschlüsselt (inkrementell — Lance schreibt neue, immutable Fragmente, also
+  ist Delta-Persist natürlich), entfernte Dateien gelöscht, dann das
+  Arbeitsverzeichnis gewiped.
+
+**Akzeptierter Trade (Q3):** Während ein Workspace _offen_ ist, liegen seine
+Dateien als Klartext im 0600-Arbeitsverzeichnis. Im Ruhezustand (locked) ist
+alles verschlüsselt. Das gibt **nicht** „nur die angefassten Blöcke entschlüsseln";
+es ist der buildbare In-Process-Kompromiss ohne FUSE/WinFsp-Treiber oder
+LanceDB-Fork. Die transparente Block-Crypto-Variante (FUSE/WinFsp oder Rust-Fork)
+bleibt als Upgrade-Pfad dokumentiert.
+
+**Entscheidung Q2: „full block-level crypto" für jeden Workspace** — `EncryptionLevel`
+bleibt als Feld im Manifest (forward-compat), aktuell nur `'full'`.
 
 ### 4. Schlüssel: hierarchisches Envelope, Master-DEK → WDEK pro Workspace
 

@@ -1,7 +1,7 @@
 # Design: DB-Skalierung + Per-Workspace-Verschlüsselung
 
 **Datum:** 2026-06-16
-**Status:** Entwurf (Scaffolding gemerged, Engine-Integration ausstehend)
+**Status:** In Umsetzung — Storage-Engine implementiert + integrationsgetestet (Node), App-Verdrahtung (AuthService/IPC/UI/Migration) folgt
 **Entscheidung:** [ADR-0005](../adr/0005-per-workspace-scaled-encrypted-vector-store.md)
 
 Dieses Dokument ist der Umsetzungsplan zu ADR-0005: vom heutigen In-Memory-PGlite-
@@ -17,35 +17,37 @@ Workspace, nicht am Gesamtkorpus.
 
 ## Was bereits im Repo liegt (dieser Branch)
 
-| Datei                                                                  | Inhalt                                                                                                                             | Reife                                    |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `src/shared/workspaceStorage.ts`                                       | `VaultManifest`, `WorkspaceManifestEntry`, `EncryptionLevel`, `VectorIndexConfig`, `resolveDefaultWorkspace`, `suggestIndexConfig` | fertig, typisiert                        |
-| `src/main/services/storage/blockCipher.ts`                             | `encryptBlock`/`decryptBlock` (rein, getestet) + `EncryptedBlockFile` (fs-positional)                                              | Crypto fertig + getestet; mmap-Pfad TODO |
-| `src/main/services/auth/workspaceKeys.ts`                              | Master-DEK → WDEK Wrap/Unwrap (hierarchisches Envelope)                                                                            | fertig + getestet                        |
-| `src/main/services/storage/VectorStore.ts`                             | Backend-agnostische Schnittstelle (der Seam)                                                                                       | fertig                                   |
-| `src/main/services/storage/LanceWorkspaceStore.ts`                     | LanceDB-Impl. des Seams                                                                                                            | Stub (Signaturen + TODOs)                |
-| `tests/unit/block-cipher.test.ts`, `tests/unit/workspace-keys.test.ts` | 12 Tests, grün                                                                                                                     | fertig                                   |
+| Datei                                                        | Inhalt                                                                                                                             | Reife                                    |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `src/shared/workspaceStorage.ts`                             | `VaultManifest`, `WorkspaceManifestEntry`, `EncryptionLevel`, `VectorIndexConfig`, `resolveDefaultWorkspace`, `suggestIndexConfig` | fertig, typisiert                        |
+| `src/main/services/storage/blockCipher.ts`                   | `encryptBlock`/`decryptBlock` (rein, getestet) + `EncryptedBlockFile` (fs-positional)                                              | Crypto fertig + getestet; mmap-Pfad TODO |
+| `src/main/services/auth/workspaceKeys.ts`                    | Master-DEK → WDEK Wrap/Unwrap (hierarchisches Envelope)                                                                            | fertig + getestet                        |
+| `src/main/services/storage/VectorStore.ts`                   | Backend-agnostische Schnittstelle (der Seam)                                                                                       | fertig                                   |
+| `src/main/services/storage/encryptedWorkspaceDir.ts`         | Decrypt-on-Open / Encrypt-on-Close pro Workspace (At-Rest-Block-Crypto, inkrementeller Delta-Persist)                              | implementiert                            |
+| `src/main/services/storage/LanceWorkspaceStore.ts`           | LanceDB-Impl. des Seams (connect/createTable/mergeInsert/search cosine/ivfPq+ivfFlat/delete)                                       | implementiert                            |
+| `src/main/services/storage/WorkspaceStore.ts`                | Orchestrator: Manifest, WDEK-Unwrap, open/close/create/delete, Default-Workspace, Index-Build                                      | implementiert                            |
+| `tests/unit/*` + `tests/integration/workspace-store.test.ts` | 17 Tests grün (Crypto-Round-Trip, AAD, Tamper, WDEK, End-to-End-Verschlüsselung+Suche+Wrong-Key+Default+Delete)                    | fertig                                   |
 
-Die Scaffolds ändern **kein** Laufzeitverhalten — PGlite bleibt der aktive Pfad,
-bis die Engine integriert ist. `tsc -b` und die neuen Tests sind grün.
+`@lancedb/lancedb@0.30` ist als Dependency installiert und im Node-Test
+nachweislich lauffähig. Der Storage-Stack ist eigenständig integrationsgetestet;
+PGlite bleibt der **aktive** App-Pfad, bis die Verdrahtung unten steht. `tsc -b`
+grün.
 
 ## Phasenplan
 
-### Phase 0 — Seams & Krypto (dieser Branch, erledigt)
+### Phase 0 — Seams & Krypto (erledigt)
 
-Schnittstellen + verifizierbare Krypto-Primitive, ohne den Live-Pfad anzufassen.
+Schnittstellen + verifizierbare Krypto-Primitive.
 
-### Phase 1 — Engine-Integration hinter Feature-Flag
+### Phase 1 — Engine-Integration (erledigt)
 
-1. `@lancedb/lancedb` als Dependency + Native-Rebuild in die `pnpm install`-Pipeline
-   (`electron-rebuild`) aufnehmen; Lizenz in `THIRD_PARTY_NOTICES.md` ergänzen.
-2. Verifizieren, dass die Node-Bindings einen **Custom-ObjectStore** mit eigenen
-   Read/Write-Hooks zulassen. Diese Hooks an `EncryptedBlockFile` hängen.
-   - Fallback, falls kein Store-Hook: Dataset-Verzeichnis mit datei-granularer
-     Block-Verschlüsselung (gröber, aber funktional).
-3. `LanceWorkspaceStore`-TODOs füllen (`open/upsert/remove/search/buildIndex`).
-4. Adapter `PGliteVectorStore implements VectorStore` über das heutige
-   `searchChunksByVector` — Parität, gegen die `LanceWorkspaceStore` getestet wird.
+1. ✅ `@lancedb/lancedb` als Dependency; im Node-Test lauffähig. Native-Rebuild für
+   die Electron-ABI in der `pnpm install`-Pipeline + Lizenz in
+   `THIRD_PARTY_NOTICES.md` bleiben als Packaging-Aufgabe.
+2. ✅ ObjectStore-Hook im Node-SDK verifiziert → **nicht verfügbar** (nur Rust).
+   Daher gewählt: **Decrypt-on-Open** (`EncryptedWorkspaceDir`) statt In-Engine-Crypto.
+3. ✅ `LanceWorkspaceStore` real (`open/upsert/remove/search/count/buildIndex/close`).
+4. ✅ `WorkspaceStore`-Orchestrator + End-to-End-Integrationstest.
 
 ### Phase 2 — Per-Workspace-Lifecycle
 
