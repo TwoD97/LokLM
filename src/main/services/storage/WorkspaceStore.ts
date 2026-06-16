@@ -140,6 +140,13 @@ export class WorkspaceStore {
       secureWipe(wdek)
       throw err
     }
+    if (encDir.recovered) {
+      // Corrupt enc store was quarantined; vectors will be re-embedded from the
+      // vault's chunk text (WorkspaceVectorService.reconcileOnOpen). Reset the
+      // cached count so the manifest reflects the empty-then-rebuilt store.
+      entry.vectorCount = 0
+      console.warn(`[workspace ${id}] recovered from a corrupt vector store`)
+    }
     const store = new LanceWorkspaceStore({
       workspaceId: id,
       config: entry.indexConfig,

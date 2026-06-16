@@ -117,6 +117,43 @@ dem unveränderten Model-Swap-Integrationstest (`embedder-identity`).
   ist aus den Klartext-Dateigrößen ablesbar — Metadaten-Leak über Größe, kein
   Inhalts-Leak. Für ein lokales Single-User-Tool akzeptiert.
 
+## Crash-Sicherheit / Durability (Power-Loss)
+
+Quelle der Wahrheit ist der **Vault** (`loklm.vault`): Chunk-Text + `embedded`-
+Marker + Manifest. LanceDB-Vektoren sind **abgeleitet** (aus dem Text
+re-embedbar). Daraus folgt die Garantie: _bereits persistierte Daten werden von
+keinem späteren Crash zerrissen, und verlorene/korrupte Vektoren regenerieren
+sich aus dem Text — kein permanenter Datenverlust._
+
+- **Vault:** unverändert tmp → fsync → atomic rename + `.bak` (ADR-0002).
+- **enc/ pro Workspace:** jede Datei tmp → fsync → atomic rename, danach
+  `fsync` der betroffenen Verzeichnisse. Ein Crash hinterlässt je Datei die
+  alte oder die neue Version, nie eine Mischung. Lance-Fragmente sind immutable,
+  der Manifest/Version-Commit kommt zuletzt → der Datensatz ist crash-konsistent.
+- **Persist-Reihenfolge beim Lock:** erst enc/ (Vektoren), dann Vault (Marker).
+  Der Vault ist damit nie _vor_ den Vektoren → ein Crash dazwischen lässt den
+  Vault höchstens hinterher; die Backfill-Schleife embedet die Differenz neu.
+- **Korruptions-Recovery:** schlägt beim Öffnen eine enc/-Datei trotz gültigem
+  WDEK fehl (Bit-Rot, AV-Truncation), wird der enc/-Baum nach
+  `enc.corrupt-<ts>` quarantänisiert, der Workspace startet leer, und
+  `resetEmbeddedMarkers` plant das Re-Embedding aus dem Text ein.
+- **Verbleibendes Fenster (vorbestehend):** PGlite ist In-Memory; nicht
+  persistierte Session-Arbeit (Importe seit dem letzten Lock/Quit/Idle-Lock)
+  geht bei hartem Stromausfall verloren. Das ist das Single-File-Snapshot-Modell
+  aus ADR-0002, kein Regress dieser Änderung. Tests:
+  `tests/integration/workspace-crash-safety.test.ts`,
+  `tests/tx/vault/workspace-vector-lifecycle.test.ts` (Korruptions-Recovery
+  ohne Content-Verlust), `tests/tx/vault/crash-resilience.test.ts` (Vault).
+
+### Noch offen für echte 100–500 Mio. (Text-Seite)
+
+Vektoren sind nun platten-resident + per-Workspace. Der **Chunk-Text** liegt
+weiterhin im globalen In-Memory-PGlite-Vault, der bei jedem Persist als ein Blob
+neu verschlüsselt wird. Für die Text-Seite des 100–500-Mio.-Ziels muss auch die
+relationale Schicht pro Workspace aufgeteilt werden (per-Workspace `meta.db`,
+über `EncryptedWorkspaceDir` verschlüsselt). Das ist der nächste große Schritt
+und in dieser Node-Umgebung nicht voll verifizierbar.
+
 ## Performance-Erwartung (aus ADR-0005-Recherche)
 
 - LanceDB IVF-PQ: ~1–5 ms bei Milliarden-Scale, hohe Recall mit Rescoring.
