@@ -98,6 +98,30 @@ export class WorkspaceStore {
     return entry
   }
 
+  /** Ensures a manifest entry with the given id exists (mirroring an app
+   *  workspace from the relational DB), minting a WDEK on first sight. Idempotent
+   *  — only persists when it actually creates the entry. Returns the entry. */
+  async ensure(id: number, name: string): Promise<WorkspaceManifestEntry> {
+    const existing = this.manifest.workspaces.find((w) => w.id === id)
+    if (existing) return existing
+    const { wdek, wrapped } = createWorkspaceKey(this.masterDek)
+    secureWipe(wdek)
+    const entry: WorkspaceManifestEntry = {
+      id,
+      name,
+      createdAt: Math.floor(Date.now() / 1000),
+      encryptionLevel: 'full',
+      dir: `ws-${id}`,
+      wrappedKey: wrapped,
+      vectorCount: 0,
+      indexConfig: suggestIndexConfig(this.dims, 0),
+    }
+    this.manifest.workspaces.push(entry)
+    if (this.manifest.defaultWorkspaceId == null) this.manifest.defaultWorkspaceId = id
+    await this.persistManifest(this.manifest)
+    return entry
+  }
+
   /** Opens a workspace for reads/writes, closing any currently-open one first.
    *  Returns its VectorStore. */
   async open(id: number): Promise<VectorStore> {

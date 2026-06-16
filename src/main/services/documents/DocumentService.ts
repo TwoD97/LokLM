@@ -51,6 +51,14 @@ export class DocumentService {
      *  indexing settings. Optional — tests omit it and the chunker DEFAULT
      *  applies. An explicit ImportInput value still wins. */
     private readonly retrievalDefaults?: () => { chunkSize: number; chunkOverlap: number },
+    /** ADR-0005: mirrors freshly-computed embeddings into the per-workspace
+     *  encrypted LanceDB store (where retrieval reads them). PGlite remains the
+     *  embedding-bookkeeping + identity source of truth (dual-write). Optional —
+     *  tests omit it and only the pgvector column is written. */
+    private readonly vectorSink?: (
+      workspaceId: number,
+      records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
+    ) => Promise<void>,
   ) {}
 
   // ---- bounded indexing queue --------------------------------------------
@@ -496,6 +504,24 @@ export class DocumentService {
         }
         if (writes.length > 0) {
           await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
+          // ADR-0005: mirror into the workspace's encrypted Lance store, the
+          // index retrieval actually searches. Best-effort — a Lance failure
+          // must not fail the import (pgvector still has the data; the next
+          // open's migrateIfNeeded backfills Lance from it).
+          if (this.vectorSink) {
+            try {
+              await this.vectorSink(
+                doc.workspaceId,
+                writes.map((w) => ({
+                  chunkId: w.id,
+                  documentId: doc.id,
+                  vector: Array.from(w.vector),
+                })),
+              )
+            } catch (err) {
+              console.warn(`[documents] vector sink failed for doc #${doc.id}:`, err)
+            }
+          }
         }
       }
       await repo.setDocumentStatus(doc.id, 'ready')

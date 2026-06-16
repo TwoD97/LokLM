@@ -10,6 +10,7 @@ import { ImportError } from './services/documents/types'
 import { isSupported as isSupportedDocPath } from './services/documents/parser'
 import { EmbeddingService } from './services/embeddings/EmbeddingService'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
+import { WorkspaceVectorService } from './services/storage/WorkspaceVectorService'
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
 import { LlamaService } from './services/llm/LlamaService'
@@ -110,6 +111,9 @@ function resetSessionServices(): void {
   // SettingsService captures a Database reference at construction.
   backfillService = null
   retrievalService = null
+  // ADR-0005: holds a per-session migrated-workspaces cache + binds the live
+  // master DEK via AuthService; must not survive a lock/login cycle.
+  workspaceVectorService = null
   qaService = null
   quizService = null
   summarizationService = null
@@ -151,6 +155,7 @@ let embeddingService: EmbeddingService | null = null
 let backfillService: EmbeddingBackfillService | null = null
 let rerankerService: RerankerService | null = null
 let retrievalService: RetrievalService | null = null
+let workspaceVectorService: WorkspaceVectorService | null = null
 let llamaService: LlamaService | null = null
 let qaService: QAService | null = null
 let quizService: QuizService | null = null
@@ -285,11 +290,27 @@ function broadcastEmbedderStatus(raw: import('../shared/documents').EmbedderStat
   }
 }
 
+function getWorkspaceVectorService(): WorkspaceVectorService {
+  // Holds only AuthService; resolves the workspace store + Database lazily.
+  workspaceVectorService ??= new WorkspaceVectorService(getAuth())
+  return workspaceVectorService
+}
+
+/** Bound sink passed to ingestion services — mirrors embeddings into the
+ *  per-workspace encrypted Lance store (ADR-0005). */
+function vectorSink(
+  workspaceId: number,
+  records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
+): Promise<void> {
+  return getWorkspaceVectorService().upsert(workspaceId, records)
+}
+
 function getBackfillService(): EmbeddingBackfillService {
   if (!backfillService) {
     backfillService = new EmbeddingBackfillService(
       getAuth().requireDatabase(),
       getProviderRegistry(),
+      vectorSink,
     )
   }
   return backfillService
@@ -608,7 +629,13 @@ function broadcastRerankerStatus(raw: import('../shared/documents').RerankerStat
 
 function getRetrievalService(): RetrievalService {
   if (!retrievalService) {
-    retrievalService = new RetrievalService(getAuth().requireDatabase(), getProviderRegistry())
+    retrievalService = new RetrievalService(
+      getAuth().requireDatabase(),
+      getProviderRegistry(),
+      // ADR-0005: dense search reads from the per-workspace encrypted Lance store.
+      (workspaceId, queryVec, topK, opts) =>
+        getWorkspaceVectorService().search(workspaceId, queryVec, topK, opts),
+    )
   }
   return retrievalService
 }
@@ -621,6 +648,8 @@ function getDocumentService(): DocumentService {
     // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
     // ingest path (import, reindex, refresh, folder-sync).
     () => getSettingsService().get().retrieval,
+    // ADR-0005: mirror embeddings into the per-workspace encrypted Lance store.
+    vectorSink,
   )
   return documentService
 }
@@ -808,6 +837,11 @@ function registerIpc(): void {
     getFolderSyncService().stop(id)
     await getWorkspaceService().delete(id)
   })
+  // ADR-0005: default workspace auto-loaded on unlock.
+  ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())
+  ipcMain.handle('workspaces:setDefault', async (_e, id: number | null) =>
+    getWorkspaceService().setDefault(id),
+  )
 
   // Folder sync — per-workspace watched directories.
   ipcMain.handle('workspaces:listSyncFolders', async (_e, workspaceId: number) =>

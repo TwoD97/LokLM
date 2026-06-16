@@ -25,6 +25,12 @@ export class EmbeddingBackfillService {
   constructor(
     private readonly db: Database,
     private readonly registry: ProviderRegistry,
+    /** ADR-0005: mirrors backfilled embeddings into the per-workspace encrypted
+     *  LanceDB store (dual-write; pgvector stays the bookkeeping source). Optional. */
+    private readonly vectorSink?: (
+      workspaceId: number,
+      records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
+    ) => Promise<void>,
   ) {}
 
   subscribe(cb: (s: BackfillStatus) => void): () => void {
@@ -137,15 +143,29 @@ export class EmbeddingBackfillService {
           // all in one UPDATE … FROM (VALUES …) , the per-row UPDATE was the
           // dominant cost on a hot backfill (32 round-trips per page).
           const writes: Array<{ id: number; vector: Float32Array }> = []
+          const sinkRecords: Array<{ chunkId: number; documentId: number; vector: number[] }> = []
           for (let i = 0; i < batch.length; i++) {
             const v = vectors[i]
             const row = batch[i]
             if (!v || !row) continue
             writes.push({ id: row.id, vector: v })
+            sinkRecords.push({
+              chunkId: row.id,
+              documentId: row.document_id,
+              vector: Array.from(v),
+            })
           }
           if (writes.length > 0) {
             try {
               await this.db.documents().setChunkEmbeddingsBatch(writes, activeIdentity)
+              // ADR-0005: mirror into the encrypted Lance store (best-effort).
+              if (this.vectorSink) {
+                try {
+                  await this.vectorSink(workspaceId, sinkRecords)
+                } catch (err) {
+                  console.warn('[backfill] vector sink failed (pgvector still written):', err)
+                }
+              }
               madeProgress = writes.length
             } catch (err) {
               // Most likely a pgvector dimension mismatch (the model was

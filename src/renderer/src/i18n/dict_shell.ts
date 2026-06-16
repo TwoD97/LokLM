@@ -51,6 +51,8 @@ export const shellDict: DomainDict = {
     'shell.newWorkspace': '+ New workspace',
     'shell.renameWorkspace': 'Rename workspace',
     'shell.deleteWorkspace': 'Delete workspace',
+    'shell.setDefaultWorkspace': 'Set as default workspace',
+    'shell.defaultWorkspace': 'Default workspace',
     'shell.deleteWorkspaceTitle': 'Delete workspace?',
     'shell.deleteWorkspaceBody':
       'Delete “{name}” and all of its documents, chats and quizzes? This cannot be undone.',
@@ -106,6 +108,8 @@ export const shellDict: DomainDict = {
     'shell.newWorkspace': '+ Neuer Workspace',
     'shell.renameWorkspace': 'Workspace umbenennen',
     'shell.deleteWorkspace': 'Workspace löschen',
+    'shell.setDefaultWorkspace': 'Als Standard-Workspace festlegen',
+    'shell.defaultWorkspace': 'Standard-Workspace',
     'shell.deleteWorkspaceTitle': 'Workspace löschen?',
     'shell.deleteWorkspaceBody':
       '„{name}“ und alle zugehörigen Dokumente, Chats und Quizze löschen? Das kann nicht rückgängig gemacht werden.',

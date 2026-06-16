@@ -1,7 +1,7 @@
 # Design: DB-Skalierung + Per-Workspace-Verschlüsselung
 
 **Datum:** 2026-06-16
-**Status:** In Umsetzung — Storage-Engine implementiert + integrationsgetestet (Node), App-Verdrahtung (AuthService/IPC/UI/Migration) folgt
+**Status:** Implementiert + verdrahtet (Engine, Vault-v5, Retrieval/Ingestion-Dual-Write, Default-Workspace-UI, v4→v5-Migration). Eine Optimierung bewusst zurückgestellt (pgvector-Spalte entfernen — siehe unten). Nur in Node verifizierbar; Electron-Packaging (Native-Rebuild) + UI-Runtime ungetestet.
 **Entscheidung:** [ADR-0005](../adr/0005-per-workspace-scaled-encrypted-vector-store.md)
 
 Dieses Dokument ist der Umsetzungsplan zu ADR-0005: vom heutigen In-Memory-PGlite-
@@ -49,36 +49,46 @@ Schnittstellen + verifizierbare Krypto-Primitive.
 3. ✅ `LanceWorkspaceStore` real (`open/upsert/remove/search/count/buildIndex/close`).
 4. ✅ `WorkspaceStore`-Orchestrator + End-to-End-Integrationstest.
 
-### Phase 2 — Per-Workspace-Lifecycle
+### Phase 2 — Per-Workspace-Lifecycle (erledigt)
 
-1. `WorkspaceStore` (neu) als Orchestrator: hält den aktiven Workspace, öffnet/
-   schließt dessen `VectorStore` + Metadaten-DB, unwrappt den WDEK über
-   `AuthService`.
-2. `AuthService` erweitern:
-   - Beim Unlock: Vault-Body → `VaultManifest` parsen (statt PGlite-Dump laden).
-   - `getWorkspaceKey(id)` → unwrappt WDEK aus dem Manifest mit dem Master-DEK.
-   - Beim Lock: nur den aktiven Workspace flushen/schließen + WDEK wipen.
-3. `WorkspaceService.create/delete` → WDEK anlegen/vergessen + Verzeichnis
-   anlegen/löschen, Manifest aktualisieren.
-4. `setDefaultWorkspace(id)` + IPC + Settings-UI (Default-Picker, Encryption-Badge).
+1. ✅ `WorkspaceStore`-Orchestrator (`open/close/create/delete/ensure`, Default).
+2. ✅ `AuthService`: v5-Vault-Body trägt den `VaultManifest`; `getWorkspaceStore()`
+   bindet Master-DEK + Manifest; Lock schließt den aktiven Workspace + wiped WDEK.
+3. ✅ `WorkspaceService.create/delete` legt/entfernt Manifest-Entry (WDEK) + Lance-Dir.
+4. ✅ `setDefault`/`getDefault` + IPC (`workspaces:get/setDefault`) + Preload +
+   Sidebar-Stern-Button + Auto-Load des Default-Workspace beim Unlock (AppShell).
 
-### Phase 3 — Retrieval-Umzug
+### Phase 3 — Retrieval-Umzug (erledigt, Dual-Write)
 
-1. `RetrievalService` + `Database.searchChunksByVector`-Aufrufer auf `VectorStore`
-   umstellen. Hybrid bleibt: Dense kommt aus LanceDB, BM25 aus der per-Workspace
-   `meta.db`, RRF-Fusion unverändert.
-2. `EmbeddingBackfillService` pro Workspace batchen (nicht global) — Bulk-Insert in
-   LanceDB, danach `buildIndex()`.
+1. ✅ `RetrievalService` bekommt eine injizierte `VectorSearchFn` → Dense-Suche liest
+   aus dem per-Workspace LanceDB-Store (`WorkspaceVectorService`), Treffer werden via
+   `Database.hydrateChunkHits` aus PGlite (Text/Titel/Seite) hydratisiert. BM25 + RRF
+   unverändert. Ohne Injection (isolierte Tests) bleibt der pgvector-Pfad.
+2. ✅ Ingestion (`DocumentService`) + `EmbeddingBackfillService` schreiben Embeddings
+   **dual**: PGlite (Bookkeeping/Identity unverändert) **und** LanceDB (Such-Index).
+3. ✅ Erstöffnung migriert vorhandene pgvector-Embeddings eines Workspace nach
+   LanceDB (`WorkspaceVectorService.migrateIfNeeded` ← `Database.listChunkVectors`).
 
-### Phase 4 — Migration bestehender v4-Vaults
+### Phase 4 — Vault-Migration v4→v5 (erledigt)
 
-Einmalige Migration beim ersten Start der neuen Version:
+✅ v4-Vaults werden transparent gelesen (leeres Manifest) und beim nächsten Persist
+als v5 (gerahmter Body, Magic `LOKLM05\0`) geschrieben — tx-getestet inkl.
+Recovery-Reset. Kein Datenverlust; pro-Workspace-Vektoren migrieren lazy (Phase 3.3).
 
-1. Alten `loklm.vault` (v4) wie bisher entschlüsseln → PGlite-Dump in Memory.
-2. Pro vorhandenem Workspace: neues Verzeichnis + WDEK anlegen; Chunks/Vektoren aus
-   PGlite nach LanceDB streamen; Relationen/Text in die per-Workspace `meta.db`.
-3. Neuen `loklm.vault` als Manifest (v5) schreiben; alten als `.v4.bak` behalten.
-4. Magic-Bump `LOKLM04\0` → `LOKLM05\0` (ADR-0002-Konvention).
+### Verbleibende Optimierung (bewusst zurückgestellt) — pgvector-Spalte entfernen
+
+Aktuell **Dual-Write**: Vektoren liegen in LanceDB _und_ der `chunks.embedding`-
+Spalte. Der volle Speicher-/Scale-Gewinn (Vektoren nur noch auf Platte in LanceDB)
+verlangt, die „missing embedding"-Buchhaltung von der `embedding`-Spalte zu lösen:
+
+- neue Spalte `chunks.embedded boolean` (Migration 0011) + `countChunksMissingEmbedding`
+  / `listChunksMissingEmbedding` darauf umstellen,
+- `distinctEmbedderIdentities` + `purgeEmbeddings*` (Model-Swap-Re-Embed) von der
+  `embedding`-Spalte auf `embedder_identity`/`embedded` + LanceDB-`remove` umstellen,
+- dann in `DocumentService`/`Backfill` den pgvector-Write weglassen (nur Marker).
+
+Diese Kette berührt die Model-Swap-Semantik und ist erst mit laufender App sinnvoll
+zu verifizieren — daher getrennt vom hier verifizierten Dual-Write-Stand.
 
 ## Bedrohungsmodell-Delta (vs. ADR-0002)
 

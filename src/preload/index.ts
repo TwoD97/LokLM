@@ -150,6 +150,10 @@ const api = {
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
+    // ADR-0005: default workspace auto-loaded on unlock.
+    getDefault: (): Promise<number | null> => ipcRenderer.invoke('workspaces:getDefault'),
+    setDefault: (id: number | null): Promise<void> =>
+      ipcRenderer.invoke('workspaces:setDefault', id),
     listSyncFolders: (workspaceId: number): Promise<string[]> =>
       ipcRenderer.invoke('workspaces:listSyncFolders', workspaceId),
     // Returns the updated folder list on add ; null when the user cancels the
