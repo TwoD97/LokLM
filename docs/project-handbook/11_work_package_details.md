@@ -106,7 +106,7 @@ Span-Metrik + Bridges unter `tests/evals/`.
 
 ## 11.2 AP-T.2 — Integrationstests (§8.2 E2E) (Kern, Dominik)
 
-**Status:** fertig (Code), im Review — **PR #19**. **Branch:** `dom/ap-t2-integrationstests`.
+**Status:** fertig — **PR #19 gemergt (16.06.)**. **Branch:** `dom/ap-t2-integrationstests`.
 
 ### Ziel
 
@@ -123,11 +123,11 @@ Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integr
 
 **Tabelle 11.1:** Integrationstest-Suiten (AP-T.2).
 
-| Suite | Datei | Tests | CI | Laufzeit |
-|---|---|---|---|---|
-| DocumentService E2E | `tests/integration/document-pdf-e2e.test.ts` | 3 | läuft (modellfrei) | ~11 s |
-| RetrievalService E2E | `tests/integration/retrieval-corpus-e2e.test.ts` | 3 | skippt (modell-gated) | ~51 s |
-| Auth E2E §8.2 | `tests/integration/auth-e2e.test.ts` | 1 | läuft | ~8 s |
+| Suite                | Datei                                            | Tests | CI                    | Laufzeit |
+| -------------------- | ------------------------------------------------ | ----- | --------------------- | -------- |
+| DocumentService E2E  | `tests/integration/document-pdf-e2e.test.ts`     | 3     | läuft (modellfrei)    | ~11 s    |
+| RetrievalService E2E | `tests/integration/retrieval-corpus-e2e.test.ts` | 3     | skippt (modell-gated) | ~51 s    |
+| Auth E2E §8.2        | `tests/integration/auth-e2e.test.ts`             | 1     | läuft                 | ~8 s     |
 
 - **DocumentService E2E:** committetes `sample.pdf` importieren → `documents`-Zeile auf
   `ready`, Chunks vorhanden, `chunk_count` exakt; Volltextsuche über den Index
@@ -166,9 +166,7 @@ Raw-SQL-Migrationen) über `AuthService.register`; Muster der bestehenden Integr
 
 ### Stand und offene Punkte
 
-CI-Job (integration + tx) grün (~2:40 min), Gesamtlaufzeit lokal ~70 s. PR #19 mergebar,
-alle Checks grün — nur durch Branch-Protection/Review gehalten. Offen: Review-Freigabe +
-Merge; Entscheidung, ob die modell-gated RetrievalService-E2E zwingend in CI laufen soll
+CI-Job (integration + tx) grün (~2:40 min), Gesamtlaufzeit lokal ~70 s. PR #19 **gemergt am 2026-06-16**, alle Checks waren grün. Offen: Entscheidung, ob die modell-gated RetrievalService-E2E zwingend in CI laufen soll
 (Modell-Download-Step → Laufzeit/Kosten).
 
 **Nachweise:** PR #19; `ap-t2-abschluss-doku.md`; `Laborbericht_LokLM_2026-06-12.md`;
@@ -178,7 +176,7 @@ Commits `3e0a4d2`, `9644d60`, `48255ab`.
 
 ## 11.3 AP-T.1 — Unit-Tests ≥70 % Branch-Coverage (Dominik)
 
-**Status:** fertig (Code), im Review — **PR #24**. **Branch:** `dom/ap-t1-unit-tests`.
+**Status:** fertig — **PR #24 gemergt (16.06.)**. **Branch:** `dom/ap-t1-unit-tests`.
 
 ### Ziel
 
@@ -188,13 +186,13 @@ Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests g
 
 **Tabelle 11.2:** Unit-Test-Coverage je Kernmodul (AP-T.1).
 
-| Modul | % Stmts (≥80) | % Branch (≥70) |
-|---|---|---|
-| `chunker.ts` | 95.4 | 93.8 |
-| `parser.ts` | 88.7 | 78.4 |
-| `rrf.ts` (RRF) | 100 | 100 |
-| `citationMarkers.ts` | 96.3 | 88.9 |
-| `AuthService.ts` (Hashing-Wrapper) | 83.1 | 74.2 |
+| Modul                              | % Stmts (≥80) | % Branch (≥70) |
+| ---------------------------------- | ------------- | -------------- |
+| `chunker.ts`                       | 95.4          | 93.8           |
+| `parser.ts`                        | 88.7          | 78.4           |
+| `rrf.ts` (RRF)                     | 100           | 100            |
+| `citationMarkers.ts`               | 96.3          | 88.9           |
+| `AuthService.ts` (Hashing-Wrapper) | 83.1          | 74.2           |
 
 ### Technische Umsetzung und Entscheidungen
 
@@ -212,8 +210,7 @@ Auth-Hashing-Wrappern. Nachweis lokal über `pnpm run test:cov:apt1` (96 Tests g
   Logikänderung); OCR-Pfade gemockt (kein tessdata/echte Engine, innerhalb des
   Unit-Kriteriums „keine externen Services").
 - **Scoped DoD-Skript `test:cov:apt1`:** Der Branch zweigt von `main`; die volle Suite
-  enthält die AP-T.2-Embedder-Tests, die den Electron-Stub aus PR #19 brauchen (noch nicht
-  in `main`). Sobald #19 gemergt ist, wird der Voll-Suite-Lauf das natürliche Gate.
+  enthält die AP-T.2-Embedder-Tests, die den Electron-Stub aus PR #19 brauchen — **seit dem Merge von #19 (2026-06-16) auf `main`** ist der Voll-Suite-Lauf das natürliche Gate.
 
 **Nachweise:** PR #24; `ap-t1-abschluss-doku.md`; Commits `0fcdef8`, `53441c1`; ADR-0001/0002.
 
@@ -374,7 +371,7 @@ SourceViewer-Click-through, Integrationstest als DoD. Manuelles DoD-Testszenario
 (`071a5fe`). **Ergebnis/Status:** fertig, gemergt 10.06. Verweis:
 `projektstatusbericht-2026-06-07.md`/`-06-14.md`.
 
-### AP-9 — Settings (Dominik, PR #13 gemergt; Account-Teil PR #18 offen)
+### AP-9 — Settings (Dominik, PR #13 gemergt; Account-Teil PR #18 gemergt 16.06.)
 
 Vollständiges Settings-Modal: Theme (system/light/dark, sofort angewandt via
 `dataset.theme`), UI-Sprache (default `de`), wiederverwendbare Slider für
@@ -382,7 +379,7 @@ Chunk-Size/Overlap/Top-K (ein DB-Write pro Drag), Auto-Lock, Conversation-Switch
 Account-Sektion (Passwort ändern, Recovery-Codes neu). Das Schema (`src/shared/settings.ts`)
 hält alle Felder als typisierte Slots; der Main-Konsum (autoLock, conversationSwitch,
 Chunk-Werte, Modell-Reload) ist verdrahtet. **Status:** Kern fertig/gemergt (10.06.);
-Account-Recovery-Teil als PR #18 offen. Verweis: `ap-9-partner-fields.md`.
+Account-Recovery-Teil als PR #18 gemergt (16.06.). Verweis: `ap-9-partner-fields.md`.
 
 > Hinweis zur Auto-Lock-„nie"-Option (gelöst): `setInactivityMs` clampt zwar weiterhin
 > mit `Math.max(60_000, ms)` (`src/main/services/auth/AuthService.ts`), doch der Helfer
@@ -403,10 +400,10 @@ Reproduzierbare manuelle QA-Szenarien M3/M4/M8–M11 + README. **Status:** ferti
 20 refusal / 12 partial), Validator/Loader `tests/unit/eval-cases.test.ts` (386 Tests) prüft
 Schema, Verteilung und das **wörtliche** Vorkommen jedes Belegs im referenzierten Chunk.
 Pfad/Format weichen bewusst vom Ticket-Wortlaut ab (JSONL statt `eval/cases.json`), um mit
-dem Hold-out **einen** Loader zu teilen. **Status:** fertig (Code), PR #25 in Review.
+dem Hold-out **einen** Loader zu teilen. **Status:** fertig — PR #25 gemergt (16.06.).
 **AP-E1b:** 15 versiegelte Hold-out-Fälle (`dominik-15.jsonl`, 9/4/2), als R5-Echo-Kammer-
 Schutz separat und für den Partner während der Entwicklung nicht einsehbar; Dev-Fragen sind
-davon disjunkt (Dedup-Guard). **Status:** fertig (Branch, lokal). Verweis:
+davon disjunkt (Dedup-Guard). **Status:** fertig (Code), im Review — PR #28. Verweis:
 `ap-e1-abschluss-doku.md`.
 
 ### Translation-Eval + GPU-Translator-Sidecar (Partner / Denys, v0.4.1)
@@ -423,15 +420,15 @@ Tabelle 11.3 listet die offenen Punkte mit Bereich und Verantwortlichkeit.
 
 **Tabelle 11.3:** Offene Punkte (Stand 14.06.2026).
 
-| Offener Punkt | Bereich | Verantwortlich |
-|---|---|---|
-| AP-E.2 Phase 2 — GPU-Matrix-Sweep + Auswertung ins Paper | Eval | Dominik |
-| Merge der Test-/Eval-PRs #19, #24, #25 | Tests/Eval | Dominik + Review |
-| AP-9 Account-Recovery (PR #18) | Auth/UI | Dominik |
-| Auto-Update-Strategie (Velopack vs. electron-updater) | DevOps | beide / PAG |
-| Multi-OS-Auslieferungs-Härtung (Mac/Linux produktiv) | Installer | Denys |
-| E2E-Playwright-Suite in CI (kann Electron nicht starten) | Tests/CI | offen |
-| Eval/Modell-Tests als CI-Gate (Schwellen/Budget) | CI | beide / PAG |
+| Offener Punkt                                            | Bereich    | Verantwortlich   |
+| -------------------------------------------------------- | ---------- | ---------------- |
+| AP-E.2 Phase 2 — GPU-Matrix-Sweep + Auswertung ins Paper | Eval       | Dominik          |
+| Merge der Test-/Eval-PRs #19, #24, #25                   | Tests/Eval | Dominik + Review |
+| AP-9 Account-Recovery (PR #18)                           | Auth/UI    | Dominik          |
+| Auto-Update-Strategie (Velopack vs. electron-updater)    | DevOps     | beide / PAG      |
+| Multi-OS-Auslieferungs-Härtung (Mac/Linux produktiv)     | Installer  | Denys            |
+| E2E-Playwright-Suite in CI (kann Electron nicht starten) | Tests/CI   | offen            |
+| Eval/Modell-Tests als CI-Gate (Schwellen/Budget)         | CI         | beide / PAG      |
 
 Diese offenen Punkte sind durchgängig in den drei Projektstatusberichten als „nächste
 Schritte" bzw. „notwendige Entscheidungen" geführt und damit kein verdeckter Rückstand,
