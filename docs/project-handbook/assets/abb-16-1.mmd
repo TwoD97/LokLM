@@ -1,0 +1,17 @@
+flowchart TD
+  Q["Nutzer-Frage"] --> LANG["Antwortsprache bestimmen<br/>opts.language ?? detectResponseLanguage(query)"]
+  LANG --> R0["0. Routing (regex-first)<br/>detectCorpusIntent / classifyQueryBreadth"]
+  R0 -->|corpus| CORP["Korpus-Route<br/>documents-Tabelle, KEIN LLM<br/>templatierte DE/EN-Antwort"]
+  R0 -->|doc_summary| SUM["Summary-Route<br/>gecachter Whole-Doc-Summary<br/>als unzitierter Preamble"]
+  R0 -->|retrieval| CTX["0.5 Contextualize (optional)<br/>Folgefrage → eigenständige Query"]
+  SUM --> CTX
+  CTX --> RET["1. RetrievalService.search<br/>BM25 + dense + RRF + Heuristiken + Rerank"]
+  RET --> REF1["2. Frühe Refusal?<br/>(caller-threshold)"]
+  REF1 -->|nein| PACK["2.5 packHitsToBudget<br/>Context-Block auf Modellfenster trimmen"]
+  PACK --> REF2["2.7 Post-Pack-Refusal?<br/>(0 Hits + 0 pinned)"]
+  REF2 -->|nein| CITE["3. Citations emittieren"]
+  CITE --> GEN["LlamaService.ask<br/>Streaming-Generierung"]
+  GEN --> DONE["done: full_text + citations"]
+  CORP --> DONE
+  REF1 -->|ja| RX["refusal + done"]
+  REF2 -->|ja| RX

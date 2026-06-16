@@ -57,11 +57,11 @@ Stand der Liste: **2026-06-16**.
 
 ## E. Export / Bindung
 
-|     | Aufgabe                                                                                                                                    | Wer | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------ |
-| E1  | **Mermaid-Diagramme** → SVG/PNG nach `assets/` rendern (Kap. 06/08/12/13/15/16/17/18/19/21/22)                                             | C/T | ☐      |
-| E2  | **Probebuild** über [BOOK_MANIFEST.md](BOOK_MANIFEST.md) (Pandoc/typst) fehlerfrei; Front-/Schlussteil unnummeriert, Verzeichnisse erzeugt | T   | ☐      |
-| E3  | Sichtprüfung gerendertes PDF (Deckblatt, Seitenzahlen, Umlaute, Diagramme)                                                                 | T   | ☐      |
+|     | Aufgabe                                                                                                                                                                   | Wer | Status |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------ |
+| E1  | **Mermaid-Diagramme** → SVG nach `assets/` rendern — **2026-06-16: 15/15 gerendert** (mmdc 11.15; Kap.-21-Kanten-Label gequotet). Kapitel-`.md` behalten inline-`mermaid` | C/T | ☑      |
+| E2  | **Probebuild** über [BOOK_MANIFEST.md](BOOK_MANIFEST.md) (Pandoc/typst) fehlerfrei; Front-/Schlussteil unnummeriert, Verzeichnisse erzeugt                                | T   | ☐      |
+| E3  | Sichtprüfung gerendertes PDF (Deckblatt, Seitenzahlen, Umlaute, Diagramme)                                                                                                | T   | ☐      |
 
 ## F. Sicherheit / Anonymisierung
 

@@ -1,0 +1,9 @@
+flowchart LR
+    R8["R8 AP-E.2 Phase 2<br/>GPU-Sweep offen"]:::high
+    R6["R6 Matrix-Rechenkosten<br/>315 Zellen × 163 Fragen"]:::high
+    R2["R2 E2E-Playwright<br/>auf CI kaputt"]:::mid
+    R10["R10 EV-Zertifikat<br/>SmartScreen"]:::mid
+    R9["R9 Secrets in .env<br/>Rotation empfohlen"]:::mid
+    R8 --> R6
+    classDef high fill:#f8d7da,stroke:#c00
+    classDef mid fill:#fff3cd,stroke:#a80
