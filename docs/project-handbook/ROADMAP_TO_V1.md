@@ -67,10 +67,10 @@ Stand der Liste: **2026-06-16**.
 
 ## F. Sicherheit / Anonymisierung
 
-|     | Aufgabe                                                                                                                                    | Wer | Status                |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | --- | --------------------- |
-| F1  | **Secret-Sweep** final über alle Handbuch-Dateien inkl. `assets/` ([SENSITIVE_DATA_CHECKLIST.md](SENSITIVE_DATA_CHECKLIST.md)) — 0 Treffer | C   | ◐ (laufend 0 Treffer) |
-| F2  | Finaler Sensitivdaten-Blick auf das **gerenderte PDF** (Bilder)                                                                            | T   | ☐                     |
+|     | Aufgabe                                                                                                                                                                                                                                                                          | Wer | Status                |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --------------------- |
+| F1  | **Secret-Sweep** final über alle Handbuch-Dateien inkl. `assets/` ([SENSITIVE_DATA_CHECKLIST.md](SENSITIVE_DATA_CHECKLIST.md)) — **2026-06-16:** inkl. `assets/` + neue Kapitel gesweept; **1 Domain-Leak** (`s3.ltwodl.com`, Kap. 09) maskiert, sonst 0. Finaler PDF-Sweep = F2 | C   | ◐ (laufend 0 Treffer) |
+| F2  | Finaler Sensitivdaten-Blick auf das **gerenderte PDF** (Bilder)                                                                                                                                                                                                                  | T   | ☐                     |
 
 ## G. v1.0-Release
 
