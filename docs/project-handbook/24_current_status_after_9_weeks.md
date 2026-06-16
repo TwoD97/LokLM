@@ -115,6 +115,22 @@ App ist installierbar und beim Anwender lauffähig (Windows). **Offene Betriebsf
 
 ---
 
-## 24.3 Kurzfazit
+## 24.3 Projektabschlussbericht — Soll-Ist-Aufwand (PHB K15)
+
+Der Projektabschlussbericht stellt den **geplanten** dem **tatsächlich geleisteten** Aufwand gegenüber (PHB-K15-Anforderung, [Pflichtenheft](../Pflichtenheft.md) §9.2). Der Planwert beträgt 294 Stunden (Aufwandsplan [§8.9](08_project_management_kanban_outline.md)). Tabelle 24.7 hält den Soll-Ist-Vergleich fest.
+
+**Tabelle 24.7:** Soll-Ist-Aufwand je Teammitglied.
+
+| Person         | Geplant (Std) | Tatsächlich (Std) | Abweichung |
+| -------------- | ------------- | ----------------- | ---------- |
+| Denys Tudosa   | 149           | —                 | —          |
+| Dominik Furlan | 145           | —                 | —          |
+| **Summe**      | **294**       | **—**             | **—**      |
+
+> WARN durch Team zu ergaenzen — Die **tatsächlich geleisteten Stunden** (IST-Spalte) trägt das Team nach Projektabschluss aus den wöchentlichen Projektstatusberichten bzw. Zeitaufzeichnungen ein; erst dann ist der Soll-Ist-Vergleich vollständig. Die Plan-Werte stammen aus Pflichtenheft §9.2.
+
+Neben dem Stundenvergleich umfasst der Abschlussbericht qualitative Punkte — erreichte Ziele und Abweichungen ([Kapitel 5](05_project_goals_and_success_criteria.md)), Lessons Learned ([Kapitel 26](26_lessons_learned.md)) und den Endstatus der Liefergegenstände (Statusbilanz §24.1) —, die in den genannten Kapiteln dokumentiert sind.
+
+## 24.4 Kurzfazit
 
 Nach 9 Wochen ist LokLM **funktional ausgeliefert** (v0.4.1, drei Plattformen) und die **Test-/Eval-Säule weitgehend aufgebaut**. Der wesentliche offene Block ist die **AP-E.2-GPU-Matrix-Auswertung** für den Abgabe-Laborbericht (Phase 2). Drei Test-/Eval-PRs (#19, #24, #25) sind am 2026-06-16 gemergt; die betriebliche Härtung (Signing, Auto-Update, Mac/Linux) bleibt als Roadmap-Thema.

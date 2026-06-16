@@ -11,39 +11,39 @@ Build-Anleitung und Werkzeuge: [EXPORT_NOTES.md](EXPORT_NOTES.md).
 
 ## Frontteil (römische Seitenzahlen)
 
-| # | Datei | Inhalt |
-| --- | --- | --- |
-| 1 | [00_cover.md](00_cover.md) | Titel-/Deckblatt |
-| 2 | [front_10_kurzfassung.md](front_10_kurzfassung.md) | Kurzfassung / Abstract |
-| 3 | *(automatisch)* | Inhaltsverzeichnis (`--toc`) |
-| 4 | *(automatisch)* | Abbildungsverzeichnis (`\listoffigures`) |
-| 5 | *(automatisch)* | Tabellenverzeichnis (`\listoftables`) |
-| 6 | [front_20_abkuerzungsverzeichnis.md](front_20_abkuerzungsverzeichnis.md) | Abkürzungsverzeichnis |
+| #   | Datei                                                                    | Inhalt                                   |
+| --- | ------------------------------------------------------------------------ | ---------------------------------------- |
+| 1   | [00_cover.md](00_cover.md)                                               | Titel-/Deckblatt                         |
+| 2   | [front_10_kurzfassung.md](front_10_kurzfassung.md)                       | Kurzfassung / Abstract                   |
+| 3   | _(automatisch)_                                                          | Inhaltsverzeichnis (`--toc`)             |
+| 4   | _(automatisch)_                                                          | Abbildungsverzeichnis (`\listoffigures`) |
+| 5   | _(automatisch)_                                                          | Tabellenverzeichnis (`\listoftables`)    |
+| 6   | [front_20_abkuerzungsverzeichnis.md](front_20_abkuerzungsverzeichnis.md) | Abkürzungsverzeichnis                    |
 
 ## Hauptteil (arabische Seitenzahlen)
 
-In numerischer Reihenfolge `01` … `28` (das Deckblatt `00` steht bereits im Frontteil):
+Die festnummerierten Kapitel `01`…`28` (das Deckblatt `00` steht im Frontteil) werden in
+**acht Teilen** gebunden. Die Teil-Überschriften werden beim Export als Trennseiten vor die
+jeweilige Kapitelgruppe gesetzt; **die Kapitelnummern bleiben unverändert** (rein bindungs-
+seitige Gliederung).
 
-```
-01_preface_and_document_purpose · 02_management_summary · 03_project_assignment ·
-04_initial_situation_and_problem · 05_project_goals_and_success_criteria ·
-06_project_scope_and_boundaries · 07_team_roles_and_responsibilities ·
-08_project_management_kanban_outline · 09_versioning_and_github_workflow ·
-10_work_package_landscape · 11_work_package_details · 12_system_overview ·
-13_system_architecture · 14_components_and_modules · 15_data_pipeline ·
-16_rag_ai_pipeline · 17_eval_matrix · 18_model_selection_and_open_source_licenses ·
-19_testing_and_quality_assurance · 20_deployment_operation_and_runtime ·
-21_security_privacy_and_sensitive_data · 22_risks_problems_and_mitigations ·
-23_decision_log · 24_current_status_after_9_weeks · 25_backlog_and_roadmap ·
-26_lessons_learned · 27_glossary · 28_appendix
-```
+| Teil     | Titel                                    | Kapitel (in numerischer Reihenfolge)                                                                                                              |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **I**    | Einführung & Projektrahmen               | 01 Vorwort & Zweck · 02 Management Summary · 03 Projektauftrag · 04 Ausgangslage & Problem · 05 Ziele & Erfolgskriterien · 06 Umfang & Abgrenzung |
+| **II**   | Projektorganisation, Planung & Steuerung | 07 Team, Rollen & Ressourcen · 08 Projektmanagement (Kanban, Meilenstein-, Zeit-/GANTT-, Netz- & Kostenplan) · 09 Versionierung & GitHub          |
+| **III**  | Arbeitspakete                            | 10 AP-Landkarte (PSP) · 11 AP-Details (AP-Spezifikation)                                                                                          |
+| **IV**   | System & technische Architektur          | 12 Systemüberblick · 13 Architektur · 14 Komponenten & Module                                                                                     |
+| **V**    | Daten, KI-Pipeline, Eval & Modelle       | 15 Datenpipeline · 16 RAG-/KI-Pipeline · 17 Eval-Matrix · 18 Modellauswahl & Lizenzen                                                             |
+| **VI**   | Qualität, Sicherheit & Betrieb           | 19 Testing & QA · 20 Deployment & Betrieb · 21 Sicherheit & Datenschutz                                                                           |
+| **VII**  | Risiken, Entscheidungen & Abschluss      | 22 Risiken · 23 Decision Log · 24 Status & Projektabschlussbericht · 25 Backlog & Roadmap · 26 Lessons Learned                                    |
+| **VIII** | Referenzen                               | 27 Glossar · 28 Anhang                                                                                                                            |
 
 ## Schlussteil
 
-| # | Datei | Inhalt |
-| --- | --- | --- |
-| 1 | [back_10_literaturverzeichnis.md](back_10_literaturverzeichnis.md) | Literaturverzeichnis (externe Quellen, IEEE) |
-| 2 | [back_20_selbststaendigkeitserklaerung.md](back_20_selbststaendigkeitserklaerung.md) | Selbstständigkeitserklärung |
+| #   | Datei                                                                                | Inhalt                                       |
+| --- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| 1   | [back_10_literaturverzeichnis.md](back_10_literaturverzeichnis.md)                   | Literaturverzeichnis (externe Quellen, IEEE) |
+| 2   | [back_20_selbststaendigkeitserklaerung.md](back_20_selbststaendigkeitserklaerung.md) | Selbstständigkeitserklärung                  |
 
 ---
 

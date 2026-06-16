@@ -8,6 +8,8 @@ siehe [/CLAUDE.md](../../CLAUDE.md)). Das finale Abnahme-Gate vor dem Export ble
 
 Stand der Liste: **2026-06-16**.
 
+> **Struktur-Update 2026-06-16:** Handbuch in **8 Teile** gegliedert (BOOK_MANIFEST) und die fehlenden Standard-PM-Planungskapitel ergänzt — Meilensteinplan (§8.6/K11), GANTT (§8.7/K12), Netzplan (§8.8), Kosten-/Aufwandsplan (§8.9/K13), Ressourcenplan (§7.6), Projektabschlussbericht (§24.3/K15) + Liefergegenstände-Mapping (§28.6). Offen/team-blockiert: IST-Stunden (K15), endgültige Eval-Zielzahlen (B1).
+
 ## Legende
 
 - ☐ offen · ◐ in Arbeit · ☑ erledigt · ⛔ blockiert (Team/Sweep) · 🌿 branch-abhängig
