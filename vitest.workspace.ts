@@ -8,6 +8,16 @@ const aliases = {
   '@renderer': resolve(__dirname, 'src/renderer/src'),
 }
 
+// integration + tx run in a plain Node context. CI has no Electron binary, so a
+// static `import { … } from 'electron'` (e.g. EmbeddingBackfillService) blows up
+// at collection time with "ENOENT … electron/path.txt". These suites never need
+// the real runtime, so resolve `electron` to a stub that mirrors how electron
+// already behaves under vitest (all bindings undefined), minus the binary lookup.
+const nodeMainAliases = {
+  ...aliases,
+  electron: resolve(__dirname, 'tests/helpers/electron-stub.ts'),
+}
+
 // vier projects:
 //   - node          : unit-tests neben source unter src/main , preload , shared
 //   - web           : renderer unit-tests , jsdom
@@ -36,7 +46,7 @@ export default defineWorkspace([
     },
   },
   {
-    resolve: { alias: aliases },
+    resolve: { alias: nodeMainAliases },
     test: {
       name: 'integration',
       include: ['tests/integration/**/*.test.ts'],
@@ -46,7 +56,7 @@ export default defineWorkspace([
     },
   },
   {
-    resolve: { alias: aliases },
+    resolve: { alias: nodeMainAliases },
     test: {
       name: 'tx',
       include: ['tests/tx/**/*.test.ts'],
