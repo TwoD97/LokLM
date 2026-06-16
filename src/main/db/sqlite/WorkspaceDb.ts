@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3-multiple-ciphers'
 import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
-import type { SearchHit, ChunkSearchOptions, ChunkRow } from '../database'
+import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../database'
+import type { LibrarySearchOptions } from '../../../shared/documents'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -117,6 +118,19 @@ function cosine(a: number[], b: Float32Array): number {
   }
   if (na === 0 || nb === 0) return 0
   return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
+const CODE_EXT =
+  /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|c|h|cpp|hpp|cs|rb|php|swift|sh|sql|json|yaml|yml|toml|html|css|scss|xml)$/
+
+/** Maps a source path to a library doc-type bucket (mirrors the PG CASE). */
+function docTypeOf(sourcePath: string): string {
+  const p = sourcePath.toLowerCase()
+  if (p.endsWith('.pdf')) return 'pdf'
+  if (p.endsWith('.docx')) return 'docx'
+  if (p.endsWith('.md') || p.endsWith('.markdown')) return 'md'
+  if (CODE_EXT.test(p)) return 'code'
+  return 'txt'
 }
 
 /** Splits a user query into FTS5-safe OR-of-terms (recall-oriented; bm25 ranks).
@@ -702,6 +716,126 @@ export class WorkspaceDb {
     }
     return out
   }
+
+  /** Library search (AP-6) ported to FTS5: content matches via bm25 + snippet()
+   *  highlighting (⟦…⟧), plus a title-LIKE arm so a filename match surfaces even
+   *  when FTS tokenisation won't split it. One row per document (best chunk).
+   *  doc-type bucketing, type filter, and sort are applied in JS. */
+  async searchLibrary(query: string, opts: LibrarySearchOptions = {}): Promise<LibrarySearchRow[]> {
+    const cleaned = query.trim()
+    if (!cleaned) return []
+    const topK = opts.topK && opts.topK > 0 ? opts.topK : 50
+    const sort = opts.sort ?? 'relevance'
+    const typeSet = opts.types && opts.types.length > 0 ? new Set<string>(opts.types) : null
+
+    // shared doc-level filters
+    const filt: string[] = []
+    const fargs: SqlArg[] = []
+    if (opts.addedAfter != null) {
+      filt.push('d.added_at >= ?')
+      fargs.push(opts.addedAfter)
+    }
+    if (opts.minBytes != null) {
+      filt.push('d.byte_size >= ?')
+      fargs.push(opts.minBytes)
+    }
+    if (opts.maxBytes != null) {
+      filt.push('d.byte_size <= ?')
+      fargs.push(opts.maxBytes)
+    }
+    const filtSql = filt.length ? ' AND ' + filt.join(' AND ') : ''
+    const ql = cleaned.toLowerCase()
+
+    const byDoc = new Map<number, LibrarySearchRow>()
+    const titleMatch = new Set<number>()
+
+    // 1. content matches (FTS5), best chunk per document
+    const match = toMatchQuery(cleaned)
+    if (match) {
+      const rows = this.rows(
+        `WITH base AS (
+           SELECT c.id AS chunk_id, c.document_id AS document_id, d.title AS document_title,
+                  c.page_from AS page_from, c.page_to AS page_to, c.heading_path AS heading_path,
+                  c.language AS language, d.added_at AS added_at, d.byte_size AS byte_size,
+                  d.source_path AS source_path, bm25(chunks_fts) AS rank,
+                  snippet(chunks_fts, 0, '⟦', '⟧', '…', 18) AS headline
+             FROM chunks_fts
+             JOIN chunks c    ON c.id = chunks_fts.rowid
+             JOIN documents d ON d.id = c.document_id
+            WHERE chunks_fts MATCH ? AND d.status = 'ready'${filtSql}),
+         ranked AS (SELECT *, row_number() OVER (PARTITION BY document_id ORDER BY rank ASC) AS dr FROM base)
+         SELECT * FROM ranked WHERE dr = 1`,
+        [match, ...fargs],
+      )
+      for (const r of rows) {
+        const id = Number(r.document_id)
+        const title = String(r.document_title)
+        if (title.toLowerCase().includes(ql)) titleMatch.add(id)
+        byDoc.set(id, {
+          chunk_id: Number(r.chunk_id),
+          document_id: id,
+          document_title: title,
+          doc_type: docTypeOf(String(r.source_path)),
+          page_from: r.page_from == null ? null : Number(r.page_from),
+          page_to: r.page_to == null ? null : Number(r.page_to),
+          heading_path: r.heading_path ? (JSON.parse(String(r.heading_path)) as string[]) : null,
+          score: -Number(r.rank),
+          added_at: r.added_at == null ? null : Number(r.added_at),
+          byte_size: r.byte_size == null ? null : Number(r.byte_size),
+          language: (r.language ?? null) as 'de' | 'en' | 'other' | null,
+          headline: String(r.headline),
+        })
+      }
+    }
+
+    // 2. title-LIKE arm: documents whose filename/title matches (first chunk)
+    const likeNeedle = '%' + ql.replace(/[\\%_]/g, '\\$&') + '%'
+    for (const r of this.rows(
+      `SELECT d.id AS document_id, d.title AS document_title, d.added_at AS added_at,
+              d.byte_size AS byte_size, d.source_path AS source_path,
+              c.id AS chunk_id, c.text AS text, c.page_from AS page_from, c.page_to AS page_to,
+              c.heading_path AS heading_path, c.language AS language
+         FROM documents d
+         JOIN chunks c ON c.id = (SELECT id FROM chunks WHERE document_id = d.id ORDER BY ordinal LIMIT 1)
+        WHERE d.status = 'ready' AND lower(d.title) LIKE ? ESCAPE '\\'${filtSql}`,
+      [likeNeedle, ...fargs],
+    )) {
+      const id = Number(r.document_id)
+      titleMatch.add(id)
+      if (byDoc.has(id)) continue
+      byDoc.set(id, {
+        chunk_id: Number(r.chunk_id),
+        document_id: id,
+        document_title: String(r.document_title),
+        doc_type: docTypeOf(String(r.source_path)),
+        page_from: r.page_from == null ? null : Number(r.page_from),
+        page_to: r.page_to == null ? null : Number(r.page_to),
+        heading_path: r.heading_path ? (JSON.parse(String(r.heading_path)) as string[]) : null,
+        score: 0,
+        added_at: r.added_at == null ? null : Number(r.added_at),
+        byte_size: r.byte_size == null ? null : Number(r.byte_size),
+        language: (r.language ?? null) as 'de' | 'en' | 'other' | null,
+        headline: String(r.text).replace(/\s+/g, ' ').slice(0, 240),
+      })
+    }
+
+    let out = [...byDoc.values()]
+    if (typeSet) out = out.filter((r) => typeSet.has(r.doc_type))
+    out.sort((a, b) => {
+      if (sort === 'filename')
+        return a.document_title.toLowerCase().localeCompare(b.document_title.toLowerCase())
+      if (sort === 'added') return (b.added_at ?? 0) - (a.added_at ?? 0)
+      // relevance: title matches first, then score
+      const at = titleMatch.has(a.document_id)
+      const bt = titleMatch.has(b.document_id)
+      if (at !== bt) return at ? -1 : 1
+      return b.score - a.score
+    })
+    return out.slice(0, topK)
+  }
+
+  /** No-op: the legacy pgvector HNSW index. Vectors live in LanceDB now. */
+  async ensureVectorIndex(): Promise<void> {}
 
   // ---- sync folders -------------------------------------------------------
 
