@@ -69,6 +69,12 @@ Check stellt vor dem Export die fachliche, formale und sicherheitsbezogene Reife
 
 - [ ] Handbuch-Version in `00_cover.md`, [README.md](README.md) und Fußzeilen auf **1.0.0**
       und finales Datum gebumpt.
+- [ ] **App-Stand gepinnt:** Tabelle 1.2 (§1.7, Zeile „1.0.0") und der Dokumentationsstand
+      (§1.3) nennen den **tatsächlichen Abgabe-Release** der Anwendung (Version **+ Commit**)
+      statt v0.4.6 / `af59c25`; alle weiteren Versions-Erwähnungen im Text sind konsistent.
+- [ ] **Snapshot eingefroren:** Der gebundene Handbuch-Stand ist als Git-Tag/Commit
+      festgehalten (z. B. Tag `handbuch-v1.0.0` auf `dom/doku`), damit die gedruckte
+      Original-Fassung reproduzierbar bleibt (Snapshot-Politik §1.7).
 - [ ] [HANDBOOK_STATUS.md](HANDBOOK_STATUS.md) spiegelt den finalen Stand
       (keine `zu pruefen`-Restposten ohne Begründung).
 
@@ -79,4 +85,4 @@ Check stellt vor dem Export die fachliche, formale und sicherheitsbezogene Reife
 
 ---
 
-*Nach vollständigem Abhaken: Export nach `export/`, Druck, Bindung, Abgabe.*
+_Nach vollständigem Abhaken: Export nach `export/`, Druck, Bindung, Abgabe._
