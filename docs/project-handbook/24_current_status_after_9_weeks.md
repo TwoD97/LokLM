@@ -36,9 +36,9 @@ Tabelle 24.2 zeigt die teilweise fertigen Pakete mit aktuellem Stand.
 
 | Paket                                                                               | Stand                                                            | Beleg                                 |
 | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------- |
-| **AP-T.2 — Integrationstests + erster CI-Test-Job**                                 | Code fertig, **PR #19 offen**, alle Checks grün, mergebar        | `3e0a4d2`, `9644d60`, `48255ab`       |
-| **AP-E.1 — Eval-Dev-Set (80 Fälle)**                                                | Code fertig, **PR #25 offen**, Website-CI grün                   | `27e159d`                             |
-| **AP-T.1 — Unit-Tests ≥70 % Branch-Coverage**                                       | Code fertig + gepusht, **PR #24 offen**, Website-CI grün         | `0fcdef8`, `53441c1`                  |
+| **AP-T.2 — Integrationstests + erster CI-Test-Job**                                 | **PR #19 gemergt (16.06.)**, Checks waren grün                   | `3e0a4d2`, `9644d60`, `48255ab`       |
+| **AP-E.1 — Eval-Dev-Set (80 Fälle)**                                                | **PR #25 gemergt (16.06.)**, Website-CI grün                     | `27e159d`                             |
+| **AP-T.1 — Unit-Tests ≥70 % Branch-Coverage**                                       | **PR #24 gemergt (16.06.)**, Website-CI grün                     | `0fcdef8`, `53441c1`                  |
 | **AP-E1b — 15 Hold-out-Testfälle**                                                  | Code fertig, lokal/Branch (R5-versiegelt, bewusst nicht gepusht) | `701bef1`                             |
 | **AP-E.2 — Kartesische RAG-Matrix-Eval, Phase 1** (Span-Recall-Metrik, LAP-Dataset) | Phase-1-Code fertig; Matrix-Verdrahtung teils noch uncommittet   | `6a5e27e`, `cd10138`, `862ec05` u. a. |
 

@@ -215,7 +215,7 @@ Vier GitHub-Actions-Workflows hängen an der Versionierung
 
 **Wichtige Einschränkung (ehrlich gekennzeichnet):** Lange Zeit baute die CI **nur die
 Website** — der erste echte Test-Job (`checks.yml`, integration + tx) entstand erst mit
-AP-T.2 (PR #19) und ist damit noch **nicht in `main`** gemergt. Die modell-gebundene
+AP-T.2 (PR #19) und ist seit dessen Merge (2026-06-16) in `main`. Die modell-gebundene
 RetrievalService-E2E **skippt in CI** (BGE-M3-GGUF liegt nicht im Runner) und ist nur
 lokal abgesichert. Die Playwright-E2E-Suite für die Electron-App **läuft nicht in CI**
 (kann Electron mit `--remote-debugging-port=0` nicht starten) — siehe Test-Kapitel.
