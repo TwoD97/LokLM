@@ -192,7 +192,7 @@ sensibel** ist (Code, Test-Fixtures, Dataset-Manifeste, ADRs). Ausgeschlossen wi
   deshalb einen Pivot von ~500 MB eingebetteter Payload auf einen ~8 MB Download-Stub
   (siehe `11_work_package_details.md`, AP Installer-Pivot).
 - **Release-Assets** liegen nicht im Repo, sondern werden von der Pipeline gebaut, in den
-  MinIO-Bucket (`s3.ltwodl.com/loklm-installers/v<V>/`) geladen und öffentlich über
+  MinIO-Bucket (`<PRIVATE_DOMAIN>/loklm-installers/v<V>/`) geladen und öffentlich über
   Bunny-CDN ausgeliefert; MinIO dient zugleich als Backup-Spiegel (Fallback bei
   Bunny-CDN-Ausfall).
 - **Build-Artefakt-Drift** wurde aktiv vermieden: Der Laborbericht 29.05. vermerkt, dass
