@@ -962,4 +962,11 @@ function validatePassword(pw: string): void {
   validatePasswordShared(pw)
 }
 
-export type { AuthHeader, RecoveryEntry, WrappedKey }
+export type { AuthHeader, RecoveryEntry, WrappedKey, EncryptedBody }
+
+// Exposed for AP-T.1 unit tests (Pflichtenheft §8.1, tests/unit/auth-crypto.test.ts):
+// the crypto wrappers — Argon2id KDF (deriveKEK) and AES-256-GCM key-wrap /
+// body-decrypt. Kept module-private in practice; this export only widens
+// visibility so the failure branches (wrong key, tampered tag, length guard)
+// can be branch-tested directly. No behavior change.
+export { deriveKEK, wrapKey, unwrapKey, decryptBody }
