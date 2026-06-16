@@ -4,7 +4,7 @@ Dieses Kapitel dokumentiert, **welche** Modelle in welcher Rolle eingesetzt werd
 
 Grundregel des Kapitels: **keine Lizenzbehauptung ohne Quelle.** Jede Aussage soll sich auf die geplante License-Registry (`tests/evals/model-license-registry.json`, Kopf `verifiedAt: "2026-06-14"`) stützen; unklare Fälle sind als „unknown / zu prüfen" markiert.
 
-> ⚠ Status unklar — Der in diesem Kapitel beschriebene Durchsetzungs-Mechanismus (License-Registry `tests/evals/model-license-registry.json` und License-Gate `tests/evals/license/validate-model-licenses.ts` mit `validateLicenses()`) existiert auf `main` (HEAD `af59c25`) NICHT. Beide Dateien wurden mit Commit `f1418f6` ausschließlich auf dem Feature-Branch `dom/ap-e2-matrix-eval` angelegt; dieser ist kein Vorfahre von `main` und damit nicht Teil des Auslieferungsstands. Bis zum Merge beschreibt dieses Kapitel einen Soll-/Konzept-Stand, nicht den realen `main`-Code. Auf `main` existiert lediglich der Eval-Pool `tests/evals/answer/model-pack.json` (ohne Lizenzfelder).
+> ⚠ Status unklar — Der in diesem Kapitel beschriebene Durchsetzungs-Mechanismus (License-Registry `tests/evals/model-license-registry.json` und License-Gate `tests/evals/license/validate-model-licenses.ts` mit `validateLicenses()`) existiert auf `main` (HEAD `d35e219`, v0.4.7) NICHT. Beide Dateien wurden mit Commit `f1418f6` ausschließlich auf dem Feature-Branch `dom/ap-e2-matrix-eval` angelegt; dieser ist kein Vorfahre von `main` und damit nicht Teil des Auslieferungsstands. Bis zum Merge beschreibt dieses Kapitel einen Soll-/Konzept-Stand, nicht den realen `main`-Code. Auf `main` existiert lediglich der Eval-Pool `tests/evals/answer/model-pack.json` (ohne Lizenzfelder).
 
 ---
 
@@ -14,12 +14,12 @@ Tabelle 18.1 ordnet jeder Modellrolle Aufgabe und App-Standard zu.
 
 **Tabelle 18.1:** Modellrollen und Standardmodelle.
 
-| Rolle | Aufgabe | Standard (App) |
-| --- | --- | --- |
-| **Embedder** | Query/Chunk → Vektor (dense Retrieval) | BGE-M3 (`bge-m3`, MIT) |
-| **Reranker** | Cross-Encoder, Präzisions-Pass über Kandidaten | BGE-Reranker-v2-M3 (Apache-2.0) |
-| **Antwort-LLM** | Antwortgenerierung + Self-Refusal | Qwen3.5 Lite/Full/XL (Apache-2.0) |
-| **Judge** (nur Eval) | bewertet generierte Antworten (LLM-as-Judge) | Mistral-Small-3.2-24B (Apache-2.0) |
+| Rolle                | Aufgabe                                        | Standard (App)                     |
+| -------------------- | ---------------------------------------------- | ---------------------------------- |
+| **Embedder**         | Query/Chunk → Vektor (dense Retrieval)         | BGE-M3 (`bge-m3`, MIT)             |
+| **Reranker**         | Cross-Encoder, Präzisions-Pass über Kandidaten | BGE-Reranker-v2-M3 (Apache-2.0)    |
+| **Antwort-LLM**      | Antwortgenerierung + Self-Refusal              | Qwen3.5 Lite/Full/XL (Apache-2.0)  |
+| **Judge** (nur Eval) | bewertet generierte Antworten (LLM-as-Judge)   | Mistral-Small-3.2-24B (Apache-2.0) |
 
 Der Judge ist **kein** App-Bestandteil — er existiert nur in der Eval-Säule (Kapitel 17) und ist dort strikt vom Prüfling getrennt.
 
@@ -31,12 +31,12 @@ Der Begriff „Open Source" wird bei KI-Modellen oft unsauber verwendet. Das Pro
 
 **Tabelle 18.2:** Lizenz-Klassen für KI-Modelle.
 
-| Begriff | Bedeutung | Beispiel |
-| --- | --- | --- |
-| **Open Source (OSI)** | OSI-anerkannte Lizenz; freie kommerzielle Nutzung, Weitergabe, Derivate — nur Attribution | Apache-2.0, MIT, BSD |
-| **Open Weights** | Gewichte frei herunterladbar, aber **eigene** Nutzungsbedingungen statt OSI-Lizenz | — |
-| **Source Available** | Code/Gewichte einsehbar, Nutzung eingeschränkt | — |
-| **Custom License** | herstellereigene Bedingungen (Akzeptanz-Pflicht, Acceptable-Use-Policy, MAU-Cap) | Llama Community License, Gemma Terms of Use |
+| Begriff               | Bedeutung                                                                                 | Beispiel                                    |
+| --------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Open Source (OSI)** | OSI-anerkannte Lizenz; freie kommerzielle Nutzung, Weitergabe, Derivate — nur Attribution | Apache-2.0, MIT, BSD                        |
+| **Open Weights**      | Gewichte frei herunterladbar, aber **eigene** Nutzungsbedingungen statt OSI-Lizenz        | —                                           |
+| **Source Available**  | Code/Gewichte einsehbar, Nutzung eingeschränkt                                            | —                                           |
+| **Custom License**    | herstellereigene Bedingungen (Akzeptanz-Pflicht, Acceptable-Use-Policy, MAU-Cap)          | Llama Community License, Gemma Terms of Use |
 
 Der für das Projekt entscheidende Unterschied liegt **nicht** an der Frage „kommerziell erlaubt?" (das erlauben auch Gemma/Llama meist), sondern an der Frage **„OSI-permissiv, ohne nachgelagerte Pflichten und Nutzungs-Restriktionen?"**. Custom-Lizenzen erzwingen typischerweise:
 
@@ -71,14 +71,14 @@ Folgende Modelle/Klassen sind aus der Default-Matrix **ausgeschlossen** (`allowe
 
 **Tabelle 18.3:** Aus der Default-Matrix ausgeschlossene Modelle.
 
-| Modell | `declaredLicense` | `licenseClass` | Ausschlussgrund |
-| --- | --- | --- | --- |
-| `llama-3.2-3b` | `llama3.2` | open-weight-non-osi | Llama 3.2 Community License: Attribution-/Namenspflicht, >700M-MAU-Cap, Acceptable-Use-Policy |
-| `hermes-3-8b` | `llama3` | open-weight-non-osi | Llama-3.1-Finetune → Basis-Lizenz greift (nicht OSI) |
-| `gemma-3-4b` | `gemma` | open-weight-non-osi | Gemma Terms of Use (custom Google), gated, Prohibited-Use-Policy |
-| `gemma-4-e4b` | `apache-2.0` (deklariert) | open-weight-non-osi | YAML sagt apache-2.0, **aber** verpflichtender `license_link` ergänzt Apache um bindende Gemma-Terms + Prohibited-Use-Policy → **kein** OSI-konformes Apache-2.0 |
-| `embeddinggemma` | `gemma` | open-weight-non-osi | Gemma Terms of Use (Embedder) |
-| `jina-reranker-v2` | `cc-by-nc-4.0` | non-commercial | research/eval-only, kommerzielle Nutzung nur über Jina-Hosted-API |
+| Modell             | `declaredLicense`         | `licenseClass`      | Ausschlussgrund                                                                                                                                                  |
+| ------------------ | ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `llama-3.2-3b`     | `llama3.2`                | open-weight-non-osi | Llama 3.2 Community License: Attribution-/Namenspflicht, >700M-MAU-Cap, Acceptable-Use-Policy                                                                    |
+| `hermes-3-8b`      | `llama3`                  | open-weight-non-osi | Llama-3.1-Finetune → Basis-Lizenz greift (nicht OSI)                                                                                                             |
+| `gemma-3-4b`       | `gemma`                   | open-weight-non-osi | Gemma Terms of Use (custom Google), gated, Prohibited-Use-Policy                                                                                                 |
+| `gemma-4-e4b`      | `apache-2.0` (deklariert) | open-weight-non-osi | YAML sagt apache-2.0, **aber** verpflichtender `license_link` ergänzt Apache um bindende Gemma-Terms + Prohibited-Use-Policy → **kein** OSI-konformes Apache-2.0 |
+| `embeddinggemma`   | `gemma`                   | open-weight-non-osi | Gemma Terms of Use (Embedder)                                                                                                                                    |
+| `jina-reranker-v2` | `cc-by-nc-4.0`            | non-commercial      | research/eval-only, kommerzielle Nutzung nur über Jina-Hosted-API                                                                                                |
 
 Zusätzlich technisch (nicht lizenzbedingt) ausgeschlossen: `cand-gte-base` und `cand-mxbai-rerank` (siehe 18.3).
 
@@ -123,10 +123,10 @@ Im OSI-Default-Pack (`model-pack.json`, `inDefaultPack: true`) sind die 15 Antwo
 
 **Tabelle 18.4:** Antwort-LLMs des OSI-Default-Packs nach Lizenz.
 
-| Lizenz | Antwort-LLMs |
-| --- | --- |
+| Lizenz     | Antwort-LLMs                                                                                                                                                         |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Apache-2.0 | `qwen3-4b-instruct`, `qwen3-8b`, `qwen3-14b`, `qwen3.5-{2b,4b,9b,27b}`, `granite-{3.3-8b,4.1-3b}`, `mistral-nemo-12b`, `ministral-3-14b`, `eurollm-9b`, `smollm3-3b` |
-| MIT | `phi-4-mini`, `phi-4-14b` |
+| MIT        | `phi-4-mini`, `phi-4-14b`                                                                                                                                            |
 
 Embedder (alle OSI): `bge-m3` [17] (MIT), `e5-base`/`e5-large` (MIT), `arctic-l-v2`, `qwen3-emb-0.6b`/`qwen3-emb-4b`, `granite-emb`, `nomic-v2` (Apache-2.0). Reranker: `bge-reranker-v2-m3` (Apache-2.0), `bge-reranker-base` (MIT). Judge: `mistral-small-3.2-24b` (Apache-2.0).
 
@@ -152,14 +152,14 @@ Tabelle 18.5 fasst die lizenzbezogenen Risiken samt Gegenmaßnahmen zusammen.
 
 **Tabelle 18.5:** Risiken durch Modelllizenzen und Gegenmaßnahmen.
 
-| Risiko | Wirkung | Gegenmaßnahme |
-| --- | --- | --- |
-| **YAML-Tag ≠ tatsächliche Lizenz** | „apache-2.0"-Tag mit überlagernden Custom-Terms (Gemma-4) gerät unbemerkt in die Matrix | Registry prüft den **verpflichtenden Lizenz-Link**, nicht nur das Tag; Gate erzwingt `licenseClass` |
-| **Basis-Modell-Lizenz vererbt** | Finetune eines Llama/Gemma-Basismodells erbt dessen Restriktionen (Hermes-3) | Registry-Note dokumentiert Basis-Lizenz pro Finetune |
-| **Non-commercial schleicht ein** | CC-BY-NC-Modell (jina-reranker-v2) in Produktiv-/Abgabe-Software | `licenseClass: non-commercial` → Gate blockt |
-| **Lizenz-Drift bei Updates** | spätere Modell-Version ändert Lizenz | `verifiedAt` + Pflicht zur Re-Prüfung vor Abgabe |
-| **Technisch unbrauchbar trotz OSI** | permissive Lizenz, aber kein lauffähiges GGUF | `allowedInDefaultMatrix: false` trennt Lizenz von Lauffähigkeit |
-| **Quellen widersprechen sich** | YAML vs. LICENSE-Datei uneinig | Registry-Note hält Übereinstimmung/Diskrepanz explizit fest |
+| Risiko                              | Wirkung                                                                                 | Gegenmaßnahme                                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **YAML-Tag ≠ tatsächliche Lizenz**  | „apache-2.0"-Tag mit überlagernden Custom-Terms (Gemma-4) gerät unbemerkt in die Matrix | Registry prüft den **verpflichtenden Lizenz-Link**, nicht nur das Tag; Gate erzwingt `licenseClass` |
+| **Basis-Modell-Lizenz vererbt**     | Finetune eines Llama/Gemma-Basismodells erbt dessen Restriktionen (Hermes-3)            | Registry-Note dokumentiert Basis-Lizenz pro Finetune                                                |
+| **Non-commercial schleicht ein**    | CC-BY-NC-Modell (jina-reranker-v2) in Produktiv-/Abgabe-Software                        | `licenseClass: non-commercial` → Gate blockt                                                        |
+| **Lizenz-Drift bei Updates**        | spätere Modell-Version ändert Lizenz                                                    | `verifiedAt` + Pflicht zur Re-Prüfung vor Abgabe                                                    |
+| **Technisch unbrauchbar trotz OSI** | permissive Lizenz, aber kein lauffähiges GGUF                                           | `allowedInDefaultMatrix: false` trennt Lizenz von Lauffähigkeit                                     |
+| **Quellen widersprechen sich**      | YAML vs. LICENSE-Datei uneinig                                                          | Registry-Note hält Übereinstimmung/Diskrepanz explizit fest                                         |
 
 ---
 
@@ -169,4 +169,4 @@ Dieses Kapitel betrifft **KI-Modell-Lizenzen** (GGUF-Gewichte). Die Lizenzen der
 
 ---
 
-*Querverweise: Modellrollen im Datenfluss → Kapitel 16; Eval-Matrix-Achsen, die diese Modelle nutzen → Kapitel 17; Software-Dependency-Lizenzen → `docs/licenses.md`.*
+_Querverweise: Modellrollen im Datenfluss → Kapitel 16; Eval-Matrix-Achsen, die diese Modelle nutzen → Kapitel 17; Software-Dependency-Lizenzen → `docs/licenses.md`._
