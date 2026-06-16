@@ -179,7 +179,7 @@ export class RetrievalService {
     private readonly registry: ProviderRegistry,
     private readonly vectorSearch?: VectorSearchFn,
     /** ADR-0005 cutover: when provided, the relational/BM25 reads run against the
-     *  workspace's encrypted libSQL store instead of PGlite. Opened on demand;
+     *  workspace's encrypted SQLite store instead of PGlite. Opened on demand;
      *  left undefined in isolated tests (pgvector/PGlite path). */
     private readonly getWorkspaceDb?: (workspaceId: number) => Promise<WorkspaceDb>,
   ) {}
@@ -193,7 +193,7 @@ export class RetrievalService {
     const trimmed = query.trim()
     if (!trimmed) return []
 
-    // ADR-0005: resolve the workspace's libSQL store once (opens it); all
+    // ADR-0005: resolve the workspace's SQLite store once (opens it); all
     // relational/BM25 reads below route to it. null → legacy PGlite path.
     const wsdb = this.getWorkspaceDb ? await this.getWorkspaceDb(workspaceId) : null
 

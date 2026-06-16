@@ -634,7 +634,7 @@ export class AuthService {
   }
 
   /** Opens (if needed) and returns a workspace's encrypted relational/FTS store
-   *  (libSQL, ADR-0005). The single most important cutover seam: services move
+   *  (SQLite, ADR-0005). The single most important cutover seam: services move
    *  from the global PGlite `requireDatabase()` to this per-workspace store.
    *  Throws LockedError when the session is locked. */
   async getWorkspaceDb(workspaceId: number): Promise<WorkspaceDb> {

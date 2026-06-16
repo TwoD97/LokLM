@@ -1,6 +1,6 @@
-// Per-workspace SQLite (libSQL) schema (ADR-0005, PGlite → libSQL migration).
+// Per-workspace SQLite schema (ADR-0005, PGlite → encrypted SQLite migration).
 //
-// Each workspace is its OWN encrypted libSQL file, so the tables drop the
+// Each workspace is its OWN encrypted SQLite file, so the tables drop the
 // `workspace_id` columns the PGlite schema carried — the file *is* the
 // workspace. Vectors are gone from the relational layer entirely (they live in
 // the workspace's LanceDB store); only the `embedded` marker remains. BM25 is
