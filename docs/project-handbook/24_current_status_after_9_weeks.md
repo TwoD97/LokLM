@@ -117,4 +117,4 @@ App ist installierbar und beim Anwender lauffähig (Windows). **Offene Betriebsf
 
 ## 24.3 Kurzfazit
 
-Nach 9 Wochen ist LokLM **funktional ausgeliefert** (v0.4.1, drei Plattformen) und die **Test-/Eval-Säule weitgehend aufgebaut**. Der wesentliche offene Block ist die **AP-E.2-GPU-Matrix-Auswertung** für den Abgabe-Laborbericht (Phase 2). Drei Test-/Eval-PRs (#19, #24, #25) sind review-bereit und warten nur auf Merge-Freigabe; die betriebliche Härtung (Signing, Auto-Update, Mac/Linux) bleibt als Roadmap-Thema.
+Nach 9 Wochen ist LokLM **funktional ausgeliefert** (v0.4.1, drei Plattformen) und die **Test-/Eval-Säule weitgehend aufgebaut**. Der wesentliche offene Block ist die **AP-E.2-GPU-Matrix-Auswertung** für den Abgabe-Laborbericht (Phase 2). Drei Test-/Eval-PRs (#19, #24, #25) sind am 2026-06-16 gemergt; die betriebliche Härtung (Signing, Auto-Update, Mac/Linux) bleibt als Roadmap-Thema.

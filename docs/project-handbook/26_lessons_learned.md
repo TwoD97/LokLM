@@ -12,7 +12,7 @@ Der gemeldete Fehler „Einstellungen nicht bedienbar" (`LockedError: locked` be
 
 ### 26.1.2 Span-Metriken sind chunker-unabhängig
 
-Die Retrieval-Metrik wurde auf **Gold-Spans** (Zeichen-Offsets im Quelldokument) statt auf Gold-Chunk-IDs gegründet. Dadurch bleibt der Recall vergleichbar, auch wenn unterschiedliche Chunker verschieden schneiden. Konsequenz für die Matrix: Eine Mehr-Größen-Chunker-Achse *im selben Sweep* wäre wirkungslos (der Sweep re-chunkt nicht pro Config), der Chunk-Größen-Vergleich läuft korrekt als **separate Dataset-Läufe** über die chunker-unabhängige Span-Recall-Metrik. (`tests/evals/answer/matrix-manifest.ts`, AP-E.2.)
+Die Retrieval-Metrik wurde auf **Gold-Spans** (Zeichen-Offsets im Quelldokument) statt auf Gold-Chunk-IDs gegründet. Dadurch bleibt der Recall vergleichbar, auch wenn unterschiedliche Chunker verschieden schneiden. Konsequenz für die Matrix: Eine Mehr-Größen-Chunker-Achse _im selben Sweep_ wäre wirkungslos (der Sweep re-chunkt nicht pro Config), der Chunk-Größen-Vergleich läuft korrekt als **separate Dataset-Läufe** über die chunker-unabhängige Span-Recall-Metrik. (`tests/evals/answer/matrix-manifest.ts`, AP-E.2.)
 
 ### 26.1.3 Modellgröße ≠ Antwortqualität bei gutem RAG
 
@@ -42,11 +42,11 @@ Getrennte Worktrees/Branches pro Arbeitspaket hielten Test-/Doku-Arbeit (Dominik
 
 ### 26.2.2 Personalausfall ist ein Projektrisiko, das man dokumentieren muss
 
-Der partnerseitige Ausfall (KW 23) kippte den Gesamtstatus auf *kritisch*; nach Wiedereinstieg und beidseitiger Integration (AP-6/AP-9 gemerged, zwei Releases) wurde auf *planmäßig* zurückgestuft. **Lehre:** Statusbegründung im Bericht explizit machen (wer trägt was), statt nur das Ampelsymbol zu setzen. (Projektstatusbericht.)
+Der partnerseitige Ausfall (KW 23) kippte den Gesamtstatus auf _kritisch_; nach Wiedereinstieg und beidseitiger Integration (AP-6/AP-9 gemerged, zwei Releases) wurde auf _planmäßig_ zurückgestuft. **Lehre:** Statusbegründung im Bericht explizit machen (wer trägt was), statt nur das Ampelsymbol zu setzen. (Projektstatusbericht.)
 
 ### 26.2.3 „PR offen" ist nicht „fertig"
 
-Mehrere Pakete (AP-T.1/T.2/E.1) sind code-fertig, hängen aber an der Review-/Merge-Freigabe. Die klare Status-Lesart („gemerged" vs. „PR offen" vs. „Branch" vs. „in Arbeit") verhindert Überschätzung des Fortschritts. **Lehre:** Definition-of-Done muss den Merge einschließen, nicht nur den grünen lokalen Lauf.
+Mehrere Pakete (AP-T.1/T.2/E.1) waren zwischenzeitlich code-fertig und hingen an der Review-/Merge-Freigabe (inzwischen gemergt 16.06.). Die klare Status-Lesart („gemerged" vs. „PR offen" vs. „Branch" vs. „in Arbeit") verhindert Überschätzung des Fortschritts. **Lehre:** Definition-of-Done muss den Merge einschließen, nicht nur den grünen lokalen Lauf.
 
 ### 26.2.4 CI-Lücke früh benennen
 
@@ -88,11 +88,11 @@ Tabelle 26.1 fasst die zentralen Fehler und Umwege mit ihren Konsequenzen für d
 
 **Tabelle 26.1:** Fehler, Umwege und Konsequenzen fürs Folgeprojekt.
 
-| Beobachtung | Konsequenz fürs nächste Projekt |
-|---|---|
-| CI baute lange nur die Website | Test-CI-Stufe von Tag 1 als Pflicht-Gate, inkl. Modell-Strategie. |
-| Playwright-E2E nie lauffähig (Electron-Start) | E2E-Tooling vor dem Aufschreiben von E2E-Fällen am Zielstack verifizieren. |
-| Spec/Ticket-Wortlaut wich mehrfach vom Code ab | Pflichtenheft als lebendes Dokument pflegen; Abweichungen sofort per ADR/Ticket nachziehen. |
-| Installer-Build lokal nicht möglich (Rust fehlt) | Build-Toolchain-Anforderungen früh klären und im Onboarding dokumentieren. |
-| OCR-/UTF-8-Defekte erst bei der Eval entdeckt | Korpus-Qualitätsprüfung als eigener Schritt vor jeder Eval. |
-| „PR offen" wurde anfangs wie „fertig" gelesen | DoD inklusive Merge; klare Status-Lesart von Anfang an. |
+| Beobachtung                                      | Konsequenz fürs nächste Projekt                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| CI baute lange nur die Website                   | Test-CI-Stufe von Tag 1 als Pflicht-Gate, inkl. Modell-Strategie.                           |
+| Playwright-E2E nie lauffähig (Electron-Start)    | E2E-Tooling vor dem Aufschreiben von E2E-Fällen am Zielstack verifizieren.                  |
+| Spec/Ticket-Wortlaut wich mehrfach vom Code ab   | Pflichtenheft als lebendes Dokument pflegen; Abweichungen sofort per ADR/Ticket nachziehen. |
+| Installer-Build lokal nicht möglich (Rust fehlt) | Build-Toolchain-Anforderungen früh klären und im Onboarding dokumentieren.                  |
+| OCR-/UTF-8-Defekte erst bei der Eval entdeckt    | Korpus-Qualitätsprüfung als eigener Schritt vor jeder Eval.                                 |
+| „PR offen" wurde anfangs wie „fertig" gelesen    | DoD inklusive Merge; klare Status-Lesart von Anfang an.                                     |

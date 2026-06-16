@@ -28,16 +28,16 @@ Das Repository nutzt mehrere Branch-Klassen mit klar getrennten Rollen (Tabelle 
 
 **Tabelle 9.1:** Branch-Klassen und ihre Rollen.
 
-| Branch-Klasse | Beispiel | Rolle |
-|---|---|---|
-| **Integrationsstand** | `main` | abgenommener Stand; Quelle aller Releases; durch Branch-Protection geschützt |
-| **Vorintegration** | `development` | älterer Sammel-/Vorintegrations-Branch (existiert remote) |
-| **Feature pro AP** | `dom/ap6-search-filter`, `dom/ap-t2-integrationstests` | je AP ein Branch, von `main` abgezweigt |
-| **Content (SEO/Website)** | `content/private-definition`, `content/taxonomy-of-local-ai` | Website-/SEO-Inhalte getrennt vom App-Code |
-| **Doku** | `dom/doku` | Projekt-Handbuch / Dokumentationsarbeit, isoliert vom Code |
-| **Release/Hotfix** | `release/v0.2-rag`, `hotfix/0.4.0-mac`, `release/0.4.1-sidecar-fixes` | Release-Stabilisierung, plattform-spezifische Hotfixes |
-| **Fix/CI** | `fix/mac-dmg-license`, `fix/windows-cuda-ninja` | gezielte Build-/CI-Korrekturen |
-| **Dependabot** | `dependabot/npm_and_yarn/vite-6.4.2` | automatische Abhängigkeits-Updates |
+| Branch-Klasse             | Beispiel                                                              | Rolle                                                                        |
+| ------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Integrationsstand**     | `main`                                                                | abgenommener Stand; Quelle aller Releases; durch Branch-Protection geschützt |
+| **Vorintegration**        | `development`                                                         | älterer Sammel-/Vorintegrations-Branch (existiert remote)                    |
+| **Feature pro AP**        | `dom/ap6-search-filter`, `dom/ap-t2-integrationstests`                | je AP ein Branch, von `main` abgezweigt                                      |
+| **Content (SEO/Website)** | `content/private-definition`, `content/taxonomy-of-local-ai`          | Website-/SEO-Inhalte getrennt vom App-Code                                   |
+| **Doku**                  | `dom/doku`                                                            | Projekt-Handbuch / Dokumentationsarbeit, isoliert vom Code                   |
+| **Release/Hotfix**        | `release/v0.2-rag`, `hotfix/0.4.0-mac`, `release/0.4.1-sidecar-fixes` | Release-Stabilisierung, plattform-spezifische Hotfixes                       |
+| **Fix/CI**                | `fix/mac-dmg-license`, `fix/windows-cuda-ninja`                       | gezielte Build-/CI-Korrekturen                                               |
+| **Dependabot**            | `dependabot/npm_and_yarn/vite-6.4.2`                                  | automatische Abhängigkeits-Updates                                           |
 
 **Namenskonvention.** Dominiks Branches tragen durchgängig das Präfix `dom/` plus die
 AP-ID (`dom/ap9-settings-ui`, `dom/ap-e1-eval-set`, `dom/ap-e2-matrix-eval`). Das macht
@@ -87,39 +87,36 @@ Die folgende Tabelle ist aus den GitHub-PR-Daten (echte Merge-Zeitstempel) abgel
 
 **Tabelle 9.2:** Pull-Requests #1–#26 mit Bereich, Status und Merge-Datum.
 
-| PR | Titel (gekürzt) | Bereich | Status | Merge-Datum |
-|---|---|---|---|---|
-| #1 | Deployment landingpage | Website | gemergt | 18.05. |
-| #2 | SEO Phase 1 — Cluster-Infrastruktur | Website/SEO | gemergt | 28.05. |
-| #3 | Cornerstone #1 „privat" (DE/EN) | Content | gemergt | 28.05. |
-| #4 | Cornerstone #2 EU AI Act | Content | gemergt | 28.05. |
-| #5 | Cornerstone #3 DSGVO/Datenexport | Content | gemergt | 28.05. |
-| #6 | Auth-E2E §8.2 (M3/G2) | Test (Dominik) | gemergt | 28.05. |
-| #7 | Cornerstone #4 Quellenverweise | Content | gemergt | 28.05. |
-| #8 | Cornerstone #5 Taxonomie (Erstentwurf) | Content | gemergt | 02.06. |
-| #9 | Cornerstone #5 Taxonomie (Finalisierung) | Content | gemergt | 08.06. |
-| #10 | Linux `.deb`-Artefakt + glibc-Baseline | Installer (Denys) | gemergt | 08.06. |
-| #11 | Eval-Automatisierung (Handover-Infra) | Eval (Dominik) | gemergt | 08.06. |
-| #12 | AP-6 Suche/Filter (Library) | Feature (Dominik) | gemergt | 10.06. |
-| #13 | AP-9 Settings-UI (Theme/Sprache/Felder) | Feature (Dominik) | gemergt | 10.06. |
-| #14 | M-Szenarien AP-T.3b | Test (Dominik) | gemergt | 08.06. |
-| #15 | Bump astro 5 → 6 (Website) | Dependabot | **offen** | — |
-| #16 | Bump vite 5 → 6 | Dependabot | **offen** | — |
-| #17 | Bump vitest 2 → 3 | Dependabot | **offen** | — |
-| #18 | AP-9: Account — neue Recovery-Codes | Feature (Dominik) | **offen** | — |
-| #19 | AP-T.2 Integrationstests (§8.2 E2E) | Test (Dominik) | **offen (Review)** | — |
-| #20 | Translation-Eval | RAG/Translation (Denys) | gemergt | 13.06. |
-| #21 | v0.4.1 Translator-Sidecar Cross-Platform | Release (Denys) | gemergt | 13.06. |
-| #22 | Sidecar-Build grün auf allen Plattformen | CI (Denys) | gemergt | 13.06. |
-| #23 | Windows-GPU-Sidecar (Ninja/CUDA) | CI (Denys) | gemergt | 13.06. |
-| #24 | AP-T.1 Unit-Tests ≥70 % Branch | Test (Dominik) | **offen (Review)** | — |
-| #25 | AP-E.1 Eval-Dev-Set (80 Fälle) | Eval (Dominik) | **offen (Review)** | — |
-| #26 | Translation: MADLAD via Installer-Wizard | Translation (Denys) | gemergt | 14.06. |
+| PR  | Titel (gekürzt)                          | Bereich                 | Status      | Merge-Datum |
+| --- | ---------------------------------------- | ----------------------- | ----------- | ----------- |
+| #1  | Deployment landingpage                   | Website                 | gemergt     | 18.05.      |
+| #2  | SEO Phase 1 — Cluster-Infrastruktur      | Website/SEO             | gemergt     | 28.05.      |
+| #3  | Cornerstone #1 „privat" (DE/EN)          | Content                 | gemergt     | 28.05.      |
+| #4  | Cornerstone #2 EU AI Act                 | Content                 | gemergt     | 28.05.      |
+| #5  | Cornerstone #3 DSGVO/Datenexport         | Content                 | gemergt     | 28.05.      |
+| #6  | Auth-E2E §8.2 (M3/G2)                    | Test (Dominik)          | gemergt     | 28.05.      |
+| #7  | Cornerstone #4 Quellenverweise           | Content                 | gemergt     | 28.05.      |
+| #8  | Cornerstone #5 Taxonomie (Erstentwurf)   | Content                 | gemergt     | 02.06.      |
+| #9  | Cornerstone #5 Taxonomie (Finalisierung) | Content                 | gemergt     | 08.06.      |
+| #10 | Linux `.deb`-Artefakt + glibc-Baseline   | Installer (Denys)       | gemergt     | 08.06.      |
+| #11 | Eval-Automatisierung (Handover-Infra)    | Eval (Dominik)          | gemergt     | 08.06.      |
+| #12 | AP-6 Suche/Filter (Library)              | Feature (Dominik)       | gemergt     | 10.06.      |
+| #13 | AP-9 Settings-UI (Theme/Sprache/Felder)  | Feature (Dominik)       | gemergt     | 10.06.      |
+| #14 | M-Szenarien AP-T.3b                      | Test (Dominik)          | gemergt     | 08.06.      |
+| #15 | Bump astro 5 → 6 (Website)               | Dependabot              | **offen**   | —           |
+| #16 | Bump vite 5 → 6                          | Dependabot              | geschlossen | 16.06.      |
+| #17 | Bump vitest 2 → 3                        | Dependabot              | geschlossen | 16.06.      |
+| #18 | AP-9: Account — neue Recovery-Codes      | Feature (Dominik)       | **gemergt** | 16.06.      |
+| #19 | AP-T.2 Integrationstests (§8.2 E2E)      | Test (Dominik)          | **gemergt** | 16.06.      |
+| #20 | Translation-Eval                         | RAG/Translation (Denys) | gemergt     | 13.06.      |
+| #21 | v0.4.1 Translator-Sidecar Cross-Platform | Release (Denys)         | gemergt     | 13.06.      |
+| #22 | Sidecar-Build grün auf allen Plattformen | CI (Denys)              | gemergt     | 13.06.      |
+| #23 | Windows-GPU-Sidecar (Ninja/CUDA)         | CI (Denys)              | gemergt     | 13.06.      |
+| #24 | AP-T.1 Unit-Tests ≥70 % Branch           | Test (Dominik)          | **gemergt** | 16.06.      |
+| #25 | AP-E.1 Eval-Dev-Set (80 Fälle)           | Eval (Dominik)          | **gemergt** | 16.06.      |
+| #26 | Translation: MADLAD via Installer-Wizard | Translation (Denys)     | gemergt     | 14.06.      |
 
-**Belegte Lesart der offenen PRs:** #19 (AP-T.2), #24 (AP-T.1), #25 (AP-E.1) sind
-umgesetzt und review-bereit (alle CI-Checks grün), warten aber auf die Review-Freigabe;
-#18 (AP-9 Account-Recovery) ist die abgespaltene Account-Sektion aus AP-9; #15–#17 sind
-automatische Dependabot-Upgrades (astro/vite/vitest), die noch zu prüfen sind.
+**Belegte Lesart der PRs (Stand 2026-06-16):** #19 (AP-T.2), #24 (AP-T.1), #25 (AP-E.1) sowie #18 (AP-9 Account-Recovery) sind am 2026-06-16 gemergt; das Hold-out AP-E.1b folgt als #28 (im Review). Von den Dependabot-Upgrades #15–#17 sind #16 (vite) und #17 (vitest) inzwischen geschlossen, #15 (astro, Website) ist noch offen.
 
 > Hinweis zur Prompt-Vorgabe: Die in der Aufgabenstellung genannten „gemergten PRs
 > #9/#11/#12/#13/#14" bestätigen sich (alle gemergt 08.–10.06.); die „in Review"
@@ -131,18 +128,18 @@ Releases werden über Git-Tags markiert. Die Tag-Historie (mit echten Erstellung
 
 **Tabelle 9.3:** Git-Tag-Historie (semantische Versionierung).
 
-| Tag | Datum | Inhalt (Kurz) |
-|---|---|---|
-| `0.01` | 14.05. | früher Initial-/Test-Tag (abweichendes Schema) |
-| `v0.1.1` / `v0.1.2` | 17.05. | Landingpage + Branding; Auth-Rework |
-| `v0.2.0`–`v0.2.3` | 19.05. | bundled Models, UX/Chunking/RAG, NSIS + Runtime-Download |
-| `v0.2.4` | 22.05. | Electron-Installer-Pivot + Features (Quiz/DOCX/Folder-Sync) |
-| `v0.2.5` / `v0.2.6` | 22.05. | Folge-Releases |
-| `v0.2.7`–`v0.2.9` | 25.05. | tier-bewusster Installer (lite/standard/pro); English-first i18n |
-| `v0.3.0` | 27.05. | Download-Stub + Multi-OS-Wizard + CUDA |
-| `v0.3.1` | 29.05. | OCR + RAG-Robustheit + Windows-Code-Signing |
-| `v0.4.0` | 10.06. | Audio-Transkription + Quiz-Rework |
-| `v0.4.1` | 13.06. | Translator-Sidecar + Multi-OS-Härtung |
+| Tag                 | Datum  | Inhalt (Kurz)                                                    |
+| ------------------- | ------ | ---------------------------------------------------------------- |
+| `0.01`              | 14.05. | früher Initial-/Test-Tag (abweichendes Schema)                   |
+| `v0.1.1` / `v0.1.2` | 17.05. | Landingpage + Branding; Auth-Rework                              |
+| `v0.2.0`–`v0.2.3`   | 19.05. | bundled Models, UX/Chunking/RAG, NSIS + Runtime-Download         |
+| `v0.2.4`            | 22.05. | Electron-Installer-Pivot + Features (Quiz/DOCX/Folder-Sync)      |
+| `v0.2.5` / `v0.2.6` | 22.05. | Folge-Releases                                                   |
+| `v0.2.7`–`v0.2.9`   | 25.05. | tier-bewusster Installer (lite/standard/pro); English-first i18n |
+| `v0.3.0`            | 27.05. | Download-Stub + Multi-OS-Wizard + CUDA                           |
+| `v0.3.1`            | 29.05. | OCR + RAG-Robustheit + Windows-Code-Signing                      |
+| `v0.4.0`            | 10.06. | Audio-Transkription + Quiz-Rework                                |
+| `v0.4.1`            | 13.06. | Translator-Sidecar + Multi-OS-Härtung                            |
 
 **Schema.** Ab `v0.1.1` durchgängig `vMAJOR.MINOR.PATCH`. Der Anfangstag `0.01` weicht
 ab (frühe Init-Phase). Minor-Bumps markieren funktionale Sprünge (z. B. v0.3.0
@@ -164,18 +161,18 @@ versioniert werden, nicht aber große, regenerierbare oder sensible Inhalte (Tab
 
 **Tabelle 9.4:** Trennung von versioniertem und ausgeschlossenem Inhalt (`.gitignore`).
 
-| Klasse | Beispiel-Pfad | Im Git? | Begründung (aus `.gitignore`) |
-|---|---|---|---|
-| **App-Code** | `src/main/...`, `installer-ui/...` | ja | Kern des Produkts |
-| **Test-Code + Eval-Daten** | `tests/evals/data/datasets/*.json`, `tests/evals/data/sample-docs/*.txt` | ja | reproduzierbare Test-/Eval-Grundlage (63 getrackte Dateien unter `tests/evals/data`) |
-| **GGUF-Modelle** | `/models/` | **nein** | „Top-level GGUF cache only" — mehrere GB, zur Laufzeit/per Installer geladen |
-| **OCR-Trainingsdaten** | `/tessdata/` | **nein** | ~28 MB, via Skript nachladbar |
-| **Eval-Reports** | `tests/evals/report/` | **nein** | „regenerated per run, can be large" |
-| **Roh-Korpora (lizenziert)** | `tests/evals/.../wikipedia-survival/*.txt`, FLORES-200 | **nein** | CC-BY-SA-4.0, re-fetchbar; nur Dataset+Manifest committed (Provenienz) |
-| **Build-Artefakte** | `release`, `dist`, `out`, `resources/installer-splash.*` | **nein** | generiert |
-| **Dokumentation (intern)** | `docs/work/`, `docs/abgabe/`, `Pflichtenheft_LokLM.md` | **nein** | interne Steuer-/Abgabe-Doku, siehe unten |
-| **ADRs** | `docs/adr/000X-*.md` | **ja** | technische Entscheidungsbelege, vom Code referenziert |
-| **Geheimnisse** | `.env`, `.env.*`, `test-notes/` | **nein** | „Zugangsdaten / Recovery-Phrasen — NIE committen" |
+| Klasse                       | Beispiel-Pfad                                                            | Im Git?  | Begründung (aus `.gitignore`)                                                        |
+| ---------------------------- | ------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------ |
+| **App-Code**                 | `src/main/...`, `installer-ui/...`                                       | ja       | Kern des Produkts                                                                    |
+| **Test-Code + Eval-Daten**   | `tests/evals/data/datasets/*.json`, `tests/evals/data/sample-docs/*.txt` | ja       | reproduzierbare Test-/Eval-Grundlage (63 getrackte Dateien unter `tests/evals/data`) |
+| **GGUF-Modelle**             | `/models/`                                                               | **nein** | „Top-level GGUF cache only" — mehrere GB, zur Laufzeit/per Installer geladen         |
+| **OCR-Trainingsdaten**       | `/tessdata/`                                                             | **nein** | ~28 MB, via Skript nachladbar                                                        |
+| **Eval-Reports**             | `tests/evals/report/`                                                    | **nein** | „regenerated per run, can be large"                                                  |
+| **Roh-Korpora (lizenziert)** | `tests/evals/.../wikipedia-survival/*.txt`, FLORES-200                   | **nein** | CC-BY-SA-4.0, re-fetchbar; nur Dataset+Manifest committed (Provenienz)               |
+| **Build-Artefakte**          | `release`, `dist`, `out`, `resources/installer-splash.*`                 | **nein** | generiert                                                                            |
+| **Dokumentation (intern)**   | `docs/work/`, `docs/abgabe/`, `Pflichtenheft_LokLM.md`                   | **nein** | interne Steuer-/Abgabe-Doku, siehe unten                                             |
+| **ADRs**                     | `docs/adr/000X-*.md`                                                     | **ja**   | technische Entscheidungsbelege, vom Code referenziert                                |
+| **Geheimnisse**              | `.env`, `.env.*`, `test-notes/`                                          | **nein** | „Zugangsdaten / Recovery-Phrasen — NIE committen"                                    |
 
 **Leitprinzip:** Versioniert wird, was **klein, reproduzierbar-relevant und nicht
 sensibel** ist (Code, Test-Fixtures, Dataset-Manifeste, ADRs). Ausgeschlossen wird, was
@@ -209,12 +206,12 @@ Vier GitHub-Actions-Workflows hängen an der Versionierung
 
 **Tabelle 9.5:** GitHub-Actions-Workflows und ihre Auslöser.
 
-| Workflow | Auslöser | Funktion |
-|---|---|---|
-| `deploy-website.yml` | Push auf `main` (Website) | baut + deployt die Landingpage |
-| `checks.yml` | PR | Website-Build + (seit AP-T.2) erster vitest-Job (integration + tx) |
-| `release-installer.yml` | Release | baut Multi-OS-Installer, Upload nach MinIO, Auslieferung über Bunny-CDN |
-| `build-translator-sidecar.yml` | manuell (`workflow_dispatch`) oder Push auf `main` unter `sidecars/translator/**` | baut den GPU-Translator-Sidecar (Win/Linux/macOS) |
+| Workflow                       | Auslöser                                                                          | Funktion                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `deploy-website.yml`           | Push auf `main` (Website)                                                         | baut + deployt die Landingpage                                          |
+| `checks.yml`                   | PR                                                                                | Website-Build + (seit AP-T.2) erster vitest-Job (integration + tx)      |
+| `release-installer.yml`        | Release                                                                           | baut Multi-OS-Installer, Upload nach MinIO, Auslieferung über Bunny-CDN |
+| `build-translator-sidecar.yml` | manuell (`workflow_dispatch`) oder Push auf `main` unter `sidecars/translator/**` | baut den GPU-Translator-Sidecar (Win/Linux/macOS)                       |
 
 **Wichtige Einschränkung (ehrlich gekennzeichnet):** Lange Zeit baute die CI **nur die
 Website** — der erste echte Test-Job (`checks.yml`, integration + tx) entstand erst mit
