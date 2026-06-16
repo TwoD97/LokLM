@@ -4,6 +4,7 @@ import type {
   WsDocument,
   ConversationRow,
   MessageRow,
+  MessageWithCitations,
   NewChunk,
   NewQuizQuestion,
 } from '../../db/sqlite/WorkspaceDb'
@@ -92,7 +93,12 @@ class DocumentsApi {
   ): Promise<SearchHit[]> {
     return (await this.meta(workspaceId)).searchChunks(query, topK, opts)
   }
-  async searchChunksByVector(): Promise<SearchHit[]> {
+  async searchChunksByVector(
+    _workspaceId?: number,
+    _embedding?: number[],
+    _topK?: number,
+    _opts?: ChunkSearchOptions,
+  ): Promise<SearchHit[]> {
     return [] // vectors live in LanceDB; retrieval injects the vector search
   }
   async searchLibrary(
@@ -289,7 +295,7 @@ class ConversationsApi {
   }
   async getWithMessages(
     conversationId: number,
-  ): Promise<{ conversation: ConversationRow; messages: MessageRow[] } | null> {
+  ): Promise<{ conversation: ConversationRow; messages: MessageWithCitations[] } | null> {
     return this.active().getConversationWithMessages(conversationId)
   }
 }

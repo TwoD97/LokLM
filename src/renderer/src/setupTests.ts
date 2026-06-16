@@ -70,6 +70,7 @@ const stub: Api = {
       Promise.resolve({ id: 1, name, createdAt: Math.floor(Date.now() / 1000) }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
+    activate: () => Promise.resolve(),
     getDefault: () => Promise.resolve(null),
     setDefault: () => Promise.resolve(),
     listSyncFolders: () => Promise.resolve([] as string[]),

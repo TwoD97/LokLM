@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { RetrievalService } from '../../src/main/services/retrieval/RetrievalService'
 import { WorkspaceDb } from '../../src/main/db/sqlite/WorkspaceDb'
-import type { Database } from '../../src/main/db/database'
+import type { WorkspaceDbFacade } from '../../src/main/services/storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../../src/main/services/providers/Registry'
 
 // ADR-0005 stage 3b: RetrievalService routes its relational/BM25 reads to the
@@ -51,7 +51,7 @@ describe('RetrievalService over libSQL (BM25)', () => {
 
   it('returns BM25 hits from the workspace libSQL store via the service', async () => {
     const retrieval = new RetrievalService(
-      null as unknown as Database, // unused: wsdb path + no embedder
+      null as unknown as WorkspaceDbFacade, // unused: wsdb path + no embedder
       noEmbedderRegistry,
       undefined,
       async () => wsdb,

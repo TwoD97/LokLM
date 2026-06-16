@@ -150,6 +150,10 @@ const api = {
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
+    // ADR-0005: make a workspace the single ACTIVE one (opens its encrypted
+    // SQLite store + LanceDB vectors). Called on every workspace switch so the
+    // per-id data ops resolve against the right workspace.
+    activate: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:activate', id),
     // ADR-0005: default workspace auto-loaded on unlock.
     getDefault: (): Promise<number | null> => ipcRenderer.invoke('workspaces:getDefault'),
     setDefault: (id: number | null): Promise<void> =>

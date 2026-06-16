@@ -1,5 +1,5 @@
 import type { AuthService } from '../auth/AuthService'
-import type { Workspace } from '../../db/schema'
+import type { Workspace } from '../../../shared/documents'
 
 const NAME_MIN = 1
 const NAME_MAX = 128
@@ -13,34 +13,20 @@ export class WorkspaceService {
 
   async create(name: string): Promise<Workspace> {
     this.validateName(name)
-    const ws = await this.auth.requireDatabase().workspaces().create(name.trim())
-    // ADR-0005: register the manifest entry (mints the per-workspace WDEK) so the
-    // encrypted vector store + default-workspace picker know about it immediately.
-    await this.auth.getWorkspaceStore().ensure(ws.id, ws.name)
-    return ws
+    // ADR-0005: the workspaces() API is the VaultManifest now — create() mints
+    // the per-workspace WDEK and records the manifest entry directly. The
+    // on-disk encrypted SQLite + Lance stores materialise lazily on first open.
+    return this.auth.requireDatabase().workspaces().create(name.trim())
   }
 
   async rename(id: number, name: string): Promise<void> {
     this.validateName(name)
-    const trimmed = name.trim()
-    await this.auth.requireDatabase().workspaces().rename(id, trimmed)
-    // ADR-0005: keep the manifest entry's name in sync (cosmetic, best-effort).
-    try {
-      await this.auth.getWorkspaceStore().rename(id, trimmed)
-    } catch {
-      /* no manifest entry yet — it'll take the name on first ensure */
-    }
+    await this.auth.requireDatabase().workspaces().rename(id, name.trim())
   }
 
   async delete(id: number): Promise<void> {
+    // Drops the manifest entry + the encrypted workspace directory.
     await this.auth.requireDatabase().workspaces().delete(id)
-    // ADR-0005: drop the encrypted vector dir + manifest entry. Best-effort —
-    // the relational delete already succeeded; a missing manifest entry is fine.
-    try {
-      await this.auth.getWorkspaceStore().delete(id)
-    } catch {
-      /* workspace had no manifest entry yet — nothing to clean up */
-    }
   }
 
   /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker. */

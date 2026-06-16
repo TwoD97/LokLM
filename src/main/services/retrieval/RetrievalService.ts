@@ -1,5 +1,6 @@
-import type { ChunkRow, Database, SearchHit } from '../../db/database'
+import type { ChunkRow, SearchHit } from '../../db/database'
 import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { StageName } from '../../../shared/documents'
 import { fuseRrf } from './rrf'
@@ -175,7 +176,7 @@ export type VectorSearchFn = (
 
 export class RetrievalService {
   constructor(
-    private readonly db: Database,
+    private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
     private readonly vectorSearch?: VectorSearchFn,
     /** ADR-0005 cutover: when provided, the relational/BM25 reads run against the

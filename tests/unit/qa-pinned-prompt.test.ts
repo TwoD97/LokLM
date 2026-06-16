@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { QAService } from '@main/services/qa/QAService'
 import type { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
-import type { Database } from '@main/db/database'
+import type { WorkspaceDbFacade } from '@main/services/storage/WorkspaceDbFacade'
 import type { SummarizationService } from '@main/services/summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent } from '@shared/documents'
 import type { AskOptions } from '@main/services/llm/LlamaService'
@@ -59,7 +59,7 @@ describe('QAService.answer pinned-hit plumbing', () => {
         listPinned: vi.fn().mockResolvedValue([{ id: 1, title: 'Pinned Doc' }]),
         listChunksForDocument: vi.fn().mockResolvedValue([pinnedChunk]),
       }),
-    } as unknown as Database
+    } as unknown as WorkspaceDbFacade
 
     const summarization = { summarize: vi.fn() } as unknown as SummarizationService
     const qa = new QAService(db, retrieval, registry, summarization)
