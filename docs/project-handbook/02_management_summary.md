@@ -14,13 +14,13 @@ Tabelle 2.1 nennt die zentralen technischen Bestandteile und ihre Umsetzung.
 
 **Tabelle 2.1:** Zentrale technische Bestandteile von LokLM.
 
-| Bestandteil                 | Umsetzung                                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Lokaler Betrieb**         | Electron-Desktop-App; In-Process-Datenbank (pglite / WASM-Postgres) + lokales Sprachmodell (node-llama-cpp, GGUF); keine externen KI-APIs |
-| **RAG (Retrieval-Augmented Generation)** | Zweistufige Retrieval-Pipeline: hybride Suche (`tsvector`-Volltext + `pgvector`/HNSW-Semantik) → RRF-Fusion → Cross-Encoder-Reranking → Promptaufbau → gestreamte Antwort |
-| **Quellenverifikation**     | Strukturierte Citations `[doc:<id>, chunk:<id>]`; Klick öffnet den SourceViewer mit Originalpassage und Kontext   |
-| **Ehrlichkeit statt Erfindung** | Verweigerungslogik mit Score-Schwellenwert; Out-of-Corpus-Fragen werden abgelehnt statt erfunden                |
-| **Eval-Matrix**             | Eval-Harness mit Dev-Set (80 Fälle) + Hold-out (15 Fälle) und kartesischer RAG-Matrix (Embedder × Reranker × Chunker × LLM) zur Messung von Citation Accuracy, Faithfulness, Refusal Rate und Span-Recall |
+| Bestandteil                              | Umsetzung                                                                                                                                                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lokaler Betrieb**                      | Electron-Desktop-App; In-Process-Datenbank (pglite / WASM-Postgres) + lokales Sprachmodell (node-llama-cpp, GGUF); keine externen KI-APIs                                                                 |
+| **RAG (Retrieval-Augmented Generation)** | Zweistufige Retrieval-Pipeline: hybride Suche (`tsvector`-Volltext + `pgvector`/HNSW-Semantik) → RRF-Fusion → Cross-Encoder-Reranking → Promptaufbau → gestreamte Antwort                                 |
+| **Quellenverifikation**                  | Strukturierte Citations `[doc:<id>, chunk:<id>]`; Klick öffnet den SourceViewer mit Originalpassage und Kontext                                                                                           |
+| **Ehrlichkeit statt Erfindung**          | Verweigerungslogik mit Score-Schwellenwert; Out-of-Corpus-Fragen werden abgelehnt statt erfunden                                                                                                          |
+| **Eval-Matrix**                          | Eval-Harness mit Dev-Set (80 Fälle) + Hold-out (15 Fälle) und kartesischer RAG-Matrix (Embedder × Reranker × Chunker × LLM) zur Messung von Citation Accuracy, Faithfulness, Refusal Rate und Span-Recall |
 
 ## 2.4 Ergebnisse nach ca. 9 Wochen
 
@@ -34,12 +34,12 @@ Die größten offenen Punkte zum Handbuchstand fasst Tabelle 2.2 zusammen.
 
 **Tabelle 2.2:** Größte offene Punkte zum Handbuchstand.
 
-| Offener Punkt                         | Stand                                                                                           |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **AP-E.2 GPU-Matrix-Sweep (Phase 2)** | Dataset steht (2.322 Chunks, 163 DE-Fragen); GPU-Sweep + Auswertung für den Laborbericht offen |
-| **Test-PRs**                          | AP-T.2 (#19) und AP-E.1 (#25) review-bereit; AP-T.1-Branch noch unpushed                        |
-| **E2E-Playwright (Electron)**         | Läuft nicht in CI (Electron-Start im Runner nicht möglich); Website-E2E davon nicht betroffen   |
-| **macOS-Release**                     | Build-Pipeline existiert; Payloads noch nicht publiziert → kein zugesicherter v1-Liefergegenstand |
+| Offener Punkt                         | Stand                                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **AP-E.2 GPU-Matrix-Sweep (Phase 2)** | Dataset steht (2.322 Chunks, 163 DE-Fragen); GPU-Sweep + Auswertung für den Laborbericht offen            |
+| **Test-PRs**                          | AP-T.1 (#24), AP-T.2 (#19), AP-E.1 (#25) gemergt (16.06.); AP-E.1b als #28 offen                          |
+| **E2E-Playwright (Electron)**         | Läuft nicht in CI (Electron-Start im Runner nicht möglich); Website-E2E davon nicht betroffen             |
+| **macOS-Release**                     | Build-Pipeline existiert; Payloads noch nicht publiziert → kein zugesicherter v1-Liefergegenstand         |
 | **Code-Signing / Auto-Update**        | Windows-Code-Signing läuft; EV-Zertifikat und Auto-Update-Strategie (Velopack vs. electron-updater) offen |
 
 ## 2.6 Bedeutung von Werkzeugen und KI-Unterstützung
