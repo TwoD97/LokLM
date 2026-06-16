@@ -150,9 +150,9 @@ im Repo als **Release-Commit (`783ca4b`**, „release , v0.4.2 , windows + linux
 assets", 14.06.), **aber (noch) kein Git-Tag — der höchste gesetzte Tag ist v0.4.1**
 (`git tag -l` listet nur bis `v0.4.1`, kein `v0.4.2`). Die obige Tag-Tabelle endet daher
 korrekt bei v0.4.1. Stand 15.06.2026 reicht die Release-Commit-Kette auf `main` jedoch
-bereits bis v0.4.6 (`package.json` = 0.4.6: Commits v0.4.3 `1f2f40b`, v0.4.4 `4d8d66c`,
-v0.4.5 `619d0d8`, v0.4.6 `af59c25`, alle 15.06.); ein zugehöriger Git-Tag wurde für v0.4.2
-bis v0.4.6 (noch) nicht gesetzt — der höchste gesetzte Tag bleibt `v0.4.1`.
+bereits bis v0.4.7 (`package.json` = 0.4.7: Commits v0.4.3 `1f2f40b`, v0.4.4 `4d8d66c`,
+v0.4.5 `619d0d8`, v0.4.6 `af59c25` (alle 15.06.), v0.4.7 `d35e219` (16.06.)); ein zugehöriger
+Git-Tag wurde für v0.4.2 bis v0.4.7 (noch) nicht gesetzt — der höchste gesetzte Tag bleibt `v0.4.1`.
 
 ## 9.6 Trennung Code / Daten / Doku
 

@@ -1,6 +1,6 @@
 # Anhang
 
-Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json` (Stand v0.4.6, pnpm 10.33.4, Node ≥ 24). Wo Modelle/GPU nötig sind, ist das vermerkt.
+Referenztabellen zu Befehlen, Pfaden und Quellen. Alle Befehle aus `package.json` (Stand v0.4.7, pnpm 10.33.4, Node ≥ 24). Wo Modelle/GPU nötig sind, ist das vermerkt.
 
 > WARN Keine sensiblen Rohdaten: API-/S3-Keys, Tokens, interne Domains und absolute lokale Pfade gehören nicht in dieses Handbuch — als Platzhalter behandeln (`<API_KEY>`, `<TOKEN>`, `<PRIVATE_DOMAIN>`, `<INTERNAL_PATH>`).
 
