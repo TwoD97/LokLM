@@ -186,6 +186,12 @@ const api = {
       ipcRenderer.invoke('workspaces:getIndexDirs', workspaceId, folder),
     setIndexDirs: (workspaceId: number, folder: string, dirs: string[]): Promise<void> =>
       ipcRenderer.invoke('workspaces:setIndexDirs', workspaceId, folder, dirs),
+    // ADR-0006: re-open the dir picker for an existing folder (edit-after-add).
+    getDirSelection: (
+      workspaceId: number,
+      folder: string,
+    ): Promise<{ topLevelDirs: string[]; selected: string[]; hasGitignore: boolean }> =>
+      ipcRenderer.invoke('workspaces:getDirSelection', workspaceId, folder),
     removeSyncFolder: (workspaceId: number, folderPath: string): Promise<string[]> =>
       ipcRenderer.invoke('workspaces:removeSyncFolder', workspaceId, folderPath),
     syncNow: (

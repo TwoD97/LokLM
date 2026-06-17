@@ -110,4 +110,46 @@ test('no .gitignore — only selected top-level dirs indexed', async () => {
   expect(titles).toContain('app.ts') // src/ selected
   expect(titles).toContain('README.md') // root file always indexed
   expect(titles).not.toContain('demo.ts') // samples/ excluded
+
+  // edit-after-add: getDirSelection reflects the saved choice for re-opening the picker
+  const sel = (await page.evaluate(
+    `${api}.workspaces.getDirSelection(${ws.id}, ${JSON.stringify(add.needsDirSelection!.folder)})`,
+  )) as { topLevelDirs: string[]; selected: string[]; hasGitignore: boolean }
+  console.log('INC getDirSelection', JSON.stringify(sel))
+  expect(sel.hasGitignore).toBe(false)
+  expect(sel.topLevelDirs.sort()).toEqual(['samples', 'src'])
+  expect(sel.selected.sort()).toEqual(['src'])
+})
+
+test('nested .gitignore — deeper re-include overrides a shallower exclude', async () => {
+  const { page } = launched
+  const repo = await mkdtemp(join(tmpdir(), 'scope-nest-'))
+  await writeFile(join(repo, 'package.json'), '{"name":"nest","type":"module"}')
+  await writeFile(join(repo, '.gitignore'), '*.gen.ts\n')
+  await writeFile(join(repo, 'top.gen.ts'), 'export const a = 1\n')
+  await mkdir(join(repo, 'src'), { recursive: true })
+  await writeFile(join(repo, 'src', '.gitignore'), '!keepme.gen.ts\nlocalonly.ts\n')
+  await writeFile(join(repo, 'src', 'app.ts'), 'export const app = 1\n')
+  await writeFile(join(repo, 'src', 'keepme.gen.ts'), 'export const keep = 1\n')
+  await writeFile(join(repo, 'src', 'other.gen.ts'), 'export const other = 1\n')
+  await writeFile(join(repo, 'src', 'localonly.ts'), 'export const local = 1\n')
+  await stubFolderPicker(launched, repo)
+
+  const ws = (await page.evaluate(`${api}.workspaces.create('NEST')`)) as { id: number }
+  await page.evaluate(`${api}.workspaces.setType(${ws.id}, 'codebase')`)
+  await page.evaluate(`${api}.workspaces.activate(${ws.id})`)
+  const add = (await page.evaluate(`${api}.workspaces.addSyncFolder(${ws.id})`)) as {
+    needsDirSelection?: unknown
+  }
+  // .gitignore present ⇒ no picker
+  expect(add.needsDirSelection).toBeFalsy()
+  await page.evaluate(`${api}.workspaces.syncNow(${ws.id})`)
+
+  const titles = await docTitles(launched, ws.id)
+  console.log('NEST titles', JSON.stringify(titles))
+  expect(titles).toContain('app.ts')
+  expect(titles).toContain('keepme.gen.ts') // root *.gen.ts overridden by src/!keepme.gen.ts
+  expect(titles).not.toContain('other.gen.ts') // still ignored by root
+  expect(titles).not.toContain('top.gen.ts') // root-level, root pattern
+  expect(titles).not.toContain('localonly.ts') // excluded by src/.gitignore
 })
