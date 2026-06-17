@@ -67,7 +67,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
+    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers || echo \"electron-rebuild skipped/failed (native module may be locked by a running app)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",
@@ -260,6 +260,9 @@
       "esbuild": "0.25.12",
       "tmp": ">=0.2.6",
       "vite": "^6"
+    },
+    "patchedDependencies": {
+      "better-sqlite3-multiple-ciphers@12.10.0": "patches/better-sqlite3-multiple-ciphers@12.10.0.patch"
     }
   }
 }
