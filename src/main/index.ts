@@ -8,7 +8,8 @@ import { DocumentService } from './services/documents/DocumentService'
 import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
 import { isSupported as isSupportedDocPath } from './services/documents/parser'
-import { EmbeddingService } from './services/embeddings/EmbeddingService'
+import { EmbeddingService, resolveCodeEmbedderPath } from './services/embeddings/EmbeddingService'
+import { CODE_EMBEDDER_MODEL_ID } from './services/codebase/codeEmbedder'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
 import { WorkspaceVectorService } from './services/storage/WorkspaceVectorService'
 import { RerankerService } from './services/retrieval/RerankerService'
@@ -865,6 +866,30 @@ function registerIpc(): void {
   // conversations, quizzes, …) operate on the right workspace's store.
   ipcMain.handle('workspaces:activate', async (_e, workspaceId: number) => {
     await getAuth().activate(workspaceId)
+    // ADR-0006: codebase workspaces embed with the code model (jina-code) when
+    // present; everything else uses the doc model (BGE-M3). Fallback-safe: if the
+    // code GGUF isn't on disk EmbeddingService transparently keeps BGE-M3, so a
+    // codebase workspace still indexes/searches. Best-effort — a swap failure
+    // must not block activation.
+    try {
+      const wss = await getAuth().requireDatabase().workspaces().list()
+      const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
+      await getEmbeddingService().setPreferredKind(isCodebase ? 'code' : 'doc')
+      // Fetch the code model in the background the first time a codebase is opened
+      // (best-effort; BGE-M3 serves until it lands, then the backfill re-embeds on
+      // the model-stem change). Guarded so we don't restart an in-flight download.
+      if (
+        isCodebase &&
+        !resolveCodeEmbedderPath() &&
+        !getModelDownloader().isActive(CODE_EMBEDDER_MODEL_ID)
+      ) {
+        void getModelDownloader()
+          .download(CODE_EMBEDDER_MODEL_ID)
+          .catch(() => undefined)
+      }
+    } catch {
+      /* lock race / no manifest entry — embedder keeps its current model */
+    }
   })
   // ADR-0005: default workspace auto-loaded on unlock.
   ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())

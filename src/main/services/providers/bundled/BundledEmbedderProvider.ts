@@ -1,5 +1,6 @@
 import type { EmbeddingService } from '../../embeddings/EmbeddingService'
-import { BUNDLED_EMBEDDER_IDENTITY } from '../../embeddings/EmbeddingService'
+import { EMBEDDING_DIM } from '../../embeddings/EmbeddingService'
+import { CODE_EMBEDDER_IDENTITY, CODE_EMBEDDING_DIM } from '../../codebase/codeEmbedder'
 import type { EmbedderProvider } from '../types'
 
 /**
@@ -29,11 +30,14 @@ export class BundledEmbedderProvider implements EmbedderProvider {
   }
 
   dimension(): number {
-    return 1024 // BGE-M3
+    // ADR-0006: reflects the resident model — jina-code (896) vs BGE-M3 (1024).
+    return this.inner.activeIdentity() === CODE_EMBEDDER_IDENTITY
+      ? CODE_EMBEDDING_DIM
+      : EMBEDDING_DIM
   }
 
   identity(): string {
-    return BUNDLED_EMBEDDER_IDENTITY
+    return this.inner.activeIdentity()
   }
 
   isReady(): boolean {

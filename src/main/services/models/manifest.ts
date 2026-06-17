@@ -65,6 +65,22 @@ export const MODEL_MANIFEST: ModelManifestEntry[] = [
     required: true,
   },
   {
+    // ADR-0006 code track. Optional (codebase workspaces only) — gated behind the
+    // codebase type, so library installs never pull it. Code-specialised; falls
+    // back to BGE-M3 when absent. NOTE: sizeBytes is approximate and sha256 is
+    // unpinned pending a validated local copy — verify before release (the
+    // downloader falls back to a ±2% size check when sha is absent).
+    id: 'jina-code-embeddings-0.5b-Q4_K_M',
+    label: 'Code embedder',
+    description:
+      'jina-code-embeddings-0.5b (Q4_K_M) — code-specialised retrieval for codebase workspaces.',
+    kind: 'embedder',
+    filename: 'jina-code-embeddings-0.5b-Q4_K_M.gguf',
+    url: 'https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-Q4_K_M.gguf',
+    sizeBytes: 350_000_000,
+    required: false,
+  },
+  {
     id: 'bge-reranker-v2-m3-Q4_K_M',
     label: 'Reranker',
     description: 'BGE Reranker v2-M3 (Q4_K_M) — re-scores retrieved passages by relevance.',
