@@ -13,6 +13,8 @@ import {
   PanelLeftOpen,
   Pencil,
   Trash2,
+  Star,
+  Code2,
 } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -29,6 +31,8 @@ type Props = {
   onCreateWorkspace: (name: string) => void
   onRenameWorkspace: (id: number, name: string) => void
   onRequestDeleteWorkspace: (ws: Workspace) => void
+  defaultWorkspaceId: number | null
+  onSetDefaultWorkspace: (id: number) => void
   onViewChange: (v: ViewKind) => void
   onTogglePin: () => void
   onPeek: (peek: boolean) => void
@@ -49,6 +53,8 @@ export function Sidebar({
   onCreateWorkspace,
   onRenameWorkspace,
   onRequestDeleteWorkspace,
+  defaultWorkspaceId,
+  onSetDefaultWorkspace,
   onViewChange,
   onTogglePin,
   onPeek,
@@ -189,6 +195,13 @@ export function Sidebar({
                       aria-expanded={isDropdown ? docPickerOpen : undefined}
                     >
                       <span className="sidebar__nav-btn-label">{w.name}</span>
+                      {w.type === 'codebase' && (
+                        <Code2
+                          size={13}
+                          aria-label={t('shell.codebaseWorkspace')}
+                          className="sidebar__ws-type-badge"
+                        />
+                      )}
                       {isDropdown &&
                         (docPickerOpen ? (
                           <ChevronDown size={14} aria-hidden="true" />
@@ -197,6 +210,27 @@ export function Sidebar({
                         ))}
                     </button>
                     <span className="sidebar__ws-actions">
+                      <button
+                        type="button"
+                        className="sidebar__ws-action"
+                        aria-label={t('shell.setDefaultWorkspace')}
+                        aria-pressed={w.id === defaultWorkspaceId}
+                        title={
+                          w.id === defaultWorkspaceId
+                            ? t('shell.defaultWorkspace')
+                            : t('shell.setDefaultWorkspace')
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSetDefaultWorkspace(w.id)
+                        }}
+                      >
+                        <Star
+                          size={13}
+                          aria-hidden="true"
+                          fill={w.id === defaultWorkspaceId ? 'currentColor' : 'none'}
+                        />
+                      </button>
                       <button
                         type="button"
                         className="sidebar__ws-action"

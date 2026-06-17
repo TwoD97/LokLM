@@ -1,5 +1,3 @@
-import { sql } from 'drizzle-orm'
-import type { Database } from '../../db/database'
 import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
@@ -11,13 +9,23 @@ type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } 
 
 export type SettingsListener = (settings: UserSettings) => void
 
+/** App-global key/value store backing settings + avatar (ADR-0005). Formerly the
+ *  PGlite `settings` table; now an in-memory map inside the encrypted vault body,
+ *  provided by AuthService. Reads/writes are synchronous; durability is the next
+ *  vault persist (scheduled via persistSnapshot). */
+export interface SettingsKv {
+  getKv(key: string): string | null
+  setKv(key: string, value: string): void
+  deleteKv(key: string): void
+}
+
 export class SettingsService {
   private cache: UserSettings
   private listeners: SettingsListener[] = []
   private persistTimer: NodeJS.Timeout | null = null
 
   constructor(
-    private readonly db: Database,
+    private readonly kv: SettingsKv,
     private readonly persistSnapshot: () => Promise<void>,
     // Tier-adjusted baseline. Defaults to the universal DEFAULT_SETTINGS ; the
     // 'lite' install tier passes a variant with reranker.enabled flipped off so
@@ -29,16 +37,13 @@ export class SettingsService {
   }
 
   async hydrate(): Promise<void> {
-    const r = await this.db.db.execute(sql`
-      SELECT value FROM settings WHERE key = ${SETTINGS_KEY} LIMIT 1
-    `)
-    const row = (r.rows as Array<{ value: string }>)[0]
-    if (!row) {
+    const value = this.kv.getKv(SETTINGS_KEY)
+    if (value == null) {
       this.cache = this.baseDefaults
       return
     }
     try {
-      const parsed = JSON.parse(row.value) as UserSettings
+      const parsed = JSON.parse(value) as UserSettings
       this.cache = deepMerge(this.baseDefaults, parsed)
     } catch {
       this.cache = this.baseDefaults
@@ -51,7 +56,7 @@ export class SettingsService {
 
   async update(patch: DeepPartial<UserSettings>): Promise<void> {
     this.cache = deepMerge(this.cache, patch as Partial<UserSettings>)
-    await this.writeKv(SETTINGS_KEY, JSON.stringify(this.cache))
+    this.kv.setKv(SETTINGS_KEY, JSON.stringify(this.cache))
     for (const l of this.listeners) {
       try {
         l(this.cache)
@@ -70,12 +75,9 @@ export class SettingsService {
   }
 
   async getAvatar(): Promise<Uint8Array | null> {
-    const r = await this.db.db.execute(sql`
-      SELECT value FROM settings WHERE key = ${AVATAR_KEY} LIMIT 1
-    `)
-    const row = (r.rows as Array<{ value: string }>)[0]
-    if (!row || !row.value) return null
-    const buf = Buffer.from(row.value, 'base64')
+    const value = this.kv.getKv(AVATAR_KEY)
+    if (!value) return null
+    const buf = Buffer.from(value, 'base64')
     // Return a plain Uint8Array view of the bytes so callers / tests don't
     // observe Node's Buffer prototype (Buffer is a Uint8Array subclass , but
     // structural-equality checks like vitest's toEqual treat them as different
@@ -85,19 +87,11 @@ export class SettingsService {
 
   async setAvatar(bytes: Uint8Array | null): Promise<void> {
     if (bytes === null) {
-      await this.db.db.execute(sql`DELETE FROM settings WHERE key = ${AVATAR_KEY}`)
+      this.kv.deleteKv(AVATAR_KEY)
     } else {
-      const b64 = Buffer.from(bytes).toString('base64')
-      await this.writeKv(AVATAR_KEY, b64)
+      this.kv.setKv(AVATAR_KEY, Buffer.from(bytes).toString('base64'))
     }
     this.schedulePersist()
-  }
-
-  private async writeKv(key: string, value: string): Promise<void> {
-    await this.db.db.execute(sql`
-      INSERT INTO settings (key, value) VALUES (${key}, ${value})
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    `)
   }
 
   private schedulePersist(): void {

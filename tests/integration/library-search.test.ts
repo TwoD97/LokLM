@@ -41,6 +41,7 @@ describe('searchLibrary over an imported corpus (integration)', () => {
 
   it('delivers filtered, sorted and highlighted hits', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sent: IndexProgress[] = []
     const sender = {

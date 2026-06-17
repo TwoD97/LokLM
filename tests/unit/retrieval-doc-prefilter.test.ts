@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { RetrievalService } from '@main/services/retrieval/RetrievalService'
-import type { Database } from '@main/db/database'
+import type { WorkspaceDbFacade } from '@main/services/storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
 
 // Hierarchical doc pre-filter (ADR-0003): docPrefilter narrows chunk retrieval
@@ -26,7 +26,7 @@ function buildRetrieval(opts: {
       searchChunksByVector,
       topDocumentsBySummarySimilarity: topDocs,
     }),
-  } as unknown as Database
+  } as unknown as WorkspaceDbFacade
 
   const embed = vi.fn().mockResolvedValue([new Float32Array([1, 0, 0])])
   const embedder = { isReady: () => opts.embedderReady ?? true, embed, dimension: () => 3 }

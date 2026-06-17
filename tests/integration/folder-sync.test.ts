@@ -46,6 +46,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('multiple folders per workspace + new/changed/removed reconciliation', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
 
@@ -115,6 +116,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('missing marker is lifted when the file reappears', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
 
@@ -144,6 +146,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('dismissed missing docs stay out of the banner until they vanish again', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
     const repo = auth.requireDatabase().documents()
@@ -172,6 +175,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('refreshDocument is hash-aware — same bytes after mtime touch stays unchanged', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
 
     const path = join(folderA, 'hash.md')
@@ -192,6 +196,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('refreshDocument returns "missing" and stamps the soft-marker', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const path = join(folderA, 'gone.md')
     await writeFile(path, '# Gone', 'utf-8')
@@ -212,6 +217,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('docs outside any watched folder are NOT marked when their source vanishes', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
     const repo = auth.requireDatabase().documents()
@@ -239,6 +245,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('addFolder / removeFolder persists across reads', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
 
@@ -258,6 +265,7 @@ describe('FolderSyncService (integration)', () => {
 
   it('walks nested directories and skips dotfiles + node_modules', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const docs = new DocumentService(auth)
     const sync = new FolderSyncService(auth, docs)
 

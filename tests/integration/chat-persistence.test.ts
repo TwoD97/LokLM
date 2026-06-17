@@ -26,6 +26,7 @@ describe('chat persistence (integration)', () => {
 
   it('persists user + assistant message + citations after a successful stream', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const db = auth.requireDatabase()
     const conversations = db.conversations()
     const conv = await conversations.create(ws.id, null)
@@ -53,11 +54,10 @@ describe('chat persistence (integration)', () => {
     const repoChunks = await docs.listChunksForDocument(doc.id)
     const chunkId = repoChunks[0]!.id
 
-    await conversations.persistCitations(asst.id, [
-      { doc_id: doc.id, chunk_id: chunkId, score: 0.87 },
-    ])
+    await conversations.persistCitations(asst.id, [{ chunk_id: chunkId, score: 0.87 }])
 
-    const out = await conversations.getWithMessages(conv.id)
+    const out = (await conversations.getWithMessages(conv.id))!
+    expect(out).not.toBeNull()
     expect(out.messages).toHaveLength(2)
     expect(out.messages[0]!.role).toBe('user')
     expect(out.messages[1]!.role).toBe('assistant')
@@ -68,6 +68,7 @@ describe('chat persistence (integration)', () => {
 
   it('persists refusal as assistant message with empty citations', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const db = auth.requireDatabase()
     const conversations = db.conversations()
     const conv = await conversations.create(ws.id, null)
@@ -81,7 +82,8 @@ describe('chat persistence (integration)', () => {
     )
     // no persistCitations call
 
-    const out = await conversations.getWithMessages(conv.id)
+    const out = (await conversations.getWithMessages(conv.id))!
+    expect(out).not.toBeNull()
     expect(out.messages).toHaveLength(2)
     expect(out.messages[1]!.content).toMatch(/not in/i)
     expect(out.messages[1]!.citations).toEqual([])
@@ -89,6 +91,7 @@ describe('chat persistence (integration)', () => {
 
   it('list returns conversations ordered by last_activity_at (most recent first)', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const db = auth.requireDatabase()
     const conversations = db.conversations()
     const older = await conversations.create(ws.id, 'older')
@@ -107,11 +110,12 @@ describe('chat persistence (integration)', () => {
 
   it('delete cascades from conversations down through messages and citations', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const db = auth.requireDatabase()
     const conversations = db.conversations()
     const conv = await conversations.create(ws.id, 'doomed')
     await conversations.appendMessage(conv.id, 'assistant', 'a')
     await conversations.delete(conv.id)
-    await expect(conversations.getWithMessages(conv.id)).rejects.toThrow(/not found/i)
+    expect(await conversations.getWithMessages(conv.id)).toBeNull()
   }, 30_000)
 })

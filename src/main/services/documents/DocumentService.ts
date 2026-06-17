@@ -2,10 +2,12 @@ import { basename, extname } from 'node:path'
 import { statSync, type Stats } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { sql } from 'drizzle-orm'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
-import type { Document } from '../../db/schema'
+// ADR-0005: documents now come from the per-workspace encrypted SQLite store;
+// WsDocument is the camelCase row the facade returns (drop-in for the old
+// PGlite `Document` the renderer + services consume).
+import type { WsDocument as Document } from '../../db/sqlite/WorkspaceDb'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { DocumentsWorkerClient } from '../workers/DocumentsWorkerClient'
 import { ImportError, type IndexProgress } from './types'
@@ -18,6 +20,8 @@ import {
   type Chunk,
 } from './chunker'
 import { resolveChunkOptions } from './chunkOptions'
+import { fileTrack } from '../codebase/ignore'
+import { chunkCode, type CodeChunkOptions } from '../codebase/codeChunker'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
@@ -51,6 +55,18 @@ export class DocumentService {
      *  indexing settings. Optional — tests omit it and the chunker DEFAULT
      *  applies. An explicit ImportInput value still wins. */
     private readonly retrievalDefaults?: () => { chunkSize: number; chunkOverlap: number },
+    /** ADR-0005: writes freshly-computed embeddings into the per-workspace
+     *  encrypted LanceDB store (where retrieval reads them). When present,
+     *  vectors go to Lance only and PGlite records just the `embedded` marker;
+     *  tests omit it and the legacy pgvector column is written instead. */
+    private readonly vectorSink?: (
+      workspaceId: number,
+      records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
+    ) => Promise<void>,
+    /** ADR-0005: drops a document's chunk vectors from the Lance store before a
+     *  reindex (chunks are deleted + recreated with new ids, so the old vectors
+     *  would otherwise be orphaned). Optional — tests omit it. */
+    private readonly vectorRemove?: (workspaceId: number, chunkIds: number[]) => Promise<void>,
   ) {}
 
   // ---- bounded indexing queue --------------------------------------------
@@ -152,7 +168,7 @@ export class DocumentService {
       workspaceId: input.workspaceId,
       title: basename(input.sourcePath),
       sourcePath: input.sourcePath,
-      mimeType: mime,
+      mimeType: mime ?? null,
       byteSize: stat.size,
       contentHash: hash,
       sourceMtime: Math.round(stat.mtimeMs),
@@ -176,6 +192,7 @@ export class DocumentService {
       throw new Error(`Document ${documentId} not found`)
     }
     const { stat, hash } = await this.statAndHashOrThrow(newPath)
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId) // wipes chunks, sets status='pending'
     await repo.setSourceMetadata(documentId, {
       sourcePath: newPath,
@@ -245,6 +262,7 @@ export class DocumentService {
       await repo.setSourceMetadata(documentId, { sourceMtime: mtime })
       return 'unchanged'
     }
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId)
     await repo.setSourceMetadata(documentId, {
       byteSize: stat.size,
@@ -270,6 +288,7 @@ export class DocumentService {
     const doc = await repo.getDocument(documentId)
     if (!doc) throw new Error(`Document ${documentId} not found`)
     const { stat, hash } = await this.statAndHashOrThrow(doc.sourcePath)
+    await this.purgeDocumentVectors(documentId)
     await repo.reindexDocument(documentId)
     await repo.setSourceMetadata(documentId, {
       byteSize: stat.size,
@@ -291,6 +310,23 @@ export class DocumentService {
 
   /** Shared file-validation path used by importFile + replaceSource. Returns
    *  stat + hash in one read so callers don't double-stream the file. */
+  /** ADR-0005: drop a document's current chunk vectors from the Lance store
+   *  before a reindex/delete wipes the chunks. Must run BEFORE reindexDocument
+   *  (which deletes the chunk rows). No-op without a vectorRemove hook. */
+  private async purgeDocumentVectors(documentId: number): Promise<void> {
+    if (!this.vectorRemove) return
+    const repo = this.auth.requireDatabase().documents()
+    const doc = await repo.getDocument(documentId)
+    if (!doc) return
+    const ids = await repo.chunkIdsForDocument(documentId)
+    if (ids.length === 0) return
+    try {
+      await this.vectorRemove(doc.workspaceId, ids)
+    } catch (err) {
+      console.warn(`[documents] vector remove failed for doc #${documentId}:`, err)
+    }
+  }
+
   private async statAndHashOrThrow(sourcePath: string): Promise<{ stat: Stats; hash: string }> {
     if (!isSupported(sourcePath)) {
       throw new ImportError(
@@ -369,7 +405,18 @@ export class DocumentService {
       // through here, so all of them honour the sliders.
       const effChunk = resolveChunkOptions(input, this.retrievalDefaults?.())
       let out: Chunk[]
-      if (this.worker) {
+      if (fileTrack(doc.sourcePath) === 'code') {
+        // ADR-0006 code track: structure-aware chunking (line ranges in
+        // pageFrom/pageTo). Bypasses the PDF/markdown parser + worker entirely —
+        // a source file is just UTF-8 text. Language tagging is skipped (eld's
+        // de/en/other classes are meaningless for code; left null).
+        send('parsing', 1)
+        const source = await readFile(doc.sourcePath, 'utf8')
+        send('chunking', 2)
+        const codeOpts: CodeChunkOptions = { relPath: basename(doc.sourcePath) }
+        if (effChunk.chunkSize !== undefined) codeOpts.maxChars = effChunk.chunkSize
+        out = chunkCode(source, codeOpts)
+      } else if (this.worker) {
         const chunkPayload: {
           sourcePath: string
           documentId: number
@@ -462,7 +509,10 @@ export class DocumentService {
       }
 
       send('persisting', 4)
-      await repo.persistChunks(
+      // persistChunks returns the new chunk ids in insertion order, which is the
+      // same order as `out` (and therefore `vectors`). ADR-0005: this replaces
+      // the old document_id+ordinal re-query against the raw PGlite handle.
+      const chunkIds = await repo.persistChunks(
         doc.id,
         out.map((c) => ({
           ordinal: c.ordinal,
@@ -475,27 +525,33 @@ export class DocumentService {
         })),
       )
       if (vectors && activeIdentity) {
-        // chunks were just inserted; fetch their ids by document_id + ordinal
-        // and write embeddings in ONE multi-row UPDATE. Per-chunk UPDATEs were
-        // the dominant cost of large imports — a 500-chunk PDF was 500
-        // round-trips through the pglite JS boundary.
-        const db = this.auth.requireDatabase().db
-        const rows = await db.execute(sql`
-          SELECT id, ordinal FROM chunks WHERE document_id = ${doc.id} ORDER BY ordinal
-        `)
-        const byOrdinal = new Map<number, number>(
-          (rows.rows as { id: number; ordinal: number }[]).map((r) => [r.ordinal, r.id]),
-        )
         const writes: Array<{ id: number; vector: Float32Array }> = []
         for (let i = 0; i < out.length; i++) {
           const v = vectors[i]
-          const ord = out[i]?.ordinal
-          if (v == null || ord == null) continue
-          const id = byOrdinal.get(ord)
-          if (id != null) writes.push({ id, vector: v })
+          const id = chunkIds[i]
+          if (v == null || id == null) continue
+          writes.push({ id, vector: v })
         }
         if (writes.length > 0) {
-          await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
+          if (this.vectorSink) {
+            // ADR-0005 app path: vectors go to the workspace's encrypted LanceDB
+            // store; PGlite only records the embedded marker + identity.
+            await this.vectorSink(
+              doc.workspaceId,
+              writes.map((w) => ({
+                chunkId: w.id,
+                documentId: doc.id,
+                vector: Array.from(w.vector),
+              })),
+            )
+            await repo.markChunksEmbedded(
+              writes.map((w) => w.id),
+              activeIdentity,
+            )
+          } else {
+            // Legacy / isolated-test path: store vectors in the pgvector column.
+            await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
+          }
         }
       }
       await repo.setDocumentStatus(doc.id, 'ready')

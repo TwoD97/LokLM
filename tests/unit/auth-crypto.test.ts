@@ -4,7 +4,7 @@ import {
   deriveKEK,
   wrapKey,
   unwrapKey,
-  decryptBody,
+  decryptBodyRaw,
   isLockedError,
   LockedError,
 } from '@main/services/auth/AuthService'
@@ -15,7 +15,7 @@ import {
 // es bewusst NICHT — ADR-0001 hat PBKDF2 (speicherarm, GPU-/ASIC-billig)
 // zugunsten von memory-hard Argon2id explizit verworfen (Bitwarden-Profil
 // m=64 MiB, t=3, p=4). Getestet werden daher die tatsächlich implementierten
-// Wrapper: deriveKEK (Argon2id) und wrapKey/unwrapKey/decryptBody (AES-256-GCM).
+// Wrapper: deriveKEK (Argon2id) und wrapKey/unwrapKey/decryptBodyRaw (AES-256-GCM).
 // Siehe docs/adr/0001-argon2id-password-kdf.md und docs/adr/0002-envelope-encryption-aes-gcm.md.
 
 const AES_ALGO = 'aes-256-gcm' as const
@@ -80,9 +80,9 @@ describe('wrapKey / unwrapKey (AES-256-GCM key wrapping)', () => {
   })
 })
 
-describe('decryptBody (AES-256-GCM snapshot body)', () => {
+describe('decryptBodyRaw (AES-256-GCM snapshot body)', () => {
   // helper: encrypt plaintext under `dek`, return the EncryptedBody shape
-  // decryptBody consumes (single ciphertext chunk).
+  // decryptBodyRaw consumes (single ciphertext chunk).
   const seal = (dek: Buffer, plaintext: Buffer) => {
     const nonce = randomBytes(12)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
@@ -90,16 +90,15 @@ describe('decryptBody (AES-256-GCM snapshot body)', () => {
     return { nonce, tag: cipher.getAuthTag(), ciphertextChunks: [ct] }
   }
 
-  it('round-trips the plaintext through a Blob', async () => {
+  it('round-trips the plaintext through a Buffer', () => {
     const dek = randomBytes(32)
     const plaintext = Buffer.from('pglite snapshot bytes', 'utf8')
-    const blob = decryptBody(seal(dek, plaintext), dek)
-    expect(blob).not.toBeNull()
-    const out = Buffer.from(await blob!.arrayBuffer())
-    expect(out.equals(plaintext)).toBe(true)
+    const out = decryptBodyRaw(seal(dek, plaintext), dek)
+    expect(out).not.toBeNull()
+    expect(out!.equals(plaintext)).toBe(true)
   })
 
-  it('decrypts a body split across multiple ciphertext chunks', async () => {
+  it('decrypts a body split across multiple ciphertext chunks', () => {
     const dek = randomBytes(32)
     const plaintext = randomBytes(40)
     const nonce = randomBytes(12)
@@ -110,21 +109,21 @@ describe('decryptBody (AES-256-GCM snapshot body)', () => {
       cipher.update(plaintext.subarray(20)),
       cipher.final(),
     ]
-    const blob = decryptBody({ nonce, tag: cipher.getAuthTag(), ciphertextChunks: chunks }, dek)
-    expect(blob).not.toBeNull()
-    expect(Buffer.from(await blob!.arrayBuffer()).equals(plaintext)).toBe(true)
+    const out = decryptBodyRaw({ nonce, tag: cipher.getAuthTag(), ciphertextChunks: chunks }, dek)
+    expect(out).not.toBeNull()
+    expect(out!.equals(plaintext)).toBe(true)
   })
 
   it('returns null for the wrong DEK', () => {
     const body = seal(randomBytes(32), Buffer.from('x'))
-    expect(decryptBody(body, randomBytes(32))).toBeNull()
+    expect(decryptBodyRaw(body, randomBytes(32))).toBeNull()
   })
 
   it('returns null when the auth tag is tampered', () => {
     const dek = randomBytes(32)
     const body = seal(dek, Buffer.from('x'))
     body.tag[0] = body.tag[0]! ^ 0xff
-    expect(decryptBody(body, dek)).toBeNull()
+    expect(decryptBodyRaw(body, dek)).toBeNull()
   })
 })
 

@@ -70,6 +70,19 @@ export const libraryDict: DomainDict = {
     'library.removeFolder': 'Remove {folder}',
     'library.removeFromSyncTitle': 'Remove from sync (documents stay in the library)',
     'library.addFolder': 'Add folder',
+    // ADR-0006: directory picker shown when a codebase folder has no .gitignore.
+    'library.pickDirsTitle': 'Choose folders to index',
+    'library.pickDirsIntro':
+      'No .gitignore here, so pick which top-level folders to index. Binaries, build output, and dependencies are skipped automatically either way.',
+    'library.pickDirsConfirm': 'Index selected',
+    'library.pickDirsAll': 'Index everything',
+    'library.pickDirsSelectAll': 'Select all',
+    'library.pickDirsSave': 'Save',
+    'library.pickDirsCancel': 'Cancel',
+    'library.pickDirsClose': 'Close',
+    'library.pickDirsGoverned':
+      'This folder is scoped by its .gitignore — indexed folders are chosen automatically and can’t be picked manually.',
+    'library.editDirs': 'Edit indexed folders',
     'library.syncing': 'Syncing…',
     'library.syncNow': 'Sync now',
     'library.scanning': 'Scanning…',
@@ -173,6 +186,19 @@ export const libraryDict: DomainDict = {
     'library.removeFolder': '{folder} entfernen',
     'library.removeFromSyncTitle': 'Aus Sync entfernen (Dokumente bleiben in der Bibliothek)',
     'library.addFolder': 'Ordner hinzufügen',
+    // ADR-0006: Ordnerauswahl, wenn ein Code-Ordner keine .gitignore hat.
+    'library.pickDirsTitle': 'Ordner zum Indizieren wählen',
+    'library.pickDirsIntro':
+      'Keine .gitignore vorhanden – wähle, welche obersten Ordner indiziert werden. Binärdateien, Build-Ausgaben und Abhängigkeiten werden ohnehin übersprungen.',
+    'library.pickDirsConfirm': 'Auswahl indizieren',
+    'library.pickDirsAll': 'Alles indizieren',
+    'library.pickDirsSelectAll': 'Alle auswählen',
+    'library.pickDirsSave': 'Speichern',
+    'library.pickDirsCancel': 'Abbrechen',
+    'library.pickDirsClose': 'Schließen',
+    'library.pickDirsGoverned':
+      'Dieser Ordner wird durch seine .gitignore bestimmt – indizierte Ordner werden automatisch gewählt und können nicht manuell ausgewählt werden.',
+    'library.editDirs': 'Indizierte Ordner bearbeiten',
     'library.syncing': 'Synchronisiere…',
     'library.syncNow': 'Jetzt synchronisieren',
     'library.scanning': 'Scanne…',

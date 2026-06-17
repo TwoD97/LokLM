@@ -3,7 +3,10 @@ import { dirname, join } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from 'node:crypto'
 import argon2 from 'argon2'
 import { intoSecure, secureWipe } from './secureMemory'
-import { Database } from '../../db/database'
+import { WorkspaceStore } from '../storage/WorkspaceStore'
+import { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
+import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
+import { emptyManifest, type VaultManifest } from '../../../shared/workspaceStorage'
 import {
   generatePassphrase as generatePassphraseShared,
   normalisePassphrase as normalisePassphraseShared,
@@ -53,7 +56,7 @@ import type {
 //     re-wrap it under fresh KEKs and re-encrypt the body with a new nonce ,
 //     so library content survives the recovery flow.
 interface AuthHeader {
-  version: 4
+  version: 4 | 5 | 6
   displayName: string
   passwordSalt: string // base64(32) — KEK derivation salt for password
   passwordWrappedDek: WrappedKey // DEK encrypted under password-KEK
@@ -98,7 +101,26 @@ const ARGON_OPTS = {
 const AES_ALGO = 'aes-256-gcm' as const
 const AES_NONCE_BYTES = 12
 const AES_TAG_BYTES = 16
-const VAULT_MAGIC = Buffer.from('LOKLM04\0') // 8 bytes , bump when the on-disk layout changes
+// v6 (ADR-0005, PGlite retired): the encrypted body is a single JSON object
+//   { manifest: VaultManifest, kv: Record<string,string> }
+// — the VaultManifest (workspace list, defaultWorkspaceId, wrapped WDEKs) plus
+// the app-global key/value store (settings + avatar, formerly the PGlite
+// `settings` table). There is no more pglite tar dump: all document/chunk/quiz
+// data lives in the per-workspace encrypted SQLite + LanceDB stores under
+// <userData>/workspaces, decrypted on demand under each workspace's WDEK.
+//
+// Legacy bodies are read transparently so an existing install keeps its
+// workspaces (the WDEKs that decrypt those on-disk stores live in the manifest):
+//   - v5: framed manifestLen(4 BE) ‖ manifestJSON ‖ tar — we keep the manifest
+//         and DISCARD the tar (the in-memory PGlite snapshot is gone; relational
+//         data has already been written to the per-workspace SQLite stores).
+//   - v4: bare tar — no manifest, no kv (fresh start, nothing to carry).
+// Either is rewritten as v6 on the next persist. The magic byte distinguishes
+// the generations on disk.
+const VAULT_MAGIC_V4 = Buffer.from('LOKLM04\0') // 8 bytes — legacy, read-only
+const VAULT_MAGIC_V5 = Buffer.from('LOKLM05\0') // 8 bytes — legacy, read-only
+const VAULT_MAGIC_V6 = Buffer.from('LOKLM06\0') // 8 bytes — current write format
+const VAULT_MAGIC = VAULT_MAGIC_V6 // written by writeVaultNow
 const HEADER_LEN_BYTES = 4
 const HEADER_OFFSET = VAULT_MAGIC.length + HEADER_LEN_BYTES
 
@@ -152,8 +174,20 @@ export class AuthService {
   // when no session is live, status() always hits disk fresh , otherwise a
   // deleted/quarantined vault would keep showing the login screen forever.
   private dek: Buffer | null = null
-  private database: Database | null = null
+  // The Database-shaped adapter over the per-workspace encrypted SQLite stores
+  // (ADR-0005). Built lazily on first requireDatabase() while unlocked; dropped
+  // on lock. Replaces the in-memory PGlite `Database` that v5 and earlier used.
+  private facade: WorkspaceDbFacade | null = null
+  // App-global key/value store (settings + avatar), formerly the PGlite
+  // `settings` table. Rides inside the encrypted vault body; mutated in-memory
+  // via getKv/setKv/deleteKv and committed by persistSnapshot.
+  private globalKv: Record<string, string> = {}
   private liveHeader: AuthHeader | null = null
+  // VaultManifest (ADR-0005): which workspaces exist, the default, each wrapped
+  // WDEK. Lives inside the encrypted body; mutated via the WorkspaceStore, which
+  // calls back into persistSnapshot() to re-encrypt the body.
+  private manifest: VaultManifest = emptyManifest()
+  private workspaceStore: WorkspaceStore | null = null
   private lastActivity = Date.now()
   private inactivityMs = DEFAULT_INACTIVITY_MS
   private inactivityTimer: NodeJS.Timeout | null = null
@@ -170,7 +204,10 @@ export class AuthService {
   // persists race on the shared loklm.vault.tmp file.
   private vaultWriteChain: Promise<void> = Promise.resolve()
 
+  private readonly userDataDir: string
+
   constructor(userDataDir: string) {
+    this.userDataDir = userDataDir
     this.vaultFilePath = join(userDataDir, 'loklm.vault')
     this.vaultBackupPath = this.vaultFilePath + '.bak'
   }
@@ -239,7 +276,7 @@ export class AuthService {
     secureWipe(recoveryKek)
 
     const header: AuthHeader = {
-      version: 4,
+      version: 6,
       displayName,
       passwordSalt: passwordSalt.toString('base64'),
       passwordWrappedDek,
@@ -249,8 +286,9 @@ export class AuthService {
     }
 
     this.dek = dek
-    this.database = await Database.create(undefined)
-    const body = await this.encryptCurrentDb(dek)
+    this.manifest = emptyManifest()
+    this.globalKv = {}
+    const body = this.encryptBody(dek)
     await this.writeVault(header, body)
     this.liveHeader = header
     this.startInactivityTimer()
@@ -289,23 +327,23 @@ export class AuthService {
     // and body live together so any failure here is just file corruption ,
     // not an auth/snapshot drift.
     emit('decrypting')
-    let snapshotBlob = decryptBody(vault.body, dek)
-    if (snapshotBlob == null && vault.source === 'primary') {
+    let parsed = openBody(vault.body, vault.header.version, dek)
+    if (parsed == null && vault.source === 'primary') {
       // primary body failed its gcm tag. the DEK is install-lifetime , it
       // opens any generation's body — so the backup can rescue the last good
       // persist even though we keep the primary's (intact) header for the
       // session. the next persist rewrites both files and self-heals.
       const backup = await this.readBackupQuiet()
       if (backup) {
-        snapshotBlob = decryptBody(backup.body, dek)
-        if (snapshotBlob != null) {
+        parsed = openBody(backup.body, backup.header.version, dek)
+        if (parsed != null) {
           console.warn(
             '[auth] vault body corrupt , restored last good generation from loklm.vault.bak',
           )
         }
       }
     }
-    if (snapshotBlob == null) {
+    if (parsed == null) {
       secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
@@ -313,19 +351,15 @@ export class AuthService {
     }
 
     emit('restoring')
-    // Only commit the DEK to session state once the DB actually loads. If
-    // Database.create throws (incompatible/corrupt snapshot that still passed
-    // the GCM tag, migration failure), zero the DEK rather than leaving it
-    // resident — matches the zeroing on every other failure path here.
-    let database: Database
-    try {
-      database = await Database.create(undefined, snapshotBlob)
-    } catch (err) {
-      secureWipe(dek)
-      throw err
-    }
+    // The body decrypted and frame-parsed cleanly above (openBody), so the
+    // session can be committed. There is no PGlite snapshot to load any more —
+    // relational/vector data lives in the per-workspace stores, opened lazily.
     this.dek = dek
-    this.database = database
+    this.manifest = parsed.manifest
+    this.globalKv = parsed.kv
+    // migrate-on-load: a v4/v5 vault is read transparently, then re-headered to
+    // v6 so the next persist writes the manifest-only (no-tar) body.
+    vault.header.version = 6
     this.liveHeader = vault.header
     this.failures = []
     this.startInactivityTimer()
@@ -371,11 +405,19 @@ export class AuthService {
   }
 
   async lock(): Promise<void> {
-    if (!this.dek || !this.database) return
+    if (!this.dek) return
     try {
+      // Close the active workspace first — it re-encrypts its files, wipes the
+      // plaintext working copy, and refreshes the manifest (which persistSnapshot
+      // then commits inside the vault body). Best-effort: a workspace close
+      // failure must not strand the session unlocked.
+      if (this.workspaceStore) {
+        await this.workspaceStore.close().catch((err) => {
+          console.warn('[auth] workspace store close failed during lock:', err)
+        })
+      }
       await this.persistSnapshot()
     } finally {
-      await this.shutdownDatabase()
       this.zeroKey()
       this.stopInactivityTimer()
       this.liveHeader = null
@@ -441,6 +483,7 @@ export class AuthService {
 
     const newHeader: AuthHeader = {
       ...vault.header,
+      version: 6,
       passwordSalt: newPasswordSalt.toString('base64'),
       passwordWrappedDek: newPasswordWrappedDek,
       recoveryEntries: [newEntry],
@@ -455,36 +498,30 @@ export class AuthService {
     // the very data it exists to save. Try the .bak generation first (the DEK
     // is install-lifetime , it opens any generation's body); if that fails too
     // an external backup is the only path left , so we must not touch the file.
-    let snapshotBlob = decryptBody(vault.body, dek)
-    if (snapshotBlob == null && vault.source === 'primary') {
+    let parsed = openBody(vault.body, vault.header.version, dek)
+    if (parsed == null && vault.source === 'primary') {
       const backup = await this.readBackupQuiet()
       if (backup) {
-        snapshotBlob = decryptBody(backup.body, dek)
-        if (snapshotBlob != null) {
+        parsed = openBody(backup.body, backup.header.version, dek)
+        if (parsed != null) {
           console.warn(
             '[auth] vault body corrupt , reset continues from the loklm.vault.bak generation',
           )
         }
       }
     }
-    if (snapshotBlob == null) {
+    if (parsed == null) {
       secureWipe(dek)
       throw new Error(
         'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
       )
     }
-    // Only commit the DEK once the DB actually loads ; zero it on any failure
-    // rather than leaving key material resident (mirrors login()).
-    let database: Database
-    try {
-      database = await Database.create(undefined, snapshotBlob)
-    } catch (err) {
-      secureWipe(dek)
-      throw err
-    }
+    // Body decrypted + frame-parsed cleanly above; commit the recovered DEK.
+    // No PGlite snapshot to load — per-workspace stores open lazily.
     this.dek = dek
-    this.database = database
-    const newBody = await this.encryptCurrentDb(dek)
+    this.manifest = parsed.manifest
+    this.globalKv = parsed.kv
+    const newBody = this.encryptBody(dek)
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader
     this.failures = []
@@ -549,7 +586,7 @@ export class AuthService {
       passwordSalt: newSalt.toString('base64'),
       passwordWrappedDek: newWrappedDek,
     }
-    const newBody = await this.encryptCurrentDb(this.dek)
+    const newBody = this.encryptBody(this.dek)
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader
     return { ok: true }
@@ -603,7 +640,7 @@ export class AuthService {
       ...this.liveHeader,
       recoveryEntries: [newEntry],
     }
-    const newBody = await this.encryptCurrentDb(this.dek)
+    const newBody = this.encryptBody(this.dek)
     await this.writeVault(newHeader, newBody)
     this.liveHeader = newHeader
     return { ok: true, passphrase }
@@ -628,18 +665,76 @@ export class AuthService {
   // session helpers used by the IPC layer
   // -------------------------------------------------------------------------
 
-  /** returns the live Database , throws LockedError when the session is locked.
-   *  Callers can detect via `isLockedError(err)` (works across IPC). */
-  requireDatabase(): Database {
-    if (!this.database) {
+  /** Returns the Database-shaped facade over the per-workspace encrypted SQLite
+   *  stores (ADR-0005); throws LockedError when the session is locked. Callers
+   *  can detect via `isLockedError(err)` (works across IPC). Lazily built and
+   *  cached for the session; dropped on lock. */
+  requireDatabase(): WorkspaceDbFacade {
+    if (!this.dek) {
       throw new LockedError()
     }
     this.touch()
-    return this.database
+    if (!this.facade) this.facade = new WorkspaceDbFacade(this)
+    return this.facade
+  }
+
+  /** Materialises a workspace as the single ACTIVE workspace (ADR-0005): opens
+   *  its encrypted SQLite store (cheap) and its LanceDB vectors (decrypt-on-open).
+   *  The id-keyed facade ops (getDocument(id), conversations, quizzes, …) operate
+   *  on whichever workspace is active, so the renderer calls this on every
+   *  workspace switch. Throws LockedError when the session is locked. */
+  async activate(workspaceId: number): Promise<void> {
+    await this.getWorkspaceStore().open(workspaceId)
+  }
+
+  /** App-global key/value read (settings + avatar). null when the key is unset.
+   *  Available only while unlocked — the store lives in the encrypted body. */
+  getKv(key: string): string | null {
+    return this.globalKv[key] ?? null
+  }
+
+  /** App-global key/value write. In-memory; durability comes from the next
+   *  persistSnapshot (SettingsService schedules one). */
+  setKv(key: string, value: string): void {
+    this.globalKv[key] = value
+    this.touch()
+  }
+
+  deleteKv(key: string): void {
+    delete this.globalKv[key]
+    this.touch()
+  }
+
+  /** The per-workspace encrypted vector store (ADR-0005), bound to the live
+   *  master DEK + manifest. Lazily built; throws LockedError when locked.
+   *  Mutations call back into persistSnapshot() so the manifest is committed
+   *  inside the encrypted vault body. */
+  getWorkspaceStore(): WorkspaceStore {
+    if (!this.dek) throw new LockedError()
+    this.touch()
+    if (!this.workspaceStore) {
+      this.workspaceStore = new WorkspaceStore({
+        baseDir: join(this.userDataDir, 'workspaces'),
+        masterDek: this.dek,
+        manifest: this.manifest,
+        persistManifest: async () => {
+          await this.persistSnapshot()
+        },
+      })
+    }
+    return this.workspaceStore
+  }
+
+  /** Opens (if needed) and returns a workspace's encrypted relational/FTS store
+   *  (SQLite, ADR-0005). The single most important cutover seam: services move
+   *  from the global PGlite `requireDatabase()` to this per-workspace store.
+   *  Throws LockedError when the session is locked. */
+  async getWorkspaceDb(workspaceId: number): Promise<WorkspaceDb> {
+    return this.getWorkspaceStore().openDb(workspaceId)
   }
 
   isUnlocked(): boolean {
-    return this.database !== null && this.dek !== null
+    return this.dek !== null
   }
 
   touch(): void {
@@ -662,7 +757,7 @@ export class AuthService {
   }
 
   async persistSnapshotIfUnlocked(): Promise<void> {
-    if (this.dek && this.database) {
+    if (this.dek) {
       await this.persistSnapshot()
     }
   }
@@ -733,10 +828,13 @@ export class AuthService {
     if (raw.length < HEADER_OFFSET) {
       throw new Error(`Vault file at ${path} is truncated (too short for header).`)
     }
-    const magic = raw.subarray(0, VAULT_MAGIC.length)
-    if (!timingSafeEqual(magic, VAULT_MAGIC)) {
+    const magic = raw.subarray(0, VAULT_MAGIC_V6.length)
+    const isV4 = magic.length === VAULT_MAGIC_V4.length && timingSafeEqual(magic, VAULT_MAGIC_V4)
+    const isV5 = magic.length === VAULT_MAGIC_V5.length && timingSafeEqual(magic, VAULT_MAGIC_V5)
+    const isV6 = magic.length === VAULT_MAGIC_V6.length && timingSafeEqual(magic, VAULT_MAGIC_V6)
+    if (!isV4 && !isV5 && !isV6) {
       throw new Error(
-        `Vault file at ${path} is not a LokLM v4 vault. Delete it to start over, or restore from a backup.`,
+        `Vault file at ${path} is not a LokLM vault. Delete it to start over, or restore from a backup.`,
       )
     }
     const headerLen = raw.readUInt32BE(VAULT_MAGIC.length)
@@ -751,7 +849,7 @@ export class AuthService {
     } catch {
       throw new Error(`Vault header is not valid JSON in ${path}.`)
     }
-    if (header.version !== 4) {
+    if (header.version !== 4 && header.version !== 5 && header.version !== 6) {
       throw new Error(
         `Vault header version ${header.version} is not supported by this build. Delete ${path} to start over.`,
       )
@@ -862,42 +960,35 @@ export class AuthService {
   }
 
   private async persistSnapshot(): Promise<void> {
-    if (!this.database || !this.dek || !this.liveHeader) {
+    if (!this.dek || !this.liveHeader) {
       throw new Error('persistSnapshot called without a live session')
     }
-    const body = await this.encryptCurrentDb(this.dek)
+    const body = this.encryptBody(this.dek)
     await this.writeVault(this.liveHeader, body)
   }
 
-  private async encryptCurrentDb(dek: Buffer): Promise<EncryptedBody> {
-    if (!this.database) throw new Error('encryptCurrentDb called without a live database')
-    const blob = await this.database.dump()
-    // Buffer.from(ArrayBuffer) is a view , no copy of the bytes. We feed it
-    // straight to cipher.update and skip the intermediate `plaintext` local +
-    // the Buffer.concat of update/final. That used to triple-buffer the whole
-    // snapshot at peak; now we keep just the cipher chunks + the final
-    // writeVault concat.
-    const plaintextView = Buffer.from(await blob.arrayBuffer())
+  /** Encrypts the v6 vault body: a single JSON object { manifest, kv } under
+   *  AES-256-GCM(DEK). No PGlite tar — relational/vector data lives in the
+   *  per-workspace stores. */
+  private encryptBody(dek: Buffer): EncryptedBody {
+    const plain = Buffer.from(
+      JSON.stringify({ manifest: this.manifest, kv: this.globalKv }),
+      'utf8',
+    )
     const nonce = randomBytes(AES_NONCE_BYTES)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
-    const chunks = [cipher.update(plaintextView), cipher.final()]
+    const chunks = [cipher.update(plain), cipher.final()]
     const tag = cipher.getAuthTag()
     return { nonce, tag, ciphertextChunks: chunks }
   }
 
-  private async shutdownDatabase(): Promise<void> {
-    const db = this.database
-    this.database = null
-    if (db) {
-      try {
-        await db.close()
-      } catch {
-        /* swallow close races , nothing we can do here */
-      }
-    }
-  }
-
   private zeroKey(): void {
+    // Drop the workspace store + facade handles — they held references to the
+    // DEK we are about to wipe. Fresh ones are built on the next unlock.
+    this.workspaceStore = null
+    this.facade = null
+    this.manifest = emptyManifest()
+    this.globalKv = {}
     if (this.dek) {
       secureWipe(this.dek)
       this.dek = null
@@ -991,18 +1082,57 @@ function unwrapKey(kek: Buffer, wrapped: WrappedKey): Buffer | null {
   }
 }
 
-function decryptBody(body: EncryptedBody, dek: Buffer): Blob | null {
+function decryptBodyRaw(body: EncryptedBody, dek: Buffer): Buffer | null {
   try {
     const decipher = createDecipheriv(AES_ALGO, dek, body.nonce)
     decipher.setAuthTag(body.tag)
     // Feed each ciphertext chunk through update , no need to Buffer.concat
     // them first. Most read paths give us a single-chunk array (whole file
-    // read in one go); write paths have 2 chunks (update + final).
+    // read in one go); write paths have several (manifest len + manifest + tar).
     const decoded: Buffer[] = []
     for (const chunk of body.ciphertextChunks) decoded.push(decipher.update(chunk))
     decoded.push(decipher.final())
-    const plaintext = Buffer.concat(decoded)
-    return new Blob([new Uint8Array(plaintext)])
+    return Buffer.concat(decoded)
+  } catch {
+    return null
+  }
+}
+
+/** Splits a decrypted body into its manifest + app-global kv. v6 bodies are a
+ *  single JSON object { manifest, kv }. Legacy bodies are read for their
+ *  manifest only (the WDEKs that decrypt the on-disk per-workspace stores):
+ *    - v5: framed manifestLen ‖ manifestJSON ‖ tar — manifest kept, tar dropped.
+ *    - v4: bare tar — empty manifest + kv (fresh start). */
+function parseVaultBody(
+  plain: Buffer,
+  version: 4 | 5 | 6,
+): { manifest: VaultManifest; kv: Record<string, string> } {
+  if (version >= 6) {
+    const parsed = JSON.parse(plain.toString('utf8')) as {
+      manifest?: VaultManifest
+      kv?: Record<string, string>
+    }
+    return { manifest: parsed.manifest ?? emptyManifest(), kv: parsed.kv ?? {} }
+  }
+  if (version === 5) {
+    const len = plain.readUInt32BE(0)
+    const manifest = JSON.parse(plain.subarray(4, 4 + len).toString('utf8')) as VaultManifest
+    return { manifest, kv: {} }
+  }
+  return { manifest: emptyManifest(), kv: {} }
+}
+
+/** Decrypt + parse in one step. null when the GCM tag fails (wrong key /
+ *  corrupt body) or the body is malformed. */
+function openBody(
+  body: EncryptedBody,
+  version: 4 | 5 | 6,
+  dek: Buffer,
+): { manifest: VaultManifest; kv: Record<string, string> } | null {
+  const plain = decryptBodyRaw(body, dek)
+  if (!plain) return null
+  try {
+    return parseVaultBody(plain, version)
   } catch {
     return null
   }
@@ -1029,4 +1159,4 @@ export type { AuthHeader, RecoveryEntry, WrappedKey, EncryptedBody }
 // body-decrypt. Kept module-private in practice; this export only widens
 // visibility so the failure branches (wrong key, tampered tag, length guard)
 // can be branch-tested directly. No behavior change.
-export { deriveKEK, wrapKey, unwrapKey, decryptBody }
+export { deriveKEK, wrapKey, unwrapKey, decryptBodyRaw }

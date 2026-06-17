@@ -1,12 +1,25 @@
 import { readdir, stat } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, relative } from 'node:path'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
 import { isSupported } from './parser'
+import { classifyCodebase, type CodebaseClassification } from '../codebase/classify'
+import { IGNORED_DIRS, isPathIgnored, isDirIncluded, fileTrack } from '../codebase/ignore'
+import {
+  loadGitignore,
+  loadDirIgnore,
+  isGitignored,
+  type GitignoreLayer,
+} from '../codebase/gitignore'
 
 const DEBOUNCE_MS = 800
+
+/** Cap on files inspected for codebase classification — keeps the classify walk
+ *  cheap on huge monorepos; the marker-file + ratio signal saturates well before
+ *  this. */
+const CLASSIFY_FILE_CAP = 5000
 
 type Sender = WebContents | { send: (channel: string, payload: unknown) => void }
 
@@ -84,13 +97,43 @@ export class FolderSyncService {
     if (!folders.includes(abs)) folders.push(abs)
     await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
     this.restartWatchers(workspaceId, folders)
+    // ADR-0006: auto-classify so syncing a project folder flips the workspace to
+    // 'codebase'. Best-effort + fire-and-forget — never block adding the folder.
+    void this.classifyFolders(workspaceId).catch(() => undefined)
     return folders
+  }
+
+  /**
+   * Walks the workspace's synced folders (honouring the default ignore rules) and
+   * classifies them (ADR-0006). When the folder looks like a source project the
+   * workspace type is flipped to 'codebase'. Returns the classification so the
+   * renderer can show the detected language / offer an override. Never downgrades
+   * a 'codebase' back to 'library' automatically — that's a user decision.
+   */
+  async classifyFolders(workspaceId: number): Promise<CodebaseClassification> {
+    const folders = await this.getFolders(workspaceId)
+    const rels: string[] = []
+    for (const folder of folders) {
+      if (rels.length >= CLASSIFY_FILE_CAP) break
+      await walkForClassification(resolve(folder), rels, CLASSIFY_FILE_CAP)
+    }
+    const classification = classifyCodebase(rels)
+    if (classification.isCodebase) {
+      await this.auth.requireDatabase().workspaces().setType(workspaceId, 'codebase')
+    }
+    return classification
   }
 
   async removeFolder(workspaceId: number, folderPath: string): Promise<string[]> {
     const abs = resolve(folderPath)
     const folders = (await this.getFolders(workspaceId)).filter((p) => p !== abs)
     await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
+    // ADR-0006: drop the folder's index-dir selection so a later re-add starts clean.
+    await this.auth
+      .requireDatabase()
+      .workspaces()
+      .clearIndexDirs(workspaceId, abs)
+      .catch(() => undefined)
     this.restartWatchers(workspaceId, folders)
     return folders
   }
@@ -155,8 +198,27 @@ export class FolderSyncService {
       const seenPaths = new Set<string>()
       const watchedRoots = folders.map((f) => resolve(f))
 
+      // ADR-0006: codebase workspaces ingest source + prose files (the code/doc
+      // tracks); library workspaces ingest only the supported document types.
+      const wss = await this.auth.requireDatabase().workspaces().list()
+      const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
+
       for (const folder of watchedRoots) {
-        const files = await walkSupported(folder)
+        let files: string[]
+        if (isCodebase) {
+          // ADR-0006: honor the folder's .gitignore(s) — loaded per-directory inside
+          // the walk (nested-aware). When the folder has no root .gitignore, apply the
+          // user's top-level-dir selection instead (empty set = index all).
+          const hasRootGitignore = (await loadGitignore(folder)) !== null
+          const includeDirs = hasRootGitignore
+            ? new Set<string>()
+            : new Set(
+                await this.auth.requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
+              )
+          files = await walkIndexable(folder, includeDirs)
+        } else {
+          files = await walkSupported(folder)
+        }
         for (const file of files) {
           seenPaths.add(file)
           const existing = docByPath.get(file)
@@ -356,6 +418,115 @@ async function walkSupported(root: string): Promise<string[]> {
     }
   }
   return out
+}
+
+/** Collects file paths (relative to `root`) for codebase classification, pruning
+ *  ignored directories so vendored/build trees don't skew the ratio and the walk
+ *  stays cheap. Caps total files at `cap`. Unlike walkSupported this sees ALL
+ *  files (code + docs), since classification keys off code extensions. */
+async function walkForClassification(root: string, out: string[], cap: number): Promise<void> {
+  const rootIg = await loadDirIgnore(root, true)
+  const base: GitignoreLayer[] = rootIg ? [{ base: '', ig: rootIg }] : []
+  await classifyDir(root, root, base, out, cap)
+}
+
+async function classifyDir(
+  absDir: string,
+  root: string,
+  layers: GitignoreLayer[],
+  out: string[],
+  cap: number,
+): Promise<void> {
+  if (out.length >= cap) return
+  let entries
+  try {
+    entries = await readdir(absDir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  const dirLayers = await extendLayers(layers, absDir, root)
+  for (const e of entries) {
+    if (out.length >= cap) break
+    if (e.isSymbolicLink()) continue
+    const full = join(absDir, e.name)
+    const rel = relative(root, full)
+    if (e.isDirectory()) {
+      if (IGNORED_DIRS.has(e.name)) continue
+      if (isGitignored(dirLayers, rel, true)) continue
+      await classifyDir(full, root, dirLayers, out, cap)
+    } else if (e.isFile()) {
+      if (isPathIgnored(rel)) continue
+      if (isGitignored(dirLayers, rel, false)) continue
+      out.push(rel)
+    }
+  }
+}
+
+/** Codebase walk (ADR-0006): collects code + doc track files under `root`,
+ *  pruning ignored directories (node_modules, .git, dist, …) and skipped files
+ *  (binaries, lockfiles, oversized) via the default ignore rules + nested
+ *  .gitignore(s) + the user's top-level-dir selection (when there's no root
+ *  .gitignore). Recursive so each directory's .gitignore scopes its subtree.
+ *  Symlinks are skipped for the same shell-surface reason as walkSupported. */
+async function walkIndexable(root: string, includeDirs: ReadonlySet<string>): Promise<string[]> {
+  const out: string[] = []
+  const rootIg = await loadDirIgnore(root, true)
+  const base: GitignoreLayer[] = rootIg ? [{ base: '', ig: rootIg }] : []
+  await indexDir(root, root, base, includeDirs, out)
+  return out
+}
+
+async function indexDir(
+  absDir: string,
+  root: string,
+  layers: GitignoreLayer[],
+  includeDirs: ReadonlySet<string>,
+  out: string[],
+): Promise<void> {
+  let entries
+  try {
+    entries = await readdir(absDir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  const dirLayers = await extendLayers(layers, absDir, root)
+  for (const e of entries) {
+    if (e.isSymbolicLink()) continue
+    const full = join(absDir, e.name)
+    const rel = relative(root, full)
+    if (e.isDirectory()) {
+      if (IGNORED_DIRS.has(e.name)) continue
+      // Pruning an ignored dir skips its whole subtree (and matches git: you can't
+      // re-include a file under an excluded dir).
+      if (isGitignored(dirLayers, rel, true)) continue
+      if (!isDirIncluded(rel, includeDirs)) continue
+      await indexDir(full, root, dirLayers, includeDirs, out)
+    } else if (e.isFile()) {
+      if (isGitignored(dirLayers, rel, false)) continue
+      if (!isDirIncluded(rel, includeDirs)) continue
+      let size: number
+      try {
+        size = (await stat(full)).size
+      } catch {
+        continue
+      }
+      if (fileTrack(rel, size) === 'skip') continue
+      out.push(full)
+    }
+  }
+}
+
+/** Appends a directory's own .gitignore (if any) to the layer stack, scoped to
+ *  that directory. The root's .gitignore is already in `layers`, so it's skipped. */
+async function extendLayers(
+  layers: GitignoreLayer[],
+  absDir: string,
+  root: string,
+): Promise<GitignoreLayer[]> {
+  if (absDir === root) return layers
+  const ig = await loadDirIgnore(absDir, false)
+  if (!ig) return layers
+  return [...layers, { base: relative(root, absDir).replace(/\\/g, '/'), ig }]
 }
 
 function isUnderAny(path: string, roots: string[]): boolean {

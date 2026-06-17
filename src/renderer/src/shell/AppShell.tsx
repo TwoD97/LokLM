@@ -17,6 +17,7 @@ export function AppShell(): JSX.Element {
   const t = useT()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<number | null>(null)
+  const [defaultWorkspaceId, setDefaultWorkspaceId] = useState<number | null>(null)
   const [activeView, setActiveView] = useState<ViewKind>('library')
   const [pinned, togglePin] = usePinnedSidebar()
   const [peeking, setPeeking] = useState(false)
@@ -33,12 +34,39 @@ export function AppShell(): JSX.Element {
   const refreshWorkspaces = useCallback(async () => {
     const ws = await window.api.workspaces.list()
     setWorkspaces(ws)
-    setActiveWorkspaceId((current) => current ?? (ws.length > 0 ? ws[0]!.id : null))
+    // ADR-0005: on first load, honour the configured default workspace; fall
+    // back to the first workspace. Once a workspace is active, leave it alone.
+    const def = await window.api.workspaces.getDefault().catch(() => null)
+    setDefaultWorkspaceId(def)
+    setActiveWorkspaceId((current) => {
+      if (current != null) return current
+      if (def != null && ws.some((w) => w.id === def)) return def
+      return ws.length > 0 ? ws[0]!.id : null
+    })
+  }, [])
+
+  const handleSetDefaultWorkspace = useCallback(async (id: number) => {
+    // Toggle: clicking the current default clears it.
+    setDefaultWorkspaceId((current) => {
+      const next = current === id ? null : id
+      void window.api.workspaces.setDefault(next).catch(() => undefined)
+      return next
+    })
   }, [])
 
   useEffect(() => {
     void refreshWorkspaces()
   }, [refreshWorkspaces])
+
+  // ADR-0005: activating a workspace opens its encrypted SQLite store and
+  // materialises its LanceDB vectors in main, and makes it the ACTIVE workspace
+  // the per-id data ops (documents:get, conversations, quizzes) resolve against.
+  // Fire it on every workspace switch, before the views below fetch id-keyed
+  // data, so they hit the right store.
+  useEffect(() => {
+    if (activeWorkspaceId == null) return
+    void window.api.workspaces.activate(activeWorkspaceId).catch(() => undefined)
+  }, [activeWorkspaceId])
 
   // Load docs for the active workspace; refresh on view switch back to chat
   // (covers deletions that happened in the Library) and on index-done events
@@ -144,6 +172,8 @@ export function AppShell(): JSX.Element {
         onCreateWorkspace={(name) => void onCreateWorkspace(name)}
         onRenameWorkspace={(id, name) => void onRenameWorkspace(id, name)}
         onRequestDeleteWorkspace={setConfirmDeleteWorkspace}
+        defaultWorkspaceId={defaultWorkspaceId}
+        onSetDefaultWorkspace={(id) => void handleSetDefaultWorkspace(id)}
         onViewChange={setActiveView}
         onTogglePin={togglePin}
         onPeek={setPeeking}
