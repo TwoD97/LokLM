@@ -20,6 +20,8 @@ import {
   type Chunk,
 } from './chunker'
 import { resolveChunkOptions } from './chunkOptions'
+import { fileTrack } from '../codebase/ignore'
+import { chunkCode, type CodeChunkOptions } from '../codebase/codeChunker'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
 
@@ -403,7 +405,18 @@ export class DocumentService {
       // through here, so all of them honour the sliders.
       const effChunk = resolveChunkOptions(input, this.retrievalDefaults?.())
       let out: Chunk[]
-      if (this.worker) {
+      if (fileTrack(doc.sourcePath) === 'code') {
+        // ADR-0006 code track: structure-aware chunking (line ranges in
+        // pageFrom/pageTo). Bypasses the PDF/markdown parser + worker entirely —
+        // a source file is just UTF-8 text. Language tagging is skipped (eld's
+        // de/en/other classes are meaningless for code; left null).
+        send('parsing', 1)
+        const source = await readFile(doc.sourcePath, 'utf8')
+        send('chunking', 2)
+        const codeOpts: CodeChunkOptions = { relPath: basename(doc.sourcePath) }
+        if (effChunk.chunkSize !== undefined) codeOpts.maxChars = effChunk.chunkSize
+        out = chunkCode(source, codeOpts)
+      } else if (this.worker) {
         const chunkPayload: {
           sourcePath: string
           documentId: number
