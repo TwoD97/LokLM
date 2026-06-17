@@ -156,10 +156,15 @@ async function main(): Promise<void> {
   }
 
   if (args.summary) {
-    const embPack = JSON.parse(await readFile(join(__dirname, 'embedder-pack.json'), 'utf-8')) as {
+    // Gleiche Pack-Auflösung wie matrixConfigs() (configs.ts): per env
+    // umschaltbar auf die Code-Packs, sonst Default. Sonst zeigt die Summary
+    // die falschen Achsen (Default statt Code-Matrix).
+    const embPackFile = process.env.LOKLM_EMBEDDER_PACK ?? 'embedder-pack.json'
+    const rrPackFile = process.env.LOKLM_RERANKER_PACK ?? 'reranker-pack.json'
+    const embPack = JSON.parse(await readFile(join(__dirname, embPackFile), 'utf-8')) as {
       embedders: { label: string }[]
     }
-    const rrPack = JSON.parse(await readFile(join(__dirname, 'reranker-pack.json'), 'utf-8')) as {
+    const rrPack = JSON.parse(await readFile(join(__dirname, rrPackFile), 'utf-8')) as {
       rerankers: { label: string }[]
     }
     const qs = dataset.questions as Array<{ lang?: string; expectedRefusal?: boolean }>
