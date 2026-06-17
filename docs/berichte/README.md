@@ -1,26 +1,29 @@
 # Berichte
 
-Eingefrorene PDF-Snapshots der laufenden Projektdokumentation zu **LokLM**.
-Jede Datei ist ein abgegebener Stand zu einem festen Datum (read-only, wird nicht nachträglich geändert).
+Markdown-Snapshots der laufenden Projektdokumentation zu **LokLM**.
+Jede Datei ist ein abgegebener Stand zu einem festen Datum (Inhalt read-only, wird nicht nachträglich geändert).
+
+> Hinweis: Veröffentlicht werden die **Markdown-Quellen**. PDFs werden bewusst **nicht** ins
+> Repository aufgenommen — sie sind jederzeit aus dem Markdown reproduzierbar und wären hier nur Ballast.
 
 ## Laborberichte
 
 Technische Labortags-Berichte (4 UE) — Fehlerdiagnose, Tests, Verifikation, Ergebnis.
 
-| Datum | Bericht |
-|---|---|
-| 2026-05-29 | [Laborbericht_LokLM_2026-05-29.pdf](laborberichte/Laborbericht_LokLM_2026-05-29.pdf) |
-| 2026-06-12 | [Laborbericht_LokLM_2026-06-12.pdf](laborberichte/Laborbericht_LokLM_2026-06-12.pdf) |
+| Datum      | Bericht                                                                            |
+| ---------- | ---------------------------------------------------------------------------------- |
+| 2026-05-29 | [Laborbericht_LokLM_2026-05-29.md](laborberichte/Laborbericht_LokLM_2026-05-29.md) |
+| 2026-06-12 | [Laborbericht_LokLM_2026-06-12.md](laborberichte/Laborbericht_LokLM_2026-06-12.md) |
 
 ## Projektstatusberichte
 
 Wöchentliche Statusberichte — Fortschritt, Termine, Entscheidungen, nächste Schritte.
 
-| Berichtsende | Bericht |
-|---|---|
-| 2026-05-22 | [Projektstatusbericht_LokLM_2026-05-22.pdf](projektstatusberichte/Projektstatusbericht_LokLM_2026-05-22.pdf) |
-| 2026-06-07 | [Projektstatusbericht_LokLM_2026-06-07.pdf](projektstatusberichte/Projektstatusbericht_LokLM_2026-06-07.pdf) |
-| 2026-06-14 | [Projektstatusbericht_LokLM_2026-06-14.pdf](projektstatusberichte/Projektstatusbericht_LokLM_2026-06-14.pdf) |
+| Berichtsende | Bericht                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| 2026-05-22   | [projektstatusbericht-2026-05-22.md](projektstatusberichte/projektstatusbericht-2026-05-22.md) |
+| 2026-06-07   | [projektstatusbericht-2026-06-07.md](projektstatusberichte/projektstatusbericht-2026-06-07.md) |
+| 2026-06-14   | [projektstatusbericht-2026-06-14.md](projektstatusberichte/projektstatusbericht-2026-06-14.md) |
 
 ---
 
