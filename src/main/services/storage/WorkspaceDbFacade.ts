@@ -10,6 +10,7 @@ import type {
 } from '../../db/sqlite/WorkspaceDb'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/types'
 import type { LibrarySearchOptions, Workspace } from '../../../shared/documents'
+import { workspaceTypeOf, type WorkspaceType } from '../../../shared/workspaceStorage'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -377,15 +378,23 @@ class WorkspacesApi {
     return this.auth
       .getWorkspaceStore()
       .list()
-      .map((e) => ({ id: e.id, name: e.name, createdAt: e.createdAt }))
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        createdAt: e.createdAt,
+        type: workspaceTypeOf(e),
+      }))
       .sort((a, b) => b.createdAt - a.createdAt)
   }
   async create(name: string): Promise<Workspace> {
     const e = await this.auth.getWorkspaceStore().create(name)
-    return { id: e.id, name: e.name, createdAt: e.createdAt }
+    return { id: e.id, name: e.name, createdAt: e.createdAt, type: workspaceTypeOf(e) }
   }
   async rename(id: number, name: string): Promise<void> {
     return this.auth.getWorkspaceStore().rename(id, name)
+  }
+  async setType(id: number, type: WorkspaceType): Promise<void> {
+    return this.auth.getWorkspaceStore().setType(id, type)
   }
   async delete(id: number): Promise<void> {
     return this.auth.getWorkspaceStore().delete(id)
