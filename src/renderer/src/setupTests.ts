@@ -67,7 +67,12 @@ const stub: Api = {
   workspaces: {
     list: () => Promise.resolve([]),
     create: (name: string) =>
-      Promise.resolve({ id: 1, name, createdAt: Math.floor(Date.now() / 1000) }),
+      Promise.resolve({
+        id: 1,
+        name,
+        createdAt: Math.floor(Date.now() / 1000),
+        type: 'library' as const,
+      }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
     activate: () => Promise.resolve(),

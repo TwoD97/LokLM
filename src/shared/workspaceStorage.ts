@@ -17,6 +17,17 @@ export type EncryptionLevel = 'full'
 
 export const DEFAULT_ENCRYPTION_LEVEL: EncryptionLevel = 'full'
 
+/**
+ * Workspace type (ADR-0006). A `library` workspace indexes documents (PDFs,
+ * notes) as today; a `codebase` workspace syncs a source-code project folder and
+ * indexes code and docs/info on SEPARATE tracks (AST-aware code chunks vs prose).
+ * The type is auto-classified when a folder is synced (marker files + language
+ * heuristics) and can be overridden by the user.
+ */
+export type WorkspaceType = 'library' | 'codebase'
+
+export const DEFAULT_WORKSPACE_TYPE: WorkspaceType = 'library'
+
 /** Vector-index build parameters per workspace (IVF-PQ / RaBitQ family). Stored
  *  so a workspace's index can be rebuilt deterministically and so the active
  *  config is visible without opening the index. Tuned by workspace size — see
@@ -38,6 +49,9 @@ export interface WorkspaceManifestEntry {
   name: string
   createdAt: number
   encryptionLevel: EncryptionLevel
+  /** Workspace type (ADR-0006). Absent on pre-ADR-0006 manifests ⇒ treat as
+   *  'library' (see workspaceTypeOf). */
+  type?: WorkspaceType
   /** Directory (relative to the workspaces root) holding this workspace's
    *  block-encrypted Lance dataset + metadata DB. */
   dir: string
@@ -63,6 +77,12 @@ export interface VaultManifest {
 
 export function emptyManifest(): VaultManifest {
   return { version: 1, defaultWorkspaceId: null, workspaces: [] }
+}
+
+/** Reads a manifest entry's workspace type, defaulting to 'library' for entries
+ *  written before ADR-0006 (the field is optional for back-compat). */
+export function workspaceTypeOf(entry: { type?: WorkspaceType }): WorkspaceType {
+  return entry.type ?? DEFAULT_WORKSPACE_TYPE
 }
 
 /** Picks the workspace to auto-load on unlock: the configured default if it
