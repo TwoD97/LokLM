@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
 import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
-import { ocrImageFile, ocrPdfPage, pageNeedsOcr, type PdfPageLike } from './ocr'
+import { NodeCanvasFactory, ocrImageFile, ocrPdfPage, pageNeedsOcr, type PdfPageLike } from './ocr'
 
 /** Optional hooks threaded through the parse so callers can surface the slow
  *  per-page OCR pass (scanned PDFs) as progress instead of a silent stall. */
@@ -152,7 +152,7 @@ async function parseDocx(filePath: string): Promise<ParsedDocument> {
 
 /** Minimal slice of pdf-parse's static surface we touch for worker config. */
 interface PdfParseStatic {
-  new (opts: { data: Uint8Array }): {
+  new (opts: { data: Uint8Array; CanvasFactory?: unknown }): {
     load(): Promise<PdfDoc>
     getText(): Promise<{ pages: { num: number; text: string }[] }>
     destroy(): Promise<void>
@@ -188,7 +188,10 @@ async function parsePdf(filePath: string, opts: ParseOptions = {}): Promise<Pars
   const { PDFParse } = (await import('pdf-parse')) as unknown as { PDFParse: PdfParseStatic }
   configurePdfWorker(PDFParse)
   const buf = await readFile(filePath)
-  const parser = new PDFParse({ data: new Uint8Array(buf) })
+  // Pass an explicit @napi-rs/canvas factory so pdfjs doesn't fall back to its
+  // DOMCanvasFactory (no DOM in the worker → createElement crash) when OCR'ing
+  // scanned pages. See NodeCanvasFactory in ./ocr.
+  const parser = new PDFParse({ data: new Uint8Array(buf), CanvasFactory: NodeCanvasFactory })
   try {
     // Load the pdfjs doc explicitly so we can extract the bookmark outline
     // alongside the text. pdf-parse caches the doc, so this isn't a re-parse.
