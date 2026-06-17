@@ -6,7 +6,7 @@ import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
 import { isSupported } from './parser'
 import { classifyCodebase, type CodebaseClassification } from '../codebase/classify'
-import { IGNORED_DIRS, isPathIgnored } from '../codebase/ignore'
+import { IGNORED_DIRS, isPathIgnored, fileTrack } from '../codebase/ignore'
 
 const DEBOUNCE_MS = 800
 
@@ -186,8 +186,13 @@ export class FolderSyncService {
       const seenPaths = new Set<string>()
       const watchedRoots = folders.map((f) => resolve(f))
 
+      // ADR-0006: codebase workspaces ingest source + prose files (the code/doc
+      // tracks); library workspaces ingest only the supported document types.
+      const wss = await this.auth.requireDatabase().workspaces().list()
+      const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
+
       for (const folder of watchedRoots) {
-        const files = await walkSupported(folder)
+        const files = isCodebase ? await walkIndexable(folder) : await walkSupported(folder)
         for (const file of files) {
           seenPaths.add(file)
           const existing = docByPath.get(file)
@@ -416,6 +421,43 @@ async function walkForClassification(root: string, out: string[], cap: number): 
       }
     }
   }
+}
+
+/** Codebase walk (ADR-0006): collects code + doc track files under `root`,
+ *  pruning ignored directories (node_modules, .git, dist, …) and skipped files
+ *  (binaries, lockfiles, oversized) via the default ignore rules. Symlinks are
+ *  skipped for the same shell-surface reason as walkSupported. */
+async function walkIndexable(root: string): Promise<string[]> {
+  const out: string[] = []
+  const stack: string[] = [root]
+  while (stack.length > 0) {
+    const dir = stack.pop()!
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of entries) {
+      if (e.isSymbolicLink()) continue
+      const full = join(dir, e.name)
+      if (e.isDirectory()) {
+        if (IGNORED_DIRS.has(e.name)) continue
+        stack.push(full)
+      } else if (e.isFile()) {
+        const rel = relative(root, full)
+        let size: number
+        try {
+          size = (await stat(full)).size
+        } catch {
+          continue
+        }
+        if (fileTrack(rel, size) === 'skip') continue
+        out.push(full)
+      }
+    }
+  }
+  return out
 }
 
 function isUnderAny(path: string, roots: string[]): boolean {
