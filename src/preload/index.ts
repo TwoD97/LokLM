@@ -30,6 +30,8 @@ import type {
   TranslatorStatus,
 } from '../shared/translation'
 import type { WriteResult, WritingMode } from '../shared/writing'
+import type { WorkspaceType } from '../shared/workspaceStorage'
+import type { CodebaseClassification } from '../shared/codebase'
 import type {
   Document,
   Workspace,
@@ -154,6 +156,11 @@ const api = {
     // SQLite store + LanceDB vectors). Called on every workspace switch so the
     // per-id data ops resolve against the right workspace.
     activate: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:activate', id),
+    // ADR-0006: codebase workspace type — override + (re)classify synced folders.
+    setType: (id: number, type: WorkspaceType): Promise<void> =>
+      ipcRenderer.invoke('workspaces:setType', id, type),
+    classify: (id: number): Promise<CodebaseClassification> =>
+      ipcRenderer.invoke('workspaces:classify', id),
     // ADR-0005: default workspace auto-loaded on unlock.
     getDefault: (): Promise<number | null> => ipcRenderer.invoke('workspaces:getDefault'),
     setDefault: (id: number | null): Promise<void> =>
@@ -164,8 +171,27 @@ const api = {
     // picker. The main process kicks off a one-shot sync right after add so
     // the renderer can rely on indexing:progress + a refresh to surface the
     // newly imported docs.
-    addSyncFolder: (workspaceId: number): Promise<string[] | null> =>
-      ipcRenderer.invoke('workspaces:addSyncFolder', workspaceId),
+    // ADR-0006: returns the updated folder list. When the added folder is a
+    // codebase with no .gitignore, `needsDirSelection` carries the top-level dirs
+    // for the picker — the renderer then calls setIndexDirs(...) + syncNow. null
+    // when the user cancels the picker.
+    addSyncFolder: (
+      workspaceId: number,
+    ): Promise<{
+      folders: string[]
+      needsDirSelection?: { folder: string; topLevelDirs: string[] }
+    } | null> => ipcRenderer.invoke('workspaces:addSyncFolder', workspaceId),
+    // ADR-0006: top-level dirs the user chose to index for a folder (empty = all).
+    getIndexDirs: (workspaceId: number, folder: string): Promise<string[]> =>
+      ipcRenderer.invoke('workspaces:getIndexDirs', workspaceId, folder),
+    setIndexDirs: (workspaceId: number, folder: string, dirs: string[]): Promise<void> =>
+      ipcRenderer.invoke('workspaces:setIndexDirs', workspaceId, folder, dirs),
+    // ADR-0006: re-open the dir picker for an existing folder (edit-after-add).
+    getDirSelection: (
+      workspaceId: number,
+      folder: string,
+    ): Promise<{ topLevelDirs: string[]; selected: string[]; hasGitignore: boolean }> =>
+      ipcRenderer.invoke('workspaces:getDirSelection', workspaceId, folder),
     removeSyncFolder: (workspaceId: number, folderPath: string): Promise<string[]> =>
       ipcRenderer.invoke('workspaces:removeSyncFolder', workspaceId, folderPath),
     syncNow: (

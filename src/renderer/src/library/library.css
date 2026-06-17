@@ -546,3 +546,78 @@
   margin-right: 4px;
   vertical-align: middle;
 }
+
+/* ADR-0006: directory picker for codebase folders without a .gitignore. */
+.dirpicker__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.dirpicker {
+  width: min(420px, 100%);
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+  color: var(--fg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow);
+  padding: 20px;
+  gap: 12px;
+}
+
+.dirpicker__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.dirpicker__intro {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--fg-2);
+  line-height: 1.4;
+}
+
+.dirpicker__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dirpicker__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dirpicker__label:hover {
+  background: var(--bg-2);
+}
+
+.dirpicker__name {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+}
+
+.dirpicker__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}

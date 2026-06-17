@@ -67,14 +67,37 @@ const stub: Api = {
   workspaces: {
     list: () => Promise.resolve([]),
     create: (name: string) =>
-      Promise.resolve({ id: 1, name, createdAt: Math.floor(Date.now() / 1000) }),
+      Promise.resolve({
+        id: 1,
+        name,
+        createdAt: Math.floor(Date.now() / 1000),
+        type: 'library' as const,
+      }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
     activate: () => Promise.resolve(),
+    setType: () => Promise.resolve(),
+    classify: () =>
+      Promise.resolve({
+        isCodebase: false,
+        primaryLanguage: null,
+        languages: [],
+        ecosystems: [],
+        markers: [],
+        codeFileRatio: 0,
+      }),
     getDefault: () => Promise.resolve(null),
     setDefault: () => Promise.resolve(),
     listSyncFolders: () => Promise.resolve([] as string[]),
     addSyncFolder: () => Promise.resolve(null),
+    getIndexDirs: () => Promise.resolve([] as string[]),
+    setIndexDirs: () => Promise.resolve(),
+    getDirSelection: () =>
+      Promise.resolve({
+        topLevelDirs: [] as string[],
+        selected: [] as string[],
+        hasGitignore: false,
+      }),
     removeSyncFolder: () => Promise.resolve([] as string[]),
     syncNow: () =>
       Promise.resolve({

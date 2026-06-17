@@ -10,6 +10,7 @@ import type {
 } from '../../db/sqlite/WorkspaceDb'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/types'
 import type { LibrarySearchOptions, Workspace } from '../../../shared/documents'
+import { workspaceTypeOf, type WorkspaceType } from '../../../shared/workspaceStorage'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -377,15 +378,23 @@ class WorkspacesApi {
     return this.auth
       .getWorkspaceStore()
       .list()
-      .map((e) => ({ id: e.id, name: e.name, createdAt: e.createdAt }))
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        createdAt: e.createdAt,
+        type: workspaceTypeOf(e),
+      }))
       .sort((a, b) => b.createdAt - a.createdAt)
   }
   async create(name: string): Promise<Workspace> {
     const e = await this.auth.getWorkspaceStore().create(name)
-    return { id: e.id, name: e.name, createdAt: e.createdAt }
+    return { id: e.id, name: e.name, createdAt: e.createdAt, type: workspaceTypeOf(e) }
   }
   async rename(id: number, name: string): Promise<void> {
     return this.auth.getWorkspaceStore().rename(id, name)
+  }
+  async setType(id: number, type: WorkspaceType): Promise<void> {
+    return this.auth.getWorkspaceStore().setType(id, type)
   }
   async delete(id: number): Promise<void> {
     return this.auth.getWorkspaceStore().delete(id)
@@ -395,5 +404,18 @@ class WorkspacesApi {
   }
   async setSyncFolders(workspaceId: number, folders: string[]): Promise<void> {
     return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setSyncFolders(folders)
+  }
+  // ADR-0006: per-folder top-level-dir include-set (no-gitignore selection).
+  async getIndexDirs(workspaceId: number, folderPath: string): Promise<string[]> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).getIndexDirs(folderPath)
+  }
+  async setIndexDirs(workspaceId: number, folderPath: string, dirs: string[]): Promise<void> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setIndexDirs(
+      folderPath,
+      dirs,
+    )
+  }
+  async clearIndexDirs(workspaceId: number, folderPath: string): Promise<void> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).clearIndexDirs(folderPath)
   }
 }

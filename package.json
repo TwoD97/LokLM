@@ -127,6 +127,7 @@
     "eld": "^2.0.3",
     "electron-log": "^5.4.4",
     "highlight.js": "^11.11.1",
+    "ignore": "^7.0.5",
     "katex": "^0.16.47",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",

@@ -52,6 +52,7 @@ export const shellDict: DomainDict = {
     'shell.renameWorkspace': 'Rename workspace',
     'shell.deleteWorkspace': 'Delete workspace',
     'shell.setDefaultWorkspace': 'Set as default workspace',
+    'shell.codebaseWorkspace': 'Codebase workspace',
     'shell.defaultWorkspace': 'Default workspace',
     'shell.deleteWorkspaceTitle': 'Delete workspace?',
     'shell.deleteWorkspaceBody':
@@ -109,6 +110,7 @@ export const shellDict: DomainDict = {
     'shell.renameWorkspace': 'Workspace umbenennen',
     'shell.deleteWorkspace': 'Workspace löschen',
     'shell.setDefaultWorkspace': 'Als Standard-Workspace festlegen',
+    'shell.codebaseWorkspace': 'Codebase-Workspace',
     'shell.defaultWorkspace': 'Standard-Workspace',
     'shell.deleteWorkspaceTitle': 'Workspace löschen?',
     'shell.deleteWorkspaceBody':

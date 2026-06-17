@@ -8,7 +8,10 @@ import { DocumentService } from './services/documents/DocumentService'
 import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
 import { isSupported as isSupportedDocPath } from './services/documents/parser'
-import { EmbeddingService } from './services/embeddings/EmbeddingService'
+import { EmbeddingService, resolveCodeEmbedderPath } from './services/embeddings/EmbeddingService'
+import { CODE_EMBEDDER_MODEL_ID } from './services/codebase/codeEmbedder'
+import { loadGitignore } from './services/codebase/gitignore'
+import { IGNORED_DIRS } from './services/codebase/ignore'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
 import { WorkspaceVectorService } from './services/storage/WorkspaceVectorService'
 import { RerankerService } from './services/retrieval/RerankerService'
@@ -49,6 +52,7 @@ import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerank
 import { SettingsService } from './services/settings/SettingsService'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
+import type { WorkspaceType } from '../shared/workspaceStorage'
 import { splitSentinels } from '../shared/docType'
 import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
@@ -309,6 +313,22 @@ function vectorSink(
  *  per-workspace encrypted Lance store (reindex, model-swap purge). */
 function vectorRemove(workspaceId: number, chunkIds: number[]): Promise<void> {
   return getWorkspaceVectorService().remove(workspaceId, chunkIds)
+}
+
+/** ADR-0006: immediate subdirectories of a synced folder, minus the always-on
+ *  ignored dirs — the choices shown in the "which dirs to index" picker when a
+ *  codebase folder has no .gitignore. */
+async function listTopLevelDirs(root: string): Promise<string[]> {
+  const { readdir } = await import('node:fs/promises')
+  try {
+    const entries = await readdir(root, { withFileTypes: true })
+    return entries
+      .filter((e) => e.isDirectory() && !e.isSymbolicLink() && !IGNORED_DIRS.has(e.name))
+      .map((e) => e.name)
+      .sort()
+  } catch {
+    return []
+  }
 }
 
 function getBackfillService(): EmbeddingBackfillService {
@@ -844,6 +864,14 @@ function registerIpc(): void {
   ipcMain.handle('workspaces:rename', async (_e, id: number, name: string) =>
     getWorkspaceService().rename(id, name),
   )
+  // ADR-0006: set/override the workspace type, and (re)run codebase classification
+  // over the synced folders (auto-runs on addFolder; this is the manual hook).
+  ipcMain.handle('workspaces:setType', async (_e, id: number, type: WorkspaceType) =>
+    getAuth().requireDatabase().workspaces().setType(id, type),
+  )
+  ipcMain.handle('workspaces:classify', async (_e, id: number) =>
+    getFolderSyncService().classifyFolders(id),
+  )
   ipcMain.handle('workspaces:delete', async (_e, id: number) => {
     // Stop watching first — otherwise the cascade delete fires the watcher,
     // which would queue a sync against a workspace that no longer exists.
@@ -856,6 +884,39 @@ function registerIpc(): void {
   // conversations, quizzes, …) operate on the right workspace's store.
   ipcMain.handle('workspaces:activate', async (_e, workspaceId: number) => {
     await getAuth().activate(workspaceId)
+    // ADR-0006: codebase workspaces embed with the code model (jina-code) when
+    // present; everything else uses the doc model (BGE-M3). Fallback-safe: if the
+    // code GGUF isn't on disk EmbeddingService transparently keeps BGE-M3, so a
+    // codebase workspace still indexes/searches. Best-effort — a swap failure
+    // must not block activation.
+    try {
+      const wss = await getAuth().requireDatabase().workspaces().list()
+      const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
+      await getEmbeddingService().setPreferredKind(isCodebase ? 'code' : 'doc')
+      if (isCodebase) {
+        if (resolveCodeEmbedderPath()) {
+          // Code model is on disk → re-embed this workspace's existing vectors to
+          // jina-code. The backfill detects the embedder-stem change (bge-m3 →
+          // jina-code), purges the stale vectors, and the Lance store rebuilds its
+          // table at the code model's dim (896). Without this trigger the workspace
+          // keeps serving BGE-M3 vectors and never actually uses the code embedder.
+          // Best-effort + deduped (a run already in flight is a no-op).
+          void getBackfillService()
+            .run(workspaceId)
+            .catch(() => undefined)
+        } else if (!getModelDownloader().isActive(CODE_EMBEDDER_MODEL_ID)) {
+          // Fetch the code model the first time a codebase is opened, then re-embed
+          // once it lands (BGE-M3 serves until then). Guarded against restarting an
+          // in-flight download.
+          void getModelDownloader()
+            .download(CODE_EMBEDDER_MODEL_ID)
+            .then(() => getBackfillService().run(workspaceId))
+            .catch(() => undefined)
+        }
+      }
+    } catch {
+      /* lock race / no manifest entry — embedder keeps its current model */
+    }
   })
   // ADR-0005: default workspace auto-loaded on unlock.
   ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())
@@ -878,13 +939,60 @@ function registerIpc(): void {
     if (picked.canceled || picked.filePaths.length === 0) return null
     const folder = picked.filePaths[0]!
     const folders = await getFolderSyncService().addFolder(workspaceId, folder)
+    // ADR-0006: a codebase folder with NO .gitignore — let the renderer pick which
+    // top-level directories to index BEFORE the first sync (so we don't embed the
+    // whole tree). When a .gitignore exists, or it isn't a codebase, sync now as
+    // before. classifyFolders is idempotent (only ever flips type → 'codebase').
+    try {
+      const classification = await getFolderSyncService().classifyFolders(workspaceId)
+      const hasGitignore = (await loadGitignore(folder)) !== null
+      if (classification.isCodebase && !hasGitignore) {
+        const topLevelDirs = await listTopLevelDirs(folder)
+        if (topLevelDirs.length > 0) {
+          // Defer the sync — the renderer calls setIndexDirs(...) then syncNow.
+          return { folders, needsDirSelection: { folder, topLevelDirs } }
+        }
+      }
+    } catch {
+      /* classify/gitignore probe failed — fall through to a normal immediate sync */
+    }
     // Kick off an immediate sync so the folder's existing contents land in
     // the library without a manual "Sync now" click.
     void getFolderSyncService()
       .sync(workspaceId)
       .catch(() => undefined)
-    return folders
+    return { folders }
   })
+  // ADR-0006: persist / read the user's top-level-dir selection for a synced folder
+  // (used when the folder has no .gitignore). Empty list ⇒ index everything.
+  ipcMain.handle(
+    'workspaces:getIndexDirs',
+    async (_e, workspaceId: number, folder: string): Promise<string[]> =>
+      getAuth().requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
+  )
+  ipcMain.handle(
+    'workspaces:setIndexDirs',
+    async (_e, workspaceId: number, folder: string, dirs: string[]): Promise<void> =>
+      getAuth().requireDatabase().workspaces().setIndexDirs(workspaceId, folder, dirs),
+  )
+  // ADR-0006: data for re-opening the dir picker on an already-synced folder
+  // (edit-after-add). `selected` empty ⇒ "all" (index everything); `hasGitignore`
+  // true ⇒ the folder is scoped by its .gitignore, so manual selection is moot.
+  ipcMain.handle(
+    'workspaces:getDirSelection',
+    async (
+      _e,
+      workspaceId: number,
+      folder: string,
+    ): Promise<{ topLevelDirs: string[]; selected: string[]; hasGitignore: boolean }> => {
+      const [topLevelDirs, selected, gi] = await Promise.all([
+        listTopLevelDirs(folder),
+        getAuth().requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
+        loadGitignore(folder),
+      ])
+      return { topLevelDirs, selected, hasGitignore: gi !== null }
+    },
+  )
   ipcMain.handle(
     'workspaces:removeSyncFolder',
     async (_e, workspaceId: number, folderPath: string) =>

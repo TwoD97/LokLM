@@ -14,6 +14,7 @@ import {
   Pencil,
   Trash2,
   Star,
+  Code2,
 } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -194,6 +195,13 @@ export function Sidebar({
                       aria-expanded={isDropdown ? docPickerOpen : undefined}
                     >
                       <span className="sidebar__nav-btn-label">{w.name}</span>
+                      {w.type === 'codebase' && (
+                        <Code2
+                          size={13}
+                          aria-label={t('shell.codebaseWorkspace')}
+                          className="sidebar__ws-type-badge"
+                        />
+                      )}
                       {isDropdown &&
                         (docPickerOpen ? (
                           <ChevronDown size={14} aria-hidden="true" />

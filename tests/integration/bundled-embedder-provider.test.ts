@@ -7,6 +7,7 @@ describe('BundledEmbedderProvider', () => {
       embedPassages: vi.fn(),
       isReady: () => true,
       ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:bge-m3',
     } as never)
     expect(p.identity()).toBe('bundled:bge-m3')
   })
@@ -16,8 +17,20 @@ describe('BundledEmbedderProvider', () => {
       embedPassages: vi.fn(),
       isReady: () => true,
       ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:bge-m3',
     } as never)
     expect(p.dimension()).toBe(1024)
+  })
+
+  it('reflects the code model when jina-code is resident', () => {
+    const p = new BundledEmbedderProvider({
+      embedPassages: vi.fn(),
+      isReady: () => true,
+      ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:jina-code',
+    } as never)
+    expect(p.identity()).toBe('bundled:jina-code')
+    expect(p.dimension()).toBe(896)
   })
 
   it('delegates embed() to embedPassages() and converts number[] → Float32Array', async () => {
