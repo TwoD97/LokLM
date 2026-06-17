@@ -51,7 +51,7 @@ Tabelle 24.3 fasst die offenen, in aktiver Entwicklung befindlichen Punkte zusam
 | Punkt                                                                       | Begründung                                                                                                   |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **AP-E.2 Phase 2 — GPU-Matrix-Sweep** (Embedder × Reranker × Chunker × LLM) | rechenintensiv (Multi-Pod-GPU); Dataset steht (2.322 Chunks, 163 DE-Fragen), Sweep auf RunPod noch zu fahren |
-| **Auswertung Span-Recall / nDCG für den Abgabe-Laborbericht**               | hängt am Phase-2-Sweep                                                                                       |
+| **Auswertung Span-Recall / nDCG für den Abgabe-Laborbericht**               | hängt am Phase-2-Sweep; gemessene Endwerte → zentrale Ergebnis-Tabelle 17.7 (Kapitel 17)                     |
 | **AP-E1b in den Eval-Workflow einbinden**                                   | Hold-out als separater Validierungslauf (Echo-Chamber-Schutz) noch zu fahren                                 |
 
 ### 24.1.4 Blockiert / eingeschränkt

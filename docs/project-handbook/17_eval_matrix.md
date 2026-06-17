@@ -22,12 +22,12 @@ Die Achsen werden aus Pack-Dateien unter `tests/evals/answer/` gelesen und in `m
 
 **Tabelle 17.1:** Achsen der Eval-Matrix und ihre Member.
 
-| Achse | Member im Repo-Stand (2026-06-14) | Quelle |
-| --- | --- | --- |
-| **Embedder** | 7: `bge-m3`, `e5-large`, `arctic-l-v2`, `qwen3-emb-0.6b`, `qwen3-emb-4b`, `granite-emb`, `nomic-v2` (`e5-base` entfernt — GGUF-Architektur „xlmr" von node-llama-cpp 3.18.1 nicht ladbar; Pack `…-osi-7`) | `embedder-pack.json` |
-| **Reranker** | 2 + Skip: `bge-reranker-v2-m3`, `bge-reranker-base` (+ `SkipReranker` automatisch) | `reranker-pack.json` |
-| **Chunker** | 1: `fixed-512-64` | `MATRIX_CHUNKER_SPECS` (`answer/matrix-manifest.ts`) |
-| **Antwort-LLM** | 15: u. a. `qwen3.5-{2b,4b,9b,27b}`, `qwen3-{4b-instruct,8b,14b}`, `phi-4-{mini,14b}`, `granite-{3.3-8b,4.1-3b}`, `mistral-nemo-12b`, `ministral-3-14b`, `eurollm-9b`, `smollm3-3b` | `model-pack.json` |
+| Achse           | Member im Repo-Stand (2026-06-14)                                                                                                                                                                         | Quelle                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Embedder**    | 7: `bge-m3`, `e5-large`, `arctic-l-v2`, `qwen3-emb-0.6b`, `qwen3-emb-4b`, `granite-emb`, `nomic-v2` (`e5-base` entfernt — GGUF-Architektur „xlmr" von node-llama-cpp 3.18.1 nicht ladbar; Pack `…-osi-7`) | `embedder-pack.json`                                 |
+| **Reranker**    | 2 + Skip: `bge-reranker-v2-m3`, `bge-reranker-base` (+ `SkipReranker` automatisch)                                                                                                                        | `reranker-pack.json`                                 |
+| **Chunker**     | 1: `fixed-512-64`                                                                                                                                                                                         | `MATRIX_CHUNKER_SPECS` (`answer/matrix-manifest.ts`) |
+| **Antwort-LLM** | 15: u. a. `qwen3.5-{2b,4b,9b,27b}`, `qwen3-{4b-instruct,8b,14b}`, `phi-4-{mini,14b}`, `granite-{3.3-8b,4.1-3b}`, `mistral-nemo-12b`, `ministral-3-14b`, `eurollm-9b`, `smollm3-3b`                        | `model-pack.json`                                    |
 
 ### Größenrechnung (`buildMatrixManifest`)
 
@@ -52,10 +52,10 @@ Der Judge bewertet die generierte Antwort. Standard-Muster: **LLM-as-Judge** (`t
 
 **Tabelle 17.2:** Eigenschaften des LLM-as-Judge.
 
-| Eigenschaft | Wert |
-| --- | --- |
-| Judge-Modell | **Mistral-Small-3.2-24B-Instruct** (`mistralai/Mistral-Small-3.2-24B-Instruct-2506`, Apache-2.0) |
-| Profil im Sweep | gepinnt / über `--judge-path` bzw. Profil `xl` |
+| Eigenschaft           | Wert                                                                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Judge-Modell          | **Mistral-Small-3.2-24B-Instruct** (`mistralai/Mistral-Small-3.2-24B-Instruct-2506`, Apache-2.0)                                                                       |
+| Profil im Sweep       | gepinnt / über `--judge-path` bzw. Profil `xl`                                                                                                                         |
 | Trennung vom Prüfling | **strikt**: das Antwort-LLM ist auf Profil `full` (Qwen3-8B) gepinnt, nie `auto` — sonst würde `auto` das XL-Judge-Modell als Prüfling mounten (Selbstbewertungs-Bias) |
 
 Der Judge erhält pro Frage: die Frage, den/die Gold-Chunk-Text(e), die tatsächlich gefütterten Chunks und die generierte Antwort. Er bewertet drei Dimensionen auf 0–10 (intern auf 0–1 normalisiert):
@@ -78,12 +78,12 @@ Tabelle 17.3 erläutert die chunk-id-basierten Retrieval-Metriken.
 
 **Tabelle 17.3:** Chunk-id-basierte Retrieval-Metriken.
 
-| Metrik | Bedeutung |
-| --- | --- |
-| `recall@1 / @5 / @10` | Anteil der Fragen, bei denen der Gold-Chunk in den Top-k steht (single-relevant) |
-| `recallRequired@5 / @10 / @12` | mittlere Abdeckung des `requiredChunkIds`-Sets in Top-k (multi-relevant) |
-| `MRR` | Mean Reciprocal Rank des Gold-Chunks |
-| `nDCG@10` | normalized DCG; bei single-relevant ist Ideal-DCG konstant 1 |
+| Metrik                         | Bedeutung                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `recall@1 / @5 / @10`          | Anteil der Fragen, bei denen der Gold-Chunk in den Top-k steht (single-relevant) |
+| `recallRequired@5 / @10 / @12` | mittlere Abdeckung des `requiredChunkIds`-Sets in Top-k (multi-relevant)         |
+| `MRR`                          | Mean Reciprocal Rank des Gold-Chunks                                             |
+| `nDCG@10`                      | normalized DCG; bei single-relevant ist Ideal-DCG konstant 1                     |
 
 `recallRequired@k` reduziert sich exakt auf `recall@k`, wenn alle Fragen single-relevant sind — wichtig für `broad`/`summary`, wo ein einzelner Chunk nicht genügt.
 
@@ -93,11 +93,11 @@ Tabelle 17.4 erläutert die span-basierten, chunker-unabhängigen Retrieval-Metr
 
 **Tabelle 17.4:** Span-basierte Retrieval-Metriken.
 
-| Metrik | Bedeutung |
-| --- | --- |
+| Metrik                     | Bedeutung                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `recall@5 span / @10 span` | Treffer, wenn ein retrievter Chunk-Span einen Gold-Span **überlappt** (statt exaktem `chunkId`-Match) |
-| `MRR span` | reziproker Rang des ersten überlappenden Spans |
-| `nDCG@10 span` | span-basiertes nDCG |
+| `MRR span`                 | reziproker Rang des ersten überlappenden Spans                                                        |
+| `nDCG@10 span`             | span-basiertes nDCG                                                                                   |
 
 Der Span-Treffer nutzt halb-offene Intervall-Überlappung im **selben** Dokument (`spansOverlap`). Das ist die Voraussetzung dafür, dass **dieselbe** Gold-Wahrheit gegen **jede** Chunk-Größe bewertbar ist — die Chunker-Achse läuft als separate Datasets, vergleichbar nur über diese span-Metrik. Hinweis: in der `summary.md`-Tabelle erscheinen nur `r@5 span` + `MRR span` als Schnellblick; die vollen Span-Werte (`recall@10 span`, `nDCG@10 span`) stehen in `configs/<name>/result.json` (Kommentar in `sweep.ts`).
 
@@ -107,12 +107,12 @@ Tabelle 17.5 listet die Metriken für Antwortqualität, Latenz und Ressourcen sa
 
 **Tabelle 17.5:** Metriken für Antwortqualität, Latenz und Ressourcen.
 
-| Metrik | Quelle |
-| --- | --- |
-| `correctness / groundedness / helpfulness` + Mittel `score` | Judge (17.3) |
-| `composite` | `judge*2 + recall@5 − ttft_sec*0.5` (`compositeScore` in `Judge.ts`) — höher = besser |
-| `TTFT` (p50/p95), `fullResponse` | `PhasedTimer` (`tests/evals/perf.ts`) |
-| `RSS` (max/mean), `CPU-Load`, `freeVRAM` (min) | `ResourceSampler`, 250 ms-Intervall |
+| Metrik                                                      | Quelle                                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `correctness / groundedness / helpfulness` + Mittel `score` | Judge (17.3)                                                                          |
+| `composite`                                                 | `judge*2 + recall@5 − ttft_sec*0.5` (`compositeScore` in `Judge.ts`) — höher = besser |
+| `TTFT` (p50/p95), `fullResponse`                            | `PhasedTimer` (`tests/evals/perf.ts`)                                                 |
+| `RSS` (max/mean), `CPU-Load`, `freeVRAM` (min)              | `ResourceSampler`, 250 ms-Intervall                                                   |
 
 Der `composite`-Score ist die Ranking-Größe: Qualität (Judge ×2, Recall ×1) gegen Latenz (TTFT-Penalty linear in Sekunden). Fehlt der Judge (Pass 1), fällt `composite` auf Recall-/TTFT zurück.
 
@@ -173,11 +173,11 @@ Tabelle 17.6 gibt den Phasenstand der Eval-Säule wieder.
 
 **Tabelle 17.6:** Phasenstand der Eval-Säule.
 
-| Phase | Inhalt | Status |
-| --- | --- | --- |
-| Phase 1 | Code: Achsen aus Packs, Metriken (chunk + span + Judge), 2-Pass-Sweep, run-pack-Orchestrator, Shard-Split, Lizenz-Gate | **fertig** |
-| Phase 2 | eigentlicher GPU-Sweep über die volle Matrix (RunPod) | **offen** |
-| Phase 3–5 | LAP-Doku, Auswertung/Interpretation, Aufnahme ins Abgabe-Paper | **offen** |
+| Phase     | Inhalt                                                                                                                 | Status     |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Phase 1   | Code: Achsen aus Packs, Metriken (chunk + span + Judge), 2-Pass-Sweep, run-pack-Orchestrator, Shard-Split, Lizenz-Gate | **fertig** |
+| Phase 2   | eigentlicher GPU-Sweep über die volle Matrix (RunPod)                                                                  | **offen**  |
+| Phase 3–5 | LAP-Doku, Auswertung/Interpretation, Aufnahme ins Abgabe-Paper                                                         | **offen**  |
 
 > ⚠ Status unklar — Der vollständige GPU-Matrix-Sweep (Phase 2) ist zum Stand 2026-06-14 **noch nicht** durchgeführt. Es existiert ein früher Teil-Run (`tests/evals/report/runs/2026-06-06T18-08-58_af20084/`, nur die `matrix_*norr/bge-rr`-Retrieval-Configs), aber keine vollständige 315-Zellen-Auswertung mit Judge. Endgültige Zahlen liegen erst nach dem GPU-Sweep vor.
 
@@ -195,6 +195,25 @@ Tabelle 17.6 gibt den Phasenstand der Eval-Säule wieder.
 - `configs/<name>/result.json` — die vollständigen Span-Werte (`recall@10 span`, `nDCG@10 span`) und Roh-Aggregate je Config.
 - `configs/<name>/per-question.jsonl` — pro Frage: retrievte/reranked Chunk-IDs, Phasen-Timings, Judge-Score + `reason` (für die Fehleranalyse einzelner Cases).
 
+**Ergebnis-Tabelle (Phase 2 — auszufüllen nach dem Sweep).** Tabelle 17.7 ist die **zentrale Ablage** für die gemessenen Endwerte. Sie wird nach dem GPU-Sweep aus `summary.json`/`ranking.md` befüllt (ein Edit je Zelle); die Zielerreichung in Kapitel 5 (Tabelle 5.5) und der Status in Kapitel 24 verweisen auf diese Tabelle, statt die Werte mehrfach zu pflegen.
+
+> WARN durch GPU-Sweep (AP-E.2 Phase 2) zu ergaenzen — Werte aus `summary.json`/`ranking.md`
+
+**Tabelle 17.7:** Ergebnis-Kennzahlen der Matrix-Eval (Phase 2 — ausstehend).
+
+| Kennzahl                                                | Quelle                         | Ziel/Schwelle                        | Gemessen     |
+| ------------------------------------------------------- | ------------------------------ | ------------------------------------ | ------------ |
+| Beste Gesamt-Config (Embedder × Reranker × Antwort-LLM) | `ranking.md` (Top-`composite`) | —                                    | _ausstehend_ |
+| Recall@5 (chunk-id, beste Config)                       | `summary.json` `r@5`           | Z-2 ≥ 0,70                           | _ausstehend_ |
+| Span-Recall@5 (chunker-unabhängig)                      | `r@5 span`                     | Z-2-Variante (Gold-Span-Überlappung) | _ausstehend_ |
+| nDCG@10 span / MRR span                                 | `configs/<name>/result.json`   | —                                    | _ausstehend_ |
+| Judge: correctness / groundedness / helpfulness (⌀)     | Judge (17.3)                   | groundedness ≈ Faithfulness (Z-4)    | _ausstehend_ |
+| composite (Sieger-Config)                               | `compositeScore`               | —                                    | _ausstehend_ |
+| TTFT p50 / p95                                          | `PhasedTimer` (`perf.ts`)      | Latenz (Kapitel 20)                  | _ausstehend_ |
+| Bestätigte Matrix-Größe (Zellen)                        | `summary.json`                 | 315 (Soll, Code-/Pack-Stand)         | _ausstehend_ |
+
+Hinweis zur Zuordnung der Projektziele: Die **Refusal Rate** (Z-4, ≥ 95 % bzw. Abnahme ≥ 75 %) ist aus dem Refusal-Teilset der 163 Fragen (15 Fragen mit `expectedRefusal`) abzuleiten; die **Citation Accuracy** (Z-3, ≥ 85 %) stammt aus dem AP-E.1-Dev-Set-Eval (Kapitel 19), **nicht** aus dieser Matrix, und wird dort separat geführt.
+
 ---
 
-*Querverweise: Datensatz/Gold-Spans → Kapitel 15; gemessene Pipeline → Kapitel 16; Modell-Lizenzen + Lizenz-Gate → Kapitel 18.*
+_Querverweise: Datensatz/Gold-Spans → Kapitel 15; gemessene Pipeline → Kapitel 16; Modell-Lizenzen + Lizenz-Gate → Kapitel 18._
