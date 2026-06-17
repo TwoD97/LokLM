@@ -1,12 +1,19 @@
 import { readdir, stat } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, relative } from 'node:path'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
 import { isSupported } from './parser'
+import { classifyCodebase, type CodebaseClassification } from '../codebase/classify'
+import { IGNORED_DIRS, isPathIgnored } from '../codebase/ignore'
 
 const DEBOUNCE_MS = 800
+
+/** Cap on files inspected for codebase classification — keeps the classify walk
+ *  cheap on huge monorepos; the marker-file + ratio signal saturates well before
+ *  this. */
+const CLASSIFY_FILE_CAP = 5000
 
 type Sender = WebContents | { send: (channel: string, payload: unknown) => void }
 
@@ -84,7 +91,31 @@ export class FolderSyncService {
     if (!folders.includes(abs)) folders.push(abs)
     await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
     this.restartWatchers(workspaceId, folders)
+    // ADR-0006: auto-classify so syncing a project folder flips the workspace to
+    // 'codebase'. Best-effort + fire-and-forget — never block adding the folder.
+    void this.classifyFolders(workspaceId).catch(() => undefined)
     return folders
+  }
+
+  /**
+   * Walks the workspace's synced folders (honouring the default ignore rules) and
+   * classifies them (ADR-0006). When the folder looks like a source project the
+   * workspace type is flipped to 'codebase'. Returns the classification so the
+   * renderer can show the detected language / offer an override. Never downgrades
+   * a 'codebase' back to 'library' automatically — that's a user decision.
+   */
+  async classifyFolders(workspaceId: number): Promise<CodebaseClassification> {
+    const folders = await this.getFolders(workspaceId)
+    const rels: string[] = []
+    for (const folder of folders) {
+      if (rels.length >= CLASSIFY_FILE_CAP) break
+      await walkForClassification(resolve(folder), rels, CLASSIFY_FILE_CAP)
+    }
+    const classification = classifyCodebase(rels)
+    if (classification.isCodebase) {
+      await this.auth.requireDatabase().workspaces().setType(workspaceId, 'codebase')
+    }
+    return classification
   }
 
   async removeFolder(workspaceId: number, folderPath: string): Promise<string[]> {
@@ -356,6 +387,35 @@ async function walkSupported(root: string): Promise<string[]> {
     }
   }
   return out
+}
+
+/** Collects file paths (relative to `root`) for codebase classification, pruning
+ *  ignored directories so vendored/build trees don't skew the ratio and the walk
+ *  stays cheap. Caps total files at `cap`. Unlike walkSupported this sees ALL
+ *  files (code + docs), since classification keys off code extensions. */
+async function walkForClassification(root: string, out: string[], cap: number): Promise<void> {
+  const stack: string[] = [root]
+  while (stack.length > 0 && out.length < cap) {
+    const dir = stack.pop()!
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of entries) {
+      if (out.length >= cap) break
+      if (e.isSymbolicLink()) continue
+      if (e.isDirectory()) {
+        if (IGNORED_DIRS.has(e.name)) continue
+        stack.push(join(dir, e.name))
+      } else if (e.isFile()) {
+        const rel = relative(root, join(dir, e.name))
+        if (isPathIgnored(rel)) continue
+        out.push(rel)
+      }
+    }
+  }
 }
 
 function isUnderAny(path: string, roots: string[]): boolean {

@@ -76,6 +76,16 @@ const stub: Api = {
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
     activate: () => Promise.resolve(),
+    setType: () => Promise.resolve(),
+    classify: () =>
+      Promise.resolve({
+        isCodebase: false,
+        primaryLanguage: null,
+        languages: [],
+        ecosystems: [],
+        markers: [],
+        codeFileRatio: 0,
+      }),
     getDefault: () => Promise.resolve(null),
     setDefault: () => Promise.resolve(),
     listSyncFolders: () => Promise.resolve([] as string[]),

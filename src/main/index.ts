@@ -49,6 +49,7 @@ import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerank
 import { SettingsService } from './services/settings/SettingsService'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
+import type { WorkspaceType } from '../shared/workspaceStorage'
 import { splitSentinels } from '../shared/docType'
 import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
@@ -843,6 +844,14 @@ function registerIpc(): void {
   )
   ipcMain.handle('workspaces:rename', async (_e, id: number, name: string) =>
     getWorkspaceService().rename(id, name),
+  )
+  // ADR-0006: set/override the workspace type, and (re)run codebase classification
+  // over the synced folders (auto-runs on addFolder; this is the manual hook).
+  ipcMain.handle('workspaces:setType', async (_e, id: number, type: WorkspaceType) =>
+    getAuth().requireDatabase().workspaces().setType(id, type),
+  )
+  ipcMain.handle('workspaces:classify', async (_e, id: number) =>
+    getFolderSyncService().classifyFolders(id),
   )
   ipcMain.handle('workspaces:delete', async (_e, id: number) => {
     // Stop watching first — otherwise the cascade delete fires the watcher,
