@@ -34,6 +34,9 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
   const [busy, setBusy] = useState(false)
   const [activeEvent, setActiveEvent] = useState<SyncEvent | null>(null)
   const [open, setOpen] = useState(false)
+  // ADR-0006: directory picker for a codebase folder with no .gitignore.
+  const [picker, setPicker] = useState<{ folder: string; topLevelDirs: string[] } | null>(null)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
 
   const reload = useCallback(async () => {
     setFolders(await window.api.workspaces.listSyncFolders(workspaceId))
@@ -69,8 +72,15 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
   }, [workspaceId])
 
   const onAdd = useCallback(async () => {
-    const next = await window.api.workspaces.addSyncFolder(workspaceId)
-    if (next != null) setFolders(next)
+    const res = await window.api.workspaces.addSyncFolder(workspaceId)
+    if (res == null) return // user cancelled the folder picker
+    setFolders(res.folders)
+    if (res.needsDirSelection) {
+      // Codebase folder without a .gitignore — let the user choose what to index
+      // before the first sync. Default to all dirs checked.
+      setPicker(res.needsDirSelection)
+      setPicked(new Set(res.needsDirSelection.topLevelDirs))
+    }
   }, [workspaceId])
 
   const onRemove = useCallback(
@@ -91,6 +101,28 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
       setBusy(false)
     }
   }, [workspaceId])
+
+  const togglePicked = useCallback((dir: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(dir)) next.delete(dir)
+      else next.add(dir)
+      return next
+    })
+  }, [])
+
+  const onPickerConfirm = useCallback(async () => {
+    if (!picker) return
+    await window.api.workspaces.setIndexDirs(workspaceId, picker.folder, [...picked])
+    setPicker(null)
+    void onSyncNow()
+  }, [picker, picked, workspaceId, onSyncNow])
+
+  const onPickerCancel = useCallback(() => {
+    // Cancel = index everything (no restriction stored), then sync.
+    setPicker(null)
+    void onSyncNow()
+  }, [onSyncNow])
 
   const summary =
     folders.length === 0
@@ -181,6 +213,42 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
               })}
             </div>
           )}
+        </div>
+      )}
+      {picker && (
+        <div
+          className="dirpicker__backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('library.pickDirsTitle')}
+        >
+          <div className="dirpicker">
+            <h3 className="dirpicker__title">{t('library.pickDirsTitle')}</h3>
+            <p className="dirpicker__intro">{t('library.pickDirsIntro')}</p>
+            <ul className="dirpicker__list">
+              {picker.topLevelDirs.map((d) => (
+                <li key={d} className="dirpicker__item">
+                  <label className="dirpicker__label">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(d)}
+                      onChange={() => togglePicked(d)}
+                    />
+                    <Folder size={14} aria-hidden="true" />
+                    <span className="dirpicker__name">{d}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="dirpicker__actions">
+              <button type="button" onClick={() => onPickerCancel()}>
+                {t('library.pickDirsAll')}
+              </button>
+              <button type="button" className="primary" onClick={() => void onPickerConfirm()}>
+                {t('library.pickDirsConfirm')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

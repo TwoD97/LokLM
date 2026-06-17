@@ -6,7 +6,8 @@ import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
 import { isSupported } from './parser'
 import { classifyCodebase, type CodebaseClassification } from '../codebase/classify'
-import { IGNORED_DIRS, isPathIgnored, fileTrack } from '../codebase/ignore'
+import { IGNORED_DIRS, isPathIgnored, isDirIncluded, fileTrack } from '../codebase/ignore'
+import { loadGitignore, type GitignoreFilter } from '../codebase/gitignore'
 
 const DEBOUNCE_MS = 800
 
@@ -109,7 +110,9 @@ export class FolderSyncService {
     const rels: string[] = []
     for (const folder of folders) {
       if (rels.length >= CLASSIFY_FILE_CAP) break
-      await walkForClassification(resolve(folder), rels, CLASSIFY_FILE_CAP)
+      const root = resolve(folder)
+      const gitignore = await loadGitignore(root)
+      await walkForClassification(root, rels, CLASSIFY_FILE_CAP, gitignore)
     }
     const classification = classifyCodebase(rels)
     if (classification.isCodebase) {
@@ -122,6 +125,12 @@ export class FolderSyncService {
     const abs = resolve(folderPath)
     const folders = (await this.getFolders(workspaceId)).filter((p) => p !== abs)
     await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
+    // ADR-0006: drop the folder's index-dir selection so a later re-add starts clean.
+    await this.auth
+      .requireDatabase()
+      .workspaces()
+      .clearIndexDirs(workspaceId, abs)
+      .catch(() => undefined)
     this.restartWatchers(workspaceId, folders)
     return folders
   }
@@ -192,7 +201,21 @@ export class FolderSyncService {
       const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
 
       for (const folder of watchedRoots) {
-        const files = isCodebase ? await walkIndexable(folder) : await walkSupported(folder)
+        let files: string[]
+        if (isCodebase) {
+          // ADR-0006: honor the folder's .gitignore when present; otherwise apply
+          // the user's top-level-dir selection (empty set = index all). The two are
+          // mutually exclusive — a .gitignore replaces the manual selection.
+          const gitignore = await loadGitignore(folder)
+          const includeDirs = gitignore
+            ? new Set<string>()
+            : new Set(
+                await this.auth.requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
+              )
+          files = await walkIndexable(folder, gitignore, includeDirs)
+        } else {
+          files = await walkSupported(folder)
+        }
         for (const file of files) {
           seenPaths.add(file)
           const existing = docByPath.get(file)
@@ -398,7 +421,12 @@ async function walkSupported(root: string): Promise<string[]> {
  *  ignored directories so vendored/build trees don't skew the ratio and the walk
  *  stays cheap. Caps total files at `cap`. Unlike walkSupported this sees ALL
  *  files (code + docs), since classification keys off code extensions. */
-async function walkForClassification(root: string, out: string[], cap: number): Promise<void> {
+async function walkForClassification(
+  root: string,
+  out: string[],
+  cap: number,
+  gitignore: GitignoreFilter | null,
+): Promise<void> {
   const stack: string[] = [root]
   while (stack.length > 0 && out.length < cap) {
     const dir = stack.pop()!
@@ -411,12 +439,14 @@ async function walkForClassification(root: string, out: string[], cap: number): 
     for (const e of entries) {
       if (out.length >= cap) break
       if (e.isSymbolicLink()) continue
+      const rel = relative(root, join(dir, e.name))
       if (e.isDirectory()) {
         if (IGNORED_DIRS.has(e.name)) continue
+        if (gitignore?.ignores(rel, true)) continue
         stack.push(join(dir, e.name))
       } else if (e.isFile()) {
-        const rel = relative(root, join(dir, e.name))
         if (isPathIgnored(rel)) continue
+        if (gitignore?.ignores(rel, false)) continue
         out.push(rel)
       }
     }
@@ -427,7 +457,11 @@ async function walkForClassification(root: string, out: string[], cap: number): 
  *  pruning ignored directories (node_modules, .git, dist, …) and skipped files
  *  (binaries, lockfiles, oversized) via the default ignore rules. Symlinks are
  *  skipped for the same shell-surface reason as walkSupported. */
-async function walkIndexable(root: string): Promise<string[]> {
+async function walkIndexable(
+  root: string,
+  gitignore: GitignoreFilter | null,
+  includeDirs: ReadonlySet<string>,
+): Promise<string[]> {
   const out: string[] = []
   const stack: string[] = [root]
   while (stack.length > 0) {
@@ -441,11 +475,17 @@ async function walkIndexable(root: string): Promise<string[]> {
     for (const e of entries) {
       if (e.isSymbolicLink()) continue
       const full = join(dir, e.name)
+      const rel = relative(root, full)
       if (e.isDirectory()) {
         if (IGNORED_DIRS.has(e.name)) continue
+        // .gitignore prune (dir-only patterns match here) and, when no .gitignore,
+        // the user's top-level-dir selection. Pruning the dir skips its whole subtree.
+        if (gitignore?.ignores(rel, true)) continue
+        if (!isDirIncluded(rel, includeDirs)) continue
         stack.push(full)
       } else if (e.isFile()) {
-        const rel = relative(root, full)
+        if (gitignore?.ignores(rel, false)) continue
+        if (!isDirIncluded(rel, includeDirs)) continue
         let size: number
         try {
           size = (await stat(full)).size

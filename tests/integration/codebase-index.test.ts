@@ -88,4 +88,66 @@ describe('codebase indexing end-to-end (integration)', () => {
     const lib = await db.documents().searchLibrary(ws.id, 'computeTaxBracket')
     expect(lib.some((r) => r.document_title === 'tax.ts')).toBe(true)
   }, 20_000)
+
+  it('honors .gitignore — ignored dirs and files are not indexed (ADR-0006)', async () => {
+    const ws = await new WorkspaceService(auth).create('GI')
+    await auth.activate(ws.id)
+    const sync = new FolderSyncService(auth, new DocumentService(auth))
+
+    await writeFile(join(projectDir, 'package.json'), '{"name":"gi"}')
+    await writeFile(join(projectDir, '.gitignore'), 'build/\ngenerated.ts\n')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await writeFile(join(projectDir, 'src', 'keep.ts'), 'export const keep = 1\n')
+    await mkdir(join(projectDir, 'build'), { recursive: true })
+    await writeFile(join(projectDir, 'build', 'out.ts'), 'export const out = 2\n')
+    await writeFile(join(projectDir, 'generated.ts'), 'export const gen = 3\n')
+    await writeFile(join(projectDir, 'README.md'), '# gi\n')
+
+    await sync.addFolder(ws.id, projectDir)
+    expect((await sync.classifyFolders(ws.id)).isCodebase).toBe(true)
+    await sync.sync(ws.id)
+
+    const db = auth.requireDatabase()
+    await waitFor(async () =>
+      (await db.documents().listDocumentsByWorkspace(ws.id)).some((d) =>
+        d.sourcePath.endsWith('keep.ts'),
+      ),
+    )
+    const paths = (await db.documents().listDocumentsByWorkspace(ws.id)).map((d) => d.sourcePath)
+    expect(paths.some((p) => p.endsWith('keep.ts'))).toBe(true)
+    expect(paths.some((p) => p.endsWith('README.md'))).toBe(true)
+    // gitignored — would be indexed (.ts is code) if .gitignore were ignored:
+    expect(paths.some((p) => p.includes('build'))).toBe(false)
+    expect(paths.some((p) => p.endsWith('generated.ts'))).toBe(false)
+  }, 20_000)
+
+  it('indexes only the selected top-level dirs when there is no .gitignore (ADR-0006)', async () => {
+    const ws = await new WorkspaceService(auth).create('INC')
+    await auth.activate(ws.id)
+    const sync = new FolderSyncService(auth, new DocumentService(auth))
+
+    await writeFile(join(projectDir, 'package.json'), '{"name":"inc"}')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    await writeFile(join(projectDir, 'src', 'app.ts'), 'export const app = 1\n')
+    await mkdir(join(projectDir, 'samples'), { recursive: true })
+    await writeFile(join(projectDir, 'samples', 'demo.ts'), 'export const demo = 1\n')
+    await writeFile(join(projectDir, 'README.md'), '# inc\n')
+
+    await sync.addFolder(ws.id, projectDir)
+    expect((await sync.classifyFolders(ws.id)).isCodebase).toBe(true)
+    // user picked only 'src' (no .gitignore present)
+    await auth.requireDatabase().workspaces().setIndexDirs(ws.id, projectDir, ['src'])
+    await sync.sync(ws.id)
+
+    const db = auth.requireDatabase()
+    await waitFor(async () =>
+      (await db.documents().listDocumentsByWorkspace(ws.id)).some((d) =>
+        d.sourcePath.endsWith('app.ts'),
+      ),
+    )
+    const paths = (await db.documents().listDocumentsByWorkspace(ws.id)).map((d) => d.sourcePath)
+    expect(paths.some((p) => p.endsWith('app.ts'))).toBe(true) // src/ included
+    expect(paths.some((p) => p.endsWith('README.md'))).toBe(true) // root file always
+    expect(paths.some((p) => p.endsWith('demo.ts'))).toBe(false) // samples/ excluded
+  }, 20_000)
 })

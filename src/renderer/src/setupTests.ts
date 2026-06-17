@@ -90,6 +90,8 @@ const stub: Api = {
     setDefault: () => Promise.resolve(),
     listSyncFolders: () => Promise.resolve([] as string[]),
     addSyncFolder: () => Promise.resolve(null),
+    getIndexDirs: () => Promise.resolve([] as string[]),
+    setIndexDirs: () => Promise.resolve(),
     removeSyncFolder: () => Promise.resolve([] as string[]),
     syncNow: () =>
       Promise.resolve({

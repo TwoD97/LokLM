@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   fileTrack,
   isPathIgnored,
+  isDirIncluded,
   shouldIndexFile,
   DEFAULT_MAX_INDEX_FILE_BYTES,
 } from '@main/services/codebase/ignore'
@@ -58,5 +59,30 @@ describe('codebase ignore rules', () => {
   it('normalizes Windows separators', () => {
     expect(isPathIgnored('node_modules\\react\\index.js')).toBe(true)
     expect(fileTrack('src\\app\\main.ts')).toBe('code')
+  })
+})
+
+describe('top-level directory include-set (no-gitignore selection)', () => {
+  it('empty set means index everything', () => {
+    const none = new Set<string>()
+    expect(isDirIncluded('src/index.ts', none)).toBe(true)
+    expect(isDirIncluded('assets/logo.svg', none)).toBe(true)
+  })
+
+  it('gates by first path segment; root files always included', () => {
+    const sel = new Set(['src', 'lib'])
+    expect(isDirIncluded('src/index.ts', sel)).toBe(true)
+    expect(isDirIncluded('lib/util/a.ts', sel)).toBe(true)
+    expect(isDirIncluded('assets/logo.svg', sel)).toBe(false)
+    expect(isDirIncluded('vendor/dep/x.js', sel)).toBe(false)
+    // root-level files (no directory segment) are always considered
+    expect(isDirIncluded('README.md', sel)).toBe(true)
+    expect(isDirIncluded('package.json', sel)).toBe(true)
+  })
+
+  it('normalizes Windows separators', () => {
+    const sel = new Set(['src'])
+    expect(isDirIncluded('src\\app\\main.ts', sel)).toBe(true)
+    expect(isDirIncluded('assets\\x.png', sel)).toBe(false)
   })
 })
