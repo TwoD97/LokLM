@@ -344,6 +344,27 @@ const MODELS = [
     skipPattern: /granite-4\.1-3b/i,
   },
 
+  // ---- codematrix tier -----------------------------------------------------
+  // Code-specialised embedders for the AP-E.2 code-retrieval matrix eval.
+  // Both are Apache-2.0 / OSI-permissive. Baselines (bge-m3, arctic, qwen3-emb)
+  // come from the existing embedder / matrix tiers via TIER_INCLUDES.codematrix.
+  {
+    tier: 'codematrix',
+    purpose: 'Code embedder — nomic-embed-code (Q5_K_M, Apache, qwen2/Qwen2.5-Coder-7B)',
+    filename: 'nomic-embed-code.Q5_K_M.gguf',
+    url: 'https://huggingface.co/nomic-ai/nomic-embed-code-GGUF/resolve/main/nomic-embed-code.Q5_K_M.gguf',
+    sizeGB: 4.8,
+    skipPattern: /nomic-embed-code/i,
+  },
+  {
+    tier: 'codematrix',
+    purpose: 'Code embedder — jina-embeddings-v2-base-code (F16, Apache, JinaBERT)',
+    filename: 'jina-embeddings-v2-base-code-f16.gguf',
+    url: 'https://huggingface.co/second-state/jina-embeddings-v2-base-code-GGUF/resolve/main/jina-embeddings-v2-base-code-f16.gguf',
+    sizeGB: 0.33,
+    skipPattern: /jina-embeddings-v2-base-code/i,
+  },
+
   // ---- matrix-risk tier ----------------------------------------------------
   // GGUFs EXIST but are BROKEN in mainline llama.cpp / node-llama-cpp. Download
   // ONLY to smoke-test with a patched build ; do NOT use in a real matrix run
@@ -381,6 +402,7 @@ const TIER_INCLUDES = {
   translation: ['translation'],
   matrix: ['embedder', 'matrix'],
   'matrix-risk': ['matrix-risk'],
+  codematrix: ['codematrix'],
 }
 
 // ---- main ------------------------------------------------------------------

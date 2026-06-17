@@ -1,0 +1,29 @@
+{
+  "name": "loklm-code-matrix-embedders-osi-5",
+  "comment": "Code-retrieval matrix: 2 code-spezialisierten Embedder (nomic-embed-code, jina-v2-code) + 3 OSI-Baselines (bge-m3, arctic-l-v2, qwen3-emb-0.6b). Alle Apache-2.0/MIT. Nur fuer Code-Dataset-Eval (code-dataset.json). Nicht fuer DE-prose Default-Matrix. Stand 2026-06-17.",
+  "embedders": [
+    {
+      "label": "nomic-embed-code",
+      "file": "nomic-embed-code.Q5_K_M.gguf",
+      "queryPrefix": "Represent this query for searching relevant code: "
+    },
+    {
+      "label": "jina-v2-code",
+      "file": "jina-embeddings-v2-base-code-f16.gguf"
+    },
+    {
+      "label": "bge-m3",
+      "file": "bge-m3-Q4_K_M.gguf"
+    },
+    {
+      "label": "arctic-l-v2",
+      "file": "snowflake-arctic-embed-l-v2.0-q4_k_m.gguf",
+      "queryPrefix": "query: "
+    },
+    {
+      "label": "qwen3-emb-0.6b",
+      "file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "queryPrefix": "Instruct: Given a question, retrieve passages that answer it\nQuery: "
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,21 +30,45 @@ export interface ValidateResult {
 }
 
 /** Default-Matrix erlaubt NUR licenseClass='osi-permissive' UND allowedInDefaultMatrix=true.
- *  Jede Verletzung => ok=false. Keine stillen Fallbacks. */
-export function validateLicenses(registry: RegistryEntry[], packRefs: PackRef[]): ValidateResult {
+ *  Jede Verletzung => ok=false. Keine stillen Fallbacks.
+ *
+ *  packGroups: Array of named pack groups. Duplicate-label check runs WITHIN each
+ *  group (not across groups) — cross-pack duplicates (e.g. bge-m3 in both default
+ *  and code pack) are expected and allowed. The merged unique set of refs is
+ *  validated against the registry. */
+export function validateLicenses(
+  registry: RegistryEntry[],
+  packRefs: PackRef[],
+  packGroups?: Array<{ name: string; refs: PackRef[] }>,
+): ValidateResult {
   const byLabel = new Map<string, RegistryEntry>()
   for (const e of registry) byLabel.set(e.label, e)
   const rows: ValidateRow[] = []
   const violations: string[] = []
 
-  // duplicate labels in the packs
-  const seen = new Map<string, number>()
-  for (const p of packRefs) seen.set(p.label, (seen.get(p.label) ?? 0) + 1)
-  for (const [label, n] of seen) {
-    if (n > 1) violations.push(`duplicate label "${label}" appears ${n}× across packs`)
+  // Duplicate-label check: WITHIN each pack group (not across packs).
+  // Falls back to the flat packRefs list treated as one group if packGroups absent.
+  const groups = packGroups ?? [{ name: 'default', refs: packRefs }]
+  for (const group of groups) {
+    const seen = new Map<string, number>()
+    for (const p of group.refs) seen.set(p.label, (seen.get(p.label) ?? 0) + 1)
+    for (const [label, n] of seen) {
+      if (n > 1) violations.push(`duplicate label "${label}" appears ${n}× in pack "${group.name}"`)
+    }
   }
 
+  // Deduplicate refs by label for the validation table (cross-pack duplicates
+  // show once — same registry entry, no added value in repeating the row).
+  const seenLabels = new Set<string>()
+  const uniqueRefs: PackRef[] = []
   for (const ref of packRefs) {
+    if (!seenLabels.has(ref.label)) {
+      seenLabels.add(ref.label)
+      uniqueRefs.push(ref)
+    }
+  }
+
+  for (const ref of uniqueRefs) {
     const e = byLabel.get(ref.label)
     let reason = 'ok'
     let allowed = true
@@ -80,9 +104,17 @@ function main(): void {
   const __dirname = dirname(__filename)
 
   const registryPath = join(__dirname, '..', 'model-license-registry.json')
-  const modelPackPath = join(__dirname, '..', 'answer', 'model-pack.json')
-  const embedderPackPath = join(__dirname, '..', 'answer', 'embedder-pack.json')
-  const rerankerPackPath = join(__dirname, '..', 'answer', 'reranker-pack.json')
+  const answerDir = join(__dirname, '..', 'answer')
+
+  // Default packs (always present)
+  const modelPackPath = join(answerDir, 'model-pack.json')
+  const embedderPackPath = join(answerDir, 'embedder-pack.json')
+  const rerankerPackPath = join(answerDir, 'reranker-pack.json')
+
+  // Code packs (optional — skip gracefully if not present)
+  const codeEmbedderPackPath = join(answerDir, 'embedder-pack-code.json')
+  const codeRerankerPackPath = join(answerDir, 'reranker-pack-code.json')
+  const codeLlmPackPath = join(answerDir, 'code-llm-pack.json')
 
   const registry: { models: RegistryEntry[] } = JSON.parse(readFileSync(registryPath, 'utf-8'))
   const modelPack: { models: { label: string }[] } = JSON.parse(
@@ -95,14 +127,59 @@ function main(): void {
     readFileSync(rerankerPackPath, 'utf-8'),
   )
 
-  const packRefs: PackRef[] = [
-    ...modelPack.models.map((m) => ({ label: m.label, role: 'answer-llm' as const })),
-    ...embedderPack.embedders.map((e) => ({ label: e.label, role: 'embedder' as const })),
-    ...rerankerPack.rerankers.map((r) => ({ label: r.label, role: 'reranker' as const })),
-    { label: 'mistral-small-3.2-24b', role: 'judge' as const },
+  // Build pack groups for within-pack duplicate detection
+  const packGroups: Array<{ name: string; refs: PackRef[] }> = [
+    {
+      name: 'model-pack',
+      refs: modelPack.models.map((m) => ({ label: m.label, role: 'answer-llm' as const })),
+    },
+    {
+      name: 'embedder-pack',
+      refs: embedderPack.embedders.map((e) => ({ label: e.label, role: 'embedder' as const })),
+    },
+    {
+      name: 'reranker-pack',
+      refs: rerankerPack.rerankers.map((r) => ({ label: r.label, role: 'reranker' as const })),
+    },
+    {
+      name: 'judge',
+      refs: [{ label: 'mistral-small-3.2-24b', role: 'judge' as const }],
+    },
   ]
 
-  const result = validateLicenses(registry.models, packRefs)
+  // Conditionally add code packs if they exist
+  if (existsSync(codeEmbedderPackPath)) {
+    const codeEmbedderPack: { embedders: { label: string }[] } = JSON.parse(
+      readFileSync(codeEmbedderPackPath, 'utf-8'),
+    )
+    packGroups.push({
+      name: 'embedder-pack-code',
+      refs: codeEmbedderPack.embedders.map((e) => ({ label: e.label, role: 'embedder' as const })),
+    })
+  }
+  if (existsSync(codeRerankerPackPath)) {
+    const codeRerankerPack: { rerankers: { label: string }[] } = JSON.parse(
+      readFileSync(codeRerankerPackPath, 'utf-8'),
+    )
+    packGroups.push({
+      name: 'reranker-pack-code',
+      refs: codeRerankerPack.rerankers.map((r) => ({ label: r.label, role: 'reranker' as const })),
+    })
+  }
+  if (existsSync(codeLlmPackPath)) {
+    const codeLlmPack: { models: { label: string }[] } = JSON.parse(
+      readFileSync(codeLlmPackPath, 'utf-8'),
+    )
+    packGroups.push({
+      name: 'code-llm-pack',
+      refs: codeLlmPack.models.map((m) => ({ label: m.label, role: 'answer-llm' as const })),
+    })
+  }
+
+  // Flatten all refs (cross-pack duplicates are fine; deduplication happens inside validateLicenses)
+  const packRefs: PackRef[] = packGroups.flatMap((g) => g.refs)
+
+  const result = validateLicenses(registry.models, packRefs, packGroups)
 
   // Print table
   const cols = [

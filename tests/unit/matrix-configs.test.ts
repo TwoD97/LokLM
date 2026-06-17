@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { matrixConfigs } from '../evals/pipeline/configs'
 
 describe('matrixConfigs', () => {
@@ -24,5 +24,34 @@ describe('matrixConfigs', () => {
     const cfgs = await matrixConfigs()
     const embNames = new Set(cfgs.map((c) => c.embedder.name))
     expect(embNames.size).toBe(7)
+  })
+
+  it('builds 10 configs for the code matrix (5 embedders × 2 rerankers)', async () => {
+    // Set env vars to point at the code packs
+    const prevEmb = process.env.LOKLM_EMBEDDER_PACK
+    const prevRr = process.env.LOKLM_RERANKER_PACK
+    process.env.LOKLM_EMBEDDER_PACK = 'embedder-pack-code.json'
+    process.env.LOKLM_RERANKER_PACK = 'reranker-pack-code.json'
+    try {
+      const cfgs = await matrixConfigs()
+      // 5 embedders × (1 skip + 1 reranker) × 1 chunker = 10
+      expect(cfgs.length).toBe(10)
+      const names = cfgs.map((c) => c.name)
+      expect(new Set(names).size).toBe(names.length)
+      const embNames = new Set(cfgs.map((c) => c.embedder.name))
+      expect(embNames.size).toBe(5)
+    } finally {
+      // Restore env vars
+      if (prevEmb === undefined) {
+        delete process.env.LOKLM_EMBEDDER_PACK
+      } else {
+        process.env.LOKLM_EMBEDDER_PACK = prevEmb
+      }
+      if (prevRr === undefined) {
+        delete process.env.LOKLM_RERANKER_PACK
+      } else {
+        process.env.LOKLM_RERANKER_PACK = prevRr
+      }
+    }
   })
 })
