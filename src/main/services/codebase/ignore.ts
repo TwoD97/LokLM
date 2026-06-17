@@ -272,6 +272,19 @@ export function fileTrack(
   return 'skip'
 }
 
+/** When a codebase folder has no .gitignore, the user picks which TOP-LEVEL
+ *  directories to index (ADR-0006). A file directly at the folder root is always
+ *  included; a file inside a subdirectory is included only when its first path
+ *  segment is in `includeDirs`. An empty set means "no restriction" — index all
+ *  (the gitignore/default layers still apply on top). */
+export function isDirIncluded(relPath: string, includeDirs: ReadonlySet<string>): boolean {
+  if (includeDirs.size === 0) return true
+  const norm = normalize(relPath)
+  const slash = norm.indexOf('/')
+  if (slash === -1) return true // root-level file
+  return includeDirs.has(norm.slice(0, slash))
+}
+
 /** Convenience predicate: should this file be indexed at all (either track)? */
 export function shouldIndexFile(
   relPath: string,

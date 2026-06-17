@@ -405,4 +405,17 @@ class WorkspacesApi {
   async setSyncFolders(workspaceId: number, folders: string[]): Promise<void> {
     return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setSyncFolders(folders)
   }
+  // ADR-0006: per-folder top-level-dir include-set (no-gitignore selection).
+  async getIndexDirs(workspaceId: number, folderPath: string): Promise<string[]> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).getIndexDirs(folderPath)
+  }
+  async setIndexDirs(workspaceId: number, folderPath: string, dirs: string[]): Promise<void> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setIndexDirs(
+      folderPath,
+      dirs,
+    )
+  }
+  async clearIndexDirs(workspaceId: number, folderPath: string): Promise<void> {
+    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).clearIndexDirs(folderPath)
+  }
 }

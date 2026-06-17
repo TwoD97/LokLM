@@ -145,4 +145,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_document_tags_doc_tag ON document_tags(do
 CREATE TABLE IF NOT EXISTS sync_folders (
   path TEXT PRIMARY KEY
 );
+
+-- ADR-0006: when a synced codebase folder has no .gitignore, the user picks which
+-- top-level directories to index. The chosen dir names are stored here, scoped to
+-- the folder. No rows for a folder ⇒ "index everything" (gitignore/defaults govern).
+CREATE TABLE IF NOT EXISTS sync_folder_index_dirs (
+  folder_path TEXT NOT NULL,
+  dir         TEXT NOT NULL,
+  PRIMARY KEY (folder_path, dir)
+);
 `

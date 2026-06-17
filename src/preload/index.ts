@@ -171,8 +171,21 @@ const api = {
     // picker. The main process kicks off a one-shot sync right after add so
     // the renderer can rely on indexing:progress + a refresh to surface the
     // newly imported docs.
-    addSyncFolder: (workspaceId: number): Promise<string[] | null> =>
-      ipcRenderer.invoke('workspaces:addSyncFolder', workspaceId),
+    // ADR-0006: returns the updated folder list. When the added folder is a
+    // codebase with no .gitignore, `needsDirSelection` carries the top-level dirs
+    // for the picker — the renderer then calls setIndexDirs(...) + syncNow. null
+    // when the user cancels the picker.
+    addSyncFolder: (
+      workspaceId: number,
+    ): Promise<{
+      folders: string[]
+      needsDirSelection?: { folder: string; topLevelDirs: string[] }
+    } | null> => ipcRenderer.invoke('workspaces:addSyncFolder', workspaceId),
+    // ADR-0006: top-level dirs the user chose to index for a folder (empty = all).
+    getIndexDirs: (workspaceId: number, folder: string): Promise<string[]> =>
+      ipcRenderer.invoke('workspaces:getIndexDirs', workspaceId, folder),
+    setIndexDirs: (workspaceId: number, folder: string, dirs: string[]): Promise<void> =>
+      ipcRenderer.invoke('workspaces:setIndexDirs', workspaceId, folder, dirs),
     removeSyncFolder: (workspaceId: number, folderPath: string): Promise<string[]> =>
       ipcRenderer.invoke('workspaces:removeSyncFolder', workspaceId, folderPath),
     syncNow: (
