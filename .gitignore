@@ -206,3 +206,6 @@ installer-wizard/.nsis-portable/
 # PDFs bleiben generell lokal — jederzeit aus den .md reproduzierbar,
 # im Repo sonst nur Ballast.
 docs/berichte/**/*.pdf
+
+# IDE-/Editor-Konfiguration (lokal, nicht im Repo)
+.vscode/
