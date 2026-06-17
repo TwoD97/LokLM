@@ -1,4 +1,5 @@
 import type { HighlightedSegment } from './fuzzyHighlight'
+import type { WorkspaceType } from './workspaceStorage'
 
 // renderer-visible shape of a document. mirrors src/main/db/schema.ts Document
 // type but lives in src/shared so it's safe to import from the renderer , which
@@ -44,6 +45,8 @@ export interface Workspace {
   id: number
   name: string
   createdAt: number
+  /** ADR-0006 workspace type; 'library' (documents) or 'codebase' (source). */
+  type: WorkspaceType
 }
 
 export interface IndexProgress {

@@ -5,13 +5,16 @@ import { createWorkspaceKey, unwrapWorkspaceKey } from '../auth/workspaceKeys'
 import { EncryptedWorkspaceDir } from './encryptedWorkspaceDir'
 import { LanceWorkspaceStore } from './LanceWorkspaceStore'
 import { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
+import { CODE_EMBEDDING_DIM } from '../codebase/codeEmbedder'
 import type { VectorStore } from './VectorStore'
 import {
   emptyManifest,
   resolveDefaultWorkspace,
   suggestIndexConfig,
+  DEFAULT_WORKSPACE_TYPE,
   type VaultManifest,
   type WorkspaceManifestEntry,
+  type WorkspaceType,
 } from '../../../shared/workspaceStorage'
 
 // Per-workspace lifecycle orchestrator (ADR-0005).
@@ -98,6 +101,7 @@ export class WorkspaceStore {
       name,
       createdAt: Math.floor(Date.now() / 1000),
       encryptionLevel: 'full',
+      type: DEFAULT_WORKSPACE_TYPE,
       dir: `ws-${id}`,
       wrappedKey: wrapped,
       vectorCount: 0,
@@ -122,6 +126,7 @@ export class WorkspaceStore {
       name,
       createdAt: Math.floor(Date.now() / 1000),
       encryptionLevel: 'full',
+      type: DEFAULT_WORKSPACE_TYPE,
       dir: `ws-${id}`,
       wrappedKey: wrapped,
       vectorCount: 0,
@@ -211,6 +216,20 @@ export class WorkspaceStore {
     const entry = this.manifest.workspaces.find((w) => w.id === id)
     if (!entry || entry.name === name) return
     entry.name = name
+    await this.persistManifest(this.manifest)
+  }
+
+  /** Sets a workspace's type (ADR-0006). Called after folder-sync classification
+   *  flips a workspace to 'codebase', or when the user overrides it. Also retunes
+   *  the recorded index config to the type's embedding dimension (jina-code 896 vs
+   *  BGE-M3 1024); the on-disk Lance table dim is inferred from the actual vectors,
+   *  so this only keeps the manifest's index params honest. */
+  async setType(id: number, type: WorkspaceType): Promise<void> {
+    const entry = this.requireEntry(id)
+    if (entry.type === type) return
+    entry.type = type
+    const dim = type === 'codebase' ? CODE_EMBEDDING_DIM : this.dims
+    entry.indexConfig = suggestIndexConfig(dim, entry.vectorCount)
     await this.persistManifest(this.manifest)
   }
 

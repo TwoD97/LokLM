@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Folder,
   FolderPlus,
+  ListChecks,
   RefreshCw,
   X,
 } from 'lucide-react'
@@ -34,6 +35,16 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
   const [busy, setBusy] = useState(false)
   const [activeEvent, setActiveEvent] = useState<SyncEvent | null>(null)
   const [open, setOpen] = useState(false)
+  // ADR-0006: directory picker for a codebase folder with no .gitignore.
+  // mode 'add' = first sync after adding the folder; 'edit' = re-picking later.
+  // governed = the folder is scoped by its .gitignore, so manual picking is moot.
+  const [picker, setPicker] = useState<{
+    folder: string
+    topLevelDirs: string[]
+    mode: 'add' | 'edit'
+    governed: boolean
+  } | null>(null)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
 
   const reload = useCallback(async () => {
     setFolders(await window.api.workspaces.listSyncFolders(workspaceId))
@@ -69,9 +80,31 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
   }, [workspaceId])
 
   const onAdd = useCallback(async () => {
-    const next = await window.api.workspaces.addSyncFolder(workspaceId)
-    if (next != null) setFolders(next)
+    const res = await window.api.workspaces.addSyncFolder(workspaceId)
+    if (res == null) return // user cancelled the folder picker
+    setFolders(res.folders)
+    if (res.needsDirSelection) {
+      // Codebase folder without a .gitignore — let the user choose what to index
+      // before the first sync. Default to all dirs checked.
+      setPicker({ ...res.needsDirSelection, mode: 'add', governed: false })
+      setPicked(new Set(res.needsDirSelection.topLevelDirs))
+    }
   }, [workspaceId])
+
+  const onEdit = useCallback(
+    async (folder: string) => {
+      const sel = await window.api.workspaces.getDirSelection(workspaceId, folder)
+      setPicker({
+        folder,
+        topLevelDirs: sel.topLevelDirs,
+        mode: 'edit',
+        governed: sel.hasGitignore,
+      })
+      // Stored empty selection means "index all" → pre-check everything.
+      setPicked(new Set(sel.selected.length > 0 ? sel.selected : sel.topLevelDirs))
+    },
+    [workspaceId],
+  )
 
   const onRemove = useCallback(
     async (folder: string) => {
@@ -91,6 +124,35 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
       setBusy(false)
     }
   }, [workspaceId])
+
+  const togglePicked = useCallback((dir: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (next.has(dir)) next.delete(dir)
+      else next.add(dir)
+      return next
+    })
+  }, [])
+
+  // Save the checked dirs and re-sync (used by "Index selected" on add and "Save"
+  // on edit).
+  const onPickerSave = useCallback(async () => {
+    if (!picker) return
+    await window.api.workspaces.setIndexDirs(workspaceId, picker.folder, [...picked])
+    setPicker(null)
+    void onSyncNow()
+  }, [picker, picked, workspaceId, onSyncNow])
+
+  // "Index everything": clear any restriction, then sync (add flow).
+  const onPickerIndexAll = useCallback(async () => {
+    if (!picker) return
+    await window.api.workspaces.setIndexDirs(workspaceId, picker.folder, [])
+    setPicker(null)
+    void onSyncNow()
+  }, [picker, workspaceId, onSyncNow])
+
+  // Close without changes (edit "Cancel" / governed "Close") — no re-sync.
+  const onPickerDismiss = useCallback(() => setPicker(null), [])
 
   const summary =
     folders.length === 0
@@ -127,6 +189,15 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
                   <span className="library__sync-path" title={f}>
                     {f}
                   </span>
+                  <button
+                    type="button"
+                    className="library__sync-item-remove"
+                    onClick={() => void onEdit(f)}
+                    aria-label={t('library.editDirs')}
+                    title={t('library.editDirs')}
+                  >
+                    <ListChecks size={14} aria-hidden="true" />
+                  </button>
                   <button
                     type="button"
                     className="library__sync-item-remove"
@@ -181,6 +252,63 @@ export function SyncFoldersPanel({ workspaceId, onSyncDone }: Props): JSX.Elemen
               })}
             </div>
           )}
+        </div>
+      )}
+      {picker && (
+        <div
+          className="dirpicker__backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('library.pickDirsTitle')}
+        >
+          <div className="dirpicker">
+            <h3 className="dirpicker__title">{t('library.pickDirsTitle')}</h3>
+            <p className="dirpicker__intro">
+              {picker.governed ? t('library.pickDirsGoverned') : t('library.pickDirsIntro')}
+            </p>
+            {!picker.governed && (
+              <ul className="dirpicker__list">
+                {picker.topLevelDirs.map((d) => (
+                  <li key={d} className="dirpicker__item">
+                    <label className="dirpicker__label">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(d)}
+                        onChange={() => togglePicked(d)}
+                      />
+                      <Folder size={14} aria-hidden="true" />
+                      <span className="dirpicker__name">{d}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="dirpicker__actions">
+              {picker.governed ? (
+                <button type="button" className="primary" onClick={() => onPickerDismiss()}>
+                  {t('library.pickDirsClose')}
+                </button>
+              ) : picker.mode === 'edit' ? (
+                <>
+                  <button type="button" onClick={() => onPickerDismiss()}>
+                    {t('library.pickDirsCancel')}
+                  </button>
+                  <button type="button" className="primary" onClick={() => void onPickerSave()}>
+                    {t('library.pickDirsSave')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => void onPickerIndexAll()}>
+                    {t('library.pickDirsAll')}
+                  </button>
+                  <button type="button" className="primary" onClick={() => void onPickerSave()}>
+                    {t('library.pickDirsConfirm')}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

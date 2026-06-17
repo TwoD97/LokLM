@@ -866,6 +866,32 @@ export class WorkspaceDb {
     })()
   }
 
+  // ---- per-folder index-dir selection (ADR-0006) --------------------------
+
+  /** Top-level directory names the user chose to index for `folderPath`. Empty
+   *  array ⇒ no restriction (index everything; gitignore/defaults govern). */
+  async getIndexDirs(folderPath: string): Promise<string[]> {
+    return this.rows(`SELECT dir FROM sync_folder_index_dirs WHERE folder_path = ? ORDER BY dir`, [
+      folderPath,
+    ]).map((r) => String(r.dir))
+  }
+
+  /** Replaces the include-set for a folder. An empty `dirs` clears the restriction. */
+  async setIndexDirs(folderPath: string, dirs: string[]): Promise<void> {
+    const ins = this.db.prepare(
+      `INSERT OR IGNORE INTO sync_folder_index_dirs (folder_path, dir) VALUES (?, ?)`,
+    )
+    this.db.transaction(() => {
+      this.run(`DELETE FROM sync_folder_index_dirs WHERE folder_path = ?`, [folderPath])
+      for (const d of dirs) ins.run(folderPath, d)
+    })()
+  }
+
+  /** Drops a folder's include-set (called when the folder is unsynced). */
+  async clearIndexDirs(folderPath: string): Promise<void> {
+    this.run(`DELETE FROM sync_folder_index_dirs WHERE folder_path = ?`, [folderPath])
+  }
+
   // ---- quiz ---------------------------------------------------------------
 
   async createDeck(input: {
