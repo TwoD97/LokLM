@@ -12,11 +12,13 @@ import type { WorkspaceType } from '../../../shared/workspaceStorage'
 // the *intended* model per type; the actual on-disk resolution + load lives in
 // EmbeddingService.
 
+// NOTE: the upstream repo (jinaai/jina-code-embeddings-0.5b-GGUF) ships no
+// Q4_K_M quant — IQ4_XS is the closest 4-bit (~349 MB) and is what we pin.
 /** Manifest id of the code embedder (drives ModelDownloader.download). */
-export const CODE_EMBEDDER_MODEL_ID = 'jina-code-embeddings-0.5b-Q4_K_M'
+export const CODE_EMBEDDER_MODEL_ID = 'jina-code-embeddings-0.5b-IQ4_XS'
 
 /** Filename of the bundled code embedder GGUF (matches the manifest entry). */
-export const CODE_EMBEDDER_FILE = 'jina-code-embeddings-0.5b-Q4_K_M.gguf'
+export const CODE_EMBEDDER_FILE = 'jina-code-embeddings-0.5b-IQ4_XS.gguf'
 
 /** Identity written to chunks.embedder_identity for code-model vectors. The
  *  stem ('jina-code') drives the backfill's model-swap detection, exactly like

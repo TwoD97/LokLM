@@ -67,17 +67,18 @@ export const MODEL_MANIFEST: ModelManifestEntry[] = [
   {
     // ADR-0006 code track. Optional (codebase workspaces only) — gated behind the
     // codebase type, so library installs never pull it. Code-specialised; falls
-    // back to BGE-M3 when absent. NOTE: sizeBytes is approximate and sha256 is
-    // unpinned pending a validated local copy — verify before release (the
-    // downloader falls back to a ±2% size check when sha is absent).
-    id: 'jina-code-embeddings-0.5b-Q4_K_M',
+    // back to BGE-M3 when absent. The upstream repo ships no Q4_K_M quant, so we
+    // pin IQ4_XS — the closest 4-bit. size + sha256 verified against a downloaded
+    // copy on 2026-06-17 (Get-FileHash -Algorithm SHA256).
+    id: 'jina-code-embeddings-0.5b-IQ4_XS',
     label: 'Code embedder',
     description:
-      'jina-code-embeddings-0.5b (Q4_K_M) — code-specialised retrieval for codebase workspaces.',
+      'jina-code-embeddings-0.5b (IQ4_XS) — code-specialised retrieval for codebase workspaces.',
     kind: 'embedder',
-    filename: 'jina-code-embeddings-0.5b-Q4_K_M.gguf',
-    url: 'https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-Q4_K_M.gguf',
-    sizeBytes: 350_000_000,
+    filename: 'jina-code-embeddings-0.5b-IQ4_XS.gguf',
+    url: 'https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf',
+    sizeBytes: 349_399_616,
+    sha256: '3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a',
     required: false,
   },
   {
