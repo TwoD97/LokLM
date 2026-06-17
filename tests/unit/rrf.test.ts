@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { fuseRrf, RRF_K } from '@main/services/retrieval/rrf'
-import type { SearchHit } from '@main/db/database'
+import type { SearchHit } from '@main/db/types'
 
 function hit(chunkId: number, score: number, docId = 1): SearchHit {
   return {

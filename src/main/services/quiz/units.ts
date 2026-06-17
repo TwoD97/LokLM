@@ -6,7 +6,7 @@
 // of unit size — see PER_UNIT_MAX_QUESTIONS in prompts.ts for the only bound.
 // See docs/superpowers/specs/2026-06-11-quiz-chunk-generation-design.md.
 
-import type { ChunkRow } from '../../db/database'
+import type { ChunkRow } from '../../db/types'
 import { estimateTokens } from '../llm/prompt'
 
 /** Hard size cap per unit — keeps every generation prompt small and cheap. */
