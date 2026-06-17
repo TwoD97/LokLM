@@ -31,6 +31,14 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      # postinstall rebuilds better-sqlite3-multiple-ciphers for Electron's ABI
+      # (NODE_MODULE_VERSION 146, the packaged app). These suites run under Node
+      # (137), and the binding is NAN-based (ABI-locked, unlike N-API argon2), so
+      # rebuild it for the Node ABI here — otherwise every DB-backed test fails to
+      # load it ("Module did not self-register" / "NODE_MODULE_VERSION 146 vs 137").
+      - name: Rebuild better-sqlite3 for the Node test ABI
+        run: pnpm rebuild better-sqlite3-multiple-ciphers
+
       - name: Integration tests
         run: pnpm test:integration
 
