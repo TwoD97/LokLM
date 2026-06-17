@@ -975,6 +975,24 @@ function registerIpc(): void {
     async (_e, workspaceId: number, folder: string, dirs: string[]): Promise<void> =>
       getAuth().requireDatabase().workspaces().setIndexDirs(workspaceId, folder, dirs),
   )
+  // ADR-0006: data for re-opening the dir picker on an already-synced folder
+  // (edit-after-add). `selected` empty ⇒ "all" (index everything); `hasGitignore`
+  // true ⇒ the folder is scoped by its .gitignore, so manual selection is moot.
+  ipcMain.handle(
+    'workspaces:getDirSelection',
+    async (
+      _e,
+      workspaceId: number,
+      folder: string,
+    ): Promise<{ topLevelDirs: string[]; selected: string[]; hasGitignore: boolean }> => {
+      const [topLevelDirs, selected, gi] = await Promise.all([
+        listTopLevelDirs(folder),
+        getAuth().requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
+        loadGitignore(folder),
+      ])
+      return { topLevelDirs, selected, hasGitignore: gi !== null }
+    },
+  )
   ipcMain.handle(
     'workspaces:removeSyncFolder',
     async (_e, workspaceId: number, folderPath: string) =>

@@ -92,6 +92,12 @@ const stub: Api = {
     addSyncFolder: () => Promise.resolve(null),
     getIndexDirs: () => Promise.resolve([] as string[]),
     setIndexDirs: () => Promise.resolve(),
+    getDirSelection: () =>
+      Promise.resolve({
+        topLevelDirs: [] as string[],
+        selected: [] as string[],
+        hasGitignore: false,
+      }),
     removeSyncFolder: () => Promise.resolve([] as string[]),
     syncNow: () =>
       Promise.resolve({

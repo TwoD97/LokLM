@@ -150,4 +150,40 @@ describe('codebase indexing end-to-end (integration)', () => {
     expect(paths.some((p) => p.endsWith('README.md'))).toBe(true) // root file always
     expect(paths.some((p) => p.endsWith('demo.ts'))).toBe(false) // samples/ excluded
   }, 20_000)
+
+  it('honors nested .gitignore with shallow→deep precedence (ADR-0006)', async () => {
+    const ws = await new WorkspaceService(auth).create('NEST')
+    await auth.activate(ws.id)
+    const sync = new FolderSyncService(auth, new DocumentService(auth))
+
+    await writeFile(join(projectDir, 'package.json'), '{"name":"nest"}')
+    await writeFile(join(projectDir, '.gitignore'), '*.gen.ts\n')
+    await writeFile(join(projectDir, 'top.gen.ts'), 'export const a = 1\n')
+    await mkdir(join(projectDir, 'src'), { recursive: true })
+    // src/.gitignore re-includes one generated file and excludes a local one.
+    await writeFile(join(projectDir, 'src', '.gitignore'), '!keepme.gen.ts\nlocalonly.ts\n')
+    await writeFile(join(projectDir, 'src', 'app.ts'), 'export const app = 1\n')
+    await writeFile(join(projectDir, 'src', 'keepme.gen.ts'), 'export const keep = 1\n')
+    await writeFile(join(projectDir, 'src', 'other.gen.ts'), 'export const other = 1\n')
+    await writeFile(join(projectDir, 'src', 'localonly.ts'), 'export const local = 1\n')
+
+    await sync.addFolder(ws.id, projectDir)
+    expect((await sync.classifyFolders(ws.id)).isCodebase).toBe(true)
+    await sync.sync(ws.id)
+
+    const db = auth.requireDatabase()
+    await waitFor(async () =>
+      (await db.documents().listDocumentsByWorkspace(ws.id)).some((d) =>
+        d.sourcePath.endsWith('app.ts'),
+      ),
+    )
+    const names = (await db.documents().listDocumentsByWorkspace(ws.id)).map((d) =>
+      d.sourcePath.replace(/\\/g, '/').split('/').pop(),
+    )
+    expect(names).toContain('app.ts')
+    expect(names).toContain('keepme.gen.ts') // root *.gen.ts overridden by src/!keepme.gen.ts
+    expect(names).not.toContain('other.gen.ts') // still matched by root *.gen.ts
+    expect(names).not.toContain('top.gen.ts') // root-level, root pattern
+    expect(names).not.toContain('localonly.ts') // excluded by src/.gitignore
+  }, 20_000)
 })

@@ -2,7 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { makeGitignoreFilter, loadGitignore } from '@main/services/codebase/gitignore'
+import ignore from 'ignore'
+import {
+  makeGitignoreFilter,
+  loadGitignore,
+  isGitignored,
+  type GitignoreLayer,
+} from '@main/services/codebase/gitignore'
+
+const layer = (base: string, patterns: string): GitignoreLayer => ({
+  base,
+  ig: ignore().add(patterns),
+})
 
 describe('gitignore matcher (makeGitignoreFilter)', () => {
   it('ignores directory and glob patterns; keeps source', () => {
@@ -41,6 +52,37 @@ describe('gitignore matcher (makeGitignoreFilter)', () => {
     const f = makeGitignoreFilter('*')
     expect(f.ignores('')).toBe(false)
     expect(f.ignores('.')).toBe(false)
+  })
+})
+
+describe('nested gitignore precedence (isGitignored)', () => {
+  const root = layer('', '*.log\nbuild/')
+
+  it('root layer matches at any depth', () => {
+    expect(isGitignored([root], 'app.log')).toBe(true)
+    expect(isGitignored([root], 'pkg/sub/x.log')).toBe(true)
+    expect(isGitignored([root], 'build/out.js')).toBe(true)
+    expect(isGitignored([root], 'src/index.ts')).toBe(false)
+  })
+
+  it('a deeper layer re-includes (negation) over a shallower exclude', () => {
+    const layers = [root, layer('pkg', '!important.log')]
+    expect(isGitignored(layers, 'pkg/important.log')).toBe(false) // re-included by pkg/.gitignore
+    expect(isGitignored(layers, 'pkg/nested/important.log')).toBe(false) // non-anchored negation
+    expect(isGitignored(layers, 'app.log')).toBe(true) // outside pkg → still ignored
+    expect(isGitignored(layers, 'pkg/other.log')).toBe(true) // still matched by root *.log
+  })
+
+  it('a deeper layer adds its own excludes, scoped to its subtree', () => {
+    const layers = [root, layer('pkg', 'secret.ts')]
+    expect(isGitignored(layers, 'pkg/secret.ts')).toBe(true) // excluded by pkg/.gitignore
+    expect(isGitignored(layers, 'secret.ts')).toBe(false) // root-level not in pkg scope
+    expect(isGitignored(layers, 'pkg/keep.ts')).toBe(false)
+  })
+
+  it('directories test with a trailing slash so dir-only patterns prune', () => {
+    expect(isGitignored([root], 'build', true)).toBe(true)
+    expect(isGitignored([root], 'src', true)).toBe(false)
   })
 })
 
