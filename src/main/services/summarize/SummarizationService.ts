@@ -1,4 +1,4 @@
-import type { ChunkRow } from '../../db/database'
+import type { ChunkRow } from '../../db/types'
 import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { LlmProvider } from '../providers/types'

@@ -1,4 +1,4 @@
-import type { ChunkRow, SearchHit } from '../../db/database'
+import type { ChunkRow, SearchHit } from '../../db/types'
 import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
 import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'

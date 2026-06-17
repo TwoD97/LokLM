@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3-multiple-ciphers'
 import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
-import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../database'
+import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../types'
 import type { LibrarySearchOptions } from '../../../shared/documents'
 import type {
   QuizDeck,

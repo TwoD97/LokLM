@@ -6,7 +6,7 @@ import {
   applyLanguageMatchBoost,
   splitQuestions,
 } from '@main/services/retrieval/heuristics'
-import type { SearchHit } from '@main/db/database'
+import type { SearchHit } from '@main/db/types'
 
 const baseHit = (overrides: Partial<SearchHit> = {}): SearchHit => ({
   chunk_id: 1,

@@ -1,4 +1,4 @@
-import type { SearchHit } from '@main/db/database'
+import type { SearchHit } from '@main/db/types'
 import type { ResponseLanguage } from '../llm/prompt'
 
 // small-but-deliberate DE+EN stopword set. Domain-relevant nouns like

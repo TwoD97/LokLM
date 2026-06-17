@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { packContentWindows } from '@main/services/summarize/SummarizationService'
 import { buildSummaryPrompt } from '@main/services/summarize/prompt'
-import type { ChunkRow } from '@main/db/database'
+import type { ChunkRow } from '@main/db/types'
 
 const chunk = (id: number, text: string, tokens: number): ChunkRow => ({
   id,
