@@ -89,12 +89,29 @@ Electron upgrades without native rebuilds. Parse off the main thread.
 
 **PR 1 — indexing + retrieval** (this PR):
 
-1. Workspace `type` model + classification + ignore/track rules (+ unit tests). ✅ (foundation landed)
-2. Wire classification into folder-sync; persist `type`; renderer badge + override.
-3. tree-sitter WASM integration + AST code chunker; prose chunker for docs.
-4. jina-code-0.5b embedder provider; per-track LanceDB tables (896 vs 1024 dim).
-5. Two-track ingest pipeline + content-hash incremental sync.
-6. Hybrid retrieval over both tracks (FTS5 trigram + vector + RRF + rerank).
+1. ✅ Workspace `type` model + classification + ignore/track rules (+ unit tests).
+2. ✅ Classification wired into folder-sync; `type` persisted; `workspaces:setType`/
+   `:classify` IPC + preload; sidebar codebase badge.
+3. ✅ Structural code chunker (`codeChunker.ts`, line ranges + symbol breadcrumb);
+   prose path reused for docs. **tree-sitter AST backend deferred** — the chunker
+   is a dependency-free heuristic with the same `Chunk` output, so a WASM
+   tree-sitter backend is a drop-in upgrade later.
+4. ✅ Two-track ingest: code-track files chunked via `codeChunker`, doc-track via
+   the prose path; both ride the existing embed→persist→vector-sink pipeline and
+   the existing hash-aware incremental refresh.
+5. ✅ Hybrid retrieval: code chunks land in the same chunks table + LanceDB, so
+   the existing `RetrievalService` (BM25 + vector + RRF + rerank) searches them.
+
+**Deferred to a fast-follow (additive, runtime-verification needed; the
+`fileTrack` + per-workspace model seams make all three drop-in):**
+
+4. jina-code-0.5b embedder + per-track dual-dim LanceDB tables (896 vs 1024). The
+   working feature currently embeds code with BGE-M3 (1024-dim) — functional, and
+   BGE-M3 is a competent code embedder; jina-code is a quality upgrade that needs
+   a model download + dual-dimension store verified in-app.
+   6b. Trigram FTS tokenizer for identifier _substring_ matches (whole-identifier
+   search already works on the default tokenizer); best as a code-only FTS table
+   so document-search ranking is unaffected.
 
 **PR 2 — codebase analytics** (follow-up): language/LOC breakdown, symbol
 inventory (tree-sitter), git hotspots (change-frequency × complexity), and the
