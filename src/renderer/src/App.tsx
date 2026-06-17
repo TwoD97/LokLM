@@ -7,7 +7,6 @@ import { ResetView } from './auth/ResetView'
 import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { TitleBar } from './TitleBar'
-import { ModelDownloadView } from './models/ModelDownloadView'
 import { SettingsModal } from './settings/SettingsModal'
 import { FallbackToast } from './settings/FallbackToast'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -18,7 +17,6 @@ import { useThemeEffect } from './theme/useTheme'
 type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'models' }
   | { kind: 'register' }
   | { kind: 'login' }
   | { kind: 'reset' }
@@ -46,38 +44,24 @@ export function App(): JSX.Element {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, models] = await Promise.all([window.api.auth.status(), window.api.models.status()])
+      // Models are provided by the installer (wizard tier bundle), so the app
+      // never gates on them or offers an in-app download — go straight to the
+      // auth phase. A missing model surfaces later as a not-ready service, not
+      // a download prompt.
+      const s = await window.api.auth.status()
       setStatus(s)
-      setPhase((current) => {
-        // Required GGUFs missing? Show the downloader first — register/login
-        // would just lead to a broken chat anyway.
-        if (!models.allRequiredReady) return { kind: 'models' }
-        return pickPhaseFromStatus(s, current)
-      })
+      setPhase((current) => pickPhaseFromStatus(s, current))
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       setPhase({ kind: 'error', message })
     }
   }, [])
 
-  // Called by ModelDownloadView once all required models are on disk. Re-runs
-  // the full refresh so the next phase falls out of the existing auth logic.
-  const onModelsReady = useCallback(() => {
-    void refresh()
-  }, [refresh])
-
   useEffect(() => {
     void refresh()
     const off = window.api.auth.onState((s) => {
       setStatus(s)
-      setPhase((current) => {
-        // While the user is staring at the model-download view, don't let a
-        // background auth state change yank them out. `refresh()` is the only
-        // path that's allowed to transition OUT of the models phase, and it
-        // does so explicitly after re-checking `models:status`.
-        if (current.kind === 'models') return current
-        return pickPhaseFromStatus(s, current)
-      })
+      setPhase((current) => pickPhaseFromStatus(s, current))
     })
     return () => off()
   }, [refresh])
@@ -117,8 +101,6 @@ export function App(): JSX.Element {
         <p>{t('shell.loading')}</p>
       </section>
     )
-  } else if (phase.kind === 'models') {
-    content = <ModelDownloadView onReady={onModelsReady} />
   } else if (phase.kind === 'error') {
     content = (
       <section className="auth-card">

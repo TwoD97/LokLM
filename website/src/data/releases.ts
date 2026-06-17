@@ -24,37 +24,37 @@ export interface Release {
 }
 
 export const currentRelease: Release = {
-  version: '0.4.6',
-  releasedAt: '2026-06-15',
+  version: '0.4.7',
+  releasedAt: '2026-06-16',
   assets: [
     {
       platform: 'windows',
       file: 'LokLM-x64.exe',
-      sizeBytes: 324224977,
-      sha256: '7c3fc8c61ca3e236c2062897b216234adc4bd59240475116d88ef45a02bd9661',
+      sizeBytes: 324223495,
+      sha256: 'e7a9916ec63d1a579111f270b44fc8193a7815f5727e94019c175ced712731cf',
       available: true,
     },
     {
       platform: 'macos',
       file: 'LokLM-mac.dmg',
-      sizeBytes: 3191944,
-      sha256: '65febb9c69fb673bffc594c2afd8c6a46e2d52f988577708979a12a390d533a4',
+      sizeBytes: 3192106,
+      sha256: '990c505230db0dcb5704de304af79f5e510c666de99515eb88537aa09bb1d83c',
       available: true,
     },
     {
       platform: 'linux',
       variant: 'run',
       file: 'LokLM-Setup-linux-x64.run',
-      sizeBytes: 285779162,
-      sha256: 'c5ba39ab6b9a3d7337deeda2956ddce42aae54299689ff582472e6c0ed50ff53',
+      sizeBytes: 285779915,
+      sha256: 'f78877d3d7981841fe97912c3ff8de829ae2d4fe2cb3c11ff35e5d6aeb610065',
       available: true,
     },
     {
       platform: 'linux',
       variant: 'deb',
       file: 'LokLM-Setup-linux-x64.deb',
-      sizeBytes: 3441724,
-      sha256: 'f8833076dcade8bc54640043f30c2f5835933c2154d275d645ddaa9415286ec4',
+      sizeBytes: 3441722,
+      sha256: 'f0ceba61ccd4f75640d5a9805086dba9be04e588ffcd33140cfa7b8bac5103e7',
       available: true,
     },
   ],
