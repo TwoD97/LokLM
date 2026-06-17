@@ -30,6 +30,8 @@ import type {
   TranslatorStatus,
 } from '../shared/translation'
 import type { WriteResult, WritingMode } from '../shared/writing'
+import type { WorkspaceType } from '../shared/workspaceStorage'
+import type { CodebaseClassification } from '../shared/codebase'
 import type {
   Document,
   Workspace,
@@ -154,6 +156,11 @@ const api = {
     // SQLite store + LanceDB vectors). Called on every workspace switch so the
     // per-id data ops resolve against the right workspace.
     activate: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:activate', id),
+    // ADR-0006: codebase workspace type — override + (re)classify synced folders.
+    setType: (id: number, type: WorkspaceType): Promise<void> =>
+      ipcRenderer.invoke('workspaces:setType', id, type),
+    classify: (id: number): Promise<CodebaseClassification> =>
+      ipcRenderer.invoke('workspaces:classify', id),
     // ADR-0005: default workspace auto-loaded on unlock.
     getDefault: (): Promise<number | null> => ipcRenderer.invoke('workspaces:getDefault'),
     setDefault: (id: number | null): Promise<void> =>

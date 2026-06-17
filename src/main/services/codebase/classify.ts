@@ -95,25 +95,8 @@ const CODE_EXTENSIONS: Record<string, string> = {
   svelte: 'Svelte',
 }
 
-export interface LanguageCount {
-  language: string
-  files: number
-}
-
-export interface CodebaseClassification {
-  /** True ⇒ the folder should be treated as a 'codebase' workspace. */
-  isCodebase: boolean
-  /** Most-common code language, or null when no code files were found. */
-  primaryLanguage: string | null
-  /** Per-language code-file counts, descending. */
-  languages: LanguageCount[]
-  /** Ecosystem tags from matched marker files (e.g. ['node','rust']). */
-  ecosystems: string[]
-  /** The marker filenames that matched (relative paths), for diagnostics/UI. */
-  markers: string[]
-  /** Fraction of non-ignored files that are recognised code (0..1). */
-  codeFileRatio: number
-}
+export type { LanguageCount, CodebaseClassification } from '../../../shared/codebase'
+import type { CodebaseClassification } from '../../../shared/codebase'
 
 // Heuristic thresholds. Marker files alone are decisive; absent those, require a
 // meaningful body of code so a docs folder with one stray script isn't a codebase.
