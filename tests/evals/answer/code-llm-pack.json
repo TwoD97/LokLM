@@ -1,0 +1,54 @@
+{
+  "name": "loklm-code-matrix-llms-osi-8",
+  "comment": "Code-Matrix Antwort-LLMs: 8 OSI-permissive LLMs (Apache-2.0/MIT) fuer den Code-Dataset-Eval. Subset des vollen model-pack.json; Auswahl nach Groesse (3-14B) und OSI-Lizenz. Stand 2026-06-17.",
+  "models": [
+    {
+      "label": "qwen3-4b-instruct",
+      "path": "models/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "qwen3-8b",
+      "path": "models/Qwen_Qwen3-8B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "qwen3-14b",
+      "path": "models/Qwen_Qwen3-14B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "granite-3.3-8b",
+      "path": "models/granite-3.3-8b-instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "ministral-3-14b",
+      "path": "models/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "phi-4-14b",
+      "path": "models/phi-4-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "qwen3.5-9b",
+      "path": "models/Qwen3.5-9B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "granite-4.1-3b",
+      "path": "models/granite-4.1-3b-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    }
+  ]
+}

@@ -310,10 +310,12 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
     label: string
     file: string
   }
-  const embPack = JSON.parse(await readFile(join(packsDir, 'embedder-pack.json'), 'utf-8')) as {
+  const embPackFile = process.env.LOKLM_EMBEDDER_PACK ?? 'embedder-pack.json'
+  const rrPackFile = process.env.LOKLM_RERANKER_PACK ?? 'reranker-pack.json'
+  const embPack = JSON.parse(await readFile(join(packsDir, embPackFile), 'utf-8')) as {
     embedders: EmbEntry[]
   }
-  const rrPack = JSON.parse(await readFile(join(packsDir, 'reranker-pack.json'), 'utf-8')) as {
+  const rrPack = JSON.parse(await readFile(join(packsDir, rrPackFile), 'utf-8')) as {
     rerankers: RrEntry[]
   }
 

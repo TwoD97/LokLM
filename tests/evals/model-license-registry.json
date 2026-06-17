@@ -493,6 +493,34 @@
       "verifiedAt": "2026-06-14"
     },
     {
+      "label": "nomic-embed-code",
+      "role": "embedder",
+      "provider": "nomic-ai",
+      "repo": "nomic-ai/nomic-embed-code",
+      "artifact": "models/nomic-embed-code.Q5_K_M.gguf",
+      "declaredLicense": "apache-2.0",
+      "licenseUrl": "https://huggingface.co/nomic-ai/nomic-embed-code",
+      "licenseClass": "osi-permissive",
+      "allowedInDefaultMatrix": true,
+      "inDefaultPack": false,
+      "notes": "Apache-2.0 (model card + repo). Finetune of Qwen2.5-Coder-7B-Instruct (qwen2 arch -> loads in node-llama-cpp). SOTA code retrieval. Code-matrix only, not in DE-prose default matrix.",
+      "verifiedAt": "2026-06-17"
+    },
+    {
+      "label": "jina-v2-code",
+      "role": "embedder",
+      "provider": "jinaai",
+      "repo": "jinaai/jina-embeddings-v2-base-code",
+      "artifact": "models/jina-embeddings-v2-base-code-f16.gguf",
+      "declaredLicense": "apache-2.0",
+      "licenseUrl": "https://huggingface.co/jinaai/jina-embeddings-v2-base-code",
+      "licenseClass": "osi-permissive",
+      "allowedInDefaultMatrix": true,
+      "inDefaultPack": false,
+      "notes": "Apache-2.0 (only v2 - Jina v3/v4 are CC-BY-NC). 161M JinaBERT. GGUF via second-state. Load-test on our llama.cpp still pending. Code-specialised.",
+      "verifiedAt": "2026-06-17"
+    },
+    {
       "label": "jina-reranker-v2",
       "role": "reranker",
       "provider": "Jina AI",
