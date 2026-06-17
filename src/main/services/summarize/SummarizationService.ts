@@ -1,4 +1,5 @@
-import type { Database, ChunkRow } from '../../db/database'
+import type { ChunkRow } from '../../db/types'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { LlmProvider } from '../providers/types'
 import { estimateTokens, stripThink, DEFAULT_CONTEXT_TOKENS } from '../llm/prompt'
@@ -39,7 +40,7 @@ export interface SummarizeResult {
  */
 export class SummarizationService {
   constructor(
-    private readonly db: Database,
+    private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
   ) {}
 

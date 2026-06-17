@@ -30,6 +30,7 @@ describe('quiz repo (integration)', () => {
 
   it('createDeck → getDeck round-trip preserves the documentIds snapshot, status, language', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,
@@ -51,6 +52,7 @@ describe('quiz repo (integration)', () => {
 
   it('resetStuckDecks flips orphaned generating decks to failed, leaves ready/failed untouched', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const mk = (name: string): ReturnType<typeof quizzes.createDeck> =>
       quizzes.createDeck({
@@ -80,6 +82,7 @@ describe('quiz repo (integration)', () => {
 
   it('insertQuestions persists in ordinal order and getDeckWithQuestions returns the combined shape', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,
@@ -122,6 +125,7 @@ describe('quiz repo (integration)', () => {
 
   it('listDecks aggregates attemptCount + lastScore + lastFinishedAt across attempts', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,
@@ -160,7 +164,9 @@ describe('quiz repo (integration)', () => {
 
   it('listDecks orders multiple decks by createdAt DESC and isolates per-workspace', async () => {
     const wsA = await new WorkspaceService(auth).create('A')
+    await auth.activate(wsA.id)
     const wsB = await new WorkspaceService(auth).create('B')
+    await auth.activate(wsB.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck1 = await quizzes.createDeck({
       workspaceId: wsA.id,
@@ -196,6 +202,7 @@ describe('quiz repo (integration)', () => {
 
   it('clearQuestions wipes deck questions but leaves attempts intact', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,
@@ -226,6 +233,7 @@ describe('quiz repo (integration)', () => {
 
   it('deleteAttempts wipes attempt history and updateDeckQuestionCount settles the count', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,
@@ -245,8 +253,9 @@ describe('quiz repo (integration)', () => {
     expect((await quizzes.getDeck(deck.id))?.questionCount).toBe(12)
   })
 
-  it('deleting the workspace cascades through decks → questions → attempts', async () => {
+  it('deleting the workspace removes its whole encrypted store (decks/questions/attempts)', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const wsRepo = new WorkspaceService(auth)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
@@ -268,14 +277,18 @@ describe('quiz repo (integration)', () => {
       },
     ])
     const attempt = await quizzes.startAttempt(deck.id)
+    expect(attempt.id).toBeGreaterThan(0)
     await wsRepo.delete(ws.id)
-    expect(await quizzes.getDeck(deck.id)).toBeNull()
-    expect(await quizzes.listQuestions(deck.id)).toEqual([])
-    expect(await quizzes.getAttempt(attempt.id)).toBeNull()
+    // ADR-0005: per-workspace store — deleting the workspace drops the manifest
+    // entry and removes the whole encrypted directory (decks, questions, and
+    // attempts go with it), so the workspace can no longer be opened.
+    expect((await wsRepo.list()).some((w) => w.id === ws.id)).toBe(false)
+    await expect(auth.getWorkspaceStore().openMetaDb(ws.id)).rejects.toThrow()
   })
 
   it('finishAttempt writes score + answers + finished_at and listAttempts returns most-recent first', async () => {
     const ws = await new WorkspaceService(auth).create('WS')
+    await auth.activate(ws.id)
     const quizzes = auth.requireDatabase().quizzes()
     const deck = await quizzes.createDeck({
       workspaceId: ws.id,

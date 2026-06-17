@@ -10,7 +10,7 @@ import {
 import { QAService } from '@main/services/qa/QAService'
 import type { RetrievalService } from '@main/services/retrieval/RetrievalService'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
-import type { Database } from '@main/db/database'
+import type { WorkspaceDbFacade } from '@main/services/storage/WorkspaceDbFacade'
 import type { SummarizationService } from '@main/services/summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent } from '@shared/documents'
 import type { AskOptions } from '@main/services/llm/LlamaService'
@@ -422,7 +422,7 @@ function buildFakes(opts: {
     }),
     searchDocumentsByTheme,
   }
-  const db = { documents: () => documentsRepo } as unknown as Database
+  const db = { documents: () => documentsRepo } as unknown as WorkspaceDbFacade
   const summarize = vi.fn(
     opts.summarizeImpl ??
       (async () => ({ summary: 'Cached overview of the Wochenbuch.', cached: true })),

@@ -1,15 +1,29 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Database } from '@main/db/database'
-import { SettingsService } from '@main/services/settings/SettingsService'
+import { SettingsService, type SettingsKv } from '@main/services/settings/SettingsService'
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from '@shared/settings'
-import { sql } from 'drizzle-orm'
+
+// ADR-0005: settings + avatar live in the encrypted vault body's kv store
+// (AuthService getKv/setKv/deleteKv). This stub stands in for that in-memory
+// map so the service can be tested without spinning up the full vault.
+class MapKv implements SettingsKv {
+  private readonly store = new Map<string, string>()
+  getKv(key: string): string | null {
+    return this.store.get(key) ?? null
+  }
+  setKv(key: string, value: string): void {
+    this.store.set(key, value)
+  }
+  deleteKv(key: string): void {
+    this.store.delete(key)
+  }
+}
 
 describe('SettingsService', () => {
-  let db: Database
+  let db: MapKv
   let svc: SettingsService
 
   beforeEach(async () => {
-    db = await Database.create(undefined)
+    db = new MapKv()
     svc = new SettingsService(db, async () => {
       /* persist noop */
     })
@@ -80,10 +94,7 @@ describe('SettingsService', () => {
       },
       advanced: DEFAULT_SETTINGS.advanced,
     }
-    await db.db.execute(sql`
-      INSERT INTO settings (key, value) VALUES (${SETTINGS_KEY}, ${JSON.stringify(legacy)})
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    `)
+    db.setKv(SETTINGS_KEY, JSON.stringify(legacy))
     const svc2 = new SettingsService(db, async () => {})
     await svc2.hydrate()
     expect(svc2.get().basic.theme).toBe('system')

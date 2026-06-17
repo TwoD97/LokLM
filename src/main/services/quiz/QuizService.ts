@@ -4,7 +4,7 @@
 // quality is enforced by code validation — no themes, no embeddings, no
 // retries. See docs/superpowers/specs/2026-06-11-quiz-chunk-generation-design.md.
 
-import type { Database } from '../../db/database'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type {
   CreateQuizInput,
@@ -19,7 +19,7 @@ import { planQuiz, type QuizUnitDoc } from './units'
 
 export class QuizService {
   constructor(
-    private readonly db: Database,
+    private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
   ) {}
 

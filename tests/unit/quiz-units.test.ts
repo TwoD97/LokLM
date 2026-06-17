@@ -5,7 +5,7 @@ import {
   UNIT_MAX_TOKENS,
   UNIT_MIN_TOKENS,
 } from '../../src/main/services/quiz/units'
-import type { ChunkRow } from '../../src/main/db/database'
+import type { ChunkRow } from '../../src/main/db/types'
 
 let nextId = 1
 

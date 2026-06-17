@@ -200,6 +200,48 @@ async function installCanvasGlobals(): Promise<void> {
   canvasGlobalsInstalled = true
 }
 
+/** pdfjs's BaseCanvasFactory shape: the object create() hands back and that
+ *  reset()/destroy() later mutate. */
+interface CanvasAndContext {
+  canvas: { width: number; height: number } | null
+  context: unknown
+}
+
+/**
+ * pdfjs auto-selects its DOMCanvasFactory inside the documentsWorker because its
+ * `isNodeJS` guard treats an Electron utilityProcess (process.type === 'utility')
+ * as a browser. DOMCanvasFactory calls `document.createElement('canvas')`, which
+ * throws ("Cannot read properties of undefined (reading 'createElement')") in a
+ * worker with no DOM — so any scanned page that needs an auxiliary canvas (soft
+ * masks, transparency groups, tiling patterns) failed to rasterise. We pass this
+ * @napi-rs/canvas-backed factory to getDocument (via pdf-parse) instead. Mirrors
+ * pdfjs's own NodeCanvasFactory; the native binding is require()'d lazily inside
+ * create(), so a text-only PDF that never renders a page still never loads it.
+ */
+export class NodeCanvasFactory {
+  create(width: number, height: number): CanvasAndContext {
+    if (width <= 0 || height <= 0) throw new Error('Invalid canvas size')
+    const { createCanvas } = requireFromHere('@napi-rs/canvas') as typeof import('@napi-rs/canvas')
+    const canvas = createCanvas(width, height)
+    return { canvas, context: canvas.getContext('2d') }
+  }
+
+  reset(cc: CanvasAndContext, width: number, height: number): void {
+    if (!cc.canvas) throw new Error('Canvas is not specified')
+    if (width <= 0 || height <= 0) throw new Error('Invalid canvas size')
+    cc.canvas.width = width
+    cc.canvas.height = height
+  }
+
+  destroy(cc: CanvasAndContext): void {
+    if (!cc.canvas) return
+    cc.canvas.width = 0
+    cc.canvas.height = 0
+    cc.canvas = null
+    cc.context = null
+  }
+}
+
 /** Render one PDF page to a white-backed PNG and OCR it. */
 export async function ocrPdfPage(page: PdfPageLike): Promise<string> {
   await installCanvasGlobals()

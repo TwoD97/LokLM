@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -68,7 +68,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -w argon2 || echo \"electron-rebuild skipped (no native deps yet to rebuild)\")",
+    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers || echo \"electron-rebuild skipped/failed (native module may be locked by a running app)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",
@@ -78,10 +78,7 @@
     "models:evals": "node scripts/download-models.mjs evals",
     "models:translation": "node scripts/download-models.mjs translation",
     "tessdata": "node scripts/download-tessdata.mjs",
-    "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1",
-    "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio",
-    "db:check": "drizzle-kit check"
+    "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1"
   },
   "devDependencies": {
     "@electron/fuses": "^2.1.2",
@@ -96,7 +93,6 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^3.2.6",
-    "drizzle-kit": "^0.31.10",
     "electron": "^42.4.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^4.0.1",
@@ -122,15 +118,17 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.4.6",
     "@kutalia/whisper-node-addon": "^1.1.0",
+    "@lancedb/lancedb": "^0.30.0",
     "@napi-rs/canvas": "^0.1.100",
+    "@types/better-sqlite3": "^7.6.13",
     "argon2": "^0.44.0",
+    "better-sqlite3-multiple-ciphers": "^12.10.0",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
     "eld": "^2.0.3",
     "electron-log": "^5.4.4",
     "highlight.js": "^11.11.1",
+    "ignore": "^7.0.5",
     "katex": "^0.16.47",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
@@ -183,14 +181,6 @@
       "de"
     ],
     "extraResources": [
-      {
-        "from": "drizzle",
-        "to": "drizzle"
-      },
-      {
-        "from": "src/main/db/migrations",
-        "to": "migrations"
-      },
       {
         "from": "tessdata",
         "to": "tessdata"
@@ -251,7 +241,8 @@
       "@electron/rebuild",
       "node-llama-cpp",
       "@mongodb-js/zstd",
-      "sodium-native"
+      "sodium-native",
+      "better-sqlite3-multiple-ciphers"
     ],
     "overrides": {
       "esbuild": "0.25.12",
@@ -259,6 +250,7 @@
       "vite": "^6"
     },
     "patchedDependencies": {
+      "better-sqlite3-multiple-ciphers@12.10.0": "patches/better-sqlite3-multiple-ciphers@12.10.0.patch",
       "node-llama-cpp": "patches/node-llama-cpp.patch"
     }
   }

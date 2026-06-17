@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { generateQuestionsForUnit } from '../../src/main/services/quiz/generation'
 import { PER_UNIT_MAX_QUESTIONS } from '../../src/main/services/quiz/prompts'
 import type { QuizUnit } from '../../src/main/services/quiz/units'
-import type { ChunkRow } from '../../src/main/db/database'
+import type { ChunkRow } from '../../src/main/db/types'
 import type { LlmProvider } from '../../src/main/services/providers/types'
 
 function makeChunk(id: number, text: string): ChunkRow {

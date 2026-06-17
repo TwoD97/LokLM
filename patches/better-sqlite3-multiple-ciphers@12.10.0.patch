@@ -1,0 +1,47 @@
+diff --git a/src/better_sqlite3.cpp b/src/better_sqlite3.cpp
+index 13f054a641f63dda3ebbf71ea5613cf12b054fad..855e209dbf91ccd9fe3203a286e5e276d49a2f91 100644
+--- a/src/better_sqlite3.cpp
++++ b/src/better_sqlite3.cpp
+@@ -57,7 +57,12 @@ NODE_MODULE_INIT(/* exports, context */) {
+ 
+ 	// Initialize addon instance.
+ 	Addon* addon = new Addon(isolate);
++#if defined(V8_MAJOR_VERSION) && V8_MAJOR_VERSION >= 14
++	// v8::External::New now requires an ExternalPointerTypeTag (V8 sandbox external pointers, V8 >= 14 / Electron >= 42).
++	v8::Local<v8::External> data = v8::External::New(isolate, addon, v8::kExternalPointerTypeTagDefault);
++#else
+ 	v8::Local<v8::External> data = v8::External::New(isolate, addon);
++#endif
+ 	node::AddEnvironmentCleanupHook(isolate, Addon::Cleanup, addon);
+ 
+ 	// Create and export native-backed classes and functions.
+diff --git a/src/util/helpers.cpp b/src/util/helpers.cpp
+index 1f4b246883add58c18d8b1ae1c68d876fcee30eb..2c5e71a9c78715fb70764af9cef8947628569702 100644
+--- a/src/util/helpers.cpp
++++ b/src/util/helpers.cpp
+@@ -89,7 +89,7 @@ void SetPrototypeGetter(
+ 	recv->InstanceTemplate()->SetNativeDataProperty(
+ 		InternalizedFromLatin1(isolate, name),
+ 		func,
+-		0,
++		nullptr,
+ 		data
+ 	);
+ }
+diff --git a/src/util/macros.cpp b/src/util/macros.cpp
+index e75d53763e575cb1ec5f560d1303100ebb380249..3b3b46919bd25921674691ca652fc5204fc72fa7 100644
+--- a/src/util/macros.cpp
++++ b/src/util/macros.cpp
+@@ -27,7 +27,12 @@
+ #define EasyIsolate v8::Isolate* isolate = v8::Isolate::GetCurrent()
+ #define OnlyIsolate info.GetIsolate()
+ #define OnlyContext isolate->GetCurrentContext()
++#if defined(V8_MAJOR_VERSION) && V8_MAJOR_VERSION >= 14
++// v8::External::Value() now requires an ExternalPointerTypeTag (V8 sandbox external pointers, V8 >= 14 / Electron >= 42).
++#define OnlyAddon static_cast<Addon*>(info.Data().As<v8::External>()->Value(v8::kExternalPointerTypeTagDefault))
++#else
+ #define OnlyAddon static_cast<Addon*>(info.Data().As<v8::External>()->Value())
++#endif
+ #define UseIsolate v8::Isolate* isolate = OnlyIsolate
+ #define UseContext v8::Local<v8::Context> ctx = OnlyContext
+ #define UseAddon Addon* addon = OnlyAddon
