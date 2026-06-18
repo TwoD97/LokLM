@@ -100,10 +100,14 @@ input {
 }
 
 .installer-shell {
-  width: min(100vw, 980px);
-  height: min(100vh, 740px);
+  /* Fill the (resizable) window instead of capping at 980x740, so growing the
+   * window gives the pages more room and shrinking it triggers the per-page
+   * scroll below. Keeps the wizard reactive on tiling / Wayland compositors
+   * that hand us an arbitrary size. */
+  width: 100vw;
+  height: 100vh;
   display: grid;
-  grid-template-columns: 330px 1fr;
+  grid-template-columns: minmax(0, 330px) 1fr;
   gap: 18px;
   /* Top padding leaves room for the fixed-position .titlebar (32px) plus
    * a small breathing gap. Other sides stay at 18px. */
@@ -294,7 +298,11 @@ input {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  /* Scroll an overflowing page (e.g. the Options/CUDA opt-in on a short window)
+   * within its own box. The .footer is a sibling of the pages, so this never
+   * pushes the Back/Next nav offscreen. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .page h2 {
