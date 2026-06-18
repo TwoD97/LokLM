@@ -1,50 +1,57 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { matrixConfigs } from '../evals/pipeline/configs'
 
-// matrixConfigs() baut den default-matrix-sweep: 1 embedder × 1 chunker ×
-// 2 reranker-varianten = 2 configs , die ohne weitere downloads laufen.
-//
-// Diese tests sichern die STRUKTUR der configs (nicht die mess-werte — die
-// kommen aus dem sweep selbst). Zwei invarianten sind dabei load-bearing:
-//   1. genau die 2 vorgeschriebenen configs (norr / bge-rr)
-//   2. embedder/chunker/llm werden als EINE instanz geteilt — cache-key und
-//      warm()-dedup hängen an objekt-identität , nicht an werten. Wird das
-//      verletzt , embeddet jede config das korpus neu (still , kein fehler).
 describe('matrixConfigs', () => {
-  it('liefert den vorgeschriebenen 2-config-default', async () => {
-    const configs = await matrixConfigs()
-
-    // genau 2 configs (1 emb × 1 chunk × 2 rerank-varianten)
-    expect(configs).toHaveLength(2)
-
-    // stabile namen — der cartesian()-helfer hängt die achsen-labels an base an
-    expect(configs.map((c) => c.name)).toEqual(['matrix_norr', 'matrix_bge-rr'])
-
-    // rerank-discrimination: topKToRerank=0 schaltet reranking ab , die
-    // bge-variante reicht 20 kandidaten an den reranker.
-    const norr = configs.find((c) => c.name === 'matrix_norr')
-    const bgeRr = configs.find((c) => c.name === 'matrix_bge-rr')
-    expect(norr?.topKToRerank).toBe(0)
-    expect(bgeRr?.topKToRerank).toBe(20)
-
-    // und es sind wirklich zwei verschiedene reranker-instanzen (skip vs bge)
-    expect(norr?.reranker).not.toBe(bgeRr?.reranker)
+  it('builds the full cartesian product with unique config names', async () => {
+    const cfgs = await matrixConfigs()
+    // 7 embedders × (1 skip + 2 rerankers) × 1 chunker = 21
+    // (chunker axis = 1 ; sweep doesn't re-chunk, so chunk-size comparison
+    //  runs as separate per-size dataset runs, not as an in-run axis)
+    expect(cfgs.length).toBe(21)
+    const names = cfgs.map((c) => c.name)
+    expect(new Set(names).size).toBe(names.length)
+    for (const c of cfgs) {
+      expect(c.embedder).toBeTruthy()
+      expect(c.reranker).toBeTruthy()
+      expect(c.chunker).toBeTruthy()
+    }
+    // all configs share ONE LlmBridge instance — sweep dedups warm() by llm
+    // identity, so the under-test LLM loads once, not 21×.
+    expect(new Set(cfgs.map((c) => c.llm)).size).toBe(1)
   })
 
-  it('teilt embedder/chunker/llm als EINE instanz (cache-reuse + warm-dedup)', async () => {
-    const configs = await matrixConfigs()
+  it('gives every embedder a unique name (embedding-cache-key safety)', async () => {
+    const cfgs = await matrixConfigs()
+    const embNames = new Set(cfgs.map((c) => c.embedder.name))
+    expect(embNames.size).toBe(7)
+  })
 
-    // identitäts-invariante: derselbe embedder + chunker über alle configs ,
-    // sonst greift der cache-key `${embedder.name}::${chunker.name}::...` nicht
-    // und das korpus wird pro config neu eingebettet.
-    expect(
-      configs.every(
-        (c) => c.embedder === configs[0]!.embedder && c.chunker === configs[0]!.chunker,
-      ),
-    ).toBe(true)
-
-    // EINE geteilte , non-null LLM-instanz (auf 'full' gepinnt). Geteilte
-    // identität → der sweep-runner bezahlt den LLM-load genau einmal.
-    expect(configs.every((c) => !!c.llm && c.llm === configs[0]!.llm)).toBe(true)
+  it('builds 10 configs for the code matrix (5 embedders × 2 rerankers)', async () => {
+    // Set env vars to point at the code packs
+    const prevEmb = process.env.LOKLM_EMBEDDER_PACK
+    const prevRr = process.env.LOKLM_RERANKER_PACK
+    process.env.LOKLM_EMBEDDER_PACK = 'embedder-pack-code.json'
+    process.env.LOKLM_RERANKER_PACK = 'reranker-pack-code.json'
+    try {
+      const cfgs = await matrixConfigs()
+      // 5 embedders × (1 skip + 1 reranker) × 1 chunker = 10
+      expect(cfgs.length).toBe(10)
+      const names = cfgs.map((c) => c.name)
+      expect(new Set(names).size).toBe(names.length)
+      const embNames = new Set(cfgs.map((c) => c.embedder.name))
+      expect(embNames.size).toBe(5)
+    } finally {
+      // Restore env vars
+      if (prevEmb === undefined) {
+        delete process.env.LOKLM_EMBEDDER_PACK
+      } else {
+        process.env.LOKLM_EMBEDDER_PACK = prevEmb
+      }
+      if (prevRr === undefined) {
+        delete process.env.LOKLM_RERANKER_PACK
+      } else {
+        process.env.LOKLM_RERANKER_PACK = prevRr
+      }
+    }
   })
 })

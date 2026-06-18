@@ -1,0 +1,10 @@
+{
+  "name": "loklm-code-matrix-rerankers-osi-1",
+  "comment": "Code-Matrix Reranker: nur bge-reranker-v2-m3 (Apache-2.0, XLMRoberta, bestaetigt loadbar). SkipReranker wird von matrixConfigs automatisch hinzugefuegt. Stand 2026-06-17.",
+  "rerankers": [
+    {
+      "label": "bge-reranker-v2-m3",
+      "file": "bge-reranker-v2-m3-Q4_K_M.gguf"
+    }
+  ]
+}

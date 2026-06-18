@@ -29,9 +29,12 @@ export class FixedSizeChunker implements Chunker {
     const step = size - overlap
     const out: SourceChunk[] = []
     for (let start = 0, i = 0; start < doc.text.length; start += step, i++) {
-      const slice = doc.text.slice(start, start + size).trim()
+      const end = Math.min(start + size, doc.text.length)
+      // start/end sind die rohen fenster-grenzen ; chunk.text ist der getrimmte slice
+      const slice = doc.text.slice(start, end).trim()
       if (slice.length === 0) continue
-      out.push({ id: `${doc.id}::${i}`, docId: doc.id, text: slice })
+      out.push({ id: `${doc.id}::${i}`, docId: doc.id, text: slice, start, end })
+      if (end === doc.text.length) break // kein späteres fenster fügt neuen text hinzu ; redundanten tail-chunk vermeiden
     }
     return out
   }

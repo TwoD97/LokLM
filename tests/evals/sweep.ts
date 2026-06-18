@@ -46,6 +46,13 @@ import type { GeneratedQuestion, QuestionIntent, SourceChunk } from './synth/Que
 import { questionIntent, requiredChunkSet } from './synth/QuestionGenerator'
 import { recallAtK, recallRequiredAtK, mrr, ndcgAtK, type RankedResult } from './metrics'
 import {
+  recallAtKSpan,
+  mrrSpan,
+  ndcgAtKSpan,
+  type SpanRankedResult,
+  type Span,
+} from './metrics-span'
+import {
   PhasedTimer,
   ResourceSampler,
   summarizePhases,
@@ -128,6 +135,12 @@ interface ConfigResult {
   recallRequiredAt12: number
   mrr: number
   ndcgAt10: number
+  /** span-basierte Retrieval-Metriken (chunker-unabhängig). 0 wenn der
+   *  Datensatz keine Chunk-Offsets / goldSpans trägt. */
+  recallAt5Span: number
+  recallAt10Span: number
+  mrrSpan: number
+  ndcgAt10Span: number
   phased: PhasedSummary
   resourcePeak: {
     rssMiBMax: number
@@ -433,6 +446,7 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
   // configs-loop reichert die hier gespeicherten records nachträglich an.
   const snapshots: PhasedSnapshot[] = []
   const ranked: RankedResult[] = []
+  const rankedSpan: SpanRankedResult[] = []
   const collectedRecords: PerQuestionRecord[] = []
   for (let qi = 0; qi < questions.length; qi++) {
     const q = questions[qi]!
@@ -446,6 +460,8 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
           id: c.id,
           docId: c.docId,
           text: c.text,
+          start: c.start,
+          end: c.end,
           initialScore: cosineSimilarity(qVec, chunkVecs![i]!),
         }))
         .sort((a, b) => b.initialScore - a.initialScore)
@@ -518,6 +534,11 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
       judge: null,
     }
     ranked.push({ chunkIds: rerankedChunkIds, expected: q.chunkId, required })
+    const goldSpans = (q.goldSpans ?? []) as Span[]
+    const retrievedSpans: Span[] = rerankedChunks
+      .filter((c) => c.start !== undefined && c.end !== undefined)
+      .map((c) => ({ docId: c.docId, start: c.start as number, end: c.end as number }))
+    rankedSpan.push({ spans: retrievedSpans, gold: goldSpans })
     collectedRecords.push(record)
     await writer.appendPerQuestion(record)
   }
@@ -546,6 +567,10 @@ async function runConfig(cfg: PipelineConfig, inputs: RunConfigInputs): Promise<
     recallRequiredAt12: recallRequiredAtK(ranked, 12),
     mrr: mrr(ranked),
     ndcgAt10: ndcgAtK(ranked, 10),
+    recallAt5Span: recallAtKSpan(rankedSpan, 5),
+    recallAt10Span: recallAtKSpan(rankedSpan, 10),
+    mrrSpan: mrrSpan(rankedSpan),
+    ndcgAt10Span: ndcgAtKSpan(rankedSpan, 10),
     phased,
     resourcePeak,
     buildMs,
@@ -688,6 +713,8 @@ function formatResult(r: ConfigResult): string {
 
 function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: string): string {
   const env = envSnapshot()
+  // Span-Metriken: die Tabelle zeigt r@5span + MRRspan als schnellen Blick ;
+  // die vollen span-Werte (recall@10, nDCG@10) stehen in configs/<name>/result.json.
   const header = [
     `# Sweep-Report`,
     ``,
@@ -702,8 +729,8 @@ function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: 
     ``,
     `## Quality + TTFT`,
     ``,
-    `| Config | n | r@5 | r@10 | r_req@5 | r_req@12 | MRR | judge | TTFT p50 | TTFT p95 | FullResp p50 | qEmb | retr | rerank | prefill | rss-max MiB | cpu% | free VRAM min GB | composite |`,
-    `| ------ | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: |`,
+    `| Config | n | r@5 | r@10 | r@5span | MRRspan | r_req@5 | r_req@12 | MRR | judge | TTFT p50 | TTFT p95 | FullResp p50 | qEmb | retr | rerank | prefill | rss-max MiB | cpu% | free VRAM min GB | composite |`,
+    `| ------ | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: | -: |`,
   ]
   const fmt = (n: number, d = 1): string => n.toFixed(d)
   const rows = results.map((r) =>
@@ -712,6 +739,8 @@ function formatMarkdown(results: ConfigResult[], dataset: DatasetInfo, rootDir: 
       r.numQueries,
       fmt(r.recallAt5, 3),
       fmt(r.recallAt10, 3),
+      fmt(r.recallAt5Span, 3),
+      fmt(r.mrrSpan, 3),
       fmt(r.recallRequiredAt5, 3),
       fmt(r.recallRequiredAt12, 3),
       fmt(r.mrr, 3),

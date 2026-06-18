@@ -1,6 +1,6 @@
 {
-  "name": "loklm-rag-eval-15",
-  "comment": "5 klein (<=4B) + 5 mittel (7-14B) + qwen3-8b + Qwen3.5-Reihe (2b/4b/9b/27b) = 15 modelle. paths sind repo-relativ zu models/ , werden vom sweep über resolve() absolut gemacht. contextSize ist die ctx-cap , nicht die native modell-grenze (phi-4 ist real 16k !). reihenfolge im pack = lade-reihenfolge im sweep.",
+  "name": "loklm-matrix-llms-osi-15",
+  "comment": "NUR OSI-permissiv (Apache-2.0/MIT). Llama/Gemma/Hermes raus (siehe model-pack-open-weights-risk.json). License-Gate: evals:licenses:check. Stand 2026-06-14.",
   "models": [
     {
       "label": "qwen3-4b-instruct",
@@ -9,20 +9,8 @@
       "language": "de"
     },
     {
-      "label": "llama-3.2-3b",
-      "path": "models/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-      "contextSize": 8192,
-      "language": "de"
-    },
-    {
       "label": "phi-4-mini",
       "path": "models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
-      "contextSize": 8192,
-      "language": "de"
-    },
-    {
-      "label": "gemma-3-4b",
-      "path": "models/gemma-3-4b-it-Q4_K_M.gguf",
       "contextSize": 8192,
       "language": "de"
     },
@@ -57,12 +45,6 @@
       "language": "de"
     },
     {
-      "label": "hermes-3-8b",
-      "path": "models/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf",
-      "contextSize": 8192,
-      "language": "de"
-    },
-    {
       "label": "qwen3-8b",
       "path": "models/Qwen_Qwen3-8B-Q4_K_M.gguf",
       "contextSize": 8192,
@@ -89,6 +71,24 @@
     {
       "label": "qwen3.5-27b",
       "path": "models/Qwen3.5-27B-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "ministral-3-14b",
+      "path": "models/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "eurollm-9b",
+      "path": "models/EuroLLM-9B-Instruct-Q4_K_M.gguf",
+      "contextSize": 8192,
+      "language": "de"
+    },
+    {
+      "label": "granite-4.1-3b",
+      "path": "models/granite-4.1-3b-Q4_K_M.gguf",
       "contextSize": 8192,
       "language": "de"
     }
