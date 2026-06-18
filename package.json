@@ -128,6 +128,7 @@
     "@lancedb/lancedb": "^0.30.0",
     "@napi-rs/canvas": "^0.1.100",
     "@types/better-sqlite3": "^7.6.13",
+    "apache-arrow": "18.1.0",
     "argon2": "^0.44.0",
     "better-sqlite3-multiple-ciphers": "^12.10.0",
     "dotenv": "^17.4.2",
