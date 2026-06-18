@@ -11,13 +11,19 @@
 // fans them out to subscribers.
 //
 // All three services share one Llama backend instance (singleton inside
-// node-llama-cpp). A FIFO mutex serialises the heavy `loadModel` calls so a
-// concurrent ask never overlaps a load. Inference (embed / rank / ask) is
-// async at the native layer and can interleave freely between requests.
+// node-llama-cpp). node-llama-cpp only globally serialises the decode *call*,
+// and only on Vulkan (LlamaContext's `decodeSyncWorkaround.vulkanLock`) —
+// context loads/disposes, sampling and KV-cache edits across the embedder /
+// reranker / chat contexts can otherwise overlap and fast-fail the whole
+// process on a fragile driver (seen as 0xC0000409 on an AMD iGPU Vulkan stack
+// when background embedding raced a chat ask / reranker load). So EVERY native-
+// backend op is funnelled through one FIFO serializer (backendSerializer) and
+// runs one-at-a-time; only control ops (abort / setLanguage / shutdown) bypass
+// it — see SERIALIZED_OPS.
 
 import { cpus } from 'node:os'
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
-import type { KvCacheType, SystemResources } from '../embeddings/ResourcePlanner'
+import type { KvCacheType } from '../embeddings/ResourcePlanner'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -32,6 +38,7 @@ import type {
   RerankerLoadResult,
 } from './protocol'
 import { fitsUtilityContext, UTILITY_CONTEXT_MAX_TOKENS } from './llmRouting'
+import { createBackendSerializer } from './backendSerializer'
 
 // --- GPU enablement inside the utility process (load-bearing) ----------------
 // Before loading a GPU binary on Windows, node-llama-cpp FORCES a compatibility
@@ -64,8 +71,21 @@ const planner = new ResourcePlanner()
 
 // ---- shared state for the three services ----------------------------------
 
-let llamaBackend: unknown = null
-let backendGpuLabel: string | null = null
+// Two SEPARATE llama backends so background indexing never shares a GPU device
+// context with the interactive chat model — concurrent native ops on ONE shared
+// backend fast-fail the process on a fragile driver (AMD iGPU Vulkan, 0xC0000409).
+//   - 'primary' runs the chat LLM on its chosen device (GPU when available).
+//   - 'aux' is CPU-pinned and owns the embedder + reranker.
+// The chat model is therefore the sole GPU tenant; the embedder/reranker make no
+// GPU calls and cannot collide with it. (See backendSerializer for the one
+// remaining guard, which is internal to the chat backend's two contexts.)
+type BackendKey = 'primary' | 'aux'
+const backends = new Map<BackendKey, unknown>()
+// In-flight creation per key, so two concurrent loads of the same backend
+// (e.g. embedder.load + reranker.load both warming the 'aux' backend at startup)
+// share ONE getLlama instead of racing to create two and orphaning one.
+const backendPromises = new Map<BackendKey, Promise<unknown>>()
+let primaryGpuLabel: string | null = null
 
 let llmModel: unknown = null
 let llmContext: unknown = null
@@ -150,22 +170,12 @@ function endTokenStream(streamId: string): void {
   tokenStreamStarted.delete(streamId)
 }
 
-// ---- mutex for load operations --------------------------------------------
-
-let loadTail: Promise<void> = Promise.resolve()
-async function withLoadLock<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = loadTail
-  let release: () => void = () => {}
-  loadTail = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  await prev
-  try {
-    return await fn()
-  } finally {
-    release()
-  }
-}
+// ---- serialiser for all native-backend ops --------------------------------
+// One FIFO queue shared by load / unload / embed / rank / ask / generateRaw /
+// planner.refresh so no two native llama.cpp operations ever touch the shared
+// backend at the same instant. Control ops (abort / setLanguage / shutdown)
+// bypass it — see backendSerializer's SERIALIZED_OPS.
+const runSerialized = createBackendSerializer()
 
 // ---- protocol helpers -----------------------------------------------------
 
@@ -198,43 +208,71 @@ function log(level: 'info' | 'warn' | 'error', message: string): void {
   send({ ev: 'log', level, message })
 }
 
-// ---- llama backend init (idempotent across all three services) ------------
+// ---- llama backend init (one instance per key, lazily) --------------------
 
 async function ensureBackend(
+  key: BackendKey,
   forceCpu: boolean,
   onMessage: (msg: string) => void,
 ): Promise<unknown> {
-  if (llamaBackend) return llamaBackend
+  const existing = backends.get(key)
+  if (existing) return existing
+  const inFlight = backendPromises.get(key)
+  if (inFlight) return inFlight
+  const creation = createBackend(key, forceCpu, onMessage)
+  backendPromises.set(key, creation)
+  try {
+    return await creation
+  } finally {
+    // Clear on settle: on success the early-returns above reuse `backends`; on
+    // failure a later load can retry the init.
+    backendPromises.delete(key)
+  }
+}
+
+async function createBackend(
+  key: BackendKey,
+  forceCpu: boolean,
+  onMessage: (msg: string) => void,
+): Promise<unknown> {
   const lib = await import('node-llama-cpp')
   const pinned = (process.env['LLAMA_GPU'] ?? '').toLowerCase()
   type Gpu = 'cuda' | 'vulkan' | 'metal' | 'auto' | false
   const order: Gpu[] = (() => {
+    // The aux backend (embedder + reranker) is ALWAYS CPU — it must never share
+    // a GPU device context with the chat (primary) backend. LLAMA_GPU / forceCpu
+    // only steer the primary device choice.
+    if (key === 'aux') return [false]
     if (pinned === 'cpu' || pinned === 'false') return [false]
     if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
     if (forceCpu) return [false]
     return ['auto']
   })()
   let lastErr: unknown = null
-  // Use all but one CPU core for decode/prefill. node-llama-cpp's default
-  // heuristic underuses physical cores on Windows ( observed ~2.4 tok/s
-  // decode on a 2B model where the machine has 8+ idle cores ). Capping to
-  // cpus().length - 1 leaves one core for the OS / Electron main loop so the
-  // UI stays responsive during long inference.
-  const maxThreads = Math.max(1, cpus().length - 1)
+  // primary: all but one core (node-llama-cpp's default underuses physical cores
+  // on Windows; one core stays free for the OS / Electron main loop). aux: capped
+  // lower so background CPU embedding/reranking doesn't starve a CPU-resident
+  // chat model — and so the two backends don't oversubscribe every core.
+  const cpuCount = cpus().length
+  const maxThreads =
+    key === 'aux' ? Math.max(1, Math.floor(cpuCount / 2)) : Math.max(1, cpuCount - 1)
   for (const gpu of order) {
     try {
-      onMessage(`Initialising llama backend (${gpu === false ? 'cpu' : gpu})…`)
+      onMessage(`Initialising ${key} llama backend (${gpu === false ? 'cpu' : gpu})…`)
       const llama = await lib.getLlama({ gpu, maxThreads })
-      llamaBackend = llama
+      backends.set(key, llama)
       const obj = llama as { gpu?: string | false }
-      backendGpuLabel = obj.gpu === false ? 'cpu' : (obj.gpu ?? null) || null
-      // Wire the planner to reuse the same backend instance so its VRAM probe
-      // doesn't init a second time.
-      ;(planner as unknown as { llamaProbe: unknown }).llamaProbe = llama
+      const label = obj.gpu === false ? 'cpu' : (obj.gpu ?? null) || null
+      if (key === 'primary') {
+        primaryGpuLabel = label
+        // Wire the planner's VRAM probe to the GPU (primary) backend so it
+        // reuses this instance instead of spawning its own probe backend.
+        ;(planner as unknown as { llamaProbe: unknown }).llamaProbe = llama
+      }
       return llama
     } catch (err) {
       lastErr = err
-      log('warn', `${gpu} init failed: ${err instanceof Error ? err.message : String(err)}`)
+      log('warn', `${key} ${gpu} init failed: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
   throw lastErr ?? new Error('No backend could be initialised')
@@ -267,10 +305,10 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   // 'cpu' forces the CPU backend; 'gpu'/'auto' let getLlama auto-detect (GPU
   // first, CPU fallback). The shared-backend singleton means whichever service
   // inits first wins — see LlmLoadPayload.placement.
-  const llama = await ensureBackend(payload.placement === 'cpu', (msg) =>
+  const llama = await ensureBackend('primary', payload.placement === 'cpu', (msg) =>
     pushStatus('llm', { message: msg }),
   )
-  pushStatus('llm', { gpu: backendGpuLabel, message: 'Loading model weights…' })
+  pushStatus('llm', { gpu: primaryGpuLabel, message: 'Loading model weights…' })
 
   // Probe resources BEFORE the weights allocate so planLlm's freeVram math
   // doesn't double-count weights. Use the TTL'd refresh so back-to-back
@@ -447,22 +485,22 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     state: 'ready',
     loadProgress: null,
     message: 'Ready.',
-    gpu: backendGpuLabel,
+    gpu: primaryGpuLabel,
   })
-  const onGpu = backendGpuLabel != null && backendGpuLabel !== 'cpu'
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   const resolvedPlacement: 'cpu' | 'gpu' = onGpu ? 'gpu' : 'cpu'
   const placementReason =
     payload.placement === 'cpu'
       ? 'cpu: forced by setting'
       : onGpu
-        ? `gpu: ${backendGpuLabel} backend`
+        ? `gpu: ${primaryGpuLabel} backend`
         : payload.placement === 'gpu'
           ? 'cpu: no GPU backend available — fell back'
           : 'cpu: no GPU backend detected'
   return {
     plan: activePlan,
     resources: postResources,
-    gpuLabel: backendGpuLabel,
+    gpuLabel: primaryGpuLabel,
     resolvedPlacement,
     placementReason,
   }
@@ -512,7 +550,9 @@ const grammarCache = new Map<string, unknown>()
  *  when the backend doesn't expose createGrammarForJsonSchema or the build
  *  throws — the caller then generates without a grammar. */
 async function grammarForSchema(schema: object): Promise<unknown> {
-  const backend = llamaBackend as {
+  // Grammar building belongs to the chat (primary) backend — it's only used by
+  // LLM generation. The aux CPU backend never builds grammars.
+  const backend = backends.get('primary') as {
     createGrammarForJsonSchema?: (s: object) => Promise<unknown>
   } | null
   if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
@@ -707,18 +747,13 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     loadProgress: 0,
     message: 'Initialising embedder backend…',
   })
-  const resources = await planner.refreshIfStale()
-  const plan = planner.planAux({
-    weightsBytes: payload.weightsBytes,
-    resources,
-    userChoice: payload.placement,
-    estimatedFreeVramGB: resources.freeVramGB,
-  })
-  const llama = await ensureBackend(plan.placement === 'cpu', (msg) =>
-    pushStatus('embedder', { message: msg }),
-  )
+  // The embedder runs on the dedicated CPU 'aux' backend — never the GPU device
+  // the chat model owns. Use a RAM-only snapshot, NOT refreshIfStale(): a VRAM
+  // probe could spin up a GPU backend before the chat model has even loaded.
+  const resources = planner.snapshot()
+  const llama = await ensureBackend('aux', true, (msg) => pushStatus('embedder', { message: msg }))
   pushStatus('embedder', {
-    message: `Loading embedder weights (${plan.placement}: ${plan.reason})…`,
+    message: 'Loading embedder weights (cpu — dedicated aux backend)…',
   })
   const model = await (
     llama as {
@@ -740,13 +775,11 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
   embedderModel = model
   embedderContext = context
   pushStatus('embedder', { state: 'ready', loadProgress: null, message: 'Embedder ready.' })
-  let post: SystemResources = resources
-  try {
-    post = await planner.refresh()
-  } catch {
-    /* keep snapshot */
+  return {
+    resources,
+    resolvedPlacement: 'cpu',
+    reason: 'dedicated CPU backend (kept off the GPU device)',
   }
-  return { resources: post, resolvedPlacement: plan.placement, reason: plan.reason }
 }
 
 async function embedderUnloadInternal(): Promise<void> {
@@ -799,18 +832,12 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  const resources = await planner.refreshIfStale()
-  const plan = planner.planAux({
-    weightsBytes: payload.weightsBytes,
-    resources,
-    userChoice: payload.placement,
-    estimatedFreeVramGB: resources.freeVramGB,
-  })
-  const llama = await ensureBackend(plan.placement === 'cpu', (msg) =>
-    pushStatus('reranker', { message: msg }),
-  )
+  // Reranker shares the embedder's dedicated CPU 'aux' backend — off the GPU
+  // device the chat model owns. RAM-only snapshot (no VRAM probe — see embedder).
+  const resources = planner.snapshot()
+  const llama = await ensureBackend('aux', true, (msg) => pushStatus('reranker', { message: msg }))
   pushStatus('reranker', {
-    message: `Loading reranker weights (${plan.placement}: ${plan.reason})…`,
+    message: 'Loading reranker weights (cpu — dedicated aux backend)…',
   })
   const model = await (
     llama as {
@@ -832,13 +859,11 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
   rerankerModel = model
   rerankerContext = context
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
-  let post: SystemResources = resources
-  try {
-    post = await planner.refresh()
-  } catch {
-    /* keep snapshot */
+  return {
+    resources,
+    resolvedPlacement: 'cpu',
+    reason: 'dedicated CPU backend (kept off the GPU device)',
   }
-  return { resources: post, resolvedPlacement: plan.placement, reason: plan.reason }
 }
 
 async function rerankerUnloadInternal(): Promise<void> {
@@ -878,7 +903,10 @@ process.parentPort.on('message', (raw: WorkerRequest) => {
   // protocol shape lives on the message itself. Defensive unwrap so we cope
   // with both.
   const msg = (raw as unknown as { data?: WorkerRequest }).data ?? raw
-  void handle(msg).catch((err) => {
+  // Funnel through the FIFO serializer keyed on the op. Native-backend ops run
+  // one-at-a-time; control ops (abort / setLanguage / shutdown) and any
+  // unknown/malformed op bypass and reach handle() immediately.
+  void runSerialized(msg.op, () => handle(msg)).catch((err) => {
     if ('id' in msg) fail(msg.id, err)
     else log('error', err instanceof Error ? err.message : String(err))
   })
@@ -887,7 +915,7 @@ process.parentPort.on('message', (raw: WorkerRequest) => {
 async function handle(msg: WorkerRequest): Promise<void> {
   switch (msg.op) {
     case 'llm.load':
-      reply(msg.id, await withLoadLock(() => llmLoad(msg.payload)))
+      reply(msg.id, await llmLoad(msg.payload))
       return
     case 'llm.unload':
       await llmUnload()
@@ -913,7 +941,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     }
     case 'embedder.load':
-      reply(msg.id, await withLoadLock(() => embedderLoad(msg.payload)))
+      reply(msg.id, await embedderLoad(msg.payload))
       return
     case 'embedder.unload':
       await embedderUnload()
@@ -923,7 +951,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
       reply(msg.id, await embedderEmbed(msg.payload.texts))
       return
     case 'reranker.load':
-      reply(msg.id, await withLoadLock(() => rerankerLoad(msg.payload)))
+      reply(msg.id, await rerankerLoad(msg.payload))
       return
     case 'reranker.unload':
       await rerankerUnload()
