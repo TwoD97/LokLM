@@ -259,6 +259,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
          *  to mint fresh fns each render and defeat the memo. */
         <DocumentTable
           docs={docs}
+          resetKey={workspaceId}
           progress={progress}
           onDelete={onDelete}
           onReindex={onReindex}
