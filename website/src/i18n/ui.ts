@@ -59,19 +59,19 @@ export const ui = {
       'Importiere PDF (auch gescannt, per OCR), Word (DOCX), Markdown, Text, HTML und Quellcode — organisiert in Arbeitsbereichen.',
     'features.crypto.title': 'Verschlüsselter Vault',
     'features.crypto.body':
-      'Argon2id-Schlüsselableitung, AES-256-GCM-Verschlüsselung, ein einziger verschlüsselter Vault mit Schlüsselhierarchie pro Arbeitsbereich, Wiederherstellung über eine 18-Wort-Phrase.',
+      'Argon2id-Schlüsselableitung und AES-256-GCM. Dein Passwort — oder die 18-Wort-Wiederherstellungsphrase — entsperrt einen Hauptschlüssel; jeder Arbeitsbereich wird unter einem eigenen Schlüssel verschlüsselt.',
     'features.local.title': 'Daten bleiben bei dir',
     'features.local.body':
-      'Alles wird in einer einzigen Vault-Datei gespeichert — leicht zu sichern, leicht zu migrieren.',
+      'Deine Dokumente werden verschlüsselt auf deinem Gerät gespeichert (im LokLM-Datenordner) — nichts wandert in die Cloud.',
     'features.opensource.title': 'Quelltext einsehbar',
     'features.opensource.body':
       'MIT-Lizenz. Audit, fork, beitragen — der gesamte Code ist auf GitHub einsehbar.',
     'features.translate.title': 'Übersetzung (400+ Sprachen)',
     'features.translate.body':
-      'Übersetze Dokumente und Antworten lokal mit einem dedizierten MT-Modell (MADLAD-400) — frag auf Deutsch über fremdsprachige Quellen.',
+      'Übersetze Dokumente und Textstellen lokal mit einem dedizierten Übersetzungsmodell (MADLAD-400). Kein Cloud-Übersetzer, keine API.',
     'features.transcribe.title': 'Audio-Transkription',
     'features.transcribe.body':
-      'Transkribiere Audio lokal mit Whisper, inklusive Sprechertrennung — und befrage das Ergebnis wie jedes andere Dokument.',
+      'Transkribiere Audio lokal mit Whisper, inklusive Sprechertrennung — speichere das Transkript in einen Arbeitsbereich und befrage es wie jedes Dokument.',
     'features.code.title': 'Codebasen durchsuchen',
     'features.code.body':
       'Indiziere ganze Repositories mit code-spezifischen Embeddings; Antworten verweisen auf Datei und Zeile (z. B. auth.ts:88), inklusive Ordner-Sync.',
@@ -139,9 +139,9 @@ export const ui = {
     'deepdive.citations.cta': 'Zur Architektur',
     'deepdive.citations.alt': 'Screenshot: Antwort mit Quellen-Chip und Vorschau-Popover',
     'deepdive.vault.eyebrow': 'Vault',
-    'deepdive.vault.title': 'Eine verschlüsselte Datei — dein gesamtes Wissen.',
+    'deepdive.vault.title': 'Verschlüsselt auf deinem Gerät.',
     'deepdive.vault.body':
-      'Argon2id-Schlüsselableitung, AES-256-GCM, ein einziger verschlüsselter Vault mit Schlüsselhierarchie pro Arbeitsbereich, Wiederherstellung über eine 18-Wort-Phrase. Eine Datei zum Sichern.',
+      'Argon2id-Schlüsselableitung, AES-256-GCM und ein eigener Schlüssel pro Arbeitsbereich. Entsperrt über Passwort oder die 18-Wort-Wiederherstellungsphrase — alles bleibt lokal.',
     'deepdive.vault.cta': 'Architektur ansehen',
     'deepdive.vault.alt': 'Screenshot: Vault-Übersicht mit Verschlüsselungsindikator',
     'deepdive.offline.eyebrow': 'Offline',
@@ -202,13 +202,13 @@ export const ui = {
       'Nein, alles läuft auch auf der CPU. Mit einer NVIDIA-GPU geht es spürbar schneller — der Installer lädt dafür optional die CUDA-Unterstützung nach (~680 MB), die Sprachmodell und Übersetzung beschleunigt.',
     'faq.q5.q': 'Wo werden meine Dokumente gespeichert?',
     'faq.q5.a':
-      'In einer einzigen verschlüsselten Vault-Datei in deinem Benutzerordner. Verschlüsselt mit AES-GCM, der Schlüssel wird aus deinem Passwort via Argon2id abgeleitet.',
+      'Verschlüsselt auf deinem Gerät, im LokLM-Datenordner deines Benutzerkontos — pro Arbeitsbereich ein eigener verschlüsselter Speicher. Verschlüsselt mit AES-256-GCM, der Schlüssel wird via Argon2id aus deinem Passwort abgeleitet.',
     'faq.q6.q': 'Ist LokLM so klug wie ChatGPT oder Claude?',
     'faq.q6.a':
       'Nein. Cloud-Modelle laufen auf um Größenordnungen mehr Hardware. LokLM ist für etwas anderes optimiert: Privatsphäre, Quellenverweise auf deine eigenen Dokumente, und vollständig offline. Für offene Wissensfragen ohne Kontext sind Cloud-Modelle weiter besser — LokLM ist stark, wenn die Antwort in deinen eigenen Unterlagen steht.',
-    'faq.q7.q': 'Wie sichere ich den Vault?',
+    'faq.q7.q': 'Wie sichere ich meine Daten?',
     'faq.q7.a':
-      'Die Vault-Datei kopierst du wohin du willst — externe Festplatte, Cloud-Speicher (sie ist verschlüsselt), Backup-Tool deiner Wahl.',
+      'Sichere den LokLM-Datenordner — er enthält den verschlüsselten Schlüssel-Vault und deine Arbeitsbereiche. Da alles verschlüsselt ist, kannst du den Ordner auch in einen Cloud-Speicher kopieren.',
     'faq.q8.q': 'Was passiert, wenn ich das Passwort verliere?',
     'faq.q8.a':
       'Du kannst den Vault mit deiner 18-Wort-Wiederherstellungsphrase wiederherstellen. Ohne beides ist der Vault nicht zu öffnen — das ist Absicht.',
@@ -386,19 +386,19 @@ export const ui = {
       'Import PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, and source code — organised into workspaces.',
     'features.crypto.title': 'Encrypted vault',
     'features.crypto.body':
-      'Argon2id key derivation, AES-256-GCM encryption, a single encrypted vault with a per-workspace key hierarchy, recovery via an 18-word passphrase.',
+      'Argon2id key derivation and AES-256-GCM. Your password — or the 18-word recovery phrase — unlocks a master key; each workspace is encrypted under its own key.',
     'features.local.title': 'Your data stays with you',
     'features.local.body':
-      'Everything lives in a single vault file — easy to back up, easy to migrate.',
+      'Your documents are stored encrypted on your device (in the LokLM data folder) — nothing goes to the cloud.',
     'features.opensource.title': 'Source-available',
     'features.opensource.body':
       'MIT licence. Audit, fork, contribute — the full source is on GitHub.',
     'features.translate.title': 'Translation (400+ languages)',
     'features.translate.body':
-      'Translate documents and answers locally with a dedicated MT model (MADLAD-400) — ask in your language across foreign-language sources.',
+      'Translate documents and passages locally with a dedicated translation model (MADLAD-400). No cloud translator, no API.',
     'features.transcribe.title': 'Audio transcription',
     'features.transcribe.body':
-      'Transcribe audio locally with Whisper, including speaker separation — then query the transcript like any other document.',
+      'Transcribe audio locally with Whisper, including speaker separation — save the transcript into a workspace and query it like any document.',
     'features.code.title': 'Search your codebase',
     'features.code.body':
       'Index whole repositories with code-specialised embeddings; answers cite the file and line (e.g. auth.ts:88), with folder sync.',
@@ -464,9 +464,9 @@ export const ui = {
     'deepdive.citations.cta': 'See the architecture',
     'deepdive.citations.alt': 'Screenshot: answer with source chip and preview popover',
     'deepdive.vault.eyebrow': 'Vault',
-    'deepdive.vault.title': 'One encrypted file — all of your knowledge.',
+    'deepdive.vault.title': 'Encrypted on your device.',
     'deepdive.vault.body':
-      'Argon2id key derivation, AES-256-GCM, a single encrypted vault with a per-workspace key hierarchy, recovery via an 18-word phrase. One file to back up.',
+      'Argon2id key derivation, AES-256-GCM, and a separate key per workspace. Unlocked by your password or the 18-word recovery phrase — all of it stays local.',
     'deepdive.vault.cta': 'See the architecture',
     'deepdive.vault.alt': 'Screenshot: vault overview with encryption indicator',
     'deepdive.offline.eyebrow': 'Offline',
@@ -527,13 +527,13 @@ export const ui = {
       'No, everything runs on CPU too. With an NVIDIA GPU it is noticeably faster — the installer can optionally pull CUDA support (~680 MB), which accelerates both the language model and translation.',
     'faq.q5.q': 'Where are my documents stored?',
     'faq.q5.a':
-      'In a single encrypted vault file in your user directory. Encrypted with AES-GCM, the key derived from your password via Argon2id.',
+      'Encrypted on your device, in the LokLM data folder of your user account — a separate encrypted store per workspace. Encrypted with AES-256-GCM, the key derived from your password via Argon2id.',
     'faq.q6.q': 'Is LokLM as smart as ChatGPT or Claude?',
     'faq.q6.a':
       'No. Cloud models run on orders of magnitude more hardware. LokLM is optimised for something different: privacy, citations into your own documents, and fully offline use. For open knowledge questions without context, cloud models remain better — LokLM is strong when the answer is in your own files.',
-    'faq.q7.q': 'How do I back up the vault?',
+    'faq.q7.q': 'How do I back up my data?',
     'faq.q7.a':
-      'You copy the vault file anywhere — external drive, cloud storage (it stays encrypted), backup tool of choice.',
+      'Back up the LokLM data folder — it holds the encrypted key vault and your workspaces. Since everything is encrypted, you can copy the folder to cloud storage too.',
     'faq.q8.q': 'What happens if I lose my password?',
     'faq.q8.a':
       'You can recover the vault with your 18-word recovery phrase. Without either, the vault cannot be opened — by design.',
