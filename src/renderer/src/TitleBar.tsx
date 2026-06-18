@@ -134,10 +134,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     state: EmbedderState
     message: string | null
     source: DotSource
+    // ADR-0006: which bundled embedder is resident — jina-code (codebase
+    // workspaces) vs BGE-M3 — so the dot can say "Code embedder" when active.
+    modelName: string | null
   }>({
     state: 'idle',
     message: null,
     source: 'bundled',
+    modelName: null,
   })
   const [reranker, setReranker] = useState<{
     state: RerankerState
@@ -174,9 +178,16 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   useEffect(() => {
     void window.api.embedder
       .status()
-      .then((s) => setEmbedder({ state: s.state, message: s.message, source: s.source }))
+      .then((s) =>
+        setEmbedder({
+          state: s.state,
+          message: s.message,
+          source: s.source,
+          modelName: s.modelName,
+        }),
+      )
     const off = window.api.embedder.onStatus((s) =>
-      setEmbedder({ state: s.state, message: s.message, source: s.source }),
+      setEmbedder({ state: s.state, message: s.message, source: s.source, modelName: s.modelName }),
     )
     return () => off()
   }, [])
@@ -272,7 +283,9 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           device={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
         />
         <StatusDot
-          label="Embedder"
+          // ADR-0006: surface the resident embedder — jina-code → "Code embedder",
+          // otherwise the doc model (BGE-M3) → "Embedder".
+          label={/jina[-_]?code/i.test(embedder.modelName ?? '') ? 'Code embedder' : 'Embedder'}
           state={embedder.state}
           source={embedder.source}
           message={embedder.message}
