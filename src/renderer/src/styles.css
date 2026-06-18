@@ -704,37 +704,29 @@ body {
 .app {
   position: relative;
   z-index: 1;
-  max-width: 520px;
+  width: min(520px, 100%);
   margin: 0 auto;
-  padding: calc(36px + 2.5rem) 1.5rem 4rem;
+  /* Center the auth card in the viewport — the window frame (TitleBar) already
+     carries the LokLM mark + name, so this screen has no brand block of its own.
+     The auto margins below center the group when it fits and collapse to a
+     top-aligned, body-scrolled layout when a tall form (register) overflows, so
+     nothing is ever clipped. border-box keeps padding inside the 100vh. */
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: calc(32px + 1rem) 1.5rem 2rem;
 }
 
 .app__header {
-  margin-bottom: 1.5rem;
+  margin-top: auto; /* free space above the group … */
+  margin-bottom: 1.25rem;
+  text-align: center;
   animation: fadeIn 400ms var(--ease) both;
 }
 
-.app__brand-row {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 0.15rem;
-}
-
-.app__mark {
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
-}
-
-.app__brand {
-  margin: 0;
-  font-size: 1.85rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #fff 0%, var(--fg-1) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.app > :last-child {
+  margin-bottom: auto; /* … and below it → vertically centered, scrolls if tall */
 }
 
 .app__sub {
