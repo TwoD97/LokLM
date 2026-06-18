@@ -126,11 +126,27 @@ describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
     expect(robots).toContain('Sitemap: https://loklm.com/sitemap-index.xml')
   })
 
-  it('llms.txt is generated with pillar + persona links', () => {
+  it('llms.txt is generated with pillar + persona links and a FAQ', () => {
     const llms = readFileSync(resolve(root, 'dist/llms.txt'), 'utf-8')
     expect(llms).toContain('# LokLM')
     expect(llms).toContain('https://loklm.com/lokale-ki')
     expect(llms).toContain('https://loklm.com/en/use-cases/lawyer')
+    expect(llms).toContain('## Key facts')
+    expect(llms).toContain('## FAQ')
+    expect(llms).toContain('/llms-full.txt')
+  })
+
+  it('llms-full.txt embeds the full text of the posts', () => {
+    const full = readFileSync(resolve(root, 'dist/llms-full.txt'), 'utf-8')
+    expect(full.startsWith('# LokLM — full content')).toBe(true)
+    // a sentence that only appears inside a post body, not in frontmatter
+    expect(full).toContain('three separable stages')
+  })
+
+  it('every page embeds the WebSite JSON-LD node', () => {
+    const html = readFileSync(resolve(root, 'dist/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"WebSite"')
+    expect(html).toContain('#website')
   })
 
   it('pillar + persona pages embed WebPage and BreadcrumbList JSON-LD', () => {

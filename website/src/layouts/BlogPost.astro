@@ -25,7 +25,6 @@ const base = lang === 'de' ? '/blog' : '/en/blog'
 const pageUrl = `${siteUrl}${base}/${slug}`
 const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
 const ogImage = `${siteUrl}/brand/og.png`
-const rssHref = `${base}/rss.xml`
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const fmtDate = (d: Date) =>
@@ -77,12 +76,8 @@ const schemas = [
   ogType="article"
 >
   <Fragment slot="head">
-    <link
-      rel="alternate"
-      type="application/rss+xml"
-      title={`LokLM ${t(lang, 'blog.title')}`}
-      href={rssHref}
-    />
+    <link rel="alternate" type="text/markdown" href={`${base}/${slug}.md`} />
+    <link rel="author" href={homeUrl} />
     <meta property="article:published_time" content={pubDate.toISOString()} />
     {updatedDate && (
       <meta property="article:modified_time" content={updatedDate.toISOString()} />
