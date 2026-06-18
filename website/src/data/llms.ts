@@ -1,39 +1,128 @@
 // Generated LLM-discovery index (Answer.AI llms.txt spec). Derived from the
-// cluster topology so it never drifts from the real routes.
+// cluster topology + content collection so it never drifts from the real
+// routes. `llms.txt` is the concise map; `llms-full.txt` (see the route) is the
+// full-text corpus for retrieval.
 import { personas, pillars, pillarUrl, personaUrl } from './cluster'
+import { faqKeys } from './faq'
+import { t } from '../i18n/ui'
 
-export function buildLlmsTxt(siteUrl: string): string {
+export interface LlmsPost {
+  title: string
+  description: string
+  url: string
+  lang: 'de' | 'en'
+  date?: string
+}
+
+export interface LlmsFullPost extends LlmsPost {
+  body: string
+}
+
+const SUMMARY =
+  'Local AI knowledge assistant with source citations — runs fully offline, encrypted on-device, no cloud APIs.'
+
+const OVERVIEW =
+  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model runs locally through llama.cpp, documents are chunked and indexed locally, and everything is stored in a single encrypted vault. No cloud, no external AI APIs, no telemetry, no account. Every answer carries clickable citations back to the exact passage in the source document.'
+
+const KEY_FACTS: string[] = [
+  'License: MIT (open source), source available on GitHub.',
+  'Platforms: Windows, macOS, and Linux desktop application.',
+  'Privacy: fully offline; no telemetry; no account; documents never leave the device.',
+  'Security: AES-GCM per-file encryption, Argon2id password hashing, 18-word recovery phrase.',
+  'Capability: retrieval-augmented answers with clickable citations over your own PDF, Markdown, text, and code.',
+  'Models: ships with defaults (~20 GB on first install); supports custom GGUF models via llama.cpp.',
+  'Best for: questions whose answer is in your own files. Not optimised for open-domain knowledge without context.',
+  'Built by Denys Tudosa and Dominik Furlan.',
+]
+
+export function buildLlmsTxt(siteUrl: string, posts: LlmsPost[] = []): string {
   const base = siteUrl.replace(/\/$/, '')
   const lines: string[] = []
+
   lines.push('# LokLM')
   lines.push('')
-  lines.push(
-    '> Local AI knowledge assistant with source citations — runs fully offline, encrypted on-device, no cloud APIs.',
-  )
+  lines.push(`> ${SUMMARY}`)
+  lines.push('')
+  lines.push(OVERVIEW)
   lines.push('')
   lines.push(`Site: ${base}`)
   lines.push('')
+
+  lines.push('## Key facts')
+  for (const f of KEY_FACTS) lines.push(`- ${f}`)
+  lines.push('')
+
   lines.push('## Pillars')
   for (const p of pillars) {
     lines.push(`- [${p.key} (DE)](${base}${pillarUrl(p.key, 'de')})`)
     lines.push(`- [${p.key} (EN)](${base}${pillarUrl(p.key, 'en')})`)
   }
   lines.push('')
+
   lines.push('## Use cases')
   for (const p of personas) {
     lines.push(`- [${p.key} (DE)](${base}${personaUrl(p.key, 'de')})`)
     lines.push(`- [${p.key} (EN)](${base}${personaUrl(p.key, 'en')})`)
   }
   lines.push('')
+
   lines.push('## Blog')
   lines.push(`- [Blog (DE)](${base}/blog)`)
   lines.push(`- [Blog (EN)](${base}/en/blog)`)
   lines.push(`- [RSS (DE)](${base}/blog/rss.xml)`)
   lines.push(`- [RSS (EN)](${base}/en/blog/rss.xml)`)
+  for (const post of posts) {
+    // each post also has a plain-markdown mirror at <url>.md for clean ingestion
+    lines.push(`- [${post.title} (${post.lang.toUpperCase()})](${post.url}.md) — ${post.description}`)
+  }
   lines.push('')
+
+  lines.push('## FAQ')
+  for (const { q, a } of faqKeys) {
+    lines.push(`### ${t('en', q)}`)
+    lines.push(t('en', a))
+    lines.push('')
+  }
+
   lines.push('## Project')
   lines.push('- [GitHub](https://github.com/TwoD97/LokLM)')
+  lines.push(`- [Full-text corpus](${base}/llms-full.txt)`)
   lines.push(`- [Privacy (DE)](${base}/privacy)`)
   lines.push(`- [Privacy (EN)](${base}/en/privacy)`)
+
+  return lines.join('\n') + '\n'
+}
+
+// Full-text corpus: the concise map plus the complete body of every post, so a
+// model can ingest the whole site in one fetch.
+export function buildLlmsFullTxt(siteUrl: string, posts: LlmsFullPost[] = []): string {
+  const base = siteUrl.replace(/\/$/, '')
+  const lines: string[] = []
+
+  lines.push('# LokLM — full content')
+  lines.push('')
+  lines.push(`> ${SUMMARY}`)
+  lines.push('')
+  lines.push(OVERVIEW)
+  lines.push('')
+  lines.push(`Site: ${base}`)
+  lines.push('')
+  lines.push('## Key facts')
+  for (const f of KEY_FACTS) lines.push(`- ${f}`)
+  lines.push('')
+
+  for (const post of posts) {
+    lines.push('---')
+    lines.push('')
+    lines.push(`# ${post.title}`)
+    lines.push('')
+    lines.push(`Language: ${post.lang} · Source: ${post.url}`)
+    lines.push('')
+    lines.push(`> ${post.description}`)
+    lines.push('')
+    lines.push(post.body.trim())
+    lines.push('')
+  }
+
   return lines.join('\n') + '\n'
 }

@@ -77,6 +77,28 @@ export function buildWebPageSchema(input: WebPageSchemaInput) {
   }
 }
 
+export interface WebSiteSchemaInput {
+  siteUrl: string
+  siteName: string
+  description: string
+}
+
+// WebSite node ties the whole graph together (publisher -> Organization @id)
+// and is what search engines look for to attach the site name / sitelinks.
+export function buildWebSiteSchema(input: WebSiteSchemaInput) {
+  const { siteUrl, siteName, description } = input
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${siteUrl}#website`,
+    url: siteUrl,
+    name: siteName,
+    description,
+    inLanguage: ['de', 'en'],
+    publisher: { '@id': `${siteUrl}#organization` },
+  }
+}
+
 export interface BreadcrumbItem {
   name: string
   url: string
