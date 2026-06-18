@@ -18,6 +18,9 @@ export default defineConfig({
   },
   integrations: [
     sitemap({
+      // Blog tag pages are filtered, noindex views — keep them out of the
+      // sitemap so they never compete with the canonical post URLs.
+      filter: (page) => !/\/blog\/tag\//.test(page),
       i18n: {
         defaultLocale: 'de',
         locales: {

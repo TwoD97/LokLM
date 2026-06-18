@@ -1,21 +1,9 @@
 ---
 import { getLangFromUrl } from '~/i18n/utils'
-import { t, type UIKey } from '~/i18n/ui'
+import { t } from '~/i18n/ui'
+import { faqKeys } from '~/data/faq'
 
 const lang = getLangFromUrl(Astro.url)
-
-interface Q { qKey: UIKey; aKey: UIKey }
-
-const questions: Q[] = [
-  { qKey: 'faq.q1.q', aKey: 'faq.q1.a' },
-  { qKey: 'faq.q2.q', aKey: 'faq.q2.a' },
-  { qKey: 'faq.q3.q', aKey: 'faq.q3.a' },
-  { qKey: 'faq.q4.q', aKey: 'faq.q4.a' },
-  { qKey: 'faq.q5.q', aKey: 'faq.q5.a' },
-  { qKey: 'faq.q6.q', aKey: 'faq.q6.a' },
-  { qKey: 'faq.q7.q', aKey: 'faq.q7.a' },
-  { qKey: 'faq.q8.q', aKey: 'faq.q8.a' },
-]
 ---
 
 <section class="faq">
@@ -26,15 +14,15 @@ const questions: Q[] = [
     </div>
 
     <div class="faq__cols">
-      {questions.map((q) => (
+      {faqKeys.map((q) => (
         <details class="faq__item">
           <summary>
-            <span>{t(lang, q.qKey)}</span>
+            <span>{t(lang, q.q)}</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </summary>
-          <p>{t(lang, q.aKey)}</p>
+          <p>{t(lang, q.a)}</p>
         </details>
       ))}
     </div>

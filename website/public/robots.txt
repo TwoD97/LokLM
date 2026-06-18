@@ -31,3 +31,8 @@ User-agent: Bytespider
 Allow: /
 
 Sitemap: https://loklm.com/sitemap-index.xml
+
+# LLM-friendly content maps (Answer.AI llms.txt convention):
+#   https://loklm.com/llms.txt       — concise site map + key facts + FAQ
+#   https://loklm.com/llms-full.txt  — full-text corpus of every article
+# Every blog post is also available as plain Markdown at <post-url>.md

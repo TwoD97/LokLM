@@ -1,21 +1,44 @@
 ---
 import Base from '~/layouts/Base.astro'
 import { buildArticleSchema, buildBreadcrumbSchema } from '~/lib/schema'
+import { readingTimeMinutes } from '~/data/blog'
+import { t, languages } from '~/i18n/ui'
 import type { CollectionEntry } from 'astro:content'
+
+interface AdjacentRef {
+  slug: string
+  title: string
+}
 
 interface Props {
   post: CollectionEntry<'blog'>
   slug: string
   translation?: string // other-locale slug
+  newer?: AdjacentRef
+  older?: AdjacentRef
 }
-const { post, slug, translation } = Astro.props
-const { lang, title, description, pubDate, updatedDate } = post.data
+const { post, slug, translation, newer, older } = Astro.props
+const { lang, title, description, pubDate, updatedDate, tags } = post.data
 
 const siteUrl = Astro.site!.toString().replace(/\/$/, '')
 const base = lang === 'de' ? '/blog' : '/en/blog'
 const pageUrl = `${siteUrl}${base}/${slug}`
 const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
+const ogImage = `${siteUrl}/brand/og.png`
+
 const iso = (d: Date) => d.toISOString().slice(0, 10)
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+const minutes = readingTimeMinutes(post.body ?? '')
+
+const otherLang = lang === 'de' ? 'en' : 'de'
+const otherBase = otherLang === 'de' ? '/blog' : '/en/blog'
+const translationHref = translation ? `${otherBase}/${translation}` : undefined
 
 const alternates =
   translation !== undefined
@@ -33,61 +56,286 @@ const schemas = [
     lang,
     datePublished: iso(pubDate),
     dateModified: updatedDate ? iso(updatedDate) : undefined,
+    siteUrl,
+    image: ogImage,
+    keywords: tags,
   }),
   buildBreadcrumbSchema([
     { name: 'LokLM', url: homeUrl },
-    { name: 'Blog', url: `${siteUrl}${base}` },
+    { name: t(lang, 'blog.title'), url: `${siteUrl}${base}` },
     { name: title, url: pageUrl },
   ]),
 ]
 ---
 
-<Base title={`${title} — LokLM`} description={description} alternates={alternates} schemas={schemas}>
+<Base
+  title={`${title} — LokLM`}
+  description={description}
+  alternates={alternates}
+  schemas={schemas}
+  ogType="article"
+>
+  <Fragment slot="head">
+    <link rel="alternate" type="text/markdown" href={`${base}/${slug}.md`} />
+    <link rel="author" href={homeUrl} />
+    <meta property="article:published_time" content={pubDate.toISOString()} />
+    {updatedDate && (
+      <meta property="article:modified_time" content={updatedDate.toISOString()} />
+    )}
+    {tags.map((tg) => <meta property="article:tag" content={tg} />)}
+  </Fragment>
+
   <main class="post">
     <article class="post__inner">
-      <p class="post__meta">
-        <a href={base}>Blog</a> · <time datetime={iso(pubDate)}>{iso(pubDate)}</time>
-      </p>
+      <nav class="post__crumb mono" aria-label="Breadcrumb">
+        <a href={base}>&larr; {t(lang, 'blog.backToBlog')}</a>
+      </nav>
+
       <h1 class="post__title gradient-text">{title}</h1>
+
+      <p class="post__meta mono">
+        <time datetime={iso(pubDate)}>{fmtDate(pubDate)}</time>
+        <span aria-hidden="true">·</span>
+        <span>{t(lang, 'blog.readingTime').replace('{min}', String(minutes))}</span>
+        {updatedDate && (
+          <Fragment>
+            <span aria-hidden="true">·</span>
+            <span>{t(lang, 'blog.updated')} {fmtDate(updatedDate)}</span>
+          </Fragment>
+        )}
+      </p>
+
+      {tags.length > 0 && (
+        <div class="post__tags">
+          {tags.map((tg) => (
+            <a class="post__tag mono" href={`${base}/tag/${tg}`}>#{tg}</a>
+          ))}
+        </div>
+      )}
+
+      {translationHref && (
+        <p class="post__translation mono">
+          {t(lang, 'blog.translation')}:{' '}
+          <a href={translationHref} hreflang={otherLang}>{languages[otherLang]}</a>
+        </p>
+      )}
+
       <div class="post__body"><slot /></div>
+
+      {(newer || older) && (
+        <nav class="post__nav" aria-label={t(lang, 'blog.title')}>
+          {older ? (
+            <a class="post__nav-link post__nav-link--prev" href={`${base}/${older.slug}`}>
+              <span class="post__nav-label mono">&larr; {t(lang, 'blog.older')}</span>
+              <span class="post__nav-title">{older.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {newer ? (
+            <a class="post__nav-link post__nav-link--next" href={`${base}/${newer.slug}`}>
+              <span class="post__nav-label mono">{t(lang, 'blog.newer')} &rarr;</span>
+              <span class="post__nav-title">{newer.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </article>
   </main>
 </Base>
 
 <style>
   .post {
-    padding: 6rem 0 8rem;
+    padding: 4rem 0 7rem;
   }
   .post__inner {
     max-width: 44rem;
     margin: 0 auto;
     padding: 0 1.5rem;
   }
-  .post__meta {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--color-fg-3);
+  .post__crumb {
+    font-size: 0.78rem;
   }
-  .post__meta a {
+  .post__crumb a {
     color: var(--color-accent-hover);
+    text-decoration: none;
   }
   .post__title {
-    margin-top: 0.5rem;
+    margin-top: 1.25rem;
     font-size: 2.4rem;
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -0.02em;
   }
+  .post__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--color-fg-3);
+  }
+  .post__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+  .post__tag {
+    font-size: 0.75rem;
+    color: var(--color-fg-2);
+    text-decoration: none;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    transition:
+      color 180ms ease,
+      border-color 180ms ease;
+  }
+  .post__tag:hover {
+    color: var(--color-fg-0);
+    border-color: var(--color-border-strong);
+  }
+  .post__translation {
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--color-fg-3);
+  }
+  .post__translation a {
+    color: var(--color-accent-hover);
+  }
+
   .post__body {
-    margin-top: 2rem;
+    margin-top: 2.5rem;
     color: var(--color-fg-1);
-    line-height: 1.7;
+    line-height: 1.75;
+    font-size: 1.02rem;
   }
   .post__body :global(h2) {
-    margin-top: 2rem;
+    margin-top: 2.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     color: var(--color-fg-0);
+  }
+  .post__body :global(h3) {
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-fg-0);
+  }
+  .post__body :global(p) {
+    margin: 1rem 0;
+  }
+  .post__body :global(ul),
+  .post__body :global(ol) {
+    margin: 1rem 0;
+    padding-left: 1.4rem;
+  }
+  .post__body :global(li) {
+    margin: 0.4rem 0;
   }
   .post__body :global(a) {
     color: var(--color-accent-hover);
+    text-underline-offset: 2px;
+  }
+  .post__body :global(blockquote) {
+    margin: 1.5rem 0;
+    padding: 0.25rem 0 0.25rem 1.25rem;
+    border-left: 3px solid var(--color-accent);
+    color: var(--color-fg-2);
+    font-style: italic;
+  }
+  .post__body :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1rem 0.35rem;
+  }
+  .post__body :global(pre) {
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+  .post__body :global(pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .post__body :global(table) {
+    width: 100%;
+    margin: 1.5rem 0;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .post__body :global(th),
+  .post__body :global(td) {
+    border: 1px solid var(--color-border);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+  .post__body :global(th) {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-fg-0);
+  }
+  .post__body :global(hr) {
+    margin: 2.5rem 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .post__body :global(.footnotes) {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.85rem;
+    color: var(--color-fg-2);
+  }
+
+  .post__nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 3.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .post__nav-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition:
+      border-color 180ms ease,
+      background 180ms ease;
+  }
+  .post__nav-link:hover {
+    border-color: var(--color-border-strong);
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .post__nav-link--next {
+    text-align: right;
+  }
+  .post__nav-label {
+    font-size: 0.72rem;
+    color: var(--color-fg-3);
+  }
+  .post__nav-title {
+    color: var(--color-fg-0);
+    font-weight: 600;
+    font-size: 0.92rem;
+    line-height: 1.3;
   }
 </style>

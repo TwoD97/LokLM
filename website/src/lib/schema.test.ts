@@ -3,9 +3,11 @@ import {
   buildOrganizationSchema,
   buildSoftwareSchema,
   buildWebPageSchema,
+  buildWebSiteSchema,
   buildBreadcrumbSchema,
   buildFaqSchema,
   buildArticleSchema,
+  buildBlogSchema,
 } from './schema'
 
 const siteUrl = 'https://loklm.com'
@@ -128,6 +130,68 @@ describe('buildWebPageSchema', () => {
     expect(s.url).toBe('https://loklm.com/lokale-ki')
     expect(s.name).toBe('Lokale KI')
     expect(s.inLanguage).toBe('de')
+  })
+})
+
+describe('buildWebSiteSchema', () => {
+  const s = buildWebSiteSchema({ siteUrl, siteName, description: 'Local AI assistant.' })
+  it('is a WebSite anchored to a stable @id', () => {
+    expect(s['@type']).toBe('WebSite')
+    expect(s['@id']).toBe(`${siteUrl}#website`)
+    expect(s.url).toBe(siteUrl)
+    expect(s.name).toBe(siteName)
+  })
+  it('declares both locales and links the Organization as publisher', () => {
+    expect(s.inLanguage).toEqual(['de', 'en'])
+    expect(s.publisher).toEqual({ '@id': `${siteUrl}#organization` })
+  })
+})
+
+describe('buildBlogSchema', () => {
+  const s = buildBlogSchema({
+    url: 'https://loklm.com/blog',
+    name: 'Blog',
+    description: 'desc',
+    lang: 'de',
+    posts: [
+      {
+        url: 'https://loklm.com/blog/a',
+        headline: 'A',
+        description: 'da',
+        datePublished: '2026-05-01',
+      },
+    ],
+  })
+  it('is a Blog listing BlogPosting stubs', () => {
+    expect(s['@type']).toBe('Blog')
+    expect(s['@id']).toBe('https://loklm.com/blog#blog')
+    expect(s.inLanguage).toBe('de')
+    expect(s.blogPost).toHaveLength(1)
+    expect(s.blogPost[0]).toMatchObject({
+      '@type': 'BlogPosting',
+      headline: 'A',
+      url: 'https://loklm.com/blog/a',
+      datePublished: '2026-05-01',
+    })
+  })
+})
+
+describe('buildArticleSchema (enriched)', () => {
+  const s = buildArticleSchema({
+    url: 'https://loklm.com/blog/x',
+    headline: 'X',
+    description: 'd',
+    lang: 'en',
+    datePublished: '2026-01-01',
+    siteUrl: 'https://loklm.com',
+    image: 'https://loklm.com/brand/og.png',
+    keywords: ['local-ai', 'privacy'],
+  })
+  it('links author/publisher to the Organization and carries image + keywords', () => {
+    expect(s.author).toEqual({ '@id': 'https://loklm.com#organization' })
+    expect((s.publisher as { '@id': string })['@id']).toBe('https://loklm.com#organization')
+    expect(s.image).toBe('https://loklm.com/brand/og.png')
+    expect(s.keywords).toBe('local-ai, privacy')
   })
 })
 

@@ -126,11 +126,27 @@ describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
     expect(robots).toContain('Sitemap: https://loklm.com/sitemap-index.xml')
   })
 
-  it('llms.txt is generated with pillar + persona links', () => {
+  it('llms.txt is generated with pillar + persona links and a FAQ', () => {
     const llms = readFileSync(resolve(root, 'dist/llms.txt'), 'utf-8')
     expect(llms).toContain('# LokLM')
     expect(llms).toContain('https://loklm.com/lokale-ki')
     expect(llms).toContain('https://loklm.com/en/use-cases/lawyer')
+    expect(llms).toContain('## Key facts')
+    expect(llms).toContain('## FAQ')
+    expect(llms).toContain('/llms-full.txt')
+  })
+
+  it('llms-full.txt embeds the full text of the posts', () => {
+    const full = readFileSync(resolve(root, 'dist/llms-full.txt'), 'utf-8')
+    expect(full.startsWith('# LokLM — full content')).toBe(true)
+    // a sentence that only appears inside a post body, not in frontmatter
+    expect(full).toContain('three separable stages')
+  })
+
+  it('every page embeds the WebSite JSON-LD node', () => {
+    const html = readFileSync(resolve(root, 'dist/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"WebSite"')
+    expect(html).toContain('#website')
   })
 
   it('pillar + persona pages embed WebPage and BreadcrumbList JSON-LD', () => {
@@ -148,41 +164,66 @@ describe.skipIf(!distExists)('Phase 2 technical SEO', () => {
 })
 
 describe.skipIf(!distExists)('Phase 3 blog', () => {
+  // canonical real-content translation pair used across these assertions
+  const dePost = 'taxonomie-lokaler-ki'
+  const enPost = 'taxonomy-of-local-ai'
+
   it('blog index + post build in both locales', () => {
     for (const p of [
       'dist/blog/index.html',
       'dist/en/blog/index.html',
-      'dist/blog/willkommen/index.html',
-      'dist/en/blog/welcome/index.html',
+      `dist/blog/${dePost}/index.html`,
+      `dist/en/blog/${enPost}/index.html`,
     ]) {
       expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
     }
   })
 
+  it('blog index embeds Blog + BreadcrumbList JSON-LD and an RSS alternate', () => {
+    const html = readFileSync(resolve(root, 'dist/blog/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"Blog"')
+    expect(html).toContain('"@type":"BreadcrumbList"')
+    expect(html).toMatch(/rel="alternate"\s+type="application\/rss\+xml"/)
+  })
+
   it('post embeds Article + BreadcrumbList JSON-LD and a translation hreflang', () => {
-    const html = readFileSync(resolve(root, 'dist/blog/willkommen/index.html'), 'utf-8')
+    const html = readFileSync(resolve(root, `dist/blog/${dePost}/index.html`), 'utf-8')
     expect(html).toContain('"@type":"Article"')
     expect(html).toContain('"@type":"BreadcrumbList"')
-    expect(html).toMatch(/hreflang="en" href="[^"]*\/en\/blog\/welcome"/)
+    expect(html).toMatch(new RegExp(`hreflang="en" href="[^"]*\\/en\\/blog\\/${enPost}"`))
+  })
+
+  it('post declares og:type article and article meta', () => {
+    const html = readFileSync(resolve(root, `dist/blog/${dePost}/index.html`), 'utf-8')
+    expect(html).toMatch(/property="og:type"\s+content="article"/)
+    expect(html).toMatch(/property="article:published_time"/)
   })
 
   it('RSS feeds and .md mirrors build', () => {
     for (const p of [
       'dist/blog/rss.xml',
       'dist/en/blog/rss.xml',
-      'dist/blog/willkommen.md',
-      'dist/en/blog/welcome.md',
+      `dist/blog/${dePost}.md`,
+      `dist/en/blog/${enPost}.md`,
     ]) {
       expect(existsSync(resolve(root, p)), `missing ${p}`).toBe(true)
     }
     expect(readFileSync(resolve(root, 'dist/blog/rss.xml'), 'utf-8')).toContain('<item>')
-    expect(readFileSync(resolve(root, 'dist/blog/willkommen.md'), 'utf-8').startsWith('# ')).toBe(
-      true,
-    )
+    expect(
+      readFileSync(resolve(root, `dist/blog/${dePost}.md`), 'utf-8').startsWith('# '),
+    ).toBe(true)
   })
 
-  it('tag pages build in both locales', () => {
-    expect(existsSync(resolve(root, 'dist/blog/tag/lokale-ki/index.html'))).toBe(true)
-    expect(existsSync(resolve(root, 'dist/en/blog/tag/local-ai/index.html'))).toBe(true)
+  it('tag pages build in both locales and are noindex', () => {
+    const deTag = resolve(root, 'dist/blog/tag/lokale-ki/index.html')
+    const enTag = resolve(root, 'dist/en/blog/tag/local-ai/index.html')
+    expect(existsSync(deTag)).toBe(true)
+    expect(existsSync(enTag)).toBe(true)
+    expect(readFileSync(deTag, 'utf-8')).toMatch(/name="robots"\s+content="noindex/)
+  })
+
+  it('home page embeds FAQPage JSON-LD', () => {
+    const html = readFileSync(resolve(root, 'dist/index.html'), 'utf-8')
+    expect(html).toContain('"@type":"FAQPage"')
   })
 })
