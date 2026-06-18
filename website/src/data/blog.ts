@@ -35,3 +35,27 @@ export function translationSlug(
   )
   return match ? slugOf(match) : undefined
 }
+
+// Rough reading time. Strips markdown syntax to a word count and divides by an
+// average reading speed; always at least one minute so the label is never "0".
+export function readingTimeMinutes(markdown: string, wordsPerMinute = 220): number {
+  const text = markdown
+    .replace(/```[\s\S]*?```/g, ' ') // fenced code
+    .replace(/`[^`]*`/g, ' ') // inline code
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links/images -> their label
+    .replace(/[#>*_~`|-]/g, ' ') // residual markdown punctuation
+  const words = text.split(/\s+/).filter(Boolean).length
+  return Math.max(1, Math.round(words / wordsPerMinute))
+}
+
+// Walks the date-sorted (newest-first) list and returns the neighbours of a
+// post for prev/next navigation. `newer` is the more recent post, `older` the
+// next one back in time.
+export function adjacentPosts<T extends BlogLike>(
+  sorted: T[],
+  post: { id: string },
+): { newer?: T; older?: T } {
+  const i = sorted.findIndex((p) => p.id === post.id)
+  if (i === -1) return {}
+  return { newer: i > 0 ? sorted[i - 1] : undefined, older: sorted[i + 1] }
+}

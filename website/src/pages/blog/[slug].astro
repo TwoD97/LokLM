@@ -1,20 +1,30 @@
 ---
 import { getCollection, render } from 'astro:content'
 import BlogPost from '~/layouts/BlogPost.astro'
-import { postsForLang, slugOf, translationSlug } from '~/data/blog'
+import { postsForLang, slugOf, translationSlug, adjacentPosts } from '~/data/blog'
 
 export async function getStaticPaths() {
   const all = await getCollection('blog')
-  return postsForLang(all, 'de').map((post) => ({
-    params: { slug: slugOf(post) },
-    props: { post, slug: slugOf(post), translation: translationSlug(all, post, 'en') },
-  }))
+  const sorted = postsForLang(all, 'de')
+  return sorted.map((post) => {
+    const { newer, older } = adjacentPosts(sorted, post)
+    return {
+      params: { slug: slugOf(post) },
+      props: {
+        post,
+        slug: slugOf(post),
+        translation: translationSlug(all, post, 'en'),
+        newer: newer ? { slug: slugOf(newer), title: newer.data.title } : undefined,
+        older: older ? { slug: slugOf(older), title: older.data.title } : undefined,
+      },
+    }
+  })
 }
 
-const { post, slug, translation } = Astro.props
+const { post, slug, translation, newer, older } = Astro.props
 const { Content } = await render(post)
 ---
 
-<BlogPost post={post} slug={slug} translation={translation}>
+<BlogPost post={post} slug={slug} translation={translation} newer={newer} older={older}>
   <Content />
 </BlogPost>

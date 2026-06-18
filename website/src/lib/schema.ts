@@ -102,10 +102,29 @@ export interface ArticleSchemaInput {
   lang: 'de' | 'en'
   datePublished: string
   dateModified?: string
+  /** site origin, e.g. https://loklm.com — enables a logo'd publisher + org-linked author */
+  siteUrl?: string
+  /** social/preview image absolute url */
+  image?: string
+  /** topical keywords (typically the post tags) */
+  keywords?: string[]
 }
 
 export function buildArticleSchema(input: ArticleSchemaInput) {
-  const { url, headline, description, lang, datePublished, dateModified } = input
+  const { url, headline, description, lang, datePublished, dateModified, siteUrl, image, keywords } =
+    input
+
+  const publisher = siteUrl
+    ? {
+        '@type': 'Organization',
+        '@id': `${siteUrl}#organization`,
+        name: 'LokLM',
+        logo: { '@type': 'ImageObject', url: `${siteUrl}/brand/mark-color.svg` },
+      }
+    : { '@type': 'Organization', name: 'LokLM' }
+
+  const author = siteUrl ? { '@id': `${siteUrl}#organization` } : { '@type': 'Organization', name: 'LokLM' }
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -115,8 +134,47 @@ export function buildArticleSchema(input: ArticleSchemaInput) {
     datePublished,
     dateModified: dateModified ?? datePublished,
     mainEntityOfPage: url,
-    author: { '@type': 'Organization', name: 'LokLM' },
-    publisher: { '@type': 'Organization', name: 'LokLM' },
+    author,
+    publisher,
+    ...(image ? { image } : {}),
+    ...(keywords && keywords.length ? { keywords: keywords.join(', ') } : {}),
+  }
+}
+
+export interface BlogPostRef {
+  url: string
+  headline: string
+  description: string
+  datePublished: string
+}
+
+export interface BlogSchemaInput {
+  url: string
+  name: string
+  description: string
+  lang: 'de' | 'en'
+  posts: BlogPostRef[]
+}
+
+// Blog collection page: a Blog node listing its posts as BlogPosting stubs.
+// Gives search engines an explicit feed of the article URLs from the index.
+export function buildBlogSchema(input: BlogSchemaInput) {
+  const { url, name, description, lang, posts } = input
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    '@id': `${url}#blog`,
+    url,
+    name,
+    description,
+    inLanguage: lang,
+    blogPost: posts.map((p) => ({
+      '@type': 'BlogPosting',
+      headline: p.headline,
+      description: p.description,
+      url: p.url,
+      datePublished: p.datePublished,
+    })),
   }
 }
 

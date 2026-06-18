@@ -1,14 +1,23 @@
 ---
 import LangSwitch from './LangSwitch.astro'
-import { getLangFromUrl } from '~/i18n/utils'
+import { getLangFromUrl, localisedPath } from '~/i18n/utils'
 import { t } from '~/i18n/ui'
 
 const lang = getLangFromUrl(Astro.url)
+const homeHref = lang === 'de' ? '/' : '/en'
+const blogHref = localisedPath(lang, '/blog')
+
+// On the home page the section anchors are local (#features). On every other
+// page they need to jump back to the home page first.
+const path = Astro.url.pathname.replace(/\/$/, '') || '/'
+const isHome = path === '/' || path === '/en'
+const featuresHref = isHome ? '#features' : `${homeHref}#features`
+const downloadHref = isHome ? '#download' : `${homeHref}#download`
 ---
 
 <header class="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-bg-0)]/70 backdrop-blur-xl">
   <nav class="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
-    <a href={lang === 'de' ? '/' : '/en'} class="flex items-center gap-2.5 group">
+    <a href={homeHref} class="flex items-center gap-2.5 group">
       <img
         src="/brand/mark-on-dark.svg"
         alt=""
@@ -23,11 +32,14 @@ const lang = getLangFromUrl(Astro.url)
     </a>
 
     <div class="flex items-center gap-1 text-sm">
-      <a href="#features" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+      <a href={featuresHref} class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
         {t(lang, 'nav.features')}
       </a>
-      <a href="#download" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+      <a href={downloadHref} class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
         {t(lang, 'nav.download')}
+      </a>
+      <a href={blogHref} aria-current={path === blogHref ? 'page' : undefined} class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
+        {t(lang, 'nav.blog')}
       </a>
       <a href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
         {t(lang, 'nav.github')}
