@@ -43,6 +43,12 @@ import {
   useRunDir,
   type DatasetInfo,
 } from '../runDir'
+import {
+  parseShard,
+  selectShard,
+  buildMatrixManifest,
+  MATRIX_CHUNKER_NAMES,
+} from './matrix-manifest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -68,6 +74,13 @@ interface OrchestratorArgs {
   /** resume in einen existierenden run-dir. Modelle deren configs/<name>/result.json
    *  schon da sind , werden übersprungen. */
   runDir?: string
+  /** welche config-gruppe der sweep fährt. default 'answer' ; 'matrix' = volle
+   *  Embedder × Reranker × Chunker Matrix. */
+  configs?: string
+  /** "i/n" — nur diese Modell-Slice rechnen (Multi-Pod). */
+  shard?: string
+  /** nur das Pre-Run-Manifest drucken + schreiben , nicht rechnen. */
+  summary?: boolean
 }
 
 function parseArgs(argv: string[]): OrchestratorArgs {
@@ -93,6 +106,14 @@ function parseArgs(argv: string[]): OrchestratorArgs {
     } else if (a === '--run-dir' && next !== undefined) {
       out.runDir = next
       i++
+    } else if (a === '--configs' && next !== undefined) {
+      out.configs = next
+      i++
+    } else if (a === '--shard' && next !== undefined) {
+      out.shard = next
+      i++
+    } else if (a === '--summary') {
+      out.summary = true
     }
   }
   if (!out.pack) throw new Error('--pack <pack.json> ist required')
@@ -117,6 +138,14 @@ async function main(): Promise<void> {
     throw new Error(`pack ${args.pack} hat keine .models`)
   }
 
+  const shard = args.shard ? parseShard(args.shard) : null
+  const selectedModels = shard ? selectShard(pack.models, shard.index, shard.total) : pack.models
+  if (shard) {
+    console.error(
+      `[orchestrator] shard ${shard.index}/${shard.total}: ${selectedModels.length}/${pack.models.length} modelle`,
+    )
+  }
+
   const datasetPath = args.dataset ?? (await latestDataset())
   const datasetBytes = await readFile(datasetPath)
   const dataset = JSON.parse(datasetBytes.toString('utf-8')) as {
@@ -124,6 +153,42 @@ async function main(): Promise<void> {
     generatedAt: string
     chunks: { id: string }[]
     questions: { question: string }[]
+  }
+
+  if (args.summary) {
+    const embPack = JSON.parse(await readFile(join(__dirname, 'embedder-pack.json'), 'utf-8')) as {
+      embedders: { label: string }[]
+    }
+    const rrPack = JSON.parse(await readFile(join(__dirname, 'reranker-pack.json'), 'utf-8')) as {
+      rerankers: { label: string }[]
+    }
+    const qs = dataset.questions as Array<{ lang?: string; expectedRefusal?: boolean }>
+    const langs: Record<string, number> = {}
+    let numRefusal = 0
+    for (const q of qs) {
+      const lang = q.lang ?? 'de'
+      langs[lang] = (langs[lang] ?? 0) + 1
+      if (q.expectedRefusal) numRefusal++
+    }
+    const manifest = buildMatrixManifest({
+      embedders: embPack.embedders,
+      rerankers: rrPack.rerankers,
+      chunkers: MATRIX_CHUNKER_NAMES,
+      models: selectedModels,
+      dataset: {
+        path: datasetPath,
+        numChunks: dataset.chunks.length,
+        numQuestions: dataset.questions.length,
+        numRefusal,
+        langs,
+      },
+      ...(shard ? { shard } : {}),
+    })
+    const outPath = join(process.cwd(), 'matrix-manifest.md')
+    await writeFile(outPath, manifest.markdown, 'utf-8')
+    console.log(manifest.markdown)
+    console.error(`\n[orchestrator] manifest geschrieben: ${outPath}`)
+    return
   }
 
   // run-dir: entweder vorgegeben (resume) oder neu erstellt.
@@ -159,13 +224,12 @@ async function main(): Promise<void> {
   const failures: Array<{ label: string; reason: string }> = []
   const skipped: string[] = []
 
-  for (let i = 0; i < pack.models.length; i++) {
-    const m = pack.models[i]!
-    const expectedConfigDir = join(runRootDir, 'configs', sanitize(`answer@${m.label}`))
-    const resultPath = join(expectedConfigDir, 'result.json')
-    if (existsSync(resultPath)) {
+  for (let i = 0; i < selectedModels.length; i++) {
+    const m = selectedModels[i]!
+    const doneMarker = join(runRootDir, 'configs', `.done-${sanitize(m.label)}`)
+    if (existsSync(doneMarker)) {
       console.error(
-        `[orchestrator] [${i + 1}/${pack.models.length}] ${m.label} — bereits da , skip`,
+        `[orchestrator] [${i + 1}/${selectedModels.length}] ${m.label} — bereits fertig , skip`,
       )
       skipped.push(m.label)
       continue
@@ -178,7 +242,7 @@ async function main(): Promise<void> {
     const sweepArgs = [
       'tests/evals/sweep.ts',
       '--configs',
-      'answer',
+      args.configs ?? 'answer',
       '--llm-models',
       tempPack,
       '--run-dir',
@@ -193,9 +257,12 @@ async function main(): Promise<void> {
       sweepArgs.push('--judge-context', String(args.judgeContext))
     if (args.limit !== undefined) sweepArgs.push('--limit', String(args.limit))
 
-    console.error(`\n[orchestrator] [${i + 1}/${pack.models.length}] spawn sweep für ${m.label} …`)
+    console.error(
+      `\n[orchestrator] [${i + 1}/${selectedModels.length}] spawn sweep für ${m.label} …`,
+    )
     try {
       await runSweep(sweepArgs)
+      await writeFile(doneMarker, new Date().toISOString(), 'utf-8')
       console.error(`[orchestrator] ${m.label} fertig`)
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err)
@@ -242,7 +309,7 @@ async function main(): Promise<void> {
     `- Run-Dir: ${runRootDir}`,
     `- Pack: ${args.pack}${pack.name ? ` (${pack.name})` : ''}`,
     `- Dataset: ${datasetPath}`,
-    `- Modelle im pack: ${pack.models.length} , erfolgreich: ${results.length} , skipped: ${skipped.length} , failed: ${failures.length}`,
+    `- Modelle im pack: ${pack.models.length}${shard ? ` , dieser Shard: ${selectedModels.length}` : ''} , erfolgreich: ${results.length} , skipped: ${skipped.length} , failed: ${failures.length}`,
     ``,
   ]
   if (failures.length > 0) {

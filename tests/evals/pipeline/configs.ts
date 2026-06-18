@@ -1,10 +1,14 @@
 import { FixedSizeChunker, type Chunker } from './Chunker'
 import { FakeEmbedder, type Embedder } from './Embedder'
 import { NoopReranker, type Reranker } from './Reranker'
+import { MATRIX_CHUNKER_SPECS } from '../answer/matrix-manifest'
 // Bridges importieren electron transitiv (via src/main/services/models/paths.ts).
 // Statisch geladen würden defaults sich nicht mehr unter `tsx` ohne electron-
 // shim laufen lassen , daher dynamische imports innerhalb von sweepConfigs().
 import type { LlmBridge } from '../bridges/LlmBridge'
+import { readFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // Eine PipelineConfig ist ein bundle aus chunker + embedder + reranker + den
 // sweep-scalars (topKToRerank, topKToLLM) und optional einem LLM-bridge.
@@ -273,15 +277,14 @@ export async function answerConfigs(): Promise<PipelineConfig[]> {
 }
 
 /**
- * Matrix-Sweep: voller kartesischer Raum Embedder × Chunker × Reranker bei
- * festem Antwort-LLM. Vorlage ist gridConfigs() — gleiche bridge-imports ,
- * gleiche cartesian()-mechanik ; nur werden hier die *teuren* achsen (embedder ,
- * chunker) variiert statt der billigen topK-scalars.
+ * Matrix-Sweep: voller kartesischer Raum Embedder × Reranker × Chunker bei
+ * festem Antwort-LLM. Liest embedder-pack.json und reranker-pack.json aus
+ * tests/evals/answer/ und baut daraus alle 3 Achsen:
+ *   8 embedder × (1 skip + 2 reranker) × 3 chunker = 72 configs.
  *
- * Default nach `pnpm models:evals`: 1 embedder (bge-m3) × 1 chunker (512/64) ×
- * 2 reranker-varianten (skip + bge-reranker) = 2 configs , die OHNE weitere
- * downloads sofort laufen. Weitere embedder/chunker als auskommentierte zeilen
- * unten — einkommentieren sobald die GGUFs in models/ liegen.
+ * CACHE-FALLE: label fließt in embedding-cache-key
+ * `${embedder.name}::${chunker.name}::${corpus.length}` (sweep.ts).
+ * Jeder embedder MUSS einen eindeutigen label haben — pack.json erzwingt das.
  *
  * LLM ist auf 'full' (Qwen3-8B) gepinnt , NICHT 'auto' — selbe begründung wie
  * gridConfigs(): 'auto' würde das XL-judge-modell als under-test mounten und
@@ -293,65 +296,91 @@ export async function matrixConfigs(): Promise<PipelineConfig[]> {
     import('../bridges/RerankerBridge'),
     import('../bridges/LlmBridge'),
   ])
+  const here = dirname(fileURLToPath(import.meta.url))
+  const modelsDir = resolve(here, '..', '..', '..', 'models')
+  const packsDir = join(here, '..', 'answer')
+
+  interface EmbEntry {
+    label: string
+    file: string
+    queryPrefix?: string
+    docPrefix?: string
+  }
+  interface RrEntry {
+    label: string
+    file: string
+  }
+  const embPackFile = process.env.LOKLM_EMBEDDER_PACK ?? 'embedder-pack.json'
+  const rrPackFile = process.env.LOKLM_RERANKER_PACK ?? 'reranker-pack.json'
+  const embPack = JSON.parse(await readFile(join(packsDir, embPackFile), 'utf-8')) as {
+    embedders: EmbEntry[]
+  }
+  const rrPack = JSON.parse(await readFile(join(packsDir, rrPackFile), 'utf-8')) as {
+    rerankers: RrEntry[]
+  }
+
+  // LLM pinned to 'full' (Qwen3-8B) — run-pack overrides per model ; keeps the
+  // under-test LLM distinct from the XL judge (no self-bias). Construction is
+  // lazy (no model load until warm()).
   const llm: LlmBridge = new LlmBridge({ profile: 'full' })
 
-  // Kanonische bausteine — je EINMAL konstruiert und über alle matrix-punkte
-  // geteilt (sonst lädt das modell mehrfach).
-  //
-  // CACHE-FALLE: der label/name fließt in den embedding-cache-key
-  // `${embedder.name}::${chunker.name}::${corpus.length}` (sweep.ts). Zwei
-  // embedder mit GLEICHEM label teilen still ihre embeddings → falsche zahlen ,
-  // kein fehler. Also jedem zusätzlichen embedder/chunker einen EINDEUTIGEN
-  // label/name geben.
-  const embedder = new EmbedderBridge({ placement: 'cpu', label: 'bge-m3' })
-  const reranker = new RerankerBridge({ placement: 'auto', label: 'bge-reranker' })
-  const chunker = new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 })
-
   const base: PipelineConfig = {
-    name: 'matrix',
-    chunker,
-    embedder,
-    reranker,
+    name: 'm',
+    chunker: new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 }),
+    // GPU placement: the LAP matrix corpus is large (~2.3k chunks) and
+    // node-llama-cpp embeds one chunk per decode — on CPU that is ~10 min per
+    // embedder, on GPU ~30-40s. Embedder (<=2.5GB) + reranker (~0.5GB) +
+    // under-test LLM (~5GB) fit easily; the judge runs in a later, separate pass.
+    embedder: new EmbedderBridge({ placement: 'auto', label: 'bge-m3' }),
+    reranker: new SkipReranker(),
     topKToRerank: 20,
     topKToLLM: 5,
     llm,
   }
 
-  // Achsen. AKTIV: rerank (skip vs bge-reranker) = die 2 default-configs , ohne
-  // download lauffähig. Embedder + Chunker bleiben als auskommentierte
-  // KANDIDATEN unten — einkommentieren erweitert die matrix (cartesian)
-  // automatisch. Jeder zusätzliche embedder/chunker braucht einen EINDEUTIGEN
-  // label/name (cache-falle , siehe oben).
-  const axes: Array<{
-    axis: string
-    values: Array<{ name: string; partial: Partial<PipelineConfig> }>
-  }> = [
-    // EMBEDDER-ACHSE — vorerst nur bge-m3 (= aktiver default in `base`).
-    // Alternative embedder erst nach abstimmung mit dem RAG/Embedding-owner
-    // (was die app wirklich ausliefert) , dann hier mit EINDEUTIGEM label
-    // dazuschreiben:
-    // { axis: 'emb', values: [
-    //   { name: 'bge-m3', partial: { embedder } },
-    //   // { name: 'e5-large', partial: { embedder: new EmbedderBridge({ placement: 'cpu', modelPath: 'models/<e5-large>.gguf', label: 'e5-large' }) } },
-    // ] },
-    // CHUNK-ACHSE — kandidaten 256/512/1024 (kein download , nur re-embed je
-    // größe). 512/64 ist der aktive default in `base` ; zum aktivieren der
-    // ablation diesen block einkommentieren:
-    // { axis: 'chunk', values: [
-    //   { name: 'c256', partial: { chunker: new FixedSizeChunker({ name: 'fixed-256-32', size: 256, overlap: 32 }) } },
-    //   { name: 'c512', partial: { chunker } },
-    //   { name: 'c1024', partial: { chunker: new FixedSizeChunker({ name: 'fixed-1024-128', size: 1024, overlap: 128 }) } },
-    // ] },
+  const embValues = embPack.embedders.map((e) => ({
+    name: e.label,
+    partial: {
+      embedder: new EmbedderBridge({
+        placement: 'auto',
+        label: e.label,
+        modelPath: resolve(modelsDir, e.file),
+        ...(e.queryPrefix ? { queryPrefix: e.queryPrefix } : {}),
+        ...(e.docPrefix ? { docPrefix: e.docPrefix } : {}),
+      }),
+    } as Partial<PipelineConfig>,
+  }))
+
+  const rrValues = [
     {
-      axis: 'rr',
-      values: [
-        { name: 'norr', partial: { topKToRerank: 0, reranker: new SkipReranker() } },
-        { name: 'bge-rr', partial: { topKToRerank: 20, reranker } },
-      ],
+      name: 'norr',
+      partial: { topKToRerank: 0, reranker: new SkipReranker() } as Partial<PipelineConfig>,
     },
+    ...rrPack.rerankers.map((r) => ({
+      name: r.label,
+      partial: {
+        topKToRerank: 20,
+        reranker: new RerankerBridge({
+          placement: 'auto',
+          label: r.label,
+          modelPath: resolve(modelsDir, r.file),
+        }),
+      } as Partial<PipelineConfig>,
+    })),
   ]
 
-  return cartesian(base, axes)
+  const chunkValues = MATRIX_CHUNKER_SPECS.map((s) => ({
+    name: `c${s.size}`,
+    partial: {
+      chunker: new FixedSizeChunker({ name: s.name, size: s.size, overlap: s.overlap }),
+    } as Partial<PipelineConfig>,
+  }))
+
+  return cartesian(base, [
+    { axis: 'emb', values: embValues },
+    { axis: 'rr', values: rrValues },
+    { axis: 'chunk', values: chunkValues },
+  ])
 }
 
 /**

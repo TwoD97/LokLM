@@ -91,7 +91,7 @@ const MODELS = [
   // download 404s , the repo got renamed or the file moved , fix it here.
 
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3-4B-Instruct-2507 (no-think variant , clean JSON)',
     filename: 'Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
@@ -99,7 +99,7 @@ const MODELS = [
     skipPattern: /qwen3.*4b.*instruct.*2507/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix-risk'],
     purpose: 'Eval pool — Llama-3.2-3B-Instruct',
     filename: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
@@ -107,7 +107,7 @@ const MODELS = [
     skipPattern: /llama.*3\.2.*3b.*instruct/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Phi-4-mini-instruct (3.8B)',
     filename: 'microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf',
@@ -115,7 +115,7 @@ const MODELS = [
     skipPattern: /phi.*4.*mini/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix-risk'],
     purpose: 'Eval pool — Gemma-3-4B-it (best DE in 4B tier)',
     filename: 'gemma-3-4b-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf',
@@ -133,7 +133,7 @@ const MODELS = [
     skipPattern: /gemma.*3.*4b.*it.*Q6/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — SmolLM3-3B (outsider)',
     filename: 'HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf',
@@ -141,7 +141,7 @@ const MODELS = [
     skipPattern: /smollm3.*3b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3-14B (mid-tier flagship)',
     filename: 'Qwen_Qwen3-14B-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/Qwen_Qwen3-14B-GGUF/resolve/main/Qwen_Qwen3-14B-Q4_K_M.gguf',
@@ -150,7 +150,7 @@ const MODELS = [
     skipPattern: /qwen3.*14b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Phi-4 14B (STEM reasoning , ACHTUNG: nur 16k ctx)',
     // bartowski/microsoft_phi-4-GGUF antwortete 2026-05 mit HTTP 401 (gated) ,
     // unsloth-mirror ist offen und identische gewichte. skipPattern matched
@@ -162,7 +162,7 @@ const MODELS = [
     skipPattern: /(^microsoft_phi-4-Q|^phi-4-Q)/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix-risk'],
     purpose: 'Eval pool — Hermes-3-Llama-3.1-8B (outsider , steuerbar)',
     filename: 'Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
     url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf',
@@ -170,7 +170,7 @@ const MODELS = [
     skipPattern: /hermes.*3.*llama.*3\.1.*8b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose:
       'Eval judge — Mistral-Small-3.2-24B-Instruct-2506 (Q5_K_M , fixed judge fuer pack-run)',
     filename: 'mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q5_K_M.gguf',
@@ -187,7 +187,7 @@ const MODELS = [
   // (no-think) Qwen3-8B/14B (thinking-on) deutlich geschlagen hat.
 
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose: 'Eval pool — Qwen3.5-2B (small , NON-thinking default — kontroll-modell)',
     filename: 'Qwen3.5-2B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
@@ -195,7 +195,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*2b/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose:
       'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
     filename: 'Qwen3.5-4B-Q4_K_M.gguf',
@@ -204,7 +204,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*4b/i,
   },
   {
-    tier: ['evals', 'translation'],
+    tier: ['evals', 'translation', 'matrix'],
     purpose:
       'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
     filename: 'Qwen3.5-9B-Q4_K_M.gguf',
@@ -213,7 +213,7 @@ const MODELS = [
     skipPattern: /qwen3\.5.*9b/i,
   },
   {
-    tier: 'evals',
+    tier: ['evals', 'matrix'],
     purpose: 'Eval pool — Qwen3.5-27B (dense , thinking-on default — passt knapp auf 5090 Q4)',
     filename: 'Qwen3.5-27B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf',
@@ -225,6 +225,166 @@ const MODELS = [
   // signifikanten lift gegenueber dem dense 27B in unserem RAG-eval.
   // Wenn du es doch testen willst , entry wieder einkommentieren und
   // `pnpm models:evals` erneut laufen lassen.
+
+  // ---- matrix tier (AP-E.2 full RAG matrix) --------------------------------
+  // New embedders / reranker / LLMs for the cartesian matrix eval. All GGUF
+  // URLs HEAD-verified (real, ungated) 2026-06-14. Combined with the embedder
+  // + evals tiers via TIER_INCLUDES.matrix below.
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — multilingual-e5-large (Q8_0, 1024d ; needs query:/passage: prefixes)',
+    filename: 'multilingual-e5-large-q8_0.gguf',
+    url: 'https://huggingface.co/soichisumi/multilingual-e5-large-Q8_0-GGUF/resolve/main/multilingual-e5-large-q8_0.gguf',
+    sizeGB: 0.6,
+    skipPattern: /multilingual-e5-large/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — snowflake-arctic-embed-l-v2.0 (Q4_K_M, 1024d ; set batch >= ctx)',
+    filename: 'snowflake-arctic-embed-l-v2.0-q4_k_m.gguf',
+    url: 'https://huggingface.co/Casual-Autopsy/snowflake-arctic-embed-l-v2.0-gguf/resolve/main/snowflake-arctic-embed-l-v2.0-q4_k_m.gguf',
+    sizeGB: 0.44,
+    skipPattern: /arctic-embed-l-v2/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — Qwen3-Embedding-0.6B (Q8_0, 1024d, last-token pooling)',
+    filename: 'Qwen3-Embedding-0.6B-Q8_0.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf',
+    sizeGB: 0.64,
+    skipPattern: /qwen3-embedding-0\.6b/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — Qwen3-Embedding-4B (Q4_K_M, 2560d, last-token pooling)',
+    filename: 'Qwen3-Embedding-4B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF/resolve/main/Qwen3-Embedding-4B-Q4_K_M.gguf',
+    sizeGB: 2.5,
+    skipPattern: /qwen3-embedding-4b/i,
+  },
+  {
+    tier: 'matrix-risk',
+    purpose: 'Matrix embedder — EmbeddingGemma-300m (Q8_0, 768d, on-device)',
+    filename: 'embeddinggemma-300M-Q8_0.gguf',
+    url: 'https://huggingface.co/unsloth/embeddinggemma-300m-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf',
+    sizeGB: 0.33,
+    skipPattern: /embeddinggemma-300m/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — granite-embedding-278m-multilingual (Q4_K_M, 768d)',
+    filename: 'granite-embedding-278m-multilingual-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/granite-embedding-278m-multilingual-GGUF/resolve/main/granite-embedding-278m-multilingual-Q4_K_M.gguf',
+    sizeGB: 0.22,
+    skipPattern: /granite-embedding-278m/i,
+  },
+  {
+    tier: 'matrix-risk',
+    purpose:
+      'EXCLUDED embedder — multilingual-e5-base (Q8_0, MIT). GGUF-arch "xlmr" lädt NICHT in node-llama-cpp 3.18.1 (b8390). bert-arch-GGUF gesucht; bis dahin nicht in der Default-Matrix.',
+    filename: 'multilingual-e5-base-q8_0.gguf',
+    url: 'https://huggingface.co/cstr/multilingual-e5-base-GGUF/resolve/main/multilingual-e5-base-q8_0.gguf',
+    sizeGB: 0.3,
+    skipPattern: /multilingual-e5-base/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix embedder — nomic-embed-text-v2-moe (Q4_K_M, Apache-2.0 ; search_query:/search_document: prefixes)',
+    filename: 'nomic-embed-text-v2-moe.Q4_K_M.gguf',
+    url: 'https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe-GGUF/resolve/main/nomic-embed-text-v2-moe.Q4_K_M.gguf',
+    sizeGB: 0.5,
+    skipPattern: /nomic-embed-text-v2/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix reranker — bge-reranker-base (F16, MIT ; cross-encoder rankAll)',
+    filename: 'bge-reranker-base-F16.gguf',
+    url: 'https://huggingface.co/sinjab/bge-reranker-base-F16-GGUF/resolve/main/bge-reranker-base-F16.gguf',
+    sizeGB: 1.1,
+    skipPattern: /bge-reranker-base/i,
+  },
+  {
+    tier: 'matrix-risk',
+    purpose: 'Matrix reranker — jina-reranker-v2-base-multilingual (Q4_K_M, cross-encoder ; mainline-converted)',
+    filename: 'jina-reranker-v2-base-multilingual-q4_k_m.gguf',
+    url: 'https://huggingface.co/minhtd14/jina-reranker-v2-base-multilingual-Q4_K_M-GGUF/resolve/main/jina-reranker-v2-base-multilingual-q4_k_m.gguf',
+    sizeGB: 0.22,
+    skipPattern: /jina-reranker-v2/i,
+  },
+  {
+    tier: 'matrix-risk',
+    purpose: 'Matrix LLM — Gemma 4 E4B-it (Q4_K_M ; needs llama.cpp >= 2026-04)',
+    filename: 'gemma-4-E4B-it-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf',
+    sizeGB: 4.98,
+    skipPattern: /gemma-4-e4b/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix LLM — Ministral-3-14B-Instruct-2512 (Q4_K_M ; arch mistral3, needs llama.cpp >= 2025-12)',
+    filename: 'mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/mistralai_Ministral-3-14B-Instruct-2512-GGUF/resolve/main/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf',
+    sizeGB: 8.24,
+    skipPattern: /ministral-3-14b/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix LLM — EuroLLM-9B-Instruct (Q4_K_M ; EU-multilingual)',
+    filename: 'EuroLLM-9B-Instruct-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bartowski/EuroLLM-9B-Instruct-GGUF/resolve/main/EuroLLM-9B-Instruct-Q4_K_M.gguf',
+    sizeGB: 5.58,
+    skipPattern: /eurollm-9b/i,
+  },
+  {
+    tier: 'matrix',
+    purpose: 'Matrix LLM — Granite 4.1-3b (Q4_K_M ; substitute for non-existent granite-4.1-tiny)',
+    filename: 'granite-4.1-3b-Q4_K_M.gguf',
+    url: 'https://huggingface.co/ibm-granite/granite-4.1-3b-GGUF/resolve/main/granite-4.1-3b-Q4_K_M.gguf',
+    sizeGB: 2.0,
+    skipPattern: /granite-4\.1-3b/i,
+  },
+
+  // ---- codematrix tier -----------------------------------------------------
+  // Code-specialised embedders for the AP-E.2 code-retrieval matrix eval.
+  // Both are Apache-2.0 / OSI-permissive. Baselines (bge-m3, arctic, qwen3-emb)
+  // come from the existing embedder / matrix tiers via TIER_INCLUDES.codematrix.
+  {
+    tier: 'codematrix',
+    purpose: 'Code embedder — nomic-embed-code (Q5_K_M, Apache, qwen2/Qwen2.5-Coder-7B)',
+    filename: 'nomic-embed-code.Q5_K_M.gguf',
+    url: 'https://huggingface.co/nomic-ai/nomic-embed-code-GGUF/resolve/main/nomic-embed-code.Q5_K_M.gguf',
+    sizeGB: 4.8,
+    skipPattern: /nomic-embed-code/i,
+  },
+  {
+    tier: 'codematrix',
+    purpose: 'Code embedder — jina-embeddings-v2-base-code (F16, Apache, JinaBERT)',
+    filename: 'jina-embeddings-v2-base-code-f16.gguf',
+    url: 'https://huggingface.co/second-state/jina-embeddings-v2-base-code-GGUF/resolve/main/jina-embeddings-v2-base-code-f16.gguf',
+    sizeGB: 0.33,
+    skipPattern: /jina-embeddings-v2-base-code/i,
+  },
+
+  // ---- matrix-risk tier ----------------------------------------------------
+  // GGUFs EXIST but are BROKEN in mainline llama.cpp / node-llama-cpp. Download
+  // ONLY to smoke-test with a patched build ; do NOT use in a real matrix run
+  // without first verifying non-zero scores / correct stopping locally.
+  {
+    tier: 'matrix-risk',
+    purpose: 'RISK reranker — Qwen3-Reranker-0.6B (Q8_0 ; near-zero scores in mainline rankAll)',
+    filename: 'qwen3-reranker-0.6b-q8_0.gguf',
+    url: 'https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf',
+    sizeGB: 0.64,
+    skipPattern: /qwen3-reranker/i,
+  },
+  {
+    tier: 'matrix-risk',
+    purpose: 'RISK LLM — Teuken-7B-instruct-v0.6 (Q4_K_M ; mainline tokenizer breaks EOS </s>)',
+    filename: 'Teuken-7B-instruct-v0.6.Q4_K_M.gguf',
+    url: 'https://huggingface.co/mradermacher/Teuken-7B-instruct-v0.6-GGUF/resolve/main/Teuken-7B-instruct-v0.6.Q4_K_M.gguf',
+    sizeGB: 5.02,
+    skipPattern: /teuken-7b/i,
+  },
 ]
 
 // Tier hierarchy: each tier includes the tiers below it. Embedder is always
@@ -240,6 +400,9 @@ const TIER_INCLUDES = {
   evals: ['embedder', 'evals'],
   // translation-eval braucht keinen embedder — nur die 5 LLMs aus dem pack.
   translation: ['translation'],
+  matrix: ['embedder', 'matrix'],
+  'matrix-risk': ['matrix-risk'],
+  codematrix: ['codematrix'],
 }
 
 // ---- main ------------------------------------------------------------------
@@ -261,6 +424,29 @@ console.log(`LokLM model downloader — tier: ${tierArg}`)
 console.log(`Target directory: ${MODELS_DIR}`)
 console.log(`Models in this tier: ${queue.length}`)
 console.log('')
+
+if (process.argv.includes('--dry-run')) {
+  console.log('DRY RUN — no downloads. HEAD pre-flight per URL:')
+  console.log('')
+  let totalGB = 0
+  for (const m of queue) {
+    totalGB += m.sizeGB ?? 0
+    let status
+    try {
+      const res = await fetch(m.url, { method: 'HEAD', redirect: 'follow' })
+      const len = res.headers.get('content-length')
+      const gb = len ? `${(Number(len) / 1e9).toFixed(2)} GB` : 'size?'
+      status = `${res.status} ${res.ok ? 'OK' : 'FAIL'} (${gb})`
+    } catch (err) {
+      status = `ERR ${err.message}`
+    }
+    console.log(`  [${status}] ${m.filename}  (~${m.sizeGB ?? '?'} GB declared)`)
+    console.log(`      ${m.url}`)
+  }
+  console.log('')
+  console.log(`Total declared: ~${totalGB.toFixed(1)} GB across ${queue.length} models.`)
+  process.exit(0)
+}
 
 let failures = 0
 for (const m of queue) {

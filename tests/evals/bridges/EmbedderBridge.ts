@@ -29,7 +29,12 @@ const NON_EMBEDDER_PATTERNS = [
 ]
 const EMBED_CONTEXT_SIZE = 2048
 const SANITIZE_MAX_CHARS = 6000
-const EMBEDDING_DIM = 1024
+
+/** Prepend a retrieval prefix (e.g. e5's "query: "/"passage: ") if set. Pure
+ *  so it can be unit-tested without loading a model. */
+export function applyPrefix(prefix: string | undefined, text: string): string {
+  return prefix ? prefix + text : text
+}
 
 export type { Placement }
 
@@ -44,11 +49,19 @@ export interface EmbedderBridgeOpts {
   modelPath?: string
   /** label baked into `name`. */
   label?: string
+  /** prefix prepended to QUERY embeds (embed()). e.g. e5 "query: ", arctic
+   *  "query: ", Qwen3-Embedding instruct prefix. */
+  queryPrefix?: string
+  /** prefix prepended to DOCUMENT embeds (embedBatch()). e.g. e5 "passage: ". */
+  docPrefix?: string
 }
 
 export class EmbedderBridge implements Embedder {
-  readonly dim = EMBEDDING_DIM
+  private _dim = 0
   readonly name: string
+  get dim(): number {
+    return this._dim
+  }
   private model: unknown = null
   private context: unknown = null
   private warmed = false
@@ -56,7 +69,7 @@ export class EmbedderBridge implements Embedder {
 
   constructor(private readonly opts: EmbedderBridgeOpts = {}) {
     this.placement = opts.placement ?? 'cpu'
-    this.name = opts.label ? `bge-m3:${opts.label}` : `bge-m3:${this.placement}`
+    this.name = opts.label ?? `embedder:${this.placement}`
   }
 
   async warm(): Promise<void> {
@@ -75,13 +88,22 @@ export class EmbedderBridge implements Embedder {
         createEmbeddingContext: (o?: { contextSize?: number }) => Promise<unknown>
       }
     ).createEmbeddingContext({ contextSize: EMBED_CONTEXT_SIZE })
+    const probe = (
+      await (
+        this.context as {
+          getEmbeddingFor: (t: string) => Promise<{ vector: Float32Array | number[] }>
+        }
+      ).getEmbeddingFor('x')
+    ).vector
+    this._dim = probe.length
     this.warmed = true
   }
 
   async embed(text: string): Promise<number[]> {
     await this.warm()
-    const cleaned = sanitize(text)
-    if (cleaned.length === 0) return new Array<number>(this.dim).fill(0)
+    const cleanedText = sanitize(text)
+    if (cleanedText.length === 0) return new Array<number>(this._dim || 1).fill(0)
+    const cleaned = applyPrefix(this.opts.queryPrefix, cleanedText)
     const ctx = this.context as {
       getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
     }
@@ -93,11 +115,20 @@ export class EmbedderBridge implements Embedder {
     await this.warm()
     const out: number[][] = []
     for (const t of texts) {
-      // bge-m3 has no batching API surface via node-llama-cpp; serial calls
-      // are the standard pattern. The corpus-build path in sweep.ts caches
-      // the result across configs so this only pays once per (embedder ×
-      // chunker × corpus) combo.
-      out.push(await this.embed(t))
+      // Documents get docPrefix (not queryPrefix). Inline rather than reuse
+      // embed() so the corpus is not prefixed as a query. The corpus-build path
+      // in sweep.ts caches the result across configs (once per embedder ×
+      // chunker × corpus).
+      const cleanedText = sanitize(t)
+      if (cleanedText.length === 0) {
+        out.push(new Array<number>(this._dim || 1).fill(0))
+        continue
+      }
+      const cleaned = applyPrefix(this.opts.docPrefix, cleanedText)
+      const ctx = this.context as {
+        getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
+      }
+      out.push(Array.from((await ctx.getEmbeddingFor(cleaned)).vector))
     }
     return out
   }

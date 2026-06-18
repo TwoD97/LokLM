@@ -1,0 +1,14 @@
+{
+  "name": "loklm-matrix-rerankers-osi-2",
+  "comment": "NUR OSI (Apache/MIT) + SkipReranker (von matrixConfigs automatisch). jina-reranker-v2 (CC-BY-NC) raus. Stand 2026-06-14.",
+  "rerankers": [
+    {
+      "label": "bge-reranker-v2-m3",
+      "file": "bge-reranker-v2-m3-Q4_K_M.gguf"
+    },
+    {
+      "label": "bge-reranker-base",
+      "file": "bge-reranker-base-F16.gguf"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "loklm-matrix-embedders-osi-7",
+  "comment": "NUR OSI (Apache/MIT). embeddinggemma (Gemma) raus. e5-base raus: GGUF-arch 'xlmr' wird von node-llama-cpp 3.18.1 (b8390) nicht geladen (siehe model-license-rejected.md ; bert-arch-GGUF gesucht). queryPrefix=embed(), docPrefix=embedBatch(). label=cache-key. Stand 2026-06-14.",
+  "embedders": [
+    {
+      "label": "bge-m3",
+      "file": "bge-m3-Q4_K_M.gguf"
+    },
+    {
+      "label": "e5-large",
+      "file": "multilingual-e5-large-q8_0.gguf",
+      "queryPrefix": "query: ",
+      "docPrefix": "passage: "
+    },
+    {
+      "label": "arctic-l-v2",
+      "file": "snowflake-arctic-embed-l-v2.0-q4_k_m.gguf",
+      "queryPrefix": "query: "
+    },
+    {
+      "label": "qwen3-emb-0.6b",
+      "file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "queryPrefix": "Instruct: Given a question, retrieve passages that answer it\nQuery: "
+    },
+    {
+      "label": "qwen3-emb-4b",
+      "file": "Qwen3-Embedding-4B-Q4_K_M.gguf",
+      "queryPrefix": "Instruct: Given a question, retrieve passages that answer it\nQuery: "
+    },
+    {
+      "label": "granite-emb",
+      "file": "granite-embedding-278m-multilingual-Q4_K_M.gguf"
+    },
+    {
+      "label": "nomic-v2",
+      "file": "nomic-embed-text-v2-moe.Q4_K_M.gguf",
+      "queryPrefix": "search_query: ",
+      "docPrefix": "search_document: "
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "loklm-matrix-open-weights-RISK",
+  "comment": "NICHT OSI-permissiv — NIEMALS im Default-Matrix-Lauf. Nur fuer separate, bewusst freigegebene Experimente. Stand 2026-06-14.",
+  "rejected": [
+    {
+      "label": "llama-3.2-3b",
+      "role": "answer-llm",
+      "path": "models/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+      "reason": "llama3.2 / open-weight-non-osi"
+    },
+    {
+      "label": "gemma-3-4b",
+      "role": "answer-llm",
+      "path": "models/gemma-3-4b-it-Q4_K_M.gguf",
+      "reason": "gemma / open-weight-non-osi"
+    },
+    {
+      "label": "hermes-3-8b",
+      "role": "answer-llm",
+      "path": "models/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf",
+      "reason": "llama3 / open-weight-non-osi"
+    },
+    {
+      "label": "gemma-4-e4b",
+      "role": "answer-llm",
+      "path": "models/gemma-4-E4B-it-Q4_K_M.gguf",
+      "reason": "apache-2.0 / open-weight-non-osi"
+    },
+    {
+      "label": "embeddinggemma",
+      "role": "embedder",
+      "reason": "gemma / open-weight-non-osi"
+    },
+    {
+      "label": "jina-reranker-v2",
+      "role": "reranker",
+      "reason": "cc-by-nc-4.0 / non-commercial"
+    }
+  ]
+}
