@@ -54,18 +54,30 @@ export const ui = {
     'features.sources.title': 'Klickbare Quellenverweise',
     'features.sources.body':
       'Jede Antwort enthält Belege aus deinen eigenen Dokumenten — direkt anklickbar bis zur Originalstelle.',
-    'features.formats.title': 'PDF, Markdown, Text, Code',
+    'features.formats.title': 'PDF, Word, Code & mehr',
     'features.formats.body':
-      'Importiere Dokumente in den gängigen Formaten und organisiere sie in Arbeitsbereichen.',
+      'Importiere PDF (auch gescannt, per OCR), Word (DOCX), Markdown, Text, HTML und Quellcode — organisiert in Arbeitsbereichen.',
     'features.crypto.title': 'Verschlüsselter Vault',
     'features.crypto.body':
-      'Argon2id-Passwort-Hashing, AES-GCM-Verschlüsselung pro Datei, Wiederherstellung über 18-Wort-Phrase.',
+      'Argon2id-Schlüsselableitung, AES-256-GCM-Verschlüsselung, ein einziger verschlüsselter Vault mit Schlüsselhierarchie pro Arbeitsbereich, Wiederherstellung über eine 18-Wort-Phrase.',
     'features.local.title': 'Daten bleiben bei dir',
     'features.local.body':
       'Alles wird in einer einzigen Vault-Datei gespeichert — leicht zu sichern, leicht zu migrieren.',
     'features.opensource.title': 'Quelltext einsehbar',
     'features.opensource.body':
       'MIT-Lizenz. Audit, fork, beitragen — der gesamte Code ist auf GitHub einsehbar.',
+    'features.translate.title': 'Übersetzung (400+ Sprachen)',
+    'features.translate.body':
+      'Übersetze Dokumente und Antworten lokal mit einem dedizierten MT-Modell (MADLAD-400) — frag auf Deutsch über fremdsprachige Quellen.',
+    'features.transcribe.title': 'Audio-Transkription',
+    'features.transcribe.body':
+      'Transkribiere Audio lokal mit Whisper, inklusive Sprechertrennung — und befrage das Ergebnis wie jedes andere Dokument.',
+    'features.code.title': 'Codebasen durchsuchen',
+    'features.code.body':
+      'Indiziere ganze Repositories mit code-spezifischen Embeddings; Antworten verweisen auf Datei und Zeile (z. B. auth.ts:88), inklusive Ordner-Sync.',
+    'features.study.title': 'Lernen, zusammenfassen, schreiben',
+    'features.study.body':
+      'Erzeuge Quizze und Zusammenfassungen aus deinen Dokumenten und nutze den Schreibassistenten — alles lokal aus deinen eigenen Quellen.',
 
     'download.title': 'Download',
     'download.subtitle':
@@ -83,11 +95,11 @@ export const ui = {
     'download.comingSoon': 'Bald verfügbar',
     'download.otherPlatforms': 'Weitere Plattformen',
     'download.notice':
-      'Erste Installation lädt ca. 20 GB Modelldateien. Stabile Verbindung empfohlen.',
+      'Bei der Installation lädst du eine Modell-Edition — je nach Wahl ca. 3–8 GB (Lite / Standard / Pro). Stabile Verbindung empfohlen.',
     'download.requirements.title': 'Systemanforderungen',
-    'download.requirements.windows': 'Windows 10/11 (x64)',
-    'download.requirements.ram': '16 GB RAM empfohlen',
-    'download.requirements.disk': '25 GB freier Speicher',
+    'download.requirements.windows': 'Windows 10/11, macOS oder Linux (64-bit)',
+    'download.requirements.ram': '8 GB RAM (16 GB für Pro)',
+    'download.requirements.disk': '~10 GB freier Speicher',
 
     'footer.tagline': 'LokLM — dein Wissen bleibt lokal.',
     'footer.repo': 'Repository',
@@ -129,7 +141,7 @@ export const ui = {
     'deepdive.vault.eyebrow': 'Vault',
     'deepdive.vault.title': 'Eine verschlüsselte Datei — dein gesamtes Wissen.',
     'deepdive.vault.body':
-      'Argon2id-Passwort-Hashing, AES-GCM-Verschlüsselung pro Datei, Wiederherstellung über eine 18-Wort-Phrase. Eine einzige Vault-Datei zum Sichern.',
+      'Argon2id-Schlüsselableitung, AES-256-GCM, ein einziger verschlüsselter Vault mit Schlüsselhierarchie pro Arbeitsbereich, Wiederherstellung über eine 18-Wort-Phrase. Eine Datei zum Sichern.',
     'deepdive.vault.cta': 'Architektur ansehen',
     'deepdive.vault.alt': 'Screenshot: Vault-Übersicht mit Verschlüsselungsindikator',
     'deepdive.offline.eyebrow': 'Offline',
@@ -153,7 +165,7 @@ export const ui = {
     'security.label.cloud': 'Cloud / Internet',
     'security.label.boundary': 'LokLM überquert diese Linie nie',
     'security.callout.argon': 'Argon2id Passwort-Hashing',
-    'security.callout.aes': 'AES-GCM pro Datei',
+    'security.callout.aes': 'AES-256-GCM-Verschlüsselung',
     'security.callout.phrase': '18-Wort-Wiederherstellungsphrase',
     'security.callout.telemetry': 'Keine Telemetrie, kein Account',
 
@@ -181,13 +193,13 @@ export const ui = {
       'Ja. Modelle und Index laufen lokal. Die einzige Netzwerkaktivität ist der einmalige Modell-Download bei der Installation und Updates, wenn du sie startest.',
     'faq.q2.q': 'Wie groß sind die Modelle und woher kommen sie?',
     'faq.q2.a':
-      'Die Erstinstallation lädt etwa 20 GB Modelldateien (Embedding + LLM) von Hugging Face. Danach läuft alles lokal.',
+      'Bei der Installation wählst du eine Edition: Lite (Qwen3.5-2B, ~2,3 GB), Standard (Qwen3.5-4B, ~4 GB, empfohlen) oder Pro (Qwen3.5-9B, ~7 GB). Dazu kommen das Embedding-Modell (BGE-M3) und der Reranker (BGE Reranker v2-M3) — zusammen ~0,9 GB, geladen von Hugging Face. Danach läuft alles lokal.',
     'faq.q3.q': 'Kann ich ein eigenes Modell mitbringen (GGUF)?',
     'faq.q3.a':
-      'Ja. LokLM nutzt llama.cpp unter der Haube. Eigene GGUF-Modelle lassen sich in den Modellordner legen und in den Einstellungen auswählen.',
+      'Ja. LokLM führt GGUF-Modelle lokal über llama.cpp aus — eigene GGUF-Dateien lassen sich in den Modellordner legen und in den Einstellungen auswählen. Optional kann LokLM stattdessen einen lokalen Ollama-Server nutzen.',
     'faq.q4.q': 'Braucht es eine GPU?',
     'faq.q4.a':
-      'Nein, aber mit GPU geht es spürbar schneller. Auf 16 GB RAM ohne GPU sind die kleineren Modelle nutzbar.',
+      'Nein, alles läuft auch auf der CPU. Mit einer NVIDIA-GPU geht es spürbar schneller — der Installer lädt dafür optional die CUDA-Unterstützung nach (~680 MB), die Sprachmodell und Übersetzung beschleunigt.',
     'faq.q5.q': 'Wo werden meine Dokumente gespeichert?',
     'faq.q5.a':
       'In einer einzigen verschlüsselten Vault-Datei in deinem Benutzerordner. Verschlüsselt mit AES-GCM, der Schlüssel wird aus deinem Passwort via Argon2id abgeleitet.',
@@ -369,18 +381,30 @@ export const ui = {
     'features.sources.title': 'Clickable citations',
     'features.sources.body':
       'Every answer cites your own documents — click straight through to the original passage.',
-    'features.formats.title': 'PDF, Markdown, Text, Code',
+    'features.formats.title': 'PDF, Word, code & more',
     'features.formats.body':
-      'Import documents in the common formats and organise them into workspaces.',
+      'Import PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, and source code — organised into workspaces.',
     'features.crypto.title': 'Encrypted vault',
     'features.crypto.body':
-      'Argon2id password hashing, AES-GCM per-file encryption, recovery via an 18-word passphrase.',
+      'Argon2id key derivation, AES-256-GCM encryption, a single encrypted vault with a per-workspace key hierarchy, recovery via an 18-word passphrase.',
     'features.local.title': 'Your data stays with you',
     'features.local.body':
       'Everything lives in a single vault file — easy to back up, easy to migrate.',
     'features.opensource.title': 'Source-available',
     'features.opensource.body':
       'MIT licence. Audit, fork, contribute — the full source is on GitHub.',
+    'features.translate.title': 'Translation (400+ languages)',
+    'features.translate.body':
+      'Translate documents and answers locally with a dedicated MT model (MADLAD-400) — ask in your language across foreign-language sources.',
+    'features.transcribe.title': 'Audio transcription',
+    'features.transcribe.body':
+      'Transcribe audio locally with Whisper, including speaker separation — then query the transcript like any other document.',
+    'features.code.title': 'Search your codebase',
+    'features.code.body':
+      'Index whole repositories with code-specialised embeddings; answers cite the file and line (e.g. auth.ts:88), with folder sync.',
+    'features.study.title': 'Study, summarise, write',
+    'features.study.body':
+      'Generate quizzes and summaries from your documents and use the writing assistant — all local, all from your own sources.',
 
     'download.title': 'Download',
     'download.subtitle': 'Latest release. Verify the SHA-256 checksum before installing.',
@@ -397,11 +421,11 @@ export const ui = {
     'download.comingSoon': 'Coming soon',
     'download.otherPlatforms': 'Other platforms',
     'download.notice':
-      'First install pulls ~20 GB of model files. A stable connection is recommended.',
+      'During setup you download one model edition — about 3–8 GB depending on your choice (Lite / Standard / Pro). A stable connection is recommended.',
     'download.requirements.title': 'System requirements',
-    'download.requirements.windows': 'Windows 10/11 (x64)',
-    'download.requirements.ram': '16 GB RAM recommended',
-    'download.requirements.disk': '25 GB free disk space',
+    'download.requirements.windows': 'Windows 10/11, macOS, or Linux (64-bit)',
+    'download.requirements.ram': '8 GB RAM (16 GB for Pro)',
+    'download.requirements.disk': '~10 GB free disk space',
 
     'footer.tagline': 'LokLM — your knowledge stays local.',
     'footer.repo': 'Repository',
@@ -442,7 +466,7 @@ export const ui = {
     'deepdive.vault.eyebrow': 'Vault',
     'deepdive.vault.title': 'One encrypted file — all of your knowledge.',
     'deepdive.vault.body':
-      'Argon2id password hashing, AES-GCM per-file encryption, recovery via an 18-word phrase. A single vault file to back up.',
+      'Argon2id key derivation, AES-256-GCM, a single encrypted vault with a per-workspace key hierarchy, recovery via an 18-word phrase. One file to back up.',
     'deepdive.vault.cta': 'See the architecture',
     'deepdive.vault.alt': 'Screenshot: vault overview with encryption indicator',
     'deepdive.offline.eyebrow': 'Offline',
@@ -466,7 +490,7 @@ export const ui = {
     'security.label.cloud': 'Cloud / internet',
     'security.label.boundary': 'LokLM never crosses this line',
     'security.callout.argon': 'Argon2id password hashing',
-    'security.callout.aes': 'AES-GCM per file',
+    'security.callout.aes': 'AES-256-GCM encryption',
     'security.callout.phrase': '18-word recovery phrase',
     'security.callout.telemetry': 'No telemetry, no account',
 
@@ -494,13 +518,13 @@ export const ui = {
       'Yes. Models and index run locally. The only network activity is the one-time model download at install and updates when you initiate them.',
     'faq.q2.q': 'How big are the models, and where do they come from?',
     'faq.q2.a':
-      'First install pulls about 20 GB of model files (embedding + LLM) from Hugging Face. After that everything runs locally.',
+      'At setup you pick an edition: Lite (Qwen3.5-2B, ~2.3 GB), Standard (Qwen3.5-4B, ~4 GB, recommended), or Pro (Qwen3.5-9B, ~7 GB). Add the embedding model (BGE-M3) and the reranker (BGE Reranker v2-M3) — ~0.9 GB together, fetched from Hugging Face. After that everything runs locally.',
     'faq.q3.q': 'Can I bring my own model (GGUF)?',
     'faq.q3.a':
-      'Yes. LokLM uses llama.cpp under the hood. Drop GGUF files into the model directory and pick them in settings.',
+      'Yes. LokLM runs GGUF models locally through llama.cpp — drop your own GGUF files into the model directory and pick them in settings. Optionally, LokLM can use a local Ollama server instead.',
     'faq.q4.q': 'Does it need a GPU?',
     'faq.q4.a':
-      "No, but with a GPU it's noticeably faster. On 16 GB of RAM without a GPU the smaller models are usable.",
+      'No, everything runs on CPU too. With an NVIDIA GPU it is noticeably faster — the installer can optionally pull CUDA support (~680 MB), which accelerates both the language model and translation.',
     'faq.q5.q': 'Where are my documents stored?',
     'faq.q5.a':
       'In a single encrypted vault file in your user directory. Encrypted with AES-GCM, the key derived from your password via Argon2id.',
