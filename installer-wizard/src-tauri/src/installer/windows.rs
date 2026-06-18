@@ -590,26 +590,50 @@ where
                 .expect("manifest has cuda entry on this platform");
             let cuda_archive_path = staging.join(&cuda_entry.filename);
             progress(ProgressEvent { step: "download-cuda".into(), percent: 15 });
-            download::download_with_resume(
-                &client,
-                download::DownloadSpec {
-                    url: &cuda_url,
-                    dest: &cuda_archive_path,
-                    expected_sha256: Some(&cuda_entry.sha256),
-                    expected_size: Some(cuda_entry.size_bytes),
-                },
-                |written, total| {
-                    let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
-                    progress(ProgressEvent {
-                        step: "download-cuda".into(),
-                        percent: pct.min(30),
-                    });
-                },
-            )
-            .await
-            .map_err(|e| format!("cuda download : {}", e))?;
-            archive::extract_tar_zst(&cuda_archive_path, &staging)
-                .map_err(|e| format!("cuda extract : {}", e))?;
+            // The CUDA archive is large (~0.5 GB); a single fetch occasionally
+            // aborts mid-stream and the truncated file then fails to decode at
+            // extract — which the user only gets past by manually retrying. Retry
+            // the download+extract a few times so a transient hiccup self-heals.
+            // Each attempt cleans up first so it starts from a known-good slate.
+            const CUDA_ATTEMPTS: u32 = 3;
+            let mut attempt = 0u32;
+            loop {
+                attempt += 1;
+                let outcome: Result<(), String> = async {
+                    download::download_with_resume(
+                        &client,
+                        download::DownloadSpec {
+                            url: &cuda_url,
+                            dest: &cuda_archive_path,
+                            expected_sha256: Some(&cuda_entry.sha256),
+                            expected_size: Some(cuda_entry.size_bytes),
+                        },
+                        |written, total| {
+                            let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
+                            progress(ProgressEvent {
+                                step: "download-cuda".into(),
+                                percent: pct.min(30),
+                            });
+                        },
+                    )
+                    .await
+                    .map_err(|e| format!("cuda download : {}", e))?;
+                    archive::extract_tar_zst(&cuda_archive_path, &staging)
+                        .map_err(|e| format!("cuda extract : {}", e))?;
+                    Ok(())
+                }
+                .await;
+                match outcome {
+                    Ok(()) => break,
+                    Err(e) if attempt >= CUDA_ATTEMPTS => return Err(e),
+                    Err(_) => {
+                        // Drop a possibly-corrupt archive + partial so the next
+                        // attempt re-fetches cleanly.
+                        let _ = std::fs::remove_file(&cuda_archive_path);
+                        download::cleanup_partial(&cuda_archive_path).await;
+                    }
+                }
+            }
             let _ = std::fs::remove_file(&cuda_archive_path);
         }
     }
