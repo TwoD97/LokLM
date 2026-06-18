@@ -22,15 +22,17 @@ const SUMMARY =
   'Local AI knowledge assistant with source citations — runs fully offline, encrypted on-device, no cloud APIs.'
 
 const OVERVIEW =
-  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model runs locally through llama.cpp, documents are chunked and indexed locally, and everything is stored in a single encrypted vault. No cloud, no external AI APIs, no telemetry, no account. Every answer carries clickable citations back to the exact passage in the source document.'
+  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model (a Qwen3.5 GGUF) runs locally through llama.cpp; retrieval is hybrid (BM25 keyword + BGE-M3 dense vectors) with reciprocal-rank fusion and a BGE reranker; everything is stored in a single encrypted vault. No cloud, no external AI APIs, no telemetry, no account. Every answer carries clickable citations back to the exact passage (PDF page or code line) in the source.'
 
 const KEY_FACTS: string[] = [
   'License: MIT (open source), source available on GitHub.',
-  'Platforms: Windows, macOS, and Linux desktop application.',
+  'Platforms: Windows, macOS, and Linux desktop application (64-bit).',
   'Privacy: fully offline; no telemetry; no account; documents never leave the device.',
-  'Security: AES-GCM per-file encryption, Argon2id password hashing, 18-word recovery phrase.',
-  'Capability: retrieval-augmented answers with clickable citations over your own PDF, Markdown, text, and code.',
-  'Models: ships with defaults (~20 GB on first install); supports custom GGUF models via llama.cpp.',
+  'Security: AES-256-GCM encryption, Argon2id key derivation, a single encrypted vault with a per-workspace key hierarchy, 18-word recovery phrase.',
+  'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (2B, ~2.3 GB), Standard (4B, ~4 GB), Pro (9B, ~7 GB); optional local Ollama backend; optional CUDA acceleration.',
+  'Retrieval: hybrid BM25 + BGE-M3 dense embeddings, RRF fusion, BGE Reranker v2-M3; clickable citations to PDF page or code line.',
+  'Formats: PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, JSON, and source code; folder sync for codebases.',
+  'Also: local document translation (MADLAD-400, 400+ languages), audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
   'Best for: questions whose answer is in your own files. Not optimised for open-domain knowledge without context.',
   'Built by Denys Tudosa and Dominik Furlan.',
 ]
