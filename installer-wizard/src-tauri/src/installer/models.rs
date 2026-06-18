@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn manifest_parses_at_startup() {
         let m = manifest();
-        assert_eq!(m.version, "0.4.0");
+        assert_eq!(m.version, "0.5.0");
         assert!(m.tiers.contains_key("lite"));
         assert!(m.tiers.contains_key("standard"));
         assert!(m.tiers.contains_key("pro"));
@@ -516,9 +516,10 @@ mod tests {
 
     #[test]
     fn bundle_for_tier_dispatches_correctly() {
-        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 2);
-        assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 3);
-        assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 3);
+        // ADR-0006: +1 per tier for the jina-code code embedder bundled in all tiers.
+        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 3);
+        assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 4);
+        assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 4);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 {
   "$schema": "./model-manifest.schema.json",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "comment": [
     "Shared model-bundle manifest for the wizard ( Rust , installer/models.rs ) and",
     "the main app ( TS , src/main/services/tier/manifest.ts ). One source of truth ;",
@@ -109,7 +109,7 @@
   ],
   "tiers": {
     "lite": {
-      "totalSizeBytes": 1718614432,
+      "totalSizeBytes": 2068014048,
       "models": [
         {
           "id": "Qwen_Qwen3.5-2B-Q4_K_M",
@@ -119,6 +119,15 @@
           "sha256": null,
           "xetHash": "125b05d833c1decf4fb55f5f12e97737245cab9711841fc4cdbcd3afcfd39aae",
           "sizeBytes": 1280835840
+        },
+        {
+          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "role": "embedder",
+          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
+          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
+          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
+          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
+          "sizeBytes": 349399616
         },
         {
           "id": "bge-m3-Q4_K_M",
@@ -132,7 +141,7 @@
       ]
     },
     "standard": {
-      "totalSizeBytes": 3617093344,
+      "totalSizeBytes": 3966492960,
       "models": [
         {
           "id": "Qwen_Qwen3.5-4B-Q4_K_M",
@@ -142,6 +151,15 @@
           "sha256": null,
           "xetHash": "1d203c2196991da08bc5b191ab4727516f476f3167e3276f75a0c5257493aadb",
           "sizeBytes": 2740937888
+        },
+        {
+          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "role": "embedder",
+          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
+          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
+          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
+          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
+          "sizeBytes": 349399616
         },
         {
           "id": "bge-m3-Q4_K_M",
@@ -164,7 +182,7 @@
       ]
     },
     "pro": {
-      "totalSizeBytes": 6556677920,
+      "totalSizeBytes": 6906077536,
       "models": [
         {
           "id": "Qwen_Qwen3.5-9B-Q4_K_M",
@@ -174,6 +192,15 @@
           "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true",
           "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
           "sizeBytes": 5680522464
+        },
+        {
+          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "role": "embedder",
+          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
+          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
+          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
+          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
+          "sizeBytes": 349399616
         },
         {
           "id": "bge-m3-Q4_K_M",
