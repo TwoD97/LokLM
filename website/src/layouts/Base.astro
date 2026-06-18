@@ -6,7 +6,7 @@ import Nav from '~/components/Nav.astro'
 import Footer from '~/components/Footer.astro'
 import { getLangFromUrl } from '~/i18n/utils'
 import { currentRelease, downloadUrl } from '~/data/releases'
-import { buildOrganizationSchema, buildSoftwareSchema } from '~/lib/schema'
+import { buildOrganizationSchema, buildSoftwareSchema, buildWebSiteSchema } from '~/lib/schema'
 import { resolveAlternates, type AlternatePaths } from '~/lib/alternates'
 import interLatinFont from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
 
@@ -17,10 +17,16 @@ interface Props {
   alternates?: AlternatePaths
   /** extra page-level JSON-LD objects, rendered as <script type="application/ld+json"> */
   schemas?: object[]
+  /** og:type — 'website' for landing pages, 'article' for blog posts */
+  ogType?: string
+  /** emit robots noindex,follow (filtered/duplicate views like tag pages) */
+  noindex?: boolean
 }
 
-const { title, description, alternates, schemas = [] } = Astro.props
+const { title, description, alternates, schemas = [], ogType = 'website', noindex = false } =
+  Astro.props
 const lang = getLangFromUrl(Astro.url)
+const robots = noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large'
 
 const siteUrl = Astro.site!.toString().replace(/\/$/, '')
 const pathname = Astro.url.pathname.replace(/\/$/, '') || '/'
@@ -31,6 +37,8 @@ const deUrl = alt.de
 const enUrl = alt.en
 const xDefaultUrl = alt.xDefault
 
+const rssHref = lang === 'de' ? '/blog/rss.xml' : '/en/blog/rss.xml'
+
 const ogLocale = lang === 'de' ? 'de_DE' : 'en_US'
 const ogLocaleAlternate = lang === 'de' ? 'en_US' : 'de_DE'
 const siteName = 'LokLM'
@@ -39,6 +47,8 @@ const windowsAsset = currentRelease.assets.find((a) => a.platform === 'windows' 
 const winDownloadUrl = windowsAsset ? downloadUrl(windowsAsset) : undefined
 
 const organizationSchema = buildOrganizationSchema({ siteUrl, siteName })
+
+const websiteSchema = buildWebSiteSchema({ siteUrl, siteName, description })
 
 const softwareSchema = buildSoftwareSchema({
   siteUrl,
@@ -59,7 +69,7 @@ const softwareSchema = buildSoftwareSchema({
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="author" content="Denys Tudosa, Dominik Furlan" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="robots" content={robots} />
     <meta name="format-detection" content="telephone=no" />
     <meta name="application-name" content={siteName} />
     <meta name="apple-mobile-web-app-title" content={siteName} />
@@ -68,6 +78,7 @@ const softwareSchema = buildSoftwareSchema({
     <link rel="alternate" hreflang="de" href={deUrl} />
     <link rel="alternate" hreflang="en" href={enUrl} />
     <link rel="alternate" hreflang="x-default" href={xDefaultUrl} />
+    <link rel="alternate" type="application/rss+xml" title="LokLM Blog" href={rssHref} />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/app-paper.svg" />
@@ -76,7 +87,7 @@ const softwareSchema = buildSoftwareSchema({
 
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={siteName} />
     <meta property="og:locale" content={ogLocale} />
@@ -102,6 +113,11 @@ const softwareSchema = buildSoftwareSchema({
     <script
       is:inline
       type="application/ld+json"
+      set:html={JSON.stringify(websiteSchema)}
+    />
+    <script
+      is:inline
+      type="application/ld+json"
       set:html={JSON.stringify(softwareSchema)}
     />
     {
@@ -109,6 +125,7 @@ const softwareSchema = buildSoftwareSchema({
         <script is:inline type="application/ld+json" set:html={JSON.stringify(s)} />
       ))
     }
+    <slot name="head" />
   </head>
   <body class="min-h-screen relative">
     <BackgroundFx />

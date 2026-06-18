@@ -11,6 +11,7 @@ export const ui = {
   de: {
     'nav.features': 'Funktionen',
     'nav.download': 'Download',
+    'nav.blog': 'Blog',
     'nav.github': 'GitHub',
 
     'hero.eyebrow': 'Lokaler KI-Wissensassistent',
@@ -200,11 +201,22 @@ export const ui = {
     'faq.q8.a':
       'Du kannst den Vault mit deiner 18-Wort-Wiederherstellungsphrase wiederherstellen. Ohne beides ist der Vault nicht zu öffnen — das ist Absicht.',
 
-    'finalcta.eyebrow': 'Bereit?',
-    'finalcta.title': 'Dein Wissen,',
-    'finalcta.titleAccent': 'auf deiner Maschine.',
-    'finalcta.cta': 'Jetzt herunterladen',
-    'finalcta.otherPlatforms': 'Weitere Plattformen',
+    'blog.title': 'Blog',
+    'blog.lead':
+      'Beiträge zu lokaler KI, Datenschutz, DSGVO und EU AI Act, Architektur und Retrieval — fundiert, mit Quellen.',
+    'blog.allPosts': 'Alle Beiträge',
+    'blog.taggedWith': 'Beiträge zum Thema',
+    'blog.readMore': 'Weiterlesen',
+    'blog.backToBlog': 'Zurück zum Blog',
+    'blog.rss': 'RSS-Feed',
+    'blog.published': 'Veröffentlicht',
+    'blog.updated': 'Aktualisiert',
+    'blog.readingTime': '{min} Min. Lesezeit',
+    'blog.translation': 'Übersetzung',
+    'blog.newer': 'Neuerer Beitrag',
+    'blog.older': 'Älterer Beitrag',
+    'blog.tagsLabel': 'Themen',
+    'blog.empty': 'Noch keine Beiträge in dieser Ansicht.',
 
     'footer.col.product': 'Produkt',
     'footer.col.product.features': 'Funktionen',
@@ -314,6 +326,7 @@ export const ui = {
   en: {
     'nav.features': 'Features',
     'nav.download': 'Download',
+    'nav.blog': 'Blog',
     'nav.github': 'GitHub',
 
     'hero.eyebrow': 'Local AI knowledge assistant',
@@ -501,11 +514,22 @@ export const ui = {
     'faq.q8.a':
       'You can recover the vault with your 18-word recovery phrase. Without either, the vault cannot be opened — by design.',
 
-    'finalcta.eyebrow': 'Ready?',
-    'finalcta.title': 'Your knowledge,',
-    'finalcta.titleAccent': 'on your machine.',
-    'finalcta.cta': 'Download now',
-    'finalcta.otherPlatforms': 'Other platforms',
+    'blog.title': 'Blog',
+    'blog.lead':
+      'Posts on local AI, privacy, GDPR and the EU AI Act, architecture and retrieval — grounded, with sources.',
+    'blog.allPosts': 'All posts',
+    'blog.taggedWith': 'Posts tagged',
+    'blog.readMore': 'Read more',
+    'blog.backToBlog': 'Back to the blog',
+    'blog.rss': 'RSS feed',
+    'blog.published': 'Published',
+    'blog.updated': 'Updated',
+    'blog.readingTime': '{min} min read',
+    'blog.translation': 'Translation',
+    'blog.newer': 'Newer post',
+    'blog.older': 'Older post',
+    'blog.tagsLabel': 'Topics',
+    'blog.empty': 'No posts in this view yet.',
 
     'footer.col.product': 'Product',
     'footer.col.product.features': 'Features',

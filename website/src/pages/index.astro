@@ -11,12 +11,19 @@ import Architecture from '~/components/Architecture.astro'
 import UseCases from '~/components/UseCases.astro'
 import Download from '~/components/Download.astro'
 import FAQ from '~/components/FAQ.astro'
-import FinalCTA from '~/components/FinalCTA.astro'
+import { t } from '~/i18n/ui'
+import { faqKeys } from '~/data/faq'
+import { buildFaqSchema } from '~/lib/schema'
+
+const faqSchema = buildFaqSchema(
+  faqKeys.map((k) => ({ question: t('de', k.q), answer: t('de', k.a) })),
+)
 ---
 
 <Base
   title="LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation"
   description="LokLM beantwortet Fragen zu deinen eigenen Dokumenten — vollständig offline, mit klickbaren Quellenverweisen und lokaler Verschlüsselung."
+  schemas={[faqSchema]}
 >
   <main>
     <Hero />
@@ -30,6 +37,5 @@ import FinalCTA from '~/components/FinalCTA.astro'
     <UseCases />
     <Download />
     <FAQ />
-    <FinalCTA />
   </main>
 </Base>
