@@ -5,6 +5,12 @@ import { useT } from '../i18n'
 
 type Props = {
   docs: Document[]
+  // Stable identity of the underlying dataset (the workspace id). The window
+  // resets to INITIAL_BATCH when THIS changes — i.e. on a genuine workspace
+  // switch — not on every `docs` array refresh. A background refresh (index
+  // 'done', sync, delete) hands down a new array with the same contents; keying
+  // the reset on the array reference collapsed the window mid-scroll.
+  resetKey: number
   progress: Map<number, IndexProgress>
   onDelete: (id: number) => void
   onReindex: (id: number) => void
@@ -31,6 +37,7 @@ const BATCH_STEP = 80
 
 export function DocumentTable({
   docs,
+  resetKey,
   progress,
   onDelete,
   onReindex,
@@ -47,11 +54,14 @@ export function DocumentTable({
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
   const sentinelRef = useRef<HTMLTableRowElement | null>(null)
 
-  // Reset when the doc set changes (workspace switch, search, etc.) so the
-  // window doesn't carry over to a smaller list and render a stale tail.
+  // Reset only when the dataset identity changes (workspace switch). NOT on
+  // every `docs` reference change — refreshDocs() mints a fresh array on each
+  // index-progress 'done'/sync/delete, and resetting on that collapsed the
+  // window back to 80 mid-scroll. `docs.slice(0, visibleCount)` already caps a
+  // carried-over count against a shorter list, so there's no stale-tail risk.
   useEffect(() => {
     setVisibleCount(INITIAL_BATCH)
-  }, [docs])
+  }, [resetKey])
 
   useEffect(() => {
     if (visibleCount >= docs.length) return
