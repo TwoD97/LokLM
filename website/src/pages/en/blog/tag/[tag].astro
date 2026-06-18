@@ -12,6 +12,7 @@ export async function getStaticPaths() {
 }
 
 const { posts } = Astro.props
+const { tag } = Astro.params
 ---
 
-<BlogIndex lang="en" posts={posts} />
+<BlogIndex lang="en" posts={posts} tag={tag} />

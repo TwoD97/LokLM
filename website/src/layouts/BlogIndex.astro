@@ -1,78 +1,276 @@
 ---
 import Base from '~/layouts/Base.astro'
-import { slugOf } from '~/data/blog'
+import { slugOf, readingTimeMinutes } from '~/data/blog'
+import { t } from '~/i18n/ui'
+import { buildBlogSchema, buildBreadcrumbSchema } from '~/lib/schema'
 import type { CollectionEntry } from 'astro:content'
 
 interface Props {
   lang: 'de' | 'en'
   posts: CollectionEntry<'blog'>[]
+  /** present on /blog/tag/:tag pages — switches to a filtered, noindex view */
+  tag?: string
 }
-const { lang, posts } = Astro.props
+const { lang, posts, tag } = Astro.props
+
 const base = lang === 'de' ? '/blog' : '/en/blog'
-const title = 'Blog'
-const description =
-  lang === 'de'
-    ? 'Beiträge zu lokaler KI, Datenschutz und Retrieval.'
-    : 'Posts on local AI, privacy, and retrieval.'
+const rssHref = `${base}/rss.xml`
+const isTag = Boolean(tag)
+
+const blogTitle = t(lang, 'blog.title')
+const heading = isTag ? `${t(lang, 'blog.taggedWith')} #${tag}` : blogTitle
+const description = t(lang, 'blog.lead')
+const pageTitle = isTag
+  ? `#${tag} — ${blogTitle} — LokLM`
+  : `${blogTitle} — LokLM`
+
+// hreflang always points at the canonical blog hub in each locale; tag views
+// are noindex so they never compete with the real post URLs.
 const alternates = { de: '/blog', en: '/en/blog' }
+
+const siteUrl = Astro.site!.toString().replace(/\/$/, '')
+const homeUrl = lang === 'de' ? siteUrl : `${siteUrl}/en`
 const iso = (d: Date) => d.toISOString().slice(0, 10)
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+// tag chips for discovery — derived from the posts on screen
+const tagSet = new Set<string>()
+for (const p of posts) for (const t of p.data.tags) tagSet.add(t)
+const allTags = [...tagSet].sort()
+
+const schemas = isTag
+  ? []
+  : [
+      buildBlogSchema({
+        url: `${siteUrl}${base}`,
+        name: blogTitle,
+        description,
+        lang,
+        posts: posts.map((p) => ({
+          url: `${siteUrl}${base}/${slugOf(p)}`,
+          headline: p.data.title,
+          description: p.data.description,
+          datePublished: iso(p.data.pubDate),
+        })),
+      }),
+      buildBreadcrumbSchema([
+        { name: 'LokLM', url: homeUrl },
+        { name: blogTitle, url: `${siteUrl}${base}` },
+      ]),
+    ]
 ---
 
-<Base title={`${title} — LokLM`} description={description} alternates={alternates}>
+<Base
+  title={pageTitle}
+  description={description}
+  alternates={alternates}
+  schemas={schemas}
+  noindex={isTag}
+>
+  <link
+    slot="head"
+    rel="alternate"
+    type="application/rss+xml"
+    title={`LokLM ${blogTitle}`}
+    href={rssHref}
+  />
+
   <main class="bloglist">
     <div class="bloglist__inner">
-      <h1 class="bloglist__title gradient-text">{title}</h1>
-      <ul class="bloglist__items">
-        {
-          posts.map((p) => (
-            <li>
-              <a href={`${base}/${slugOf(p)}`}>
-                <time datetime={iso(p.data.pubDate)}>{iso(p.data.pubDate)}</time>
-                <span>{p.data.title}</span>
+      <header class="bloglist__header">
+        {isTag && (
+          <a class="bloglist__back" href={base}>&larr; {t(lang, 'blog.allPosts')}</a>
+        )}
+        <h1 class="bloglist__title gradient-text">{heading}</h1>
+        <p class="bloglist__lead">{description}</p>
+        <a class="bloglist__rss mono" href={rssHref}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4 11a9 9 0 0 1 9 9h2.5A11.5 11.5 0 0 0 4 8.5V11zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-9a16 16 0 0 1 16 16h2.5A18.5 18.5 0 0 0 4 4.5V7z" />
+          </svg>
+          {t(lang, 'blog.rss')}
+        </a>
+      </header>
+
+      {!isTag && allTags.length > 0 && (
+        <nav class="bloglist__tags" aria-label={t(lang, 'blog.tagsLabel')}>
+          {allTags.map((tg) => (
+            <a class="bloglist__tag mono" href={`${base}/tag/${tg}`}>#{tg}</a>
+          ))}
+        </nav>
+      )}
+
+      {posts.length === 0 ? (
+        <p class="bloglist__empty">{t(lang, 'blog.empty')}</p>
+      ) : (
+        <ul class="bloglist__items">
+          {posts.map((p) => (
+            <li class="bloglist__item">
+              <a class="bloglist__link" href={`${base}/${slugOf(p)}`}>
+                <p class="bloglist__meta mono">
+                  <time datetime={iso(p.data.pubDate)}>{fmtDate(p.data.pubDate)}</time>
+                  <span aria-hidden="true">·</span>
+                  <span>{t(lang, 'blog.readingTime').replace('{min}', String(readingTimeMinutes(p.body ?? '')))}</span>
+                </p>
+                <h2 class="bloglist__post-title">{p.data.title}</h2>
+                <p class="bloglist__desc">{p.data.description}</p>
+                <span class="bloglist__more mono">{t(lang, 'blog.readMore')} &rarr;</span>
               </a>
+              {p.data.tags.length > 0 && (
+                <div class="bloglist__post-tags">
+                  {p.data.tags.map((tg) => (
+                    <a class="bloglist__tag mono" href={`${base}/tag/${tg}`}>#{tg}</a>
+                  ))}
+                </div>
+              )}
             </li>
-          ))
-        }
-      </ul>
+          ))}
+        </ul>
+      )}
     </div>
   </main>
 </Base>
 
 <style>
   .bloglist {
-    padding: 6rem 0 8rem;
+    padding: 5rem 0 8rem;
   }
   .bloglist__inner {
-    max-width: 44rem;
+    max-width: 46rem;
     margin: 0 auto;
     padding: 0 1.5rem;
   }
+  .bloglist__header {
+    margin-bottom: 2.5rem;
+  }
+  .bloglist__back {
+    display: inline-block;
+    margin-bottom: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-accent-hover);
+    text-decoration: none;
+  }
   .bloglist__title {
-    font-size: 2.4rem;
+    font-size: 2.6rem;
     font-weight: 700;
     letter-spacing: -0.02em;
+    line-height: 1.05;
   }
+  .bloglist__lead {
+    margin-top: 1rem;
+    max-width: 38rem;
+    color: var(--color-fg-2);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+  .bloglist__rss {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1.25rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+  .bloglist__rss:hover {
+    color: var(--color-accent-hover);
+  }
+
+  .bloglist__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .bloglist__tag {
+    font-size: 0.75rem;
+    color: var(--color-fg-2);
+    text-decoration: none;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    transition:
+      color 180ms ease,
+      border-color 180ms ease;
+  }
+  .bloglist__tag:hover {
+    color: var(--color-fg-0);
+    border-color: var(--color-border-strong);
+  }
+
+  .bloglist__empty {
+    color: var(--color-fg-2);
+  }
+
   .bloglist__items {
     list-style: none;
     padding: 0;
-    margin: 2rem 0 0;
+    margin: 0;
     display: grid;
-    gap: 0.75rem;
-  }
-  .bloglist__items a {
-    display: flex;
     gap: 1rem;
-    align-items: baseline;
-    color: var(--color-fg-0);
-    text-decoration: none;
   }
-  .bloglist__items a:hover span {
+  .bloglist__item {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.015);
+    padding: 1.5rem;
+    transition:
+      background 180ms ease,
+      border-color 180ms ease,
+      transform 180ms ease;
+  }
+  .bloglist__item:hover {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+  }
+  .bloglist__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .bloglist__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--color-fg-3);
+  }
+  .bloglist__post-title {
+    margin: 0.5rem 0 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--color-fg-0);
+    line-height: 1.25;
+  }
+  .bloglist__item:hover .bloglist__post-title {
     color: var(--color-accent-hover);
   }
-  .bloglist__items time {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--color-fg-3);
-    flex-shrink: 0;
+  .bloglist__desc {
+    margin: 0.6rem 0 0;
+    color: var(--color-fg-2);
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+  .bloglist__more {
+    display: inline-block;
+    margin-top: 0.9rem;
+    font-size: 0.78rem;
+    color: var(--color-accent-hover);
+  }
+  .bloglist__post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
   }
 </style>

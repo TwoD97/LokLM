@@ -25,6 +25,12 @@ export function buildLlmsTxt(siteUrl: string): string {
     lines.push(`- [${p.key} (EN)](${base}${personaUrl(p.key, 'en')})`)
   }
   lines.push('')
+  lines.push('## Blog')
+  lines.push(`- [Blog (DE)](${base}/blog)`)
+  lines.push(`- [Blog (EN)](${base}/en/blog)`)
+  lines.push(`- [RSS (DE)](${base}/blog/rss.xml)`)
+  lines.push(`- [RSS (EN)](${base}/en/blog/rss.xml)`)
+  lines.push('')
   lines.push('## Project')
   lines.push('- [GitHub](https://github.com/TwoD97/LokLM)')
   lines.push(`- [Privacy (DE)](${base}/privacy)`)
