@@ -213,8 +213,9 @@ const MODELS = [
     skipPattern: /qwen3\.5.*9b/i,
   },
   {
-    tier: ['evals', 'matrix'],
-    purpose: 'Eval pool — Qwen3.5-27B (dense , thinking-on default — passt knapp auf 5090 Q4)',
+    tier: ['evals', 'matrix-risk'],
+    purpose:
+      'Eval pool — Qwen3.5-27B (RAUS aus matrix 2026-06-18: crasht reproduzierbar in node-llama-cpp , exit 139/SIGSEGV ; nur matrix-risk)',
     filename: 'Qwen3.5-27B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf',
     sizeGB: 16.0,

@@ -1,16 +1,10 @@
 {
-  "name": "loklm-matrix-embedders-osi-7",
-  "comment": "NUR OSI (Apache/MIT). embeddinggemma (Gemma) raus. e5-base raus: GGUF-arch 'xlmr' wird von node-llama-cpp 3.18.1 (b8390) nicht geladen (siehe model-license-rejected.md ; bert-arch-GGUF gesucht). queryPrefix=embed(), docPrefix=embedBatch(). label=cache-key. Stand 2026-06-14.",
+  "name": "loklm-matrix-embedders-osi-6",
+  "comment": "NUR OSI (Apache/MIT). embeddinggemma (Gemma) raus. e5-base raus (GGUF-arch 'xlmr' nicht ladbar). e5-large raus (2026-06-18): schwaechster Embedder im LAP-Lauf (recall@5-span 0.642 vs 0.81-0.86 Rest). queryPrefix=embed(), docPrefix=embedBatch(). label=cache-key.",
   "embedders": [
     {
       "label": "bge-m3",
       "file": "bge-m3-Q4_K_M.gguf"
-    },
-    {
-      "label": "e5-large",
-      "file": "multilingual-e5-large-q8_0.gguf",
-      "queryPrefix": "query: ",
-      "docPrefix": "passage: "
     },
     {
       "label": "arctic-l-v2",

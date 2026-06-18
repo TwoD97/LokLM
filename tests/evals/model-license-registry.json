@@ -208,8 +208,8 @@
       "licenseUrl": "https://huggingface.co/Qwen/Qwen3.5-27B/blob/main/LICENSE",
       "licenseClass": "osi-permissive",
       "allowedInDefaultMatrix": true,
-      "inDefaultPack": true,
-      "notes": "Model card YAML front matter declares 'license: apache-2.0' and the LICENSE file confirms the standard, unmodified Apache License 2.0 (Copyright 2026 Alibaba Cloud). No custom restrictions or additional terms — qualifies as genuinely OSI-permissive. Unlike some earlier Qwen releases that used a custom Qwen license, Qwen3.5-27B uses plain Apache-2.0.",
+      "inDefaultPack": false,
+      "notes": "Apache-2.0 confirmed (unmodified, Copyright 2026 Alibaba Cloud) — genuinely OSI-permissive. RAUS aus der Default-Matrix (2026-06-18): crasht reproduzierbar in node-llama-cpp (exit 139/SIGSEGV) auf dem Pod, ueber mehrere Laeufe. Lizenz ok, aber instabil -> nur models:matrix-risk. Wieder aufnehmen, wenn node-llama-cpp/llama.cpp den Crash behebt.",
       "verifiedAt": "2026-06-14"
     },
     {
@@ -377,7 +377,7 @@
       "licenseClass": "osi-permissive",
       "allowedInDefaultMatrix": true,
       "inDefaultPack": false,
-      "notes": "License declared as 'mit' in the model card YAML front matter and confirmed via the HuggingFace API (cardData). No separate LICENSE file exists in the repository (404). MIT is a true OSI-permissive license with no commercial restrictions. Model is a multilingual text embedding model (560M params, 1024-dim) trained by intfloat/Microsoft Research.",
+      "notes": "License declared as 'mit' in the model card YAML front matter and confirmed via the HuggingFace API (cardData). No separate LICENSE file exists in the repository (404). MIT is a true OSI-permissive license with no commercial restrictions. Model is a multilingual text embedding model (560M params, 1024-dim) trained by intfloat/Microsoft Research. RAUS aus der Default-Matrix (2026-06-18): schwaechster Embedder im LAP-Lauf (recall@5-span 0.642 vs 0.81-0.86 der anderen 6).",
       "verifiedAt": "2026-06-14"
     },
     {

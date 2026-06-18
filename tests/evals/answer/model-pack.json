@@ -1,6 +1,6 @@
 {
-  "name": "loklm-matrix-llms-osi-15",
-  "comment": "NUR OSI-permissiv (Apache-2.0/MIT). Llama/Gemma/Hermes raus (siehe model-pack-open-weights-risk.json). License-Gate: evals:licenses:check. Stand 2026-06-14.",
+  "name": "loklm-matrix-llms-osi-14",
+  "comment": "NUR OSI-permissiv (Apache-2.0/MIT). Llama/Gemma/Hermes raus (siehe model-pack-open-weights-risk.json). qwen3.5-27b raus (2026-06-18): crasht reproduzierbar in node-llama-cpp (exit 139/SIGSEGV) -> models:matrix-risk. License-Gate: evals:licenses:check.",
   "models": [
     {
       "label": "qwen3-4b-instruct",
@@ -65,12 +65,6 @@
     {
       "label": "qwen3.5-9b",
       "path": "models/Qwen3.5-9B-Q4_K_M.gguf",
-      "contextSize": 8192,
-      "language": "de"
-    },
-    {
-      "label": "qwen3.5-27b",
-      "path": "models/Qwen3.5-27B-Q4_K_M.gguf",
       "contextSize": 8192,
       "language": "de"
     },
