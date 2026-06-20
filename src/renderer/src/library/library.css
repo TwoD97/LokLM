@@ -81,15 +81,32 @@
 
 .library__indexing-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin: 0 0 12px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--accent-soft);
   font-size: 13px;
+}
+.library__indexing-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.library__index-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.library__index-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 0.3s ease;
 }
 .library__indexing-stop {
   border: 1px solid var(--border-strong);
