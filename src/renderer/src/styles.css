@@ -118,6 +118,30 @@
   color-scheme: light;
 }
 
+/* ── Light-mode readability overrides ─────────────────────────────────────────
+ * The decorative background blobs use mix-blend-mode:screen (brightening) — good
+ * on a dark canvas, but on a light surface they wash text out (poor contrast).
+ * Tone them down and firm up the chat surfaces so text clears WCAG AA. Dark mode
+ * is untouched (these only apply under [data-theme='light']). */
+:root[data-theme='light'] {
+  /* slightly more solid user bubble / send fill */
+  --accent-soft-strong: rgba(37, 99, 235, 0.2);
+}
+:root[data-theme='light'] .bgfx__blob {
+  mix-blend-mode: multiply; /* darken-tint instead of wash-out */
+  opacity: 0.07;
+}
+:root[data-theme='light'] .chat__input {
+  background: #eef1f6;
+  border-color: var(--border-strong);
+}
+:root[data-theme='light'] .chat__send {
+  color: var(--accent-active);
+}
+:root[data-theme='light'] .bubble--assistant {
+  border-color: var(--border-strong);
+}
+
 /* Pre-JS first paint: honour the OS preference before useThemeEffect runs, so
  * a light-mode OS doesn't flash the dark palette. Once JS sets data-theme the
  * attribute selectors above win by specificity. */
