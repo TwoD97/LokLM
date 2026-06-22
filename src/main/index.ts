@@ -170,6 +170,14 @@ let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
 let translationService: TranslationService | null = null
 
+// Give the iGPU entirely to the model worker. Electron's GPU process (UI
+// compositing on the iGPU) coexisting with the worker's MULTIPLE Vulkan model
+// contexts (LLM + embedder + reranker) fast-fails the AMD iGPU driver with
+// 0xC0000409 — the same all-on-one-Vulkan-backend layout is rock-solid in a
+// plain-Node probe (no Electron GPU process). Software UI compositing is plenty
+// for this app and frees the iGPU for inference. MUST be called before app ready.
+app.disableHardwareAcceleration()
+
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
 // for the live VRAM probe (which used to block main during getLlama init).
