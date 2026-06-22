@@ -170,26 +170,12 @@ let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
 let translationService: TranslationService | null = null
 
-// Give the iGPU entirely to the model worker. Electron's GPU process (UI
-// compositing on the iGPU) coexisting with the worker's MULTIPLE Vulkan model
-// contexts (LLM + embedder + reranker) fast-fails the AMD iGPU driver with
-// 0xC0000409 — the same all-on-one-Vulkan-backend layout is rock-solid in a
-// plain-Node probe (no Electron GPU process). Software UI compositing is plenty
-// for this app and frees the iGPU for inference. MUST be called before app ready.
-app.disableHardwareAcceleration()
-
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
 // for the live VRAM probe (which used to block main during getLlama init).
 // Load serialisation moved into the worker too , a FIFO mutex there guards
 // the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
-// ONE models worker process owns the LLM + embedder + reranker on a SINGLE
-// Vulkan backend, all on the iGPU. Two separate Vulkan devices (one per process)
-// fast-fail the AMD iGPU driver — PROVEN: a two-process split crashed with
-// 0xC0000409, while one backend with all three model contexts is stable (17 GB
-// shared VRAM was never the limit) as long as native ops don't overlap. Every
-// native op therefore funnels through the worker's FIFO serializer.
 const modelsWorker = new ModelsWorkerClient()
 // Document parsing + OCR + chunking run in their own utilityProcess, isolated
 // from model inference so a heavy/scanned PDF import never stutters chat-token

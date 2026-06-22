@@ -21,29 +21,21 @@ import type { WorkerRequest } from './protocol'
 export type WorkerOp = WorkerRequest['op']
 
 /**
- * Every op that issues native llama.cpp work on the worker's shared Vulkan
- * backend (chat LLM + embedder + reranker, all on the iGPU) must run strictly
- * one-at-a-time — node-llama-cpp only globally serialises the decode call (and
- * only on Vulkan), not context load/dispose/sampling/KV edits, so any two
- * overlapping native ops on the backend can fast-fail the process (0xC0000409
- * on the AMD iGPU). This set is what makes a single-process, all-on-GPU layout
- * stable (a two-Vulkan-device split instead crashes — see modelsWorker header).
+ * Ops that issue native work on the shared GPU (chat) backend and therefore must
+ * run strictly one-at-a-time. `llm.load`/`unload` allocate and free device
+ * buffers; `llm.ask`/`generateRaw` decode and sample on the main vs utility
+ * context; `planner.refresh` probes VRAM on the same backend.
  *
- * NOT included (must bypass): `llm.abort` (must interrupt an ask that is HOLDING
- * the queue), `llm.setLanguage` (JS-only chat-history patch), and `shutdown`
- * (runs its own dispose on quit).
+ * NOT included: `embedder.*` / `reranker.*` (own CPU backend — concurrent CPU
+ * decode across contexts is node-llama-cpp's supported thread-splitter path),
+ * `llm.abort` (must interrupt an ask that is HOLDING the queue), `llm.setLanguage`
+ * (JS-only chat-history patch), and `shutdown` (runs its own dispose on quit).
  */
 export const SERIALIZED_OPS: ReadonlySet<WorkerOp> = new Set<WorkerOp>([
   'llm.load',
   'llm.unload',
   'llm.ask',
   'llm.generateRaw',
-  'embedder.load',
-  'embedder.unload',
-  'embedder.embed',
-  'reranker.load',
-  'reranker.unload',
-  'reranker.rank',
   'planner.refresh',
 ])
 
