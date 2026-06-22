@@ -176,7 +176,14 @@ let translationService: TranslationService | null = null
 // Load serialisation moved into the worker too , a FIFO mutex there guards
 // the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
+// Chat LLM worker (sole GPU tenant of its process).
 const modelsWorker = new ModelsWorkerClient()
+// ADR-0006: a SECOND models-worker process dedicated to the embedder + reranker
+// on the iGPU. Same bundle as modelsWorker, but a separate utilityProcess → its
+// own isolated Vulkan context, so retrieval GPU work can't collide with the chat
+// model's context (the v0.5.3 cross-context fast-fail class). LlamaService keeps
+// `modelsWorker`; EmbeddingService + RerankerService use this one.
+const retrievalWorker = new ModelsWorkerClient('loklm-retrieval')
 // Document parsing + OCR + chunking run in their own utilityProcess, isolated
 // from model inference so a heavy/scanned PDF import never stutters chat-token
 // streaming or blocks main.
@@ -260,7 +267,7 @@ function getWorkspaceService(): WorkspaceService {
 
 function getEmbeddingService(): EmbeddingService {
   if (!embeddingService) {
-    embeddingService = new EmbeddingService({ planner: sharedPlanner, client: modelsWorker })
+    embeddingService = new EmbeddingService({ planner: sharedPlanner, client: retrievalWorker })
     // Like LLM: ProviderRegistry is the source of truth for which backend is
     // active. Overlay it via composeEmbedderStatus so the TitleBar dot can flip
     // to the 'ollama' (purple) visual when the user is on the external backend.
@@ -626,7 +633,7 @@ function getWritingService(): WritingService {
 
 function getRerankerService(): RerankerService {
   if (!rerankerService) {
-    rerankerService = new RerankerService({ planner: sharedPlanner, client: modelsWorker })
+    rerankerService = new RerankerService({ planner: sharedPlanner, client: retrievalWorker })
     rerankerService.subscribe((status) => broadcastRerankerStatus(status))
   }
   return rerankerService
