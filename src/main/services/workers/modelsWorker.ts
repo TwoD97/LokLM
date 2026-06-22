@@ -1,24 +1,24 @@
-// Worker that owns node-llama-cpp model handles. The app spawns this SAME bundle
-// as TWO separate utilityProcesses (main/index.ts): 'loklm-models' for the chat
-// LLM and 'loklm-retrieval' for the embedder + reranker. Each process gets its
-// OWN Vulkan context, so retrieval GPU work cannot corrupt the chat model's
-// context across the process boundary — the cross-context fast-fail (0xC0000409
-// on an AMD iGPU Vulkan stack) that a single shared backend caused (ADR-0006).
-// Spawned via utilityProcess.fork so heavy native init (Vulkan/CUDA context,
+// Worker that owns every node-llama-cpp model handle — chat LLM + embedder +
+// reranker — on ONE shared Vulkan backend (all on the iGPU). Spawned ONCE via
+// utilityProcess.fork (main/index.ts) so heavy native init (Vulkan/CUDA context,
 // mmap, layer offload) never blocks the main event loop.
+//
+// Why one process, not two: a SECOND Vulkan device (a second process each
+// calling getLlama) fast-fails the AMD iGPU driver with 0xC0000409. Proven the
+// hard way — a two-process split (chat vs retrieval) crashed, while one backend
+// holding all three model contexts is stable (17 GB shared VRAM, never the
+// limit) AS LONG AS native ops never overlap (ADR-0006).
 //
 // Communication is via process.parentPort: requests come in with a numeric id,
 // the worker replies with exactly one response carrying that id. Status updates
 // and token chunks are pushed without an id and the main side fans them out.
 //
-// WITHIN a process, node-llama-cpp only globally serialises the decode *call*
-// (and only on Vulkan) — not context load/dispose, sampling or KV-cache edits —
-// so any two overlapping native ops on the one backend can fast-fail. Every
-// native-backend op is therefore funnelled through one FIFO serializer
-// (backendSerializer) and runs one-at-a-time; only control ops (abort /
-// setLanguage / shutdown) bypass it. A process only ever receives its own op
-// subset (llm.* OR embedder.*/reranker.*), so the single op set is correct for
-// both roles — see SERIALIZED_OPS.
+// node-llama-cpp only globally serialises the decode *call* (and only on Vulkan)
+// — not context load/dispose, sampling or KV-cache edits — so any two
+// overlapping native ops on the shared backend can fast-fail. EVERY native op is
+// therefore funnelled through one FIFO serializer (backendSerializer) and runs
+// one-at-a-time; only control ops (abort / setLanguage / shutdown) bypass it.
+// See SERIALIZED_OPS.
 
 import { cpus } from 'node:os'
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
@@ -68,11 +68,10 @@ declare const process: NodeJS.Process & {
 
 const planner = new ResourcePlanner()
 
-// VRAM (GB) the chat worker holds back from its KV-cache budget for the SEPARATE
-// retrieval worker process (embedder + reranker on the iGPU). They share the
-// physical device but each probes VRAM independently, so without this reservation
-// the chat model could size its KV to consume all free VRAM and OOM the retrieval
-// worker's load. ~bge-m3/jina-code (~0.4 GB) + bge-reranker (~0.4 GB) + contexts.
+// VRAM (GB) the LLM holds back from its KV-cache budget for the embedder +
+// reranker that co-reside on the SAME Vulkan backend. Without it the chat model
+// could size its KV to consume all free VRAM and OOM the embedder/reranker load
+// on a small iGPU. ~jina-code/bge-m3 (~0.4 GB) + bge-reranker (~0.4 GB) + ctx.
 const RETRIEVAL_VRAM_RESERVE_GB = 1.2
 
 // ---- shared state for the three services ----------------------------------
@@ -753,11 +752,11 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     loadProgress: 0,
     message: 'Initialising embedder backend…',
   })
-  // The embedder runs on THIS process's own llama backend. When this worker is
-  // spawned as the dedicated RETRIEVAL process (separate from chat), that backend
-  // is an isolated Vulkan context, so embedder/reranker GPU work can't corrupt
-  // the chat model's context across the process boundary. RAM-only snapshot
-  // here: probing VRAM before the backend exists would spin up a stray probe.
+  // The embedder loads on the worker's shared 'primary' Vulkan backend (same
+  // device as the chat LLM + reranker, on the iGPU). Safe because every native
+  // op funnels through the FIFO serializer, so an embed never overlaps a chat
+  // decode / reranker op on the shared backend. RAM-only snapshot here: probing
+  // VRAM before the backend exists would spin up a stray probe backend.
   const resources = planner.snapshot()
   const llama = await ensureBackend('primary', false, (msg) =>
     pushStatus('embedder', { message: msg }),
@@ -843,8 +842,8 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  // Reranker shares the embedder's backend in THIS process (the retrieval
-  // process's own isolated Vulkan context). RAM-only snapshot (see embedder).
+  // Reranker shares the worker's 'primary' Vulkan backend with the LLM +
+  // embedder (serializer keeps their ops from overlapping). RAM-only snapshot.
   const resources = planner.snapshot()
   const llama = await ensureBackend('primary', false, (msg) =>
     pushStatus('reranker', { message: msg }),
