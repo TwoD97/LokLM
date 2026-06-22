@@ -1,25 +1,24 @@
-// Worker that owns every node-llama-cpp handle (LLM + embedder + reranker)
-// plus the documents.parseAndChunk pipeline that used to pin the main event
-// loop on book-sized PDFs.
-// Spawned via utilityProcess.fork from main/index.ts so heavy native init
-// (CUDA context, mmap, layer offload) never blocks the main event loop and
-// Windows' watchdog never gets a chance to pop "Not Responding".
+// Worker that owns node-llama-cpp model handles. The app spawns this SAME bundle
+// as TWO separate utilityProcesses (main/index.ts): 'loklm-models' for the chat
+// LLM and 'loklm-retrieval' for the embedder + reranker. Each process gets its
+// OWN Vulkan context, so retrieval GPU work cannot corrupt the chat model's
+// context across the process boundary — the cross-context fast-fail (0xC0000409
+// on an AMD iGPU Vulkan stack) that a single shared backend caused (ADR-0006).
+// Spawned via utilityProcess.fork so heavy native init (Vulkan/CUDA context,
+// mmap, layer offload) never blocks the main event loop.
 //
-// Communication is via process.parentPort: requests come in with a numeric
-// id, the worker replies with exactly one response carrying that id. Status
-// updates and token chunks are pushed without an id and the main side just
-// fans them out to subscribers.
+// Communication is via process.parentPort: requests come in with a numeric id,
+// the worker replies with exactly one response carrying that id. Status updates
+// and token chunks are pushed without an id and the main side fans them out.
 //
-// All three services share one Llama backend instance (singleton inside
-// node-llama-cpp). node-llama-cpp only globally serialises the decode *call*,
-// and only on Vulkan (LlamaContext's `decodeSyncWorkaround.vulkanLock`) —
-// context loads/disposes, sampling and KV-cache edits across the embedder /
-// reranker / chat contexts can otherwise overlap and fast-fail the whole
-// process on a fragile driver (seen as 0xC0000409 on an AMD iGPU Vulkan stack
-// when background embedding raced a chat ask / reranker load). So EVERY native-
-// backend op is funnelled through one FIFO serializer (backendSerializer) and
-// runs one-at-a-time; only control ops (abort / setLanguage / shutdown) bypass
-// it — see SERIALIZED_OPS.
+// WITHIN a process, node-llama-cpp only globally serialises the decode *call*
+// (and only on Vulkan) — not context load/dispose, sampling or KV-cache edits —
+// so any two overlapping native ops on the one backend can fast-fail. Every
+// native-backend op is therefore funnelled through one FIFO serializer
+// (backendSerializer) and runs one-at-a-time; only control ops (abort /
+// setLanguage / shutdown) bypass it. A process only ever receives its own op
+// subset (llm.* OR embedder.*/reranker.*), so the single op set is correct for
+// both roles — see SERIALIZED_OPS.
 
 import { cpus } from 'node:os'
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
@@ -68,6 +67,13 @@ declare const process: NodeJS.Process & {
 }
 
 const planner = new ResourcePlanner()
+
+// VRAM (GB) the chat worker holds back from its KV-cache budget for the SEPARATE
+// retrieval worker process (embedder + reranker on the iGPU). They share the
+// physical device but each probes VRAM independently, so without this reservation
+// the chat model could size its KV to consume all free VRAM and OOM the retrieval
+// worker's load. ~bge-m3/jina-code (~0.4 GB) + bge-reranker (~0.4 GB) + contexts.
+const RETRIEVAL_VRAM_RESERVE_GB = 1.2
 
 // ---- shared state for the three services ----------------------------------
 
@@ -321,7 +327,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   const planResources =
     payload.placement === 'cpu'
       ? { ...resources, hasGpu: false, freeVramGB: 0, totalVramGB: 0 }
-      : resources
+      : { ...resources, freeVramGB: Math.max(0, resources.freeVramGB - RETRIEVAL_VRAM_RESERVE_GB) }
 
   const model = await (
     llama as {
@@ -747,13 +753,17 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     loadProgress: 0,
     message: 'Initialising embedder backend…',
   })
-  // The embedder runs on the dedicated CPU 'aux' backend — never the GPU device
-  // the chat model owns. Use a RAM-only snapshot, NOT refreshIfStale(): a VRAM
-  // probe could spin up a GPU backend before the chat model has even loaded.
+  // The embedder runs on THIS process's own llama backend. When this worker is
+  // spawned as the dedicated RETRIEVAL process (separate from chat), that backend
+  // is an isolated Vulkan context, so embedder/reranker GPU work can't corrupt
+  // the chat model's context across the process boundary. RAM-only snapshot
+  // here: probing VRAM before the backend exists would spin up a stray probe.
   const resources = planner.snapshot()
-  const llama = await ensureBackend('aux', true, (msg) => pushStatus('embedder', { message: msg }))
+  const llama = await ensureBackend('primary', false, (msg) =>
+    pushStatus('embedder', { message: msg }),
+  )
   pushStatus('embedder', {
-    message: 'Loading embedder weights (cpu — dedicated aux backend)…',
+    message: `Loading embedder weights (${primaryGpuLabel ?? 'gpu'})…`,
   })
   const model = await (
     llama as {
@@ -775,10 +785,11 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
   embedderModel = model
   embedderContext = context
   pushStatus('embedder', { state: 'ready', loadProgress: null, message: 'Embedder ready.' })
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
-    resolvedPlacement: 'cpu',
-    reason: 'dedicated CPU backend (kept off the GPU device)',
+    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
+    reason: onGpu ? `gpu: ${primaryGpuLabel} backend` : 'cpu: no GPU backend available',
   }
 }
 
@@ -832,12 +843,14 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  // Reranker shares the embedder's dedicated CPU 'aux' backend — off the GPU
-  // device the chat model owns. RAM-only snapshot (no VRAM probe — see embedder).
+  // Reranker shares the embedder's backend in THIS process (the retrieval
+  // process's own isolated Vulkan context). RAM-only snapshot (see embedder).
   const resources = planner.snapshot()
-  const llama = await ensureBackend('aux', true, (msg) => pushStatus('reranker', { message: msg }))
+  const llama = await ensureBackend('primary', false, (msg) =>
+    pushStatus('reranker', { message: msg }),
+  )
   pushStatus('reranker', {
-    message: 'Loading reranker weights (cpu — dedicated aux backend)…',
+    message: `Loading reranker weights (${primaryGpuLabel ?? 'gpu'})…`,
   })
   const model = await (
     llama as {
@@ -859,10 +872,11 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
   rerankerModel = model
   rerankerContext = context
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
-    resolvedPlacement: 'cpu',
-    reason: 'dedicated CPU backend (kept off the GPU device)',
+    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
+    reason: onGpu ? `gpu: ${primaryGpuLabel} backend` : 'cpu: no GPU backend available',
   }
 }
 

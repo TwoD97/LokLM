@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { createBackendSerializer, SERIALIZED_OPS } from '@main/services/workers/backendSerializer'
 
-// The embedder + reranker run on a dedicated CPU backend, so their ops bypass
-// this serializer entirely. What it guards is the GPU (chat) backend: the main
-// chat session (`llm.ask`) and the utility session (`llm.generateRaw`) decode on
-// one device, so a background generation overlapping a live chat could fast-fail
-// the process. This serializer makes the chat backend's ops run one-at-a-time
-// while letting control ops (abort) and the CPU-backend ops jump the queue.
+// The worker is spawned as two isolated processes (chat = llm ops; retrieval =
+// embedder + reranker ops), each with its own Vulkan backend. Every native op on
+// a process's backend must run one-at-a-time (node-llama-cpp only globally
+// serialises the decode call, and only on Vulkan), so this serializer covers all
+// of them; only control ops (abort/setLanguage/shutdown) jump the queue. A
+// process only ever receives its own subset, so the one op set fits both roles.
 
 function deferred<T = void>(): {
   promise: Promise<T>
@@ -76,29 +76,27 @@ describe('backendSerializer', () => {
     expect(events).toEqual(['ask:start', 'abort', 'ask:end'])
   })
 
-  it('does not serialize CPU-backend ops (embedder/reranker) against the GPU queue', async () => {
+  it('serializes embedder + reranker ops within the retrieval process', async () => {
     const run = createBackendSerializer()
     const events: string[] = []
     const gate = deferred()
 
-    const pAsk = run('llm.ask', async () => {
-      events.push('ask:start')
+    const pEmbed = run('embedder.embed', async () => {
+      events.push('embed:start')
       await gate.promise
-      events.push('ask:end')
+      events.push('embed:end')
+    })
+    const pRank = run('reranker.rank', async () => {
+      events.push('rank')
     })
 
     await tick()
-    expect(events).toEqual(['ask:start']) // GPU op holds the queue
-
-    // An embed running on the separate CPU backend must NOT wait for the chat.
-    const pEmbed = run('embedder.embed', async () => {
-      events.push('embed')
-    })
-    await pEmbed
-    expect(events).toEqual(['ask:start', 'embed'])
+    // reranker must wait behind the in-flight embed — one Vulkan backend per process.
+    expect(events).toEqual(['embed:start'])
 
     gate.resolve()
-    await pAsk
+    await Promise.all([pEmbed, pRank])
+    expect(events).toEqual(['embed:start', 'embed:end', 'rank'])
   })
 
   it('releases the queue when a GPU op rejects', async () => {
@@ -118,30 +116,28 @@ describe('backendSerializer', () => {
     expect(events).toEqual(['one', 'two'])
   })
 
-  it('serializes exactly the GPU (chat) backend ops', () => {
+  it('serializes every native-backend op (llm + embedder + reranker)', () => {
     for (const op of [
       'llm.load',
       'llm.unload',
       'llm.ask',
       'llm.generateRaw',
+      'embedder.load',
+      'embedder.unload',
+      'embedder.embed',
+      'reranker.load',
+      'reranker.unload',
+      'reranker.rank',
       'planner.refresh',
     ] as const) {
       expect(SERIALIZED_OPS.has(op)).toBe(true)
     }
   })
 
-  it('never serializes CPU-backend ops or control ops', () => {
-    // embedder/reranker live on their own CPU backend; abort must interrupt a
-    // held ask; setLanguage is a JS-only patch; shutdown runs its own teardown.
-    for (const op of [
-      'embedder.embed',
-      'embedder.load',
-      'reranker.rank',
-      'reranker.load',
-      'llm.abort',
-      'llm.setLanguage',
-      'shutdown',
-    ] as const) {
+  it('never serializes control ops', () => {
+    // abort must interrupt a held ask; setLanguage is a JS-only chat-history
+    // patch; shutdown runs its own teardown.
+    for (const op of ['llm.abort', 'llm.setLanguage', 'shutdown'] as const) {
       expect(SERIALIZED_OPS.has(op)).toBe(false)
     }
   })
