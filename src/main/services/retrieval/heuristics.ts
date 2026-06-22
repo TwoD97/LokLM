@@ -1,5 +1,6 @@
 import type { SearchHit } from '@main/db/types'
 import type { ResponseLanguage } from '../llm/prompt'
+import { fileTrack } from '../codebase/ignore'
 
 // small-but-deliberate DE+EN stopword set. Domain-relevant nouns like
 // "Wochenbuch" intentionally NOT in the list — they should pass through
@@ -155,4 +156,143 @@ export function applyLanguageMatchBoost(
       ? { ...h, score: h.score * factor }
       : h,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Code-aware heuristics (ADR-0006). Only meaningful in codebase workspaces:
+// code chunks carry a `[file, symbol]` heading_path (codeChunker), code + docs
+// share one vector space, and natural-language questions + the prose-trained
+// reranker otherwise bury code under documentation. All are pure SearchHit[] →
+// SearchHit[] boosts, same shape as applyTitleBoost.
+// ---------------------------------------------------------------------------
+
+/** A chunk is "code" when its breadcrumb's first segment (the source file, set
+ *  by codeChunker's relPath) routes to the code track. Prose/PDF chunks carry
+ *  markdown/section headings instead, which route to 'doc'/'skip'. */
+export function isCodeHit(hit: SearchHit): boolean {
+  const hp = hit.heading_path
+  return hp != null && hp.length > 0 && fileTrack(hp[0]!) === 'code'
+}
+
+/** True when `t` looks like a code identifier rather than a plain word — i.e.
+ *  snake_case, a dotted path, or a camelCase / multi-word-PascalCase boundary.
+ *  A bare lowercase word ("authentication") is intentionally NOT an identifier:
+ *  boosting on it would fire on ordinary prose queries. */
+function looksLikeIdentifier(t: string): boolean {
+  if (t.length < 3) return false
+  if (t.includes('_') || t.includes('.')) return true
+  if (/[a-z][A-Z]/.test(t)) return true // camelCase boundary
+  if (/^[A-Z][a-z].*[A-Z]/.test(t)) return true // multi-word PascalCase
+  return false
+}
+
+/** Pull code-identifier candidates from a query (lowercased): camelCase,
+ *  PascalCase, snake_case, and dotted paths (the whole path plus each part). */
+export function extractCodeIdentifiers(query: string): string[] {
+  const out = new Set<string>()
+  for (const m of query.matchAll(/[A-Za-z_][A-Za-z0-9_.]*[A-Za-z0-9_]/g)) {
+    const tok = m[0]
+    if (!looksLikeIdentifier(tok)) continue
+    out.add(tok.toLowerCase())
+    if (tok.includes('.')) {
+      for (const part of tok.split('.')) if (part.length >= 3) out.add(part.toLowerCase())
+    }
+  }
+  return [...out]
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const DEF_KEYWORDS = 'function|class|def|interface|enum|type|namespace|struct|impl|trait|fn|func'
+
+/** True when `text` DEFINES `id` — a keyword declaration (`function foo`,
+ *  `class Foo`, `def foo`) or a method definition (`async foo(args): T {`), as
+ *  opposed to merely referencing it. Catches the case the breadcrumb misses:
+ *  a class method whose enclosing symbol is the class, not the method. */
+function definesIdentifier(text: string, id: string): boolean {
+  if (id.includes('.')) return false // only simple identifiers can be "defined"
+  const e = escapeRegex(id)
+  const re = new RegExp(
+    `(?:\\b(?:${DEF_KEYWORDS})\\s+${e}\\b)` +
+      `|(?:(?:^|\\n)[ \\t]*(?:(?:public|private|protected|static|async|readonly|export|abstract|override|get|set)[ \\t]+)*${e}[ \\t]*\\([^)]*\\)[ \\t]*[:{])`,
+    'i',
+  )
+  return re.test(text)
+}
+
+/** Boost a code chunk whose enclosing symbol matches a query identifier
+ *  (`symbolFactor`); when the breadcrumb symbol does NOT match, fall back to an
+ *  in-text definition match (`defineFactor`) to catch class methods. Code
+ *  chunks only — never boosts prose that merely mentions a symbol. */
+export function applyCodeSymbolBoost(
+  hits: SearchHit[],
+  query: string,
+  symbolFactor: number,
+  defineFactor: number,
+): SearchHit[] {
+  if (symbolFactor <= 1.0 && defineFactor <= 1.0) return hits
+  const ids = extractCodeIdentifiers(query)
+  if (ids.length === 0) return hits
+  return hits.map((h) => {
+    if (!isCodeHit(h)) return h
+    const hp = h.heading_path!
+    const symbol = hp.length > 1 ? hp[hp.length - 1]!.toLowerCase() : null
+    const symbolMatch = symbol != null && symbolFactor > 1.0 && ids.some((id) => id === symbol)
+    const definesMatch =
+      !symbolMatch && defineFactor > 1.0 && ids.some((id) => definesIdentifier(h.text, id))
+    let f = 1.0
+    if (symbolMatch) f *= symbolFactor
+    if (definesMatch) f *= defineFactor
+    return f !== 1.0 ? { ...h, score: h.score * f } : h
+  })
+}
+
+/** Boost code chunks from a file the query names by its stem (e.g. asking about
+ *  "RetrievalService" boosts chunks from `RetrievalService.ts`). */
+export function applyCodeFilenameBoost(
+  hits: SearchHit[],
+  query: string,
+  factor: number,
+): SearchHit[] {
+  if (factor <= 1.0) return hits
+  const terms = new Set<string>([...nonStopwordTokens(query), ...extractCodeIdentifiers(query)])
+  if (terms.size === 0) return hits
+  return hits.map((h) => {
+    if (!isCodeHit(h)) return h
+    const stem = h.heading_path![0]!.toLowerCase().replace(/\.[^.]+$/, '')
+    return terms.has(stem) ? { ...h, score: h.score * factor } : h
+  })
+}
+
+/**
+ * Guarantee code chunks at least `minCode` of the final top-K. When the chosen
+ * `topK` is code-starved, inject the best code hits from `pool` that aren't
+ * already present, evicting the lowest-scoring DOC hits to keep length == k.
+ * No-op when the top-K already has enough code or the pool has no more.
+ * (The per-*track* analogue of diversifyByDocument; pool assumed best-first.)
+ */
+export function ensureCodeShare(
+  topK: SearchHit[],
+  pool: SearchHit[],
+  k: number,
+  minCode: number,
+): SearchHit[] {
+  if (minCode <= 0) return topK
+  const codeInTop = topK.filter(isCodeHit).length
+  if (codeInTop >= minCode) return topK
+  const inTop = new Set(topK.map((h) => h.chunk_id))
+  const candidates = pool.filter((h) => isCodeHit(h) && !inTop.has(h.chunk_id))
+  const need = Math.min(minCode - codeInTop, candidates.length, k)
+  if (need === 0) return topK
+  const inject = candidates.slice(0, need)
+  const lowestDocs = topK
+    .filter((h) => !isCodeHit(h))
+    .slice()
+    .sort((a, b) => a.score - b.score)
+    .slice(0, need)
+  const remove = new Set(lowestDocs.map((h) => h.chunk_id))
+  const kept = topK.filter((h) => !remove.has(h.chunk_id))
+  return [...kept, ...inject].sort((a, b) => b.score - a.score)
 }

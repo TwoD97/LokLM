@@ -10,6 +10,10 @@ import {
   applyRecencyBoost,
   applyLanguageMatchBoost,
   splitQuestions,
+  extractCodeIdentifiers,
+  applyCodeSymbolBoost,
+  applyCodeFilenameBoost,
+  ensureCodeShare,
 } from './heuristics'
 import type { ResponseLanguage } from '../llm/prompt'
 
@@ -157,6 +161,15 @@ const DEFAULT_SHORT_CHUNK_MIN_CHARS = 200
 const DEFAULT_RECENCY_BOOST = 1.1
 const DEFAULT_RECENCY_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
 const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
+// Code-aware retrieval (ADR-0006). Self-gating: the boosts only touch code
+// chunks whose breadcrumb symbol / file the query names, so they're inert in
+// document workspaces. ensureCodeShare runs only on code-INTENT queries (the
+// query mentions a code identifier) — the "differentiate code vs docs" signal —
+// so a prose question in a codebase workspace still ranks normally.
+const DEFAULT_CODE_SYMBOL_BOOST = 1.8 // breadcrumb symbol === a query identifier
+const DEFAULT_CODE_DEFINE_BOOST = 1.4 // chunk text DEFINES a query identifier
+const DEFAULT_CODE_FILENAME_BOOST = 1.3 // chunk is from a file the query names
+const DEFAULT_CODE_MIN_FRACTION = 0.4 // reserve ≥40% of top-K for code on code-intent queries
 // How many top documents the hierarchical pre-filter keeps when docPrefilter is
 // on. 5 mirrors LlamaIndex's drill-down top_k corrected up from its brittle
 // default of 1 — enough that one bad summary match doesn't lose the answer.
@@ -322,6 +335,13 @@ export class RetrievalService {
         opts.responseLanguage,
         opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
       )
+      pool = applyCodeSymbolBoost(
+        pool,
+        trimmed,
+        DEFAULT_CODE_SYMBOL_BOOST,
+        DEFAULT_CODE_DEFINE_BOOST,
+      )
+      pool = applyCodeFilenameBoost(pool, trimmed, DEFAULT_CODE_FILENAME_BOOST)
       pool.sort((a, b) => b.score - a.score)
     }
 
@@ -359,6 +379,13 @@ export class RetrievalService {
         opts.responseLanguage,
         opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
       )
+      postRank = applyCodeSymbolBoost(
+        postRank,
+        trimmed,
+        DEFAULT_CODE_SYMBOL_BOOST,
+        DEFAULT_CODE_DEFINE_BOOST,
+      )
+      postRank = applyCodeFilenameBoost(postRank, trimmed, DEFAULT_CODE_FILENAME_BOOST)
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
 
@@ -366,10 +393,23 @@ export class RetrievalService {
     // Without this, a single content-rich doc can take all 8 top-K slots
     // even when the user's query was clearly about a different (smaller)
     // doc in the workspace.
-    const ranked =
+    const diversified =
       opts.documentDiversity === false
         ? postRank.slice(0, topK)
         : diversifyByDocument(postRank, topK)
+    // Code-aware (ADR-0006): when the query names a code symbol/file, guarantee
+    // code chunks a share of the final top-K so documentation can't crowd them
+    // all out. No-op for prose queries (no identifiers) and document workspaces
+    // (no code-track hits to inject).
+    const ranked =
+      extractCodeIdentifiers(trimmed).length > 0
+        ? ensureCodeShare(
+            diversified,
+            postRank,
+            topK,
+            Math.max(1, Math.ceil(topK * DEFAULT_CODE_MIN_FRACTION)),
+          )
+        : diversified
 
     // ------- 3. whole-doc + neighbour expansion -------
     let withWhole = ranked.map<HitWithOrigin>((h) => ({ hit: h, origin: 'primary' }))
