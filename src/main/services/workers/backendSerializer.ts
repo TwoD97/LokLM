@@ -21,14 +21,13 @@ import type { WorkerRequest } from './protocol'
 export type WorkerOp = WorkerRequest['op']
 
 /**
- * Every op that issues native llama.cpp work on THIS process's backend must run
- * strictly one-at-a-time — node-llama-cpp only globally serialises the decode
- * call (and only on Vulkan), not context load/dispose/sampling/KV edits, so any
- * two overlapping native ops on one Vulkan backend can fast-fail the process.
- *
- * The worker is spawned as TWO isolated processes (chat = the llm ops, retrieval
- * = the embedder + reranker ops), each with its own Vulkan context; a process
- * only ever receives its own subset of these ops, so this set is correct for both.
+ * Every op that issues native llama.cpp work on the worker's shared Vulkan
+ * backend (chat LLM + embedder + reranker, all on the iGPU) must run strictly
+ * one-at-a-time — node-llama-cpp only globally serialises the decode call (and
+ * only on Vulkan), not context load/dispose/sampling/KV edits, so any two
+ * overlapping native ops on the backend can fast-fail the process (0xC0000409
+ * on the AMD iGPU). This set is what makes a single-process, all-on-GPU layout
+ * stable (a two-Vulkan-device split instead crashes — see modelsWorker header).
  *
  * NOT included (must bypass): `llm.abort` (must interrupt an ask that is HOLDING
  * the queue), `llm.setLanguage` (JS-only chat-history patch), and `shutdown`

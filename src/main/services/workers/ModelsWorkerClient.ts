@@ -57,15 +57,6 @@ export class ModelsWorkerClient {
    *  intentional quit from a crash (only the latter fires the status reset). */
   private shuttingDown = false
 
-  /**
-   * @param serviceName utilityProcess label. The app spawns TWO instances from
-   *   the same worker bundle: 'loklm-models' (chat LLM) and 'loklm-retrieval'
-   *   (embedder + reranker). Separate processes → separate Vulkan contexts, so
-   *   retrieval GPU work can't collide with the chat model's (ADR-0006). Each
-   *   instance only ever receives its own op subset.
-   */
-  constructor(private readonly serviceName: string = 'loklm-models') {}
-
   setStatusListener<K extends ServiceKind>(kind: K, cb: StatusListener[K]): void {
     this.statusListeners[kind] = cb as StatusListener[K]
   }
@@ -88,7 +79,7 @@ export class ModelsWorkerClient {
         // Inherit stdio so worker `console.warn` lands in the same terminal as
         // main during dev; in production this just goes nowhere harmless.
         stdio: 'inherit',
-        serviceName: this.serviceName,
+        serviceName: 'loklm-models',
       })
       await new Promise<void>((resolve, reject) => {
         const onSpawn = (): void => {
