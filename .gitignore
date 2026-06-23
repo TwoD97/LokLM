@@ -140,6 +140,8 @@ dist
 # Vite files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# electron-vite transpiles the TS config to a timestamped .mjs next to it on load
+electron.vite.config.*.mjs
 .vite/
 
 Pflichtenheft_LokLM.md
