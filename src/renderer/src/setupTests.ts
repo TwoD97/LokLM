@@ -191,6 +191,14 @@ const stub: Api = {
     deleteMessage: () => Promise.resolve(),
     setActiveDocumentIds: () => Promise.resolve(),
   },
+  folders: {
+    list: () => Promise.resolve({ folders: [], assignments: [] }),
+    create: (_workspaceId: number, name: string, parentId: number | null) =>
+      Promise.resolve({ id: 1, parentId, name, createdAt: Math.floor(Date.now() / 1000) }),
+    rename: () => Promise.resolve(),
+    delete: () => Promise.resolve(),
+    setDocumentFolder: () => Promise.resolve(),
+  },
   models: {
     status: () =>
       Promise.resolve({

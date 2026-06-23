@@ -219,6 +219,30 @@
   min-width: 0;
   flex: 1;
 }
+/* Document leaf inside the sidebar folder tree — a compact scope-toggle button
+   that fills the FolderTree's draggable row wrapper. */
+.sidebar__doc-btn-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar__doc-btn-inner:hover {
+  background: var(--bg-elev);
+}
+.sidebar__doc-btn-inner--active {
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
 
 /* New-workspace input — token-based, matches the app's input styling instead
  * of the previous one-off inline styles. */

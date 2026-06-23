@@ -332,8 +332,54 @@
   background: var(--error-bg);
 }
 
+/* Failed-to-index banner — bulk retry of every failed document. */
+.library__failed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  background: var(--error-bg);
+}
+.library__failed-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--error);
+}
+.library__failed-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.library__failed-retry:hover {
+  border-color: var(--error);
+  background: var(--bg-elev);
+}
+
 /* Row variants + menu */
 .library__row--missing td {
+  opacity: 0.7;
+}
+/* Wrapper around the ⋯ button + dropdown — shared positioned anchor for both
+   the table row and the tree leaf, so the absolutely-placed menu lands right. */
+.library__actions {
+  position: relative;
+  display: inline-flex;
+}
+.library__tree-file.library__row--missing {
   opacity: 0.7;
 }
 .library__row-title {
@@ -545,6 +591,106 @@
   color: #5a9bff;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+/* ── Folder-tree view (List ⇄ Tree toggle) ──────────────────────────────── */
+.library__viewtoggle {
+  display: inline-flex;
+  gap: 2px;
+  margin: 4px 0 8px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+}
+.library__viewtoggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.library__viewtoggle button:hover {
+  background: var(--bg-2);
+}
+.library__viewtoggle button.is-active {
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
+
+.library__tree {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+.library__tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.library__tree-row:hover {
+  background: var(--bg-elev);
+}
+.library__tree-folder {
+  cursor: pointer;
+  user-select: none;
+}
+.library__tree-chevron {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+.library__tree-foldericon {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+.library__tree-fileicon {
+  flex: 0 0 auto;
+  opacity: 0.55;
+}
+.library__tree-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library__tree-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library__tree-count {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 11px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+.library__tree-file .library__status {
+  flex: 0 0 auto;
+}
+/* File-row body for the Library "Folders" view (inside FolderTree's wrapper). */
+.library__tree-file-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+}
+.library__tree-sentinel {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.5;
 }
 
 /* ADR-0006: directory picker for codebase folders without a .gitignore. */

@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { List, Folders, FolderTree as FolderTreeIcon } from 'lucide-react'
 import type { Document, IndexProgress, LibrarySearchHit } from '@shared/documents'
 import { DocumentTable } from './DocumentTable'
+import { DocumentTree } from './DocumentTree'
+import { LibraryFileRow } from './LibraryFileRow'
+import { FolderTree } from '../folders/FolderTree'
+import { useFolders } from '../folders/useFolders'
+import { buildFolderTree, topLevelFolderKeys } from '../folders/folderTreeModel'
 import { DocumentPreview } from './DocumentPreview'
 import { SummaryModal } from './SummaryModal'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
+import { FailedDocsBanner } from './FailedDocsBanner'
 import { LibrarySearchBar } from './LibrarySearchBar'
 import { SearchResults } from './SearchResults'
 import { useLibrarySearch } from './useLibrarySearch'
@@ -22,6 +29,65 @@ type Props = {
 export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element {
   const t = useT()
   const [docs, setDocs] = useState<Document[]>([])
+  // Three views of the same documents, persisted so the choice sticks:
+  //   'list'     — flat sortable table
+  //   'folders'  — user-created organizational folders (shared with the chat
+  //                sidebar; the "unify" decision)
+  //   'location' — VS-Code-style tree derived from each doc's sourcePath under
+  //                the synced-folder roots ("by file location")
+  const [viewMode, setViewMode] = useState<'list' | 'folders' | 'location'>(() => {
+    if (typeof localStorage === 'undefined') return 'list'
+    const v = localStorage.getItem('loklm.libraryViewMode')
+    if (v === 'folders' || v === 'location') return v
+    if (v === 'tree') return 'location' // migrate the old two-way value
+    return 'list'
+  })
+  const setView = useCallback((mode: 'list' | 'folders' | 'location') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('loklm.libraryViewMode', mode)
+    } catch {
+      /* private mode / disabled storage — fall back to in-memory only */
+    }
+  }, [])
+  // Manual folders for this workspace (shared model with the chat sidebar).
+  const folders = useFolders(workspaceId)
+  const folderTree = useMemo(
+    () => buildFolderTree(folders.folders, folders.assignments, docs),
+    [folders.folders, folders.assignments, docs],
+  )
+  const folderTopKeys = useMemo(() => topLevelFolderKeys(folderTree), [folderTree])
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const folderSeenRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    folderSeenRef.current = new Set()
+    setExpandedFolders(new Set())
+  }, [workspaceId])
+  useEffect(() => {
+    setExpandedFolders((prev) => {
+      let changed = false
+      const next = new Set(prev)
+      for (const k of folderTopKeys) {
+        if (!folderSeenRef.current.has(k)) {
+          folderSeenRef.current.add(k)
+          next.add(k)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [folderTopKeys])
+  const toggleFolderExpand = useCallback((key: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+  // Synced-folder roots — the anchors the tree nests files under. Refetched on
+  // workspace switch and after every sync run (folders may have been added).
+  const [syncRoots, setSyncRoots] = useState<string[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
   // Bumped after any flow that could change the missing-banner contents
   // (sync run, doc delete, replace, refresh). The banner refetches on every
@@ -47,13 +113,27 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [],
   )
 
-  const refreshDocs = useCallback(async (id: number) => {
-    setDocs(await window.api.documents.list(id))
+  // Depend on the stable `refresh` callback, NOT the whole folders object (which
+  // useFolders mints fresh each render) — otherwise the mount effect below would
+  // re-run every render and refetch in a loop.
+  const refreshFolders = folders.refresh
+  const refreshDocs = useCallback(
+    async (id: number) => {
+      setDocs(await window.api.documents.list(id))
+      // Keep folder assignments/counts in step with adds/deletes/moves.
+      void refreshFolders()
+    },
+    [refreshFolders],
+  )
+
+  const refreshSyncRoots = useCallback(async (id: number) => {
+    setSyncRoots(await window.api.workspaces.listSyncFolders(id))
   }, [])
 
   useEffect(() => {
     void refreshDocs(workspaceId)
-  }, [workspaceId, refreshDocs])
+    void refreshSyncRoots(workspaceId)
+  }, [workspaceId, refreshDocs, refreshSyncRoots])
 
   useEffect(() => {
     const off = window.api.documents.onIndexProgress((p) => {
@@ -78,11 +158,12 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       if (ev.workspaceId !== workspaceId) return
       if (ev.phase === 'done' || ev.phase === 'failed') {
         void refreshDocs(workspaceId)
+        void refreshSyncRoots(workspaceId)
         bumpMissing()
       }
     })
     return () => off()
-  }, [workspaceId, refreshDocs, bumpMissing])
+  }, [workspaceId, refreshDocs, refreshSyncRoots, bumpMissing])
 
   const onImport = useCallback(
     async (paths: string[]) => {
@@ -152,6 +233,23 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     void refreshDocs(workspaceId)
   }, [workspaceId, refreshDocs])
 
+  // Bulk "retry failed" — re-index every failed doc in one shot instead of
+  // doing it one-by-one through each row's ⋯ menu. Loops the existing per-doc
+  // reindex IPC (same pattern as onImport), then refreshes once at the end.
+  const onRetryFailed = useCallback(
+    async (ids: number[]) => {
+      for (const id of ids) {
+        try {
+          await window.api.documents.reindex(id)
+        } catch (err) {
+          console.error('retry failed doc', err)
+        }
+      }
+      void refreshDocs(workspaceId)
+    },
+    [workspaceId, refreshDocs],
+  )
+
   const onRead = useCallback((d: Document) => {
     setPreviewDoc(d)
   }, [])
@@ -198,6 +296,17 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   // drains (each finished doc fires an indexing:progress 'done' → refreshDocs).
   const indexingCount = docs.filter((d) => d.status === 'pending' || d.status === 'indexing').length
 
+  // Docs that failed to index — drives the bulk "retry failed" banner. A doc
+  // with an in-flight non-failed progress is mid-retry, so exclude it (its
+  // persisted status is still 'failed' until the run reports 'done').
+  const failedIds = docs
+    .filter((d) => {
+      const p = progress.get(d.id)
+      if (p && p.phase !== 'failed') return false
+      return d.status === 'failed' || p?.phase === 'failed'
+    })
+    .map((d) => d.id)
+
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
@@ -211,6 +320,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         refreshKey={missingTick}
         onChanged={() => void refreshDocs(workspaceId)}
       />
+      <FailedDocsBanner count={failedIds.length} onRetryAll={() => void onRetryFailed(failedIds)} />
       <DropZone
         onFiles={(paths) => void onImport(paths)}
         onPick={async () => {
@@ -253,25 +363,110 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           query={search.query}
         />
       ) : (
-        /* Pass the callbacks straight , each is already useCallback'd above, so
-         *  DocumentRow's React.memo can actually skip re-renders for rows whose
-         *  doc + progress didn't change. Wrapping them inline with arrows used
-         *  to mint fresh fns each render and defeat the memo. */
-        <DocumentTable
-          docs={docs}
-          resetKey={workspaceId}
-          progress={progress}
-          onDelete={onDelete}
-          onReindex={onReindex}
-          onReveal={onReveal}
-          onOpenExternal={onOpenExternal}
-          onReplace={onReplace}
-          onRefresh={onRefresh}
-          onRead={onRead}
-          onExport={onExport}
-          onSummarize={onSummarize}
-          onTogglePin={onTogglePin}
-        />
+        <>
+          <div className="library__viewtoggle" role="group" aria-label={t('library.viewMode')}>
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'is-active' : ''}
+              aria-pressed={viewMode === 'list'}
+              onClick={() => setView('list')}
+              title={t('library.viewList')}
+            >
+              <List size={14} aria-hidden="true" />
+              {t('library.viewList')}
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'folders' ? 'is-active' : ''}
+              aria-pressed={viewMode === 'folders'}
+              onClick={() => setView('folders')}
+              title={t('library.viewFolders')}
+            >
+              <Folders size={14} aria-hidden="true" />
+              {t('library.viewFolders')}
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'location' ? 'is-active' : ''}
+              aria-pressed={viewMode === 'location'}
+              onClick={() => setView('location')}
+              title={t('library.viewLocation')}
+            >
+              <FolderTreeIcon size={14} aria-hidden="true" />
+              {t('library.viewLocation')}
+            </button>
+          </div>
+          {/* Pass the callbacks straight , each is already useCallback'd above, so
+           *  the rows' React.memo can actually skip re-renders for rows whose
+           *  doc + progress didn't change. Wrapping them inline with arrows used
+           *  to mint fresh fns each render and defeat the memo. */}
+          {viewMode === 'folders' ? (
+            <FolderTree
+              nodes={folderTree}
+              expanded={expandedFolders}
+              onToggleExpand={toggleFolderExpand}
+              onCreateFolder={(name, parentId) => void folders.createFolder(name, parentId)}
+              onRenameFolder={(id, name) => void folders.renameFolder(id, name)}
+              onDeleteFolder={(id) => void folders.deleteFolder(id)}
+              onMoveDocument={(docId, folderId) => void folders.moveDocument(docId, folderId)}
+              newFolderLabel={t('folders.new')}
+              renderFile={(d) => {
+                // Local const so TS narrows away undefined for the conditional
+                // spread (exactOptionalPropertyTypes).
+                const p = progress.get(d.id)
+                return (
+                  <LibraryFileRow
+                    doc={d}
+                    {...(p !== undefined ? { progress: p } : {})}
+                    onDelete={onDelete}
+                    onReindex={onReindex}
+                    onReveal={onReveal}
+                    onOpenExternal={onOpenExternal}
+                    onReplace={onReplace}
+                    onRefresh={onRefresh}
+                    onRead={onRead}
+                    onExport={onExport}
+                    onSummarize={onSummarize}
+                    onTogglePin={onTogglePin}
+                  />
+                )
+              }}
+            />
+          ) : viewMode === 'location' ? (
+            <DocumentTree
+              docs={docs}
+              syncRoots={syncRoots}
+              resetKey={workspaceId}
+              progress={progress}
+              onDelete={onDelete}
+              onReindex={onReindex}
+              onReveal={onReveal}
+              onOpenExternal={onOpenExternal}
+              onReplace={onReplace}
+              onRefresh={onRefresh}
+              onRead={onRead}
+              onExport={onExport}
+              onSummarize={onSummarize}
+              onTogglePin={onTogglePin}
+            />
+          ) : (
+            <DocumentTable
+              docs={docs}
+              resetKey={workspaceId}
+              progress={progress}
+              onDelete={onDelete}
+              onReindex={onReindex}
+              onReveal={onReveal}
+              onOpenExternal={onOpenExternal}
+              onReplace={onReplace}
+              onRefresh={onRefresh}
+              onRead={onRead}
+              onExport={onExport}
+              onSummarize={onSummarize}
+              onTogglePin={onTogglePin}
+            />
+          )}
+        </>
       )}
       {sourceHit && (
         <ErrorBoundary label={t('library.previewDoc')} onError={() => setSourceHit(null)}>

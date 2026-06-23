@@ -49,6 +49,29 @@ export interface Workspace {
   type: WorkspaceType
 }
 
+/** A user-created organizational folder (virtual; independent of where a
+ *  document's source file lives on disk). `parentId` nests folders; null = top
+ *  level. A document belongs to at most one folder (see FolderAssignment). */
+export interface Folder {
+  id: number
+  parentId: number | null
+  name: string
+  createdAt: number
+}
+
+/** One document → folder membership row. A document with no assignment is
+ *  "unfiled" and rendered at the tree root. */
+export interface FolderAssignment {
+  documentId: number
+  folderId: number
+}
+
+/** Everything the renderer needs to build the folder tree in one fetch. */
+export interface FolderTreeData {
+  folders: Folder[]
+  assignments: FolderAssignment[]
+}
+
 export interface IndexProgress {
   documentId: number
   title: string

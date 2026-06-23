@@ -12,6 +12,7 @@ import { authDict } from './dict_auth'
 import { shellDict } from './dict_shell'
 import { chatDict } from './dict_chat'
 import { libraryDict } from './dict_library'
+import { foldersDict } from './dict_folders'
 import { settingsDict } from './dict_settings'
 import { modelsDict } from './dict_models'
 import { quizDict } from './dict_quiz'
@@ -25,6 +26,7 @@ const DOMAINS = [
   shellDict,
   chatDict,
   libraryDict,
+  foldersDict,
   settingsDict,
   modelsDict,
   quizDict,

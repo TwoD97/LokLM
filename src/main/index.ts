@@ -921,10 +921,11 @@ function registerIpc(): void {
       if (isCodebase) {
         if (resolveCodeEmbedderPath()) {
           // Code model is on disk → re-embed this workspace's existing vectors to
-          // jina-code. The backfill detects the embedder-stem change (bge-m3 →
-          // jina-code), purges the stale vectors, and the Lance store rebuilds its
-          // table at the code model's dim (896). Without this trigger the workspace
-          // keeps serving BGE-M3 vectors and never actually uses the code embedder.
+          // the code embedder (Qwen3-Embedding). The backfill detects the
+          // embedder-stem change (bge-m3 → qwen3-embedding), purges the stale
+          // vectors, and the Lance store rebuilds its table from the new vectors
+          // (both models are 1024-dim). Without this trigger the workspace keeps
+          // serving BGE-M3 vectors and never actually uses the code embedder.
           // Best-effort + deduped (a run already in flight is a no-op).
           void getBackfillService()
             .run(workspaceId)
@@ -1379,6 +1380,36 @@ function registerIpc(): void {
   ipcMain.handle('conversations:deleteMessage', async (_e, messageId: number) => {
     await getAuth().requireDatabase().conversations().deleteMessage(messageId)
   })
+
+  // ---- folders (user-created document organization) ----
+  ipcMain.handle('folders:list', async (_e, workspaceId: number) => {
+    const repo = getAuth().requireDatabase().folders()
+    const [folders, assignments] = await Promise.all([
+      repo.list(workspaceId),
+      repo.listAssignments(workspaceId),
+    ])
+    return { folders, assignments }
+  })
+  ipcMain.handle(
+    'folders:create',
+    async (_e, workspaceId: number, name: string, parentId: number | null) =>
+      getAuth().requireDatabase().folders().create(workspaceId, name, parentId),
+  )
+  ipcMain.handle('folders:rename', async (_e, workspaceId: number, id: number, name: string) => {
+    await getAuth().requireDatabase().folders().rename(workspaceId, id, name)
+  })
+  ipcMain.handle('folders:delete', async (_e, workspaceId: number, id: number) => {
+    await getAuth().requireDatabase().folders().delete(workspaceId, id)
+  })
+  ipcMain.handle(
+    'folders:setDocumentFolder',
+    async (_e, workspaceId: number, documentId: number, folderId: number | null) => {
+      await getAuth()
+        .requireDatabase()
+        .folders()
+        .setDocumentFolder(workspaceId, documentId, folderId)
+    },
+  )
 
   // Generate a chat title from the first user/assistant exchange. Idempotent
   // by design — the renderer fires this once on the first round-trip; if the
