@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-06-23T07:56:03.496Z",
+  "seeds": [
+    {
+      "file": "src/main/services/auth/AuthService.ts",
+      "symbol": "AuthService",
+      "subsystem": "auth",
+      "chunks": 31
+    },
+    {
+      "file": "src/main/services/concurrency/ModelLoadLock.ts",
+      "symbol": "ModelLoadLock",
+      "subsystem": "concurrency",
+      "chunks": 2
+    },
+    {
+      "file": "src/main/services/documents/DocumentService.ts",
+      "symbol": "DocumentService",
+      "subsystem": "documents",
+      "chunks": 17
+    },
+    {
+      "file": "src/main/services/documents/FolderSyncService.ts",
+      "symbol": "FolderSyncService",
+      "subsystem": "documents",
+      "chunks": 13
+    },
+    {
+      "file": "src/main/services/documents/WorkspaceService.ts",
+      "symbol": "WorkspaceService",
+      "subsystem": "documents",
+      "chunks": 2
+    },
+    {
+      "file": "src/main/services/embeddings/ResourcePlanner.ts",
+      "symbol": "ResourcePlanner",
+      "subsystem": "embeddings",
+      "chunks": 13
+    },
+    {
+      "file": "src/main/services/embeddings/EmbeddingService.ts",
+      "symbol": "EmbeddingService",
+      "subsystem": "embeddings",
+      "chunks": 9
+    },
+    {
+      "file": "src/main/services/embeddings/EmbeddingBackfillService.ts",
+      "symbol": "EmbeddingBackfillService",
+      "subsystem": "embeddings",
+      "chunks": 8
+    },
+    {
+      "file": "src/main/services/llm/LlamaService.ts",
+      "symbol": "LlamaService",
+      "subsystem": "llm",
+      "chunks": 19
+    },
+    {
+      "file": "src/main/services/models/ModelDownloader.ts",
+      "symbol": "ModelDownloader",
+      "subsystem": "models",
+      "chunks": 8
+    },
+    {
+      "file": "src/main/services/providers/ollama/OllamaClient.ts",
+      "symbol": "OllamaClient",
+      "subsystem": "providers",
+      "chunks": 3
+    },
+    {
+      "file": "src/main/services/providers/ollama/OllamaLlmProvider.ts",
+      "symbol": "OllamaLlmProvider",
+      "subsystem": "providers",
+      "chunks": 3
+    },
+    {
+      "file": "src/main/services/providers/bundled/BundledEmbedderProvider.ts",
+      "symbol": "BundledEmbedderProvider",
+      "subsystem": "providers",
+      "chunks": 2
+    },
+    {
+      "file": "src/main/services/qa/QAService.ts",
+      "symbol": "QAService",
+      "subsystem": "qa",
+      "chunks": 21
+    },
+    {
+      "file": "src/main/services/quiz/QuizService.ts",
+      "symbol": "QuizService",
+      "subsystem": "quiz",
+      "chunks": 7
+    },
+    {
+      "file": "src/main/services/retrieval/RetrievalService.ts",
+      "symbol": "RetrievalService",
+      "subsystem": "retrieval",
+      "chunks": 23
+    },
+    {
+      "file": "src/main/services/retrieval/RerankerService.ts",
+      "symbol": "RerankerService",
+      "subsystem": "retrieval",
+      "chunks": 6
+    },
+    {
+      "file": "src/main/services/settings/SettingsService.ts",
+      "symbol": "SettingsService",
+      "subsystem": "settings",
+      "chunks": 4
+    },
+    {
+      "file": "src/main/db/sqlite/WorkspaceDb.ts",
+      "symbol": "WorkspaceDb",
+      "subsystem": "src/main",
+      "chunks": 30
+    },
+    {
+      "file": "src/renderer/src/chat/ChatView.tsx",
+      "symbol": "ChatView",
+      "subsystem": "src/renderer",
+      "chunks": 12
+    },
+    {
+      "file": "src/renderer/src/chat/SourceViewer.tsx",
+      "symbol": "SourceViewer",
+      "subsystem": "src/renderer",
+      "chunks": 12
+    },
+    {
+      "file": "src/renderer/src/quiz/QuizListView.tsx",
+      "symbol": "QuizListView",
+      "subsystem": "src/renderer",
+      "chunks": 12
+    },
+    {
+      "file": "src/main/services/storage/WorkspaceDbFacade.ts",
+      "symbol": "WorkspaceDbFacade",
+      "subsystem": "storage",
+      "chunks": 11
+    },
+    {
+      "file": "src/main/services/storage/encryptedWorkspaceDir.ts",
+      "symbol": "EncryptedWorkspaceDir",
+      "subsystem": "storage",
+      "chunks": 8
+    },
+    {
+      "file": "src/main/services/storage/WorkspaceStore.ts",
+      "symbol": "WorkspaceStore",
+      "subsystem": "storage",
+      "chunks": 7
+    },
+    {
+      "file": "src/main/services/summarize/SummarizationService.ts",
+      "symbol": "SummarizationService",
+      "subsystem": "summarize",
+      "chunks": 5
+    },
+    {
+      "file": "src/main/services/tier/TierMarker.ts",
+      "symbol": "TierMarker",
+      "subsystem": "tier",
+      "chunks": 7
+    },
+    {
+      "file": "src/main/services/transcription/TranscriptionService.ts",
+      "symbol": "TranscriptionService",
+      "subsystem": "transcription",
+      "chunks": 3
+    },
+    {
+      "file": "src/main/services/transcription/AudioStager.ts",
+      "symbol": "AudioStager",
+      "subsystem": "transcription",
+      "chunks": 1
+    },
+    {
+      "file": "src/main/services/translation/TranslatorSidecar.ts",
+      "symbol": "TranslatorSidecar",
+      "subsystem": "translation",
+      "chunks": 6
+    },
+    {
+      "file": "src/main/services/translation/TranslationService.ts",
+      "symbol": "TranslationService",
+      "subsystem": "translation",
+      "chunks": 5
+    },
+    {
+      "file": "src/main/services/workers/ModelsWorkerClient.ts",
+      "symbol": "ModelsWorkerClient",
+      "subsystem": "workers",
+      "chunks": 7
+    },
+    {
+      "file": "src/main/services/workers/DocumentsWorkerClient.ts",
+      "symbol": "DocumentsWorkerClient",
+      "subsystem": "workers",
+      "chunks": 4
+    },
+    {
+      "file": "src/main/services/workers/TranscriptionWorkerClient.ts",
+      "symbol": "TranscriptionWorkerClient",
+      "subsystem": "workers",
+      "chunks": 4
+    },
+    {
+      "file": "src/main/services/writing/WritingService.ts",
+      "symbol": "WritingService",
+      "subsystem": "writing",
+      "chunks": 3
+    }
+  ]
+}

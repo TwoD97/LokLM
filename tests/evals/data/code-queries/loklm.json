@@ -1,0 +1,986 @@
+{
+  "generatedAt": "2026-06-23T00:00:00.000Z",
+  "corpus": "loklm.json",
+  "items": [
+    {
+      "id": "AuthService",
+      "targetFile": "src/main/services/auth/AuthService.ts",
+      "targetSymbol": "AuthService",
+      "rationale": "Manages the encrypted vault lifecycle, session state, password/passphrase authentication, and inactivity-based auto-lock for user access control.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does AuthService work"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the session-based system manage user credentials and encrypted vault access"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What handles login, password resets, and automatic session locking when idle"
+        },
+        {
+          "type": "vague",
+          "text": "How do users get into the app and what happens when they go inactive"
+        },
+        {
+          "type": "misspelled",
+          "text": "AuthServise implementation for vault encryption"
+        }
+      ]
+    },
+    {
+      "id": "ModelLoadLock",
+      "targetFile": "src/main/services/concurrency/ModelLoadLock.ts",
+      "targetSymbol": "ModelLoadLock",
+      "rationale": "Provides a FIFO mutex primitive that serializes expensive model loading operations across multiple AI services to prevent resource exhaustion.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "ModelLoadLock acquire and release"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the FIFO queue prevent concurrent model initialization from overwhelming system resources"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What ensures only one AI model loads at a time across embedder, reranker, and LLM services"
+        },
+        {
+          "type": "vague",
+          "text": "Why does the app load AI models one by one instead of all at once"
+        },
+        {
+          "type": "misspelled",
+          "text": "ModelLoadLok synchronization mechanism"
+        }
+      ]
+    },
+    {
+      "id": "DocumentService",
+      "targetFile": "src/main/services/documents/DocumentService.ts",
+      "targetSymbol": "DocumentService",
+      "rationale": "Orchestrates the complete document ingestion pipeline: file parsing, chunking, embedding, and persistent storage with bounded concurrency control.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "DocumentService import and index"
+        },
+        {
+          "type": "nl-description",
+          "text": "How are PDFs parsed into chunks and embedded for vector search retrieval"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What processes files for parsing, converts them to searchable chunks, and computes their embeddings"
+        },
+        {
+          "type": "vague",
+          "text": "How does uploading a PDF turn it into something the AI can search"
+        },
+        {
+          "type": "misspelled",
+          "text": "DocumentServce parsing and chunking pipeline"
+        }
+      ]
+    },
+    {
+      "id": "FolderSyncService",
+      "targetFile": "src/main/services/documents/FolderSyncService.ts",
+      "targetSymbol": "FolderSyncService",
+      "rationale": "Monitors watched folders for file changes, reconciles disk state with indexed documents, and auto-classifies workspaces as codebase or library.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "FolderSyncService sync and watch"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the file watcher detect changes and keep the document library synchronized with watched directories"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What monitors folders for new files, deletions, and updates to automatically update the index"
+        },
+        {
+          "type": "vague",
+          "text": "How does the app know when files in a folder change and update its database"
+        },
+        {
+          "type": "misspelled",
+          "text": "FolderSynkService file watching"
+        }
+      ]
+    },
+    {
+      "id": "WorkspaceService",
+      "targetFile": "src/main/services/documents/WorkspaceService.ts",
+      "targetSymbol": "WorkspaceService",
+      "rationale": "Provides CRUD operations for managing isolated document workspaces with separate settings, sync folders, and default workspace selection.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "WorkspaceService create and rename"
+        },
+        {
+          "type": "nl-description",
+          "text": "How are separate project workspaces managed with distinct document collections and sync configurations"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What lets users create multiple independent document libraries with their own folders and settings"
+        },
+        {
+          "type": "vague",
+          "text": "How do users organize their documents into separate projects"
+        },
+        {
+          "type": "misspelled",
+          "text": "WorkspaceSrvice manifest operations"
+        }
+      ]
+    },
+    {
+      "id": "ResourcePlanner",
+      "targetFile": "src/main/services/embeddings/ResourcePlanner.ts",
+      "targetSymbol": "ResourcePlanner",
+      "rationale": "Central decision-maker for RAM/VRAM allocation that determines where LLMs and auxiliary services should run based on available system memory.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does ResourcePlanner work"
+        },
+        {
+          "type": "nl-description",
+          "text": "how does the system memory budget allocator decide where models run"
+        },
+        {
+          "type": "paraphrase",
+          "text": "what decides whether a neural network model executes on GPU or CPU given the available hardware"
+        },
+        {
+          "type": "vague",
+          "text": "will my model fit on my graphics card"
+        },
+        {
+          "type": "misspelled",
+          "text": "ResourcePlannr memory allocation"
+        }
+      ]
+    },
+    {
+      "id": "EmbeddingService",
+      "targetFile": "src/main/services/embeddings/EmbeddingService.ts",
+      "targetSymbol": "EmbeddingService",
+      "rationale": "Manages loading, placement, and lifecycle of the embedding model used for vector search over documents and summaries.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "EmbeddingService"
+        },
+        {
+          "type": "nl-description",
+          "text": "how is the semantic search model managed and deployed in the system"
+        },
+        {
+          "type": "paraphrase",
+          "text": "code that handles loading text-to-vector conversion models and deciding GPU vs CPU placement"
+        },
+        {
+          "type": "vague",
+          "text": "how do I find similar documents by meaning"
+        },
+        {
+          "type": "misspelled",
+          "text": "Embedding Servis"
+        }
+      ]
+    },
+    {
+      "id": "EmbeddingBackfillService",
+      "targetFile": "src/main/services/embeddings/EmbeddingBackfillService.ts",
+      "targetSymbol": "EmbeddingBackfillService",
+      "rationale": "Batch-processes chunks and summaries missing embeddings, handles model swaps by purging stale vectors, and includes runaway loop detection.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "EmbeddingBackfillService"
+        },
+        {
+          "type": "nl-description",
+          "text": "background process that fills in missing vector embeddings for document chunks that lack them"
+        },
+        {
+          "type": "paraphrase",
+          "text": "service that retroactively generates and stores embeddings for existing documents when they weren't vectorized during import"
+        },
+        {
+          "type": "vague",
+          "text": "why is the app processing my documents in the background"
+        },
+        {
+          "type": "misspelled",
+          "text": "EmbeddingBackfill Servise"
+        }
+      ]
+    },
+    {
+      "id": "LlamaService",
+      "targetFile": "src/main/services/llm/LlamaService.ts",
+      "targetSymbol": "LlamaService",
+      "rationale": "Primary LLM inference service managing model loading, context sizing, placement decisions, and text generation with fallback and idle management.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "LlamaService"
+        },
+        {
+          "type": "nl-description",
+          "text": "interface to the local language model that handles loading, resource planning, and generating text responses"
+        },
+        {
+          "type": "paraphrase",
+          "text": "orchestrates the lifecycle of a quantized GGUF model including optimal context window selection and idle timeouts"
+        },
+        {
+          "type": "vague",
+          "text": "how does the app answer my questions"
+        },
+        {
+          "type": "misspelled",
+          "text": "LamaService inference"
+        }
+      ]
+    },
+    {
+      "id": "ModelDownloader",
+      "targetFile": "src/main/services/models/ModelDownloader.ts",
+      "targetSymbol": "ModelDownloader",
+      "rationale": "Streams model files from remote URLs, handles resume on partial failures, verifies checksums, and reports progress events.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "ModelDownloader"
+        },
+        {
+          "type": "nl-description",
+          "text": "service that fetches GGUF model files from the internet with resumable transfers and integrity verification"
+        },
+        {
+          "type": "paraphrase",
+          "text": "downloads and validates neural network weights from a manifest, supporting partial completion recovery and progress notifications"
+        },
+        {
+          "type": "vague",
+          "text": "how are the AI models installed"
+        },
+        {
+          "type": "misspelled",
+          "text": "ModelDownloder file fetcher"
+        }
+      ]
+    },
+    {
+      "id": "OllamaClient",
+      "targetFile": "src/main/services/providers/ollama/OllamaClient.ts",
+      "targetSymbol": "OllamaClient",
+      "rationale": "Low-level HTTP client for Ollama API with request handling, streaming NDJSON parsing, retries, timeouts, and error categorization.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "OllamaClient"
+        },
+        {
+          "type": "nl-description",
+          "text": "how does the HTTP request handler work for communicating with the model server"
+        },
+        {
+          "type": "paraphrase",
+          "text": "fetch and stream responses from a remote inference backend with built-in retry and timeout logic"
+        },
+        {
+          "type": "vague",
+          "text": "how does the app talk to the inference server over the network"
+        },
+        {
+          "type": "misspelled",
+          "text": "OllamaCilent network handler"
+        }
+      ]
+    },
+    {
+      "id": "OllamaLlmProvider",
+      "targetFile": "src/main/services/providers/ollama/OllamaLlmProvider.ts",
+      "targetSymbol": "OllamaLlmProvider",
+      "rationale": "LLM provider implementation for Ollama that streams chat/generation responses, handles language routing, and reports model status.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "OllamaLlmProvider"
+        },
+        {
+          "type": "nl-description",
+          "text": "implementation of the LLM interface for remote model inference on an external server"
+        },
+        {
+          "type": "paraphrase",
+          "text": "adapter that chains prompt building to streaming generation, supporting multi-turn conversation"
+        },
+        {
+          "type": "vague",
+          "text": "where does the app hook up conversation models running on another machine"
+        },
+        {
+          "type": "misspelled",
+          "text": "OllamaLMProvider interface"
+        }
+      ]
+    },
+    {
+      "id": "BundledEmbedderProvider",
+      "targetFile": "src/main/services/providers/bundled/BundledEmbedderProvider.ts",
+      "targetSymbol": "BundledEmbedderProvider",
+      "rationale": "Adapter that wraps the local BGE-M3 embedding model to the provider contract, handling shape mismatches and dimension switching.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "BundledEmbedderProvider"
+        },
+        {
+          "type": "nl-description",
+          "text": "adapter converting the local text-to-vector model to the standard embedder interface"
+        },
+        {
+          "type": "paraphrase",
+          "text": "bridge between the built-in semantic search engine and the standardized embedding protocol"
+        },
+        {
+          "type": "vague",
+          "text": "how does the search engine understand what documents are relevant"
+        },
+        {
+          "type": "misspelled",
+          "text": "BundledEmbedder service"
+        }
+      ]
+    },
+    {
+      "id": "QAService",
+      "targetFile": "src/main/services/qa/QAService.ts",
+      "targetSymbol": "QAService",
+      "rationale": "Streaming RAG orchestrator that retrieves chunks, routes queries (corpus/summary/retrieval), packs budget, emits citations, and streams LLM responses.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "QAService"
+        },
+        {
+          "type": "nl-description",
+          "text": "the retrieval-augmented generation pipeline that answers questions by searching documents and streaming model responses"
+        },
+        {
+          "type": "paraphrase",
+          "text": "question-answering orchestrator that routes queries intelligently, retrieves relevant chunks, budgets context, and streams generated answers with citations"
+        },
+        {
+          "type": "vague",
+          "text": "how does the app find information and generate answers to user questions"
+        },
+        {
+          "type": "misspelled",
+          "text": "QAServce"
+        }
+      ]
+    },
+    {
+      "id": "QuizService",
+      "targetFile": "src/main/services/quiz/QuizService.ts",
+      "targetSymbol": "QuizService",
+      "rationale": "Quiz orchestrator that plans chunk-driven units, generates grammar-constrained questions per unit, validates, and persists quiz decks.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "QuizService"
+        },
+        {
+          "type": "nl-description",
+          "text": "the system that creates multiple-choice question decks from document content"
+        },
+        {
+          "type": "paraphrase",
+          "text": "pipeline that chunks materials into units, generates validated questions per unit, and assembles question decks"
+        },
+        {
+          "type": "vague",
+          "text": "how does the app turn documents into study material"
+        },
+        {
+          "type": "misspelled",
+          "text": "QuizzService generator"
+        }
+      ]
+    },
+    {
+      "id": "RetrievalService",
+      "targetFile": "src/main/services/retrieval/RetrievalService.ts",
+      "targetSymbol": "RetrievalService",
+      "rationale": "Hybrid search pipeline orchestrating multi-query expansion, BM25+dense fusion, reranking, and document diversity to rank knowledge chunks by relevance.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does RetrievalService work?"
+        },
+        {
+          "type": "nl-description",
+          "text": "What is the hybrid search engine that combines keyword and vector matching?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How does the system retrieve and rank relevant document chunks from a workspace?"
+        },
+        {
+          "type": "vague",
+          "text": "How does the app find the right answers in my documents?"
+        },
+        {
+          "type": "misspelled",
+          "text": "RetrivalService architecture and pipeline stages"
+        }
+      ]
+    },
+    {
+      "id": "RerankerService",
+      "targetFile": "src/main/services/retrieval/RerankerService.ts",
+      "targetSymbol": "RerankerService",
+      "rationale": "Cross-encoder model management service that re-ranks retrieval candidates to improve precision using bge-reranker GGUF models.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "RerankerService"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the cross-encoder ranking model load and refine search results?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "What component re-scores chunks to improve the quality of search results?"
+        },
+        {
+          "type": "vague",
+          "text": "How can I make search results more accurate and relevant?"
+        },
+        {
+          "type": "misspelled",
+          "text": "RankerService placement strategy"
+        }
+      ]
+    },
+    {
+      "id": "SettingsService",
+      "targetFile": "src/main/services/settings/SettingsService.ts",
+      "targetSymbol": "SettingsService",
+      "rationale": "Persists and manages user configuration state (settings + avatar) with in-memory caching and async snapshot durability.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does SettingsService persist user preferences?"
+        },
+        {
+          "type": "nl-description",
+          "text": "What manages the in-memory cache of user configuration and profile picture?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How does the app save and restore user settings across sessions?"
+        },
+        {
+          "type": "vague",
+          "text": "Where does the app remember my choices and profile picture?"
+        },
+        {
+          "type": "misspelled",
+          "text": "SettingService hydrate and update pattern"
+        }
+      ]
+    },
+    {
+      "id": "WorkspaceDb",
+      "targetFile": "src/main/db/sqlite/WorkspaceDb.ts",
+      "targetSymbol": "WorkspaceDb",
+      "rationale": "Encrypted SQLite database class handling workspace-scoped relational queries, FTS5 search, vector hydration, and quiz/conversation persistence.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "WorkspaceDb class structure"
+        },
+        {
+          "type": "nl-description",
+          "text": "What is the encrypted per-workspace relational store backed by SQLite with AES encryption?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How does the app retrieve documents, chunks, and conversation data from the encrypted workspace database?"
+        },
+        {
+          "type": "vague",
+          "text": "How are my documents and chat history stored?"
+        },
+        {
+          "type": "misspelled",
+          "text": "WorkspaceDd schema and queries"
+        }
+      ]
+    },
+    {
+      "id": "ChatView",
+      "targetFile": "src/renderer/src/chat/ChatView.tsx",
+      "targetSymbol": "ChatView",
+      "rationale": "Main chat UI component managing conversation state, message streaming, pipeline stage display, and citation interactions.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "What does ChatView render?"
+        },
+        {
+          "type": "nl-description",
+          "text": "What React component displays the chat interface with message history and inline retrieval progress?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How does the UI display streaming responses and track retrieval pipeline stages?"
+        },
+        {
+          "type": "vague",
+          "text": "What do I see when I type a message?"
+        },
+        {
+          "type": "misspelled",
+          "text": "ChatVue component with messages and citations"
+        }
+      ]
+    },
+    {
+      "id": "SourceViewer",
+      "targetFile": "src/renderer/src/chat/SourceViewer.tsx",
+      "targetSymbol": "SourceViewer",
+      "rationale": "Renders a modal displaying cited document chunks with fuzzy highlight extraction, scroll-into-view coordination, and highlight cycling via mark group traversal.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does SourceViewer work"
+        },
+        {
+          "type": "nl-description",
+          "text": "React component for displaying document text with citation highlights and PDF previews inside a dialog modal"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How do I show a chunk of cited text with fuzzy-matched highlights when the user clicks a citation"
+        },
+        {
+          "type": "vague",
+          "text": "when I click a citation in chat, how does the document appear on screen"
+        },
+        {
+          "type": "misspelled",
+          "text": "SourceVewer highlight cycling and chunk display"
+        }
+      ]
+    },
+    {
+      "id": "QuizListView",
+      "targetFile": "src/renderer/src/quiz/QuizListView.tsx",
+      "targetSymbol": "QuizListView",
+      "rationale": "Renders quiz deck list with live generation progress, score strips, status badges, and expandable attempt history; manages per-deck UI state.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "QuizListView component"
+        },
+        {
+          "type": "nl-description",
+          "text": "React component that shows a list of quiz decks with their scores, attempt counts, and live generation status indicators"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Display all the quiz decks a user has created, showing which ones are generating and what their latest scores are"
+        },
+        {
+          "type": "vague",
+          "text": "how do users see their quizzes and start a new one"
+        },
+        {
+          "type": "misspelled",
+          "text": "QuizListVeiw progress and score display"
+        }
+      ]
+    },
+    {
+      "id": "WorkspaceDbFacade",
+      "targetFile": "src/main/services/storage/WorkspaceDbFacade.ts",
+      "targetSymbol": "WorkspaceDbFacade",
+      "rationale": "Unified database API that delegates operations to workspace-keyed meta.db or the active workspace's relational store, isolating routing complexity from consumers.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "WorkspaceDbFacade architecture"
+        },
+        {
+          "type": "nl-description",
+          "text": "Database access layer that routes queries to the appropriate workspace store and maintains backward-compatible method signatures for documents, conversations, and quizzes"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How are database operations split between per-workspace metadata stores and the currently active workspace"
+        },
+        {
+          "type": "vague",
+          "text": "where does the app store document text, quiz decks, and chat messages"
+        },
+        {
+          "type": "misspelled",
+          "text": "WorkspacDbFacade routing logic"
+        }
+      ]
+    },
+    {
+      "id": "EncryptedWorkspaceDir",
+      "targetFile": "src/main/services/storage/encryptedWorkspaceDir.ts",
+      "targetSymbol": "EncryptedWorkspaceDir",
+      "rationale": "Manages decrypt-on-open/encrypt-on-close for workspace files using block-level AES-256-GCM cipher with atomic writes and crash safety guarantees.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "EncryptedWorkspaceDir"
+        },
+        {
+          "type": "nl-description",
+          "text": "File encryption manager that decrypts workspace data into a working directory on open and re-encrypts changed files on close using block ciphers"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How are LanceDB files kept encrypted at rest while still usable when the workspace is active"
+        },
+        {
+          "type": "vague",
+          "text": "how is my data kept secret when I'm not using the workspace"
+        },
+        {
+          "type": "misspelled",
+          "text": "EncryptedWorkspacDir"
+        }
+      ]
+    },
+    {
+      "id": "WorkspaceStore",
+      "targetFile": "src/main/services/storage/WorkspaceStore.ts",
+      "targetSymbol": "WorkspaceStore",
+      "rationale": "Orchestrates workspace lifecycle: manages VaultManifest, lazy-loads workspace encryption keys, coordinates cheap meta.db and expensive LanceDB vector stores.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "WorkspaceStore"
+        },
+        {
+          "type": "nl-description",
+          "text": "Service that manages the lifecycle of multiple workspaces including key unwrapping, lazy initialization of vector stores, and garbage collection on logout"
+        },
+        {
+          "type": "paraphrase",
+          "text": "How are multiple workspaces opened, switched between, and cleaned up when logging out or deleting them"
+        },
+        {
+          "type": "vague",
+          "text": "how can I have multiple separate document collections and switch between them"
+        },
+        {
+          "type": "misspelled",
+          "text": "WorkspaceStor deactivate encryption"
+        }
+      ]
+    },
+    {
+      "id": "SummarizationService",
+      "targetFile": "src/main/services/summarize/SummarizationService.ts",
+      "targetSymbol": "SummarizationService",
+      "rationale": "Implements lazy document summarization with LLM caching and map-reduce for large documents",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does SummarizationService work"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does lazy summarization work with caching so I don't regenerate the same summary twice"
+        },
+        {
+          "type": "paraphrase",
+          "text": "I need to understand how single-window and multi-window document generation is orchestrated"
+        },
+        {
+          "type": "vague",
+          "text": "How do I generate a summary of a long document without regenerating it each time"
+        },
+        {
+          "type": "misspelled",
+          "text": "SummarizationServise token packing"
+        }
+      ]
+    },
+    {
+      "id": "TierMarker",
+      "targetFile": "src/main/services/tier/TierMarker.ts",
+      "targetSymbol": "TierMarker",
+      "rationale": "Reads install-time tier marker file to determine app edition, hardware snapshot, and model manifest",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "What does TierMarker do"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the app capture its product edition and hardware details at installation time"
+        },
+        {
+          "type": "paraphrase",
+          "text": "I need to find where the install-time product tier and bundled models are read from disk"
+        },
+        {
+          "type": "vague",
+          "text": "How does the app know which tier it was installed as"
+        },
+        {
+          "type": "misspelled",
+          "text": "TierMarkr hardware snapshot"
+        }
+      ]
+    },
+    {
+      "id": "TranscriptionService",
+      "targetFile": "src/main/services/transcription/TranscriptionService.ts",
+      "targetSymbol": "TranscriptionService",
+      "rationale": "Orchestrates audio transcription with optional diarization (speaker identification) and speaker alignment",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "TranscriptionService"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the audio processing orchestration handle transcription followed by speaker identification"
+        },
+        {
+          "type": "paraphrase",
+          "text": "I need to understand the flow from raw audio through speaker tagging and segment alignment"
+        },
+        {
+          "type": "vague",
+          "text": "How does the app convert an audio file to a transcript with speaker labels"
+        },
+        {
+          "type": "misspelled",
+          "text": "TranscriptionServise diarize cancel"
+        }
+      ]
+    },
+    {
+      "id": "AudioStager",
+      "targetFile": "src/main/services/transcription/AudioStager.ts",
+      "targetSymbol": "AudioStager",
+      "rationale": "Buffers streamed PCM audio chunks to disk with write backpressure for memory-efficient recording",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does AudioStager work"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the audio buffer class handle streaming chunks with backpressure"
+        },
+        {
+          "type": "paraphrase",
+          "text": "I need to see how raw audio data is accumulated to file without buffering everything in RAM"
+        },
+        {
+          "type": "vague",
+          "text": "How does a long recording get saved without using all the computer's memory"
+        },
+        {
+          "type": "misspelled",
+          "text": "AudioStager backpresure drain event"
+        }
+      ]
+    },
+    {
+      "id": "TranslatorSidecar",
+      "targetFile": "src/main/services/translation/TranslatorSidecar.ts",
+      "targetSymbol": "TranslatorSidecar",
+      "rationale": "RPC client managing a C++ translation subprocess via NDJSON over stdio with lifecycle and error handling",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "TranslatorSidecar"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the native process wrapper handle spawning and communicating with the C++ subprocess"
+        },
+        {
+          "type": "paraphrase",
+          "text": "I need to understand request/response routing over a child process communication channel"
+        },
+        {
+          "type": "vague",
+          "text": "How does the app send text to an external program and get results back"
+        },
+        {
+          "type": "misspelled",
+          "text": "TranslatorSidebar"
+        }
+      ]
+    },
+    {
+      "id": "TranslationService",
+      "targetFile": "src/main/services/translation/TranslationService.ts",
+      "targetSymbol": "TranslationService",
+      "rationale": "Orchestrates MADLAD translation: model provisioning, sidecar lifecycle management, sentence batching, and GPU/CPU fallback.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How does TranslationService work?"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the language translation orchestration class manage text processing workflow and subprocess lifecycle?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Show me how the app handles translating text through a spawned subprocess with model loading and batching."
+        },
+        {
+          "type": "vague",
+          "text": "How do I translate text to a different language using the app?"
+        },
+        {
+          "type": "misspelled",
+          "text": "TranslationServce architecture and API"
+        }
+      ]
+    },
+    {
+      "id": "ModelsWorkerClient",
+      "targetFile": "src/main/services/workers/ModelsWorkerClient.ts",
+      "targetSymbol": "ModelsWorkerClient",
+      "rationale": "Main process wrapper for lazy-spawned utility process handling LLM, embedder, and reranker operations with request multiplexing and token streaming.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "What does ModelsWorkerClient do?"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the main process communicate with the spawned AI model inference worker through message passing?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Show me the IPC bridge that lets the UI trigger LLM inference, embeddings, and ranking on a forked subprocess."
+        },
+        {
+          "type": "vague",
+          "text": "How does the app keep heavy processing tasks from freezing up the user interface?"
+        },
+        {
+          "type": "misspelled",
+          "text": "ModelsWorkerClint request spawning and multiplexing"
+        }
+      ]
+    },
+    {
+      "id": "DocumentsWorkerClient",
+      "targetFile": "src/main/services/workers/DocumentsWorkerClient.ts",
+      "targetSymbol": "DocumentsWorkerClient",
+      "rationale": "Main process wrapper for document parsing and OCR worker; multiplexes requests, tracks OCR progress per document, kept separate from models worker to avoid event loop contention.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "DocumentsWorkerClient implementation"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the main process delegate PDF parsing and text extraction to an isolated worker subprocess?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Show the implementation for bridging document processing and OCR scanning across process boundaries."
+        },
+        {
+          "type": "vague",
+          "text": "How does the app read text and scan images from uploaded documents?"
+        },
+        {
+          "type": "misspelled",
+          "text": "DocumentWorkerClient parse and OCR"
+        }
+      ]
+    },
+    {
+      "id": "TranscriptionWorkerClient",
+      "targetFile": "src/main/services/workers/TranscriptionWorkerClient.ts",
+      "targetSymbol": "TranscriptionWorkerClient",
+      "rationale": "Main process wrapper for Whisper transcription worker; spawned lazily, multiplexes requests, tracks progress per stream, intentionally isolated to avoid sharing event loop with chat or document processing.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "How to use TranscriptionWorkerClient?"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the main process forward audio transcription requests to a dedicated worker and track real-time progress?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Show the inter-process communication layer that converts audio streams into text via Whisper."
+        },
+        {
+          "type": "vague",
+          "text": "How does speech-to-text transcription work in the background?"
+        },
+        {
+          "type": "misspelled",
+          "text": "TranscriptionWorkerClient progress and transcribe"
+        }
+      ]
+    },
+    {
+      "id": "WritingService",
+      "targetFile": "src/main/services/writing/WritingService.ts",
+      "targetSymbol": "WritingService",
+      "rationale": "Stateless DeepL-Write-style text rewriting service using the bundled LLM; validates input length against context window and generates improved text with language detection.",
+      "variants": [
+        {
+          "type": "exact-symbol",
+          "text": "WritingService API and usage"
+        },
+        {
+          "type": "nl-description",
+          "text": "How does the text improvement class rewrite user input with grammar and style modes using the local LLM?"
+        },
+        {
+          "type": "paraphrase",
+          "text": "Show me the implementation for enhancing and polishing arbitrary text through prompt-based generation."
+        },
+        {
+          "type": "vague",
+          "text": "How can I make my writing sound better?"
+        },
+        {
+          "type": "misspelled",
+          "text": "WritingServise improve and rewrite"
+        }
+      ]
+    }
+  ]
+}
