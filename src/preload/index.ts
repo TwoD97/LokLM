@@ -55,6 +55,8 @@ import type {
   ModelsStatus,
   LibrarySearchHit,
   LibrarySearchOptions,
+  Folder,
+  FolderTreeData,
 } from '../shared/documents'
 
 /** Mirrors `DownloadEvent` in src/main/services/models/ModelDownloader.ts —
@@ -319,6 +321,24 @@ const api = {
       ipcRenderer.invoke('conversations:deleteMessage', messageId),
     setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
       ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
+  },
+  folders: {
+    /** Folders + document→folder assignments for the workspace, in one call. */
+    list: (workspaceId: number): Promise<FolderTreeData> =>
+      ipcRenderer.invoke('folders:list', workspaceId),
+    create: (workspaceId: number, name: string, parentId: number | null): Promise<Folder> =>
+      ipcRenderer.invoke('folders:create', workspaceId, name, parentId),
+    rename: (workspaceId: number, id: number, name: string): Promise<void> =>
+      ipcRenderer.invoke('folders:rename', workspaceId, id, name),
+    delete: (workspaceId: number, id: number): Promise<void> =>
+      ipcRenderer.invoke('folders:delete', workspaceId, id),
+    /** Move a document into a folder, or unfile it (folderId null). */
+    setDocumentFolder: (
+      workspaceId: number,
+      documentId: number,
+      folderId: number | null,
+    ): Promise<void> =>
+      ipcRenderer.invoke('folders:setDocumentFolder', workspaceId, documentId, folderId),
   },
   models: {
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),

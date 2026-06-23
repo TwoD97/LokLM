@@ -32,6 +32,12 @@ export const libraryDict: DomainDict = {
     'library.colChunks': 'Chunks',
     'library.colAdded': 'Added',
     'library.loadingMore': '… {count} more loading',
+    // DocumentTree (folder-tree view)
+    'library.viewMode': 'View',
+    'library.viewList': 'List',
+    'library.viewFolders': 'Folders',
+    'library.viewLocation': 'By location',
+    'library.otherFiles': 'Other files',
     // DocumentRow
     'library.sourceMissing': 'Source file missing',
     'library.actions': 'actions',
@@ -61,6 +67,10 @@ export const libraryDict: DomainDict = {
     'library.keep': 'Keep',
     'library.keepTitle': 'Keep in library (search still works, source is missing)',
     'library.removeTitle': 'Remove document and its chunks from the library',
+    // FailedDocsBanner (bulk retry of failed indexing)
+    'library.failedOne': '1 document failed to index',
+    'library.failedMany': '{count} documents failed to index',
+    'library.retryAllFailed': 'Retry all ({count})',
     // SyncFoldersPanel
     'library.noFolderConnected': 'No folder connected',
     'library.foldersConnected': '{count} folders connected',
@@ -148,6 +158,12 @@ export const libraryDict: DomainDict = {
     'library.colChunks': 'Chunks',
     'library.colAdded': 'Hinzugefügt',
     'library.loadingMore': '… {count} weitere werden geladen',
+    // DocumentTree (Ordnerbaum-Ansicht)
+    'library.viewMode': 'Ansicht',
+    'library.viewList': 'Liste',
+    'library.viewFolders': 'Ordner',
+    'library.viewLocation': 'Nach Speicherort',
+    'library.otherFiles': 'Sonstige Dateien',
     // DocumentRow
     'library.sourceMissing': 'Quelldatei fehlt',
     'library.actions': 'Aktionen',
@@ -177,6 +193,10 @@ export const libraryDict: DomainDict = {
     'library.keep': 'Behalten',
     'library.keepTitle': 'In Bibliothek belassen (Suche funktioniert weiter, Quelle fehlt)',
     'library.removeTitle': 'Dokument samt Chunks aus der Bibliothek entfernen',
+    // FailedDocsBanner (Stapel-Wiederholung fehlgeschlagener Indexierung)
+    'library.failedOne': '1 Dokument konnte nicht indexiert werden',
+    'library.failedMany': '{count} Dokumente konnten nicht indexiert werden',
+    'library.retryAllFailed': 'Alle wiederholen ({count})',
     // SyncFoldersPanel
     'library.noFolderConnected': 'Kein Ordner verbunden',
     'library.foldersConnected': '{count} Ordner verbunden',

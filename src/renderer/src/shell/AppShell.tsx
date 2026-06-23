@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Document, Workspace } from '@shared/documents'
 import { Sidebar, usePinnedSidebar } from './Sidebar'
+import { useFolders } from '../folders/useFolders'
+import { collectDescendantDocIds } from '../folders/folderTreeModel'
 import { LibraryView } from '../library/LibraryView'
 import { ChatView } from '../chat/ChatView'
 import { QuizView } from '../quiz/QuizView'
@@ -30,6 +32,11 @@ export function AppShell(): JSX.Element {
   const [activeDocumentIds, setActiveDocumentIds] = useState<number[]>([])
   const [workspaceDocs, setWorkspaceDocs] = useState<Document[]>([])
   const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState<Workspace | null>(null)
+
+  // User-created folders for the active workspace — drives the sidebar's folder
+  // tree and folder-level chat scoping. Same hook the LibraryView uses, so both
+  // surfaces stay in sync (the "unify" decision).
+  const folders = useFolders(activeWorkspaceId)
 
   const refreshWorkspaces = useCallback(async () => {
     const ws = await window.api.workspaces.list()
@@ -91,6 +98,14 @@ export function AppShell(): JSX.Element {
       off()
     }
   }, [activeWorkspaceId, activeView])
+
+  // The Library has its own useFolders instance, so folders organized there
+  // won't be in this (sidebar) instance until it refetches. Re-pull on entering
+  // chat so the scope tree reflects recent organizing without a workspace switch.
+  const refreshFolders = folders.refresh
+  useEffect(() => {
+    if (activeView === 'chat') void refreshFolders()
+  }, [activeView, refreshFolders])
 
   const onCreateWorkspace = useCallback(
     async (name: string) => {
@@ -160,6 +175,25 @@ export function AppShell(): JSX.Element {
     }
   }, [currentConversationId])
 
+  // Toggle every document inside a folder (recursively) into/out of chat scope.
+  // "All selected" → remove them all; otherwise add the missing ones. This is
+  // the bulk version of onToggleDocument and the high-value folder/chat link.
+  const onToggleFolderScope = useCallback(
+    async (folderId: number) => {
+      const ids = collectDescendantDocIds(folderId, folders.folders, folders.assignments)
+      if (ids.length === 0) return
+      const allSelected = ids.every((id) => activeDocumentIds.includes(id))
+      const next = allSelected
+        ? activeDocumentIds.filter((id) => !ids.includes(id))
+        : Array.from(new Set([...activeDocumentIds, ...ids]))
+      setActiveDocumentIds(next)
+      if (currentConversationId != null) {
+        await window.api.conversations.setActiveDocumentIds(currentConversationId, next)
+      }
+    },
+    [folders.folders, folders.assignments, activeDocumentIds, currentConversationId],
+  )
+
   return (
     <div className={`app-shell ${expanded ? 'app-shell--expanded' : ''}`}>
       <Sidebar
@@ -182,6 +216,13 @@ export function AppShell(): JSX.Element {
         activeDocumentIds={activeDocumentIds}
         onToggleDocument={(id) => void onToggleDocument(id)}
         onClearScope={() => void onClearScope()}
+        folders={folders.folders}
+        folderAssignments={folders.assignments}
+        onCreateFolder={(name, parentId) => void folders.createFolder(name, parentId)}
+        onRenameFolder={(id, name) => void folders.renameFolder(id, name)}
+        onDeleteFolder={(id) => void folders.deleteFolder(id)}
+        onMoveDocumentToFolder={(docId, folderId) => void folders.moveDocument(docId, folderId)}
+        onToggleFolderScope={(id) => void onToggleFolderScope(id)}
       />
       <main className="app-shell__main">
         {activeWorkspaceId == null &&
