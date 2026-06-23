@@ -67,18 +67,21 @@ export const MODEL_MANIFEST: ModelManifestEntry[] = [
   {
     // ADR-0006 code track. Optional (codebase workspaces only) — gated behind the
     // codebase type, so library installs never pull it. Code-specialised; falls
-    // back to BGE-M3 when absent. The upstream repo ships no Q4_K_M quant, so we
-    // pin IQ4_XS — the closest 4-bit. size + sha256 verified against a downloaded
-    // copy on 2026-06-17 (Get-FileHash -Algorithm SHA256).
-    id: 'jina-code-embeddings-0.5b-IQ4_XS',
+    // back to BGE-M3 when absent. Qwen3-Embedding-0.6B (Q8_0) replaced jina-code:
+    // jina (a Qwen2 decoder embedder) native-crashes the worker on the AMD iGPU
+    // Vulkan stack on near-context inputs (llama.cpp #20098/#20515), which pinned
+    // retrieval to CPU; Qwen3-Embedding matches its code quality, embeds
+    // full-length passages on Vulkan with no crash, and is 1024-dim (== BGE-M3).
+    // size + sha256 from a local copy (2026-06-23) — confirm against upstream.
+    id: 'Qwen3-Embedding-0.6B-Q8_0',
     label: 'Code embedder',
     description:
-      'jina-code-embeddings-0.5b (IQ4_XS) — code-specialised retrieval for codebase workspaces.',
+      'Qwen3-Embedding-0.6B (Q8_0) — code-specialised retrieval for codebase workspaces.',
     kind: 'embedder',
-    filename: 'jina-code-embeddings-0.5b-IQ4_XS.gguf',
-    url: 'https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf',
-    sizeBytes: 349_399_616,
-    sha256: '3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a',
+    filename: 'Qwen3-Embedding-0.6B-Q8_0.gguf',
+    url: 'https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf',
+    sizeBytes: 639_150_592,
+    sha256: '06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439',
     required: false,
   },
   {

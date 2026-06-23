@@ -13,10 +13,12 @@ import { BundledEmbedderProvider } from '@main/services/providers/bundled/Bundle
 
 describe('code embedder selection (ADR-0006)', () => {
   it('recognises code-embedder GGUF filenames', () => {
-    expect(isCodeEmbedderFile('jina-code-embeddings-0.5b-Q4_K_M.gguf')).toBe(true)
-    expect(isCodeEmbedderFile('jina_code_0.5b.gguf')).toBe(true)
+    expect(isCodeEmbedderFile('Qwen3-Embedding-0.6B-Q8_0.gguf')).toBe(true)
+    expect(isCodeEmbedderFile('qwen3_embedding_0.6b.gguf')).toBe(true)
     expect(isCodeEmbedderFile('bge-m3-Q4_K_M.gguf')).toBe(false)
-    expect(isCodeEmbedderFile('jina-code-embeddings.txt')).toBe(false)
+    // jina-code is no longer the code embedder (crashes on iGPU Vulkan).
+    expect(isCodeEmbedderFile('jina-code-embeddings-0.5b-Q4_K_M.gguf')).toBe(false)
+    expect(isCodeEmbedderFile('Qwen3-Embedding-0.6B.txt')).toBe(false)
   })
 
   it('prefers the code embedder only for codebase workspaces', () => {
@@ -40,7 +42,8 @@ describe('code embedder selection (ADR-0006)', () => {
     expect(provider.identity()).toBe(BUNDLED_EMBEDDER_IDENTITY)
     expect(provider.dimension()).toBe(1024)
     // simulate a resident code model
-    ;(svc as unknown as { loadedPath: string }).loadedPath = '/models/jina-code-0.5b.gguf'
+    ;(svc as unknown as { loadedPath: string }).loadedPath =
+      '/models/Qwen3-Embedding-0.6B-Q8_0.gguf'
     expect(svc.activeIdentity()).toBe(CODE_EMBEDDER_IDENTITY)
     expect(provider.identity()).toBe(CODE_EMBEDDER_IDENTITY)
     expect(provider.dimension()).toBe(CODE_EMBEDDING_DIM)

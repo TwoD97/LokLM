@@ -176,16 +176,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.embedder
-      .status()
-      .then((s) =>
-        setEmbedder({
-          state: s.state,
-          message: s.message,
-          source: s.source,
-          modelName: s.modelName,
-        }),
-      )
+    void window.api.embedder.status().then((s) =>
+      setEmbedder({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        modelName: s.modelName,
+      }),
+    )
     const off = window.api.embedder.onStatus((s) =>
       setEmbedder({ state: s.state, message: s.message, source: s.source, modelName: s.modelName }),
     )
@@ -283,9 +281,12 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           device={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
         />
         <StatusDot
-          // ADR-0006: surface the resident embedder — jina-code → "Code embedder",
-          // otherwise the doc model (BGE-M3) → "Embedder".
-          label={/jina[-_]?code/i.test(embedder.modelName ?? '') ? 'Code embedder' : 'Embedder'}
+          // ADR-0006: surface the resident embedder — the code model
+          // (Qwen3-Embedding) → "Code embedder", otherwise the doc model
+          // (BGE-M3) → "Embedder".
+          label={
+            /qwen3[-_]?embedding/i.test(embedder.modelName ?? '') ? 'Code embedder' : 'Embedder'
+          }
           state={embedder.state}
           source={embedder.source}
           message={embedder.message}

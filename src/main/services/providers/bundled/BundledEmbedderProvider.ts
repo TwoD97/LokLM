@@ -30,7 +30,9 @@ export class BundledEmbedderProvider implements EmbedderProvider {
   }
 
   dimension(): number {
-    // ADR-0006: reflects the resident model — jina-code (896) vs BGE-M3 (1024).
+    // ADR-0006: reflects the resident model by identity — the code embedder
+    // (Qwen3-Embedding) vs BGE-M3. Both are 1024-dim now, but keep this
+    // identity-driven so a future code model with a different dim stays correct.
     return this.inner.activeIdentity() === CODE_EMBEDDER_IDENTITY
       ? CODE_EMBEDDING_DIM
       : EMBEDDING_DIM

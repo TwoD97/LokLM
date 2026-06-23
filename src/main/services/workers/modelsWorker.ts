@@ -71,14 +71,18 @@ const planner = new ResourcePlanner()
 
 // ---- shared state for the three services ----------------------------------
 
-// Two SEPARATE llama backends so background indexing never shares a GPU device
-// context with the interactive chat model — concurrent native ops on ONE shared
-// backend fast-fail the process on a fragile driver (AMD iGPU Vulkan, 0xC0000409).
-//   - 'primary' runs the chat LLM on its chosen device (GPU when available).
-//   - 'aux' is CPU-pinned and owns the embedder + reranker.
-// The chat model is therefore the sole GPU tenant; the embedder/reranker make no
-// GPU calls and cannot collide with it. (See backendSerializer for the one
-// remaining guard, which is internal to the chat backend's two contexts.)
+// ONE shared llama backend ('primary') owns the chat LLM, the embedder AND the
+// reranker — all on the same GPU device. On a small AMD iGPU, TWO Vulkan devices
+// (a second getLlama) fast-fail the driver, so a single shared device is the
+// only stable GPU layout; the 17 GB unified memory fits all three easily. Safety
+// rests on two guards, NOT on isolation:
+//   1. backendSerializer funnels every native op through one FIFO so no two
+//      overlap on the device (the cross-op 0xC0000409 class).
+//   2. embed inputs are token-truncated to the context (embedderContextSize) so
+//      jina-code never gets the over-context passage that NATIVE-crashes it on
+//      Vulkan (llama.cpp #20098/#20515) — the trigger that defeated every
+//      earlier GPU attempt.
+// 'aux' (CPU) is retained as a fallback key but unused on a working GPU.
 type BackendKey = 'primary' | 'aux'
 const backends = new Map<BackendKey, unknown>()
 // In-flight creation per key, so two concurrent loads of the same backend
@@ -101,6 +105,13 @@ let llmLanguage: 'de' | 'en' = 'de'
 
 let embedderModel: unknown = null
 let embedderContext: unknown = null
+// Token budget of the live embedding context. Inputs are HARD-truncated to this
+// (minus a margin) before getEmbeddingFor: an over-context passage NATIVE-CRASHES
+// the jina-code embedder on AMD Vulkan (0xC0000409, llama.cpp #20098/#20515) —
+// it bypasses JS try/catch and kills the worker. The main side caps input at
+// 6000 CHARS, which for dense code can exceed 2048 TOKENS, so the cap alone is
+// not enough; this is the authoritative, tokenizer-accurate guard.
+let embedderContextSize = 2048
 
 let rerankerModel: unknown = null
 let rerankerContext: unknown = null
@@ -747,13 +758,14 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     loadProgress: 0,
     message: 'Initialising embedder backend…',
   })
-  // The embedder runs on the dedicated CPU 'aux' backend — never the GPU device
-  // the chat model owns. Use a RAM-only snapshot, NOT refreshIfStale(): a VRAM
-  // probe could spin up a GPU backend before the chat model has even loaded.
+  // The embedder shares the chat model's GPU backend ('primary'). RAM-only
+  // snapshot, NOT refreshIfStale(): the LLM load owns the live VRAM probe.
   const resources = planner.snapshot()
-  const llama = await ensureBackend('aux', true, (msg) => pushStatus('embedder', { message: msg }))
+  const llama = await ensureBackend('primary', false, (msg) =>
+    pushStatus('embedder', { message: msg }),
+  )
   pushStatus('embedder', {
-    message: 'Loading embedder weights (cpu — dedicated aux backend)…',
+    message: 'Loading embedder weights…',
   })
   const model = await (
     llama as {
@@ -774,11 +786,15 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
   ).createEmbeddingContext({ contextSize: payload.contextSize })
   embedderModel = model
   embedderContext = context
+  embedderContextSize = payload.contextSize
   pushStatus('embedder', { state: 'ready', loadProgress: null, message: 'Embedder ready.' })
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
-    resolvedPlacement: 'cpu',
-    reason: 'dedicated CPU backend (kept off the GPU device)',
+    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
+    reason: onGpu
+      ? `shared ${primaryGpuLabel} backend (input token-clamped to ${payload.contextSize})`
+      : 'shared CPU backend',
   }
 }
 
@@ -803,12 +819,35 @@ async function embedderEmbed(texts: string[]): Promise<Array<number[] | null>> {
   const ctx = embedderContext as {
     getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
   }
+  const tok = embedderModel as {
+    tokenize?: (text: string) => number[]
+    detokenize?: (tokens: number[]) => string
+  }
+  // Headroom for the BOS/EOS the embedding context wraps around the input.
+  const maxTokens = Math.max(8, embedderContextSize - 8)
   const out: Array<number[] | null> = []
   for (let i = 0; i < texts.length; i++) {
-    const t = texts[i]!
+    let t = texts[i]!
     if (t.length === 0) {
       out.push(null)
       continue
+    }
+    // HARD token-clamp BEFORE the native call. An over-context passage
+    // native-crashes jina-code on AMD Vulkan (0xC0000409) and bypasses the
+    // try/catch below — see embedderContextSize. Truncation loses the tail of an
+    // oversized chunk, which is strictly better than killing the whole worker.
+    try {
+      if (typeof tok.tokenize === 'function' && typeof tok.detokenize === 'function') {
+        const ids = tok.tokenize(t)
+        if (ids.length > maxTokens) t = tok.detokenize(ids.slice(0, maxTokens))
+      } else {
+        // No tokenizer access: conservative ~2 chars/token char cap so we never
+        // hand the native layer a clearly over-context string.
+        if (t.length > maxTokens * 2) t = t.slice(0, maxTokens * 2)
+      }
+    } catch {
+      const charCap = maxTokens * 2
+      if (t.length > charCap) t = t.slice(0, charCap)
     }
     try {
       const r = await ctx.getEmbeddingFor(t)
@@ -832,12 +871,16 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  // Reranker shares the embedder's dedicated CPU 'aux' backend — off the GPU
-  // device the chat model owns. RAM-only snapshot (no VRAM probe — see embedder).
+  // Reranker shares the chat model's GPU backend ('primary'). This is the heavy
+  // hitter on the query hot path (~25x faster on the iGPU than CPU), and as an
+  // XLM-RoBERTa encoder it errors gracefully on over-context input rather than
+  // native-crashing like the jina decoder. RAM-only snapshot (see embedder).
   const resources = planner.snapshot()
-  const llama = await ensureBackend('aux', true, (msg) => pushStatus('reranker', { message: msg }))
+  const llama = await ensureBackend('primary', false, (msg) =>
+    pushStatus('reranker', { message: msg }),
+  )
   pushStatus('reranker', {
-    message: 'Loading reranker weights (cpu — dedicated aux backend)…',
+    message: 'Loading reranker weights…',
   })
   const model = await (
     llama as {
@@ -859,10 +902,11 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
   rerankerModel = model
   rerankerContext = context
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
-    resolvedPlacement: 'cpu',
-    reason: 'dedicated CPU backend (kept off the GPU device)',
+    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
+    reason: onGpu ? `shared ${primaryGpuLabel} backend` : 'shared CPU backend',
   }
 }
 
