@@ -1,0 +1,277 @@
+[
+  {
+    "config": "base_norr",
+    "overall": {
+      "group": "all",
+      "n": 175,
+      "recallAt1": 0.3485714285714286,
+      "recallAt5": 0.6742857142857143,
+      "recallAt10": 0.7714285714285715,
+      "mrr": 0.48979591836734715
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 35,
+        "recallAt1": 0.6857142857142857,
+        "recallAt5": 0.9714285714285714,
+        "recallAt10": 1,
+        "mrr": 0.8099999999999999
+      },
+      {
+        "group": "nl-description",
+        "n": 35,
+        "recallAt1": 0.4,
+        "recallAt5": 0.7428571428571429,
+        "recallAt10": 0.8571428571428571,
+        "mrr": 0.5487528344671202
+      },
+      {
+        "group": "paraphrase",
+        "n": 35,
+        "recallAt1": 0.34285714285714286,
+        "recallAt5": 0.7142857142857143,
+        "recallAt10": 0.8285714285714286,
+        "mrr": 0.497687074829932
+      },
+      {
+        "group": "vague",
+        "n": 35,
+        "recallAt1": 0.05714285714285714,
+        "recallAt5": 0.17142857142857143,
+        "recallAt10": 0.3142857142857143,
+        "mrr": 0.11714285714285716
+      },
+      {
+        "group": "misspelled",
+        "n": 35,
+        "recallAt1": 0.2571428571428571,
+        "recallAt5": 0.7714285714285715,
+        "recallAt10": 0.8571428571428571,
+        "mrr": 0.47539682539682543
+      }
+    ],
+    "worstNoisyRecallAt5": 0.17142857142857143,
+    "evennessGap": 0.8
+  },
+  {
+    "config": "f1_qinstr",
+    "overall": {
+      "group": "all",
+      "n": 175,
+      "recallAt1": 0.4,
+      "recallAt5": 0.7257142857142858,
+      "recallAt10": 0.8285714285714286,
+      "mrr": 0.5465192743764173
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 35,
+        "recallAt1": 0.8,
+        "recallAt5": 1,
+        "recallAt10": 1,
+        "mrr": 0.8904761904761905
+      },
+      {
+        "group": "nl-description",
+        "n": 35,
+        "recallAt1": 0.37142857142857144,
+        "recallAt5": 0.7428571428571429,
+        "recallAt10": 0.8857142857142857,
+        "mrr": 0.5547052154195011
+      },
+      {
+        "group": "paraphrase",
+        "n": 35,
+        "recallAt1": 0.3142857142857143,
+        "recallAt5": 0.7428571428571429,
+        "recallAt10": 0.8285714285714286,
+        "mrr": 0.48730158730158735
+      },
+      {
+        "group": "vague",
+        "n": 35,
+        "recallAt1": 0.08571428571428572,
+        "recallAt5": 0.2857142857142857,
+        "recallAt10": 0.4857142857142857,
+        "mrr": 0.17939909297052153
+      },
+      {
+        "group": "misspelled",
+        "n": 35,
+        "recallAt1": 0.42857142857142855,
+        "recallAt5": 0.8571428571428571,
+        "recallAt10": 0.9428571428571428,
+        "mrr": 0.6207142857142857
+      }
+    ],
+    "worstNoisyRecallAt5": 0.2857142857142857,
+    "evennessGap": 0.7142857142857143
+  },
+  {
+    "config": "f4_symfts",
+    "overall": {
+      "group": "all",
+      "n": 175,
+      "recallAt1": 0.45714285714285713,
+      "recallAt5": 0.76,
+      "recallAt10": 0.8228571428571428,
+      "mrr": 0.5735532879818594
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 35,
+        "recallAt1": 0.8571428571428571,
+        "recallAt5": 1,
+        "recallAt10": 1,
+        "mrr": 0.9142857142857141
+      },
+      {
+        "group": "nl-description",
+        "n": 35,
+        "recallAt1": 0.45714285714285713,
+        "recallAt5": 0.8857142857142857,
+        "recallAt10": 0.9142857142857143,
+        "mrr": 0.6188435374149659
+      },
+      {
+        "group": "paraphrase",
+        "n": 35,
+        "recallAt1": 0.37142857142857144,
+        "recallAt5": 0.6857142857142857,
+        "recallAt10": 0.8571428571428571,
+        "mrr": 0.5148412698412698
+      },
+      {
+        "group": "vague",
+        "n": 35,
+        "recallAt1": 0.11428571428571428,
+        "recallAt5": 0.34285714285714286,
+        "recallAt10": 0.4,
+        "mrr": 0.18738095238095243
+      },
+      {
+        "group": "misspelled",
+        "n": 35,
+        "recallAt1": 0.4857142857142857,
+        "recallAt5": 0.8857142857142857,
+        "recallAt10": 0.9428571428571428,
+        "mrr": 0.6324149659863945
+      }
+    ],
+    "worstNoisyRecallAt5": 0.34285714285714286,
+    "evennessGap": 0.6571428571428571
+  },
+  {
+    "config": "recall_combo",
+    "overall": {
+      "group": "all",
+      "n": 175,
+      "recallAt1": 0.5142857142857142,
+      "recallAt5": 0.7828571428571428,
+      "recallAt10": 0.8571428571428571,
+      "mrr": 0.6247687074829932
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 35,
+        "recallAt1": 0.9714285714285714,
+        "recallAt5": 1,
+        "recallAt10": 1,
+        "mrr": 0.9857142857142858
+      },
+      {
+        "group": "nl-description",
+        "n": 35,
+        "recallAt1": 0.4857142857142857,
+        "recallAt5": 0.8857142857142857,
+        "recallAt10": 0.9428571428571428,
+        "mrr": 0.6414285714285715
+      },
+      {
+        "group": "paraphrase",
+        "n": 35,
+        "recallAt1": 0.37142857142857144,
+        "recallAt5": 0.7142857142857143,
+        "recallAt10": 0.8571428571428571,
+        "mrr": 0.5230952380952381
+      },
+      {
+        "group": "vague",
+        "n": 35,
+        "recallAt1": 0.11428571428571428,
+        "recallAt5": 0.4,
+        "recallAt10": 0.5142857142857142,
+        "mrr": 0.23193877551020406
+      },
+      {
+        "group": "misspelled",
+        "n": 35,
+        "recallAt1": 0.6285714285714286,
+        "recallAt5": 0.9142857142857143,
+        "recallAt10": 0.9714285714285714,
+        "mrr": 0.7416666666666666
+      }
+    ],
+    "worstNoisyRecallAt5": 0.4,
+    "evennessGap": 0.6
+  },
+  {
+    "config": "all_fixes",
+    "overall": {
+      "group": "all",
+      "n": 175,
+      "recallAt1": 0.4857142857142857,
+      "recallAt5": 0.7828571428571428,
+      "recallAt10": 0.8742857142857143,
+      "mrr": 0.6066643990929704
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 35,
+        "recallAt1": 1,
+        "recallAt5": 1,
+        "recallAt10": 1,
+        "mrr": 1
+      },
+      {
+        "group": "nl-description",
+        "n": 35,
+        "recallAt1": 0.5142857142857142,
+        "recallAt5": 0.8571428571428571,
+        "recallAt10": 0.9428571428571428,
+        "mrr": 0.6580952380952381
+      },
+      {
+        "group": "paraphrase",
+        "n": 35,
+        "recallAt1": 0.2857142857142857,
+        "recallAt5": 0.6857142857142857,
+        "recallAt10": 0.8571428571428571,
+        "mrr": 0.45816326530612245
+      },
+      {
+        "group": "vague",
+        "n": 35,
+        "recallAt1": 0.14285714285714285,
+        "recallAt5": 0.45714285714285713,
+        "recallAt10": 0.5714285714285714,
+        "mrr": 0.25103174603174605
+      },
+      {
+        "group": "misspelled",
+        "n": 35,
+        "recallAt1": 0.4857142857142857,
+        "recallAt5": 0.9142857142857143,
+        "recallAt10": 1,
+        "mrr": 0.6660317460317461
+      }
+    ],
+    "worstNoisyRecallAt5": 0.45714285714285713,
+    "evennessGap": 0.5428571428571429
+  }
+]
