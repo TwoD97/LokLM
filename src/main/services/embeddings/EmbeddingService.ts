@@ -10,6 +10,7 @@ import { getModelSearchDirs, resolveModelFile } from '../models/paths'
 import {
   CODE_EMBEDDER_FILE,
   CODE_EMBEDDER_IDENTITY,
+  CODE_QUERY_INSTRUCTION,
   isCodeEmbedderFile,
 } from '../codebase/codeEmbedder'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
@@ -65,7 +66,10 @@ const NON_EMBEDDER_PATTERNS = [
 import type { EmbedderState, EmbedderStatus, EmbedderInfo } from '../../../shared/documents'
 export type { EmbedderState, EmbedderStatus, EmbedderInfo }
 
-const QUERY_PREFIX = ''
+// Passages/documents embed raw (matches the corpus that's already on disk — so
+// the query-side instruction below needs NO re-embed). The query instruction is
+// resolved per-model in queryInstruction(): the code embedder (Qwen3) gets its
+// asymmetric Instruct/Query template; BGE-M3 gets none (it isn't instruction-tuned).
 const PASSAGE_PREFIX = ''
 const EMBED_CONTEXT_SIZE = 2048
 const SANITIZE_MAX_CHARS = 6000
@@ -336,17 +340,37 @@ export class EmbeddingService {
     }
   }
 
+  /** Query-side instruction for the resident embedder (ADR-0006, fix #1). The
+   *  code model (Qwen3) is instruction-tuned and wants the asymmetric
+   *  Instruct/Query template; BGE-M3 gets none. Empty string ⇒ query embeds
+   *  exactly like a passage (the legacy behaviour, still correct for BGE). */
+  private queryInstruction(): string {
+    return this.activeIdentity() === CODE_EMBEDDER_IDENTITY ? CODE_QUERY_INSTRUCTION : ''
+  }
+
   async embedQuery(text: string): Promise<number[] | null> {
-    if (!(await this.ensureReady())) return null
-    const cleaned = sanitize(text)
-    if (cleaned.length === 0) return null
+    const out = await this.embedQueries([text])
+    return out[0] ?? null
+  }
+
+  /** Batch query embedding WITH the model-appropriate query instruction. The
+   *  retrieval hot path uses this (via the provider's embedQuery) so a natural-
+   *  language question aligns with the raw code passages. Mirrors embedPassages'
+   *  null-on-empty contract. */
+  async embedQueries(texts: string[]): Promise<Array<number[] | null>> {
+    if (texts.length === 0) return []
+    if (!(await this.ensureReady())) return texts.map(() => null)
+    const instruction = this.queryInstruction()
+    const prepared = texts.map((raw) => {
+      const cleaned = sanitize(raw)
+      return cleaned.length === 0 ? '' : instruction + cleaned
+    })
     try {
-      const vecs = await this.client!.embedderEmbed([QUERY_PREFIX + cleaned])
-      return vecs[0] ?? null
+      return await this.client!.embedderEmbed(prepared)
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn('[embedder] embedQuery failed:', err)
-      return null
+      console.warn('[embedder] embedQueries failed:', err)
+      return texts.map(() => null)
     }
   }
 

@@ -250,20 +250,62 @@ export function applyCodeSymbolBoost(
 }
 
 /** Boost code chunks from a file the query names by its stem (e.g. asking about
- *  "RetrievalService" boosts chunks from `RetrievalService.ts`). */
+ *  "RetrievalService" boosts chunks from `RetrievalService.ts`). `mode`:
+ *   - 'exact'     (default): a query token must EQUAL the stem.
+ *   - 'substring' (ADR-0006 fix #2): a query token is a substring of the stem (or
+ *     vice-versa), so a lay word like "auth" boosts `AuthService.ts`. Guarded to
+ *     tokens ≥4 chars to avoid firing on generic fragments. */
 export function applyCodeFilenameBoost(
   hits: SearchHit[],
   query: string,
   factor: number,
+  mode: 'exact' | 'substring' = 'exact',
 ): SearchHit[] {
   if (factor <= 1.0) return hits
   const terms = new Set<string>([...nonStopwordTokens(query), ...extractCodeIdentifiers(query)])
   if (terms.size === 0) return hits
+  const subTerms = mode === 'substring' ? [...terms].filter((t) => t.length >= 4) : []
   return hits.map((h) => {
     if (!isCodeHit(h)) return h
-    const stem = h.heading_path![0]!.toLowerCase().replace(/\.[^.]+$/, '')
-    return terms.has(stem) ? { ...h, score: h.score * factor } : h
+    const stem =
+      h
+        .heading_path![0]!.toLowerCase()
+        .replace(/\.[^.]+$/, '')
+        .split('/')
+        .pop() ?? ''
+    if (!stem) return h
+    const match =
+      terms.has(stem) ||
+      (mode === 'substring' && subTerms.some((t) => stem.includes(t) || t.includes(stem)))
+    return match ? { ...h, score: h.score * factor } : h
   })
+}
+
+/**
+ * Score-gap dynamic-K (ADR-0006 fix #3). Returns how many of the score-sorted
+ * `sorted` hits to keep: walk down from `minK`, stop at the first big relative
+ * drop (a hit whose sigmoid-normalised score falls below `tau` of the previous),
+ * clamped to [minK, maxK]. Sigmoid-normalising makes the ratio well-defined for
+ * cross-encoder logits (which can be negative). A precision knob, not a recall
+ * one — opt-in, so it can be A/B-ed against fixed-K on the answer-quality eval.
+ */
+export function dynamicScoreCutCount(
+  sorted: SearchHit[],
+  minK: number,
+  maxK: number,
+  tau = 0.6,
+): number {
+  const n = Math.min(maxK, sorted.length)
+  if (n <= minK) return n
+  const norm = (s: number): number => 1 / (1 + Math.exp(-s))
+  let k = minK
+  for (let i = minK; i < n; i++) {
+    const prev = norm(sorted[i - 1]!.score)
+    const cur = norm(sorted[i]!.score)
+    if (prev > 0 && cur < prev * tau) break
+    k = i + 1
+  }
+  return Math.max(minK, Math.min(k, n))
 }
 
 /**

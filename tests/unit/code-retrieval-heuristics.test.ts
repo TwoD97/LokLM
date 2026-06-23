@@ -6,6 +6,7 @@ import {
   applyCodeSymbolBoost,
   applyCodeFilenameBoost,
   ensureCodeShare,
+  dynamicScoreCutCount,
 } from '@main/services/retrieval/heuristics'
 
 // Minimal SearchHit factory — only the fields the code heuristics read.
@@ -162,5 +163,60 @@ describe('ensureCodeShare', () => {
     const topK = [doc(1, 0.9), doc(2, 0.8)]
     const out = ensureCodeShare(topK, pool, 2, 2)
     expect(out).toEqual(topK) // nothing to inject
+  })
+})
+
+describe('applyCodeFilenameBoost — substring mode (fix #2)', () => {
+  const codeHit = (stem: string, score: number) =>
+    hit({ heading_path: [`src/main/services/auth/${stem}.ts`], text: 'x', score })
+
+  it('exact mode: a lay word does NOT boost a compound filename', () => {
+    const out = applyCodeFilenameBoost(
+      [codeHit('AuthService', 1)],
+      'how does the auth class work',
+      1.3,
+      'exact',
+    )
+    expect(out[0]!.score).toBe(1) // "auth" !== stem "authservice"
+  })
+
+  it('substring mode: "auth" boosts AuthService.ts', () => {
+    const out = applyCodeFilenameBoost(
+      [codeHit('AuthService', 1)],
+      'how does the auth class work',
+      1.3,
+      'substring',
+    )
+    expect(out[0]!.score).toBeCloseTo(1.3)
+  })
+
+  it('substring mode ignores short fragments (<4 chars)', () => {
+    // "db" is 2 chars → must not boost WorkspaceDb just because the stem contains it
+    const out = applyCodeFilenameBoost([codeHit('WorkspaceDb', 1)], 'open the db', 1.3, 'substring')
+    expect(out[0]!.score).toBe(1)
+  })
+
+  it('never boosts doc/prose chunks', () => {
+    const prose = hit({ heading_path: ['Authentication'], text: 'auth prose', score: 1 })
+    const out = applyCodeFilenameBoost([prose], 'auth login', 1.3, 'substring')
+    expect(out[0]!.score).toBe(1)
+  })
+})
+
+describe('dynamicScoreCutCount (fix #3)', () => {
+  const s = (...scores: number[]) => scores.map((score, i) => hit({ chunk_id: i, score }))
+
+  it('cuts at a big relative score drop', () => {
+    // 3 strong then a cliff → keep 3 (clamped within [2, maxK])
+    expect(dynamicScoreCutCount(s(5, 4.8, 4.5, 0.2, 0.1), 2, 10)).toBe(3)
+  })
+
+  it('keeps up to maxK when scores stay flat', () => {
+    expect(dynamicScoreCutCount(s(2, 2, 2, 2, 2, 2), 2, 4)).toBe(4)
+  })
+
+  it('never returns fewer than minK or more than available', () => {
+    expect(dynamicScoreCutCount(s(9, 0.01), 2, 10)).toBe(2) // cliff at 2 but minK floor
+    expect(dynamicScoreCutCount(s(1), 2, 10)).toBe(1) // only one hit
   })
 })
