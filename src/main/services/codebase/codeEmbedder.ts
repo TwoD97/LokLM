@@ -36,6 +36,21 @@ export const CODE_EMBEDDER_IDENTITY = 'bundled:qwen3-embedding'
 /** Qwen3-Embedding-0.6B native output dimensionality (== BGE-M3's 1024). */
 export const CODE_EMBEDDING_DIM = 1024
 
+/**
+ * Query-side instruction for the code embedder (ADR-0006, fix #1). Qwen3-Embedding
+ * is instruction-tuned and expects the asymmetric `Instruct: <task>\nQuery: <q>`
+ * template on the QUERY side only — documents/passages are embedded raw. Applying
+ * it lifts natural-language → code alignment substantially (measured: codebase
+ * eval recall@5 0.674 → 0.726, vague-query recall 0.171 → 0.286; tests/evals/code).
+ *
+ * The query text is appended verbatim by EmbeddingService.embedQueries. Passages
+ * stay un-prefixed, so this is query-only and needs NO re-embedding of the corpus.
+ * Only applied when the resident embedder IS the code model (codebase workspaces);
+ * BGE-M3 / library workspaces get no instruction.
+ */
+export const CODE_QUERY_INSTRUCTION =
+  'Instruct: Given a question about a codebase, retrieve the source code file that answers it.\nQuery: '
+
 /** Matches a code-embedder GGUF by filename (any quant). */
 export function isCodeEmbedderFile(filename: string): boolean {
   return /qwen3[-_]?embedding/i.test(filename) && filename.toLowerCase().endsWith('.gguf')

@@ -14,7 +14,9 @@ import {
   applyCodeSymbolBoost,
   applyCodeFilenameBoost,
   ensureCodeShare,
+  dynamicScoreCutCount,
 } from './heuristics'
+import { CODE_EMBEDDER_IDENTITY } from '../codebase/codeEmbedder'
 import type { ResponseLanguage } from '../llm/prompt'
 
 /** Callback the caller (QAService) supplies to receive stage start/done events
@@ -121,6 +123,12 @@ export interface RetrievalOptions {
    *  genuinely compound message. Takes precedence over paraphrase expansion:
    *  the sub-questions ARE the variants. Set false to A/B it in evals. */
   decomposeQuestions?: boolean
+  /** Score-gap dynamic-K (ADR-0006 fix #3). When true, the final slate is trimmed
+   *  at the first big relative drop in rerank/RRF score (clamped to [2, topK])
+   *  instead of always returning a fixed topK. A precision knob — recall-neutral
+   *  in the retrieval eval — so it's OFF by default and meant to be A/B-ed on the
+   *  answer-quality eval before any default flip. */
+  dynamicK?: boolean
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -227,7 +235,11 @@ export class RetrievalService {
     if (opts.docPrefilter && this.registry.embedder().isReady()) {
       try {
         const embedder = this.registry.embedder()
-        const vecs = await embedder.embed([trimmed])
+        // Query side gets the instruction (fix #1); fall back to embed() for
+        // providers/mocks that don't implement embedQuery.
+        const vecs = embedder.embedQuery
+          ? await embedder.embedQuery([trimmed])
+          : await embedder.embed([trimmed])
         const qVec = vecs[0]
         if (qVec && qVec.length > 0) {
           const topN = opts.docPrefilterTopN ?? DEFAULT_DOC_PREFILTER_TOPN
@@ -254,7 +266,15 @@ export class RetrievalService {
     // shaving a CPU rerank pass still buys 0.5–2 s of TTFT, and skipping
     // multiQuery saves a full extra LLM pass.
     const cpuMode = opts.cpuOptimized ?? this.autoDetectCpuMode()
-    const effectiveRerank = opts.rerank ?? !cpuMode
+    // Codebase workspace signal (ADR-0006): the code embedder is resident only in
+    // codebase workspaces, so its identity doubles as "this is a code workspace".
+    // Drives the reranker gate, code-share, and substring filename matching below.
+    const codeWorkspace = this.registry.embedder().identity() === CODE_EMBEDDER_IDENTITY
+    // Fix A: the prose-trained cross-encoder demotes exact code matches — measured
+    // on the codebase eval, reranking dropped exact-symbol recall@5 0.97 → 0.43 and
+    // overall 0.67 → 0.41 (tests/evals/code). Until a code-aware reranker ships,
+    // skip it in codebase workspaces. An explicit opts.rerank still wins (evals).
+    const effectiveRerank = opts.rerank ?? (codeWorkspace ? false : !cpuMode)
     const effectiveMultiQuery = opts.multiQuery ?? !cpuMode
     const fanout = cpuMode ? CPU_FANOUT : FANOUT
     const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
@@ -341,7 +361,12 @@ export class RetrievalService {
         DEFAULT_CODE_SYMBOL_BOOST,
         DEFAULT_CODE_DEFINE_BOOST,
       )
-      pool = applyCodeFilenameBoost(pool, trimmed, DEFAULT_CODE_FILENAME_BOOST)
+      pool = applyCodeFilenameBoost(
+        pool,
+        trimmed,
+        DEFAULT_CODE_FILENAME_BOOST,
+        codeWorkspace ? 'substring' : 'exact',
+      )
       pool.sort((a, b) => b.score - a.score)
     }
 
@@ -385,7 +410,12 @@ export class RetrievalService {
         DEFAULT_CODE_SYMBOL_BOOST,
         DEFAULT_CODE_DEFINE_BOOST,
       )
-      postRank = applyCodeFilenameBoost(postRank, trimmed, DEFAULT_CODE_FILENAME_BOOST)
+      postRank = applyCodeFilenameBoost(
+        postRank,
+        trimmed,
+        DEFAULT_CODE_FILENAME_BOOST,
+        codeWorkspace ? 'substring' : 'exact',
+      )
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
 
@@ -393,21 +423,29 @@ export class RetrievalService {
     // Without this, a single content-rich doc can take all 8 top-K slots
     // even when the user's query was clearly about a different (smaller)
     // doc in the workspace.
+    // Fix #3 (opt-in, default off): score-gap dynamic-K trims the slate when the
+    // reranker/RRF scores fall off a cliff. A precision knob (recall-neutral in
+    // the eval), gated so it can be A/B-ed on the answer-quality eval before any
+    // default flip. minK clamps to topK so a tiny topK is never grown.
+    const effectiveTopK = opts.dynamicK
+      ? dynamicScoreCutCount(postRank, Math.min(2, topK), topK)
+      : topK
     const diversified =
       opts.documentDiversity === false
-        ? postRank.slice(0, topK)
-        : diversifyByDocument(postRank, topK)
-    // Code-aware (ADR-0006): when the query names a code symbol/file, guarantee
-    // code chunks a share of the final top-K so documentation can't crowd them
-    // all out. No-op for prose queries (no identifiers) and document workspaces
-    // (no code-track hits to inject).
+        ? postRank.slice(0, effectiveTopK)
+        : diversifyByDocument(postRank, effectiveTopK)
+    // Code-aware (ADR-0006, fix #2): guarantee code chunks a share of the final
+    // top-K on code-INTENT queries OR in ANY codebase workspace — so a prose
+    // question like "how does the auth class work" (which names no identifier)
+    // still reserves code slots instead of being crowded out by docs. No-op in
+    // document workspaces (no code-track hits to inject).
     const ranked =
-      extractCodeIdentifiers(trimmed).length > 0
+      codeWorkspace || extractCodeIdentifiers(trimmed).length > 0
         ? ensureCodeShare(
             diversified,
             postRank,
-            topK,
-            Math.max(1, Math.ceil(topK * DEFAULT_CODE_MIN_FRACTION)),
+            effectiveTopK,
+            Math.max(1, Math.ceil(effectiveTopK * DEFAULT_CODE_MIN_FRACTION)),
           )
         : diversified
 
@@ -449,7 +487,11 @@ export class RetrievalService {
       const embedder = this.registry.embedder()
       if (!embedder.isReady()) return []
       try {
-        const vecs = await embedder.embed([q])
+        // Query side gets the model's instruction (fix #1); embed() fallback for
+        // providers/mocks without embedQuery keeps the legacy behaviour.
+        const vecs = embedder.embedQuery
+          ? await embedder.embedQuery([q])
+          : await embedder.embed([q])
         const vec = vecs[0]
         if (!vec || vec.length === 0) return []
         // searchChunksByVector expects number[]; convert from the provider's
