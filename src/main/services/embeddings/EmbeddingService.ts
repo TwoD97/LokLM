@@ -47,7 +47,20 @@ export function embedderModelStem(identity: string): string {
   return noTag.toLowerCase().replace(/-gguf$/i, '')
 }
 
-const NON_EMBEDDER_PATTERNS = [/qwen/i, /llama/i, /mistral/i, /phi/i, /gemma/i, /reranker/i]
+// /jina/ keeps a leftover jina-code GGUF from ever being picked as the DOC
+// embedder: it is no longer matched by isCodeEmbedderFile (the code embedder is
+// Qwen3-Embedding now), and it native-crashes on the iGPU Vulkan, so it must
+// never load. /qwen/ keeps Qwen3-Embedding out of the doc-embedder pool too — it
+// is resolved separately as the code embedder via resolveCodeEmbedderPath.
+const NON_EMBEDDER_PATTERNS = [
+  /qwen/i,
+  /jina/i,
+  /llama/i,
+  /mistral/i,
+  /phi/i,
+  /gemma/i,
+  /reranker/i,
+]
 
 import type { EmbedderState, EmbedderStatus, EmbedderInfo } from '../../../shared/documents'
 export type { EmbedderState, EmbedderStatus, EmbedderInfo }
