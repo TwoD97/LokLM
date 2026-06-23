@@ -72,14 +72,16 @@ export const MODEL_MANIFEST: ModelManifestEntry[] = [
     // Vulkan stack on near-context inputs (llama.cpp #20098/#20515), which pinned
     // retrieval to CPU; Qwen3-Embedding matches its code quality, embeds
     // full-length passages on Vulkan with no crash, and is 1024-dim (== BGE-M3).
-    // size + sha256 from a local copy (2026-06-23) — confirm against upstream.
+    // Served from our own minio (s3.ltwodl.com/loklm-installers/models/) — the
+    // exact file we uploaded, so sha256 is pinned-exact; upstream source is
+    // huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF.
     id: 'Qwen3-Embedding-0.6B-Q8_0',
     label: 'Code embedder',
     description:
       'Qwen3-Embedding-0.6B (Q8_0) — code-specialised retrieval for codebase workspaces.',
     kind: 'embedder',
     filename: 'Qwen3-Embedding-0.6B-Q8_0.gguf',
-    url: 'https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf',
+    url: 'https://s3.ltwodl.com/loklm-installers/models/Qwen3-Embedding-0.6B-Q8_0.gguf',
     sizeBytes: 639_150_592,
     sha256: '06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439',
     required: false,

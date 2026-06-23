@@ -123,9 +123,9 @@
         {
           "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). Mirrored into our own minio (immutable once pushed) so an upstream Qwen re-quant / takedown can't break installs; sha256 is pinned to the exact uploaded file. Upstream source: huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF.",
           "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
-          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "url": "https://s3.ltwodl.com/loklm-installers/models/Qwen3-Embedding-0.6B-Q8_0.gguf",
           "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
           "sizeBytes": 639150592
         },
@@ -155,9 +155,9 @@
         {
           "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). Mirrored into our own minio (immutable once pushed) so an upstream Qwen re-quant / takedown can't break installs; sha256 is pinned to the exact uploaded file. Upstream source: huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF.",
           "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
-          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "url": "https://s3.ltwodl.com/loklm-installers/models/Qwen3-Embedding-0.6B-Q8_0.gguf",
           "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
           "sizeBytes": 639150592
         },
@@ -196,9 +196,9 @@
         {
           "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). Mirrored into our own minio (immutable once pushed) so an upstream Qwen re-quant / takedown can't break installs; sha256 is pinned to the exact uploaded file. Upstream source: huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF.",
           "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
-          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "url": "https://s3.ltwodl.com/loklm-installers/models/Qwen3-Embedding-0.6B-Q8_0.gguf",
           "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
           "sizeBytes": 639150592
         },
