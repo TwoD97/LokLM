@@ -216,3 +216,6 @@ docs/berichte/**/*.pdf
 
 # IDE-/Editor-Konfiguration (lokal, nicht im Repo)
 .vscode/
+
+# bench run artifacts
+tests/bench/*.log
