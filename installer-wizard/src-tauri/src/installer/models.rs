@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn bundle_for_tier_dispatches_correctly() {
-        // ADR-0006: +1 per tier for the jina-code code embedder bundled in all tiers.
+        // ADR-0006: +1 per tier for the Qwen3-Embedding code embedder bundled in all tiers.
         assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 3);
         assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 4);
         assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 4);

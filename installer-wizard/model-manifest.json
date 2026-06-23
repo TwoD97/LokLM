@@ -109,7 +109,7 @@
   ],
   "tiers": {
     "lite": {
-      "totalSizeBytes": 2068014048,
+      "totalSizeBytes": 2357765024,
       "models": [
         {
           "id": "Qwen_Qwen3.5-2B-Q4_K_M",
@@ -121,13 +121,13 @@
           "sizeBytes": 1280835840
         },
         {
-          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
-          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
-          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
-          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
-          "sizeBytes": 349399616
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+          "sizeBytes": 639150592
         },
         {
           "id": "bge-m3-Q4_K_M",
@@ -141,7 +141,7 @@
       ]
     },
     "standard": {
-      "totalSizeBytes": 3966492960,
+      "totalSizeBytes": 4256243936,
       "models": [
         {
           "id": "Qwen_Qwen3.5-4B-Q4_K_M",
@@ -153,13 +153,13 @@
           "sizeBytes": 2740937888
         },
         {
-          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
-          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
-          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
-          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
-          "sizeBytes": 349399616
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+          "sizeBytes": 639150592
         },
         {
           "id": "bge-m3-Q4_K_M",
@@ -182,7 +182,7 @@
       ]
     },
     "pro": {
-      "totalSizeBytes": 6906077536,
+      "totalSizeBytes": 7195828512,
       "models": [
         {
           "id": "Qwen_Qwen3.5-9B-Q4_K_M",
@@ -194,13 +194,13 @@
           "sizeBytes": 5680522464
         },
         {
-          "id": "jina-code-embeddings-0.5b-IQ4_XS",
+          "id": "Qwen3-Embedding-0.6B-Q8_0",
           "role": "embedder",
-          "_comment": "ADR-0006 code embedder, bundled in every tier so codebase workspaces work offline. TODO: mirror into a LokLM HF bucket (currently upstream jinaai, like the Pro LLM) for takedown durability.",
-          "filename": "jina-code-embeddings-0.5b-IQ4_XS.gguf",
-          "url": "https://huggingface.co/jinaai/jina-code-embeddings-0.5b-GGUF/resolve/main/jina-code-embeddings-0.5b-IQ4_XS.gguf?download=true",
-          "sha256": "3e1c1c615c9c451bf51ba77c0192699c5c6710a60e42400f4677c9dd18b8a93a",
-          "sizeBytes": 349399616
+          "_comment": "ADR-0006 code embedder. Replaced jina-code, which native-crashes the AMD iGPU Vulkan stack on near-context input (llama.cpp #20098/#20515). Bundled in every tier so codebase workspaces work offline; 1024-dim (== bge-m3). TODO: mirror into a LokLM HF bucket (currently upstream Qwen) for takedown durability.",
+          "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true",
+          "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+          "sizeBytes": 639150592
         },
         {
           "id": "bge-m3-Q4_K_M",
