@@ -13,6 +13,8 @@ import {
   extractCodeIdentifiers,
   applyCodeSymbolBoost,
   applyCodeFilenameBoost,
+  applyRoleBoost,
+  applyTrackPreference,
   ensureCodeShare,
   dynamicScoreCutCount,
 } from './heuristics'
@@ -178,6 +180,13 @@ const DEFAULT_CODE_SYMBOL_BOOST = 1.8 // breadcrumb symbol === a query identifie
 const DEFAULT_CODE_DEFINE_BOOST = 1.4 // chunk text DEFINES a query identifier
 const DEFAULT_CODE_FILENAME_BOOST = 1.3 // chunk is from a file the query names
 const DEFAULT_CODE_MIN_FRACTION = 0.4 // reserve ≥40% of top-K for code on code-intent queries
+// Role-aware (ADR-0006): on a default "how does X work" query, push tests/evals/
+// examples below the implementation; on a test-intent query, lift the test/eval.
+const DEFAULT_ROLE_NONSOURCE_PENALTY = 0.5 // ×score for test/eval/example/config code
+const DEFAULT_ROLE_TEST_BOOST = 1.5 // ×score for test/eval code when the query is test-intent
+// Code-over-docs (ADR-0006): a code-intent query in a codebase workspace pushes
+// doc-track chunks below code; generic/concept queries leave docs alone.
+const DEFAULT_DOC_PENALTY = 0.5 // ×score for doc chunks on a code-intent query
 // How many top documents the hierarchical pre-filter keeps when docPrefilter is
 // on. 5 mirrors LlamaIndex's drill-down top_k corrected up from its brittle
 // default of 1 — enough that one bad summary match doesn't lose the answer.
@@ -272,9 +281,13 @@ export class RetrievalService {
     const codeWorkspace = this.registry.embedder().identity() === CODE_EMBEDDER_IDENTITY
     // Fix A: the prose-trained cross-encoder demotes exact code matches — measured
     // on the codebase eval, reranking dropped exact-symbol recall@5 0.97 → 0.43 and
-    // overall 0.67 → 0.41 (tests/evals/code). Until a code-aware reranker ships,
-    // skip it in codebase workspaces. An explicit opts.rerank still wins (evals).
-    const effectiveRerank = opts.rerank ?? (codeWorkspace ? false : !cpuMode)
+    // overall 0.67 → 0.41 (tests/evals/code). Until a code-aware reranker ships, a
+    // codebase workspace must NOT rerank. This takes precedence over opts.rerank
+    // (not just a default) because the chat renderer hardcodes rerank:true on every
+    // turn (ChatView), so a `?? ` default would never apply. The reranker on/off
+    // *setting* still works for doc workspaces via model unload. Outside codebase
+    // workspaces: explicit opts.rerank wins, else auto (off under the CPU preset).
+    const effectiveRerank = codeWorkspace ? false : (opts.rerank ?? !cpuMode)
     const effectiveMultiQuery = opts.multiQuery ?? !cpuMode
     const fanout = cpuMode ? CPU_FANOUT : FANOUT
     const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
@@ -367,6 +380,13 @@ export class RetrievalService {
         DEFAULT_CODE_FILENAME_BOOST,
         codeWorkspace ? 'substring' : 'exact',
       )
+      if (codeWorkspace) {
+        pool = applyRoleBoost(pool, trimmed, {
+          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
+          testBoost: DEFAULT_ROLE_TEST_BOOST,
+        })
+        pool = applyTrackPreference(pool, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
+      }
       pool.sort((a, b) => b.score - a.score)
     }
 
@@ -416,6 +436,13 @@ export class RetrievalService {
         DEFAULT_CODE_FILENAME_BOOST,
         codeWorkspace ? 'substring' : 'exact',
       )
+      if (codeWorkspace) {
+        postRank = applyRoleBoost(postRank, trimmed, {
+          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
+          testBoost: DEFAULT_ROLE_TEST_BOOST,
+        })
+        postRank = applyTrackPreference(postRank, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
+      }
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
 

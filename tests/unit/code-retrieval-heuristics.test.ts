@@ -7,6 +7,13 @@ import {
   applyCodeFilenameBoost,
   ensureCodeShare,
   dynamicScoreCutCount,
+  nonStopwordTokens,
+  expandGermanCodeTerms,
+  detectTestIntent,
+  applyRoleBoost,
+  detectCodeIntent,
+  detectDocsIntent,
+  applyTrackPreference,
 } from '@main/services/retrieval/heuristics'
 
 // Minimal SearchHit factory — only the fields the code heuristics read.
@@ -218,5 +225,137 @@ describe('dynamicScoreCutCount (fix #3)', () => {
   it('never returns fewer than minK or more than available', () => {
     expect(dynamicScoreCutCount(s(9, 0.01), 2, 10)).toBe(2) // cliff at 2 but minK floor
     expect(dynamicScoreCutCount(s(1), 2, 10)).toBe(1) // only one hit
+  })
+})
+
+describe('German query heuristics', () => {
+  it('drops German question/function words but keeps domain nouns', () => {
+    const toks = nonStopwordTokens('wie funktioniert die authentifizierung klasse')
+    expect(toks).toContain('authentifizierung')
+    expect(toks).toContain('klasse') // a code noun — must NOT be a stopword
+    expect(toks).not.toContain('wie')
+    expect(toks).not.toContain('funktioniert')
+    expect(toks).not.toContain('die')
+  })
+
+  it('expandGermanCodeTerms bridges German nouns to english code terms', () => {
+    expect(expandGermanCodeTerms('wie funktioniert die authentifizierung')).toEqual(
+      expect.arrayContaining(['auth', 'authentication']),
+    )
+    expect(expandGermanCodeTerms('wo werden die einstellungen gespeichert')).toContain('settings')
+    expect(expandGermanCodeTerms('zeig mir die datenbank-abfrage')).toEqual(
+      expect.arrayContaining(['database', 'query']),
+    )
+    expect(expandGermanCodeTerms('how does auth work')).toEqual([]) // english → no expansion
+  })
+
+  it('a German query boosts the matching english filename via the bridge', () => {
+    const auth = hit({
+      heading_path: ['src/main/services/auth/AuthService.ts'],
+      text: 'x',
+      score: 1,
+    })
+    // "authentifizierung" → "auth" → substring of stem "authservice"
+    const out = applyCodeFilenameBoost(
+      [auth],
+      'wie funktioniert die authentifizierung',
+      1.3,
+      'substring',
+    )
+    expect(out[0]!.score).toBeCloseTo(1.3)
+  })
+})
+
+describe('detectTestIntent (EN + DE)', () => {
+  it('detects test questions in English and German', () => {
+    expect(detectTestIntent('show me the test for AuthService')).toBe(true)
+    expect(detectTestIntent('what does the spec cover')).toBe(true)
+    expect(detectTestIntent('wie wird der login getestet')).toBe(true)
+    expect(detectTestIntent('zeig mir den testfall für die anmeldung')).toBe(true)
+    expect(detectTestIntent('wie ist die abdeckung')).toBe(true)
+  })
+  it('does not fire on plain implementation questions', () => {
+    expect(detectTestIntent('how does the auth class work')).toBe(false)
+    expect(detectTestIntent('wie funktioniert die anmeldung')).toBe(false)
+  })
+})
+
+describe('applyRoleBoost', () => {
+  const src = (score: number) =>
+    hit({
+      heading_path: ['src/main/services/auth/AuthService.ts', 'AuthService'],
+      text: 'x',
+      score,
+    })
+  const test = (score: number) =>
+    hit({ heading_path: ['tests/integration/auth-flow.test.ts'], text: 'x', score })
+  const opts = { nonSourcePenalty: 0.5, testBoost: 1.5 }
+
+  it('source-intent query penalizes test/eval code, leaves source', () => {
+    const out = applyRoleBoost([src(1), test(1)], 'how does the auth class work', opts)
+    expect(out[0]!.score).toBe(1) // source untouched
+    expect(out[1]!.score).toBeCloseTo(0.5) // test pushed down
+  })
+
+  it('test-intent query lifts test AND demotes the implementation (code is logic, test is test)', () => {
+    const out = applyRoleBoost([src(1), test(1)], 'show me the test for auth', opts)
+    expect(out[0]!.score).toBeCloseTo(0.5) // source demoted so the test wins
+    expect(out[1]!.score).toBeCloseTo(1.5) // test lifted → 3× the source
+  })
+
+  it('never touches prose/doc hits', () => {
+    const doc = hit({ heading_path: ['docs/handbook/auth.md'], text: 'auth prose', score: 1 })
+    const out = applyRoleBoost([doc], 'how does the auth class work', opts)
+    expect(out[0]!.score).toBe(1)
+  })
+})
+
+describe('code-over-docs preference (fix #6)', () => {
+  const code = (s: number) =>
+    hit({
+      heading_path: ['src/main/services/auth/AuthService.ts', 'AuthService'],
+      text: 'x',
+      score: s,
+    })
+  const doc = (s: number) =>
+    hit({ heading_path: ['docs/handbook/auth.md'], text: 'auth prose', score: s })
+
+  it('detectCodeIntent fires on code nouns, identifiers, and how-does (EN+DE)', () => {
+    expect(detectCodeIntent('how does the auth class work')).toBe(true)
+    expect(detectCodeIntent('wie funktioniert die authentifizierungs-klasse')).toBe(true)
+    expect(detectCodeIntent('zeig mir die Login funktion')).toBe(true)
+    expect(detectCodeIntent('AuthService')).toBe(true) // identifier
+    expect(detectCodeIntent('wo wird das passwort gespeichert')).toBe(true)
+  })
+
+  it('detectDocsIntent fires only on explicit doc/concept requests', () => {
+    expect(detectDocsIntent('gib mir einen überblick über das projekt')).toBe(true)
+    expect(detectDocsIntent('was steht im handbuch')).toBe(true)
+    expect(detectDocsIntent('explain the concept')).toBe(true)
+    expect(detectDocsIntent('how does the auth class work')).toBe(false)
+  })
+
+  it('penalizes docs on a code-intent query, lifting code above prose', () => {
+    const out = applyTrackPreference([doc(1), code(0.9)], 'how does the auth class work', {
+      docPenalty: 0.5,
+    })
+    expect(out[0]!.score).toBeCloseTo(0.5) // doc pushed down
+    expect(out[1]!.score).toBe(0.9) // code untouched → now ranks above the doc
+  })
+
+  it('leaves docs alone for an explicit docs/concept request', () => {
+    const out = applyTrackPreference(
+      [doc(1), code(0.9)],
+      'gib mir einen überblick übers handbuch',
+      {
+        docPenalty: 0.5,
+      },
+    )
+    expect(out[0]!.score).toBe(1) // docs compete normally
+  })
+
+  it('leaves docs alone for a generic (non-code, non-docs) query', () => {
+    const out = applyTrackPreference([doc(1)], 'tell me about privacy', { docPenalty: 0.5 })
+    expect(out[0]!.score).toBe(1)
   })
 })
