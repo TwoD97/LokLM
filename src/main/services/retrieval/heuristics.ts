@@ -1,6 +1,7 @@
 import type { SearchHit } from '@main/db/types'
 import type { ResponseLanguage } from '../llm/prompt'
 import { fileTrack } from '../codebase/ignore'
+import { fileRole, isSecondaryCodeRole } from '../codebase/fileRole'
 
 // small-but-deliberate DE+EN stopword set. Domain-relevant nouns like
 // "Wochenbuch" intentionally NOT in the list — they should pass through
@@ -48,6 +49,35 @@ const TITLE_STOPWORDS = new Set([
   'mit',
   'ist',
   'sind',
+  // German question + function words (non-topical), so a German query like
+  // "wie funktioniert die authentifizierungs-klasse" tokenizes to its nouns.
+  // Domain nouns (datenbank, einstellung, …) deliberately stay OUT.
+  'wie',
+  'was',
+  'wo',
+  'wann',
+  'warum',
+  'wer',
+  'welche',
+  'welcher',
+  'welchem',
+  'welchen',
+  'welches',
+  'es',
+  'dass',
+  'bei',
+  'am',
+  'zur',
+  'zum',
+  'nach',
+  'auch',
+  'nicht',
+  'sich',
+  'kann',
+  'soll',
+  'funktioniert',
+  'funktionieren',
+  'gibt',
 ])
 
 /** Shared query/title tokenizer. Exported for the qa router's target-document
@@ -262,7 +292,13 @@ export function applyCodeFilenameBoost(
   mode: 'exact' | 'substring' = 'exact',
 ): SearchHit[] {
   if (factor <= 1.0) return hits
-  const terms = new Set<string>([...nonStopwordTokens(query), ...extractCodeIdentifiers(query)])
+  // German bridge: a query noun like "authentifizierung"/"einstellungen" expands
+  // to the english code term ("auth"/"settings") so it can match an english stem.
+  const terms = new Set<string>([
+    ...nonStopwordTokens(query),
+    ...extractCodeIdentifiers(query),
+    ...expandGermanCodeTerms(query),
+  ])
   if (terms.size === 0) return hits
   const subTerms = mode === 'substring' ? [...terms].filter((t) => t.length >= 4) : []
   return hits.map((h) => {
@@ -279,6 +315,174 @@ export function applyCodeFilenameBoost(
       (mode === 'substring' && subTerms.some((t) => stem.includes(t) || t.includes(stem)))
     return match ? { ...h, score: h.score * factor } : h
   })
+}
+
+// ---------------------------------------------------------------------------
+// File-role + intent heuristics (ADR-0006). Differentiate source code from its
+// tests / evals / examples so "how does X work" ranks the IMPLEMENTATION, and
+// route a "show me the test for X" question to the test instead. German-aware.
+// ---------------------------------------------------------------------------
+
+/** German code-concept noun → english code term(s), for lexical bridging when a
+ *  German query has to match english symbols/filenames. The multilingual
+ *  embedder covers semantics; this only helps the BM25 / filename / symbol
+ *  boosts, which are lexical. Tight + high-precision on purpose. */
+const GERMAN_CODE_TERMS: Record<string, string[]> = {
+  klasse: ['class'],
+  funktion: ['function'],
+  methode: ['method'],
+  dienst: ['service'],
+  schnittstelle: ['interface'],
+  modul: ['module'],
+  datenbank: ['database', 'db'],
+  einstellung: ['settings'],
+  einstellungen: ['settings'],
+  abfrage: ['query'],
+  speicher: ['store', 'storage'],
+  verschlüsselung: ['encryption', 'crypto'],
+  sitzung: ['session'],
+  anmeldung: ['login', 'auth'],
+  passwort: ['password'],
+  authentifizierung: ['auth', 'authentication'],
+  authentifizierungs: ['auth', 'authentication'],
+  autorisierung: ['authorization', 'auth'],
+  dokument: ['document', 'doc'],
+  datei: ['file'],
+  übersetzung: ['translation'],
+  einbettung: ['embedding'],
+  abruf: ['retrieval'],
+  zusammenfassung: ['summary', 'summarization'],
+}
+
+/** English code terms implied by any German code-noun in the query. */
+export function expandGermanCodeTerms(query: string): string[] {
+  const out = new Set<string>()
+  for (const tok of query.toLowerCase().split(/[^a-zäöüß]+/)) {
+    const mapped = GERMAN_CODE_TERMS[tok]
+    if (mapped) for (const e of mapped) out.add(e)
+  }
+  return [...out]
+}
+
+// Test-intent: the user is asking ABOUT tests, not the implementation. EN + DE.
+// `\btest` (no trailing boundary) catches test/tests/testfall/testen/testing.
+const TEST_INTENT_PATTERNS: RegExp[] = [
+  /\btest/i,
+  /\bspecs?\b/i,
+  /\bcoverage\b/i,
+  /\babdeckung\b/i,
+  /\bgetestet\b/i,
+  /\bgepr[üu]f/i,
+  /\bpr[üu]fung\b/i,
+  /\bvalidier/i,
+  /\be2e\b/i,
+]
+
+/** True when the query is about TESTS (so role-boost prefers test files). */
+export function detectTestIntent(query: string): boolean {
+  return TEST_INTENT_PATTERNS.some((re) => re.test(query))
+}
+
+/**
+ * Role-aware boost (ADR-0006). "Code is logic, test is test" — the two are kept
+ * apart SYMMETRICALLY by query intent:
+ *   - logic-intent (default "how does X work"): push tests / evals / examples /
+ *     config / generated BELOW the implementation (×nonSourcePenalty).
+ *   - test-intent ("the test for X", "wie wird X getestet"): lift test/eval
+ *     (×testBoost) AND demote the implementation (source ×nonSourcePenalty), so
+ *     the TEST dominates instead of its subject.
+ * Code chunks only — role derives from the same heading_path[0] isCodeHit routes
+ * on, so it's a pure retrieval-time signal with no re-ingest. No-op in document
+ * workspaces (no source-vs-test distinction).
+ */
+export function applyRoleBoost(
+  hits: SearchHit[],
+  query: string,
+  opts: { nonSourcePenalty: number; testBoost: number },
+): SearchHit[] {
+  const testIntent = detectTestIntent(query)
+  return hits.map((h) => {
+    if (!isCodeHit(h)) return h
+    const role = fileRole(h.heading_path![0]!)
+    if (testIntent) {
+      if (role === 'test' || role === 'eval') return { ...h, score: h.score * opts.testBoost }
+      // Demote the implementation so the test isn't out-ranked by its subject.
+      if (role === 'source' && opts.nonSourcePenalty !== 1.0) {
+        return { ...h, score: h.score * opts.nonSourcePenalty }
+      }
+      return h
+    }
+    return isSecondaryCodeRole(role) && opts.nonSourcePenalty !== 1.0
+      ? { ...h, score: h.score * opts.nonSourcePenalty }
+      : h
+  })
+}
+
+// Explicit DOCS/concept request — the user wants the prose, not the code. Narrow
+// on purpose (generic "how does X work" is NOT here; it's code-intent). EN + DE.
+const DOCS_INTENT_PATTERNS: RegExp[] = [
+  /\bdocs?\b/i,
+  /\bdocumentation\b/i,
+  /\breadme\b/i,
+  /\bconcept(s|ual)?\b/i,
+  /\boverview\b/i,
+  /\bguide\b/i,
+  /\barchitecture\b/i,
+  /\bdokumentation\b/i,
+  /\bhandbuch\b/i,
+  /\bkonzept(e|ion)?\b/i,
+  // JS \b is ASCII-only — it does NOT match before a leading 'ü', so these
+  // umlaut-leading stems drop \b and rely on stem uniqueness (cf. router.ts).
+  /[üu]berblick/i,
+  /[üu]bersicht/i,
+  /\banleitung\b/i,
+  /\bleitfaden\b/i,
+  /\berkl[äa]r/i,
+  /\bbeschreib/i,
+]
+
+/** True when the user explicitly asks about docs/concepts (so code-over-docs
+ *  preference backs off and prose competes normally). */
+export function detectDocsIntent(query: string): boolean {
+  return DOCS_INTENT_PATTERNS.some((re) => re.test(query))
+}
+
+// Code-intent: the user names a code construct (class/function/…), a literal
+// identifier, or asks how something is implemented/works. EN + DE. Structural
+// nouns only — domain nouns (auth, settings) stay neutral so a conceptual
+// question isn't force-routed to code.
+const CODE_INTENT_PATTERNS: RegExp[] = [
+  /\b(class(es)?|function(s)?|func|methods?|services?|interfaces?|modules?|components?|hooks?|endpoints?|handlers?|implement(s|ation|ed)?)\b/i,
+  /\b(klasse(n)?|funktion(en)?|methode(n)?|dienst(e)?|schnittstelle(n)?|modul(e)?|komponente(n)?|implementier)\b/i,
+  /\bhow (does|is|do|are)\b/i, // "how does X work", "how is X implemented"
+  /\bwhere (is|are)\b/i,
+  /\bwie funktioniert\b/i,
+  /\bwie wird\b/i,
+  /\bwo (wird|ist|werden|sind)\b/i,
+]
+
+/** True when the query is about CODE/implementation rather than concepts. */
+export function detectCodeIntent(query: string): boolean {
+  if (extractCodeIdentifiers(query).length > 0) return true
+  return CODE_INTENT_PATTERNS.some((re) => re.test(query))
+}
+
+/**
+ * Code-over-docs preference for codebase workspaces (ADR-0006). The user's rule:
+ * a code question ("how does the auth class work", "the Login funktion") should
+ * return CODE; a generic/conceptual one may go to docs. So when the query is
+ * code-intent AND not an explicit docs request, push doc-track chunks below code
+ * by `docPenalty`. Generic queries and explicit doc/concept requests are left
+ * untouched (prose competes normally). Caller gates this to codebase workspaces.
+ */
+export function applyTrackPreference(
+  hits: SearchHit[],
+  query: string,
+  opts: { docPenalty: number },
+): SearchHit[] {
+  if (opts.docPenalty >= 1.0) return hits
+  if (detectDocsIntent(query) || !detectCodeIntent(query)) return hits
+  return hits.map((h) => (isCodeHit(h) ? h : { ...h, score: h.score * opts.docPenalty }))
 }
 
 /**
