@@ -629,10 +629,32 @@ export interface ContextualizerLLM {
   ): Promise<string>
 }
 
+// Pure meta-continuation follow-ups ("genauer?", "mehr", "warum?", "more",
+// "elaborate") carry no topic of their own — re-embedding them retrieves noise
+// (e.g. "genauer" → "Genauigkeit" → unrelated accuracy docs). Detected so the
+// retrieval query can be anchored on the prior question instead, deterministically.
+const META_FOLLOWUP_PATTERNS: RegExp[] = [
+  /^(genauer|ausf[üu]hrlicher|detaillierter|pr[äa]ziser|mehr|weiter|warum|wieso|und|erkl[äa]r)\b/i,
+  /^(more|elaborate|continue|go ?on|expand|why|details?|in more detail|tell me more)\b/i,
+]
+function isPureMetaFollowup(query: string): boolean {
+  const words = query.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0 || words.length > 3) return false
+  return META_FOLLOWUP_PATTERNS.some((re) => re.test(query.trim()))
+}
+
 /**
  * Rewrite a follow-up question into a standalone search query using prior
  * conversation turns. Returns the original `query` unchanged if the LLM is
  * unavailable, the rewrite errors, or the rewrite comes back empty/too long.
+ *
+ * Two robustness rules learned the hard way:
+ *   1. A pure meta follow-up ("genauer?", "more") is anchored on the most recent
+ *      USER question deterministically — no LLM, no re-embedding the bare word.
+ *   2. Only USER turns feed the rewrite. Assistant answers can be wrong/drifted
+ *      (a bad RAG turn), and including them poisons the next rewrite — the exact
+ *      "each turn makes it worse" failure. Resolving references needs the prior
+ *      QUESTIONS, not the answers.
  *
  * Exported for unit tests; QAService.answer calls it via the local
  * `contextualizeQuery` symbol.
@@ -643,15 +665,20 @@ export async function contextualizeQuery(
   query: string,
   opts: { abortSignal?: AbortSignal } = {},
 ): Promise<string> {
-  if (!llama.isReady() || history.length === 0) return query
-  const recent = history.slice(-CONTEXTUALIZE_MAX_TURNS)
+  if (history.length === 0) return query
+  const userTurns = history.filter((m) => m.role === 'user')
+  const lastUser = userTurns.length > 0 ? userTurns[userTurns.length - 1]!.content.trim() : null
+  // Rule 1: deterministic anchor for a bare meta follow-up.
+  if (lastUser && isPureMetaFollowup(query)) return lastUser
+  if (!llama.isReady() || userTurns.length === 0) return query
+  // Rule 2: user questions only — never feed assistant answers to the rewrite.
+  const recent = userTurns.slice(-CONTEXTUALIZE_MAX_TURNS)
   const lines = recent.map((m) => {
-    const role = m.role === 'user' ? 'User' : 'Assistant'
     const text =
       m.content.length > CONTEXTUALIZE_PER_TURN_CHARS
         ? m.content.slice(0, CONTEXTUALIZE_PER_TURN_CHARS) + '…'
         : m.content
-    return `${role}: ${text}`
+    return `User: ${text}`
   })
   const prompt =
     `You are rewriting a follow-up question into a standalone search query for a document-retrieval system.\n` +
