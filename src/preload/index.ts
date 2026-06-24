@@ -30,7 +30,7 @@ import type {
   TranslatorStatus,
 } from '../shared/translation'
 import type { WriteResult, WritingMode } from '../shared/writing'
-import type { WorkspaceType } from '../shared/workspaceStorage'
+import type { WorkspaceType, WorkspaceStorageFootprint } from '../shared/workspaceStorage'
 import type { CodebaseClassification } from '../shared/codebase'
 import type {
   Document,
@@ -161,6 +161,10 @@ const api = {
   },
   workspaces: {
     list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspaces:list'),
+    // Measured + estimated on-disk storage footprint (ADR-0005) for the
+    // LibraryView transparency card.
+    storageEstimate: (id: number): Promise<WorkspaceStorageFootprint> =>
+      ipcRenderer.invoke('workspaces:storageEstimate', id),
     create: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspaces:create', name),
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),

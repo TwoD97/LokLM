@@ -9,11 +9,13 @@ import { CODE_EMBEDDING_DIM } from '../codebase/codeEmbedder'
 import type { VectorStore } from './VectorStore'
 import {
   emptyManifest,
+  estimateWorkspaceFootprint,
   resolveDefaultWorkspace,
   suggestIndexConfig,
   DEFAULT_WORKSPACE_TYPE,
   type VaultManifest,
   type WorkspaceManifestEntry,
+  type WorkspaceStorageFootprint,
   type WorkspaceType,
 } from '../../../shared/workspaceStorage'
 
@@ -88,6 +90,60 @@ export class WorkspaceStore {
 
   activeWorkspaceId(): number | null {
     return this.active?.id ?? null
+  }
+
+  /** Measured + estimated on-disk footprint of a workspace (transparency
+   *  feature). Stats the Lance vector store and the SQLCipher meta.db — file
+   *  metadata only, never decrypts. The vector count is live for the active
+   *  workspace, last-known (manifest) otherwise. Open-size + decrypt-on-open
+   *  time are derived in estimateWorkspaceFootprint. */
+  async storageFootprint(id: number): Promise<WorkspaceStorageFootprint> {
+    const entry = this.requireEntry(id)
+    const dir = join(this.baseDir, entry.dir)
+    const active = this.active
+    const isActive = active != null && active.id === id
+    // Live vector bytes: while a workspace is ACTIVE its current Lance data lives
+    // in the plaintext work/ copy, and enc/ holds only the last-PERSISTED state —
+    // which is stale, or empty on a just-created workspace that was never
+    // deactivated. Reading enc/ alone therefore under-reports a freshly-ingested
+    // workspace to ~0 (making "on disk" == "when open" and open-time ≈ 0). When
+    // inactive, work/ is wiped and enc/ is authoritative. Take whichever is
+    // populated; fall back to estimating from the vector count if neither is.
+    const encBytes = await this.dirSize(join(dir, 'enc'))
+    const workBytes = isActive ? await this.dirSize(join(dir, 'work')) : 0
+    const vectorBytes = Math.max(encBytes, workBytes)
+    const metaDbBytes = await fs
+      .stat(join(dir, 'meta.db'))
+      .then((s) => s.size)
+      .catch(() => 0)
+    const vectorCount = active && active.id === id ? await active.store.count() : entry.vectorCount
+    return estimateWorkspaceFootprint({
+      workspaceId: id,
+      vectorBytes: vectorBytes > 0 ? vectorBytes : null,
+      metaDbBytes,
+      vectorCount,
+      dims: entry.indexConfig.dims,
+    })
+  }
+
+  /** Recursively sums file sizes under `dir` (file metadata only — no decrypt).
+   *  Returns 0 for a missing dir (e.g. a workspace whose store isn't persisted
+   *  yet). */
+  private async dirSize(dir: string): Promise<number> {
+    const entries = await fs
+      .readdir(dir, { withFileTypes: true })
+      .catch(() => [] as import('node:fs').Dirent[])
+    let total = 0
+    for (const e of entries) {
+      const p = join(dir, e.name)
+      total += e.isDirectory()
+        ? await this.dirSize(p)
+        : await fs
+            .stat(p)
+            .then((s) => s.size)
+            .catch(() => 0)
+    }
+    return total
   }
 
   /** Creates a new workspace: mints a WDEK, records the manifest entry. The

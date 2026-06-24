@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-06-23T12-05-07",
+  "args": {
+    "dims": 64,
+    "steps": [2000, 8000],
+    "fillBatch": 2000,
+    "queries": 15,
+    "topk": 10,
+    "perDocK": 6,
+    "chunksPerDoc": 30,
+    "p95BreakMs": 2000,
+    "rssBreakFrac": 0.85,
+    "timeBudgetMin": 5,
+    "probeEmbed": false,
+    "embedGpu": false,
+    "embedSample": 2000,
+    "targetGb": 100,
+    "keep": false
+  },
+  "sysInfo": {
+    "cpu": "Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz",
+    "cores": 16,
+    "ramGiB": "31.9",
+    "node": "v24.17.0",
+    "platform": "win32"
+  },
+  "checkpoints": [
+    {
+      "targetCount": 2000,
+      "actualCount": 2000,
+      "ingestVecPerSec": 23291.997801235408,
+      "prodBatch32Ms": 12.390700000000038,
+      "indexBuildMs": 0,
+      "indexed": false,
+      "query": {
+        "n": 15,
+        "p50": 4.156900000000064,
+        "p95": 12.400900000000092,
+        "max": 12.400900000000092,
+        "mean": 4.939459999999993
+      },
+      "workBytes": 561400,
+      "bytesPerVector": 280.7,
+      "persistMs": 74.26060000000007,
+      "encBytes": 562392,
+      "rssMiB": 120.86328125,
+      "heapUsedMiB": 20.200408935546875,
+      "elapsedSec": 0.29147920000000005
+    },
+    {
+      "targetCount": 8000,
+      "actualCount": 8000,
+      "ingestVecPerSec": 79859.43441016425,
+      "prodBatch32Ms": 17.629500000000007,
+      "indexBuildMs": 0,
+      "indexed": false,
+      "query": {
+        "n": 15,
+        "p50": 6.521099999999933,
+        "p95": 16.97320000000002,
+        "max": 16.97320000000002,
+        "mean": 7.876726666666673
+      },
+      "workBytes": 2158990,
+      "bytesPerVector": 269.87375,
+      "persistMs": 96.7663,
+      "encBytes": 2161490,
+      "rssMiB": 133.5078125,
+      "heapUsedMiB": 21.297218322753906,
+      "elapsedSec": 0.6557873
+    }
+  ],
+  "coldOpen": {
+    "finalCount": 8096,
+    "decryptMs": 140.38019999999983,
+    "encBytes": 2161490,
+    "decryptMBps": 15.397399348341166
+  },
+  "brk": {
+    "reason": "none",
+    "atCount": 0,
+    "detail": ""
+  },
+  "probes": [],
+  "extra": {
+    "targetGb": 100,
+    "avgBytesPerChunk": 1500,
+    "projectedChunks": 66666667,
+    "bytesPerVector": 269.87375,
+    "projectedLanceBytes": 17991583423.29125,
+    "projectedOpenDiskBytes": 35983166846.5825,
+    "embedSecCpu": null,
+    "embedSecGpu": null,
+    "decryptOpenSec": 1168.481963496619,
+    "queryNote": "still flat (brute-force) at 8k — query p95 17 ms; flat scan is linear and would degrade past 50k."
+  },
+  "resourceSamples": [
+    {
+      "t": 0,
+      "rssMiB": 85,
+      "heapUsedMiB": 16,
+      "cpuLoad": 0,
+      "freeVramGB": null
+    },
+    {
+      "t": 0.5,
+      "rssMiB": 128,
+      "heapUsedMiB": 18,
+      "cpuLoad": 1,
+      "freeVramGB": null
+    }
+  ]
+}

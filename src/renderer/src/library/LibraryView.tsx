@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, Folders, FolderTree as FolderTreeIcon } from 'lucide-react'
 import type { Document, IndexProgress, LibrarySearchHit } from '@shared/documents'
+import type { WorkspaceStorageFootprint } from '@shared/workspaceStorage'
 import { DocumentTable } from './DocumentTable'
 import { DocumentTree } from './DocumentTree'
 import { LibraryFileRow } from './LibraryFileRow'
@@ -19,6 +20,7 @@ import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
 import { SourceViewer } from '../chat/SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useT } from '../i18n'
+import { formatBytes, formatDuration, formatCount } from '../lib/format'
 import './library.css'
 
 type Props = {
@@ -50,6 +52,20 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       /* private mode / disabled storage — fall back to in-memory only */
     }
   }, [])
+  // Workspace storage footprint (ADR-0005 transparency). Measured at-rest sizes
+  // (enc/ + meta.db) + derived open-size / decrypt-on-open time. Re-fetched on
+  // workspace switch and after ingest/sync completes, since the sizes change
+  // when documents are added.
+  const [storage, setStorage] = useState<WorkspaceStorageFootprint | null>(null)
+  const refreshStorage = useCallback((wsId: number) => {
+    void window.api.workspaces
+      .storageEstimate(wsId)
+      .then(setStorage)
+      .catch(() => setStorage(null))
+  }, [])
+  useEffect(() => {
+    refreshStorage(workspaceId)
+  }, [workspaceId, refreshStorage])
   // Manual folders for this workspace (shared model with the chat sidebar).
   const folders = useFolders(workspaceId)
   const folderTree = useMemo(
@@ -144,10 +160,11 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       })
       if (p.phase === 'done' || p.phase === 'failed') {
         void refreshDocs(workspaceId)
+        refreshStorage(workspaceId)
       }
     })
     return () => off()
-  }, [workspaceId, refreshDocs])
+  }, [workspaceId, refreshDocs, refreshStorage])
 
   // Sync events arrive on a separate channel ; on 'done' we refresh the doc
   // list once so deletions + new imports appear without per-doc roundtrips,
@@ -159,11 +176,12 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
       if (ev.phase === 'done' || ev.phase === 'failed') {
         void refreshDocs(workspaceId)
         void refreshSyncRoots(workspaceId)
+        refreshStorage(workspaceId)
         bumpMissing()
       }
     })
     return () => off()
-  }, [workspaceId, refreshDocs, refreshSyncRoots, bumpMissing])
+  }, [workspaceId, refreshDocs, refreshSyncRoots, refreshStorage, bumpMissing])
 
   const onImport = useCallback(
     async (paths: string[]) => {
@@ -311,6 +329,31 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
       {/* workspaceName is user data, rendered verbatim. */}
+      {storage && (storage.atRestBytes > 0 || storage.vectorCount > 0) && (
+        <div className="library__storage" role="group">
+          <span className="library__storage-stat">
+            <span className="library__storage-label">{t('library.storage.atRest')}</span>
+            <span className="library__storage-value">
+              {!storage.measured && '~'}
+              {formatBytes(storage.atRestBytes)}
+            </span>
+          </span>
+          <span className="library__storage-stat" title={t('library.storage.whenOpenHint')}>
+            <span className="library__storage-label">{t('library.storage.whenOpen')}</span>
+            <span className="library__storage-value">≈ {formatBytes(storage.openBytes)}</span>
+          </span>
+          <span className="library__storage-stat" title={t('library.storage.openTimeHint')}>
+            <span className="library__storage-label">{t('library.storage.openTime')}</span>
+            <span className="library__storage-value">
+              ≈ {formatDuration(storage.estDecryptOnOpenMs)}
+            </span>
+          </span>
+          <span className="library__storage-meta">
+            {docs.length} {t('library.storage.docsLabel')} · {formatCount(storage.vectorCount)}{' '}
+            {t('library.storage.vectorsLabel')}
+          </span>
+        </div>
+      )}
       <SyncFoldersPanel
         workspaceId={workspaceId}
         onSyncDone={() => void refreshDocs(workspaceId)}

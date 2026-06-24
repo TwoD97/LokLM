@@ -1,5 +1,6 @@
 import type { AuthService } from '../auth/AuthService'
 import type { Workspace } from '../../../shared/documents'
+import type { WorkspaceStorageFootprint } from '../../../shared/workspaceStorage'
 
 const NAME_MIN = 1
 const NAME_MAX = 128
@@ -27,6 +28,12 @@ export class WorkspaceService {
   async delete(id: number): Promise<void> {
     // Drops the manifest entry + the encrypted workspace directory.
     await this.auth.requireDatabase().workspaces().delete(id)
+  }
+
+  /** Measured + estimated on-disk storage footprint of a workspace (ADR-0005),
+   *  surfaced to the user for transparency. Stats enc/ + meta.db; no decrypt. */
+  async getStorageEstimate(id: number): Promise<WorkspaceStorageFootprint> {
+    return this.auth.getWorkspaceStore().storageFootprint(id)
   }
 
   /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker. */

@@ -96,6 +96,85 @@ export function resolveDefaultWorkspace(m: VaultManifest): WorkspaceManifestEntr
   return m.workspaces.reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
 }
 
+// ---------------------------------------------------------------------------
+// Storage footprint (transparency feature). Surfaces "how heavy is this
+// workspace, and what does opening it cost" to the user. The at-rest sizes are
+// MEASURED by the caller (enc/ + meta.db exist on disk whether or not the
+// workspace is open); the open-size and open-time are DERIVED here from those
+// measured bytes and the constants below. Kept in shared/ so the renderer can
+// reuse the same math/labels the main process computes.
+
+/** On-disk bytes per stored vector. Measured on the storage-scale stress test
+ *  (tests/evals/scale, run 2026-06-23): ~4448 B for a 1024-dim float32 vector.
+ *  Breakdown: dims×4 raw vector + ~352 B of IVF-PQ codes + chunk/doc ids +
+ *  columnar/manifest overhead. LanceDB keeps the FULL-precision vectors on disk
+ *  (for rescoring), so the raw vector dominates — hence the dims×4 term. Used
+ *  only to ESTIMATE when a workspace's enc/ isn't measurable yet (e.g. created
+ *  but never persisted); a real enc/ stat always wins. */
+export const VECTOR_DISK_OVERHEAD_BYTES = 352
+export function estimatedBytesPerVector(dims: number): number {
+  return dims * 4 + VECTOR_DISK_OVERHEAD_BYTES
+}
+
+/** Decrypt-on-open throughput, measured ~163 MB/s on the dev box NVMe. It is
+ *  crypto/fs-loop-bound (64 KiB AES-256-GCM blocks, not disk-bandwidth-bound),
+ *  so it's roughly disk-independent for the sequential open pass — an HDD is
+ *  only modestly slower here (seek-heavy queries are the part HDDs hurt, not
+ *  this). Used to estimate the per-unlock wait. */
+export const DECRYPT_THROUGHPUT_BYTES_PER_SEC = 163 * 1_000_000
+
+/** Measured + estimated storage footprint of one workspace (ADR-0005). */
+export interface WorkspaceStorageFootprint {
+  workspaceId: number
+  /** Encrypted Lance vector store on disk (enc/) — measured, or estimated from
+   *  vectorCount × bytes/vector when the store isn't persisted yet. */
+  vectorBytes: number
+  /** Encrypted relational/text store (meta.db, SQLCipher) — measured. */
+  metaDbBytes: number
+  /** vectorBytes + metaDbBytes — total encrypted-at-rest footprint. */
+  atRestBytes: number
+  /** While the workspace is open, decrypt-on-open materialises a plaintext copy
+   *  of the Lance store (work/) next to enc/, so the vector bytes are on disk
+   *  twice; meta.db (SQLCipher, per-page) does NOT double. → atRestBytes +
+   *  vectorBytes. */
+  openBytes: number
+  /** Estimated decrypt-on-open wait — the whole Lance store is decrypted to
+   *  plaintext on every unlock/switch (vectorBytes ÷ decrypt throughput). */
+  estDecryptOnOpenMs: number
+  /** Vectors indexed (live count for the active workspace, else last-known). */
+  vectorCount: number
+  /** True when vectorBytes was measured from enc/ on disk; false when estimated
+   *  from vectorCount (store not yet persisted). Drives a "~" hint in the UI. */
+  measured: boolean
+}
+
+/** Pure footprint math (testable, no I/O). The caller measures `vectorBytes`
+ *  (enc/ size) and `metaDbBytes` and passes them in; pass `vectorBytes: null`
+ *  to estimate from vectorCount instead (store not persisted yet). */
+export function estimateWorkspaceFootprint(input: {
+  workspaceId: number
+  vectorBytes: number | null
+  metaDbBytes: number
+  vectorCount: number
+  dims: number
+}): WorkspaceStorageFootprint {
+  const measured = input.vectorBytes != null && input.vectorBytes > 0
+  const vectorBytes = measured
+    ? input.vectorBytes!
+    : input.vectorCount * estimatedBytesPerVector(input.dims)
+  const atRestBytes = vectorBytes + input.metaDbBytes
+  return {
+    workspaceId: input.workspaceId,
+    vectorBytes,
+    metaDbBytes: input.metaDbBytes,
+    atRestBytes,
+    openBytes: atRestBytes + vectorBytes,
+    estDecryptOnOpenMs: (vectorBytes / DECRYPT_THROUGHPUT_BYTES_PER_SEC) * 1000,
+    vectorCount: input.vectorCount,
+    measured,
+  }
+}
+
 /** Suggests IVF-PQ parameters for a workspace of `rowCount` vectors. Centralised
  *  so the index builder and the manifest writer agree. Thresholds follow
  *  ADR-0005 §Indexparameter; conservative defaults, retune against bench. */

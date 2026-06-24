@@ -1,11 +1,11 @@
 import { readFile, readdir, mkdir, writeFile, access } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defaultConfigs } from '../pipeline/configs'
+import { defaultConfigs } from '../../pipeline/configs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-import { evalConfig, type FullReport } from '../evalRunner'
-import type { GeneratedQuestion, SourceChunk } from '../synth/QuestionGenerator'
+import { evalConfig, type FullReport } from '../../evalRunner'
+import type { GeneratedQuestion, SourceChunk } from '../../synth/QuestionGenerator'
 
 // run-scale , CLI:
 //   tsx tests/evals/scale/run-scale.ts [--dataset <path>]
