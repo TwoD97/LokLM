@@ -1,8 +1,8 @@
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises'
 import { join, basename, extname, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { FixedSizeChunker } from '../pipeline/Chunker'
-import type { SourceChunk } from '../synth/QuestionGenerator'
+import { FixedSizeChunker } from '../../pipeline/Chunker'
+import type { SourceChunk } from '../../synth/QuestionGenerator'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 

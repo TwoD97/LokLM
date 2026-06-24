@@ -140,7 +140,13 @@ export class LanceWorkspaceStore implements VectorStore {
     if (opts.activeDocumentIds && opts.activeDocumentIds.length > 0) {
       q = q.where(`documentId IN (${opts.activeDocumentIds.map((n) => Math.trunc(n)).join(',')})`)
     }
-    const raw = (await q.select(['chunkId', 'documentId']).limit(fetch).toArray()) as Array<{
+    // Request `_distance` explicitly: Lance is deprecating the auto-projection
+    // that silently appends the score column when select() omits it, and we read
+    // r._distance below.
+    const raw = (await q
+      .select(['chunkId', 'documentId', '_distance'])
+      .limit(fetch)
+      .toArray()) as Array<{
       chunkId: number
       documentId: number
       _distance: number

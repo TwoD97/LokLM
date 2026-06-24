@@ -69,6 +69,17 @@ const stub: Api = {
   },
   workspaces: {
     list: () => Promise.resolve([]),
+    storageEstimate: () =>
+      Promise.resolve({
+        workspaceId: 1,
+        vectorBytes: 0,
+        metaDbBytes: 0,
+        atRestBytes: 0,
+        openBytes: 0,
+        estDecryptOnOpenMs: 0,
+        vectorCount: 0,
+        measured: false,
+      }),
     create: (name: string) =>
       Promise.resolve({
         id: 1,

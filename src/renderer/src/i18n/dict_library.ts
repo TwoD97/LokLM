@@ -25,6 +25,17 @@ export const libraryDict: DomainDict = {
     'library.unpin': 'Unpin from chat',
     'library.pinned': 'Pinned — always in chat context',
     'library.pinFailed': 'Could not change pin state: {message}',
+    // Workspace storage footprint card (ADR-0005 transparency)
+    'library.storage.atRest': 'On disk',
+    'library.storage.whenOpen': 'When open',
+    'library.storage.openTime': 'Open time',
+    'library.storage.docsLabel': 'docs',
+    'library.storage.vectorsLabel': 'vectors',
+    'library.storage.estimated': 'estimated',
+    'library.storage.whenOpenHint':
+      'While the workspace is open, its vector store is also kept as a decrypted copy on disk, so the footprint roughly doubles. The encrypted text index (SQLCipher) is not copied.',
+    'library.storage.openTimeHint':
+      'Estimated time to decrypt the vector store into a working copy on every unlock (~163 MB/s, measured on NVMe; slower on an HDD).',
     // DocumentTable
     'library.empty': 'No documents yet. Import files via drag-and-drop.',
     'library.colTitle': 'Title',
@@ -151,6 +162,17 @@ export const libraryDict: DomainDict = {
     'library.unpin': 'Aus Chat lösen',
     'library.pinned': 'Angeheftet — immer im Chat-Kontext',
     'library.pinFailed': 'Pinning konnte nicht geändert werden: {message}',
+    // Workspace storage footprint card (ADR-0005 transparency)
+    'library.storage.atRest': 'Auf der Festplatte',
+    'library.storage.whenOpen': 'Geöffnet',
+    'library.storage.openTime': 'Öffnungszeit',
+    'library.storage.docsLabel': 'Dok.',
+    'library.storage.vectorsLabel': 'Vektoren',
+    'library.storage.estimated': 'geschätzt',
+    'library.storage.whenOpenHint':
+      'Solange der Workspace geöffnet ist, liegt sein Vektor-Store zusätzlich entschlüsselt auf der Platte — der Footprint verdoppelt sich also ungefähr. Der verschlüsselte Text-Index (SQLCipher) wird nicht kopiert.',
+    'library.storage.openTimeHint':
+      'Geschätzte Zeit, den Vektor-Store bei jedem Entsperren in eine Arbeitskopie zu entschlüsseln (~163 MB/s, auf NVMe gemessen; auf HDD langsamer).',
     // DocumentTable
     'library.empty': 'Noch keine Dokumente. Dateien per Drag-Drop importieren.',
     'library.colTitle': 'Titel',

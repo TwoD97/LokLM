@@ -51,6 +51,46 @@
   background: var(--accent-soft-strong);
   color: var(--accent);
 }
+/* Workspace storage footprint (ADR-0005 transparency). Compact + muted — it's
+   informational metadata, not a primary control. "≈" marks the derived (open
+   size / decrypt-on-open time) values; "~" prefixes an estimated at-rest size
+   (store not yet persisted). */
+.library__storage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  font-size: 12px;
+}
+.library__storage-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.library__storage-stat[title] {
+  cursor: help;
+}
+.library__storage-label {
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 10px;
+}
+.library__storage-value {
+  color: var(--fg-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.library__storage-meta {
+  margin-left: auto;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
 .library__empty {
   opacity: 0.5;
   padding: 40px 0;
