@@ -509,6 +509,17 @@ body {
   border-color: rgba(240, 180, 41, 0.5);
 }
 
+/* Resident-embedder chip (ADR-0006): green when the code embedder (Qwen3) is
+   active for a codebase workspace, neutral for the BGE-M3 document embedder. */
+.titlebar__device--code {
+  color: var(--success);
+  border-color: rgba(63, 185, 80, 0.5);
+}
+
+.titlebar__device--doc {
+  color: var(--fg-2);
+}
+
 .titlebar__pill {
   position: absolute;
   top: calc(100% + 10px);
