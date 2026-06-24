@@ -12,12 +12,14 @@ export class WorkspaceService {
     return this.auth.requireDatabase().workspaces().list()
   }
 
-  async create(name: string): Promise<Workspace> {
+  async create(name: string, opts?: { encrypted?: boolean }): Promise<Workspace> {
     this.validateName(name)
     // ADR-0005: the workspaces() API is the VaultManifest now — create() mints
     // the per-workspace WDEK and records the manifest entry directly. The
     // on-disk encrypted SQLite + Lance stores materialise lazily on first open.
-    return this.auth.requireDatabase().workspaces().create(name.trim())
+    // `encrypted` (default true) fixes the vector store's at-rest encryption at
+    // creation; see WorkspaceStore.create.
+    return this.auth.requireDatabase().workspaces().create(name.trim(), opts)
   }
 
   async rename(id: number, name: string): Promise<void> {

@@ -107,3 +107,59 @@ describe('EncryptedWorkspaceDir crash safety', () => {
     expect(new WorkspaceCorruptError('x')).toBeInstanceOf(Error)
   })
 })
+
+describe('EncryptedWorkspaceDir unencrypted (plaintext) mode', () => {
+  let baseDir: string
+  let key: Buffer
+
+  beforeEach(async () => {
+    baseDir = await fs.mkdtemp(join(tmpdir(), 'loklm-plain-'))
+    key = wdek()
+  })
+  afterEach(async () => {
+    await fs.rm(baseDir, { recursive: true, force: true })
+  })
+
+  const plain = (): EncryptedWorkspaceDir =>
+    new EncryptedWorkspaceDir(baseDir, key, { encrypted: false })
+
+  it('keeps work/ as the authoritative store across close + reopen (no enc/)', async () => {
+    const dir = plain()
+    const work = await dir.open()
+    await fs.mkdir(join(work, 'data'), { recursive: true })
+    await fs.writeFile(join(work, 'data/a.lance'), 'plaintext-payload')
+    await dir.close() // must NOT wipe — this is the only copy
+
+    // no enc/ tree is ever produced in plaintext mode
+    expect(
+      await fs
+        .stat(join(baseDir, 'enc'))
+        .then(() => true)
+        .catch(() => false),
+    ).toBe(false)
+    // the data survives a close on disk, unencrypted
+    expect(await fs.readFile(join(baseDir, 'work', 'data/a.lance'), 'utf8')).toBe(
+      'plaintext-payload',
+    )
+
+    // reopen sees the same bytes (open did not wipe work/)
+    const dir2 = plain()
+    const work2 = await dir2.open()
+    expect(dir2.recovered).toBe(false)
+    expect(await fs.readFile(join(work2, 'data/a.lance'), 'utf8')).toBe('plaintext-payload')
+    await dir2.close()
+  })
+
+  it('discard close removes the working store (workspace deletion)', async () => {
+    const dir = plain()
+    const work = await dir.open()
+    await fs.writeFile(join(work, 'f'), 'x')
+    await dir.close({ discard: true })
+    expect(
+      await fs
+        .stat(join(baseDir, 'work'))
+        .then(() => true)
+        .catch(() => false),
+    ).toBe(false)
+  })
+})

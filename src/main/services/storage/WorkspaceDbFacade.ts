@@ -418,12 +418,19 @@ class WorkspacesApi {
         name: e.name,
         createdAt: e.createdAt,
         type: workspaceTypeOf(e),
+        encryptionLevel: e.encryptionLevel,
       }))
       .sort((a, b) => b.createdAt - a.createdAt)
   }
-  async create(name: string): Promise<Workspace> {
-    const e = await this.auth.getWorkspaceStore().create(name)
-    return { id: e.id, name: e.name, createdAt: e.createdAt, type: workspaceTypeOf(e) }
+  async create(name: string, opts?: { encrypted?: boolean }): Promise<Workspace> {
+    const e = await this.auth.getWorkspaceStore().create(name, opts)
+    return {
+      id: e.id,
+      name: e.name,
+      createdAt: e.createdAt,
+      type: workspaceTypeOf(e),
+      encryptionLevel: e.encryptionLevel,
+    }
   }
   async rename(id: number, name: string): Promise<void> {
     return this.auth.getWorkspaceStore().rename(id, name)

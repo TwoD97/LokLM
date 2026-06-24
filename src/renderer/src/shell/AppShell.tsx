@@ -108,8 +108,8 @@ export function AppShell(): JSX.Element {
   }, [activeView, refreshFolders])
 
   const onCreateWorkspace = useCallback(
-    async (name: string) => {
-      const ws = await window.api.workspaces.create(name)
+    async (name: string, encrypted: boolean) => {
+      const ws = await window.api.workspaces.create(name, encrypted)
       await refreshWorkspaces()
       setActiveWorkspaceId(ws.id)
     },
@@ -203,7 +203,7 @@ export function AppShell(): JSX.Element {
         activeWorkspaceId={activeWorkspaceId}
         activeView={activeView}
         onWorkspaceSelect={onWorkspaceSelect}
-        onCreateWorkspace={(name) => void onCreateWorkspace(name)}
+        onCreateWorkspace={(name, encrypted) => void onCreateWorkspace(name, encrypted)}
         onRenameWorkspace={(id, name) => void onRenameWorkspace(id, name)}
         onRequestDeleteWorkspace={setConfirmDeleteWorkspace}
         defaultWorkspaceId={defaultWorkspaceId}

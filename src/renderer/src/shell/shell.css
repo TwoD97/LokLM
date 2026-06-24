@@ -270,6 +270,24 @@
   border-color: var(--accent);
   box-shadow: var(--ring);
 }
+.sidebar__new-ws-encrypt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.sidebar__new-ws-encrypt input {
+  margin: 0;
+}
+.sidebar__new-ws-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-3);
+}
 
 /* Empty state shown in the main panel when no workspace is selected. */
 .app-shell__empty {
