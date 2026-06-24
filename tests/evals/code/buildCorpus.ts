@@ -26,6 +26,8 @@ interface Args {
   roots: string[]
   out: string
   maxDocChunks: number
+  /** repo-relative path prefixes to skip (e.g. the eval's own data/report blobs) */
+  exclude: string[]
 }
 
 function parseArgs(argv: string[]): Args {
@@ -45,12 +47,19 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--max-doc-chunks' && next) {
       out.maxDocChunks = Number(next)
       i++
+    } else if (a === '--exclude' && next) {
+      out.exclude = next
+        .split(',')
+        .map((s) => s.trim().replace(/\\/g, '/'))
+        .filter(Boolean)
+      i++
     }
   }
   return {
     roots: out.roots ?? ['src'],
     out: out.out ?? join(__dirname, '..', 'data', 'code-corpus', 'loklm.json'),
     maxDocChunks: out.maxDocChunks ?? Infinity,
+    exclude: out.exclude ?? [],
   }
 }
 
@@ -144,6 +153,8 @@ function main(): void {
     }
     const files = st.isDirectory() ? walk(abs) : [relative(REPO_ROOT, abs).replace(/\\/g, '/')]
     for (const rel of files) {
+      if (args.exclude.some((p) => rel === p || rel.startsWith(p.endsWith('/') ? p : p + '/')))
+        continue
       const track = fileTrack(rel)
       if (track === 'skip') continue
       let source: string
