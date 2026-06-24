@@ -192,6 +192,13 @@ export function ChatView({
       // update until the next render.
       const wasNewConversation = currentConversationId == null
       const idsForSend = activeDocumentIdsRef.current
+      // Snapshot the conversation history NOW, before this turn's user message +
+      // assistant placeholder are pushed. messagesRef lags a render (synced via
+      // useEffect), so reading it after the push — or slicing a fixed -2 — either
+      // captures the empty placeholder or drops the 2 most recent real turns,
+      // both of which feed the contextualizer the wrong history. Empty for a new
+      // chat, so a fresh conversation never inherits prior turns.
+      const priorMessages = messagesRef.current
       let convId = currentConversationId
       if (convId == null) {
         try {
@@ -300,10 +307,8 @@ export function ChatView({
         })
       })
       try {
-        // History excludes the user turn + empty assistant placeholder we
-        // just pushed — slice(0, -2) drops both. Read via the ref so onSend's
-        // identity stays stable across tokens.
-        const priorMessages = messagesRef.current.slice(0, -2)
+        // History = the turns captured at send-start (above), already excluding
+        // this turn's user message + placeholder — no fragile post-push slice.
         await window.api.chat.stream(streamId, workspaceId, text, {
           conversationId: convId,
           history: priorMessages.map((m) => ({ role: m.role, content: m.content })),
