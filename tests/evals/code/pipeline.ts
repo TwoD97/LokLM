@@ -20,6 +20,8 @@ import { fuseRrf } from '../../../src/main/services/retrieval/rrf'
 import {
   applyCodeSymbolBoost,
   applyCodeFilenameBoost,
+  applyRoleBoost,
+  applyTrackPreference,
   ensureCodeShare,
   extractCodeIdentifiers,
   isCodeHit,
@@ -36,6 +38,9 @@ const CODE_SYMBOL_BOOST = 1.8
 const CODE_DEFINE_BOOST = 1.4
 const CODE_FILENAME_BOOST = 1.3
 const CODE_MIN_FRACTION = 0.4
+const ROLE_NONSOURCE_PENALTY = 0.5
+const ROLE_TEST_BOOST = 1.5
+const DOC_PENALTY = 0.5
 
 export interface Ablation {
   name: string
@@ -46,6 +51,10 @@ export interface Ablation {
   codeShare: 'off' | 'intent' | 'always'
   dynamicK: boolean
   rerank: boolean
+  /** ADR-0006: prefer source over test/eval/example code (role-aware boost) */
+  roleBoost: boolean
+  /** ADR-0006: prefer code over docs on code-intent queries (track preference) */
+  docPenalty: boolean
 }
 
 export interface PipelineCtx {
@@ -185,6 +194,15 @@ export async function runQuery(
     pool = applyCodeFilenameBoost(pool, query, CODE_FILENAME_BOOST)
   } else if (abl.codeFilenameBoost === 'substring') {
     pool = applyCodeFilenameBoostSubstring(pool, query, CODE_FILENAME_BOOST)
+  }
+  if (abl.roleBoost) {
+    pool = applyRoleBoost(pool, query, {
+      nonSourcePenalty: ROLE_NONSOURCE_PENALTY,
+      testBoost: ROLE_TEST_BOOST,
+    })
+  }
+  if (abl.docPenalty) {
+    pool = applyTrackPreference(pool, query, { docPenalty: DOC_PENALTY })
   }
   const sorted = pool.slice().sort((a, b) => b.score - a.score)
 

@@ -16,6 +16,19 @@ const base: Omit<Ablation, 'name'> = {
   codeShare: 'intent', // prod default (fires only on literal identifiers)
   dynamicK: false,
   rerank: false,
+  roleBoost: false,
+  docPenalty: false,
+}
+
+const allFixes: Omit<Ablation, 'name'> = {
+  ...base,
+  queryInstruction: true,
+  symbolFts: true,
+  codeShare: 'always',
+  codeFilenameBoost: 'substring',
+  dynamicK: true,
+  roleBoost: true,
+  docPenalty: true,
 }
 
 export const ABLATIONS: Ablation[] = [
@@ -26,24 +39,9 @@ export const ABLATIONS: Ablation[] = [
   { ...base, name: 'f2_shareAll', codeShare: 'always' }, // fix #2 recall
   { ...base, name: 'f2_fnSubstr', codeFilenameBoost: 'substring' }, // fix #2 precision
   { ...base, name: 'f3_dynK', dynamicK: true }, // fix #3
+  { ...base, name: 'f5_role', roleBoost: true }, // fix #5: prefer source over tests/evals
+  { ...base, name: 'f6_docpref', docPenalty: true }, // fix #6: prefer code over docs (code-intent)
   { ...base, name: 'recall_combo', queryInstruction: true, symbolFts: true }, // #1 + #4
-  {
-    ...base,
-    name: 'all_fixes',
-    queryInstruction: true,
-    symbolFts: true,
-    codeShare: 'always',
-    codeFilenameBoost: 'substring',
-    dynamicK: true,
-  },
-  {
-    ...base,
-    name: 'all_fixes_rr',
-    queryInstruction: true,
-    symbolFts: true,
-    codeShare: 'always',
-    codeFilenameBoost: 'substring',
-    dynamicK: true,
-    rerank: true,
-  },
+  { ...allFixes, name: 'all_fixes' },
+  { ...allFixes, name: 'all_fixes_rr', rerank: true },
 ]
