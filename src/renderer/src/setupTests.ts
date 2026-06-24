@@ -78,6 +78,7 @@ const stub: Api = {
         openBytes: 0,
         estDecryptOnOpenMs: 0,
         vectorCount: 0,
+        encrypted: true,
         measured: false,
       }),
     create: (name: string) =>
@@ -86,6 +87,7 @@ const stub: Api = {
         name,
         createdAt: Math.floor(Date.now() / 1000),
         type: 'library' as const,
+        encryptionLevel: 'full' as const,
       }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),

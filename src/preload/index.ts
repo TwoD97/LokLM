@@ -165,7 +165,10 @@ const api = {
     // LibraryView transparency card.
     storageEstimate: (id: number): Promise<WorkspaceStorageFootprint> =>
       ipcRenderer.invoke('workspaces:storageEstimate', id),
-    create: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspaces:create', name),
+    // `encrypted` (default true) is fixed at creation: false keeps the vector
+    // store plaintext at rest for an instant open on large, non-sensitive corpora.
+    create: (name: string, encrypted = true): Promise<Workspace> =>
+      ipcRenderer.invoke('workspaces:create', name, encrypted),
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),

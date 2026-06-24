@@ -211,34 +211,53 @@ interface FileStat {
  * copy. Lifecycle: `open()` decrypts enc/ → work/, the caller (LanceWorkspace
  * Store) operates on `workDir`, `persist()` re-encrypts changed files, `close()`
  * wipes the plaintext copy.
+ *
+ * Unencrypted mode (`{ encrypted: false }`, ADR-0005 'none' level): there is no
+ * enc/ tree — work/ IS the authoritative store and persists across close. open()
+ * does NOT wipe it (that would destroy the only copy), persist() is a no-op (the
+ * bytes are already on disk), and close() leaves work/ in place. This trades the
+ * at-rest confidentiality of the vector store for an instant open and half the
+ * disk, for large non-sensitive corpora. The caller still passes a WDEK (the
+ * workspace's meta.db is encrypted regardless); it is simply unused here.
  */
 export class EncryptedWorkspaceDir {
   readonly encDir: string
   readonly workDir: string
   /** True when open() quarantined a corrupt enc/ and started empty — the caller
-   *  should reconcile (re-embed from the vault's chunk text). */
+   *  should reconcile (re-embed from the vault's chunk text). Always false in
+   *  unencrypted mode (nothing to decrypt, nothing to quarantine). */
   recovered = false
   private readonly baseDir: string
   private readonly wdek: Buffer
+  private readonly encrypted: boolean
   /** Snapshot of work/ files as last seen (after open or persist), for delta
-   *  re-encryption. relId → {mtimeMs,size}. */
+   *  re-encryption. relId → {mtimeMs,size}. Unused in unencrypted mode. */
   private snapshot = new Map<string, FileStat>()
   private opened = false
 
-  constructor(baseDir: string, wdek: Buffer) {
+  constructor(baseDir: string, wdek: Buffer, opts: { encrypted?: boolean } = {}) {
     if (wdek.length !== 32) throw new Error('EncryptedWorkspaceDir needs a 32-byte WDEK')
     this.baseDir = baseDir
     this.encDir = join(baseDir, 'enc')
     this.workDir = join(baseDir, 'work')
     this.wdek = wdek
+    this.encrypted = opts.encrypted ?? true
   }
 
   /** Decrypts the at-rest tree into a fresh plaintext working dir and returns
    *  its path. On corruption, quarantines enc/ and starts empty (sets
-   *  `recovered`), because vectors are re-derivable from the vault. */
+   *  `recovered`), because vectors are re-derivable from the vault. In
+   *  unencrypted mode this just ensures the persistent work/ store exists (it is
+   *  never wiped — it holds the only copy of the vectors). */
   async open(): Promise<string> {
     if (this.opened) throw new Error('workspace dir already open')
     this.recovered = false
+    if (!this.encrypted) {
+      // work/ is the authoritative plaintext store — keep whatever is there.
+      await fs.mkdir(this.workDir, { recursive: true, mode: 0o700 })
+      this.opened = true
+      return this.workDir
+    }
     // Start from a clean work dir — a leftover from a crashed session must not
     // shadow the authoritative enc/ contents.
     await fs.rm(this.workDir, { recursive: true, force: true })
@@ -273,6 +292,9 @@ export class EncryptedWorkspaceDir {
    *  fragments are immutable, so a write adds files rather than rewriting them). */
   async persist(): Promise<void> {
     if (!this.opened) throw new Error('persist before open')
+    // Unencrypted: work/ is the store, LanceDB already fsync'd its writes there;
+    // there is nothing to re-encrypt.
+    if (!this.encrypted) return
     const current = await walkFiles(this.workDir)
     const seen = new Set<string>()
     const touchedDirs = new Set<string>()
@@ -301,9 +323,18 @@ export class EncryptedWorkspaceDir {
     await fsyncDir(this.baseDir)
   }
 
-  /** Persists (unless `discard`) then wipes the plaintext working dir. */
+  /** Persists (unless `discard`) then wipes the plaintext working dir. In
+   *  unencrypted mode the working dir is the authoritative store, so it is kept
+   *  on a normal close and only removed on `discard` (workspace deletion). */
   async close(opts: { discard?: boolean } = {}): Promise<void> {
     if (!this.opened) return
+    if (!this.encrypted) {
+      // No enc/ to re-encrypt into; work/ stays put unless we're discarding.
+      if (opts.discard) await fs.rm(this.workDir, { recursive: true, force: true })
+      this.snapshot.clear()
+      this.opened = false
+      return
+    }
     try {
       if (!opts.discard) await this.persist()
     } finally {

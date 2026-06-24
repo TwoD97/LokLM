@@ -900,8 +900,8 @@ function registerIpc(): void {
   ipcMain.handle('workspaces:storageEstimate', async (_e, id: number) =>
     getWorkspaceService().getStorageEstimate(id),
   )
-  ipcMain.handle('workspaces:create', async (_e, name: string) =>
-    getWorkspaceService().create(name),
+  ipcMain.handle('workspaces:create', async (_e, name: string, encrypted?: boolean) =>
+    getWorkspaceService().create(name, { encrypted: encrypted ?? true }),
   )
   ipcMain.handle('workspaces:rename', async (_e, id: number, name: string) =>
     getWorkspaceService().rename(id, name),

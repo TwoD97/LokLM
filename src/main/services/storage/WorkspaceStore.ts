@@ -10,6 +10,7 @@ import type { VectorStore } from './VectorStore'
 import {
   emptyManifest,
   estimateWorkspaceFootprint,
+  isWorkspaceEncrypted,
   resolveDefaultWorkspace,
   suggestIndexConfig,
   DEFAULT_WORKSPACE_TYPE,
@@ -109,9 +110,17 @@ export class WorkspaceStore {
     // workspace to ~0 (making "on disk" == "when open" and open-time ≈ 0). When
     // inactive, work/ is wiped and enc/ is authoritative. Take whichever is
     // populated; fall back to estimating from the vector count if neither is.
-    const encBytes = await this.dirSize(join(dir, 'enc'))
-    const workBytes = isActive ? await this.dirSize(join(dir, 'work')) : 0
-    const vectorBytes = Math.max(encBytes, workBytes)
+    const encrypted = isWorkspaceEncrypted(entry)
+    // Unencrypted: work/ is the persistent store (no enc/), so it is the
+    // authoritative size whether or not the workspace is active. Encrypted: enc/
+    // is authoritative at rest; while active, work/ holds the live (post-ingest)
+    // state and enc/ is stale, so take whichever is populated.
+    const vectorBytes = encrypted
+      ? Math.max(
+          await this.dirSize(join(dir, 'enc')),
+          isActive ? await this.dirSize(join(dir, 'work')) : 0,
+        )
+      : await this.dirSize(join(dir, 'work'))
     const metaDbBytes = await fs
       .stat(join(dir, 'meta.db'))
       .then((s) => s.size)
@@ -123,6 +132,7 @@ export class WorkspaceStore {
       metaDbBytes,
       vectorCount,
       dims: entry.indexConfig.dims,
+      encrypted,
     })
   }
 
@@ -147,8 +157,11 @@ export class WorkspaceStore {
   }
 
   /** Creates a new workspace: mints a WDEK, records the manifest entry. The
-   *  on-disk dir + Lance table are created lazily when first opened/written. */
-  async create(name: string): Promise<WorkspaceManifestEntry> {
+   *  on-disk dir + Lance table are created lazily when first opened/written.
+   *  `encrypted` (default true) is fixed at creation: when false the vector
+   *  store is kept plaintext at rest for an instant open + half the disk; the
+   *  meta.db is still encrypted under the WDEK either way. */
+  async create(name: string, opts: { encrypted?: boolean } = {}): Promise<WorkspaceManifestEntry> {
     const id = this.manifest.workspaces.reduce((m, w) => Math.max(m, w.id), 0) + 1
     const { wdek, wrapped } = createWorkspaceKey(this.masterDek)
     secureWipe(wdek) // not opening yet; the wrapped form is what we persist
@@ -156,7 +169,7 @@ export class WorkspaceStore {
       id,
       name,
       createdAt: Math.floor(Date.now() / 1000),
-      encryptionLevel: 'full',
+      encryptionLevel: opts.encrypted === false ? 'none' : 'full',
       type: DEFAULT_WORKSPACE_TYPE,
       dir: `ws-${id}`,
       wrappedKey: wrapped,
@@ -229,7 +242,9 @@ export class WorkspaceStore {
     const wdek = this.metaDbs.get(id)!.wdek
     const entry = this.requireEntry(id)
 
-    const encDir = new EncryptedWorkspaceDir(join(this.baseDir, entry.dir), wdek)
+    const encDir = new EncryptedWorkspaceDir(join(this.baseDir, entry.dir), wdek, {
+      encrypted: isWorkspaceEncrypted(entry),
+    })
     const datasetDir = await encDir.open()
     if (encDir.recovered) {
       // Corrupt enc store was quarantined; vectors will be re-embedded from the

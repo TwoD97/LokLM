@@ -49,6 +49,12 @@ export const shellDict: DomainDict = {
     'shell.clear': 'Clear',
     'shell.noDocumentsYet': 'No documents yet',
     'shell.newWorkspace': '+ New workspace',
+    'shell.encryptWorkspace': 'Encrypt at rest',
+    'shell.encryptWorkspaceOnHint':
+      'Documents, embeddings and chats are encrypted on disk and only readable while this workspace is open.',
+    'shell.encryptWorkspaceOffHint':
+      'Large workspaces open instantly and use half the disk, but the indexed vectors sit unprotected on this device. Document text stays encrypted. Pick this only for non-sensitive material on a machine you trust. This cannot be changed later.',
+    'shell.unencryptedWorkspace': 'Unencrypted workspace (vectors stored in the clear)',
     'shell.renameWorkspace': 'Rename workspace',
     'shell.deleteWorkspace': 'Delete workspace',
     'shell.setDefaultWorkspace': 'Set as default workspace',
@@ -107,6 +113,12 @@ export const shellDict: DomainDict = {
     'shell.clear': 'Zurücksetzen',
     'shell.noDocumentsYet': 'Noch keine Dokumente',
     'shell.newWorkspace': '+ Neuer Workspace',
+    'shell.encryptWorkspace': 'Verschlüsselt speichern',
+    'shell.encryptWorkspaceOnHint':
+      'Dokumente, Embeddings und Chats werden verschlüsselt gespeichert und sind nur lesbar, solange dieser Workspace geöffnet ist.',
+    'shell.encryptWorkspaceOffHint':
+      'Große Workspaces öffnen sofort und brauchen halb so viel Speicher, aber die indizierten Vektoren liegen ungeschützt auf diesem Gerät. Der Dokumenttext bleibt verschlüsselt. Nur für unkritisches Material auf einem vertrauenswürdigen Rechner wählen. Später nicht mehr änderbar.',
+    'shell.unencryptedWorkspace': 'Unverschlüsselter Workspace (Vektoren im Klartext)',
     'shell.renameWorkspace': 'Workspace umbenennen',
     'shell.deleteWorkspace': 'Workspace löschen',
     'shell.setDefaultWorkspace': 'Als Standard-Workspace festlegen',

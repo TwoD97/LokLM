@@ -5,17 +5,29 @@
 // encryption badge).
 
 /**
- * Per-workspace encryption level.
+ * Per-workspace encryption level (chosen at creation; immutable afterwards).
  *
- * The accepted decision in ADR-0005 is "full block-level crypto for every
- * workspace", so `'full'` is the only level the storage layer currently
- * provisions. The enum exists rather than a boolean so the field is already in
- * the manifest schema (forward-compatible) — a future `'none'` scratch level,
- * if ever justified, slots in without a manifest version bump.
+ *  - `'full'`  — the default (ADR-0005): the workspace's vector store is
+ *    block-encrypted at rest and decrypted into a plaintext working copy only
+ *    while the workspace is open.
+ *  - `'none'`  — the vector store stays plaintext on disk. Trades at-rest
+ *    confidentiality of the embeddings for an instant unlock (no decrypt-on-open
+ *    pass) and half the disk (no enc/ + work/ duplication) — see
+ *    estimateWorkspaceFootprint. The relational/text store (meta.db, SQLCipher)
+ *    stays encrypted regardless, so document text is never written in the clear;
+ *    only the derived vector index is. Opt-in for large, non-sensitive corpora
+ *    on a trusted machine.
  */
-export type EncryptionLevel = 'full'
+export type EncryptionLevel = 'full' | 'none'
 
 export const DEFAULT_ENCRYPTION_LEVEL: EncryptionLevel = 'full'
+
+/** Whether `entry`'s vector store is encrypted at rest. Centralised so callers
+ *  agree on the meaning of the level and pre-ADR-0005 entries (no level) default
+ *  to encrypted. */
+export function isWorkspaceEncrypted(entry: { encryptionLevel?: EncryptionLevel }): boolean {
+  return (entry.encryptionLevel ?? DEFAULT_ENCRYPTION_LEVEL) !== 'none'
+}
 
 /**
  * Workspace type (ADR-0006). A `library` workspace indexes documents (PDFs,
@@ -133,18 +145,24 @@ export interface WorkspaceStorageFootprint {
   metaDbBytes: number
   /** vectorBytes + metaDbBytes — total encrypted-at-rest footprint. */
   atRestBytes: number
-  /** While the workspace is open, decrypt-on-open materialises a plaintext copy
-   *  of the Lance store (work/) next to enc/, so the vector bytes are on disk
-   *  twice; meta.db (SQLCipher, per-page) does NOT double. → atRestBytes +
-   *  vectorBytes. */
+  /** While an ENCRYPTED workspace is open, decrypt-on-open materialises a
+   *  plaintext copy of the Lance store (work/) next to enc/, so the vector bytes
+   *  are on disk twice; meta.db (SQLCipher, per-page) does NOT double. →
+   *  atRestBytes + vectorBytes. An UNENCRYPTED workspace keeps a single plaintext
+   *  copy, so openBytes == atRestBytes. */
   openBytes: number
   /** Estimated decrypt-on-open wait — the whole Lance store is decrypted to
-   *  plaintext on every unlock/switch (vectorBytes ÷ decrypt throughput). */
+   *  plaintext on every unlock/switch (vectorBytes ÷ decrypt throughput). 0 for
+   *  an unencrypted workspace (it opens in place, nothing to decrypt). */
   estDecryptOnOpenMs: number
   /** Vectors indexed (live count for the active workspace, else last-known). */
   vectorCount: number
-  /** True when vectorBytes was measured from enc/ on disk; false when estimated
-   *  from vectorCount (store not yet persisted). Drives a "~" hint in the UI. */
+  /** Whether the vector store is encrypted at rest (false ⇒ instant open, no
+   *  disk doubling). Drives the lock/unlock badge + the open-cost copy. */
+  encrypted: boolean
+  /** True when vectorBytes was measured from enc/ (or the plaintext store) on
+   *  disk; false when estimated from vectorCount (store not yet persisted).
+   *  Drives a "~" hint in the UI. */
   measured: boolean
 }
 
@@ -157,7 +175,11 @@ export function estimateWorkspaceFootprint(input: {
   metaDbBytes: number
   vectorCount: number
   dims: number
+  /** Vector store encrypted at rest? Defaults to true (the ADR-0005 default).
+   *  When false, opening costs no decrypt pass and the store is not duplicated. */
+  encrypted?: boolean
 }): WorkspaceStorageFootprint {
+  const encrypted = input.encrypted ?? true
   const measured = input.vectorBytes != null && input.vectorBytes > 0
   const vectorBytes = measured
     ? input.vectorBytes!
@@ -168,9 +190,12 @@ export function estimateWorkspaceFootprint(input: {
     vectorBytes,
     metaDbBytes: input.metaDbBytes,
     atRestBytes,
-    openBytes: atRestBytes + vectorBytes,
-    estDecryptOnOpenMs: (vectorBytes / DECRYPT_THROUGHPUT_BYTES_PER_SEC) * 1000,
+    // Encrypted: enc/ + work/ coexist while open (vectors twice). Unencrypted:
+    // one plaintext copy, so the open footprint equals the at-rest footprint.
+    openBytes: encrypted ? atRestBytes + vectorBytes : atRestBytes,
+    estDecryptOnOpenMs: encrypted ? (vectorBytes / DECRYPT_THROUGHPUT_BYTES_PER_SEC) * 1000 : 0,
     vectorCount: input.vectorCount,
+    encrypted,
     measured,
   }
 }

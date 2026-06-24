@@ -15,6 +15,7 @@ import {
   Trash2,
   Star,
   Code2,
+  Unlock,
 } from 'lucide-react'
 import type { Document, Folder, FolderAssignment, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -34,7 +35,7 @@ type Props = {
   activeWorkspaceId: number | null
   activeView: ViewKind
   onWorkspaceSelect: (id: number) => void
-  onCreateWorkspace: (name: string) => void
+  onCreateWorkspace: (name: string, encrypted: boolean) => void
   onRenameWorkspace: (id: number, name: string) => void
   onRequestDeleteWorkspace: (ws: Workspace) => void
   defaultWorkspaceId: number | null
@@ -87,6 +88,9 @@ export function Sidebar({
 }: Props): JSX.Element {
   const t = useT()
   const [draft, setDraft] = useState('')
+  // New-workspace encryption choice (fixed at creation). Default on; users opt
+  // out for large, non-sensitive corpora to skip the decrypt-on-open wait.
+  const [newWsEncrypted, setNewWsEncrypted] = useState(true)
   const [docPickerOpen, setDocPickerOpen] = useState(true)
   // id of the workspace whose name is being edited inline, plus its draft text.
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -273,6 +277,13 @@ export function Sidebar({
                           className="sidebar__ws-type-badge"
                         />
                       )}
+                      {w.encryptionLevel === 'none' && (
+                        <Unlock
+                          size={13}
+                          aria-label={t('shell.unencryptedWorkspace')}
+                          className="sidebar__ws-type-badge"
+                        />
+                      )}
                       {isDropdown &&
                         (docPickerOpen ? (
                           <ChevronDown size={14} aria-hidden="true" />
@@ -396,8 +407,9 @@ export function Sidebar({
               e.preventDefault()
               const trimmed = draft.trim()
               if (trimmed.length === 0) return
-              onCreateWorkspace(trimmed)
+              onCreateWorkspace(trimmed, newWsEncrypted)
               setDraft('')
+              setNewWsEncrypted(true)
             }}
             className="sidebar__new-ws-form"
           >
@@ -408,6 +420,23 @@ export function Sidebar({
               placeholder={t('shell.newWorkspace')}
               aria-label={t('shell.newWorkspace')}
             />
+            {draft.trim().length > 0 && (
+              <>
+                <label className="sidebar__new-ws-encrypt">
+                  <input
+                    type="checkbox"
+                    checked={newWsEncrypted}
+                    onChange={(e) => setNewWsEncrypted(e.target.checked)}
+                  />
+                  <span>{t('shell.encryptWorkspace')}</span>
+                </label>
+                <p className="sidebar__new-ws-hint">
+                  {newWsEncrypted
+                    ? t('shell.encryptWorkspaceOnHint')
+                    : t('shell.encryptWorkspaceOffHint')}
+                </p>
+              </>
+            )}
           </form>
         </div>
       )}

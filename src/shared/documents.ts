@@ -1,5 +1,5 @@
 import type { HighlightedSegment } from './fuzzyHighlight'
-import type { WorkspaceType } from './workspaceStorage'
+import type { EncryptionLevel, WorkspaceType } from './workspaceStorage'
 
 // renderer-visible shape of a document. mirrors src/main/db/schema.ts Document
 // type but lives in src/shared so it's safe to import from the renderer , which
@@ -47,6 +47,10 @@ export interface Workspace {
   createdAt: number
   /** ADR-0006 workspace type; 'library' (documents) or 'codebase' (source). */
   type: WorkspaceType
+  /** ADR-0005 vector-store encryption, fixed at creation. 'full' (default) =
+   *  encrypted at rest; 'none' = plaintext vectors for instant open on large,
+   *  non-sensitive corpora. Drives the lock/unlock badge in the sidebar. */
+  encryptionLevel: EncryptionLevel
 }
 
 /** A user-created organizational folder (virtual; independent of where a
