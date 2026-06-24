@@ -25,12 +25,17 @@ describe('fileRole', () => {
   })
 
   it('classifies config, generated, and examples', () => {
-    expect(fileRole('tsconfig.json')).toBe('config')
     expect(fileRole('electron.vite.config.ts')).toBe('config')
-    expect(fileRole('package.json')).toBe('config')
     expect(fileRole('src/shared/types.d.ts')).toBe('generated')
     expect(fileRole('src/api/schema.generated.ts')).toBe('generated')
     expect(fileRole('examples/demo.ts')).toBe('example')
+  })
+
+  it('skips JSON — mostly config/data noise in a codebase', () => {
+    expect(fileRole('package.json')).toBe('skip')
+    expect(fileRole('tsconfig.json')).toBe('skip')
+    expect(fileRole('data/blob.json')).toBe('skip')
+    expect(fileRole('config/x.jsonc')).toBe('skip')
   })
 
   it('prose is doc wherever it lives — even under tests/ (pitfall)', () => {
