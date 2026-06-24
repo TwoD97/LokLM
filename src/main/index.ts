@@ -339,6 +339,20 @@ function getBackfillService(): EmbeddingBackfillService {
       vectorSink,
       vectorRemove,
     )
+    // Push backfill progress to the renderer so the TitleBar can surface
+    // "re-embedding N%". Without this the embedder dot reads "ready" while a
+    // model-swap re-embed (e.g. BGE-M3 → Qwen3 on first codebase open) silently
+    // purges vectors and degrades retrieval to BM25-only — which is exactly the
+    // "code question returns docs" confusion. Mirrors the embedder:status push.
+    backfillService.subscribe((s) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          win.webContents.send('embedder:backfillStatus', s)
+        } catch {
+          /* renderer torn down — drop the event */
+        }
+      }
+    })
   }
   return backfillService
 }
@@ -883,6 +897,9 @@ function registerIpc(): void {
 
   // workspaces
   ipcMain.handle('workspaces:list', async () => getWorkspaceService().list())
+  ipcMain.handle('workspaces:storageEstimate', async (_e, id: number) =>
+    getWorkspaceService().getStorageEstimate(id),
+  )
   ipcMain.handle('workspaces:create', async (_e, name: string) =>
     getWorkspaceService().create(name),
   )
