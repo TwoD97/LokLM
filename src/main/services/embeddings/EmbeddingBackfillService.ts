@@ -112,7 +112,11 @@ export class EmbeddingBackfillService {
       )
     }
 
-    const total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
+    // Snapshot of pending work. NOT const: concurrent indexing (FolderSyncService
+    // walking a freshly-opened codebase) inserts new no-vector chunks AFTER this
+    // count, and the loop below drains them too — so `total` is grown in-loop to
+    // stay ≥ done, otherwise done/total overshoots 100% in the progress UI.
+    let total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
     // Note: no early-return when total === 0 — the summary-embedding phase
     // below still has to run (a workspace whose chunks are all embedded can
     // still have freshly-cached summaries awaiting their vector).
@@ -140,6 +144,9 @@ export class EmbeddingBackfillService {
       for (;;) {
         const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, PAGE)
         if (batch.length === 0) break
+        // Grow the denominator to cover work discovered after the initial snapshot
+        // (concurrent indexing), keeping total ≥ done so progress never exceeds 100%.
+        total = Math.max(total, done + batch.length)
         // Provider.embed throws on failure (where the old EmbeddingService
         // returned per-item nulls). Treat any throw as "made no progress for
         // this batch" so the runaway-loop guard catches a broken embedder
