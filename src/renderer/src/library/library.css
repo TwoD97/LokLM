@@ -324,6 +324,42 @@
   color: var(--warning);
   margin-bottom: 8px;
 }
+.library__missing-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--warning);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.library__missing-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.library__missing-selectall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.library__missing-count {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.library__missing-bulk {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
 .library__missing-list {
   list-style: none;
   padding: 0;
@@ -331,6 +367,14 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Cap the run so a whole deleted folder scrolls in place instead of pushing
+   * the rest of the library off-screen. */
+  max-height: 280px;
+  overflow-y: auto;
+}
+.library__missing-check {
+  flex-shrink: 0;
+  margin: 0;
 }
 .library__missing-item {
   display: flex;
@@ -368,8 +412,12 @@
 .library__missing-action--danger {
   color: var(--error);
 }
-.library__missing-action--danger:hover {
+.library__missing-action--danger:hover:not(:disabled) {
   background: var(--error-bg);
+}
+.library__missing-action:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* Failed-to-index banner — bulk retry of every failed document. */
