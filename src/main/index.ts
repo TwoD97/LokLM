@@ -1956,6 +1956,31 @@ function registerIpc(): void {
             }
           }
         }
+      } catch (err) {
+        // Without this catch a throw inside QAService.answer() (e.g. the LLM
+        // failing to create an inference context, a DB error, a retrieval crash)
+        // rejects the invoke silently — the renderer is left with an empty bubble
+        // stuck on streaming:true and the conversation shows only the user turn.
+        // Surface it as an 'error' event so the user sees what went wrong (and we
+        // get a diagnostic), then persist a short error turn so history stays honest.
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('[chat:stream] failed:', err)
+        try {
+          e.sender.send(`chat:stream-event:${streamId}`, { type: 'error', message })
+        } catch {
+          /* renderer gone — nothing to surface to */
+        }
+        if (conversations && opts.conversationId != null && tokenBuffer.length === 0 && !refused) {
+          try {
+            await conversations.appendMessage(
+              opts.conversationId,
+              'assistant',
+              `_[Fehler: ${message}]_`,
+            )
+          } catch {
+            /* DB unavailable — the error event above already informed the UI */
+          }
+        }
       } finally {
         activeStreams.delete(streamId)
       }
