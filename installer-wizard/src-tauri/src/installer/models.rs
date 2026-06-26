@@ -516,10 +516,11 @@ mod tests {
 
     #[test]
     fn bundle_for_tier_dispatches_correctly() {
-        // ADR-0006: +1 per tier for the Qwen3-Embedding code embedder bundled in all tiers.
-        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 3);
-        assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 4);
-        assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 4);
+        // Single-embedder-per-tier (2026-06-26): Lite = 2B-LLM + bge-m3 (no reranker,
+        // no Qwen). Standard/Pro = LLM + Qwen3-Embedding + reranker (no bge-m3).
+        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 2);
+        assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 3);
+        assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 3);
     }
 
     #[test]

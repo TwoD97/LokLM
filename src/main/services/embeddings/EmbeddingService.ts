@@ -11,8 +11,10 @@ import {
   CODE_EMBEDDER_FILE,
   CODE_EMBEDDER_IDENTITY,
   CODE_QUERY_INSTRUCTION,
+  DOC_QUERY_INSTRUCTION,
   isCodeEmbedderFile,
 } from '../codebase/codeEmbedder'
+import { isCodebaseIndexingEnabled } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
 export const BUNDLED_EMBEDDER_FILE = 'bge-m3-Q4_K_M.gguf'
@@ -160,9 +162,6 @@ export class EmbeddingService {
   private lastReason: string | null = null
   private planner: ResourcePlanner
   private client: ModelsWorkerClient | null
-  // ADR-0006: which embedder model the next load should use. 'code' prefers
-  // jina-code (codebase workspaces), falling back to the doc model when absent.
-  private preferredKind: 'doc' | 'code' = 'doc'
   // Path of the GGUF actually loaded (drives activeIdentity + swap detection).
   private loadedPath: string | null = null
 
@@ -238,36 +237,26 @@ export class EmbeddingService {
   }
 
   isAvailable(): boolean {
-    return resolveEmbedderPath() !== null || this.isReady()
+    return this.resolveTargetPath() !== null || this.isReady()
   }
 
-  /** ADR-0006: choose which embedder model subsequent loads use. 'code' loads
-   *  jina-code when present (else transparently falls back to the doc model). If
-   *  a model is already resident with the wrong kind it is unloaded so the next
-   *  ensureReady() reloads the right one. Library/doc behaviour is unchanged
-   *  while the default 'doc' preference is in effect. */
-  async setPreferredKind(kind: 'doc' | 'code'): Promise<void> {
-    if (this.preferredKind === kind) return
-    this.preferredKind = kind
-    const target = this.resolveTargetPath()
-    if (this.isReady() && this.loadedPath && target && target !== this.loadedPath) {
-      this.loadedPath = null
-      this.setStatus({ state: 'idle', modelPath: null, modelName: null, loadProgress: null })
-      await this.unload().catch(() => undefined)
-    }
-  }
-
-  /** Identity of the currently-loaded bundled embedder — code vs doc model — so
-   *  chunks get the right embedder_identity for model-swap detection. */
+  /** Identity of the currently-loaded bundled embedder — code (Qwen3) vs doc
+   *  (BGE-M3) model — so chunks get the right embedder_identity for model-swap
+   *  detection. Reflects the model actually resident, not the tier intent. */
   activeIdentity(): string {
     return this.loadedPath && isCodeEmbedderFile(this.loadedPath)
       ? CODE_EMBEDDER_IDENTITY
       : BUNDLED_EMBEDDER_IDENTITY
   }
 
-  /** Resolves the GGUF the current preference wants, with code→doc fallback. */
+  /** Single-embedder-per-tier (chosen 2026-06-26): the resident embedder is fixed
+   *  by install tier, NOT swapped per workspace. Standard/Pro (and dev/no-marker
+   *  → full access) load Qwen3-Embedding and use it for EVERY workspace (library +
+   *  codebase); Lite loads BGE-M3 only. Fallback-safe: if the Qwen GGUF isn't on
+   *  disk we transparently use BGE-M3, so search still works. No runtime swap ⇒
+   *  no model-reload churn and only one embedder model is ever resident. */
   private resolveTargetPath(): string | null {
-    if (this.preferredKind === 'code') {
+    if (isCodebaseIndexingEnabled()) {
       const code = resolveCodeEmbedderPath()
       if (code) return code
     }
@@ -342,25 +331,32 @@ export class EmbeddingService {
 
   /** Query-side instruction for the resident embedder (ADR-0006, fix #1). The
    *  code model (Qwen3) is instruction-tuned and wants the asymmetric
-   *  Instruct/Query template; BGE-M3 gets none. Empty string ⇒ query embeds
-   *  exactly like a passage (the legacy behaviour, still correct for BGE). */
-  private queryInstruction(): string {
-    return this.activeIdentity() === CODE_EMBEDDER_IDENTITY ? CODE_QUERY_INSTRUCTION : ''
+   *  Instruct/Query template — the code instruction for a codebase query, the
+   *  document instruction for a library query (Qwen serves BOTH on Standard/Pro,
+   *  single-embedder-per-tier). BGE-M3 (Lite) gets none — empty string ⇒ query
+   *  embeds exactly like a passage (the legacy behaviour, still correct for BGE). */
+  private queryInstruction(codebase: boolean): string {
+    if (this.activeIdentity() !== CODE_EMBEDDER_IDENTITY) return ''
+    return codebase ? CODE_QUERY_INSTRUCTION : DOC_QUERY_INSTRUCTION
   }
 
-  async embedQuery(text: string): Promise<number[] | null> {
-    const out = await this.embedQueries([text])
+  async embedQuery(text: string, opts: { codebase?: boolean } = {}): Promise<number[] | null> {
+    const out = await this.embedQueries([text], opts)
     return out[0] ?? null
   }
 
   /** Batch query embedding WITH the model-appropriate query instruction. The
    *  retrieval hot path uses this (via the provider's embedQuery) so a natural-
-   *  language question aligns with the raw code passages. Mirrors embedPassages'
+   *  language question aligns with the raw passages. `opts.codebase` selects the
+   *  code vs document instruction for the Qwen model. Mirrors embedPassages'
    *  null-on-empty contract. */
-  async embedQueries(texts: string[]): Promise<Array<number[] | null>> {
+  async embedQueries(
+    texts: string[],
+    opts: { codebase?: boolean } = {},
+  ): Promise<Array<number[] | null>> {
     if (texts.length === 0) return []
     if (!(await this.ensureReady())) return texts.map(() => null)
-    const instruction = this.queryInstruction()
+    const instruction = this.queryInstruction(opts.codebase ?? false)
     const prepared = texts.map((raw) => {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : instruction + cleaned

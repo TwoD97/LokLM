@@ -26,12 +26,12 @@ describe('code embedder selection (ADR-0006)', () => {
     expect(prefersCodeEmbedder('library')).toBe(false)
   })
 
-  it('defaults to the doc identity and never throws when switching preference (no worker)', async () => {
-    const svc = new EmbeddingService() // no client
-    expect(svc.activeIdentity()).toBe(BUNDLED_EMBEDDER_IDENTITY)
-    await svc.setPreferredKind('code') // no code model on disk → stays doc, no throw
-    expect(svc.activeIdentity()).toBe(BUNDLED_EMBEDDER_IDENTITY)
-    await svc.setPreferredKind('doc')
+  it('activeIdentity reflects the resident model — doc identity when nothing is loaded', () => {
+    // Single-embedder-per-tier (2026-06-26): no setPreferredKind swap. activeIdentity
+    // tracks the model actually resident; with no worker + nothing loaded it reads as
+    // the bundled (BGE-M3) doc identity. The code identity is asserted via loadedPath
+    // in the provider test below.
+    const svc = new EmbeddingService() // no client, no model resident
     expect(svc.activeIdentity()).toBe(BUNDLED_EMBEDDER_IDENTITY)
   })
 
