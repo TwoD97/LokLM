@@ -44,7 +44,9 @@ describe('BundledEmbedderProvider', () => {
     } as never)
     const out = await p.embedQuery(['how does the auth class work'])
     expect(out[0]).toEqual(new Float32Array([4, 5, 6]))
-    expect(embedQueries).toHaveBeenCalledWith(['how does the auth class work'])
+    // embedQuery threads the codebase opt through to embedQueries(texts, opts);
+    // with no opts passed here that's an explicit `undefined` second arg.
+    expect(embedQueries).toHaveBeenCalledWith(['how does the auth class work'], undefined)
   })
 
   it('delegates embed() to embedPassages() and converts number[] → Float32Array', async () => {
