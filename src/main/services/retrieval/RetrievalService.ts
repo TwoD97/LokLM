@@ -10,7 +10,15 @@ import {
   applyRecencyBoost,
   applyLanguageMatchBoost,
   splitQuestions,
+  extractCodeIdentifiers,
+  applyCodeSymbolBoost,
+  applyCodeFilenameBoost,
+  applyRoleBoost,
+  applyTrackPreference,
+  ensureCodeShare,
+  dynamicScoreCutCount,
 } from './heuristics'
+import { CODE_EMBEDDER_IDENTITY } from '../codebase/codeEmbedder'
 import type { ResponseLanguage } from '../llm/prompt'
 
 /** Callback the caller (QAService) supplies to receive stage start/done events
@@ -117,6 +125,12 @@ export interface RetrievalOptions {
    *  genuinely compound message. Takes precedence over paraphrase expansion:
    *  the sub-questions ARE the variants. Set false to A/B it in evals. */
   decomposeQuestions?: boolean
+  /** Score-gap dynamic-K (ADR-0006 fix #3). When true, the final slate is trimmed
+   *  at the first big relative drop in rerank/RRF score (clamped to [2, topK])
+   *  instead of always returning a fixed topK. A precision knob — recall-neutral
+   *  in the retrieval eval — so it's OFF by default and meant to be A/B-ed on the
+   *  answer-quality eval before any default flip. */
+  dynamicK?: boolean
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -149,6 +163,12 @@ const MAX_CANDIDATES = 64
 // recall on document-diverse queries.
 const CPU_FANOUT = 2
 const CPU_MAX_CANDIDATES = 32
+// CPU rerank: the cross-encoder cost scales with the passage length it scores.
+// Chunks run up to ~512 tokens, but the relevance signal almost always sits in
+// their opening — so under the CPU preset we score only the first ~1000 chars
+// (~250 tokens) per candidate, roughly halving the rerank pass at negligible
+// recall cost. GPU/iGPU keeps the full text (reranking is cheap there).
+const CPU_RERANK_MAX_CHARS = 1000
 const DEFAULT_WHOLE_DOC_THRESHOLD = 8
 const DEFAULT_PER_DOC_CAP = 6
 const DEFAULT_TITLE_BOOST = 1.25
@@ -157,6 +177,22 @@ const DEFAULT_SHORT_CHUNK_MIN_CHARS = 200
 const DEFAULT_RECENCY_BOOST = 1.1
 const DEFAULT_RECENCY_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
 const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
+// Code-aware retrieval (ADR-0006). Self-gating: the boosts only touch code
+// chunks whose breadcrumb symbol / file the query names, so they're inert in
+// document workspaces. ensureCodeShare runs only on code-INTENT queries (the
+// query mentions a code identifier) — the "differentiate code vs docs" signal —
+// so a prose question in a codebase workspace still ranks normally.
+const DEFAULT_CODE_SYMBOL_BOOST = 1.8 // breadcrumb symbol === a query identifier
+const DEFAULT_CODE_DEFINE_BOOST = 1.4 // chunk text DEFINES a query identifier
+const DEFAULT_CODE_FILENAME_BOOST = 1.3 // chunk is from a file the query names
+const DEFAULT_CODE_MIN_FRACTION = 0.4 // reserve ≥40% of top-K for code on code-intent queries
+// Role-aware (ADR-0006): on a default "how does X work" query, push tests/evals/
+// examples below the implementation; on a test-intent query, lift the test/eval.
+const DEFAULT_ROLE_NONSOURCE_PENALTY = 0.5 // ×score for test/eval/example/config code
+const DEFAULT_ROLE_TEST_BOOST = 1.5 // ×score for test/eval code when the query is test-intent
+// Code-over-docs (ADR-0006): a code-intent query in a codebase workspace pushes
+// doc-track chunks below code; generic/concept queries leave docs alone.
+const DEFAULT_DOC_PENALTY = 0.5 // ×score for doc chunks on a code-intent query
 // How many top documents the hierarchical pre-filter keeps when docPrefilter is
 // on. 5 mirrors LlamaIndex's drill-down top_k corrected up from its brittle
 // default of 1 — enough that one bad summary match doesn't lose the answer.
@@ -183,6 +219,12 @@ export class RetrievalService {
      *  workspace's encrypted SQLite store instead of PGlite. Opened on demand;
      *  left undefined in isolated tests (pgvector/PGlite path). */
     private readonly getWorkspaceDb?: (workspaceId: number) => Promise<WorkspaceDb>,
+    /** True when the workspace is a 'codebase' (and the tier allows it). Drives
+     *  the reranker gate, code heuristics, and the code-vs-document query
+     *  instruction. Injected because the embedder identity no longer implies it:
+     *  single-embedder-per-tier means Qwen serves library workspaces too. Left
+     *  undefined in isolated tests → falls back to the embedder-identity proxy. */
+    private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
   ) {}
 
   async search(
@@ -205,6 +247,16 @@ export class RetrievalService {
         ? DEFAULT_PER_DOC_CAP
         : Math.max(0, opts.perDocCandidateCap)
 
+    // Codebase-workspace signal. Single-embedder-per-tier (2026-06-26) means the
+    // resident model (Qwen on Standard/Pro) no longer implies a code workspace —
+    // Qwen serves library workspaces too. So derive it from the workspace TYPE via
+    // the injected resolver; fall back to the old embedder-identity proxy only when
+    // no resolver is wired (isolated unit tests). Drives the reranker gate, the
+    // code heuristics, and the code-vs-document query instruction below.
+    const codeWorkspace = this.isCodebaseWorkspace
+      ? await this.isCodebaseWorkspace(workspaceId).catch(() => false)
+      : this.registry.embedder().identity?.() === CODE_EMBEDDER_IDENTITY
+
     // ------- 0a. hierarchical doc pre-filter (opt-in, default off) -------
     // Narrow chunk retrieval to the documents whose SUMMARY is closest to the
     // query, before any chunk search runs. No-op unless docPrefilter is on and
@@ -214,7 +266,11 @@ export class RetrievalService {
     if (opts.docPrefilter && this.registry.embedder().isReady()) {
       try {
         const embedder = this.registry.embedder()
-        const vecs = await embedder.embed([trimmed])
+        // Query side gets the instruction (fix #1); fall back to embed() for
+        // providers/mocks that don't implement embedQuery.
+        const vecs = embedder.embedQuery
+          ? await embedder.embedQuery([trimmed], { codebase: codeWorkspace })
+          : await embedder.embed([trimmed])
         const qVec = vecs[0]
         if (qVec && qVec.length > 0) {
           const topN = opts.docPrefilterTopN ?? DEFAULT_DOC_PREFILTER_TOPN
@@ -241,7 +297,15 @@ export class RetrievalService {
     // shaving a CPU rerank pass still buys 0.5–2 s of TTFT, and skipping
     // multiQuery saves a full extra LLM pass.
     const cpuMode = opts.cpuOptimized ?? this.autoDetectCpuMode()
-    const effectiveRerank = opts.rerank ?? !cpuMode
+    // Fix A: the prose-trained cross-encoder demotes exact code matches — measured
+    // on the codebase eval, reranking dropped exact-symbol recall@5 0.97 → 0.43 and
+    // overall 0.67 → 0.41 (tests/evals/code). Until a code-aware reranker ships, a
+    // codebase workspace must NOT rerank. This takes precedence over opts.rerank
+    // (not just a default) because the chat renderer hardcodes rerank:true on every
+    // turn (ChatView), so a `?? ` default would never apply. The reranker on/off
+    // *setting* still works for doc workspaces via model unload. Outside codebase
+    // workspaces: explicit opts.rerank wins, else auto (off under the CPU preset).
+    const effectiveRerank = codeWorkspace ? false : (opts.rerank ?? !cpuMode)
     const effectiveMultiQuery = opts.multiQuery ?? !cpuMode
     const fanout = cpuMode ? CPU_FANOUT : FANOUT
     const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
@@ -290,7 +354,9 @@ export class RetrievalService {
     // sequentially when they come back. Was a serial for-loop , every extra
     // variant added one full retrieval round-trip to TTFT.
     const perVariant = await Promise.all(
-      queries.map((q) => this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb)),
+      queries.map((q) =>
+        this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb, codeWorkspace),
+      ),
     )
     let pool: SearchHit[] = []
     for (const [bm25, vector] of perVariant) {
@@ -322,6 +388,25 @@ export class RetrievalService {
         opts.responseLanguage,
         opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
       )
+      pool = applyCodeSymbolBoost(
+        pool,
+        trimmed,
+        DEFAULT_CODE_SYMBOL_BOOST,
+        DEFAULT_CODE_DEFINE_BOOST,
+      )
+      pool = applyCodeFilenameBoost(
+        pool,
+        trimmed,
+        DEFAULT_CODE_FILENAME_BOOST,
+        codeWorkspace ? 'substring' : 'exact',
+      )
+      if (codeWorkspace) {
+        pool = applyRoleBoost(pool, trimmed, {
+          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
+          testBoost: DEFAULT_ROLE_TEST_BOOST,
+        })
+        pool = applyTrackPreference(pool, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
+      }
       pool.sort((a, b) => b.score - a.score)
     }
 
@@ -334,7 +419,12 @@ export class RetrievalService {
     // empty-pool short-circuits are silent so the UI doesn't flash a no-op row.
     const rerankWillRun = effectiveRerank && this.registry.reranker().isReady() && pool.length > 0
     if (rerankWillRun) onStage?.('rerank', 'start')
-    const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank)
+    const reranked = await this.maybeRerank(
+      trimmed,
+      pool,
+      effectiveRerank,
+      cpuMode ? CPU_RERANK_MAX_CHARS : undefined,
+    )
     if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------
@@ -359,6 +449,25 @@ export class RetrievalService {
         opts.responseLanguage,
         opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
       )
+      postRank = applyCodeSymbolBoost(
+        postRank,
+        trimmed,
+        DEFAULT_CODE_SYMBOL_BOOST,
+        DEFAULT_CODE_DEFINE_BOOST,
+      )
+      postRank = applyCodeFilenameBoost(
+        postRank,
+        trimmed,
+        DEFAULT_CODE_FILENAME_BOOST,
+        codeWorkspace ? 'substring' : 'exact',
+      )
+      if (codeWorkspace) {
+        postRank = applyRoleBoost(postRank, trimmed, {
+          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
+          testBoost: DEFAULT_ROLE_TEST_BOOST,
+        })
+        postRank = applyTrackPreference(postRank, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
+      }
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
 
@@ -366,10 +475,31 @@ export class RetrievalService {
     // Without this, a single content-rich doc can take all 8 top-K slots
     // even when the user's query was clearly about a different (smaller)
     // doc in the workspace.
-    const ranked =
+    // Fix #3 (opt-in, default off): score-gap dynamic-K trims the slate when the
+    // reranker/RRF scores fall off a cliff. A precision knob (recall-neutral in
+    // the eval), gated so it can be A/B-ed on the answer-quality eval before any
+    // default flip. minK clamps to topK so a tiny topK is never grown.
+    const effectiveTopK = opts.dynamicK
+      ? dynamicScoreCutCount(postRank, Math.min(2, topK), topK)
+      : topK
+    const diversified =
       opts.documentDiversity === false
-        ? postRank.slice(0, topK)
-        : diversifyByDocument(postRank, topK)
+        ? postRank.slice(0, effectiveTopK)
+        : diversifyByDocument(postRank, effectiveTopK)
+    // Code-aware (ADR-0006, fix #2): guarantee code chunks a share of the final
+    // top-K on code-INTENT queries OR in ANY codebase workspace — so a prose
+    // question like "how does the auth class work" (which names no identifier)
+    // still reserves code slots instead of being crowded out by docs. No-op in
+    // document workspaces (no code-track hits to inject).
+    const ranked =
+      codeWorkspace || extractCodeIdentifiers(trimmed).length > 0
+        ? ensureCodeShare(
+            diversified,
+            postRank,
+            effectiveTopK,
+            Math.max(1, Math.ceil(effectiveTopK * DEFAULT_CODE_MIN_FRACTION)),
+          )
+        : diversified
 
     // ------- 3. whole-doc + neighbour expansion -------
     let withWhole = ranked.map<HitWithOrigin>((h) => ({ hit: h, origin: 'primary' }))
@@ -397,6 +527,7 @@ export class RetrievalService {
     candidateK: number,
     searchOpts: { activeDocumentIds: number[] | null; perDocK?: number },
     wsdb: WorkspaceDb | null,
+    codeWorkspace: boolean,
   ): Promise<[SearchHit[], SearchHit[]]> {
     const bm25Promise = wsdb
       ? wsdb.searchChunks(q, candidateK, searchOpts)
@@ -409,7 +540,11 @@ export class RetrievalService {
       const embedder = this.registry.embedder()
       if (!embedder.isReady()) return []
       try {
-        const vecs = await embedder.embed([q])
+        // Query side gets the model's instruction (fix #1); embed() fallback for
+        // providers/mocks without embedQuery keeps the legacy behaviour.
+        const vecs = embedder.embedQuery
+          ? await embedder.embedQuery([q], { codebase: codeWorkspace })
+          : await embedder.embed([q])
         const vec = vecs[0]
         if (!vec || vec.length === 0) return []
         // searchChunksByVector expects number[]; convert from the provider's
@@ -491,12 +626,17 @@ export class RetrievalService {
     query: string,
     hits: SearchHit[],
     enabled: boolean,
+    maxChars?: number,
   ): Promise<SearchHit[]> {
     const reranker = this.registry.reranker()
     if (!enabled || !reranker.isReady() || hits.length === 0) {
       return hits
     }
-    const docs = hits.map((h) => h.text)
+    // Under the CPU preset, score only a leading slice of each passage — the
+    // cross-encoder cost is ~linear in length and the relevant signal is up top.
+    const docs = hits.map((h) =>
+      maxChars && h.text.length > maxChars ? h.text.slice(0, maxChars) : h.text,
+    )
     // The provider contract throws when the underlying reranker fails or the
     // model isn't available (used to return null). Preserve the silent
     // soft-fail to RRF order by catching and returning the input hits.

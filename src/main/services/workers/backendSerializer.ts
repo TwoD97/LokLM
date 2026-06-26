@@ -1,41 +1,43 @@
-// FIFO serializer for the modelsWorker's GPU (chat) backend.
+// FIFO serializer for the modelsWorker's shared GPU backend.
 //
-// The embedder + reranker run on a dedicated CPU backend (see modelsWorker's
-// 'aux' backend), so they make no GPU calls and can never collide with the chat
-// model — they don't need this serializer. What DOES still need it is the chat
-// model's own backend: it runs two contexts on one device (the main chat
-// session and the small utility session for raw generations). node-llama-cpp
-// serialises decode only *per context*, so a `llm.ask` on the main session and a
-// `llm.generateRaw` on the utility session — e.g. a background quiz/summary
-// running while the user chats — can decode on the GPU at the same instant and
-// fast-fail the process (0xC0000409 on a fragile Vulkan driver). Within a single
-// query the LLM calls are already sequential (contextualize → retrieve → rerank
-// → ask); this guards only the cross-flow case.
+// On a small AMD iGPU the chat LLM, the embedder and the reranker all live on
+// ONE Vulkan backend (two separate Vulkan devices fast-fail the driver, so a
+// single shared device is the only stable layout). node-llama-cpp only globally
+// serialises the decode *call*, and only on Vulkan (`decodeSyncWorkaround.
+// vulkanLock`); context loads/disposes, sampling and KV edits across the chat /
+// embedder / reranker contexts can otherwise overlap and fast-fail the whole
+// process (0xC0000409) on a fragile driver — seen when a background embed raced
+// a chat ask or a reranker load.
 //
-// So: serialise the chat backend's generation/load ops; let control ops
-// (abort/setLanguage/shutdown) and the CPU-backend ops (embedder/reranker)
-// bypass.
+// So EVERY op that issues native work on the shared backend is funnelled
+// through this one FIFO and runs strictly one-at-a-time; only control ops
+// (abort / setLanguage / shutdown) bypass it.
 
 import type { WorkerRequest } from './protocol'
 
 export type WorkerOp = WorkerRequest['op']
 
 /**
- * Ops that issue native work on the shared GPU (chat) backend and therefore must
- * run strictly one-at-a-time. `llm.load`/`unload` allocate and free device
- * buffers; `llm.ask`/`generateRaw` decode and sample on the main vs utility
- * context; `planner.refresh` probes VRAM on the same backend.
+ * Ops that issue native work on the shared GPU backend and therefore must run
+ * one-at-a-time. Loads/unloads allocate and free device buffers; ask /
+ * generateRaw / embed / rank decode on a context; `planner.refresh` probes VRAM
+ * on the same device.
  *
- * NOT included: `embedder.*` / `reranker.*` (own CPU backend — concurrent CPU
- * decode across contexts is node-llama-cpp's supported thread-splitter path),
- * `llm.abort` (must interrupt an ask that is HOLDING the queue), `llm.setLanguage`
- * (JS-only chat-history patch), and `shutdown` (runs its own dispose on quit).
+ * NOT included: `llm.abort` (must interrupt an ask that is HOLDING the queue),
+ * `llm.setLanguage` (JS-only chat-history patch), and `shutdown` (runs its own
+ * dispose on quit).
  */
 export const SERIALIZED_OPS: ReadonlySet<WorkerOp> = new Set<WorkerOp>([
   'llm.load',
   'llm.unload',
   'llm.ask',
   'llm.generateRaw',
+  'embedder.load',
+  'embedder.unload',
+  'embedder.embed',
+  'reranker.load',
+  'reranker.unload',
+  'reranker.rank',
   'planner.refresh',
 ])
 

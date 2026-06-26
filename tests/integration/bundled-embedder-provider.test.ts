@@ -22,15 +22,31 @@ describe('BundledEmbedderProvider', () => {
     expect(p.dimension()).toBe(1024)
   })
 
-  it('reflects the code model when jina-code is resident', () => {
+  it('reflects the code model when Qwen3-Embedding is resident', () => {
     const p = new BundledEmbedderProvider({
       embedPassages: vi.fn(),
       isReady: () => true,
       ensureReady: vi.fn(),
-      activeIdentity: () => 'bundled:jina-code',
+      activeIdentity: () => 'bundled:qwen3-embedding',
     } as never)
-    expect(p.identity()).toBe('bundled:jina-code')
-    expect(p.dimension()).toBe(896)
+    expect(p.identity()).toBe('bundled:qwen3-embedding')
+    // Qwen3-Embedding-0.6B is 1024-dim, same as BGE-M3 (ADR-0006 code-embedder swap).
+    expect(p.dimension()).toBe(1024)
+  })
+
+  it('embedQuery() delegates to embedQueries() (fix #1 query-instruction path)', async () => {
+    const embedQueries = vi.fn().mockResolvedValue([[4, 5, 6]])
+    const p = new BundledEmbedderProvider({
+      embedPassages: vi.fn(),
+      embedQueries,
+      isReady: () => true,
+      ensureReady: vi.fn(),
+    } as never)
+    const out = await p.embedQuery(['how does the auth class work'])
+    expect(out[0]).toEqual(new Float32Array([4, 5, 6]))
+    // embedQuery threads the codebase opt through to embedQueries(texts, opts);
+    // with no opts passed here that's an explicit `undefined` second arg.
+    expect(embedQueries).toHaveBeenCalledWith(['how does the auth class work'], undefined)
   })
 
   it('delegates embed() to embedPassages() and converts number[] → Float32Array', async () => {

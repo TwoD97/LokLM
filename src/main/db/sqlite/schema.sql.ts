@@ -142,6 +142,25 @@ CREATE INDEX IF NOT EXISTS idx_document_tags_doc ON document_tags(document_id);
 CREATE INDEX IF NOT EXISTS idx_document_tags_tag ON document_tags(tag);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_document_tags_doc_tag ON document_tags(document_id, tag);
 
+-- User-created organizational folders (virtual; independent of a document's
+-- source_path on disk). A document belongs to at most ONE folder
+-- (document_folders.document_id is the PK). parent_id nests folders; deleting a
+-- folder cascades to its subfolders and, via document_folders' own cascade,
+-- unfiles the affected documents — the documents themselves are never deleted.
+CREATE TABLE IF NOT EXISTS folders (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_id  INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+  name       TEXT    NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
+
+CREATE TABLE IF NOT EXISTS document_folders (
+  document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+  folder_id   INTEGER NOT NULL    REFERENCES folders(id)   ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_document_folders_folder ON document_folders(folder_id);
+
 CREATE TABLE IF NOT EXISTS sync_folders (
   path TEXT PRIMARY KEY
 );

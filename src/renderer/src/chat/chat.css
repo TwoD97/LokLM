@@ -382,6 +382,22 @@
   text-decoration: none;
   vertical-align: baseline;
 }
+/* Fallback "Sources" footer — shown when the answer has no inline citation
+   markers but was grounded on fed chunks (MessageBubble). */
+.bubble__sources {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-strong);
+}
+.bubble__sources-label {
+  font-size: 11px;
+  color: var(--fg-2);
+  margin-right: 2px;
+}
 .confirm-modal__backdrop {
   position: fixed;
   inset: 0;
@@ -550,6 +566,31 @@
 .source-viewer__doc > :last-child,
 .source-viewer__doc-section > :last-child {
   margin-bottom: 0;
+}
+/* Code source: chunks flow as one continuous, syntax-highlighted file — drop the
+   prose separators/gaps and per-chunk card so it reads like the actual file. The
+   cited chunk keeps its accent background + left bar, but flush in the flow. */
+.source-viewer__doc--code .source-viewer__doc-section {
+  padding: 0;
+}
+.source-viewer__doc--code .source-viewer__doc-section + .source-viewer__doc-section {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+.source-viewer__doc--code .source-viewer__doc-section pre {
+  margin: 0;
+  border-radius: 0;
+}
+.source-viewer__doc--code .source-viewer__doc-section--cited {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.source-viewer__doc--code .source-viewer__doc-section--cited pre {
+  background: var(--accent-soft);
 }
 .source-viewer__doc p {
   margin: 0 0 10px;

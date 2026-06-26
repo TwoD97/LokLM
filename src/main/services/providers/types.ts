@@ -48,7 +48,14 @@ export interface LlmProvider {
 }
 
 export interface EmbedderProvider {
+  /** Embed PASSAGES/documents (raw — no instruction). Used at ingest/backfill. */
   embed(texts: string[]): Promise<Float32Array[]>
+  /** Embed QUERIES with the model-appropriate query-side instruction (ADR-0006
+   *  fix #1 — Qwen3 gets the Instruct/Query template, code vs document by
+   *  `opts.codebase`; BGE-M3 gets none). Optional: callers fall back to embed()
+   *  when a provider/mock omits it, preserving the legacy "query embedded like a
+   *  passage" behaviour. */
+  embedQuery?(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]>
   dimension(): number
   identity(): string // "bundled:bge-m3" | "ollama:nomic-embed-text"
   isReady(): boolean

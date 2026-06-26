@@ -297,6 +297,16 @@ jobs:
           done
           /tmp/mc.exe ls "$DEST"
 
+      - name: Verify uploaded archives match baked manifest
+        # Gate : re-fetch the just-uploaded payload + cuda from the PUBLIC URL
+        # and compare sha256 against the hashes write-payload-manifest.mjs baked
+        # into the wizard this run ( include_str! ). A drift here ( stale or
+        # overwrite-in-place upload ) would otherwise ship an installer that
+        # aborts every payload/cuda download with "sha256 mismatch". Pure node ,
+        # no deps , reads installer-wizard/payload-manifest.json .
+        shell: bash
+        run: node scripts/verify-manifests.mjs payload win-x64
+
   build-linux:
     name: Build .run + .deb installers + upload to minio
     # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
@@ -487,6 +497,10 @@ jobs:
           done
           /tmp/mc ls "$DEST"
 
+      - name: Verify uploaded archives match baked manifest
+        # See the Windows job for rationale. Gates the linux payload + cuda.
+        run: node scripts/verify-manifests.mjs payload linux-x64
+
   build-macos:
     name: Build .dmg + upload to minio
     # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
@@ -627,6 +641,10 @@ jobs:
           done
           /tmp/mc ls "$DEST"
 
+      - name: Verify uploaded archives match baked manifest
+        # See the Windows job for rationale. Both mac arch payloads ( no cuda ).
+        run: node scripts/verify-manifests.mjs payload mac-arm64 mac-x64
+
   bump-and-redeploy:
     name: Bump manifest + redeploy website
     needs: [build-windows, build-linux, build-macos]
@@ -686,6 +704,15 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             website/pnpm-lock.yaml
+
+      - name: Verify model URLs reachable ( catches a missing / wrong model upload )
+        # models/ is populated by hand and isn't versioned ; a missed upload
+        # ( e.g. the Qwen3-Embedding GGUF , which 404'd on every install ) is
+        # invisible until a user hits it. This gate fails the release when any
+        # model on OUR S3 host is unreachable or size-mismatched. Upstream hosts
+        # ( HuggingFace , GitHub releases ) are warn-only so a transient blip
+        # there can't block the release. Pure node , no deps.
+        run: node scripts/verify-manifests.mjs models
 
       - name: Patch releases.ts (windows)
         if: needs.build-windows.result == 'success'

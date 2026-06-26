@@ -26,6 +26,17 @@ export const libraryDict: DomainDict = {
     'library.unpin': 'Unpin from chat',
     'library.pinned': 'Pinned — always in chat context',
     'library.pinFailed': 'Could not change pin state: {message}',
+    // Workspace storage footprint card (ADR-0005 transparency)
+    'library.storage.atRest': 'On disk',
+    'library.storage.whenOpen': 'When open',
+    'library.storage.openTime': 'Open time',
+    'library.storage.docsLabel': 'docs',
+    'library.storage.vectorsLabel': 'vectors',
+    'library.storage.estimated': 'estimated',
+    'library.storage.whenOpenHint':
+      'While the workspace is open, its vector store is also kept as a decrypted copy on disk, so the footprint roughly doubles. The encrypted text index (SQLCipher) is not copied.',
+    'library.storage.openTimeHint':
+      'Estimated time to decrypt the vector store into a working copy on every unlock (~163 MB/s, measured on NVMe; slower on an HDD).',
     // DocumentTable
     'library.empty': 'No documents yet. Import files via drag-and-drop.',
     'library.colTitle': 'Title',
@@ -33,6 +44,12 @@ export const libraryDict: DomainDict = {
     'library.colChunks': 'Chunks',
     'library.colAdded': 'Added',
     'library.loadingMore': '… {count} more loading',
+    // DocumentTree (folder-tree view)
+    'library.viewMode': 'View',
+    'library.viewList': 'List',
+    'library.viewFolders': 'Folders',
+    'library.viewLocation': 'By location',
+    'library.otherFiles': 'Other files',
     // DocumentRow
     'library.sourceMissing': 'Source file missing',
     'library.actions': 'actions',
@@ -62,6 +79,16 @@ export const libraryDict: DomainDict = {
     'library.keep': 'Keep',
     'library.keepTitle': 'Keep in library (search still works, source is missing)',
     'library.removeTitle': 'Remove document and its chunks from the library',
+    'library.selectAll': 'Select all',
+    'library.missingSelected': '{count} selected',
+    'library.keepSelected': 'Keep ({count})',
+    'library.removeSelected': 'Delete ({count})',
+    'library.missingShow': 'Show files',
+    'library.missingHide': 'Hide files',
+    // FailedDocsBanner (bulk retry of failed indexing)
+    'library.failedOne': '1 document failed to index',
+    'library.failedMany': '{count} documents failed to index',
+    'library.retryAllFailed': 'Retry all ({count})',
     // SyncFoldersPanel
     'library.noFolderConnected': 'No folder connected',
     'library.foldersConnected': '{count} folders connected',
@@ -143,6 +170,17 @@ export const libraryDict: DomainDict = {
     'library.unpin': 'Aus Chat lösen',
     'library.pinned': 'Angeheftet — immer im Chat-Kontext',
     'library.pinFailed': 'Pinning konnte nicht geändert werden: {message}',
+    // Workspace storage footprint card (ADR-0005 transparency)
+    'library.storage.atRest': 'Auf der Festplatte',
+    'library.storage.whenOpen': 'Geöffnet',
+    'library.storage.openTime': 'Öffnungszeit',
+    'library.storage.docsLabel': 'Dok.',
+    'library.storage.vectorsLabel': 'Vektoren',
+    'library.storage.estimated': 'geschätzt',
+    'library.storage.whenOpenHint':
+      'Solange der Workspace geöffnet ist, liegt sein Vektor-Store zusätzlich entschlüsselt auf der Platte — der Footprint verdoppelt sich also ungefähr. Der verschlüsselte Text-Index (SQLCipher) wird nicht kopiert.',
+    'library.storage.openTimeHint':
+      'Geschätzte Zeit, den Vektor-Store bei jedem Entsperren in eine Arbeitskopie zu entschlüsseln (~163 MB/s, auf NVMe gemessen; auf HDD langsamer).',
     // DocumentTable
     'library.empty': 'Noch keine Dokumente. Dateien per Drag-Drop importieren.',
     'library.colTitle': 'Titel',
@@ -150,6 +188,12 @@ export const libraryDict: DomainDict = {
     'library.colChunks': 'Chunks',
     'library.colAdded': 'Hinzugefügt',
     'library.loadingMore': '… {count} weitere werden geladen',
+    // DocumentTree (Ordnerbaum-Ansicht)
+    'library.viewMode': 'Ansicht',
+    'library.viewList': 'Liste',
+    'library.viewFolders': 'Ordner',
+    'library.viewLocation': 'Nach Speicherort',
+    'library.otherFiles': 'Sonstige Dateien',
     // DocumentRow
     'library.sourceMissing': 'Quelldatei fehlt',
     'library.actions': 'Aktionen',
@@ -179,6 +223,16 @@ export const libraryDict: DomainDict = {
     'library.keep': 'Behalten',
     'library.keepTitle': 'In Bibliothek belassen (Suche funktioniert weiter, Quelle fehlt)',
     'library.removeTitle': 'Dokument samt Chunks aus der Bibliothek entfernen',
+    'library.selectAll': 'Alle auswählen',
+    'library.missingSelected': '{count} ausgewählt',
+    'library.keepSelected': 'Behalten ({count})',
+    'library.removeSelected': 'Löschen ({count})',
+    'library.missingShow': 'Dateien anzeigen',
+    'library.missingHide': 'Dateien ausblenden',
+    // FailedDocsBanner (Stapel-Wiederholung fehlgeschlagener Indexierung)
+    'library.failedOne': '1 Dokument konnte nicht indexiert werden',
+    'library.failedMany': '{count} Dokumente konnten nicht indexiert werden',
+    'library.retryAllFailed': 'Alle wiederholen ({count})',
     // SyncFoldersPanel
     'library.noFolderConnected': 'Kein Ordner verbunden',
     'library.foldersConnected': '{count} Ordner verbunden',

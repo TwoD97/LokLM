@@ -1,0 +1,112 @@
+[
+  {
+    "config": "prod",
+    "overall": {
+      "group": "all",
+      "n": 25,
+      "recallAt1": 0.16,
+      "recallAt5": 0.44,
+      "recallAt10": 0.56,
+      "mrr": 0.2621587301587302
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 5,
+        "recallAt1": 0.6,
+        "recallAt5": 0.8,
+        "recallAt10": 0.8,
+        "mrr": 0.64
+      },
+      {
+        "group": "nl-description",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0.4,
+        "recallAt10": 0.8,
+        "mrr": 0.22222222222222224
+      },
+      {
+        "group": "paraphrase",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0.8,
+        "recallAt10": 0.8,
+        "mrr": 0.21999999999999997
+      },
+      {
+        "group": "vague",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0,
+        "recallAt10": 0,
+        "mrr": 0
+      },
+      {
+        "group": "misspelled",
+        "n": 5,
+        "recallAt1": 0.2,
+        "recallAt5": 0.2,
+        "recallAt10": 0.4,
+        "mrr": 0.22857142857142856
+      }
+    ],
+    "worstNoisyRecallAt5": 0,
+    "evennessGap": 0.8
+  },
+  {
+    "config": "base_norr",
+    "overall": {
+      "group": "all",
+      "n": 25,
+      "recallAt1": 0.16,
+      "recallAt5": 0.44,
+      "recallAt10": 0.56,
+      "mrr": 0.2621587301587302
+    },
+    "byType": [
+      {
+        "group": "exact-symbol",
+        "n": 5,
+        "recallAt1": 0.6,
+        "recallAt5": 0.8,
+        "recallAt10": 0.8,
+        "mrr": 0.64
+      },
+      {
+        "group": "nl-description",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0.4,
+        "recallAt10": 0.8,
+        "mrr": 0.22222222222222224
+      },
+      {
+        "group": "paraphrase",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0.8,
+        "recallAt10": 0.8,
+        "mrr": 0.21999999999999997
+      },
+      {
+        "group": "vague",
+        "n": 5,
+        "recallAt1": 0,
+        "recallAt5": 0,
+        "recallAt10": 0,
+        "mrr": 0
+      },
+      {
+        "group": "misspelled",
+        "n": 5,
+        "recallAt1": 0.2,
+        "recallAt5": 0.2,
+        "recallAt10": 0.4,
+        "mrr": 0.22857142857142856
+      }
+    ],
+    "worstNoisyRecallAt5": 0,
+    "evennessGap": 0.8
+  }
+]

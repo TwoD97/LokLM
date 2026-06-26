@@ -18,7 +18,7 @@ type Props = {
   onClose: () => void
 }
 
-type BodyMode = 'pdf' | 'markdown' | 'text'
+type BodyMode = 'pdf' | 'markdown' | 'text' | 'code'
 type LoadStatus = 'loading' | 'ready' | 'error'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -30,7 +30,66 @@ function classifySource(source: ChunkSource | null): BodyMode {
   // .docx is mammoth-converted to markdown at parse time — same render path as .md.
   if (source.mimeType === DOCX_MIME || path.endsWith('.docx')) return 'markdown'
   if (path.endsWith('.md') || path.endsWith('.markdown')) return 'markdown'
+  if (langFromPath(path)) return 'code'
   return 'text'
+}
+
+// File-extension → highlight.js language id, so a code source renders with the
+// same syntax colouring the chat uses for fenced code (rehypeHighlight, global
+// hljs stylesheet). Unknown extensions fall through to plain 'text'.
+const CODE_LANGS: Record<string, string> = {
+  ts: 'typescript',
+  mts: 'typescript',
+  cts: 'typescript',
+  tsx: 'tsx',
+  js: 'javascript',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  jsx: 'javascript',
+  py: 'python',
+  rs: 'rust',
+  go: 'go',
+  java: 'java',
+  kt: 'kotlin',
+  kts: 'kotlin',
+  scala: 'scala',
+  rb: 'ruby',
+  php: 'php',
+  c: 'c',
+  h: 'c',
+  cc: 'cpp',
+  cpp: 'cpp',
+  cxx: 'cpp',
+  hpp: 'cpp',
+  hh: 'cpp',
+  cs: 'csharp',
+  swift: 'swift',
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  ps1: 'powershell',
+  sql: 'sql',
+  json: 'json',
+  jsonc: 'json',
+  yaml: 'yaml',
+  yml: 'yaml',
+  toml: 'ini',
+  css: 'css',
+  scss: 'scss',
+  html: 'xml',
+  vue: 'xml',
+  svelte: 'xml',
+  proto: 'protobuf',
+  graphql: 'graphql',
+  gql: 'graphql',
+  lua: 'lua',
+  r: 'r',
+  dart: 'dart',
+}
+function langFromPath(path: string | null | undefined): string | null {
+  if (!path) return null
+  const m = /\.([a-z0-9]+)$/i.exec(path)
+  return m ? (CODE_LANGS[m[1]!.toLowerCase()] ?? null) : null
 }
 
 function formatPageRange(source: ChunkSource | null): string | null {
@@ -104,6 +163,7 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
   }, [messageText, source, chunkId])
 
   const bodyMode = useMemo(() => classifySource(source), [source])
+  const codeLang = useMemo(() => langFromPath(source?.sourcePath), [source])
   const showPdf = bodyMode === 'pdf' && source != null && source.chunkPageFrom != null
 
   // Highlight cycling: each click on the "N highlights" pill scrolls the next
@@ -274,6 +334,7 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
             chunkId={chunkId}
             snippets={snippets}
             renderMarkdown={bodyMode === 'markdown'}
+            codeLang={codeLang}
           />
         </div>
       </aside>
@@ -290,6 +351,7 @@ function BodyContents({
   chunkId,
   snippets,
   renderMarkdown,
+  codeLang,
 }: {
   status: LoadStatus
   errorMessage: string | null
@@ -299,6 +361,7 @@ function BodyContents({
   chunkId: number
   snippets: string[]
   renderMarkdown: boolean
+  codeLang: string | null
 }): JSX.Element {
   const t = useT()
   if (status === 'error' && errorMessage) {
@@ -327,6 +390,7 @@ function BodyContents({
       targetChunkId={chunkId}
       snippets={snippets}
       renderMarkdown={renderMarkdown}
+      codeLang={codeLang}
     />
   )
 }
@@ -336,11 +400,13 @@ function TextDocumentBody({
   targetChunkId,
   snippets,
   renderMarkdown,
+  codeLang,
 }: {
   chunks: DocumentChunk[]
   targetChunkId: number
   snippets: string[]
   renderMarkdown: boolean
+  codeLang: string | null
 }): JSX.Element {
   const t = useT()
   const targetRef = useRef<HTMLElement | null>(null)
@@ -357,7 +423,10 @@ function TextDocumentBody({
   }, [targetChunkId, chunks])
 
   return (
-    <article className="source-viewer__doc" aria-label={t('chat.documentPreview')}>
+    <article
+      className={`source-viewer__doc${codeLang ? ' source-viewer__doc--code' : ''}`}
+      aria-label={t('chat.documentPreview')}
+    >
       {chunks.map((c) => {
         const isTarget = c.id === targetChunkId
         return (
@@ -366,7 +435,14 @@ function TextDocumentBody({
             ref={isTarget ? (targetRef as React.RefObject<HTMLElement>) : undefined}
             className={`source-viewer__doc-section${isTarget ? ' source-viewer__doc-section--cited' : ''}`}
           >
-            {isTarget ? (
+            {codeLang ? (
+              // Render the whole file with syntax colouring — reuses MarkdownView's
+              // rehypeHighlight. A 4-backtick fence so chunks containing ``` (rare
+              // in code) don't terminate it early. The cited chunk keeps its
+              // --cited border + scroll; per-chunk fuzzy highlight is dropped for
+              // code (highlighting a "sentence" inside source isn't meaningful).
+              <MarkdownView>{`\`\`\`\`${codeLang}\n${c.text}\n\`\`\`\``}</MarkdownView>
+            ) : isTarget ? (
               <HighlightedText text={c.text} snippets={snippets} />
             ) : renderMarkdown ? (
               <MarkdownView>{c.text}</MarkdownView>

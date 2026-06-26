@@ -27,6 +27,15 @@ pub struct HardwareProfile {
     pub gpu_name: Option<String>,
     pub gpu_vram_bytes: Option<u64>,
     pub gpu_arch: Option<GpuArch>,
+    /// True when the chosen adapter is an integrated GPU (iGPU). An iGPU has no
+    /// real dedicated VRAM — it runs models out of SHARED system memory — so the
+    /// tier is sized off `gpu_shared_bytes`, not the tiny `gpu_vram_bytes`
+    /// carve-out. Also lets the UI label the figure as shared.
+    pub gpu_integrated: bool,
+    /// System memory the iGPU may use as shared video memory (DXGI
+    /// SharedSystemMemory; ~half of RAM on Windows). None for discrete GPUs and
+    /// when the OS probe is unavailable — `recommend()` then falls back to RAM/2.
+    pub gpu_shared_bytes: Option<u64>,
     pub cpu_threads: u32,
     pub cpu_brand: String,
     pub ram_bytes: u64,
@@ -65,7 +74,7 @@ pub enum GpuArch {
 }
 
 pub fn probe() -> HardwareProfile {
-    let (gpu_name, gpu_vram_bytes, gpu_arch) = probe_gpu();
+    let (gpu_name, gpu_vram_bytes, gpu_arch, gpu_integrated, gpu_shared_bytes) = probe_gpu();
 
     let mut sys = System::new();
     sys.refresh_memory();
@@ -83,6 +92,8 @@ pub fn probe() -> HardwareProfile {
         gpu_name,
         gpu_vram_bytes,
         gpu_arch,
+        gpu_integrated,
+        gpu_shared_bytes,
         cpu_threads,
         cpu_brand,
         ram_bytes,
@@ -94,7 +105,9 @@ pub fn probe() -> HardwareProfile {
 
 // --- GPU probe -----------------------------------------------------------
 
-fn probe_gpu() -> (Option<String>, Option<u64>, Option<GpuArch>) {
+type GpuProbe = (Option<String>, Option<u64>, Option<GpuArch>, bool, Option<u64>);
+
+fn probe_gpu() -> GpuProbe {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::PRIMARY,
         ..Default::default()
@@ -118,12 +131,13 @@ fn probe_gpu() -> (Option<String>, Option<u64>, Option<GpuArch>) {
         });
 
     let Some(adapter) = chosen else {
-        return (None, None, None);
+        return (None, None, None, false, None);
     };
 
     let info = adapter.get_info();
     let name = info.name.clone();
     let arch = classify_gpu_arch(&name);
+    let integrated = matches!(info.device_type, wgpu::DeviceType::IntegratedGpu);
 
     // VRAM: wgpu's adapter.limits().max_buffer_size is a per-allocation API
     // limit , not real VRAM. On DX12 ( Windows default ) it reports u64::MAX
@@ -148,7 +162,32 @@ fn probe_gpu() -> (Option<String>, Option<u64>, Option<GpuArch>) {
         non_nvidia_vram(adapter, &info)
     };
 
-    (Some(name), Some(vram_bytes), Some(arch))
+    // For an iGPU, the dedicated VRAM above is a tiny UEFI carve-out; what the
+    // chip can actually run a model in is SHARED system memory. Read that ceiling
+    // (Windows/DXGI; recommend() falls back to RAM/2 when None) so the tier isn't
+    // pinned to Lite by the carve-out alone.
+    let shared_bytes = if integrated {
+        igpu_shared_bytes(&info)
+    } else {
+        None
+    };
+
+    (Some(name), Some(vram_bytes), Some(arch), integrated, shared_bytes)
+}
+
+// Shared-memory ceiling for an integrated GPU. Windows exposes the real figure
+// via DXGI SharedSystemMemory; elsewhere we return None and let recommend() use
+// the RAM/2 fallback.
+fn igpu_shared_bytes(info: &wgpu::AdapterInfo) -> Option<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        return probe_dxgi_shared(info.vendor, info.device).filter(|&m| m > 0);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = info;
+        None
+    }
 }
 
 // NVML read for NVIDIA cards. Returns the matching device's total memory ,
@@ -202,15 +241,20 @@ fn non_nvidia_vram(adapter: &wgpu::Adapter, info: &wgpu::AdapterInfo) -> u64 {
     vram_from_wgpu(adapter)
 }
 
+// Enumerate DXGI adapters once, capturing both the dedicated-VRAM and the
+// shared-system-memory figures per adapter. The VRAM and shared selectors both
+// project from this so the unsafe enumeration lives in exactly one place.
 #[cfg(target_os = "windows")]
-fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
+fn enum_dxgi_adapters() -> Vec<(u32, u32, u64, u64)> {
     use windows::Win32::Graphics::Dxgi::{
         CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, DXGI_ADAPTER_DESC1,
     };
 
-    let mut adapters: Vec<(u32, u32, u64)> = Vec::new();
+    let mut adapters: Vec<(u32, u32, u64, u64)> = Vec::new();
     unsafe {
-        let factory: IDXGIFactory1 = CreateDXGIFactory1().ok()?;
+        let Ok(factory): windows::core::Result<IDXGIFactory1> = CreateDXGIFactory1() else {
+            return adapters;
+        };
         // EnumAdapters1 yields adapters until DXGI_ERROR_NOT_FOUND. Cap the
         // loop defensively in case a driver returns success on a phantom
         // index ( seen on a few Hyper-V configurations ).
@@ -223,10 +267,35 @@ fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
             if adapter.GetDesc1(&mut desc).is_err() {
                 continue;
             }
-            adapters.push((desc.VendorId, desc.DeviceId, desc.DedicatedVideoMemory as u64));
+            adapters.push((
+                desc.VendorId,
+                desc.DeviceId,
+                desc.DedicatedVideoMemory as u64,
+                desc.SharedSystemMemory as u64,
+            ));
         }
     }
-    select_dxgi_vram(&adapters, vendor_id, device_id)
+    adapters
+}
+
+#[cfg(target_os = "windows")]
+fn probe_dxgi_vram(vendor_id: u32, device_id: u32) -> Option<u64> {
+    let ded: Vec<(u32, u32, u64)> = enum_dxgi_adapters()
+        .iter()
+        .map(|&(v, d, dedicated, _)| (v, d, dedicated))
+        .collect();
+    select_dxgi_vram(&ded, vendor_id, device_id)
+}
+
+// Shared-system-memory ceiling for the matched adapter — the budget an iGPU
+// actually runs models in. Reuses the same vendor/device selection as VRAM.
+#[cfg(target_os = "windows")]
+fn probe_dxgi_shared(vendor_id: u32, device_id: u32) -> Option<u64> {
+    let shr: Vec<(u32, u32, u64)> = enum_dxgi_adapters()
+        .iter()
+        .map(|&(v, d, _, shared)| (v, d, shared))
+        .collect();
+    select_dxgi_vram(&shr, vendor_id, device_id)
 }
 
 // Pick the dedicated-VRAM figure for the wgpu-chosen adapter out of the DXGI
@@ -330,6 +399,22 @@ pub fn recommend(p: &HardwareProfile) -> Tier {
     let vram_gb = p.gpu_vram_bytes.unwrap_or(0) / GB;
     let ram_gb = p.ram_bytes / GB;
 
+    // Integrated GPU : the dedicated VRAM is a tiny UEFI carve-out — the chip runs
+    // models out of SHARED system memory ( ~half of RAM ) , so size the tier off
+    // that shared budget , like Apple-Silicon unified memory. CAP at Standard :
+    // iGPU compute is too weak for a pleasant 9B ( Pro ) experience , same
+    // reasoning as the old-Nvidia cap. DXGI gives the real shared ceiling ; RAM/2
+    // is the cross-platform fallback. ( CPU-only — no usable GPU at all — keeps
+    // falling through to the Lite path below ; the wizard warns there separately. )
+    if p.gpu_integrated {
+        let shared_gb = p.gpu_shared_bytes.unwrap_or(p.ram_bytes / 2) / GB;
+        return if shared_gb >= 4 {
+            Tier::Standard
+        } else {
+            Tier::Lite
+        };
+    }
+
     // Tier 1 cut : memory capacity. Budgets per tier ( from plan-doc ) :
     //   Pro      ~8 GB   ( Qwen3.5-9B Q4 5.7 + KV 1.5 + bge-m3 0.5 + reranker 0.5 )
     //   Standard ~4.5 GB ( Qwen3.5-4B Q4 2.8 + KV 1 + bge-m3 0.5 , reranker opt-in )
@@ -385,6 +470,24 @@ mod tests {
             gpu_name: arch.map(|_| "test".into()),
             gpu_vram_bytes: vram_gb.map(|g| g * GB),
             gpu_arch: arch,
+            gpu_integrated: false,
+            gpu_shared_bytes: None,
+            cpu_threads: 8,
+            cpu_brand: "test".into(),
+            ram_bytes: ram_gb * GB,
+            recommended_tier: Tier::Lite,
+        }
+    }
+
+    // Integrated GPU: a tiny 512 MB dedicated carve-out, real budget is shared
+    // memory. `shared_gb` = None models a missing DXGI probe (RAM/2 fallback).
+    fn make_igpu(shared_gb: Option<u64>, ram_gb: u64) -> HardwareProfile {
+        HardwareProfile {
+            gpu_name: Some("Intel Iris Xe".into()),
+            gpu_vram_bytes: Some(GB / 2),
+            gpu_arch: Some(GpuArch::IntelIris),
+            gpu_integrated: true,
+            gpu_shared_bytes: shared_gb.map(|g| g * GB),
             cpu_threads: 8,
             cpu_brand: "test".into(),
             ram_bytes: ram_gb * GB,
@@ -441,6 +544,36 @@ mod tests {
     fn cpu_only_lands_lite() {
         let p = make(None, 32, None);
         assert_eq!(recommend(&p), Tier::Lite);
+    }
+
+    #[test]
+    fn igpu_sizes_off_shared_memory_not_carveout() {
+        // 512 MB dedicated alone would force Lite ; the 6 GB DXGI shared figure
+        // lands Standard — the whole point of reading shared memory.
+        let p = make_igpu(Some(6), 16);
+        assert_eq!(recommend(&p), Tier::Standard);
+    }
+
+    #[test]
+    fn igpu_low_shared_lands_lite() {
+        // 4 GB-RAM box : ~2 GB shared , not enough headroom for Standard.
+        let p = make_igpu(Some(2), 4);
+        assert_eq!(recommend(&p), Tier::Lite);
+    }
+
+    #[test]
+    fn igpu_falls_back_to_half_ram_without_dxgi() {
+        // No DXGI figure ( non-Windows / probe failed ) : RAM/2 = 8 GB → Standard.
+        let p = make_igpu(None, 16);
+        assert_eq!(recommend(&p), Tier::Standard);
+    }
+
+    #[test]
+    fn igpu_caps_at_standard_even_with_huge_shared() {
+        // 32 GB-RAM iGPU reports ~16 GB shared , but the chip is too weak for a
+        // pleasant 9B — cap at Standard rather than promote to Pro.
+        let p = make_igpu(Some(16), 32);
+        assert_eq!(recommend(&p), Tier::Standard);
     }
 
     #[test]

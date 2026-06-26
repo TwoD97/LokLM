@@ -177,9 +177,19 @@ Der `loklm.vault` schrumpft zum **Manifest** ([`VaultManifest`](../../src/shared
 
 ---
 
+## Empirische Validierung (2026-06-23)
+
+Stresstest des **echten** Stacks (`LanceWorkspaceStore` + `EncryptedWorkspaceDir`, synthetische 1024-d-Vektoren, separater bge-m3-Durchsatz-Probe auf echtem Wikipedia-Text) bis **5 Mio. Vektoren** auf i9-9900K / 32 GB / RTX 5090. Harness + voller Report: [tests/evals/scale/run-storage-scale.ts](../../tests/evals/scale/run-storage-scale.ts), [report/storage-2026-06-23T12-53-46.md](../../tests/evals/scale/report/storage-2026-06-23T12-53-46.md).
+
+**Bestätigt „beschränkt durch Platte, nicht RAM" (Consequences):** Query-p95 bleibt ~43 ms bis 5 Mio. (IVF-PQ greift bei 50k, sublinear — bei 50k sogar schneller als der Flat-Scan: 34 → 8 ms), RSS ~1,6 GiB (platten-resident/mmap), 0 VRAM (Suche läuft auf der CPU). Gemessen ~4,4 KB/Vektor → 22 GB bei 5 Mio.
+
+**Quantifiziert den akzeptierten Trade (§3):** Decrypt-on-Open lief mit **~163 MB/s** → 22 GB = **2,3 min**, und solange offen verdoppelt das Klartext-`work/` den Platten-Fußabdruck. Damit kehrt genau der Schmerz der verworfenen Alternative _„Decrypt-on-Unlock … minutenlang pro Unlock"_ zurück, sobald **ein einzelner** Workspace die in §3 angenommene Größe (_„typ. wenige GB"_) überschreitet — Gültigkeitsgrenze der Annahme ≈ wenige zehn GB (≈ 1–2 Mio. Chunks). Hochrechnung bei Produktions-Chunking (~2000 Zeichen): 100 GB Text ≈ 50 Mio. Vektoren ≈ **~222 GB** at-rest / **~444 GB** offen / **~23 min Decrypt pro Unlock** / ~9,5 d einmaliges sequentielles Embedding.
+
+**Ingest:** der Produktionspfad (`mergeInsert`, 32er-Batch = `EMBED_BATCH`) scannt die ganze Tabelle → Batch-Latenz wächst linear, 14 → 176 ms (10k → 5 Mio.); IVF-PQ-Neubau plateaut bei ~3–4 min. **SQLite/FTS5 (meta.db) noch ungetestet** — `better-sqlite3-multiple-ciphers` ist für Electrons ABI gebaut, nicht für node, lädt also im headless-Harness nicht; braucht einen In-Electron-Lauf.
+
 ## Folgearbeiten / Open Questions
 
-- **mmap-Fast-Path:** `EncryptedBlockFile` ist heute `fs`-positional (korrekt, getestet). Der Decrypt-on-Page-Fault-Pfad über den LanceDB-ObjectStore ist der Performance-Follow-up.
+- **mmap-Fast-Path:** `EncryptedBlockFile` ist heute `fs`-positional (korrekt, getestet). Der Decrypt-on-Page-Fault-Pfad über den LanceDB-ObjectStore ist der Performance-Follow-up. **Hochpriorisiert durch die empirische Validierung (s.o.):** bei sehr großen Einzel-Workspaces ist Decrypt-on-Open (gemessen ~163 MB/s, minutenlang ab ~zehn GB) die praktische Größengrenze — nicht RAM oder Query-Latenz. Bis der Fast-Path steht, gilt „pro Workspace wenige GB" als Design-Annahme.
 - **LanceDB-ObjectStore-Hook:** verifizieren, dass die Node-Bindings einen Custom-Store mit unseren Read/Write-Hooks zulassen; sonst Fallback auf Block-verschlüsseltes Dataset-Verzeichnis mit Datei-Granularität.
 - **meta.db-Engine:** SQLCipher vs. Block-verschlüsseltes PGlite-Dump pro Workspace — Bench entscheidet.
 - **WDEK-Rotation** bei Workspace-Export/-Sharing (heute, wie Master-DEK, nicht rotierbar).

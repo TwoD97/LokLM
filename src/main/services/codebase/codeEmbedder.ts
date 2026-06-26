@@ -1,36 +1,70 @@
 import type { WorkspaceType } from '../../../shared/workspaceStorage'
 
 // Per-workspace-type embedder selection (ADR-0006). A 'codebase' workspace embeds
-// with the code-specialised model (jina-code); everything else uses the general
-// BGE-M3. One model is resident at a time and a workspace's type is stable, so a
-// workspace always embeds with a single, consistent model — vectors in its LanceDB
-// table share one space/dimension (the table dim is inferred from the data, so
-// there is no manifest-vs-model mismatch to corrupt).
+// with the code-specialised model (Qwen3-Embedding-0.6B); everything else uses the
+// general BGE-M3. One model is resident at a time and a workspace's type is stable,
+// so a workspace always embeds with a single, consistent model — vectors in its
+// LanceDB table share one space/dimension (the table dim is inferred from the data,
+// so there is no manifest-vs-model mismatch to corrupt).
+//
+// Why Qwen3-Embedding, not jina-code: jina-code (a Qwen2 *decoder* embedder)
+// NATIVE-crashes the worker on the AMD iGPU Vulkan stack (0xC0000409) the moment a
+// passage approaches the context window — a known, unfixed llama.cpp bug (#20098 /
+// #20515) — which forced retrieval onto the slow CPU. Qwen3-Embedding-0.6B has
+// equivalent code-retrieval quality AND embeds full-length passages on Vulkan with
+// zero crashes (verified via tests/bench/vulkan-embed-batch.ts), so the embedder
+// can finally run on the GPU. It is 1024-dim — the SAME as BGE-M3 — so the
+// code/doc fallback no longer even changes dimensionality.
 //
 // Fallback-safe: if the code model isn't on disk, codebase workspaces transparently
 // use BGE-M3 (resolved at runtime by EmbeddingService). This module only declares
 // the *intended* model per type; the actual on-disk resolution + load lives in
 // EmbeddingService.
 
-// NOTE: the upstream repo (jinaai/jina-code-embeddings-0.5b-GGUF) ships no
-// Q4_K_M quant — IQ4_XS is the closest 4-bit (~349 MB) and is what we pin.
 /** Manifest id of the code embedder (drives ModelDownloader.download). */
-export const CODE_EMBEDDER_MODEL_ID = 'jina-code-embeddings-0.5b-IQ4_XS'
+export const CODE_EMBEDDER_MODEL_ID = 'Qwen3-Embedding-0.6B-Q8_0'
 
 /** Filename of the bundled code embedder GGUF (matches the manifest entry). */
-export const CODE_EMBEDDER_FILE = 'jina-code-embeddings-0.5b-IQ4_XS.gguf'
+export const CODE_EMBEDDER_FILE = 'Qwen3-Embedding-0.6B-Q8_0.gguf'
 
 /** Identity written to chunks.embedder_identity for code-model vectors. The
- *  stem ('jina-code') drives the backfill's model-swap detection, exactly like
- *  'bundled:bge-m3'. */
-export const CODE_EMBEDDER_IDENTITY = 'bundled:jina-code'
+ *  stem ('qwen3-embedding') drives the backfill's model-swap detection, exactly
+ *  like 'bundled:bge-m3' — so existing jina-code workspaces re-embed on next
+ *  backfill. */
+export const CODE_EMBEDDER_IDENTITY = 'bundled:qwen3-embedding'
 
-/** jina-code-embeddings-0.5b native output dimensionality. */
-export const CODE_EMBEDDING_DIM = 896
+/** Qwen3-Embedding-0.6B native output dimensionality (== BGE-M3's 1024). */
+export const CODE_EMBEDDING_DIM = 1024
+
+/**
+ * Query-side instruction for the code embedder (ADR-0006, fix #1). Qwen3-Embedding
+ * is instruction-tuned and expects the asymmetric `Instruct: <task>\nQuery: <q>`
+ * template on the QUERY side only — documents/passages are embedded raw. Applying
+ * it lifts natural-language → code alignment substantially (measured: codebase
+ * eval recall@5 0.674 → 0.726, vague-query recall 0.171 → 0.286; tests/evals/code).
+ *
+ * The query text is appended verbatim by EmbeddingService.embedQueries. Passages
+ * stay un-prefixed, so this is query-only and needs NO re-embedding of the corpus.
+ * Only applied when the resident embedder IS the code model (codebase workspaces);
+ * BGE-M3 / library workspaces get no instruction.
+ */
+export const CODE_QUERY_INSTRUCTION =
+  'Instruct: Given a question about a codebase, retrieve the source code file that answers it.\nQuery: '
+
+/**
+ * Query-side instruction for Qwen3-Embedding when it serves a **library** (prose)
+ * workspace. Single-embedder-per-tier (chosen 2026-06-26): Standard/Pro ship only
+ * Qwen, so it embeds BOTH codebase and library workspaces — but the asymmetric
+ * instruction must match the corpus. A library query gets this document-retrieval
+ * instruction, a codebase query gets CODE_QUERY_INSTRUCTION; BGE-M3 (Lite) gets
+ * none. Query-only, so passages stay raw and no re-embedding is needed.
+ */
+export const DOC_QUERY_INSTRUCTION =
+  'Instruct: Given a question, retrieve the document passage that best answers it.\nQuery: '
 
 /** Matches a code-embedder GGUF by filename (any quant). */
 export function isCodeEmbedderFile(filename: string): boolean {
-  return /jina[-_]?code/i.test(filename) && filename.toLowerCase().endsWith('.gguf')
+  return /qwen3[-_]?embedding/i.test(filename) && filename.toLowerCase().endsWith('.gguf')
 }
 
 /** True when the workspace type should prefer the code-specialised embedder. */
