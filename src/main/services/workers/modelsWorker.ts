@@ -254,9 +254,17 @@ async function createBackend(
     // a GPU device context with the chat (primary) backend. LLAMA_GPU / forceCpu
     // only steer the primary device choice.
     if (key === 'aux') return [false]
+    // LLAMA_GPU=cpu/false is the hard "true CPU" escape — kept so CPU-timing evals
+    // can still measure the pure-CPU floor. Wins over the placement-driven path.
     if (pinned === 'cpu' || pinned === 'false') return [false]
     if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
-    if (forceCpu) return [false]
+    // The 'cpu' PLACEMENT means "low-power tier", not "no acceleration": most such
+    // machines have an integrated GPU that runs these small models far faster than
+    // pure CPU (the reranker alone is ~25× quicker on an iGPU). Prefer a single
+    // Vulkan device (the iGPU on integrated-only boxes) and fall back to real CPU
+    // only when Vulkan can't init — still ONE device, so the shared-backend +
+    // serializer safety holds. Force true CPU with LLAMA_GPU=cpu (above).
+    if (forceCpu) return ['vulkan', false]
     return ['auto']
   })()
   let lastErr: unknown = null
@@ -326,13 +334,15 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   // service warmups don't each re-probe VRAM (post-load is still forced).
   const resources = await planner.refreshIfStale()
   const weightsBytes = payload.weightsBytes || ggufWeightBytes(payload.modelPath)
-  // When the user pinned CPU, plan KV against RAM rather than VRAM the backend
-  // won't use — otherwise planLlm budgets context for VRAM that's never
-  // allocated. Clone so the planner's cached snapshot isn't mutated.
-  const planResources =
-    payload.placement === 'cpu'
-      ? { ...resources, hasGpu: false, freeVramGB: 0, totalVramGB: 0 }
-      : resources
+  // 'cpu' placement can now still latch the iGPU (Vulkan) — see createBackend — so
+  // key the KV plan off the device the backend ACTUALLY latched, not the request:
+  // plan KV against RAM only when it really fell back to true CPU, otherwise
+  // planLlm budgets context for VRAM that's never allocated. Clone so the
+  // planner's cached snapshot isn't mutated.
+  const latchedCpu = primaryGpuLabel === 'cpu' || primaryGpuLabel == null
+  const planResources = latchedCpu
+    ? { ...resources, hasGpu: false, freeVramGB: 0, totalVramGB: 0 }
+    : resources
 
   const model = await (
     llama as {
