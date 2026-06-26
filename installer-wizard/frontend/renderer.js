@@ -246,10 +246,17 @@ function renderHardwareSummary() {
 
   const items = []
   if (hardwareProfile.gpuName) {
-    const vram = hardwareProfile.gpuVramBytes
-      ? ` , ${formatGiB(hardwareProfile.gpuVramBytes)} GiB ${t('hardware.vramSuffix')}`
-      : ''
-    items.push({ label: t('hardware.gpu'), value: `${hardwareProfile.gpuName}${vram}` })
+    let mem = ''
+    if (hardwareProfile.gpuIntegrated) {
+      // iGPU: the dedicated VRAM is a tiny carve-out (~512 MB → "0 GiB"); show
+      // the shared system memory it actually runs models in — also what the tier
+      // recommendation is sized off. Fall back to ~half of RAM when unprobed.
+      const shared = hardwareProfile.gpuSharedBytes ?? Math.floor(hardwareProfile.ramBytes / 2)
+      mem = ` , ${formatGiB(shared)} GiB ${t('hardware.sharedSuffix')}`
+    } else if (hardwareProfile.gpuVramBytes) {
+      mem = ` , ${formatGiB(hardwareProfile.gpuVramBytes)} GiB ${t('hardware.vramSuffix')}`
+    }
+    items.push({ label: t('hardware.gpu'), value: `${hardwareProfile.gpuName}${mem}` })
   } else {
     items.push({ label: t('hardware.gpu'), value: t('hardware.noGpu') })
   }
