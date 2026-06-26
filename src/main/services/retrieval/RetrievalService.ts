@@ -163,6 +163,12 @@ const MAX_CANDIDATES = 64
 // recall on document-diverse queries.
 const CPU_FANOUT = 2
 const CPU_MAX_CANDIDATES = 32
+// CPU rerank: the cross-encoder cost scales with the passage length it scores.
+// Chunks run up to ~512 tokens, but the relevance signal almost always sits in
+// their opening — so under the CPU preset we score only the first ~1000 chars
+// (~250 tokens) per candidate, roughly halving the rerank pass at negligible
+// recall cost. GPU/iGPU keeps the full text (reranking is cheap there).
+const CPU_RERANK_MAX_CHARS = 1000
 const DEFAULT_WHOLE_DOC_THRESHOLD = 8
 const DEFAULT_PER_DOC_CAP = 6
 const DEFAULT_TITLE_BOOST = 1.25
@@ -399,7 +405,12 @@ export class RetrievalService {
     // empty-pool short-circuits are silent so the UI doesn't flash a no-op row.
     const rerankWillRun = effectiveRerank && this.registry.reranker().isReady() && pool.length > 0
     if (rerankWillRun) onStage?.('rerank', 'start')
-    const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank)
+    const reranked = await this.maybeRerank(
+      trimmed,
+      pool,
+      effectiveRerank,
+      cpuMode ? CPU_RERANK_MAX_CHARS : undefined,
+    )
     if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------
@@ -600,12 +611,17 @@ export class RetrievalService {
     query: string,
     hits: SearchHit[],
     enabled: boolean,
+    maxChars?: number,
   ): Promise<SearchHit[]> {
     const reranker = this.registry.reranker()
     if (!enabled || !reranker.isReady() || hits.length === 0) {
       return hits
     }
-    const docs = hits.map((h) => h.text)
+    // Under the CPU preset, score only a leading slice of each passage — the
+    // cross-encoder cost is ~linear in length and the relevant signal is up top.
+    const docs = hits.map((h) =>
+      maxChars && h.text.length > maxChars ? h.text.slice(0, maxChars) : h.text,
+    )
     // The provider contract throws when the underlying reranker fails or the
     // model isn't available (used to return null). Preserve the silent
     // soft-fail to RRF order by catching and returning the input hits.
