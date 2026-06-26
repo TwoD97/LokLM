@@ -32,8 +32,8 @@ export class BundledEmbedderProvider implements EmbedderProvider {
   /** Query path (ADR-0006 fix #1): routes to EmbeddingService.embedQueries, which
    *  prepends the code model's Instruct/Query template (BGE-M3: none). Same
    *  null-means-unembeddable contract as embed(). */
-  async embedQuery(texts: string[]): Promise<Float32Array[]> {
-    const raw = await this.inner.embedQueries(texts)
+  async embedQuery(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]> {
+    const raw = await this.inner.embedQueries(texts, opts)
     return raw.map((v, i) => {
       if (v === null) {
         throw new Error(`BundledEmbedderProvider: query #${i} could not be embedded`)

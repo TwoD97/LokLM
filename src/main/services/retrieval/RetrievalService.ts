@@ -219,6 +219,12 @@ export class RetrievalService {
      *  workspace's encrypted SQLite store instead of PGlite. Opened on demand;
      *  left undefined in isolated tests (pgvector/PGlite path). */
     private readonly getWorkspaceDb?: (workspaceId: number) => Promise<WorkspaceDb>,
+    /** True when the workspace is a 'codebase' (and the tier allows it). Drives
+     *  the reranker gate, code heuristics, and the code-vs-document query
+     *  instruction. Injected because the embedder identity no longer implies it:
+     *  single-embedder-per-tier means Qwen serves library workspaces too. Left
+     *  undefined in isolated tests → falls back to the embedder-identity proxy. */
+    private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
   ) {}
 
   async search(
@@ -241,6 +247,16 @@ export class RetrievalService {
         ? DEFAULT_PER_DOC_CAP
         : Math.max(0, opts.perDocCandidateCap)
 
+    // Codebase-workspace signal. Single-embedder-per-tier (2026-06-26) means the
+    // resident model (Qwen on Standard/Pro) no longer implies a code workspace —
+    // Qwen serves library workspaces too. So derive it from the workspace TYPE via
+    // the injected resolver; fall back to the old embedder-identity proxy only when
+    // no resolver is wired (isolated unit tests). Drives the reranker gate, the
+    // code heuristics, and the code-vs-document query instruction below.
+    const codeWorkspace = this.isCodebaseWorkspace
+      ? await this.isCodebaseWorkspace(workspaceId).catch(() => false)
+      : this.registry.embedder().identity() === CODE_EMBEDDER_IDENTITY
+
     // ------- 0a. hierarchical doc pre-filter (opt-in, default off) -------
     // Narrow chunk retrieval to the documents whose SUMMARY is closest to the
     // query, before any chunk search runs. No-op unless docPrefilter is on and
@@ -253,7 +269,7 @@ export class RetrievalService {
         // Query side gets the instruction (fix #1); fall back to embed() for
         // providers/mocks that don't implement embedQuery.
         const vecs = embedder.embedQuery
-          ? await embedder.embedQuery([trimmed])
+          ? await embedder.embedQuery([trimmed], { codebase: codeWorkspace })
           : await embedder.embed([trimmed])
         const qVec = vecs[0]
         if (qVec && qVec.length > 0) {
@@ -281,10 +297,6 @@ export class RetrievalService {
     // shaving a CPU rerank pass still buys 0.5–2 s of TTFT, and skipping
     // multiQuery saves a full extra LLM pass.
     const cpuMode = opts.cpuOptimized ?? this.autoDetectCpuMode()
-    // Codebase workspace signal (ADR-0006): the code embedder is resident only in
-    // codebase workspaces, so its identity doubles as "this is a code workspace".
-    // Drives the reranker gate, code-share, and substring filename matching below.
-    const codeWorkspace = this.registry.embedder().identity() === CODE_EMBEDDER_IDENTITY
     // Fix A: the prose-trained cross-encoder demotes exact code matches — measured
     // on the codebase eval, reranking dropped exact-symbol recall@5 0.97 → 0.43 and
     // overall 0.67 → 0.41 (tests/evals/code). Until a code-aware reranker ships, a
@@ -342,7 +354,9 @@ export class RetrievalService {
     // sequentially when they come back. Was a serial for-loop , every extra
     // variant added one full retrieval round-trip to TTFT.
     const perVariant = await Promise.all(
-      queries.map((q) => this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb)),
+      queries.map((q) =>
+        this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb, codeWorkspace),
+      ),
     )
     let pool: SearchHit[] = []
     for (const [bm25, vector] of perVariant) {
@@ -513,6 +527,7 @@ export class RetrievalService {
     candidateK: number,
     searchOpts: { activeDocumentIds: number[] | null; perDocK?: number },
     wsdb: WorkspaceDb | null,
+    codeWorkspace: boolean,
   ): Promise<[SearchHit[], SearchHit[]]> {
     const bm25Promise = wsdb
       ? wsdb.searchChunks(q, candidateK, searchOpts)
@@ -528,7 +543,7 @@ export class RetrievalService {
         // Query side gets the model's instruction (fix #1); embed() fallback for
         // providers/mocks without embedQuery keeps the legacy behaviour.
         const vecs = embedder.embedQuery
-          ? await embedder.embedQuery([q])
+          ? await embedder.embedQuery([q], { codebase: codeWorkspace })
           : await embedder.embed([q])
         const vec = vecs[0]
         if (!vec || vec.length === 0) return []

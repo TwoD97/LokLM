@@ -8,8 +8,7 @@ import { DocumentService } from './services/documents/DocumentService'
 import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
 import { isSupported as isSupportedDocPath } from './services/documents/parser'
-import { EmbeddingService, resolveCodeEmbedderPath } from './services/embeddings/EmbeddingService'
-import { CODE_EMBEDDER_MODEL_ID } from './services/codebase/codeEmbedder'
+import { EmbeddingService } from './services/embeddings/EmbeddingService'
 import { loadGitignore } from './services/codebase/gitignore'
 import { IGNORED_DIRS } from './services/codebase/ignore'
 import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfillService'
@@ -58,7 +57,11 @@ import { extractCitationMarkers } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
-import { readTierMarker, isOllamaConnectorEnabled } from './services/tier/TierMarker'
+import {
+  readTierMarker,
+  isOllamaConnectorEnabled,
+  isCodebaseIndexingEnabled,
+} from './services/tier/TierMarker'
 import { initLogger, getLogDir } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -131,10 +134,16 @@ function resetSessionServices(): void {
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
-  // Best-effort fire-and-forget per workspace. If the embedder GGUF is
-  // missing or fails to load, the backfill service silently records 'failed'
-  // for each workspace and the user can retry from the settings panel later.
-  // Catches inside so a single rejection doesn't break the for-loop.
+  // Best-effort fire-and-forget per workspace. If the embedder GGUF is missing or
+  // fails to load, the backfill service silently records 'failed' per workspace
+  // and the user can retry from the settings panel later. Catches inside so a
+  // single rejection doesn't break the loop.
+  //
+  // Single-embedder-per-tier (2026-06-26): ONE embedder is resident for the whole
+  // install (Qwen on Standard/Pro, BGE-M3 on Lite), so there's no per-workspace
+  // model swap to coordinate — every workspace backfills under the same model.
+  // (On an install that just switched to the tier model, this also performs the
+  // one-time migration: chunks on the previous embedder are purged + re-embedded.)
   const wss = await getAuth().requireDatabase().workspaces().list()
   const svc = getBackfillService()
   for (const ws of wss) {
@@ -680,9 +689,25 @@ function getRetrievalService(): RetrievalService {
         getWorkspaceVectorService().search(workspaceId, queryVec, topK, opts),
       // ADR-0005: relational/BM25 reads run against the workspace's SQLite store.
       (workspaceId) => getAuth().getWorkspaceDb(workspaceId),
+      // Codebase-workspace + tier resolver: drives the reranker gate, code
+      // heuristics, and the code-vs-document query instruction. The embedder
+      // identity no longer implies it (single-embedder-per-tier: Qwen serves
+      // library workspaces too).
+      (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
     )
   }
   return retrievalService
+}
+
+/** True when the workspace is a 'codebase' AND the tier allows codebase indexing
+ *  (Standard/Pro; no-marker/dev → allowed). Shared by retrieval + the folder gate. */
+async function isActiveCodebaseWorkspace(workspaceId: number): Promise<boolean> {
+  try {
+    const wss = await getAuth().requireDatabase().workspaces().list()
+    return wss.find((w) => w.id === workspaceId)?.type === 'codebase' && isCodebaseIndexingEnabled()
+  } catch {
+    return false
+  }
 }
 
 function getDocumentService(): DocumentService {
@@ -926,40 +951,23 @@ function registerIpc(): void {
   // conversations, quizzes, …) operate on the right workspace's store.
   ipcMain.handle('workspaces:activate', async (_e, workspaceId: number) => {
     await getAuth().activate(workspaceId)
-    // ADR-0006: codebase workspaces embed with the code model (jina-code) when
-    // present; everything else uses the doc model (BGE-M3). Fallback-safe: if the
-    // code GGUF isn't on disk EmbeddingService transparently keeps BGE-M3, so a
-    // codebase workspace still indexes/searches. Best-effort — a swap failure
-    // must not block activation.
-    try {
-      const wss = await getAuth().requireDatabase().workspaces().list()
-      const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
-      await getEmbeddingService().setPreferredKind(isCodebase ? 'code' : 'doc')
-      if (isCodebase) {
-        if (resolveCodeEmbedderPath()) {
-          // Code model is on disk → re-embed this workspace's existing vectors to
-          // the code embedder (Qwen3-Embedding). The backfill detects the
-          // embedder-stem change (bge-m3 → qwen3-embedding), purges the stale
-          // vectors, and the Lance store rebuilds its table from the new vectors
-          // (both models are 1024-dim). Without this trigger the workspace keeps
-          // serving BGE-M3 vectors and never actually uses the code embedder.
-          // Best-effort + deduped (a run already in flight is a no-op).
-          void getBackfillService()
-            .run(workspaceId)
-            .catch(() => undefined)
-        } else if (!getModelDownloader().isActive(CODE_EMBEDDER_MODEL_ID)) {
-          // Fetch the code model the first time a codebase is opened, then re-embed
-          // once it lands (BGE-M3 serves until then). Guarded against restarting an
-          // in-flight download.
-          void getModelDownloader()
-            .download(CODE_EMBEDDER_MODEL_ID)
-            .then(() => getBackfillService().run(workspaceId))
-            .catch(() => undefined)
-        }
-      }
-    } catch {
-      /* lock race / no manifest entry — embedder keeps its current model */
-    }
+    // Single-embedder-per-tier (chosen 2026-06-26): the embedder is fixed by install
+    // tier — Qwen3-Embedding on Standard/Pro (serves library AND codebase), BGE-M3 on
+    // Lite — with NO per-workspace model swap. So activation no longer switches models
+    // or lazily fetches a code embedder. It just re-embeds any chunks still on a
+    // previous embedder so the active workspace catches up promptly (best-effort +
+    // deduped; the login backfill also covers every workspace).
+    void getBackfillService()
+      .run(workspaceId)
+      .catch(() => undefined)
+    // Reconcile this workspace's watched folders now that it's the active one.
+    // Watcher events that fired while it was inactive (or before unlock finished
+    // activating it) were skipped by the active-workspace gate in FolderSync, so
+    // pick up any changes made since. Fire-and-forget — activation must never
+    // block on a folder walk, and a no-sync-folders workspace returns instantly.
+    void getFolderSyncService()
+      .sync(workspaceId)
+      .catch(() => undefined)
   })
   // ADR-0005: default workspace auto-loaded on unlock.
   ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())
@@ -1633,6 +1641,8 @@ function registerIpc(): void {
     getBackfillService().status(workspaceId),
   )
   ipcMain.handle('embedder:runBackfill', async (_e, workspaceId: number) => {
+    // Single-embedder-per-tier: the resident model is fixed by tier, so a manual
+    // retry just re-embeds NULL/stale chunks under it — no preference to set.
     await getBackfillService().run(workspaceId)
   })
 

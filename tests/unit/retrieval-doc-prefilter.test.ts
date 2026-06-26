@@ -29,7 +29,14 @@ function buildRetrieval(opts: {
   } as unknown as WorkspaceDbFacade
 
   const embed = vi.fn().mockResolvedValue([new Float32Array([1, 0, 0])])
-  const embedder = { isReady: () => opts.embedderReady ?? true, embed, dimension: () => 3 }
+  // identity() drives RetrievalService's codeWorkspace detection (ADR-0006).
+  // A library/doc workspace reports the bundled BGE-M3 identity, not the code model.
+  const embedder = {
+    isReady: () => opts.embedderReady ?? true,
+    embed,
+    dimension: () => 3,
+    identity: () => 'bundled:bge-m3',
+  }
   // llm not ready → cpuMode auto-detect returns false , multiQuery/expansion off
   const llm = { isReady: () => false }
   const reranker = { isReady: () => false }

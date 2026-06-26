@@ -51,6 +51,17 @@ export const CODE_EMBEDDING_DIM = 1024
 export const CODE_QUERY_INSTRUCTION =
   'Instruct: Given a question about a codebase, retrieve the source code file that answers it.\nQuery: '
 
+/**
+ * Query-side instruction for Qwen3-Embedding when it serves a **library** (prose)
+ * workspace. Single-embedder-per-tier (chosen 2026-06-26): Standard/Pro ship only
+ * Qwen, so it embeds BOTH codebase and library workspaces — but the asymmetric
+ * instruction must match the corpus. A library query gets this document-retrieval
+ * instruction, a codebase query gets CODE_QUERY_INSTRUCTION; BGE-M3 (Lite) gets
+ * none. Query-only, so passages stay raw and no re-embedding is needed.
+ */
+export const DOC_QUERY_INSTRUCTION =
+  'Instruct: Given a question, retrieve the document passage that best answers it.\nQuery: '
+
 /** Matches a code-embedder GGUF by filename (any quant). */
 export function isCodeEmbedderFile(filename: string): boolean {
   return /qwen3[-_]?embedding/i.test(filename) && filename.toLowerCase().endsWith('.gguf')
