@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, Folders, FolderTree as FolderTreeIcon } from 'lucide-react'
 import type { Document, IndexProgress, LibrarySearchHit } from '@shared/documents'
 import type { WorkspaceStorageFootprint } from '@shared/workspaceStorage'
+import { deriveIndexBatchProgress } from '@shared/indexProgress'
 import { DocumentTable } from './DocumentTable'
 import { DocumentTree } from './DocumentTree'
 import { LibraryFileRow } from './LibraryFileRow'
@@ -310,9 +311,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [workspaceId, refreshDocs, bumpMissing],
   )
 
-  // Docs still pending/indexing — drives the cancel bar. Updates as the queue
-  // drains (each finished doc fires an indexing:progress 'done' → refreshDocs).
-  const indexingCount = docs.filter((d) => d.status === 'pending' || d.status === 'indexing').length
+  // Aggregate indexing progress (ready / total / percent) — drives the batch
+  // progress bar. Updates as the queue drains (each finished doc fires an
+  // indexing:progress 'done' → refreshDocs).
+  const indexBatch = deriveIndexBatchProgress(docs)
 
   // Docs that failed to index — drives the bulk "retry failed" banner. A doc
   // with an in-flight non-failed progress is mid-retry, so exclude it (its
@@ -371,16 +373,30 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           if (paths.length > 0) void onImport(paths)
         }}
       />
-      {indexingCount > 0 && (
-        <div className="library__indexing-bar">
-          <span>{t('library.indexingActive', { count: indexingCount })}</span>
-          <button
-            type="button"
-            className="library__indexing-stop"
-            onClick={() => void onCancelIndexing()}
-          >
-            {t('library.stopIndexing')}
-          </button>
+      {indexBatch.active > 0 && (
+        <div className="library__indexing-bar" role="status" aria-live="polite">
+          <div className="library__indexing-head">
+            <span>
+              {t('library.indexProgress', {
+                ready: indexBatch.ready,
+                total: indexBatch.total,
+                percent: indexBatch.percent,
+              })}
+            </span>
+            <button
+              type="button"
+              className="library__indexing-stop"
+              onClick={() => void onCancelIndexing()}
+            >
+              {t('library.stopIndexing')}
+            </button>
+          </div>
+          <div className="library__index-progress" aria-hidden="true">
+            <div
+              className="library__index-progress-fill"
+              style={{ width: `${indexBatch.percent}%` }}
+            />
+          </div>
         </div>
       )}
       <LibrarySearchBar

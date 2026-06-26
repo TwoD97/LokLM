@@ -200,6 +200,8 @@ test-notes/
 
 # Lokale Abgabe-Dokumente (Team-Abgabe) — nicht auf GitHub
 docs/abgabe/
+# Lokaler Dogfood-Wissens-Korpus (regenerierbar via docs/abgabe-korpus/regenerate-korpus.sh) — nicht auf GitHub
+docs/abgabe-korpus/
 
 # Lokale Anleitung (nur für Dominik) — bleibt lokal, nicht auf GitHub
 tests/evals/ANLEITUNG-DOMINIK.md
