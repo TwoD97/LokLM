@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Library,
   MessageSquare,
@@ -15,9 +15,16 @@ import {
   Trash2,
   Star,
   Code2,
+  Unlock,
 } from 'lucide-react'
-import type { Document, Workspace } from '@shared/documents'
+import type { Document, Folder, FolderAssignment, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
+import { FolderTree, type FolderScopeState } from '../folders/FolderTree'
+import {
+  buildFolderTree,
+  collectDescendantDocIds,
+  topLevelFolderKeys,
+} from '../folders/folderTreeModel'
 
 type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription' | 'translation' | 'writing'
 
@@ -28,7 +35,7 @@ type Props = {
   activeWorkspaceId: number | null
   activeView: ViewKind
   onWorkspaceSelect: (id: number) => void
-  onCreateWorkspace: (name: string) => void
+  onCreateWorkspace: (name: string, encrypted: boolean) => void
   onRenameWorkspace: (id: number, name: string) => void
   onRequestDeleteWorkspace: (ws: Workspace) => void
   defaultWorkspaceId: number | null
@@ -41,6 +48,14 @@ type Props = {
   activeDocumentIds: number[]
   onToggleDocument: (docId: number) => void
   onClearScope: () => void
+  // User-created folders for the active workspace (chat-scope organization).
+  folders: Folder[]
+  folderAssignments: FolderAssignment[]
+  onCreateFolder: (name: string, parentId: number | null) => void
+  onRenameFolder: (id: number, name: string) => void
+  onDeleteFolder: (id: number) => void
+  onMoveDocumentToFolder: (documentId: number, folderId: number | null) => void
+  onToggleFolderScope: (folderId: number) => void
 }
 
 export function Sidebar({
@@ -63,13 +78,73 @@ export function Sidebar({
   activeDocumentIds,
   onToggleDocument,
   onClearScope,
+  folders,
+  folderAssignments,
+  onCreateFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveDocumentToFolder,
+  onToggleFolderScope,
 }: Props): JSX.Element {
   const t = useT()
   const [draft, setDraft] = useState('')
+  // New-workspace encryption choice (fixed at creation). Default on; users opt
+  // out for large, non-sensitive corpora to skip the decrypt-on-open wait.
+  const [newWsEncrypted, setNewWsEncrypted] = useState(true)
   const [docPickerOpen, setDocPickerOpen] = useState(true)
   // id of the workspace whose name is being edited inline, plus its draft text.
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState('')
+
+  // Folder tree for the chat doc-scope picker, built from folders + assignments
+  // + the workspace's documents (unfiled docs surface at the root).
+  const tree = useMemo(
+    () => buildFolderTree(folders, folderAssignments, workspaceDocs),
+    [folders, folderAssignments, workspaceDocs],
+  )
+  const topKeys = useMemo(() => topLevelFolderKeys(tree), [tree])
+  // Expansion state, with top-level folders auto-opened the first time they
+  // appear (folders/docs arrive async). seenRef stops a user-collapsed folder
+  // from springing back open on the next refresh.
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const seenRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    seenRef.current = new Set()
+    setExpandedFolders(new Set())
+  }, [activeWorkspaceId])
+  useEffect(() => {
+    setExpandedFolders((prev) => {
+      let changed = false
+      const next = new Set(prev)
+      for (const k of topKeys) {
+        if (!seenRef.current.has(k)) {
+          seenRef.current.add(k)
+          next.add(k)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [topKeys])
+  const toggleFolderExpand = useCallback((key: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const folderScopeState = useCallback(
+    (folderId: number): FolderScopeState => {
+      const ids = collectDescendantDocIds(folderId, folders, folderAssignments)
+      if (ids.length === 0) return 'none'
+      const selected = ids.filter((id) => activeDocumentIds.includes(id)).length
+      if (selected === 0) return 'none'
+      return selected === ids.length ? 'all' : 'partial'
+    },
+    [folders, folderAssignments, activeDocumentIds],
+  )
 
   const commitRename = (id: number): void => {
     const trimmed = editDraft.trim()
@@ -202,6 +277,13 @@ export function Sidebar({
                           className="sidebar__ws-type-badge"
                         />
                       )}
+                      {w.encryptionLevel === 'none' && (
+                        <Unlock
+                          size={13}
+                          aria-label={t('shell.unencryptedWorkspace')}
+                          className="sidebar__ws-type-badge"
+                        />
+                      )}
                       {isDropdown &&
                         (docPickerOpen ? (
                           <ChevronDown size={14} aria-hidden="true" />
@@ -284,25 +366,36 @@ export function Sidebar({
                         </button>
                       )}
                     </div>
-                    {workspaceDocs.length === 0 ? (
+                    {folders.length === 0 && workspaceDocs.length === 0 ? (
                       <div className="sidebar__doc-scope-empty">{t('shell.noDocumentsYet')}</div>
                     ) : (
-                      workspaceDocs.map((d) => {
-                        const selected = activeDocumentIds.includes(d.id)
-                        return (
-                          <button
-                            key={d.id}
-                            type="button"
-                            className={`sidebar__nav-btn sidebar__doc-btn ${selected ? 'sidebar__nav-btn--active' : ''}`}
-                            onClick={() => onToggleDocument(d.id)}
-                            aria-pressed={selected}
-                            title={d.title}
-                          >
-                            <FileText size={14} aria-hidden="true" />
-                            <span className="sidebar__doc-btn-label">{d.title}</span>
-                          </button>
-                        )
-                      })
+                      <FolderTree
+                        nodes={tree}
+                        expanded={expandedFolders}
+                        onToggleExpand={toggleFolderExpand}
+                        onCreateFolder={onCreateFolder}
+                        onRenameFolder={onRenameFolder}
+                        onDeleteFolder={onDeleteFolder}
+                        onMoveDocument={onMoveDocumentToFolder}
+                        folderScopeState={folderScopeState}
+                        onToggleFolderScope={onToggleFolderScope}
+                        newFolderLabel={t('folders.new')}
+                        renderFile={(d) => {
+                          const selected = activeDocumentIds.includes(d.id)
+                          return (
+                            <button
+                              type="button"
+                              className={`sidebar__doc-btn-inner ${selected ? 'sidebar__doc-btn-inner--active' : ''}`}
+                              onClick={() => onToggleDocument(d.id)}
+                              aria-pressed={selected}
+                              title={d.title}
+                            >
+                              <FileText size={14} aria-hidden="true" />
+                              <span className="sidebar__doc-btn-label">{d.title}</span>
+                            </button>
+                          )
+                        }}
+                      />
                     )}
                   </div>
                 )}
@@ -314,8 +407,9 @@ export function Sidebar({
               e.preventDefault()
               const trimmed = draft.trim()
               if (trimmed.length === 0) return
-              onCreateWorkspace(trimmed)
+              onCreateWorkspace(trimmed, newWsEncrypted)
               setDraft('')
+              setNewWsEncrypted(true)
             }}
             className="sidebar__new-ws-form"
           >
@@ -326,6 +420,23 @@ export function Sidebar({
               placeholder={t('shell.newWorkspace')}
               aria-label={t('shell.newWorkspace')}
             />
+            {draft.trim().length > 0 && (
+              <>
+                <label className="sidebar__new-ws-encrypt">
+                  <input
+                    type="checkbox"
+                    checked={newWsEncrypted}
+                    onChange={(e) => setNewWsEncrypted(e.target.checked)}
+                  />
+                  <span>{t('shell.encryptWorkspace')}</span>
+                </label>
+                <p className="sidebar__new-ws-hint">
+                  {newWsEncrypted
+                    ? t('shell.encryptWorkspaceOnHint')
+                    : t('shell.encryptWorkspaceOffHint')}
+                </p>
+              </>
+            )}
           </form>
         </div>
       )}

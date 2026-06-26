@@ -112,6 +112,14 @@ export interface MessageWithCitations extends MessageRow {
   citations: CitationRow[]
 }
 
+/** A user-created organizational folder (virtual; not tied to disk paths). */
+export interface WsFolder {
+  id: number
+  parentId: number | null
+  name: string
+  createdAt: number
+}
+
 /** Summary embeddings are stored as a BLOB of float32 (ADR-0003): hundreds of
  *  docs per workspace, so cosine is computed in JS. */
 function f32ToBlob(v: number[]): Buffer {
@@ -1039,6 +1047,63 @@ export class WorkspaceDb {
       [attemptId],
     )
     return row ? this.toAttempt(row) : null
+  }
+
+  // ---- folders (user-created organization) --------------------------------
+
+  private toFolder(row: Row): WsFolder {
+    return {
+      id: Number(row.id),
+      parentId: row.parent_id == null ? null : Number(row.parent_id),
+      name: String(row.name),
+      createdAt: Number(row.created_at),
+    }
+  }
+
+  async listFolders(): Promise<WsFolder[]> {
+    return this.rows(
+      `SELECT id, parent_id, name, created_at FROM folders ORDER BY name COLLATE NOCASE`,
+    ).map((r) => this.toFolder(r))
+  }
+
+  async listFolderAssignments(): Promise<Array<{ documentId: number; folderId: number }>> {
+    return this.rows(`SELECT document_id, folder_id FROM document_folders`).map((r) => ({
+      documentId: Number(r.document_id),
+      folderId: Number(r.folder_id),
+    }))
+  }
+
+  async createFolder(name: string, parentId: number | null): Promise<WsFolder> {
+    const row = this.one(
+      `INSERT INTO folders (name, parent_id) VALUES (?, ?)
+       RETURNING id, parent_id, name, created_at`,
+      [name, parentId ?? null],
+    )!
+    return this.toFolder(row)
+  }
+
+  async renameFolder(id: number, name: string): Promise<void> {
+    this.run(`UPDATE folders SET name = ? WHERE id = ?`, [name, id])
+  }
+
+  async deleteFolder(id: number): Promise<void> {
+    // ON DELETE CASCADE removes subfolders + the document_folders rows; the
+    // documents themselves are untouched (they fall back to "unfiled").
+    this.run(`DELETE FROM folders WHERE id = ?`, [id])
+  }
+
+  /** Move a document into a folder, or unfile it (folderId null). PK on
+   *  document_id enforces one-folder-per-doc, so this upserts. */
+  async setDocumentFolder(documentId: number, folderId: number | null): Promise<void> {
+    if (folderId == null) {
+      this.run(`DELETE FROM document_folders WHERE document_id = ?`, [documentId])
+      return
+    }
+    this.run(
+      `INSERT INTO document_folders (document_id, folder_id) VALUES (?, ?)
+       ON CONFLICT(document_id) DO UPDATE SET folder_id = excluded.folder_id`,
+      [documentId, folderId],
+    )
   }
 
   // ---- conversations / messages / citations ------------------------------

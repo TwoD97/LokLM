@@ -69,12 +69,25 @@ const stub: Api = {
   },
   workspaces: {
     list: () => Promise.resolve([]),
+    storageEstimate: () =>
+      Promise.resolve({
+        workspaceId: 1,
+        vectorBytes: 0,
+        metaDbBytes: 0,
+        atRestBytes: 0,
+        openBytes: 0,
+        estDecryptOnOpenMs: 0,
+        vectorCount: 0,
+        encrypted: true,
+        measured: false,
+      }),
     create: (name: string) =>
       Promise.resolve({
         id: 1,
         name,
         createdAt: Math.floor(Date.now() / 1000),
         type: 'library' as const,
+        encryptionLevel: 'full' as const,
       }),
     rename: () => Promise.resolve(),
     delete: () => Promise.resolve(),
@@ -190,6 +203,14 @@ const stub: Api = {
     generateTitle: () => Promise.resolve(null),
     deleteMessage: () => Promise.resolve(),
     setActiveDocumentIds: () => Promise.resolve(),
+  },
+  folders: {
+    list: () => Promise.resolve({ folders: [], assignments: [] }),
+    create: (_workspaceId: number, name: string, parentId: number | null) =>
+      Promise.resolve({ id: 1, parentId, name, createdAt: Math.floor(Date.now() / 1000) }),
+    rename: () => Promise.resolve(),
+    delete: () => Promise.resolve(),
+    setDocumentFolder: () => Promise.resolve(),
   },
   models: {
     status: () =>

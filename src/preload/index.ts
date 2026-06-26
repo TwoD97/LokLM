@@ -30,7 +30,7 @@ import type {
   TranslatorStatus,
 } from '../shared/translation'
 import type { WriteResult, WritingMode } from '../shared/writing'
-import type { WorkspaceType } from '../shared/workspaceStorage'
+import type { WorkspaceType, WorkspaceStorageFootprint } from '../shared/workspaceStorage'
 import type { CodebaseClassification } from '../shared/codebase'
 import type {
   Document,
@@ -55,6 +55,8 @@ import type {
   ModelsStatus,
   LibrarySearchHit,
   LibrarySearchOptions,
+  Folder,
+  FolderTreeData,
 } from '../shared/documents'
 
 /** Mirrors `DownloadEvent` in src/main/services/models/ModelDownloader.ts —
@@ -159,7 +161,14 @@ const api = {
   },
   workspaces: {
     list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspaces:list'),
-    create: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspaces:create', name),
+    // Measured + estimated on-disk storage footprint (ADR-0005) for the
+    // LibraryView transparency card.
+    storageEstimate: (id: number): Promise<WorkspaceStorageFootprint> =>
+      ipcRenderer.invoke('workspaces:storageEstimate', id),
+    // `encrypted` (default true) is fixed at creation: false keeps the vector
+    // store plaintext at rest for an instant open on large, non-sensitive corpora.
+    create: (name: string, encrypted = true): Promise<Workspace> =>
+      ipcRenderer.invoke('workspaces:create', name, encrypted),
     rename: (id: number, name: string): Promise<void> =>
       ipcRenderer.invoke('workspaces:rename', id, name),
     delete: (id: number): Promise<void> => ipcRenderer.invoke('workspaces:delete', id),
@@ -319,6 +328,24 @@ const api = {
       ipcRenderer.invoke('conversations:deleteMessage', messageId),
     setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
       ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
+  },
+  folders: {
+    /** Folders + document→folder assignments for the workspace, in one call. */
+    list: (workspaceId: number): Promise<FolderTreeData> =>
+      ipcRenderer.invoke('folders:list', workspaceId),
+    create: (workspaceId: number, name: string, parentId: number | null): Promise<Folder> =>
+      ipcRenderer.invoke('folders:create', workspaceId, name, parentId),
+    rename: (workspaceId: number, id: number, name: string): Promise<void> =>
+      ipcRenderer.invoke('folders:rename', workspaceId, id, name),
+    delete: (workspaceId: number, id: number): Promise<void> =>
+      ipcRenderer.invoke('folders:delete', workspaceId, id),
+    /** Move a document into a folder, or unfile it (folderId null). */
+    setDocumentFolder: (
+      workspaceId: number,
+      documentId: number,
+      folderId: number | null,
+    ): Promise<void> =>
+      ipcRenderer.invoke('folders:setDocumentFolder', workspaceId, documentId, folderId),
   },
   models: {
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),

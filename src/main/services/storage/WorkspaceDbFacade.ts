@@ -2,6 +2,7 @@ import type { AuthService } from '../auth/AuthService'
 import type {
   WorkspaceDb,
   WsDocument,
+  WsFolder,
   ConversationRow,
   MessageRow,
   MessageWithCitations,
@@ -47,6 +48,9 @@ export class WorkspaceDbFacade {
   }
   conversations(): ConversationsApi {
     return new ConversationsApi(this.auth, () => this.active())
+  }
+  folders(): FoldersApi {
+    return new FoldersApi(this.auth)
   }
   quizzes(): QuizzesApi {
     return new QuizzesApi(this.auth, () => this.active())
@@ -301,6 +305,37 @@ class ConversationsApi {
   }
 }
 
+class FoldersApi {
+  constructor(private readonly auth: AuthService) {}
+  private meta(id: number): Promise<WorkspaceDb> {
+    return this.auth.getWorkspaceStore().openMetaDb(id)
+  }
+  async list(workspaceId: number): Promise<WsFolder[]> {
+    return (await this.meta(workspaceId)).listFolders()
+  }
+  async listAssignments(
+    workspaceId: number,
+  ): Promise<Array<{ documentId: number; folderId: number }>> {
+    return (await this.meta(workspaceId)).listFolderAssignments()
+  }
+  async create(workspaceId: number, name: string, parentId: number | null): Promise<WsFolder> {
+    return (await this.meta(workspaceId)).createFolder(name, parentId)
+  }
+  async rename(workspaceId: number, id: number, name: string): Promise<void> {
+    return (await this.meta(workspaceId)).renameFolder(id, name)
+  }
+  async delete(workspaceId: number, id: number): Promise<void> {
+    return (await this.meta(workspaceId)).deleteFolder(id)
+  }
+  async setDocumentFolder(
+    workspaceId: number,
+    documentId: number,
+    folderId: number | null,
+  ): Promise<void> {
+    return (await this.meta(workspaceId)).setDocumentFolder(documentId, folderId)
+  }
+}
+
 class QuizzesApi {
   constructor(
     private readonly auth: AuthService,
@@ -383,12 +418,19 @@ class WorkspacesApi {
         name: e.name,
         createdAt: e.createdAt,
         type: workspaceTypeOf(e),
+        encryptionLevel: e.encryptionLevel,
       }))
       .sort((a, b) => b.createdAt - a.createdAt)
   }
-  async create(name: string): Promise<Workspace> {
-    const e = await this.auth.getWorkspaceStore().create(name)
-    return { id: e.id, name: e.name, createdAt: e.createdAt, type: workspaceTypeOf(e) }
+  async create(name: string, opts?: { encrypted?: boolean }): Promise<Workspace> {
+    const e = await this.auth.getWorkspaceStore().create(name, opts)
+    return {
+      id: e.id,
+      name: e.name,
+      createdAt: e.createdAt,
+      type: workspaceTypeOf(e),
+      encryptionLevel: e.encryptionLevel,
+    }
   }
   async rename(id: number, name: string): Promise<void> {
     return this.auth.getWorkspaceStore().rename(id, name)

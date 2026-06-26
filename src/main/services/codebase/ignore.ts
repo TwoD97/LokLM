@@ -204,9 +204,10 @@ const CODE_EXTENSIONS: ReadonlySet<string> = new Set([
   'sql',
   'vue',
   'svelte',
-  // structured config worth searching as code
-  'json',
-  'jsonc',
+  // structured config worth searching as code. JSON deliberately EXCLUDED —
+  // package.json / tsconfig / data blobs / lockfiles are mostly noise in a
+  // codebase (lockfiles are already in IGNORED_FILENAMES), so .json/.jsonc route
+  // to 'skip'. yaml/toml/proto stay (CI configs, schemas read usefully as code).
   'yaml',
   'yml',
   'toml',

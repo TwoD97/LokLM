@@ -60,6 +60,7 @@
         ram: 'RAM',
         noGpu: 'Keine GPU erkannt',
         vramSuffix: 'VRAM',
+        sharedSuffix: 'geteilt (iGPU)',
         threadsSuffix: 'Threads',
       },
       tiers: {
@@ -212,6 +213,7 @@
         ram: 'RAM',
         noGpu: 'No GPU detected',
         vramSuffix: 'VRAM',
+        sharedSuffix: 'shared (iGPU)',
         threadsSuffix: 'threads',
       },
       tiers: {

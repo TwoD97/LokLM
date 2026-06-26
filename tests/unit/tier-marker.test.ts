@@ -19,6 +19,7 @@ import {
   getMarkerCandidateDirs,
   readTierMarker,
   isOllamaConnectorEnabled,
+  isCodebaseIndexingEnabled,
   __resetTierMarkerCacheForTest,
 } from '../../src/main/services/tier/TierMarker'
 
@@ -88,6 +89,18 @@ describe('isOllamaConnectorEnabled', () => {
     // key reads as true ( ≤ v0.4.0 markers predate the field ) , only an
     // explicit false locks the connector.
     expect(isOllamaConnectorEnabled()).toBe(true)
+  })
+})
+
+describe('isCodebaseIndexingEnabled', () => {
+  it('returns true on the no-marker path ( dev / test / pre-v0.3.0 )', () => {
+    // Codebase indexing is a Standard+Pro feature ( chosen 2026-06-26 ). The
+    // gate only disables it for an explicit `lite` marker — every no-marker
+    // path ( dev , test , legacy install ) keeps full access so development and
+    // existing installs are unaffected. The `lite → false` and
+    // `standard/pro → true` branches need the fake-electron marker harness
+    // ( same as isOllamaConnectorEnabled's disabled path ) , deferred to Phase 4.
+    expect(isCodebaseIndexingEnabled()).toBe(true)
   })
 })
 

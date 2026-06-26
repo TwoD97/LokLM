@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { createBackendSerializer, SERIALIZED_OPS } from '@main/services/workers/backendSerializer'
 
-// The embedder + reranker run on a dedicated CPU backend, so their ops bypass
-// this serializer entirely. What it guards is the GPU (chat) backend: the main
-// chat session (`llm.ask`) and the utility session (`llm.generateRaw`) decode on
-// one device, so a background generation overlapping a live chat could fast-fail
-// the process. This serializer makes the chat backend's ops run one-at-a-time
-// while letting control ops (abort) and the CPU-backend ops jump the queue.
+// The chat LLM, embedder AND reranker all share ONE Vulkan backend on a small
+// AMD iGPU (two Vulkan devices fast-fail the driver). This serializer funnels
+// every native op on that shared device through one FIFO so no two overlap
+// (the cross-op 0xC0000409 class). Only control ops (abort / setLanguage /
+// shutdown) jump the queue.
 
 function deferred<T = void>(): {
   promise: Promise<T>
@@ -27,7 +26,7 @@ function deferred<T = void>(): {
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('backendSerializer', () => {
-  it('runs two GPU-backend ops one at a time, in submission order', async () => {
+  it('runs two backend ops one at a time, in submission order', async () => {
     const run = createBackendSerializer()
     const events: string[] = []
     const gate = deferred()
@@ -50,7 +49,7 @@ describe('backendSerializer', () => {
     expect(events).toEqual(['gen:start', 'gen:end', 'ask:start'])
   })
 
-  it('lets a bypass op (llm.abort) run while a GPU op holds the queue', async () => {
+  it('lets a bypass op (llm.abort) run while a backend op holds the queue', async () => {
     const run = createBackendSerializer()
     const events: string[] = []
     const gate = deferred()
@@ -76,7 +75,7 @@ describe('backendSerializer', () => {
     expect(events).toEqual(['ask:start', 'abort', 'ask:end'])
   })
 
-  it('does not serialize CPU-backend ops (embedder/reranker) against the GPU queue', async () => {
+  it('serializes an embed BEHIND a held chat op (shared GPU backend)', async () => {
     const run = createBackendSerializer()
     const events: string[] = []
     const gate = deferred()
@@ -88,24 +87,28 @@ describe('backendSerializer', () => {
     })
 
     await tick()
-    expect(events).toEqual(['ask:start']) // GPU op holds the queue
+    expect(events).toEqual(['ask:start']) // chat op holds the queue
 
-    // An embed running on the separate CPU backend must NOT wait for the chat.
+    // The embedder now shares the GPU device, so an embed MUST wait — it cannot
+    // decode concurrently with the chat ask.
+    let embedRan = false
     const pEmbed = run('embedder.embed', async () => {
+      embedRan = true
       events.push('embed')
     })
-    await pEmbed
-    expect(events).toEqual(['ask:start', 'embed'])
+    await tick()
+    expect(embedRan).toBe(false) // still queued behind the ask
 
     gate.resolve()
-    await pAsk
+    await Promise.all([pAsk, pEmbed])
+    expect(events).toEqual(['ask:start', 'ask:end', 'embed'])
   })
 
-  it('releases the queue when a GPU op rejects', async () => {
+  it('releases the queue when a backend op rejects', async () => {
     const run = createBackendSerializer()
     const events: string[] = []
 
-    const p1 = run('llm.generateRaw', async () => {
+    const p1 = run('embedder.embed', async () => {
       events.push('one')
       throw new Error('boom')
     })
@@ -118,30 +121,28 @@ describe('backendSerializer', () => {
     expect(events).toEqual(['one', 'two'])
   })
 
-  it('serializes exactly the GPU (chat) backend ops', () => {
+  it('serializes every native op on the shared backend', () => {
     for (const op of [
       'llm.load',
       'llm.unload',
       'llm.ask',
       'llm.generateRaw',
+      'embedder.load',
+      'embedder.unload',
+      'embedder.embed',
+      'reranker.load',
+      'reranker.unload',
+      'reranker.rank',
       'planner.refresh',
     ] as const) {
       expect(SERIALIZED_OPS.has(op)).toBe(true)
     }
   })
 
-  it('never serializes CPU-backend ops or control ops', () => {
-    // embedder/reranker live on their own CPU backend; abort must interrupt a
-    // held ask; setLanguage is a JS-only patch; shutdown runs its own teardown.
-    for (const op of [
-      'embedder.embed',
-      'embedder.load',
-      'reranker.rank',
-      'reranker.load',
-      'llm.abort',
-      'llm.setLanguage',
-      'shutdown',
-    ] as const) {
+  it('never serializes control ops', () => {
+    // abort must interrupt a held ask; setLanguage is a JS-only patch; shutdown
+    // runs its own teardown on quit.
+    for (const op of ['llm.abort', 'llm.setLanguage', 'shutdown'] as const) {
       expect(SERIALIZED_OPS.has(op)).toBe(false)
     }
   })

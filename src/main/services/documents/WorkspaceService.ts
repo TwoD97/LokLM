@@ -1,5 +1,6 @@
 import type { AuthService } from '../auth/AuthService'
 import type { Workspace } from '../../../shared/documents'
+import type { WorkspaceStorageFootprint } from '../../../shared/workspaceStorage'
 
 const NAME_MIN = 1
 const NAME_MAX = 128
@@ -11,12 +12,14 @@ export class WorkspaceService {
     return this.auth.requireDatabase().workspaces().list()
   }
 
-  async create(name: string): Promise<Workspace> {
+  async create(name: string, opts?: { encrypted?: boolean }): Promise<Workspace> {
     this.validateName(name)
     // ADR-0005: the workspaces() API is the VaultManifest now — create() mints
     // the per-workspace WDEK and records the manifest entry directly. The
     // on-disk encrypted SQLite + Lance stores materialise lazily on first open.
-    return this.auth.requireDatabase().workspaces().create(name.trim())
+    // `encrypted` (default true) fixes the vector store's at-rest encryption at
+    // creation; see WorkspaceStore.create.
+    return this.auth.requireDatabase().workspaces().create(name.trim(), opts)
   }
 
   async rename(id: number, name: string): Promise<void> {
@@ -29,9 +32,30 @@ export class WorkspaceService {
     await this.auth.requireDatabase().workspaces().delete(id)
   }
 
-  /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker. */
+  /** Measured + estimated on-disk storage footprint of a workspace (ADR-0005),
+   *  surfaced to the user for transparency. Stats enc/ + meta.db; no decrypt. */
+  async getStorageEstimate(id: number): Promise<WorkspaceStorageFootprint> {
+    return this.auth.getWorkspaceStore().storageFootprint(id)
+  }
+
+  /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker.
+   *  A vault with a single workspace has no meaningful picker choice, so the
+   *  sole workspace is promoted to the default here: unlock then auto-activates
+   *  it instead of stranding the user on the picker with no active workspace
+   *  (which would also leave background folder-sync with nowhere to write). This
+   *  covers both a fresh single-workspace vault and the "deleted the former
+   *  default, one survivor remains" case, where the stored default is null. */
   async getDefault(): Promise<number | null> {
-    return this.auth.getWorkspaceStore().getDefaultWorkspaceId()
+    const store = this.auth.getWorkspaceStore()
+    const explicit = store.getDefaultWorkspaceId()
+    if (explicit != null) return explicit
+    const all = store.list()
+    if (all.length === 1) {
+      const sole = all[0]!.id
+      await store.setDefault(sole)
+      return sole
+    }
+    return null
   }
 
   /** Sets (or clears) the default workspace. Ensures the manifest entry exists

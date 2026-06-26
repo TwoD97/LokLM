@@ -13,6 +13,7 @@ import {
   isGitignored,
   type GitignoreLayer,
 } from '../codebase/gitignore'
+import { isCodebaseIndexingEnabled } from '../tier/TierMarker'
 
 const DEBOUNCE_MS = 800
 
@@ -118,7 +119,12 @@ export class FolderSyncService {
       await walkForClassification(resolve(folder), rels, CLASSIFY_FILE_CAP)
     }
     const classification = classifyCodebase(rels)
-    if (classification.isCodebase) {
+    // Codebase indexing is a Standard+Pro feature (chosen 2026-06-26). On the
+    // Lite tier the folder still syncs, but the workspace stays 'library' and is
+    // embedded with BGE-M3 — never flipped to 'codebase' / the Qwen code model.
+    // The classification is still returned so the renderer can surface an
+    // "upgrade to index as code" hint. No-marker (dev/legacy) keeps full access.
+    if (classification.isCodebase && isCodebaseIndexingEnabled()) {
       await this.auth.requireDatabase().workspaces().setType(workspaceId, 'codebase')
     }
     return classification
@@ -146,18 +152,48 @@ export class FolderSyncService {
   async sync(workspaceId: number): Promise<SyncResult> {
     const prev = this.syncTails.get(workspaceId) ?? Promise.resolve()
     const run = prev.catch(() => undefined).then(() => this.syncInternal(workspaceId))
-    this.syncTails.set(
-      workspaceId,
-      run.finally(() => {
-        // Only clear if we're still the tail — a queued sync that started
-        // after `run` will have replaced this entry.
-        if (this.syncTails.get(workspaceId) === run) this.syncTails.delete(workspaceId)
-      }),
-    )
+    // The stored tail swallows rejections: a failed sync surfaces to the caller
+    // via the returned `run`, but the tail kept in the map has no consumer, so an
+    // unhandled error there would crash out as an unhandled rejection. The
+    // cleanup clears the entry only if a newer sync hasn't replaced it — compared
+    // against `tail` (what we actually store), not `run`.
+    const tail: Promise<unknown> = run
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.syncTails.get(workspaceId) === tail) this.syncTails.delete(workspaceId)
+      })
+    this.syncTails.set(workspaceId, tail)
     return run
   }
 
   private async syncInternal(workspaceId: number): Promise<SyncResult> {
+    const empty = (): SyncResult => ({
+      imported: 0,
+      reindexed: 0,
+      markedMissing: 0,
+      unchanged: 0,
+      stillMissing: 0,
+    })
+
+    // ADR-0005: a sync's writes are bound to the ACTIVE workspace. The id-keyed
+    // repo ops it drives (setDocumentStatus, markMissing, clearMissing, …) target
+    // whatever workspace is active, and indexing's vectors land in the single
+    // materialised LanceDB. A watcher can fire for a NON-active workspace, or
+    // before any workspace is active during the post-unlock window — running the
+    // sync then throws "no active workspace" (and would otherwise write doc rows
+    // into the wrong store, or hijack the user's open vector store). Skip
+    // silently ; workspaces:activate kicks a fresh sync once this workspace is the
+    // active one, so changes made while it was inactive are still reconciled.
+    // getWorkspaceStore() throws when the session is locked, which is itself a
+    // "don't sync now" signal — treat it the same way.
+    let activeId: number | null
+    try {
+      activeId = this.auth.getWorkspaceStore().activeWorkspaceId()
+    } catch {
+      return empty()
+    }
+    if (activeId !== workspaceId) return empty()
+
     const send = (ev: Partial<SyncEvent> & Pick<SyncEvent, 'phase'>): void => {
       const sender = this.senderFactory?.()
       if (!sender) return
@@ -177,13 +213,7 @@ export class FolderSyncService {
     send({ phase: 'start' })
 
     const folders = await this.getFolders(workspaceId)
-    const result: SyncResult = {
-      imported: 0,
-      reindexed: 0,
-      markedMissing: 0,
-      unchanged: 0,
-      stillMissing: 0,
-    }
+    const result: SyncResult = empty()
     if (folders.length === 0) {
       send({ phase: 'done', ...result })
       return result

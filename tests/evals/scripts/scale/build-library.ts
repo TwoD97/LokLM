@@ -2,13 +2,13 @@ import 'dotenv/config'
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { FixedSizeChunker } from '../pipeline/Chunker'
+import { FixedSizeChunker } from '../../pipeline/Chunker'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 import { OllamaDocGenerator } from './OllamaDocGenerator'
 import { AnthropicDocGenerator } from './AnthropicDocGenerator'
 import type { DocumentGenerator, TopicSeed } from './DocumentGenerator'
-import type { SourceChunk } from '../synth/QuestionGenerator'
+import type { SourceChunk } from '../../synth/QuestionGenerator'
 
 // build-library , CLI:
 //   tsx tests/evals/scale/build-library.ts [--size tiny|small|medium|large]

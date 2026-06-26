@@ -29,8 +29,23 @@ export class BundledEmbedderProvider implements EmbedderProvider {
     })
   }
 
+  /** Query path (ADR-0006 fix #1): routes to EmbeddingService.embedQueries, which
+   *  prepends the code model's Instruct/Query template (BGE-M3: none). Same
+   *  null-means-unembeddable contract as embed(). */
+  async embedQuery(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]> {
+    const raw = await this.inner.embedQueries(texts, opts)
+    return raw.map((v, i) => {
+      if (v === null) {
+        throw new Error(`BundledEmbedderProvider: query #${i} could not be embedded`)
+      }
+      return new Float32Array(v)
+    })
+  }
+
   dimension(): number {
-    // ADR-0006: reflects the resident model — jina-code (896) vs BGE-M3 (1024).
+    // ADR-0006: reflects the resident model by identity — the code embedder
+    // (Qwen3-Embedding) vs BGE-M3. Both are 1024-dim now, but keep this
+    // identity-driven so a future code model with a different dim stays correct.
     return this.inner.activeIdentity() === CODE_EMBEDDER_IDENTITY
       ? CODE_EMBEDDING_DIM
       : EMBEDDING_DIM

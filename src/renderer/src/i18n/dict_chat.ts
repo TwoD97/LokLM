@@ -59,6 +59,9 @@ export const chatDict: DomainDict = {
     // Grounding badge — per-answer citation trust signal
     'chat.groundingOne': 'Grounded · 1 source',
     'chat.groundingMany': 'Grounded · {count} sources',
+    // Fallback sources footer — shown when the model answered from the fed
+    // chunks but emitted no inline citation markers.
+    'chat.sources': 'Sources',
     // SourceViewer
     'chat.sourceViewer': 'Source viewer',
     'chat.chunkFallback': 'Chunk #{id}',
@@ -133,6 +136,9 @@ export const chatDict: DomainDict = {
     // Grounding badge — per-answer citation trust signal
     'chat.groundingOne': 'Belegt · 1 Quelle',
     'chat.groundingMany': 'Belegt · {count} Quellen',
+    // Fallback sources footer — shown when the model answered from the fed
+    // chunks but emitted no inline citation markers.
+    'chat.sources': 'Quellen',
     // SourceViewer
     'chat.sourceViewer': 'Quellenansicht',
     'chat.chunkFallback': 'Chunk #{id}',

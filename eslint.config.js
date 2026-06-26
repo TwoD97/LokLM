@@ -19,6 +19,9 @@ export default tseslint.config(
       'public/**',
       'drizzle/**',
       '**/*.d.ts',
+      // Local benchmark / diagnostic probes run via tsx (loose by nature —
+      // `any`, console logging); dev tooling, not shipped code.
+      'tests/bench/**',
       // Excluded from AP-1.1 typecheck/lint; AP-2.1 brings these back.
       'src/main/services/**',
     ],

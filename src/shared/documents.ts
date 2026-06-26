@@ -1,5 +1,5 @@
 import type { HighlightedSegment } from './fuzzyHighlight'
-import type { WorkspaceType } from './workspaceStorage'
+import type { EncryptionLevel, WorkspaceType } from './workspaceStorage'
 
 // renderer-visible shape of a document. mirrors src/main/db/schema.ts Document
 // type but lives in src/shared so it's safe to import from the renderer , which
@@ -47,6 +47,33 @@ export interface Workspace {
   createdAt: number
   /** ADR-0006 workspace type; 'library' (documents) or 'codebase' (source). */
   type: WorkspaceType
+  /** ADR-0005 vector-store encryption, fixed at creation. 'full' (default) =
+   *  encrypted at rest; 'none' = plaintext vectors for instant open on large,
+   *  non-sensitive corpora. Drives the lock/unlock badge in the sidebar. */
+  encryptionLevel: EncryptionLevel
+}
+
+/** A user-created organizational folder (virtual; independent of where a
+ *  document's source file lives on disk). `parentId` nests folders; null = top
+ *  level. A document belongs to at most one folder (see FolderAssignment). */
+export interface Folder {
+  id: number
+  parentId: number | null
+  name: string
+  createdAt: number
+}
+
+/** One document → folder membership row. A document with no assignment is
+ *  "unfiled" and rendered at the tree root. */
+export interface FolderAssignment {
+  documentId: number
+  folderId: number
+}
+
+/** Everything the renderer needs to build the folder tree in one fetch. */
+export interface FolderTreeData {
+  folders: Folder[]
+  assignments: FolderAssignment[]
 }
 
 export interface IndexProgress {

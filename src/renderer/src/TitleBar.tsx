@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
-import type { EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import type { BackfillStatus, EmbedderState, ModelState, RerankerState } from '@shared/documents'
 import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
@@ -63,15 +63,38 @@ function ariaText(
 // Maps the raw backend label from ModelStatus.gpu ('cuda'|'vulkan'|'metal'|
 // 'cpu'|null) onto a short chip + a full hover-line. Null when unknown (no load
 // yet, or a remote source that doesn't report a device).
-function deviceLabel(t: TFn, gpu: string | null): { short: string; full: string } | null {
+function deviceLabel(t: TFn, gpu: string | null): Chip | null {
   if (gpu == null) return null
   if (gpu === 'cpu') {
     const cpu = t('shell.deviceCpu')
-    return { short: cpu, full: t('shell.runningOn', { device: cpu }) }
+    return { short: cpu, full: t('shell.runningOn', { device: cpu }), tone: 'cpu' }
   }
   const full = t('shell.deviceGpu', { backend: gpu.toUpperCase() })
-  return { short: t('shell.deviceGpuShort'), full: t('shell.runningOn', { device: full }) }
+  return {
+    short: t('shell.deviceGpuShort'),
+    full: t('shell.runningOn', { device: full }),
+    tone: 'gpu',
+  }
 }
+
+// Short, glanceable label for the resident embedder GGUF. ADR-0006: a codebase
+// workspace should show "Qwen3" (the code embedder); everything else "BGE-M3".
+// Falls back to a cleaned filename for any other *embed*.gguf a user dropped in.
+function shortEmbedderName(modelName: string | null): string | null {
+  if (!modelName) return null
+  const n = modelName.toLowerCase()
+  if (/qwen3[-_]?embedding/.test(n)) return 'Qwen3'
+  if (/bge[-_]?m3/.test(n)) return 'BGE-M3'
+  return (
+    modelName
+      .split(/[\\/]/)
+      .pop()!
+      .replace(/\.gguf$/i, '')
+      .replace(/[-_.]?q\d.*$/i, '') || modelName
+  )
+}
+
+type Chip = { short: string; full: string; tone: 'gpu' | 'cpu' | 'code' | 'doc' }
 
 type DotProps = {
   label: string
@@ -79,38 +102,34 @@ type DotProps = {
   source: DotSource
   message: string | null
   extraClass?: string
-  /** Compute-device chip (LLM only). Rendered visibly when the model is ready,
-   *  and always in the hover pill when known. */
-  device?: { short: string; full: string } | null
+  /** Always-visible text chip next to the dot (rendered when ready), e.g. the
+   *  LLM's compute device or the resident embedder model. Also shown in the pill. */
+  chip?: Chip | null
 }
 
-function StatusDot({ label, state, source, message, extraClass, device }: DotProps): JSX.Element {
+function StatusDot({ label, state, source, message, extraClass, chip }: DotProps): JSX.Element {
   const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
-  const deviceIsCpu = device != null && device.short === t('shell.deviceCpu')
   return (
     <span
       className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
       role="img"
       aria-label={
         ariaText(t, label, state, source, message) +
-        (device && state === 'ready' ? ` — ${device.full}` : '')
+        (chip && state === 'ready' ? ` — ${chip.full}` : '')
       }
     >
       <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
-      {device && state === 'ready' && (
-        <span
-          className={`titlebar__device titlebar__device--${deviceIsCpu ? 'cpu' : 'gpu'}`}
-          aria-hidden="true"
-        >
-          {device.short}
+      {chip && state === 'ready' && (
+        <span className={`titlebar__device titlebar__device--${chip.tone}`} aria-hidden="true">
+          {chip.short}
         </span>
       )}
       <span className="titlebar__pill" role="tooltip">
         <span className="titlebar__pill-label">{label}</span>
         <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
         <span className="titlebar__pill-text">{pillText(t, state, source)}</span>
-        {device && <span className="titlebar__pill-device">{device.full}</span>}
+        {chip && <span className="titlebar__pill-device">{chip.full}</span>}
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
     </span>
@@ -163,6 +182,9 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     source: 'bundled',
     gpu: null,
   })
+  // Live vector re-embed progress (model swap / backfill). When running, the
+  // embedder chip shows "↻ N%" because dense search is degraded until it lands.
+  const [backfill, setBackfill] = useState<BackfillStatus | null>(null)
   const [translation, setTranslation] = useState<TranslatorStatus | null>(null)
   // Whisper has no live status push (it loads per-transcription) , so we only
   // know presence/download state. 'idle' once a model is on disk = ready to
@@ -176,16 +198,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.embedder
-      .status()
-      .then((s) =>
-        setEmbedder({
-          state: s.state,
-          message: s.message,
-          source: s.source,
-          modelName: s.modelName,
-        }),
-      )
+    void window.api.embedder.status().then((s) =>
+      setEmbedder({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        modelName: s.modelName,
+      }),
+    )
     const off = window.api.embedder.onStatus((s) =>
       setEmbedder({ state: s.state, message: s.message, source: s.source, modelName: s.modelName }),
     )
@@ -213,6 +233,11 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
+    const off = window.api.embedder.onBackfillStatus(setBackfill)
+    return () => off()
+  }, [])
+
+  useEffect(() => {
     void window.api.translation.status().then(setTranslation)
     const off = window.api.translation.onStatus(setTranslation)
     return () => off()
@@ -230,6 +255,33 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
   }, [])
+
+  // ADR-0006: the visible embedder chip. Tone 'code' (green) when the resident
+  // model is the code embedder (Qwen3), 'doc' (neutral) for BGE-M3 — so a
+  // codebase workspace stuck on the BGE fallback is obvious at a glance. While a
+  // vector re-embed is running (model swap / backfill) the chip shows "↻ N%" in
+  // amber instead, because dense search is degraded until it completes.
+  const embIsCode = /qwen3[-_]?embedding/i.test(embedder.modelName ?? '')
+  const embShort = shortEmbedderName(embedder.modelName)
+  const reembedding = backfill?.state === 'running' && backfill.total > 0
+  // Clamp: the denominator can lag behind concurrent indexing, so guard the UI
+  // against a transient >100% even though the service now grows `total`.
+  const reembedPct = reembedding
+    ? Math.min(100, Math.round((backfill!.done / backfill!.total) * 100))
+    : 0
+  const embChip: Chip | null = reembedding
+    ? {
+        short: `↻ ${reembedPct}%`,
+        full: `re-embedding ${backfill!.done}/${backfill!.total} chunks — search degraded until done`,
+        tone: 'cpu',
+      }
+    : embShort
+      ? {
+          short: embShort,
+          full: `${embIsCode ? 'Code embedder' : 'Document embedder'} — ${embShort}`,
+          tone: embIsCode ? 'code' : 'doc',
+        }
+      : null
 
   return (
     <div className="titlebar" role="presentation">
@@ -280,15 +332,18 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           message={llm.message}
           // Device is only meaningful for the local engine; a remote Ollama
           // session runs on the host's hardware, which we can't report.
-          device={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
+          chip={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
         />
         <StatusDot
-          // ADR-0006: surface the resident embedder — jina-code → "Code embedder",
-          // otherwise the doc model (BGE-M3) → "Embedder".
-          label={/jina[-_]?code/i.test(embedder.modelName ?? '') ? 'Code embedder' : 'Embedder'}
+          // ADR-0006: surface the resident embedder — the code model
+          // (Qwen3-Embedding) → "Code embedder", otherwise the doc model
+          // (BGE-M3) → "Embedder". The chip shows the model name visibly so a
+          // codebase workspace can confirm Qwen3 is actually resident at a glance.
+          label={embIsCode ? 'Code embedder' : 'Embedder'}
           state={embedder.state}
           source={embedder.source}
           message={embedder.message}
+          chip={embChip}
         />
         {rerankerEnabled && (
           <StatusDot

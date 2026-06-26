@@ -84,6 +84,61 @@ describe('SourceViewer', () => {
     expect(screen.getByText(/Test\.md/)).toBeInTheDocument()
   })
 
+  it('renders a code source as the whole syntax-highlighted file', async () => {
+    setApi({
+      getSourceForChunk: () =>
+        Promise.resolve({
+          documentId: 9,
+          title: 'AuthService.ts',
+          mimeType: null,
+          sourcePath: 'src/main/services/auth/AuthService.ts',
+          headingPath: ['AuthService.ts', 'AuthService'],
+          chunkPageFrom: null,
+          chunkPageTo: null,
+        }),
+      listChunksForDocument: () =>
+        Promise.resolve([
+          {
+            id: 10,
+            documentId: 9,
+            ordinal: 1,
+            text: 'import argon2 from "argon2"',
+            tokenCount: null,
+            pageFrom: null,
+            pageTo: null,
+            headingPath: ['AuthService.ts'],
+            language: null,
+          },
+          {
+            id: 11,
+            documentId: 9,
+            ordinal: 2,
+            text: 'export class AuthService {}',
+            tokenCount: null,
+            pageFrom: null,
+            pageTo: null,
+            headingPath: ['AuthService.ts', 'AuthService'],
+            language: null,
+          },
+        ]),
+    })
+
+    const { container } = render(
+      <SourceViewer chunkId={11} documentTitle="AuthService.ts" onClose={() => undefined} />,
+    )
+    await waitFor(() =>
+      expect(container.querySelector('.source-viewer__doc--code')).toBeInTheDocument(),
+    )
+    // Whole file: every chunk rendered as a highlight.js code block, not just the cited one.
+    expect(container.querySelectorAll('pre code.hljs').length).toBeGreaterThanOrEqual(2)
+    expect(container.textContent).toContain('export class AuthService')
+    expect(container.textContent).toContain('import argon2')
+    // Cited chunk still accented.
+    expect(container.querySelector('.source-viewer__doc-section--cited')?.textContent).toContain(
+      'AuthService',
+    )
+  })
+
   it('renders fuzzy-highlighted marks for the cited sentence', async () => {
     setApi({
       getSourceForChunk: () =>

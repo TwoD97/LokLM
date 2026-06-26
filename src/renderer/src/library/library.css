@@ -51,6 +51,46 @@
   background: var(--accent-soft-strong);
   color: var(--accent);
 }
+/* Workspace storage footprint (ADR-0005 transparency). Compact + muted — it's
+   informational metadata, not a primary control. "≈" marks the derived (open
+   size / decrypt-on-open time) values; "~" prefixes an estimated at-rest size
+   (store not yet persisted). */
+.library__storage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+  font-size: 12px;
+}
+.library__storage-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.library__storage-stat[title] {
+  cursor: help;
+}
+.library__storage-label {
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 10px;
+}
+.library__storage-value {
+  color: var(--fg-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.library__storage-meta {
+  margin-left: auto;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
 .library__empty {
   opacity: 0.5;
   padding: 40px 0;
@@ -301,6 +341,42 @@
   color: var(--warning);
   margin-bottom: 8px;
 }
+.library__missing-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--warning);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.library__missing-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.library__missing-selectall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.library__missing-count {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.library__missing-bulk {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
 .library__missing-list {
   list-style: none;
   padding: 0;
@@ -308,6 +384,14 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Cap the run so a whole deleted folder scrolls in place instead of pushing
+   * the rest of the library off-screen. */
+  max-height: 280px;
+  overflow-y: auto;
+}
+.library__missing-check {
+  flex-shrink: 0;
+  margin: 0;
 }
 .library__missing-item {
   display: flex;
@@ -345,12 +429,62 @@
 .library__missing-action--danger {
   color: var(--error);
 }
-.library__missing-action--danger:hover {
+.library__missing-action--danger:hover:not(:disabled) {
   background: var(--error-bg);
+}
+.library__missing-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Failed-to-index banner — bulk retry of every failed document. */
+.library__failed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  background: var(--error-bg);
+}
+.library__failed-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--error);
+}
+.library__failed-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.library__failed-retry:hover {
+  border-color: var(--error);
+  background: var(--bg-elev);
 }
 
 /* Row variants + menu */
 .library__row--missing td {
+  opacity: 0.7;
+}
+/* Wrapper around the ⋯ button + dropdown — shared positioned anchor for both
+   the table row and the tree leaf, so the absolutely-placed menu lands right. */
+.library__actions {
+  position: relative;
+  display: inline-flex;
+}
+.library__tree-file.library__row--missing {
   opacity: 0.7;
 }
 .library__row-title {
@@ -562,6 +696,106 @@
   color: #5a9bff;
   margin-right: 4px;
   vertical-align: middle;
+}
+
+/* ── Folder-tree view (List ⇄ Tree toggle) ──────────────────────────────── */
+.library__viewtoggle {
+  display: inline-flex;
+  gap: 2px;
+  margin: 4px 0 8px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+}
+.library__viewtoggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.library__viewtoggle button:hover {
+  background: var(--bg-2);
+}
+.library__viewtoggle button.is-active {
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
+
+.library__tree {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+.library__tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.library__tree-row:hover {
+  background: var(--bg-elev);
+}
+.library__tree-folder {
+  cursor: pointer;
+  user-select: none;
+}
+.library__tree-chevron {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+.library__tree-foldericon {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+.library__tree-fileicon {
+  flex: 0 0 auto;
+  opacity: 0.55;
+}
+.library__tree-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library__tree-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.library__tree-count {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 11px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+.library__tree-file .library__status {
+  flex: 0 0 auto;
+}
+/* File-row body for the Library "Folders" view (inside FolderTree's wrapper). */
+.library__tree-file-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+}
+.library__tree-sentinel {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.5;
 }
 
 /* ADR-0006: directory picker for codebase folders without a .gitignore. */

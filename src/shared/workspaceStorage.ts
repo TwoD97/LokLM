@@ -5,17 +5,29 @@
 // encryption badge).
 
 /**
- * Per-workspace encryption level.
+ * Per-workspace encryption level (chosen at creation; immutable afterwards).
  *
- * The accepted decision in ADR-0005 is "full block-level crypto for every
- * workspace", so `'full'` is the only level the storage layer currently
- * provisions. The enum exists rather than a boolean so the field is already in
- * the manifest schema (forward-compatible) — a future `'none'` scratch level,
- * if ever justified, slots in without a manifest version bump.
+ *  - `'full'`  — the default (ADR-0005): the workspace's vector store is
+ *    block-encrypted at rest and decrypted into a plaintext working copy only
+ *    while the workspace is open.
+ *  - `'none'`  — the vector store stays plaintext on disk. Trades at-rest
+ *    confidentiality of the embeddings for an instant unlock (no decrypt-on-open
+ *    pass) and half the disk (no enc/ + work/ duplication) — see
+ *    estimateWorkspaceFootprint. The relational/text store (meta.db, SQLCipher)
+ *    stays encrypted regardless, so document text is never written in the clear;
+ *    only the derived vector index is. Opt-in for large, non-sensitive corpora
+ *    on a trusted machine.
  */
-export type EncryptionLevel = 'full'
+export type EncryptionLevel = 'full' | 'none'
 
 export const DEFAULT_ENCRYPTION_LEVEL: EncryptionLevel = 'full'
+
+/** Whether `entry`'s vector store is encrypted at rest. Centralised so callers
+ *  agree on the meaning of the level and pre-ADR-0005 entries (no level) default
+ *  to encrypted. */
+export function isWorkspaceEncrypted(entry: { encryptionLevel?: EncryptionLevel }): boolean {
+  return (entry.encryptionLevel ?? DEFAULT_ENCRYPTION_LEVEL) !== 'none'
+}
 
 /**
  * Workspace type (ADR-0006). A `library` workspace indexes documents (PDFs,
@@ -94,6 +106,98 @@ export function resolveDefaultWorkspace(m: VaultManifest): WorkspaceManifestEntr
   }
   if (m.workspaces.length === 0) return null
   return m.workspaces.reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
+}
+
+// ---------------------------------------------------------------------------
+// Storage footprint (transparency feature). Surfaces "how heavy is this
+// workspace, and what does opening it cost" to the user. The at-rest sizes are
+// MEASURED by the caller (enc/ + meta.db exist on disk whether or not the
+// workspace is open); the open-size and open-time are DERIVED here from those
+// measured bytes and the constants below. Kept in shared/ so the renderer can
+// reuse the same math/labels the main process computes.
+
+/** On-disk bytes per stored vector. Measured on the storage-scale stress test
+ *  (tests/evals/scale, run 2026-06-23): ~4448 B for a 1024-dim float32 vector.
+ *  Breakdown: dims×4 raw vector + ~352 B of IVF-PQ codes + chunk/doc ids +
+ *  columnar/manifest overhead. LanceDB keeps the FULL-precision vectors on disk
+ *  (for rescoring), so the raw vector dominates — hence the dims×4 term. Used
+ *  only to ESTIMATE when a workspace's enc/ isn't measurable yet (e.g. created
+ *  but never persisted); a real enc/ stat always wins. */
+export const VECTOR_DISK_OVERHEAD_BYTES = 352
+export function estimatedBytesPerVector(dims: number): number {
+  return dims * 4 + VECTOR_DISK_OVERHEAD_BYTES
+}
+
+/** Decrypt-on-open throughput, measured ~163 MB/s on the dev box NVMe. It is
+ *  crypto/fs-loop-bound (64 KiB AES-256-GCM blocks, not disk-bandwidth-bound),
+ *  so it's roughly disk-independent for the sequential open pass — an HDD is
+ *  only modestly slower here (seek-heavy queries are the part HDDs hurt, not
+ *  this). Used to estimate the per-unlock wait. */
+export const DECRYPT_THROUGHPUT_BYTES_PER_SEC = 163 * 1_000_000
+
+/** Measured + estimated storage footprint of one workspace (ADR-0005). */
+export interface WorkspaceStorageFootprint {
+  workspaceId: number
+  /** Encrypted Lance vector store on disk (enc/) — measured, or estimated from
+   *  vectorCount × bytes/vector when the store isn't persisted yet. */
+  vectorBytes: number
+  /** Encrypted relational/text store (meta.db, SQLCipher) — measured. */
+  metaDbBytes: number
+  /** vectorBytes + metaDbBytes — total encrypted-at-rest footprint. */
+  atRestBytes: number
+  /** While an ENCRYPTED workspace is open, decrypt-on-open materialises a
+   *  plaintext copy of the Lance store (work/) next to enc/, so the vector bytes
+   *  are on disk twice; meta.db (SQLCipher, per-page) does NOT double. →
+   *  atRestBytes + vectorBytes. An UNENCRYPTED workspace keeps a single plaintext
+   *  copy, so openBytes == atRestBytes. */
+  openBytes: number
+  /** Estimated decrypt-on-open wait — the whole Lance store is decrypted to
+   *  plaintext on every unlock/switch (vectorBytes ÷ decrypt throughput). 0 for
+   *  an unencrypted workspace (it opens in place, nothing to decrypt). */
+  estDecryptOnOpenMs: number
+  /** Vectors indexed (live count for the active workspace, else last-known). */
+  vectorCount: number
+  /** Whether the vector store is encrypted at rest (false ⇒ instant open, no
+   *  disk doubling). Drives the lock/unlock badge + the open-cost copy. */
+  encrypted: boolean
+  /** True when vectorBytes was measured from enc/ (or the plaintext store) on
+   *  disk; false when estimated from vectorCount (store not yet persisted).
+   *  Drives a "~" hint in the UI. */
+  measured: boolean
+}
+
+/** Pure footprint math (testable, no I/O). The caller measures `vectorBytes`
+ *  (enc/ size) and `metaDbBytes` and passes them in; pass `vectorBytes: null`
+ *  to estimate from vectorCount instead (store not persisted yet). */
+export function estimateWorkspaceFootprint(input: {
+  workspaceId: number
+  vectorBytes: number | null
+  metaDbBytes: number
+  vectorCount: number
+  dims: number
+  /** Vector store encrypted at rest? Defaults to true (the ADR-0005 default).
+   *  When false, opening costs no decrypt pass and the store is not duplicated. */
+  encrypted?: boolean
+}): WorkspaceStorageFootprint {
+  const encrypted = input.encrypted ?? true
+  const measured = input.vectorBytes != null && input.vectorBytes > 0
+  const vectorBytes = measured
+    ? input.vectorBytes!
+    : input.vectorCount * estimatedBytesPerVector(input.dims)
+  const atRestBytes = vectorBytes + input.metaDbBytes
+  return {
+    workspaceId: input.workspaceId,
+    vectorBytes,
+    metaDbBytes: input.metaDbBytes,
+    atRestBytes,
+    // Encrypted: enc/ + work/ coexist while open (vectors twice). Unencrypted:
+    // one plaintext copy, so the open footprint equals the at-rest footprint.
+    openBytes: encrypted ? atRestBytes + vectorBytes : atRestBytes,
+    estDecryptOnOpenMs: encrypted ? (vectorBytes / DECRYPT_THROUGHPUT_BYTES_PER_SEC) * 1000 : 0,
+    vectorCount: input.vectorCount,
+    encrypted,
+    measured,
+  }
 }
 
 /** Suggests IVF-PQ parameters for a workspace of `rowCount` vectors. Centralised
