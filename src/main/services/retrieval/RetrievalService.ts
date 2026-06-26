@@ -255,7 +255,7 @@ export class RetrievalService {
     // code heuristics, and the code-vs-document query instruction below.
     const codeWorkspace = this.isCodebaseWorkspace
       ? await this.isCodebaseWorkspace(workspaceId).catch(() => false)
-      : this.registry.embedder().identity() === CODE_EMBEDDER_IDENTITY
+      : this.registry.embedder().identity?.() === CODE_EMBEDDER_IDENTITY
 
     // ------- 0a. hierarchical doc pre-filter (opt-in, default off) -------
     // Narrow chunk retrieval to the documents whose SUMMARY is closest to the
