@@ -38,9 +38,24 @@ export class WorkspaceService {
     return this.auth.getWorkspaceStore().storageFootprint(id)
   }
 
-  /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker. */
+  /** The workspace auto-loaded on unlock (ADR-0005), or null for the picker.
+   *  A vault with a single workspace has no meaningful picker choice, so the
+   *  sole workspace is promoted to the default here: unlock then auto-activates
+   *  it instead of stranding the user on the picker with no active workspace
+   *  (which would also leave background folder-sync with nowhere to write). This
+   *  covers both a fresh single-workspace vault and the "deleted the former
+   *  default, one survivor remains" case, where the stored default is null. */
   async getDefault(): Promise<number | null> {
-    return this.auth.getWorkspaceStore().getDefaultWorkspaceId()
+    const store = this.auth.getWorkspaceStore()
+    const explicit = store.getDefaultWorkspaceId()
+    if (explicit != null) return explicit
+    const all = store.list()
+    if (all.length === 1) {
+      const sole = all[0]!.id
+      await store.setDefault(sole)
+      return sole
+    }
+    return null
   }
 
   /** Sets (or clears) the default workspace. Ensures the manifest entry exists
