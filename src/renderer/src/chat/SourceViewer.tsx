@@ -15,6 +15,13 @@ type Props = {
    *  isn't available) , the modal still renders the document but skips
    *  highlighting. */
   messageText?: string | null
+  /** When `messageText` carries no `[doc:X, chunk:Y]` marker for this chunk,
+   *  whether to fall back to fuzzy-highlighting against the WHOLE message text.
+   *  True for the quiz path (the explanation prose IS the relevant snippet);
+   *  false for chat, where a marker-less click is the fallback "Sources" footer
+   *  — there's no specific cited sentence, so highlighting the whole answer just
+   *  marks a random shared phrase. Defaults to true to preserve quiz behaviour. */
+  wholeMessageFallback?: boolean
   onClose: () => void
 }
 
@@ -100,7 +107,13 @@ function formatPageRange(source: ChunkSource | null): string | null {
   return `p. ${source.chunkPageFrom}–${source.chunkPageTo}`
 }
 
-export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: Props): JSX.Element {
+export function SourceViewer({
+  chunkId,
+  documentTitle,
+  messageText,
+  wholeMessageFallback = true,
+  onClose,
+}: Props): JSX.Element {
   const t = useT()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -155,12 +168,16 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
       chunkId,
     })
     if (fromMarkers.length > 0) return fromMarkers
-    // No [doc:X, chunk:Y] markers in the supplied text — used by the quiz path
-    // where the explanation is plain prose. Treat the whole message as one
-    // snippet so the fuzzy matcher still has something to chew on.
+    // No [doc:X, chunk:Y] marker for this chunk. The quiz path passes plain
+    // explanation prose, where the whole message IS the relevant snippet, so
+    // fall back to fuzzy-matching against it. Chat opts out (wholeMessageFallback
+    // = false): a marker-less click there is a fallback "Sources" footer chip
+    // with no specific cited sentence, so matching the whole answer would just
+    // highlight an arbitrary shared phrase — better to highlight nothing.
+    if (!wholeMessageFallback) return []
     const stripped = messageText.replace(/\s+/g, ' ').trim()
     return stripped ? [stripped] : []
-  }, [messageText, source, chunkId])
+  }, [messageText, source, chunkId, wholeMessageFallback])
 
   const bodyMode = useMemo(() => classifySource(source), [source])
   const codeLang = useMemo(() => langFromPath(source?.sourcePath), [source])
