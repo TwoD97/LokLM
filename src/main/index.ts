@@ -55,7 +55,7 @@ import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import type { WorkspaceType } from '../shared/workspaceStorage'
 import { splitSentinels } from '../shared/docType'
-import { extractCitationMarkers } from '../shared/citationMarkers'
+import { reconcileCitations } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
@@ -1950,22 +1950,22 @@ function registerIpc(): void {
               assistantContent,
               { ttftMs, tokensPerSec, tokenCount },
             )
-            // Reconcile citations: persist ONLY the fed chunks the model
-            // actually cited in its answer, not every chunk we fed it. Without
-            // this the DB recorded all fedHits as "citations" regardless of
-            // whether the answer referenced them, so the persisted set never
-            // matched the chips the renderer derives from [doc:X, chunk:Y]
-            // markers — and a hallucinated marker had nothing to validate
-            // against. citations[] is already restricted to fedHits, so the
-            // intersection with the answer's markers is the faithful set.
-            const citedKeys = new Set(
-              extractCitationMarkers(body).map((m) => `${m.documentId}-${m.chunkId}`),
+            // Reconcile citations: when the model cited inline, persist ONLY
+            // the fed chunks it actually referenced so the chips the renderer
+            // derives from [doc:X, chunk:Y] markers match the persisted set (a
+            // hallucinated marker then has nothing to validate against). When it
+            // cited NOTHING inline — common with small / German outputs — fall
+            // back to the full fed set so the answer keeps its sources and the
+            // renderer's "Sources / Quellen" footer can surface them, instead of
+            // leaving the answer source-less. citations[] is already restricted
+            // to fedHits, so either branch stays faithful to what the model saw.
+            const citationsToPersist = reconcileCitations(
+              body,
+              citations,
+              (c) => `${c.doc_id}-${c.chunk_id}`,
             )
-            const groundedCitations = citations.filter((c) =>
-              citedKeys.has(`${c.doc_id}-${c.chunk_id}`),
-            )
-            if (groundedCitations.length > 0) {
-              await conversations.persistCitations(asst.id, groundedCitations)
+            if (citationsToPersist.length > 0) {
+              await conversations.persistCitations(asst.id, citationsToPersist)
             }
           }
         }
