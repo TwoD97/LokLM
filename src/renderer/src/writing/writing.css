@@ -22,6 +22,23 @@
   font-size: 13px;
 }
 
+/* ── Toolbar: mode pills + the rewrite action ─────────────────────────────
+ * Keeps the rewrite button inline at the top instead of floating dead-centre
+ * between the panes. */
+.writing-view__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.writing-view__toolbar .writing-view__modes {
+  flex: 1 1 auto;
+}
+.writing-view__toolbar .writing-view__btn--primary {
+  width: auto;
+  margin-left: auto;
+}
+
 /* ── Mode pills ───────────────────────────────────────────────────────── */
 .writing-view__modes {
   display: flex;
@@ -51,7 +68,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   align-items: stretch;
 }
@@ -120,20 +137,6 @@
   opacity: 0.5;
 }
 
-/* ── Center controls ──────────────────────────────────────────────────── */
-.writing-view__controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  min-width: 150px;
-}
-@media (max-width: 880px) {
-  .writing-view__controls {
-    flex-direction: row;
-  }
-}
 .writing-view__btn {
   display: inline-flex;
   align-items: center;

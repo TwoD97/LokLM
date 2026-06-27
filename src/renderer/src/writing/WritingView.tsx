@@ -66,18 +66,28 @@ export function WritingView(): JSX.Element {
         <p className="writing-view__sub">{t('writing.subtitle')}</p>
       </header>
 
-      <div className="writing-view__modes" role="tablist" aria-label={t('writing.modeLabel')}>
-        {WRITING_MODES.map((m) => (
-          <button
-            key={m}
-            role="tab"
-            aria-selected={mode === m}
-            className={`writing-view__mode ${mode === m ? 'writing-view__mode--active' : ''}`}
-            onClick={() => setMode(m)}
-          >
-            {t(`writing.mode.${m}`)}
-          </button>
-        ))}
+      <div className="writing-view__toolbar">
+        <div className="writing-view__modes" role="tablist" aria-label={t('writing.modeLabel')}>
+          {WRITING_MODES.map((m) => (
+            <button
+              key={m}
+              role="tab"
+              aria-selected={mode === m}
+              className={`writing-view__mode ${mode === m ? 'writing-view__mode--active' : ''}`}
+              onClick={() => setMode(m)}
+            >
+              {t(`writing.mode.${m}`)}
+            </button>
+          ))}
+        </div>
+        <button
+          className="writing-view__btn writing-view__btn--primary"
+          disabled={busy || !source.trim()}
+          onClick={() => void rewrite()}
+        >
+          {busy ? t('writing.rewriting') : t('writing.rewrite')}
+          {!busy && <ArrowRight size={15} aria-hidden="true" />}
+        </button>
       </div>
 
       <div className="writing-view__workbench">
@@ -92,17 +102,6 @@ export function WritingView(): JSX.Element {
             placeholder={t('writing.sourcePlaceholder')}
             spellCheck={false}
           />
-        </div>
-
-        <div className="writing-view__controls">
-          <button
-            className="writing-view__btn writing-view__btn--primary"
-            disabled={busy || !source.trim()}
-            onClick={() => void rewrite()}
-          >
-            {busy ? t('writing.rewriting') : t('writing.rewrite')}
-            {!busy && <ArrowRight size={15} aria-hidden="true" />}
-          </button>
         </div>
 
         <div className="writing-view__pane">
