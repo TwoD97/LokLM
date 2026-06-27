@@ -37,7 +37,13 @@ pub fn build_client() -> reqwest::Client {
     );
     reqwest::Client::builder()
         .default_headers(headers)
-        .timeout(std::time::Duration::from_secs(120))
+        // No TOTAL deadline : the payload + CUDA archives are large ( ~0.2-0.5 GB )
+        // and a fixed total would guillotine a slow-but-healthy download. read_timeout
+        // is a per-read IDLE timeout ( resets on every chunk ) , so only a genuinely
+        // stalled connection trips it — the retry + Range-resume in
+        // download_and_extract_archive then continues from the .partial.
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .read_timeout(std::time::Duration::from_secs(60))
         .build()
         .expect("reqwest client build failed")
 }
@@ -174,10 +180,6 @@ where
         bytes_written: written,
         sha256: actual,
     })
-}
-
-pub async fn cleanup_partial(dest: &Path) {
-    let _ = tokio::fs::remove_file(partial_path(dest)).await;
 }
 
 #[cfg(test)]

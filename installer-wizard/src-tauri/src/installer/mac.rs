@@ -14,7 +14,7 @@
 
 #![cfg(target_os = "macos")]
 
-use super::{archive, download, payload_manifest};
+use super::{download, payload_manifest};
 use super::{InstallOptions, InstallResult, InstallerState, ProgressEvent};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -303,14 +303,14 @@ where
     progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
     let client = download::build_client();
     let payload_archive_path = staging.join(&bundle.payload.filename);
-    download::download_with_resume(
+    super::download_and_extract_archive(
         &client,
-        download::DownloadSpec {
-            url: &payload_manifest::payload_url(),
-            dest: &payload_archive_path,
-            expected_sha256: Some(&bundle.payload.sha256),
-            expected_size: Some(bundle.payload.size_bytes),
-        },
+        &payload_manifest::payload_url(),
+        &payload_archive_path,
+        &bundle.payload.sha256,
+        bundle.payload.size_bytes,
+        &staging,
+        "payload",
         |written, total| {
             let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
             progress(ProgressEvent {
@@ -319,11 +319,7 @@ where
             });
         },
     )
-    .await
-    .map_err(|e| format!("payload download : {}", e))?;
-    archive::extract_tar_zst(&payload_archive_path, &staging)
-        .map_err(|e| format!("payload extract : {}", e))?;
-    let _ = std::fs::remove_file(&payload_archive_path);
+    .await?;
 
     // The archive builder historically packed every file with mode 0o644,
     // stripping the execute bit from all binaries.  Use `find` to locate
