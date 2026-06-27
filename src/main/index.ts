@@ -61,6 +61,7 @@ import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
 import {
   readTierMarker,
+  getEffectiveTier,
   isOllamaConnectorEnabled,
   isCodebaseIndexingEnabled,
 } from './services/tier/TierMarker'
@@ -418,7 +419,7 @@ function getProviderRegistry(): ProviderRegistry {
 // other tier (and dev/test, where readTierMarker() returns null) keeps the
 // universal default of reranker-on.
 function tierBaseDefaults(): UserSettings {
-  if (readTierMarker()?.tier !== 'lite') return DEFAULT_SETTINGS
+  if (getEffectiveTier() !== 'lite') return DEFAULT_SETTINGS
   return {
     ...DEFAULT_SETTINGS,
     advanced: {
@@ -1714,6 +1715,40 @@ function registerIpc(): void {
       getLlamaService().setSelectedProfile(choice)
     },
   )
+  // Warm every model the QA pipeline needs, for the post-unlock loading screen.
+  // CRITICAL: load them ONE AT A TIME. All three share a single node-llama-cpp
+  // backend (the worker's 'primary' device); firing the loads concurrently makes
+  // three native inits fight for the same Vulkan context, which thrashes the
+  // device and wedges the worker long enough that the window goes "not
+  // responding". Awaiting each in sequence keeps every load "nice" — predictable
+  // status, no native-init thrash. Idempotent: ensure* no-ops when already ready
+  // and shares any in-flight load, so this coexists with the delayed post-login
+  // warmup without doubling work. Fire-and-forget (the inner IIFE is voided): the
+  // renderer tracks progress via the llm/embedder/reranker status pushes, so the
+  // handler returns immediately and never blocks the IPC reply on a multi-GB load.
+  ipcMain.handle('models:warmupForQa', async () => {
+    void (async () => {
+      const reg = providerRegistry
+      // External Ollama: don't pull a multi-GB bundled GGUF into RAM only to
+      // leave it unused (same guard as the post-login warmup).
+      if (!reg || reg.getLlmSource() !== 'ollama') {
+        await getLlamaService()
+          .ensureLoaded()
+          .catch(() => undefined)
+      }
+      await getEmbeddingService()
+        .ensureReady()
+        .catch(() => undefined)
+      // Lite ships no reranker — never warm it on that tier, even if a prior
+      // non-lite run left reranker.enabled=true persisted (persisted settings
+      // win over the lite default). Mirrors the warming screen's tier gate.
+      if (getEffectiveTier() !== 'lite' && getSettingsService().get().advanced.reranker.enabled) {
+        await getRerankerService()
+          .ensureReady()
+          .catch(() => undefined)
+      }
+    })()
+  })
 
   // settings
   ipcMain.handle('settings:get', async () => {
@@ -1755,6 +1790,10 @@ function registerIpc(): void {
   // the whole Ollama settings panel ; the probe handler below enforces it
   // again so a stale renderer can't reach an external host anyway.
   ipcMain.handle('ollama:connectorEnabled', async () => isOllamaConnectorEnabled())
+
+  // Effective install tier (or LOKLM_TIER dev override). The renderer uses this
+  // to drop tier-specific UI — e.g. the lite tier hides the reranker status dot.
+  ipcMain.handle('tier:get', async () => getEffectiveTier())
 
   ipcMain.handle(
     'ollama:probe',
@@ -1871,6 +1910,26 @@ function registerIpc(): void {
       // chat; the configured value overrides the per-query adaptiveTopK
       // heuristic (which remains the fallback for quiz / eval callers).
       if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
+
+      // Lite tier = low-end / iGPU-only target → force the lean retrieval preset.
+      // Query expansion runs a FULL extra LLM generation BEFORE retrieval; on an
+      // iGPU the first turn pays a cold ~80s for it, and its paraphrases drift the
+      // topic (e.g. "interpreter" pulls in a JIT-compiler chunk). Off on lite: far
+      // faster AND more on-topic. Auto-detect can't see this — the iGPU latches a
+      // Vulkan label, so RetrievalService reads it as a fast GPU and leaves
+      // expansion on. The tier is the reliable signal. Caller-pinned values win.
+      if (getEffectiveTier() === 'lite') {
+        if (opts.multiQuery === undefined) opts.multiQuery = false
+        // Follow-up rewriting via the LLM is a second full prefill+generation
+        // per turn — minutes on an iGPU. Resolve follow-ups with the pure
+        // heuristic instead (the contextualize stage still runs, just instant).
+        if (opts.contextualizeHeuristicOnly === undefined) opts.contextualizeHeuristicOnly = true
+        // No whole-doc expansion on lite. A multi-Q&A study sheet is one small
+        // doc; expanding it floods the prompt with every Q&A (so the model
+        // answered "interpreter" with the JIT section) AND bloats the prefill.
+        // The focused matched chunk(s) answer the actual question.
+        if (opts.wholeDocFallback === undefined) opts.wholeDocFallback = false
+      }
 
       // Pin to THIS chat's workspace, not the active one: a message append routed
       // through active() lands in the wrong store when another workspace is active

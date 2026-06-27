@@ -219,6 +219,7 @@ const stub: Api = {
         models: [] as Array<never>,
         allRequiredReady: true,
       }),
+    warmupForQa: () => Promise.resolve(),
     download: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
     checkSpace: (requiredBytes: number) =>
@@ -445,6 +446,9 @@ const stub: Api = {
   ollama: {
     probe: () => Promise.resolve({ ok: true as const, version: '0.0.0', models: [] as string[] }),
     connectorEnabled: () => Promise.resolve(true),
+  },
+  tier: {
+    get: () => Promise.resolve(null as 'lite' | 'standard' | 'pro' | null),
   },
   providers: {
     onFallback: () => () => undefined,
