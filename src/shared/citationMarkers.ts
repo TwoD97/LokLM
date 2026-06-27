@@ -59,6 +59,37 @@ export function stripCitationMarkers(text: string): string {
 }
 
 /**
+ * Reconcile the chunks fed to the model against the `[doc:X, chunk:Y]` markers
+ * it actually emitted, returning the subset to persist as the answer's sources.
+ *
+ * When the answer cited chunks inline, only those validated citations are kept
+ * — the chips the renderer derives from the markers then match the persisted
+ * set exactly, and a hallucinated marker has nothing to validate against.
+ *
+ * When the answer cited NOTHING inline (small / terse / German outputs skip
+ * markers often), the full fed list is returned instead, so the answer still
+ * carries its sources. The renderer surfaces those as the fallback "Sources /
+ * Quellen" footer (MessageBubble.fallbackSources) rather than leaving the
+ * answer source-less. Without this fallback that footer can never fire: it
+ * needs persisted citations, which a grounded-only reconcile empties in exactly
+ * the no-marker case the footer was built for.
+ *
+ * `keyOf` maps a fed citation to its `documentId-chunkId` key so this stays
+ * agnostic to the caller's citation shape (the IPC path uses snake_case).
+ */
+export function reconcileCitations<T>(
+  answerText: string,
+  fed: readonly T[],
+  keyOf: (c: T) => string,
+): T[] {
+  const cited = new Set(
+    extractCitationMarkers(answerText).map((m) => `${m.documentId}-${m.chunkId}`),
+  )
+  const grounded = fed.filter((c) => cited.has(keyOf(c)))
+  return grounded.length > 0 ? grounded : [...fed]
+}
+
+/**
  * Replaces each `[doc:X, chunk:Y]` marker with a numbered short form
  * `[N](#cite-X-Y)` so a markdown renderer can convert it into a clickable
  * citation chip. Repeated markers reuse the first index they were assigned —

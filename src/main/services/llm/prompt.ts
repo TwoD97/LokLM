@@ -119,7 +119,7 @@ function buildSystemPromptEn(): string {
 
 Always respond in English. If the user writes in another language, translate the question internally but answer only in English.
 
-Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block — the UI renders them as clickable chips. Use only ids you have actually seen. If the Context does not support the answer, reply exactly: "${refusal}"
+Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block. Put the marker immediately after the sentence it supports — never collect citations into a list at the end. The UI renders each marker as a clickable chip and highlights the cited sentence inside the source, so a misplaced marker highlights the wrong passage. Use only ids you have actually seen. If the Context does not support the answer, reply exactly: "${refusal}"
 
 SOURCE
 Use only the provided Context. No outside knowledge or assumptions beyond what the Context supports.
@@ -151,7 +151,7 @@ function buildSystemPromptDe(): string {
 
 Antworte immer auf Deutsch. Schreibt der Nutzer in einer anderen Sprache, übersetze die Frage intern, aber antworte ausschließlich auf Deutsch.
 
-Belege jede faktische Aussage mit [doc:<documentId>, chunk:<chunkId>] anhand der IDs aus dem Context-Block — die Oberfläche rendert sie als klickbare Chips. Verwende nur IDs, die du tatsächlich gesehen hast. Stützt der Context die Antwort nicht, antworte exakt: "${refusal}"
+Belege jede faktische Aussage mit [doc:<documentId>, chunk:<chunkId>] anhand der IDs aus dem Context-Block. Setze den Marker unmittelbar hinter den Satz, den er belegt — sammle Zitate niemals in einer Liste am Ende. Die Oberfläche rendert jeden Marker als klickbaren Chip und hebt den belegten Satz in der Quelle hervor; ein falsch platzierter Marker hebt daher die falsche Stelle hervor. Verwende nur IDs, die du tatsächlich gesehen hast. Stützt der Context die Antwort nicht, antworte exakt: "${refusal}"
 
 QUELLE
 Nutze nur den bereitgestellten Context. Kein externes Wissen, keine Annahmen jenseits dessen, was der Context hergibt.
