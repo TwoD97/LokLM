@@ -13,8 +13,14 @@ import type {
   RerankerStatus,
   LlmProfileName,
   LlmContextChoice,
+  GpuKind,
 } from '../../../shared/documents'
-import type { LlmPlan, SystemResources, PlacementChoice } from '../embeddings/ResourcePlanner'
+import type {
+  LlmPlan,
+  SystemResources,
+  PlacementChoice,
+  LlmDevicePlan,
+} from '../embeddings/ResourcePlanner'
 
 export type ServiceKind = 'llm' | 'embedder' | 'reranker'
 
@@ -48,12 +54,13 @@ export interface LlmLoadPayload {
   profileDefaultContext: number
   weightsBytes: number
   userContextChoice: LlmContextChoice
-  /** User device choice for the LLM backend. 'cpu' forces getLlama({gpu:false});
-   *  'gpu'/'auto' let it auto-detect (GPU-first with CPU fallback). Mirrors the
-   *  embedder/reranker placement knob. NOTE: all three services share one llama
-   *  backend in the worker, so the first service to init wins the CPU/GPU choice;
-   *  with the GPU detection fix in place, auto converges them on GPU. */
-  placement: PlacementChoice
+  /** Resolved LLM device plan (backend family + which physical device to pin +
+   *  the expected device for verification). The worker's visible-device env is
+   *  set from this at spawn time by ModelsWorkerClient; here the worker uses
+   *  `expectedName`/`expectedKind` to verify the pin landed and report the
+   *  device. All three services share the one primary backend, so this device
+   *  choice governs the embedder + reranker too. */
+  device: LlmDevicePlan
   language: 'de' | 'en'
   envContextOverride: number | null
   // Full system prompt built on the main side from src/main/services/llm/prompt.ts.
@@ -124,6 +131,15 @@ export interface LlmLoadResult {
   /** Human-readable rationale for the resolved placement (e.g. the backend
    *  label, or why it fell back to CPU). */
   placementReason: string
+  /** Resolved physical device name from getGpuDeviceNames() (post-pin), or the
+   *  expected name when the runtime list is empty. Null on a CPU load. */
+  gpuName: string | null
+  /** dedicated/integrated for the resolved device (from the device plan). */
+  gpuKind: GpuKind | null
+  /** True when the loaded device matched the requested one (name found in the
+   *  post-pin device list). False means the model loaded but on a different
+   *  device than asked — the UI surfaces a "couldn't confirm" note. */
+  pinnedDeviceVerified: boolean
 }
 
 export interface EmbedderLoadResult {

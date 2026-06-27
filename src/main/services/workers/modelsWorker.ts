@@ -255,15 +255,20 @@ async function createBackend(
     // only steer the primary device choice.
     if (key === 'aux') return [false]
     // LLAMA_GPU=cpu/false is the hard "true CPU" escape — kept so CPU-timing evals
-    // can still measure the pure-CPU floor. Wins over the placement-driven path.
+    // can still measure the pure-CPU floor. Wins over every path below.
     if (pinned === 'cpu' || pinned === 'false') return [false]
     if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
-    // The 'cpu' PLACEMENT means "low-power tier", not "no acceleration": most such
-    // machines have an integrated GPU that runs these small models far faster than
-    // pure CPU (the reranker alone is ~25× quicker on an iGPU). Prefer a single
-    // Vulkan device (the iGPU on integrated-only boxes) and fall back to real CPU
-    // only when Vulkan can't init — still ONE device, so the shared-backend +
-    // serializer safety holds. Force true CPU with LLAMA_GPU=cpu (above).
+    // App device plan: ModelsWorkerClient sets LOKLM_PRIMARY_BACKEND (+ the
+    // CUDA_VISIBLE_DEVICES / GGML_VK_VISIBLE_DEVICES pin) in this worker's spawn
+    // env from the resolved GPU device. 'cuda' for an NVIDIA dedicated card,
+    // 'vulkan' for an AMD/Intel card (dedicated or integrated) pinned by index.
+    const planBackend = (process.env['LOKLM_PRIMARY_BACKEND'] ?? '').toLowerCase()
+    if (planBackend === 'cpu') return [false]
+    if (planBackend === 'cuda') return ['cuda', 'auto']
+    if (planBackend === 'vulkan') return ['vulkan']
+    // No plan (legacy/auto). `forceCpu` is the old low-power tier hint: prefer a
+    // single Vulkan device (the iGPU on integrated-only boxes) over true CPU —
+    // still ONE device, so the shared-backend + serializer safety holds.
     if (forceCpu) return ['vulkan', false]
     return ['auto']
   })()
@@ -321,12 +326,12 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     gpu: null,
   })
   const lib = await import('node-llama-cpp')
-  // 'cpu' forces the CPU backend; 'gpu'/'auto' let getLlama auto-detect (GPU
-  // first, CPU fallback). The shared-backend singleton means whichever service
-  // inits first wins — see LlmLoadPayload.placement.
-  const llama = await ensureBackend('primary', payload.placement === 'cpu', (msg) =>
-    pushStatus('llm', { message: msg }),
-  )
+  // The backend family + physical device pin come from the worker's spawn env
+  // (LOKLM_PRIMARY_BACKEND + CUDA/GGML visible-device vars), set by
+  // ModelsWorkerClient from payload.device. createBackend reads those; the
+  // shared-backend singleton means whichever service inits first wins, which is
+  // why the device is fixed at spawn (and the worker is restarted on a change).
+  const llama = await ensureBackend('primary', false, (msg) => pushStatus('llm', { message: msg }))
   pushStatus('llm', { gpu: primaryGpuLabel, message: 'Loading model weights…' })
 
   // Probe resources BEFORE the weights allocate so planLlm's freeVram math
@@ -502,28 +507,59 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   } catch {
     /* keep pre-load snapshot on probe failure */
   }
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
+  const resolvedPlacement: 'cpu' | 'gpu' = onGpu ? 'gpu' : 'cpu'
+
+  // Resolve the real device name from the post-pin device list and verify the
+  // pin landed (the requested device's name appears). getGpuDeviceNames returns
+  // the backend's filtered device set — with a correct GGML_VK_VISIBLE_DEVICES /
+  // CUDA_VISIBLE_DEVICES pin that's the single chosen device.
+  const expectedName = payload.device.expectedName
+  let deviceNames: string[] = []
+  if (onGpu) {
+    try {
+      deviceNames =
+        (await (llama as { getGpuDeviceNames?: () => Promise<string[]> }).getGpuDeviceNames?.()) ??
+        []
+    } catch {
+      /* non-fatal — fall back to the expected name */
+    }
+  }
+  const nameMatches = (a: string, b: string): boolean => {
+    const na = a.toLowerCase()
+    const nb = b.toLowerCase()
+    return na.includes(nb) || nb.includes(na)
+  }
+  const gpuName = onGpu ? (deviceNames[0] ?? expectedName) : null
+  const pinnedDeviceVerified =
+    !onGpu || expectedName == null ? true : deviceNames.some((n) => nameMatches(n, expectedName))
+  // Only claim the requested class when the pin was confirmed — if a different
+  // device loaded we don't actually know its class from the runtime name list.
+  const gpuKind = onGpu && pinnedDeviceVerified ? payload.device.expectedKind : null
+
   pushStatus('llm', {
     state: 'ready',
     loadProgress: null,
     message: 'Ready.',
     gpu: primaryGpuLabel,
+    gpuName,
+    gpuKind,
   })
-  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
-  const resolvedPlacement: 'cpu' | 'gpu' = onGpu ? 'gpu' : 'cpu'
-  const placementReason =
-    payload.placement === 'cpu'
-      ? 'cpu: forced by setting'
-      : onGpu
-        ? `gpu: ${primaryGpuLabel} backend`
-        : payload.placement === 'gpu'
-          ? 'cpu: no GPU backend available — fell back'
-          : 'cpu: no GPU backend detected'
+
+  const placementReason = onGpu
+    ? pinnedDeviceVerified
+      ? `gpu: ${gpuName ?? primaryGpuLabel} (${gpuKind ?? 'gpu'}, ${primaryGpuLabel})`
+      : `gpu: requested ${expectedName ?? 'device'} not confirmed — running on ${gpuName ?? primaryGpuLabel} (${primaryGpuLabel})`
+    : 'cpu: no GPU backend available — fell back'
   return {
     plan: activePlan,
     resources: postResources,
     gpuLabel: primaryGpuLabel,
     resolvedPlacement,
     placementReason,
+    gpuName,
+    gpuKind,
+    pinnedDeviceVerified,
   }
 }
 

@@ -15,7 +15,7 @@ import type {
   RerankerLoadResult,
 } from './protocol'
 import type { ModelStatus, EmbedderStatus, RerankerStatus } from '../../../shared/documents'
-import type { SystemResources } from '../embeddings/ResourcePlanner'
+import type { SystemResources, LlmDevicePlan } from '../embeddings/ResourcePlanner'
 
 type StatusListener = {
   llm: (s: Partial<ModelStatus>) => void
@@ -56,6 +56,11 @@ export class ModelsWorkerClient {
   /** Set during shutdown() so the long-lived exit handler can tell an
    *  intentional quit from a crash (only the latter fires the status reset). */
   private shuttingDown = false
+  /** Resolved LLM device plan. Its visible-device env vars must be in place
+   *  BEFORE the worker's first getLlama (the backend singleton latches the
+   *  device on first init), so they're baked into the spawn env here rather than
+   *  pushed at load time. Changing the physical device → restart the worker. */
+  private devicePlan: LlmDevicePlan | null = null
 
   setStatusListener<K extends ServiceKind>(kind: K, cb: StatusListener[K]): void {
     this.statusListeners[kind] = cb as StatusListener[K]
@@ -80,6 +85,11 @@ export class ModelsWorkerClient {
         // main during dev; in production this just goes nowhere harmless.
         stdio: 'inherit',
         serviceName: 'loklm-models',
+        // Bake the resolved GPU device into the worker env: LOKLM_PRIMARY_BACKEND
+        // seeds the getLlama backend order and CUDA/GGML_VK_VISIBLE_DEVICES pin
+        // the physical device — both must exist before the worker's first
+        // getLlama call, hence spawn-time rather than load-time.
+        env: this.deviceEnv(),
       })
       await new Promise<void>((resolve, reject) => {
         const onSpawn = (): void => {
@@ -267,6 +277,66 @@ export class ModelsWorkerClient {
     return this.send<SystemResources>('planner.refresh')
   }
 
+  /**
+   * Set the resolved LLM device plan. The pin lives in the worker's spawn env,
+   * so if the PHYSICAL device changed and a worker is already running we restart
+   * it — the next request respawns with the new env. Backend-family-or-pin
+   * changes (not just the user's label) are what trigger a restart; an
+   * equivalent plan is a no-op. Returns true when a restart happened.
+   */
+  async setDevicePlan(plan: LlmDevicePlan): Promise<boolean> {
+    const changed = !devicePlansEquivalent(this.devicePlan, plan)
+    this.devicePlan = plan
+    if (changed && this.child) {
+      await this.restart()
+      return true
+    }
+    return false
+  }
+
+  /** Build the worker spawn env from the current device plan (inherits the
+   *  parent env, then overlays the backend selector + device pins). */
+  private deviceEnv(): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    const plan = this.devicePlan
+    if (!plan) return env
+    env['LOKLM_PRIMARY_BACKEND'] = plan.backend
+    if (plan.cudaVisibleDevices != null) {
+      env['CUDA_VISIBLE_DEVICES'] = plan.cudaVisibleDevices
+      // Stable indexing so CUDA_VISIBLE_DEVICES refers to the PCI order, not the
+      // perf-sorted default that can renumber across reboots.
+      env['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    }
+    if (plan.ggmlVkVisibleDevices != null) {
+      env['GGML_VK_VISIBLE_DEVICES'] = plan.ggmlVkVisibleDevices
+    }
+    return env
+  }
+
+  /** Cleanly stop the worker so the next request respawns it (with a fresh
+   *  device env). Unlike shutdown(), the client stays usable afterwards. */
+  private async restart(): Promise<void> {
+    if (!this.child) return
+    this.shuttingDown = true
+    try {
+      await Promise.race([
+        this.send<void>('shutdown'),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ])
+    } catch {
+      /* killing it anyway */
+    }
+    try {
+      this.child.kill()
+    } catch {
+      /* ignore */
+    }
+    this.child = null
+    this.spawnPromise = null
+    // Re-arm crash detection for the respawned worker.
+    this.shuttingDown = false
+  }
+
   async shutdown(): Promise<void> {
     if (!this.child) return
     this.shuttingDown = true
@@ -285,4 +355,18 @@ export class ModelsWorkerClient {
     }
     this.child = null
   }
+}
+
+/** Two device plans are equivalent if they pin the same physical device the
+ *  same way — only the spawn-env-affecting fields matter (the user's `choice`
+ *  label does not, so flipping Auto↔Dedicated that resolve to the same card
+ *  doesn't pay a worker restart). */
+function devicePlansEquivalent(a: LlmDevicePlan | null, b: LlmDevicePlan | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.backend === b.backend &&
+    a.cudaVisibleDevices === b.cudaVisibleDevices &&
+    a.ggmlVkVisibleDevices === b.ggmlVkVisibleDevices
+  )
 }

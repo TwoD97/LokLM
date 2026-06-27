@@ -253,6 +253,17 @@ Lizenztext wird geladen ...</pre
             </p>
           </div>
 
+          <div
+            id="hardware-block"
+            class="hardware-block"
+            role="alert"
+            data-i18n="hardware.gpuRequired"
+            hidden
+          >
+            Keine GPU erkannt — LokLM benötigt eine GPU, um das Sprachmodell auszuführen. Auf diesem
+            Rechner kann nicht installiert werden.
+          </div>
+
           <div class="tier-grid" role="radiogroup" aria-label="Edition wählen">
             <label class="tier-card" data-tier="lite">
               <input type="radio" name="tier" value="lite" />
@@ -292,6 +303,9 @@ Lizenztext wird geladen ...</pre
               <p class="tier-card__body" data-i18n="tiers.standard.body">
                 Beste Antwort-Qualität in unserem Eval-Pool.
               </p>
+              <p class="tier-card__locked" data-i18n="tiers.lockedIgpu" hidden>
+                Benötigt eine dedizierte GPU
+              </p>
             </label>
 
             <label class="tier-card" data-tier="pro">
@@ -312,6 +326,9 @@ Lizenztext wird geladen ...</pre
               </ul>
               <p class="tier-card__body" data-i18n="tiers.pro.body">
                 Mehr Spielraum für Nischen-Themen und längere Kontexte.
+              </p>
+              <p class="tier-card__locked" data-i18n="tiers.lockedIgpu" hidden>
+                Benötigt eine dedizierte GPU
               </p>
             </label>
           </div>

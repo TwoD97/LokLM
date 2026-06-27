@@ -369,6 +369,10 @@ const stub: Api = {
         placementChoice: 'auto' as const,
         resolvedPlacement: null,
         placementReason: null,
+        gpuName: null,
+        gpuKind: null,
+        availableGpus: [],
+        pinnedDeviceVerified: true,
       }),
     reload: () =>
       Promise.resolve({
@@ -393,6 +397,10 @@ const stub: Api = {
         placementChoice: 'auto' as const,
         resolvedPlacement: null,
         placementReason: null,
+        gpuName: null,
+        gpuKind: null,
+        availableGpus: [],
+        pinnedDeviceVerified: true,
       }),
     setProfile: () => Promise.resolve(),
     onStatus: () => () => undefined,

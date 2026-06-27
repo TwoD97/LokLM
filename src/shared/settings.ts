@@ -1,4 +1,4 @@
-import type { LlmProfileChoice, LlmContextChoice } from './documents'
+import type { LlmProfileChoice, LlmContextChoice, LlmPlacementChoice } from './documents'
 
 export type ProviderSource = 'bundled' | 'ollama'
 
@@ -29,11 +29,12 @@ export interface UserSettings {
     llm: {
       source: ProviderSource
       contextChoice: LlmContextChoice
-      /** LLM compute device. 'auto' lets the loader pick (GPU when a backend
-       *  latches, else CPU); 'cpu'/'gpu' pin it. Mirrors embedder/reranker
-       *  placement. Changing it reloads the model so the new device takes
-       *  effect before the next answer. */
-      placement: 'auto' | 'cpu' | 'gpu'
+      /** LLM compute device. A GPU is required (CPU is no longer selectable):
+       *  'auto' prefers a dedicated card and falls back to an integrated GPU;
+       *  'dedicated'/'integrated' force that class. Legacy persisted 'cpu'/'gpu'
+       *  values are coerced to 'auto' on read. Changing it reloads the model
+       *  (and restarts the worker when the physical device changes). */
+      placement: LlmPlacementChoice
     }
     embedder: {
       source: ProviderSource

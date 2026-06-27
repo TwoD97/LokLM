@@ -2,11 +2,13 @@ import { totalmem } from 'node:os'
 import {
   ResourcePlanner,
   ggufWeightBytes,
+  resolveLlmDevicePlan,
   type LlmPlan,
   type SystemResources,
+  type LlmDevicePlan,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
-import { readTierMarker, type Tier } from '../tier/TierMarker'
+import { readTierMarker, readGpuInventory, type Tier } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
@@ -18,6 +20,8 @@ import type {
   LlmProfileChoice,
   AvailableProfile,
   LlmContextChoice,
+  GpuKind,
+  LlmPlacementChoice,
 } from '../../../shared/documents'
 export type {
   ModelState,
@@ -231,11 +235,20 @@ export class LlamaService {
   private gpuLabel: string | null = null
   private selectedChoice: LlmProfileChoice = 'auto'
   private selectedContext: LlmContextChoice = 'auto'
-  private selectedPlacement: 'auto' | 'cpu' | 'gpu' = 'auto'
+  private selectedPlacement: LlmPlacementChoice = 'auto'
+  // Resolved device plan (backend + pin) for the current choice + GPU inventory.
+  // Recomputed by applyDevicePlan(); handed to the worker (which restarts when
+  // the physical device changes).
+  private devicePlan: LlmDevicePlan = resolveLlmDevicePlan('auto', [])
   // Where the last load actually landed + why — surfaced in systemInfo for the
   // status bar / settings. Null until a load has happened.
   private resolvedPlacement: 'cpu' | 'gpu' | null = null
   private placementReason: string | null = null
+  // Resolved device name + class + whether the requested device was confirmed,
+  // from the last load. Surfaced in systemInfo + the TitleBar chip.
+  private resolvedGpuName: string | null = null
+  private resolvedGpuKind: GpuKind | null = null
+  private pinnedDeviceVerified = true
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
@@ -323,6 +336,10 @@ export class LlamaService {
       placementChoice: this.selectedPlacement,
       resolvedPlacement: this.resolvedPlacement,
       placementReason: this.placementReason,
+      gpuName: this.resolvedGpuName,
+      gpuKind: this.resolvedGpuKind,
+      availableGpus: readGpuInventory().map((g) => ({ name: g.name, kind: g.kind })),
+      pinnedDeviceVerified: this.pinnedDeviceVerified,
     }
   }
 
@@ -338,12 +355,36 @@ export class LlamaService {
     this.selectedContext = choice
   }
 
-  setSelectedPlacement(choice: 'auto' | 'cpu' | 'gpu'): void {
-    this.selectedPlacement = choice
+  setSelectedPlacement(choice: LlmPlacementChoice): void {
+    // CPU is no longer a user-selectable LLM placement — a GPU is required and
+    // the picker chooses a device CLASS. Anything that isn't a real class (e.g.
+    // a legacy persisted 'cpu'/'gpu', or a value from a newer build) coerces to
+    // 'auto'. (Pure-CPU timing evals drive the worker via LLAMA_GPU=cpu, not
+    // this field, so they're unaffected.)
+    this.selectedPlacement = choice === 'dedicated' || choice === 'integrated' ? choice : 'auto'
   }
 
-  getSelectedPlacement(): 'auto' | 'cpu' | 'gpu' {
+  getSelectedPlacement(): LlmPlacementChoice {
     return this.selectedPlacement
+  }
+
+  /**
+   * Recompute the device plan from the current choice + the install-time GPU
+   * inventory and push it to the worker. The worker bakes the pin into its spawn
+   * env, so this restarts the worker when the PHYSICAL device changes (a no-op
+   * otherwise). Safe to call before any worker exists (it just stores the plan,
+   * so the first spawn already carries the right env). Called from applySettings
+   * (startup + on change) and defensively at the head of autoLoad.
+   */
+  async applyDevicePlan(): Promise<void> {
+    this.devicePlan = resolveLlmDevicePlan(this.selectedPlacement, readGpuInventory())
+    if (this.client) {
+      try {
+        await this.client.setDevicePlan(this.devicePlan)
+      } catch {
+        /* worker status push already reflects reality */
+      }
+    }
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
@@ -442,6 +483,33 @@ export class LlamaService {
     const snapshot = await this.planner.refreshIfStale(60_000)
     this.lastResources = snapshot
 
+    // Resolve the device plan (choice + install-time GPU inventory) and pin it on
+    // the worker BEFORE loading — this restarts the worker when the physical
+    // device changed so the next getLlama latches the right one.
+    await this.applyDevicePlan()
+
+    // GPU required: the bundled LLM only runs on a GPU (dedicated or integrated).
+    // Block only when there's genuinely no usable GPU — when the marker inventory
+    // is present it's authoritative (plan.noGpu); without a marker we trust the
+    // runtime VRAM probe. Running a multi-GB model on CPU is multi-minutes per
+    // answer and effectively unusable. CPU-only timing evals still work via
+    // LLAMA_GPU=cpu, which drives the worker backend directly and bypasses this.
+    const inventory = readGpuInventory()
+    const noUsableGpu = inventory.length > 0 ? this.devicePlan.noGpu : !snapshot.hasGpu
+    if (noUsableGpu) {
+      // eslint-disable-next-line no-console
+      console.warn('[llm] no GPU detected — refusing to load (GPU is required)')
+      this.setStatus({
+        state: 'failed',
+        modelPath: null,
+        modelName: null,
+        profile: null,
+        message:
+          'No GPU detected. LokLM requires a GPU (dedicated or integrated) to run the language model.',
+      })
+      return
+    }
+
     let preferredName: LlmProfileName
     if (this.selectedChoice === 'auto') {
       const enriched = LLM_PROFILES.map((p) => {
@@ -457,23 +525,6 @@ export class LlamaService {
       preferredName = (picked?.name as LlmProfileName | undefined) ?? recommendedProfile()
     } else {
       preferredName = this.selectedChoice
-    }
-
-    // CPU downgrade: regardless of how we got `preferredName` ( auto-pick OR
-    // explicit user choice OR install-time tier marker ) , if there's no GPU
-    // and lite is available , force lite. Reasoning: a Full / XL tier was
-    // chosen for hardware the user no longer has — running it on CPU is
-    // multi-minutes per call. The user can switch back via settings once
-    // they're on a GPU machine again.
-    if (!snapshot.hasGpu && preferredName !== 'lite') {
-      const liteAvailable = profiles.find((x) => x.name === 'lite')?.filename != null
-      if (liteAvailable) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[llm] no GPU detected — auto-downgrading from '${preferredName}' to 'lite' for usability`,
-        )
-        preferredName = 'lite'
-      }
     }
 
     const path = this.resolveSelectedPath(profiles, preferredName)
@@ -529,7 +580,7 @@ export class LlamaService {
         profileDefaultContext: profile?.contextSize ?? 32768,
         weightsBytes: ggufWeightBytes(modelPath),
         userContextChoice: this.selectedContext,
-        placement: this.selectedPlacement,
+        device: this.devicePlan,
         language: this.language,
         envContextOverride: envOverride,
         systemPrompt: buildSystemPrompt(this.language),
@@ -539,6 +590,9 @@ export class LlamaService {
       this.gpuLabel = result.gpuLabel
       this.resolvedPlacement = result.resolvedPlacement
       this.placementReason = result.placementReason
+      this.resolvedGpuName = result.gpuName
+      this.resolvedGpuKind = result.gpuKind
+      this.pinnedDeviceVerified = result.pinnedDeviceVerified
       this.lastUsedAt = Date.now()
       this.startIdleTimer()
     } catch (err) {

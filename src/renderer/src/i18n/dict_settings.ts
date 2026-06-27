@@ -214,11 +214,20 @@ export const settingsDict: DomainDict = {
     'settings.llm.ctxAuto': 'Auto',
     'settings.llm.placement': 'Compute device',
     'settings.llm.placementHint':
-      'Where the model runs. Auto prefers the GPU when available. Changing this reloads the model.',
+      'The model runs on the GPU (dedicated or integrated); a GPU is required. Changing this reloads the model.',
     'settings.llm.placementAria': 'LLM compute device',
     'settings.llm.placementAuto': 'Auto',
     'settings.llm.placementCpu': 'CPU',
     'settings.llm.placementGpu': 'GPU',
+    'settings.llm.placementDedicated': 'Dedicated GPU',
+    'settings.llm.placementIntegrated': 'Integrated GPU',
+    'settings.llm.noDedicated': 'No dedicated GPU detected on this machine.',
+    'settings.llm.noIntegrated': 'No integrated GPU detected on this machine.',
+    'settings.llm.kindDedicated': 'dedicated',
+    'settings.llm.kindIntegrated': 'integrated',
+    'settings.llm.activeDevice': 'Active: {device} — {kind}',
+    'settings.llm.deviceUnconfirmed':
+      'Requested device could not be confirmed — running on the device shown above.',
 
     // EmbedderSection
     'settings.embedder.title': 'Embedder',
@@ -520,11 +529,20 @@ export const settingsDict: DomainDict = {
     'settings.llm.configureOllamaFirst': 'Zuerst Ollama einrichten',
     'settings.llm.placement': 'Recheneinheit',
     'settings.llm.placementHint':
-      'Wo das Modell läuft. Auto bevorzugt die GPU, sofern verfügbar. Eine Änderung lädt das Modell neu.',
+      'Das Modell läuft auf der GPU (dediziert oder integriert); eine GPU ist erforderlich. Eine Änderung lädt das Modell neu.',
     'settings.llm.placementAria': 'LLM-Recheneinheit',
     'settings.llm.placementAuto': 'Auto',
     'settings.llm.placementCpu': 'CPU',
     'settings.llm.placementGpu': 'GPU',
+    'settings.llm.placementDedicated': 'Dedizierte GPU',
+    'settings.llm.placementIntegrated': 'Integrierte GPU',
+    'settings.llm.noDedicated': 'Keine dedizierte GPU auf diesem Gerät erkannt.',
+    'settings.llm.noIntegrated': 'Keine integrierte GPU auf diesem Gerät erkannt.',
+    'settings.llm.kindDedicated': 'dediziert',
+    'settings.llm.kindIntegrated': 'integriert',
+    'settings.llm.activeDevice': 'Aktiv: {device} — {kind}',
+    'settings.llm.deviceUnconfirmed':
+      'Angefordertes Gerät konnte nicht bestätigt werden — läuft auf dem oben gezeigten Gerät.',
     'settings.llm.contextSize': 'Kontextgröße',
     'settings.llm.contextSizeHint':
       'Auto bemisst sich am freien VRAM. Nur überschreiben, wenn du dein Budget kennst.',
