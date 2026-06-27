@@ -29,6 +29,13 @@
   border-radius: 8px;
   padding: 5px 8px;
 }
+/* A custom select background makes Chromium drop color-scheme:dark for the
+   option popup (renders white), leaving the light text low-contrast. The native
+   popup ignores :root CSS variables, so use the concrete `initial` keyword
+   (black on the white popup) — same approach as chat/translation. */
+.transcription__field select option {
+  color: initial;
+}
 .transcription__seg {
   display: inline-flex;
   border: 1px solid var(--border, #30363d);
@@ -126,6 +133,12 @@
 .transcription__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+/* When .transcription__btn is a <select> (export menu), its custom background
+   makes Chromium render the option popup white; `initial` (black) restores
+   contrast since the native popup ignores :root CSS variables. */
+.transcription__btn option {
+  color: initial;
 }
 .transcription__body {
   line-height: 1.55;
