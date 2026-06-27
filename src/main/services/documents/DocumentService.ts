@@ -388,7 +388,11 @@ export class DocumentService {
     // inside guarantees the catch arm at the bottom flips status='failed' so
     // the row reflects what actually happened.
     try {
-      const repo = this.auth.requireDatabase().documents()
+      // Pin to the document's OWN workspace, not the active one. Folder-sync
+      // indexes documents across every workspace at login regardless of which is
+      // on screen; routing persistChunks/setDocumentStatus through active() lands
+      // them in the wrong store and trips the FK (chunks.document_id → documents).
+      const repo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
       await repo.setDocumentStatus(doc.id, 'indexing')
       send('parsing', 1)
 

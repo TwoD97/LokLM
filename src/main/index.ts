@@ -1872,8 +1872,13 @@ function registerIpc(): void {
       // heuristic (which remains the fallback for quiz / eval callers).
       if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
 
+      // Pin to THIS chat's workspace, not the active one: a message append routed
+      // through active() lands in the wrong store when another workspace is active
+      // (FOREIGN KEY constraint failed on conversation_id).
       const conversations =
-        opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
+        opts.conversationId != null
+          ? await getAuth().requireDatabase().conversationsFor(workspaceId)
+          : null
 
       // Persist the user message up-front so chat history is intact even if
       // the stream errors or the renderer disconnects mid-flight.
