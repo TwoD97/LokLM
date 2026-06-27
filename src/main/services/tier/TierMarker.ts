@@ -199,14 +199,16 @@ export function isOllamaConnectorEnabled(): boolean {
 /**
  * Codebase indexing (ADR-0006: source-project workspaces embedded with the Qwen3
  * code model) is a Standard+Pro feature — the Lite tier is library-only (BGE-M3).
- * True on every no-marker path (dev, test, pre-v0.3.0 installs) so development and
- * legacy installs keep full access; only an explicit `lite` marker disables it.
- * Single source of truth for the gate — used wherever a workspace would flip to
- * 'codebase' or load the code embedder.
+ * Keyed on the EFFECTIVE tier so the `pnpm dev --lite` override (LOKLM_TIER) is
+ * honoured too: without this a dev `--lite` run still loaded the Qwen3 code
+ * embedder and purged the BGE-M3 chunks on every launch. True on every no-tier
+ * path (plain dev, test, pre-v0.3.0 installs) so development and legacy installs
+ * keep full access; only an explicit `lite` tier disables it. Single source of
+ * truth for the gate — used wherever a workspace would flip to 'codebase' or
+ * load the code embedder.
  */
 export function isCodebaseIndexingEnabled(): boolean {
-  const marker = readTierMarker()
-  return marker === null || marker.tier !== 'lite'
+  return getEffectiveTier() !== 'lite'
 }
 
 /**
