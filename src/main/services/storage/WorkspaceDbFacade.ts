@@ -49,6 +49,21 @@ export class WorkspaceDbFacade {
   conversations(): ConversationsApi {
     return new ConversationsApi(this.auth, () => this.active())
   }
+
+  /** Like documents()/conversations() but PINNED to a specific workspace's store
+   *  instead of the active one. Background work (folder-sync indexing, backfill,
+   *  chat append) operates on a known workspace id regardless of which workspace
+   *  the user has on screen — routing its id-keyed WRITES through active() lands
+   *  chunks/messages in the wrong store and trips the FK ("FOREIGN KEY constraint
+   *  failed"). These pre-open the workspace's meta.db and pin every op to it. */
+  async documentsFor(workspaceId: number): Promise<DocumentsApi> {
+    const db = await this.auth.getWorkspaceStore().openMetaDb(workspaceId)
+    return new DocumentsApi(this.auth, () => db)
+  }
+  async conversationsFor(workspaceId: number): Promise<ConversationsApi> {
+    const db = await this.auth.getWorkspaceStore().openMetaDb(workspaceId)
+    return new ConversationsApi(this.auth, () => db)
+  }
   folders(): FoldersApi {
     return new FoldersApi(this.auth)
   }

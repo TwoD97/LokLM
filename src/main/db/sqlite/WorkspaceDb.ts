@@ -516,6 +516,16 @@ export class WorkspaceDb {
    *  order, so the caller can upsert vectors into LanceDB + mark them embedded. */
   async persistChunks(documentId: number, items: NewChunk[]): Promise<number[]> {
     if (items.length === 0) return []
+    // Loud guard for the store-routing class: the parent document MUST live in
+    // this store. If it doesn't, the caller routed to the wrong workspace (the
+    // active store instead of the document's) — surface that instead of the
+    // opaque "FOREIGN KEY constraint failed", which names neither store nor id.
+    if (!this.db.prepare('SELECT 1 FROM documents WHERE id = ?').get(documentId)) {
+      throw new Error(
+        `persistChunks: document ${documentId} is not in this workspace store — ` +
+          `store-routing mismatch (use documentsFor(workspaceId), not the active store)`,
+      )
+    }
     const insert = this.db.prepare(
       `INSERT INTO chunks (document_id, ordinal, text, token_count, page_from, page_to, heading_path, language)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
@@ -1157,6 +1167,16 @@ export class WorkspaceDb {
     content: string,
     metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
   ): Promise<MessageRow> {
+    // Loud guard for the store-routing class (same as persistChunks): the parent
+    // conversation must live in this store, else the caller wrote to the wrong
+    // workspace (active vs the conversation's). Name the id instead of the bare
+    // "FOREIGN KEY constraint failed".
+    if (!this.db.prepare('SELECT 1 FROM conversations WHERE id = ?').get(conversationId)) {
+      throw new Error(
+        `appendMessage: conversation ${conversationId} is not in this workspace store — ` +
+          `store-routing mismatch (use conversationsFor(workspaceId), not the active store)`,
+      )
+    }
     const row = this.one(
       `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count)
        VALUES (?, ?, ?, ?, ?, ?)
