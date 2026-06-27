@@ -106,6 +106,11 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   // workspace switch and after every sync run (folders may have been added).
   const [syncRoots, setSyncRoots] = useState<string[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
+  // Documents that still have un-embedded chunks while a vector re-embed (model
+  // swap / backfill) runs for this workspace — only these rows read
+  // 're-embedding' instead of painting the whole library. Refreshed as the
+  // backfill drains, cleared when it ends.
+  const [reembedDocIds, setReembedDocIds] = useState<Set<number>>(new Set())
   // Bumped after any flow that could change the missing-banner contents
   // (sync run, doc delete, replace, refresh). The banner refetches on every
   // bump rather than subscribing to four separate event sources.
@@ -151,6 +156,41 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     void refreshDocs(workspaceId)
     void refreshSyncRoots(workspaceId)
   }, [workspaceId, refreshDocs, refreshSyncRoots])
+
+  // Backfill status is broadcast per-workspace; ignore events for any workspace
+  // other than the one on screen. We also fetch the current status on mount/switch
+  // — a re-embed that started before the Library was opened never re-broadcasts,
+  // so subscribing alone would miss an already-running backfill.
+  //
+  // Alongside the status we refresh `reembedDocIds` (the docs with un-embedded
+  // chunks) so rows flip back to 'ready' as the backfill drains them, and clear
+  // it + refresh the doc list on done/failed.
+  useEffect(() => {
+    let cancelled = false
+    const refreshPending = (): void => {
+      void window.api.embedder.pendingReembedDocs(workspaceId).then((ids) => {
+        if (!cancelled) setReembedDocIds(new Set(ids))
+      })
+    }
+    setReembedDocIds(new Set())
+    void window.api.embedder.backfillStatus(workspaceId).then((s) => {
+      if (cancelled || s.workspaceId !== workspaceId) return
+      if (s.state === 'running') refreshPending()
+    })
+    const off = window.api.embedder.onBackfillStatus((s) => {
+      if (s.workspaceId !== workspaceId) return
+      if (s.state === 'running') {
+        refreshPending()
+      } else {
+        setReembedDocIds(new Set())
+        if (s.state === 'done' || s.state === 'failed') void refreshDocs(workspaceId)
+      }
+    })
+    return () => {
+      cancelled = true
+      off()
+    }
+  }, [workspaceId, refreshDocs])
 
   useEffect(() => {
     const off = window.api.documents.onIndexProgress((p) => {
@@ -420,6 +460,19 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
           status={search.status}
           onOpen={onOpenHit}
           query={search.query}
+          docs={docs}
+          actions={{
+            onDelete,
+            onReindex,
+            onReveal,
+            onOpenExternal,
+            onReplace,
+            onRefresh,
+            onRead,
+            onExport,
+            onSummarize,
+            onTogglePin,
+          }}
         />
       ) : (
         <>
@@ -477,6 +530,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
                   <LibraryFileRow
                     doc={d}
                     {...(p !== undefined ? { progress: p } : {})}
+                    {...(reembedDocIds.has(d.id) ? { reembedding: true } : {})}
                     onDelete={onDelete}
                     onReindex={onReindex}
                     onReveal={onReveal}
@@ -497,6 +551,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
               syncRoots={syncRoots}
               resetKey={workspaceId}
               progress={progress}
+              reembedDocIds={reembedDocIds}
               onDelete={onDelete}
               onReindex={onReindex}
               onReveal={onReveal}
@@ -513,6 +568,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
               docs={docs}
               resetKey={workspaceId}
               progress={progress}
+              reembedDocIds={reembedDocIds}
               onDelete={onDelete}
               onReindex={onReindex}
               onReveal={onReveal}

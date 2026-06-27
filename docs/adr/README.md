@@ -27,6 +27,8 @@ Referenced from [Pflichtenheft](../../Pflichtenheft_LokLM.md) §1.5 as `[ADR-NNN
 | 0003 | [Query-Routing + Per-Dokument-Summary-Index](0003-query-routing-und-summary-index.md)                                                  | accepted |
 | 0004 | [Adaptive Modell-Residency: Usage-Lernen + kostenbewusstes Caching](0004-adaptive-model-residency.md)                                  | proposed |
 | 0005 | [Per-Workspace skalierter, verschlüsselter Vektor-Store (LanceDB + Block-Crypto)](0005-per-workspace-scaled-encrypted-vector-store.md) | proposed |
+| 0006 | [Codebase-Workspace: code-aware Indexing & Analytics](0006-codebase-workspace-indexing.md)                                             | accepted |
+| 0007 | [Lite-Tier: iGPU-/Low-End-Performance-Preset](0007-lite-igpu-performance-preset.md)                                                    | accepted |
 
 ## Verwandte Dokumente
 

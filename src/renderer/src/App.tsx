@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AuthStatus } from '@shared/authTypes'
 import { LoginView } from './auth/LoginView'
+import { WarmingView } from './auth/WarmingView'
 import { PassphraseReveal } from './auth/PassphraseReveal'
 import { RegisterView } from './auth/RegisterView'
 import { ResetView } from './auth/ResetView'
@@ -21,13 +22,20 @@ type Phase =
   | { kind: 'login' }
   | { kind: 'reset' }
   | { kind: 'reveal'; words: string[] }
+  // Post-unlock model warmup screen (staged loading checklist). Sits between a
+  // successful unlock and the workspace so the user watches the QA models load
+  // instead of landing on a shell whose chat isn't ready yet.
+  | { kind: 'warming' }
   | { kind: 'unlocked' }
 
 function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
   if (!status.registered) return { kind: 'register' }
   if (!status.locked) {
-    if (current.kind === 'reveal') return current
-    return { kind: 'unlocked' }
+    // Already past the gate (warming / reveal / unlocked) — stay put. A fresh
+    // unlock (from login / loading) routes through the warming screen first.
+    if (current.kind === 'reveal' || current.kind === 'warming' || current.kind === 'unlocked')
+      return current
+    return { kind: 'warming' }
   }
   // registered & locked , stay on reset if the user is in the middle of it ,
   // otherwise show login.
@@ -122,7 +130,7 @@ export function App(): JSX.Element {
     content = (
       <LoginView
         status={status}
-        onUnlocked={() => setPhase({ kind: 'unlocked' })}
+        onUnlocked={() => setPhase({ kind: 'warming' })}
         onForgotPassword={() => setPhase({ kind: 'reset' })}
       />
     )
@@ -139,9 +147,11 @@ export function App(): JSX.Element {
       <PassphraseReveal
         words={phase.words}
         title={t('shell.recoveryWordsTitle')}
-        onAcknowledge={() => setPhase({ kind: 'unlocked' })}
+        onAcknowledge={() => setPhase({ kind: 'warming' })}
       />
     )
+  } else if (phase.kind === 'warming') {
+    content = <WarmingView onReady={() => setPhase({ kind: 'unlocked' })} />
   } else {
     content = (
       <section className="auth-card">

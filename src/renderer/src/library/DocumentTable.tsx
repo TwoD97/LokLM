@@ -12,6 +12,8 @@ type Props = {
   // the reset on the array reference collapsed the window mid-scroll.
   resetKey: number
   progress: Map<number, IndexProgress>
+  /** Documents with chunks pending re-embedding — their rows read 're-embedding'. */
+  reembedDocIds?: Set<number>
   onDelete: (id: number) => void
   onReindex: (id: number) => void
   onReveal: (id: number) => void
@@ -39,6 +41,7 @@ export function DocumentTable({
   docs,
   resetKey,
   progress,
+  reembedDocIds,
   onDelete,
   onReindex,
   onReveal,
@@ -104,6 +107,7 @@ export function DocumentTable({
               key={d.id}
               doc={d}
               {...(p !== undefined ? { progress: p } : {})}
+              {...(reembedDocIds?.has(d.id) ? { reembedding: true } : {})}
               onDelete={onDelete}
               onReindex={onReindex}
               onReveal={onReveal}

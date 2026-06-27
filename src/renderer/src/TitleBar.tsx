@@ -53,19 +53,6 @@ function pillText(t: TFn, state: DotState, source: DotSource): string {
   }
 }
 
-// Native `title=` fallback for screen readers and users who hover before our
-// custom tooltip renders. The pill is decorative; this string is the truth.
-function ariaText(
-  t: TFn,
-  label: string,
-  state: DotState,
-  source: DotSource,
-  message: string | null,
-): string {
-  const base = `${label}: ${pillText(t, state, source)}`
-  return message ? `${base} — ${message}` : base
-}
-
 // Maps the raw backend label from ModelStatus.gpu ('cuda'|'vulkan'|'metal'|
 // 'cpu'|null) + the resolved device class onto a short chip + a full hover-line.
 // Shows "dGPU"/"iGPU" when the class is known, plain "GPU" otherwise. Null when
@@ -112,7 +99,7 @@ function shortEmbedderName(modelName: string | null): string | null {
   )
 }
 
-type Chip = { short: string; full: string; tone: 'gpu' | 'cpu' | 'code' | 'doc' }
+type Chip = { short: string; full: string; tone: 'gpu' | 'cpu' | 'code' | 'doc' | 'busy' }
 
 type DotProps = {
   label: string
@@ -128,25 +115,27 @@ type DotProps = {
 function StatusDot({ label, state, source, message, extraClass, chip }: DotProps): JSX.Element {
   const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
+  const status = pillText(t, state, source)
+  const showChip = !!chip && state === 'ready'
   return (
     <span
       className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
       role="img"
       aria-label={
-        ariaText(t, label, state, source, message) +
-        (chip && state === 'ready' ? ` — ${chip.full}` : '')
+        `${label}: ${status}${message ? ` — ${message}` : ''}` +
+        (showChip ? ` — ${chip!.full}` : '')
       }
     >
       <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
-      {chip && state === 'ready' && (
-        <span className={`titlebar__device titlebar__device--${chip.tone}`} aria-hidden="true">
-          {chip.short}
+      {showChip && (
+        <span className={`titlebar__device titlebar__device--${chip!.tone}`} aria-hidden="true">
+          {chip!.short}
         </span>
       )}
       <span className="titlebar__pill" role="tooltip">
         <span className="titlebar__pill-label">{label}</span>
         <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
-        <span className="titlebar__pill-text">{pillText(t, state, source)}</span>
+        <span className="titlebar__pill-text">{status}</span>
         {chip && <span className="titlebar__pill-device">{chip.full}</span>}
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
@@ -313,8 +302,8 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   const embChip: Chip | null = reembedding
     ? {
         short: `↻ ${reembedPct}%`,
-        full: `re-embedding ${backfill!.done}/${backfill!.total} chunks — search degraded until done`,
-        tone: 'cpu',
+        full: t('shell.reembedProgress', { done: backfill!.done, total: backfill!.total }),
+        tone: 'busy',
       }
     : embShort
       ? {

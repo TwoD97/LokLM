@@ -14,7 +14,7 @@ const ROOT = resolve(__dirname, '..')
 
 const REQUIRED = [
   { path: 'models/bge-m3-Q4_K_M.gguf', minMB: 400, fix: 'pnpm models:embedder' },
-  { path: 'models/Qwen_Qwen3-8B-Q4_K_M.gguf', minMB: 4000, fix: 'pnpm models:medium' },
+  { path: 'models/Qwen3.5-4B-Q4_K_M.gguf', minMB: 2000, fix: 'pnpm models:medium' },
 ]
 
 let failed = false

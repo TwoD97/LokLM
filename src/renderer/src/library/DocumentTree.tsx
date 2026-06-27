@@ -11,7 +11,8 @@ import {
 import type { Document, IndexProgress } from '@shared/documents'
 import { useT } from '../i18n'
 import { DocumentActionsMenu, type DocumentActions } from './DocumentActionsMenu'
-import { LanguageBadge } from './DocumentRow'
+import { LanguageBadge, StatusBadge } from './DocumentRow'
+import { deriveRowStatus } from './documentStatus'
 import {
   buildDocumentTree,
   flattenTree,
@@ -26,6 +27,8 @@ type Props = {
   /** Workspace id; resets expansion + window on a genuine workspace switch. */
   resetKey: number
   progress: Map<number, IndexProgress>
+  /** Documents with chunks pending re-embedding — their rows read 're-embedding'. */
+  reembedDocIds?: Set<number>
 } & DocumentActions
 
 // Same windowing budget as DocumentTable — cap the initial DOM, expand on scroll.
@@ -40,6 +43,7 @@ export function DocumentTree({
   syncRoots,
   resetKey,
   progress,
+  reembedDocIds,
   ...actions
 }: Props): JSX.Element {
   const t = useT()
@@ -135,6 +139,7 @@ export function DocumentTree({
             doc={node.doc}
             depth={depth}
             {...(p !== undefined ? { progress: p } : {})}
+            {...(reembedDocIds?.has(node.doc.id) ? { reembedding: true } : {})}
             {...actions}
           />
         )
@@ -192,16 +197,18 @@ type FileRowProps = {
   doc: Document
   depth: number
   progress?: IndexProgress
+  reembedding?: boolean
 } & DocumentActions
 
-function TreeFileRowImpl({ doc, depth, progress, ...actions }: FileRowProps): JSX.Element {
+function TreeFileRowImpl({
+  doc,
+  depth,
+  progress,
+  reembedding,
+  ...actions
+}: FileRowProps): JSX.Element {
   const t = useT()
-  const status =
-    progress?.phase === 'failed' || doc.status === 'failed'
-      ? 'failed'
-      : progress && progress.phase !== 'done'
-        ? 'indexing'
-        : doc.status
+  const status = deriveRowStatus(doc, progress, reembedding)
   const isMissing = doc.missingAt != null
   return (
     <div
@@ -226,7 +233,7 @@ function TreeFileRowImpl({ doc, depth, progress, ...actions }: FileRowProps): JS
         <span className="library__tree-title-text">{doc.title}</span>
         {doc.language && <LanguageBadge language={doc.language} t={t} />}
       </span>
-      <span className={`library__status library__status--${status}`}>{status}</span>
+      <StatusBadge status={status} />
       <DocumentActionsMenu doc={doc} {...actions} />
     </div>
   )

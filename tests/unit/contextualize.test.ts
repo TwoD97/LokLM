@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { contextualizeQuery } from '@main/services/qa/QAService'
+import { contextualizeQuery, heuristicContextualizeQuery } from '@main/services/qa/QAService'
 
 const llm = (raw: string, opts: { ready?: boolean } = {}) => ({
   isReady: () => opts.ready ?? true,
@@ -143,5 +143,47 @@ describe('contextualizeQuery', () => {
     expect(sent).toContain('T12.')
     expect(sent).not.toContain('T1.') // assistant turn never sent
     expect(sent).not.toContain('T13.') // assistant turn never sent
+  })
+})
+
+describe('heuristicContextualizeQuery (lite / no-LLM path)', () => {
+  const hist = (...qs: string[]): Array<{ role: 'user' | 'assistant'; content: string }> =>
+    qs.map((content) => ({ role: 'user' as const, content }))
+
+  it('returns the query unchanged when history is empty', () => {
+    expect(heuristicContextualizeQuery([], 'was ist ein interpreter?')).toBe(
+      'was ist ein interpreter?',
+    )
+  })
+
+  it('anchors a pure meta follow-up on the prior USER question', () => {
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'genauer?')).toBe(
+      'was ist ein interpreter?',
+    )
+    expect(heuristicContextualizeQuery(hist('what is an interpreter?'), 'more')).toBe(
+      'what is an interpreter?',
+    )
+  })
+
+  it('prepends the prior question for a short anaphoric follow-up', () => {
+    expect(
+      heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'und bei JavaScript?'),
+    ).toBe('was ist ein interpreter? und bei JavaScript?')
+    expect(heuristicContextualizeQuery(hist('what is an interpreter?'), 'why is that?')).toBe(
+      'what is an interpreter? why is that?',
+    )
+  })
+
+  it('treats a long / standalone new question as standalone', () => {
+    const q = 'was ist der unterschied zwischen einem compiler und einem assembler genau?'
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), q)).toBe(q)
+  })
+
+  it('ignores assistant turns when picking the anchor', () => {
+    const history: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      { role: 'user', content: 'was ist ein interpreter?' },
+      { role: 'assistant', content: 'Ein Interpreter führt Code direkt aus.' },
+    ]
+    expect(heuristicContextualizeQuery(history, 'genauer?')).toBe('was ist ein interpreter?')
   })
 })

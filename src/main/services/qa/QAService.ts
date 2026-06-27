@@ -314,12 +314,18 @@ export class QAService {
       // Drain immediately so the renderer sees the row before the (possibly
       // multi-hundred-ms) LLM rewrite call awaits.
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
-      retrievalQuery = await contextualizeQuery(
-        this.registry.llm(),
-        opts.history,
-        query,
-        abortSignal ? { abortSignal } : {},
-      )
+      // Lite / iGPU: the LLM rewrite is a SECOND full prefill+generation per
+      // follow-up turn — minutes on a weak iGPU. Use the pure heuristic instead
+      // (anchor meta follow-ups on the prior question, prepend it for short
+      // anaphoric ones, else treat as standalone). No LLM, instant.
+      retrievalQuery = opts.contextualizeHeuristicOnly
+        ? heuristicContextualizeQuery(opts.history, query)
+        : await contextualizeQuery(
+            this.registry.llm(),
+            opts.history,
+            query,
+            abortSignal ? { abortSignal } : {},
+          )
       emitStage('contextualize', 'done', retrievalQuery === query ? 'unchanged' : 'rewritten')
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
     }
@@ -337,6 +343,7 @@ export class QAService {
       }
       if (opts.rerank !== undefined) searchOpts.rerank = opts.rerank
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
+      if (opts.wholeDocFallback !== undefined) searchOpts.wholeDocFallback = opts.wholeDocFallback
       if (opts.activeDocumentIds !== undefined)
         searchOpts.activeDocumentIds = opts.activeDocumentIds
       // Summary route: the chunk search is a citation top-up within the
@@ -507,6 +514,23 @@ export class QAService {
       yield { type: 'citation', ...c }
     }
 
+    // Diagnostic: the real prefill cost is driven by prompt size + the loaded
+    // context window. Logs the ACTUAL numbers so a slow prefill can be traced to
+    // its cause (window not reloaded to 8K? prompt still huge from whole-doc?)
+    // instead of guessed at. Prefill is intrinsic — this shows how big it is.
+    const promptTokens =
+      estimateTokens(buildSystemPrompt(language)) +
+      estimateHistoryTokens(opts.history) +
+      estimateTokens(query) +
+      fedHits.reduce((n, h) => n + estimateTokens(h.text), 0) +
+      (summaryPreamble ? estimateTokens(summaryPreamble) : 0)
+    // eslint-disable-next-line no-console
+    console.log(
+      `[qa] prefill input: ctxWindow=${ctxTokens} promptTokens≈${promptTokens} ` +
+        `fedHits=${fedHits.length} multiQuery=${opts.multiQuery ?? 'auto'} ` +
+        `wholeDoc=${opts.wholeDocFallback ?? 'auto'}`,
+    )
+
     // Prefill = the gap between "prompt assembled" and "first token". On CPU
     // this is the dominant unobserved latency; emitting start now and done on
     // the first token gives the user something to watch.
@@ -641,6 +665,52 @@ function isPureMetaFollowup(query: string): boolean {
   const words = query.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0 || words.length > 3) return false
   return META_FOLLOWUP_PATTERNS.some((re) => re.test(query.trim()))
+}
+
+// Anaphora / continuation markers (DE/EN). A SHORT follow-up that opens with a
+// conjunction or leans on a bare pronoun ("und bei JavaScript?", "was ist damit
+// gemeint?", "why is that") almost always refers to the prior turn's topic —
+// prepend the previous question so retrieval still has the subject.
+const FOLLOWUP_ANAPHORA: RegExp[] = [
+  /^(und|aber|oder|auch|sowie|and|but|or|also|plus)\b/i,
+  /\b(das|es|dies|diese[rs]?|dazu|daf[üu]r|dabei|davon|daran|dar[üu]ber|hierzu|deren|dessen|damit)\b/i,
+  /\b(it|its|that|this|these|those|them|their|theirs)\b/i,
+]
+
+/**
+ * Pure, LLM-free contextualizer for follow-up turns. The lite / iGPU path uses
+ * this in place of {@link contextualizeQuery} so a follow-up costs ZERO extra
+ * generation. Three rules, cheapest-first:
+ *   1. Pure meta ("genauer?", "mehr", "more") → the prior USER question verbatim
+ *      (the follow-up carries no topic of its own).
+ *   2. Short anaphoric ("und bei X?", "warum das?") → prior question + the
+ *      follow-up, so retrieval sees both the subject and the new angle.
+ *   3. Otherwise → standalone; return the query unchanged.
+ * Only USER turns are consulted (assistant answers can be wrong/drifted — same
+ * rule the LLM rewriter follows). Exported for unit tests.
+ */
+export function heuristicContextualizeQuery(
+  history: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>,
+  query: string,
+): string {
+  if (history.length === 0) return query
+  const userTurns = history.filter((m) => m.role === 'user')
+  const lastUser = userTurns.length > 0 ? userTurns[userTurns.length - 1]!.content.trim() : null
+  if (!lastUser) return query
+  const trimmed = query.trim()
+  const words = trimmed.split(/\s+/).filter(Boolean)
+  // Bare meta ("genauer?", "mehr", "warum?") → anchor on the prior question.
+  // The ≤2-word gate is stricter than isPureMetaFollowup's ≤3 on purpose: a
+  // 3-word "und bei JavaScript?" opens with a meta trigger ("und") but carries a
+  // NEW topic, so it must fall through to the concat rule below — anchoring would
+  // drop "JavaScript" and re-retrieve the old question.
+  if (words.length <= 2 && isPureMetaFollowup(trimmed)) return lastUser
+  // Short anaphoric / continuation follow-up with new content → prepend the prior
+  // question so retrieval sees both the subject and the new angle.
+  if (words.length <= 8 && FOLLOWUP_ANAPHORA.some((re) => re.test(trimmed))) {
+    return `${lastUser} ${trimmed}`
+  }
+  return query
 }
 
 /**

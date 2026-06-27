@@ -13,6 +13,11 @@
  * defaults the reranker off and hides its status dot. Any other args are passed
  * through to electron-vite.
  *
+ * Models: a tier flag also provisions that tier's GGUFs into <repo>/models from
+ * installer-wizard/model-manifest.json ( the same bundle the installer ships ),
+ * downloading any that are missing before electron-vite starts. So `pnpm dev
+ * --lite` actually runs Qwen3.5-2B rather than whatever larger GGUF is on disk.
+ *
  * Translator: the C++ sidecar (loklm-translator) and its ~3 GB MADLAD model are
  * provisioned by the installer, never the app, so a plain dev checkout has
  * neither — translation silently shows as unavailable. Rather than make every
@@ -23,7 +28,15 @@
  * by the main process). Anything the dev set themselves wins; a miss is silent.
  */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 const TIER_FLAGS = { '--lite': 'lite', '--standard': 'standard', '--pro': 'pro' }
@@ -48,6 +61,10 @@ const env = { ...process.env }
 if (tier) {
   env.LOKLM_TIER = tier
   console.log(`[dev] LOKLM_TIER=${tier} — emulating the "${tier}" install tier`)
+  // The wizard installs each tier's GGUFs; a dev checkout has none. Pull the
+  // tier's models from the same manifest the installer uses so `--lite` runs
+  // the actual Qwen3.5-2B ( not whatever larger model happens to be on disk ).
+  await ensureTierModels(tier)
 }
 
 wireTranslator(env)
@@ -58,6 +75,125 @@ child.on('exit', (code, signal) => {
   if (signal) process.kill(process.pid, signal)
   else process.exit(code ?? 0)
 })
+
+// --- tier model provisioning ----------------------------------------------
+
+/**
+ * Ensure the GGUFs for `tier` are present in <repo>/models, downloading any
+ * that are missing. Source of truth is installer-wizard/model-manifest.json —
+ * the exact same per-tier bundle the installer delivers, so dev matches a real
+ * install. Files already on disk ( by exact filename ) are skipped. A failed
+ * download warns but does not block the dev launch.
+ */
+async function ensureTierModels(tier) {
+  const manifestPath = join(ROOT, 'installer-wizard', 'model-manifest.json')
+  if (!existsSync(manifestPath)) {
+    console.warn(`[dev] no model-manifest.json at ${manifestPath} — skipping model download`)
+    return
+  }
+  let manifest
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch (err) {
+    console.warn(`[dev] could not parse model-manifest.json: ${err.message}`)
+    return
+  }
+  const entry = manifest.tiers?.[tier]
+  if (!entry?.models?.length) {
+    console.warn(`[dev] manifest has no tier "${tier}" — skipping model download`)
+    return
+  }
+
+  const modelsDir = join(ROOT, 'models')
+  if (!existsSync(modelsDir)) mkdirSync(modelsDir, { recursive: true })
+
+  const missing = entry.models.filter((m) => !existsSync(join(modelsDir, m.filename)))
+  if (missing.length === 0) {
+    console.log(`[dev] tier "${tier}" models already present (${entry.models.length} files)`)
+    return
+  }
+  console.log(`[dev] tier "${tier}": ${missing.length}/${entry.models.length} model(s) to download`)
+
+  for (const m of missing) {
+    const target = join(modelsDir, m.filename)
+    const gb = m.sizeBytes ? (m.sizeBytes / 1e9).toFixed(2) : '?'
+    console.log(`[dev]   ⬇ ${m.role} ${m.filename} (~${gb} GB) from ${shortHost(m.url)}`)
+    try {
+      await downloadFile(m.url, target, m.sizeBytes ?? 0)
+      console.log(`[dev]   ✓ ${m.filename}`)
+    } catch (err) {
+      console.warn(`[dev]   ✗ ${m.filename}: ${err.message} — app will show it as missing`)
+    }
+  }
+}
+
+/**
+ * Stream `url` to `target` via a .partial temp + atomic rename. Verifies size
+ * against Content-Length ( exact ) or, when absent, the manifest sizeBytes
+ * ( within 5% ). A partial download never leaves a file the app could pick up.
+ */
+async function downloadFile(url, target, expectedBytes) {
+  const res = await fetch(url, { redirect: 'follow' })
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+  if (!res.body) throw new Error('response had no body')
+
+  const total = Number(res.headers.get('content-length') ?? 0)
+  const tmp = target + '.partial'
+  if (existsSync(tmp)) unlinkSync(tmp)
+  const out = createWriteStream(tmp)
+
+  let received = 0
+  let lastPrint = 0
+  try {
+    for await (const chunk of res.body) {
+      out.write(chunk)
+      received += chunk.length
+      // Date.now() is fine here ( plain dev script , no resume journal ).
+      const now = Date.now()
+      if (now - lastPrint > 500) {
+        printProgress(received, total || expectedBytes)
+        lastPrint = now
+      }
+    }
+    printProgress(received, total || expectedBytes)
+    process.stdout.write('\n')
+  } catch (err) {
+    out.destroy()
+    if (existsSync(tmp)) unlinkSync(tmp)
+    throw err
+  }
+  await new Promise((r) => out.end(r))
+
+  const got = statSync(tmp).size
+  if (total > 0 && got !== total) {
+    unlinkSync(tmp)
+    throw new Error(`size mismatch: got ${got}, expected ${total}`)
+  }
+  if (total === 0 && expectedBytes > 0 && got < expectedBytes * 0.95) {
+    unlinkSync(tmp)
+    throw new Error(`download too small: ${got} bytes`)
+  }
+  if (existsSync(target)) unlinkSync(target)
+  renameSync(tmp, target)
+}
+
+function printProgress(received, total) {
+  const mb = (received / 1048576).toFixed(0)
+  if (total > 0) {
+    const pct = ((received / total) * 100).toFixed(1)
+    process.stdout.write(`\r[dev]     ${pct}%  ${mb} / ${(total / 1048576).toFixed(0)} MB    `)
+  } else {
+    process.stdout.write(`\r[dev]     ${mb} MB    `)
+  }
+}
+
+function shortHost(url) {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
 
 // --- translator discovery -------------------------------------------------
 

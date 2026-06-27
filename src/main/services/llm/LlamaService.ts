@@ -1,5 +1,4 @@
 import { totalmem } from 'node:os'
-import { modelLoadLock } from '../concurrency/ModelLoadLock'
 import {
   ResourcePlanner,
   ggufWeightBytes,
@@ -94,22 +93,17 @@ export interface LlmProfile {
   minTotalMemGB: number
 }
 
-// Profile ↔ on-disk-GGUF binding. v0.2.7 added the Qwen3.5 tier lineup the
-// wizard now installs ( lite=Qwen3.5-2B , standard=Qwen3.5-4B , pro=Qwen3.5-9B ) ;
-// patterns are ordered most-specific-first so a Qwen3.5-9B never accidentally
-// matches the bare /qwen3.*9b/ -style fallbacks. The older Qwen3 / Qwen2.5 /
-// Llama / Nemotron patterns stay so v0.2.6 installs + side-loaded GGUFs keep
-// resolving. Mapping by model size : 2B→lite , 4B→full , 9B→xl.
+// Profile ↔ on-disk-GGUF binding. The three tiers map 1:1 onto the Qwen3.5
+// lineup the installer wizard ships ( installer-wizard/model-manifest.json ) :
+//   lite → Qwen3.5-2B , full → Qwen3.5-4B , xl → Qwen3.5-9B.
+// Patterns are deliberately Qwen3.5-only — the legacy Qwen3 / Qwen2.5 / Llama /
+// Nemotron fallbacks were removed so a side-loaded Qwen3-8B can never resolve
+// as a tier model ( that mismatch loaded an 8B under a "lite" install ).
 export const LLM_PROFILES: LlmProfile[] = [
   {
     name: 'lite',
     displayName: 'Lite — Qwen3.5 2B (8 GB target)',
-    filenamePatterns: [
-      /qwen3\.5.*[-_]?2b/i,
-      /qwen3.*[-_]?4b/i,
-      /qwen2\.5.*[-_]?3b/i,
-      /llama.*3\.2.*[-_]?3b/i,
-    ],
+    filenamePatterns: [/qwen3\.5.*[-_]?2b/i],
     // 8K, not 32K. The context window sizes both the KV cache AND the retrieval
     // pack budget (QAService packs RAG context proportional to the window). On an
     // 8 GB / iGPU-only target a 32K window means ~23K tokens of retrieved text get
@@ -123,23 +117,14 @@ export const LLM_PROFILES: LlmProfile[] = [
   {
     name: 'full',
     displayName: 'Full — Qwen3.5 4B (16 GB+ target)',
-    filenamePatterns: [/qwen3\.5.*[-_]?4b/i, /qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
+    filenamePatterns: [/qwen3\.5.*[-_]?4b/i],
     contextSize: 131072,
     minTotalMemGB: 16,
   },
   {
     name: 'xl',
     displayName: 'XL — Qwen3.5 9B (high-end GPU, 32 GB+ RAM)',
-    filenamePatterns: [
-      /qwen3\.5.*[-_]?9b/i,
-      /nemotron.*3.*nano.*30b/i,
-      /nemotron.*nano.*30b/i,
-      /qwen3.*[-_]?30b.*a3b/i,
-      /qwen3.*[-_]?32b/i,
-      /qwen2\.5.*[-_]?32b/i,
-      /nemotron.*super.*49b/i,
-      /llama.*3\.3.*70b/i,
-    ],
+    filenamePatterns: [/qwen3\.5.*[-_]?9b/i],
     contextSize: 262144,
     minTotalMemGB: 32,
   },
@@ -542,17 +527,14 @@ export class LlamaService {
 
     let preferredName: LlmProfileName
     if (this.selectedChoice === 'auto') {
-      const enriched = LLM_PROFILES.map((p) => {
-        const d = profiles.find((x) => x.name === p.name)
-        const path = d?.filename ? resolveModelFile(d.filename) : null
-        return {
-          name: p.name,
-          minTotalMemGB: p.minTotalMemGB,
-          weightsBytes: path ? ggufWeightBytes(path) : 0,
-        }
-      })
-      const picked = this.planner.pickProfile(enriched, snapshot)
-      preferredName = (picked?.name as LlmProfileName | undefined) ?? recommendedProfile()
+      // Tier marker ( install-time choice , or `pnpm dev --lite` via LOKLM_TIER )
+      // is AUTHORITATIVE when its GGUF is on disk — otherwise fall back to the
+      // hardware heuristic. Shared with the settings UI ( recommendedProfileFrom
+      // Cache ) so the recommended label and the actually-loaded model agree.
+      // Previously this called planner.pickProfile() directly, which is purely
+      // VRAM/RAM-driven and ignored the tier — so `--lite` still loaded the
+      // largest model that fit ( an 8B under a lite install ).
+      preferredName = this.recommendedProfileFromCache(profiles)
     } else {
       preferredName = this.selectedChoice
     }
@@ -606,14 +588,24 @@ export class LlamaService {
     // model being loaded ( and so a later setLanguage rebuilds at the same tier ).
     this.activeProfile = profile?.name ?? null
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
-    // Serialise the native load against the embedder + reranker loads. They all
-    // share one backend; concurrent inits thrash it on iGPU / low-end hardware.
-    const release = await modelLoadLock.acquire('llm')
+    // Lite tier (iGPU / low-end target): HARD-cap the context window. planLlm
+    // clamps the final context to profileDefaultContext, so this bounds it
+    // regardless of how the profile resolved (a persisted 'full' llmProfile would
+    // otherwise win) or what "Auto" sizes to. Auto sizes to free VRAM, and on an
+    // iGPU's shared memory that's the model's full 128K native window — a giant
+    // KV cache AND a prefill prompt the packer fills to match. 8K is plenty for a
+    // focused RAG turn and keeps prefill survivable on an iGPU.
+    const LITE_CONTEXT_CAP = 8192
+    const baseDefaultContext = profile?.contextSize ?? 32768
+    const profileDefaultContext =
+      getEffectiveTier() === 'lite'
+        ? Math.min(baseDefaultContext, LITE_CONTEXT_CAP)
+        : baseDefaultContext
     try {
       const result = await this.client!.llmLoad({
         modelPath,
         profileName: profile?.name ?? null,
-        profileDefaultContext: profile?.contextSize ?? 32768,
+        profileDefaultContext,
         weightsBytes: ggufWeightBytes(modelPath),
         userContextChoice: this.selectedContext,
         device: this.devicePlan,
@@ -636,8 +628,6 @@ export class LlamaService {
       const msg = err instanceof Error ? err.message : String(err)
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
-    } finally {
-      release()
     }
   }
 

@@ -1657,6 +1657,12 @@ function registerIpc(): void {
   ipcMain.handle('embedder:backfillStatus', async (_e, workspaceId: number) =>
     getBackfillService().status(workspaceId),
   )
+  // Distinct documents that still have un-embedded chunks — the Library polls
+  // this while a backfill runs to mark only the actually-pending rows as
+  // 're-embedding' (instead of painting the whole workspace).
+  ipcMain.handle('embedder:pendingReembedDocs', async (_e, workspaceId: number) =>
+    getAuth().requireDatabase().documents().documentIdsMissingEmbedding(workspaceId),
+  )
   ipcMain.handle('embedder:runBackfill', async (_e, workspaceId: number) => {
     // Single-embedder-per-tier: the resident model is fixed by tier, so a manual
     // retry just re-embeds NULL/stale chunks under it — no preference to set.
@@ -1716,19 +1722,23 @@ function registerIpc(): void {
     },
   )
   // Warm every model the QA pipeline needs, for the post-unlock loading screen.
-  // CRITICAL: load them ONE AT A TIME. All three share a single node-llama-cpp
-  // backend (the worker's 'primary' device); firing the loads concurrently makes
-  // three native inits fight for the same Vulkan context, which thrashes the
-  // device and wedges the worker long enough that the window goes "not
-  // responding". Awaiting each in sequence keeps every load "nice" — predictable
-  // status, no native-init thrash. Idempotent: ensure* no-ops when already ready
-  // and shares any in-flight load, so this coexists with the delayed post-login
-  // warmup without doubling work. Fire-and-forget (the inner IIFE is voided): the
-  // renderer tracks progress via the llm/embedder/reranker status pushes, so the
-  // handler returns immediately and never blocks the IPC reply on a multi-GB load.
+  // Load them ONE AT A TIME (awaited in sequence): all three share a single
+  // node-llama-cpp backend, and firing the loads concurrently makes the native
+  // inits fight for the same device — thrash on an iGPU, up to "not responding".
+  // ORDER MATTERS: embedder FIRST. It's small (~0.4 GB) and gates BOTH indexing
+  // and retrieval; the LLM is the slow one (multi-GB, minutes on an iGPU). The
+  // single worker processes load requests in arrival order, so loading the LLM
+  // first starves indexing of the embedder it needs (the "0 vectors / stuck
+  // indexing" regression). Embedder → LLM → reranker keeps indexing alive while
+  // the LLM loads behind it. Idempotent (ensure* no-ops when ready / share the
+  // in-flight load) and fire-and-forget (the IIFE is voided): the renderer tracks
+  // progress via status pushes, so the handler never blocks on a multi-GB load.
   ipcMain.handle('models:warmupForQa', async () => {
     void (async () => {
       const reg = providerRegistry
+      await getEmbeddingService()
+        .ensureReady()
+        .catch(() => undefined)
       // External Ollama: don't pull a multi-GB bundled GGUF into RAM only to
       // leave it unused (same guard as the post-login warmup).
       if (!reg || reg.getLlmSource() !== 'ollama') {
@@ -1736,9 +1746,6 @@ function registerIpc(): void {
           .ensureLoaded()
           .catch(() => undefined)
       }
-      await getEmbeddingService()
-        .ensureReady()
-        .catch(() => undefined)
       // Lite ships no reranker — never warm it on that tier, even if a prior
       // non-lite run left reranker.enabled=true persisted (persisted settings
       // win over the lite default). Mirrors the warming screen's tier gate.

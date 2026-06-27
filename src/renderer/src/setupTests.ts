@@ -281,6 +281,7 @@ const stub: Api = {
         total: 0,
         message: null,
       }),
+    pendingReembedDocs: () => Promise.resolve([] as number[]),
     runBackfill: () => Promise.resolve(),
     onStatus: () => () => undefined,
     onBackfillStatus: () => () => undefined,
