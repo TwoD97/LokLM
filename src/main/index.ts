@@ -1,7 +1,9 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import { AuthService } from './services/auth/AuthService'
+import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
@@ -83,7 +85,18 @@ const activeQuizStreams = new Map<string, AbortController>()
 
 function getAuth(): AuthService {
   if (!authService) {
-    authService = new AuthService(app.getPath('userData'))
+    // Vault + workspaces live next to the executable (the install drive) on a
+    // fresh packaged Windows/Linux install, else userData — see resolveDataDir.
+    const dataDir = resolveDataDir({
+      override: process.env['LOKLM_DATA_DIR'],
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      execPath: process.execPath,
+      userDataDir: app.getPath('userData'),
+    })
+    mkdirSync(dataDir, { recursive: true })
+    console.log(`[auth] vault data dir: ${dataDir}`)
+    authService = new AuthService(dataDir)
     authService.setOnLock(() => {
       // Inactivity auto-lock fires here too — abort any in-flight quiz
       // generation first so it stops pegging the worker and won't write to the
