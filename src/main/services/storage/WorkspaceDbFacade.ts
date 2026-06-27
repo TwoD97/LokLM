@@ -152,6 +152,9 @@ class DocumentsApi {
   ): Promise<Array<{ id: number; text: string; document_id: number }>> {
     return (await this.meta(workspaceId)).listChunksMissingEmbedding(limit)
   }
+  async documentIdsMissingEmbedding(workspaceId: number): Promise<number[]> {
+    return (await this.meta(workspaceId)).documentIdsMissingEmbedding()
+  }
   async distinctEmbedderIdentities(workspaceId: number): Promise<string[]> {
     return (await this.meta(workspaceId)).distinctEmbedderIdentities()
   }

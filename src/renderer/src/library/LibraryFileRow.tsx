@@ -3,11 +3,13 @@ import { AlertTriangle, Pin } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { useT } from '../i18n'
 import { DocumentActionsMenu, type DocumentActions } from './DocumentActionsMenu'
-import { LanguageBadge } from './DocumentRow'
+import { LanguageBadge, StatusBadge } from './DocumentRow'
+import { deriveRowStatus } from './documentStatus'
 
 type Props = {
   doc: Document
   progress?: IndexProgress
+  reembedding?: boolean
 } & DocumentActions
 
 /**
@@ -16,14 +18,9 @@ type Props = {
  * actions a table row shows. Memoised so an indexing storm doesn't redraw every
  * leaf (same reason as DocumentRow).
  */
-function LibraryFileRowImpl({ doc, progress, ...actions }: Props): JSX.Element {
+function LibraryFileRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX.Element {
   const t = useT()
-  const status =
-    progress?.phase === 'failed' || doc.status === 'failed'
-      ? 'failed'
-      : progress && progress.phase !== 'done'
-        ? 'indexing'
-        : doc.status
+  const status = deriveRowStatus(doc, progress, reembedding)
   const isMissing = doc.missingAt != null
   return (
     <div
@@ -44,7 +41,7 @@ function LibraryFileRowImpl({ doc, progress, ...actions }: Props): JSX.Element {
         <span className="library__tree-title-text">{doc.title}</span>
         {doc.language && <LanguageBadge language={doc.language} t={t} />}
       </span>
-      <span className={`library__status library__status--${status}`}>{status}</span>
+      <StatusBadge status={status} />
       <DocumentActionsMenu doc={doc} {...actions} />
     </div>
   )

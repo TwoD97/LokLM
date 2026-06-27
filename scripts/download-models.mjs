@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Download the GGUFs that LokLM bundles, by tier. Skips files already on disk.
-// Usage:
+// Ship-tier LLMs are the Qwen3.5 family ( lite=2B , medium=4B , pro=9B ) , the
+// same lineup the installer wizard delivers ( installer-wizard/model-manifest
+// .json ). Usage:
 //   node scripts/download-models.mjs              # all tiers (ship-bundle only)
-//   node scripts/download-models.mjs lite         # just lite (4B + embedder)
-//   node scripts/download-models.mjs medium       # 4B + 8B + embedder
-//   node scripts/download-models.mjs pro          # all of the above + Nemotron-30B
+//   node scripts/download-models.mjs lite         # Qwen3.5-2B + embedder
+//   node scripts/download-models.mjs medium       # 2B + 4B + embedder
+//   node scripts/download-models.mjs pro          # 2B + 4B + 9B + embedder
 //   node scripts/download-models.mjs embedder     # just the embedder
 //   node scripts/download-models.mjs evals        # 10-model pool + Mistral-Small judge
 //                                                 # for tests/evals/answer/model-pack.json
@@ -53,35 +55,10 @@ const MODELS = [
     sizeGB: 0.4,
     skipPattern: /reranker.*v2.*m3|bge-reranker/i,
   },
-  {
-    tier: 'lite',
-    purpose: 'Lite LLM — Qwen3-4B (Q4_K_M)',
-    filename: 'Qwen_Qwen3-4B-Q4_K_M.gguf',
-    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-GGUF/resolve/main/Qwen_Qwen3-4B-Q4_K_M.gguf',
-    sizeGB: 2.5,
-    skipPattern: /qwen3.*[-_]?4b/i,
-  },
-  {
-    tier: 'medium',
-    purpose: 'Medium LLM — Qwen3-8B (Q4_K_M)',
-    filename: 'Qwen_Qwen3-8B-Q4_K_M.gguf',
-    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf',
-    sizeGB: 4.9,
-    skipPattern: /qwen3.*[-_]?8b/i,
-  },
-  {
-    tier: 'pro',
-    purpose:
-      'Pro LLM — NVIDIA Nemotron 3 Nano 30B-A3B (IQ4_XS, MoE — 3B active, fits 32 GB VRAM cleanly)',
-    filename: 'Nemotron-3-Nano-30B-A3B-IQ4_XS.gguf',
-    url: 'https://huggingface.co/unsloth/Nemotron-3-Nano-30B-A3B-GGUF/resolve/main/Nemotron-3-Nano-30B-A3B-IQ4_XS.gguf',
-    sizeGB: 18.2,
-    // Match the new Nano 30B but NOT the legacy Super-49B — they are
-    // different models. The xl profile in LlamaService still recognises
-    // the 49B if present, but `pnpm models:pro` should only download the
-    // intended Nano now.
-    skipPattern: /nemotron.*nano.*30b/i,
-  },
+  // Ship-tier LLMs are the Qwen3.5 family ( see the Qwen3.5 block below , which
+  // carries the `lite` / `medium` / `pro` tags alongside the eval tiers ). They
+  // are the single source of truth shared with installer-wizard/model-manifest
+  // .json : lite=Qwen3.5-2B , medium=Qwen3.5-4B , pro=Qwen3.5-9B.
 
   // ---- evals tier ----------------------------------------------------------
   // For the 10-model RAG eval pack (tests/evals/answer/model-pack.json).
@@ -187,26 +164,27 @@ const MODELS = [
   // (no-think) Qwen3-8B/14B (thinking-on) deutlich geschlagen hat.
 
   {
-    tier: ['evals', 'translation', 'matrix'],
-    purpose: 'Eval pool — Qwen3.5-2B (small , NON-thinking default — kontroll-modell)',
+    // Ship LITE LLM + eval kontroll-modell. NON-thinking default.
+    tier: ['lite', 'evals', 'translation', 'matrix'],
+    purpose: 'Lite LLM / Eval pool — Qwen3.5-2B (small , NON-thinking default)',
     filename: 'Qwen3.5-2B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
     sizeGB: 1.5,
     skipPattern: /qwen3\.5.*2b/i,
   },
   {
-    tier: ['evals', 'translation', 'matrix'],
-    purpose:
-      'Eval pool — Qwen3.5-4B Instruct (thinking-on default — direkt-vergleich zu Qwen3-4B-Instruct-2507)',
+    // Ship MEDIUM ( "standard" ) LLM + eval. thinking-on default.
+    tier: ['medium', 'evals', 'translation', 'matrix'],
+    purpose: 'Medium LLM / Eval pool — Qwen3.5-4B Instruct (thinking-on default)',
     filename: 'Qwen3.5-4B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
     sizeGB: 2.8,
     skipPattern: /qwen3\.5.*4b/i,
   },
   {
-    tier: ['evals', 'translation', 'matrix'],
-    purpose:
-      'Eval pool — Qwen3.5-9B (base post-trained , thinking-on default — der benchmark-winner mit 27/28)',
+    // Ship PRO LLM + eval. thinking-on default ( benchmark-winner 27/28 ).
+    tier: ['pro', 'evals', 'translation', 'matrix'],
+    purpose: 'Pro LLM / Eval pool — Qwen3.5-9B (base post-trained , thinking-on default)',
     filename: 'Qwen3.5-9B-Q4_K_M.gguf',
     url: 'https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf',
     sizeGB: 5.7,

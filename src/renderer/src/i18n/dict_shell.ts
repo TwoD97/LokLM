@@ -32,6 +32,7 @@ export const shellDict: DomainDict = {
     'shell.kindIntegrated': 'integrated',
     'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Running on {device}',
+    'shell.reembedProgress': 're-embedding {done}/{total} chunks — search degraded until done',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Create or select a workspace first.',
@@ -101,6 +102,8 @@ export const shellDict: DomainDict = {
     'shell.kindIntegrated': 'integriert',
     'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Läuft auf {device}',
+    'shell.reembedProgress':
+      'Bettet neu ein: {done}/{total} Chunks — Suche eingeschränkt bis fertig',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Erstelle oder wähle zuerst einen Workspace.',

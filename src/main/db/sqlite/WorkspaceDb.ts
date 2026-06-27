@@ -650,6 +650,14 @@ export class WorkspaceDb {
     ).map((r) => ({ id: Number(r.id), text: String(r.text), document_id: Number(r.document_id) }))
   }
 
+  // Distinct documents that still have at least one un-embedded chunk — drives
+  // the per-document 're-embedding' status in the Library while a backfill drains.
+  async documentIdsMissingEmbedding(): Promise<number[]> {
+    return this.rows(`SELECT DISTINCT document_id AS d FROM chunks WHERE embedded = 0`).map((r) =>
+      Number(r.d),
+    )
+  }
+
   async markChunksEmbedded(chunkIds: number[], identity: string): Promise<void> {
     if (chunkIds.length === 0) return
     this.run(

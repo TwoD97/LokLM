@@ -429,6 +429,17 @@ export interface AnswerOptions {
    *  otherwise return zero relevant chunks. No-op when history is empty or
    *  the LLM is not loaded. */
   contextualize?: boolean
+  /** Resolve follow-up questions with the pure HEURISTIC contextualizer instead
+   *  of the LLM rewrite. Set on the lite tier: the LLM rewrite is a second full
+   *  prefill+generation per follow-up, which is minutes on an iGPU. No-op unless
+   *  `contextualize` is also true. */
+  contextualizeHeuristicOnly?: boolean
+  /** When a primary hit comes from a "small" document, include the ENTIRE
+   *  document rather than just the matched chunk. Default ON in retrieval. Set
+   *  false on lite: a multi-Q&A study sheet is one small doc, so whole-doc
+   *  expansion floods the prompt with every Q&A and the model answers the wrong
+   *  one — plus it balloons the prefill. */
+  wholeDocFallback?: boolean
   /** Query routing (doc_summary / corpus / retrieval). Defaults to ON for the
    *  chat path; evals and tests pin `routing: false` to get the plain chunk
    *  pipeline regardless of query phrasing — the same escape hatch contract

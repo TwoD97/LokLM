@@ -378,6 +378,8 @@ const api = {
       ipcRenderer.invoke('embedder:setPlacement', choice),
     backfillStatus: (workspaceId: number): Promise<BackfillStatus> =>
       ipcRenderer.invoke('embedder:backfillStatus', workspaceId),
+    pendingReembedDocs: (workspaceId: number): Promise<number[]> =>
+      ipcRenderer.invoke('embedder:pendingReembedDocs', workspaceId),
     runBackfill: (workspaceId: number): Promise<void> =>
       ipcRenderer.invoke('embedder:runBackfill', workspaceId),
     onStatus: (cb: (s: EmbedderStatus) => void): (() => void) => {

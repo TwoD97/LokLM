@@ -4,20 +4,26 @@ import type { Document, IndexProgress } from '@shared/documents'
 import { useT } from '../i18n'
 import type { TFn } from '../i18n'
 import { DocumentActionsMenu, type DocumentActions } from './DocumentActionsMenu'
+import { deriveRowStatus, type RowStatus } from './documentStatus'
 
 type Props = {
   doc: Document
   progress?: IndexProgress
+  /** True while a workspace-wide vector re-embed (model swap / backfill) is in
+   *  flight — see {@link deriveRowStatus}. */
+  reembedding?: boolean
 } & DocumentActions
 
-function DocumentRowImpl({ doc, progress, ...actions }: Props): JSX.Element {
+// Single source of truth for the status pill — class + label — so the three row
+// layouts (table, folders, location tree) stay in lockstep.
+export function StatusBadge({ status }: { status: RowStatus }): JSX.Element {
+  const label = status === 'reembedding' ? 're-embedding' : status
+  return <span className={`library__status library__status--${status}`}>{label}</span>
+}
+
+function DocumentRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX.Element {
   const t = useT()
-  const status =
-    progress?.phase === 'failed' || doc.status === 'failed'
-      ? 'failed'
-      : progress && progress.phase !== 'done'
-        ? 'indexing'
-        : doc.status
+  const status = deriveRowStatus(doc, progress, reembedding)
   const isMissing = doc.missingAt != null
 
   return (
@@ -42,7 +48,7 @@ function DocumentRowImpl({ doc, progress, ...actions }: Props): JSX.Element {
         </span>
       </td>
       <td>
-        <span className={`library__status library__status--${status}`}>{status}</span>
+        <StatusBadge status={status} />
         {progress && progress.phase !== 'done' && progress.phase !== 'failed' && (
           <span style={{ marginLeft: 8, opacity: 0.7 }}>
             {progress.detail ?? `${progress.phase} ${progress.step}/${progress.total}`}
