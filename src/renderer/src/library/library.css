@@ -51,6 +51,12 @@
   background: var(--accent-soft-strong);
   color: var(--accent);
 }
+/* Workspace-wide vector re-embed (model swap / backfill). Amber, distinct from
+   the blue 'indexing' (per-doc ingest) — search is degraded until it lands. */
+.library__status--reembedding {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
 /* Workspace storage footprint (ADR-0005 transparency). Compact + muted — it's
    informational metadata, not a primary control. "≈" marks the derived (open
    size / decrypt-on-open time) values; "~" prefixes an estimated at-rest size
@@ -594,6 +600,15 @@
   font: inherit;
   cursor: pointer;
 }
+/* A custom select background makes Chromium drop color-scheme:dark for the
+   option popup, falling back to white — which left the inherited light text
+   gray-on-white. The native popup renders in a context where :root CSS
+   variables don't resolve, so use the concrete `initial` keyword (black) to
+   restore contrast on the white popup — same approach as chat/translation. */
+.library__sort option,
+.library__filter-select option {
+  color: initial;
+}
 .library__filters {
   display: flex;
   flex-wrap: wrap;
@@ -635,13 +650,20 @@
 .library__results li {
   margin: 0;
 }
+/* Row wrapper: anchors the absolutely-positioned ⋯ menu so it lands at the
+   top-right of the result, beside the click-to-open button. */
+.library__result-row {
+  position: relative;
+}
 .library__result {
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  /* Right padding reserves room for the ⋯ menu so it never overlaps the
+     title/excerpt text. */
+  padding: 10px 40px 10px 12px;
   border: none;
   border-bottom: 1px solid #1f2a3a;
   background: transparent;
@@ -651,6 +673,11 @@
 }
 .library__result:hover {
   background: rgba(255, 255, 255, 0.03);
+}
+.library__result-row .library__actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 .library__result-head {
   display: flex;

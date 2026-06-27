@@ -118,7 +118,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   align-items: stretch;
 }
@@ -191,20 +191,34 @@
   opacity: 0.5;
 }
 
-/* ── Center controls ──────────────────────────────────────────────────── */
+/* ── Controls toolbar ─────────────────────────────────────────────────────
+ * A horizontal action bar above the side-by-side panes: target language +
+ * the translate button. Sits inline so it no longer floats in a dead-centre
+ * column between the panes. */
 .translation-view__controls {
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  justify-content: center;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  min-width: 160px;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-0);
 }
-@media (max-width: 880px) {
-  .translation-view__controls {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
+.translation-view__controls-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.translation-view__controls .translation-view__select {
+  width: auto;
+  min-width: 200px;
+}
+.translation-view__controls .translation-view__btn--primary {
+  width: auto;
+  margin-left: auto;
 }
 .translation-view__select {
   width: 100%;

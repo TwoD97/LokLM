@@ -240,6 +240,14 @@
   box-shadow: var(--ring);
 }
 
+/* A custom select background makes Chromium drop color-scheme:dark for the
+   option popup (renders white), leaving the light text low-contrast. The native
+   popup ignores :root CSS variables, so use the concrete `initial` keyword
+   (black on the white popup) — same approach as chat/translation. */
+.settings-modal__body select option {
+  color: initial;
+}
+
 .settings-modal__body button {
   background: var(--bg-elev);
   color: var(--fg-0);
