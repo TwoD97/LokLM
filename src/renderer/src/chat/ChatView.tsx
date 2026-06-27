@@ -489,6 +489,7 @@ export function ChatView({
             chunkId={sourceViewer.chunkId}
             messageText={sourceViewer.messageText}
             documentTitle={sourceViewer.documentTitle}
+            wholeMessageFallback={false}
             onClose={() => setSourceViewer(null)}
           />
         </ErrorBoundary>
