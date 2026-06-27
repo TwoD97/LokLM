@@ -382,7 +382,7 @@ pub async fn install<F>(
 where
     F: FnMut(ProgressEvent) + Send,
 {
-    use super::{archive, download, payload_manifest};
+    use super::{download, payload_manifest};
 
     let bundle = payload_manifest::current_bundle();
 
@@ -432,14 +432,14 @@ where
     if preexisting_payload.is_none() {
         progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
         let payload_archive_path = staging.join(&bundle.payload.filename);
-        download::download_with_resume(
+        super::download_and_extract_archive(
             &client,
-            download::DownloadSpec {
-                url: &payload_manifest::payload_url(),
-                dest: &payload_archive_path,
-                expected_sha256: Some(&bundle.payload.sha256),
-                expected_size: Some(bundle.payload.size_bytes),
-            },
+            &payload_manifest::payload_url(),
+            &payload_archive_path,
+            &bundle.payload.sha256,
+            bundle.payload.size_bytes,
+            &staging,
+            "payload",
             |written, total| {
                 let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
                 progress(ProgressEvent {
@@ -448,11 +448,7 @@ where
                 });
             },
         )
-        .await
-        .map_err(|e| format!("payload download : {}", e))?;
-        archive::extract_tar_zst(&payload_archive_path, &staging)
-            .map_err(|e| format!("payload extract : {}", e))?;
-        let _ = std::fs::remove_file(&payload_archive_path);
+        .await?;
     }
 
     // ---- Phase 2 : optional CUDA addon ( 15-30 % ) -----------------------
@@ -462,14 +458,17 @@ where
                 .expect("manifest has cuda entry on this platform");
             let cuda_archive_path = staging.join(&cuda_entry.filename);
             progress(ProgressEvent { step: "download-cuda".into(), percent: 15 });
-            download::download_with_resume(
+            // Biggest single download (~0.5 GB); retry with Range-resume so a
+            // mid-stream drop ("error decoding response body") continues from the
+            // .partial instead of restarting.
+            super::download_and_extract_archive(
                 &client,
-                download::DownloadSpec {
-                    url: &cuda_url,
-                    dest: &cuda_archive_path,
-                    expected_sha256: Some(&cuda_entry.sha256),
-                    expected_size: Some(cuda_entry.size_bytes),
-                },
+                &cuda_url,
+                &cuda_archive_path,
+                &cuda_entry.sha256,
+                cuda_entry.size_bytes,
+                &staging,
+                "cuda",
                 |written, total| {
                     let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
                     progress(ProgressEvent {
@@ -478,11 +477,7 @@ where
                     });
                 },
             )
-            .await
-            .map_err(|e| format!("cuda download : {}", e))?;
-            archive::extract_tar_zst(&cuda_archive_path, &staging)
-                .map_err(|e| format!("cuda extract : {}", e))?;
-            let _ = std::fs::remove_file(&cuda_archive_path);
+            .await?;
         }
     }
 

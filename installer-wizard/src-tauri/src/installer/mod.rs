@@ -150,6 +150,71 @@ pub struct ProgressEvent {
     pub percent: u32,
 }
 
+// --- Resilient archive download + extract ----------------------------
+
+// Download a tar.zst archive ( payload , or the ~0.5 GB CUDA addon ) and extract
+// it , retrying with Range-RESUME on transient failures. A single GET over a flaky
+// or slow link regularly drops mid-stream — reqwest surfaces that as "error
+// decoding response body" — and the CUDA archive is the biggest single download ,
+// so it gets hit most. The key over a naive retry : the `<dest>.partial` sidecar
+// is KEPT across attempts , so each retry continues from where the stream broke
+// ( a `Range` request ) instead of re-fetching the whole file. download_with_resume's
+// streaming sha256 is the integrity backstop — a corrupted resume fails the hash
+// and that path clears the partial itself — so a deterministic sha / size mismatch
+// is NOT retried ( the source bytes won't change ).
+async fn download_and_extract_archive<F>(
+    client: &reqwest::Client,
+    url: &str,
+    archive_path: &std::path::Path,
+    expected_sha256: &str,
+    expected_size: u64,
+    extract_dest: &std::path::Path,
+    label: &str,
+    mut on_progress: F,
+) -> Result<(), String>
+where
+    F: FnMut(u64, u64) + Send,
+{
+    const MAX_ATTEMPTS: u32 = 5;
+    let mut attempt = 0u32;
+    loop {
+        attempt += 1;
+        let outcome: Result<(), String> = async {
+            download::download_with_resume(
+                client,
+                download::DownloadSpec {
+                    url,
+                    dest: archive_path,
+                    expected_sha256: Some(expected_sha256),
+                    expected_size: Some(expected_size),
+                },
+                |written, total| on_progress(written, total),
+            )
+            .await
+            .map_err(|e| format!("{} download : {}", label, e))?;
+            archive::extract_tar_zst(archive_path, extract_dest)
+                .map_err(|e| format!("{} extract : {}", label, e))?;
+            Ok(())
+        }
+        .await;
+        match outcome {
+            Ok(()) => break,
+            // Deterministic : same bytes on retry , so fail fast instead of looping.
+            Err(e) if e.contains("sha256 mismatch") || e.contains("size mismatch") => {
+                return Err(e);
+            }
+            Err(e) if attempt >= MAX_ATTEMPTS => return Err(e),
+            Err(_) => {
+                // KEEP the .partial so the next attempt resumes via Range. Linear
+                // backoff ( 2s , 4s , … ) to ride out a transient network / proxy blip.
+                tokio::time::sleep(std::time::Duration::from_secs(2 * attempt as u64)).await;
+            }
+        }
+    }
+    let _ = std::fs::remove_file(archive_path);
+    Ok(())
+}
+
 // --- Platform dispatch -----------------------------------------------
 
 #[cfg(target_os = "windows")]
