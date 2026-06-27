@@ -169,6 +169,23 @@ function isValidTier(v: unknown): v is Tier {
 }
 
 /**
+ * The tier that should drive runtime behaviour (LLM profile recommendation,
+ * reranker default, status-bar UI). Honours the `LOKLM_TIER` env override first
+ * — set by the `pnpm dev --lite|--standard|--pro` launcher (scripts/dev.mjs) so
+ * a dev run can emulate any install tier without a wizard marker. Falls back to
+ * the install marker's tier, then null (plain dev/test, pre-v0.3.0 installs).
+ *
+ * Deliberately does NOT synthesize a full TierMarker: model availability and
+ * the legacy-models sweep stay keyed on readTierMarker() so a dev run never
+ * trips the "wizard-managed install" code paths (empty model list, sweeps).
+ */
+export function getEffectiveTier(): Tier | null {
+  const env = process.env['LOKLM_TIER']
+  if (isValidTier(env)) return env
+  return readTierMarker()?.tier ?? null
+}
+
+/**
  * Single source of truth for "did this install opt in to the external Ollama
  * connector". True when the marker says so, and true on the no-marker paths
  * (dev, test, pre-v0.3.0 installs) — the opt-in only exists for installs the

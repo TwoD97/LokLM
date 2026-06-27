@@ -1,4 +1,5 @@
 import { totalmem } from 'node:os'
+import { modelLoadLock } from '../concurrency/ModelLoadLock'
 import {
   ResourcePlanner,
   ggufWeightBytes,
@@ -8,7 +9,7 @@ import {
   type LlmDevicePlan,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
-import { readTierMarker, readGpuInventory, type Tier } from '../tier/TierMarker'
+import { readGpuInventory, getEffectiveTier, type Tier } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
@@ -109,7 +110,14 @@ export const LLM_PROFILES: LlmProfile[] = [
       /qwen2\.5.*[-_]?3b/i,
       /llama.*3\.2.*[-_]?3b/i,
     ],
-    contextSize: 32768,
+    // 8K, not 32K. The context window sizes both the KV cache AND the retrieval
+    // pack budget (QAService packs RAG context proportional to the window). On an
+    // 8 GB / iGPU-only target a 32K window means ~23K tokens of retrieved text get
+    // packed into every prompt — minutes of prefill on the iGPU, and the KV
+    // allocation can OOM the device outright (empty answer / worker crash). 8K
+    // bounds the prompt to ~3–4K RAG tokens: still ample for a focused QA turn,
+    // fast to prefill, and memory-safe. Standard/pro keep their large windows.
+    contextSize: 8192,
     minTotalMemGB: 8,
   },
   {
@@ -171,9 +179,9 @@ const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
  * hardware heuristic.
  */
 export function tierMarkerProfile(): LlmProfileName | null {
-  const marker = readTierMarker()
-  if (!marker) return null
-  return TIER_TO_PROFILE[marker.tier] ?? null
+  const tier = getEffectiveTier()
+  if (!tier) return null
+  return TIER_TO_PROFILE[tier] ?? null
 }
 
 export function recommendedProfile(): LlmProfileName {
@@ -598,6 +606,9 @@ export class LlamaService {
     // model being loaded ( and so a later setLanguage rebuilds at the same tier ).
     this.activeProfile = profile?.name ?? null
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
+    // Serialise the native load against the embedder + reranker loads. They all
+    // share one backend; concurrent inits thrash it on iGPU / low-end hardware.
+    const release = await modelLoadLock.acquire('llm')
     try {
       const result = await this.client!.llmLoad({
         modelPath,
@@ -625,6 +636,8 @@ export class LlamaService {
       const msg = err instanceof Error ? err.message : String(err)
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
+    } finally {
+      release()
     }
   }
 
