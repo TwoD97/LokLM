@@ -460,9 +460,12 @@ async function applySettings(s: UserSettings): Promise<void> {
   void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
-  // LLM device placement — also a per-load setting; the LlmSection triggers an
-  // llm:reload after changing it so the new device takes effect immediately.
+  // LLM device placement (Auto/Dedicated/Integrated). Resolve it against the
+  // install-time GPU inventory and pin it on the worker — awaited so a physical-
+  // device change restarts the worker BEFORE the LlmSection's follow-up
+  // llm:reload loads the model on the new device.
   getLlamaService().setSelectedPlacement(s.advanced.llm.placement)
+  await getLlamaService().applyDevicePlan()
 
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)

@@ -26,6 +26,11 @@ export const shellDict: DomainDict = {
     'shell.deviceCpu': 'CPU',
     'shell.deviceGpu': 'GPU ({backend})',
     'shell.deviceGpuShort': 'GPU',
+    'shell.deviceDgpu': 'dGPU',
+    'shell.deviceIgpu': 'iGPU',
+    'shell.kindDedicated': 'dedicated',
+    'shell.kindIntegrated': 'integrated',
+    'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Running on {device}',
 
     // AppShell.tsx
@@ -90,6 +95,11 @@ export const shellDict: DomainDict = {
     'shell.deviceCpu': 'CPU',
     'shell.deviceGpu': 'GPU ({backend})',
     'shell.deviceGpuShort': 'GPU',
+    'shell.deviceDgpu': 'dGPU',
+    'shell.deviceIgpu': 'iGPU',
+    'shell.kindDedicated': 'dediziert',
+    'shell.kindIntegrated': 'integriert',
+    'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Läuft auf {device}',
 
     // AppShell.tsx

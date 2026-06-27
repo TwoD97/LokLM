@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Check, Plug } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useSettings } from './useSettings'
 import { Segmented } from './Segmented'
 import { useT } from '../i18n'
-import type { SystemInfo, LlmProfileChoice } from '@shared/documents'
-
-const PROFILES: { value: LlmProfileChoice; label: string; sub: string }[] = [
-  { value: 'auto', label: 'Auto', sub: 'Recommended — picks best fit for your hardware.' },
-  { value: 'lite', label: 'Lite', sub: 'Qwen3.5 2B · 8 GB target' },
-  { value: 'full', label: 'Full', sub: 'Qwen3.5 4B · 16 GB+ target' },
-  { value: 'xl', label: 'XL', sub: 'Qwen3.5 9B · high-end GPU' },
-]
+import type { SystemInfo } from '@shared/documents'
 
 /** `SystemInfo.lastLlmPlan` is typed as `unknown` on the wire because the
  *  underlying `LlmPlan` lives in the main-process module graph. Narrow it
@@ -25,20 +18,12 @@ export function BasicTab(): JSX.Element {
   const t = useT()
   const { settings, update, savedFlash } = useSettings()
   const [info, setInfo] = useState<SystemInfo | null>(null)
-  // AP-9 §3.8: switching the model profile reloads the LLM (unload + autoLoad).
-  // Gate it behind a confirmation so a stray card click can't kick off a
-  // multi-GB reload. pendingProfile holds the choice awaiting confirmation.
-  const [pendingProfile, setPendingProfile] = useState<LlmProfileChoice | null>(null)
 
   useEffect(() => {
     void window.api.llm.info().then(setInfo)
   }, [])
 
   if (!settings) return <div>{t('settings.loading')}</div>
-  const haveGguf = (p: LlmProfileChoice): boolean => {
-    if (p === 'auto') return true
-    return info?.profiles?.find((x) => x.name === p)?.filename != null
-  }
 
   const plan = planSummary(info?.lastLlmPlan)
   const ollamaActive = settings.advanced.llm.source === 'ollama'
@@ -111,59 +96,6 @@ export function BasicTab(): JSX.Element {
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">
-          {t('settings.basic.modelSize')}{' '}
-          {ollamaActive && (
-            <span style={{ color: 'var(--fg-3)' }}>· {t('settings.basic.fallbackTag')}</span>
-          )}
-        </span>
-        <span className="settings-section-head__sub">
-          {ollamaActive
-            ? t('settings.basic.modelSizeSubFallback')
-            : t('settings.basic.modelSizeSub')}
-        </span>
-      </div>
-      {ollamaActive && (
-        <div className="settings-section__notice">
-          <span className="settings-section__notice__icon" aria-hidden="true">
-            <Plug size={16} />
-          </span>
-          <span>{t('settings.basic.ollamaNotice')}</span>
-        </div>
-      )}
-      <div className="settings-model-cards">
-        {PROFILES.map((p) => {
-          const available = haveGguf(p.value)
-          const active = settings.basic.llmProfile === p.value
-          return (
-            <button
-              key={p.value}
-              type="button"
-              className={`settings-model-card ${active ? 'settings-model-card--active' : ''}`}
-              disabled={!available}
-              onClick={() => {
-                if (p.value !== settings.basic.llmProfile) setPendingProfile(p.value)
-              }}
-            >
-              <div className="settings-model-card__head">
-                <span className="settings-model-card__title">{p.label}</span>
-                <span
-                  className={`settings-model-card__badge ${available ? 'settings-model-card__badge--ok' : 'settings-model-card__badge--missing'}`}
-                >
-                  {p.value === 'auto'
-                    ? t('settings.basic.badgeAuto')
-                    : available
-                      ? t('settings.basic.badgeAvailable')
-                      : t('settings.basic.badgeMissing')}
-                </span>
-              </div>
-              <span className="settings-model-card__sub">{p.sub}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="settings-section-head">
-        <span className="settings-section-head__title">
           {t('settings.basic.systemInfo')}{' '}
           {ollamaActive && (
             <span style={{ color: 'var(--fg-3)' }}>· {t('settings.basic.idleTag')}</span>
@@ -203,39 +135,6 @@ export function BasicTab(): JSX.Element {
           <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
         </span>
       </div>
-
-      {pendingProfile && (
-        <div className="settings-backdrop" role="presentation">
-          <div className="settings-modal" style={{ width: 460 }} role="dialog" aria-modal="true">
-            <div className="settings-modal__body">
-              <h3 style={{ marginTop: 0 }}>{t('settings.basic.reloadConfirmTitle')}</h3>
-              <p>
-                {t('settings.basic.reloadConfirmBody', {
-                  profile:
-                    PROFILES.find((p) => p.value === pendingProfile)?.label ?? pendingProfile,
-                })}
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button onClick={() => setPendingProfile(null)}>{t('common.cancel')}</button>
-                <button
-                  style={{ background: 'var(--accent)', color: '#fff' }}
-                  onClick={() => {
-                    const next = pendingProfile
-                    setPendingProfile(null)
-                    // Persist first so applySettings sets the selected profile in
-                    // main, THEN reload so autoLoad picks up the new choice.
-                    void update({ basic: { llmProfile: next } })
-                      .then(() => window.api.llm.reload())
-                      .catch(() => undefined)
-                  }}
-                >
-                  {t('settings.basic.reloadConfirmAction')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

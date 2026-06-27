@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
-import type { BackfillStatus, EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import type {
+  BackfillStatus,
+  EmbedderState,
+  GpuKind,
+  ModelState,
+  RerankerState,
+} from '@shared/documents'
 import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
@@ -61,20 +67,32 @@ function ariaText(
 }
 
 // Maps the raw backend label from ModelStatus.gpu ('cuda'|'vulkan'|'metal'|
-// 'cpu'|null) onto a short chip + a full hover-line. Null when unknown (no load
-// yet, or a remote source that doesn't report a device).
-function deviceLabel(t: TFn, gpu: string | null): Chip | null {
+// 'cpu'|null) + the resolved device class onto a short chip + a full hover-line.
+// Shows "dGPU"/"iGPU" when the class is known, plain "GPU" otherwise. Null when
+// unknown (no load yet, or a remote source that doesn't report a device).
+function deviceLabel(t: TFn, gpu: string | null, gpuKind: GpuKind | null): Chip | null {
   if (gpu == null) return null
   if (gpu === 'cpu') {
     const cpu = t('shell.deviceCpu')
     return { short: cpu, full: t('shell.runningOn', { device: cpu }), tone: 'cpu' }
   }
-  const full = t('shell.deviceGpu', { backend: gpu.toUpperCase() })
-  return {
-    short: t('shell.deviceGpuShort'),
-    full: t('shell.runningOn', { device: full }),
-    tone: 'gpu',
-  }
+  const backend = gpu.toUpperCase()
+  const short =
+    gpuKind === 'integrated'
+      ? t('shell.deviceIgpu')
+      : gpuKind === 'dedicated'
+        ? t('shell.deviceDgpu')
+        : t('shell.deviceGpuShort')
+  const kindWord =
+    gpuKind === 'integrated'
+      ? t('shell.kindIntegrated')
+      : gpuKind === 'dedicated'
+        ? t('shell.kindDedicated')
+        : null
+  const device = kindWord
+    ? t('shell.deviceGpuKind', { backend, kind: kindWord })
+    : t('shell.deviceGpu', { backend })
+  return { short, full: t('shell.runningOn', { device }), tone: 'gpu' }
 }
 
 // Short, glanceable label for the resident embedder GGUF. ADR-0006: a codebase
@@ -176,11 +194,13 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     message: string | null
     source: DotSource
     gpu: string | null
+    gpuKind: GpuKind | null
   }>({
     state: 'idle',
     message: null,
     source: 'bundled',
     gpu: null,
+    gpuKind: null,
   })
   // Live vector re-embed progress (model swap / backfill). When running, the
   // embedder chip shows "↻ N%" because dense search is degraded until it lands.
@@ -223,11 +243,23 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.llm
-      .status()
-      .then((s) => setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }))
+    void window.api.llm.status().then((s) =>
+      setLlm({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        gpu: s.gpu,
+        gpuKind: s.gpuKind ?? null,
+      }),
+    )
     const off = window.api.llm.onStatus((s) =>
-      setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }),
+      setLlm({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        gpu: s.gpu,
+        gpuKind: s.gpuKind ?? null,
+      }),
     )
     return () => off()
   }, [])
@@ -332,7 +364,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           message={llm.message}
           // Device is only meaningful for the local engine; a remote Ollama
           // session runs on the host's hardware, which we can't report.
-          chip={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
+          chip={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu, llm.gpuKind)}
         />
         <StatusDot
           // ADR-0006: surface the resident embedder — the code model

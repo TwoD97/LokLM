@@ -36,11 +36,53 @@ pub struct HardwareProfile {
     /// SharedSystemMemory; ~half of RAM on Windows). None for discrete GPUs and
     /// when the OS probe is unavailable — `recommend()` then falls back to RAM/2.
     pub gpu_shared_bytes: Option<u64>,
+    /// Full inventory of usable GPUs (discrete + integrated), each classified by
+    /// its physical `wgpu::DeviceType` — vendor- and backend-agnostic, so an AMD
+    /// RX 7900 reached over Vulkan is still `dedicated`. Persisted into the tier
+    /// marker; the main app reads it to drive the LLM device picker
+    /// (Auto/Dedicated/Integrated) and the runtime device pin. Empty on a
+    /// CPU-only box or when the GPU probe is unavailable.
+    pub gpus: Vec<GpuDevice>,
     pub cpu_threads: u32,
     pub cpu_brand: String,
     pub ram_bytes: u64,
     pub recommended_tier: Tier,
 }
+
+/// Whether a physical GPU is a discrete/dedicated card or an integrated chip.
+/// Derived from `wgpu::DeviceType` (DiscreteGpu/VirtualGpu → dedicated,
+/// IntegratedGpu → integrated) — NOT from which compute backend can reach it.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GpuKind {
+    Dedicated,
+    Integrated,
+}
+
+/// One enumerated physical GPU. Identity is `{vendor_id, device_id, name}`;
+/// the main app matches on that (never a bare index) to pin the device at
+/// runtime. `vulkan_index` is the device's position in the Vulkan adapter
+/// enumeration — a hint for `GGML_VK_VISIBLE_DEVICES` when forcing a specific
+/// Vulkan device; `None` when the device isn't reachable via Vulkan.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuDevice {
+    pub name: String,
+    pub vendor_id: u32,
+    pub device_id: u32,
+    pub kind: GpuKind,
+    /// Dedicated VRAM in bytes (DXGI DedicatedVideoMemory / NVML). For an iGPU
+    /// this is the tiny UEFI carve-out — see `shared_bytes` for the real budget.
+    pub vram_bytes: u64,
+    /// Shared system memory the device may use as video memory (DXGI
+    /// SharedSystemMemory). 0 when unprobed / not applicable.
+    pub shared_bytes: u64,
+    pub vulkan_index: Option<u32>,
+}
+
+// Microsoft Basic Render Driver — a software adapter DXGI/wgpu always lists.
+// Never a usable GPU; filtered out of the inventory.
+const VENDOR_MICROSOFT_BASIC_RENDER: u32 = 0x1414;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -75,6 +117,7 @@ pub enum GpuArch {
 
 pub fn probe() -> HardwareProfile {
     let (gpu_name, gpu_vram_bytes, gpu_arch, gpu_integrated, gpu_shared_bytes) = probe_gpu();
+    let gpus = enumerate_gpus();
 
     let mut sys = System::new();
     sys.refresh_memory();
@@ -94,6 +137,7 @@ pub fn probe() -> HardwareProfile {
         gpu_arch,
         gpu_integrated,
         gpu_shared_bytes,
+        gpus,
         cpu_threads,
         cpu_brand,
         ram_bytes,
@@ -101,6 +145,89 @@ pub fn probe() -> HardwareProfile {
     };
     profile.recommended_tier = recommend(&profile);
     profile
+}
+
+// Map a wgpu device type to our coarse dedicated/integrated class. Returns None
+// for CPU/software/unknown adapters — those aren't usable GPUs and never enter
+// the inventory. A virtual GPU (vGPU/passthrough) is treated as dedicated.
+fn gpu_kind(device_type: wgpu::DeviceType) -> Option<GpuKind> {
+    match device_type {
+        wgpu::DeviceType::DiscreteGpu | wgpu::DeviceType::VirtualGpu => Some(GpuKind::Dedicated),
+        wgpu::DeviceType::IntegratedGpu => Some(GpuKind::Integrated),
+        wgpu::DeviceType::Cpu | wgpu::DeviceType::Other => None,
+    }
+}
+
+// Full GPU inventory — every usable physical adapter, classified by device type
+// (NOT by which backend reaches it). Used by the main app's device picker. The
+// single-adapter `probe_gpu()` above still drives the install-time tier
+// recommendation; this is the richer list persisted into the marker.
+fn enumerate_gpus() -> Vec<GpuDevice> {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::PRIMARY,
+        ..Default::default()
+    });
+
+    // Vulkan-only enumeration order → the index space ggml's GGML_VK_VISIBLE_DEVICES
+    // uses. Matched back to each device by vendor+device id so the pin is by
+    // identity, not a hardcoded slot.
+    let vk_adapters = instance.enumerate_adapters(wgpu::Backends::VULKAN);
+    let vulkan_index_of = |vendor: u32, device: u32| -> Option<u32> {
+        vk_adapters
+            .iter()
+            .position(|a| {
+                let i = a.get_info();
+                i.vendor == vendor && i.device == device
+            })
+            .map(|p| p as u32)
+    };
+
+    let mut out: Vec<GpuDevice> = Vec::new();
+    for adapter in instance.enumerate_adapters(wgpu::Backends::PRIMARY) {
+        let info = adapter.get_info();
+        // The same physical GPU surfaces once per backend (Vulkan + DX12 on
+        // Windows). Dedup by PCI identity, keeping the first hit.
+        if info.vendor == VENDOR_MICROSOFT_BASIC_RENDER {
+            continue;
+        }
+        let Some(kind) = gpu_kind(info.device_type) else {
+            continue;
+        };
+        if out
+            .iter()
+            .any(|g| g.vendor_id == info.vendor && g.device_id == info.device)
+        {
+            continue;
+        }
+
+        let name = info.name.clone();
+        let arch = classify_gpu_arch(&name);
+        let is_nvidia = matches!(
+            arch,
+            GpuArch::NvidiaPascal
+                | GpuArch::NvidiaTuring
+                | GpuArch::NvidiaAmpere
+                | GpuArch::NvidiaAda
+                | GpuArch::NvidiaBlackwell,
+        );
+        let vram_bytes = if is_nvidia {
+            probe_nvidia_vram_nvml(&name).unwrap_or_else(|| vram_from_wgpu(&adapter))
+        } else {
+            non_nvidia_vram(&adapter, &info)
+        };
+        let shared_bytes = igpu_shared_bytes(&info).unwrap_or(0);
+
+        out.push(GpuDevice {
+            name,
+            vendor_id: info.vendor,
+            device_id: info.device,
+            kind,
+            vram_bytes,
+            shared_bytes,
+            vulkan_index: vulkan_index_of(info.vendor, info.device),
+        });
+    }
+    out
 }
 
 // --- GPU probe -----------------------------------------------------------
@@ -399,20 +526,15 @@ pub fn recommend(p: &HardwareProfile) -> Tier {
     let vram_gb = p.gpu_vram_bytes.unwrap_or(0) / GB;
     let ram_gb = p.ram_bytes / GB;
 
-    // Integrated GPU : the dedicated VRAM is a tiny UEFI carve-out — the chip runs
-    // models out of SHARED system memory ( ~half of RAM ) , so size the tier off
-    // that shared budget , like Apple-Silicon unified memory. CAP at Standard :
-    // iGPU compute is too weak for a pleasant 9B ( Pro ) experience , same
-    // reasoning as the old-Nvidia cap. DXGI gives the real shared ceiling ; RAM/2
-    // is the cross-platform fallback. ( CPU-only — no usable GPU at all — keeps
-    // falling through to the Lite path below ; the wizard warns there separately. )
+    // Integrated GPU : capped at Lite. An iGPU runs models out of SHARED system
+    // memory and its compute is too weak for a pleasant Standard (4B) or Pro (9B)
+    // experience — and the main app now REQUIRES a GPU but only offers Lite on an
+    // iGPU-only machine. The wizard hard-gates Standard/Pro off for iGPU-only
+    // boxes (see renderer.js); recommending Lite keeps the default consistent.
+    // ( CPU-only — no usable GPU at all — keeps falling through to the Lite path
+    // below ; the wizard warns there separately. )
     if p.gpu_integrated {
-        let shared_gb = p.gpu_shared_bytes.unwrap_or(p.ram_bytes / 2) / GB;
-        return if shared_gb >= 4 {
-            Tier::Standard
-        } else {
-            Tier::Lite
-        };
+        return Tier::Lite;
     }
 
     // Tier 1 cut : memory capacity. Budgets per tier ( from plan-doc ) :
@@ -472,6 +594,7 @@ mod tests {
             gpu_arch: arch,
             gpu_integrated: false,
             gpu_shared_bytes: None,
+            gpus: vec![],
             cpu_threads: 8,
             cpu_brand: "test".into(),
             ram_bytes: ram_gb * GB,
@@ -488,6 +611,7 @@ mod tests {
             gpu_arch: Some(GpuArch::IntelIris),
             gpu_integrated: true,
             gpu_shared_bytes: shared_gb.map(|g| g * GB),
+            gpus: vec![],
             cpu_threads: 8,
             cpu_brand: "test".into(),
             ram_bytes: ram_gb * GB,
@@ -547,33 +671,44 @@ mod tests {
     }
 
     #[test]
-    fn igpu_sizes_off_shared_memory_not_carveout() {
-        // 512 MB dedicated alone would force Lite ; the 6 GB DXGI shared figure
-        // lands Standard — the whole point of reading shared memory.
+    fn igpu_with_large_shared_still_lite() {
+        // An iGPU is capped at Lite regardless of shared-memory budget — the
+        // main app only offers Lite on an iGPU-only machine, so even a 6 GB
+        // shared figure does NOT promote it to Standard.
         let p = make_igpu(Some(6), 16);
-        assert_eq!(recommend(&p), Tier::Standard);
+        assert_eq!(recommend(&p), Tier::Lite);
     }
 
     #[test]
     fn igpu_low_shared_lands_lite() {
-        // 4 GB-RAM box : ~2 GB shared , not enough headroom for Standard.
+        // 4 GB-RAM box : ~2 GB shared — Lite either way.
         let p = make_igpu(Some(2), 4);
         assert_eq!(recommend(&p), Tier::Lite);
     }
 
     #[test]
-    fn igpu_falls_back_to_half_ram_without_dxgi() {
-        // No DXGI figure ( non-Windows / probe failed ) : RAM/2 = 8 GB → Standard.
+    fn igpu_without_dxgi_still_lite() {
+        // No DXGI figure ( non-Windows / probe failed ) : still Lite — iGPU is
+        // capped regardless of the shared-memory estimate.
         let p = make_igpu(None, 16);
-        assert_eq!(recommend(&p), Tier::Standard);
+        assert_eq!(recommend(&p), Tier::Lite);
     }
 
     #[test]
-    fn igpu_caps_at_standard_even_with_huge_shared() {
+    fn igpu_caps_at_lite_even_with_huge_shared() {
         // 32 GB-RAM iGPU reports ~16 GB shared , but the chip is too weak for a
-        // pleasant 9B — cap at Standard rather than promote to Pro.
+        // pleasant Standard/Pro experience — capped at Lite.
         let p = make_igpu(Some(16), 32);
-        assert_eq!(recommend(&p), Tier::Standard);
+        assert_eq!(recommend(&p), Tier::Lite);
+    }
+
+    #[test]
+    fn gpu_kind_maps_device_type() {
+        assert_eq!(gpu_kind(wgpu::DeviceType::DiscreteGpu), Some(GpuKind::Dedicated));
+        assert_eq!(gpu_kind(wgpu::DeviceType::VirtualGpu), Some(GpuKind::Dedicated));
+        assert_eq!(gpu_kind(wgpu::DeviceType::IntegratedGpu), Some(GpuKind::Integrated));
+        assert_eq!(gpu_kind(wgpu::DeviceType::Cpu), None);
+        assert_eq!(gpu_kind(wgpu::DeviceType::Other), None);
     }
 
     #[test]

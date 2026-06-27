@@ -14,8 +14,11 @@
  */
 import { totalmem, freemem, platform } from 'node:os'
 import { existsSync, statSync } from 'node:fs'
+import type { GpuDevice, GpuKind, LlmPlacementChoice } from '../../../shared/documents'
 
 const BYTES_PER_GB = 1024 ** 3
+
+const VENDOR_NVIDIA = 0x10de
 
 /**
  * OS RAM headroom — what we leave for the operating system itself, the
@@ -142,6 +145,105 @@ export type PlacementChoice = 'auto' | Placement
 export interface ServicePlan {
   placement: Placement
   reason: string
+}
+
+/**
+ * Resolved LLM device plan, computed in main from the user's Auto/Dedicated/
+ * Integrated choice + the install-time GPU inventory, and handed to the worker.
+ * The worker sets the visible-device env (`CUDA_VISIBLE_DEVICES` /
+ * `GGML_VK_VISIBLE_DEVICES`) from this BEFORE its first `getLlama`, so the
+ * native libs pin the chosen physical device; `backend` seeds the getLlama
+ * attempt order. `expectedName`/`expectedKind` let the worker verify the pin
+ * landed and report the device.
+ */
+export interface LlmDevicePlan {
+  choice: LlmPlacementChoice
+  /** Which compute backend family to drive: NVIDIA dedicated → 'cuda';
+   *  AMD/Intel (dedicated or integrated) → 'vulkan'; no GPU → 'cpu'. */
+  backend: 'cuda' | 'vulkan' | 'auto' | 'cpu'
+  cudaVisibleDevices: string | null
+  ggmlVkVisibleDevices: string | null
+  expectedName: string | null
+  expectedKind: GpuKind | null
+  /** True when the inventory has no usable GPU for the choice — main blocks the
+   *  load (a GPU is required) rather than running the model on the CPU. */
+  noGpu: boolean
+}
+
+/**
+ * Map an LLM device choice + the classified GPU inventory to a concrete backend
+ * + device pin. Pure (no I/O) so it's trivially testable. `gpus` is the
+ * install-time inventory from the tier marker; an empty list yields an Auto
+ * plan with no pin (the worker then auto-detects, the legacy single-GPU path).
+ */
+export function resolveLlmDevicePlan(choice: LlmPlacementChoice, gpus: GpuDevice[]): LlmDevicePlan {
+  // No inventory (no marker / dev / legacy): defer to the worker's auto-detect.
+  // noGpu stays false here; the caller decides whether to block using the
+  // runtime VRAM probe instead.
+  if (gpus.length === 0) {
+    return {
+      choice,
+      backend: 'auto',
+      cudaVisibleDevices: null,
+      ggmlVkVisibleDevices: null,
+      expectedName: null,
+      expectedKind: null,
+      noGpu: false,
+    }
+  }
+
+  const byVram = (a: GpuDevice, b: GpuDevice): number => b.vramBytes - a.vramBytes
+  const dedicated = gpus.filter((g) => g.kind === 'dedicated').sort(byVram)
+  const integrated = gpus.filter((g) => g.kind === 'integrated').sort(byVram)
+
+  // Resolve the target device. Auto prefers the largest dedicated card, else an
+  // integrated GPU. An explicit choice whose class is absent falls back to the
+  // other class (the picker already disables absent options; this is defensive).
+  let target: GpuDevice | null
+  if (choice === 'integrated') target = integrated[0] ?? dedicated[0] ?? null
+  else if (choice === 'dedicated') target = dedicated[0] ?? integrated[0] ?? null
+  else target = dedicated[0] ?? integrated[0] ?? null
+
+  if (!target) {
+    return {
+      choice,
+      backend: 'cpu',
+      cudaVisibleDevices: null,
+      ggmlVkVisibleDevices: null,
+      expectedName: null,
+      expectedKind: null,
+      noGpu: true,
+    }
+  }
+
+  // NVIDIA → CUDA (CUDA only ever sees discrete NVIDIA cards). We don't carry a
+  // CUDA device index from the marker, so CUDA picks by its own order — correct
+  // for the common single-NVIDIA box.
+  if (target.vendorId === VENDOR_NVIDIA) {
+    return {
+      choice,
+      backend: 'cuda',
+      cudaVisibleDevices: null,
+      ggmlVkVisibleDevices: null,
+      expectedName: target.name,
+      expectedKind: target.kind,
+      noGpu: false,
+    }
+  }
+
+  // AMD / Intel (dedicated OR integrated) → Vulkan, pinned to this device's
+  // Vulkan index when known. The pin is what forces THIS device instead of
+  // ggml's discrete-preferring default — required to force an iGPU when a
+  // dedicated card is also Vulkan-visible.
+  return {
+    choice,
+    backend: 'vulkan',
+    cudaVisibleDevices: null,
+    ggmlVkVisibleDevices: target.vulkanIndex != null ? String(target.vulkanIndex) : null,
+    expectedName: target.name,
+    expectedKind: target.kind,
+    noGpu: false,
+  }
 }
 
 /**
