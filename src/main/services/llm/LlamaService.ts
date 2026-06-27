@@ -46,6 +46,7 @@ import {
   chunkifyForStream,
   answerMaxTokens,
   type ResponseLanguage,
+  type AnswerDepth,
 } from './prompt'
 export type { ResponseLanguage }
 
@@ -151,6 +152,16 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
   pro: 'xl',
 }
 
+// How fully each profile is allowed to answer (system-prompt verbosity). Bigger
+// model → more room to develop the answer: Lite stays terse, Standard answers in
+// full, Pro/XL develops the explanation. The token ceiling already scales with
+// the window (answerMaxTokens), so this is purely the prompt-side steer.
+const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
+  lite: 'concise',
+  full: 'standard',
+  xl: 'thorough',
+}
+
 /**
  * The profile the user implicitly chose by picking a tier in the installer
  * wizard. This is AUTHORITATIVE over the RAM heuristic — if someone with
@@ -252,6 +263,10 @@ export class LlamaService {
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
+  // Profile of the currently loaded model. Drives the answer-verbosity depth in
+  // the system prompt ( PROFILE_TO_DEPTH ) so a per-turn language switch rebuilds
+  // the prompt at the right tier. Null until a load lands.
+  private activeProfile: LlmProfileName | null = null
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
   private status: ModelStatus = {
@@ -387,6 +402,13 @@ export class LlamaService {
     }
   }
 
+  /** Answer-verbosity depth for the loaded model's tier — Lite terse, Standard
+   *  full, Pro/XL thorough. Falls back to the terse default before a load lands
+   *  so the prompt never over-promises on an unknown model. */
+  private answerDepth(): AnswerDepth {
+    return this.activeProfile ? PROFILE_TO_DEPTH[this.activeProfile] : 'concise'
+  }
+
   async setLanguage(lang: ResponseLanguage): Promise<void> {
     if (this.language === lang) return
     this.language = lang
@@ -395,7 +417,7 @@ export class LlamaService {
     // next llmAsk — the worker holds the system prompt as session state.
     if (this.client && this.isReady()) {
       try {
-        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang))
+        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang, this.answerDepth()))
       } catch {
         /* worker status push already reflects reality */
       }
@@ -572,6 +594,9 @@ export class LlamaService {
 
   private async performLoad(modelPath: string, profileName?: LlmProfileName): Promise<void> {
     const profile = profileName ? profileByName(profileName) : null
+    // Pin the tier before building the prompt so the verbosity depth matches the
+    // model being loaded ( and so a later setLanguage rebuilds at the same tier ).
+    this.activeProfile = profile?.name ?? null
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
     try {
       const result = await this.client!.llmLoad({
@@ -583,7 +608,7 @@ export class LlamaService {
         device: this.devicePlan,
         language: this.language,
         envContextOverride: envOverride,
-        systemPrompt: buildSystemPrompt(this.language),
+        systemPrompt: buildSystemPrompt(this.language, this.answerDepth()),
       })
       this.lastPlan = result.plan
       this.lastResources = result.resources
