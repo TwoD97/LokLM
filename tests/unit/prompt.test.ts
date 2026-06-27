@@ -259,6 +259,32 @@ describe('buildSystemPrompt', () => {
     expect(de).toMatch(/Moment/)
     expect(de).toMatch(/eigentlich/)
   })
+
+  it('scales answer length by tier depth (concise → standard → thorough)', () => {
+    // The depth steer is the only per-tier difference in the prompt — bigger
+    // models are told to develop the answer further. Compare the LENGTH/UMFANG
+    // section text directly rather than total length (the rest is identical).
+    for (const lang of ['en', 'de'] as const) {
+      const concise = buildSystemPrompt(lang, 'concise')
+      const standard = buildSystemPrompt(lang, 'standard')
+      const thorough = buildSystemPrompt(lang, 'thorough')
+      expect(concise).not.toBe(standard)
+      expect(standard).not.toBe(thorough)
+      // Each step says more than the last.
+      expect(standard.length).toBeGreaterThan(concise.length)
+      expect(thorough.length).toBeGreaterThan(standard.length)
+    }
+    // Default (no depth) stays terse so the Ollama path + token estimates keep
+    // their existing behavior.
+    expect(buildSystemPrompt('en')).toBe(buildSystemPrompt('en', 'concise'))
+    // Thorough carries the "develop the explanation" steer; concise does not.
+    expect(buildSystemPrompt('en', 'thorough')).toMatch(/thoroughly/)
+    expect(buildSystemPrompt('de', 'thorough')).toMatch(/ausführlich/)
+    // The DE parsimony header no longer literally reads "brevity" — it would
+    // contradict the new UMFANG length steer.
+    expect(buildSystemPrompt('de', 'thorough')).toContain('UMFANG')
+    expect(buildSystemPrompt('de')).not.toContain('KNAPPHEIT')
+  })
 })
 
 describe('stripThink', () => {

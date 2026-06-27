@@ -2,6 +2,13 @@ import type { RetrievalHit } from '../../../shared/documents'
 
 export type ResponseLanguage = 'de' | 'en'
 
+/** How fully the model should develop an answer. Keyed off the active tier so a
+ *  bigger model is allowed to say more: Lite stays terse, Standard answers in
+ *  full, Pro develops the explanation. This steers verbosity through the system
+ *  prompt — `answerMaxTokens` already hands Standard and Pro the full 32K
+ *  ceiling, so the cap was never what kept their answers short; the prompt was. */
+export type AnswerDepth = 'concise' | 'standard' | 'thorough'
+
 export const REFUSAL_TEXT: Record<ResponseLanguage, string> = {
   de: 'Diese Information findet sich nicht in den bereitgestellten Dokumenten.',
   en: 'This information is not in the provided documents.',
@@ -109,11 +116,31 @@ export function packHitsToBudget(
  *   - The refusal string comes from REFUSAL_TEXT[lang] so it stays the
  *     single source of truth for QAService and renderFallback.
  */
-export function buildSystemPrompt(lang: ResponseLanguage): string {
-  return lang === 'de' ? buildSystemPromptDe() : buildSystemPromptEn()
+export function buildSystemPrompt(lang: ResponseLanguage, depth: AnswerDepth = 'concise'): string {
+  return lang === 'de' ? buildSystemPromptDe(depth) : buildSystemPromptEn(depth)
 }
 
-function buildSystemPromptEn(): string {
+/** Length guidance per tier. The DISCIPLINE rules above already bar rambling and
+ *  trailing summaries, so "thorough" means a fuller explanation, not padding. */
+const LENGTH_EN: Record<AnswerDepth, string> = {
+  concise:
+    'Keep the answer concise — state the answer and the support it needs, nothing more. A few sentences usually suffice.',
+  standard:
+    'Give a complete answer — explain it with the detail and context the question calls for, usually a short paragraph or two. Do not pad, but do not cut an explanation short.',
+  thorough:
+    'Answer thoroughly — develop the explanation in full: cover the relevant points, add supporting detail, context, and examples drawn from the Context, and lay out the reasoning where it aids understanding. Prefer a complete, well-developed answer over a brief one, while staying grounded in the sources.',
+}
+
+const LENGTH_DE: Record<AnswerDepth, string> = {
+  concise:
+    'Halte die Antwort knapp — nenne die Antwort und nur den nötigen Beleg. Wenige Sätze genügen meist.',
+  standard:
+    'Gib eine vollständige Antwort — erläutere sie mit dem Detail und Kontext, den die Frage verlangt, in der Regel ein bis zwei kurze Absätze. Blähe nichts auf, kürze eine Erklärung aber auch nicht ab.',
+  thorough:
+    'Antworte ausführlich — entwickle die Erklärung vollständig: decke die relevanten Punkte ab, ergänze stützende Details, Kontext und Beispiele aus dem Context und lege den Gedankengang dar, wo er das Verständnis fördert. Bevorzuge eine vollständige, gut ausgearbeitete Antwort gegenüber einer knappen — bleibe dabei an den Quellen verankert.',
+}
+
+function buildSystemPromptEn(depth: AnswerDepth): string {
   const refusal = REFUSAL_TEXT.en
   return `You are LokLM, a local assistant grounded in the user's document library.
 
@@ -139,13 +166,16 @@ If a question could refer to multiple things in the Context, briefly note the am
 PARSIMONY
 Use the simplest calculation path the question supports — no extra adjustments unless explicitly required.
 
+LENGTH
+${LENGTH_EN[depth]}
+
 FORMAT
 Plain text. No LaTeX, decorative headers, or tables unless asked. Do not bold a final answer at the top — the final answer comes at the end of the work.
 
 /no_think`
 }
 
-function buildSystemPromptDe(): string {
+function buildSystemPromptDe(depth: AnswerDepth): string {
   const refusal = REFUSAL_TEXT.de
   return `Du bist LokLM, ein lokaler Assistent, der in der Dokumentbibliothek des Nutzers verankert ist.
 
@@ -168,8 +198,11 @@ Denke intern, bevor du schreibst. Verwende nie "Moment", "eigentlich", "lass mic
 UNSCHÄRFE
 Könnte eine Frage mehrere Dinge im Context meinen, benenne die Mehrdeutigkeit kurz und entscheide dich für die wahrscheinlichste Lesart. Liste keine Alternativen auf.
 
-KNAPPHEIT
+SPARSAMKEIT
 Nutze den einfachsten Rechenweg, den die Frage hergibt — keine zusätzlichen Anpassungen, wenn nicht ausdrücklich gefordert.
+
+UMFANG
+${LENGTH_DE[depth]}
 
 FORMAT
 Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofern nicht gefordert. Setze die finale Antwort nicht fett ganz oben — sie steht am Ende des Rechenwegs.
