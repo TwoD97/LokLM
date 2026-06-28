@@ -36,22 +36,19 @@ function isTerminal(state: string): boolean {
  * link enters early while loads finish in the background. The vault is already
  * unlocked by the time this renders, so its row is shown done from the start.
  *
- * The reranker row is PER-TIER: the lite install ships no reranker and sets
- * `reranker.enabled = false`, so the row is hidden entirely and never gates
- * entry. Standard / pro keep it enabled → the row shows and is waited on (but
- * only until it reaches a terminal state, so a missing model never hangs us).
+ * The reranker row shows on ALL tiers when enabled (the default now, lite
+ * included). It's waited on only until it reaches a terminal state, so a
+ * missing/failed model never hangs entry.
  */
 export function WarmingView({ onReady }: Props): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
   const rerankerEnabled = settings?.advanced.reranker.enabled ?? true
-  // The lite install tier ships WITHOUT the reranker, so its row must be gone
-  // regardless of the persisted `reranker.enabled` (which a prior non-lite run
-  // may have left true — persisted settings win over the tier default). Mirror
-  // TitleBar's rule exactly: visible only when enabled AND not the lite tier.
-  // null while the tier resolves (fast IPC); treated as "not lite" until then.
-  const [tier, setTier] = useState<'lite' | 'standard' | 'pro' | null>(null)
-  const rerankerVisible = rerankerEnabled && tier !== 'lite'
+  // The reranker is now default-on across ALL tiers (lite included — it ships
+  // the GGUF and is the precision gate the relevance floor depends on), so the
+  // row shows whenever it's enabled. Was previously hidden on lite (ADR-0007),
+  // when lite shipped no reranker.
+  const rerankerVisible = rerankerEnabled
 
   const [llm, setLlm] = useState<{ state: string; loadProgress: number | null; source: string }>({
     state: 'idle',
@@ -84,7 +81,6 @@ export function WarmingView({ onReady }: Props): JSX.Element {
     // (serialized, idempotent), so this screen never blocks on it — it only
     // observes the resulting status pushes.
     void window.api.models.warmupForQa().catch(() => undefined)
-    void window.api.tier.get().then(setTier)
     void window.api.llm
       .status()
       .then((s) => applyLlm({ state: s.state, loadProgress: s.loadProgress, source: s.source }))
@@ -115,8 +111,8 @@ export function WarmingView({ onReady }: Props): JSX.Element {
   // will never fire.
   const llmReady = llm.state === 'ready' || llm.source === 'ollama'
   const embReady = embedder.state === 'ready'
-  // Lite (reranker not present): never gates. Standard/pro: wait for it, but
-  // release on any terminal state so a missing/failed model can't trap entry.
+  // Wait for the reranker when it's enabled, but release on any terminal state
+  // so a missing/failed model can't trap entry. Skipped only if disabled.
   const rrReady = !rerankerVisible || isTerminal(reranker.state)
   const allReady = llmReady && embReady && rrReady
 
@@ -146,8 +142,8 @@ export function WarmingView({ onReady }: Props): JSX.Element {
       step: toStep(embedder.state),
       progress: embedder.loadProgress,
     },
-    // Per-tier: only present when the reranker is part of this install (standard
-    // / pro). The lite tier ships none → no row at all.
+    // Present on all tiers when the reranker is enabled (the default). Omitted
+    // only if a user explicitly disabled it in settings.
     ...(rerankerVisible
       ? [
           {

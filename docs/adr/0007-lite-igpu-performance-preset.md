@@ -1,6 +1,6 @@
 # ADR-0007: Lite tier — iGPU/low-end performance preset
 
-Status: Accepted (staged implementation)
+Status: Accepted (staged implementation) — reranker-off + leading-slice rerank levers superseded by ADR-0008 (2026-06-28)
 Date: 2026-06-27
 Builds on: ADR-0004 (adaptive model residency), ADR-0003 (query routing / RAG pipeline)
 
@@ -39,13 +39,13 @@ A **lite-tier preset**, gated on `getEffectiveTier() === 'lite'` (the reliable
 signal — `LOKLM_TIER` / install marker — **not** the GPU label, and **not** the
 persisted per-setting values, which a prior non-lite run can leave "wrong"):
 
-| Lever                                    | Lite                                                               | Where                                             |
-| ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------- |
-| Query expansion (`multiQuery`)           | **off**                                                            | `chat:stream` handler                             |
-| Whole-doc expansion (`wholeDocFallback`) | **off**                                                            | `chat:stream` handler → QAService → searchOpts    |
-| Follow-up `contextualize`                | **heuristic** (`heuristicContextualizeQuery`, no LLM)              | QAService                                         |
-| LLM context window                       | **hard-capped 8 K** (regardless of profile/Auto/persisted setting) | `LlamaService.performLoad`                        |
-| Reranker                                 | hidden in UI + not warmed                                          | `WarmingView` / `models:warmupForQa` (tier-gated) |
+| Lever                                     | Lite                                                                | Where                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Query expansion (`multiQuery`)            | **off**                                                             | `chat:stream` handler                                                        |
+| Whole-doc expansion (`wholeDocFallback`)  | **off**                                                             | `chat:stream` handler → QAService → searchOpts                               |
+| Follow-up `contextualize`                 | **heuristic** (`heuristicContextualizeQuery`, no LLM)               | QAService                                                                    |
+| LLM context window                        | **hard-capped 8 K** (regardless of profile/Auto/persisted setting)  | `LlamaService.performLoad`                                                   |
+| Reranker ~~(off)~~ → **on**, see ADR-0008 | ~~hidden in UI + not warmed~~ → bundled, warmed, shown on all tiers | `WarmingView` / `models:warmupForQa`, `installer-wizard/model-manifest.json` |
 
 Plus a **post-unlock loading screen** (`WarmingView`): staged checklist driven by
 the live model-status pushes, **embedder loaded first** (it gates indexing +
@@ -64,6 +64,38 @@ prompt still huge?) from real data instead of guessed at.
 | prompt tokens             | ~4900             | **~3300**                               |
 | `multiQuery` / `wholeDoc` | on / on           | **off / off**                           |
 | TTFT                      | 337–434 s + crash | bounded (no OOM); prefill is iGPU-bound |
+
+### Measured: reranker latency on an iGPU (non-lite tier)
+
+The reranker is **off on lite** (table above), but a **standard/pro install on an
+iGPU still reranks the whole pipeline** — and the live app surfaced it as a
+`Reranken — 40 reranked — 66.26 s` stage row for a single short query
+("Was ist ein Interpreter?"). Benchmarked against the bundled
+`bge-reranker-v2-m3-Q4_K_M.gguf` at the app's `RERANK_CONTEXT_SIZE` (1024) on the
+worker's Vulkan backend (same call path as `modelsWorker.rerankerRank` →
+`createRankingContext` → `rankAll`):
+
+- **The 66 s was a cold start, and the bench reproduces it.** One-time load is
+  `getLlama(vulkan)` ~3.9 s + `loadModel` ~6.4 s + `createRankingContext` ~0.1 s
+  ≈ **10 s**, and the **first** `rankAll` also pays a one-time Vulkan shader
+  compile. Cold first-rank of 40 candidates ≈ **59 s**; load + cold-rank ≈ the
+  observed **66 s**. A **warm** 40-candidate rerank dropped to **~24 s**.
+- **Per-candidate cost is not stable enough to quote.** Across 8/16/24/40
+  candidates the warm cost/chunk bounced 0.6–3.1 s and was **non-monotonic**
+  (warm-16 came out _slower_ than warm-40; cold-24 slower than cold-40) — the
+  signature of **thermal throttling / shared-iGPU contention**, not of candidate
+  count. The iGPU does not hold a steady clock long enough to measure a clean
+  curve.
+- **The cost driver is that the whole candidate pool is reranked**, not the
+  top-K (`RetrievalService.maybeRerank` scores every fused candidate — deliberate,
+  so diversification sees reranked-quality candidates from every doc).
+
+Levers (none free): (a) **keep the reranker warm** — the ~10 s load + first-call
+shader compile are one-time, so a resident model never re-pays the 66 s;
+(b) **cap the rerank input** to ~top-12–16 candidates (loses some "every doc
+represented" benefit); (c) **tier-gate it off** (what lite already does). Same
+methodology lesson as #1 below: the _cold_ app path is the honest number — the
+warm bench (~24 s) understates first-query latency by ~3×.
 
 ## Trial and error — what we tried and REJECTED
 
@@ -108,6 +140,11 @@ Recorded so a future session does not re-derive these the hard way.
   _smaller LLM_ or a real GPU.
 - **Embedding throughput** (~0.8 chunks/s) makes indexing large corpora slow. Lever:
   a smaller/faster embedder; batching and CPU were both ruled out above.
+- **Reranking on an iGPU is a cold-start cliff** (~66 s for 40 candidates cold,
+  ~24 s warm — see the measured block above). A non-lite install on an iGPU pays
+  it on the first query. Levers: keep the reranker warm, cap the rerank input to
+  ~top-12–16, or tier-gate it off. A measured "perf class" probe (below) would let
+  standard/pro auto-trim this on weak hardware.
 - **Changing the "Kontextgröße" setting does not reload the model** — it only binds
   at load. Consider reloading the LLM on a context-choice change (mirrors placement).
 - **Coarse chunking** of multi-Q&A study sheets means one chunk holds several Q&As.
