@@ -4,9 +4,12 @@ import { ReindexGateModal } from '../ReindexGateModal'
 import { Segmented } from '../Segmented'
 import { useT } from '../../i18n'
 
+// `update` stays in the props shape (the Settings panel passes the same shape to
+// every section) but the embedder no longer has a directly-updated control here
+// — source switching goes through the re-index gate.
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
-export function EmbedderSection({ settings, update }: Props): JSX.Element {
+export function EmbedderSection({ settings }: Props): JSX.Element {
   const t = useT()
   const [open, setOpen] = useState(true)
   const [gate, setGate] = useState<{
@@ -67,22 +70,9 @@ export function EmbedderSection({ settings, update }: Props): JSX.Element {
               onChange={(v) => startSwitch(v)}
             />
           </div>
-          <div className="settings-row">
-            <div className="settings-row__label">
-              <span className="settings-row__label-text">{t('settings.embedder.placement')}</span>
-              <span className="settings-row__hint">{t('settings.embedder.placementHint')}</span>
-            </div>
-            <Segmented
-              ariaLabel={t('settings.embedder.placementAria')}
-              value={a.placement}
-              options={[
-                { value: 'auto', label: t('settings.embedder.placementAuto') },
-                { value: 'cpu', label: t('settings.embedder.placementCpu') },
-                { value: 'gpu', label: t('settings.embedder.placementGpu') },
-              ]}
-              onChange={(v) => void update({ advanced: { embedder: { placement: v } } })}
-            />
-          </div>
+          {/* The embedder rides the LLM's primary GPU backend (one shared device),
+              so it has no independent compute-device control — the LLM's
+              Auto/Dedicated/Integrated choice governs it. */}
         </div>
       )}
       <ReindexGateModal

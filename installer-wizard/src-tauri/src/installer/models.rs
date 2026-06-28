@@ -112,7 +112,12 @@ fn build_client() -> reqwest::Client {
     }
     reqwest::Client::builder()
         .default_headers(headers)
-        .timeout(std::time::Duration::from_secs(120))
+        // Idle ( per-read ) timeout , not a total deadline : the GGUFs are large
+        // ( the 9B is ~5.5 GB ) and a fixed total would kill a slow-but-healthy
+        // download. read_timeout resets on every received chunk , so only a stalled
+        // connection trips it ; the retry-with-Range-resume loop above continues.
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .read_timeout(std::time::Duration::from_secs(60))
         .build()
         .expect("reqwest client build failed")
 }

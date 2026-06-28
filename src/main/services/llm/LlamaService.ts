@@ -2,11 +2,13 @@ import { totalmem } from 'node:os'
 import {
   ResourcePlanner,
   ggufWeightBytes,
+  resolveLlmDevicePlan,
   type LlmPlan,
   type SystemResources,
+  type LlmDevicePlan,
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
-import { readTierMarker, type Tier } from '../tier/TierMarker'
+import { readGpuInventory, getEffectiveTier, type Tier } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
@@ -18,6 +20,8 @@ import type {
   LlmProfileChoice,
   AvailableProfile,
   LlmContextChoice,
+  GpuKind,
+  LlmPlacementChoice,
 } from '../../../shared/documents'
 export type {
   ModelState,
@@ -42,6 +46,7 @@ import {
   chunkifyForStream,
   answerMaxTokens,
   type ResponseLanguage,
+  type AnswerDepth,
 } from './prompt'
 export type { ResponseLanguage }
 
@@ -88,45 +93,38 @@ export interface LlmProfile {
   minTotalMemGB: number
 }
 
-// Profile ↔ on-disk-GGUF binding. v0.2.7 added the Qwen3.5 tier lineup the
-// wizard now installs ( lite=Qwen3.5-2B , standard=Qwen3.5-4B , pro=Qwen3.5-9B ) ;
-// patterns are ordered most-specific-first so a Qwen3.5-9B never accidentally
-// matches the bare /qwen3.*9b/ -style fallbacks. The older Qwen3 / Qwen2.5 /
-// Llama / Nemotron patterns stay so v0.2.6 installs + side-loaded GGUFs keep
-// resolving. Mapping by model size : 2B→lite , 4B→full , 9B→xl.
+// Profile ↔ on-disk-GGUF binding. The three tiers map 1:1 onto the Qwen3.5
+// lineup the installer wizard ships ( installer-wizard/model-manifest.json ) :
+//   lite → Qwen3.5-2B , full → Qwen3.5-4B , xl → Qwen3.5-9B.
+// Patterns are deliberately Qwen3.5-only — the legacy Qwen3 / Qwen2.5 / Llama /
+// Nemotron fallbacks were removed so a side-loaded Qwen3-8B can never resolve
+// as a tier model ( that mismatch loaded an 8B under a "lite" install ).
 export const LLM_PROFILES: LlmProfile[] = [
   {
     name: 'lite',
     displayName: 'Lite — Qwen3.5 2B (8 GB target)',
-    filenamePatterns: [
-      /qwen3\.5.*[-_]?2b/i,
-      /qwen3.*[-_]?4b/i,
-      /qwen2\.5.*[-_]?3b/i,
-      /llama.*3\.2.*[-_]?3b/i,
-    ],
-    contextSize: 32768,
+    filenamePatterns: [/qwen3\.5.*[-_]?2b/i],
+    // 8K, not 32K. The context window sizes both the KV cache AND the retrieval
+    // pack budget (QAService packs RAG context proportional to the window). On an
+    // 8 GB / iGPU-only target a 32K window means ~23K tokens of retrieved text get
+    // packed into every prompt — minutes of prefill on the iGPU, and the KV
+    // allocation can OOM the device outright (empty answer / worker crash). 8K
+    // bounds the prompt to ~3–4K RAG tokens: still ample for a focused QA turn,
+    // fast to prefill, and memory-safe. Standard/pro keep their large windows.
+    contextSize: 8192,
     minTotalMemGB: 8,
   },
   {
     name: 'full',
     displayName: 'Full — Qwen3.5 4B (16 GB+ target)',
-    filenamePatterns: [/qwen3\.5.*[-_]?4b/i, /qwen3.*[-_]?8b/i, /qwen2\.5.*[-_]?7b/i],
+    filenamePatterns: [/qwen3\.5.*[-_]?4b/i],
     contextSize: 131072,
     minTotalMemGB: 16,
   },
   {
     name: 'xl',
     displayName: 'XL — Qwen3.5 9B (high-end GPU, 32 GB+ RAM)',
-    filenamePatterns: [
-      /qwen3\.5.*[-_]?9b/i,
-      /nemotron.*3.*nano.*30b/i,
-      /nemotron.*nano.*30b/i,
-      /qwen3.*[-_]?30b.*a3b/i,
-      /qwen3.*[-_]?32b/i,
-      /qwen2\.5.*[-_]?32b/i,
-      /nemotron.*super.*49b/i,
-      /llama.*3\.3.*70b/i,
-    ],
+    filenamePatterns: [/qwen3\.5.*[-_]?9b/i],
     contextSize: 262144,
     minTotalMemGB: 32,
   },
@@ -147,6 +145,20 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
   pro: 'xl',
 }
 
+// How fully each profile is allowed to answer (system-prompt verbosity). Bigger
+// model → more room to develop the answer. Lite was 'concise' (a few sentences)
+// to keep decode short on the iGPU, but once retrieval feeds the right chunk a
+// terse answer reads as under-developed — so lite now answers in full like
+// Standard. Pro/XL still develops the explanation furthest. The token ceiling
+// scales with the window (answerMaxTokens), so this is purely the prompt steer;
+// the cost is extra decoded tokens (slower on the iGPU), traded for a complete
+// answer.
+const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
+  lite: 'standard',
+  full: 'standard',
+  xl: 'thorough',
+}
+
 /**
  * The profile the user implicitly chose by picking a tier in the installer
  * wizard. This is AUTHORITATIVE over the RAM heuristic — if someone with
@@ -156,9 +168,9 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
  * hardware heuristic.
  */
 export function tierMarkerProfile(): LlmProfileName | null {
-  const marker = readTierMarker()
-  if (!marker) return null
-  return TIER_TO_PROFILE[marker.tier] ?? null
+  const tier = getEffectiveTier()
+  if (!tier) return null
+  return TIER_TO_PROFILE[tier] ?? null
 }
 
 export function recommendedProfile(): LlmProfileName {
@@ -231,14 +243,27 @@ export class LlamaService {
   private gpuLabel: string | null = null
   private selectedChoice: LlmProfileChoice = 'auto'
   private selectedContext: LlmContextChoice = 'auto'
-  private selectedPlacement: 'auto' | 'cpu' | 'gpu' = 'auto'
+  private selectedPlacement: LlmPlacementChoice = 'auto'
+  // Resolved device plan (backend + pin) for the current choice + GPU inventory.
+  // Recomputed by applyDevicePlan(); handed to the worker (which restarts when
+  // the physical device changes).
+  private devicePlan: LlmDevicePlan = resolveLlmDevicePlan('auto', [])
   // Where the last load actually landed + why — surfaced in systemInfo for the
   // status bar / settings. Null until a load has happened.
   private resolvedPlacement: 'cpu' | 'gpu' | null = null
   private placementReason: string | null = null
+  // Resolved device name + class + whether the requested device was confirmed,
+  // from the last load. Surfaced in systemInfo + the TitleBar chip.
+  private resolvedGpuName: string | null = null
+  private resolvedGpuKind: GpuKind | null = null
+  private pinnedDeviceVerified = true
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
+  // Profile of the currently loaded model. Drives the answer-verbosity depth in
+  // the system prompt ( PROFILE_TO_DEPTH ) so a per-turn language switch rebuilds
+  // the prompt at the right tier. Null until a load lands.
+  private activeProfile: LlmProfileName | null = null
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
   private status: ModelStatus = {
@@ -323,6 +348,10 @@ export class LlamaService {
       placementChoice: this.selectedPlacement,
       resolvedPlacement: this.resolvedPlacement,
       placementReason: this.placementReason,
+      gpuName: this.resolvedGpuName,
+      gpuKind: this.resolvedGpuKind,
+      availableGpus: readGpuInventory().map((g) => ({ name: g.name, kind: g.kind })),
+      pinnedDeviceVerified: this.pinnedDeviceVerified,
     }
   }
 
@@ -338,12 +367,43 @@ export class LlamaService {
     this.selectedContext = choice
   }
 
-  setSelectedPlacement(choice: 'auto' | 'cpu' | 'gpu'): void {
-    this.selectedPlacement = choice
+  setSelectedPlacement(choice: LlmPlacementChoice): void {
+    // CPU is no longer a user-selectable LLM placement — a GPU is required and
+    // the picker chooses a device CLASS. Anything that isn't a real class (e.g.
+    // a legacy persisted 'cpu'/'gpu', or a value from a newer build) coerces to
+    // 'auto'. (Pure-CPU timing evals drive the worker via LLAMA_GPU=cpu, not
+    // this field, so they're unaffected.)
+    this.selectedPlacement = choice === 'dedicated' || choice === 'integrated' ? choice : 'auto'
   }
 
-  getSelectedPlacement(): 'auto' | 'cpu' | 'gpu' {
+  getSelectedPlacement(): LlmPlacementChoice {
     return this.selectedPlacement
+  }
+
+  /**
+   * Recompute the device plan from the current choice + the install-time GPU
+   * inventory and push it to the worker. The worker bakes the pin into its spawn
+   * env, so this restarts the worker when the PHYSICAL device changes (a no-op
+   * otherwise). Safe to call before any worker exists (it just stores the plan,
+   * so the first spawn already carries the right env). Called from applySettings
+   * (startup + on change) and defensively at the head of autoLoad.
+   */
+  async applyDevicePlan(): Promise<void> {
+    this.devicePlan = resolveLlmDevicePlan(this.selectedPlacement, readGpuInventory())
+    if (this.client) {
+      try {
+        await this.client.setDevicePlan(this.devicePlan)
+      } catch {
+        /* worker status push already reflects reality */
+      }
+    }
+  }
+
+  /** Answer-verbosity depth for the loaded model's tier — Lite terse, Standard
+   *  full, Pro/XL thorough. Falls back to the terse default before a load lands
+   *  so the prompt never over-promises on an unknown model. */
+  private answerDepth(): AnswerDepth {
+    return this.activeProfile ? PROFILE_TO_DEPTH[this.activeProfile] : 'concise'
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
@@ -354,7 +414,7 @@ export class LlamaService {
     // next llmAsk — the worker holds the system prompt as session state.
     if (this.client && this.isReady()) {
       try {
-        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang))
+        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang, this.answerDepth()))
       } catch {
         /* worker status push already reflects reality */
       }
@@ -442,38 +502,45 @@ export class LlamaService {
     const snapshot = await this.planner.refreshIfStale(60_000)
     this.lastResources = snapshot
 
-    let preferredName: LlmProfileName
-    if (this.selectedChoice === 'auto') {
-      const enriched = LLM_PROFILES.map((p) => {
-        const d = profiles.find((x) => x.name === p.name)
-        const path = d?.filename ? resolveModelFile(d.filename) : null
-        return {
-          name: p.name,
-          minTotalMemGB: p.minTotalMemGB,
-          weightsBytes: path ? ggufWeightBytes(path) : 0,
-        }
+    // Resolve the device plan (choice + install-time GPU inventory) and pin it on
+    // the worker BEFORE loading — this restarts the worker when the physical
+    // device changed so the next getLlama latches the right one.
+    await this.applyDevicePlan()
+
+    // GPU required: the bundled LLM only runs on a GPU (dedicated or integrated).
+    // Block only when there's genuinely no usable GPU — when the marker inventory
+    // is present it's authoritative (plan.noGpu); without a marker we trust the
+    // runtime VRAM probe. Running a multi-GB model on CPU is multi-minutes per
+    // answer and effectively unusable. CPU-only timing evals still work via
+    // LLAMA_GPU=cpu, which drives the worker backend directly and bypasses this.
+    const inventory = readGpuInventory()
+    const noUsableGpu = inventory.length > 0 ? this.devicePlan.noGpu : !snapshot.hasGpu
+    if (noUsableGpu) {
+      // eslint-disable-next-line no-console
+      console.warn('[llm] no GPU detected — refusing to load (GPU is required)')
+      this.setStatus({
+        state: 'failed',
+        modelPath: null,
+        modelName: null,
+        profile: null,
+        message:
+          'No GPU detected. LokLM requires a GPU (dedicated or integrated) to run the language model.',
       })
-      const picked = this.planner.pickProfile(enriched, snapshot)
-      preferredName = (picked?.name as LlmProfileName | undefined) ?? recommendedProfile()
-    } else {
-      preferredName = this.selectedChoice
+      return
     }
 
-    // CPU downgrade: regardless of how we got `preferredName` ( auto-pick OR
-    // explicit user choice OR install-time tier marker ) , if there's no GPU
-    // and lite is available , force lite. Reasoning: a Full / XL tier was
-    // chosen for hardware the user no longer has — running it on CPU is
-    // multi-minutes per call. The user can switch back via settings once
-    // they're on a GPU machine again.
-    if (!snapshot.hasGpu && preferredName !== 'lite') {
-      const liteAvailable = profiles.find((x) => x.name === 'lite')?.filename != null
-      if (liteAvailable) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[llm] no GPU detected — auto-downgrading from '${preferredName}' to 'lite' for usability`,
-        )
-        preferredName = 'lite'
-      }
+    let preferredName: LlmProfileName
+    if (this.selectedChoice === 'auto') {
+      // Tier marker ( install-time choice , or `pnpm dev --lite` via LOKLM_TIER )
+      // is AUTHORITATIVE when its GGUF is on disk — otherwise fall back to the
+      // hardware heuristic. Shared with the settings UI ( recommendedProfileFrom
+      // Cache ) so the recommended label and the actually-loaded model agree.
+      // Previously this called planner.pickProfile() directly, which is purely
+      // VRAM/RAM-driven and ignored the tier — so `--lite` still loaded the
+      // largest model that fit ( an 8B under a lite install ).
+      preferredName = this.recommendedProfileFromCache(profiles)
+    } else {
+      preferredName = this.selectedChoice
     }
 
     const path = this.resolveSelectedPath(profiles, preferredName)
@@ -521,24 +588,43 @@ export class LlamaService {
 
   private async performLoad(modelPath: string, profileName?: LlmProfileName): Promise<void> {
     const profile = profileName ? profileByName(profileName) : null
+    // Pin the tier before building the prompt so the verbosity depth matches the
+    // model being loaded ( and so a later setLanguage rebuilds at the same tier ).
+    this.activeProfile = profile?.name ?? null
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
+    // Lite tier (iGPU / low-end target): HARD-cap the context window. planLlm
+    // clamps the final context to profileDefaultContext, so this bounds it
+    // regardless of how the profile resolved (a persisted 'full' llmProfile would
+    // otherwise win) or what "Auto" sizes to. Auto sizes to free VRAM, and on an
+    // iGPU's shared memory that's the model's full 128K native window — a giant
+    // KV cache AND a prefill prompt the packer fills to match. 8K is plenty for a
+    // focused RAG turn and keeps prefill survivable on an iGPU.
+    const LITE_CONTEXT_CAP = 8192
+    const baseDefaultContext = profile?.contextSize ?? 32768
+    const profileDefaultContext =
+      getEffectiveTier() === 'lite'
+        ? Math.min(baseDefaultContext, LITE_CONTEXT_CAP)
+        : baseDefaultContext
     try {
       const result = await this.client!.llmLoad({
         modelPath,
         profileName: profile?.name ?? null,
-        profileDefaultContext: profile?.contextSize ?? 32768,
+        profileDefaultContext,
         weightsBytes: ggufWeightBytes(modelPath),
         userContextChoice: this.selectedContext,
-        placement: this.selectedPlacement,
+        device: this.devicePlan,
         language: this.language,
         envContextOverride: envOverride,
-        systemPrompt: buildSystemPrompt(this.language),
+        systemPrompt: buildSystemPrompt(this.language, this.answerDepth()),
       })
       this.lastPlan = result.plan
       this.lastResources = result.resources
       this.gpuLabel = result.gpuLabel
       this.resolvedPlacement = result.resolvedPlacement
       this.placementReason = result.placementReason
+      this.resolvedGpuName = result.gpuName
+      this.resolvedGpuKind = result.gpuKind
+      this.pinnedDeviceVerified = result.pinnedDeviceVerified
       this.lastUsedAt = Date.now()
       this.startIdleTimer()
     } catch (err) {

@@ -253,11 +253,45 @@ export type ModelState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
 export type LlmProfileName = 'lite' | 'full' | 'xl'
 export type LlmProfileChoice = 'auto' | LlmProfileName
 
+/** Physical class of a GPU, classified by its device type (wgpu/Vulkan
+ *  DeviceType) — NOT by which compute backend reaches it. So an AMD RX 7900
+ *  on Vulkan is 'dedicated', an Intel UHD / Radeon 780M iGPU is 'integrated'. */
+export type GpuKind = 'dedicated' | 'integrated'
+
+/** One enumerated physical GPU from the install-time inventory (written into
+ *  the tier marker by the wizard's hardware probe). Identity is
+ *  `{vendorId, deviceId, name}`; the worker matches on that to pin the device. */
+export interface GpuDevice {
+  name: string
+  vendorId: number
+  deviceId: number
+  kind: GpuKind
+  /** Dedicated VRAM in bytes (DXGI DedicatedVideoMemory / NVML). Tiny UEFI
+   *  carve-out for an iGPU — see `sharedBytes` for its real budget. */
+  vramBytes: number
+  /** Shared system memory the device may use as video memory; 0 when unknown. */
+  sharedBytes: number
+  /** Index in the Vulkan adapter enumeration — a hint for GGML_VK_VISIBLE_DEVICES
+   *  when forcing a specific Vulkan device. Null when not Vulkan-reachable. */
+  vulkanIndex: number | null
+}
+
+/** The LLM compute-device choice the user makes in Settings. Replaces the old
+ *  'auto'|'cpu'|'gpu' knob: CPU is no longer selectable (a GPU is required), and
+ *  the picker distinguishes a dedicated card from an integrated GPU. */
+export type LlmPlacementChoice = 'auto' | 'dedicated' | 'integrated'
+
 export interface ModelStatus {
   state: ModelState
   modelPath: string | null
   modelName: string | null
+  /** Backend label the model latched: 'cuda' | 'vulkan' | 'metal' | 'cpu' | null. */
   gpu: string | null
+  /** Human-readable name of the resolved device, e.g. "NVIDIA GeForce RTX 5090".
+   *  Null until a load lands (or for a remote source). */
+  gpuName?: string | null
+  /** Dedicated vs integrated for the resolved device — drives the dGPU/iGPU chip. */
+  gpuKind?: GpuKind | null
   loadProgress: number | null // 0..1 during loading, null otherwise
   message: string | null
   profile: LlmProfileName | null
@@ -296,14 +330,26 @@ export interface SystemInfo extends ModelStatus {
   lastLlmPlan: unknown | null
   /** Currently active context-size choice — 'auto' or a pinned number. */
   selectedContext: LlmContextChoice
-  /** The user's LLM device choice (auto/cpu/gpu). Mirrors EmbedderInfo. */
-  placementChoice: 'auto' | 'cpu' | 'gpu'
+  /** The user's LLM device choice (auto/dedicated/integrated). */
+  placementChoice: LlmPlacementChoice
   /** Where the LLM backend actually landed at the last load — 'gpu' (cuda/
    *  vulkan/metal latched) or 'cpu'. Null until a load has happened. */
   resolvedPlacement: 'cpu' | 'gpu' | null
   /** Human-readable rationale for resolvedPlacement (backend label or fallback
    *  reason). Null until a load has happened. */
   placementReason: string | null
+  /** Resolved device name at the last load (e.g. "AMD Radeon RX 7900 XTX"). */
+  gpuName: string | null
+  /** Resolved device class at the last load. Null until a load has happened, or
+   *  when the requested device couldn't be confirmed (see pinnedDeviceVerified). */
+  gpuKind: GpuKind | null
+  /** Install-time GPU inventory (from the tier marker) — drives which picker
+   *  options (Dedicated / Integrated) are offered. Empty when no marker. */
+  availableGpus: Array<{ name: string; kind: GpuKind }>
+  /** False when the model loaded but on a different device than requested (the
+   *  device pin couldn't be confirmed) — the UI surfaces a note. True before any
+   *  load and whenever the requested device was confirmed. */
+  pinnedDeviceVerified: boolean
 }
 
 export type RefusalReason = 'no_hits' | 'below_threshold'
@@ -383,6 +429,27 @@ export interface AnswerOptions {
    *  otherwise return zero relevant chunks. No-op when history is empty or
    *  the LLM is not loaded. */
   contextualize?: boolean
+  /** Resolve follow-up questions with the pure HEURISTIC contextualizer instead
+   *  of the LLM rewrite. Set on the lite tier: the LLM rewrite is a second full
+   *  prefill+generation per follow-up, which is minutes on an iGPU. No-op unless
+   *  `contextualize` is also true. */
+  contextualizeHeuristicOnly?: boolean
+  /** When a primary hit comes from a "small" document, include the ENTIRE
+   *  document rather than just the matched chunk. Default ON in retrieval. Set
+   *  false on lite: a multi-Q&A study sheet is one small doc, so whole-doc
+   *  expansion floods the prompt with every Q&A and the model answers the wrong
+   *  one — plus it balloons the prefill. */
+  wholeDocFallback?: boolean
+  /** Force the lean retrieval preset (smaller candidate pool + leading-slice
+   *  rerank) regardless of the GPU label. Set on lite: the iGPU latches Vulkan
+   *  and autoDetectCpuMode reads it as a fast GPU, so without this the reranker
+   *  scores ~40 full-length passages — the bulk of the iGPU rerank cost. */
+  cpuOptimized?: boolean
+  /** Drop reranked chunks below this relevance score instead of always padding
+   *  the fed set to topK. Only effective when the reranker ran (real relevance
+   *  scores). Set on lite so an "interpreter" query stops feeding 0.08-score
+   *  OS/Java chunks just to reach a fixed count. */
+  relevanceFloor?: number
   /** Query routing (doc_summary / corpus / retrieval). Defaults to ON for the
    *  chat path; evals and tests pin `routing: false` to get the plain chunk
    *  pipeline regardless of query phrasing — the same escape hatch contract

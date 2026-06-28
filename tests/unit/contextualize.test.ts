@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { contextualizeQuery } from '@main/services/qa/QAService'
+import { contextualizeQuery, heuristicContextualizeQuery } from '@main/services/qa/QAService'
 
 const llm = (raw: string, opts: { ready?: boolean } = {}) => ({
   isReady: () => opts.ready ?? true,
@@ -143,5 +143,109 @@ describe('contextualizeQuery', () => {
     expect(sent).toContain('T12.')
     expect(sent).not.toContain('T1.') // assistant turn never sent
     expect(sent).not.toContain('T13.') // assistant turn never sent
+  })
+})
+
+describe('heuristicContextualizeQuery (lite / no-LLM path)', () => {
+  const hist = (...qs: string[]): Array<{ role: 'user' | 'assistant'; content: string }> =>
+    qs.map((content) => ({ role: 'user' as const, content }))
+
+  it('returns the query unchanged when history is empty', () => {
+    expect(heuristicContextualizeQuery([], 'was ist ein interpreter?')).toBe(
+      'was ist ein interpreter?',
+    )
+  })
+
+  it('anchors a pure meta follow-up on the prior USER question', () => {
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'genauer?')).toBe(
+      'was ist ein interpreter?',
+    )
+    expect(heuristicContextualizeQuery(hist('what is an interpreter?'), 'more')).toBe(
+      'what is an interpreter?',
+    )
+  })
+
+  it('prepends the prior question for a short anaphoric follow-up', () => {
+    expect(
+      heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'und bei JavaScript?'),
+    ).toBe('was ist ein interpreter? und bei JavaScript?')
+    expect(heuristicContextualizeQuery(hist('what is an interpreter?'), 'why is that?')).toBe(
+      'what is an interpreter? why is that?',
+    )
+  })
+
+  it('treats a long / standalone new question as standalone', () => {
+    const q = 'was ist der unterschied zwischen einem compiler und einem assembler genau?'
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), q)).toBe(q)
+  })
+
+  it('ignores assistant turns when picking the anchor', () => {
+    const history: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      { role: 'user', content: 'was ist ein interpreter?' },
+      { role: 'assistant', content: 'Ein Interpreter führt Code direkt aus.' },
+    ]
+    expect(heuristicContextualizeQuery(history, 'genauer?')).toBe('was ist ein interpreter?')
+  })
+
+  // --- comparison / reflexive follow-ups (the reported "unchanged" bug) ---
+  it('prepends for a German reflexive comparison follow-up ("unterscheidet sich vom X")', () => {
+    expect(
+      heuristicContextualizeQuery(
+        hist('Was ist ein interpreter?'),
+        'Wie unterscheidet sich vom Compiler?',
+      ),
+    ).toBe('Was ist ein interpreter? Wie unterscheidet sich vom Compiler?')
+  })
+
+  it('prepends for a bare comparison fragment ("Unterschied zum X?")', () => {
+    expect(
+      heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'Unterschied zum Assembler?'),
+    ).toBe('was ist ein interpreter? Unterschied zum Assembler?')
+  })
+
+  it('prepends for an English comparison follow-up', () => {
+    expect(
+      heuristicContextualizeQuery(hist('what is an interpreter?'), 'how does it differ?'),
+    ).toBe('what is an interpreter? how does it differ?')
+  })
+
+  // --- bare-fragment follow-ups (attribute of the prior topic) ---
+  it('prepends for a one-word attribute fragment', () => {
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'Vorteile?')).toBe(
+      'was ist ein interpreter? Vorteile?',
+    )
+  })
+
+  it('prepends for a short elliptical question with no own subject ("wie schnell?")', () => {
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'wie schnell?')).toBe(
+      'was ist ein interpreter? wie schnell?',
+    )
+  })
+
+  it('prepends when a bare personal pronoun stands in for the subject', () => {
+    expect(
+      heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'Wie schnell ist er?'),
+    ).toBe('was ist ein interpreter? Wie schnell ist er?')
+  })
+
+  it('prepends for "what about X?"', () => {
+    expect(heuristicContextualizeQuery(hist('what is an interpreter?'), 'what about Python?')).toBe(
+      'what is an interpreter? what about Python?',
+    )
+  })
+
+  // --- negatives: genuine topic switches must stay standalone ---
+  it('leaves a short self-contained definitional question standalone (topic switch)', () => {
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'Was ist Rust?')).toBe(
+      'Was ist Rust?',
+    )
+    expect(
+      heuristicContextualizeQuery(hist('what is an interpreter?'), 'what is a compiler?'),
+    ).toBe('what is a compiler?')
+  })
+
+  it('leaves a longer markerless self-contained question standalone', () => {
+    const q = 'Wie funktioniert ein Compiler im Detail genau?'
+    expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), q)).toBe(q)
   })
 })

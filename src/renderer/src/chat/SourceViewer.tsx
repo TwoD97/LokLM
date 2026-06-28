@@ -15,6 +15,17 @@ type Props = {
    *  isn't available) , the modal still renders the document but skips
    *  highlighting. */
   messageText?: string | null
+  /** When `messageText` carries no `[doc:X, chunk:Y]` marker for this chunk,
+   *  whether to fall back to fuzzy-highlighting against the WHOLE message text.
+   *  Used by the quiz path (the explanation prose IS the relevant snippet) AND
+   *  the chat "Sources / Quellen" footer: small / German answers routinely emit
+   *  no inline markers, so the footer chips are the only citation — matching the
+   *  whole answer surfaces the grounding passage inside the cited chunk. This is
+   *  safe against the old "scattered fragments" failure because
+   *  findFuzzyHighlights now keeps a single best-scoring region per snippet, not
+   *  every shared phrase. Defaults to true; pass false only to render the chunk
+   *  with nothing highlighted. */
+  wholeMessageFallback?: boolean
   onClose: () => void
 }
 
@@ -100,7 +111,13 @@ function formatPageRange(source: ChunkSource | null): string | null {
   return `p. ${source.chunkPageFrom}–${source.chunkPageTo}`
 }
 
-export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: Props): JSX.Element {
+export function SourceViewer({
+  chunkId,
+  documentTitle,
+  messageText,
+  wholeMessageFallback = true,
+  onClose,
+}: Props): JSX.Element {
   const t = useT()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -155,12 +172,17 @@ export function SourceViewer({ chunkId, documentTitle, messageText, onClose }: P
       chunkId,
     })
     if (fromMarkers.length > 0) return fromMarkers
-    // No [doc:X, chunk:Y] markers in the supplied text — used by the quiz path
-    // where the explanation is plain prose. Treat the whole message as one
-    // snippet so the fuzzy matcher still has something to chew on.
+    // No [doc:X, chunk:Y] marker for this chunk — fuzzy-match the whole answer
+    // against the chunk to surface the grounding passage. Covers the quiz path
+    // (the explanation prose IS the relevant snippet) and the chat "Sources /
+    // Quellen" footer, whose chips are the only citation when a small / German
+    // answer emitted no inline markers. findFuzzyHighlights keeps just the
+    // single best-scoring region, so this lands on the passage the answer
+    // overlaps rather than every shared phrase.
+    if (!wholeMessageFallback) return []
     const stripped = messageText.replace(/\s+/g, ' ').trim()
     return stripped ? [stripped] : []
-  }, [messageText, source, chunkId])
+  }, [messageText, source, chunkId, wholeMessageFallback])
 
   const bodyMode = useMemo(() => classifySource(source), [source])
   const codeLang = useMemo(() => langFromPath(source?.sourcePath), [source])

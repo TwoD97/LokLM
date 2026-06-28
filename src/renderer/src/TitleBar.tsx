@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, Lock as LockIcon } from 'lucide-react'
-import type { BackfillStatus, EmbedderState, ModelState, RerankerState } from '@shared/documents'
+import type {
+  BackfillStatus,
+  EmbedderState,
+  GpuKind,
+  ModelState,
+  RerankerState,
+} from '@shared/documents'
 import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
@@ -47,34 +53,33 @@ function pillText(t: TFn, state: DotState, source: DotSource): string {
   }
 }
 
-// Native `title=` fallback for screen readers and users who hover before our
-// custom tooltip renders. The pill is decorative; this string is the truth.
-function ariaText(
-  t: TFn,
-  label: string,
-  state: DotState,
-  source: DotSource,
-  message: string | null,
-): string {
-  const base = `${label}: ${pillText(t, state, source)}`
-  return message ? `${base} — ${message}` : base
-}
-
 // Maps the raw backend label from ModelStatus.gpu ('cuda'|'vulkan'|'metal'|
-// 'cpu'|null) onto a short chip + a full hover-line. Null when unknown (no load
-// yet, or a remote source that doesn't report a device).
-function deviceLabel(t: TFn, gpu: string | null): Chip | null {
+// 'cpu'|null) + the resolved device class onto a short chip + a full hover-line.
+// Shows "dGPU"/"iGPU" when the class is known, plain "GPU" otherwise. Null when
+// unknown (no load yet, or a remote source that doesn't report a device).
+function deviceLabel(t: TFn, gpu: string | null, gpuKind: GpuKind | null): Chip | null {
   if (gpu == null) return null
   if (gpu === 'cpu') {
     const cpu = t('shell.deviceCpu')
     return { short: cpu, full: t('shell.runningOn', { device: cpu }), tone: 'cpu' }
   }
-  const full = t('shell.deviceGpu', { backend: gpu.toUpperCase() })
-  return {
-    short: t('shell.deviceGpuShort'),
-    full: t('shell.runningOn', { device: full }),
-    tone: 'gpu',
-  }
+  const backend = gpu.toUpperCase()
+  const short =
+    gpuKind === 'integrated'
+      ? t('shell.deviceIgpu')
+      : gpuKind === 'dedicated'
+        ? t('shell.deviceDgpu')
+        : t('shell.deviceGpuShort')
+  const kindWord =
+    gpuKind === 'integrated'
+      ? t('shell.kindIntegrated')
+      : gpuKind === 'dedicated'
+        ? t('shell.kindDedicated')
+        : null
+  const device = kindWord
+    ? t('shell.deviceGpuKind', { backend, kind: kindWord })
+    : t('shell.deviceGpu', { backend })
+  return { short, full: t('shell.runningOn', { device }), tone: 'gpu' }
 }
 
 // Short, glanceable label for the resident embedder GGUF. ADR-0006: a codebase
@@ -94,7 +99,7 @@ function shortEmbedderName(modelName: string | null): string | null {
   )
 }
 
-type Chip = { short: string; full: string; tone: 'gpu' | 'cpu' | 'code' | 'doc' }
+type Chip = { short: string; full: string; tone: 'gpu' | 'cpu' | 'code' | 'doc' | 'busy' }
 
 type DotProps = {
   label: string
@@ -110,25 +115,27 @@ type DotProps = {
 function StatusDot({ label, state, source, message, extraClass, chip }: DotProps): JSX.Element {
   const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
+  const status = pillText(t, state, source)
+  const showChip = !!chip && state === 'ready'
   return (
     <span
       className={`titlebar__dot-wrap${extraClass ? ` ${extraClass}` : ''}`}
       role="img"
       aria-label={
-        ariaText(t, label, state, source, message) +
-        (chip && state === 'ready' ? ` — ${chip.full}` : '')
+        `${label}: ${status}${message ? ` — ${message}` : ''}` +
+        (showChip ? ` — ${chip!.full}` : '')
       }
     >
       <span className={`titlebar__dot titlebar__dot--${state}${ollamaClass}`} aria-hidden="true" />
-      {chip && state === 'ready' && (
-        <span className={`titlebar__device titlebar__device--${chip.tone}`} aria-hidden="true">
-          {chip.short}
+      {showChip && (
+        <span className={`titlebar__device titlebar__device--${chip!.tone}`} aria-hidden="true">
+          {chip!.short}
         </span>
       )}
       <span className="titlebar__pill" role="tooltip">
         <span className="titlebar__pill-label">{label}</span>
         <span className={`titlebar__pill-dot titlebar__pill-dot--${state}${ollamaClass}`} />
-        <span className="titlebar__pill-text">{pillText(t, state, source)}</span>
+        <span className="titlebar__pill-text">{status}</span>
         {chip && <span className="titlebar__pill-device">{chip.full}</span>}
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
@@ -148,6 +155,10 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   // first paint for the common (reranker-on) case. Hidden only once we know the
   // user / tier disabled the rerank stage.
   const rerankerEnabled = settings?.advanced.reranker.enabled ?? true
+  // The reranker status dot shows on all tiers when enabled (the default now,
+  // lite included — it ships the GGUF and runs the rerank stage). Hidden only
+  // when a user explicitly disables the rerank stage in settings.
+  const rerankerVisible = rerankerEnabled
   const [maximized, setMaximized] = useState(false)
   const [embedder, setEmbedder] = useState<{
     state: EmbedderState
@@ -176,11 +187,13 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     message: string | null
     source: DotSource
     gpu: string | null
+    gpuKind: GpuKind | null
   }>({
     state: 'idle',
     message: null,
     source: 'bundled',
     gpu: null,
+    gpuKind: null,
   })
   // Live vector re-embed progress (model swap / backfill). When running, the
   // embedder chip shows "↻ N%" because dense search is degraded until it lands.
@@ -223,11 +236,23 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.llm
-      .status()
-      .then((s) => setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }))
+    void window.api.llm.status().then((s) =>
+      setLlm({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        gpu: s.gpu,
+        gpuKind: s.gpuKind ?? null,
+      }),
+    )
     const off = window.api.llm.onStatus((s) =>
-      setLlm({ state: s.state, message: s.message, source: s.source, gpu: s.gpu }),
+      setLlm({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        gpu: s.gpu,
+        gpuKind: s.gpuKind ?? null,
+      }),
     )
     return () => off()
   }, [])
@@ -272,8 +297,8 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   const embChip: Chip | null = reembedding
     ? {
         short: `↻ ${reembedPct}%`,
-        full: `re-embedding ${backfill!.done}/${backfill!.total} chunks — search degraded until done`,
-        tone: 'cpu',
+        full: t('shell.reembedProgress', { done: backfill!.done, total: backfill!.total }),
+        tone: 'busy',
       }
     : embShort
       ? {
@@ -332,7 +357,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           message={llm.message}
           // Device is only meaningful for the local engine; a remote Ollama
           // session runs on the host's hardware, which we can't report.
-          chip={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu)}
+          chip={llm.source === 'ollama' ? null : deviceLabel(t, llm.gpu, llm.gpuKind)}
         />
         <StatusDot
           // ADR-0006: surface the resident embedder — the code model
@@ -345,7 +370,7 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
           message={embedder.message}
           chip={embChip}
         />
-        {rerankerEnabled && (
+        {rerankerVisible && (
           <StatusDot
             label="Reranker"
             state={reranker.state}

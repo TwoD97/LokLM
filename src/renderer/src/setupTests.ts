@@ -219,6 +219,7 @@ const stub: Api = {
         models: [] as Array<never>,
         allRequiredReady: true,
       }),
+    warmupForQa: () => Promise.resolve(),
     download: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
     checkSpace: (requiredBytes: number) =>
@@ -280,6 +281,7 @@ const stub: Api = {
         total: 0,
         message: null,
       }),
+    pendingReembedDocs: () => Promise.resolve([] as number[]),
     runBackfill: () => Promise.resolve(),
     onStatus: () => () => undefined,
     onBackfillStatus: () => () => undefined,
@@ -369,6 +371,10 @@ const stub: Api = {
         placementChoice: 'auto' as const,
         resolvedPlacement: null,
         placementReason: null,
+        gpuName: null,
+        gpuKind: null,
+        availableGpus: [],
+        pinnedDeviceVerified: true,
       }),
     reload: () =>
       Promise.resolve({
@@ -393,6 +399,10 @@ const stub: Api = {
         placementChoice: 'auto' as const,
         resolvedPlacement: null,
         placementReason: null,
+        gpuName: null,
+        gpuKind: null,
+        availableGpus: [],
+        pinnedDeviceVerified: true,
       }),
     setProfile: () => Promise.resolve(),
     onStatus: () => () => undefined,
@@ -437,6 +447,9 @@ const stub: Api = {
   ollama: {
     probe: () => Promise.resolve({ ok: true as const, version: '0.0.0', models: [] as string[] }),
     connectorEnabled: () => Promise.resolve(true),
+  },
+  tier: {
+    get: () => Promise.resolve(null as 'lite' | 'standard' | 'pro' | null),
   },
   providers: {
     onFallback: () => () => undefined,

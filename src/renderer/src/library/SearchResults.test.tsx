@@ -1,7 +1,40 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { LibrarySearchHit } from '@shared/documents'
+import type { Document, LibrarySearchHit } from '@shared/documents'
 import { SearchResults } from './SearchResults'
+import type { DocumentActions } from './DocumentActionsMenu'
+
+function doc(overrides: Partial<Document> = {}): Document {
+  return {
+    id: 1,
+    workspaceId: 1,
+    title: 'Doc.pdf',
+    sourcePath: '/docs/Doc.pdf',
+    mimeType: 'application/pdf',
+    byteSize: 1234,
+    status: 'ready',
+    chunkCount: 3,
+    tokenCount: 100,
+    addedAt: 1000,
+    pinned: false,
+    ...overrides,
+  }
+}
+
+function actionsSpy(): DocumentActions {
+  return {
+    onDelete: vi.fn(),
+    onReindex: vi.fn(),
+    onReveal: vi.fn(),
+    onOpenExternal: vi.fn(),
+    onReplace: vi.fn(),
+    onRefresh: vi.fn(),
+    onRead: vi.fn(),
+    onExport: vi.fn(),
+    onSummarize: vi.fn(),
+    onTogglePin: vi.fn(),
+  }
+}
 
 function hit(overrides: Partial<LibrarySearchHit> = {}): LibrarySearchHit {
   return {
@@ -112,6 +145,35 @@ describe('SearchResults', () => {
     render(<SearchResults status="done" hits={[h]} onOpen={onOpen} />)
     fireEvent.click(screen.getByRole('button', { name: /Click\.pdf/ }))
     expect(onOpen).toHaveBeenCalledWith(h)
+  })
+
+  it('renders the ⋯ actions menu for a hit whose document is known', () => {
+    const actions = actionsSpy()
+    render(
+      <SearchResults
+        status="done"
+        hits={[hit({ documentId: 7 })]}
+        onOpen={() => {}}
+        docs={[doc({ id: 7, title: 'Doc.pdf' })]}
+        actions={actions}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'actions' }))
+    fireEvent.click(screen.getByText('Reindex'))
+    expect(actions.onReindex).toHaveBeenCalledWith(7)
+  })
+
+  it('omits the actions menu when the hit has no matching document', () => {
+    render(
+      <SearchResults
+        status="done"
+        hits={[hit({ documentId: 99 })]}
+        onOpen={() => {}}
+        docs={[doc({ id: 7 })]}
+        actions={actionsSpy()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'actions' })).toBeNull()
   })
 
   it('shows the empty state only after a completed search with no hits', () => {

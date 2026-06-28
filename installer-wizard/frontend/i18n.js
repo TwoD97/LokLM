@@ -59,6 +59,8 @@
         cpu: 'CPU',
         ram: 'RAM',
         noGpu: 'Keine GPU erkannt',
+        gpuRequired:
+          'Keine GPU erkannt — LokLM benötigt eine GPU (dediziert oder integriert), um das Sprachmodell auszuführen. Auf diesem Rechner kann nicht installiert werden.',
         vramSuffix: 'VRAM',
         sharedSuffix: 'geteilt (iGPU)',
         threadsSuffix: 'Threads',
@@ -88,6 +90,7 @@
           latency: '~6 s pro Antwort',
           body: 'Mehr Spielraum für Nischen-Themen und längere Kontexte. Braucht eine GPU mit mindestens 8 GB VRAM oder Apple Silicon mit 16+ GB unified memory.',
         },
+        lockedIgpu: 'Benötigt eine dedizierte GPU',
       },
       options: {
         kicker: 'Optionen',
@@ -212,6 +215,8 @@
         cpu: 'CPU',
         ram: 'RAM',
         noGpu: 'No GPU detected',
+        gpuRequired:
+          'No GPU detected — LokLM needs a GPU (dedicated or integrated) to run the language model. This machine can’t be installed to.',
         vramSuffix: 'VRAM',
         sharedSuffix: 'shared (iGPU)',
         threadsSuffix: 'threads',
@@ -241,6 +246,7 @@
           latency: '~6 s per response',
           body: 'More room for niche topics and longer contexts. Needs a GPU with 8+ GB VRAM or Apple Silicon with 16+ GB unified memory.',
         },
+        lockedIgpu: 'Requires a dedicated GPU',
       },
       options: {
         kicker: 'Options',

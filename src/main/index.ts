@@ -1,7 +1,9 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import { AuthService } from './services/auth/AuthService'
+import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
@@ -53,12 +55,13 @@ import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import type { WorkspaceType } from '../shared/workspaceStorage'
 import { splitSentinels } from '../shared/docType'
-import { extractCitationMarkers } from '../shared/citationMarkers'
+import { reconcileCitations } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
 import {
   readTierMarker,
+  getEffectiveTier,
   isOllamaConnectorEnabled,
   isCodebaseIndexingEnabled,
 } from './services/tier/TierMarker'
@@ -83,7 +86,18 @@ const activeQuizStreams = new Map<string, AbortController>()
 
 function getAuth(): AuthService {
   if (!authService) {
-    authService = new AuthService(app.getPath('userData'))
+    // Vault + workspaces live next to the executable (the install drive) on a
+    // fresh packaged Windows/Linux install, else userData — see resolveDataDir.
+    const dataDir = resolveDataDir({
+      override: process.env['LOKLM_DATA_DIR'],
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      execPath: process.execPath,
+      userDataDir: app.getPath('userData'),
+    })
+    mkdirSync(dataDir, { recursive: true })
+    console.log(`[auth] vault data dir: ${dataDir}`)
+    authService = new AuthService(dataDir)
     authService.setOnLock(() => {
       // Inactivity auto-lock fires here too — abort any in-flight quiz
       // generation first so it stops pegging the worker and won't write to the
@@ -400,18 +414,39 @@ function getProviderRegistry(): ProviderRegistry {
   return providerRegistry
 }
 
-// The 'lite' install tier ships without the reranker on by default — it's the
-// heaviest optional retrieval stage and lite targets low-RAM machines. Every
-// other tier (and dev/test, where readTierMarker() returns null) keeps the
-// universal default of reranker-on.
+// Reranker default per tier. Previously OFF on lite (ADR-0007) to spare low-RAM
+// machines the heaviest retrieval stage. Reinstated ON for lite: the
+// cross-encoder is the only stage that scores TRUE relevance, and without it the
+// collapsed-cosine dense list drags topically-adjacent noise into the fed set
+// (the interpreter-query trace fed 3 unrelated handbook chunks). The CPU rerank
+// pass measured ~7 s, acceptable against the iGPU's ~60 s LLM TTFT, and it runs
+// on the leading slice only (CPU_RERANK_MAX_CHARS). Every tier now keeps the
+// universal reranker-on default; the function is retained for future tier-
+// specific defaults.
 function tierBaseDefaults(): UserSettings {
-  if (readTierMarker()?.tier !== 'lite') return DEFAULT_SETTINGS
-  return {
-    ...DEFAULT_SETTINGS,
-    advanced: {
-      ...DEFAULT_SETTINGS.advanced,
-      reranker: { ...DEFAULT_SETTINGS.advanced.reranker, enabled: false },
-    },
+  return DEFAULT_SETTINGS
+}
+
+// Minimum reranker relevance score for a chunk to be fed (all tiers). Applied by
+// RetrievalService only when the reranker actually ran — its scores are real
+// relevance (bge-reranker-v2-m3, ~0..1), unlike the RRF fallback's ~0.03 rank
+// scores. 0.2 sits in the observed gap between on-topic matches (≥0.5) and
+// off-topic noise (≤0.13). The top hit is always kept, so this never empties the
+// slate. Conservative on purpose: it trims obvious noise without touching the
+// borderline band, so recall on genuinely-relevant chunks is unaffected.
+const CHAT_RELEVANCE_FLOOR = 0.2
+
+// One-time normalization for the ADR-0007 reranker reversal. A lite install made
+// while the reranker was OFF-by-default persisted `enabled:false` into its
+// settings snapshot (update() writes the full cache, so even an untouched
+// default leaks into persistence and then wins over baseDefaults on hydrate).
+// Because the lite tier HID the reranker toggle, that false can only be the
+// retired default — never a user choice — so flipping it once is safe. Scoped to
+// lite: standard/pro expose the toggle, so their false IS a real user choice and
+// must be left alone.
+async function normalizeRerankerEnabledForLite(settings: SettingsService): Promise<void> {
+  if (getEffectiveTier() === 'lite' && !settings.get().advanced.reranker.enabled) {
+    await settings.update({ advanced: { reranker: { enabled: true } } })
   }
 }
 
@@ -447,9 +482,12 @@ async function applySettings(s: UserSettings): Promise<void> {
   void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
-  // LLM device placement — also a per-load setting; the LlmSection triggers an
-  // llm:reload after changing it so the new device takes effect immediately.
+  // LLM device placement (Auto/Dedicated/Integrated). Resolve it against the
+  // install-time GPU inventory and pin it on the worker — awaited so a physical-
+  // device change restarts the worker BEFORE the LlmSection's follow-up
+  // llm:reload loads the model on the new device.
   getLlamaService().setSelectedPlacement(s.advanced.llm.placement)
+  await getLlamaService().applyDevicePlan()
 
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)
@@ -774,6 +812,7 @@ function registerIpc(): void {
       // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
+      await normalizeRerankerEnabledForLite(settings)
       await applySettings(settings.get())
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
@@ -816,6 +855,7 @@ function registerIpc(): void {
       // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
+      await normalizeRerankerEnabledForLite(settings)
       await applySettings(settings.get())
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
@@ -1640,6 +1680,12 @@ function registerIpc(): void {
   ipcMain.handle('embedder:backfillStatus', async (_e, workspaceId: number) =>
     getBackfillService().status(workspaceId),
   )
+  // Distinct documents that still have un-embedded chunks — the Library polls
+  // this while a backfill runs to mark only the actually-pending rows as
+  // 're-embedding' (instead of painting the whole workspace).
+  ipcMain.handle('embedder:pendingReembedDocs', async (_e, workspaceId: number) =>
+    getAuth().requireDatabase().documents().documentIdsMissingEmbedding(workspaceId),
+  )
   ipcMain.handle('embedder:runBackfill', async (_e, workspaceId: number) => {
     // Single-embedder-per-tier: the resident model is fixed by tier, so a manual
     // retry just re-embeds NULL/stale chunks under it — no preference to set.
@@ -1698,6 +1744,41 @@ function registerIpc(): void {
       getLlamaService().setSelectedProfile(choice)
     },
   )
+  // Warm every model the QA pipeline needs, for the post-unlock loading screen.
+  // Load them ONE AT A TIME (awaited in sequence): all three share a single
+  // node-llama-cpp backend, and firing the loads concurrently makes the native
+  // inits fight for the same device — thrash on an iGPU, up to "not responding".
+  // ORDER MATTERS: embedder FIRST. It's small (~0.4 GB) and gates BOTH indexing
+  // and retrieval; the LLM is the slow one (multi-GB, minutes on an iGPU). The
+  // single worker processes load requests in arrival order, so loading the LLM
+  // first starves indexing of the embedder it needs (the "0 vectors / stuck
+  // indexing" regression). Embedder → LLM → reranker keeps indexing alive while
+  // the LLM loads behind it. Idempotent (ensure* no-ops when ready / share the
+  // in-flight load) and fire-and-forget (the IIFE is voided): the renderer tracks
+  // progress via status pushes, so the handler never blocks on a multi-GB load.
+  ipcMain.handle('models:warmupForQa', async () => {
+    void (async () => {
+      const reg = providerRegistry
+      await getEmbeddingService()
+        .ensureReady()
+        .catch(() => undefined)
+      // External Ollama: don't pull a multi-GB bundled GGUF into RAM only to
+      // leave it unused (same guard as the post-login warmup).
+      if (!reg || reg.getLlmSource() !== 'ollama') {
+        await getLlamaService()
+          .ensureLoaded()
+          .catch(() => undefined)
+      }
+      // Warm the reranker whenever it's enabled — now including lite (ADR-0007
+      // reversal): the CPU rerank pass (~7 s, leading-slice only) is the proper
+      // fix for dense-retriever noise that the BM25 lean only partially masks.
+      if (getSettingsService().get().advanced.reranker.enabled) {
+        await getRerankerService()
+          .ensureReady()
+          .catch(() => undefined)
+      }
+    })()
+  })
 
   // settings
   ipcMain.handle('settings:get', async () => {
@@ -1739,6 +1820,10 @@ function registerIpc(): void {
   // the whole Ollama settings panel ; the probe handler below enforces it
   // again so a stale renderer can't reach an external host anyway.
   ipcMain.handle('ollama:connectorEnabled', async () => isOllamaConnectorEnabled())
+
+  // Effective install tier (or LOKLM_TIER dev override). The renderer uses this
+  // to drop tier-specific UI — e.g. the lite tier hides the reranker status dot.
+  ipcMain.handle('tier:get', async () => getEffectiveTier())
 
   ipcMain.handle(
     'ollama:probe',
@@ -1856,8 +1941,53 @@ function registerIpc(): void {
       // heuristic (which remains the fallback for quiz / eval callers).
       if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
 
+      // Relevance floor — ALL tiers, not just lite. Whenever the reranker runs
+      // its scores are real per-(query, passage) relevance, so drop the sub-
+      // relevant tail instead of padding the fed set to a fixed topK. Observed
+      // cliff on a focused query: on-topic matches ≥0.5, noise ≤0.13 — 0.2 sits
+      // in the gap, keeping the relevant chunks and dropping the OS/Java/team-
+      // roles chunks a fixed count (made worse by doc-diversity) was dragging
+      // in. RetrievalService gates this on rerank having actually run and always
+      // keeps the top hit, so the RRF fallback and weak-but-best matches are
+      // unaffected. Evals/quiz never set it → legacy fixed-K behaviour there.
+      if (opts.relevanceFloor == null) opts.relevanceFloor = CHAT_RELEVANCE_FLOOR
+
+      // Lite tier = low-end / iGPU-only target → force the lean retrieval preset.
+      // Query expansion runs a FULL extra LLM generation BEFORE retrieval; on an
+      // iGPU the first turn pays a cold ~80s for it, and its paraphrases drift the
+      // topic (e.g. "interpreter" pulls in a JIT-compiler chunk). Off on lite: far
+      // faster AND more on-topic. Auto-detect can't see this — the iGPU latches a
+      // Vulkan label, so RetrievalService reads it as a fast GPU and leaves
+      // expansion on. The tier is the reliable signal. Caller-pinned values win.
+      if (getEffectiveTier() === 'lite') {
+        if (opts.multiQuery === undefined) opts.multiQuery = false
+        // Follow-up rewriting via the LLM is a second full prefill+generation
+        // per turn — minutes on an iGPU. Resolve follow-ups with the pure
+        // heuristic instead (the contextualize stage still runs, just instant).
+        if (opts.contextualizeHeuristicOnly === undefined) opts.contextualizeHeuristicOnly = true
+        // No whole-doc expansion on lite. A multi-Q&A study sheet is one small
+        // doc; expanding it floods the prompt with every Q&A (so the model
+        // answered "interpreter" with the JIT section) AND bloats the prefill.
+        // The focused matched chunk(s) answer the actual question.
+        if (opts.wholeDocFallback === undefined) opts.wholeDocFallback = false
+        // Force the lean retrieval preset on lite. autoDetectCpuMode() keys off
+        // the GPU label, but the iGPU latches Vulkan and reads as a fast GPU —
+        // so without this it uses the heavy pool (FANOUT 4 / 64 candidates) and
+        // the reranker scores ~40 full-length passages, which is the bulk of the
+        // iGPU rerank cost. cpuOptimized halves the candidate pool (FANOUT 2 / 32)
+        // and scores only each passage's leading slice (CPU_RERANK_MAX_CHARS) —
+        // same final topK fed, roughly half the rerank time. Rerank itself stays
+        // ON: the renderer pins rerank:true, which wins over the cpuMode default.
+        if (opts.cpuOptimized === undefined) opts.cpuOptimized = true
+      }
+
+      // Pin to THIS chat's workspace, not the active one: a message append routed
+      // through active() lands in the wrong store when another workspace is active
+      // (FOREIGN KEY constraint failed on conversation_id).
       const conversations =
-        opts.conversationId != null ? getAuth().requireDatabase().conversations() : null
+        opts.conversationId != null
+          ? await getAuth().requireDatabase().conversationsFor(workspaceId)
+          : null
 
       // Persist the user message up-front so chat history is intact even if
       // the stream errors or the renderer disconnects mid-flight.
@@ -1937,22 +2067,22 @@ function registerIpc(): void {
               assistantContent,
               { ttftMs, tokensPerSec, tokenCount },
             )
-            // Reconcile citations: persist ONLY the fed chunks the model
-            // actually cited in its answer, not every chunk we fed it. Without
-            // this the DB recorded all fedHits as "citations" regardless of
-            // whether the answer referenced them, so the persisted set never
-            // matched the chips the renderer derives from [doc:X, chunk:Y]
-            // markers — and a hallucinated marker had nothing to validate
-            // against. citations[] is already restricted to fedHits, so the
-            // intersection with the answer's markers is the faithful set.
-            const citedKeys = new Set(
-              extractCitationMarkers(body).map((m) => `${m.documentId}-${m.chunkId}`),
+            // Reconcile citations: when the model cited inline, persist ONLY
+            // the fed chunks it actually referenced so the chips the renderer
+            // derives from [doc:X, chunk:Y] markers match the persisted set (a
+            // hallucinated marker then has nothing to validate against). When it
+            // cited NOTHING inline — common with small / German outputs — fall
+            // back to the full fed set so the answer keeps its sources and the
+            // renderer's "Sources / Quellen" footer can surface them, instead of
+            // leaving the answer source-less. citations[] is already restricted
+            // to fedHits, so either branch stays faithful to what the model saw.
+            const citationsToPersist = reconcileCitations(
+              body,
+              citations,
+              (c) => `${c.doc_id}-${c.chunk_id}`,
             )
-            const groundedCitations = citations.filter((c) =>
-              citedKeys.has(`${c.doc_id}-${c.chunk_id}`),
-            )
-            if (groundedCitations.length > 0) {
-              await conversations.persistCitations(asst.id, groundedCitations)
+            if (citationsToPersist.length > 0) {
+              await conversations.persistCitations(asst.id, citationsToPersist)
             }
           }
         }

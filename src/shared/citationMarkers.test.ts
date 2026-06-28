@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { extractCitationMarkers, transformCitationMarkers, parseCiteHref } from './citationMarkers'
+import {
+  extractCitationMarkers,
+  transformCitationMarkers,
+  parseCiteHref,
+  reconcileCitations,
+} from './citationMarkers'
 
 describe('extractCitationMarkers', () => {
   it('returns empty for text without markers', () => {
@@ -81,6 +86,36 @@ describe('transformCitationMarkers', () => {
   it('transforms all markers when no allow-set is given (streaming default)', () => {
     const out = transformCitationMarkers('a [doc:7, chunk:8] b')
     expect(out.text).toBe('a [1](#cite-7-8) b')
+  })
+})
+
+describe('reconcileCitations', () => {
+  const fed = [
+    { doc_id: 1, chunk_id: 1, score: 0.5 },
+    { doc_id: 2, chunk_id: 3, score: 0.4 },
+    { doc_id: 7, chunk_id: 9, score: 0.3 },
+  ]
+  const keyOf = (c: { doc_id: number; chunk_id: number }): string => `${c.doc_id}-${c.chunk_id}`
+
+  it('keeps only the fed chunks the answer cited inline', () => {
+    const out = reconcileCitations('argon2id [doc:2, chunk:3] is the KDF', fed, keyOf)
+    expect(out).toEqual([{ doc_id: 2, chunk_id: 3, score: 0.4 }])
+  })
+
+  it('falls back to the full fed set when the answer cited nothing inline', () => {
+    // The no-marker case the fallback Sources footer depends on — otherwise the
+    // answer would persist zero citations and render source-less.
+    const out = reconcileCitations('Die auth Klasse verwaltet den Tresor.', fed, keyOf)
+    expect(out).toEqual(fed)
+  })
+
+  it('falls back when every emitted marker is hallucinated (not in the fed set)', () => {
+    const out = reconcileCitations('made up [doc:99, chunk:99]', fed, keyOf)
+    expect(out).toEqual(fed)
+  })
+
+  it('returns empty when nothing was fed (refusal / no-context turn)', () => {
+    expect(reconcileCitations('anything', [], keyOf)).toEqual([])
   })
 })
 

@@ -349,6 +349,10 @@ const api = {
   },
   models: {
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),
+    /** Kick (idempotently) the LLM + embedder + reranker loads the QA pipeline
+     *  needs. Fire-and-forget; progress arrives via the per-model onStatus
+     *  pushes. Drives the post-unlock loading screen. */
+    warmupForQa: (): Promise<void> => ipcRenderer.invoke('models:warmupForQa'),
     download: (id: string): Promise<void> => ipcRenderer.invoke('models:download', id),
     cancel: (id: string): Promise<void> => ipcRenderer.invoke('models:cancel', id),
     checkSpace: (
@@ -374,6 +378,8 @@ const api = {
       ipcRenderer.invoke('embedder:setPlacement', choice),
     backfillStatus: (workspaceId: number): Promise<BackfillStatus> =>
       ipcRenderer.invoke('embedder:backfillStatus', workspaceId),
+    pendingReembedDocs: (workspaceId: number): Promise<number[]> =>
+      ipcRenderer.invoke('embedder:pendingReembedDocs', workspaceId),
     runBackfill: (workspaceId: number): Promise<void> =>
       ipcRenderer.invoke('embedder:runBackfill', workspaceId),
     onStatus: (cb: (s: EmbedderStatus) => void): (() => void) => {
@@ -493,6 +499,11 @@ const api = {
       >,
     // Install-time opt-in from the tier marker; false locks the settings panel.
     connectorEnabled: (): Promise<boolean> => ipcRenderer.invoke('ollama:connectorEnabled'),
+  },
+  tier: {
+    // Effective install tier (or LOKLM_TIER dev override); null when unknown
+    // (plain dev/test, pre-v0.3.0 installs).
+    get: (): Promise<'lite' | 'standard' | 'pro' | null> => ipcRenderer.invoke('tier:get'),
   },
   logs: {
     openFolder: (): Promise<void> => ipcRenderer.invoke('logs:openFolder'),

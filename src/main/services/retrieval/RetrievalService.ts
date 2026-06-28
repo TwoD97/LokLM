@@ -131,6 +131,13 @@ export interface RetrievalOptions {
    *  in the retrieval eval — so it's OFF by default and meant to be A/B-ed on the
    *  answer-quality eval before any default flip. */
   dynamicK?: boolean
+  /** Drop reranked chunks scoring below this floor before diversification +
+   *  the topK slice, so a fixed topK can't pad the fed set with sub-relevant
+   *  noise. ONLY applied when the reranker actually ran (its scores are real
+   *  relevance; the RRF fallback's ~0.03 scores are not comparable to a floor).
+   *  The top hit is always kept regardless. Set on lite, where there's no other
+   *  precision gate; unset elsewhere keeps the legacy fixed-K behaviour. */
+  relevanceFloor?: number
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -163,12 +170,16 @@ const MAX_CANDIDATES = 64
 // recall on document-diverse queries.
 const CPU_FANOUT = 2
 const CPU_MAX_CANDIDATES = 32
-// CPU rerank: the cross-encoder cost scales with the passage length it scores.
-// Chunks run up to ~512 tokens, but the relevance signal almost always sits in
-// their opening — so under the CPU preset we score only the first ~1000 chars
-// (~250 tokens) per candidate, roughly halving the rerank pass at negligible
-// recall cost. GPU/iGPU keeps the full text (reranking is cheap there).
-const CPU_RERANK_MAX_CHARS = 1000
+// BM25-lean fusion weight applied ONLY when no reranker runs (lite / CPU
+// preset). The dense embedder's cosine scores collapse on short keyword
+// queries — every chunk lands ~0.5, so topically-adjacent noise (e.g. unrelated
+// docs that are merely "about software") rides into the top slate and can
+// outvote a literal-term BM25 hit that scored 12 vs the noise's 5. With no
+// cross-encoder to clean the pool, up-weighting the lexical list keeps that
+// high-confidence match in the final set. 2 was enough to retain a rank-1 BM25
+// hit against a full dense list in the interpreter-query trace; kept modest so
+// dense recall (paraphrase / conceptual matches with no shared term) survives.
+const BM25_FUSION_WEIGHT_NO_RERANK = 2
 const DEFAULT_WHOLE_DOC_THRESHOLD = 8
 const DEFAULT_PER_DOC_CAP = 6
 const DEFAULT_TITLE_BOOST = 1.25
@@ -358,9 +369,17 @@ export class RetrievalService {
         this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb, codeWorkspace),
       ),
     )
+
+    // When no reranker runs (lite / CPU preset), nothing downstream cleans the
+    // pool, so a dense-retriever that collapsed to a narrow cosine band would
+    // otherwise let topically-adjacent noise outvote a strong literal-term BM25
+    // hit. Lean the fusion toward the lexical list in that case so a
+    // high-confidence keyword match keeps its seat. With rerank on, the
+    // cross-encoder reorders anyway, so fuse evenly and let it decide.
+    const bm25Weight = effectiveRerank ? 1 : BM25_FUSION_WEIGHT_NO_RERANK
     let pool: SearchHit[] = []
     for (const [bm25, vector] of perVariant) {
-      pool = fuseRrf(pool, bm25, candidateK)
+      pool = fuseRrf(pool, bm25, candidateK, bm25Weight)
       pool = fuseRrf(pool, vector, candidateK)
     }
     onStage?.('retrieve', 'done', `${pool.length} candidates`)
@@ -419,12 +438,15 @@ export class RetrievalService {
     // empty-pool short-circuits are silent so the UI doesn't flash a no-op row.
     const rerankWillRun = effectiveRerank && this.registry.reranker().isReady() && pool.length > 0
     if (rerankWillRun) onStage?.('rerank', 'start')
-    const reranked = await this.maybeRerank(
-      trimmed,
-      pool,
-      effectiveRerank,
-      cpuMode ? CPU_RERANK_MAX_CHARS : undefined,
-    )
+    // Rerank the FULL passage, never a leading slice. The slice optimization
+    // assumed "the relevance signal sits in the chunk's opening" — false for
+    // coarse, multi-topic chunks (a study sheet where one chunk holds several
+    // Q&As). Observed: the golden chunk for "Was ist ein Interpreter" began with
+    // unrelated backup text and its interpreter definition sat past the cutoff,
+    // so the cross-encoder scored the intro, judged it irrelevant, and dropped
+    // the best chunk to ~0. Scoring the whole passage is the cost of correctness
+    // here; chunk text is capped (~maxChars) so it stays bounded.
+    const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank, undefined)
     if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------
@@ -469,6 +491,25 @@ export class RetrievalService {
         postRank = applyTrackPreference(postRank, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
       }
       postRank = postRank.slice().sort((a, b) => b.score - a.score)
+    }
+
+    // ------- 2b-floor. relevance floor (rerank only) -------
+    // Drop the long tail of clearly-irrelevant chunks BEFORE diversification.
+    // Only when the reranker actually ran: its scores are real per-(query,
+    // passage) relevance, so a fixed floor is meaningful — unlike the RRF
+    // fallback, where every score is ~0.03 by construction and a floor would
+    // wipe the whole slate. Critically this runs ahead of diversifyByDocument:
+    // round-robin doc variety would otherwise pull a 0.08 noise chunk from a
+    // fresh doc IN AHEAD of a 0.70 relevant chunk from an already-represented
+    // doc (observed: an OS/Java chunk fed over the second interpreter chunk).
+    // Filtering first removes the noise from the pool so diversity can only
+    // pick among genuinely relevant chunks. Keep the top hit unconditionally so
+    // a weak-but-best match (or a wholly off-corpus query) still has something
+    // to answer from / refuse against, rather than feeding an empty Context.
+    if (rerankWillRun && opts.relevanceFloor != null) {
+      const kept = postRank.filter((h) => h.score >= opts.relevanceFloor!)
+      const floored = kept.length > 0 ? kept : postRank.slice(0, 1)
+      postRank = floored
     }
 
     // ------- 2c. document diversification (round-robin) -------
@@ -632,8 +673,10 @@ export class RetrievalService {
     if (!enabled || !reranker.isReady() || hits.length === 0) {
       return hits
     }
-    // Under the CPU preset, score only a leading slice of each passage — the
-    // cross-encoder cost is ~linear in length and the relevant signal is up top.
+    // Optional per-passage truncation. The hot path passes undefined (score the
+    // full passage) — a leading slice mis-scored coarse multi-topic chunks whose
+    // relevant section sat past the cutoff. Kept as a knob for callers that have
+    // uniformly front-loaded passages and want the speed.
     const docs = hits.map((h) =>
       maxChars && h.text.length > maxChars ? h.text.slice(0, maxChars) : h.text,
     )
