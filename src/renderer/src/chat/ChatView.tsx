@@ -489,7 +489,11 @@ export function ChatView({
             chunkId={sourceViewer.chunkId}
             messageText={sourceViewer.messageText}
             documentTitle={sourceViewer.documentTitle}
-            wholeMessageFallback={false}
+            // Small / German answers routinely emit no inline [doc,chunk]
+            // markers, so the "Quellen" footer is the only citation. Fuzzy-match
+            // the whole answer against the cited chunk to surface its grounding
+            // passage instead of opening the source with nothing highlighted.
+            wholeMessageFallback={true}
             onClose={() => setSourceViewer(null)}
           />
         </ErrorBoundary>
