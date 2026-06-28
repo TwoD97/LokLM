@@ -223,6 +223,51 @@ describe('SourceViewer', () => {
     expect(container.querySelector('.source-viewer__mark')).toBeNull()
   })
 
+  it('highlights the grounding passage from the whole answer when no marker exists', async () => {
+    // Chat "Quellen" footer click: a small / German answer emitted no inline
+    // [doc,chunk] marker, so the whole answer is fuzzy-matched against the cited
+    // chunk. With the fallback on (the chat default) the passage the answer
+    // overlaps lights up instead of opening the source with nothing marked.
+    setApi({
+      getSourceForChunk: () =>
+        Promise.resolve({
+          documentId: 7,
+          title: 'Frist.md',
+          mimeType: null,
+          sourcePath: '/x/Frist.md',
+          headingPath: null,
+          chunkPageFrom: null,
+          chunkPageTo: null,
+        }),
+      listChunksForDocument: () =>
+        Promise.resolve([
+          {
+            id: 42,
+            documentId: 7,
+            ordinal: 1,
+            text: 'Die Frist beträgt vierzehn Tage ab Bescheid.',
+            tokenCount: null,
+            pageFrom: null,
+            pageTo: null,
+            headingPath: null,
+            language: null,
+          },
+        ]),
+    })
+
+    const { container } = render(
+      <SourceViewer
+        chunkId={42}
+        messageText="Die Frist beträgt vierzehn Tage."
+        wholeMessageFallback={true}
+        onClose={() => undefined}
+      />,
+    )
+    await waitFor(() => expect(container.querySelector('.source-viewer__mark')).toBeInTheDocument())
+    const mark = container.querySelector('.source-viewer__mark')
+    expect(mark?.textContent?.toLowerCase()).toContain('frist beträgt vierzehn tage')
+  })
+
   it('renders empty state when the document has no chunks', async () => {
     setApi({
       getSourceForChunk: () =>
