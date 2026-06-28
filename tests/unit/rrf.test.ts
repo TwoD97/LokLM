@@ -44,4 +44,28 @@ describe('fuseRrf', () => {
     const out = fuseRrf([], a, 5)
     expect(out).toHaveLength(5)
   })
+
+  it('weight scales a list contribution by the given factor', () => {
+    // A rank-0 hit fused with weight 2 earns twice the increment of weight 1.
+    const out1 = fuseRrf([], [hit(1, 0.5)], 10, 1)
+    const out2 = fuseRrf([], [hit(1, 0.5)], 10, 2)
+    expect(out1[0]!.score).toBeCloseTo(1 / (RRF_K + 1), 5)
+    expect(out2[0]!.score).toBeCloseTo(2 / (RRF_K + 1), 5)
+  })
+
+  it('up-weighting BM25 keeps a strong lexical hit ahead of dense-only noise', () => {
+    // The interpreter-query failure in miniature: chunk 1 is BM25's rank-0
+    // match (the real definition); chunks 2-4 are dense-only noise that never
+    // appears in the lexical list. Even-weight fusion lets the three dense hits
+    // accumulate and bury chunk 1; a BM25 lean keeps it on top.
+    const bm25 = [hit(1, 12.0)]
+    const dense = [hit(2, 0.51), hit(3, 0.5), hit(1, 0.49)]
+    const even = fuseRrf(fuseRrf([], bm25, 10, 1), dense, 10)
+    const leaned = fuseRrf(fuseRrf([], bm25, 10, 2), dense, 10)
+    // Under the lean, chunk 1 is the top result; the dense noise sits below it.
+    expect(leaned[0]!.chunk_id).toBe(1)
+    // Sanity: the lean raised chunk 1's standing vs even fusion.
+    const rank = (out: SearchHit[]): number => out.findIndex((h) => h.chunk_id === 1)
+    expect(rank(leaned)).toBeLessThanOrEqual(rank(even))
+  })
 })

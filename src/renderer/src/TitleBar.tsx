@@ -155,11 +155,10 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   // first paint for the common (reranker-on) case. Hidden only once we know the
   // user / tier disabled the rerank stage.
   const rerankerEnabled = settings?.advanced.reranker.enabled ?? true
-  // The lite install tier ships without the reranker — drop its status dot
-  // entirely rather than relying on the settings default, so it stays gone even
-  // if the rerank stage is toggled back on. null while the tier resolves.
-  const [tier, setTier] = useState<'lite' | 'standard' | 'pro' | null>(null)
-  const rerankerVisible = rerankerEnabled && tier !== 'lite'
+  // The reranker status dot shows on all tiers when enabled (the default now,
+  // lite included — it ships the GGUF and runs the rerank stage). Hidden only
+  // when a user explicitly disables the rerank stage in settings.
+  const rerankerVisible = rerankerEnabled
   const [maximized, setMaximized] = useState(false)
   const [embedder, setEmbedder] = useState<{
     state: EmbedderState
@@ -224,10 +223,6 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
       setEmbedder({ state: s.state, message: s.message, source: s.source, modelName: s.modelName }),
     )
     return () => off()
-  }, [])
-
-  useEffect(() => {
-    void window.api.tier.get().then(setTier)
   }, [])
 
   useEffect(() => {

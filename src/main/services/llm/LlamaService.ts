@@ -146,11 +146,15 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
 }
 
 // How fully each profile is allowed to answer (system-prompt verbosity). Bigger
-// model → more room to develop the answer: Lite stays terse, Standard answers in
-// full, Pro/XL develops the explanation. The token ceiling already scales with
-// the window (answerMaxTokens), so this is purely the prompt-side steer.
+// model → more room to develop the answer. Lite was 'concise' (a few sentences)
+// to keep decode short on the iGPU, but once retrieval feeds the right chunk a
+// terse answer reads as under-developed — so lite now answers in full like
+// Standard. Pro/XL still develops the explanation furthest. The token ceiling
+// scales with the window (answerMaxTokens), so this is purely the prompt steer;
+// the cost is extra decoded tokens (slower on the iGPU), traded for a complete
+// answer.
 const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
-  lite: 'concise',
+  lite: 'standard',
   full: 'standard',
   xl: 'thorough',
 }

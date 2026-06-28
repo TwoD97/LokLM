@@ -414,18 +414,39 @@ function getProviderRegistry(): ProviderRegistry {
   return providerRegistry
 }
 
-// The 'lite' install tier ships without the reranker on by default — it's the
-// heaviest optional retrieval stage and lite targets low-RAM machines. Every
-// other tier (and dev/test, where readTierMarker() returns null) keeps the
-// universal default of reranker-on.
+// Reranker default per tier. Previously OFF on lite (ADR-0007) to spare low-RAM
+// machines the heaviest retrieval stage. Reinstated ON for lite: the
+// cross-encoder is the only stage that scores TRUE relevance, and without it the
+// collapsed-cosine dense list drags topically-adjacent noise into the fed set
+// (the interpreter-query trace fed 3 unrelated handbook chunks). The CPU rerank
+// pass measured ~7 s, acceptable against the iGPU's ~60 s LLM TTFT, and it runs
+// on the leading slice only (CPU_RERANK_MAX_CHARS). Every tier now keeps the
+// universal reranker-on default; the function is retained for future tier-
+// specific defaults.
 function tierBaseDefaults(): UserSettings {
-  if (getEffectiveTier() !== 'lite') return DEFAULT_SETTINGS
-  return {
-    ...DEFAULT_SETTINGS,
-    advanced: {
-      ...DEFAULT_SETTINGS.advanced,
-      reranker: { ...DEFAULT_SETTINGS.advanced.reranker, enabled: false },
-    },
+  return DEFAULT_SETTINGS
+}
+
+// Minimum reranker relevance score for a chunk to be fed (all tiers). Applied by
+// RetrievalService only when the reranker actually ran — its scores are real
+// relevance (bge-reranker-v2-m3, ~0..1), unlike the RRF fallback's ~0.03 rank
+// scores. 0.2 sits in the observed gap between on-topic matches (≥0.5) and
+// off-topic noise (≤0.13). The top hit is always kept, so this never empties the
+// slate. Conservative on purpose: it trims obvious noise without touching the
+// borderline band, so recall on genuinely-relevant chunks is unaffected.
+const CHAT_RELEVANCE_FLOOR = 0.2
+
+// One-time normalization for the ADR-0007 reranker reversal. A lite install made
+// while the reranker was OFF-by-default persisted `enabled:false` into its
+// settings snapshot (update() writes the full cache, so even an untouched
+// default leaks into persistence and then wins over baseDefaults on hydrate).
+// Because the lite tier HID the reranker toggle, that false can only be the
+// retired default — never a user choice — so flipping it once is safe. Scoped to
+// lite: standard/pro expose the toggle, so their false IS a real user choice and
+// must be left alone.
+async function normalizeRerankerEnabledForLite(settings: SettingsService): Promise<void> {
+  if (getEffectiveTier() === 'lite' && !settings.get().advanced.reranker.enabled) {
+    await settings.update({ advanced: { reranker: { enabled: true } } })
   }
 }
 
@@ -791,6 +812,7 @@ function registerIpc(): void {
       // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
+      await normalizeRerankerEnabledForLite(settings)
       await applySettings(settings.get())
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
@@ -833,6 +855,7 @@ function registerIpc(): void {
       // UI before model loads start consuming the main thread + VRAM.
       const settings = getSettingsService()
       await settings.hydrate()
+      await normalizeRerankerEnabledForLite(settings)
       await applySettings(settings.get())
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
@@ -1746,10 +1769,10 @@ function registerIpc(): void {
           .ensureLoaded()
           .catch(() => undefined)
       }
-      // Lite ships no reranker — never warm it on that tier, even if a prior
-      // non-lite run left reranker.enabled=true persisted (persisted settings
-      // win over the lite default). Mirrors the warming screen's tier gate.
-      if (getEffectiveTier() !== 'lite' && getSettingsService().get().advanced.reranker.enabled) {
+      // Warm the reranker whenever it's enabled — now including lite (ADR-0007
+      // reversal): the CPU rerank pass (~7 s, leading-slice only) is the proper
+      // fix for dense-retriever noise that the BM25 lean only partially masks.
+      if (getSettingsService().get().advanced.reranker.enabled) {
         await getRerankerService()
           .ensureReady()
           .catch(() => undefined)
@@ -1918,6 +1941,17 @@ function registerIpc(): void {
       // heuristic (which remains the fallback for quiz / eval callers).
       if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
 
+      // Relevance floor — ALL tiers, not just lite. Whenever the reranker runs
+      // its scores are real per-(query, passage) relevance, so drop the sub-
+      // relevant tail instead of padding the fed set to a fixed topK. Observed
+      // cliff on a focused query: on-topic matches ≥0.5, noise ≤0.13 — 0.2 sits
+      // in the gap, keeping the relevant chunks and dropping the OS/Java/team-
+      // roles chunks a fixed count (made worse by doc-diversity) was dragging
+      // in. RetrievalService gates this on rerank having actually run and always
+      // keeps the top hit, so the RRF fallback and weak-but-best matches are
+      // unaffected. Evals/quiz never set it → legacy fixed-K behaviour there.
+      if (opts.relevanceFloor == null) opts.relevanceFloor = CHAT_RELEVANCE_FLOOR
+
       // Lite tier = low-end / iGPU-only target → force the lean retrieval preset.
       // Query expansion runs a FULL extra LLM generation BEFORE retrieval; on an
       // iGPU the first turn pays a cold ~80s for it, and its paraphrases drift the
@@ -1936,6 +1970,15 @@ function registerIpc(): void {
         // answered "interpreter" with the JIT section) AND bloats the prefill.
         // The focused matched chunk(s) answer the actual question.
         if (opts.wholeDocFallback === undefined) opts.wholeDocFallback = false
+        // Force the lean retrieval preset on lite. autoDetectCpuMode() keys off
+        // the GPU label, but the iGPU latches Vulkan and reads as a fast GPU —
+        // so without this it uses the heavy pool (FANOUT 4 / 64 candidates) and
+        // the reranker scores ~40 full-length passages, which is the bulk of the
+        // iGPU rerank cost. cpuOptimized halves the candidate pool (FANOUT 2 / 32)
+        // and scores only each passage's leading slice (CPU_RERANK_MAX_CHARS) —
+        // same final topK fed, roughly half the rerank time. Rerank itself stays
+        // ON: the renderer pins rerank:true, which wins over the cpuMode default.
+        if (opts.cpuOptimized === undefined) opts.cpuOptimized = true
       }
 
       // Pin to THIS chat's workspace, not the active one: a message append routed

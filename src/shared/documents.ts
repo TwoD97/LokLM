@@ -440,6 +440,16 @@ export interface AnswerOptions {
    *  expansion floods the prompt with every Q&A and the model answers the wrong
    *  one — plus it balloons the prefill. */
   wholeDocFallback?: boolean
+  /** Force the lean retrieval preset (smaller candidate pool + leading-slice
+   *  rerank) regardless of the GPU label. Set on lite: the iGPU latches Vulkan
+   *  and autoDetectCpuMode reads it as a fast GPU, so without this the reranker
+   *  scores ~40 full-length passages — the bulk of the iGPU rerank cost. */
+  cpuOptimized?: boolean
+  /** Drop reranked chunks below this relevance score instead of always padding
+   *  the fed set to topK. Only effective when the reranker ran (real relevance
+   *  scores). Set on lite so an "interpreter" query stops feeding 0.08-score
+   *  OS/Java chunks just to reach a fixed count. */
+  relevanceFloor?: number
   /** Query routing (doc_summary / corpus / retrieval). Defaults to ON for the
    *  chat path; evals and tests pin `routing: false` to get the plain chunk
    *  pipeline regardless of query phrasing — the same escape hatch contract

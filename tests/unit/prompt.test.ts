@@ -260,6 +260,15 @@ describe('buildSystemPrompt', () => {
     expect(de).toMatch(/eigentlich/)
   })
 
+  it('bars completing a mentioned-but-undefined term from general knowledge', () => {
+    // The grounding fix: a term the Context only NAMES (e.g. "Interpreter-
+    // Sprache" listed without a definition) must not be fleshed out from the
+    // model's own knowledge — the failure mode that produced a confident wrong
+    // answer. Both variants must carry the partial-answer rule.
+    expect(buildSystemPrompt('en')).toMatch(/without defining or explaining it/)
+    expect(buildSystemPrompt('de')).toMatch(/ohne es zu definieren oder zu erklären/)
+  })
+
   it('scales answer length by tier depth (concise → standard → thorough)', () => {
     // The depth steer is the only per-tier difference in the prompt — bigger
     // models are told to develop the answer further. Compare the LENGTH/UMFANG

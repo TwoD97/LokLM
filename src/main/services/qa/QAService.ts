@@ -343,6 +343,8 @@ export class QAService {
       }
       if (opts.rerank !== undefined) searchOpts.rerank = opts.rerank
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
+      if (opts.cpuOptimized !== undefined) searchOpts.cpuOptimized = opts.cpuOptimized
+      if (opts.relevanceFloor !== undefined) searchOpts.relevanceFloor = opts.relevanceFloor
       if (opts.wholeDocFallback !== undefined) searchOpts.wholeDocFallback = opts.wholeDocFallback
       if (opts.activeDocumentIds !== undefined)
         searchOpts.activeDocumentIds = opts.activeDocumentIds
@@ -527,8 +529,8 @@ export class QAService {
     // eslint-disable-next-line no-console
     console.log(
       `[qa] prefill input: ctxWindow=${ctxTokens} promptTokens≈${promptTokens} ` +
-        `fedHits=${fedHits.length} multiQuery=${opts.multiQuery ?? 'auto'} ` +
-        `wholeDoc=${opts.wholeDocFallback ?? 'auto'}`,
+        `fedHits=${fedHits.length} (pinned=${pinnedHits.length} rag=${packedRagHits.length}) ` +
+        `multiQuery=${opts.multiQuery ?? 'auto'} wholeDoc=${opts.wholeDocFallback ?? 'auto'}`,
     )
 
     // Prefill = the gap between "prompt assembled" and "first token". On CPU
