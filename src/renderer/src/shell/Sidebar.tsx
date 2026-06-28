@@ -16,6 +16,8 @@ import {
   Star,
   Code2,
   Unlock,
+  Info,
+  X,
 } from 'lucide-react'
 import type { Document, Folder, FolderAssignment, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
@@ -58,6 +60,49 @@ type Props = {
   onToggleFolderScope: (folderId: number) => void
 }
 
+/** Help modal explaining how to organise workspaces for the best answers.
+ *  Closes on backdrop click, the close button, or Escape. */
+function WorkspaceInfoModal({ onClose }: { onClose: () => void }): JSX.Element {
+  const t = useT()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="ws-info-modal__backdrop" onClick={onClose}>
+      <div
+        className="ws-info-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('shell.workspaceInfoTitle')}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="ws-info-modal__header">
+          <h3 className="ws-info-modal__title">{t('shell.workspaceInfoTitle')}</h3>
+          <button
+            type="button"
+            className="ws-info-modal__close"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            title={t('common.close')}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <p className="ws-info-modal__intro">{t('shell.workspaceInfoIntro')}</p>
+        <ul className="ws-info-modal__list">
+          <li>{t('shell.workspaceInfoTip1')}</li>
+          <li>{t('shell.workspaceInfoTip2')}</li>
+          <li>{t('shell.workspaceInfoTip3')}</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 export function Sidebar({
   expanded,
   pinned,
@@ -92,6 +137,8 @@ export function Sidebar({
   // out for large, non-sensitive corpora to skip the decrypt-on-open wait.
   const [newWsEncrypted, setNewWsEncrypted] = useState(true)
   const [docPickerOpen, setDocPickerOpen] = useState(true)
+  // Toggles the "how to manage workspaces for best results" help panel.
+  const [infoOpen, setInfoOpen] = useState(false)
   // id of the workspace whose name is being edited inline, plus its draft text.
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState('')
@@ -216,7 +263,19 @@ export function Sidebar({
       {expanded && (
         <div className="sidebar__expanded">
           <div className="sidebar__expanded-header">
-            <span className="sidebar__section-label">{t('shell.workspaces')}</span>
+            <div className="sidebar__section-heading">
+              <span className="sidebar__section-label">{t('shell.workspaces')}</span>
+              <button
+                type="button"
+                className={`sidebar__info-btn ${infoOpen ? 'sidebar__info-btn--active' : ''}`}
+                onClick={() => setInfoOpen((v) => !v)}
+                aria-label={t('shell.workspaceInfo')}
+                aria-expanded={infoOpen}
+                title={t('shell.workspaceInfo')}
+              >
+                <Info size={14} aria-hidden="true" />
+              </button>
+            </div>
             <button
               className="sidebar__rail-btn"
               onClick={onTogglePin}
@@ -230,6 +289,7 @@ export function Sidebar({
               )}
             </button>
           </div>
+          {infoOpen && <WorkspaceInfoModal onClose={() => setInfoOpen(false)} />}
           {workspaces.map((w) => {
             const isActive = w.id === activeWorkspaceId
             const isDropdown = isActive && chatViewActive
