@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
+import type { GpuDevice, GpuKind } from '../../../shared/documents'
 
 export type Tier = 'lite' | 'standard' | 'pro'
 
@@ -24,6 +25,14 @@ export interface HardwareSnapshot {
   gpuName?: string | null
   gpuVramBytes?: number | null
   gpuArch?: string | null
+  /** True when the chosen adapter is an integrated GPU. */
+  gpuIntegrated?: boolean
+  /** Shared system memory the iGPU may use (DXGI SharedSystemMemory). */
+  gpuSharedBytes?: number | null
+  /** Full GPU inventory the wizard's hardware probe enumerated at install time
+   *  — each device classified dedicated/integrated. Drives the LLM device
+   *  picker. Absent on markers written before this field existed (≤ v0.6.0). */
+  gpus?: GpuDevice[]
   cpuThreads?: number
   cpuBrand?: string
   ramBytes?: number
@@ -160,6 +169,23 @@ function isValidTier(v: unknown): v is Tier {
 }
 
 /**
+ * The tier that should drive runtime behaviour (LLM profile recommendation,
+ * reranker default, status-bar UI). Honours the `LOKLM_TIER` env override first
+ * — set by the `pnpm dev --lite|--standard|--pro` launcher (scripts/dev.mjs) so
+ * a dev run can emulate any install tier without a wizard marker. Falls back to
+ * the install marker's tier, then null (plain dev/test, pre-v0.3.0 installs).
+ *
+ * Deliberately does NOT synthesize a full TierMarker: model availability and
+ * the legacy-models sweep stay keyed on readTierMarker() so a dev run never
+ * trips the "wizard-managed install" code paths (empty model list, sweeps).
+ */
+export function getEffectiveTier(): Tier | null {
+  const env = process.env['LOKLM_TIER']
+  if (isValidTier(env)) return env
+  return readTierMarker()?.tier ?? null
+}
+
+/**
  * Single source of truth for "did this install opt in to the external Ollama
  * connector". True when the marker says so, and true on the no-marker paths
  * (dev, test, pre-v0.3.0 installs) — the opt-in only exists for installs the
@@ -173,14 +199,46 @@ export function isOllamaConnectorEnabled(): boolean {
 /**
  * Codebase indexing (ADR-0006: source-project workspaces embedded with the Qwen3
  * code model) is a Standard+Pro feature — the Lite tier is library-only (BGE-M3).
- * True on every no-marker path (dev, test, pre-v0.3.0 installs) so development and
- * legacy installs keep full access; only an explicit `lite` marker disables it.
- * Single source of truth for the gate — used wherever a workspace would flip to
- * 'codebase' or load the code embedder.
+ * Keyed on the EFFECTIVE tier so the `pnpm dev --lite` override (LOKLM_TIER) is
+ * honoured too: without this a dev `--lite` run still loaded the Qwen3 code
+ * embedder and purged the BGE-M3 chunks on every launch. True on every no-tier
+ * path (plain dev, test, pre-v0.3.0 installs) so development and legacy installs
+ * keep full access; only an explicit `lite` tier disables it. Single source of
+ * truth for the gate — used wherever a workspace would flip to 'codebase' or
+ * load the code embedder.
  */
 export function isCodebaseIndexingEnabled(): boolean {
+  return getEffectiveTier() !== 'lite'
+}
+
+/**
+ * The install-time GPU inventory the wizard enumerated, classified
+ * dedicated/integrated. Returns [] on every no-marker path (dev, test,
+ * pre-v0.6.1 installs) and when the marker predates the field — callers then
+ * fall back to the runtime VRAM probe (single anonymous GPU) and offer only the
+ * Auto device option. Each entry is validated; malformed rows are dropped.
+ */
+export function readGpuInventory(): GpuDevice[] {
   const marker = readTierMarker()
-  return marker === null || marker.tier !== 'lite'
+  const raw = marker?.hardware?.gpus
+  if (!Array.isArray(raw)) return []
+  const out: GpuDevice[] = []
+  for (const g of raw) {
+    if (!g || typeof g !== 'object') continue
+    const d = g as Partial<GpuDevice>
+    if (typeof d.name !== 'string') continue
+    if (d.kind !== 'dedicated' && d.kind !== 'integrated') continue
+    out.push({
+      name: d.name,
+      vendorId: typeof d.vendorId === 'number' ? d.vendorId : 0,
+      deviceId: typeof d.deviceId === 'number' ? d.deviceId : 0,
+      kind: d.kind as GpuKind,
+      vramBytes: typeof d.vramBytes === 'number' ? d.vramBytes : 0,
+      sharedBytes: typeof d.sharedBytes === 'number' ? d.sharedBytes : 0,
+      vulkanIndex: typeof d.vulkanIndex === 'number' ? d.vulkanIndex : null,
+    })
+  }
+  return out
 }
 
 /**

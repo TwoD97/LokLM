@@ -73,9 +73,9 @@ LokLM nutzt lokale GGUF-Gewichte. Für die Entwicklung lädt das Skript [scripts
 | Befehl                    | Inhalt                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `pnpm models:embedder`    | Embedder (BGE-M3) + Reranker (BGE-v2-M3)                                                                          |
-| `pnpm models:lite`        | Lite-LLM + Embedder                                                                                               |
-| `pnpm models:medium`      | 4B + 8B + Embedder                                                                                                |
-| `pnpm models:pro`         | bis Nemotron-30B                                                                                                  |
+| `pnpm models:lite`        | Lite-LLM (Qwen3.5-2B) + Embedder                                                                                  |
+| `pnpm models:medium`      | Qwen3.5-2B + 4B + Embedder                                                                                        |
+| `pnpm models:pro`         | Qwen3.5-2B + 4B + 9B + Embedder                                                                                   |
 | `pnpm models:all`         | gesamtes Ship-Bundle                                                                                              |
 | `pnpm models:evals`       | Eval-Modellpool + Judge-Modell                                                                                    |
 | `pnpm models:translation` | Übersetzungs-Eval-Pool (Gemma Q4/Q6 + Qwen3.5 2B/4B/9B); das Produktiv-MADLAD-400-3B liefert der Installer-Wizard |

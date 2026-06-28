@@ -507,7 +507,7 @@ pub async fn install<F>(
 where
     F: FnMut(ProgressEvent) + Send,
 {
-    use super::{archive, download, payload_manifest};
+    use super::{download, payload_manifest};
 
     let bundle = payload_manifest::current_bundle();
 
@@ -560,14 +560,14 @@ where
     if preexisting_payload.is_none() {
         progress(ProgressEvent { step: "download-payload".into(), percent: 0 });
         let payload_archive_path = staging.join(&bundle.payload.filename);
-        download::download_with_resume(
+        super::download_and_extract_archive(
             &client,
-            download::DownloadSpec {
-                url: &payload_manifest::payload_url(),
-                dest: &payload_archive_path,
-                expected_sha256: Some(&bundle.payload.sha256),
-                expected_size: Some(bundle.payload.size_bytes),
-            },
+            &payload_manifest::payload_url(),
+            &payload_archive_path,
+            &bundle.payload.sha256,
+            bundle.payload.size_bytes,
+            &staging,
+            "payload",
             |written, total| {
                 let pct = ((written.saturating_mul(15)) / total.max(1)) as u32;
                 progress(ProgressEvent {
@@ -576,11 +576,7 @@ where
                 });
             },
         )
-        .await
-        .map_err(|e| format!("payload download : {}", e))?;
-        archive::extract_tar_zst(&payload_archive_path, &staging)
-            .map_err(|e| format!("payload extract : {}", e))?;
-        let _ = std::fs::remove_file(&payload_archive_path);
+        .await?;
     }
 
     // ---- Phase 2 : optional CUDA addon ( 15-30 % ) -----------------------
@@ -590,51 +586,27 @@ where
                 .expect("manifest has cuda entry on this platform");
             let cuda_archive_path = staging.join(&cuda_entry.filename);
             progress(ProgressEvent { step: "download-cuda".into(), percent: 15 });
-            // The CUDA archive is large (~0.5 GB); a single fetch occasionally
-            // aborts mid-stream and the truncated file then fails to decode at
-            // extract — which the user only gets past by manually retrying. Retry
-            // the download+extract a few times so a transient hiccup self-heals.
-            // Each attempt cleans up first so it starts from a known-good slate.
-            const CUDA_ATTEMPTS: u32 = 3;
-            let mut attempt = 0u32;
-            loop {
-                attempt += 1;
-                let outcome: Result<(), String> = async {
-                    download::download_with_resume(
-                        &client,
-                        download::DownloadSpec {
-                            url: &cuda_url,
-                            dest: &cuda_archive_path,
-                            expected_sha256: Some(&cuda_entry.sha256),
-                            expected_size: Some(cuda_entry.size_bytes),
-                        },
-                        |written, total| {
-                            let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
-                            progress(ProgressEvent {
-                                step: "download-cuda".into(),
-                                percent: pct.min(30),
-                            });
-                        },
-                    )
-                    .await
-                    .map_err(|e| format!("cuda download : {}", e))?;
-                    archive::extract_tar_zst(&cuda_archive_path, &staging)
-                        .map_err(|e| format!("cuda extract : {}", e))?;
-                    Ok(())
-                }
-                .await;
-                match outcome {
-                    Ok(()) => break,
-                    Err(e) if attempt >= CUDA_ATTEMPTS => return Err(e),
-                    Err(_) => {
-                        // Drop a possibly-corrupt archive + partial so the next
-                        // attempt re-fetches cleanly.
-                        let _ = std::fs::remove_file(&cuda_archive_path);
-                        download::cleanup_partial(&cuda_archive_path).await;
-                    }
-                }
-            }
-            let _ = std::fs::remove_file(&cuda_archive_path);
+            // The CUDA archive is the biggest single download (~0.5 GB); a flaky or
+            // slow link drops it mid-stream ("error decoding response body"). The
+            // shared helper retries with Range-RESUME (keeps the .partial across
+            // attempts) so a drop continues instead of restarting from zero.
+            super::download_and_extract_archive(
+                &client,
+                &cuda_url,
+                &cuda_archive_path,
+                &cuda_entry.sha256,
+                cuda_entry.size_bytes,
+                &staging,
+                "cuda",
+                |written, total| {
+                    let pct = 15 + ((written.saturating_mul(15)) / total.max(1)) as u32;
+                    progress(ProgressEvent {
+                        step: "download-cuda".into(),
+                        percent: pct.min(30),
+                    });
+                },
+            )
+            .await?;
         }
     }
 

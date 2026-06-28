@@ -41,6 +41,7 @@ const els = {
   licenseAcceptRow: document.getElementById('license-accept-row'),
   licenseScrollHint: document.getElementById('license-scroll-hint'),
   hardwareSummary: document.getElementById('hardware-summary'),
+  hardwareBlock: document.getElementById('hardware-block'),
   tierCards: Array.from(document.querySelectorAll('.tier-card')),
   tierRadios: Array.from(document.querySelectorAll('input[name="tier"]')),
   installDir: document.getElementById('install-dir'),
@@ -227,6 +228,8 @@ function formatGiB(bytes) {
 }
 
 function renderHardwareSummary() {
+  // CPU-only block banner — shown only once the probe resolved with no GPU.
+  if (els.hardwareBlock) els.hardwareBlock.hidden = !isCpuOnly(hardwareProfile)
   if (hardwareProbeFailed) {
     els.hardwareSummary.innerHTML = ''
     const p = document.createElement('p')
@@ -286,16 +289,58 @@ function renderHardwareSummary() {
   }
 }
 
+// iGPU-only machine = an integrated GPU is present but no dedicated card. Those
+// boxes can only run Lite (the main app requires a GPU but caps an iGPU at the
+// 2B model), so the wizard hard-gates Standard/Pro off. Prefer the full GPU
+// inventory; fall back to the chosen-adapter `gpuIntegrated` flag for probes
+// that predate it.
+function isIgpuOnly(profile) {
+  if (!profile) return false
+  const gpus = profile.gpus
+  if (Array.isArray(gpus) && gpus.length > 0) {
+    return gpus.some((g) => g.kind === 'integrated') && !gpus.some((g) => g.kind === 'dedicated')
+  }
+  return profile.gpuIntegrated === true
+}
+
+// CPU-only machine = the probe SUCCEEDED and found no usable GPU at all. The
+// main app requires a GPU to run the LLM, so we hard-block the install here
+// rather than ship a non-functional setup. A FAILED probe (profile null) is NOT
+// treated as CPU-only — we don't know the GPU, so we let the user proceed.
+function hasUsableGpu(profile) {
+  if (!profile) return false
+  if (Array.isArray(profile.gpus) && profile.gpus.length > 0) return true
+  return Boolean(profile.gpuName)
+}
+function isCpuOnly(profile) {
+  return profile != null && !hasUsableGpu(profile)
+}
+
 function renderTierCards() {
   const recommended = hardwareProfile?.recommendedTier ?? null
+  const cpuOnly = isCpuOnly(hardwareProfile)
+  const igpuOnly = !cpuOnly && isIgpuOnly(hardwareProfile)
+  // Never leave a blocked tier selected on an iGPU-only box.
+  if (igpuOnly && selectedTier !== 'lite') selectedTier = 'lite'
   for (const card of els.tierCards) {
     const tier = card.dataset.tier
-    card.classList.toggle('is-selected', tier === selectedTier)
-    card.classList.toggle('is-recommended', tier === recommended)
+    // iGPU-only locks Standard/Pro (Lite stays); CPU-only locks everything —
+    // the hardware-block banner + disabled Next carry the "GPU required" message.
+    const igpuLocked = igpuOnly && tier !== 'lite'
+    const locked = cpuOnly || igpuLocked
+    card.classList.toggle('is-disabled', locked)
+    card.classList.toggle('is-selected', !locked && tier === selectedTier)
+    card.classList.toggle('is-recommended', !cpuOnly && tier === recommended)
+    card.setAttribute('aria-disabled', String(locked))
     const badge = card.querySelector('.tier-card__badge')
-    if (badge) badge.hidden = tier !== recommended
+    if (badge) badge.hidden = cpuOnly || tier !== recommended
+    const lockedNote = card.querySelector('.tier-card__locked')
+    if (lockedNote) lockedNote.hidden = !igpuLocked
     const radio = card.querySelector('input[type="radio"]')
-    if (radio) radio.checked = tier === selectedTier
+    if (radio) {
+      radio.disabled = locked
+      radio.checked = tier === selectedTier
+    }
   }
 }
 
@@ -435,8 +480,10 @@ function render() {
     (active === 'license' && !els.licenseAccept.checked) ||
     // Hardware page : block Next until we have a result ( so we don't ship
     // a probe-less hardwareSnapshot ) OR the probe failed ( then user picks
-    // manually , selectedTier is always set ).
+    // manually , selectedTier is always set ). Also hard-block a CPU-only
+    // machine — the app requires a GPU, so there's nothing to install here.
     (active === 'hardware' && !hardwareProfile && !hardwareProbeFailed) ||
+    (active === 'hardware' && isCpuOnly(hardwareProfile)) ||
     (active === 'options' && !els.installDir.value.trim()) ||
     (active === 'install' && !installerState.payloadReady)
 

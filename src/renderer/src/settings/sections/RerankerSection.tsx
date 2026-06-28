@@ -67,24 +67,9 @@ export function RerankerSection({ settings, update }: Props): JSX.Element {
                   <span>{t('settings.reranker.ollamaWarning')}</span>
                 </div>
               )}
-              <div className="settings-row">
-                <div className="settings-row__label">
-                  <span className="settings-row__label-text">
-                    {t('settings.reranker.placement')}
-                  </span>
-                  <span className="settings-row__hint">{t('settings.reranker.placementHint')}</span>
-                </div>
-                <Segmented
-                  ariaLabel={t('settings.reranker.placementAria')}
-                  value={a.placement}
-                  options={[
-                    { value: 'auto', label: t('settings.reranker.placementAuto') },
-                    { value: 'cpu', label: t('settings.reranker.placementCpu') },
-                    { value: 'gpu', label: t('settings.reranker.placementGpu') },
-                  ]}
-                  onChange={(v) => void update({ advanced: { reranker: { placement: v } } })}
-                />
-              </div>
+              {/* The reranker rides the LLM's primary GPU backend (one shared
+                  device), so it has no independent compute-device control — the
+                  LLM's Auto/Dedicated/Integrated choice governs it. */}
             </>
           )}
         </div>

@@ -26,7 +26,13 @@ export const shellDict: DomainDict = {
     'shell.deviceCpu': 'CPU',
     'shell.deviceGpu': 'GPU ({backend})',
     'shell.deviceGpuShort': 'GPU',
+    'shell.deviceDgpu': 'dGPU',
+    'shell.deviceIgpu': 'iGPU',
+    'shell.kindDedicated': 'dedicated',
+    'shell.kindIntegrated': 'integrated',
+    'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Running on {device}',
+    'shell.reembedProgress': 're-embedding {done}/{total} chunks — search degraded until done',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Create or select a workspace first.',
@@ -39,6 +45,16 @@ export const shellDict: DomainDict = {
     'shell.navTranslation': 'Translation',
     'shell.navWriting': 'Write',
     'shell.workspaces': 'Workspaces',
+    'shell.workspaceInfo': 'How to get the best results',
+    'shell.workspaceInfoTitle': 'Getting the best results',
+    'shell.workspaceInfoIntro':
+      'A workspace is one focused knowledge base. How you organise it shapes how accurate the answers are.',
+    'shell.workspaceInfoTip1':
+      'Keep one kind of material per workspace. Don’t mix unrelated file types or topics — separating them keeps answers focused and makes it clear which source each answer came from.',
+    'shell.workspaceInfoTip2':
+      'Create a dedicated workspace per subject, project or codebase instead of one large catch-all.',
+    'shell.workspaceInfoTip3':
+      'Use the document scope in Chat to narrow a question to specific files within a workspace.',
     'shell.pinSidebar': 'Pin sidebar',
     'shell.unpinSidebar': 'Unpin sidebar',
     'shell.scopeFiles': 'Scope: {count} {noun}',
@@ -90,7 +106,14 @@ export const shellDict: DomainDict = {
     'shell.deviceCpu': 'CPU',
     'shell.deviceGpu': 'GPU ({backend})',
     'shell.deviceGpuShort': 'GPU',
+    'shell.deviceDgpu': 'dGPU',
+    'shell.deviceIgpu': 'iGPU',
+    'shell.kindDedicated': 'dediziert',
+    'shell.kindIntegrated': 'integriert',
+    'shell.deviceGpuKind': '{kind} GPU ({backend})',
     'shell.runningOn': 'Läuft auf {device}',
+    'shell.reembedProgress':
+      'Bettet neu ein: {done}/{total} Chunks — Suche eingeschränkt bis fertig',
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Erstelle oder wähle zuerst einen Workspace.',
@@ -103,6 +126,16 @@ export const shellDict: DomainDict = {
     'shell.navTranslation': 'Übersetzung',
     'shell.navWriting': 'Schreiben',
     'shell.workspaces': 'Workspaces',
+    'shell.workspaceInfo': 'So erzielst du die besten Ergebnisse',
+    'shell.workspaceInfoTitle': 'Die besten Ergebnisse erzielen',
+    'shell.workspaceInfoIntro':
+      'Ein Workspace ist eine fokussierte Wissensbasis. Wie du ihn organisierst, bestimmt, wie genau die Antworten ausfallen.',
+    'shell.workspaceInfoTip1':
+      'Pro Workspace nur eine Art von Material. Mische keine unzusammenhängenden Dateitypen oder Themen — eine saubere Trennung hält die Antworten fokussiert und macht klar, aus welcher Quelle jede Antwort stammt.',
+    'shell.workspaceInfoTip2':
+      'Lege pro Thema, Projekt oder Codebase einen eigenen Workspace an, statt eines großen Sammel-Workspace.',
+    'shell.workspaceInfoTip3':
+      'Nutze den Dokumentbereich im Chat, um eine Frage auf bestimmte Dateien innerhalb eines Workspace einzugrenzen.',
     'shell.pinSidebar': 'Seitenleiste anheften',
     'shell.unpinSidebar': 'Seitenleiste lösen',
     'shell.scopeFiles': 'Bereich: {count} {noun}',

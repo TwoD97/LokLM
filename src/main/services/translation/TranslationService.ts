@@ -104,9 +104,17 @@ export class TranslationService {
 
   /** First search dir containing all four files at plausible sizes , or null.
    *  Mirrors the multi-dir policy of models/paths.ts so a wizard-installed
-   *  copy next to the exe is found just like a downloaded one. */
+   *  copy next to the exe is found just like a downloaded one.
+   *
+   *  LOKLM_TRANSLATOR_MODELS_DIR (dev convenience , set by scripts/dev.mjs) is
+   *  prepended to the search roots so a `pnpm dev` run can borrow the translator
+   *  model from an installed LokLM without copying ~3 GB into the repo. The
+   *  value is a models *root* (the dir containing `translator/…`) , matching
+   *  what getModelSearchDirs() yields. */
   private locateModelDir(): string | null {
-    for (const dir of getModelSearchDirs()) {
+    const extraRoot = process.env.LOKLM_TRANSLATOR_MODELS_DIR
+    const roots = extraRoot ? [extraRoot, ...getModelSearchDirs()] : getModelSearchDirs()
+    for (const dir of roots) {
       const candidate = join(dir, TRANSLATOR_MODEL_DIRNAME)
       const complete = TRANSLATOR_FILES.every((f) => {
         const basename = f.filename.slice(TRANSLATOR_MODEL_DIRNAME.length + 1)

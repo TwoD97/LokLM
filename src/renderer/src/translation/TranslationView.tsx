@@ -248,6 +248,36 @@ export function TranslationView(): JSX.Element {
             </div>
           )}
 
+          <div className="translation-view__controls">
+            <span className="translation-view__controls-label">
+              {t('translation.targetLabelShort')}
+            </span>
+            <select
+              className="translation-view__select"
+              value={target}
+              disabled={busy}
+              aria-label={t('chat.translateTargetAria')}
+              onChange={(e) => setTarget(e.target.value)}
+            >
+              {languages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="translation-view__btn translation-view__btn--primary"
+              disabled={busy || !source.trim()}
+              onClick={() => void translate()}
+            >
+              {busy ? t('chat.translateBusy') : t('translation.translate')}
+              {!busy && <ArrowRight size={15} aria-hidden="true" />}
+            </button>
+            {state === 'starting' && (
+              <span className="translation-view__hint">{t('chat.translateBusyHint')}</span>
+            )}
+          </div>
+
           <div className="translation-view__workbench">
             <div className="translation-view__pane">
               <div className="translation-view__pane-head">
@@ -269,33 +299,6 @@ export function TranslationView(): JSX.Element {
                 }
                 spellCheck={false}
               />
-            </div>
-
-            <div className="translation-view__controls">
-              <select
-                className="translation-view__select"
-                value={target}
-                disabled={busy}
-                aria-label={t('chat.translateTargetAria')}
-                onChange={(e) => setTarget(e.target.value)}
-              >
-                {languages.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="translation-view__btn translation-view__btn--primary"
-                disabled={busy || !source.trim()}
-                onClick={() => void translate()}
-              >
-                {busy ? t('chat.translateBusy') : t('translation.translate')}
-                {!busy && <ArrowRight size={15} aria-hidden="true" />}
-              </button>
-              {state === 'starting' && (
-                <span className="translation-view__hint">{t('chat.translateBusyHint')}</span>
-              )}
             </div>
 
             <div className="translation-view__pane">

@@ -75,6 +75,35 @@ describe('findFuzzyHighlights', () => {
     expect(chunk.slice(r0.start, r0.end).toLowerCase()).toBe('frontier')
   })
 
+  it('keeps the highlight on the best-matching region, not scattered fragments', () => {
+    // The snippet shares a generic phrase ("der Tresor speichert") with one
+    // sentence and a denser, more specific match with another. Only the
+    // strongest region should light up — not every shared fragment.
+    const chunk =
+      'Der Tresor speichert verschlüsselte Daten. Jeder Arbeitsbereich besitzt einen eigenen Datenschlüssel der mit einem abgeleiteten Schlüssel verpackt wird.'
+    const ranges = findFuzzyHighlights(chunk, [
+      'Jeder Arbeitsbereich besitzt einen eigenen Datenschlüssel der mit einem abgeleiteten Schlüssel verpackt wird.',
+    ])
+    expect(ranges.length).toBeGreaterThan(0)
+    const covered = ranges.map((r) => chunk.slice(r.start, r.end)).join(' | ')
+    expect(covered).toContain('Arbeitsbereich')
+    expect(covered).not.toContain('Tresor')
+  })
+
+  it('does not stretch one region across an unrelated sentence between two matches', () => {
+    const chunk =
+      'Die Frist beträgt vierzehn Tage. Diese Klausel ist völlig unabhängig und behandelt ein anderes Thema. Der Bescheid ist schriftlich zu erteilen.'
+    // Two distinct snippets, each matching a sentence at opposite ends with a
+    // long unrelated sentence between — they must stay two regions.
+    const ranges = findFuzzyHighlights(chunk, [
+      'die Frist beträgt vierzehn Tage',
+      'der Bescheid ist schriftlich',
+    ])
+    expect(ranges.length).toBe(2)
+    expect(chunk.slice(ranges[0]!.start, ranges[0]!.end)).toContain('vierzehn Tage')
+    expect(chunk.slice(ranges[1]!.start, ranges[1]!.end)).toContain('schriftlich')
+  })
+
   it('single-token fallback ignores short stopwords so it does not light everything up', () => {
     // No 3-gram / 2-gram overlap. The only "shared" tokens would be 3-char
     // German/English articles — should NOT light up under the len-5 filter.

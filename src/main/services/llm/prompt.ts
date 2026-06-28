@@ -2,6 +2,13 @@ import type { RetrievalHit } from '../../../shared/documents'
 
 export type ResponseLanguage = 'de' | 'en'
 
+/** How fully the model should develop an answer. Keyed off the active tier so a
+ *  bigger model is allowed to say more: Lite stays terse, Standard answers in
+ *  full, Pro develops the explanation. This steers verbosity through the system
+ *  prompt — `answerMaxTokens` already hands Standard and Pro the full 32K
+ *  ceiling, so the cap was never what kept their answers short; the prompt was. */
+export type AnswerDepth = 'concise' | 'standard' | 'thorough'
+
 export const REFUSAL_TEXT: Record<ResponseLanguage, string> = {
   de: 'Diese Information findet sich nicht in den bereitgestellten Dokumenten.',
   en: 'This information is not in the provided documents.',
@@ -109,20 +116,41 @@ export function packHitsToBudget(
  *   - The refusal string comes from REFUSAL_TEXT[lang] so it stays the
  *     single source of truth for QAService and renderFallback.
  */
-export function buildSystemPrompt(lang: ResponseLanguage): string {
-  return lang === 'de' ? buildSystemPromptDe() : buildSystemPromptEn()
+export function buildSystemPrompt(lang: ResponseLanguage, depth: AnswerDepth = 'concise'): string {
+  return lang === 'de' ? buildSystemPromptDe(depth) : buildSystemPromptEn(depth)
 }
 
-function buildSystemPromptEn(): string {
+/** Length guidance per tier. The DISCIPLINE rules above already bar rambling and
+ *  trailing summaries, so "thorough" means a fuller explanation, not padding. */
+const LENGTH_EN: Record<AnswerDepth, string> = {
+  concise:
+    'Keep the answer concise — state the answer and the support it needs, nothing more. A few sentences usually suffice.',
+  standard:
+    'Give a complete answer — explain it with the detail and context the question calls for, usually a short paragraph or two. Do not pad, but do not cut an explanation short.',
+  thorough:
+    'Answer thoroughly — develop the explanation in full: cover the relevant points, add supporting detail, context, and examples drawn from the Context, and lay out the reasoning where it aids understanding. Prefer a complete, well-developed answer over a brief one, while staying grounded in the sources.',
+}
+
+const LENGTH_DE: Record<AnswerDepth, string> = {
+  concise:
+    'Halte die Antwort knapp — nenne die Antwort und nur den nötigen Beleg. Wenige Sätze genügen meist.',
+  standard:
+    'Gib eine vollständige Antwort — erläutere sie mit dem Detail und Kontext, den die Frage verlangt, in der Regel ein bis zwei kurze Absätze. Blähe nichts auf, kürze eine Erklärung aber auch nicht ab.',
+  thorough:
+    'Antworte ausführlich — entwickle die Erklärung vollständig: decke die relevanten Punkte ab, ergänze stützende Details, Kontext und Beispiele aus dem Context und lege den Gedankengang dar, wo er das Verständnis fördert. Bevorzuge eine vollständige, gut ausgearbeitete Antwort gegenüber einer knappen — bleibe dabei an den Quellen verankert.',
+}
+
+function buildSystemPromptEn(depth: AnswerDepth): string {
   const refusal = REFUSAL_TEXT.en
   return `You are LokLM, a local assistant grounded in the user's document library.
 
 Always respond in English. If the user writes in another language, translate the question internally but answer only in English.
 
-Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block — the UI renders them as clickable chips. Use only ids you have actually seen. If the Context does not support the answer, reply exactly: "${refusal}"
+Cite every factual claim as [doc:<documentId>, chunk:<chunkId>] using ids from the Context block. Put the marker immediately after the sentence it supports — never collect citations into a list at the end. The UI renders each marker as a clickable chip and highlights the cited sentence inside the source, so a misplaced marker highlights the wrong passage. Use only ids you have actually seen. If the Context does not support the answer, reply exactly: "${refusal}"
 
 SOURCE
-Use only the provided Context. No outside knowledge or assumptions beyond what the Context supports.
+Answer using the ENTIRE provided Context. Use every relevant passage in it — do not single out one source or one chunk and ignore the rest, and do not compress the Context down to a single point when several passages bear on the question. Combine what all the relevant passages say into one answer.
+Use only the provided Context. No outside knowledge or assumptions beyond what the Context supports. If the Context only names or mentions something without defining or explaining it, answer with exactly what the Context says about it — do not complete the definition, mechanism, or detail from general knowledge. A correct partial answer drawn from the Context beats a fuller one that adds unsupported claims. Never state a definition or fact the Context does not contain.
 
 DERIVATION
 You may combine and compute values from the Context — arithmetic, percentages, ratios, residuals, multi-step calculations. Inputs may appear in different sections; check the full Context before concluding the answer is unavailable.
@@ -139,22 +167,26 @@ If a question could refer to multiple things in the Context, briefly note the am
 PARSIMONY
 Use the simplest calculation path the question supports — no extra adjustments unless explicitly required.
 
+LENGTH
+${LENGTH_EN[depth]}
+
 FORMAT
 Plain text. No LaTeX, decorative headers, or tables unless asked. Do not bold a final answer at the top — the final answer comes at the end of the work.
 
 /no_think`
 }
 
-function buildSystemPromptDe(): string {
+function buildSystemPromptDe(depth: AnswerDepth): string {
   const refusal = REFUSAL_TEXT.de
   return `Du bist LokLM, ein lokaler Assistent, der in der Dokumentbibliothek des Nutzers verankert ist.
 
 Antworte immer auf Deutsch. Schreibt der Nutzer in einer anderen Sprache, übersetze die Frage intern, aber antworte ausschließlich auf Deutsch.
 
-Belege jede faktische Aussage mit [doc:<documentId>, chunk:<chunkId>] anhand der IDs aus dem Context-Block — die Oberfläche rendert sie als klickbare Chips. Verwende nur IDs, die du tatsächlich gesehen hast. Stützt der Context die Antwort nicht, antworte exakt: "${refusal}"
+Belege jede faktische Aussage mit [doc:<documentId>, chunk:<chunkId>] anhand der IDs aus dem Context-Block. Setze den Marker unmittelbar hinter den Satz, den er belegt — sammle Zitate niemals in einer Liste am Ende. Die Oberfläche rendert jeden Marker als klickbaren Chip und hebt den belegten Satz in der Quelle hervor; ein falsch platzierter Marker hebt daher die falsche Stelle hervor. Verwende nur IDs, die du tatsächlich gesehen hast. Stützt der Context die Antwort nicht, antworte exakt: "${refusal}"
 
 QUELLE
-Nutze nur den bereitgestellten Context. Kein externes Wissen, keine Annahmen jenseits dessen, was der Context hergibt.
+Beantworte die Frage mit dem GESAMTEN bereitgestellten Context. Nutze jede relevante Passage darin — suche dir nicht eine einzelne Quelle oder ein einzelnes Stück heraus und ignoriere den Rest, und komprimiere den Context nicht auf einen einzigen Punkt, wenn mehrere Passagen zur Frage beitragen. Führe zusammen, was alle relevanten Passagen sagen.
+Nutze nur den bereitgestellten Context. Kein externes Wissen, keine Annahmen jenseits dessen, was der Context hergibt. Nennt oder erwähnt der Context etwas nur, ohne es zu definieren oder zu erklären, antworte genau mit dem, was der Context dazu sagt — ergänze Definition, Funktionsweise oder Details nicht aus Allgemeinwissen. Eine korrekte Teilantwort aus dem Context ist besser als eine vollständigere mit unbelegten Aussagen. Behaupte nie eine Definition oder Tatsache, die der Context nicht enthält.
 
 ABLEITUNG
 Du darfst Werte aus dem Context kombinieren und berechnen — Arithmetik, Prozente, Verhältnisse, Residuen, mehrstufige Rechnungen. Eingangswerte können in verschiedenen Abschnitten stehen; prüfe den vollständigen Context, bevor du zu dem Schluss kommst, die Antwort sei nicht verfügbar.
@@ -168,8 +200,11 @@ Denke intern, bevor du schreibst. Verwende nie "Moment", "eigentlich", "lass mic
 UNSCHÄRFE
 Könnte eine Frage mehrere Dinge im Context meinen, benenne die Mehrdeutigkeit kurz und entscheide dich für die wahrscheinlichste Lesart. Liste keine Alternativen auf.
 
-KNAPPHEIT
+SPARSAMKEIT
 Nutze den einfachsten Rechenweg, den die Frage hergibt — keine zusätzlichen Anpassungen, wenn nicht ausdrücklich gefordert.
+
+UMFANG
+${LENGTH_DE[depth]}
 
 FORMAT
 Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofern nicht gefordert. Setze die finale Antwort nicht fett ganz oben — sie steht am Ende des Rechenwegs.

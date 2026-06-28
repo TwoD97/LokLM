@@ -508,7 +508,9 @@ body {
   flex: none;
 }
 
-/* Always-visible compute-device chip next to the LLM dot. */
+/* Always-visible model-name chip next to a status dot. Color tracks the dot
+   state: 'loaded' (green) when the model is resident/ready, 'idle' (neutral)
+   when present but not loaded, 'busy' (amber) for the re-embed progress chip. */
 .titlebar__device {
   -webkit-app-region: no-drag;
   font-size: 0.6rem;
@@ -523,25 +525,18 @@ body {
   white-space: nowrap;
 }
 
-.titlebar__device--gpu {
-  color: var(--success);
-  border-color: rgba(63, 185, 80, 0.5);
-}
-
-.titlebar__device--cpu {
-  color: #f0b429;
-  border-color: rgba(240, 180, 41, 0.5);
-}
-
-/* Resident-embedder chip (ADR-0006): green when the code embedder (Qwen3) is
-   active for a codebase workspace, neutral for the BGE-M3 document embedder. */
+/* Resident-model chips: the GPU device + the code embedder read as "good/active"
+   (green); the doc embedder + CPU stay neutral (base rule). */
+.titlebar__device--gpu,
 .titlebar__device--code {
   color: var(--success);
   border-color: rgba(63, 185, 80, 0.5);
 }
 
-.titlebar__device--doc {
-  color: var(--fg-2);
+/* Re-embed progress chip (↻ N%) — amber, search degraded until it lands. */
+.titlebar__device--busy {
+  color: #f0b429;
+  border-color: rgba(240, 180, 41, 0.5);
 }
 
 .titlebar__pill {
@@ -667,7 +662,10 @@ body {
   color: var(--fg-1);
   font-size: 0.65rem;
   line-height: 1.3;
-  white-space: nowrap;
+  /* Wrap long detail lines (e.g. the re-embed progress) inside the pill's
+     max-width instead of overflowing the rounded box and overlapping the
+     border / message line below. */
+  white-space: normal;
 }
 
 /* When the pill carries a message it needs to wrap from a row to a column
@@ -1049,6 +1047,143 @@ button.link--centered {
   display: flex;
   justify-content: center;
   gap: 0.75rem;
+}
+
+/* WarmingView — post-unlock staged model-loading checklist */
+.auth-card--warming {
+  text-align: center;
+  padding: 2.25rem 1.75rem 1.75rem;
+}
+
+.auth-card--warming h1 {
+  font-size: 1.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.warming__list {
+  list-style: none;
+  margin: 1.5rem 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.warming__row {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr 7rem;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-1);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.warming__row--loading {
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+}
+
+.warming__row--ready {
+  border-color: var(--success-border);
+}
+
+.warming__row--failed {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.warming__row--pending {
+  opacity: 0.55;
+}
+
+.warming__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.warming__row--ready .warming__icon {
+  color: var(--success);
+}
+.warming__row--failed .warming__icon {
+  color: var(--warning);
+}
+.warming__row--pending .warming__icon {
+  color: var(--fg-3);
+}
+
+.warming__label {
+  font-size: 0.85rem;
+  color: var(--fg-1);
+}
+
+.warming__state {
+  font-size: 0.72rem;
+  color: var(--fg-2);
+  text-align: right;
+}
+
+.warming__done {
+  color: var(--success);
+}
+.warming__failed {
+  color: var(--warning);
+}
+.warming__pending {
+  color: var(--fg-3);
+}
+
+.warming__bar {
+  display: block;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.warming__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.warming__bar-fill--indeterminate {
+  width: 40%;
+  animation: warming-indeterminate 1.1s ease-in-out infinite;
+}
+
+.warming__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft-strong);
+  border-top-color: var(--accent);
+  animation: warming-spin 0.7s linear infinite;
+}
+
+@keyframes warming-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes warming-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
 }
 
 @keyframes pulse {

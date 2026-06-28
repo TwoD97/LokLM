@@ -204,11 +204,14 @@ export class AuthService {
   // persists race on the shared loklm.vault.tmp file.
   private vaultWriteChain: Promise<void> = Promise.resolve()
 
-  private readonly userDataDir: string
+  // Root for the vault + per-workspace stores. Portable (install-relative) or
+  // userData depending on tier/platform — see resolveDataDir. Named generically
+  // because it is no longer always userData.
+  private readonly dataDir: string
 
-  constructor(userDataDir: string) {
-    this.userDataDir = userDataDir
-    this.vaultFilePath = join(userDataDir, 'loklm.vault')
+  constructor(dataDir: string) {
+    this.dataDir = dataDir
+    this.vaultFilePath = join(dataDir, 'loklm.vault')
     this.vaultBackupPath = this.vaultFilePath + '.bak'
   }
 
@@ -714,7 +717,7 @@ export class AuthService {
     this.touch()
     if (!this.workspaceStore) {
       this.workspaceStore = new WorkspaceStore({
-        baseDir: join(this.userDataDir, 'workspaces'),
+        baseDir: join(this.dataDir, 'workspaces'),
         masterDek: this.dek,
         manifest: this.manifest,
         persistManifest: async () => {
