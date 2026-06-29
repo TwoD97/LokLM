@@ -96,7 +96,7 @@ describe('contextualizeBySignal — battery over conversational scenarios', () =
       },
       { name: 'topic switch PRESENT', hist: [I, a('…'), C, a('…')], q: 'Was ist Rekursion?' },
       {
-        name: 'topic switch ABSENT (known limit)',
+        name: 'topic switch ABSENT (form guard → standalone)',
         hist: [I, a('…'), C, a('…')],
         q: 'Was ist Rust?',
       },
@@ -115,7 +115,7 @@ describe('contextualizeBySignal — battery over conversational scenarios', () =
       },
       { name: 'EN meta', hist: [u('what is an interpreter?'), a('…')], q: 'tell me more' },
       {
-        name: 'EN common-topic switch (safe over-enrich)',
+        name: 'EN common-topic switch (form guard → standalone)',
         hist: [u('what is an interpreter?'), a('…')],
         q: 'what is a compiler?',
       },
@@ -198,17 +198,23 @@ describe('contextualizeBySignal — battery over conversational scenarios', () =
     expect(d.query).toBe('Was ist Rekursion?')
   })
 
-  it('known limit (safe): over-enriches a switch to a corpus-COMMON topic', async () => {
-    // "compiler" appears in many docs → weak bare anchor (low idf); the rare
-    // prior subject ("interpreter") inflates the enriched score past the gate.
-    // BM25 alone CANNOT tell this from a genuine "…vom Compiler?" follow-up —
-    // identical scores (0.80 → 2.18). Acceptable: this failure is in the SAFE
-    // direction. The reranker + relevance floor re-score the pool against the
-    // ORIGINAL "what is a compiler?" and drop the off-topic interpreter chunks,
-    // so an over-enrich costs a little recall noise, never a wrong answer. A
-    // switch to a RARE topic ("Was ist Rekursion?") still stays bare.
+  it('form guard: a definitional switch to a corpus-COMMON topic stays bare', async () => {
+    // BM25 alone got this wrong (the common "compiler" anchors weakly, the prior
+    // "interpreter" inflated the enriched probe → over-enrich). The definitional
+    // form guard ("what is X?", no comparison head) now keeps it standalone before
+    // the probe runs.
     const d = await run([u('what is an interpreter?'), a('…')], 'what is a compiler?')
-    expect(d.enriched).toBe(true)
+    expect(d.enriched).toBe(false)
+  })
+
+  it('form guard: the live misfire — "Was ist ein kompiler?" after "…interpreter?" stays bare', async () => {
+    // The reported regression: "kompiler" (a spelling the corpus does not contain)
+    // anchors nothing, so the bare probe scored ~0 and the prior "interpreter"
+    // dragged itself back in. The definitional guard fixes it independent of the
+    // corpus — no probe, no enrichment.
+    const d = await run([u('Was ist ein interpreter?'), a('…')], 'Was ist ein kompiler?')
+    expect(d.enriched).toBe(false)
+    expect(d.query).toBe('Was ist ein kompiler?')
   })
 
   it('known limit (risky): a comparison naming a RARE operand can under-enrich', async () => {
@@ -293,15 +299,16 @@ describe('contextualizeBySignal — battery over conversational scenarios', () =
     expect(d.query).toBe('Was ist ein Interpreter?')
   })
 
-  it('documents the known limit: an ABSENT-topic switch still enriches', async () => {
+  it('form guard: a definitional switch to an ABSENT topic stays bare', async () => {
+    // Previously the documented over-enrich (Rust isn't in the corpus → bare ~0 →
+    // the prior subjects inflated the enriched probe → enrich). The definitional
+    // guard now keeps it standalone, so an absent topic cleanly refuses instead of
+    // answering tangentially about the prior topic.
     const d = await run(
       [u('Was ist ein Interpreter?'), a('…'), u('Was ist ein Compiler?'), a('…')],
       'Was ist Rust?',
     )
-    // bare anchors nothing (Rust not in corpus); the prior subjects do, so it
-    // enriches. Acceptable: the query fails either way. Asserted so a future
-    // change that "fixes" this is a conscious decision, not a silent regression.
-    expect(d.bareScore).toBe(0)
-    expect(d.enriched).toBe(true)
+    expect(d.enriched).toBe(false)
+    expect(d.query).toBe('Was ist Rust?')
   })
 })

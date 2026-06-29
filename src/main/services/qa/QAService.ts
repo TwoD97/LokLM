@@ -865,6 +865,19 @@ export async function contextualizeBySignal(
   if (userTurns.length === 0) {
     return { query: trimmed, enriched: false, bareScore: 0, enrichedScore: 0 }
   }
+  // Form guard BEFORE the probe: a clean definitional opener ("Was ist ein X?",
+  // "What is X?") that names no comparison is a STANDALONE topic question — never
+  // enrich it. The BM25 ratio alone gets this wrong when X doesn't anchor in the
+  // corpus — a different spelling ("kompiler" vs "Compiler"), a rare/new or
+  // absent topic — because then the bare probe scores ~0 while the prior subject
+  // inflates the enriched probe, and the gate drags the prior topic back in
+  // (observed live: "Was ist ein kompiler?" after "…interpreter?" enriched). A
+  // bare comparison ("Was ist der Unterschied?") is definitional in form too but
+  // names a relational head (COMPARISON_VOCAB), so it falls through to the probe
+  // and still enriches. This is the one form the corpus signal can't disambiguate.
+  if (STANDALONE_DEFINITIONAL.test(trimmed) && !COMPARISON_VOCAB.test(trimmed)) {
+    return { query: trimmed, enriched: false, bareScore: 0, enrichedScore: 0 }
+  }
   const enrichTurns = opts.enrichTurns ?? CONTEXT_ENRICH_TURNS
   const ratioThreshold = opts.ratioThreshold ?? CONTEXT_SIGNAL_RATIO
   // Last N user questions, most-recent-last, de-duplicated (a repeated question

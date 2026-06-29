@@ -128,17 +128,23 @@ genuine follow-ups score ≥ 2.45×, while a standalone switch to a _rare_ topic
 the candidate pool against the _original_ user query, so a wrongly-prepended
 subject is dropped — the gate can lean toward enriching.
 
-**Measured limits** (asserted in the battery so they're conscious, not silent):
+**Form guard (0.6.3, after a live misfire).** The pure BM25 ratio over-enriched a
+class of _standalone_ questions: a clean definitional opener whose topic does not
+anchor in the corpus — a different spelling ("Was ist ein **kompiler**?" vs the
+doc's "Compiler"), a rare/new or absent topic — scores ~0 on the bare probe while
+the prior subject inflates the enriched probe, so the gate dragged the prior topic
+back in (observed: "Was ist ein kompiler?" after "…interpreter?" enriched). Fix: a
+**form guard before the probe** — a definitional query (`STANDALONE_DEFINITIONAL`)
+that names no comparison head (`COMPARISON_VOCAB`) is standalone, full stop. A bare
+comparison ("Was ist der Unterschied?") is definitional in form too but names a
+relational head, so it falls through to the probe and still enriches. This is the
+one thing the corpus signal can't disambiguate, so a little phrasing knowledge
+guards it — the gate is now a hybrid (form guard + signal), not pure BM25.
 
-- _Over-enrich (safe):_ a switch to a **corpus-common** topic ("compiler",
-  appearing in many docs → low idf → weak bare anchor) or an **absent** topic
-  enriches. The floor cleans it; cost is a little recall noise, never a wrong
-  answer. BM25 alone cannot separate "what is a compiler?" from "…vom Compiler?"
-  — identical scores.
-- _Under-enrich (risky):_ a comparison naming a **rare** operand ("Unterschied zu
-  Threads?") anchors on its own → kept bare → the prior subject is dropped. The
-  one direction the floor can't repair (a missing chunk can't be re-ranked in).
-  Rare in practice; live BM25 tuning on the real corpus moves the boundary.
+**Remaining limit:** _under-enrich (rare):_ a comparison naming a **rare** operand
+("Unterschied zu Threads?") anchors on its own → kept bare → the prior subject is
+dropped. The one direction the floor can't repair (a missing chunk can't be
+re-ranked in). Rare in practice; live BM25 tuning moves the boundary.
 
 The `contextualize` stage logs `bm25 bare=… enr=…` + the decision so the 2.0
 threshold can be validated on a real corpus before the regex
