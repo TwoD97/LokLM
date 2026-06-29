@@ -109,17 +109,17 @@
   ],
   "tiers": {
     "lite": {
-      "totalSizeBytes": 2156991296,
-      "_comment": "Single-embedder-per-tier (2026-06-26): Lite ships bge-m3 for library workspaces (codebase indexing + the Qwen3-Embedding code embedder stay Standard/Pro). Reranker (bge-reranker-v2-m3, ~0.4 GB) bundled on lite too (2026-06-28): it is the precision gate that keeps short keyword queries from feeding topically-adjacent noise, and the relevance floor depends on its real scores — default-on across all tiers now (reversing ADR-0007's lite reranker-off).",
+      "totalSizeBytes": 3617093344,
+      "_comment": "Lite LLM moved 2B → 4B (Q4_K_M, the SAME 4-bit weight Standard ships) on 2026-06-29: the 2B hallucinated badly; the 4B is far more grounded and runs at lite's 8K iGPU-safe runtime (LlamaService LITE_CONTEXT_CAP). Raises the lite floor to 12 GB (4B ~2.6 GB + embedder + reranker + Electron). Single-embedder-per-tier (2026-06-26): Lite ships bge-m3 for library workspaces (codebase indexing + the Qwen3-Embedding code embedder stay Standard/Pro). Reranker (bge-reranker-v2-m3, ~0.4 GB) bundled on lite too (2026-06-28): it is the precision gate that keeps short keyword queries from feeding topically-adjacent noise, and the relevance floor depends on its real scores — default-on across all tiers now (reversing ADR-0007's lite reranker-off).",
       "models": [
         {
-          "id": "Qwen_Qwen3.5-2B-Q4_K_M",
+          "id": "Qwen_Qwen3.5-4B-Q4_K_M",
           "role": "llm",
-          "filename": "Qwen3.5-2B-Q4_K_M.gguf",
-          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-2B-GGUF-bucket/resolve/Qwen3.5-2B-Q4_K_M.gguf?download=true",
+          "filename": "Qwen3.5-4B-Q4_K_M.gguf",
+          "url": "https://huggingface.co/buckets/LokLM/Qwen3.5-4B-GGUF-bucket/resolve/Qwen3.5-4B-Q4_K_M.gguf?download=true",
           "sha256": null,
-          "xetHash": "125b05d833c1decf4fb55f5f12e97737245cab9711841fc4cdbcd3afcfd39aae",
-          "sizeBytes": 1280835840
+          "xetHash": "1d203c2196991da08bc5b191ab4727516f476f3167e3276f75a0c5257493aadb",
+          "sizeBytes": 2740937888
         },
         {
           "id": "bge-m3-Q4_K_M",
