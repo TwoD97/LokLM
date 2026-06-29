@@ -209,6 +209,29 @@ describe('heuristicContextualizeQuery (lite / no-LLM path)', () => {
     ).toBe('what is an interpreter? how does it differ?')
   })
 
+  it('prepends BOTH prior subjects for a bare comparison ("Was ist der Unterschied?")', () => {
+    // The reported bug: after asking about an interpreter then a compiler,
+    // "Was ist der unterschied?" was contextualized to only the LAST subject
+    // (compiler) → retrieval answered one-sided. A bare comparison names no
+    // operand, so it refers to the prior TWO subjects — both must be prepended.
+    expect(
+      heuristicContextualizeQuery(
+        hist('Was ist ein Interpreter ?', 'Was ist ein Compiler ?'),
+        'Was ist der unterschied?',
+      ),
+    ).toBe('Was ist ein Interpreter ? Was ist ein Compiler ? Was ist der unterschied?')
+  })
+
+  it('keeps a NAMED comparison on the single prior subject ("Unterschied zum X?")', () => {
+    // Names one operand (Assembler) → the single prior subject is the other.
+    expect(
+      heuristicContextualizeQuery(
+        hist('was ist ein interpreter?', 'was ist ein compiler?'),
+        'Unterschied zum Assembler?',
+      ),
+    ).toBe('was ist ein compiler? Unterschied zum Assembler?')
+  })
+
   // --- bare-fragment follow-ups (attribute of the prior topic) ---
   it('prepends for a one-word attribute fragment', () => {
     expect(heuristicContextualizeQuery(hist('was ist ein interpreter?'), 'Vorteile?')).toBe(
