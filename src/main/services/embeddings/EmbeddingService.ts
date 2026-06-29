@@ -16,6 +16,8 @@ import {
 } from '../codebase/codeEmbedder'
 import { isCodebaseIndexingEnabled } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
+import { EmbedderSidecar } from './EmbedderSidecar'
+import { isPytorchEmbedderEnabled, pytorchEmbedderConfig } from './pytorchEmbedderGate'
 
 export const BUNDLED_EMBEDDER_FILE = 'bge-m3-Q4_K_M.gguf'
 export const EMBEDDING_DIM = 1024
@@ -75,6 +77,9 @@ export type { EmbedderState, EmbedderStatus, EmbedderInfo }
 const PASSAGE_PREFIX = ''
 const EMBED_CONTEXT_SIZE = 2048
 const SANITIZE_MAX_CHARS = 6000
+// Inputs the sidecar mini-batches per forward pass. 64 is near the throughput
+// sweet spot measured on a 5090 (peak ~74k tok/s at batch 16-64, 2026-06-29).
+const SIDECAR_BATCH = 64
 
 export function bundledEmbedderPath(): string {
   return join(getModelSearchDirs()[0]!, BUNDLED_EMBEDDER_FILE)
@@ -164,6 +169,14 @@ export class EmbeddingService {
   private client: ModelsWorkerClient | null
   // Path of the GGUF actually loaded (drives activeIdentity + swap detection).
   private loadedPath: string | null = null
+  // PyTorch embedding sidecar (Pro/NVIDIA, see pytorchEmbedderGate). When active
+  // it owns embedding and the node-llama-cpp embedder is never loaded (saves
+  // VRAM). On any failure — start or mid-session — sidecarFailed latches and we
+  // transparently fall back to the llama.cpp path for the rest of the session.
+  private sidecar: EmbedderSidecar | null = null
+  private sidecarActive = false
+  private sidecarFailed = false
+  private sidecarStartPromise: Promise<void> | null = null
 
   constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
@@ -244,6 +257,10 @@ export class EmbeddingService {
    *  (BGE-M3) model — so chunks get the right embedder_identity for model-swap
    *  detection. Reflects the model actually resident, not the tier intent. */
   activeIdentity(): string {
+    // The sidecar embeds with Qwen3-Embedding (same model as the resident code
+    // embedder); fp16 vs Q8 cosine-match >0.99, so it shares the code identity
+    // and its vectors live in the same space as existing node-llama-cpp ones.
+    if (this.sidecarActive) return CODE_EMBEDDER_IDENTITY
     return this.loadedPath && isCodeEmbedderFile(this.loadedPath)
       ? CODE_EMBEDDER_IDENTITY
       : BUNDLED_EMBEDDER_IDENTITY
@@ -264,7 +281,19 @@ export class EmbeddingService {
   }
 
   async ensureReady(): Promise<boolean> {
-    if (this.isReady()) return true
+    if (this.sidecarActive) return true
+    // Pro/NVIDIA: prefer the PyTorch sidecar (~12x throughput). On any failure
+    // sidecarFailed latches and we drop to the node-llama-cpp embedder below.
+    if (!this.sidecarFailed && isPytorchEmbedderEnabled()) {
+      if (await this.ensureSidecar()) return true
+    }
+    return this.ensureLlamaEmbedder()
+  }
+
+  /** The original node-llama-cpp embedder load path. Used directly on Lite/
+   *  Standard/non-NVIDIA, and as the fallback when the sidecar is unavailable. */
+  private async ensureLlamaEmbedder(): Promise<boolean> {
+    if (!this.sidecarActive && this.isReady()) return true
     if (this.loadPromise) {
       try {
         await this.loadPromise
@@ -295,6 +324,77 @@ export class EmbeddingService {
     return this.isReady()
   }
 
+  /** Lazily spawn + warm the PyTorch sidecar. Returns whether it's active.
+   *  Concurrent callers share one start; a failed start latches sidecarFailed. */
+  private async ensureSidecar(): Promise<boolean> {
+    if (this.sidecarActive) return true
+    if (this.sidecarFailed) return false
+    if (!this.sidecarStartPromise) {
+      this.sidecarStartPromise = this.startSidecar().finally(() => {
+        this.sidecarStartPromise = null
+      })
+    }
+    try {
+      await this.sidecarStartPromise
+    } catch {
+      /* sidecarFailed already set in startSidecar */
+    }
+    return this.sidecarActive
+  }
+
+  private async startSidecar(): Promise<void> {
+    const cfg = pytorchEmbedderConfig()
+    if (!cfg) {
+      this.sidecarFailed = true
+      return
+    }
+    this.setStatus({
+      state: 'loading',
+      source: 'bundled',
+      modelName: cfg.model.split('/').pop() ?? cfg.model,
+      modelPath: cfg.model,
+      message: 'Starting PyTorch embedder…',
+      loadProgress: 0,
+    })
+    const sc = new EmbedderSidecar({
+      ...cfg,
+      events: {
+        // eslint-disable-next-line no-console
+        onLog: (l) => console.log('[embed-sidecar]', l),
+        onStateChange: (s, d) => {
+          if (s === 'exited') this.onSidecarExit(d)
+        },
+      },
+    })
+    this.sidecar = sc
+    try {
+      await sc.start()
+      this.sidecarActive = true
+      this.lastResolvedPlacement = 'gpu'
+      this.lastReason = `PyTorch sidecar (${cfg.model}, cuda:${cfg.cudaDeviceIndex ?? 0})`
+      this.setStatus({ state: 'ready', loadProgress: null, message: 'PyTorch embedder ready.' })
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[embedder] PyTorch sidecar failed to start, using llama.cpp:', err)
+      this.sidecarFailed = true
+      this.sidecar = null
+      // Don't leave a 'failed' status — ensureLlamaEmbedder will set the real one.
+      this.setStatus({ state: 'idle', loadProgress: null, message: null })
+    }
+  }
+
+  /** The sidecar process died (crash / OOM / disposed). Latch off so further
+   *  embeds fall back to llama.cpp rather than thrashing restarts. */
+  private onSidecarExit(detail?: string): void {
+    if (this.sidecarActive) {
+      // eslint-disable-next-line no-console
+      console.warn('[embedder] PyTorch sidecar exited:', detail)
+    }
+    this.sidecarActive = false
+    this.sidecar = null
+    this.sidecarFailed = true
+  }
+
   async loadModel(modelPath: string): Promise<void> {
     if (!this.client) {
       throw new Error(
@@ -320,6 +420,15 @@ export class EmbeddingService {
   }
 
   async unload(): Promise<void> {
+    if (this.sidecar) {
+      try {
+        await this.sidecar.dispose()
+      } catch {
+        /* exiting anyway */
+      }
+      this.sidecar = null
+      this.sidecarActive = false
+    }
     if (this.client) {
       try {
         await this.client.embedderUnload()
@@ -361,13 +470,7 @@ export class EmbeddingService {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : instruction + cleaned
     })
-    try {
-      return await this.client!.embedderEmbed(prepared)
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[embedder] embedQueries failed:', err)
-      return texts.map(() => null)
-    }
+    return this.runEmbed(prepared)
   }
 
   async embedPassages(texts: string[]): Promise<Array<number[] | null>> {
@@ -377,13 +480,39 @@ export class EmbeddingService {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : PASSAGE_PREFIX + cleaned
     })
+    return this.runEmbed(prepared)
+  }
+
+  /** Route a prepared batch to the active backend. Sidecar first when active;
+   *  on a sidecar error, latch it off, warm the llama.cpp embedder, and retry
+   *  there so a mid-session sidecar crash never drops vectors silently. */
+  private async runEmbed(prepared: string[]): Promise<Array<number[] | null>> {
+    if (this.sidecarActive && this.sidecar) {
+      try {
+        return await this.sidecar.embed(prepared, SIDECAR_BATCH)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[embedder] sidecar embed failed, falling back to llama.cpp:', err)
+        this.failSidecar()
+        if (!(await this.ensureLlamaEmbedder())) return prepared.map(() => null)
+      }
+    }
+    if (!this.client) return prepared.map(() => null)
     try {
-      return await this.client!.embedderEmbed(prepared)
+      return await this.client.embedderEmbed(prepared)
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn('[embedder] embedPassages failed:', err)
-      return texts.map(() => null)
+      console.warn('[embedder] embed failed:', err)
+      return prepared.map(() => null)
     }
+  }
+
+  private failSidecar(): void {
+    const sc = this.sidecar
+    this.sidecarActive = false
+    this.sidecar = null
+    this.sidecarFailed = true
+    if (sc) void sc.dispose().catch(() => {})
   }
 }
 
