@@ -63,11 +63,11 @@ const NPM_APACHE: Notice[] = [
 
 const MODELS_APACHE: Notice[] = [
   {
-    name: 'Qwen3.5-2B / 4B / 9B (GGUF)',
+    name: 'Qwen3.5-4B / 9B (GGUF)',
     copyright: 'Copyright (c) Alibaba Cloud, Qwen Team',
     license: 'Apache-2.0',
     source: 'https://huggingface.co/Qwen',
-    use: 'Local LLM — "lite" / "standard" / "pro" tiers.',
+    use: 'Local LLM — "lite" / "standard" (4B) and "pro" (9B) tiers.',
   },
   {
     name: 'BGE-reranker-v2-m3 (GGUF)',

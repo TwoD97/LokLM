@@ -29,7 +29,7 @@ const KEY_FACTS: string[] = [
   'Platforms: Windows, macOS, and Linux desktop application (64-bit).',
   'Privacy: fully offline; no telemetry; no account; documents never leave the device.',
   'Security: AES-256-GCM encryption, Argon2id key derivation, per-workspace data keys; everything is encrypted at rest in the local app data folder, with an 18-word recovery phrase.',
-  'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (2B, ~2.3 GB), Standard (4B, ~4 GB), Pro (9B, ~7 GB); optional local Ollama backend; optional CUDA acceleration.',
+  'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (4B, ~3.6 GB, iGPU / 12 GB RAM), Standard (4B, ~4 GB), Pro (9B, ~7 GB); optional local Ollama backend; optional CUDA acceleration.',
   'Retrieval: hybrid BM25 + BGE-M3 dense embeddings, RRF fusion, BGE Reranker v2-M3; clickable citations to PDF page or code line.',
   'Formats: PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, JSON, and source code; folder sync for codebases.',
   'Also: local document translation (MADLAD-400, 400+ languages), audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
@@ -75,7 +75,9 @@ export function buildLlmsTxt(siteUrl: string, posts: LlmsPost[] = []): string {
   lines.push(`- [RSS (EN)](${base}/en/blog/rss.xml)`)
   for (const post of posts) {
     // each post also has a plain-markdown mirror at <url>.md for clean ingestion
-    lines.push(`- [${post.title} (${post.lang.toUpperCase()})](${post.url}.md) — ${post.description}`)
+    lines.push(
+      `- [${post.title} (${post.lang.toUpperCase()})](${post.url}.md) — ${post.description}`,
+    )
   }
   lines.push('')
 
