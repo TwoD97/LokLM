@@ -6,8 +6,14 @@ Builds on: ADR-0004 (adaptive model residency), ADR-0003 (query routing / RAG pi
 
 ## Context
 
-The `lite` install tier targets **iGPU-only / low-end (8 GB) machines** (Intel/AMD
-integrated GPUs). On that hardware the default RAG pipeline was unusable: a single
+The `lite` install tier targets **iGPU-only machines** (Intel/AMD integrated GPUs).
+
+> NOTE 0.6.3: lite's model moved 2B → **Qwen3.5-4B (Q4_K_M)** at the same 8K
+> iGPU-safe runtime — the 2B hallucinated badly. This raises the lite RAM floor
+> from 8 GB to **~12 GB** (4B + embedder + reranker + Electron ≈ 6 GB working set);
+> the 2B is retained only as an automatic fallback. See ADR-0008 (BM25 contextualize).
+
+On that hardware the default RAG pipeline was unusable: a single
 chat turn measured **TTFT 337–434 s and then crashed** (empty answer), and the
 answer was often off-topic. Reference machine: Intel CPU + iGPU, ~17 GB unified
 memory, Qwen3-4B (Q4_K_M) + bge-m3 embedder, all on the worker's shared Vulkan

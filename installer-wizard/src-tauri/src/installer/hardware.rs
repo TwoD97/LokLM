@@ -540,7 +540,8 @@ pub fn recommend(p: &HardwareProfile) -> Tier {
     // Tier 1 cut : memory capacity. Budgets per tier ( from plan-doc ) :
     //   Pro      ~8 GB   ( Qwen3.5-9B Q4 5.7 + KV 1.5 + bge-m3 0.5 + reranker 0.5 )
     //   Standard ~4.5 GB ( Qwen3.5-4B Q4 2.8 + KV 1 + bge-m3 0.5 , reranker opt-in )
-    //   Lite     ~2 GB   ( Qwen3.5-2B Q4 1.2 + small embedder , CPU offload ok )
+    //   Lite     ~6 GB   ( Qwen3.5-4B Q4 2.6 + 8K KV + bge-m3 0.44 + reranker 0.44
+    //                      + Electron ; the 2B it replaced was ~2 GB ) → 12 GB RAM rec
     //
     // Thresholds are conservative ( recommend down rather than risk OOM
     // at load ). User can always override on the picker.

@@ -93,26 +93,39 @@ export interface LlmProfile {
   minTotalMemGB: number
 }
 
-// Profile ↔ on-disk-GGUF binding. The three tiers map 1:1 onto the Qwen3.5
-// lineup the installer wizard ships ( installer-wizard/model-manifest.json ) :
-//   lite → Qwen3.5-2B , full → Qwen3.5-4B , xl → Qwen3.5-9B.
+// Profile ↔ on-disk-GGUF binding. The profiles map onto the Qwen3.5 lineup the
+// installer wizard ships ( installer-wizard/model-manifest.json ) :
+//   lite → Qwen3.5-4B @ 8K ( 2B fallback ) , full → Qwen3.5-4B @ 128K , xl → 9B.
+// (0.6.3: lite moved 2B → 4B; lite and full now share the 4B weight, differing
+// only in runtime — lite caps context at 8K for the iGPU. See ADR-0007/0008.)
 // Patterns are deliberately Qwen3.5-only — the legacy Qwen3 / Qwen2.5 / Llama /
 // Nemotron fallbacks were removed so a side-loaded Qwen3-8B can never resolve
 // as a tier model ( that mismatch loaded an 8B under a "lite" install ).
 export const LLM_PROFILES: LlmProfile[] = [
   {
     name: 'lite',
-    displayName: 'Lite — Qwen3.5 2B (8 GB target)',
-    filenamePatterns: [/qwen3\.5.*[-_]?2b/i],
+    displayName: 'Lite — Qwen3.5 4B @ 8K (12 GB target)',
+    // 0.6.3: lite now runs the 4B (Q4_K_M — the SAME 4-bit weight the standard
+    // tier ships), at lite's 8K runtime. The 2B it replaced hallucinated badly;
+    // the 4B is far more grounded and, unlike the 2B, answers cleanly at
+    // 'standard' depth (PROFILE_TO_DEPTH). Pattern ORDER is preference: the 4B
+    // wins when present; the 2B stays as a fallback so existing 2B-only installs
+    // keep working (they stay 'concise' — see answerDepth). All other lite
+    // runtime (8K cap, reranker, signal contextualize, iGPU-safe batch) is gated
+    // on the lite TIER, not the model, so it carries over unchanged.
+    filenamePatterns: [/qwen3\.5.*[-_]?4b/i, /qwen3\.5.*[-_]?2b/i],
     // 8K, not 32K. The context window sizes both the KV cache AND the retrieval
     // pack budget (QAService packs RAG context proportional to the window). On an
-    // 8 GB / iGPU-only target a 32K window means ~23K tokens of retrieved text get
+    // iGPU-only target a 32K window means ~23K tokens of retrieved text get
     // packed into every prompt — minutes of prefill on the iGPU, and the KV
     // allocation can OOM the device outright (empty answer / worker crash). 8K
     // bounds the prompt to ~3–4K RAG tokens: still ample for a focused QA turn,
     // fast to prefill, and memory-safe. Standard/pro keep their large windows.
     contextSize: 8192,
-    minTotalMemGB: 8,
+    // 12, not 8: the 4B (~2.6 GB) + embedder (0.44) + reranker (0.44) + 8K KV +
+    // Electron is a ~6 GB working set; 12 GB leaves safe headroom (10 GB is the
+    // edge once the OS takes its share). True 8 GB machines fall back to the 2B.
+    minTotalMemGB: 12,
   },
   {
     name: 'full',
@@ -135,10 +148,10 @@ export function totalMemGB(): number {
 }
 
 // Wizard tier ( install-time user choice ) → LLM profile. The tiers and
-// profiles are separate vocabularies that happen to line up by model size :
-//   lite     ( Qwen3.5-2B )  → lite  profile
-//   standard ( Qwen3.5-4B )  → full  profile
-//   pro      ( Qwen3.5-9B )  → xl    profile
+// profiles are separate vocabularies :
+//   lite     ( Qwen3.5-4B @ 8K )  → lite  profile
+//   standard ( Qwen3.5-4B )       → full  profile
+//   pro      ( Qwen3.5-9B )       → xl    profile
 const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
   lite: 'lite',
   standard: 'full',
@@ -146,17 +159,55 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
 }
 
 // How fully each profile is allowed to answer (system-prompt verbosity). Bigger
-// model → more room to develop the answer: Lite stays terse, Standard answers in
-// full, Pro/XL develops the explanation. Lite is the 2B GGUF — pushing it to
-// 'standard' (briefly tried in 0.6.x) made it ramble into <think> loops it never
-// closed, which the ThinkFilter swallowed into a blank answer. 'concise' is what
-// this model reliably produces clean output at; the recovery net in askWithModel
-// now also guarantees a non-blank turn regardless. Revisit 'standard' for lite
-// only on a larger lite model.
+// model → more room to develop the answer: Lite/Standard answer in full, Pro/XL
+// develops the explanation. 0.6.3: lite moved 'concise' → 'standard' because it
+// now runs the 4B — the earlier 2B rambled into unclosed <think> loops at
+// 'standard' (swallowed into a blank answer), the reason lite was pinned terse.
+// The 2B FALLBACK is kept at 'concise' by answerDepth() so an old 2B-only install
+// doesn't regress; the recovery net in askWithModel still guarantees a non-blank
+// turn regardless.
 const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
-  lite: 'concise',
+  lite: 'standard',
   full: 'standard',
   xl: 'thorough',
+}
+
+/** The legacy 2B that the lite profile still accepts as a fallback. It only
+ *  produces clean output at 'concise' depth — answerDepthFor() demotes it. */
+const LITE_FALLBACK_2B = /qwen3\.5.*[-_]?2b/i
+
+/**
+ * Pattern-priority GGUF pick: returns the first filename matching the EARLIEST
+ * pattern, so the lite profile (which lists the 4B before the 2B) prefers the 4B
+ * when both are on disk. A flat `.some()` would instead return whichever GGUF the
+ * directory happened to list first. Exported for unit tests.
+ */
+export function pickProfileGguf(
+  patterns: readonly RegExp[],
+  ggufs: readonly string[],
+): string | null {
+  for (const re of patterns) {
+    const m = ggufs.find((f) => re.test(f))
+    if (m) return m
+  }
+  return null
+}
+
+/**
+ * Answer-verbosity depth for a loaded (profile, model-file) pair. The lite
+ * profile can resolve to the 4B (preferred → 'standard') OR the legacy 2B
+ * fallback, which must stay 'concise' (it think-loops at 'standard'). Everything
+ * else follows PROFILE_TO_DEPTH. Exported for unit tests.
+ */
+export function answerDepthFor(
+  profile: LlmProfileName | null,
+  modelPath: string | null,
+): AnswerDepth {
+  if (!profile) return 'concise'
+  if (profile === 'lite' && modelPath != null && LITE_FALLBACK_2B.test(modelPath)) {
+    return 'concise'
+  }
+  return PROFILE_TO_DEPTH[profile]
 }
 
 /**
@@ -187,7 +238,9 @@ export function recommendedProfile(): LlmProfileName {
 export function discoverProfiles(): AvailableProfile[] {
   const ggufs = listVisibleGgufs().map((g) => g.name)
   return LLM_PROFILES.map((p) => {
-    const match = ggufs.find((f) => p.filenamePatterns.some((re) => re.test(f)))
+    // Pattern ORDER is preference: lite lists the 4B before the 2B fallback, so
+    // when both are on disk the 4B wins (see pickProfileGguf).
+    const match = pickProfileGguf(p.filenamePatterns, ggufs) ?? undefined
     return {
       name: p.name,
       displayName: profileDisplayName(p, match ?? null),
@@ -201,7 +254,7 @@ export function discoverProfiles(): AvailableProfile[] {
 function profileDisplayName(profile: LlmProfile, filename: string | null): string {
   if (!filename) return profile.displayName
   const variant = variantLabel(profile.name, filename)
-  if (profile.name === 'lite') return `Lite — ${variant} (8 GB target)`
+  if (profile.name === 'lite') return `Lite — ${variant} (12 GB target)`
   if (profile.name === 'full') return `Full — ${variant} (16 GB+ target)`
   return `XL — ${variant} (high-end GPU, 32 GB+ RAM)`
 }
@@ -264,6 +317,9 @@ export class LlamaService {
   // the system prompt ( PROFILE_TO_DEPTH ) so a per-turn language switch rebuilds
   // the prompt at the right tier. Null until a load lands.
   private activeProfile: LlmProfileName | null = null
+  // Path of the loaded GGUF. Lets answerDepth() tell the lite 4B (→ 'standard')
+  // from the legacy 2B fallback (→ 'concise') — same profile, different depth.
+  private activeModelPath: string | null = null
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
   private status: ModelStatus = {
@@ -403,7 +459,7 @@ export class LlamaService {
    *  full, Pro/XL thorough. Falls back to the terse default before a load lands
    *  so the prompt never over-promises on an unknown model. */
   private answerDepth(): AnswerDepth {
-    return this.activeProfile ? PROFILE_TO_DEPTH[this.activeProfile] : 'concise'
+    return answerDepthFor(this.activeProfile, this.activeModelPath)
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
@@ -588,9 +644,11 @@ export class LlamaService {
 
   private async performLoad(modelPath: string, profileName?: LlmProfileName): Promise<void> {
     const profile = profileName ? profileByName(profileName) : null
-    // Pin the tier before building the prompt so the verbosity depth matches the
-    // model being loaded ( and so a later setLanguage rebuilds at the same tier ).
+    // Pin the tier + model before building the prompt so the verbosity depth
+    // matches the model being loaded ( 4B → 'standard', 2B fallback → 'concise' ;
+    // and so a later setLanguage rebuilds at the same depth ).
     this.activeProfile = profile?.name ?? null
+    this.activeModelPath = modelPath
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
     // Lite tier (iGPU / low-end target): HARD-cap the context window. planLlm
     // clamps the final context to profileDefaultContext, so this bounds it
