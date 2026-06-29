@@ -2,6 +2,27 @@
 
 Reproducible recipe for the landingpage screenshots. Re-run any time the UI changes.
 
+## Automated harness (preferred)
+
+`pnpm screenshots` builds the app and runs the Playwright + Electron harness
+([`tests/e2e/screenshots.spec.ts`](../tests/e2e/screenshots.spec.ts)), which:
+
+- launches the built app at **1400×900 / device-scale-factor 2** (the 2× DPR below),
+  dark theme forced;
+- registers a throwaway vault and imports the demo fixtures
+  ([`tests/e2e/fixtures/`](../tests/e2e/fixtures/)) via the import IPC (the click
+  path opens a native dialog Playwright can't drive);
+- drives every feature view and writes WebP (2× + `@1x`) straight into
+  `website/public/screenshots/` — the same filenames the landing page references
+  plus the per-feature `feature-*.webp` ones.
+
+**Requires the tier models in `./models`** (the unpackaged build's model dir). The
+content captures (chat answer, translate, rewrite) are empty without them; each
+capture is isolated, so a missing model only blanks its own shot. The harness is
+tagged `@screenshots`, so the normal `pnpm test:e2e` / CI run skips it.
+
+The manual recipe below stays as the spec the harness encodes (sizes, crops, theme).
+
 ## Demo vault setup
 
 Use a fresh LokLM vault populated with non-personal documents only:
