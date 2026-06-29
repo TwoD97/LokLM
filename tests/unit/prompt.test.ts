@@ -229,9 +229,14 @@ describe('buildSystemPrompt', () => {
     expect(buildSystemPrompt('en')).toMatch(/in English/)
   })
 
-  it('embeds the centralized refusal string verbatim', () => {
-    expect(buildSystemPrompt('de')).toContain(REFUSAL_TEXT.de)
-    expect(buildSystemPrompt('en')).toContain(REFUSAL_TEXT.en)
+  it('does NOT quote the refusal string verbatim (the 2B model would parrot it)', () => {
+    // The weak lite GGUF copied a quoted "reply exactly: <refusal>" instruction
+    // to the end of good answers. The prompt now just says don't invent; real
+    // refusals come from QAService/renderFallback (still REFUSAL_TEXT-sourced).
+    expect(buildSystemPrompt('de')).not.toContain(REFUSAL_TEXT.de)
+    expect(buildSystemPrompt('en')).not.toContain(REFUSAL_TEXT.en)
+    expect(buildSystemPrompt('de')).toMatch(/erfinde keine/)
+    expect(buildSystemPrompt('en')).toMatch(/do not invent one/)
   })
 
   it('references the Context block header by its literal name', () => {

@@ -152,3 +152,66 @@ Recorded so a future session does not re-derive these the hard way.
 - The lite preset is **tier-gated**, not hardware-gated. A standard/pro install on
   an iGPU still gets the heavy pipeline. A measured "perf class" (a warmup
   throughput probe at load) would generalize this beyond the install tier.
+
+## Root cause of the iGPU crashes/hangs — the Vulkan submission watchdog (0.6.2)
+
+This closes the long "AMD iGPU Vulkan instability" saga (the `0xC0000409` /
+`ErrorDeviceLost` reverts in the git history: `210b175 → a52d652 → 07d8921 →
+c34435e → 69b891b → 01d0705`). Those changes chased process topology, VRAM, and
+`disableHardwareAcceleration` — all of which **mis-diagnosed** the problem. The
+actual root cause, found in 0.6.2 by benchmarking instead of theorising:
+
+**ggml's Vulkan backend batches ~100 compute-graph nodes per `vkQueueSubmit`,
+and on a slow integrated GPU a single large submission can exceed the OS
+GPU-job timeout (~2 s TDR on Windows / `amdgpu.lockup_timeout` on Linux). The
+driver then resets the device** (`vk::Queue::submit: ErrorDeviceLost`) **or the
+native `session.prompt` never returns (a hang).** Upstream: llama.cpp
+[#21724](https://github.com/ggml-org/llama.cpp/issues/21724) (the
+`nodes_per_submit=100→1` finding, "no perf regression") and
+[#20515](https://github.com/ggml-org/llama.cpp/issues/20515) ("sensitive to
+ubatch-size and context length").
+
+Two symptoms, one cause:
+
+- **Embedder, during folder sync** → `ErrorDeviceLost` from passage ~14 on, every
+  subsequent embed dies.
+- **LLM prefill, during chat** → `session.prompt` hangs; `[qa] prefill input`
+  logs but no generation ever follows (the intermittent "blank answer").
+
+**Why it only fires in the packaged app, and only on an iGPU.** A benchmark
+(`tests/bench/vulkan-lite-embed.ts`) loads the lite models on the iGPU's Vulkan
+backend and bulk-embeds 300 passages + interleaves chat/rerank with all three
+models resident — and **never** loses the device (19 GB iGPU, 15 GB free
+throughout; 3.7 emb/s). So it is **not** VRAM, **not** co-residency, **not** the
+model. The only consumer the bench lacks is **Electron's own GPU process
+compositing the UI on the same iGPU** — that second consumer steals GPU cycles
+and slows each worker submission _past_ the watchdog. A **dedicated** GPU is far
+too fast for any single submission to approach the ~2 s limit, so it never
+triggers there — the crash is structurally iGPU-only.
+
+**Fix (0.6.2): cap the Vulkan submission size, not the GPU.** Smaller batch →
+smaller compute graph per submit → each finishes well under the watchdog even
+while the compositor competes. In `modelsWorker`:
+
+| Context     | Batch                                   | Note                                                                   |
+| ----------- | --------------------------------------- | ---------------------------------------------------------------------- |
+| Embedder    | **128** (`VULKAN_SAFE_BATCH`)           | throughput-neutral (3.70 vs 3.76 emb/s benched)                        |
+| LLM prefill | **256** on iGPU, **1024** on CUDA/Metal | gated by `isFastDedicatedGpu(primaryGpuLabel)` — dGPU keeps full speed |
+| Reranker    | full (default)                          | short per-chat burst, never hit the timeout                            |
+
+Everything stays **on the GPU** (no CPU fallback) and the UI stays
+**hardware-accelerated** (no `disableHardwareAcceleration`). Batch size does not
+change total prefill time (~113 s for a 3.5 K-token prompt is the iGPU's
+intrinsic 2B-prefill cost) — it only governs whether a piece trips the watchdog.
+
+**Rejected on the way (0.6.2), recorded so it isn't re-tried:**
+
+1. **`disableHardwareAcceleration()`.** Removes Electron's GPU compositor → the
+   worker is the sole Vulkan consumer (the stable bench condition), so it _would_
+   avoid the crash — but it forces **software UI compositing**, which made the UI
+   slow/glitchy. The batch cap fixes the cause without sacrificing the UI.
+2. **Embedder/LLM → CPU `aux` backend.** Stable, but needlessly slow, and the
+   bench proved the GPU path is fine once submissions are bounded. A workaround
+   for a problem we no longer have.
+3. **`GGML_VK_NODES_PER_SUBMIT` env override (#21724).** Not present in the
+   bundled `node-llama-cpp@3.18.1` build; `batchSize` is the available lever.

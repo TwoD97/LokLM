@@ -525,10 +525,9 @@ body {
   white-space: nowrap;
 }
 
-/* Resident-model chips: the GPU device + the code embedder read as "good/active"
-   (green); the doc embedder + CPU stay neutral (base rule). */
-.titlebar__device--gpu,
-.titlebar__device--code {
+/* Model-name chips (Qwen / BGE / Whisper / MADLAD …) read as "resident/active"
+   in green — same tone for every model so the bar reads uniformly. */
+.titlebar__device--model {
   color: var(--success);
   border-color: rgba(63, 185, 80, 0.5);
 }
