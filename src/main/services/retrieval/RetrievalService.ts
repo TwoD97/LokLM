@@ -180,6 +180,14 @@ const CPU_MAX_CANDIDATES = 32
 // hit against a full dense list in the interpreter-query trace; kept modest so
 // dense recall (paraphrase / conceptual matches with no shared term) survives.
 const BM25_FUSION_WEIGHT_NO_RERANK = 2
+// Per-passage char cap for reranking. The reranker context is 1024 tokens
+// (RERANK_CONTEXT_SIZE in RerankerService); a passage that fills it leaves KV
+// state at the last position and the next sequence (position 0) trips the
+// model's M-RoPE monotonic-position assertion ("decode: failed to initialize
+// batch"). 2800 chars ≈ 800 tokens at ~3.5 chars/token — leaves headroom for the
+// query + special tokens, and still keeps a whole normal chunk (≤2000 chars), so
+// it does NOT reintroduce the buried-relevance bug the old 1000-char slice had.
+const RERANK_MAX_PASSAGE_CHARS = 2800
 const DEFAULT_WHOLE_DOC_THRESHOLD = 8
 const DEFAULT_PER_DOC_CAP = 6
 const DEFAULT_TITLE_BOOST = 1.25
@@ -438,15 +446,23 @@ export class RetrievalService {
     // empty-pool short-circuits are silent so the UI doesn't flash a no-op row.
     const rerankWillRun = effectiveRerank && this.registry.reranker().isReady() && pool.length > 0
     if (rerankWillRun) onStage?.('rerank', 'start')
-    // Rerank the FULL passage, never a leading slice. The slice optimization
-    // assumed "the relevance signal sits in the chunk's opening" — false for
-    // coarse, multi-topic chunks (a study sheet where one chunk holds several
-    // Q&As). Observed: the golden chunk for "Was ist ein Interpreter" began with
-    // unrelated backup text and its interpreter definition sat past the cutoff,
-    // so the cross-encoder scored the intro, judged it irrelevant, and dropped
-    // the best chunk to ~0. Scoring the whole passage is the cost of correctness
-    // here; chunk text is capped (~maxChars) so it stays bounded.
-    const reranked = await this.maybeRerank(trimmed, pool, effectiveRerank, undefined)
+    // Rerank as much of the passage as the reranker's context window holds — NOT
+    // a short leading slice (the old 1000-char CPU slice assumed "the signal is
+    // up top", false for coarse multi-topic chunks: the golden "Interpreter"
+    // chunk began with unrelated backup text and its definition sat past 1000
+    // chars, so the slice scored the intro and dropped the best chunk to ~0). But
+    // "unbounded" is wrong too: a passage longer than the rerank context (1024
+    // tokens) fills its KV cache to the last position, and the next sequence
+    // starting at position 0 trips node-llama-cpp's M-RoPE monotonic-position
+    // assertion → "failed to decode". So cap at the context budget: generous
+    // enough to keep a whole normal chunk (≤2000 chars), bounded enough that no
+    // single passage can fill the 1024-token window.
+    const reranked = await this.maybeRerank(
+      trimmed,
+      pool,
+      effectiveRerank,
+      RERANK_MAX_PASSAGE_CHARS,
+    )
     if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
 
     // ------- 2b. re-apply the same heuristics to the rerank output -------

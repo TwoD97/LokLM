@@ -112,6 +112,14 @@ export function AppShell(): JSX.Element {
       const ws = await window.api.workspaces.create(name, encrypted)
       await refreshWorkspaces()
       setActiveWorkspaceId(ws.id)
+      // Reset the conversation/scope state, exactly like onWorkspaceSelect.
+      // Without this, currentConversationId stays pointing at a conversation
+      // from the PREVIOUS workspace; the first chat message then routes
+      // chat:stream(newWorkspaceId, staleConversationId) and appendMessage
+      // throws "conversation N is not in this workspace store" (each workspace
+      // has its own conversations store / id space, ADR-0005).
+      setCurrentConversationId(null)
+      setActiveDocumentIds([])
     },
     [refreshWorkspaces],
   )

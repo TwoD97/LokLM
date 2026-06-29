@@ -91,6 +91,37 @@ const backends = new Map<BackendKey, unknown>()
 const backendPromises = new Map<BackendKey, Promise<unknown>>()
 let primaryGpuLabel: string | null = null
 
+// Vulkan submission-size cap for the EMBEDDER and the LLM PREFILL. Root cause of
+// the iGPU failures (llama.cpp #21724 + #20515): ggml's Vulkan backend batches
+// ~100 graph nodes per vkQueueSubmit, and on a slow integrated GPU one large
+// submission can exceed the OS GPU-job timeout (~2 s) → the driver either resets
+// the device (`vk::Queue::submit: ErrorDeviceLost`, seen on the embedder during
+// folder sync) or `session.prompt` hangs and never returns (seen on the LLM
+// prefill — the intermittent blank-answer turn where `[qa] prefill` logs but no
+// generation log ever follows). Both only fire in the packaged app, where the
+// iGPU is SHARED with Electron's UI compositor that slows each submission past
+// the timeout; the worker alone is rock-solid (tests/bench/vulkan-lite-embed.ts:
+// 300 embeds, never crashes). Capping the batch shrinks each eval/prefill
+// submission so it finishes under the timeout even while the compositor competes
+// — quality-neutral, throughput-neutral on the embedder (3.70 vs 3.76 emb/s),
+// and only slightly slower (more, smaller batches) on LLM prefill, traded for it
+// completing RELIABLY instead of hanging. The reranker is a short per-chat burst
+// that never crashed, so it keeps its full batch for speed. Everything stays on
+// the GPU (no CPU fallback) and the UI accelerated (no disableHardwareAcceleration).
+const VULKAN_SAFE_BATCH = 128
+// LLM PREFILL batch on a slow Vulkan/iGPU. Larger than the embedder's (the 2B
+// LLM at 128 made a 3 K-token prefill ~1.5 min); 256 halves the submission count
+// for speed while staying well under the GPU watchdog. Tunable: drop to 128 if a
+// prefill hang ever returns. Only applied on slow integrated GPUs — see GATING
+// below; dedicated GPUs (CUDA/Metal) keep the full 1024 batch.
+const LLM_PREFILL_SAFE_BATCH = 256
+// A fast, dedicated/unified GPU finishes a large submission far under the ~2 s
+// watchdog, so the iGPU submission cap is unnecessary there — it would only slow
+// prefill. CUDA (NVIDIA) and Metal (Apple) are always dedicated/unified; Vulkan
+// is the ambiguous one (could be an iGPU OR a discrete AMD/Intel card), so it
+// gets the safe cap. This is why the crash is iGPU-only: a dGPU never times out.
+const isFastDedicatedGpu = (label: string | null): boolean => label === 'cuda' || label === 'metal'
+
 let llmModel: unknown = null
 let llmContext: unknown = null
 let llmSession: unknown = null
@@ -402,13 +433,15 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     const opts: Record<string, unknown> = {
       contextSize: { min: minCtxBound, max: attemptMax },
       flashAttention: true,
-      // Bumps prefill throughput by halving the per-batch dispatch overhead.
-      // node-llama-cpp default is 512 ; for a ~1k-token theme-extraction prompt
-      // ( typical quiz pipeline ) that's two batches per prefill , each with
-      // setup cost. 1024 fits the whole prompt in one batch on the hot path.
-      // KV-cache memory grows linearly with batchSize but the extra ~ a few MB
-      // is well inside the headroom planLlm already reserves.
-      batchSize: 1024,
+      // Prefill batch. Default 1024 on a fast dedicated/unified GPU (one batch per
+      // ~1k-token quiz prompt). On a slow integrated GPU a 1024-token prefill
+      // submission can exceed the ~2 s Vulkan GPU-job timeout and HANG
+      // `session.prompt` (llama.cpp #21724/#20515) — the intermittent "prefill
+      // never returns / blank answer" failure. Capping it makes each submission
+      // small enough to finish under the timeout (same fix the embedder needed);
+      // prefill takes more, smaller batches (slightly slower) but completes
+      // RELIABLY. Decode (1 token/step) was never the problem. dGPU keeps 1024.
+      batchSize: isFastDedicatedGpu(primaryGpuLabel) ? 1024 : LLM_PREFILL_SAFE_BATCH,
     }
     const kvEnum = enumNameFor(attemptType)
     if (kvEnum) {
@@ -827,9 +860,12 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
   pushStatus('embedder', { message: 'Creating embedding context…', loadProgress: 1 })
   const context = await (
     model as {
-      createEmbeddingContext: (opts?: { contextSize?: number }) => Promise<unknown>
+      createEmbeddingContext: (opts?: {
+        contextSize?: number
+        batchSize?: number
+      }) => Promise<unknown>
     }
-  ).createEmbeddingContext({ contextSize: payload.contextSize })
+  ).createEmbeddingContext({ contextSize: payload.contextSize, batchSize: VULKAN_SAFE_BATCH })
   embedderModel = model
   embedderContext = context
   embedderContextSize = payload.contextSize

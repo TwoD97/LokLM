@@ -146,15 +146,15 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
 }
 
 // How fully each profile is allowed to answer (system-prompt verbosity). Bigger
-// model → more room to develop the answer. Lite was 'concise' (a few sentences)
-// to keep decode short on the iGPU, but once retrieval feeds the right chunk a
-// terse answer reads as under-developed — so lite now answers in full like
-// Standard. Pro/XL still develops the explanation furthest. The token ceiling
-// scales with the window (answerMaxTokens), so this is purely the prompt steer;
-// the cost is extra decoded tokens (slower on the iGPU), traded for a complete
-// answer.
+// model → more room to develop the answer: Lite stays terse, Standard answers in
+// full, Pro/XL develops the explanation. Lite is the 2B GGUF — pushing it to
+// 'standard' (briefly tried in 0.6.x) made it ramble into <think> loops it never
+// closed, which the ThinkFilter swallowed into a blank answer. 'concise' is what
+// this model reliably produces clean output at; the recovery net in askWithModel
+// now also guarantees a non-blank turn regardless. Revisit 'standard' for lite
+// only on a larger lite model.
 const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
-  lite: 'standard',
+  lite: 'concise',
   full: 'standard',
   xl: 'thorough',
 }
@@ -781,10 +781,30 @@ export class LlamaService {
       return stripThink(accumulated) + hint
     }
 
+    // Turn a raw generation into the final answer, NEVER a silent blank. The
+    // lite 2B GGUF (whose vocab is "missing newline token") sometimes ignores
+    // /no_think and emits a pure or UNCLOSED <think> block: the streaming
+    // ThinkFilter then swallows every chunk (zero tokens reach the renderer) and
+    // stripThink — which only matches CLOSED <think>…</think> — returns '' or the
+    // literal tag. Left alone that produces an empty turn that the main process
+    // doesn't persist and the renderer wipes on re-sync (the invisible blank).
+    // Recover: strip any surviving (unclosed) think tag and keep its content
+    // (usually the model's actual answer); if nothing usable remains, render the
+    // retrieved Context as the answer. Re-emit via onChunk when the stream was
+    // empty so the recovered text both renders and persists.
+    const finalize = async (raw: string): Promise<string> => {
+      let text = stripThink(raw).trim()
+      if (text.includes('<think')) text = text.replace(/<\/?think>/g, '').trim()
+      if (!text) return this.askFallback(question, hits, opts)
+      if (accumulated.trim() === '' && opts.onChunk) {
+        for (const piece of chunkifyForStream(text)) opts.onChunk(piece, 1)
+      }
+      return text
+    }
     try {
       try {
         const raw = await runOnce(opts.conversationHistory)
-        return stripThink(raw)
+        return await finalize(raw)
       } catch (err) {
         if (loopAborted) return finalizeLoop()
         // Conversation history is embedded into the prompt body by buildPrompt,
@@ -798,7 +818,7 @@ export class LlamaService {
       }
       try {
         const raw = await runOnce(undefined)
-        return stripThink(raw)
+        return await finalize(raw)
       } catch (err) {
         if (loopAborted) return finalizeLoop()
         throw err
