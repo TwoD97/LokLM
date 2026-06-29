@@ -98,5 +98,49 @@ carries precision and the floor is skipped (RRF scores aren't comparable to it).
   re-embed and is deferred. Until then, a definition split across a chunk
   boundary is healed only because _both_ halves now clear the floor and get fed.
 - ADR-0007's lite preset otherwise stands (8 K context, multiQuery/wholeDoc off,
-  heuristic contextualize, embedder-first warming). Only its **reranker-off** and
-  **leading-slice rerank** decisions are reversed here.
+  embedder-first warming). Its **reranker-off**, **leading-slice rerank**, and
+  **regex contextualize** decisions are reversed here (the last in 0.6.3 below).
+
+## Follow-up contextualization — BM25 signal gate (0.6.3)
+
+The lite path can't afford an LLM query-rewrite (a second full prefill — minutes
+on the iGPU), so 0.6.x shipped a regex heuristic that _classified_ a follow-up by
+phrasing (meta / anaphoric / comparison / fragment). It does not scale: a bare
+comparison ("Was ist ein Interpreter?" → "…Compiler?" → "Was ist der
+Unterschied?") was contextualized to only the last subject, so retrieval answered
+one-sided — and every new follow-up shape needed new regex.
+
+**Decision.** Gate enrichment on a cheap retrieval signal instead of phrasing
+(`contextualizeBySignal`). Two BM25-only probes (FTS5, CPU, ~ms — no GPU, no
+rerank): the bare query, and the query with the last two user questions
+prepended. If the enriched probe out-scores the bare one by ≥ a ratio, the prior
+context supplied an anchor the bare query lacked → enrich; otherwise keep it bare.
+Corpus-keyed, not phrasing-keyed — no per-pattern code. `searchChunks` already
+returns `-bm25` (higher = better), so the ratio is sign-correct and, being a
+ratio, corpus-scale-independent.
+
+**Threshold = 2.0**, tuned on `tests/unit/contextualize-signal.test.ts` (a mock
+corpus + idf-weighted probe over 17 conversational scenarios incl. long chats):
+genuine follow-ups score ≥ 2.45×, while a standalone switch to a _rare_ topic
+("Was ist Rekursion?", strong bare anchor) tops out ~1.7× and stays bare.
+
+**Why over-enrichment is cheap.** The reranker + relevance floor (above) re-score
+the candidate pool against the _original_ user query, so a wrongly-prepended
+subject is dropped — the gate can lean toward enriching.
+
+**Measured limits** (asserted in the battery so they're conscious, not silent):
+
+- _Over-enrich (safe):_ a switch to a **corpus-common** topic ("compiler",
+  appearing in many docs → low idf → weak bare anchor) or an **absent** topic
+  enriches. The floor cleans it; cost is a little recall noise, never a wrong
+  answer. BM25 alone cannot separate "what is a compiler?" from "…vom Compiler?"
+  — identical scores.
+- _Under-enrich (risky):_ a comparison naming a **rare** operand ("Unterschied zu
+  Threads?") anchors on its own → kept bare → the prior subject is dropped. The
+  one direction the floor can't repair (a missing chunk can't be re-ranked in).
+  Rare in practice; live BM25 tuning on the real corpus moves the boundary.
+
+The `contextualize` stage logs `bm25 bare=… enr=…` + the decision so the 2.0
+threshold can be validated on a real corpus before the regex
+`heuristicContextualizeQuery` (retained, exported, and still unit-tested as the
+reference fallback) is removed.
