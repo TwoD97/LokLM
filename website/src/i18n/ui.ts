@@ -150,6 +150,18 @@ export const ui = {
       'Das Modell läuft lokal, der Index liegt lokal, die Verschlüsselung passiert lokal. Du kannst LokLM den Netzwerkzugriff entziehen — es ändert nichts.',
     'deepdive.offline.cta': 'Diagramm ansehen',
     'deepdive.offline.alt': 'Screenshot: Statusleiste mit Offline-Indikator',
+    'deepdive.study.eyebrow': 'Lernwerkzeuge',
+    'deepdive.study.title': 'Aus deinen Unterlagen lernen.',
+    'deepdive.study.body':
+      'Generiere Quizze aus deinen Dokumenten, fasse lange Texte zusammen und lass dir beim Schreiben helfen — alles auf Grundlage deiner eigenen Dateien, alles lokal.',
+    'deepdive.study.cta': 'Funktionen ansehen',
+    'deepdive.study.alt': 'Screenshot: aus einem Dokument generiertes Quiz',
+    'deepdive.translate.eyebrow': 'Übersetzung',
+    'deepdive.translate.title': '400+ Sprachen, ohne Cloud.',
+    'deepdive.translate.body':
+      'Übersetze markierten Text oder ganze Dokumente mit einem lokalen Übersetzungsmodell (MADLAD-400). Nichts verlässt dein Gerät — auch nicht der zu übersetzende Text.',
+    'deepdive.translate.cta': 'Funktionen ansehen',
+    'deepdive.translate.alt': 'Screenshot: Übersetzungsansicht mit Quell- und Zieltext',
 
     'features.moreEyebrow': 'Mehr Funktionen',
 
@@ -475,6 +487,18 @@ export const ui = {
       'The model runs locally, the index lives locally, encryption happens locally. You can revoke network access — nothing changes.',
     'deepdive.offline.cta': 'See the diagram',
     'deepdive.offline.alt': 'Screenshot: status bar with offline indicator',
+    'deepdive.study.eyebrow': 'Study tools',
+    'deepdive.study.title': 'Learn from your own material.',
+    'deepdive.study.body':
+      'Generate quizzes from your documents, summarise long texts, and get help while writing — all grounded in your own files, all on-device.',
+    'deepdive.study.cta': 'See the features',
+    'deepdive.study.alt': 'Screenshot: a quiz generated from a document',
+    'deepdive.translate.eyebrow': 'Translation',
+    'deepdive.translate.title': '400+ languages, no cloud.',
+    'deepdive.translate.body':
+      'Translate selected text or whole documents with a local translation model (MADLAD-400). Nothing leaves your device — not even the text being translated.',
+    'deepdive.translate.cta': 'See the features',
+    'deepdive.translate.alt': 'Screenshot: translation view with source and target text',
 
     'features.moreEyebrow': 'More features',
 
