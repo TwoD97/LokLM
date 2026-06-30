@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { AuthService } from './services/auth/AuthService'
+import { runQuitDrain } from './lifecycle/quitDrain'
 import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
@@ -77,6 +78,18 @@ function brandAsset(file: string): string {
 
 let authService: AuthService | null = null
 let didFinalPersist = false
+// Set the first time before-quit decides to drain, so a second quit signal
+// during the (possibly multi-second) drain doesn't spawn a concurrent
+// drain+lock chain — every later before-quit just preventDefaults and waits.
+let quitDraining = false
+
+// The inactivity auto-lock guard suppresses the 15-min vault lock while indexing
+// runs — but ONLY while it is actually advancing. If a worker wedges (a native
+// embed hang is documented as possible on the iGPU Vulkan backend), the progress
+// counter freezes; after this long with no progress the guard stops suppressing
+// so the vault still locks (Pflichtenheft 3.1.4) instead of staying open forever.
+// Generous vs. a single slow batch (seconds), tight vs. the idle window.
+const INDEXING_GUARD_WATCHDOG_MS = 3 * 60_000
 
 // In-flight quiz generation streams, keyed by streamId. Module-scoped (not
 // local to registerIpc) so the lock handler can abort them: a quiz generation
@@ -109,10 +122,41 @@ function getAuth(): AuthService {
       resetSessionServices()
       broadcastAuthState()
     })
-    // Pause the inactivity auto-lock while a model download is in flight —
-    // multi-GB GGUFs take longer than the 15 min idle window and the user
-    // sitting at the download view would otherwise get locked mid-transfer.
-    authService.setInactivityGuard(() => getModelDownloader().hasAnyActive())
+    // Pause the inactivity auto-lock while a long background task is in flight —
+    // otherwise the 15 min idle lock tears the session down mid-task: it closes
+    // the workspace store (re-encrypting its files) so the in-flight loop's next
+    // DB/vector write throws LockedError, cutting the work partway. Two classes
+    // run unattended and outlast the idle window:
+    //   - model downloads : multi-GB GGUFs, user sitting at the download view —
+    //     self-clearing (download()'s finally) and user-abortable, so suppress
+    //     unconditionally ;
+    //   - indexing / embedding backfill : import/reindex of a large library, or
+    //     catching up NULL-vector chunks. Suppressed ONLY while it is actually
+    //     ADVANCING — a wedged worker (native embed hang) would otherwise pin the
+    //     vault unlocked forever, defeating the 15-min lock. We watch the shared
+    //     progress counter: no tick for INDEXING_GUARD_WATCHDOG_MS ⇒ treat as
+    //     wedged and let the vault lock per the idle window.
+    // The guard resets the idle clock each skipped tick, so the 15 min lock
+    // resumes fresh the moment everything goes idle (or wedges). Singletons are
+    // read with ?. (a service never built ⇒ no work) to avoid side-effect builds.
+    let lastIdxTicks = -1
+    let lastIdxProgressAt = 0
+    authService.setInactivityGuard(() => {
+      if (getModelDownloader().hasAnyActive()) return true
+      const indexing =
+        (documentService?.isIndexing() ?? false) || (backfillService?.isAnyRunning() ?? false)
+      if (!indexing) {
+        lastIdxTicks = -1
+        return false
+      }
+      const ticks = totalIndexProgressTicks()
+      const now = Date.now()
+      if (ticks !== lastIdxTicks) {
+        lastIdxTicks = ticks
+        lastIdxProgressAt = now
+      }
+      return now - lastIdxProgressAt < INDEXING_GUARD_WATCHDOG_MS
+    })
   }
   return authService
 }
@@ -827,6 +871,13 @@ function registerIpc(): void {
         .quizzes()
         .resetStuckDecks()
         .catch(() => undefined)
+      // Same orphan problem for quiz attempts: a run left un-scored by a
+      // closed/locked/navigated-away session strands its row. Reclaim them.
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .deleteAbandonedAttempts()
+        .catch(() => undefined)
       schedulePostLoginWarmup()
       return result
     },
@@ -869,6 +920,13 @@ function registerIpc(): void {
         .requireDatabase()
         .quizzes()
         .resetStuckDecks()
+        .catch(() => undefined)
+      // Same orphan problem for quiz attempts: a run left un-scored by a
+      // closed/locked/navigated-away session strands its row. Reclaim them.
+      await getAuth()
+        .requireDatabase()
+        .quizzes()
+        .deleteAbandonedAttempts()
         .catch(() => undefined)
       schedulePostLoginWarmup()
     }
@@ -2004,6 +2062,10 @@ function registerIpc(): void {
 
       const tokenBuffer: string[] = []
       const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
+      // Accumulate the pipeline the same way the renderer does (push on 'start',
+      // flip the matching running row to 'done' with its duration/detail) so the
+      // persisted rows match what the live progress dropdown showed.
+      const pipeline: import('../shared/documents').PipelineStep[] = []
       let refused = false
       let refusalMessage: string | null = null
       // Timing for stream metrics. streamStart marks when we begin pulling
@@ -2035,8 +2097,31 @@ function registerIpc(): void {
           else if (ev.type === 'refusal') {
             refused = true
             refusalMessage = ev.message
+          } else if (ev.type === 'stage') {
+            if (ev.status === 'start') {
+              const step: import('../shared/documents').PipelineStep = {
+                stage: ev.stage,
+                status: 'running',
+              }
+              if (ev.detail !== undefined) step.detail = ev.detail
+              pipeline.push(step)
+            } else {
+              for (let i = pipeline.length - 1; i >= 0; i--) {
+                const cur = pipeline[i]
+                if (cur && cur.stage === ev.stage && cur.status === 'running') {
+                  pipeline[i] = {
+                    ...cur,
+                    status: 'done',
+                    ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+                    ...(ev.detail !== undefined ? { detail: ev.detail } : {}),
+                  }
+                  break
+                }
+              }
+            }
           }
         }
+        const pipelineToPersist = pipeline.length > 0 ? pipeline : null
 
         // Persist the assistant turn. Even on cancel (user clicked stop, or
         // the renderer disconnected mid-stream) we still write whatever tokens
@@ -2044,7 +2129,13 @@ function registerIpc(): void {
         // truncated one. Refusal short-circuits to a fixed message.
         if (conversations && opts.conversationId != null) {
           if (refused && refusalMessage != null) {
-            await conversations.appendMessage(opts.conversationId, 'assistant', refusalMessage)
+            await conversations.appendMessage(
+              opts.conversationId,
+              'assistant',
+              refusalMessage,
+              undefined,
+              pipelineToPersist,
+            )
           } else if (tokenBuffer.length > 0) {
             const interrupted = ctrl.signal.aborted
             const body = tokenBuffer.join('')
@@ -2066,6 +2157,7 @@ function registerIpc(): void {
               'assistant',
               assistantContent,
               { ttftMs, tokensPerSec, tokenCount },
+              pipelineToPersist,
             )
             // Reconcile citations: when the model cited inline, persist ONLY
             // the fed chunks it actually referenced so the chips the renderer
@@ -2165,6 +2257,25 @@ function registerIpc(): void {
 
   ipcMain.handle('quiz:delete-deck', async (_e, deckId: number) => {
     await getAuth().requireDatabase().quizzes().deleteDeck(deckId)
+  })
+
+  ipcMain.handle('quiz:merge-decks', async (_e, input: import('../shared/quiz').MergeQuizInput) => {
+    const name = (input?.name ?? '').trim()
+    if (name.length < 1 || name.length > 128) {
+      throw new Error('Quiz name must be 1–128 characters')
+    }
+    if (!Array.isArray(input.deckIds) || input.deckIds.length < 2) {
+      throw new Error('Select at least two quizzes to merge')
+    }
+    return getAuth()
+      .requireDatabase()
+      .quizzes()
+      .mergeDecks({
+        workspaceId: input.workspaceId,
+        name,
+        deckIds: input.deckIds,
+        shuffle: input.shuffle !== false,
+      })
   })
 
   ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
@@ -2414,19 +2525,86 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// persist the encrypted snapshot before the process exits. before-quit fires
-// before the windows close , so we still have a chance to do async work here.
+// How often the quit drain re-checks indexing state.
+const QUIT_DRAIN_POLL_MS = 150
+// Stall cap: give up after this long with ZERO forward progress — a wedged
+// worker, not a slow-but-working one. Big enough to span a slow non-OCR parse
+// between progress ticks.
+const QUIT_DRAIN_STALL_MS = 30_000
+// Absolute ceiling on the whole drain, independent of the stall window: even a
+// genuinely-progressing book-length document must not hold the quit open for an
+// unbounded time. The 'app:quitting' overlay covers the wait with feedback; past
+// this, lock() proceeds (the cut doc is reset to 'failed' + re-indexed next
+// launch, and LanceWorkspaceStore serializes the close behind any in-flight
+// write so nothing is torn).
+const QUIT_DRAIN_MAX_MS = 90_000
+
+/** Sum of the indexing + backfill progress counters. Monotonic; advances once
+ *  per embedded batch (and per phase/OCR tick), so a change between polls means
+ *  embedding is still doing real work. */
+function totalIndexProgressTicks(): number {
+  return (documentService?.indexProgressTicks() ?? 0) + (backfillService?.embedProgressTicks() ?? 0)
+}
+
+/** App-quit drain: stop starting new indexing, end the background backfill at a
+ *  batch boundary, then wait (via the pure runQuitDrain core) for whatever is
+ *  already running in a worker to finish so its writes land before the store is
+ *  re-encrypted. Adaptive — keeps waiting while embedding progresses, bailing on
+ *  a stall or the absolute ceiling, so a single book-length document still gets
+ *  to finish without an unbounded quit. */
+async function drainIndexingForQuit(): Promise<void> {
+  documentService?.quiesce()
+  backfillService?.cancelAll()
+  await runQuitDrain({
+    isActive: () =>
+      (documentService?.hasActiveIndexing() ?? false) || (backfillService?.isAnyRunning() ?? false),
+    progressTicks: totalIndexProgressTicks,
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    pollMs: QUIT_DRAIN_POLL_MS,
+    stallMs: QUIT_DRAIN_STALL_MS,
+    maxMs: QUIT_DRAIN_MAX_MS,
+  })
+}
+
+// Flush durably before the process exits. before-quit fires before the windows
+// close , so we still have a chance to do async work here. Two things must
+// survive: the active indexing batch (drained so it isn't killed mid-write) and
+// the per-workspace vector store. lock() (not persistSnapshot) is what we want —
+// it re-encrypts the Lance work/ dir into the at-rest enc/ tree, so the session's
+// freshly-embedded vectors are durable; persistSnapshot alone only saves the
+// vault body (manifest + kv), leaving meta.db flagged 'embedded' with no vector.
 app.on('before-quit', (event) => {
   if (didFinalPersist || !authService) return
-  if (!authService.isUnlocked()) {
+  // Re-entrancy: didFinalPersist only flips in the async chain's finally, which
+  // is up to QUIT_DRAIN_MAX_MS away. Without quitDraining, a second quit signal
+  // during the drain would preventDefault again and start a CONCURRENT
+  // drain+lock chain. Collapse every later before-quit to a no-op wait.
+  if (quitDraining) {
+    event.preventDefault()
+    return
+  }
+  const auth = authService
+  if (!auth.isUnlocked()) {
     didFinalPersist = true
     return
   }
   event.preventDefault()
-  void authService
-    .persistSnapshotIfUnlocked()
+  quitDraining = true
+  // Tell every renderer we're shutting down so it can cover the drain wait with
+  // a non-dismissable "finishing & saving" overlay instead of a frozen window.
+  // Best-effort: a renderer already torn down just drops the event.
+  for (const win of BrowserWindow.getAllWindows()) {
+    try {
+      win.webContents.send('app:quitting')
+    } catch {
+      /* renderer gone */
+    }
+  }
+  void drainIndexingForQuit()
+    .then(() => auth.lock())
     .catch(() => {
-      /* swallow , we exit anyway and the snapshot stays at the last good state */
+      /* swallow , we exit anyway and the vault stays at the last good state */
     })
     .finally(() => {
       didFinalPersist = true

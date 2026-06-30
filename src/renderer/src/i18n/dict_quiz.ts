@@ -8,10 +8,10 @@ export const quizDict: DomainDict = {
     'quiz.create.heading': 'New Quiz',
     'quiz.create.nameLabel': 'Name',
     'quiz.create.namePlaceholder': 'e.g. Chapter 3 — Functions',
-    'quiz.create.documentsLabel': 'Documents',
+    'quiz.create.documentsLabel': 'Document',
     'quiz.create.noDocuments': 'No indexed documents in this workspace. Import a file first.',
-    'quiz.create.estimate': '{sections} sections — the AI decides how many questions each needs',
-    'quiz.create.estimateEmpty': 'No indexable content in the selected documents.',
+    'quiz.create.estimate': '{sections} sections · about {questions} questions',
+    'quiz.create.estimateEmpty': 'No indexable content in the selected document.',
     'quiz.create.languageLabel': 'Language',
     'quiz.create.languageAuto': 'Auto',
     'quiz.create.languageDe': 'Deutsch',
@@ -46,7 +46,10 @@ export const quizDict: DomainDict = {
 
     // QuizListView
     'quiz.list.heading': 'Quizzes',
+    'quiz.list.workspaceLabel': 'from {name}',
+    'quiz.list.workspaceHint': 'Quizzes are generated from the documents in this workspace',
     'quiz.list.newQuiz': 'New Quiz',
+    'quiz.list.mergeQuiz': 'Merge',
     'quiz.list.empty': 'No quizzes yet. Create one to start learning from your documents.',
     'quiz.list.questions': '{count} questions',
     'quiz.list.fileCount': '{count} file',
@@ -69,18 +72,28 @@ export const quizDict: DomainDict = {
     // QuizDeckHistory
     'quiz.history.loading': 'Loading history…',
     'quiz.history.empty': 'No attempts yet.',
+
+    // MergeQuizDialog
+    'quiz.merge.heading': 'Merge quizzes',
+    'quiz.merge.nameLabel': 'Name',
+    'quiz.merge.namePlaceholder': 'e.g. Exam prep — combined',
+    'quiz.merge.decksLabel': 'Quizzes to merge',
+    'quiz.merge.noDecks': 'You need at least two ready quizzes to merge.',
+    'quiz.merge.shuffle': 'Shuffle question order',
+    'quiz.merge.questionsTotal': '{count} questions total',
+    'quiz.merge.merge': 'Merge',
+    'quiz.merge.merging': 'Merging…',
   },
   de: {
     // CreateQuizDialog
     'quiz.create.heading': 'Neues Quiz',
     'quiz.create.nameLabel': 'Name',
     'quiz.create.namePlaceholder': 'z.B. Kapitel 3 — Funktionen',
-    'quiz.create.documentsLabel': 'Dokumente',
+    'quiz.create.documentsLabel': 'Dokument',
     'quiz.create.noDocuments':
       'Keine indizierten Dokumente in diesem Arbeitsbereich. Importiere zuerst eine Datei.',
-    'quiz.create.estimate':
-      '{sections} Abschnitte — die KI entscheidet die Fragenanzahl pro Abschnitt',
-    'quiz.create.estimateEmpty': 'Kein indizierbarer Inhalt in den ausgewählten Dokumenten.',
+    'quiz.create.estimate': '{sections} Abschnitte · etwa {questions} Fragen',
+    'quiz.create.estimateEmpty': 'Kein indizierbarer Inhalt im ausgewählten Dokument.',
     'quiz.create.languageLabel': 'Sprache',
     'quiz.create.languageAuto': 'Auto',
     'quiz.create.languageDe': 'Deutsch',
@@ -115,7 +128,10 @@ export const quizDict: DomainDict = {
 
     // QuizListView
     'quiz.list.heading': 'Quizze',
+    'quiz.list.workspaceLabel': 'aus {name}',
+    'quiz.list.workspaceHint': 'Quizze werden aus den Dokumenten dieses Workspace erstellt',
     'quiz.list.newQuiz': 'Neues Quiz',
+    'quiz.list.mergeQuiz': 'Zusammenführen',
     'quiz.list.empty': 'Noch keine Quizze. Erstelle eines, um aus deinen Dokumenten zu lernen.',
     'quiz.list.questions': '{count} Fragen',
     'quiz.list.fileCount': '{count} Datei',
@@ -138,5 +154,16 @@ export const quizDict: DomainDict = {
     // QuizDeckHistory
     'quiz.history.loading': 'Verlauf wird geladen…',
     'quiz.history.empty': 'Noch keine Versuche.',
+
+    // MergeQuizDialog
+    'quiz.merge.heading': 'Quizze zusammenführen',
+    'quiz.merge.nameLabel': 'Name',
+    'quiz.merge.namePlaceholder': 'z.B. Prüfungsvorbereitung — kombiniert',
+    'quiz.merge.decksLabel': 'Zu kombinierende Quizze',
+    'quiz.merge.noDecks': 'Mindestens zwei fertige Quizze zum Zusammenführen nötig.',
+    'quiz.merge.shuffle': 'Fragenreihenfolge mischen',
+    'quiz.merge.questionsTotal': 'insgesamt {count} Fragen',
+    'quiz.merge.merge': 'Zusammenführen',
+    'quiz.merge.merging': 'Wird zusammengeführt…',
   },
 }

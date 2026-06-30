@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { TranscriptionOptions, TranscriptSegment } from '@shared/transcription'
 import { decodeToMono16k } from '../audio/decode'
+import { useGeneration } from '../generation/GenerationContext'
 
 const CHUNK = 4 * 1024 * 1024 // 4 MB IPC chunks
 
@@ -85,49 +86,70 @@ export function useTranscription(): {
   const [state, setState] = useState<TxState>(IDLE)
   const [queue, setQueue] = useState<QueueRow[]>([])
   const streamIdRef = useRef<string | null>(null)
+  const { begin: beginGeneration } = useGeneration()
 
-  const transcribe = useCallback(async (bytes: ArrayBuffer, opts: TranscriptionOptions) => {
-    setQueue([])
-    setState({ ...IDLE, phase: 'decoding' })
-    try {
-      const segments = await runOne(
-        bytes,
-        opts,
-        (phase, partial, progress) =>
-          setState((s) => ({ ...s, phase, segments: partial, progress })),
-        (id) => (streamIdRef.current = id),
-      )
-      setState({ phase: 'done', segments, progress: null, error: null })
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        phase: 'error',
-        error: err instanceof Error ? err.message : String(err),
-      }))
-    }
-  }, [])
-
-  const transcribeMany = useCallback(async (files: File[], opts: TranscriptionOptions) => {
-    setState(IDLE)
-    setQueue(files.map((f) => ({ name: f.name, phase: 'decoding', segments: [], error: null })))
-    for (let i = 0; i < files.length; i++) {
-      setQueue((q) => setRow(q, i, { phase: 'decoding' }))
+  const transcribe = useCallback(
+    async (bytes: ArrayBuffer, opts: TranscriptionOptions) => {
+      setQueue([])
+      setState({ ...IDLE, phase: 'decoding' })
+      const endGeneration = beginGeneration('transcription')
       try {
-        const bytes = await files[i]!.arrayBuffer()
         const segments = await runOne(
           bytes,
           opts,
-          (phase) => setQueue((q) => setRow(q, i, { phase })),
+          (phase, partial, progress) =>
+            setState((s) => ({ ...s, phase, segments: partial, progress })),
           (id) => (streamIdRef.current = id),
         )
-        setQueue((q) => setRow(q, i, { phase: 'done', segments }))
+        setState({ phase: 'done', segments, progress: null, error: null })
       } catch (err) {
-        setQueue((q) =>
-          setRow(q, i, { phase: 'error', error: err instanceof Error ? err.message : String(err) }),
-        )
+        setState((s) => ({
+          ...s,
+          phase: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        }))
+      } finally {
+        endGeneration()
       }
-    }
-  }, [])
+    },
+    [beginGeneration],
+  )
+
+  const transcribeMany = useCallback(
+    async (files: File[], opts: TranscriptionOptions) => {
+      setState(IDLE)
+      setQueue(files.map((f) => ({ name: f.name, phase: 'decoding', segments: [], error: null })))
+      // One job for the whole batch — files are transcribed sequentially on the
+      // single Whisper worker, so the chip shows "Transcribing" until the batch
+      // finishes rather than flickering per file.
+      const endGeneration = beginGeneration('transcription')
+      try {
+        for (let i = 0; i < files.length; i++) {
+          setQueue((q) => setRow(q, i, { phase: 'decoding' }))
+          try {
+            const bytes = await files[i]!.arrayBuffer()
+            const segments = await runOne(
+              bytes,
+              opts,
+              (phase) => setQueue((q) => setRow(q, i, { phase })),
+              (id) => (streamIdRef.current = id),
+            )
+            setQueue((q) => setRow(q, i, { phase: 'done', segments }))
+          } catch (err) {
+            setQueue((q) =>
+              setRow(q, i, {
+                phase: 'error',
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            )
+          }
+        }
+      } finally {
+        endGeneration()
+      }
+    },
+    [beginGeneration],
+  )
 
   const cancel = useCallback(() => {
     if (streamIdRef.current) void window.api.transcription.cancel(streamIdRef.current)

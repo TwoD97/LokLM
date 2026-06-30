@@ -1,0 +1,27 @@
+/* Per-file-type icon tints for the file trees (chat sidebar + library). Fixed
+   hues, like a code editor's file icons — chosen to stay legible on both the
+   light and dark themes. The 'txt' default defers to the theme foreground. */
+.doc-icon {
+  flex: 0 0 auto;
+}
+.doc-icon--pdf {
+  color: #d6453f;
+}
+.doc-icon--doc {
+  color: #3b82c4;
+}
+.doc-icon--md {
+  color: #7c6cf0;
+}
+.doc-icon--code {
+  color: #d59b46;
+}
+.doc-icon--sheet {
+  color: #3f9e5a;
+}
+.doc-icon--image {
+  color: #2f9e95;
+}
+.doc-icon--txt {
+  color: var(--fg-2);
+}

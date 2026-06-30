@@ -497,6 +497,17 @@ export interface Conversation {
 
 export type MessageRole = 'user' | 'assistant' | 'system'
 
+/** One persisted pipeline stage for an assistant turn. Mirrors the live
+ *  StageRow the renderer builds from `stage` stream events, frozen at the
+ *  values the stage ended on (`status` is 'done' for completed stages, and
+ *  'running' only if the turn was interrupted before the stage finished). */
+export interface PipelineStep {
+  stage: StageName
+  status: 'running' | 'done'
+  durationMs?: number
+  detail?: string
+}
+
 export interface Message {
   id: number
   conversationId: number
@@ -508,6 +519,10 @@ export interface Message {
   ttftMs: number | null
   tokensPerSec: number | null
   tokenCount: number | null
+  /** Pipeline stages observed for this turn, persisted so the inline progress
+   *  dropdown survives a reload. Absent on user/system rows, legacy assistant
+   *  rows persisted before this column, and turns that ran no visible stage. */
+  pipeline?: PipelineStep[]
 }
 
 export interface Citation {

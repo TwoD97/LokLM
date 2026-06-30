@@ -10,6 +10,12 @@ import type {
 import type { TranslatorStatus } from '@shared/translation'
 import { useT, type TFn } from './i18n'
 import { useSettings } from './settings/useSettings'
+import {
+  useGeneration,
+  type GenerationKind,
+  type GenerationEngine,
+  type GenerationJob,
+} from './generation/GenerationContext'
 
 type DotState = EmbedderState | RerankerState | ModelState
 type DotSource = 'bundled' | 'ollama'
@@ -117,9 +123,10 @@ function shortRerankerName(modelName: string | null): string | null {
   return cleanGgufName(modelName)
 }
 
-// Green = "this model is resident / available". Same tone for every model-name
-// chip so the status bar reads uniformly; the chip TEXT (Qwen/BGE/Qwen3/Whisper/
-// MADLAD) carries the which-model distinction, the dot color carries live state.
+// A model-name chip. The chip TEXT (Qwen/BGE/Qwen3/Whisper/MADLAD) carries the
+// which-model distinction; it is only rendered once the model is resident, so
+// the green 'model' tone reads honestly as "loaded". `tone` flags the lone
+// exception — the amber re-embed progress chip ('busy').
 type Chip = { short: string; full: string; tone: 'model' | 'busy' }
 
 type DotProps = {
@@ -132,8 +139,7 @@ type DotProps = {
    *  shown in the hover pill. Rendered only while the dot is in `chipStates`. */
   chip?: Chip | null
   /** Dot states in which the chip is shown. Default ['ready'] — a model only
-   *  tags itself once resident. Whisper passes ['ready','idle'] because it has
-   *  no persistent resident state: 'idle' means "model present on disk". */
+   *  tags itself once resident; in any other state the bare dot suffices. */
   chipStates?: DotState[]
 }
 
@@ -149,6 +155,9 @@ function StatusDot({
   const t = useT()
   const ollamaClass = state === 'ready' && source === 'ollama' ? ' titlebar__dot--ollama' : ''
   const status = pillText(t, state, source)
+  // A chip is only ever shown once its model is resident (chipStates defaults to
+  // ['ready']), so green ('model') reads honestly as "loaded". The amber 'busy'
+  // tone is the lone exception — the re-embed progress chip.
   const showChip = !!chip && chipStates.includes(state)
   return (
     <span
@@ -173,6 +182,79 @@ function StatusDot({
         {message && <span className="titlebar__pill-msg">{message}</span>}
       </span>
     </span>
+  )
+}
+
+// i18n key per generation kind for the Activity indicator label.
+const GEN_KIND_KEY: Record<GenerationKind, string> = {
+  chat: 'shell.genChat',
+  quiz: 'shell.genQuiz',
+  summary: 'shell.genSummary',
+  writing: 'shell.genWriting',
+  translation: 'shell.genTranslation',
+  transcription: 'shell.genTranscription',
+}
+
+// Fixed render order so the chips don't reshuffle as jobs come and go.
+const ENGINE_ORDER: GenerationEngine[] = ['llm', 'translation', 'transcription']
+
+// Hover-tooltip key per engine — explains WHY work may be waiting: the bundled
+// LLM is a single serial worker (requests run one at a time / queue), while
+// translation + transcription are their own models that run alongside it.
+const ENGINE_TIP_KEY: Record<GenerationEngine, string> = {
+  llm: 'shell.genTipSequential',
+  translation: 'shell.genTipConcurrent',
+  transcription: 'shell.genTipConcurrent',
+}
+
+// Always-visible "the model is busy" chips. One chip PER ENGINE: the bundled LLM
+// is a serial FIFO (chat/quiz/summary/writing queue behind each other — index 0
+// runs, the rest are "N waiting"), while translation (MADLAD) and transcription
+// (Whisper) are separate models that run concurrently, so they get their own
+// chip rather than being counted as queued behind an LLM turn. Renders nothing
+// when everything is idle.
+function ActivityIndicator(): JSX.Element | null {
+  const t = useT()
+  const { jobs } = useGeneration()
+  if (jobs.length === 0) return null
+  const byEngine = new Map<GenerationEngine, GenerationJob[]>()
+  for (const job of jobs) {
+    const list = byEngine.get(job.engine)
+    if (list) list.push(job)
+    else byEngine.set(job.engine, [job])
+  }
+  return (
+    <div className="titlebar__activity-group">
+      {ENGINE_ORDER.filter((e) => byEngine.has(e)).map((engine) => {
+        const list = byEngine.get(engine)!
+        const front = list[0]!
+        const queued = list.length - 1
+        const kindLabel = t(GEN_KIND_KEY[front.kind])
+        const label = front.detail ? `${kindLabel} — ${front.detail}` : kindLabel
+        return (
+          // The .item wrapper does NOT clip (the bar itself is overflow:hidden
+          // for the sweep), so the hover tooltip can extend below the bar.
+          <div key={engine} className="titlebar__activity-item">
+            <div
+              className="titlebar__activity"
+              role="status"
+              aria-live="polite"
+              aria-label={t('shell.genBusyAria', { label, queued })}
+            >
+              <span className="titlebar__activity-text">{label}</span>
+              {queued > 0 && (
+                <span className="titlebar__activity-queue">
+                  {t('shell.genQueued', { count: queued })}
+                </span>
+              )}
+            </div>
+            <span className="titlebar__activity-tip" role="tooltip">
+              {t(ENGINE_TIP_KEY[engine])}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -236,10 +318,16 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   // embedder chip shows "↻ N%" because dense search is degraded until it lands.
   const [backfill, setBackfill] = useState<BackfillStatus | null>(null)
   const [translation, setTranslation] = useState<TranslatorStatus | null>(null)
-  // Whisper has no live status push (it loads per-transcription) , so we only
-  // know presence/download state. 'idle' once a model is on disk = ready to
-  // use; refreshed on window focus to catch a download done in the STT view.
+  // Whisper has no live status push: the model is shipped/downloaded by the
+  // installer wizard (never in-app), and it loads only for the lifetime of a
+  // transcription. So `whisper` here is just on-disk presence — 'idle' once a
+  // model is on the box, 'unloaded' otherwise; refreshed on focus to catch a
+  // model added by the wizard while the app was open. The actual "loaded" signal
+  // comes from an in-flight transcription job (see `whisperState` below).
   const [whisper, setWhisper] = useState<DotState>('unloaded')
+  // Live generation registry — an in-flight 'transcription' job means Whisper is
+  // loaded and working right now, which is the only time it is truly resident.
+  const { jobs } = useGeneration()
 
   useEffect(() => {
     void window.api.window.isMaximized().then(setMaximized)
@@ -263,16 +351,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   }, [])
 
   useEffect(() => {
-    void window.api.reranker
-      .status()
-      .then((s) =>
-        setReranker({
-          state: s.state,
-          message: s.message,
-          source: s.source,
-          modelName: s.modelName,
-        }),
-      )
+    void window.api.reranker.status().then((s) =>
+      setReranker({
+        state: s.state,
+        message: s.message,
+        source: s.source,
+        modelName: s.modelName,
+      }),
+    )
     const off = window.api.reranker.onStatus((s) =>
       setReranker({ state: s.state, message: s.message, source: s.source, modelName: s.modelName }),
     )
@@ -316,6 +402,10 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
 
   useEffect(() => {
     const refresh = (): void => {
+      // Presence only — downloads are an installer-wizard concern, not in-app, so
+      // 'idle' (on disk) vs 'unloaded' (absent) is all the poll resolves. The
+      // 'downloading' branch stays as a harmless guard in case a model lands
+      // while the app is open. Being loaded is derived from jobs, not polled.
       void window.api.transcription.modelStatus().then((models) => {
         if (models.some((m) => m.downloading)) setWhisper('loading')
         else if (models.some((m) => m.present)) setWhisper('idle')
@@ -374,10 +464,16 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     ? { short: rerankShort, full: `Reranker — ${reranker.modelName ?? rerankShort}`, tone: 'model' }
     : null
 
-  // STT dot: Whisper has no persistent resident state (loads per transcription),
-  // so the tag is shown whenever a model is present on disk ('idle') or loading.
+  // STT dot: Whisper is resident only while a transcription is running, so an
+  // in-flight 'transcription' job is what flips the dot to 'ready'; otherwise it
+  // falls back to on-disk presence ('idle'/'unloaded'). The "Whisper" chip then
+  // shows green exactly while the model is loaded and working, and disappears to
+  // a bare dot once idle — mirroring the MADLAD chip, which tags itself only
+  // while that model is up rather than sitting greyed-out beforehand.
+  const sttActive = jobs.some((j) => j.engine === 'transcription')
+  const whisperState: DotState = sttActive ? 'ready' : whisper
   const whisperChip: Chip | null =
-    whisper === 'ready' || whisper === 'idle'
+    whisperState === 'ready'
       ? { short: 'Whisper', full: 'Speech-to-text — Whisper', tone: 'model' }
       : null
 
@@ -467,13 +563,16 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
         )}
         <StatusDot
           label="STT"
-          state={whisper}
+          state={whisperState}
           source="bundled"
           message={null}
           chip={whisperChip}
-          chipStates={['ready', 'idle']}
         />
       </div>
+
+      <div className="titlebar__spacer" />
+
+      <ActivityIndicator />
 
       <div className="titlebar__spacer" />
 

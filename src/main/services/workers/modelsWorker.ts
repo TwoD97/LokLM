@@ -110,11 +110,15 @@ let primaryGpuLabel: string | null = null
 // the GPU (no CPU fallback) and the UI accelerated (no disableHardwareAcceleration).
 const VULKAN_SAFE_BATCH = 128
 // LLM PREFILL batch on a slow Vulkan/iGPU. Larger than the embedder's (the 2B
-// LLM at 128 made a 3 K-token prefill ~1.5 min); 256 halves the submission count
-// for speed while staying well under the GPU watchdog. Tunable: drop to 128 if a
+// LLM at 128 made a 3 K-token prefill ~1.5 min). 254, not 256: the heavier 4B
+// tripped the watchdog at 256 — `vk::Queue::submit: ErrorDeviceLost` on the
+// co-resident embedder/reranker, then an M-RoPE decode failure ("X = 255")
+// because the lost device left the KV cache at the 256-token batch boundary. 254
+// keeps the submission under the ~2 s GPU-job timeout AND off that boundary,
+// while still being far faster than the embedder's 128. Tunable: drop to 128 if a
 // prefill hang ever returns. Only applied on slow integrated GPUs — see GATING
 // below; dedicated GPUs (CUDA/Metal) keep the full 1024 batch.
-const LLM_PREFILL_SAFE_BATCH = 256
+const LLM_PREFILL_SAFE_BATCH = 254
 // A fast, dedicated/unified GPU finishes a large submission far under the ~2 s
 // watchdog, so the iGPU submission cap is unnecessary there — it would only slow
 // prefill. CUDA (NVIDIA) and Metal (Apple) are always dedicated/unified; Vulkan
@@ -475,6 +479,15 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
       ).createContext(opts)
       activePlan = attemptPlan
       successKvEnum = kvEnum
+      // Diagnostic: confirms the batch cap actually applied + the resolved
+      // context/KV/GPU. Cross-reference with the QAService `[qa] prefill input`
+      // log and any `ErrorDeviceLost` / `llama_decode failed` to trace a watchdog
+      // trip to its batch + token count.
+      log(
+        'info',
+        `llm context ready: batch=${String(opts.batchSize)} ctx≤${attemptMax} ` +
+          `kv=${attemptType} flashAttn=true gpu=${primaryGpuLabel ?? 'cpu'}`,
+      )
       break
     } catch (err) {
       maxCtxBound = Math.max(minCtxBound, Math.floor(attemptMax / 2))
@@ -713,8 +726,22 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
     // /no_think tag in the system prompt is unreliable for this GGUF, while
     // a zero thought-token budget actually suppresses the think segment.
     if (payload.noThink) promptOpts.budgets = { thoughtTokens: 0 }
+    log(
+      'info',
+      `llm.ask start: promptChars=${payload.prompt.length} maxTokens=${payload.maxTokens} noThink=${String(!!payload.noThink)}`,
+    )
     const raw = await session.prompt(payload.prompt, promptOpts)
+    log('info', `llm.ask done: chars=${raw.length}`)
     return { raw }
+  } catch (err) {
+    // Surfaces an LLM-side failure (e.g. ErrorDeviceLost / llama_decode failed)
+    // with its prompt size, so a watchdog trip is distinguishable from the
+    // retrieval-side embed/rerank device-loss and from a silent prefill hang.
+    log(
+      'warn',
+      `llm.ask FAILED (promptChars=${payload.prompt.length}): ${err instanceof Error ? err.message : String(err)}`,
+    )
+    throw err
   } finally {
     activeAborts.delete(payload.streamId)
     // Drain any buffered tail before resolving so the renderer's "done"

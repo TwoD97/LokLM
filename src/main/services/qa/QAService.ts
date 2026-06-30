@@ -315,18 +315,30 @@ export class QAService {
       // multi-hundred-ms) LLM rewrite call awaits.
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
       // Lite / iGPU: the LLM rewrite is a SECOND full prefill+generation per
-      // follow-up turn — minutes on a weak iGPU. Use the pure heuristic instead
-      // (anchor meta follow-ups on the prior question, prepend it for short
-      // anaphoric ones, else treat as standalone). No LLM, instant.
-      retrievalQuery = opts.contextualizeHeuristicOnly
-        ? heuristicContextualizeQuery(opts.history, query)
-        : await contextualizeQuery(
-            this.registry.llm(),
-            opts.history,
-            query,
-            abortSignal ? { abortSignal } : {},
-          )
-      emitStage('contextualize', 'done', retrievalQuery === query ? 'unchanged' : 'rewritten')
+      // follow-up turn — minutes on a weak iGPU. Instead, gate enrichment on a
+      // cheap BM25 signal (contextualizeBySignal): if the bare query anchors in
+      // the corpus on its own, keep it; if not, prepend the recent questions.
+      // Corpus-keyed, not phrasing-keyed — no regex zoo, and the reranker +
+      // relevance floor clean any over-enrichment (see contextualize-signal.test).
+      let contextDetail = 'unchanged'
+      if (opts.contextualizeHeuristicOnly) {
+        const sig = await contextualizeBySignal(opts.history, query, (q) =>
+          this.retrieval.probeBm25Top(workspaceId, q),
+        )
+        retrievalQuery = sig.query
+        contextDetail = sig.enriched
+          ? `enriched (bm25 bare=${sig.bareScore.toFixed(2)} enr=${sig.enrichedScore.toFixed(2)})`
+          : `standalone (bm25 bare=${sig.bareScore.toFixed(2)} enr=${sig.enrichedScore.toFixed(2)})`
+      } else {
+        retrievalQuery = await contextualizeQuery(
+          this.registry.llm(),
+          opts.history,
+          query,
+          abortSignal ? { abortSignal } : {},
+        )
+        contextDetail = retrievalQuery === query ? 'unchanged' : 'rewritten'
+      }
+      emitStage('contextualize', 'done', contextDetail)
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
     }
 
@@ -641,6 +653,20 @@ function sleep(ms: number): Promise<typeof SLEEP_SENTINEL> {
 // want here.
 const CONTEXTUALIZE_MAX_TURNS = 6
 const CONTEXTUALIZE_PER_TURN_CHARS = 600
+// Signal-gated contextualizer (contextualizeBySignal). How many recent USER
+// questions to fold into the enriched probe — 2 covers a two-way comparison
+// ("difference between the last two things"). The ratio is how much better the
+// enriched query must retrieve than the bare one to count as "the context added
+// an anchor the query lacked" — tuned on tests/unit/contextualize-signal.test.ts
+// so a standalone topic-switch with its own anchor stays bare while a relational
+// follow-up enriches.
+const CONTEXT_ENRICH_TURNS = 2
+// 2.0 tuned on the battery: genuine follow-ups score ≥2.45× (bare comparison ∞,
+// "Vorteile?"/meta ∞, named comparison 2.45), while a standalone topic-switch
+// whose prior subjects happen to co-occur in one doc tops out at ~1.7× — so 2.0
+// keeps it bare. Erring slightly low is safe anyway: the reranker + relevance
+// floor drop a wrongly-prepended subject, so a false enrich costs nothing.
+const CONTEXT_SIGNAL_RATIO = 2.0
 
 /** Minimal surface of LlamaService that the rewriter needs. Defined locally
  *  so the helper can be unit-tested without instantiating LlamaService. The
@@ -697,6 +723,19 @@ const FOLLOWUP_ANAPHORA: RegExp[] = [
   /\b(difference|differs?|different|compared?|comparison|versus|vs|relationship|relation|opposite|contrast|than)\b/i,
 ]
 
+// A BARE comparison follow-up ("Was ist der Unterschied?", "wie unterscheiden
+// sie sich?", "how do they differ?") names NO operand — it asks about the
+// difference between the prior TWO subjects, so prepending only the most recent
+// one feeds retrieval half the comparison (the reported "Interpreter vs Compiler →
+// only Compiler" bug). COMPARISON_VOCAB flags the comparison intent;
+// NAMED_COMPARISON_OPERAND flags that the follow-up already supplies one operand
+// ("Unterschied zum Assembler?", "vom Compiler") — in which case the single prior
+// subject is the OTHER operand and one prepend is correct.
+const COMPARISON_VOCAB =
+  /\b(untersch(eid|ied)\w*|vergleich\w*|verglichen|gegen[üu]ber|gegenteil|difference|differs?|different|compared?|comparison|contrast)\b/i
+const NAMED_COMPARISON_OPERAND =
+  /\b(zum|zur|zwischen|vom|von|gegen[üu]ber|als|to|from|with|than|between|vs\.?|versus)\b\s+\S/i
+
 // A short follow-up that is itself a self-contained definitional question carries
 // its OWN subject and must NOT be treated as a back-reference: "was ist Rust?"
 // after "was ist ein Interpreter?" is a topic switch, not a follow-up about the
@@ -705,14 +744,21 @@ const STANDALONE_DEFINITIONAL =
   /^(was (ist|sind|war|waren)|wer (ist|sind|war)|what(?:'s| is| are| was| were)|who(?:'s| is| are)|define|definiere)\b/i
 
 /**
- * Pure, LLM-free contextualizer for follow-up turns. The lite / iGPU path uses
+ * NOTE (0.6.3): superseded in the production lite path by
+ * {@link contextualizeBySignal} (a corpus-keyed BM25 gate, ADR-0008) — this
+ * phrasing-keyed regex classifier is retained, exported, and unit-tested as the
+ * reference / fallback, but is no longer wired into {@link QAService.answer}.
+ *
+ * Pure, LLM-free contextualizer for follow-up turns. The lite / iGPU path used
  * this in place of {@link contextualizeQuery} so a follow-up costs ZERO extra
  * generation. Rules, cheapest-first:
  *   1. Pure meta ("genauer?", "mehr", "more") → the prior USER question verbatim
  *      (the follow-up carries no topic of its own).
  *   2. Short anaphoric / comparison ("und bei X?", "warum das?", "wie
  *      unterscheidet sich vom Compiler?") → prior question + the follow-up, so
- *      retrieval sees both the subject and the new angle.
+ *      retrieval sees both the subject and the new angle. A BARE comparison that
+ *      names no operand ("Was ist der Unterschied?") references the prior TWO
+ *      subjects, so both prior questions are prepended.
  *   3. Bare fragment ("Vorteile?", "Geschwindigkeit?", "wie schnell?") → prior
  *      question + the fragment, unless the fragment is a self-contained
  *      definitional question ("was ist Rust?").
@@ -745,6 +791,16 @@ export function heuristicContextualizeQuery(
   // content → prepend the prior question so retrieval sees both the subject and
   // the new angle. ≤8 words keeps a fully self-contained comparison out.
   if (words.length <= 8 && FOLLOWUP_ANAPHORA.some((re) => re.test(trimmed))) {
+    // A BARE comparison ("Was ist der Unterschied?") refers to the prior TWO
+    // subjects — prepend both so retrieval sees both operands, not just the last.
+    if (
+      userTurns.length >= 2 &&
+      COMPARISON_VOCAB.test(trimmed) &&
+      !NAMED_COMPARISON_OPERAND.test(trimmed)
+    ) {
+      const prev = userTurns[userTurns.length - 2]!.content.trim()
+      return prev === lastUser ? `${lastUser} ${trimmed}` : `${prev} ${lastUser} ${trimmed}`
+    }
     return `${lastUser} ${trimmed}`
   }
   // Rule 3 — a bare fragment (≤3 words) names an attribute of the prior topic
@@ -756,6 +812,94 @@ export function heuristicContextualizeQuery(
   }
   // Rule 4 — standalone.
   return query
+}
+
+/** Decision returned by {@link contextualizeBySignal}, exposed so the caller can
+ *  log it (the `contextualize` stage detail) and tests can assert it. */
+export interface SignalContextualization {
+  /** The query to actually retrieve with (bare or enriched). */
+  query: string
+  /** True when prior turns were prepended. */
+  enriched: boolean
+  bareScore: number
+  enrichedScore: number
+}
+
+/**
+ * Signal-gated contextualizer (lite / no-LLM path, candidate replacement for the
+ * regex {@link heuristicContextualizeQuery}). Instead of classifying the query's
+ * PHRASING (the brittle "is it a comparison? anaphoric? bare fragment?" rules),
+ * it asks the CORPUS: does the bare query retrieve anything on its own?
+ *
+ *   bare      = the query as typed
+ *   enriched  = the last `enrichTurns` USER questions + the query
+ *   probe(q)  = top BM25 score for q (FTS5, CPU, ~ms — no GPU, no rerank)
+ *
+ * If the enriched query out-retrieves the bare one by ≥ `ratioThreshold`, the
+ * prior context supplied an anchor the bare query lacked (a follow-up) → use
+ * enriched. Otherwise the bare query already had its own anchor (standalone) →
+ * use it. Corpus-keyed, not phrasing-keyed: "Was ist der Unterschied?" (no
+ * standalone anchor) enriches; "Was ist Rekursion?" (its own anchor) does not —
+ * with no per-pattern code. Over-enrichment is SAFE because the downstream
+ * reranker + relevance floor (ADR-0008) drop whichever prepended subject is
+ * off-topic, so the gate can lean toward enriching.
+ *
+ * Known limitation (measured, see contextualize-signal.test.ts): a standalone
+ * question about a topic ABSENT from the corpus still enriches (bare anchors
+ * nothing, the prior subjects do), yielding a tangential answer instead of a
+ * clean refusal. Acceptable: that query fails either way, and it is rare in a
+ * "ask about my indexed docs" flow.
+ *
+ * Only USER turns are consulted (assistant answers can be wrong/drifted — same
+ * rule both other contextualizers follow). Pure + probe-injected → unit-testable
+ * against a mock corpus without a DB.
+ */
+export async function contextualizeBySignal(
+  history: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>,
+  query: string,
+  probe: (q: string) => number | Promise<number>,
+  opts: { enrichTurns?: number; ratioThreshold?: number } = {},
+): Promise<SignalContextualization> {
+  const trimmed = query.trim()
+  const userTurns = history.filter((m) => m.role === 'user')
+  if (userTurns.length === 0) {
+    return { query: trimmed, enriched: false, bareScore: 0, enrichedScore: 0 }
+  }
+  // Form guard BEFORE the probe: a clean definitional opener ("Was ist ein X?",
+  // "What is X?") that names no comparison is a STANDALONE topic question — never
+  // enrich it. The BM25 ratio alone gets this wrong when X doesn't anchor in the
+  // corpus — a different spelling ("kompiler" vs "Compiler"), a rare/new or
+  // absent topic — because then the bare probe scores ~0 while the prior subject
+  // inflates the enriched probe, and the gate drags the prior topic back in
+  // (observed live: "Was ist ein kompiler?" after "…interpreter?" enriched). A
+  // bare comparison ("Was ist der Unterschied?") is definitional in form too but
+  // names a relational head (COMPARISON_VOCAB), so it falls through to the probe
+  // and still enriches. This is the one form the corpus signal can't disambiguate.
+  if (STANDALONE_DEFINITIONAL.test(trimmed) && !COMPARISON_VOCAB.test(trimmed)) {
+    return { query: trimmed, enriched: false, bareScore: 0, enrichedScore: 0 }
+  }
+  const enrichTurns = opts.enrichTurns ?? CONTEXT_ENRICH_TURNS
+  const ratioThreshold = opts.ratioThreshold ?? CONTEXT_SIGNAL_RATIO
+  // Last N user questions, most-recent-last, de-duplicated (a repeated question
+  // adds no new subject). These are the candidate operands for a comparison and
+  // the topical anchor for an anaphoric follow-up.
+  const subjects = userTurns
+    .slice(-enrichTurns)
+    .map((m) => m.content.trim())
+    .filter((s, i, a) => a.indexOf(s) === i)
+  const enrichedQuery = `${subjects.join(' ')} ${trimmed}`.replace(/\s+/g, ' ').trim()
+  // Two cheap BM25 probes in parallel (the probe may be sync in tests).
+  const [bareScore, enrichedScore] = await Promise.all([probe(trimmed), probe(enrichedQuery)])
+  // Ratio, not absolute: BM25 scores are corpus-dependent, but "enrichment beats
+  // bare by ≥ X" is self-calibrating. The epsilon makes a bare query that anchors
+  // NOTHING (score 0) always enrich when the context anchors something.
+  const enriched = enrichedScore > Math.max(bareScore, 1e-6) * ratioThreshold
+  return {
+    query: enriched ? enrichedQuery : trimmed,
+    enriched,
+    bareScore,
+    enrichedScore,
+  }
 }
 
 /**

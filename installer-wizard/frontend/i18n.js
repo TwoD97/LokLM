@@ -68,11 +68,11 @@
       tiers: {
         lite: {
           title: 'Lite',
-          subtitle: 'Klein und sparsam',
-          model: 'Qwen3.5-2B',
-          size: '~2,3 GB Download',
-          latency: '~2 s pro Antwort',
-          body: 'Läuft auch auf 8 GB RAM ganz ohne GPU. Schnell und unkompliziert , bei komplexen Fragen aber knapper als die größeren Editionen.',
+          subtitle: 'Für integrierte Grafik',
+          model: 'Qwen3.5-4B',
+          size: '~3,6 GB Download',
+          latency: '~4 s pro Antwort',
+          body: 'Läuft auf integrierter GPU; ~12 GB RAM empfohlen. Nutzt dasselbe 4B-Modell wie Standard (kleineres 8K-Kontextfenster) und ist damit deutlich treffsicherer als die frühere 2B-Edition.',
         },
         standard: {
           title: 'Standard',
@@ -224,11 +224,11 @@
       tiers: {
         lite: {
           title: 'Lite',
-          subtitle: 'Small and frugal',
-          model: 'Qwen3.5-2B',
-          size: '~2.3 GB download',
-          latency: '~2 s per response',
-          body: 'Runs on 8 GB RAM with no GPU. Fast and uncomplicated , but more terse on complex questions than the bigger editions.',
+          subtitle: 'For integrated graphics',
+          model: 'Qwen3.5-4B',
+          size: '~3.6 GB download',
+          latency: '~4 s per response',
+          body: 'Runs on an integrated GPU; ~12 GB RAM recommended. Uses the same 4B model as Standard (smaller 8K context window), so far more grounded than the former 2B edition.',
         },
         standard: {
           title: 'Standard',

@@ -21,6 +21,14 @@ const PAGE = 32
 export class EmbeddingBackfillService {
   private active = new Map<number, BackfillStatus>()
   private listeners: Array<(s: BackfillStatus) => void> = []
+  // Set by cancelAll() (app-quit drain). Checked at each loop boundary so a
+  // long catch-up ends cleanly before the workspace store is closed. Permanent
+  // once set — the process is on its way down, so no run() resets it.
+  private stopRequested = false
+  // Monotonic count of backfill progress events (one tick per status push, i.e.
+  // per embedded batch). The app-quit drain watches this alongside
+  // DocumentService's so a slow-but-working backfill reads as progress.
+  private progressTicks = 0
 
   constructor(
     private readonly db: WorkspaceDbFacade,
@@ -42,6 +50,31 @@ export class EmbeddingBackfillService {
     return () => {
       this.listeners = this.listeners.filter((l) => l !== cb)
     }
+  }
+
+  /** True while a backfill is actively embedding in any workspace. Consulted by
+   *  the vault's inactivity auto-lock guard so a long catch-up run isn't torn
+   *  down mid-batch by the 15 min idle lock (which drops this service and closes
+   *  the workspace store the embed loop writes into). */
+  isAnyRunning(): boolean {
+    for (const s of this.active.values()) {
+      if (s.state === 'running') return true
+    }
+    return false
+  }
+
+  /** Ask every running backfill to stop at its next batch boundary. Per-batch
+   *  writes are already durable, so nothing embedded is lost; the remaining
+   *  NULL chunks are re-embedded by the next launch's backfill. Used by the
+   *  app-quit drain to end the loop before lock() closes the store. */
+  cancelAll(): void {
+    this.stopRequested = true
+  }
+
+  /** Monotonic progress counter (one tick per embedded batch). The app-quit
+   *  drain polls it to wait adaptively while embedding advances. */
+  embedProgressTicks(): number {
+    return this.progressTicks
   }
 
   status(workspaceId: number): BackfillStatus {
@@ -84,6 +117,11 @@ export class EmbeddingBackfillService {
     // the model is functionally identical. A genuine model swap (bge-m3 →
     // nomic-embed-text) does have different stems and still gets purged so
     // the same backfill loop below can refill the NULLs cleanly.
+    // App-quit drain: a cancelAll() during this pre-loop phase (before the first
+    // 'running' update below, so isAnyRunning() is still false and the drain
+    // doesn't wait for us) must abort BEFORE the identity purge — its meta.db +
+    // Lance writes would otherwise race the lock()-triggered store close.
+    if (this.stopRequested) return
     const activeIdentity = embedder.identity()
     const activeStem = embedderModelStem(activeIdentity)
     const existingIdentities = await this.db.documents().distinctEmbedderIdentities(workspaceId)
@@ -142,6 +180,13 @@ export class EmbeddingBackfillService {
       // Loop until no more nulls. Each page round-trips the embedder, so
       // PAGE=32 keeps memory bounded and gives the renderer frequent updates.
       for (;;) {
+        // App-quit drain (cancelAll): stop at this batch boundary so the store
+        // close that follows can't tear a write. Everything embedded so far is
+        // durable; remaining NULLs are picked up by the next launch's backfill.
+        if (this.stopRequested) {
+          this.update({ workspaceId, state: 'idle', done, total, message: null })
+          return
+        }
         const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, PAGE)
         if (batch.length === 0) break
         // Grow the denominator to cover work discovered after the initial snapshot
@@ -289,6 +334,7 @@ export class EmbeddingBackfillService {
     let embedded = 0
     let consecutiveNoProgress = 0
     for (;;) {
+      if (this.stopRequested) break
       const batch = await repo.listDocsMissingSummaryEmbedding(workspaceId, PAGE)
       if (batch.length === 0) break
       let vectors: Float32Array[] | null
@@ -332,6 +378,10 @@ export class EmbeddingBackfillService {
   }
 
   private update(s: BackfillStatus): void {
+    // One tick per status push — in the embed loops update() is called once per
+    // completed batch, so this advances iff embedding is actually progressing
+    // (a wedged embedder is stuck in embed() and never reaches update()).
+    this.progressTicks++
     this.active.set(s.workspaceId, s)
     for (const l of this.listeners) {
       try {

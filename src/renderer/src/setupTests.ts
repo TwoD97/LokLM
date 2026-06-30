@@ -66,6 +66,7 @@ const stub: Api = {
     close: () => Promise.resolve(),
     isMaximized: () => Promise.resolve(false),
     onMaximizedChange: () => () => undefined,
+    onQuitting: () => () => undefined,
   },
   workspaces: {
     list: () => Promise.resolve([]),
@@ -486,7 +487,19 @@ const stub: Api = {
         language: 'en' as const,
         createdAt: Math.floor(Date.now() / 1000),
       }),
-    estimate: () => Promise.resolve({ unitCount: 5 }),
+    estimate: () => Promise.resolve({ unitCount: 5, questionEstimate: 15 }),
+    mergeDecks: (input) =>
+      Promise.resolve({
+        id: 2,
+        workspaceId: input.workspaceId,
+        name: input.name,
+        documentIds: [1, 2],
+        questionCount: 20,
+        status: 'ready' as const,
+        error: null,
+        language: 'en' as const,
+        createdAt: Math.floor(Date.now() / 1000),
+      }),
     deleteDeck: () => Promise.resolve(),
     regenerateDeck: () => Promise.resolve(),
     generate: () => Promise.resolve(),

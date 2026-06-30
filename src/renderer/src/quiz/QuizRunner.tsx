@@ -9,6 +9,11 @@ import { useT, type TFn } from '../i18n'
 type Props = {
   deckId: number
   onClose: () => void
+  /** False when the quiz tab is kept mounted but hidden behind another tab.
+   *  The Enter-to-advance and 1–4 keydown listeners are global (window), so
+   *  they're disabled while hidden to avoid stealing keys from the visible
+   *  view. Defaults true so direct renders / tests keep keyboard behaviour. */
+  active?: boolean
 }
 
 type RunnerState =
@@ -63,7 +68,7 @@ function permutation(length: number, seed: number): number[] {
   )
 }
 
-export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
+export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Element {
   const t = useT()
   const [state, setState] = useState<RunnerState>({ kind: 'loading' })
   const [source, setSource] = useState<{ chunkId: number; explanation: string } | null>(null)
@@ -186,7 +191,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
 
   // Enter advances after reveal.
   useEffect(() => {
-    if (state.kind !== 'running' || !state.revealed) return
+    if (!active || state.kind !== 'running' || !state.revealed) return
     const handler = (e: KeyboardEvent): void => {
       if (e.key === 'Enter') {
         e.preventDefault()
@@ -195,7 +200,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [state, advance])
+  }, [active, state, advance])
 
   const onCite = useCallback(
     ({ chunkId, explanation }: { chunkId: number; explanation: string }) => {
@@ -293,6 +298,7 @@ export function QuizRunner({ deckId, onClose }: Props): JSX.Element {
           question={displayQuestion}
           selectedIndex={state.selectedByQuestionId.get(question.id) ?? null}
           revealed={state.revealed}
+          active={active}
           onSelect={onSelect}
           onCite={onCite}
         />
@@ -358,12 +364,14 @@ function RunnerContent({
   question,
   selectedIndex,
   revealed,
+  active,
   onSelect,
   onCite,
 }: {
   question: QuizQuestion
   selectedIndex: number | null
   revealed: boolean
+  active: boolean
   onSelect: (i: number) => void
   onCite: (args: { chunkId: number; explanation: string }) => void
 }): JSX.Element {
@@ -373,6 +381,7 @@ function RunnerContent({
       question={question}
       selectedIndex={selectedIndex}
       revealed={revealed}
+      active={active}
       onSelect={onSelect}
       onCite={onCite}
     />

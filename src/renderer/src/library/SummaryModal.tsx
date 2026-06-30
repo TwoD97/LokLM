@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Document } from '@shared/documents'
+import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 import type { TFn } from '../i18n'
 
@@ -21,11 +22,16 @@ export function SummaryModal({
   onClose: () => void
 }): JSX.Element {
   const t = useT()
+  const { begin: beginGeneration } = useGeneration()
   const [state, setState] = useState<SummaryState>({ kind: 'loading' })
 
   useEffect(() => {
     let cancelled = false
     setState({ kind: 'loading' })
+    // The summary generates on the LLM (worker FIFO) and keeps running in main
+    // even if this modal is closed, so end the registry job when the request
+    // settles — not on unmount.
+    const endGeneration = beginGeneration('summary')
     window.api.documents
       .summarize(doc.id)
       .then((r) => {
@@ -36,10 +42,11 @@ export function SummaryModal({
         const raw = err instanceof Error ? err.message : String(err)
         setState({ kind: 'error', message: localizeSummaryError(raw, t) })
       })
+      .finally(() => endGeneration())
     return () => {
       cancelled = true
     }
-  }, [doc.id, t])
+  }, [doc.id, t, beginGeneration])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

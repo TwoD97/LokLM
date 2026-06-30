@@ -39,19 +39,23 @@ export class LanceWorkspaceStore implements VectorStore {
   private readonly datasetDir: string
   private conn: Connection | null = null
   private table: Table | null = null
+  // FIFO mutex serializing mutating ops (upsert/remove) against each other AND
+  // against close(). Two races it prevents:
+  //   1. close(): the app-quit drain can fire lock() -> WorkspaceStore.close() ->
+  //      this.close() while a stall-bailed document is still mid-upsert; without
+  //      this, close() would null the table/conn out from under a mergeInsert.
+  //   2. createTable: indexing fans out one upsert per document and — now that the
+  //      PyTorch sidecar embeds fast — they land almost together; on a brand-new
+  //      workspace two concurrent upserts both hit the lazy createTable path and
+  //      the second throws "Table 'vectors' already exists".
+  // mergeInsert and the dimension-change drop also mutate this.table/tableDim, so
+  // chaining keeps every op strictly one-at-a-time.
+  private opChain: Promise<void> = Promise.resolve()
   // Vector dimension of the open table's fixed-size-list column, cached so the
   // hot upsert/search paths don't re-read the Arrow schema each call. null until
   // a table exists (or when the dim can't be read). Drives the dimension-change
   // rebuild — see upsert() / search() (ADR-0006: BGE-M3 1024 ↔ jina-code 896).
   private tableDim: number | null = null
-  // Serialises mutating ops on this store. Indexing fans out one upsert per
-  // document, and now that the PyTorch sidecar embeds fast they land almost
-  // together: on a brand-new workspace two concurrent upserts both reach the
-  // lazy createTable path and the second throws "Table 'vectors' already exists";
-  // mergeInsert and the dimension-change drop also mutate this.table/tableDim and
-  // must not interleave. Embedding (the costly part) already ran concurrently
-  // upstream — only the final vector write is queued here.
-  private writeQueue: Promise<unknown> = Promise.resolve()
 
   constructor(opts: LanceWorkspaceStoreOptions) {
     this.workspaceId = opts.workspaceId
@@ -84,11 +88,11 @@ export class LanceWorkspaceStore implements VectorStore {
     }
   }
 
-  /** Run `fn` after all previously-queued writes settle (success or failure), so
-   *  table create / mergeInsert / drop never interleave on this instance. */
-  private enqueueWrite<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.writeQueue.then(fn, fn)
-    this.writeQueue = run.then(
+  /** Runs `fn` after any in-flight write/close settles, then advances the chain.
+   *  Failures don't break the chain (next op still runs). */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.opChain.then(fn, fn)
+    this.opChain = run.then(
       () => undefined,
       () => undefined,
     )
@@ -97,10 +101,10 @@ export class LanceWorkspaceStore implements VectorStore {
 
   async upsert(records: VectorRecord[]): Promise<void> {
     if (records.length === 0) return
-    return this.enqueueWrite(() => this.upsertInner(records))
+    return this.enqueue(() => this.upsertLocked(records))
   }
 
-  private async upsertInner(records: VectorRecord[]): Promise<void> {
+  private async upsertLocked(records: VectorRecord[]): Promise<void> {
     const incomingDim = records[0]!.vector.length
     const rows: LanceRow[] = records.map((r) => ({
       chunkId: r.chunkId,
@@ -136,9 +140,9 @@ export class LanceWorkspaceStore implements VectorStore {
 
   async remove(chunkIds: number[]): Promise<void> {
     if (chunkIds.length === 0) return
-    // Queued with upserts: a delete must not race the lazy table create, and
-    // reads this.table after any in-flight create has settled.
-    return this.enqueueWrite(async () => {
+    // Queued with upserts/close: a delete must not race the lazy table create,
+    // and reads this.table after any in-flight create has settled.
+    return this.enqueue(async () => {
       if (!this.table) return
       await this.table.delete(`chunkId IN (${chunkIds.map((n) => Math.trunc(n)).join(',')})`)
     })
@@ -229,12 +233,17 @@ export class LanceWorkspaceStore implements VectorStore {
   }
 
   async close(): Promise<void> {
-    this.table = null
-    this.tableDim = null
-    if (this.conn) {
-      this.conn.close()
-      this.conn = null
-    }
+    // Wait behind any in-flight upsert/remove so we never null the table/conn
+    // out from under a running mergeInsert (the quit-drain ceiling can trigger
+    // lock() -> close() while a document is still persisting its vectors).
+    return this.enqueue(async () => {
+      this.table = null
+      this.tableDim = null
+      if (this.conn) {
+        this.conn.close()
+        this.conn = null
+      }
+    })
   }
 
   private requireConn(): Connection {

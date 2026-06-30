@@ -8,6 +8,7 @@ export const shellDict: DomainDict = {
     'shell.loading': 'Loading …',
     'shell.errorTitle': 'Error',
     'shell.tagline': 'Local AI knowledge assistant',
+    'shell.quitting': 'Finishing up and saving …',
     'shell.recoveryWordsTitle': 'Recovery words',
 
     // TitleBar.tsx — status pills
@@ -34,8 +35,23 @@ export const shellDict: DomainDict = {
     'shell.runningOn': 'Running on {device}',
     'shell.reembedProgress': 're-embedding {done}/{total} chunks — search degraded until done',
 
+    // TitleBar.tsx — Activity indicator (generations run one at a time; FIFO)
+    'shell.genChat': 'Generating answer',
+    'shell.genQuiz': 'Building quiz',
+    'shell.genSummary': 'Summarizing',
+    'shell.genWriting': 'Writing',
+    'shell.genTranslation': 'Translating',
+    'shell.genTranscription': 'Transcribing',
+    'shell.genQueued': '· {count} waiting',
+    'shell.genBusyAria': 'Model busy — {label}; {queued} waiting',
+    'shell.genTipSequential':
+      'The assistant runs one request at a time on this device — anything else waits in the queue.',
+    'shell.genTipConcurrent': 'Runs on its own model, alongside the assistant.',
+
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Create or select a workspace first.',
+    'shell.switchingWorkspace': 'Opening {name}…',
+    'shell.switchingWorkspaceHint': 'Decrypting and loading its documents.',
 
     // Sidebar.tsx
     'shell.navLibrary': 'Library',
@@ -45,6 +61,7 @@ export const shellDict: DomainDict = {
     'shell.navTranslation': 'Translation',
     'shell.navWriting': 'Write',
     'shell.workspaces': 'Workspaces',
+    'shell.workspace': 'Workspace',
     'shell.workspaceInfo': 'How to get the best results',
     'shell.workspaceInfoTitle': 'Getting the best results',
     'shell.workspaceInfoIntro':
@@ -88,6 +105,7 @@ export const shellDict: DomainDict = {
     'shell.loading': 'Lade …',
     'shell.errorTitle': 'Fehler',
     'shell.tagline': 'Lokaler KI-Wissensassistent',
+    'shell.quitting': 'Wird abgeschlossen und gespeichert …',
     'shell.recoveryWordsTitle': 'Wiederherstellungs-Wörter',
 
     // TitleBar.tsx — status pills
@@ -115,8 +133,23 @@ export const shellDict: DomainDict = {
     'shell.reembedProgress':
       'Bettet neu ein: {done}/{total} Chunks — Suche eingeschränkt bis fertig',
 
+    // TitleBar.tsx — Activity indicator (Generierungen laufen nacheinander; FIFO)
+    'shell.genChat': 'Antwort wird erstellt',
+    'shell.genQuiz': 'Quiz wird erstellt',
+    'shell.genSummary': 'Zusammenfassung läuft',
+    'shell.genWriting': 'Text wird erstellt',
+    'shell.genTranslation': 'Übersetzung läuft',
+    'shell.genTranscription': 'Transkription läuft',
+    'shell.genQueued': '· {count} wartend',
+    'shell.genBusyAria': 'Modell beschäftigt — {label}; {queued} wartend',
+    'shell.genTipSequential':
+      'Der Assistent verarbeitet Anfragen nacheinander auf diesem Gerät — weitere warten in der Warteschlange.',
+    'shell.genTipConcurrent': 'Läuft auf einem eigenen Modell, parallel zum Assistenten.',
+
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Erstelle oder wähle zuerst einen Workspace.',
+    'shell.switchingWorkspace': '„{name}“ wird geöffnet…',
+    'shell.switchingWorkspaceHint': 'Dokumente werden entschlüsselt und geladen.',
 
     // Sidebar.tsx
     'shell.navLibrary': 'Bibliothek',
@@ -126,6 +159,7 @@ export const shellDict: DomainDict = {
     'shell.navTranslation': 'Übersetzung',
     'shell.navWriting': 'Schreiben',
     'shell.workspaces': 'Workspaces',
+    'shell.workspace': 'Workspace',
     'shell.workspaceInfo': 'So erzielst du die besten Ergebnisse',
     'shell.workspaceInfoTitle': 'Die besten Ergebnisse erzielen',
     'shell.workspaceInfoIntro':

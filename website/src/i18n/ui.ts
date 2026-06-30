@@ -95,10 +95,10 @@ export const ui = {
     'download.comingSoon': 'Bald verfügbar',
     'download.otherPlatforms': 'Weitere Plattformen',
     'download.notice':
-      'Bei der Installation lädst du eine Modell-Edition — je nach Wahl ca. 3–8 GB (Lite / Standard / Pro). Stabile Verbindung empfohlen.',
+      'Bei der Installation lädst du eine Modell-Edition — je nach Wahl ca. 4–8 GB (Lite / Standard / Pro). Stabile Verbindung empfohlen.',
     'download.requirements.title': 'Systemanforderungen',
     'download.requirements.windows': 'Windows 10/11, macOS oder Linux (64-bit)',
-    'download.requirements.ram': '8 GB RAM (16 GB für Pro)',
+    'download.requirements.ram': '12 GB RAM (16 GB für Pro)',
     'download.requirements.disk': '~10 GB freier Speicher',
 
     'footer.tagline': 'LokLM — dein Wissen bleibt lokal.',
@@ -150,6 +150,18 @@ export const ui = {
       'Das Modell läuft lokal, der Index liegt lokal, die Verschlüsselung passiert lokal. Du kannst LokLM den Netzwerkzugriff entziehen — es ändert nichts.',
     'deepdive.offline.cta': 'Diagramm ansehen',
     'deepdive.offline.alt': 'Screenshot: Statusleiste mit Offline-Indikator',
+    'deepdive.study.eyebrow': 'Lernwerkzeuge',
+    'deepdive.study.title': 'Aus deinen Unterlagen lernen.',
+    'deepdive.study.body':
+      'Generiere Quizze aus deinen Dokumenten, fasse lange Texte zusammen und lass dir beim Schreiben helfen — alles auf Grundlage deiner eigenen Dateien, alles lokal.',
+    'deepdive.study.cta': 'Funktionen ansehen',
+    'deepdive.study.alt': 'Screenshot: aus einem Dokument generiertes Quiz',
+    'deepdive.translate.eyebrow': 'Übersetzung',
+    'deepdive.translate.title': '400+ Sprachen, ohne Cloud.',
+    'deepdive.translate.body':
+      'Übersetze markierten Text oder ganze Dokumente mit einem lokalen Übersetzungsmodell (MADLAD-400). Nichts verlässt dein Gerät — auch nicht der zu übersetzende Text.',
+    'deepdive.translate.cta': 'Funktionen ansehen',
+    'deepdive.translate.alt': 'Screenshot: Übersetzungsansicht mit Quell- und Zieltext',
 
     'features.moreEyebrow': 'Mehr Funktionen',
 
@@ -193,7 +205,7 @@ export const ui = {
       'Ja. Modelle und Index laufen lokal. Die einzige Netzwerkaktivität ist der einmalige Modell-Download bei der Installation und Updates, wenn du sie startest.',
     'faq.q2.q': 'Wie groß sind die Modelle und woher kommen sie?',
     'faq.q2.a':
-      'Bei der Installation wählst du eine Edition: Lite (Qwen3.5-2B, ~2,3 GB), Standard (Qwen3.5-4B, ~4 GB, empfohlen) oder Pro (Qwen3.5-9B, ~7 GB). Dazu kommen das Embedding-Modell (BGE-M3) und der Reranker (BGE Reranker v2-M3) — zusammen ~0,9 GB, geladen von Hugging Face. Danach läuft alles lokal.',
+      'Bei der Installation wählst du eine Edition: Lite (Qwen3.5-4B, ~3,6 GB, für integrierte Grafik / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, empfohlen) oder Pro (Qwen3.5-9B, ~7 GB). Dazu kommen das Embedding-Modell (BGE-M3) und der Reranker (BGE Reranker v2-M3) — zusammen ~0,9 GB, geladen von Hugging Face. Danach läuft alles lokal.',
     'faq.q3.q': 'Kann ich ein eigenes Modell mitbringen (GGUF)?',
     'faq.q3.a':
       'Ja. LokLM führt GGUF-Modelle lokal über llama.cpp aus — eigene GGUF-Dateien lassen sich in den Modellordner legen und in den Einstellungen auswählen. Optional kann LokLM stattdessen einen lokalen Ollama-Server nutzen.',
@@ -421,10 +433,10 @@ export const ui = {
     'download.comingSoon': 'Coming soon',
     'download.otherPlatforms': 'Other platforms',
     'download.notice':
-      'During setup you download one model edition — about 3–8 GB depending on your choice (Lite / Standard / Pro). A stable connection is recommended.',
+      'During setup you download one model edition — about 4–8 GB depending on your choice (Lite / Standard / Pro). A stable connection is recommended.',
     'download.requirements.title': 'System requirements',
     'download.requirements.windows': 'Windows 10/11, macOS, or Linux (64-bit)',
-    'download.requirements.ram': '8 GB RAM (16 GB for Pro)',
+    'download.requirements.ram': '12 GB RAM (16 GB for Pro)',
     'download.requirements.disk': '~10 GB free disk space',
 
     'footer.tagline': 'LokLM — your knowledge stays local.',
@@ -475,6 +487,18 @@ export const ui = {
       'The model runs locally, the index lives locally, encryption happens locally. You can revoke network access — nothing changes.',
     'deepdive.offline.cta': 'See the diagram',
     'deepdive.offline.alt': 'Screenshot: status bar with offline indicator',
+    'deepdive.study.eyebrow': 'Study tools',
+    'deepdive.study.title': 'Learn from your own material.',
+    'deepdive.study.body':
+      'Generate quizzes from your documents, summarise long texts, and get help while writing — all grounded in your own files, all on-device.',
+    'deepdive.study.cta': 'See the features',
+    'deepdive.study.alt': 'Screenshot: a quiz generated from a document',
+    'deepdive.translate.eyebrow': 'Translation',
+    'deepdive.translate.title': '400+ languages, no cloud.',
+    'deepdive.translate.body':
+      'Translate selected text or whole documents with a local translation model (MADLAD-400). Nothing leaves your device — not even the text being translated.',
+    'deepdive.translate.cta': 'See the features',
+    'deepdive.translate.alt': 'Screenshot: translation view with source and target text',
 
     'features.moreEyebrow': 'More features',
 
@@ -518,7 +542,7 @@ export const ui = {
       'Yes. Models and index run locally. The only network activity is the one-time model download at install and updates when you initiate them.',
     'faq.q2.q': 'How big are the models, and where do they come from?',
     'faq.q2.a':
-      'At setup you pick an edition: Lite (Qwen3.5-2B, ~2.3 GB), Standard (Qwen3.5-4B, ~4 GB, recommended), or Pro (Qwen3.5-9B, ~7 GB). Add the embedding model (BGE-M3) and the reranker (BGE Reranker v2-M3) — ~0.9 GB together, fetched from Hugging Face. After that everything runs locally.',
+      'At setup you pick an edition: Lite (Qwen3.5-4B, ~3.6 GB, for integrated graphics / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, recommended), or Pro (Qwen3.5-9B, ~7 GB). Add the embedding model (BGE-M3) and the reranker (BGE Reranker v2-M3) — ~0.9 GB together, fetched from Hugging Face. After that everything runs locally.',
     'faq.q3.q': 'Can I bring my own model (GGUF)?',
     'faq.q3.a':
       'Yes. LokLM runs GGUF models locally through llama.cpp — drop your own GGUF files into the model directory and pick them in settings. Optionally, LokLM can use a local Ollama server instead.',

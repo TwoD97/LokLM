@@ -28,9 +28,9 @@ export interface GenerateQuestionsForUnitInput {
   abortSignal?: AbortSignal
 }
 
-/** Produce the questions for one unit in ONE call. The MODEL decides how many
- *  the material needs (coverage brief in the prompt), bounded only by the
- *  PER_UNIT_MAX_QUESTIONS anti-runaway ceiling. maxTokens covers the ceiling,
+/** Produce the questions for one unit in ONE call. The prompt asks for a
+ *  size-scaled target (coverage-first brief), and the model may write up to the
+ *  PER_UNIT_MAX_QUESTIONS ceiling. maxTokens covers the ceiling,
  *  but the grammar lets the model close the array early, so a one-idea unit
  *  costs one question's worth of decode, not eight. Bad or partially bad
  *  output yields whatever valid subset parsed (possibly empty). */
@@ -52,6 +52,8 @@ export async function generateQuestionsForUnit(
     docTitle: unit.docTitle,
     unitTitle: unit.title,
     groundingBlock,
+    unitTokens: unit.tokens,
+    docTokens: unit.docTokens,
   })
 
   const raw = await llm.generateRaw(prompt, {

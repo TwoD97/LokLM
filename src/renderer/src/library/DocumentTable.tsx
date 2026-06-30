@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Document, IndexProgress } from '@shared/documents'
 import { DocumentRow } from './DocumentRow'
+import { deriveRowStatus } from './documentStatus'
 import { useT } from '../i18n'
 
 type Props = {
   docs: Document[]
-  // Stable identity of the underlying dataset (the workspace id). The window
-  // resets to INITIAL_BATCH when THIS changes — i.e. on a genuine workspace
+  // Stable identity of the underlying dataset (the workspace id). The pager
+  // jumps back to page 1 when THIS changes — i.e. on a genuine workspace
   // switch — not on every `docs` array refresh. A background refresh (index
   // 'done', sync, delete) hands down a new array with the same contents; keying
-  // the reset on the array reference collapsed the window mid-scroll.
+  // the reset on the array reference would yank the user back to page 1.
   resetKey: number
   progress: Map<number, IndexProgress>
   /** Documents with chunks pending re-embedding — their rows read 're-embedding'. */
   reembedDocIds?: Set<number>
+  /** Optionally-lifted page index (AppShell owns it so it survives a tab-switch
+   *  unmount of the Library). Omitted → the table owns the page internally, the
+   *  standalone / test default. The hide-ready toggle stays component-local. */
+  page?: number | undefined
+  onPageChange?: ((page: number) => void) | undefined
   onDelete: (id: number) => void
   onReindex: (id: number) => void
   onReveal: (id: number) => void
@@ -26,22 +33,21 @@ type Props = {
   onTogglePin: (doc: Document) => void
 }
 
-// Cheap windowed render: start with INITIAL_BATCH rows, observe a sentinel
-// `<tr>` at the bottom, and expand by BATCH_STEP each time it scrolls into
-// view. For libraries under INITIAL_BATCH docs (the common case) this is
-// behaviourally identical to a plain map. For thousands of docs it caps the
-// initial DOM count + lets the browser idle the rest until scrolled into
-// view. Plain `<tr>` (not a virtual-scroll lib) keeps the `<table>` layout
-// honest — IntersectionObserver alone is enough; we don't need to know row
-// heights.
-const INITIAL_BATCH = 80
-const BATCH_STEP = 80
+// Fixed-size page-based pagination. An earlier infinite-scroll window (an
+// IntersectionObserver that grew the visible count) kept every scrolled-past
+// row mounted, so a library of a few thousand docs ended up with thousands of
+// live `<tr>`s and got janky. Paging caps the DOM at PAGE_SIZE rows no matter
+// how large the library is. For libraries that fit on one page (the common
+// case) the pager hides and this renders as a plain table.
+const PAGE_SIZE = 100
 
 export function DocumentTable({
   docs,
   resetKey,
   progress,
   reembedDocIds,
+  page: controlledPage,
+  onPageChange,
   onDelete,
   onReindex,
   onReveal,
@@ -54,81 +60,136 @@ export function DocumentTable({
   onTogglePin,
 }: Props): JSX.Element {
   const t = useT()
-  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH)
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null)
+  const [internalPage, setInternalPage] = useState(0)
+  const page = controlledPage ?? internalPage
+  // Stable setter (reads its targets from refs) so it can sit in effect deps
+  // without churning. Writes to the lifted owner when controlled, else internal.
+  const onPageChangeRef = useRef(onPageChange)
+  onPageChangeRef.current = onPageChange
+  const isControlledRef = useRef(controlledPage !== undefined)
+  isControlledRef.current = controlledPage !== undefined
+  const setPage = useCallback((next: number) => {
+    onPageChangeRef.current?.(next)
+    if (!isControlledRef.current) setInternalPage(next)
+  }, [])
 
-  // Reset only when the dataset identity changes (workspace switch). NOT on
-  // every `docs` reference change — refreshDocs() mints a fresh array on each
-  // index-progress 'done'/sync/delete, and resetting on that collapsed the
-  // window back to 80 mid-scroll. `docs.slice(0, visibleCount)` already caps a
-  // carried-over count against a shorter list, so there's no stale-tail risk.
-  useEffect(() => {
-    setVisibleCount(INITIAL_BATCH)
-  }, [resetKey])
+  // In-progress rows (indexing / queued / re-embedding) float to the TOP so a
+  // big import's active rows land on page 1; 'ready' and 'failed' keep the
+  // workspace's original order in the body. Recomputed as `progress` ticks,
+  // which is exactly when the ordering needs to move. (Hiding/keeping by index
+  // state is now the toolbar's Status filter, applied to `docs` upstream.)
+  const orderedDocs = useMemo(() => {
+    const topDocs: Document[] = []
+    const restDocs: Document[] = []
+    for (const d of docs) {
+      const s = deriveRowStatus(d, progress.get(d.id), reembedDocIds?.has(d.id))
+      // 'failed' isn't "in progress", so it stays in the body — it just doesn't
+      // float up (the FailedDocsBanner already surfaces it for a bulk retry).
+      if (s !== 'ready' && s !== 'failed') topDocs.push(d)
+      else restDocs.push(d)
+    }
+    return [...topDocs, ...restDocs]
+  }, [docs, progress, reembedDocIds])
 
+  const pageCount = Math.max(1, Math.ceil(orderedDocs.length / PAGE_SIZE))
+
+  // Jump back to page 1 when the dataset identity changes (workspace switch).
+  // NOT on every `docs` reference change — refreshDocs() mints a fresh array on
+  // each index-progress 'done'/sync/delete, and resetting on that would yank the
+  // user off the page they're reading. The ref guard skips the initial mount so
+  // a tab-switch remount restores the lifted page instead of snapping back to
+  // page 1 (the reset only fires on a real change).
+  const lastResetKey = useRef(resetKey)
   useEffect(() => {
-    if (visibleCount >= docs.length) return
-    const el = sentinelRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisibleCount((n) => Math.min(n + BATCH_STEP, docs.length))
-        }
-      },
-      // Trigger ~one viewport early so the user never sees the loading gap.
-      { rootMargin: '600px 0px' },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [visibleCount, docs.length])
+    if (lastResetKey.current === resetKey) return
+    lastResetKey.current = resetKey
+    setPage(0)
+  }, [resetKey, setPage])
+
+  // Clamp if the list shrank under the current page (deletes, the filter, a
+  // failed re-import) so the user is never stranded on an empty page past the end.
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(pageCount - 1)
+  }, [page, pageCount, setPage])
 
   if (docs.length === 0) {
     return <div className="library__empty">{t('library.empty')}</div>
   }
-  const visibleDocs = visibleCount >= docs.length ? docs : docs.slice(0, visibleCount)
-  const hiddenCount = docs.length - visibleDocs.length
+  // Always slice from a clamped page so a render between the list shrinking and
+  // the clamp effect firing can't show an empty page.
+  const safePage = Math.min(page, pageCount - 1)
+  const start = safePage * PAGE_SIZE
+  const visibleDocs = orderedDocs.slice(start, start + PAGE_SIZE)
   return (
-    <table className="library__table">
-      <thead>
-        <tr>
-          <th>{t('library.colTitle')}</th>
-          <th>{t('library.colStatus')}</th>
-          <th>{t('library.colChunks')}</th>
-          <th>{t('library.colAdded')}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {visibleDocs.map((d) => {
-          const p = progress.get(d.id)
-          return (
-            <DocumentRow
-              key={d.id}
-              doc={d}
-              {...(p !== undefined ? { progress: p } : {})}
-              {...(reembedDocIds?.has(d.id) ? { reembedding: true } : {})}
-              onDelete={onDelete}
-              onReindex={onReindex}
-              onReveal={onReveal}
-              onOpenExternal={onOpenExternal}
-              onReplace={onReplace}
-              onRefresh={onRefresh}
-              onRead={onRead}
-              onExport={onExport}
-              onSummarize={onSummarize}
-              onTogglePin={onTogglePin}
-            />
-          )
-        })}
-        {hiddenCount > 0 && (
-          <tr ref={sentinelRef} className="library__row-sentinel" aria-hidden="true">
-            <td colSpan={5} style={{ padding: '8px 0', opacity: 0.5, textAlign: 'center' }}>
-              {t('library.loadingMore', { count: hiddenCount })}
-            </td>
+    <>
+      <table className="library__table">
+        <thead>
+          <tr>
+            <th>{t('library.colTitle')}</th>
+            <th>{t('library.colStatus')}</th>
+            <th>{t('library.colChunks')}</th>
+            <th>{t('library.colAdded')}</th>
+            <th></th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {visibleDocs.map((d) => {
+            const p = progress.get(d.id)
+            return (
+              <DocumentRow
+                key={d.id}
+                doc={d}
+                {...(p !== undefined ? { progress: p } : {})}
+                {...(reembedDocIds?.has(d.id) ? { reembedding: true } : {})}
+                onDelete={onDelete}
+                onReindex={onReindex}
+                onReveal={onReveal}
+                onOpenExternal={onOpenExternal}
+                onReplace={onReplace}
+                onRefresh={onRefresh}
+                onRead={onRead}
+                onExport={onExport}
+                onSummarize={onSummarize}
+                onTogglePin={onTogglePin}
+              />
+            )
+          })}
+        </tbody>
+      </table>
+      {pageCount > 1 && (
+        <nav className="library__pagination" aria-label={t('library.paginationLabel')}>
+          <button
+            type="button"
+            className="library__pagination-btn"
+            onClick={() => setPage(Math.max(0, safePage - 1))}
+            disabled={safePage === 0}
+          >
+            <ChevronLeft size={14} aria-hidden="true" />
+            {t('library.paginationPrev')}
+          </button>
+          <span className="library__pagination-status" aria-live="polite">
+            <span className="library__pagination-page">
+              {t('library.paginationStatus', { page: safePage + 1, total: pageCount })}
+            </span>
+            <span className="library__pagination-range">
+              {t('library.paginationRange', {
+                from: start + 1,
+                to: start + visibleDocs.length,
+                count: orderedDocs.length,
+              })}
+            </span>
+          </span>
+          <button
+            type="button"
+            className="library__pagination-btn"
+            onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
+            disabled={safePage === pageCount - 1}
+          >
+            {t('library.paginationNext')}
+            <ChevronRight size={14} aria-hidden="true" />
+          </button>
+        </nav>
+      )}
+    </>
   )
 }

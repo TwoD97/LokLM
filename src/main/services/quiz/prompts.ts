@@ -13,11 +13,38 @@ import type { QuizLanguage } from '../../../shared/quiz'
  *  ~320 tokens ). */
 export const PER_QUESTION_TOKEN_BUDGET = 320
 
-/** Anti-runaway ceiling on one unit's question count — NOT a content quota.
- *  The model decides how many questions the material needs (coverage); this
- *  only stops a degenerate model from decoding forever. A ≤1800-token unit
- *  rarely supports more than 8 substantive MCQs. */
+/** Hard ceiling on one unit's question count — the "≤8 per paragraph" cap. The
+ *  model is asked to hit a size-scaled target (targetQuestionCount) and may go
+ *  up to here, but no further. Also stops a degenerate model decoding forever. */
 export const PER_UNIT_MAX_QUESTIONS = 8
+
+/** Soft ceiling on a whole deck: question count approaches but never reaches
+ *  this however large the document, so a 200-page book yields a usable deck
+ *  (and a bounded number of LLM calls) instead of thousands of questions. */
+export const MAX_DECK_QUESTIONS = 110
+/** Document size (tokens) at which a deck reaches HALF of MAX_DECK_QUESTIONS.
+ *  Smaller ⇒ density ramps up faster with document size. ~9k tokens ≈ a long
+ *  article → ~55 questions. */
+export const DECK_HALF_TOKENS = 9000
+
+/** Target number of questions for a whole document — a saturating function of
+ *  its size (Michaelis–Menten): dense for short docs, leveling off for long
+ *  ones. This, not a fixed tokens-per-question, is what scales the quiz to the
+ *  document. */
+export function targetDeckSize(docTokens: number): number {
+  if (docTokens <= 0) return 0
+  return (MAX_DECK_QUESTIONS * docTokens) / (docTokens + DECK_HALF_TOKENS)
+}
+
+/** A single unit's question target: its proportional share of the document-wide
+ *  targetDeckSize, clamped to [1, PER_UNIT_MAX_QUESTIONS]. Summed across a
+ *  document's units this approximates targetDeckSize(docTokens). The prompt asks
+ *  the model to aim for this; it stays free to write fewer for thin material. */
+export function targetQuestionCount(unitTokens: number, docTokens: number): number {
+  if (docTokens <= 0) return 1
+  const share = targetDeckSize(docTokens) * (unitTokens / docTokens)
+  return Math.max(1, Math.min(PER_UNIT_MAX_QUESTIONS, Math.round(share)))
+}
 
 /** node-llama-cpp GbnfJsonSchema for the batch-of-MCQs array. The grammar
  *  enforces JSON *syntax* + the value shapes here (enum for correct_index,
@@ -72,17 +99,23 @@ export interface UnitQuestionPromptInput {
   unitTitle: string
   /** Chunks formatted as "[chunk:42] <text>" — the LLM is told to cite by id. */
   groundingBlock: string
+  /** Token size of this unit — its share of the document-wide question target. */
+  unitTokens: number
+  /** Token size of the whole document — sets the overall density (targetDeckSize)
+   *  the unit's share is drawn from. */
+  docTokens: number
 }
 
-/** Per-unit builder: the MODEL decides how many MCQs the material needs —
- *  the brief is full coverage of the important information, bounded only by
- *  the anti-runaway ceiling. Grounded ONLY in the unit's chunks. No
- *  avoid-list — cross-unit duplicates are structurally unlikely (different
- *  units = different material) and the deck-level normalized stem dedup
- *  catches the rest in code. */
+/** Per-unit builder: coverage-first. The model is asked to write a question for
+ *  every distinct, testable fact, aiming for a size-scaled target and bounded
+ *  by the PER_UNIT_MAX_QUESTIONS ceiling. Grounded ONLY in the unit's chunks.
+ *  No avoid-list — cross-unit duplicates are structurally unlikely (different
+ *  units = different material) and the deck-level normalized stem dedup catches
+ *  the rest in code. */
 export function buildUnitQuestionPrompt(input: UnitQuestionPromptInput): string {
-  const { language, docTitle, unitTitle, groundingBlock } = input
+  const { language, docTitle, unitTitle, groundingBlock, unitTokens, docTokens } = input
   const max = PER_UNIT_MAX_QUESTIONS
+  const target = targetQuestionCount(unitTokens, docTokens)
   if (language === 'de') {
     return `Du schreibst Multiple-Choice-Fragen für eine Studierende.
 
@@ -93,10 +126,9 @@ Quellmaterial (jeder Eintrag ist ein zitierbarer Chunk — nutze NUR dieses Mate
 ${groundingBlock}
 
 Anforderungen:
-- Schreibe so viele Fragen, wie nötig sind, um ALLE wichtigen Informationen des Quellmaterials abzudecken (mindestens 1, höchstens ${max}). Du entscheidest die Anzahl anhand des Inhalts — nicht anhand der Textlänge.
-- Keine Füllfragen: jede Frage muss eine eigenständige, prüfungswürdige Information testen. Wenn das Material nur eine Kernaussage hat, schreibe nur eine Frage.
+- Decke den Stoff DICHT ab: schreibe für JEDE eigenständige, prüfungswürdige Information eine eigene Frage. Ziel sind etwa ${target} Fragen (mindestens 1, höchstens ${max}). Schöpfe den echten Prüfstoff voll aus.
+- Keine Wiederholungen und keine Trivialfragen: jede Frage testet eine ANDERE Information; frage Verständnis oder Anwendung, nicht bloßes Auswendiglernen. Nur wenn das Material wirklich wenig hergibt, schreibe entsprechend weniger als das Ziel.
 - Alle Fragen klar voneinander verschieden, ausschließlich auf dem Quellmaterial oben basierend.
-- Teste Verständnis oder Anwendung, NICHT triviales Auswendiglernen.
 - Jede Frage hat genau 4 Antwortmöglichkeiten — ALLE VIER MÜSSEN UNTERSCHIEDLICH sein (keine Duplikate, keine Umformulierungen derselben Antwort), alle plausibel, genau EINE richtig.
 - Die richtige Antwort muss eine inhaltliche Aussage sein — niemals "alle/keine der genannten".
 - Die Erklärung muss begründen, warum die richtige Antwort stimmt, und sich auf das Material stützen.
@@ -126,10 +158,9 @@ Source material (each entry is a citable chunk — use ONLY this material):
 ${groundingBlock}
 
 Requirements:
-- Write as many questions as needed to cover ALL the important information in the source material (at least 1, at most ${max}). YOU decide the count from the content — not from the text length.
-- No filler: every question must test a distinct, exam-worthy piece of information. If the material carries only one key idea, write only one question.
+- Cover the material DENSELY: write a separate question for EVERY distinct, exam-worthy piece of information. Aim for about ${target} questions (at least 1, at most ${max}). Exhaust the real testable content.
+- No repetition and no trivia: each question tests a DIFFERENT fact; probe understanding or application, not rote recall. Only if the material genuinely supports fewer, write fewer than the target.
 - All questions clearly distinct from each other, grounded solely in the source material above.
-- Test understanding or application, NOT trivial recall.
 - Each question has exactly 4 options — ALL FOUR MUST BE DISTINCT (no duplicates, no rewordings of the same answer), all plausible, exactly ONE correct.
 - The correct answer must be a substantive statement — never "all/none of the above".
 - The explanation must justify the correct answer using the material.

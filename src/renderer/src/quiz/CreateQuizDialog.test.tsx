@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CreateQuizDialog } from './CreateQuizDialog'
+import { CreateQuizDialog, defaultQuizName } from './CreateQuizDialog'
 import type { Document } from '@shared/documents'
 import type { QuizDeck } from '@shared/quiz'
 
@@ -56,7 +56,7 @@ describe('CreateQuizDialog', () => {
     expect(generate.disabled).toBe(true)
   })
 
-  it('disables Generate when the name is empty', () => {
+  it('disables Generate when the name is cleared', () => {
     render(
       <CreateQuizDialog
         workspaceId={1}
@@ -65,9 +65,47 @@ describe('CreateQuizDialog', () => {
         onCreated={() => undefined}
       />,
     )
+    // Selecting a doc auto-fills the name, so clear it to test the requirement.
     fireEvent.click(screen.getByLabelText(/Doc 1/i))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } })
     const generate = screen.getByText('Generate').closest('button')!
     expect(generate.disabled).toBe(true)
+  })
+
+  it('auto-fills the name from the selected document and stops once edited', () => {
+    render(
+      <CreateQuizDialog
+        workspaceId={1}
+        documents={[makeDoc(1, 'ready', 'Biology Ch.3'), makeDoc(2, 'ready', 'Physics Ch.1')]}
+        onCancel={() => undefined}
+        onCreated={() => undefined}
+      />,
+    )
+    const nameInput = screen.getByRole('textbox') as HTMLInputElement
+    expect(nameInput.value).toBe('')
+    // Selecting a document fills the name…
+    fireEvent.click(screen.getByLabelText('Biology Ch.3'))
+    expect(nameInput.value).toBe('Biology Ch.3')
+    // …and an untouched name follows a different selection.
+    fireEvent.click(screen.getByLabelText('Physics Ch.1'))
+    expect(nameInput.value).toBe('Physics Ch.1')
+    // Once the user types, selection no longer overwrites their name.
+    fireEvent.change(nameInput, { target: { value: 'My custom quiz' } })
+    fireEvent.click(screen.getByLabelText('Biology Ch.3'))
+    expect(nameInput.value).toBe('My custom quiz')
+  })
+
+  it('drops the file extension when auto-filling the name', () => {
+    render(
+      <CreateQuizDialog
+        workspaceId={1}
+        documents={[makeDoc(1, 'ready', 'Lecture 4.pdf')]}
+        onCancel={() => undefined}
+        onCreated={() => undefined}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Lecture 4.pdf'))
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Lecture 4')
   })
 
   it('only lists documents whose status is ready', () => {
@@ -88,7 +126,7 @@ describe('CreateQuizDialog', () => {
     expect(screen.queryByText('Failed doc')).not.toBeInTheDocument()
   })
 
-  it('calls createDeck with the entered name, selected docs and language', async () => {
+  it('calls createDeck with the entered name, the single selected doc and language', async () => {
     const createSpy = vi.spyOn(window.api.quiz, 'createDeck').mockResolvedValue(makeDeck('My Q'))
     const onCreated = vi.fn()
     render(
@@ -100,6 +138,7 @@ describe('CreateQuizDialog', () => {
       />,
     )
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My Q' } })
+    // Radio selection: one document at a time. Picking B after A replaces it.
     fireEvent.click(screen.getByLabelText('A'))
     fireEvent.click(screen.getByLabelText('B'))
     fireEvent.click(screen.getByText('Deutsch'))
@@ -109,14 +148,16 @@ describe('CreateQuizDialog', () => {
     expect(createSpy).toHaveBeenCalledWith({
       workspaceId: 7,
       name: 'My Q',
-      documentIds: [1, 2],
+      documentIds: [2],
       language: 'de',
     })
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
   })
 
-  it('shows the section estimate once documents are selected', async () => {
-    const estimateSpy = vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ unitCount: 7 })
+  it('shows the section + question estimate once a document is selected', async () => {
+    const estimateSpy = vi
+      .spyOn(window.api.quiz, 'estimate')
+      .mockResolvedValue({ unitCount: 7, questionEstimate: 21 })
     render(
       <CreateQuizDialog
         workspaceId={1}
@@ -128,13 +169,11 @@ describe('CreateQuizDialog', () => {
     expect(screen.queryByText(/sections/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText(/Doc 1/i))
     await waitFor(() => expect(estimateSpy).toHaveBeenCalledWith([1]))
-    expect(
-      await screen.findByText(/7 sections — the AI decides how many questions each needs/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/7 sections · about 21 questions/)).toBeInTheDocument()
   })
 
   it('shows the empty-material hint when the estimate is zero', async () => {
-    vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ unitCount: 0 })
+    vi.spyOn(window.api.quiz, 'estimate').mockResolvedValue({ unitCount: 0, questionEstimate: 0 })
     render(
       <CreateQuizDialog
         workspaceId={1}
@@ -145,7 +184,7 @@ describe('CreateQuizDialog', () => {
     )
     fireEvent.click(screen.getByLabelText(/Doc 1/i))
     expect(
-      await screen.findByText(/No indexable content in the selected documents/),
+      await screen.findByText(/No indexable content in the selected document\./),
     ).toBeInTheDocument()
   })
 
@@ -181,5 +220,24 @@ describe('CreateQuizDialog', () => {
     fireEvent.click(screen.getByText('Cancel'))
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(createSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('defaultQuizName', () => {
+  it('strips known file extensions (case-insensitive)', () => {
+    expect(defaultQuizName('Lecture 4.pdf')).toBe('Lecture 4')
+    expect(defaultQuizName('notes.DOCX')).toBe('notes')
+    expect(defaultQuizName('readme.md')).toBe('readme')
+  })
+
+  it('leaves titles without a real extension untouched', () => {
+    expect(defaultQuizName('Biology Ch.3')).toBe('Biology Ch.3')
+    expect(defaultQuizName('v1.2 spec')).toBe('v1.2 spec')
+    expect(defaultQuizName('Plain Title')).toBe('Plain Title')
+    expect(defaultQuizName('.gitignore')).toBe('.gitignore')
+  })
+
+  it('only strips the final extension', () => {
+    expect(defaultQuizName('report.final.docx')).toBe('report.final')
   })
 })

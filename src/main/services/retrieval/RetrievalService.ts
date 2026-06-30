@@ -246,6 +246,27 @@ export class RetrievalService {
     private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
   ) {}
 
+  /** Cheap BM25-only top-score probe: FTS5 keyword search, top hit, no dense and
+   *  no rerank (~ms, CPU). Used by the signal-gated contextualizer to ask "does
+   *  this query anchor in the corpus on its own?". Returns the best -bm25 score
+   *  (higher = better, per WorkspaceDb.searchChunks), or 0 when nothing matches
+   *  or the probe fails. */
+  async probeBm25Top(workspaceId: number, query: string): Promise<number> {
+    const trimmed = query.trim()
+    if (!trimmed) return 0
+    try {
+      const wsdb = this.getWorkspaceDb ? await this.getWorkspaceDb(workspaceId) : null
+      const hits = wsdb
+        ? await wsdb.searchChunks(trimmed, 1, { activeDocumentIds: null })
+        : await this.db
+            .documents()
+            .searchChunks(workspaceId, trimmed, 1, { activeDocumentIds: null })
+      return hits.length > 0 ? (hits[0]!.score ?? 0) : 0
+    } catch {
+      return 0
+    }
+  }
+
   async search(
     workspaceId: number,
     query: string,
