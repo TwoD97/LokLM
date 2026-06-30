@@ -8,6 +8,7 @@ import { ConfirmModal } from './ConfirmModal'
 import { SourceViewer } from './SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useSettings } from '../settings/useSettings'
+import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 import './chat.css'
 
@@ -80,6 +81,7 @@ export function ChatView({
     documentTitle: string | null
   } | null>(null)
   const { settings } = useSettings()
+  const { begin: beginGeneration } = useGeneration()
   const t = useT()
   // Default false matches the original "collapse on first token" UX; setting
   // is undefined while settings hydrate from disk on first launch.
@@ -156,6 +158,9 @@ export function ChatView({
             // the grounding badge renders — distinguishes "cited nothing" from
             // "still streaming" (undefined).
             citations: m.citations.map((c) => ({ documentId: c.documentId, chunkId: c.chunkId })),
+            // Re-hydrate the persisted pipeline so the progress dropdown shows
+            // after a reload (empty/absent on legacy rows → no dropdown).
+            ...(m.pipeline && m.pipeline.length > 0 ? { pipeline: m.pipeline } : {}),
             ...(hasMetrics
               ? {
                   metrics: {
@@ -306,6 +311,10 @@ export function ChatView({
           return next
         })
       })
+      // Register this turn with the global generation registry so the TitleBar
+      // Activity indicator reflects it (the model is serial; this is what makes
+      // "busy / queued" legible while the user is on another tab).
+      const endGeneration = beginGeneration('chat')
       try {
         // History = the turns captured at send-start (above), already excluding
         // this turn's user message + placeholder — no fragile post-push slice.
@@ -321,25 +330,41 @@ export function ChatView({
         // trailing token is dropped, leaving the UI stuck mid-stream. Re-sync
         // from the DB so the final assistant turn is always rendered.
         if (convId != null) await openConversation(convId)
-        // Auto-name brand-new chats from the first round-trip. The IPC
-        // handler is idempotent — it skips when the row already has a title
-        // — so a future manual rename survives subsequent sends.
-        if (wasNewConversation && convId != null) {
-          try {
-            await window.api.conversations.generateTitle(convId)
-            await refresh()
-          } catch {
-            /* title gen is best-effort; the chat keeps its fallback name */
-          }
-        }
       } finally {
+        endGeneration()
         offEvent()
         setActiveStreamId(null)
         setBusy(false)
         void refresh()
       }
+      // Auto-name brand-new chats AFTER the turn is no longer streaming. Title gen
+      // is a SECOND LLM call (slow on the iGPU); awaiting it inside the try above
+      // kept busy/activeStreamId set — so the conversation looked like it was still
+      // streaming, the UI stayed blocked, and switching conversation mid-gen raced
+      // the refresh and "broke out". Fire it DETACHED; refresh() is list-only, so
+      // the name just updates when it lands, even after a switch. The IPC handler
+      // is idempotent (skips a row that already has a title), so a later manual
+      // rename survives subsequent sends.
+      if (wasNewConversation && convId != null) {
+        void window.api.conversations
+          .generateTitle(convId)
+          .then((title) => {
+            if (title) void refresh()
+          })
+          .catch(() => {
+            /* best-effort; the chat keeps its fallback name */
+          })
+      }
     },
-    [currentConversationId, workspaceId, openConversation, refresh, onConversationChange, t],
+    [
+      currentConversationId,
+      workspaceId,
+      openConversation,
+      refresh,
+      onConversationChange,
+      t,
+      beginGeneration,
+    ],
   )
 
   // Stable wrapper for ChatInput — its `onSend` prop is `(text: string) => void`
@@ -479,6 +504,7 @@ export function ChatView({
           onCitationClick={onCitationClick}
           keepPipelineVisible={keepPipelineVisible}
           onCopy={onCopyMessage}
+          documents={documents}
           {...(busy ? {} : { onRegenerate: () => void onRegenerate() })}
         />
         <ChatInput onSend={onSendForInput} busy={busy} onCancel={onCancel} />

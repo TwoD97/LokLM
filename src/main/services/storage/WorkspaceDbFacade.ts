@@ -10,7 +10,7 @@ import type {
   NewQuizQuestion,
 } from '../../db/sqlite/WorkspaceDb'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/types'
-import type { LibrarySearchOptions, Workspace } from '../../../shared/documents'
+import type { LibrarySearchOptions, PipelineStep, Workspace } from '../../../shared/documents'
 import { workspaceTypeOf, type WorkspaceType } from '../../../shared/workspaceStorage'
 import type {
   QuizDeck,
@@ -307,8 +307,9 @@ class ConversationsApi {
     role: 'user' | 'assistant' | 'system',
     content: string,
     metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
+    pipeline?: PipelineStep[] | null,
   ): Promise<MessageRow> {
-    return this.active().appendMessage(conversationId, role, content, metrics)
+    return this.active().appendMessage(conversationId, role, content, metrics, pipeline)
   }
   async persistCitations(
     messageId: number,
@@ -386,6 +387,12 @@ class QuizzesApi {
       n += await (await this.meta(w.id)).resetStuckDecks()
     return n
   }
+  async deleteAbandonedAttempts(): Promise<number> {
+    let n = 0
+    for (const w of this.auth.getWorkspaceStore().list())
+      n += await (await this.meta(w.id)).deleteAbandonedAttempts()
+    return n
+  }
   async getDeck(deckId: number): Promise<QuizDeck | null> {
     return this.active().getDeck(deckId)
   }
@@ -400,6 +407,14 @@ class QuizzesApi {
   }
   async clearQuestions(deckId: number): Promise<void> {
     return this.active().clearQuestions(deckId)
+  }
+  async mergeDecks(input: {
+    workspaceId: number
+    name: string
+    deckIds: number[]
+    shuffle: boolean
+  }): Promise<QuizDeck> {
+    return (await this.meta(input.workspaceId)).mergeDecks(input)
   }
   async deleteDeck(deckId: number): Promise<void> {
     return this.active().deleteDeck(deckId)

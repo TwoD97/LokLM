@@ -21,7 +21,13 @@ export function ChatInput({ onSend, busy, onCancel }: Props): JSX.Element {
     const ta = textareaRef.current
     if (!ta) return
     ta.style.height = 'auto'
-    ta.style.height = `${Math.min(ta.scrollHeight, MAX_HEIGHT_PX)}px`
+    const full = ta.scrollHeight
+    ta.style.height = `${Math.min(full, MAX_HEIGHT_PX)}px`
+    // Only reveal the scrollbar once the content genuinely exceeds the cap.
+    // Otherwise sub-pixel rounding of a single line (line-height 14×1.45) makes
+    // scrollHeight read ~1px over the box and `overflow: auto` flashes a
+    // needless scrollbar on the empty/one-line input.
+    ta.style.overflowY = full > MAX_HEIGHT_PX ? 'auto' : 'hidden'
   }, [draft])
 
   const submit = (): void => {

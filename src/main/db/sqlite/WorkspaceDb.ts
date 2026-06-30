@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3-multiple-ciphers'
 import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../types'
-import type { LibrarySearchOptions } from '../../../shared/documents'
+import type { LibrarySearchOptions, PipelineStep } from '../../../shared/documents'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -95,6 +95,9 @@ export interface MessageRow {
   ttftMs: number | null
   tokensPerSec: number | null
   tokenCount: number | null
+  /** Persisted inline pipeline; absent when the column is null (user/system
+   *  rows, legacy rows, or turns with no visible stage). */
+  pipeline?: PipelineStep[]
 }
 
 export interface CitationRow {
@@ -118,6 +121,17 @@ export interface WsFolder {
   parentId: number | null
   name: string
   createdAt: number
+}
+
+/** Fisher–Yates in place. Used to shuffle merged quiz questions; ordinary app
+ *  randomness (not security- or determinism-sensitive — the runner reshuffles
+ *  per attempt anyway). */
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
+  }
+  return arr
 }
 
 /** Summary embeddings are stored as a BLOB of float32 (ADR-0003): hundreds of
@@ -184,6 +198,18 @@ export class WorkspaceDb {
     db.pragma(`key="x'${keyHex}'"`)
     db.pragma('foreign_keys = ON')
     db.exec(WORKSPACE_SCHEMA_SQL)
+    // Additive column migrations. There's no migration runner — the schema is
+    // applied via CREATE…IF NOT EXISTS, which can't add a column to a table
+    // that already exists. Each entry is a guarded, idempotent ALTER for DBs
+    // created before the column was introduced.
+    const messageCols = new Set(
+      (db.prepare(`PRAGMA table_info(messages)`).all() as Array<{ name: string }>).map(
+        (c) => c.name,
+      ),
+    )
+    if (!messageCols.has('pipeline')) {
+      db.exec(`ALTER TABLE messages ADD COLUMN pipeline TEXT`)
+    }
     return new WorkspaceDb(db, workspaceId)
   }
 
@@ -1023,11 +1049,84 @@ export class WorkspaceDb {
     this.run(`DELETE FROM quiz_questions WHERE deck_id = ?`, [deckId])
   }
 
+  /** Combine several finished decks into one new ready deck. Copies every
+   *  question from the sources (optionally shuffling the combined order) into a
+   *  fresh deck; the sources are left untouched. The new deck's document_ids is
+   *  the union of the sources'. All in one transaction so a partial merge can
+   *  never surface. */
+  async mergeDecks(input: {
+    name: string
+    deckIds: number[]
+    shuffle: boolean
+  }): Promise<QuizDeck> {
+    const { name, deckIds, shuffle } = input
+    if (deckIds.length < 2) throw new Error('Select at least two quizzes to merge')
+
+    const sources: Array<{ deck: QuizDeck; questions: QuizQuestion[] }> = []
+    for (const id of deckIds) {
+      const deck = await this.getDeck(id)
+      if (!deck) throw new Error(`Deck ${id} not found`)
+      if (deck.status !== 'ready') throw new Error(`"${deck.name}" is not ready to merge`)
+      sources.push({ deck, questions: await this.listQuestions(id) })
+    }
+
+    const combined = sources.flatMap((s) => s.questions)
+    if (combined.length === 0) throw new Error('The selected quizzes have no questions')
+    const ordered = shuffle ? shuffleInPlace(combined.slice()) : combined
+    const documentIds = [...new Set(sources.flatMap((s) => s.deck.documentIds))]
+    // Language is a deck-level label only (each question carries its own text),
+    // so the first source's language is a fine default for a merged deck.
+    const language = sources[0]!.deck.language
+
+    const insert = this.db.prepare(
+      `INSERT INTO quiz_questions
+        (deck_id, ordinal, stem, options, correct_index, explanation, source_chunk_ids, theme_title)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    const row = this.db.transaction(() => {
+      const created = this.one(
+        `INSERT INTO quiz_decks (name, document_ids, question_count, status, language)
+         VALUES (?, ?, ?, 'ready', ?)
+         RETURNING id, name, document_ids, question_count, status, error, language, created_at`,
+        [name, JSON.stringify(documentIds), ordered.length, language],
+      )!
+      const newId = Number(created.id)
+      ordered.forEach((q, i) => {
+        insert.run(
+          newId,
+          i,
+          q.stem,
+          JSON.stringify(q.options),
+          q.correctIndex,
+          q.explanation,
+          JSON.stringify(q.sourceChunkIds),
+          q.themeTitle,
+        )
+      })
+      return created
+    })()
+    return this.toDeck(row)
+  }
+
   async deleteAttempts(deckId: number): Promise<void> {
     this.run(`DELETE FROM quiz_attempts WHERE deck_id = ?`, [deckId])
   }
 
+  /** Cold-boot sweep: drop attempts that were started but never scored — a run
+   *  abandoned by a closed/locked/navigated-away session (the runner inserts the
+   *  row up front, so leaving mid-run strands it). These are already hidden from
+   *  the deck card (attemptCount filters finished) and the history list, so this
+   *  only reclaims the dangling rows. Mirrors `resetStuckDecks`. Returns the
+   *  number removed. Finished attempts — the real history — are untouched. */
+  async deleteAbandonedAttempts(): Promise<number> {
+    return this.rows(`DELETE FROM quiz_attempts WHERE finished_at IS NULL RETURNING id`).length
+  }
+
   async startAttempt(deckId: number): Promise<QuizAttempt> {
+    // A prior un-scored attempt on this deck is an abandoned run (there is no
+    // resume), so drop it before opening a new one — re-taking a deck must not
+    // accumulate dangling rows. Finished attempts (the history) are untouched.
+    this.run(`DELETE FROM quiz_attempts WHERE deck_id = ? AND finished_at IS NULL`, [deckId])
     const row = this.one(
       `INSERT INTO quiz_attempts (deck_id) VALUES (?)
        RETURNING id, deck_id, started_at, finished_at, score, answers`,
@@ -1174,6 +1273,10 @@ export class WorkspaceDb {
     role: 'user' | 'assistant' | 'system',
     content: string,
     metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
+    /** Inline pipeline rows for an assistant turn, persisted as JSON so the
+     *  progress dropdown survives a reload. Omit / null for user turns and
+     *  turns with no visible stage. */
+    pipeline?: PipelineStep[] | null,
   ): Promise<MessageRow> {
     // Loud guard for the store-routing class (same as persistChunks): the parent
     // conversation must live in this store, else the caller wrote to the wrong
@@ -1186,9 +1289,9 @@ export class WorkspaceDb {
       )
     }
     const row = this.one(
-      `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count)
-       VALUES (?, ?, ?, ?, ?, ?)
-       RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count`,
+      `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count, pipeline)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline`,
       [
         conversationId,
         role,
@@ -1196,6 +1299,7 @@ export class WorkspaceDb {
         metrics?.ttftMs ?? null,
         metrics?.tokensPerSec ?? null,
         metrics?.tokenCount ?? null,
+        pipeline && pipeline.length > 0 ? JSON.stringify(pipeline) : null,
       ],
     )
     return this.toMessage(row!)
@@ -1228,7 +1332,7 @@ export class WorkspaceDb {
     if (!c || c.id == null) return null
     const conversation = this.toConversation(c, Number(c.last_activity_at), Number(c.message_count))
     const messages: MessageWithCitations[] = this.rows(
-      `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count
+      `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline
          FROM messages WHERE conversation_id = ? ORDER BY id`,
       [conversationId],
     ).map((r) => ({ ...this.toMessage(r), citations: [] as CitationRow[] }))
@@ -1331,6 +1435,9 @@ export class WorkspaceDb {
       ttftMs: row.ttft_ms == null ? null : Number(row.ttft_ms),
       tokensPerSec: row.tokens_per_sec == null ? null : Number(row.tokens_per_sec),
       tokenCount: row.token_count == null ? null : Number(row.token_count),
+      ...(row.pipeline != null
+        ? { pipeline: JSON.parse(String(row.pipeline)) as PipelineStep[] }
+        : {}),
     }
   }
 

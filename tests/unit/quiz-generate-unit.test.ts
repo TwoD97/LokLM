@@ -20,11 +20,15 @@ function makeChunk(id: number, text: string): ChunkRow {
 }
 
 function makeUnit(chunks: ChunkRow[], overrides: Partial<QuizUnit> = {}): QuizUnit {
+  const tokens = chunks.reduce((s, c) => s + (c.token_count ?? 0), 0)
   return {
     docId: 1,
     docTitle: 'Crypto Lecture',
     chunks,
-    tokens: chunks.reduce((s, c) => s + (c.token_count ?? 0), 0),
+    tokens,
+    // Default: the unit is the whole document (single-unit doc) unless a test
+    // overrides docTokens to exercise the size-scaled target.
+    docTokens: tokens,
     title: 'Key Exchange',
     ...overrides,
   }

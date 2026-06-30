@@ -52,13 +52,20 @@ export const chatDict: DomainDict = {
     'chat.stageSummarize': 'Summarize',
     'chat.stageCorpus': 'Library lookup',
     'chat.stagePrefill': 'Prefill',
+    // Collapsible pipeline dropdown
+    'chat.pipelineDone': 'Done · {ms}',
+    'chat.pipelineToggle': 'Toggle pipeline details',
+    'chat.generating': 'Generating…',
     'chat.metricsPipeline': 'pipeline {ms} · ',
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} tok/s',
     'chat.metricsTokens': ' · {count} tok',
-    // Grounding badge — per-answer citation trust signal
+    // Grounding badge — per-answer citation trust signal. Count is the number
+    // of distinct documents cited; clicking lists them by file name.
     'chat.groundingOne': 'Grounded · 1 source',
     'chat.groundingMany': 'Grounded · {count} sources',
+    'chat.sourcesPopoverTitle': 'Documents used for this answer',
+    'chat.documentFallback': 'Document #{id}',
     // Fallback sources footer — shown when the model answered from the fed
     // chunks but emitted no inline citation markers.
     'chat.sources': 'Sources',
@@ -128,14 +135,21 @@ export const chatDict: DomainDict = {
     'chat.stageRerank': 'Reranken',
     'chat.stageSummarize': 'Zusammenfassen',
     'chat.stageCorpus': 'Bibliotheksabfrage',
-    'chat.stagePrefill': 'Prefill',
+    'chat.stagePrefill': 'Vorbefüllung',
+    // Collapsible pipeline dropdown
+    'chat.pipelineDone': 'Fertig · {ms}',
+    'chat.pipelineToggle': 'Pipeline-Details umschalten',
+    'chat.generating': 'Wird erzeugt…',
     'chat.metricsPipeline': 'Pipeline {ms} · ',
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} Tok/s',
     'chat.metricsTokens': ' · {count} Tok',
-    // Grounding badge — per-answer citation trust signal
+    // Grounding badge — per-answer citation trust signal. Count is the number
+    // of distinct documents cited; clicking lists them by file name.
     'chat.groundingOne': 'Belegt · 1 Quelle',
     'chat.groundingMany': 'Belegt · {count} Quellen',
+    'chat.sourcesPopoverTitle': 'Für diese Antwort genutzte Dokumente',
+    'chat.documentFallback': 'Dokument #{id}',
     // Fallback sources footer — shown when the model answered from the fed
     // chunks but emitted no inline citation markers.
     'chat.sources': 'Quellen',

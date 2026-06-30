@@ -80,6 +80,14 @@ export class DocumentService {
   // worker's event loop thrashing.
   private static readonly MAX_CONCURRENT_INDEXING = 2
   private activeIndexing = 0
+  // Set by quiesce() (app-quit drain). Once true the pump stops starting new
+  // jobs so the active ones can settle before the workspace store is closed.
+  private quiescing = false
+  // Monotonic count of indexing progress events (phase changes, OCR ticks, and
+  // per-batch embeds). The app-quit drain watches this to tell "still working"
+  // apart from "wedged" so it can wait adaptively — see drainIndexingForQuit
+  // in main/index.ts.
+  private progressTicks = 0
   private readonly indexQueue: Array<{
     doc: Document
     input: ImportInput
@@ -94,8 +102,40 @@ export class DocumentService {
     this.pumpIndexQueue()
   }
 
+  /** True while any document is running through the pipeline or still queued.
+   *  Consulted by the vault's inactivity auto-lock guard so a long unattended
+   *  import/reindex isn't torn down mid-embed by the 15 min idle lock (which
+   *  would close the workspace store and abort the in-flight batch). */
+  isIndexing(): boolean {
+    return this.activeIndexing > 0 || this.indexQueue.length > 0
+  }
+
+  /** True while at least one document is being processed in a worker right now
+   *  (as opposed to merely queued). The app-quit drain waits on this so the
+   *  active batch's writes land before the workspace store is re-encrypted. */
+  hasActiveIndexing(): boolean {
+    return this.activeIndexing > 0
+  }
+
+  /** Monotonic progress counter (see `progressTicks`). The app-quit drain polls
+   *  it to wait adaptively while indexing advances and give up only on a stall. */
+  indexProgressTicks(): number {
+    return this.progressTicks
+  }
+
+  /** Stop starting *new* indexing jobs and drop everything still queued.
+   *  In-flight jobs already handed to the workers are left to finish — their
+   *  parse/embed requests aren't abortable mid-flight. Used by the app-quit
+   *  drain so the pump doesn't keep refilling slots while we wait for the
+   *  active jobs to settle. Permanent: the process is on its way down. */
+  quiesce(): void {
+    this.quiescing = true
+    this.indexQueue.length = 0
+  }
+
   private pumpIndexQueue(): void {
     while (
+      !this.quiescing &&
       this.activeIndexing < DocumentService.MAX_CONCURRENT_INDEXING &&
       this.indexQueue.length > 0
     ) {
@@ -365,6 +405,9 @@ export class DocumentService {
       error?: string,
       detail?: string,
     ): void => {
+      // Tick before the sender guard: the quit drain's liveness signal must
+      // advance even in contexts with no renderer attached (folder-sync).
+      this.progressTicks++
       if (!sender) return
       try {
         const payload: IndexProgress = {
@@ -491,12 +534,14 @@ export class DocumentService {
           const texts = out.map((c) => c.text)
           const acc: Array<Float32Array | null> = new Array(texts.length).fill(null)
           let anyEmbedded = false
+          let embeddedSoFar = 0
           for (let start = 0; start < texts.length; start += EMBED_BATCH) {
             const slice = texts.slice(start, start + EMBED_BATCH)
             try {
               const vs = await embedder.embed(slice)
               for (let j = 0; j < vs.length; j++) acc[start + j] = vs[j] ?? null
               anyEmbedded = true
+              embeddedSoFar += slice.length
             } catch (err) {
               // eslint-disable-next-line no-console
               console.warn(
@@ -504,6 +549,15 @@ export class DocumentService {
                 err,
               )
             }
+            // Per-batch progress: gives a book-length document's embedding phase a
+            // live "embedding n/total" in the Library row (replacing the frozen
+            // "step 3/4"), and the per-call send ticks the monotonic counter the
+            // app-quit drain + auto-lock watchdog read as liveness. Count only
+            // successfully-embedded chunks so a failed batch (deferred to backfill)
+            // doesn't read as completed progress. The tick fires regardless (the
+            // counter advances inside send() before the sender guard), so a wedged
+            // batch that never returns correctly produces NO tick.
+            send('embedding', 3, undefined, `embedding ${embeddedSoFar}/${texts.length}`)
           }
           if (anyEmbedded) {
             vectors = acc

@@ -16,7 +16,14 @@
  * Models: a tier flag also provisions that tier's GGUFs into <repo>/models from
  * installer-wizard/model-manifest.json ( the same bundle the installer ships ),
  * downloading any that are missing before electron-vite starts. So `pnpm dev
- * --lite` actually runs Qwen3.5-2B rather than whatever larger GGUF is on disk.
+ * --lite` actually runs the lite LLM rather than whatever larger GGUF is on disk.
+ * It ALSO provisions the manifest's shared `common` transcription assets — the
+ * Whisper STT model ( ggml-base.bin ) plus the two speaker-diarization ONNX
+ * models — which a plain dev checkout otherwise lacks, so transcription would
+ * fail with "whisper model 'base' not found". ( The ~3 GB MADLAD translation
+ * files in `common` are NOT downloaded here ; they're handled by the translator
+ * discovery below, which borrows an already-built sidecar + model from an
+ * install rather than downloading them. )
  *
  * Translator: the C++ sidecar (loklm-translator) and its ~3 GB MADLAD model are
  * provisioned by the installer, never the app, so a plain dev checkout has
@@ -63,8 +70,12 @@ if (tier) {
   console.log(`[dev] LOKLM_TIER=${tier} — emulating the "${tier}" install tier`)
   // The wizard installs each tier's GGUFs; a dev checkout has none. Pull the
   // tier's models from the same manifest the installer uses so `--lite` runs
-  // the actual Qwen3.5-2B ( not whatever larger model happens to be on disk ).
+  // the actual lite LLM ( not whatever larger model happens to be on disk ).
   await ensureTierModels(tier)
+  // The wizard also installs the tier-agnostic `common` assets — Whisper + the
+  // diarization ONNX pair — which a dev checkout lacks, so transcription throws
+  // "whisper model 'base' not found". Provision them the same way.
+  await ensureCommonModels()
 }
 
 wireTranslator(env)
@@ -86,44 +97,85 @@ child.on('exit', (code, signal) => {
  * download warns but does not block the dev launch.
  */
 async function ensureTierModels(tier) {
-  const manifestPath = join(ROOT, 'installer-wizard', 'model-manifest.json')
-  if (!existsSync(manifestPath)) {
-    console.warn(`[dev] no model-manifest.json at ${manifestPath} — skipping model download`)
-    return
-  }
-  let manifest
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  } catch (err) {
-    console.warn(`[dev] could not parse model-manifest.json: ${err.message}`)
-    return
-  }
+  const manifest = readManifest()
+  if (!manifest) return
   const entry = manifest.tiers?.[tier]
   if (!entry?.models?.length) {
     console.warn(`[dev] manifest has no tier "${tier}" — skipping model download`)
     return
   }
+  await provisionModels(entry.models, `tier "${tier}"`)
+}
 
+/**
+ * Ensure the manifest's tier-agnostic `common` transcription assets — the
+ * Whisper STT model ( ggml-base.bin ) and the two speaker-diarization ONNX
+ * models — are present in <repo>/models, downloading any that are missing.
+ * These are what the installer ships to EVERY tier; a plain dev checkout has
+ * none, so TranscriptionService.run throws "whisper model 'base' not found".
+ *
+ * The big role:'translation' MADLAD files in `common` are EXCLUDED here: they're
+ * ~3 GB and provisioned separately by wireTranslator() ( which borrows an
+ * already-built sidecar + model from an install rather than downloading them ),
+ * and their subpath filenames ( translator/…/model.bin ) would need nested
+ * mkdirs that the flat provisioner doesn't create.
+ */
+async function ensureCommonModels() {
+  const manifest = readManifest()
+  if (!manifest) return
+  const common = Array.isArray(manifest.common) ? manifest.common : []
+  const wanted = common.filter((m) => m.role === 'whisper' || m.role === 'diarization')
+  if (wanted.length === 0) {
+    console.warn('[dev] manifest has no common whisper/diarization assets — skipping')
+    return
+  }
+  await provisionModels(wanted, 'transcription (common)')
+}
+
+/**
+ * Shared provisioner: ensure every `models` entry ( {filename, url, role,
+ * sizeBytes} ) exists in <repo>/models, downloading the missing ones. `label`
+ * names the set in the log. Files are matched by exact filename; a failed
+ * download warns but never blocks the dev launch.
+ */
+async function provisionModels(models, label) {
   const modelsDir = join(ROOT, 'models')
   if (!existsSync(modelsDir)) mkdirSync(modelsDir, { recursive: true })
 
-  const missing = entry.models.filter((m) => !existsSync(join(modelsDir, m.filename)))
+  const missing = models.filter((m) => !existsSync(join(modelsDir, m.filename)))
   if (missing.length === 0) {
-    console.log(`[dev] tier "${tier}" models already present (${entry.models.length} files)`)
+    console.log(`[dev] ${label} models already present (${models.length} files)`)
     return
   }
-  console.log(`[dev] tier "${tier}": ${missing.length}/${entry.models.length} model(s) to download`)
+  console.log(`[dev] ${label}: ${missing.length}/${models.length} model(s) to download`)
 
   for (const m of missing) {
     const target = join(modelsDir, m.filename)
-    const gb = m.sizeBytes ? (m.sizeBytes / 1e9).toFixed(2) : '?'
-    console.log(`[dev]   ⬇ ${m.role} ${m.filename} (~${gb} GB) from ${shortHost(m.url)}`)
+    const mb = m.sizeBytes ? m.sizeBytes / 1e6 : 0
+    const size = mb >= 1000 ? `${(mb / 1000).toFixed(2)} GB` : mb ? `${mb.toFixed(0)} MB` : '? size'
+    console.log(`[dev]   ⬇ ${m.role} ${m.filename} (~${size}) from ${shortHost(m.url)}`)
     try {
       await downloadFile(m.url, target, m.sizeBytes ?? 0)
       console.log(`[dev]   ✓ ${m.filename}`)
     } catch (err) {
       console.warn(`[dev]   ✗ ${m.filename}: ${err.message} — app will show it as missing`)
     }
+  }
+}
+
+/** Load + parse installer-wizard/model-manifest.json, or null ( with a warning )
+ *  if it's absent or malformed. Shared by the tier + common provisioning paths. */
+function readManifest() {
+  const manifestPath = join(ROOT, 'installer-wizard', 'model-manifest.json')
+  if (!existsSync(manifestPath)) {
+    console.warn(`[dev] no model-manifest.json at ${manifestPath} — skipping model download`)
+    return null
+  }
+  try {
+    return JSON.parse(readFileSync(manifestPath, 'utf8'))
+  } catch (err) {
+    console.warn(`[dev] could not parse model-manifest.json: ${err.message}`)
+    return null
   }
 }
 

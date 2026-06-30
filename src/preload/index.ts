@@ -20,6 +20,7 @@ import type {
   QuizDeckWithQuestions,
   QuizAttempt,
   CreateQuizInput,
+  MergeQuizInput,
   QuizEstimate,
   QuizGenerationEvent,
 } from '../shared/quiz'
@@ -156,6 +157,17 @@ const api = {
       ipcRenderer.on('window:maximized', listener)
       return () => {
         ipcRenderer.removeListener('window:maximized', listener)
+      }
+    },
+    // Fired once when the app starts its before-quit drain (finishing indexing +
+    // re-encrypting the vault). The renderer shows a shutdown overlay so the
+    // drain wait reads as "saving", not a hang. No payload; the window closes
+    // when the drain completes, which implicitly tears the overlay down.
+    onQuitting: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('app:quitting', listener)
+      return () => {
+        ipcRenderer.removeListener('app:quitting', listener)
       }
     },
   },
@@ -530,6 +542,8 @@ const api = {
     estimate: (documentIds: number[]): Promise<QuizEstimate> =>
       ipcRenderer.invoke('quiz:estimate', documentIds),
     deleteDeck: (deckId: number): Promise<void> => ipcRenderer.invoke('quiz:delete-deck', deckId),
+    mergeDecks: (input: MergeQuizInput): Promise<QuizDeck> =>
+      ipcRenderer.invoke('quiz:merge-decks', input),
     regenerateDeck: (deckId: number): Promise<void> =>
       ipcRenderer.invoke('quiz:regenerate-deck', deckId),
     generate: (streamId: string, deckId: number): Promise<void> =>

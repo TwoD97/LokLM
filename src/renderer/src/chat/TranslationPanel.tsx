@@ -4,6 +4,7 @@ import type { TranslateResult, TranslationLanguage, TranslatorStatus } from '@sh
 import { stripCitationMarkers } from '@shared/citationMarkers'
 import { MarkdownView } from '../markdown/MarkdownView'
 import { useSettings } from '../settings/useSettings'
+import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 
 // Inline translate panel under an assistant message. Self-contained on
@@ -20,6 +21,7 @@ type Props = {
 export function TranslationPanel({ content, onClose }: Props): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
+  const { begin: beginGeneration } = useGeneration()
   // Translate into the UI language by default — the common case for a DE/EN
   // user staring at a source in a language they don't read.
   const uiLang = settings?.basic.language === 'de' ? 'de' : 'en'
@@ -53,6 +55,7 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
     setBusy(true)
     setError(null)
     setResult(null)
+    const endGeneration = beginGeneration('translation')
     try {
       // Strip [doc:N, chunk:M] citation markers before translating: they're
       // noise in a translation , and feeding them to MADLAD mangles them (it
@@ -62,6 +65,7 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
+      endGeneration()
       setBusy(false)
     }
   }

@@ -11,6 +11,8 @@ import {
   History,
   X,
   Check,
+  Boxes,
+  Layers,
 } from 'lucide-react'
 import type { QuizDeckSummary, QuizGenerationEvent } from '@shared/quiz'
 import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
@@ -153,6 +155,9 @@ export function reduceProgress(
 
 type Props = {
   decks: QuizDeckSummary[]
+  /** Active workspace the quizzes draw from — shown beside the heading now that
+   *  the sidebar's "Workspaces" panel is hidden on this tab. */
+  workspaceName?: string
   /** deckId → live generation progress. Decks not present (or in non-generating
    *  status) simply show the spinner badge without a bar. */
   progress?: Map<number, QuizProgress>
@@ -160,6 +165,9 @@ type Props = {
   onStart: (deckId: number) => void
   onDelete: (deckId: number) => void
   onRetry: (deckId: number) => void
+  /** Open the merge dialog. The button only appears once there are at least two
+   *  ready decks to combine; omitted in tests that don't exercise merging. */
+  onMerge?: () => void
   /** Abort an in-flight generation. When omitted, generating decks show no
    *  Cancel button (e.g. in tests that don't exercise the cancel path). */
   onCancel?: (deckId: number) => void
@@ -167,14 +175,18 @@ type Props = {
 
 export function QuizListView({
   decks,
+  workspaceName,
   progress,
   onCreate,
   onStart,
   onDelete,
   onRetry,
+  onMerge,
   onCancel,
 }: Props): JSX.Element {
   const t = useT()
+  // Merge needs at least two ready decks to combine.
+  const readyCount = decks.filter((d) => d.status === 'ready').length
   // Per-deck expansion state — kept here rather than inside the card so the
   // history component remounts (and re-fetches) when the user re-opens.
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set())
@@ -190,11 +202,27 @@ export function QuizListView({
   return (
     <section className="quiz-list">
       <header className="quiz-list__header">
-        <h2>{t('quiz.list.heading')}</h2>
-        <button type="button" className="quiz-btn quiz-btn--primary" onClick={onCreate}>
-          <Plus size={16} strokeWidth={2.5} />
-          {t('quiz.list.newQuiz')}
-        </button>
+        <div className="quiz-list__title">
+          <h2>{t('quiz.list.heading')}</h2>
+          {workspaceName && (
+            <span className="quiz-list__workspace" title={t('quiz.list.workspaceHint')}>
+              <Boxes size={13} aria-hidden="true" />
+              {t('quiz.list.workspaceLabel', { name: workspaceName })}
+            </span>
+          )}
+        </div>
+        <div className="quiz-list__header-actions">
+          {onMerge && readyCount >= 2 && (
+            <button type="button" className="quiz-btn" onClick={onMerge}>
+              <Layers size={16} strokeWidth={2.5} />
+              {t('quiz.list.mergeQuiz')}
+            </button>
+          )}
+          <button type="button" className="quiz-btn quiz-btn--primary" onClick={onCreate}>
+            <Plus size={16} strokeWidth={2.5} />
+            {t('quiz.list.newQuiz')}
+          </button>
+        </div>
       </header>
       {decks.length === 0 ? (
         <p className="quiz-list__empty">{t('quiz.list.empty')}</p>

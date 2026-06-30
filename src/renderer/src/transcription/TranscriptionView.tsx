@@ -31,7 +31,13 @@ function collapseSpeakers(segments: TranscriptSegment[]): TranscriptSegment[] {
   })
 }
 
-export function TranscriptionView({ workspaceId }: { workspaceId: number | null }): JSX.Element {
+export function TranscriptionView({
+  workspaceId,
+  active,
+}: {
+  workspaceId: number | null
+  active: boolean
+}): JSX.Element {
   const t = useT()
   const { state, queue, transcribe, transcribeMany, cancel, reset } = useTranscription()
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
@@ -84,6 +90,17 @@ export function TranscriptionView({ workspaceId }: { workspaceId: number | null 
   )
 
   const { recording, seconds, recordError, toggleRecord } = useRecorder((blob) => onFile(blob))
+
+  // This view is kept mounted (merely hidden) when the user switches tabs, so
+  // the useRecorder unmount cleanup that releases the microphone no longer fires
+  // on a tab switch. Stop an in-progress recording when the tab is hidden, so
+  // the OS mic isn't held — with its in-use indicator left on — behind a hidden
+  // tab. Stopping flushes the audio captured so far into transcription, whose
+  // result then persists for when the user returns. `toggleRecord` is a no-op
+  // unless currently recording, so the guard keeps it from starting one.
+  useEffect(() => {
+    if (!active && recording) toggleRecord()
+  }, [active, recording, toggleRecord])
 
   const distinctSpeakers = useMemo(
     () => [...new Set(state.segments.map((s) => s.speaker).filter(Boolean))] as string[],

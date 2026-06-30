@@ -263,10 +263,27 @@
   color: inherit;
   font: inherit;
 }
+/* Chat: the active workspace shown as a plain title (not a button/card). */
+.sidebar__ws-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px 2px;
+  min-width: 0;
+}
+.sidebar__ws-title-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+/* Full-width document-scope tree (no indent / border rail) — the tree owns the
+   whole panel width now that the workspace is a title rather than a dropdown. */
 .sidebar__doc-scope {
-  margin: 4px 0 8px 12px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
+  margin: 2px 0 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -333,6 +350,14 @@
   background: var(--accent-soft-strong);
   color: var(--accent);
 }
+/* In the compact (sidebar) folder tree, file names must extend rather than
+   ellipsize, so the row grows and the tree scrolls horizontally to reveal long
+   names (matching .folder-tree__name). */
+.folder-tree--compact .sidebar__doc-btn-label {
+  flex: 0 0 auto;
+  overflow: visible;
+  text-overflow: clip;
+}
 
 /* New-workspace input — token-based, matches the app's input styling instead
  * of the previous one-off inline styles. */
@@ -379,6 +404,21 @@
   color: var(--fg-3);
 }
 
+/* Keep-alive view wrapper (AppShell › KeepAlive). The active view is rendered
+   with `display:contents` so the wrapper box vanishes and the view lays out
+   exactly as a direct child of `.app-shell__main` — preserving each view's
+   `height:100%` fill, so the main panel scrolls flow views (e.g. the quiz list)
+   while fill views (translation / writing / transcription) keep scrolling
+   internally. An inactive view stays in the DOM but hidden, so its state
+   (in-flight quiz generation, the last translation / transcription / rewrite,
+   form inputs, scroll position) survives a tab switch. */
+.app-shell__view {
+  display: contents;
+}
+.app-shell__view--hidden {
+  display: none;
+}
+
 /* Empty state shown in the main panel when no workspace is selected. */
 .app-shell__empty {
   display: flex;
@@ -388,4 +428,45 @@
   padding: 40px;
   text-align: center;
   color: var(--fg-2);
+}
+
+/* Full-area loading screen shown while a workspace is being opened (its
+   encrypted store decrypted / vectors materialised) on switch. */
+.app-shell__switching {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  padding: 40px;
+  text-align: center;
+}
+.app-shell__switching-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: app-shell-spin 0.8s linear infinite;
+}
+@keyframes app-shell-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.app-shell__switching-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.app-shell__switching-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__switching-spinner {
+    animation-duration: 2s;
+  }
 }
