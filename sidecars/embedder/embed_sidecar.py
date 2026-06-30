@@ -27,7 +27,19 @@ holding VRAM (same orphan-safety contract as the translator sidecar).
 
 import argparse
 import json
+import re
 import sys
+
+# Lone UTF-16 surrogates (a split astral char — Gothic, Linear B, emoji, …, left
+# half-paired by a caller's char-slice). Python's json.loads already folds valid
+# surrogate PAIRS into single astral code points, so this class only ever matches
+# UNPAIRED halves. The Rust tokenizer rejects them ("TextEncodeInput must be
+# Union[...]") and fails the WHOLE batch, so we strip them before encoding.
+_LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+
+
+def _strip_surrogates(t: str) -> str:
+    return _LONE_SURROGATE.sub("", t) if isinstance(t, str) else ""
 
 
 def _emit(obj: dict) -> None:
@@ -43,7 +55,39 @@ def _log(line: str) -> None:
     sys.stderr.flush()
 
 
+_DIAG_BUDGET = [10]  # mutable cell: cap diagnostic dumps so logs don't flood
+
+
+def _diag(tag: str, t: str) -> None:
+    """Dump a passage that broke the tokenizer: its length, whether it carries
+    unpaired surrogates, the non-ASCII code points (hex), and a short repr — so
+    the exact trigger is visible in one run. Budget-limited per process."""
+    if _DIAG_BUDGET[0] <= 0:
+        return
+    _DIAG_BUDGET[0] -= 1
+    has_sur = any(0xD800 <= ord(c) <= 0xDFFF for c in t)
+    nonascii = [(i, hex(ord(c))) for i, c in enumerate(t) if ord(c) > 0x7F][:40]
+    _log(f"DIAG {tag}: len={len(t)} unpaired_surrogate={has_sur} "
+         f"nonascii[:40]={nonascii} repr={t[:120]!r}")
+
+
+def _force_utf8_io() -> None:
+    """The parent speaks UTF-8 NDJSON, but on Windows a child's piped stdin/stdout
+    default to the locale code page (e.g. cp1252). Reading UTF-8 as cp1252 mangles
+    every non-ASCII passage into mojibake AND turns multi-byte chars into lone
+    surrogates that the tokenizer rejects — so multilingual text embeds as garbage
+    or fails outright. Force UTF-8 on both directions. errors='replace' on input
+    maps any genuinely invalid byte to U+FFFD instead of a surrogate/crash."""
+    for stream, errs in ((sys.stdin, "replace"), (sys.stdout, "strict"),
+                         (sys.stderr, "replace")):
+        try:
+            stream.reconfigure(encoding="utf-8", errors=errs)  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
 def main() -> int:
+    _force_utf8_io()
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="Qwen/Qwen3-Embedding-0.6B",
                     help="HF model id or local path to the embedding model")
@@ -93,22 +137,47 @@ def main() -> int:
         texts = req.get("texts") or []
         batch_size = int(req.get("batch_size") or args.default_batch)
         normalize = bool(req.get("normalize", True))
+        # Strip lone surrogates up front (see _LONE_SURROGATE): a caller's
+        # char-slice can split an astral char across a chunk boundary, and one
+        # such half anywhere in the batch makes the tokenizer reject the WHOLE
+        # batch — forcing the slow per-item path and killing the ~12x throughput.
+        # Cleaning here keeps batches intact regardless of how the caller sliced.
+        clean = [_strip_surrogates(t) for t in texts]
         # Preserve the parent's Array<vec|null> contract: empty/whitespace inputs
         # map to null WITHOUT being sent through the model (encode would waste a
         # row and the parent treats null as "skip this chunk").
-        idx_nonempty = [i for i, t in enumerate(texts) if isinstance(t, str) and t.strip()]
+        idx_nonempty = [i for i, t in enumerate(clean) if t.strip()]
         out: list = [None] * len(texts)
-        if idx_nonempty:
-            payload = [texts[i] for i in idx_nonempty]
-            vecs = model.encode(
-                payload,
+
+        def _encode(items: list) -> list:
+            return model.encode(
+                items,
                 batch_size=batch_size,
                 normalize_embeddings=normalize,
                 convert_to_numpy=True,
                 show_progress_bar=False,
             )
-            for k, i in enumerate(idx_nonempty):
-                out[i] = vecs[k].tolist()
+
+        if idx_nonempty:
+            payload = [clean[i] for i in idx_nonempty]
+            try:
+                vecs = _encode(payload)
+                for k, i in enumerate(idx_nonempty):
+                    out[i] = vecs[k].tolist()
+            except Exception as e:
+                # Surrogates are already stripped above, so this is a rarer
+                # tokenizer/encoder fault. Isolate it per-item so one bad passage
+                # never nulls the whole batch — and the request NEVER fails, or the
+                # parent would tear down the sidecar and drop the rest of the
+                # corpus onto the slow embedder. Null items defer to backfill.
+                _log(f"batch encode failed ({e}); retrying per-item")
+                for i in idx_nonempty:
+                    try:
+                        out[i] = _encode([clean[i]])[0].tolist()
+                    except Exception as e_single:
+                        _diag(f"passage#{i} single-encode failed "
+                              f"({type(e_single).__name__})", clean[i])
+                        out[i] = None
         return {"id": req["id"], "ok": True, "vectors": out}
 
     for line in sys.stdin:

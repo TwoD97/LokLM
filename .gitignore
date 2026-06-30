@@ -223,3 +223,11 @@ docs/berichte/**/*.pdf
 
 # bench run artifacts
 tests/bench/*.log
+
+# PyTorch embedder sidecar venv (Pro/NVIDIA) — multi-GB torch cu128 +
+# sentence-transformers, created per-machine via sidecars/embedder/README.md.
+# Never committed; the installer bundles its own under resources/embedder/.
+sidecars/embedder/.venv/
+# Python bytecode caches next to the sidecar script(s).
+__pycache__/
+*.pyc

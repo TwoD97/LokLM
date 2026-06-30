@@ -250,6 +250,21 @@ function log(level: 'info' | 'warn' | 'error', message: string): void {
   send({ ev: 'log', level, message })
 }
 
+/** node-llama-cpp fires onLoadProgress per tensor — hundreds of times during a
+ *  multi-GB load. One pushStatus per call means hundreds of IPC frames + renderer
+ *  re-renders in a few seconds, which makes model loading feel laggy. Coalesce to
+ *  whole-percent steps (≤101 frames total); the load's terminal 'ready'/'failed'
+ *  push carries the final loadProgress separately. */
+function loadProgressPusher(service: 'llm' | 'embedder' | 'reranker'): (p: number) => void {
+  let lastPct = -1
+  return (p: number) => {
+    const pct = Math.round(p * 100)
+    if (pct === lastPct) return
+    lastPct = pct
+    pushStatus(service, { loadProgress: p })
+  }
+}
+
 // ---- llama backend init (one instance per key, lazily) --------------------
 
 async function ensureBackend(
@@ -389,7 +404,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     }
   ).loadModel({
     modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('llm', { loadProgress: p }),
+    onLoadProgress: loadProgressPusher('llm'),
   })
 
   // KV fallback loop , q4_0 → q8_0 → f16 with a shrinking max context.
@@ -855,7 +870,7 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     }
   ).loadModel({
     modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('embedder', { loadProgress: p }),
+    onLoadProgress: loadProgressPusher('embedder'),
   })
   pushStatus('embedder', { message: 'Creating embedding context…', loadProgress: 1 })
   const context = await (
@@ -953,12 +968,18 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  // Reranker shares the chat model's GPU backend ('primary'). This is the heavy
-  // hitter on the query hot path (~25x faster on the iGPU than CPU), and as an
-  // XLM-RoBERTa encoder it errors gracefully on over-context input rather than
-  // native-crashing like the jina decoder. RAM-only snapshot (see embedder).
+  // The reranker normally shares the chat model's GPU backend ('primary') — it's
+  // the query hot path and much faster on the GPU. BUT on Pro/NVIDIA the PyTorch
+  // embedder sidecar holds its OWN torch CUDA context on the same device for the
+  // whole session, and creating the reranker's CUDA context alongside it can hard-
+  // crash the app (the window closes) — a fault that only appears once the sidecar
+  // is in play. When the reranker is pinned to CPU (placement === 'cpu', or
+  // LOKLM_RERANKER_CPU=1) load it on the CPU ('aux') backend instead, sidestepping
+  // the GPU entirely. The reranker is tiny (~0.4 GB) so CPU is a viable fallback.
+  const forceCpu = process.env['LOKLM_RERANKER_CPU'] === '1' || payload.placement === 'cpu'
+  const backendKey: BackendKey = forceCpu ? 'aux' : 'primary'
   const resources = planner.snapshot()
-  const llama = await ensureBackend('primary', false, (msg) =>
+  const llama = await ensureBackend(backendKey, false, (msg) =>
     pushStatus('reranker', { message: msg }),
   )
   pushStatus('reranker', {
@@ -973,7 +994,7 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     }
   ).loadModel({
     modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('reranker', { loadProgress: p }),
+    onLoadProgress: loadProgressPusher('reranker'),
   })
   pushStatus('reranker', { message: 'Creating ranking context…', loadProgress: 1 })
   const context = await (
@@ -984,11 +1005,15 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
   rerankerModel = model
   rerankerContext = context
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
-  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
+  const onGpu = !forceCpu && primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
     resolvedPlacement: onGpu ? 'gpu' : 'cpu',
-    reason: onGpu ? `shared ${primaryGpuLabel} backend` : 'shared CPU backend',
+    reason: forceCpu
+      ? 'CPU backend (reranker pinned to CPU to avoid the CUDA crash alongside the PyTorch embedder)'
+      : onGpu
+        ? `shared ${primaryGpuLabel} backend`
+        : 'shared CPU backend',
   }
 }
 

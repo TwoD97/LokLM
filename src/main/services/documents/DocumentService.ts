@@ -513,49 +513,64 @@ export class DocumentService {
       }
 
       send('persisting', 4)
-      // persistChunks returns the new chunk ids in insertion order, which is the
-      // same order as `out` (and therefore `vectors`). ADR-0005: this replaces
-      // the old document_id+ordinal re-query against the raw PGlite handle.
-      const chunkIds = await repo.persistChunks(
-        doc.id,
-        out.map((c) => ({
-          ordinal: c.ordinal,
-          text: c.text,
-          pageFrom: c.pageFrom,
-          pageTo: c.pageTo,
-          tokenCount: estimateTokens(c.text),
-          headingPath: c.headingPath,
-          language: c.language,
-        })),
-      )
-      if (vectors && activeIdentity) {
-        const writes: Array<{ id: number; vector: Float32Array }> = []
-        for (let i = 0; i < out.length; i++) {
-          const v = vectors[i]
-          const id = chunkIds[i]
-          if (v == null || id == null) continue
-          writes.push({ id, vector: v })
-        }
-        if (writes.length > 0) {
-          if (this.vectorSink) {
-            // ADR-0005 app path: vectors go to the workspace's encrypted LanceDB
-            // store; PGlite only records the embedded marker + identity.
-            await this.vectorSink(
-              doc.workspaceId,
-              writes.map((w) => ({
-                chunkId: w.id,
-                documentId: doc.id,
-                vector: Array.from(w.vector),
-              })),
-            )
-            await repo.markChunksEmbedded(
-              writes.map((w) => w.id),
-              activeIdentity,
-            )
-          } else {
-            // Legacy / isolated-test path: store vectors in the pgvector column.
-            await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
+      // Page the persist + vector write so a large shard (Wikipedia dumps run to
+      // thousands of chunks) doesn't freeze the app. better-sqlite3 is
+      // SYNCHRONOUS and runs on the main thread, so one persistChunks over every
+      // chunk blocks the event loop for the whole insert — the renderer locks up
+      // AND the embedder sidecar IPC stalls until it returns (the "UI + embedding
+      // hang together, then resume" symptom). Smaller transactions with a yield
+      // between them keep both flowing; vectorSink (LanceDB) is already async.
+      // persistChunks returns ids in insertion order, so page k maps 1:1 to
+      // out[start+k] / vectors[start+k].
+      const PERSIST_PAGE = 512
+      for (let start = 0; start < out.length; start += PERSIST_PAGE) {
+        const pageChunks = out.slice(start, start + PERSIST_PAGE)
+        const pageIds = await repo.persistChunks(
+          doc.id,
+          pageChunks.map((c) => ({
+            ordinal: c.ordinal,
+            text: c.text,
+            pageFrom: c.pageFrom,
+            pageTo: c.pageTo,
+            tokenCount: estimateTokens(c.text),
+            headingPath: c.headingPath,
+            language: c.language,
+          })),
+        )
+        if (vectors && activeIdentity) {
+          const writes: Array<{ id: number; vector: Float32Array }> = []
+          for (let k = 0; k < pageChunks.length; k++) {
+            const v = vectors[start + k]
+            const id = pageIds[k]
+            if (v == null || id == null) continue
+            writes.push({ id, vector: v })
           }
+          if (writes.length > 0) {
+            if (this.vectorSink) {
+              // ADR-0005 app path: vectors go to the workspace's encrypted LanceDB
+              // store; SQLite only records the embedded marker + identity.
+              await this.vectorSink(
+                doc.workspaceId,
+                writes.map((w) => ({
+                  chunkId: w.id,
+                  documentId: doc.id,
+                  vector: Array.from(w.vector),
+                })),
+              )
+              await repo.markChunksEmbedded(
+                writes.map((w) => w.id),
+                activeIdentity,
+              )
+            } else {
+              // Legacy / isolated-test path: store vectors in the pgvector column.
+              await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
+            }
+          }
+        }
+        // Yield so the renderer + embedder-sidecar IPC are serviced between the
+        // synchronous SQLite writes above (the only main-thread blocker here).
+        if (start + PERSIST_PAGE < out.length) {
+          await new Promise<void>((resolve) => setImmediate(resolve))
         }
       }
       await repo.setDocumentStatus(doc.id, 'ready')

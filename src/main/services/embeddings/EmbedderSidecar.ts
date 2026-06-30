@@ -135,7 +135,17 @@ export class EmbedderSidecar {
       // Pin the process to the resolved physical GPU (same idea as the worker's
       // CUDA_VISIBLE_DEVICES). PYTHONUNBUFFERED guarantees the ready frame and
       // responses flush promptly. HF_HOME keeps the model cache install-local.
-      const env: NodeJS.ProcessEnv = { ...process.env, PYTHONUNBUFFERED: '1' }
+      // PYTHONUTF8/PYTHONIOENCODING force UTF-8 stdio: on Windows a piped child
+      // otherwise decodes our UTF-8 NDJSON as the locale code page (cp1252),
+      // turning every non-ASCII passage into mojibake and multi-byte chars into
+      // lone surrogates that break the tokenizer. (The sidecar also reconfigures
+      // its streams defensively — this is the belt to that suspenders.)
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+        PYTHONUTF8: '1',
+        PYTHONIOENCODING: 'utf-8',
+      }
       if (this.opts.cudaDeviceIndex != null) {
         env['CUDA_VISIBLE_DEVICES'] = String(this.opts.cudaDeviceIndex)
       }

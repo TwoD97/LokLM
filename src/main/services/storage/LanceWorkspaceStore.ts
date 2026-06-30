@@ -44,6 +44,14 @@ export class LanceWorkspaceStore implements VectorStore {
   // a table exists (or when the dim can't be read). Drives the dimension-change
   // rebuild — see upsert() / search() (ADR-0006: BGE-M3 1024 ↔ jina-code 896).
   private tableDim: number | null = null
+  // Serialises mutating ops on this store. Indexing fans out one upsert per
+  // document, and now that the PyTorch sidecar embeds fast they land almost
+  // together: on a brand-new workspace two concurrent upserts both reach the
+  // lazy createTable path and the second throws "Table 'vectors' already exists";
+  // mergeInsert and the dimension-change drop also mutate this.table/tableDim and
+  // must not interleave. Embedding (the costly part) already ran concurrently
+  // upstream — only the final vector write is queued here.
+  private writeQueue: Promise<unknown> = Promise.resolve()
 
   constructor(opts: LanceWorkspaceStoreOptions) {
     this.workspaceId = opts.workspaceId
@@ -76,8 +84,23 @@ export class LanceWorkspaceStore implements VectorStore {
     }
   }
 
+  /** Run `fn` after all previously-queued writes settle (success or failure), so
+   *  table create / mergeInsert / drop never interleave on this instance. */
+  private enqueueWrite<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.writeQueue.then(fn, fn)
+    this.writeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
   async upsert(records: VectorRecord[]): Promise<void> {
     if (records.length === 0) return
+    return this.enqueueWrite(() => this.upsertInner(records))
+  }
+
+  private async upsertInner(records: VectorRecord[]): Promise<void> {
     const incomingDim = records[0]!.vector.length
     const rows: LanceRow[] = records.map((r) => ({
       chunkId: r.chunkId,
@@ -112,8 +135,13 @@ export class LanceWorkspaceStore implements VectorStore {
   }
 
   async remove(chunkIds: number[]): Promise<void> {
-    if (chunkIds.length === 0 || !this.table) return
-    await this.table.delete(`chunkId IN (${chunkIds.map((n) => Math.trunc(n)).join(',')})`)
+    if (chunkIds.length === 0) return
+    // Queued with upserts: a delete must not race the lazy table create, and
+    // reads this.table after any in-flight create has settled.
+    return this.enqueueWrite(async () => {
+      if (!this.table) return
+      await this.table.delete(`chunkId IN (${chunkIds.map((n) => Math.trunc(n)).join(',')})`)
+    })
   }
 
   async search(

@@ -384,15 +384,31 @@ export class EmbeddingService {
   }
 
   /** The sidecar process died (crash / OOM / disposed). Latch off so further
-   *  embeds fall back to llama.cpp rather than thrashing restarts. */
+   *  embeds fall back to llama.cpp rather than thrashing restarts. Always logged
+   *  (not just when active) so a death during startup/teardown is visible too. */
   private onSidecarExit(detail?: string): void {
-    if (this.sidecarActive) {
-      // eslint-disable-next-line no-console
-      console.warn('[embedder] PyTorch sidecar exited:', detail)
-    }
     this.sidecarActive = false
     this.sidecar = null
     this.sidecarFailed = true
+    // Drop the stale 'ready' the sidecar set — see demoteAfterSidecar.
+    this.demoteAfterSidecar()
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[embedder] PyTorch sidecar exited (${detail ?? 'unknown reason'}); ` +
+        'falling back to the bundled llama.cpp embedder for the rest of this session.',
+    )
+  }
+
+  /** After the sidecar's backing goes away, drop a stale 'ready'/'loading'
+   *  status to 'idle'. Without this, isReady() still returns true (the sidecar
+   *  set it) and ensureLlamaEmbedder's `!sidecarActive && isReady()` short-circuit
+   *  returns WITHOUT loading the bundled embedder — so every embed then fails
+   *  with "Embedder is not loaded". Only demote sidecar-owned states; if the
+   *  worker already pushed its own 'unloaded' (its crash), leave it. */
+  private demoteAfterSidecar(): void {
+    if (this.status.state === 'ready' || this.status.state === 'loading') {
+      this.setStatus({ state: 'idle', loadProgress: null, message: null })
+    }
   }
 
   async loadModel(modelPath: string): Promise<void> {
@@ -491,8 +507,20 @@ export class EmbeddingService {
       try {
         return await this.sidecar.embed(prepared, SIDECAR_BATCH)
       } catch (err) {
+        // If the process is still alive this is a transient per-batch error
+        // (e.g. a momentary CUDA OOM while the chat LLM / reranker warmed on the
+        // shared GPU). Don't tear down the whole ~12x path for one batch — fail
+        // just this batch (the indexer defers it to backfill) and keep the
+        // sidecar for the next call. Only a DEAD process latches us to llama.cpp,
+        // so one blip near the end of a long bulk index no longer drops the rest
+        // of the corpus onto the slow embedder.
+        if (this.sidecar?.isRunning()) {
+          // eslint-disable-next-line no-console
+          console.warn('[embedder] sidecar embed error (process alive) — deferring this batch:', err)
+          return prepared.map(() => null)
+        }
         // eslint-disable-next-line no-console
-        console.warn('[embedder] sidecar embed failed, falling back to llama.cpp:', err)
+        console.warn('[embedder] sidecar process gone — falling back to llama.cpp:', err)
         this.failSidecar()
         if (!(await this.ensureLlamaEmbedder())) return prepared.map(() => null)
       }
@@ -512,6 +540,11 @@ export class EmbeddingService {
     this.sidecarActive = false
     this.sidecar = null
     this.sidecarFailed = true
+    // Demote synchronously here too: runEmbed calls ensureLlamaEmbedder right
+    // after failSidecar, but sc.dispose() (→ onSidecarExit → demote) is voided
+    // and runs a tick later — so without this the short-circuit would still see
+    // the stale 'ready' on that first fallback and skip loading the embedder.
+    this.demoteAfterSidecar()
     if (sc) void sc.dispose().catch(() => {})
   }
 }
@@ -519,5 +552,18 @@ export class EmbeddingService {
 // ---------------------------------------------------------------------------
 
 function sanitize(text: string): string {
-  return text.replace(/\s+/g, ' ').trim().slice(0, SANITIZE_MAX_CHARS)
+  // Strip AFTER the slice: slice(0, N) counts UTF-16 code units and can cut an
+  // emoji / CJK-extension character mid surrogate-pair, leaving a lone surrogate.
+  // The PyTorch sidecar's Rust tokenizer rejects a lone surrogate outright
+  // ("TextEncodeInput must be Union[...]"), which nulled the chunk and — because
+  // BundledEmbedderProvider.embed throws on a null — aborted the whole backfill.
+  // Dropping lone surrogates lets the chunk embed normally on both backends.
+  return stripLoneSurrogates(text.replace(/\s+/g, ' ').trim().slice(0, SANITIZE_MAX_CHARS))
+}
+
+/** Remove unpaired UTF-16 surrogates (a high surrogate not followed by a low
+ *  one, or a low not preceded by a high). Valid surrogate PAIRS — real emoji /
+ *  astral chars — are left intact. */
+function stripLoneSurrogates(s: string): string {
+  return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 }

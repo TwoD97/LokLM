@@ -148,6 +148,30 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     [refreshFolders],
   )
 
+  // Coalesce the post-completion refresh. With the PyTorch sidecar documents
+  // finish embedding in quick succession, and each 'done' previously triggered a
+  // full documents.list refetch (a synchronous SQLite scan on the main thread)
+  // PLUS a re-render of the entire, non-virtualized list — a storm that made the
+  // UI lag during indexing. Debounce so a burst of completions costs one refresh.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const refreshDocsSoon = useCallback(
+    (id: number) => {
+      if (refreshTimer.current) return
+      refreshTimer.current = setTimeout(() => {
+        refreshTimer.current = null
+        void refreshDocs(id)
+        refreshStorage(id)
+      }, 500)
+    },
+    [refreshDocs, refreshStorage],
+  )
+  useEffect(
+    () => () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    },
+    [],
+  )
+
   const refreshSyncRoots = useCallback(async (id: number) => {
     setSyncRoots(await window.api.workspaces.listSyncFolders(id))
   }, [])
@@ -200,12 +224,11 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         return next
       })
       if (p.phase === 'done' || p.phase === 'failed') {
-        void refreshDocs(workspaceId)
-        refreshStorage(workspaceId)
+        refreshDocsSoon(workspaceId)
       }
     })
     return () => off()
-  }, [workspaceId, refreshDocs, refreshStorage])
+  }, [workspaceId, refreshDocsSoon])
 
   // Sync events arrive on a separate channel ; on 'done' we refresh the doc
   // list once so deletions + new imports appear without per-doc roundtrips,
