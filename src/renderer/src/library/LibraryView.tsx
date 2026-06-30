@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { List, Folders, FolderTree as FolderTreeIcon } from 'lucide-react'
+import { List, Folders, FolderTree as FolderTreeIcon, Upload } from 'lucide-react'
 import type { Document, IndexProgress, LibrarySearchHit } from '@shared/documents'
 import type { WorkspaceStorageFootprint } from '@shared/workspaceStorage'
 import { deriveIndexBatchProgress } from '@shared/indexProgress'
@@ -17,6 +17,7 @@ import { FailedDocsBanner } from './FailedDocsBanner'
 import { LibrarySearchBar } from './LibrarySearchBar'
 import { SearchResults } from './SearchResults'
 import { useLibrarySearch } from './useLibrarySearch'
+import { filterBrowseDocs, sortBrowseDocs } from './browseFilter'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
 import { SourceViewer } from '../chat/SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
@@ -27,9 +28,23 @@ import './library.css'
 type Props = {
   workspaceId: number
   workspaceName: string
+  // Search query and table page are lifted to AppShell (which stays mounted)
+  // so they survive this view unmounting on a tab switch. Optional — when
+  // omitted the view owns both internally (standalone / test default).
+  searchQuery?: string | undefined
+  onSearchQueryChange?: ((q: string) => void) | undefined
+  page?: number | undefined
+  onPageChange?: ((page: number) => void) | undefined
 }
 
-export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element {
+export function LibraryView({
+  workspaceId,
+  workspaceName,
+  searchQuery,
+  onSearchQueryChange,
+  page,
+  onPageChange,
+}: Props): JSX.Element {
   const t = useT()
   const [docs, setDocs] = useState<Document[]>([])
   // Three views of the same documents, persisted so the choice sticks:
@@ -126,7 +141,10 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
   const [exportPending, setExportPending] = useState<Document | null>(null)
   // AP-6 search state (query/filters/sort/hits) + the clicked hit whose source
   // is open in the SourceViewer modal. Null = no source open.
-  const search = useLibrarySearch(workspaceId)
+  const search = useLibrarySearch(workspaceId, {
+    query: searchQuery,
+    onQueryChange: onSearchQueryChange,
+  })
   const [sourceHit, setSourceHit] = useState<{ chunkId: number; documentTitle: string } | null>(
     null,
   )
@@ -367,6 +385,30 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
     })
     .map((d) => d.id)
 
+  // The browse list = documents narrowed by the toolbar's type/date/size/status
+  // filters and ordered by the sort control. Search runs its own server-side
+  // filtering, so this only feeds the no-query browse views (list + location).
+  // 'relevance' sort is a no-op while browsing; DocumentTable still floats the
+  // in-progress rows to the top on top of this order.
+  const browseDocs = useMemo(
+    () =>
+      sortBrowseDocs(
+        filterBrowseDocs(
+          docs,
+          search.filters,
+          progress,
+          reembedDocIds,
+          Math.floor(Date.now() / 1000),
+        ),
+        search.sort,
+      ),
+    [docs, search.filters, search.sort, progress, reembedDocIds],
+  )
+  // A filter narrowed the list down to nothing — distinct from a genuinely empty
+  // library, so it gets its own "no matches + reset" state instead of the
+  // "import files" empty prompt.
+  const filteredEmpty = search.filtersActive && docs.length > 0 && browseDocs.length === 0
+
   return (
     <div className="library">
       <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
@@ -447,6 +489,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
         onTypesChange={search.setTypes}
         onDateChange={search.setDate}
         onSizeChange={search.setSize}
+        onStatusChange={search.setStatusFilter}
         sort={search.sort}
         onSortChange={search.setSort}
         active={search.active}
@@ -512,7 +555,14 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
            *  the rows' React.memo can actually skip re-renders for rows whose
            *  doc + progress didn't change. Wrapping them inline with arrows used
            *  to mint fresh fns each render and defeat the memo. */}
-          {viewMode === 'folders' ? (
+          {filteredEmpty && viewMode !== 'folders' ? (
+            <div className="library__filtered-empty">
+              <span>{t('library.noFilterMatches')}</span>
+              <button type="button" className="library__empty-action" onClick={search.resetFilters}>
+                {t('library.clearFilters')}
+              </button>
+            </div>
+          ) : viewMode === 'folders' ? (
             <FolderTree
               nodes={folderTree}
               expanded={expandedFolders}
@@ -547,7 +597,7 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
             />
           ) : viewMode === 'location' ? (
             <DocumentTree
-              docs={docs}
+              docs={browseDocs}
               syncRoots={syncRoots}
               resetKey={workspaceId}
               progress={progress}
@@ -565,10 +615,12 @@ export function LibraryView({ workspaceId, workspaceName }: Props): JSX.Element 
             />
           ) : (
             <DocumentTable
-              docs={docs}
+              docs={browseDocs}
               resetKey={workspaceId}
               progress={progress}
               reembedDocIds={reembedDocIds}
+              page={page}
+              onPageChange={onPageChange}
               onDelete={onDelete}
               onReindex={onReindex}
               onReveal={onReveal}
@@ -643,7 +695,8 @@ function DropZone({
         onFiles(files)
       }}
     >
-      {t('library.dropZone')}
+      <Upload size={15} aria-hidden="true" className="library__drop-icon" />
+      <span>{t('library.dropZone')}</span>
     </button>
   )
 }

@@ -13,6 +13,11 @@ type Props = {
    *  id plus the explanation prose so the SourceViewer can fuzzy-highlight
    *  matching spans inside the cited chunk. */
   onCite: (args: { chunkId: number; explanation: string }) => void
+  /** False when the quiz tab is mounted-but-hidden (kept alive behind another
+   *  tab). The 1–4 keydown listener is global (window), so it must not bind
+   *  while hidden or it would steal number keys from the visible view. Defaults
+   *  true so direct renders (and tests) keep their keyboard behaviour. */
+  active?: boolean
 }
 
 // Reveals correct/wrong styling once `revealed` flips true. Keyboard 1–4
@@ -24,10 +29,11 @@ export function QuestionCard({
   revealed,
   onSelect,
   onCite,
+  active = true,
 }: Props): JSX.Element {
   const t = useT()
   useEffect(() => {
-    if (revealed) return
+    if (revealed || !active) return
     const handler = (e: KeyboardEvent): void => {
       const idx = ['1', '2', '3', '4'].indexOf(e.key)
       if (idx >= 0) {
@@ -37,7 +43,7 @@ export function QuestionCard({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [revealed, onSelect])
+  }, [revealed, active, onSelect])
 
   return (
     <article className="quiz-card-q">

@@ -1,7 +1,8 @@
 import type { LibraryDocType, LibrarySort } from '@shared/documents'
 import { LIBRARY_DOC_TYPES } from '@shared/docType'
 import { useT } from '../i18n'
-import type { DatePreset, LibrarySearchFilters, SizePreset } from './useLibrarySearch'
+import { Select } from '../ui/Select'
+import type { DatePreset, LibrarySearchFilters, SizePreset, StatusFilter } from './useLibrarySearch'
 
 type Props = {
   query: string
@@ -11,6 +12,7 @@ type Props = {
   onTypesChange: (types: Set<LibraryDocType>) => void
   onDateChange: (date: DatePreset) => void
   onSizeChange: (size: SizePreset) => void
+  onStatusChange: (status: StatusFilter) => void
   sort: LibrarySort
   onSortChange: (sort: LibrarySort) => void
   active: boolean
@@ -44,6 +46,13 @@ const SIZE_LABEL_KEY: Record<SizePreset, string> = {
   medium: 'library.sizeMedium',
   large: 'library.sizeLarge',
 }
+const STATUS_PRESETS: StatusFilter[] = ['all', 'indexing', 'ready', 'failed']
+const STATUS_LABEL_KEY: Record<StatusFilter, string> = {
+  all: 'library.statusAll',
+  indexing: 'library.statusIndexing',
+  ready: 'library.statusReady',
+  failed: 'library.statusFailed',
+}
 
 function toggleType(types: Set<LibraryDocType>, ty: LibraryDocType): Set<LibraryDocType> {
   const next = new Set(types)
@@ -63,6 +72,7 @@ export function LibrarySearchBar({
   onTypesChange,
   onDateChange,
   onSizeChange,
+  onStatusChange,
   sort,
   onSortChange,
   active,
@@ -89,18 +99,12 @@ export function LibrarySearchBar({
             ×
           </button>
         )}
-        <select
-          className="library__sort"
-          aria-label={t('library.sortBy')}
+        <Select
+          ariaLabel={t('library.sortBy')}
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as LibrarySort)}
-        >
-          {SORTS.map((s) => (
-            <option key={s} value={s}>
-              {t(SORT_LABEL_KEY[s])}
-            </option>
-          ))}
-        </select>
+          options={SORTS.map((s) => ({ value: s, label: t(SORT_LABEL_KEY[s]) }))}
+          onChange={onSortChange}
+        />
       </div>
       <div className="library__filters">
         <span className="library__filters-label">{t('library.filterType')}</span>
@@ -118,30 +122,32 @@ export function LibrarySearchBar({
             </button>
           )
         })}
-        <select
-          className="library__filter-select"
-          aria-label={t('library.filterDate')}
+        <span className="library__filters-sep" aria-hidden="true" />
+        <Select
+          ariaLabel={t('library.filterDate')}
+          prefix={t('library.filterDate')}
           value={filters.date}
-          onChange={(e) => onDateChange(e.target.value as DatePreset)}
-        >
-          {DATE_PRESETS.map((d) => (
-            <option key={d} value={d}>
-              {t(DATE_LABEL_KEY[d])}
-            </option>
-          ))}
-        </select>
-        <select
-          className="library__filter-select"
-          aria-label={t('library.filterSize')}
+          options={DATE_PRESETS.map((d) => ({ value: d, label: t(DATE_LABEL_KEY[d]) }))}
+          onChange={onDateChange}
+        />
+        <Select
+          ariaLabel={t('library.filterSize')}
+          prefix={t('library.filterSize')}
           value={filters.size}
-          onChange={(e) => onSizeChange(e.target.value as SizePreset)}
-        >
-          {SIZE_PRESETS.map((s) => (
-            <option key={s} value={s}>
-              {t(SIZE_LABEL_KEY[s])}
-            </option>
-          ))}
-        </select>
+          options={SIZE_PRESETS.map((s) => ({ value: s, label: t(SIZE_LABEL_KEY[s]) }))}
+          onChange={onSizeChange}
+        />
+        {/* Index-state has no meaning over search hits (always indexed text), so
+            the Status filter shows only while browsing. */}
+        {!active && (
+          <Select
+            ariaLabel={t('library.filterStatus')}
+            prefix={t('library.filterStatus')}
+            value={filters.status}
+            options={STATUS_PRESETS.map((s) => ({ value: s, label: t(STATUS_LABEL_KEY[s]) }))}
+            onChange={onStatusChange}
+          />
+        )}
         {active && resultCount != null && (
           <span className="library__results-count">
             {t('library.searchResultsCount', { count: resultCount })}

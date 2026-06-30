@@ -67,15 +67,31 @@ export interface QuizAttemptSubmission {
 export interface CreateQuizInput {
   workspaceId: number
   name: string
+  /** Exactly one document — quizzes are generated one document at a time.
+   *  Kept as an array for storage/back-compat with existing multi-doc decks. */
   documentIds: number[]
   language?: QuizLanguage | 'auto'
 }
 
+/** Combine several finished decks into one. Questions are copied (optionally
+ *  shuffled) into a fresh ready deck; the sources are left untouched. */
+export interface MergeQuizInput {
+  workspaceId: number
+  name: string
+  /** Source deck ids — at least two, all status='ready'. */
+  deckIds: number[]
+  /** Shuffle the combined question order at merge time (the runner also
+   *  reshuffles per attempt). */
+  shuffle: boolean
+}
+
 /** Pre-generation preview for the create dialog: how many material sections
- *  (units) the selection yields. The question count itself is the model's
- *  decision per section, so it is unknown until generation finishes. */
+ *  (units) the selection yields plus the size-scaled target question count.
+ *  The model's final count can differ, so `questionEstimate` is an upper-ish
+ *  guide, not a promise. */
 export interface QuizEstimate {
   unitCount: number
+  questionEstimate: number
 }
 
 export type QuizGenerationEvent =

@@ -7,7 +7,9 @@ import { RegisterView } from './auth/RegisterView'
 import { ResetView } from './auth/ResetView'
 import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
+import { QuitOverlay } from './QuitOverlay'
 import { TitleBar } from './TitleBar'
+import { GenerationProvider } from './generation/GenerationContext'
 import { SettingsModal } from './settings/SettingsModal'
 import { FallbackToast } from './settings/FallbackToast'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -161,7 +163,11 @@ export function App(): JSX.Element {
   }
 
   return (
-    <>
+    // GenerationProvider wraps both the TitleBar (which renders the Activity
+    // indicator) and the unlocked content (whose views register generation
+    // jobs), so the "model busy · N queued" signal is shared across them.
+    <GenerationProvider>
+      <QuitOverlay />
       <BackgroundFx />
       <TitleBar
         unlocked={isUnlocked}
@@ -184,6 +190,6 @@ export function App(): JSX.Element {
           {content}
         </main>
       )}
-    </>
+    </GenerationProvider>
   )
 }

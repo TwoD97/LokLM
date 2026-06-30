@@ -2,9 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Library,
   MessageSquare,
-  FileText,
-  ChevronDown,
-  ChevronRight,
   GraduationCap,
   Languages,
   Mic,
@@ -21,6 +18,7 @@ import {
 } from 'lucide-react'
 import type { Document, Folder, FolderAssignment, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
+import { DocIcon } from '../ui/DocIcon'
 import { FolderTree, type FolderScopeState } from '../folders/FolderTree'
 import {
   buildFolderTree,
@@ -136,7 +134,6 @@ export function Sidebar({
   // New-workspace encryption choice (fixed at creation). Default on; users opt
   // out for large, non-sensitive corpora to skip the decrypt-on-open wait.
   const [newWsEncrypted, setNewWsEncrypted] = useState(true)
-  const [docPickerOpen, setDocPickerOpen] = useState(true)
   // Toggles the "how to manage workspaces for best results" help panel.
   const [infoOpen, setInfoOpen] = useState(false)
   // id of the workspace whose name is being edited inline, plus its draft text.
@@ -204,6 +201,16 @@ export function Sidebar({
   const visibleDocIds = new Set(workspaceDocs.map((d) => d.id))
   const selectedCount = activeDocumentIds.filter((id) => visibleDocIds.has(id)).length
 
+  // Switching workspace is confined to the Library view. Everywhere else only
+  // the active workspace is listed — its row still drives the chat doc-picker,
+  // but the others are hidden, so to change workspace the user returns to the
+  // Library. This also keeps a mid-chat switch (which resets the conversation /
+  // scope) from happening by accident.
+  const inLibrary = activeView === 'library'
+  const visibleWorkspaces = inLibrary
+    ? workspaces
+    : workspaces.filter((w) => w.id === activeWorkspaceId)
+
   return (
     <aside
       className="app-shell__sidebar"
@@ -264,7 +271,9 @@ export function Sidebar({
         <div className="sidebar__expanded">
           <div className="sidebar__expanded-header">
             <div className="sidebar__section-heading">
-              <span className="sidebar__section-label">{t('shell.workspaces')}</span>
+              <span className="sidebar__section-label">
+                {inLibrary ? t('shell.workspaces') : t('shell.workspace')}
+              </span>
               <button
                 type="button"
                 className={`sidebar__info-btn ${infoOpen ? 'sidebar__info-btn--active' : ''}`}
@@ -290,10 +299,106 @@ export function Sidebar({
             </button>
           </div>
           {infoOpen && <WorkspaceInfoModal onClose={() => setInfoOpen(false)} />}
-          {workspaces.map((w) => {
+          {visibleWorkspaces.map((w) => {
             const isActive = w.id === activeWorkspaceId
-            const isDropdown = isActive && chatViewActive
-            const showDocs = isDropdown && docPickerOpen
+
+            // Chat: the (single) active workspace is a plain title with its
+            // document-scope tree always open beneath it at full width — no
+            // dropdown, no card. Switching / managing workspaces lives in Library.
+            if (isActive && chatViewActive) {
+              return (
+                <div key={w.id} className="sidebar__ws-chat">
+                  <div className="sidebar__ws-title">
+                    <span className="sidebar__ws-title-name" title={w.name}>
+                      {w.name}
+                    </span>
+                    {w.type === 'codebase' && (
+                      <Code2
+                        size={13}
+                        aria-label={t('shell.codebaseWorkspace')}
+                        className="sidebar__ws-type-badge"
+                      />
+                    )}
+                    {w.encryptionLevel === 'none' && (
+                      <Unlock
+                        size={13}
+                        aria-label={t('shell.unencryptedWorkspace')}
+                        className="sidebar__ws-type-badge"
+                      />
+                    )}
+                  </div>
+                  <div className="sidebar__doc-scope">
+                    <div className="sidebar__doc-scope-header">
+                      <span className="sidebar__doc-scope-label">
+                        {selectedCount > 0
+                          ? t('shell.scopeFiles', {
+                              count: selectedCount,
+                              noun:
+                                selectedCount === 1
+                                  ? t('shell.scopeFileSingular')
+                                  : t('shell.scopeFilePlural'),
+                            })
+                          : t('shell.scopeAllDocuments')}
+                      </span>
+                      {selectedCount > 0 && (
+                        <button
+                          type="button"
+                          className="sidebar__doc-scope-clear"
+                          onClick={onClearScope}
+                          aria-label={t('shell.clearScope')}
+                        >
+                          {t('shell.clear')}
+                        </button>
+                      )}
+                    </div>
+                    {folders.length === 0 && workspaceDocs.length === 0 ? (
+                      <div className="sidebar__doc-scope-empty">{t('shell.noDocumentsYet')}</div>
+                    ) : (
+                      <FolderTree
+                        nodes={tree}
+                        expanded={expandedFolders}
+                        onToggleExpand={toggleFolderExpand}
+                        onCreateFolder={onCreateFolder}
+                        onRenameFolder={onRenameFolder}
+                        onDeleteFolder={onDeleteFolder}
+                        onMoveDocument={onMoveDocumentToFolder}
+                        folderScopeState={folderScopeState}
+                        onToggleFolderScope={onToggleFolderScope}
+                        newFolderLabel={t('folders.new')}
+                        compact
+                        renderFile={(d) => {
+                          const selected = activeDocumentIds.includes(d.id)
+                          // A div (role=button), not a <button>: a real button
+                          // swallows the draggable parent's drag gesture in
+                          // Chromium, so files couldn't be dragged into folders.
+                          return (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              className={`sidebar__doc-btn-inner ${selected ? 'sidebar__doc-btn-inner--active' : ''}`}
+                              onClick={() => onToggleDocument(d.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  onToggleDocument(d.id)
+                                }
+                              }}
+                              aria-pressed={selected}
+                              title={d.title}
+                            >
+                              <DocIcon source={d.sourcePath} size={14} />
+                              <span className="sidebar__doc-btn-label">{d.title}</span>
+                            </div>
+                          )
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            // Library: interactive workspace row (select / rename / star / delete).
             return (
               <div key={w.id}>
                 {editingId === w.id ? (
@@ -318,16 +423,8 @@ export function Sidebar({
                 ) : (
                   <div className="sidebar__ws-row">
                     <button
-                      className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''} ${isDropdown ? 'sidebar__nav-btn--dropdown' : ''}`}
-                      onClick={() => {
-                        if (isDropdown) {
-                          setDocPickerOpen((v) => !v)
-                        } else {
-                          onWorkspaceSelect(w.id)
-                          setDocPickerOpen(true)
-                        }
-                      }}
-                      aria-expanded={isDropdown ? docPickerOpen : undefined}
+                      className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''}`}
+                      onClick={() => onWorkspaceSelect(w.id)}
                     >
                       <span className="sidebar__nav-btn-label">{w.name}</span>
                       {w.type === 'codebase' && (
@@ -344,12 +441,6 @@ export function Sidebar({
                           className="sidebar__ws-type-badge"
                         />
                       )}
-                      {isDropdown &&
-                        (docPickerOpen ? (
-                          <ChevronDown size={14} aria-hidden="true" />
-                        ) : (
-                          <ChevronRight size={14} aria-hidden="true" />
-                        ))}
                     </button>
                     <span className="sidebar__ws-actions">
                       <button
@@ -401,103 +492,47 @@ export function Sidebar({
                     </span>
                   </div>
                 )}
-                {showDocs && (
-                  <div className="sidebar__doc-scope">
-                    <div className="sidebar__doc-scope-header">
-                      <span className="sidebar__doc-scope-label">
-                        {selectedCount > 0
-                          ? t('shell.scopeFiles', {
-                              count: selectedCount,
-                              noun:
-                                selectedCount === 1
-                                  ? t('shell.scopeFileSingular')
-                                  : t('shell.scopeFilePlural'),
-                            })
-                          : t('shell.scopeAllDocuments')}
-                      </span>
-                      {selectedCount > 0 && (
-                        <button
-                          type="button"
-                          className="sidebar__doc-scope-clear"
-                          onClick={onClearScope}
-                          aria-label={t('shell.clearScope')}
-                        >
-                          {t('shell.clear')}
-                        </button>
-                      )}
-                    </div>
-                    {folders.length === 0 && workspaceDocs.length === 0 ? (
-                      <div className="sidebar__doc-scope-empty">{t('shell.noDocumentsYet')}</div>
-                    ) : (
-                      <FolderTree
-                        nodes={tree}
-                        expanded={expandedFolders}
-                        onToggleExpand={toggleFolderExpand}
-                        onCreateFolder={onCreateFolder}
-                        onRenameFolder={onRenameFolder}
-                        onDeleteFolder={onDeleteFolder}
-                        onMoveDocument={onMoveDocumentToFolder}
-                        folderScopeState={folderScopeState}
-                        onToggleFolderScope={onToggleFolderScope}
-                        newFolderLabel={t('folders.new')}
-                        renderFile={(d) => {
-                          const selected = activeDocumentIds.includes(d.id)
-                          return (
-                            <button
-                              type="button"
-                              className={`sidebar__doc-btn-inner ${selected ? 'sidebar__doc-btn-inner--active' : ''}`}
-                              onClick={() => onToggleDocument(d.id)}
-                              aria-pressed={selected}
-                              title={d.title}
-                            >
-                              <FileText size={14} aria-hidden="true" />
-                              <span className="sidebar__doc-btn-label">{d.title}</span>
-                            </button>
-                          )
-                        }}
-                      />
-                    )}
-                  </div>
-                )}
               </div>
             )
           })}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              const trimmed = draft.trim()
-              if (trimmed.length === 0) return
-              onCreateWorkspace(trimmed, newWsEncrypted)
-              setDraft('')
-              setNewWsEncrypted(true)
-            }}
-            className="sidebar__new-ws-form"
-          >
-            <input
-              className="sidebar__new-ws-input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t('shell.newWorkspace')}
-              aria-label={t('shell.newWorkspace')}
-            />
-            {draft.trim().length > 0 && (
-              <>
-                <label className="sidebar__new-ws-encrypt">
-                  <input
-                    type="checkbox"
-                    checked={newWsEncrypted}
-                    onChange={(e) => setNewWsEncrypted(e.target.checked)}
-                  />
-                  <span>{t('shell.encryptWorkspace')}</span>
-                </label>
-                <p className="sidebar__new-ws-hint">
-                  {newWsEncrypted
-                    ? t('shell.encryptWorkspaceOnHint')
-                    : t('shell.encryptWorkspaceOffHint')}
-                </p>
-              </>
-            )}
-          </form>
+          {inLibrary && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const trimmed = draft.trim()
+                if (trimmed.length === 0) return
+                onCreateWorkspace(trimmed, newWsEncrypted)
+                setDraft('')
+                setNewWsEncrypted(true)
+              }}
+              className="sidebar__new-ws-form"
+            >
+              <input
+                className="sidebar__new-ws-input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={t('shell.newWorkspace')}
+                aria-label={t('shell.newWorkspace')}
+              />
+              {draft.trim().length > 0 && (
+                <>
+                  <label className="sidebar__new-ws-encrypt">
+                    <input
+                      type="checkbox"
+                      checked={newWsEncrypted}
+                      onChange={(e) => setNewWsEncrypted(e.target.checked)}
+                    />
+                    <span>{t('shell.encryptWorkspace')}</span>
+                  </label>
+                  <p className="sidebar__new-ws-hint">
+                    {newWsEncrypted
+                      ? t('shell.encryptWorkspaceOnHint')
+                      : t('shell.encryptWorkspaceOffHint')}
+                  </p>
+                </>
+              )}
+            </form>
+          )}
         </div>
       )}
     </aside>

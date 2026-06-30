@@ -1,26 +1,42 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Document } from '@shared/documents'
 import type { QuizDeckSummary, QuizDeckWithQuestions } from '@shared/quiz'
 import { QuizListView, reduceProgress, type QuizProgress } from './QuizListView'
 import { QuizRunner } from './QuizRunner'
 import { CreateQuizDialog } from './CreateQuizDialog'
+import { MergeQuizDialog } from './MergeQuizDialog'
+import { useGeneration } from '../generation/GenerationContext'
 import './quiz.css'
 
 type Screen =
   | { kind: 'list' }
   | { kind: 'create' }
+  | { kind: 'merge' }
   | { kind: 'runner'; deckId: number }
   | { kind: 'results'; deckId: number }
 
 type Props = {
   workspaceId: number
+  /** Active workspace name. Surfaced in the list header so the user can see
+   *  which workspace the quizzes draw from — the sidebar no longer shows it on
+   *  this tab (the "Workspaces" panel is Library/Chat-only now). */
+  workspaceName: string
   documents: Document[]
+  /** False while the quiz tab is kept mounted but hidden behind another tab.
+   *  Forwarded to QuizRunner/QuestionCard so their global (window) keydown
+   *  listeners don't bind while hidden and steal keys from the visible view. */
+  active?: boolean
 }
 
 // Top-level Quiz feature router. Mirrors how ChatView owns conversation state
 // internally — QuizView owns deck list state, runner state, and the create
 // dialog. Mounting is workspace-scoped (AppShell remounts on workspace switch).
-export function QuizView({ workspaceId, documents }: Props): JSX.Element {
+export function QuizView({
+  workspaceId,
+  workspaceName,
+  documents,
+  active = true,
+}: Props): JSX.Element {
   const [screen, setScreen] = useState<Screen>({ kind: 'list' })
   const [decks, setDecks] = useState<QuizDeckSummary[]>([])
   // streamId → off() handle, kept in state so we can clean up on unmount and
@@ -32,6 +48,17 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
   // deckId → live generation progress, derived from the event stream and fed to
   // QuizListView so each generating deck shows a step label + progress bar.
   const [progress, setProgress] = useState<Map<number, QuizProgress>>(new Map())
+  // Mirror the live off() handles into a ref so the unmount cleanup below can
+  // tear them all down WITHOUT re-running on every Map change. Keying the
+  // cleanup on the state would run the *previous* cleanup each time a new stream
+  // is added — killing a still-generating deck's subscription the moment another
+  // deck starts (its progress bar would then freeze until the recovery poll).
+  const streamHandlesRef = useRef(streamHandles)
+  streamHandlesRef.current = streamHandles
+  // deckId → end() handle for its generation-registry job, so the TitleBar
+  // Activity indicator clears when a deck's generation stream settles.
+  const endGenRef = useRef<Map<number, () => void>>(new Map())
+  const { begin: beginGeneration } = useGeneration()
 
   const refresh = useCallback(async () => {
     const list = await window.api.quiz.listDecks(workspaceId)
@@ -54,24 +81,35 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
     return () => clearInterval(id)
   }, [anyGenerating, refresh])
 
-  // Reset to list whenever the workspace switches. The runner/create flows
-  // are workspace-scoped and shouldn't persist across switches.
-  useEffect(() => {
-    setScreen({ kind: 'list' })
-  }, [workspaceId])
+  // (Resetting `screen` to 'list' on workspace switch is handled by AppShell
+  // remounting QuizView via key={activeWorkspaceId} — a fresh mount starts at
+  // the initial 'list' screen, so no in-component reset effect is needed.)
 
-  // Cleanup all active stream subscriptions on unmount.
+  // Cleanup all active stream subscriptions on unmount only (empty deps + ref,
+  // so adding/removing a stream mid-session doesn't tear down the others).
   useEffect(() => {
+    // endGenRef is a stable ref (only mutated, never reassigned), so capturing
+    // .current once at mount is the same Map for the view's lifetime — and keeps
+    // the linter happy about reading a ref in a cleanup closure.
+    const endGenJobs = endGenRef.current
     return () => {
-      for (const off of streamHandles.values()) off()
+      for (const off of streamHandlesRef.current.values()) off()
+      // Clear any open Activity-indicator jobs so a workspace-switch remount
+      // doesn't leave a stale "Building quiz" entry behind.
+      for (const end of endGenJobs.values()) end()
+      endGenJobs.clear()
     }
-  }, [streamHandles])
+  }, [])
 
   const startGeneration = useCallback(
     (deckId: number) => {
       const streamId = crypto.randomUUID()
+      const endGeneration = beginGeneration('quiz')
+      endGenRef.current.set(deckId, endGeneration)
       const off = window.api.quiz.onGenerateEvent(streamId, (ev) => {
         if (ev.type === 'done' || ev.type === 'error') {
+          endGenRef.current.get(deckId)?.()
+          endGenRef.current.delete(deckId)
           void refresh()
           // Drop the live progress entry — the deck card flips to ready/failed
           // on refresh and shouldn't keep a stale bar.
@@ -107,7 +145,7 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
       setStreamIds((prev) => new Map(prev).set(deckId, streamId))
       void window.api.quiz.generate(streamId, deckId)
     },
-    [refresh],
+    [refresh, beginGeneration],
   )
 
   // Abort an in-flight generation. The backend flips the deck to
@@ -136,10 +174,25 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
     )
   }
 
+  if (screen.kind === 'merge') {
+    return (
+      <MergeQuizDialog
+        workspaceId={workspaceId}
+        decks={decks.filter((d) => d.status === 'ready')}
+        onCancel={() => setScreen({ kind: 'list' })}
+        onMerged={() => {
+          void refresh()
+          setScreen({ kind: 'list' })
+        }}
+      />
+    )
+  }
+
   if (screen.kind === 'runner') {
     return (
       <QuizRunner
         deckId={screen.deckId}
+        active={active}
         onClose={() => {
           void refresh()
           setScreen({ kind: 'list' })
@@ -151,8 +204,10 @@ export function QuizView({ workspaceId, documents }: Props): JSX.Element {
   return (
     <QuizListView
       decks={decks}
+      workspaceName={workspaceName}
       progress={progress}
       onCreate={() => setScreen({ kind: 'create' })}
+      onMerge={() => setScreen({ kind: 'merge' })}
       onStart={(deckId) => setScreen({ kind: 'runner', deckId })}
       onDelete={async (deckId) => {
         await window.api.quiz.deleteDeck(deckId)

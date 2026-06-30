@@ -9,6 +9,7 @@ function defaults() {
     types: new Set<LibraryDocType>(),
     date: 'any',
     size: 'any',
+    status: 'all',
   }
   return {
     query: '',
@@ -18,6 +19,7 @@ function defaults() {
     onTypesChange: vi.fn(),
     onDateChange: vi.fn(),
     onSizeChange: vi.fn(),
+    onStatusChange: vi.fn(),
     sort: 'relevance' as const,
     onSortChange: vi.fn(),
     active: false,
@@ -52,12 +54,36 @@ describe('LibrarySearchBar', () => {
   it('reports sort, date and size changes', () => {
     const p = defaults()
     render(<LibrarySearchBar {...p} />)
-    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'filename' } })
+    // The dropdowns are now custom listboxes (ui/Select): open the trigger, then
+    // click the option. Each pick closes its menu, so only one is open at a time.
+    fireEvent.click(screen.getByRole('button', { name: 'Sort' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Filename' }))
     expect(p.onSortChange).toHaveBeenCalledWith('filename')
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '30d' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Date' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Last 30 days' }))
     expect(p.onDateChange).toHaveBeenCalledWith('30d')
-    fireEvent.change(screen.getByLabelText('Size'), { target: { value: 'large' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Size' }))
+    fireEvent.click(screen.getByRole('option', { name: '> 10 MB' }))
     expect(p.onSizeChange).toHaveBeenCalledWith('large')
+  })
+
+  it('reports a status filter change while browsing', () => {
+    const p = defaults()
+    render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Status' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Indexing' }))
+    expect(p.onStatusChange).toHaveBeenCalledWith('indexing')
+  })
+
+  it('hides the status filter while a search query is active', () => {
+    const p = defaults()
+    const { rerender } = render(<LibrarySearchBar {...p} />)
+    expect(screen.getByRole('button', { name: 'Status' })).toBeTruthy()
+    // Status has no meaning over search hits, so it drops out in search mode.
+    rerender(<LibrarySearchBar {...p} query="foo" active />)
+    expect(screen.queryByRole('button', { name: 'Status' })).toBeNull()
   })
 
   it('shows a clear button only when there is a query', () => {

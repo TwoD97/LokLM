@@ -172,6 +172,38 @@
   filter: none;
 }
 
+/* Auth card (Login/Register/Reset) hardcodes a dark glass gradient with
+ * white-tinted borders/highlights. In light mode the --fg tokens flip dark, so
+ * dark text landed on that murky surface — poor contrast. Give it a light glass
+ * surface and dark-tinted edges so text clears WCAG AA. */
+:root[data-theme='light'] .auth-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(246, 247, 249, 0.82) 100%);
+  border-color: rgba(31, 35, 40, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 24px 64px rgba(31, 35, 40, 0.12),
+    0 0 0 1px rgba(31, 35, 40, 0.04);
+}
+:root[data-theme='light'] .auth-card::before {
+  background: linear-gradient(
+    135deg,
+    rgba(31, 35, 40, 0.14) 0%,
+    rgba(31, 35, 40, 0.03) 35%,
+    rgba(37, 99, 235, 0.14) 100%
+  );
+}
+:root[data-theme='light'] .auth-card:focus-within {
+  border-color: rgba(31, 35, 40, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 24px 64px rgba(31, 35, 40, 0.14),
+    0 0 0 1px rgba(31, 35, 40, 0.05),
+    0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+:root[data-theme='light'] .auth-section {
+  border-top-color: rgba(31, 35, 40, 0.12);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -188,6 +220,42 @@ body {
   color: var(--fg-0);
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* ── Quit / shutdown overlay (covers the before-quit indexing drain) ────── */
+.quit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* above every modal/backdrop — nothing should sit over a quit */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 27, 43, 0.92); /* app backgroundColor, near-opaque */
+  backdrop-filter: blur(3px);
+  color: #e8eef5;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  -webkit-app-region: drag; /* keep the frameless window draggable while shown */
+}
+.quit-overlay__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid rgba(232, 238, 245, 0.25);
+  border-top-color: #e8eef5;
+  animation: quit-overlay-spin 0.8s linear infinite;
+}
+@keyframes quit-overlay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quit-overlay__spinner {
+    animation-duration: 2.4s;
+  }
 }
 
 /* ── Background FX (gradient blobs behind the glass card) ──────────────── */
@@ -441,6 +509,134 @@ body {
   padding: 0 12px;
 }
 
+/* Activity indicator — a centered, indeterminate "loading bar" per active engine.
+   A soft accent gradient sweeps left→right behind the message, which stays
+   readable on top. Lives in the MIDDLE of the title bar (flanked by two flex
+   spacers in TitleBar.tsx). One bar per engine (the LLM is serial; translation /
+   transcription run concurrently, so each gets its own bar). Hidden when idle. */
+.titlebar__activity-group {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.titlebar__activity {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 20px;
+  max-width: 280px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-1);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--fg-0);
+}
+/* The sweep: a full-width transparent→accent→transparent gradient translated
+   left→right, so the bright peak travels across the track. The text sits above
+   it (z-index) and stays legible. */
+.titlebar__activity::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
+  opacity: 0.3;
+  transform: translateX(-100%);
+  animation: titlebar-sweep 1.6s ease-in-out infinite;
+}
+.titlebar__activity-text {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.titlebar__activity-queue {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes titlebar-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .titlebar__activity::before {
+    animation: none;
+    opacity: 0.16;
+    transform: none;
+  }
+}
+/* Wrapper that anchors the hover tooltip — kept separate from the bar because the
+   bar clips (overflow:hidden) for the sweep. */
+.titlebar__activity-item {
+  position: relative;
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+}
+/* Hover tooltip explaining the queueing model. Mirrors the status-dot pill, but
+   wraps to a few lines since it's a sentence. */
+.titlebar__activity-tip {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translate(-50%, -2px);
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 11px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--fg-1);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    visibility 0s linear var(--t-fast);
+  z-index: 101;
+}
+.titlebar__activity-item:hover .titlebar__activity-tip,
+.titlebar__activity-item:focus-within .titlebar__activity-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    opacity var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease),
+    visibility 0s linear 0s;
+}
+.titlebar__activity-tip::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border-strong);
+  border-left: 1px solid var(--border-strong);
+  transform: translateX(-50%) rotate(45deg);
+}
+
 .titlebar__dot {
   width: 9px;
   height: 9px;
@@ -508,9 +704,8 @@ body {
   flex: none;
 }
 
-/* Always-visible model-name chip next to a status dot. Color tracks the dot
-   state: 'loaded' (green) when the model is resident/ready, 'idle' (neutral)
-   when present but not loaded, 'busy' (amber) for the re-embed progress chip. */
+/* Model-name chip next to a status dot, shown only once the model is resident.
+   Green ('model') = loaded; amber ('busy') = the re-embed progress chip. */
 .titlebar__device {
   -webkit-app-region: no-drag;
   font-size: 0.6rem;
@@ -525,8 +720,8 @@ body {
   white-space: nowrap;
 }
 
-/* Model-name chips (Qwen / BGE / Whisper / MADLAD …) read as "resident/active"
-   in green — same tone for every model so the bar reads uniformly. */
+/* Resident/loaded model chip (Qwen / BGE / MADLAD / Whisper … once 'ready') —
+   green, the same tone for every model so the bar reads uniformly. */
 .titlebar__device--model {
   color: var(--success);
   border-color: rgba(63, 185, 80, 0.5);
@@ -740,10 +935,13 @@ body {
   margin: 0 auto;
   /* Center the auth card in the viewport — the window frame (TitleBar) already
      carries the LokLM mark + name, so this screen has no brand block of its own.
-     The auto margins below center the group when it fits and collapse to a
-     top-aligned, body-scrolled layout when a tall form (register) overflows, so
-     nothing is ever clipped. border-box keeps padding inside the 100vh. */
-  min-height: 100vh;
+     The auto margins below center the group when it fits; when a tall form
+     (register) overflows, they collapse to a top-aligned layout and THIS element
+     scrolls (height:100vh + overflow-y) so the bottom is never clipped — #root is
+     height:100% for the unlocked shell, which would otherwise block a body scroll
+     and clip the overflow. border-box keeps padding inside the 100vh. */
+  height: 100vh;
+  overflow-y: auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -824,7 +1022,24 @@ body {
 }
 
 .auth-card--steps {
-  padding: 2rem 1.75rem;
+  padding: 1.5rem 1.75rem;
+}
+
+/* The register form is the tallest auth screen and was tipping just over the
+   default 800px window (titlebar 36px → ~764px of content), pushing the submit
+   buttons below the fold. Tighten its vertical rhythm so it fits comfortably.
+   Scoped to --steps so login / reset spacing is unchanged. */
+.auth-card--steps .auth-card__lead {
+  margin-bottom: 1rem;
+}
+.auth-card--steps .auth-section {
+  padding: 0.8rem 0;
+}
+.auth-card--steps .auth-card__field {
+  margin-bottom: 0.8rem;
+}
+.auth-card--steps .auth-card__row {
+  margin-top: 0.9rem;
 }
 
 .auth-card--wide {

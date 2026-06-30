@@ -2,7 +2,6 @@ import { memo, useCallback, useMemo } from 'react'
 import { transformCitationMarkers } from '@shared/citationMarkers'
 import { MarkdownView } from '../markdown/MarkdownView'
 import { CitationChip } from './CitationChip'
-import { useT } from '../i18n'
 
 type Role = 'user' | 'assistant'
 
@@ -29,7 +28,6 @@ function MessageBubbleImpl({
   citations,
   onCitationClick,
 }: Props): JSX.Element {
-  const t = useT()
   const citedKeys = useMemo(
     () => (citations ? new Set(citations.map((c) => `${c.documentId}-${c.chunkId}`)) : undefined),
     [citations],
@@ -53,40 +51,15 @@ function MessageBubbleImpl({
   if (role === 'user') {
     return <div className="bubble bubble--user">{content}</div>
   }
-  const { text, markers } = transformCitationMarkers(content, citedKeys)
-  // Fallback sources: the answer was grounded on the fed chunks, but the model
-  // emitted NO inline [doc:X,chunk:Y] markers (common with small / German
-  // outputs) — so transformCitationMarkers produced no chips and the user sees
-  // no source. Surface the fed citations (one chip per document, in score
-  // order) as a footer so an answer is never source-less and the file is one
-  // click away. Only when not a refusal and citations are actually known.
-  const fallbackSources: Array<{ documentId: number; chunkId: number }> = []
-  if (!isRefusal && markers.length === 0 && citations && citations.length > 0) {
-    const seenDocs = new Set<number>()
-    for (const c of citations) {
-      if (seenDocs.has(c.documentId)) continue
-      seenDocs.add(c.documentId)
-      fallbackSources.push({ documentId: c.documentId, chunkId: c.chunkId })
-      if (fallbackSources.length >= 6) break
-    }
-  }
+  // Inline [doc:X,chunk:Y] markers become clickable chips via the markdown `a`
+  // override below. A marker-less answer is NOT left source-less here: the
+  // per-turn "Belegt · N Quellen" GroundingBadge under the bubble (MessageList)
+  // already lists the fed sources as a dropdown, so an in-bubble source footer
+  // only duplicated it — removed.
+  const { text } = transformCitationMarkers(content, citedKeys)
   return (
     <div className={`bubble ${isRefusal ? 'bubble--refusal' : 'bubble--assistant'}`}>
       <MarkdownView components={components}>{text}</MarkdownView>
-      {fallbackSources.length > 0 && (
-        <div className="bubble__sources">
-          <span className="bubble__sources-label">{t('chat.sources')}</span>
-          {fallbackSources.map((c, i) => (
-            <CitationChip
-              key={`${c.documentId}-${c.chunkId}`}
-              href={`#cite-${c.documentId}-${c.chunkId}`}
-              onCitationClick={handleChipClick}
-            >
-              {i + 1}
-            </CitationChip>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

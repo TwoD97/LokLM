@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Copy, Check } from 'lucide-react'
 import { WRITING_MODES, type WriteResult, type WritingMode } from '@shared/writing'
+import { useGeneration } from '../generation/GenerationContext'
 import { useT, type TFn } from '../i18n'
 import './writing.css'
 
@@ -27,6 +28,7 @@ function writeErrorText(t: TFn, raw: string): string {
 
 export function WritingView(): JSX.Element {
   const t = useT()
+  const { begin: beginGeneration } = useGeneration()
   const [mode, setMode] = useState<WritingMode>('improve')
   const [source, setSource] = useState('')
   const [busy, setBusy] = useState(false)
@@ -41,6 +43,7 @@ export function WritingView(): JSX.Element {
     setError(null)
     setResult(null)
     const t0 = performance.now()
+    const endGeneration = beginGeneration('writing')
     try {
       const r = await window.api.writing.improve(source, mode)
       setResult(r)
@@ -48,6 +51,7 @@ export function WritingView(): JSX.Element {
     } catch (err) {
       setError(writeErrorText(t, err instanceof Error ? err.message : String(err)))
     } finally {
+      endGeneration()
       setBusy(false)
     }
   }

@@ -102,27 +102,44 @@
   padding: 40px 0;
   text-align: center;
 }
+/* Compact import bar. The old full-height dashed box dominated the view above
+   the document list; a single slim row keeps drag-and-drop + click-to-pick while
+   handing the vertical space back to the documents themselves. */
 .library__drop {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  border: 2px dashed var(--border-strong);
+  border: 1.5px dashed var(--border-strong);
   border-radius: 8px;
-  padding: 24px;
+  padding: 10px 16px;
   text-align: center;
-  margin: 16px 0;
+  margin: 10px 0;
   background: transparent;
-  color: inherit;
+  color: var(--fg-2);
   font: inherit;
+  font-size: 13px;
   cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.library__drop-icon {
+  flex: none;
+  opacity: 0.8;
 }
 .library__drop:hover {
   border-color: var(--accent);
+  color: var(--fg-1);
   background: var(--bg-elev);
   transform: none;
 }
 .library__drop--over {
   border-color: var(--accent);
   background: var(--accent-soft);
+  color: var(--fg-0);
 }
 
 .library__indexing-bar {
@@ -553,6 +570,9 @@
 }
 
 /* ── AP-6 Suche & Filter ─────────────────────────────────────────────────── */
+/* Colours are design tokens (not hardcoded hex) so the toolbar reads correctly
+   in both the dark and light themes — the old literal navy values washed out on
+   the light theme. */
 .library__search {
   margin: 12px 0 8px;
 }
@@ -564,50 +584,41 @@
 .library__search-input {
   flex: 1 1 auto;
   padding: 8px 12px;
-  border: 1px solid #243a55;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  color: inherit;
+  background: var(--bg-2);
+  color: var(--fg-1);
   font: inherit;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.library__search-input::placeholder {
+  color: var(--fg-2);
 }
 .library__search-input:focus {
   outline: none;
-  border-color: #3a5478;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 .library__search-clear {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  border: none;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  background: #1f2a3a;
-  color: inherit;
+  background: var(--bg-2);
+  color: var(--fg-1);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
 }
 .library__search-clear:hover {
-  background: #29384c;
-}
-.library__sort,
-.library__filter-select {
-  flex: 0 0 auto;
-  padding: 6px 8px;
-  border: 1px solid #243a55;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.02);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-/* A custom select background makes Chromium drop color-scheme:dark for the
-   option popup, falling back to white — which left the inherited light text
-   gray-on-white. The native popup renders in a context where :root CSS
-   variables don't resolve, so use the concrete `initial` keyword (black) to
-   restore contrast on the white popup — same approach as chat/translation. */
-.library__sort option,
-.library__filter-select option {
-  color: initial;
+  border-color: var(--accent);
+  background: var(--bg-elev);
 }
 .library__filters {
   display: flex;
@@ -618,29 +629,73 @@
 }
 .library__filters-label {
   font-size: 12px;
-  opacity: 0.6;
+  color: var(--fg-2);
   margin-right: 2px;
 }
+/* Hairline between the type chips and the date/size/status dropdowns so the two
+   filter groups read as distinct. */
+.library__filters-sep {
+  align-self: stretch;
+  width: 1px;
+  min-height: 22px;
+  margin: 0 4px;
+  background: var(--border);
+}
 .library__filter-chip {
-  padding: 3px 10px;
-  border: 1px solid #243a55;
+  padding: 4px 11px;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: transparent;
-  color: inherit;
+  color: var(--fg-1);
   font-size: 12px;
   cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
 }
 .library__filter-chip:hover {
-  border-color: #3a5478;
+  border-color: var(--accent);
 }
 .library__filter-chip--active {
-  background: #1d3c66;
-  border-color: #3a5478;
+  background: var(--accent-soft-strong);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 500;
 }
 .library__results-count {
   margin-left: auto;
   font-size: 12px;
-  opacity: 0.6;
+  color: var(--fg-2);
+}
+/* Filter narrowed the list to nothing (distinct from an empty library). */
+.library__filtered-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 0;
+  text-align: center;
+  color: var(--fg-2);
+}
+.library__empty-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--fg-1);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+.library__empty-action:hover {
+  border-color: var(--accent);
+  background: var(--bg-elev);
 }
 .library__results {
   list-style: none;
@@ -898,4 +953,50 @@
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;
+}
+
+/* List-view pagination (DocumentTable). A centered prev / status / next bar
+   under the table; not rendered at all when the library fits on one page. */
+.library__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 12px 0 4px;
+}
+.library__pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.library__pagination-btn:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+.library__pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.library__pagination-status {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 120px;
+  text-align: center;
+  font-size: 13px;
+}
+.library__pagination-page {
+  font-weight: 600;
+}
+.library__pagination-range {
+  font-size: 12px;
+  color: var(--fg-2);
 }

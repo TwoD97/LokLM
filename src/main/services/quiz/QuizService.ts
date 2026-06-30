@@ -15,6 +15,7 @@ import type {
 } from '../../../shared/quiz'
 import type { AcceptedQuestion } from './types'
 import { generateQuestionsForUnit } from './generation'
+import { targetQuestionCount } from './prompts'
 import { planQuiz, type QuizUnitDoc } from './units'
 
 export class QuizService {
@@ -68,12 +69,18 @@ export class QuizService {
     return { unitDocs, warnings }
   }
 
-  /** Create-dialog preview: how many material sections the selection yields.
-   *  Pure chunk-stat math — runs in milliseconds, no LLM. The question count
-   *  is the model's per-section decision, unknowable before generation. */
+  /** Create-dialog preview: how many material sections the selection yields and
+   *  the size-scaled target question count. Pure chunk-stat math — runs in
+   *  milliseconds, no LLM. The model's final count can differ, so
+   *  questionEstimate is a guide, not a promise. */
   async estimate(documentIds: number[]): Promise<QuizEstimate> {
     const { unitDocs } = await this.loadUnitDocs(documentIds)
-    return { unitCount: planQuiz(unitDocs).units.length }
+    const { units } = planQuiz(unitDocs)
+    const questionEstimate = units.reduce(
+      (sum, u) => sum + targetQuestionCount(u.tokens, u.docTokens),
+      0,
+    )
+    return { unitCount: units.length, questionEstimate }
   }
 
   /** Create the deck row up-front with status='generating' so the renderer
@@ -195,8 +202,10 @@ export function validateCreateInput(input: CreateQuizInput): void {
   if (name.length < 1 || name.length > 128) {
     throw new Error('Quiz name must be 1–128 characters')
   }
-  if (!Array.isArray(input.documentIds) || input.documentIds.length === 0) {
-    throw new Error('Select at least one document')
+  // Quizzes are generated one document at a time (multi-document decks now come
+  // only from merging finished decks). Existing multi-doc decks still work.
+  if (!Array.isArray(input.documentIds) || input.documentIds.length !== 1) {
+    throw new Error('Select exactly one document')
   }
   if (typeof input.workspaceId !== 'number' || !Number.isInteger(input.workspaceId)) {
     throw new Error('workspaceId is required')

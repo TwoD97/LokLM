@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowRight, Copy, Check, Save } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import type { TranslateResult, TranslationLanguage, TranslatorStatus } from '@shared/translation'
 import { useSettings } from '../settings/useSettings'
+import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 import './translation.css'
 
@@ -18,6 +19,7 @@ type SourceMode = 'text' | 'document'
 export function TranslationView(): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
+  const { begin: beginGeneration } = useGeneration()
   const uiLang = settings?.basic.language === 'de' ? 'de' : 'en'
 
   const [status, setStatus] = useState<TranslatorStatus | null>(null)
@@ -104,11 +106,13 @@ export function TranslationView(): JSX.Element {
     setError(null)
     setResult(null)
     setSavedTitle(null)
+    const endGeneration = beginGeneration('translation')
     try {
       setResult(await window.api.translation.translate(source, { target }))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
+      endGeneration()
       setBusy(false)
     }
   }

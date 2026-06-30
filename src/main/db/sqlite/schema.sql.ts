@@ -82,6 +82,11 @@ CREATE TABLE IF NOT EXISTS messages (
   ttft_ms         INTEGER,
   tokens_per_sec  REAL,
   token_count     INTEGER,
+  -- JSON array of {stage,status,durationMs?,detail?} — the inline progress
+  -- pipeline for an assistant turn, persisted so it survives a reload. Added
+  -- to existing DBs via the guarded ALTER in WorkspaceDb.open (no migration
+  -- runner; CREATE…IF NOT EXISTS can't add columns to an existing table).
+  pipeline        TEXT,
   created_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);
