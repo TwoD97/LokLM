@@ -9,9 +9,9 @@ Retrieval-Fixes (BM25-Brücke, Floor, Trace) wirken aber in der gemeinsamen Pipe
 
 1. **Tier emulieren:** `pnpm dev --standard` bzw. `pnpm dev --pro` (setzt `LOKLM_TIER`).
    Die EN-Übersetzungs-Variante im Retrieval läuft seit 0.6.5 über das **residente LLM**
-   (alle Editionen, kein MADLAD-VRAM mehr); sie erscheint im Trace unter `variants`.
-   Ausnahmen: CPU-Preset (kein Extra-LLM-Pass) und Codebase-Workspaces mit aktiver
-   Multi-Query-Expansion (deren Zeile 1 ist bereits die Übersetzung).
+   (Standard + Pro, kein MADLAD-VRAM mehr); sie erscheint im Trace unter `variants`.
+   Ausnahmen: Lite (iGPU-Latenz), CPU-Preset (kein Extra-LLM-Pass) und Codebase-
+   Workspaces mit aktiver Multi-Query-Expansion (deren Zeile 1 ist bereits die Übersetzung).
 2. **Trace einschalten:** `LOKLM_RETRIEVAL_TRACE=1` in der Umgebung → schreibt pro
    Retrieval eine JSON-Zeile nach `<logs>/retrieval.log` (Queries, Varianten,
    Kandidaten-IDs, Scores, Floor-Drops, finale Top-K — nie Chunk-Text).

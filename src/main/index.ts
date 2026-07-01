@@ -797,16 +797,18 @@ function getRetrievalService(): RetrievalService {
       // library workspaces too).
       (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
       // Maßnahme 4 (R3), 0.6.5-Umbau: EN-variant via the RESIDENT LLM instead
-      // of the MADLAD sidecar. MADLAD cost ~3 GB VRAM resident and was
-      // therefore pro-only; the LLM is loaded anyway, a 96-token translation
-      // is one short generate pass — so every tier gets the variant. MADLAD
+      // of the MADLAD sidecar (which cost ~3 GB VRAM resident and was
+      // therefore pro-only). The LLM is loaded anyway, a 96-token translation
+      // is one short generate pass — Standard AND Pro get the variant now.
+      // Lite stays excluded: its iGPU-class hardware pays real latency for
+      // every extra LLM pass, the same reason its retrieval runs lean. MADLAD
       // stays reserved for the manual translation UI (on-demand). Soft
-      // contract: null when the LLM isn't ready or the query is already
-      // english; RetrievalService additionally skips it under the CPU preset
-      // (an extra LLM pass is exactly what the preset avoids) and verifies
-      // identifiers survived the translation.
+      // contract: null when the tier is lite, the LLM isn't ready or the
+      // query is already english; RetrievalService additionally skips it
+      // under the CPU preset and verifies identifiers survived.
       async (q) => {
         try {
+          if (getEffectiveTier() === 'lite') return null
           const reg = providerRegistry
           if (!reg || !reg.llm().isReady()) return null
           const { detectIsoLanguage } = await import('./services/documents/languageDetector')
