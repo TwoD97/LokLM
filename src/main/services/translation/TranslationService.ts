@@ -84,21 +84,6 @@ export class TranslationService {
     }
   }
 
-  /**
-   * Prepare-screen warm (Standard/Pro): spawn the sidecar and run a one-word
-   * translate so the CT2 model + tokenizer are resident before the first real
-   * request — the retrieval EN-variant (Maßnahme 4) budgets ~2 s per query and
-   * would otherwise always miss its window on the first question of a session.
-   * Resolves as a no-op when model or binary are missing (Lite installs, dev
-   * without LOKLM_TRANSLATOR_MODELS_DIR); status() already explains why.
-   */
-  async warmup(): Promise<void> {
-    if (this.state === 'ready') return
-    if (!this.locateModelDir() || !resolveTranslatorBinary()) return
-    const sidecar = await this.ensureSidecar()
-    await sidecar.translate(['ok'], 'en', 1)
-  }
-
   /** Kill the sidecar (app quit). Safe to call when never started. */
   async dispose(): Promise<void> {
     const s = this.sidecar

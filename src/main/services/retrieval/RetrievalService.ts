@@ -271,13 +271,13 @@ export class RetrievalService {
      *  single-embedder-per-tier means Qwen serves library workspaces too. Left
      *  undefined in isolated tests → falls back to the embedder-identity proxy. */
     private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
-    /** Maßnahme 4 (R3): deterministic MADLAD translation of a non-english query
-     *  to english, run as an EXTRA retrieval variant through the same hybrid
-     *  fan-out (BM25 finds english identifiers/comments; the query embedding
-     *  matches its english instruction). The injected wrapper owns the gating —
-     *  language detection, model availability, timeout — and resolves null for
-     *  "no variant" (english query, Lite install, sidecar cold/crashed). The
-     *  pipeline never awaits more than the wrapper's own budget. */
+    /** Maßnahme 4 (R3): english translation of a non-english query, run as an
+     *  EXTRA retrieval variant through the same hybrid fan-out (BM25 finds
+     *  english identifiers/comments; the query embedding matches its english
+     *  instruction). LLM-backed since 0.6.5 (one short generate pass on the
+     *  resident model — no extra VRAM; the earlier MADLAD sidecar cost ~3 GB
+     *  resident and was pro-only). The injected wrapper owns language
+     *  detection + LLM readiness and resolves null for "no variant". */
     private readonly translateQuery?: (query: string) => Promise<string | null>,
   ) {}
 
@@ -412,15 +412,28 @@ export class RetrievalService {
       queries = [trimmed]
     }
 
-    // Maßnahme 4 (R3): deterministic EN translation as one more variant. Runs
-    // for every workspace type — a German question over english PDFs benefits
-    // exactly like one over english code. Dedup against existing variants (the
-    // LLM expansion may already have produced a translation).
-    if (this.translateQuery) {
+    // Maßnahme 4 (R3): EN translation as one more variant (LLM-backed since
+    // 0.6.5). Runs for every workspace type — a German question over english
+    // PDFs benefits exactly like one over english code. Skipped when:
+    //   - cpuMode: the wrapper costs an LLM generate pass, exactly what the
+    //     CPU preset exists to avoid;
+    //   - a codebase-workspace expansion already ran (its prompt's line 1 IS
+    //     the english translation — a second pass would be pure duplication).
+    // The identifier guard mirrors maybeExpandQueries: a translation that
+    // rewrote an identifier would retrieve for the wrong anchor.
+    if (this.translateQuery && !cpuMode && !(codeWorkspace && queries.length > 1)) {
       const translated = await this.translateQuery(trimmed).catch(() => null)
       if (translated) {
+        const mustKeep = extractRawIdentifiers(trimmed)
+          .filter((id) => !/^([A-Za-z]\.)+[A-Za-z]$/.test(id))
+          .map((id) => id.toLowerCase())
+        const lower = translated.toLowerCase()
         const norm = normalizeForDedup(translated)
-        if (norm.length > 3 && !queries.some((q) => normalizeForDedup(q) === norm)) {
+        if (
+          norm.length > 3 &&
+          mustKeep.every((id) => lower.includes(id)) &&
+          !queries.some((q) => normalizeForDedup(q) === norm)
+        ) {
           queries.push(translated)
         }
       }
