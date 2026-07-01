@@ -223,3 +223,6 @@ docs/berichte/**/*.pdf
 
 # bench run artifacts
 tests/bench/*.log
+
+# PyTorch embedder sidecar (local experiment, not part of the app build)
+sidecars/embedder/
