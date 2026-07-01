@@ -9,6 +9,7 @@ export const shellDict: DomainDict = {
     'shell.errorTitle': 'Error',
     'shell.tagline': 'Local AI knowledge assistant',
     'shell.quitting': 'Finishing up and saving …',
+    'shell.locking': 'Saving and locking …',
     'shell.recoveryWordsTitle': 'Recovery words',
 
     // TitleBar.tsx — status pills
@@ -106,6 +107,7 @@ export const shellDict: DomainDict = {
     'shell.errorTitle': 'Fehler',
     'shell.tagline': 'Lokaler KI-Wissensassistent',
     'shell.quitting': 'Wird abgeschlossen und gespeichert …',
+    'shell.locking': 'Wird gespeichert und gesperrt …',
     'shell.recoveryWordsTitle': 'Wiederherstellungs-Wörter',
 
     // TitleBar.tsx — status pills

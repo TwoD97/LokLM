@@ -128,9 +128,30 @@ export function packHitsToBudget(
  * threshold retrieval) and renderFallback, which remain the REFUSAL_TEXT[lang]
  * single source of truth.
  */
-export function buildSystemPrompt(lang: ResponseLanguage, depth: AnswerDepth = 'concise'): string {
-  return lang === 'de' ? buildSystemPromptDe(depth) : buildSystemPromptEn(depth)
+export function buildSystemPrompt(
+  lang: ResponseLanguage,
+  depth: AnswerDepth = 'concise',
+  opts?: { codebase?: boolean },
+): string {
+  return lang === 'de'
+    ? buildSystemPromptDe(depth, opts?.codebase ?? false)
+    : buildSystemPromptEn(depth, opts?.codebase ?? false)
 }
+
+// Codebase workspaces (ADR-0006): the base prompt is written for a document
+// library — it says nothing about reading code and its FORMAT rule ("plain
+// text") actively fights readable code answers. This section is appended only
+// when the active workspace is a codebase, so the document tiers (and Lite,
+// which has no codebase workspaces) keep the exact prompt they were tuned on.
+const CODE_SECTION_EN = `
+
+CODE
+The Context may contain source-code excerpts; each header names the file (path after '§') and the excerpt's lines (numbers after 'p.' are LINE numbers, not pages) — treat that as the code's location and name it when you explain where something happens. Reproduce file names, class names, and function names exactly as written in the Context (exact casing). Never invent an API, parameter, class, or behaviour the excerpts do not show. Short code identifiers and one-line snippets from the Context are allowed in the answer despite the plain-text rule; keep them verbatim.`
+
+const CODE_SECTION_DE = `
+
+CODE
+Der Context kann Quellcode-Ausschnitte enthalten; jeder Kopf nennt die Datei (Pfad nach „§") und die Zeilen des Ausschnitts (Zahlen nach „S." sind ZEILENnummern, keine Seiten) — das ist der Ort des Codes, benenne ihn, wenn du erklärst, wo etwas passiert. Gib Datei-, Klassen- und Funktionsnamen exakt so wieder, wie sie im Context stehen (exakte Groß-/Kleinschreibung). Erfinde nie eine API, einen Parameter, eine Klasse oder ein Verhalten, das die Ausschnitte nicht zeigen. Kurze Code-Bezeichner und einzeilige Snippets aus dem Context sind in der Antwort trotz der Reiner-Text-Regel erlaubt; übernimm sie wörtlich.`
 
 /** Length guidance per tier. The DISCIPLINE rules above already bar rambling and
  *  trailing summaries, so "thorough" means a fuller explanation, not padding. */
@@ -152,7 +173,7 @@ const LENGTH_DE: Record<AnswerDepth, string> = {
     'Antworte ausführlich — entwickle die Erklärung vollständig: decke die relevanten Punkte ab, ergänze stützende Details, Kontext und Beispiele aus dem Context und lege den Gedankengang dar, wo er das Verständnis fördert. Bevorzuge eine vollständige, gut ausgearbeitete Antwort gegenüber einer knappen — bleibe dabei an den Quellen verankert.',
 }
 
-function buildSystemPromptEn(depth: AnswerDepth): string {
+function buildSystemPromptEn(depth: AnswerDepth, codebase = false): string {
   return `You are LokLM, a local assistant grounded in the user's document library.
 
 Always respond in English. If the user writes in another language, translate the question internally but answer only in English.
@@ -182,12 +203,12 @@ LENGTH
 ${LENGTH_EN[depth]}
 
 FORMAT
-Plain text. No LaTeX, decorative headers, or tables unless asked. Do not bold a final answer at the top — the final answer comes at the end of the work.
+Plain text. No LaTeX, decorative headers, or tables unless asked. Do not bold a final answer at the top — the final answer comes at the end of the work.${codebase ? CODE_SECTION_EN : ''}
 
 /no_think`
 }
 
-function buildSystemPromptDe(depth: AnswerDepth): string {
+function buildSystemPromptDe(depth: AnswerDepth, codebase = false): string {
   return `Du bist LokLM, ein lokaler Assistent, der in der Dokumentbibliothek des Nutzers verankert ist.
 
 Antworte immer auf Deutsch. Schreibt der Nutzer in einer anderen Sprache, übersetze die Frage intern, aber antworte ausschließlich auf Deutsch.
@@ -217,7 +238,7 @@ UMFANG
 ${LENGTH_DE[depth]}
 
 FORMAT
-Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofern nicht gefordert. Setze die finale Antwort nicht fett ganz oben — sie steht am Ende des Rechenwegs.
+Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofern nicht gefordert. Setze die finale Antwort nicht fett ganz oben — sie steht am Ende des Rechenwegs.${codebase ? CODE_SECTION_DE : ''}
 
 /no_think`
 }
@@ -351,7 +372,9 @@ export function renderFallback(
  *  silent fallback is safer than guessing wrong, because tagging EN as DE
  *  would actively mislead the model. */
 function formatHitHeader(h: RetrievalHit, responseLang?: ResponseLanguage): string {
-  const loc = formatHitLocation(h, 'en')
+  // Location label follows the response language ('S.' vs 'p.') so the CODE
+  // system-prompt section's reading instruction matches what the model sees.
+  const loc = formatHitLocation(h, responseLang ?? 'en')
   const langTag =
     responseLang && h.language && h.language !== 'other' && h.language !== responseLang
       ? `, lang:${h.language}`
@@ -362,8 +385,11 @@ function formatHitHeader(h: RetrievalHit, responseLang?: ResponseLanguage): stri
 function formatHitLocation(h: RetrievalHit, lang: ResponseLanguage): string {
   const headingPart =
     h.heading_path && h.heading_path.length > 0 ? `§ ${h.heading_path.join(' › ')}` : null
-  const pagePart =
-    h.page_from != null ? (lang === 'de' ? `S. ${h.page_from}` : `p.${h.page_from}`) : null
+  // Range when the chunk spans pages/lines (code chunks carry LINE numbers in
+  // page_from/page_to — the CODE prompt section explains the reading).
+  const pageRange =
+    h.page_to != null && h.page_to !== h.page_from ? `${h.page_from}–${h.page_to}` : `${h.page_from}`
+  const pagePart = h.page_from != null ? (lang === 'de' ? `S. ${pageRange}` : `p.${pageRange}`) : null
   // PDFs with bookmarks emit both — heading first (topical), page second
   // (positional). Markdown produces only the heading; PDFs without bookmarks
   // only the page. Both null → empty string.

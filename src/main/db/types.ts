@@ -28,6 +28,16 @@ export interface SearchHit {
   score: number
   added_at?: number | null
   language: 'de' | 'en' | 'other' | null
+  /** Best raw BM25 score (-bm25, higher = better) across the query variants
+   *  that surfaced this chunk. Stamped by RetrievalService BEFORE RRF fusion
+   *  overwrites `score` — the fused rank number destroys both arms' native
+   *  relevance signal, which the no-rerank relevance floor needs. Absent on
+   *  hits that never came through the lexical arm (and on neighbour/whole-doc
+   *  expansion hits). */
+  bm25Score?: number
+  /** Best dense cosine similarity across variants; same lifecycle as
+   *  `bm25Score` for the vector arm. */
+  cosineScore?: number
 }
 
 export interface ChunkSearchOptions {

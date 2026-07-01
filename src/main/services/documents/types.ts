@@ -50,4 +50,10 @@ export interface IndexProgress {
    *  surface scanned-page OCR progress (e.g. "OCR 3/40") so it doesn't look
    *  like a stall. */
   detail?: string
+  /** Embedding throughput — successfully embedded chunks per second, cumulative
+   *  over the current document's embedding phase. Divides by the time spent
+   *  inside the embed calls only, so parse/persist pauses (own or of the
+   *  concurrently indexing document) don't dilute the rate. Only set on
+   *  'embedding' events; drives the Library batch bar's live rate readout. */
+  chunksPerSec?: number
 }

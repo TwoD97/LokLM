@@ -70,4 +70,8 @@ export class BundledLlmProvider implements LlmProvider {
   async setLanguage(lang: ResponseLanguage): Promise<void> {
     await this.inner.setLanguage(lang)
   }
+
+  async setCodebaseMode(on: boolean): Promise<void> {
+    await this.inner.setCodebaseMode(on)
+  }
 }

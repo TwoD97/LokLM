@@ -32,8 +32,10 @@ export function fuseRrf(
     const hit = next[i]!
     const inc = weight / (RRF_K + i + 1)
     const existing = scores.get(hit.chunk_id)
-    if (existing) existing.score += inc
-    else scores.set(hit.chunk_id, { hit, score: inc })
+    if (existing) {
+      existing.score += inc
+      existing.hit = mergeArmScores(existing.hit, hit)
+    } else scores.set(hit.chunk_id, { hit, score: inc })
   }
   const fused = Array.from(scores.values())
     .sort((a, b) => b.score - a.score)
@@ -41,4 +43,23 @@ export function fuseRrf(
   // overwrite the underlying-source score with the fused score so downstream
   // consumers (heuristics, rerank) see RRF-scale numbers, not BM25/cosine.
   return fused.map(({ hit, score }) => ({ ...hit, score }))
+}
+
+/** A chunk found by BOTH arms (or by the same arm across variants) keeps the
+ *  best of each arm's native score — the no-rerank relevance floor reads them
+ *  after fusion has overwritten `score` with RRF ranks. */
+function mergeArmScores(a: SearchHit, b: SearchHit): SearchHit {
+  const bm25 = maxDefined(a.bm25Score, b.bm25Score)
+  const cosine = maxDefined(a.cosineScore, b.cosineScore)
+  if (bm25 === a.bm25Score && cosine === a.cosineScore) return a
+  const merged = { ...a }
+  if (bm25 !== undefined) merged.bm25Score = bm25
+  if (cosine !== undefined) merged.cosineScore = cosine
+  return merged
+}
+
+function maxDefined(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined) return b
+  if (b === undefined) return a
+  return Math.max(a, b)
 }

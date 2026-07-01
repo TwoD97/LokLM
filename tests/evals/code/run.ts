@@ -34,9 +34,20 @@ interface Args {
   configs: Set<string> | null
   fake: boolean
   cache: boolean
+  /** Query dataset file under tests/evals/data/code-queries/. `loklm-de.json`
+   *  holds the German phrasings (dogfood: German questions on english code —
+   *  the production failure mode the english-only set never measured). */
+  queries: string
 }
 function parseArgs(argv: string[]): Args {
-  const out: Args = { placement: 'auto', limit: Infinity, configs: null, fake: false, cache: true }
+  const out: Args = {
+    placement: 'auto',
+    limit: Infinity,
+    configs: null,
+    fake: false,
+    cache: true,
+    queries: 'loklm.json',
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const n = argv[i + 1]
@@ -51,6 +62,9 @@ function parseArgs(argv: string[]): Args {
       i++
     } else if (a === '--configs' && n) {
       out.configs = new Set(n.split(','))
+      i++
+    } else if (a === '--queries' && n) {
+      out.queries = n
       i++
     } else if (a === '--fake') {
       out.fake = true
@@ -92,7 +106,16 @@ async function embedCorpus(
   }
   console.error(`corpus vectors: embedding ${texts.length} chunks…`)
   const t0 = performance.now()
-  const raw = await embedder.embedBatch(texts)
+  // Page the batch so the terminal shows progress — a 3k-chunk corpus embeds
+  // for minutes and used to look like a hang (llama.cpp init spam aside).
+  const PAGE = 200
+  const raw: number[][] = []
+  for (let start = 0; start < texts.length; start += PAGE) {
+    raw.push(...(await embedder.embedBatch(texts.slice(start, start + PAGE))))
+    console.error(
+      `  ${Math.min(start + PAGE, texts.length)}/${texts.length} (${((performance.now() - t0) / 1000).toFixed(0)}s)`,
+    )
+  }
   const rows = raw.map((v) => l2(v))
   const dim = rows[0]?.length ?? 0
   console.error(`  done in ${((performance.now() - t0) / 1000).toFixed(1)}s (dim ${dim})`)
@@ -112,7 +135,7 @@ async function main(): Promise<void> {
     readFileSync(join(DATA, 'code-corpus', 'loklm.json'), 'utf-8'),
   ) as CodeCorpus
   const dataset = JSON.parse(
-    readFileSync(join(DATA, 'code-queries', 'loklm.json'), 'utf-8'),
+    readFileSync(join(DATA, 'code-queries', args.queries), 'utf-8'),
   ) as CodeQueryDataset
   const items = dataset.items.slice(0, args.limit)
   console.error(
@@ -141,10 +164,13 @@ async function main(): Promise<void> {
   }
 
   // --- embeddings: corpus once (raw), queries twice (plain + instruction) ---
+  // R3 parity: production embeds `context_prefix\n text` for code chunks. A
+  // prefixed corpus gets its own cache key — same chunkCount, different text.
+  const hasPrefix = corpus.chunks.some((c) => c.contextPrefix)
   const corpusVecs = await embedCorpus(
     embedder,
-    corpus.chunks.map((c) => c.text),
-    `${label}-${corpus.chunkCount}`,
+    corpus.chunks.map((c) => (c.contextPrefix ? `${c.contextPrefix}\n${c.text}` : c.text)),
+    `${label}-${corpus.chunkCount}${hasPrefix ? '-ctx' : ''}`,
     args.cache && !args.fake,
   )
   const needInstr = ABLATIONS.filter((a) => !args.configs || args.configs.has(a.name)).some(

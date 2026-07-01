@@ -15,6 +15,7 @@ export const libraryDict: DomainDict = {
     'library.dropZone': 'Click to choose — or drag files here.',
     'library.indexingActive': 'Indexing {count} document(s)…',
     'library.indexProgress': '{ready} of {total} indexed ({percent}%)',
+    'library.indexThroughput': '{rate} chunks/s',
     'library.stopIndexing': 'Stop',
     'library.summarize': 'Summarize',
     'library.summaryTitle': 'Summary — {title}',
@@ -96,7 +97,8 @@ export const libraryDict: DomainDict = {
     'library.syncIntro':
       'Connect folders and LokLM imports new files automatically and reindexes changed ones. Deleted files are marked as "no longer found" — you decide whether to keep or remove them.',
     'library.removeFolder': 'Remove {folder}',
-    'library.removeFromSyncTitle': 'Remove from sync (documents stay in the library)',
+    'library.removeFromSyncTitle':
+      'Remove from sync (also removes its indexed documents from this workspace — files on disk stay untouched)',
     'library.addFolder': 'Add folder',
     // ADR-0006: directory picker shown when a codebase folder has no .gitignore.
     'library.pickDirsTitle': 'Choose folders to index',
@@ -172,6 +174,7 @@ export const libraryDict: DomainDict = {
     'library.dropZone': 'Klicken zum Auswählen – oder Dateien hierher ziehen.',
     'library.indexingActive': 'Indexiere {count} Dokument(e)…',
     'library.indexProgress': '{ready} von {total} indexiert ({percent} %)',
+    'library.indexThroughput': '{rate} Chunks/s',
     'library.stopIndexing': 'Stopp',
     'library.summarize': 'Zusammenfassen',
     'library.summaryTitle': 'Zusammenfassung — {title}',
@@ -253,7 +256,8 @@ export const libraryDict: DomainDict = {
     'library.syncIntro':
       'Verbinde Ordner und LokLM importiert neue Dateien automatisch und reindiziert geänderte. Gelöschte Dateien werden als „nicht mehr gefunden“ markiert – du entscheidest selbst über behalten oder entfernen.',
     'library.removeFolder': '{folder} entfernen',
-    'library.removeFromSyncTitle': 'Aus Sync entfernen (Dokumente bleiben in der Bibliothek)',
+    'library.removeFromSyncTitle':
+      'Aus Sync entfernen (entfernt auch die indexierten Dokumente aus diesem Workspace — Dateien auf der Platte bleiben unberührt)',
     'library.addFolder': 'Ordner hinzufügen',
     // ADR-0006: Ordnerauswahl, wenn ein Code-Ordner keine .gitignore hat.
     'library.pickDirsTitle': 'Ordner zum Indizieren wählen',

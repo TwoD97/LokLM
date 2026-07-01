@@ -50,7 +50,6 @@ export const authDict: DomainDict = {
     'auth.repeatHintEmpty': 'For safety, once more.',
     'auth.repeatHintMatch': 'Matches.',
     'auth.repeatHintMismatch': "Doesn't match.",
-    'auth.alreadyRegistered': 'Already registered? Sign in.',
 
     // ResetView
     'auth.resetTitle': 'Reset password',
@@ -143,7 +142,6 @@ export const authDict: DomainDict = {
     'auth.repeatHintEmpty': 'Zur Sicherheit nochmal.',
     'auth.repeatHintMatch': 'Passt.',
     'auth.repeatHintMismatch': 'Stimmt nicht überein.',
-    'auth.alreadyRegistered': 'Schon registriert? Anmelden.',
 
     // ResetView
     'auth.resetTitle': 'Passwort zurücksetzen',

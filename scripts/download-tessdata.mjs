@@ -1,12 +1,16 @@
-// Downloads the Tesseract `best` (LSTM, highest-accuracy) traineddata for the
-// languages LokLM ships, into ./tessdata. electron-builder copies this folder
-// to <resources>/tessdata via build.extraResources, and the OCR module resolves
+// Downloads the Tesseract `fast` (integer LSTM) traineddata for the languages
+// LokLM ships, into ./tessdata. electron-builder copies this folder to
+// <resources>/tessdata via build.extraResources, and the OCR module resolves
 // it there at runtime so OCR works 100% offline after install.
 //
-// Run manually (`pnpm tessdata`) or it is invoked before packaging. Files are
-// ~13–15 MB each; we skip any that already exist unless --force is passed.
+// Run manually (`pnpm tessdata`) — and the package:<plat>:payload scripts run
+// it automatically so packaged builds (local and CI, whose runners start with
+// no tessdata/ at all) always contain the current models. A download failure
+// aborts the build rather than shipping an installer without OCR. Files are
+// ~2–5 MB each; we skip any that already exist unless --force is passed or
+// the on-disk variant differs (see VARIANT marker below).
 
-import { createWriteStream, existsSync, mkdirSync, statSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,13 +20,22 @@ import { pipeline } from 'node:stream/promises'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = join(__dirname, '..', 'tessdata')
 
-// tessdata_best = float LSTM models, the most accurate variant. Pinned to a
-// commit-free `main` raw URL; GitHub redirects to raw.githubusercontent.com,
-// which global fetch follows automatically.
-const BASE = 'https://github.com/tesseract-ocr/tessdata_best/raw/main'
+// tessdata_fast = integer LSTM models, ~3-4× faster to recognise than the
+// float `best` variant at a small accuracy cost — the trade-off LokLM wants
+// for indexing whole scanned documents. Pinned to a commit-free `main` raw
+// URL; GitHub redirects to raw.githubusercontent.com, which global fetch
+// follows automatically.
+const BASE = 'https://github.com/tesseract-ocr/tessdata_fast/raw/main'
 const LANGS = ['eng', 'deu']
 
-const force = process.argv.includes('--force')
+// Marker recording which variant the on-disk files came from. Without it, a
+// checkout still holding the old `best` models would skip on "file exists"
+// and silently keep the slow variant.
+const VARIANT = 'fast'
+const VARIANT_FILE = join(OUT_DIR, 'VARIANT')
+const variantOnDisk = existsSync(VARIANT_FILE) ? readFileSync(VARIANT_FILE, 'utf-8').trim() : null
+
+const force = process.argv.includes('--force') || variantOnDisk !== VARIANT
 
 async function downloadOne(lang) {
   const dest = join(OUT_DIR, `${lang}.traineddata`)
@@ -50,10 +63,14 @@ async function downloadOne(lang) {
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true })
-  console.log(`tessdata → ${OUT_DIR}`)
+  console.log(`tessdata (${VARIANT}) → ${OUT_DIR}`)
+  if (variantOnDisk !== null && variantOnDisk !== VARIANT) {
+    console.log(`  variant changed (${variantOnDisk} → ${VARIANT}) — re-downloading everything`)
+  }
   for (const lang of LANGS) {
     await downloadOne(lang)
   }
+  writeFileSync(VARIANT_FILE, `${VARIANT}\n`)
   console.log('done.')
 }
 

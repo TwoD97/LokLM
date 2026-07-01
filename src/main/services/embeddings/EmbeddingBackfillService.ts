@@ -198,7 +198,12 @@ export class EmbeddingBackfillService {
         // after 2 consecutive empty passes.
         let vectors: Float32Array[] | null
         try {
-          vectors = await embedder.embed(batch.map((b) => b.text))
+          // R3: mirror DocumentService's ingest concat — code chunks embed with
+          // their context_prefix (file path + symbol words) so backfilled and
+          // freshly-indexed vectors live in the same space.
+          vectors = await embedder.embed(
+            batch.map((b) => (b.context_prefix ? `${b.context_prefix}\n${b.text}` : b.text)),
+          )
         } catch {
           vectors = null
         }

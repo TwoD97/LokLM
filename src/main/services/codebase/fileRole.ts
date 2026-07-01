@@ -57,10 +57,17 @@ function isEval(rel: string): boolean {
   return /(^|\/)(evals?|bench|benchmarks?|__benchmarks__)\//i.test(norm(rel))
 }
 
-/** Fixtures, examples, samples, demos, and test helper code — support, not impl. */
+/** Fixtures, examples, samples, demos, and test helper code — support, not impl.
+ *  `helpers/` and `mocks/` are common in PRODUCTION trees (src/utils/helpers/),
+ *  so they only count as support when nested under a test directory; `__mocks__`
+ *  stays global (unambiguous Jest convention). Before the breadcrumb carried the
+ *  full relative path these directory rules never matched — now that they do,
+ *  the global variant would demote legitimate source by 0.5. */
 function isExample(rel: string): boolean {
-  return /(^|\/)(fixtures?|examples?|samples?|demos?|helpers?|mocks?|__mocks__|testdata)\//i.test(
-    norm(rel),
+  const p = norm(rel)
+  return (
+    /(^|\/)(fixtures?|examples?|samples?|demos?|__mocks__|testdata)\//i.test(p) ||
+    /(^|\/)(tests?|__tests__|spec|specs)\/(.*\/)?(helpers?|mocks?)\//i.test(p)
   )
 }
 

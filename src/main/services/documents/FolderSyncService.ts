@@ -140,6 +140,27 @@ export class FolderSyncService {
       .workspaces()
       .clearIndexDirs(workspaceId, abs)
       .catch(() => undefined)
+    // Removing a folder also removes its indexed copies: docs whose source
+    // lives under the removed root (and not under a folder that is still
+    // synced) are deleted outright — chunks cascade, and the Lance vectors are
+    // dropped via DocumentService.deleteDocuments. Without this the docs
+    // stayed behind as permanent orphans: still searchable, their chunks and
+    // embeddings parked in the workspace vault, and no later sync pass would
+    // ever mark them missing (the marker scope is watched folders only).
+    try {
+      const docs = await this.auth
+        .requireDatabase()
+        .documents()
+        .listDocumentsByWorkspace(workspaceId)
+      const doomed = docs.filter(
+        (d) => isUnderAny(d.sourcePath, [abs]) && !isUnderAny(d.sourcePath, folders),
+      )
+      if (doomed.length > 0) {
+        await this.documents.deleteDocuments(doomed.map((d) => d.id))
+      }
+    } catch (err) {
+      console.warn(`[folder-sync] document cleanup after removeFolder failed:`, err)
+    }
     this.restartWatchers(workspaceId, folders)
     return folders
   }

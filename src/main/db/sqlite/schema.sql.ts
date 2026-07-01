@@ -11,6 +11,26 @@
 // raw PGlite migrations re-ran each boot. Summary embeddings are a small BLOB of
 // float32 (hundreds of rows per workspace → brute-force cosine in JS, ADR-0003).
 
+// FTS table + sync triggers, extracted so WorkspaceDb.open can rebuild them in
+// place when the column set changes (a virtual table can't be ALTERed; the
+// context_prefix migration drops + recreates + 'rebuild's from the content
+// table). Column order matters: text stays column 0 — searchLibrary's
+// snippet(chunks_fts, 0, …) indexes it positionally.
+export const CHUNKS_FTS_SQL = `
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts
+  USING fts5(text, context_prefix, content='chunks', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
+CREATE TRIGGER IF NOT EXISTS chunks_fts_ai AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunks_fts(rowid, text, context_prefix) VALUES (new.id, new.text, new.context_prefix);
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_fts_ad AFTER DELETE ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, text, context_prefix) VALUES ('delete', old.id, old.text, old.context_prefix);
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_fts_au AFTER UPDATE ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, text, context_prefix) VALUES ('delete', old.id, old.text, old.context_prefix);
+  INSERT INTO chunks_fts(rowid, text, context_prefix) VALUES (new.id, new.text, new.context_prefix);
+END;
+`
+
 export const WORKSPACE_SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
 
@@ -53,19 +73,10 @@ CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_doc_ordinal ON chunks(document_id, ordinal);
 CREATE INDEX IF NOT EXISTS idx_chunks_unembedded ON chunks(document_id) WHERE embedded = 0;
 
--- FTS5 over chunk text (external content), trigger-synced. BM25 ranking built in.
-CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts
-  USING fts5(text, content='chunks', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
-CREATE TRIGGER IF NOT EXISTS chunks_fts_ai AFTER INSERT ON chunks BEGIN
-  INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
-END;
-CREATE TRIGGER IF NOT EXISTS chunks_fts_ad AFTER DELETE ON chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
-END;
-CREATE TRIGGER IF NOT EXISTS chunks_fts_au AFTER UPDATE ON chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
-  INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
-END;
+-- FTS5 over chunk text + context_prefix (external content), trigger-synced.
+-- BM25 ranking built in. R3: context_prefix carries a code chunk's file path +
+-- camel-split symbol words, so "auth" lexically finds AuthService.ts chunks.
+${CHUNKS_FTS_SQL}
 
 CREATE TABLE IF NOT EXISTS conversations (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,

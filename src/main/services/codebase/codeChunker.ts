@@ -58,6 +58,28 @@ function topLevelSymbol(line: string): string | null {
   return null
 }
 
+/**
+ * One-line searchable location header for a code chunk (R3): the relative path,
+ * the enclosing symbol, and the camel-/snake-split words of stem + symbol —
+ * "src/main/services/auth/AuthService.ts · AuthService · auth service". Persisted
+ * to chunks.context_prefix, where it is (a) FTS-indexed so a lay token like
+ * "auth" lexically finds the file's chunks, and (b) prepended to the embedding
+ * text so every chunk of a class carries its identity in the vector space —
+ * not just the one containing the `class` line.
+ */
+export function contextPrefixFor(relPath: string, symbol: string | null): string {
+  const stem = relPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? ''
+  const words = new Set<string>()
+  for (const part of symbol ? [stem, symbol] : [stem]) {
+    for (const seg of part.split(/[^A-Za-z0-9]+/)) {
+      for (const w of seg.split(/(?<=[a-z0-9])(?=[A-Z])/)) {
+        if (w.length >= 3) words.add(w.toLowerCase())
+      }
+    }
+  }
+  return [relPath, symbol, [...words].join(' ') || null].filter(Boolean).join(' · ')
+}
+
 /** Hard-splits an over-long single line into ≤maxChars pieces (minified-ish or
  *  generated lines), so the budget invariant always holds. */
 function hardSplit(line: string, maxChars: number): string[] {
@@ -98,6 +120,7 @@ export function chunkCode(source: string, opts: CodeChunkOptions = {}): Chunk[] 
         pageTo: endIdx + 1,
         headingPath: scope ? [...head, scope] : head.length > 0 ? [...head] : null,
         language: null,
+        contextPrefix: opts.relPath ? contextPrefixFor(opts.relPath, scope) : null,
       })
     }
     cur = []

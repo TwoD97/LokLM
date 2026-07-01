@@ -121,6 +121,12 @@ export function LibraryView({
   // workspace switch and after every sync run (folders may have been added).
   const [syncRoots, setSyncRoots] = useState<string[]>([])
   const [progress, setProgress] = useState<Map<number, IndexProgress>>(new Map())
+  // Last embedding throughput reported by any doc's embedding phase. STICKY on
+  // purpose: each doc spends most of its index cycle in parsing/chunking/
+  // persisting, so deriving this from the live phase made the readout flicker
+  // in and out during bulk indexing. Held while the batch drains, cleared when
+  // the queue empties (effect below) or the workspace changes.
+  const [embedRate, setEmbedRate] = useState<number | null>(null)
   // Documents that still have un-embedded chunks while a vector re-embed (model
   // swap / backfill) runs for this workspace — only these rows read
   // 're-embedding' instead of painting the whole library. Refreshed as the
@@ -217,6 +223,9 @@ export function LibraryView({
         next.set(p.documentId, p)
         return next
       })
+      if (p.phase === 'embedding' && typeof p.chunksPerSec === 'number') {
+        setEmbedRate(p.chunksPerSec)
+      }
       if (p.phase === 'done' || p.phase === 'failed') {
         void refreshDocs(workspaceId)
         refreshStorage(workspaceId)
@@ -224,6 +233,9 @@ export function LibraryView({
     })
     return () => off()
   }, [workspaceId, refreshDocs, refreshStorage])
+
+  // The rate belongs to whichever queue is on screen — drop it on switch.
+  useEffect(() => setEmbedRate(null), [workspaceId])
 
   // Sync events arrive on a separate channel ; on 'done' we refresh the doc
   // list once so deletions + new imports appear without per-doc roundtrips,
@@ -374,6 +386,13 @@ export function LibraryView({
   // indexing:progress 'done' → refreshDocs).
   const indexBatch = deriveIndexBatchProgress(docs)
 
+  // Queue drained (or nothing indexing) — the sticky throughput readout is no
+  // longer describing anything live, so retire it before the bar unmounts.
+  const indexActive = indexBatch.active
+  useEffect(() => {
+    if (indexActive === 0) setEmbedRate(null)
+  }, [indexActive])
+
   // Docs that failed to index — drives the bulk "retry failed" banner. A doc
   // with an in-flight non-failed progress is mid-retry, so exclude it (its
   // persisted status is still 'failed' until the run reports 'done').
@@ -464,6 +483,8 @@ export function LibraryView({
                 total: indexBatch.total,
                 percent: indexBatch.percent,
               })}
+              {embedRate !== null &&
+                ` · ${t('library.indexThroughput', { rate: embedRate.toFixed(1) })}`}
             </span>
             <button
               type="button"

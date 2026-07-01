@@ -36,8 +36,10 @@ async function main(): Promise<void> {
     readFileSync(join(DATA, 'code-corpus', 'loklm.json'), 'utf-8'),
   ) as CodeCorpus
   const label = 'Qwen3-Embedding-0.6B-Q8_0.gguf'
-  const binPath = join(DATA, 'code-corpus', '.vec-cache', `${label}-${corpus.chunkCount}.bin`)
-  const metaPath = join(DATA, 'code-corpus', '.vec-cache', `${label}-${corpus.chunkCount}.json`)
+  // Cache key mirrors run.ts: a context-prefixed corpus embeds different text.
+  const cacheKey = `${label}-${corpus.chunkCount}${corpus.chunks.some((c) => c.contextPrefix) ? '-ctx' : ''}`
+  const binPath = join(DATA, 'code-corpus', '.vec-cache', `${cacheKey}.bin`)
+  const metaPath = join(DATA, 'code-corpus', '.vec-cache', `${cacheKey}.json`)
   if (!existsSync(binPath))
     throw new Error(`no vec cache for ${corpus.chunkCount} chunks — run run.ts first`)
   const meta = JSON.parse(readFileSync(metaPath, 'utf-8')) as { n: number; dim: number }

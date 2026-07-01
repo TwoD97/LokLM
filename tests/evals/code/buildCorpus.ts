@@ -182,6 +182,7 @@ function main(): void {
             symbol,
             pageFrom: c.pageFrom,
             pageTo: c.pageTo,
+            contextPrefix: c.contextPrefix ?? null,
           })
           codeChunkCount++
         }

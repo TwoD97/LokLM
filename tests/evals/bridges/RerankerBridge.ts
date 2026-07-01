@@ -53,7 +53,12 @@ export class RerankerBridge implements Reranker {
       )
     }
     const lib = await import('node-llama-cpp')
-    const llama = await lib.getLlama({ gpu: placementToGpu(this.placement) })
+    // logLevel mirrors EmbedderBridge: suppress llama.cpp's per-call init
+    // warnings that flood the terminal at eval scale.
+    const llama = await lib.getLlama({
+      gpu: placementToGpu(this.placement),
+      logLevel: lib.LlamaLogLevel.error,
+    })
     this.model = await llama.loadModel({ modelPath })
     this.context = await (
       this.model as {

@@ -318,6 +318,9 @@ export class LlamaService {
   // English-first default ( matches DEFAULT_SETTINGS.basic.language ) ; the
   // real value is pushed from settings on startup + on every change.
   private language: ResponseLanguage = 'en'
+  /** True while the active chat workspace is a codebase — appends the CODE
+   *  system-prompt section. Set per turn by QAService via setCodebaseMode. */
+  private codebaseMode = false
   // Profile of the currently loaded model. Drives the answer-verbosity depth in
   // the system prompt ( PROFILE_TO_DEPTH ) so a per-turn language switch rebuilds
   // the prompt at the right tier. Null until a load lands.
@@ -473,9 +476,26 @@ export class LlamaService {
     // Worker patches its session's system prompt without paying a reload.
     // Awaited so a per-turn switch (QAService , Auto mode) lands before the
     // next llmAsk — the worker holds the system prompt as session state.
+    await this.pushSystemPrompt()
+  }
+
+  /** Codebase-workspace prompt mode (ADR-0006): appends the CODE section to the
+   *  system prompt so the model gets code-reading guidance instead of the pure
+   *  document-library framing. Same per-turn contract as setLanguage — QAService
+   *  awaits it before ask(), and the worker patches session state, no reload. */
+  async setCodebaseMode(on: boolean): Promise<void> {
+    if (this.codebaseMode === on) return
+    this.codebaseMode = on
+    await this.pushSystemPrompt()
+  }
+
+  private async pushSystemPrompt(): Promise<void> {
     if (this.client && this.isReady()) {
       try {
-        await this.client.llmSetLanguage(lang, buildSystemPrompt(lang, this.answerDepth()))
+        await this.client.llmSetLanguage(
+          this.language,
+          buildSystemPrompt(this.language, this.answerDepth(), { codebase: this.codebaseMode }),
+        )
       } catch {
         /* worker status push already reflects reality */
       }
@@ -678,7 +698,9 @@ export class LlamaService {
         device: this.devicePlan,
         language: this.language,
         envContextOverride: envOverride,
-        systemPrompt: buildSystemPrompt(this.language, this.answerDepth()),
+        systemPrompt: buildSystemPrompt(this.language, this.answerDepth(), {
+          codebase: this.codebaseMode,
+        }),
       })
       this.lastPlan = result.plan
       this.lastResources = result.resources

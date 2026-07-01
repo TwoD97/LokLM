@@ -134,6 +134,17 @@ export class DocumentService {
   }
 
   private pumpIndexQueue(): void {
+    // Backstop for lock paths that cannot drain first (the idle auto-lock
+    // fires inside AuthService): once the vault is locked the manifest and
+    // meta.db are gone, so every dispatch would just throw "workspace not
+    // found" — one stack-trace cascade per queued job, pumped two at a time by
+    // the finally below. Drop the queue instead; the rows stay 'pending' and
+    // sweepOrphanedIndexing reconciles them on the next unlock, exactly like a
+    // crashed session.
+    if (!this.auth.isUnlocked()) {
+      this.indexQueue.length = 0
+      return
+    }
     while (
       !this.quiescing &&
       this.activeIndexing < DocumentService.MAX_CONCURRENT_INDEXING &&
@@ -154,11 +165,9 @@ export class DocumentService {
     }
   }
 
-  /** Drop every not-yet-started indexing job for a workspace. Import
-   *  placeholders (no chunks) are deleted outright; reindex jobs (real docs
-   *  whose chunks were already wiped) are marked 'failed' so the user can
-   *  retry. Jobs already running are left to finish — the worker requests
-   *  aren't abortable mid-parse. Returns how many queued jobs were cancelled. */
+  /** Drop every not-yet-started indexing job for a workspace. Jobs already
+   *  running are left to finish — the worker requests aren't abortable
+   *  mid-parse. Returns how many queued jobs were cancelled. */
   async cancelWorkspaceIndexing(workspaceId: number): Promise<number> {
     const cancelled: typeof this.indexQueue = []
     for (let i = this.indexQueue.length - 1; i >= 0; i--) {
@@ -166,6 +175,26 @@ export class DocumentService {
         cancelled.push(this.indexQueue.splice(i, 1)[0]!)
       }
     }
+    return this.reconcileCancelledJobs(cancelled)
+  }
+
+  /** Drop every not-yet-started indexing job across all workspaces and
+   *  reconcile their rows while the vault DB is still open. Called by the
+   *  explicit lock/logout drain before AuthService closes the workspace store —
+   *  without it, lock() clears the manifest under a full queue and the pump
+   *  cascades one "workspace not found" failure per queued document. Unlike
+   *  quiesce() this is resumable: the service is cached across lock/unlock
+   *  cycles and must be able to index again after the next login. In-flight
+   *  jobs are left to finish — the caller drains hasActiveIndexing() before
+   *  locking. */
+  async cancelAllIndexing(): Promise<number> {
+    return this.reconcileCancelledJobs(this.indexQueue.splice(0, this.indexQueue.length))
+  }
+
+  /** Import placeholders (no chunks yet) are deleted outright; reindex jobs
+   *  (real docs whose chunks were already wiped) are marked 'failed' so the
+   *  user can retry. */
+  private async reconcileCancelledJobs(cancelled: typeof this.indexQueue): Promise<number> {
     if (cancelled.length === 0) return 0
     const repo = this.auth.requireDatabase().documents()
     for (const job of cancelled) {
@@ -348,8 +377,38 @@ export class DocumentService {
     return refreshed
   }
 
-  /** Shared file-validation path used by importFile + replaceSource. Returns
-   *  stat + hash in one read so callers don't double-stream the file. */
+  /** Deletes documents (rows cascade to chunks + FTS) after dropping their
+   *  vectors from the Lance store — the one shared delete path, used by both
+   *  the documents:delete IPC and folder-removal cleanup so neither can orphan
+   *  vectors. Chunk ids are batched per workspace: one Lance delete (and one
+   *  compaction pass — see LanceWorkspaceStore.remove) per store rather than
+   *  per document. */
+  async deleteDocuments(documentIds: number[]): Promise<void> {
+    const repo = this.auth.requireDatabase().documents()
+    const chunksByWorkspace = new Map<number, number[]>()
+    for (const id of documentIds) {
+      const doc = await repo.getDocument(id)
+      if (!doc) continue
+      const chunkIds = await repo.chunkIdsForDocument(id)
+      if (chunkIds.length === 0) continue
+      const list = chunksByWorkspace.get(doc.workspaceId)
+      if (list) list.push(...chunkIds)
+      else chunksByWorkspace.set(doc.workspaceId, chunkIds)
+    }
+    if (this.vectorRemove) {
+      for (const [workspaceId, chunkIds] of chunksByWorkspace) {
+        try {
+          await this.vectorRemove(workspaceId, chunkIds)
+        } catch (err) {
+          console.warn(`[documents] vector remove failed for workspace #${workspaceId}:`, err)
+        }
+      }
+    }
+    for (const id of documentIds) {
+      await repo.deleteDocument(id)
+    }
+  }
+
   /** ADR-0005: drop a document's current chunk vectors from the Lance store
    *  before a reindex/delete wipes the chunks. Must run BEFORE reindexDocument
    *  (which deletes the chunk rows). No-op without a vectorRemove hook. */
@@ -367,6 +426,8 @@ export class DocumentService {
     }
   }
 
+  /** Shared file-validation path used by importFile + replaceSource. Returns
+   *  stat + hash in one read so callers don't double-stream the file. */
   private async statAndHashOrThrow(sourcePath: string): Promise<{ stat: Stats; hash: string }> {
     if (!isSupported(sourcePath)) {
       throw new ImportError(
@@ -396,6 +457,39 @@ export class DocumentService {
     return { stat, hash }
   }
 
+  /**
+   * Repo-relative path for a code chunk's breadcrumb (heading_path[0]).
+   * fileRole's directory predicates (tests/, evals/, fixtures/, …) and any
+   * path-carrying retrieval signal only work on a PATH — passing just the
+   * basename silently classified tests/evals files as 'source' at retrieval
+   * time and threw the directory context away (R6). Longest-prefix match
+   * against the workspace's sync roots; a file no root contains (single-file
+   * import) keeps the basename, exactly the legacy shape.
+   */
+  private async resolveCodeRelPath(doc: Document): Promise<string> {
+    try {
+      const roots = await this.auth
+        .requireDatabase()
+        .workspaces()
+        .getSyncFolders(doc.workspaceId)
+      const norm = (p: string): string => p.replace(/\\/g, '/')
+      const src = norm(doc.sourcePath)
+      const srcLower = src.toLowerCase()
+      let bestLen = 0
+      for (const root of roots) {
+        let r = norm(root)
+        if (!r.endsWith('/')) r += '/'
+        // Case-insensitive prefix match (Windows paths vary in drive/dir case);
+        // slice from the original string — norm() preserves length.
+        if (srcLower.startsWith(r.toLowerCase()) && r.length > bestLen) bestLen = r.length
+      }
+      if (bestLen > 0) return src.slice(bestLen)
+    } catch {
+      // vault locked / no workspaces facade (unit tests) — basename fallback.
+    }
+    return basename(doc.sourcePath)
+  }
+
   private async indexInBackground(doc: Document, input: ImportInput): Promise<void> {
     const TOTAL = 4
     const sender = input.sender
@@ -404,6 +498,7 @@ export class DocumentService {
       step: number,
       error?: string,
       detail?: string,
+      chunksPerSec?: number,
     ): void => {
       // Tick before the sender guard: the quit drain's liveness signal must
       // advance even in contexts with no renderer attached (folder-sync).
@@ -419,6 +514,7 @@ export class DocumentService {
         }
         if (error !== undefined) payload.error = error
         if (detail !== undefined) payload.detail = detail
+        if (chunksPerSec !== undefined) payload.chunksPerSec = chunksPerSec
         sender.send('indexing:progress', payload)
       } catch {
         // renderer gone
@@ -460,7 +556,7 @@ export class DocumentService {
         send('parsing', 1)
         const source = await readFile(doc.sourcePath, 'utf8')
         send('chunking', 2)
-        const codeOpts: CodeChunkOptions = { relPath: basename(doc.sourcePath) }
+        const codeOpts: CodeChunkOptions = { relPath: await this.resolveCodeRelPath(doc) }
         if (effChunk.chunkSize !== undefined) codeOpts.maxChars = effChunk.chunkSize
         out = chunkCode(source, codeOpts)
       } else if (this.worker) {
@@ -531,14 +627,28 @@ export class DocumentService {
         const embedder = this.registry.embedder()
         await embedder.ensureReady()
         if (embedder.isReady()) {
-          const texts = out.map((c) => c.text)
+          // R3: code chunks carry their file/symbol identity in contextPrefix —
+          // prepend it so the vector says WHERE the code lives, not just what
+          // it does. Chunks without a prefix embed exactly as before. The
+          // backfill path (EmbeddingBackfillService) mirrors this concat.
+          const texts = out.map((c) => (c.contextPrefix ? `${c.contextPrefix}\n${c.text}` : c.text))
           const acc: Array<Float32Array | null> = new Array(texts.length).fill(null)
           let anyEmbedded = false
           let embeddedSoFar = 0
+          // Pure time spent inside successful embed() calls. The rate readout
+          // divides by THIS, not by loop wall-clock: with two jobs interleaved
+          // the other document's parse/persist (synchronous SQLite on the main
+          // thread) steals wall-clock between batches and would drag the
+          // number below what the embedder actually delivers. Failed batches
+          // contribute neither chunks nor time, keeping the ratio "speed of
+          // the output that was produced".
+          let embedMs = 0
           for (let start = 0; start < texts.length; start += EMBED_BATCH) {
             const slice = texts.slice(start, start + EMBED_BATCH)
+            const batchStart = performance.now()
             try {
               const vs = await embedder.embed(slice)
+              embedMs += performance.now() - batchStart
               for (let j = 0; j < vs.length; j++) acc[start + j] = vs[j] ?? null
               anyEmbedded = true
               embeddedSoFar += slice.length
@@ -557,7 +667,18 @@ export class DocumentService {
             // doesn't read as completed progress. The tick fires regardless (the
             // counter advances inside send() before the sender guard), so a wedged
             // batch that never returns correctly produces NO tick.
-            send('embedding', 3, undefined, `embedding ${embeddedSoFar}/${texts.length}`)
+            // Cumulative chunks/s over this document's embedding phase rides
+            // along for the Library bar's throughput readout; withheld until a
+            // measurable interval has passed so the first batch can't report a
+            // divide-by-near-zero spike.
+            const embedS = embedMs / 1000
+            send(
+              'embedding',
+              3,
+              undefined,
+              `embedding ${embeddedSoFar}/${texts.length}`,
+              embeddedSoFar > 0 && embedS >= 0.2 ? embeddedSoFar / embedS : undefined,
+            )
           }
           if (anyEmbedded) {
             vectors = acc
@@ -580,6 +701,7 @@ export class DocumentService {
           tokenCount: estimateTokens(c.text),
           headingPath: c.headingPath,
           language: c.language,
+          contextPrefix: c.contextPrefix ?? null,
         })),
       )
       if (vectors && activeIdentity) {

@@ -86,6 +86,12 @@ export interface IndexProgress {
   /** Optional sub-status for a long-running phase. The parsing phase sets this
    *  to scanned-page OCR progress (e.g. "OCR 3/40") so it doesn't look stalled. */
   detail?: string
+  /** Embedding throughput — successfully embedded chunks per second, cumulative
+   *  over the current document's embedding phase. Divides by the time spent
+   *  inside the embed calls only, so parse/persist pauses (own or of the
+   *  concurrently indexing document) don't dilute the rate. Only set on
+   *  'embedding' events; drives the Library batch bar's live rate readout. */
+  chunksPerSec?: number
 }
 
 export type EmbedderState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'

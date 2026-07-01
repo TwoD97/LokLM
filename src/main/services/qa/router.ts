@@ -91,15 +91,22 @@ export function classifyQueryBreadth(query: string): QueryBreadth {
 }
 
 /** Maps classified breadth to a topK. Exported for tests and for callers
- *  that want the heuristic without going through QAService.answer. */
-export function adaptiveTopK(query: string): number {
+ *  that want the heuristic without going through QAService.answer.
+ *
+ *  `codebaseWorkspace`: the k=3 focused sweep was measured on prose factoid
+ *  questions. A class/function spreads across several non-overlapping code
+ *  chunks (codeChunker breaks at top-level declarations, no overlap), so 3
+ *  chunks ±1 neighbour shows the model fragments of an implementation. Floor
+ *  code questions at BROAD_TOP_K — packHitsToBudget still trims to the model
+ *  window, so the cost is prefill latency, not overflow. */
+export function adaptiveTopK(query: string, codebaseWorkspace = false): number {
   switch (classifyQueryBreadth(query)) {
     case 'summary':
       return SUMMARY_TOP_K
     case 'broad':
       return BROAD_TOP_K
     case 'focused':
-      return FOCUSED_TOP_K
+      return codebaseWorkspace ? BROAD_TOP_K : FOCUSED_TOP_K
   }
 }
 

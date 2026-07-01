@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3-multiple-ciphers'
-import { WORKSPACE_SCHEMA_SQL } from './schema.sql'
+import { WORKSPACE_SCHEMA_SQL, CHUNKS_FTS_SQL } from './schema.sql'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../types'
 import type { LibrarySearchOptions, PipelineStep } from '../../../shared/documents'
 import type {
@@ -32,6 +32,9 @@ export interface NewChunk {
   tokenCount: number
   headingPath?: string[] | null
   language?: 'de' | 'en' | 'other' | null
+  /** One-line searchable location header (code chunks: path + camel-split
+   *  symbol words). Indexed in FTS and prepended to the embedding text (R3). */
+  contextPrefix?: string | null
 }
 
 export interface NewDocumentInput {
@@ -209,6 +212,26 @@ export class WorkspaceDb {
     )
     if (!messageCols.has('pipeline')) {
       db.exec(`ALTER TABLE messages ADD COLUMN pipeline TEXT`)
+    }
+    // FTS migration (R3): chunks_fts gained the context_prefix column. A
+    // virtual table can't be ALTERed, so DBs created with the single-column
+    // shape get a drop + recreate + rebuild (repopulates from the content
+    // table `chunks` by column name — context_prefix exists there since the
+    // original schema). One-time per workspace; rebuild is O(chunks).
+    const ftsCols = new Set(
+      (db.prepare(`PRAGMA table_info(chunks_fts)`).all() as Array<{ name: string }>).map(
+        (c) => c.name,
+      ),
+    )
+    if (!ftsCols.has('context_prefix')) {
+      db.exec(`
+        DROP TRIGGER IF EXISTS chunks_fts_ai;
+        DROP TRIGGER IF EXISTS chunks_fts_ad;
+        DROP TRIGGER IF EXISTS chunks_fts_au;
+        DROP TABLE IF EXISTS chunks_fts;
+      `)
+      db.exec(CHUNKS_FTS_SQL)
+      db.exec(`INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild');`)
     }
     return new WorkspaceDb(db, workspaceId)
   }
@@ -553,8 +576,8 @@ export class WorkspaceDb {
       )
     }
     const insert = this.db.prepare(
-      `INSERT INTO chunks (document_id, ordinal, text, token_count, page_from, page_to, heading_path, language)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      `INSERT INTO chunks (document_id, ordinal, text, context_prefix, token_count, page_from, page_to, heading_path, language)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     const txn = this.db.transaction((rows: NewChunk[]): number[] => {
       const ids: number[] = []
@@ -563,6 +586,7 @@ export class WorkspaceDb {
           documentId,
           c.ordinal,
           c.text.split('\u0000').join(''),
+          c.contextPrefix ?? null,
           c.tokenCount,
           c.pageFrom,
           c.pageTo,
@@ -669,11 +693,16 @@ export class WorkspaceDb {
 
   async listChunksMissingEmbedding(
     limit: number,
-  ): Promise<Array<{ id: number; text: string; document_id: number }>> {
+  ): Promise<Array<{ id: number; text: string; document_id: number; context_prefix: string | null }>> {
     return this.rows(
-      `SELECT id, text, document_id FROM chunks WHERE embedded = 0 ORDER BY id LIMIT ?`,
+      `SELECT id, text, context_prefix, document_id FROM chunks WHERE embedded = 0 ORDER BY id LIMIT ?`,
       [limit],
-    ).map((r) => ({ id: Number(r.id), text: String(r.text), document_id: Number(r.document_id) }))
+    ).map((r) => ({
+      id: Number(r.id),
+      text: String(r.text),
+      context_prefix: r.context_prefix == null ? null : String(r.context_prefix),
+      document_id: Number(r.document_id),
+    }))
   }
 
   // Distinct documents that still have at least one un-embedded chunk — drives
