@@ -57,6 +57,11 @@ export class SettingsService {
   async update(patch: DeepPartial<UserSettings>): Promise<void> {
     this.cache = deepMerge(this.cache, patch as Partial<UserSettings>)
     this.kv.setKv(SETTINGS_KEY, JSON.stringify(this.cache))
+    // Visible confirmation of what changed — settings durability issues used
+    // to be undiagnosable ("wird nicht gespeichert") because both the write
+    // and any persist failure were silent.
+    // eslint-disable-next-line no-console
+    console.log(`[settings] updated: ${Object.keys(patch).join(', ')}`)
     for (const l of this.listeners) {
       try {
         l(this.cache)
@@ -96,12 +101,22 @@ export class SettingsService {
 
   private schedulePersist(): void {
     if (this.persistTimer) clearTimeout(this.persistTimer)
+    // 250 ms, not 1500: the debounce only exists to coalesce burst writes
+    // (slider drags). A dev run is routinely killed hard via Ctrl+C — no
+    // before-quit, no lock() — so anything inside this window is lost; keep
+    // it barely longer than a UI event burst.
     this.persistTimer = setTimeout(() => {
       this.persistTimer = null
-      void this.persistSnapshot().catch(() => {
-        /* swallow */
+      void this.persistSnapshot().catch((err) => {
+        // A silently-dropped persist means the user's change vanishes on the
+        // next restart with no trace — warn (warn level reaches main.log).
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[settings] persist failed — change is NOT durable:',
+          err instanceof Error ? err.message : err,
+        )
       })
-    }, 1500)
+    }, 250)
   }
 }
 
