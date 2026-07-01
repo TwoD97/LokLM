@@ -661,7 +661,14 @@ export class LlamaService {
       })
       return
     }
-    const profile = profiles.find((p) => p.filename && path.endsWith(p.filename))
+    // The resolved path can satisfy SEVERAL profiles — lite and full share the
+    // 4B GGUF since 0.6.3, and lite comes first in LLM_PROFILES, so a naive
+    // find() always answered 'lite': a standard tier silently loaded the 8K
+    // lite runtime (8K window, lite depth) despite recommending 'full'. Keep
+    // the profile the path was resolved FOR when it matches; only fall back to
+    // another matcher when resolveSelectedPath had to take a different file.
+    const byPath = profiles.filter((p) => p.filename && path.endsWith(p.filename))
+    const profile = byPath.find((p) => p.name === preferredName) ?? byPath[0]
     await this.loadModel(path, profile?.name ?? preferredName)
   }
 
