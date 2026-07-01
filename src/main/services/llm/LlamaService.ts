@@ -159,6 +159,22 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
   pro: 'xl',
 }
 
+// Tier-aware AUTO context targets (0.6.5). The profile's NATIVE window (131K /
+// 262K) is the wrong auto target: it is practically never reachable in VRAM, so
+// chasing it either quantises the KV cache down to q4_0 or leaves the planner
+// clamped at whatever scraps fit — while the QA packer (answer reserve = half
+// the window) starves the RAG context down to a handful of chunks. Realistic
+// per-tier targets keep KV at f16/q8_0 and give each tier the window its
+// hardware class actually affords: lite 8K (iGPU, unchanged), standard 32K,
+// pro 64K. Auto sizes DOWN from the target when VRAM is tight; an explicit
+// settings choice still picks any size up to the target; LOKLM_LLM_CONTEXT_SIZE
+// overrides everything (dev escape hatch past the target too).
+const TIER_CONTEXT_TARGET: Record<Tier, number> = {
+  lite: 8192,
+  standard: 32768,
+  pro: 65536,
+}
+
 // How fully each profile is allowed to answer (system-prompt verbosity). Bigger
 // window → more room to develop the answer: Lite answers in full at 'standard'
 // depth (bounded to its iGPU-safe 8K window); Standard and Pro/XL develop the
@@ -685,19 +701,18 @@ export class LlamaService {
     this.activeProfile = profile?.name ?? null
     this.activeModelPath = modelPath
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
-    // Lite tier (iGPU / low-end target): HARD-cap the context window. planLlm
-    // clamps the final context to profileDefaultContext, so this bounds it
-    // regardless of how the profile resolved (a persisted 'full' llmProfile would
-    // otherwise win) or what "Auto" sizes to. Auto sizes to free VRAM, and on an
-    // iGPU's shared memory that's the model's full 128K native window — a giant
-    // KV cache AND a prefill prompt the packer fills to match. 8K is plenty for a
-    // focused RAG turn and keeps prefill survivable on an iGPU.
-    const LITE_CONTEXT_CAP = 8192
+    // Tier-aware context target (TIER_CONTEXT_TARGET): lite hard-caps at 8K
+    // (iGPU — a giant KV cache + a packer-filled prompt means minutes of
+    // prefill or an OOM), standard aims 32K, pro 64K. planLlm clamps the final
+    // context to this value, so it bounds the plan regardless of how the
+    // profile resolved (a persisted 'full' llmProfile would otherwise win) or
+    // what "Auto" sizes to. No-marker installs (dev/test/pre-0.3.0) keep the
+    // profile's native window — the legacy behaviour.
+    const tier = getEffectiveTier()
     const baseDefaultContext = profile?.contextSize ?? 32768
-    const profileDefaultContext =
-      getEffectiveTier() === 'lite'
-        ? Math.min(baseDefaultContext, LITE_CONTEXT_CAP)
-        : baseDefaultContext
+    const profileDefaultContext = tier
+      ? Math.min(baseDefaultContext, TIER_CONTEXT_TARGET[tier])
+      : baseDefaultContext
     try {
       const result = await this.client!.llmLoad({
         modelPath,
@@ -713,6 +728,13 @@ export class LlamaService {
         }),
       })
       this.lastPlan = result.plan
+      // Surface WHY auto picked this window ("manual 8192-tok context" vs
+      // "auto: sized to free memory …") — the one line that turns a
+      // too-small-context report from guesswork into a diagnosis.
+      // eslint-disable-next-line no-console
+      console.log(
+        `[llm] context plan (tier=${tier ?? 'none'}, target=${profileDefaultContext}): ${result.plan.reason}`,
+      )
       this.lastResources = result.resources
       this.gpuLabel = result.gpuLabel
       this.resolvedPlacement = result.resolvedPlacement
