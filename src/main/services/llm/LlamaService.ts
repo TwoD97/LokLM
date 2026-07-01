@@ -38,6 +38,7 @@ import type { RetrievalHit } from '../../../shared/documents'
 import {
   buildPrompt,
   buildSystemPrompt,
+  bumpDepthForCode,
   renderFallback,
   ThinkFilter,
   LoopDetector,
@@ -489,12 +490,21 @@ export class LlamaService {
     await this.pushSystemPrompt()
   }
 
+  /** Effective depth for the current prompt mode: codebase workspaces get one
+   *  level more room (bumpDepthForCode) — a class walkthrough at the doc-QA
+   *  depths reads as a fragment (observed: 400-token answers under a 4096
+   *  budget, capped purely by the LENGTH rule). */
+  private effectiveDepth(): AnswerDepth {
+    const depth = this.answerDepth()
+    return this.codebaseMode ? bumpDepthForCode(depth) : depth
+  }
+
   private async pushSystemPrompt(): Promise<void> {
     if (this.client && this.isReady()) {
       try {
         await this.client.llmSetLanguage(
           this.language,
-          buildSystemPrompt(this.language, this.answerDepth(), { codebase: this.codebaseMode }),
+          buildSystemPrompt(this.language, this.effectiveDepth(), { codebase: this.codebaseMode }),
         )
       } catch {
         /* worker status push already reflects reality */
@@ -698,7 +708,7 @@ export class LlamaService {
         device: this.devicePlan,
         language: this.language,
         envContextOverride: envOverride,
-        systemPrompt: buildSystemPrompt(this.language, this.answerDepth(), {
+        systemPrompt: buildSystemPrompt(this.language, this.effectiveDepth(), {
           codebase: this.codebaseMode,
         }),
       })

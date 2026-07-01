@@ -1,7 +1,12 @@
 import type { RetrievalHit, ModelStatus } from '../../../../shared/documents'
 import type { AskOptions } from '../../llm/LlamaService'
 import type { LlmProvider, ProviderStatus } from '../types'
-import { buildPrompt, buildSystemPrompt, type ResponseLanguage } from '../../llm/prompt'
+import {
+  buildPrompt,
+  buildSystemPrompt,
+  bumpDepthForCode,
+  type ResponseLanguage,
+} from '../../llm/prompt'
 import type { OllamaClient } from './OllamaClient'
 
 interface ChatChunk {
@@ -34,7 +39,11 @@ export class OllamaLlmProvider implements LlmProvider {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
         role: 'system',
-        content: buildSystemPrompt(this.language, 'concise', { codebase: this.codebaseMode }),
+        content: buildSystemPrompt(
+          this.language,
+          this.codebaseMode ? bumpDepthForCode('concise') : 'concise',
+          { codebase: this.codebaseMode },
+        ),
       },
     ]
     for (const h of opts.conversationHistory ?? []) {
