@@ -796,29 +796,33 @@ function getRetrievalService(): RetrievalService {
       // identity no longer implies it (single-embedder-per-tier: Qwen serves
       // library workspaces too).
       (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
-      // Maßnahme 4 (R3): MADLAD EN-variant for retrieval. PRO ONLY — a lazy
-      // spawn mid-chat would pull the ~3 GB CT2 model onto the GPU on Standard
-      // too (the full model set peaks ~15 GB with MADLAD resident, beyond
-      // Standard's target hardware). Soft contract — null unless the tier is
-      // pro, the query is confidently non-english, the wizard provisioned the
-      // model, and the sidecar answers inside the budget (warmed on the
-      // prepare screen, so it only bites on a cold crash). The manual
-      // translation UI is not gated here — it stays user-triggered on-demand.
+      // Maßnahme 4 (R3), 0.6.5-Umbau: EN-variant via the RESIDENT LLM instead
+      // of the MADLAD sidecar. MADLAD cost ~3 GB VRAM resident and was
+      // therefore pro-only; the LLM is loaded anyway, a 96-token translation
+      // is one short generate pass — so every tier gets the variant. MADLAD
+      // stays reserved for the manual translation UI (on-demand). Soft
+      // contract: null when the LLM isn't ready or the query is already
+      // english; RetrievalService additionally skips it under the CPU preset
+      // (an extra LLM pass is exactly what the preset avoids) and verifies
+      // identifiers survived the translation.
       async (q) => {
         try {
-          if (getEffectiveTier() !== 'pro') return null
-          const svc = getTranslationService()
-          const st = svc.status().state
-          if (st === 'not_installed' || st === 'error') return null
+          const reg = providerRegistry
+          if (!reg || !reg.llm().isReady()) return null
           const { detectIsoLanguage } = await import('./services/documents/languageDetector')
           const iso = await detectIsoLanguage(q).catch(() => null)
           if (!iso || iso === 'en') return null
-          const res = await Promise.race([
-            svc.translate(q, { target: 'en' }),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
-          ])
-          const text = res?.text.trim()
-          return text && text.length > 3 ? text : null
+          const raw = await reg.llm().generateRaw(
+            `Translate this search query to English. Keep any code identifiers ` +
+              `(camelCase, snake_case, dotted.paths) EXACTLY unchanged. Output ONLY ` +
+              `the translation, one line, no preamble.\n\nQuery: ${q}\n\nTranslation:`,
+            { maxTokens: 96 },
+          )
+          const text = raw
+            ?.split(/\r?\n/)
+            .map((s) => s.trim())
+            .find((s) => s.length > 3)
+          return text && text.length < 240 ? text : null
         } catch {
           return null
         }
@@ -1879,20 +1883,9 @@ function registerIpc(): void {
   ipcMain.handle('models:warmupForQa', async () => {
     void (async () => {
       const reg = providerRegistry
-      // MADLAD prepare-screen warm — PRO ONLY (VRAM budget): with the CT2
-      // sidecar resident next to LLM + embedder + reranker the full set peaks
-      // ~15 GB, beyond Standard's target hardware. Explicit 'pro' only (dev
-      // emulates via `pnpm dev --pro`); Standard/Lite never spawn it here and
-      // the retrieval EN-variant carries the same gate, so nothing pulls the
-      // model in lazily either. The sidecar is its OWN process (CT2, not
-      // node-llama-cpp) and warms in parallel with the sequential GGUF loads
-      // below. Retrieval's EN-variant budgets ~2 s per query — without this
-      // warm, the first question of a session misses that window.
-      if (getEffectiveTier() === 'pro') {
-        void getTranslationService()
-          .warmup()
-          .catch(() => undefined)
-      }
+      // (0.6.5: no MADLAD warm here anymore — the retrieval EN-variant now
+      // uses the resident LLM, so the ~3 GB CT2 sidecar stays cold until the
+      // user explicitly opens the translation feature.)
       await getEmbeddingService()
         .ensureReady()
         .catch(() => undefined)
