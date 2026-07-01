@@ -9,6 +9,17 @@ export type ResponseLanguage = 'de' | 'en'
  *  ceiling, so the cap was never what kept their answers short; the prompt was. */
 export type AnswerDepth = 'concise' | 'standard' | 'thorough'
 
+/** Code answers need room the doc-QA depths deliberately don't grant: a class
+ *  walkthrough at 'concise' ("a few sentences usually suffice") reads as a
+ *  fragment, and even 'standard' ("a short paragraph or two") cuts a purpose →
+ *  methods → interactions explanation short. Codebase prompt mode bumps one
+ *  level (concise→standard, standard→thorough); 'thorough' stays. Codebase
+ *  workspaces are Standard/Pro-tier (4B+ models), so the longer leash never
+ *  reaches the 2B fallback the depths were tuned to protect. */
+export function bumpDepthForCode(depth: AnswerDepth): AnswerDepth {
+  return depth === 'concise' ? 'standard' : 'thorough'
+}
+
 export const REFUSAL_TEXT: Record<ResponseLanguage, string> = {
   de: 'Diese Information findet sich nicht in den bereitgestellten Dokumenten.',
   en: 'This information is not in the provided documents.',
@@ -146,12 +157,14 @@ export function buildSystemPrompt(
 const CODE_SECTION_EN = `
 
 CODE
-The Context may contain source-code excerpts; each header names the file (path after '§') and the excerpt's lines (numbers after 'p.' are LINE numbers, not pages) — treat that as the code's location and name it when you explain where something happens. Reproduce file names, class names, and function names exactly as written in the Context (exact casing). Never invent an API, parameter, class, or behaviour the excerpts do not show. Short code identifiers and one-line snippets from the Context are allowed in the answer despite the plain-text rule; keep them verbatim.`
+The Context may contain source-code excerpts; each header names the file (path after '§') and the excerpt's lines (numbers after 'p.' are LINE numbers, not pages) — treat that as the code's location and name it when you explain where something happens. Reproduce file names, class names, and function names exactly as written in the Context (exact casing). Never invent an API, parameter, class, or behaviour the excerpts do not show. Short code identifiers and one-line snippets from the Context are allowed in the answer despite the plain-text rule; keep them verbatim.
+When the question asks how a class, file, or component works, explain it AS A WHOLE: state its purpose and responsibility first, then walk through its central methods, state, and flows, then how it interacts with the rest of the system — drawing on ALL provided excerpts of that file, not just the first one. Do not present a minor helper (an error class, a small utility defined in the same file) as the answer when the question is about the main construct. For such explanations the LENGTH rule does not cap you: a complete, well-structured walkthrough takes precedence over brevity.`
 
 const CODE_SECTION_DE = `
 
 CODE
-Der Context kann Quellcode-Ausschnitte enthalten; jeder Kopf nennt die Datei (Pfad nach „§") und die Zeilen des Ausschnitts (Zahlen nach „S." sind ZEILENnummern, keine Seiten) — das ist der Ort des Codes, benenne ihn, wenn du erklärst, wo etwas passiert. Gib Datei-, Klassen- und Funktionsnamen exakt so wieder, wie sie im Context stehen (exakte Groß-/Kleinschreibung). Erfinde nie eine API, einen Parameter, eine Klasse oder ein Verhalten, das die Ausschnitte nicht zeigen. Kurze Code-Bezeichner und einzeilige Snippets aus dem Context sind in der Antwort trotz der Reiner-Text-Regel erlaubt; übernimm sie wörtlich.`
+Der Context kann Quellcode-Ausschnitte enthalten; jeder Kopf nennt die Datei (Pfad nach „§") und die Zeilen des Ausschnitts (Zahlen nach „S." sind ZEILENnummern, keine Seiten) — das ist der Ort des Codes, benenne ihn, wenn du erklärst, wo etwas passiert. Gib Datei-, Klassen- und Funktionsnamen exakt so wieder, wie sie im Context stehen (exakte Groß-/Kleinschreibung). Erfinde nie eine API, einen Parameter, eine Klasse oder ein Verhalten, das die Ausschnitte nicht zeigen. Kurze Code-Bezeichner und einzeilige Snippets aus dem Context sind in der Antwort trotz der Reiner-Text-Regel erlaubt; übernimm sie wörtlich.
+Fragt die Frage, wie eine Klasse, Datei oder Komponente funktioniert, erkläre sie ALS GANZES: zuerst Zweck und Verantwortung, dann die zentralen Methoden, Zustände und Abläufe, dann das Zusammenspiel mit dem Rest des Systems — und nutze dafür ALLE gelieferten Ausschnitte der Datei, nicht nur den ersten. Stelle nie einen Nebenbaustein (eine Fehlerklasse, ein kleines Hilfskonstrukt aus derselben Datei) als die Antwort dar, wenn nach dem Hauptkonstrukt gefragt ist. Für solche Erklärungen deckelt die UMFANG-Regel nicht: eine vollständige, gut strukturierte Erklärung hat Vorrang vor Kürze.`
 
 /** Length guidance per tier. The DISCIPLINE rules above already bar rambling and
  *  trailing summaries, so "thorough" means a fuller explanation, not padding. */
