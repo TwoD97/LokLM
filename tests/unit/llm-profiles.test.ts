@@ -37,8 +37,10 @@ describe('answerDepthFor — model-aware lite depth', () => {
     expect(answerDepthFor('lite', `/models/${FILE_2B}`)).toBe('concise')
   })
 
-  it('full and xl are unaffected', () => {
-    expect(answerDepthFor('full', `/models/${FILE_4B}`)).toBe('standard')
+  it('full and xl answer thoroughly (Standard/Pro develop the explanation)', () => {
+    // 0.6.4: full moved 'standard' → 'thorough' so Standard is not as terse as
+    // Lite (they share the 4B weight; depth is the differentiator).
+    expect(answerDepthFor('full', `/models/${FILE_4B}`)).toBe('thorough')
     expect(answerDepthFor('xl', '/models/Qwen3.5-9B-Q4_K_M.gguf')).toBe('thorough')
   })
 

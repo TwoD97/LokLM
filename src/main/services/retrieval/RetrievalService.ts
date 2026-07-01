@@ -212,6 +212,12 @@ const DEFAULT_ROLE_TEST_BOOST = 1.5 // ×score for test/eval code when the query
 // Code-over-docs (ADR-0006): a code-intent query in a codebase workspace pushes
 // doc-track chunks below code; generic/concept queries leave docs alone.
 const DEFAULT_DOC_PENALTY = 0.5 // ×score for doc chunks on a code-intent query
+// Neighbour expansion default for codebase workspaces (0.6.4). Doc chunks overlap
+// (200 chars) and carry section headings, so a matched chunk is self-contained →
+// no default expansion. Code chunks don't overlap and break at top-level
+// declarations, so a symbol's signature/doc and its body can land in adjacent
+// chunks; ±1 keeps them together. See search()'s neighbour stage.
+const DEFAULT_CODE_NEIGHBOUR_RADIUS = 1
 // How many top documents the hierarchical pre-filter keeps when docPrefilter is
 // on. 5 mirrors LlamaIndex's drill-down top_k corrected up from its brittle
 // default of 1 — enough that one bad summary match doesn't lose the answer.
@@ -588,8 +594,14 @@ export class RetrievalService {
         wsdb,
       )
     }
-    if ((opts.neighbourRadius ?? 0) > 0) {
-      withWhole = await this.expandNeighbours(withWhole, opts.neighbourRadius!, wsdb)
+    // Default OFF for documents, ±1 for code (code chunks don't overlap, so a
+    // matched chunk can miss its symbol's body/signature). Trimmed first under
+    // budget pressure (neighbour-origin hits drop before primaries), so it never
+    // crowds out a primary match. Caller-pinned opts.neighbourRadius always wins.
+    const neighbourRadius =
+      opts.neighbourRadius ?? (codeWorkspace ? DEFAULT_CODE_NEIGHBOUR_RADIUS : 0)
+    if (neighbourRadius > 0) {
+      withWhole = await this.expandNeighbours(withWhole, neighbourRadius, wsdb)
     }
 
     return withWhole.map(toHit)
