@@ -18,7 +18,7 @@ import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfil
 import { WorkspaceVectorService } from './services/storage/WorkspaceVectorService'
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
-import { LlamaService } from './services/llm/LlamaService'
+import { LlamaService, tierMarkerProfile } from './services/llm/LlamaService'
 import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwitch'
 import { QAService } from './services/qa/QAService'
 import { QuizService } from './services/quiz/QuizService'
@@ -521,8 +521,25 @@ async function applySettings(s: UserSettings): Promise<void> {
   const answerBaseline =
     s.basic.answerLanguage === 'auto' ? s.basic.language : s.basic.answerLanguage
 
-  // Push basic settings to bundled LLM:
-  getLlamaService().setSelectedProfile(s.basic.llmProfile)
+  // Push basic settings to bundled LLM. The install-time tier is AUTHORITATIVE
+  // over a persisted profile that contradicts it ("install-time tier wins",
+  // recommendedProfileFromCache): the current UI has no profile picker, so a
+  // pinned value can only be a leftover from an older build / dev experiment —
+  // and it silently downgraded a standard/pro install to e.g. the lite 8K
+  // profile with no way to ever reset it. 'auto' re-enters the normal
+  // tier-first recommendation.
+  const tierProfile = tierMarkerProfile()
+  const effectiveProfile =
+    tierProfile && s.basic.llmProfile !== 'auto' && s.basic.llmProfile !== tierProfile
+      ? 'auto'
+      : s.basic.llmProfile
+  if (effectiveProfile !== s.basic.llmProfile) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[settings] persisted llmProfile "${s.basic.llmProfile}" contradicts tier profile "${tierProfile}" — using auto (tier wins)`,
+    )
+  }
+  getLlamaService().setSelectedProfile(effectiveProfile)
   void getLlamaService().setLanguage(answerBaseline)
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
