@@ -159,16 +159,21 @@ const TIER_TO_PROFILE: Record<Tier, LlmProfileName> = {
 }
 
 // How fully each profile is allowed to answer (system-prompt verbosity). Bigger
-// model → more room to develop the answer: Lite/Standard answer in full, Pro/XL
-// develops the explanation. 0.6.3: lite moved 'concise' → 'standard' because it
+// window → more room to develop the answer: Lite answers in full at 'standard'
+// depth (bounded to its iGPU-safe 8K window); Standard and Pro/XL develop the
+// explanation at 'thorough'. 0.6.3: lite moved 'concise' → 'standard' because it
 // now runs the 4B — the earlier 2B rambled into unclosed <think> loops at
 // 'standard' (swallowed into a blank answer), the reason lite was pinned terse.
-// The 2B FALLBACK is kept at 'concise' by answerDepth() so an old 2B-only install
-// doesn't regress; the recovery net in askWithModel still guarantees a non-blank
-// turn regardless.
+// 0.6.4: full moved 'standard' → 'thorough'. Since 0.6.3 Standard runs the SAME
+// 4B weight as Lite (differing only in the 8K-vs-128K window), so an identical
+// depth prompt made Standard answers as terse as Lite's — the exact complaint.
+// Depth is the lever that separates them: Lite stays focused for the iGPU;
+// Standard uses its large window to answer fully. The 2B FALLBACK is kept at
+// 'concise' by answerDepth() so an old 2B-only install doesn't regress; the
+// recovery net in askWithModel still guarantees a non-blank turn regardless.
 const PROFILE_TO_DEPTH: Record<LlmProfileName, AnswerDepth> = {
   lite: 'standard',
-  full: 'standard',
+  full: 'thorough',
   xl: 'thorough',
 }
 

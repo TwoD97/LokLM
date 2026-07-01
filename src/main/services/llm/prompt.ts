@@ -56,10 +56,16 @@ export function estimateTokens(text: string): number {
 }
 
 /** Answer-generation reserve. SINGLE source for both the maxTokens LlamaService
- *  passes the worker AND the packer's reserve, so we never pack hits into space
- *  the answer needs. ~1/4 of the window, floored at 4K, capped at 32K. */
+ *  passes the worker AND the packer's reserve — reserve == ceiling, so a long
+ *  answer can never overrun the window. ~1/2 of the window, floored at 4K, capped
+ *  at 128K. 0.6.4: raised from ~1/4-capped-32K so a 'thorough' answer isn't
+ *  clipped — it scales with the tier's window: Lite's 8K keeps the 4K floor
+ *  (lean tier unchanged), Standard's 128K window → 64K answer, Pro's 256K → 128K.
+ *  Even with half the window reserved, each tier keeps the other half for prompt
+ *  + RAG — far above the handful of chunks topK ever packs, so grounding budget
+ *  is untouched in practice. */
 export function answerMaxTokens(contextSize: number): number {
-  return Math.max(4096, Math.min(32768, Math.floor(contextSize / 4)))
+  return Math.max(4096, Math.min(131072, Math.floor(contextSize / 2)))
 }
 
 /** Rough token cost of the rendered history block — mirrors the per-message

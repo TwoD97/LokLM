@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="1164" viewBox="0 0 1320 1164" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs>
+  <pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+    <rect width="6" height="6" fill="#e03131"/><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-width="2" opacity="0.55"/>
+  </pattern>
+  <filter id="sh" x="-4%" y="-30%" width="108%" height="160%"><feDropShadow dx="0" dy="0.6" stdDeviation="0.6" flood-color="#000" flood-opacity="0.18"/></filter>
+</defs>
+<rect x="0" y="0" width="1320" height="1164" fill="#ffffff"/>
+<rect x="300.0" y="128" width="358.0" height="966" fill="#f8f9fa"/>
+<text x="479.0" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#adb5bd">Mai 2026</text>
+<rect x="658.0" y="128" width="447.5" height="966" fill="#f1f3f5"/>
+<text x="881.7" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#adb5bd">Juni 2026</text>
+<rect x="1105.4" y="128" width="74.6" height="966" fill="#f8f9fa"/>
+<text x="1142.7" y="64" text-anchor="middle" font-size="12" font-weight="700" fill="#adb5bd">Juli 2026</text>
+<line x1="344.7" y1="128" x2="344.7" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="344.7" y="118" text-anchor="middle" font-size="10" fill="#868e96">11.05</text>
+<line x1="449.2" y1="128" x2="449.2" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="449.2" y="118" text-anchor="middle" font-size="10" fill="#868e96">18.05</text>
+<line x1="553.6" y1="128" x2="553.6" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="553.6" y="118" text-anchor="middle" font-size="10" fill="#868e96">25.05</text>
+<line x1="658.0" y1="128" x2="658.0" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="658.0" y="118" text-anchor="middle" font-size="10" fill="#868e96">01.06</text>
+<line x1="762.4" y1="128" x2="762.4" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="762.4" y="118" text-anchor="middle" font-size="10" fill="#868e96">08.06</text>
+<line x1="866.8" y1="128" x2="866.8" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="866.8" y="118" text-anchor="middle" font-size="10" fill="#868e96">15.06</text>
+<line x1="971.2" y1="128" x2="971.2" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="971.2" y="118" text-anchor="middle" font-size="10" fill="#868e96">22.06</text>
+<line x1="1075.6" y1="128" x2="1075.6" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="1075.6" y="118" text-anchor="middle" font-size="10" fill="#868e96">29.06</text>
+<line x1="1180.0" y1="128" x2="1180.0" y2="1094" stroke="#dee2e6" stroke-width="1"/>
+<text x="1180.0" y="118" text-anchor="middle" font-size="10" fill="#868e96">06.07</text>
+<line x1="300" y1="128" x2="300" y2="1094" stroke="#adb5bd" stroke-width="1.5"/>
+<rect x="300" y="128" width="880" height="966" fill="none" stroke="#ced4da"/>
+<text x="16" y="30" font-size="21" font-weight="800" fill="#212529">LokLM — Projekt-Gantt</text>
+<text x="16" y="50" font-size="12.5" fill="#495057">Stand 01.07.2026 · aktueller Release v0.6.4 · Zeitraum 08.05.–30.06.2026 (9 Wochen) · Quelle: Git-Tags + Projekt-Handbuch (Kap. 10/24)</text>
+<line x1="300" y1="86" x2="1180" y2="86" stroke="#ced4da" stroke-width="1"/>
+<text x="292" y="89" text-anchor="end" font-size="10.5" font-weight="700" fill="#868e96">Releases</text>
+<path d="M 389.5 81.6 L 393.9 86 L 389.5 90.4 L 385.1 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="392.5" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 392.5 78)">v0.01</text>
+<path d="M 464.1 81.6 L 468.5 86 L 464.1 90.4 L 459.7 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="467.1" y="101" font-size="9.5" fill="#e8590c" transform="rotate(-38 467.1 101)">v0.2.0</text>
+<path d="M 553.6 81.6 L 558.0 86 L 553.6 90.4 L 549.2 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="556.6" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 556.6 78)">v0.2.9</text>
+<path d="M 583.4 81.6 L 587.8 86 L 583.4 90.4 L 579.0 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="586.4" y="101" font-size="9.5" fill="#e8590c" transform="rotate(-38 586.4 101)">v0.3.0</text>
+<path d="M 613.2 81.6 L 617.6 86 L 613.2 90.4 L 608.8 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="616.2" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 616.2 78)">v0.3.1</text>
+<path d="M 792.2 81.6 L 796.6 86 L 792.2 90.4 L 787.8 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="795.2" y="101" font-size="9.5" fill="#e8590c" transform="rotate(-38 795.2 101)">v0.4.0</text>
+<path d="M 836.9 81.6 L 841.3 86 L 836.9 90.4 L 832.5 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="839.9" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 839.9 78)">v0.4.1</text>
+<path d="M 881.7 81.6 L 886.1 86 L 881.7 90.4 L 877.3 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="884.7" y="101" font-size="9.5" fill="#e8590c" transform="rotate(-38 884.7 101)">v0.4.7</text>
+<path d="M 896.6 81.6 L 901.0 86 L 896.6 90.4 L 892.2 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="899.6" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 899.6 78)">v0.5.0</text>
+<path d="M 1030.8 81.6 L 1035.2 86 L 1030.8 90.4 L 1026.4 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="1033.8" y="101" font-size="9.5" fill="#e8590c" transform="rotate(-38 1033.8 101)">v0.6.0</text>
+<path d="M 1090.5 81.6 L 1094.9 86 L 1090.5 90.4 L 1086.1 86 Z" fill="#f76707" stroke="#fff" stroke-width="0.8"/>
+<text x="1093.5" y="78" font-size="9.5" fill="#e8590c" transform="rotate(-38 1093.5 78)">v0.6.4</text>
+<rect x="0" y="136" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="136" width="5" height="22" fill="#495057"/>
+<text x="14" y="151" font-size="12.5" font-weight="800" fill="#495057">Fundament &amp; Plattform</text>
+<text x="20" y="173" font-size="10.8" fill="#343a40">Projekt-Skelett &amp; Krypto-Fundament (Auth, Vault-DEK)</text>
+<rect x="300.0" y="162.5" width="134.2" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="195" font-size="10.8" fill="#343a40">Landingpage + Release-Pipeline + Branding</text>
+<rect x="300.0" y="184.5" width="164.1" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="217" font-size="10.8" fill="#343a40">Website: SEO-Cluster + Screenshot-Deep-Dives</text>
+<rect x="762.4" y="206.5" width="313.2" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<rect x="0" y="228" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="228" width="5" height="22" fill="#1864ab"/>
+<text x="14" y="243" font-size="12.5" font-weight="800" fill="#1864ab">RAG-Kern &amp; Retrieval</text>
+<text x="20" y="265" font-size="10.8" fill="#343a40">Provider-Abstraktion (LLM/Embedder/Reranker + Ollama)</text>
+<rect x="404.4" y="254.5" width="104.4" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="287" font-size="10.8" fill="#343a40">RAG-Pipeline + Embedder-Identity / Re-Index-Gate</text>
+<rect x="434.2" y="276.5" width="74.6" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="309" font-size="10.8" fill="#343a40">QA-Routing (Doc-Summary / Korpus / Decomposition, ADR-0003)</text>
+<rect x="672.9" y="298.5" width="179.0" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="331" font-size="10.8" fill="#343a40">Retrieval-Präzision &amp; Lite-Tuning (iGPU, BM25-Gate, Qwen3.5-4B)</text>
+<rect x="986.1" y="320.5" width="104.4" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="1095.5" y="330.5" font-size="9.5" font-weight="600" fill="#868e96">v0.6.x</text>
+<rect x="0" y="342" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="342" width="5" height="22" fill="#5f3dc4"/>
+<text x="14" y="357" font-size="12.5" font-weight="800" fill="#5f3dc4">Installer &amp; Packaging</text>
+<text x="20" y="379" font-size="10.8" fill="#343a40">Installer-Pivot 1: NSIS → Electron-Bootstrapper</text>
+<rect x="479.0" y="368.5" width="29.8" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="401" font-size="10.8" fill="#343a40">Tier-System (lite/standard/pro) + volle i18n</text>
+<rect x="508.8" y="390.5" width="44.7" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="558.6" y="400.5" font-size="9.5" font-weight="600" fill="#868e96">v0.2.9</text>
+<text x="20" y="423" font-size="10.8" fill="#343a40">Installer-Pivot 2: Download-Stub + Multi-OS-Wizard (Rust/Tauri)</text>
+<rect x="553.6" y="412.5" width="29.8" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="588.4" y="422.5" font-size="9.5" font-weight="600" fill="#868e96">v0.3.0</text>
+<text x="20" y="445" font-size="10.8" fill="#343a40">Windows-Code-Signing (bedingt, aktuell inaktiv → unsigniert)</text>
+<rect x="583.4" y="434.5" width="29.8" height="13" rx="3" fill="#f59f00" filter="url(#sh)"/>
+<text x="20" y="467" font-size="10.8" fill="#343a40">Multi-OS-Release-Härtung (Mac DMG / Linux)</text>
+<rect x="836.9" y="456.5" width="268.5" height="13" rx="3" fill="#f59f00" filter="url(#sh)"/>
+<rect x="0" y="478" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="478" width="5" height="22" fill="#0b7285"/>
+<text x="14" y="493" font-size="12.5" font-weight="800" fill="#0b7285">Feature-Subsysteme</text>
+<text x="20" y="515" font-size="10.8" fill="#343a40">Features: Quiz / DOCX-Import / Folder-Sync</text>
+<rect x="464.1" y="504.5" width="89.5" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="537" font-size="10.8" fill="#343a40">OCR für gescannte PDFs/Bilder</text>
+<rect x="583.4" y="526.5" width="29.8" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="618.2" y="536.5" font-size="9.5" font-weight="600" fill="#868e96">v0.3.1</text>
+<text x="20" y="559" font-size="10.8" fill="#343a40">Audio-Transkription (Whisper + Diarisation)</text>
+<rect x="613.2" y="548.5" width="179.0" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="797.2" y="558.5" font-size="9.5" font-weight="600" fill="#868e96">v0.4.0</text>
+<text x="20" y="581" font-size="10.8" fill="#343a40">Quiz-Neuaufbau (chunk-getrieben, CPU-Pfade)</text>
+<rect x="732.5" y="570.5" width="89.5" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="603" font-size="10.8" fill="#343a40">Übersetzung: Eval + GPU-Translator-Sidecar (MADLAD)</text>
+<rect x="762.4" y="592.5" width="74.6" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="841.9" y="602.5" font-size="9.5" font-weight="600" fill="#868e96">v0.4.1</text>
+<rect x="0" y="614" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="614" width="5" height="22" fill="#a61e4d"/>
+<text x="14" y="629" font-size="12.5" font-weight="800" fill="#a61e4d">Daten &amp; Sicherheit</text>
+<text x="20" y="651" font-size="10.8" fill="#343a40">Electron-Sicherheitshärtung (CSP, Sandbox, Fuses, mlock)</text>
+<rect x="672.9" y="640.5" width="179.0" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="673" font-size="10.8" fill="#343a40">Per-Workspace-SQLite/SQLCipher — PGlite/libSQL abgelöst (ADR-0005)</text>
+<rect x="851.9" y="662.5" width="44.7" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="901.6" y="672.5" font-size="9.5" font-weight="600" fill="#868e96">v0.4.7</text>
+<text x="20" y="695" font-size="10.8" fill="#343a40">Optionale Per-Workspace-Verschlüsselung + Portable-Vault</text>
+<rect x="1001.0" y="684.5" width="44.7" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<rect x="0" y="706" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="706" width="5" height="22" fill="#2b8a3e"/>
+<text x="14" y="721" font-size="12.5" font-weight="800" fill="#2b8a3e">Codebase-Track</text>
+<text x="20" y="743" font-size="10.8" fill="#343a40">Codebase-Workspaces + Code-aware Retrieval (ADR-0006)</text>
+<rect x="896.6" y="732.5" width="134.2" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="1035.8" y="742.5" font-size="9.5" font-weight="600" fill="#868e96">v0.5→0.6</text>
+<rect x="0" y="754" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="754" width="5" height="22" fill="#d9480f"/>
+<text x="14" y="769" font-size="12.5" font-weight="800" fill="#d9480f">Test &amp; Eval (QA)</text>
+<text x="20" y="791" font-size="10.8" fill="#343a40">AP-6 Library-Suche &amp; Filter</text>
+<rect x="658.0" y="780.5" width="134.2" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="797.2" y="790.5" font-size="9.5" font-weight="600" fill="#868e96">PR#12</text>
+<text x="20" y="813" font-size="10.8" fill="#343a40">AP-9 Settings (+ Account-Recovery)</text>
+<rect x="658.0" y="802.5" width="223.7" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="886.7" y="812.5" font-size="9.5" font-weight="600" fill="#868e96">PR#13/18</text>
+<text x="20" y="835" font-size="10.8" fill="#343a40">AP-T.1 Unit-Tests ≥70 % Branch</text>
+<rect x="717.6" y="824.5" width="164.1" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="886.7" y="834.5" font-size="9.5" font-weight="600" fill="#868e96">PR#24</text>
+<text x="20" y="857" font-size="10.8" fill="#343a40">AP-T.2 Integrationstests + CI-Job</text>
+<rect x="762.4" y="846.5" width="119.3" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="886.7" y="856.5" font-size="9.5" font-weight="600" fill="#868e96">PR#19</text>
+<text x="20" y="879" font-size="10.8" fill="#343a40">AP-E.1 Eval-Dev-Set (80 Fälle)</text>
+<rect x="762.4" y="868.5" width="119.3" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="886.7" y="878.5" font-size="9.5" font-weight="600" fill="#868e96">PR#25</text>
+<text x="20" y="901" font-size="10.8" fill="#343a40">AP-E.2 RAG-Matrix-Eval — Phase 1 (Span-Recall, LAP-Dataset)</text>
+<rect x="792.2" y="890.5" width="89.5" height="13" rx="3" fill="#37b24d" filter="url(#sh)"/>
+<text x="20" y="923" font-size="10.8" fill="#343a40">AP-E1b Hold-out (15 Fälle, R5-versiegelt)</text>
+<rect x="851.9" y="912.5" width="253.6" height="13" rx="3" fill="#f59f00" filter="url(#sh)"/>
+<text x="1110.4" y="922.5" font-size="9.5" font-weight="600" fill="#868e96">PR#28</text>
+<text x="20" y="945" font-size="10.8" fill="#343a40">AP-E.2 Phase 2 — GPU-Matrix-Sweep (RunPod)</text>
+<rect x="881.7" y="934.5" width="298.3" height="13" rx="3" fill="#1971c2" filter="url(#sh)"/>
+<rect x="881.7" y="934.5" width="164.1" height="13" rx="3" fill="#1098ad"/>
+<text x="20" y="967" font-size="10.8" fill="#343a40">Playwright-E2E-Suite (Electron nicht startbar)</text>
+<rect x="762.4" y="956.5" width="417.6" height="13" rx="3" fill="url(#hatch)" stroke="#e03131" stroke-width="1" filter="url(#sh)"/>
+<rect x="0" y="978" width="1320" height="22" fill="#f8f9fa"/>
+<rect x="0" y="978" width="5" height="22" fill="#343a40"/>
+<text x="14" y="993" font-size="12.5" font-weight="800" fill="#343a40">Handbuch &amp; Abschluss</text>
+<text x="20" y="1015" font-size="10.8" fill="#343a40">Projekt-Handbuch (lebendes Dokument, Branch dom/doku)</text>
+<rect x="941.4" y="1004.5" width="238.6" height="13" rx="3" fill="#1971c2" filter="url(#sh)"/>
+<rect x="941.4" y="1004.5" width="131.3" height="13" rx="3" fill="#1098ad"/>
+<text x="20" y="1037" font-size="10.8" fill="#343a40">Auto-Update-Strategie (Velopack vs. electron-updater)</text>
+<rect x="658.0" y="1026.5" width="522.0" height="13" rx="3" fill="#f59f00" filter="url(#sh)"/>
+<text x="20" y="1059" font-size="10.8" fill="#343a40">Abgabe-Laborbericht (Span-Recall/nDCG, hängt an Phase 2)</text>
+<rect x="1105.4" y="1048.5" width="74.6" height="13" rx="3" fill="#ced4da" stroke="#868e96" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="20" y="1081" font-size="10.8" fill="#343a40">Release-Audit + Bindung (PDF/Buch)</text>
+<rect x="1150.2" y="1070.5" width="29.8" height="13" rx="3" fill="#ced4da" stroke="#868e96" stroke-width="1" stroke-dasharray="3 2"/>
+<line x1="1105.4" y1="122" x2="1105.4" y2="1094" stroke="#e03131" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="1109.4" y="130" font-size="10" font-weight="700" fill="#e03131">Heute 01.07.</text>
+<text x="16" y="1134" font-size="11" font-weight="800" fill="#495057">Legende</text>
+<rect x="62" y="1123" width="26" height="13" rx="3" fill="#37b24d"/>
+<text x="94" y="1134" font-size="11" fill="#343a40">Fertig</text>
+<rect x="167.6" y="1123" width="26" height="13" rx="3" fill="#1971c2"/>
+<text x="199.6" y="1134" font-size="11" fill="#343a40">In Arbeit</text>
+<rect x="293" y="1123" width="26" height="13" rx="3" fill="#f59f00"/>
+<text x="325" y="1134" font-size="11" fill="#343a40">Teilweise</text>
+<rect x="418.4" y="1123" width="26" height="13" rx="3" fill="url(#hatch)" stroke="#e03131"/>
+<text x="450.4" y="1134" font-size="11" fill="#343a40">Blockiert</text>
+<rect x="543.8" y="1123" width="26" height="13" rx="3" fill="#ced4da" stroke="#868e96" stroke-dasharray="3 2"/>
+<text x="575.8" y="1134" font-size="11" fill="#343a40">Geplant</text>
+<path d="M 656 1129 l 5 5 l -5 5 l -5 -5 Z" fill="#f76707"/>
+<text x="666" y="1134" font-size="11" fill="#343a40">Release-Meilenstein</text>
+<line x1="806" y1="1123" x2="806" y2="1136" stroke="#e03131" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="814" y="1134" font-size="11" fill="#343a40">Heute</text>
+</svg>

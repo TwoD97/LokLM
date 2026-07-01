@@ -453,13 +453,17 @@ describe('chunkifyForStream', () => {
 })
 
 describe('answerMaxTokens', () => {
-  it('reserves ~1/4 of the window, floored at 4K', () => {
-    // 8K Lite: ctx/4 = 2048, floored to 4096.
+  it('reserves ~1/2 of the window, floored at 4K', () => {
+    // 8K Lite: ctx/2 = 4096, already at the floor → lean tier unchanged.
     expect(answerMaxTokens(8192)).toBe(4096)
+    // 32K mid window: ctx/2 = 16384.
+    expect(answerMaxTokens(32768)).toBe(16384)
   })
-  it('caps the reserve at 32K on huge windows', () => {
-    expect(answerMaxTokens(131072)).toBe(32768)
-    expect(answerMaxTokens(1_000_000)).toBe(32768)
+  it('scales with the tier window, capped at 128K', () => {
+    // 0.6.4: Standard's 128K window backs a 64K answer; Pro's 256K backs 128K.
+    expect(answerMaxTokens(131072)).toBe(65536) // Standard → 64K
+    expect(answerMaxTokens(262144)).toBe(131072) // Pro → 128K
+    expect(answerMaxTokens(1_000_000)).toBe(131072) // cap holds
   })
 })
 

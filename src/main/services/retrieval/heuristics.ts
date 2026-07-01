@@ -459,6 +459,17 @@ const CODE_INTENT_PATTERNS: RegExp[] = [
   /\bwie funktioniert\b/i,
   /\bwie wird\b/i,
   /\bwo (wird|ist|werden|sind)\b/i,
+  // 0.6.4: broaden prose→code coverage. High-precision phrasings that clearly
+  // ask about code without naming a structural noun or literal identifier, so a
+  // codebase workspace routes them to code (applyTrackPreference). Kept tight:
+  // detectDocsIntent still backs off explicit docs/concept requests, and a false
+  // positive only demotes doc chunks by docPenalty (they still surface via
+  // ensureCodeShare) — cheaper than a false negative leaving code/prose flat.
+  /\bwhat (calls|invokes|triggers|handles|instantiates|imports|extends|returns)\b/i,
+  /\bwhich (file|function|class|method|module|component|service|handler|route|endpoint|variable|constant)\b/i,
+  /\bwelche(s|r|n)? (datei|funktion|klasse|methode|komponente|route|variable|konstante)\b/i,
+  /\bwo (befindet|liegt)\b/i, // "wo befindet sich X" / "wo liegt X" — code location
+  /\bwas ruft\b/i, // "was ruft X auf" — what calls X
 ]
 
 /** True when the query is about CODE/implementation rather than concepts. */

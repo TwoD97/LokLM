@@ -328,6 +328,23 @@ describe('code-over-docs preference (fix #6)', () => {
     expect(detectCodeIntent('wo wird das passwort gespeichert')).toBe(true)
   })
 
+  it('detectCodeIntent fires on prose phrasings that name no symbol (0.6.4)', () => {
+    // These would previously slip through — no structural noun, no identifier,
+    // no "how does". High-precision so a codebase workspace still routes to code.
+    expect(detectCodeIntent('what calls the retrieval pipeline')).toBe(true)
+    expect(detectCodeIntent('what handles the login flow')).toBe(true)
+    expect(detectCodeIntent('which file does the embedding')).toBe(true)
+    expect(detectCodeIntent('welche datei macht das reranking')).toBe(true)
+    expect(detectCodeIntent('wo befindet sich die passwortprüfung')).toBe(true)
+    expect(detectCodeIntent('was ruft den embedder auf')).toBe(true)
+  })
+
+  it('detectCodeIntent stays neutral on genuinely generic / doc prose', () => {
+    // No false-positive on conceptual questions that should let docs compete.
+    expect(detectCodeIntent('tell me about privacy')).toBe(false)
+    expect(detectCodeIntent('what is the project about')).toBe(false)
+  })
+
   it('detectDocsIntent fires only on explicit doc/concept requests', () => {
     expect(detectDocsIntent('gib mir einen überblick über das projekt')).toBe(true)
     expect(detectDocsIntent('was steht im handbuch')).toBe(true)
