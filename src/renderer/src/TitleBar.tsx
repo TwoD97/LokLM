@@ -319,11 +319,11 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   const [backfill, setBackfill] = useState<BackfillStatus | null>(null)
   const [translation, setTranslation] = useState<TranslatorStatus | null>(null)
   // Whisper has no live status push: the model is shipped/downloaded by the
-  // installer wizard (never in-app), and it loads only for the lifetime of a
-  // transcription. So `whisper` here is just on-disk presence — 'idle' once a
-  // model is on the box, 'unloaded' otherwise; refreshed on focus to catch a
-  // model added by the wizard while the app was open. The actual "loaded" signal
-  // comes from an in-flight transcription job (see `whisperState` below).
+  // installer wizard (never in-app), and it loads per-transcription rather than
+  // staying resident. The dot is therefore a binary "loaded or not": 'ready'
+  // (green + "Whisper" chip) once a model is on the box and usable, 'unloaded'
+  // otherwise; refreshed on focus to catch a model added by the wizard while
+  // the app was open.
   const [whisper, setWhisper] = useState<DotState>('unloaded')
   // Live generation registry — an in-flight 'transcription' job means Whisper is
   // loaded and working right now, which is the only time it is truly resident.
@@ -403,12 +403,14 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   useEffect(() => {
     const refresh = (): void => {
       // Presence only — downloads are an installer-wizard concern, not in-app, so
-      // 'idle' (on disk) vs 'unloaded' (absent) is all the poll resolves. The
+      // 'ready' (on disk, usable) vs 'unloaded' (absent) is all the poll
+      // resolves. 'idle' used to render identically to 'unloaded', which read as
+      // "whisper never loads" — presence now maps straight to 'ready'. The
       // 'downloading' branch stays as a harmless guard in case a model lands
-      // while the app is open. Being loaded is derived from jobs, not polled.
+      // while the app is open.
       void window.api.transcription.modelStatus().then((models) => {
         if (models.some((m) => m.downloading)) setWhisper('loading')
-        else if (models.some((m) => m.present)) setWhisper('idle')
+        else if (models.some((m) => m.present)) setWhisper('ready')
         else setWhisper('unloaded')
       })
     }
@@ -464,12 +466,11 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
     ? { short: rerankShort, full: `Reranker — ${reranker.modelName ?? rerankShort}`, tone: 'model' }
     : null
 
-  // STT dot: Whisper is resident only while a transcription is running, so an
-  // in-flight 'transcription' job is what flips the dot to 'ready'; otherwise it
-  // falls back to on-disk presence ('idle'/'unloaded'). The "Whisper" chip then
-  // shows green exactly while the model is loaded and working, and disappears to
-  // a bare dot once idle — mirroring the MADLAD chip, which tags itself only
-  // while that model is up rather than sitting greyed-out beforehand.
+  // STT dot: binary loaded-or-not. On-disk presence already renders 'ready'
+  // (whisper loads per-call, so "installed and usable" is its loaded state);
+  // an in-flight 'transcription' job keeps it 'ready' too, covering the
+  // window where the poll hasn't run yet. Actual run activity is surfaced by
+  // the ActivityIndicator ("Transcribing …"), not this dot.
   const sttActive = jobs.some((j) => j.engine === 'transcription')
   const whisperState: DotState = sttActive ? 'ready' : whisper
   const whisperChip: Chip | null =

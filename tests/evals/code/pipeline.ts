@@ -24,8 +24,7 @@ import {
   applyTrackPreference,
   ensureCodeShare,
   extractCodeIdentifiers,
-  isCodeHit,
-  nonStopwordTokens,
+  expandBm25Query,
 } from '../../../src/main/services/retrieval/heuristics'
 import { diversifyByDocument } from '../../../src/main/services/retrieval/RetrievalService'
 import { cosineSimilarity } from '../pipeline/Embedder'
@@ -37,6 +36,7 @@ import type { CodeChunk } from './types'
 const CODE_SYMBOL_BOOST = 1.8
 const CODE_DEFINE_BOOST = 1.4
 const CODE_FILENAME_BOOST = 1.3
+const CODE_LAY_SYMBOL_BOOST = 1.3
 const CODE_MIN_FRACTION = 0.4
 const ROLE_NONSOURCE_PENALTY = 0.5
 const ROLE_TEST_BOOST = 1.5
@@ -55,6 +55,12 @@ export interface Ablation {
   roleBoost: boolean
   /** ADR-0006: prefer code over docs on code-intent queries (track preference) */
   docPenalty: boolean
+  /** R3: BM25 arm searches expandBm25Query(q) — German→english bridge terms +
+   *  identifier subtokens appended (production: codebase workspaces). */
+  bm25Expand: boolean
+  /** R4: lay-term substring match against the breadcrumb symbol (×1.3), so
+   *  "auth klasse" lifts AuthService even with zero identifiers in the query. */
+  laySymbolBoost: boolean
 }
 
 export interface PipelineCtx {
@@ -94,9 +100,14 @@ export function buildContext(
       language: null,
     }
   })
-  // Text-only (prod-faithful) vs text+heading_path with camelCase split (fix #4).
+  // Prod-faithful FTS: since R3 the production chunks_fts indexes text AND
+  // context_prefix (path + camel-split symbol words) — mirror the concat here.
+  // bm25Code additionally camelCase-splits the INDEX side (fix #4, symbolFts).
   const bm25Text = new Bm25Index(
-    chunks.map((c, i) => ({ id: i, text: c.text })),
+    chunks.map((c, i) => ({
+      id: i,
+      text: c.contextPrefix ? `${c.contextPrefix}\n${c.text}` : c.text,
+    })),
     tokenizeFts,
   )
   const bm25Code = new Bm25Index(
@@ -112,31 +123,6 @@ export function buildContext(
     candidateK: opts.candidateK ?? 40,
     finalK: opts.finalK ?? 10,
   }
-}
-
-/** Substring/prefix variant of applyCodeFilenameBoost (fix #2). The prod version
- *  requires a query token to EQUAL the file stem; this boosts when a query token
- *  is a substring of the stem (or vice-versa), so "auth" boosts AuthService.ts. */
-function applyCodeFilenameBoostSubstring(
-  hits: SearchHit[],
-  query: string,
-  factor: number,
-): SearchHit[] {
-  const terms = new Set<string>([...nonStopwordTokens(query), ...extractCodeIdentifiers(query)])
-  const usable = [...terms].filter((t) => t.length >= 3)
-  if (usable.length === 0) return hits
-  return hits.map((h) => {
-    if (!isCodeHit(h)) return h
-    const stem =
-      (h.heading_path?.[0] ?? '')
-        .toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .split('/')
-        .pop() ?? ''
-    if (!stem) return h
-    const hit = usable.some((t) => stem.includes(t) || t.includes(stem))
-    return hit ? { ...h, score: h.score * factor } : h
-  })
 }
 
 /** Score-gap dynamic-K (fix #3): keep adding hits while the sigmoid-normalised
@@ -165,7 +151,11 @@ export async function runQuery(
   ctx: PipelineCtx,
 ): Promise<number[]> {
   // --- lexical + dense candidate lists ---
-  const bm25 = (abl.symbolFts ? ctx.bm25Code : ctx.bm25Text).search(query, ctx.candidateK)
+  // R3: the lexical arm optionally searches the expanded query (German→english
+  // bridge + identifier subtokens) — exactly what production's retrieveSingle
+  // does for codebase workspaces. The dense arm always gets the raw query.
+  const lexicalQ = abl.bm25Expand ? expandBm25Query(query) : query
+  const bm25 = (abl.symbolFts ? ctx.bm25Code : ctx.bm25Text).search(lexicalQ, ctx.candidateK)
   const bm25Hits = bm25.map(({ id, score }) => ({ ...ctx.hits[id]!, score }))
   const denseHits = ctx.vecs
     .map((v, i) => ({ i, s: cosineSimilarity(qVec, v) }))
@@ -188,12 +178,21 @@ export async function runQuery(
 
   // --- code-aware boosts (prod applies these on whatever score we rank on) ---
   if (abl.codeSymbolBoost) {
-    pool = applyCodeSymbolBoost(pool, query, CODE_SYMBOL_BOOST, CODE_DEFINE_BOOST)
+    pool = applyCodeSymbolBoost(
+      pool,
+      query,
+      CODE_SYMBOL_BOOST,
+      CODE_DEFINE_BOOST,
+      abl.laySymbolBoost ? CODE_LAY_SYMBOL_BOOST : 1.0,
+    )
   }
   if (abl.codeFilenameBoost === 'exact') {
     pool = applyCodeFilenameBoost(pool, query, CODE_FILENAME_BOOST)
   } else if (abl.codeFilenameBoost === 'substring') {
-    pool = applyCodeFilenameBoostSubstring(pool, query, CODE_FILENAME_BOOST)
+    // Production's substring mode (heuristics.ts) — includes the German bridge
+    // and the ≥4-char guard; replaced the eval-local reimplementation so the
+    // harness measures the shipped code path.
+    pool = applyCodeFilenameBoost(pool, query, CODE_FILENAME_BOOST, 'substring')
   }
   if (abl.roleBoost) {
     pool = applyRoleBoost(pool, query, {

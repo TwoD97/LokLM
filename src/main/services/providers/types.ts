@@ -45,6 +45,11 @@ export interface LlmProvider {
    *  land before the next ask() — the bundled worker holds the system prompt
    *  as session state, so ask() must not race ahead of the language change. */
   setLanguage(lang: ResponseLanguage): Promise<void>
+  /** Codebase-workspace prompt mode (ADR-0006): appends the CODE section to the
+   *  system prompt. Same per-turn await contract as setLanguage. Optional so
+   *  test mocks don't have to implement it — callers use
+   *  `llm.setCodebaseMode?.(on)` and unknown means document mode. */
+  setCodebaseMode?(on: boolean): Promise<void>
 }
 
 export interface EmbedderProvider {

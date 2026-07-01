@@ -81,7 +81,14 @@ export class EmbedderBridge implements Embedder {
       )
     }
     const lib = await import('node-llama-cpp')
-    const llama = await lib.getLlama({ gpu: placementToGpu(this.placement) })
+    // logLevel: llama.cpp prints "init: embeddings required but some input
+    // tokens were not marked as outputs -> overriding" per getEmbeddingFor call
+    // — harmless (it fixes the flags itself), but at corpus scale it floods the
+    // terminal and buries the real progress output.
+    const llama = await lib.getLlama({
+      gpu: placementToGpu(this.placement),
+      logLevel: lib.LlamaLogLevel.error,
+    })
     this.model = await llama.loadModel({ modelPath })
     this.context = await (
       this.model as {

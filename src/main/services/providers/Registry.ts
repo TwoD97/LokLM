@@ -163,6 +163,13 @@ class RegistryLlmProvider implements LlmProvider {
     if (this.deps.llm.ollama) await this.deps.llm.ollama.setLanguage(lang)
   }
 
+  async setCodebaseMode(on: boolean): Promise<void> {
+    // Same both-providers contract as setLanguage — a mid-turn fallback to
+    // bundled must keep the CODE prompt section of the codebase workspace.
+    await this.deps.llm.bundled.setCodebaseMode?.(on)
+    if (this.deps.llm.ollama) await this.deps.llm.ollama.setCodebaseMode?.(on)
+  }
+
   contextWindowTokens(): number {
     // Report the active provider's live window. When Ollama is active this is 0
     // (callers fall back to FALLBACK_CONTEXT_TOKENS); on a mid-turn fallback to

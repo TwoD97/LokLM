@@ -95,7 +95,7 @@ export function App(): JSX.Element {
   // Chrome (BackgroundFx + TitleBar + Settings/Toast) is hoisted above the
   // phase switch so unlocking the vault doesn't tear down and re-mount the
   // shared shell — that used to re-fetch all three model statuses through
-  // the TitleBar and restart BackgroundFx's pointer listener on every unlock.
+  // the TitleBar on every unlock.
   const isUnlocked = phase.kind === 'unlocked'
 
   let content: JSX.Element
@@ -123,10 +123,7 @@ export function App(): JSX.Element {
     )
   } else if (phase.kind === 'register') {
     content = (
-      <RegisterView
-        onRegistered={(words) => setPhase({ kind: 'reveal', words })}
-        onSwitchToLogin={() => setPhase({ kind: 'login' })}
-      />
+      <RegisterView onRegistered={(words) => setPhase({ kind: 'reveal', words })} />
     )
   } else if (phase.kind === 'login' && status) {
     content = (

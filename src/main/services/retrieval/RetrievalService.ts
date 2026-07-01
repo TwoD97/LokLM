@@ -11,6 +11,8 @@ import {
   applyLanguageMatchBoost,
   splitQuestions,
   extractCodeIdentifiers,
+  extractRawIdentifiers,
+  expandBm25Query,
   applyCodeSymbolBoost,
   applyCodeFilenameBoost,
   applyRoleBoost,
@@ -18,6 +20,7 @@ import {
   ensureCodeShare,
   dynamicScoreCutCount,
 } from './heuristics'
+import { retrievalTrace } from './trace'
 import { CODE_EMBEDDER_IDENTITY } from '../codebase/codeEmbedder'
 import type { ResponseLanguage } from '../llm/prompt'
 
@@ -138,6 +141,11 @@ export interface RetrievalOptions {
    *  The top hit is always kept regardless. Set on lite, where there's no other
    *  precision gate; unset elsewhere keeps the legacy fixed-K behaviour. */
   relevanceFloor?: number
+  /** R5: cosine floor for the NO-rerank path. A candidate with no BM25 match
+   *  whose best dense similarity is below this is dropped before the topK
+   *  slice (top-1 always kept). Default DEFAULT_NO_RERANK_COSINE_FLOOR; set 0
+   *  to disable. */
+  noRerankRelevanceFloor?: number
   /** Optional callback invoked for each pipeline stage start/done so the caller
    *  can forward the events to the renderer. Stages reported here:
    *    - 'expand_queries' (only when multiQuery is on AND an LLM is loaded)
@@ -204,7 +212,20 @@ const DEFAULT_LANGUAGE_MATCH_BOOST = 1.1
 const DEFAULT_CODE_SYMBOL_BOOST = 1.8 // breadcrumb symbol === a query identifier
 const DEFAULT_CODE_DEFINE_BOOST = 1.4 // chunk text DEFINES a query identifier
 const DEFAULT_CODE_FILENAME_BOOST = 1.3 // chunk is from a file the query names
+// R4: lay-term substring match against the breadcrumb symbol ("auth" lifts
+// AuthService) — the exact symbol boost never fires on natural-language queries
+// (lowercase words are deliberately not identifiers), so this weaker branch is
+// their only symbol-level signal. Codebase workspaces only.
+const DEFAULT_CODE_LAY_SYMBOL_BOOST = 1.3
 const DEFAULT_CODE_MIN_FRACTION = 0.4 // reserve ≥40% of top-K for code on code-intent queries
+// R5: relevance floor for the NO-rerank path (codebase workspaces + CPU preset).
+// The RRF fallback has no precision stage, so a fixed topK pads the fed set with
+// pool noise. A hit that neither matched a BM25 term NOR clears this cosine
+// floor is irrelevant by both arms' own testimony — drop it (top-1 always
+// survives, mirroring the rerank-path relevanceFloor). Conservative on purpose:
+// BM25-matched hits are never floored, so this only prunes dense-only hits whose
+// similarity is far below any plausible answer.
+const DEFAULT_NO_RERANK_COSINE_FLOOR = 0.25
 // Role-aware (ADR-0006): on a default "how does X work" query, push tests/evals/
 // examples below the implementation; on a test-intent query, lift the test/eval.
 const DEFAULT_ROLE_NONSOURCE_PENALTY = 0.5 // ×score for test/eval/example/config code
@@ -250,6 +271,14 @@ export class RetrievalService {
      *  single-embedder-per-tier means Qwen serves library workspaces too. Left
      *  undefined in isolated tests → falls back to the embedder-identity proxy. */
     private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
+    /** Maßnahme 4 (R3): deterministic MADLAD translation of a non-english query
+     *  to english, run as an EXTRA retrieval variant through the same hybrid
+     *  fan-out (BM25 finds english identifiers/comments; the query embedding
+     *  matches its english instruction). The injected wrapper owns the gating —
+     *  language detection, model availability, timeout — and resolves null for
+     *  "no variant" (english query, Lite install, sidecar cold/crashed). The
+     *  pipeline never awaits more than the wrapper's own budget. */
+    private readonly translateQuery?: (query: string) => Promise<string | null>,
   ) {}
 
   /** Cheap BM25-only top-score probe: FTS5 keyword search, top hit, no dense and
@@ -377,10 +406,24 @@ export class RetrievalService {
       onStage?.('expand_queries', 'done', `${queries.length} questions`)
     } else if (llmReadyForExpansion) {
       onStage?.('expand_queries', 'start')
-      queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery)
+      queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery, codeWorkspace)
       onStage?.('expand_queries', 'done', `${queries.length} variants`)
     } else {
       queries = [trimmed]
+    }
+
+    // Maßnahme 4 (R3): deterministic EN translation as one more variant. Runs
+    // for every workspace type — a German question over english PDFs benefits
+    // exactly like one over english code. Dedup against existing variants (the
+    // LLM expansion may already have produced a translation).
+    if (this.translateQuery) {
+      const translated = await this.translateQuery(trimmed).catch(() => null)
+      if (translated) {
+        const norm = normalizeForDedup(translated)
+        if (norm.length > 3 && !queries.some((q) => normalizeForDedup(q) === norm)) {
+          queries.push(translated)
+        }
+      }
     }
 
     // ------- 1. retrieve & RRF-fuse across variants -------
@@ -418,6 +461,8 @@ export class RetrievalService {
       pool = fuseRrf(pool, vector, candidateK)
     }
     onStage?.('retrieve', 'done', `${pool.length} candidates`)
+    const poolSize = pool.length
+    let flooredOut = 0
 
     // ------- 1b. score adjustments BEFORE rerank -------
     // Skipped when rerank is on , the reranker reassigns scores wholesale at
@@ -447,6 +492,7 @@ export class RetrievalService {
         trimmed,
         DEFAULT_CODE_SYMBOL_BOOST,
         DEFAULT_CODE_DEFINE_BOOST,
+        codeWorkspace ? DEFAULT_CODE_LAY_SYMBOL_BOOST : 1.0,
       )
       pool = applyCodeFilenameBoost(
         pool,
@@ -462,6 +508,18 @@ export class RetrievalService {
         pool = applyTrackPreference(pool, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
       }
       pool.sort((a, b) => b.score - a.score)
+      // R5: no-rerank relevance floor — see DEFAULT_NO_RERANK_COSINE_FLOOR.
+      const cosineFloor = opts.noRerankRelevanceFloor ?? DEFAULT_NO_RERANK_COSINE_FLOOR
+      if (cosineFloor > 0 && pool.length > 1) {
+        // A stamped bm25Score means the chunk MATCHED the FTS query (FTS5 only
+        // returns matching rows) — lexical hits are never floored.
+        const kept = pool.filter(
+          (h) => h.bm25Score !== undefined || (h.cosineScore ?? 0) >= cosineFloor,
+        )
+        const before = pool.length
+        pool = kept.length > 0 ? kept : pool.slice(0, 1)
+        flooredOut = before - pool.length
+      }
     }
 
     // ------- 2. rerank (or fall back to fused order) -------
@@ -519,6 +577,7 @@ export class RetrievalService {
         trimmed,
         DEFAULT_CODE_SYMBOL_BOOST,
         DEFAULT_CODE_DEFINE_BOOST,
+        codeWorkspace ? DEFAULT_CODE_LAY_SYMBOL_BOOST : 1.0,
       )
       postRank = applyCodeFilenameBoost(
         postRank,
@@ -604,7 +663,31 @@ export class RetrievalService {
       withWhole = await this.expandNeighbours(withWhole, neighbourRadius, wsdb)
     }
 
-    return withWhole.map(toHit)
+    const result = withWhole.map(toHit)
+    // Opt-in per-query trace (LOKLM_RETRIEVAL_TRACE=1) → retrieval.log. Chunk
+    // texts are logged as ids + lengths only, never content.
+    retrievalTrace(() => ({
+      workspaceId,
+      query: trimmed,
+      variants: queries,
+      lexicalQuery: codeWorkspace ? expandBm25Query(trimmed) : undefined,
+      codeWorkspace,
+      cpuMode,
+      rerank: rerankWillRun,
+      topK,
+      effectiveTopK,
+      poolSize,
+      flooredOut,
+      final: result.slice(0, topK + 5).map((h) => ({
+        chunk: h.chunk_id,
+        doc: h.document_id,
+        file: h.heading_path?.[0] ?? h.document_title,
+        origin: h.origin,
+        score: round4(h.score),
+        chars: h.text.length,
+      })),
+    }))
+    return result
   }
 
   // -------------------------------------------------------------------------
@@ -619,9 +702,14 @@ export class RetrievalService {
     wsdb: WorkspaceDb | null,
     codeWorkspace: boolean,
   ): Promise<[SearchHit[], SearchHit[]]> {
+    // R3: the lexical arm gets the German→english bridge + identifier subtokens
+    // appended (codebase workspaces only). The dense arm keeps the raw query —
+    // the multilingual embedder handles semantics; the expansion exists because
+    // FTS5 can't. Additive OR-terms, so recall can only grow.
+    const lexicalQ = codeWorkspace ? expandBm25Query(q) : q
     const bm25Promise = wsdb
-      ? wsdb.searchChunks(q, candidateK, searchOpts)
-      : this.db.documents().searchChunks(workspaceId, q, candidateK, searchOpts)
+      ? wsdb.searchChunks(lexicalQ, candidateK, searchOpts)
+      : this.db.documents().searchChunks(workspaceId, lexicalQ, candidateK, searchOpts)
     // The provider contract throws on failure (no embedder model on disk,
     // Ollama unreachable, etc.) where the old EmbeddingService returned null.
     // Wrap in try/catch to preserve the user-visible "no embedder → BM25-only"
@@ -651,7 +739,13 @@ export class RetrievalService {
         return []
       }
     })()
-    return Promise.all([bm25Promise, vectorPromise])
+    const [bm25, vector] = await Promise.all([bm25Promise, vectorPromise])
+    // Stamp each arm's native score before RRF fusion overwrites `score` with
+    // rank numbers — the no-rerank relevance floor needs the raw signals.
+    return [
+      bm25.map((h) => ({ ...h, bm25Score: h.score })),
+      vector.map((h) => ({ ...h, cosineScore: h.score })),
+    ]
   }
 
   /**
@@ -678,22 +772,53 @@ export class RetrievalService {
     return !llm.getModelStatus().gpu
   }
 
-  private async maybeExpandQueries(query: string, enabled: boolean): Promise<string[]> {
+  private async maybeExpandQueries(
+    query: string,
+    enabled: boolean,
+    codeWorkspace = false,
+  ): Promise<string[]> {
     const llm = this.registry.llm()
     if (!enabled || !llm.isReady()) return [query]
     try {
-      const prompt =
-        `Produce 2 paraphrases of the user's search query that retain the original meaning ` +
-        `but use different vocabulary so a keyword index can find them. Output strictly two ` +
-        `lines, one paraphrase per line, no preamble.\n\nQuery: ${query}\n\nParaphrases:`
+      // Codebase workspaces (R3): "different vocabulary" is exactly wrong for
+      // code — the identifier IS the strongest BM25 anchor, and a German query
+      // needs an ENGLISH variant (code, comments and symbols are english) plus
+      // identifier-form hypotheses ("auth klasse" → AuthService), which the
+      // deterministic bridge can't guess. Document workspaces keep the
+      // vocabulary-shifting paraphrases.
+      const prompt = codeWorkspace
+        ? `The user searches a source-code codebase. Produce 2 variants of the query:\n` +
+          `Line 1: an English translation of the query (if it already is English, a close paraphrase).\n` +
+          `Line 2: the same question using likely code identifier forms (camelCase/PascalCase names, ` +
+          `e.g. "auth klasse" -> "AuthService authentication class").\n` +
+          `Copy any existing code identifiers (camelCase, snake_case, dotted.paths) EXACTLY unchanged. ` +
+          `Output strictly two lines, no preamble.\n\nQuery: ${query}\n\nVariants:`
+        : `Produce 2 paraphrases of the user's search query that retain the original meaning ` +
+          `but use different vocabulary so a keyword index can find them. Copy any technical ` +
+          `identifiers (camelCase, snake_case, dotted.paths) EXACTLY unchanged. Output strictly two ` +
+          `lines, one paraphrase per line, no preamble.\n\nQuery: ${query}\n\nParaphrases:`
       // 96 tokens easily fits 2 short paraphrases. Without this cap a model
       // that ignores "strictly two lines" runs to the full generation budget
       // on every retrieval call.
       const raw = await llm.generateRaw(prompt, { maxTokens: 96 })
+      // Identifier guard (both prompt variants): a variant that lost an
+      // identifier from the original query would retrieve for the paraphrase
+      // and MISS the literal-match chunks — worse than no variant at all.
+      // German dotted ABBREVIATIONS (z.B., d.h., u.a. — and e.g./i.e.) parse as
+      // dotted-path identifiers but vanish in any translation/paraphrase, which
+      // would kill every variant. Single-letter-segment tokens are never real
+      // code paths, so drop them from the guard.
+      const mustKeep = extractRawIdentifiers(query)
+        .filter((id) => !/^([A-Za-z]\.)+[A-Za-z]$/.test(id))
+        .map((id) => id.toLowerCase())
       const lines = raw
         .split(/\r?\n/)
         .map((s) => s.replace(/^[-*\d.\s]+/, '').trim())
         .filter((s) => s.length > 3 && s.length < 240)
+        .filter((s) => {
+          const lower = s.toLowerCase()
+          return mustKeep.every((id) => lower.includes(id))
+        })
       // Dedup against the original query (case-insensitive, whitespace
       // collapsed). Small models often regurgitate the query verbatim ,
       // running the same retrieval pass twice was just wasted work.
@@ -971,4 +1096,8 @@ function toHit(item: HitWithOrigin): RetrievalHit {
 
 function normalizeForDedup(s: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000
 }

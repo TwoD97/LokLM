@@ -28,6 +28,12 @@ export interface CodeChunk {
   symbol: string | null
   pageFrom: number | null
   pageTo: number | null
+  /** R3: production's chunks.context_prefix (path + camel-split symbol words).
+   *  FTS-indexed AND prepended to the embedding text — the harness mirrors
+   *  both so recall numbers track the shipped pipeline. Absent on corpora
+   *  built before the field existed (legacy vec caches stay valid: run.ts
+   *  derives a distinct cache key when prefixes are present). */
+  contextPrefix?: string | null
 }
 
 export interface CodeCorpus {

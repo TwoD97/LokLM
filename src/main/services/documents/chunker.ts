@@ -15,6 +15,12 @@ export interface Chunk {
    *  it in as a post-pass so the language-detector import stays out of the
    *  synchronous chunking hot path). */
   language: ChunkLanguage | null
+  /** One-line searchable location header (R3). Code chunks carry the file path
+   *  + camel-split words of stem/symbol (codeChunker.contextPrefixFor); stored
+   *  in chunks.context_prefix (FTS column) and prepended to the embedding text.
+   *  Absent/null = legacy behaviour (prose chunks already soft-prefix their
+   *  heading into `text`). */
+  contextPrefix?: string | null
 }
 
 export interface ChunkOptions {

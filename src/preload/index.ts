@@ -170,6 +170,17 @@ const api = {
         ipcRenderer.removeListener('app:quitting', listener)
       }
     },
+    // True while an explicit lock/logout drains in-flight indexing and
+    // re-encrypts the vault (drainIndexingForLock in main). Unlike app:quitting
+    // the app keeps running afterwards, so a `false` follows to tear the
+    // overlay back down once the vault is locked.
+    onLocking: (cb: (active: boolean) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, active: boolean): void => cb(active)
+      ipcRenderer.on('app:locking', listener)
+      return () => {
+        ipcRenderer.removeListener('app:locking', listener)
+      }
+    },
   },
   workspaces: {
     list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspaces:list'),

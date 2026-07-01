@@ -67,6 +67,7 @@ const stub: Api = {
     isMaximized: () => Promise.resolve(false),
     onMaximizedChange: () => () => undefined,
     onQuitting: () => () => undefined,
+    onLocking: () => () => undefined,
   },
   workspaces: {
     list: () => Promise.resolve([]),

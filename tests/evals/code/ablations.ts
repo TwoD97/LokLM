@@ -18,6 +18,8 @@ const base: Omit<Ablation, 'name'> = {
   rerank: false,
   roleBoost: false,
   docPenalty: false,
+  bm25Expand: false,
+  laySymbolBoost: false,
 }
 
 const allFixes: Omit<Ablation, 'name'> = {
@@ -31,6 +33,15 @@ const allFixes: Omit<Ablation, 'name'> = {
   docPenalty: true,
 }
 
+// R3/R4 (0.6.5): the German-query fixes shipped in RetrievalService/heuristics —
+// BM25 query expansion (bridge + identifier subtokens) and the lay-term symbol
+// boost. `code_rag_v2` is the full shipped configuration: all_fixes + both.
+const codeRagV2: Omit<Ablation, 'name'> = {
+  ...allFixes,
+  bm25Expand: true,
+  laySymbolBoost: true,
+}
+
 export const ABLATIONS: Ablation[] = [
   { ...base, name: 'prod', rerank: true }, // faithful current production
   { ...base, name: 'base_norr' }, // production minus reranker (isolates recall)
@@ -42,6 +53,23 @@ export const ABLATIONS: Ablation[] = [
   { ...base, name: 'f5_role', roleBoost: true }, // fix #5: prefer source over tests/evals
   { ...base, name: 'f6_docpref', docPenalty: true }, // fix #6: prefer code over docs (code-intent)
   { ...base, name: 'recall_combo', queryInstruction: true, symbolFts: true }, // #1 + #4
+  { ...base, name: 'f7_bm25de', bm25Expand: true }, // R3: DE→EN bridge + subtokens in BM25
+  { ...base, name: 'f8_laysym', laySymbolBoost: true }, // R4: lay-term symbol substring boost
   { ...allFixes, name: 'all_fixes' },
   { ...allFixes, name: 'all_fixes_rr', rerank: true },
+  { ...codeRagV2, name: 'code_rag_v2' }, // all_fixes + R3 + R4 (upper bound incl. symbolFts)
+  // EXACTLY what ships in 0.6.5 for a codebase workspace (no rerank): the ADR-0006
+  // defaults + R3/R4 — but WITHOUT symbolFts (context_prefix in FTS is not built
+  // yet) and without dynamicK (opt-in, default off). The honest production number.
+  {
+    ...base,
+    name: 'prod_v2',
+    queryInstruction: true,
+    codeFilenameBoost: 'substring',
+    codeShare: 'always',
+    roleBoost: true,
+    docPenalty: true,
+    bm25Expand: true,
+    laySymbolBoost: true,
+  },
 ]

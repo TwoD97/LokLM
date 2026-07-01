@@ -74,6 +74,10 @@ export class QAService {
     private readonly retrieval: RetrievalService,
     private readonly registry: ProviderRegistry,
     private readonly summarization: SummarizationService,
+    /** True when the workspace is a 'codebase' (and the tier allows it) — same
+     *  resolver RetrievalService gets. Drives the code-aware topK floor and the
+     *  CODE system-prompt section. Optional: tests omit it → document mode. */
+    private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
   ) {}
 
   async *answer(
@@ -92,7 +96,13 @@ export class QAService {
     // answer the question, and so the packer can reserve budget for them.
     const docsRepo = this.db.documents()
     const pinnedDocs = await docsRepo.listPinned(workspaceId)
-    const topK = opts.topK ?? adaptiveTopK(query)
+    // Codebase workspaces (ADR-0006): floor topK at the broad tier (the k=3
+    // sweep was prose-calibrated; a class spans several disjoint code chunks)
+    // and flip the LLM's system prompt into code mode below.
+    const codebaseWorkspace = this.isCodebaseWorkspace
+      ? await this.isCodebaseWorkspace(workspaceId).catch(() => false)
+      : false
+    const topK = opts.topK ?? adaptiveTopK(query, codebaseWorkspace)
     const threshold = opts.refusalThreshold ?? DEFAULT_REFUSAL_THRESHOLD
     // Answer language: forced when the caller set opts.language ('de'/'en'),
     // otherwise auto — detect it from the query (Auto mode). detectResponseLanguage
@@ -442,7 +452,7 @@ export class QAService {
     const totalBudget =
       ctxTokens -
       answerMaxTokens(ctxTokens) -
-      estimateTokens(buildSystemPrompt(language)) -
+      estimateTokens(buildSystemPrompt(language, 'concise', { codebase: codebaseWorkspace })) -
       estimateHistoryTokens(opts.history) -
       estimateTokens(query) -
       (preambleForBudget ? estimateTokens(preambleForBudget) : 0) -
@@ -533,7 +543,7 @@ export class QAService {
     // its cause (window not reloaded to 8K? prompt still huge from whole-doc?)
     // instead of guessed at. Prefill is intrinsic — this shows how big it is.
     const promptTokens =
-      estimateTokens(buildSystemPrompt(language)) +
+      estimateTokens(buildSystemPrompt(language, 'concise', { codebase: codebaseWorkspace })) +
       estimateHistoryTokens(opts.history) +
       estimateTokens(query) +
       fedHits.reduce((n, h) => n + estimateTokens(h.text), 0) +
@@ -577,6 +587,9 @@ export class QAService {
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.
       await this.registry.llm().setLanguage(language)
+      // Same contract for the codebase prompt mode (CODE section) — no-op when
+      // unchanged, unknown providers stay in document mode.
+      await this.registry.llm().setCodebaseMode?.(codebaseWorkspace)
       const askPromise = this.registry.llm().ask(query, packedRagHits, askOpts)
       // drain the queue while ask is still running
       while (true) {

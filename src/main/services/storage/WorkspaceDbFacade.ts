@@ -149,7 +149,9 @@ class DocumentsApi {
   async listChunksMissingEmbedding(
     workspaceId: number,
     limit: number,
-  ): Promise<Array<{ id: number; text: string; document_id: number }>> {
+  ): Promise<
+    Array<{ id: number; text: string; document_id: number; context_prefix: string | null }>
+  > {
     return (await this.meta(workspaceId)).listChunksMissingEmbedding(limit)
   }
   async documentIdsMissingEmbedding(workspaceId: number): Promise<number[]> {

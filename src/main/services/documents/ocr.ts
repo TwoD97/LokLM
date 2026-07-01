@@ -1,10 +1,12 @@
 // Offline OCR for scanned PDFs and image files.
 //
-// Engine: tesseract.js (LSTM, OEM 1) loaded against `best`-quality eng+deu
-// traineddata that ships in the installer (build.extraResources → tessdata).
-// Nothing here ever touches the network — workerPath / corePath / langPath are
-// all resolved to on-disk locations so OCR works on a freshly-installed,
-// air-gapped machine.
+// Engine: tesseract.js (LSTM, OEM 1) loaded against `fast` (integer-LSTM)
+// eng+deu traineddata that ships in the installer (build.extraResources →
+// tessdata). `fast` recognises roughly 3-4× quicker than the float `best`
+// models at a small accuracy cost — the right trade-off for indexing whole
+// scanned documents. Nothing here ever touches the network — workerPath /
+// corePath / langPath are all resolved to on-disk locations so OCR works on a
+// freshly-installed, air-gapped machine.
 //
 // Rasterisation: PDF pages have no text layer when scanned, so we render them
 // to a bitmap with pdfjs + @napi-rs/canvas (sharp can't render PDFs in its
@@ -13,18 +15,21 @@
 //
 // This module is loaded inside the dedicated `documentsWorker` utilityProcess,
 // so all of the CPU-heavy work below stays off the main event loop AND off the
-// models worker that streams chat tokens.
+// models worker that streams chat tokens. Recognition itself fans out to a
+// small pool of tesseract worker threads (a tesseract.js scheduler), sized to
+// the number of concurrent callers — see MAX_OCR_WORKERS.
 
 import { createRequire } from 'node:module'
 import { dirname, join, sep } from 'node:path'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { availableParallelism } from 'node:os'
 
 const requireFromHere = createRequire(import.meta.url)
 
 // Load German + English together so a page mixing both (common in study
 // material — German prose quoting English terms) is read correctly. OEM 1 =
-// LSTM only, which is what the `best` traineddata contains.
+// LSTM only, which is what the `fast` traineddata contains.
 const OCR_LANGS = 'deu+eng'
 const OEM_LSTM_ONLY = 1
 
@@ -79,73 +84,155 @@ function tesseractCorePath(): string {
   return asarUnpacked(dirname(corePkgJson))
 }
 
-// ---- tesseract worker singleton -------------------------------------------
+// ---- tesseract scheduler pool ----------------------------------------------
 
 interface TesseractWorker {
   recognize(image: Buffer | string): Promise<{ data: { text: string } }>
   terminate(): Promise<void>
 }
 
-let workerPromise: Promise<TesseractWorker> | null = null
+interface TesseractScheduler {
+  addWorker(worker: TesseractWorker): string
+  addJob(action: 'recognize', image: Buffer | string): Promise<{ data: { text: string } }>
+  terminate(): Promise<void>
+}
 
-async function getWorker(): Promise<TesseractWorker> {
-  if (workerPromise) return workerPromise
-  workerPromise = (async () => {
-    const dir = tessdataDir()
-    if (!existsSync(join(dir, 'eng.traineddata')) || !existsSync(join(dir, 'deu.traineddata'))) {
-      throw new Error(
-        `OCR language data not found in ${dir}. Run "pnpm tessdata" (dev) or check the installer's tessdata resource.`,
+interface TesseractModule {
+  createWorker(
+    langs: string,
+    oem: number,
+    options: Record<string, unknown>,
+  ): Promise<TesseractWorker>
+  createScheduler(): TesseractScheduler
+}
+
+// Recognition is pure WASM number-crunching: one fully-busy thread per worker.
+// Cap the pool so rasterisation (pdfjs), sharp and the rest of the app keep
+// breathing room, and never oversubscribe a small machine.
+const MAX_OCR_WORKERS = Math.max(1, Math.min(4, availableParallelism() - 2))
+
+/** Concurrency to use for `jobs` independent OCR jobs. Pure — never touches
+ *  the engine, so callers (parser page pools) can size themselves without
+ *  initialising OCR first. */
+export function ocrConcurrency(jobs: number): number {
+  return Math.max(1, Math.min(MAX_OCR_WORKERS, jobs))
+}
+
+let pool: { scheduler: TesseractScheduler; workers: number } | null = null
+// Serialises pool mutations (spawn / terminate) so concurrent recognitions
+// don't over-spawn. A promise chain acts as the mutex; the chain itself
+// swallows rejections — each caller still sees the rejection on its own link.
+let poolChain: Promise<unknown> = Promise.resolve()
+// Recognitions currently awaited — drives on-demand worker spawning.
+let inFlight = 0
+
+function assertTessdata(): string {
+  const dir = tessdataDir()
+  if (!existsSync(join(dir, 'eng.traineddata')) || !existsSync(join(dir, 'deu.traineddata'))) {
+    throw new Error(
+      `OCR language data not found in ${dir}. Run "pnpm tessdata" (dev) or check the installer's tessdata resource.`,
+    )
+  }
+  return dir
+}
+
+function createTessWorker(tesseract: TesseractModule, langPath: string): Promise<TesseractWorker> {
+  return tesseract.createWorker(OCR_LANGS, OEM_LSTM_ONLY, {
+    langPath,
+    // Our traineddata is stored uncompressed and read straight from langPath;
+    // 'none' stops tesseract from trying to write a cache copy elsewhere.
+    gzip: false,
+    cacheMethod: 'none',
+    workerPath: tesseractWorkerPath(),
+    corePath: tesseractCorePath(),
+    logger: () => {},
+    errorHandler: (e: unknown) =>
+      // eslint-disable-next-line no-console
+      console.warn('[ocr] tesseract worker error:', e instanceof Error ? e.message : e),
+  })
+}
+
+/** Grow the pool to min(MAX_OCR_WORKERS, target) workers. Missing tessdata or
+ *  a total spawn failure throws but leaves the pool retryable (e.g. after the
+ *  user installs tessdata); a partial spawn failure degrades to fewer workers
+ *  with a warning. */
+async function ensureWorkers(target: number): Promise<TesseractScheduler> {
+  const want = ocrConcurrency(target)
+  const run = poolChain.then(async () => {
+    if (pool && pool.workers >= want) return pool.scheduler
+    const langPath = assertTessdata()
+    const tesseract = (await import('tesseract.js')) as unknown as TesseractModule
+    if (!pool) pool = { scheduler: tesseract.createScheduler(), workers: 0 }
+    const spawned = await Promise.allSettled(
+      Array.from({ length: want - pool.workers }, () => createTessWorker(tesseract, langPath)),
+    )
+    let firstFailure: unknown
+    for (const s of spawned) {
+      if (s.status === 'fulfilled') {
+        pool.scheduler.addWorker(s.value)
+        pool.workers += 1
+      } else {
+        firstFailure = firstFailure ?? s.reason
+      }
+    }
+    if (pool.workers === 0) {
+      throw firstFailure instanceof Error ? firstFailure : new Error(String(firstFailure))
+    }
+    if (firstFailure !== undefined) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[ocr] some OCR workers failed to spawn, continuing with ${pool.workers}:`,
+        firstFailure instanceof Error ? firstFailure.message : firstFailure,
       )
     }
-    const tesseract = (await import('tesseract.js')) as unknown as {
-      createWorker: (
-        langs: string,
-        oem: number,
-        options: Record<string, unknown>,
-      ) => Promise<TesseractWorker>
-    }
-    return tesseract.createWorker(OCR_LANGS, OEM_LSTM_ONLY, {
-      langPath: dir,
-      // Our traineddata is stored uncompressed and read straight from langPath;
-      // 'none' stops tesseract from trying to write a cache copy elsewhere.
-      gzip: false,
-      cacheMethod: 'none',
-      workerPath: tesseractWorkerPath(),
-      corePath: tesseractCorePath(),
-      logger: () => {},
-      errorHandler: (e: unknown) =>
-        // eslint-disable-next-line no-console
-        console.warn('[ocr] tesseract worker error:', e instanceof Error ? e.message : e),
-    })
-  })()
+    return pool.scheduler
+  })
+  poolChain = run.catch(() => {})
+  return run
+}
+
+/** Recognise a preprocessed PNG on the pool. The pool grows to match the
+ *  number of concurrent callers (capped at MAX_OCR_WORKERS), so a single image
+ *  costs one worker while a scanned book fans out to the full pool. */
+async function recognize(png: Buffer): Promise<string> {
+  inFlight += 1
   try {
-    return await workerPromise
-  } catch (err) {
-    // Reset so a later import retries (e.g. after the user installs tessdata)
-    // rather than being stuck on a cached rejection for the whole session.
-    workerPromise = null
-    throw err
+    const scheduler = await ensureWorkers(inFlight)
+    const { data } = await scheduler.addJob('recognize', png)
+    return (data.text ?? '').trim()
+  } finally {
+    inFlight -= 1
   }
 }
 
-/** Dispose the tesseract worker thread. Called on documentsWorker shutdown. */
+/** Dispose the tesseract worker pool. Called on documentsWorker shutdown. */
 export async function terminateOcr(): Promise<void> {
-  if (!workerPromise) return
-  const p = workerPromise
-  workerPromise = null
-  try {
-    const w = await p
-    await w.terminate()
-  } catch {
-    /* worker never came up or already gone — nothing to clean up */
-  }
+  const run = poolChain.then(async () => {
+    if (!pool) return
+    const p = pool
+    pool = null
+    try {
+      await p.scheduler.terminate() // terminates every worker in the pool
+    } catch {
+      /* workers never came up or already gone — nothing to clean up */
+    }
+  })
+  poolChain = run.catch(() => {})
+  await run
 }
 
 // ---- image preprocessing + recognition ------------------------------------
 
-/** Grayscale + contrast-normalise, and upscale small images so tesseract sees
- *  enough pixels per glyph. Rendered PDF pages are already high-res (TARGET_DPI)
- *  so they skip the upscale branch. */
+/** Grayscale, and upscale small images so tesseract sees enough pixels per
+ *  glyph. Rendered PDF pages are already high-res (TARGET_DPI) so they skip
+ *  the upscale branch.
+ *
+ *  Deliberately NO normalize(): libvips' histogram stretch costs ~5× the rest
+ *  of this pipeline combined, doesn't parallelise across concurrent pipelines
+ *  (it starved the OCR worker pool), and tesseract binarises with its own
+ *  adaptive Otsu pass anyway — low-contrast input recognises just as well
+ *  without it. PNG compressionLevel 1 over the default 6 for the same reason:
+ *  the buffer only crosses a thread boundary, it never hits disk. */
 async function preprocess(input: Buffer): Promise<Buffer> {
   const sharp = (await import('sharp')).default
   let img = sharp(input, { failOn: 'none' }).rotate() // honour EXIF orientation
@@ -155,21 +242,71 @@ async function preprocess(input: Buffer): Promise<Buffer> {
     const factor = Math.min(3, Math.ceil(1500 / longSide))
     img = img.resize({ width: meta.width * factor })
   }
-  return img.grayscale().normalize().png().toBuffer()
+  return img.grayscale().png({ compressionLevel: 1 }).toBuffer()
 }
 
 /** OCR a raw image buffer (PNG/JPEG/etc). Returns trimmed text ('' if nothing
  *  legible). Throws if the OCR engine can't initialise (e.g. missing tessdata). */
 export async function ocrImageBuffer(input: Buffer): Promise<string> {
   const png = await preprocess(input)
-  const worker = await getWorker()
-  const { data } = await worker.recognize(png)
-  return (data.text ?? '').trim()
+  return recognize(png)
 }
 
 /** OCR a standalone image file. */
 export async function ocrImageFile(filePath: string): Promise<string> {
   return ocrImageBuffer(await readFile(filePath))
+}
+
+// Embedded images below this long side are bullets / icons / small logos; a
+// scan or screenshot with legible text is practically always bigger.
+const MIN_EMBEDDED_IMAGE_SIDE_PX = 128
+
+/** OCR a batch of images embedded in a document (e.g. .docx) in parallel on
+ *  the worker pool. Best-effort by design: a slot comes back '' when its image
+ *  is too small, undecodable (EMF/WMF vector parts), or fails to recognise —
+ *  unlike a standalone image file, an embedded image is rarely the document's
+ *  only content, so the surrounding import must survive. */
+export async function ocrEmbeddedImages(
+  images: Buffer[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<string[]> {
+  const out = new Array<string>(images.length).fill('')
+  if (images.length === 0) return out
+  let next = 0
+  let done = 0
+  const runner = async (): Promise<void> => {
+    for (;;) {
+      const i = next
+      next += 1
+      const image = images[i]
+      if (image === undefined) return
+      try {
+        if (await isOcrCandidate(image)) out[i] = await ocrImageBuffer(image)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[ocr] embedded image ${i + 1}/${images.length} failed:`,
+          err instanceof Error ? err.message : err,
+        )
+      } finally {
+        done += 1
+        onProgress?.(done, images.length)
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: ocrConcurrency(images.length) }, runner))
+  return out
+}
+
+/** Cheap metadata-only probe: decodable by sharp and big enough to hold text. */
+async function isOcrCandidate(input: Buffer): Promise<boolean> {
+  try {
+    const sharp = (await import('sharp')).default
+    const meta = await sharp(input, { failOn: 'none' }).metadata()
+    return Math.max(meta.width ?? 0, meta.height ?? 0) >= MIN_EMBEDDED_IMAGE_SIDE_PX
+  } catch {
+    return false
+  }
 }
 
 // ---- scanned-PDF page rasterisation ---------------------------------------

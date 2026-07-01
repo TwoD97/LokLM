@@ -5,10 +5,9 @@ import { useAuthForm } from './useAuthForm'
 
 type Props = {
   onRegistered: (words: string[]) => void
-  onSwitchToLogin: () => void
 }
 
-export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Element {
+export function RegisterView({ onRegistered }: Props): JSX.Element {
   const t = useT()
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
@@ -138,12 +137,12 @@ export function RegisterView({ onRegistered, onSwitchToLogin }: Props): JSX.Elem
           </p>
         )}
 
+        {/* No "already registered? sign in" link here: this view only renders
+            when no vault exists on the device (single-account model), so a
+            switch to the login screen was a dead end with no way back. */}
         <div className="auth-card__row">
           <button type="submit" className="primary" disabled={!canSubmit}>
             {busy ? t('auth.registering') : t('auth.createAccount')}
-          </button>
-          <button type="button" className="link" onClick={onSwitchToLogin}>
-            {t('auth.alreadyRegistered')}
           </button>
         </div>
       </form>

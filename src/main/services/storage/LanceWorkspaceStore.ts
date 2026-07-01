@@ -137,6 +137,17 @@ export class LanceWorkspaceStore implements VectorStore {
     return this.enqueue(async () => {
       if (!this.table) return
       await this.table.delete(`chunkId IN (${chunkIds.map((n) => Math.trunc(n)).join(',')})`)
+      // A Lance delete only tombstones rows, and every write keeps the prior
+      // table version on disk — the "deleted" embeddings would otherwise
+      // survive inside the dataset (and its encrypted vault copy)
+      // indefinitely. Compact and prune old versions so removal actually
+      // removes the data. Best-effort: a failed compaction leaves stale bytes
+      // behind, never incorrect query results.
+      try {
+        await this.table.optimize({ cleanupOlderThan: new Date() })
+      } catch (err) {
+        console.warn(`[lance] compaction after delete failed (ws #${this.workspaceId}):`, err)
+      }
     })
   }
 
@@ -220,8 +231,8 @@ export class LanceWorkspaceStore implements VectorStore {
   }
 
   async flush(): Promise<void> {
-    // LanceDB writes are durable on execute(); compaction is a future
-    // optimisation. Nothing buffered to flush at this layer.
+    // LanceDB writes are durable on execute(), and remove() compacts inline
+    // (see above). Nothing buffered to flush at this layer.
   }
 
   async close(): Promise<void> {

@@ -108,6 +108,10 @@ let primaryGpuLabel: string | null = null
 // completing RELIABLY instead of hanging. The reranker is a short per-chat burst
 // that never crashed, so it keeps its full batch for speed. Everything stays on
 // the GPU (no CPU fallback) and the UI accelerated (no disableHardwareAcceleration).
+// Like LLM_PREFILL_SAFE_BATCH, this cap is GATED: it only applies to Vulkan/CPU
+// backends. CUDA/Metal embedders get batch = full context (see embedderLoad) —
+// a dedicated GPU never trips the watchdog, and 128-token slices there just
+// waste the card on per-submission overhead (~7k tok/s plateau regardless of GPU).
 const VULKAN_SAFE_BATCH = 128
 // LLM PREFILL batch on a slow Vulkan/iGPU. Larger than the embedder's (the 2B
 // LLM at 128 made a 3 K-token prefill ~1.5 min). 254, not 256: the heavier 4B
@@ -125,6 +129,14 @@ const LLM_PREFILL_SAFE_BATCH = 254
 // is the ambiguous one (could be an iGPU OR a discrete AMD/Intel card), so it
 // gets the safe cap. This is why the crash is iGPU-only: a dGPU never times out.
 const isFastDedicatedGpu = (label: string | null): boolean => label === 'cuda' || label === 'metal'
+// Embedding-context pool size on fast dedicated GPUs. node-llama-cpp's
+// LlamaEmbeddingContext holds a SINGLE sequence and serializes getEmbeddingFor
+// behind a per-instance lock, so concurrent calls on one context do NOT batch —
+// cross-passage parallelism requires a pool of contexts, one in-flight passage
+// each. Pool creation is best-effort (each context costs its own KV/compute
+// buffers); on Vulkan/CPU the pool stays at 1, which preserves the exact
+// sequential behaviour the fragile iGPU path was validated with.
+const EMBEDDER_FAST_GPU_CONTEXTS = 3
 
 let llmModel: unknown = null
 let llmContext: unknown = null
@@ -139,7 +151,9 @@ let llmUtilitySession: unknown = null
 let llmLanguage: 'de' | 'en' = 'de'
 
 let embedderModel: unknown = null
-let embedderContext: unknown = null
+// Pool of embedding contexts — length 1 on Vulkan/CPU, up to
+// EMBEDDER_FAST_GPU_CONTEXTS on CUDA/Metal (see embedderLoad).
+let embedderContexts: unknown[] = []
 // Token budget of the live embedding context. Inputs are HARD-truncated to this
 // (minus a margin) before getEmbeddingFor: an over-context passage NATIVE-CRASHES
 // the jina-code embedder on AMD Vulkan (0xC0000409, llama.cpp #20098/#20515) —
@@ -695,6 +709,10 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   } catch {
     /* best-effort */
   }
+  // resetChatHistory restores the LOAD-time system prompt — any prompt pushed
+  // later via llm.setLanguage (language switch, codebase mode) would be
+  // silently discarded here. Re-apply the current one after every reset.
+  if (llmSystemPrompt) patchSessionSystemPrompt(llmSession, llmSystemPrompt)
   const ctrl = new AbortController()
   // Register BEFORE consuming the tombstone so a concurrent `llm.abort`
   // that arrives during the next microtask still finds the controller.
@@ -792,6 +810,8 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   }
   try {
     session.resetChatHistory?.()
+    // Same reset caveat as llmAsk: restore the last-pushed system prompt.
+    if (llmSystemPrompt) patchSessionSystemPrompt(session, llmSystemPrompt)
     const promptOpts: {
       signal: AbortSignal
       repeatPenalty: typeof REPEAT_PENALTY
@@ -885,16 +905,45 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
     onLoadProgress: (p: number) => pushStatus('embedder', { loadProgress: p }),
   })
   pushStatus('embedder', { message: 'Creating embedding context…', loadProgress: 1 })
-  const context = await (
-    model as {
-      createEmbeddingContext: (opts?: {
-        contextSize?: number
-        batchSize?: number
-      }) => Promise<unknown>
+  const embedModel = model as {
+    createEmbeddingContext: (opts?: {
+      contextSize?: number
+      batchSize?: number
+    }) => Promise<unknown>
+  }
+  const fastGpu = isFastDedicatedGpu(primaryGpuLabel)
+  // Batch gating mirrors the LLM context: the 128-token watchdog cap is an
+  // iGPU-only concern. A dedicated GPU gets batch = full context, so a
+  // max-length passage is ONE llama_decode submission instead of
+  // ceil(tokens/128) — the difference between ~7k tok/s and the card's real
+  // prefill rate.
+  const embedBatchSize = fastGpu ? payload.contextSize : VULKAN_SAFE_BATCH
+  const contexts: unknown[] = [
+    await embedModel.createEmbeddingContext({
+      contextSize: payload.contextSize,
+      batchSize: embedBatchSize,
+    }),
+  ]
+  // Best-effort pool for cross-passage parallelism (see EMBEDDER_FAST_GPU_CONTEXTS).
+  // The planner's RAM-only snapshot above doesn't account for the extra contexts,
+  // so a creation failure on tight VRAM just shrinks the pool instead of failing
+  // the load.
+  if (fastGpu) {
+    for (let i = 1; i < EMBEDDER_FAST_GPU_CONTEXTS; i++) {
+      try {
+        contexts.push(
+          await embedModel.createEmbeddingContext({
+            contextSize: payload.contextSize,
+            batchSize: embedBatchSize,
+          }),
+        )
+      } catch {
+        break
+      }
     }
-  ).createEmbeddingContext({ contextSize: payload.contextSize, batchSize: VULKAN_SAFE_BATCH })
+  }
   embedderModel = model
-  embedderContext = context
+  embedderContexts = contexts
   embedderContextSize = payload.contextSize
   pushStatus('embedder', { state: 'ready', loadProgress: null, message: 'Embedder ready.' })
   const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
@@ -908,13 +957,19 @@ async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadR
 }
 
 async function embedderUnloadInternal(): Promise<void> {
+  for (const ctx of embedderContexts) {
+    try {
+      if (hasDispose(ctx)) await ctx.dispose()
+    } catch {
+      /* ignore */
+    }
+  }
   try {
-    if (embedderContext && hasDispose(embedderContext)) await embedderContext.dispose()
     if (embedderModel && hasDispose(embedderModel)) await embedderModel.dispose()
   } catch {
     /* ignore */
   }
-  embedderContext = null
+  embedderContexts = []
   embedderModel = null
 }
 
@@ -924,27 +979,22 @@ async function embedderUnload(): Promise<void> {
 }
 
 async function embedderEmbed(texts: string[]): Promise<Array<number[] | null>> {
-  if (!embedderContext) throw new Error('Embedder is not loaded.')
-  const ctx = embedderContext as {
+  if (embedderContexts.length === 0) throw new Error('Embedder is not loaded.')
+  const contexts = embedderContexts as Array<{
     getEmbeddingFor: (text: string) => Promise<{ vector: Float32Array | number[] }>
-  }
+  }>
   const tok = embedderModel as {
     tokenize?: (text: string) => number[]
     detokenize?: (tokens: number[]) => string
   }
   // Headroom for the BOS/EOS the embedding context wraps around the input.
   const maxTokens = Math.max(8, embedderContextSize - 8)
-  const out: Array<number[] | null> = []
-  for (let i = 0; i < texts.length; i++) {
-    let t = texts[i]!
-    if (t.length === 0) {
-      out.push(null)
-      continue
-    }
-    // HARD token-clamp BEFORE the native call. An over-context passage
-    // native-crashes jina-code on AMD Vulkan (0xC0000409) and bypasses the
-    // try/catch below — see embedderContextSize. Truncation loses the tail of an
-    // oversized chunk, which is strictly better than killing the whole worker.
+  // HARD token-clamp BEFORE the native call. An over-context passage
+  // native-crashes jina-code on AMD Vulkan (0xC0000409) and bypasses the
+  // per-passage try/catch — see embedderContextSize. Truncation loses the tail
+  // of an oversized chunk, which is strictly better than killing the whole worker.
+  const clamp = (raw: string): string => {
+    let t = raw
     try {
       if (typeof tok.tokenize === 'function' && typeof tok.detokenize === 'function') {
         const ids = tok.tokenize(t)
@@ -958,14 +1008,31 @@ async function embedderEmbed(texts: string[]): Promise<Array<number[] | null>> {
       const charCap = maxTokens * 2
       if (t.length > charCap) t = t.slice(0, charCap)
     }
-    try {
-      const r = await ctx.getEmbeddingFor(t)
-      out.push(Array.from(r.vector))
-    } catch (err) {
-      log('warn', `embed passage #${i} failed: ${err instanceof Error ? err.message : String(err)}`)
-      out.push(null)
-    }
+    return t
   }
+  // One worker per pooled context. Each worker owns its context exclusively (a
+  // single context serializes internally), so passages embed concurrently
+  // across the pool; results land at their original index. With a pool of 1
+  // (Vulkan/CPU) this is exactly the previous strictly-sequential loop.
+  const out: Array<number[] | null> = new Array(texts.length).fill(null)
+  let next = 0
+  await Promise.all(
+    contexts.map(async (ctx) => {
+      for (let i = next++; i < texts.length; i = next++) {
+        const raw = texts[i]!
+        if (raw.length === 0) continue
+        try {
+          const r = await ctx.getEmbeddingFor(clamp(raw))
+          out[i] = Array.from(r.vector)
+        } catch (err) {
+          log(
+            'warn',
+            `embed passage #${i} failed: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        }
+      }
+    }),
+  )
   return out
 }
 

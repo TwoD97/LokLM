@@ -1,0 +1,214 @@
+{
+  "generatedAt": "2026-07-01T00:00:00.000Z",
+  "corpus": "loklm.json",
+  "items": [
+    {
+      "id": "AuthService",
+      "targetFile": "src/main/services/auth/AuthService.ts",
+      "targetSymbol": "AuthService",
+      "rationale": "Deutsche Phrasierungen des Produktions-Fehlfalls: 'Was macht die auth klasse?' fand den Debug-Beispieltext statt AuthService.ts.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie funktioniert AuthService" },
+        { "type": "nl-description", "text": "was macht die auth klasse" },
+        { "type": "paraphrase", "text": "Wo werden Anmeldung, Passwort und automatisches Sperren des Tresors implementiert" },
+        { "type": "vague", "text": "wie kommen Benutzer in die App rein und was passiert bei Inaktivität" },
+        { "type": "misspelled", "text": "wie funktioniert die AuthServise klasse" }
+      ]
+    },
+    {
+      "id": "RetrievalService",
+      "targetFile": "src/main/services/retrieval/RetrievalService.ts",
+      "targetSymbol": "RetrievalService",
+      "rationale": "Kern der RAG-Pipeline; deutsche Fragen nach Suche/Abruf müssen die Hybrid-Pipeline finden.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Was macht RetrievalService.search" },
+        { "type": "nl-description", "text": "wie funktioniert der abruf der passenden textstellen für eine chatfrage" },
+        { "type": "paraphrase", "text": "Wo werden Volltextsuche und Vektorsuche kombiniert und fusioniert" },
+        { "type": "vague", "text": "wie findet die App die richtigen Stellen in meinen Dateien" },
+        { "type": "misspelled", "text": "wie funktioniert der RetrievelService" }
+      ]
+    },
+    {
+      "id": "RerankerService",
+      "targetFile": "src/main/services/retrieval/RerankerService.ts",
+      "targetSymbol": "RerankerService",
+      "rationale": "Präzisionsstufe der Pipeline; deutsche Umschreibungen ohne den englischen Begriff 'reranker'.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie lädt RerankerService sein Modell" },
+        { "type": "nl-description", "text": "welche klasse sortiert die suchtreffer neu nach relevanz" },
+        { "type": "paraphrase", "text": "Wo wird die Rangfolge der Kandidaten mit einem Cross-Encoder verbessert" },
+        { "type": "vague", "text": "was verbessert die Qualität der gefundenen Treffer" },
+        { "type": "misspelled", "text": "was macht der ReRancker Service" }
+      ]
+    },
+    {
+      "id": "EmbeddingService",
+      "targetFile": "src/main/services/embeddings/EmbeddingService.ts",
+      "targetSymbol": "EmbeddingService",
+      "rationale": "Deutsche Nomen 'Einbettung'/'Vektor' müssen über die DE→EN-Brücke zum Embedder führen.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Was macht der EmbeddingService" },
+        { "type": "nl-description", "text": "welche klasse erzeugt die einbettungen für die suche" },
+        { "type": "paraphrase", "text": "Wo werden Textabschnitte in Vektoren umgewandelt" },
+        { "type": "vague", "text": "wie versteht die App worum es in meinen Dokumenten geht" },
+        { "type": "misspelled", "text": "wie funktioniert der EmbedingService" }
+      ]
+    },
+    {
+      "id": "EmbeddingBackfillService",
+      "targetFile": "src/main/services/embeddings/EmbeddingBackfillService.ts",
+      "targetSymbol": "EmbeddingBackfillService",
+      "rationale": "Nachträgliche Vektorisierung; vage deutsche Beschreibung ohne Fachwort.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wann läuft der EmbeddingBackfillService" },
+        { "type": "nl-description", "text": "was macht die klasse die fehlende vektoren nachträglich berechnet" },
+        { "type": "paraphrase", "text": "Wo werden Chunks ohne Einbettung später nachindexiert" },
+        { "type": "vague", "text": "was passiert wenn beim Import das Einbetten fehlgeschlagen ist" },
+        { "type": "misspelled", "text": "was macht der Backfil Service für Embeddings" }
+      ]
+    },
+    {
+      "id": "DocumentService",
+      "targetFile": "src/main/services/documents/DocumentService.ts",
+      "targetSymbol": "DocumentService",
+      "rationale": "Import/Chunking-Pipeline; deutsche Begriffe 'Dokument', 'Datei', 'importieren'.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie indexiert DocumentService ein Dokument" },
+        { "type": "nl-description", "text": "welche klasse zerlegt dokumente in chunks und indexiert sie" },
+        { "type": "paraphrase", "text": "Wo läuft der Import einer Datei vom Parsen bis zum Speichern" },
+        { "type": "vague", "text": "was passiert wenn ich eine PDF in die App ziehe" },
+        { "type": "misspelled", "text": "wie funktioniert der DokumentService beim import" }
+      ]
+    },
+    {
+      "id": "FolderSyncService",
+      "targetFile": "src/main/services/documents/FolderSyncService.ts",
+      "targetSymbol": "FolderSyncService",
+      "rationale": "Ordner-Synchronisation; deutsche Nomen 'Ordner'/'Verzeichnis' über die Brücke.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Was überwacht der FolderSyncService" },
+        { "type": "nl-description", "text": "welche klasse hält synchronisierte ordner aktuell" },
+        { "type": "paraphrase", "text": "Wo wird ein Verzeichnis beobachtet und bei Änderungen neu indexiert" },
+        { "type": "vague", "text": "wie merkt die App dass sich Dateien in meinem Ordner geändert haben" },
+        { "type": "misspelled", "text": "wie funktioniert der FolderSync Servise" }
+      ]
+    },
+    {
+      "id": "QAService",
+      "targetFile": "src/main/services/qa/QAService.ts",
+      "targetSymbol": "QAService",
+      "rationale": "Antwort-Orchestrierung; deutsche Fragen nach 'Antwort'/'Chat' müssen die Streaming-Pipeline finden.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie orchestriert QAService eine Chatfrage" },
+        { "type": "nl-description", "text": "welche klasse baut aus den treffern die antwort im chat" },
+        { "type": "paraphrase", "text": "Wo werden Kontext, Zitate und Streaming der Antwort zusammengesetzt" },
+        { "type": "vague", "text": "wie entsteht die Antwort wenn ich im Chat etwas frage" },
+        { "type": "misspelled", "text": "was macht der QAServcie" }
+      ]
+    },
+    {
+      "id": "WorkspaceDb",
+      "targetFile": "src/main/db/sqlite/WorkspaceDb.ts",
+      "targetSymbol": "WorkspaceDb",
+      "rationale": "Datenbank-Vokabular (Schema, Tabelle, Volltextsuche) — Kernfall der erweiterten DE→EN-Brücke.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Welche Tabellen verwaltet WorkspaceDb" },
+        { "type": "nl-description", "text": "welche klasse kapselt die verschlüsselte datenbank eines arbeitsbereichs" },
+        { "type": "paraphrase", "text": "Wo sind Datenbankschema, Migrationen und Volltextsuche implementiert" },
+        { "type": "vague", "text": "wo speichert die App meine Dokumente und Chunks intern" },
+        { "type": "misspelled", "text": "wie funktioniert die WorkspazeDb" }
+      ]
+    },
+    {
+      "id": "WorkspaceStore",
+      "targetFile": "src/main/services/storage/WorkspaceStore.ts",
+      "targetSymbol": "WorkspaceStore",
+      "rationale": "Verschlüsselter Speicher; deutsche Nomen 'Speicher'/'Verschlüsselung'/'Tresor'.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Was verwaltet der WorkspaceStore" },
+        { "type": "nl-description", "text": "welche klasse verwaltet die verschlüsselten speicher der arbeitsbereiche" },
+        { "type": "paraphrase", "text": "Wo werden Workspace-Verzeichnisse ver- und entschlüsselt" },
+        { "type": "vague", "text": "wie bleiben meine Daten auf der Festplatte geschützt" },
+        { "type": "misspelled", "text": "was macht der WorkspaceStor" }
+      ]
+    },
+    {
+      "id": "SettingsService",
+      "targetFile": "src/main/services/settings/SettingsService.ts",
+      "targetSymbol": "SettingsService",
+      "rationale": "'Einstellungen' ist der häufigste deutsche Settings-Begriff; Suffix-/Brückenfall.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie persistiert SettingsService die Einstellungen" },
+        { "type": "nl-description", "text": "welche klasse speichert und lädt die einstellungen" },
+        { "type": "paraphrase", "text": "Wo wird die Konfiguration der App verschlüsselt abgelegt" },
+        { "type": "vague", "text": "wo merkt sich die App was ich in den Optionen ändere" },
+        { "type": "misspelled", "text": "was macht der SetingsService" }
+      ]
+    },
+    {
+      "id": "TierMarker",
+      "targetFile": "src/main/services/tier/TierMarker.ts",
+      "targetSymbol": "TierMarker",
+      "rationale": "Editions-Gate (Lite/Standard/Pro) — zentral für das Dogfooding der Tier-Logik.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Was liest readTierMarker ein" },
+        { "type": "nl-description", "text": "welche klasse entscheidet ob codebase indexierung erlaubt ist" },
+        { "type": "paraphrase", "text": "Wo wird die installierte Edition Lite Standard oder Pro erkannt" },
+        { "type": "vague", "text": "woher weiß die App welche Version bei der Installation gewählt wurde" },
+        { "type": "misspelled", "text": "wie funktioniert der TierMarcker" }
+      ]
+    },
+    {
+      "id": "TranslationService",
+      "targetFile": "src/main/services/translation/TranslationService.ts",
+      "targetSymbol": "TranslationService",
+      "rationale": "'Übersetzung' über die Brücke; Sidecar-Architektur.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie startet der TranslationService seinen Sidecar" },
+        { "type": "nl-description", "text": "welche klasse übersetzt texte zwischen deutsch und englisch" },
+        { "type": "paraphrase", "text": "Wo ist die Übersetzung mit dem MADLAD-Modell implementiert" },
+        { "type": "vague", "text": "wie übersetzt die App meine Texte offline" },
+        { "type": "misspelled", "text": "was macht der TranslationServis" }
+      ]
+    },
+    {
+      "id": "TranscriptionService",
+      "targetFile": "src/main/services/transcription/TranscriptionService.ts",
+      "targetSymbol": "TranscriptionService",
+      "rationale": "'Transkription'/'Spracherkennung' über die Brücke.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie verarbeitet TranscriptionService eine Audiodatei" },
+        { "type": "nl-description", "text": "welche klasse wandelt audio in text um" },
+        { "type": "paraphrase", "text": "Wo ist die Spracherkennung für Aufnahmen implementiert" },
+        { "type": "vague", "text": "wie wird aus meiner Sprachaufnahme ein Transkript" },
+        { "type": "misspelled", "text": "was macht der TranskriptionService" }
+      ]
+    },
+    {
+      "id": "LlamaService",
+      "targetFile": "src/main/services/llm/LlamaService.ts",
+      "targetSymbol": "LlamaService",
+      "rationale": "'Sprachmodell'/'Modell' über die Brücke; Lade-/Inferenzlogik.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie lädt LlamaService ein Modell" },
+        { "type": "nl-description", "text": "welche klasse lädt das sprachmodell und streamt die antwort" },
+        { "type": "paraphrase", "text": "Wo werden Kontextfenster und GPU-Platzierung des Modells geplant" },
+        { "type": "vague", "text": "was passiert beim Laden der KI wenn ich die App starte" },
+        { "type": "misspelled", "text": "wie funktioniert der LamaService" }
+      ]
+    },
+    {
+      "id": "SummarizationService",
+      "targetFile": "src/main/services/summarize/SummarizationService.ts",
+      "targetSymbol": "SummarizationService",
+      "rationale": "'Zusammenfassung' über die Brücke; Map-Reduce-Zusammenfassung.",
+      "variants": [
+        { "type": "exact-symbol", "text": "Wie cached SummarizationService seine Ergebnisse" },
+        { "type": "nl-description", "text": "welche klasse erstellt die zusammenfassung eines dokuments" },
+        { "type": "paraphrase", "text": "Wo wird ein ganzes Dokument abschnittsweise zusammengefasst" },
+        { "type": "vague", "text": "wie fasst die App lange Texte zusammen" },
+        { "type": "misspelled", "text": "was macht der SummarisationService" }
+      ]
+    }
+  ]
+}

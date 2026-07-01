@@ -12,6 +12,7 @@ interface ChatChunk {
 
 export class OllamaLlmProvider implements LlmProvider {
   private language: ResponseLanguage = 'de'
+  private codebaseMode = false
 
   constructor(
     private readonly client: OllamaClient,
@@ -24,9 +25,17 @@ export class OllamaLlmProvider implements LlmProvider {
     this.language = lang
   }
 
+  async setCodebaseMode(on: boolean): Promise<void> {
+    // Same shape as setLanguage: consumed by the per-ask() prompt build.
+    this.codebaseMode = on
+  }
+
   async ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string> {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: buildSystemPrompt(this.language) },
+      {
+        role: 'system',
+        content: buildSystemPrompt(this.language, 'concise', { codebase: this.codebaseMode }),
+      },
     ]
     for (const h of opts.conversationHistory ?? []) {
       messages.push({ role: h.role, content: h.content })

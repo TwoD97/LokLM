@@ -39,6 +39,12 @@ jobs:
       - name: Rebuild better-sqlite3 for the Node test ABI
         run: pnpm rebuild better-sqlite3-multiple-ciphers
 
+      # Der OCR-Integrationstest (tests/integration/ocr.test.ts) gated sich auf
+      # vorhandene tessdata — ohne diesen Download skippt er sich still und die
+      # OCR-Pipeline bliebe in CI ungetestet. Fast-Variante, ~5 MB gesamt.
+      - name: Download tessdata (OCR-Modelle)
+        run: pnpm tessdata
+
       - name: Integration tests
         run: pnpm test:integration
 

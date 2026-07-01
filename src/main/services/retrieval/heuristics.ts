@@ -231,6 +231,51 @@ export function extractCodeIdentifiers(query: string): string[] {
   return [...out]
 }
 
+/** Identifier tokens in their ORIGINAL casing ("RetrievalService.search"), for
+ *  callers that must preserve them verbatim (the multi-query expansion guard —
+ *  a paraphrase that rewrites an identifier loses the strongest BM25 anchor). */
+export function extractRawIdentifiers(query: string): string[] {
+  const out: string[] = []
+  for (const m of query.matchAll(/[A-Za-z_][A-Za-z0-9_.]*[A-Za-z0-9_]/g)) {
+    if (looksLikeIdentifier(m[0])) out.push(m[0])
+  }
+  return out
+}
+
+/** Subtokens of the query's code identifiers ("RetrievalService.search" →
+ *  retrieval, service, search). The FTS index tokenizes "AuthService" as ONE
+ *  token, so the reverse direction (query names the identifier, text carries the
+ *  words) needs the split on the QUERY side to match prose/comments/log lines. */
+export function identifierSubtokens(query: string): string[] {
+  const out = new Set<string>()
+  for (const m of query.matchAll(/[A-Za-z_][A-Za-z0-9_.]*[A-Za-z0-9_]/g)) {
+    if (!looksLikeIdentifier(m[0])) continue
+    for (const part of m[0].split(/[._]/)) {
+      for (const w of part.split(/(?<=[a-z0-9])(?=[A-Z])/)) {
+        if (w.length >= 3) out.add(w.toLowerCase())
+      }
+    }
+  }
+  return [...out]
+}
+
+/**
+ * Lexical query expansion for the BM25 arm in codebase workspaces (R3/R4). The
+ * raw query reaches FTS5 untranslated, and unicode61 tokenizes "AuthService" as
+ * one token — so a German lay query ("was macht die auth klasse") shares no
+ * token with english code, and an identifier query can't match its own words in
+ * prose. Append the German→english bridge terms and identifier subtokens to the
+ * search string. Purely additive: toMatchQuery ORs the terms and bm25's IDF
+ * ranks, so extra terms can only add candidates, never remove them.
+ */
+export function expandBm25Query(query: string): string {
+  const extra = new Set<string>([...expandGermanCodeTerms(query), ...identifierSubtokens(query)])
+  if (extra.size === 0) return query
+  const present = new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u))
+  const add = [...extra].filter((t) => !present.has(t))
+  return add.length > 0 ? `${query} ${add.join(' ')}` : query
+}
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -255,26 +300,90 @@ function definesIdentifier(text: string, id: string): boolean {
 /** Boost a code chunk whose enclosing symbol matches a query identifier
  *  (`symbolFactor`); when the breadcrumb symbol does NOT match, fall back to an
  *  in-text definition match (`defineFactor`) to catch class methods. Code
- *  chunks only — never boosts prose that merely mentions a symbol. */
+ *  chunks only — never boosts prose that merely mentions a symbol.
+ *
+ *  `laySymbolFactor` (R4): a natural-language query carries no identifier
+ *  ("was macht die auth klasse" → extractCodeIdentifiers = []), so the exact
+ *  symbol comparison never sees it. The lay branch matches non-stopword query
+ *  tokens ≥4 chars (plus their German→english bridge) as SUBSTRINGS of the
+ *  breadcrumb symbol, so "auth" lifts `AuthService`. Deliberately weaker than
+ *  the exact match and off (1.0) outside codebase workspaces. */
+// Generic function words ≥4 chars that survive nonStopwordTokens but must not
+// lay-match symbols ("from" would boost every *From*/*from* symbol on any
+// English question). Separate from TITLE_STOPWORDS on purpose — that set also
+// drives title boost + router recall and is tuned not to eat topical nouns.
+const LAY_TERM_STOPWORDS = new Set([
+  'from',
+  'does',
+  'come',
+  'where',
+  'what',
+  'when',
+  'which',
+  'this',
+  'that',
+  'into',
+  'onto',
+  'have',
+  'been',
+  'will',
+  'then',
+  'than',
+  'they',
+  'them',
+  'your',
+  'here',
+  'there',
+  'about',
+  'work',
+  'works',
+  'wird',
+  'werden',
+  'haben',
+  'macht',
+  'machen',
+  'über',
+  'ohne',
+  'beim',
+  'eine',
+  'einen',
+  'diese',
+  'dieser',
+  'dieses',
+])
+
 export function applyCodeSymbolBoost(
   hits: SearchHit[],
   query: string,
   symbolFactor: number,
   defineFactor: number,
+  laySymbolFactor = 1.0,
 ): SearchHit[] {
-  if (symbolFactor <= 1.0 && defineFactor <= 1.0) return hits
+  if (symbolFactor <= 1.0 && defineFactor <= 1.0 && laySymbolFactor <= 1.0) return hits
   const ids = extractCodeIdentifiers(query)
-  if (ids.length === 0) return hits
+  const layTerms =
+    laySymbolFactor > 1.0
+      ? [...new Set([...nonStopwordTokens(query), ...expandGermanCodeTerms(query)])].filter(
+          (t) => t.length >= 4 && !LAY_TERM_STOPWORDS.has(t),
+        )
+      : []
+  if (ids.length === 0 && layTerms.length === 0) return hits
   return hits.map((h) => {
     if (!isCodeHit(h)) return h
     const hp = h.heading_path!
     const symbol = hp.length > 1 ? hp[hp.length - 1]!.toLowerCase() : null
     const symbolMatch = symbol != null && symbolFactor > 1.0 && ids.some((id) => id === symbol)
+    const layMatch =
+      !symbolMatch && symbol != null && layTerms.some((t) => symbol.includes(t))
     const definesMatch =
       !symbolMatch && defineFactor > 1.0 && ids.some((id) => definesIdentifier(h.text, id))
+    // Exclusive branches keep the intended hierarchy: exact breadcrumb match
+    // (1.8) > in-text definition (1.4) > lay substring (1.3). Stacking define ×
+    // lay would exceed the exact-match factor and invert the ordering.
     let f = 1.0
     if (symbolMatch) f *= symbolFactor
-    if (definesMatch) f *= defineFactor
+    else if (definesMatch) f *= defineFactor
+    else if (layMatch) f *= laySymbolFactor
     return f !== 1.0 ? { ...h, score: h.score * f } : h
   })
 }
@@ -328,40 +437,219 @@ export function applyCodeFilenameBoost(
  *  embedder covers semantics; this only helps the BM25 / filename / symbol
  *  boosts, which are lexical. Tight + high-precision on purpose. */
 const GERMAN_CODE_TERMS: Record<string, string[]> = {
+  // structure
   klasse: ['class'],
   funktion: ['function'],
   methode: ['method'],
   dienst: ['service'],
   schnittstelle: ['interface'],
   modul: ['module'],
+  komponente: ['component'],
+  baustein: ['component', 'module'],
+  bibliothek: ['library'],
+  paket: ['package'],
+  abhängigkeit: ['dependency'],
+  konstante: ['constant', 'const'],
+  variable: ['variable'],
+  typ: ['type'],
+  // data + storage
   datenbank: ['database', 'db'],
-  einstellung: ['settings'],
-  einstellungen: ['settings'],
-  abfrage: ['query'],
+  tabelle: ['table'],
+  spalte: ['column'],
+  zeile: ['row', 'line'],
+  feld: ['field'],
+  schlüssel: ['key'],
+  fremdschlüssel: ['foreign', 'key'],
+  primärschlüssel: ['primary', 'key'],
+  wert: ['value'],
+  datensatz: ['record', 'row'],
+  datensätze: ['records', 'rows'],
+  schema: ['schema'],
+  migration: ['migration'],
+  index: ['index'],
+  indizes: ['indexes', 'index'],
+  indexierung: ['indexing', 'index'],
+  trigger: ['trigger'],
+  transaktion: ['transaction'],
+  prozedur: ['procedure'],
+  entität: ['entity'],
+  beziehung: ['relation', 'relationship'],
+  verknüpfung: ['join', 'link'],
+  sortierung: ['sort', 'order'],
+  reihenfolge: ['order'],
+  gruppierung: ['group'],
+  anzahl: ['count'],
+  zähler: ['counter', 'count'],
+  summe: ['sum'],
+  durchschnitt: ['average', 'avg'],
+  zeitstempel: ['timestamp'],
+  volltextsuche: ['fulltext', 'fts', 'search'],
+  volltext: ['fulltext', 'fts'],
+  sicherung: ['backup'],
+  wiederherstellung: ['restore', 'recovery'],
+  wiederherstellen: ['restore', 'recovery'],
   speicher: ['store', 'storage'],
+  speicherung: ['storage'],
+  zwischenspeicher: ['cache'],
+  warteschlange: ['queue'],
+  verzeichnis: ['directory', 'folder'],
+  ordner: ['folder', 'directory'],
+  pfad: ['path'],
+  datei: ['file'],
+  dokument: ['document', 'doc'],
+  // security + auth
   verschlüsselung: ['encryption', 'crypto'],
+  entschlüsselung: ['decryption', 'decrypt'],
   sitzung: ['session'],
   anmeldung: ['login', 'auth'],
+  abmeldung: ['logout'],
   passwort: ['password'],
+  passphrase: ['passphrase'],
   authentifizierung: ['auth', 'authentication'],
   authentifizierungs: ['auth', 'authentication'],
   autorisierung: ['authorization', 'auth'],
-  dokument: ['document', 'doc'],
-  datei: ['file'],
+  berechtigung: ['permission'],
+  rolle: ['role'],
+  sperre: ['lock'],
+  entsperren: ['unlock'],
+  tresor: ['vault'],
+  sicherheit: ['security'],
+  anmeldedaten: ['credentials'],
+  benutzer: ['user'],
+  nutzer: ['user'],
+  konto: ['account'],
+  // pipeline / RAG domain
+  abfrage: ['query'],
+  anfrage: ['request', 'query'],
+  antwort: ['response', 'answer'],
+  suche: ['search'],
   übersetzung: ['translation'],
+  übersetzer: ['translator'],
   einbettung: ['embedding'],
   abruf: ['retrieval'],
   zusammenfassung: ['summary', 'summarization'],
+  transkription: ['transcription'],
+  spracherkennung: ['transcription', 'speech'],
+  modell: ['model'],
+  sprachmodell: ['llm', 'model'],
+  gewichtung: ['weight'],
+  schwellwert: ['threshold'],
+  schwelle: ['threshold'],
+  bewertung: ['score', 'ranking'],
+  rangfolge: ['ranking', 'rank'],
+  ähnlichkeit: ['similarity'],
+  vektor: ['vector'],
+  arbeitsbereich: ['workspace'],
+  // common operations (verbs users actually type)
+  einfügen: ['insert', 'add'],
+  löschen: ['delete', 'remove'],
+  entfernen: ['remove', 'delete'],
+  hinzufügen: ['add', 'insert'],
+  erstellen: ['create'],
+  speichern: ['save', 'store'],
+  laden: ['load'],
+  lesen: ['read'],
+  schreiben: ['write'],
+  senden: ['send'],
+  empfangen: ['receive'],
+  prüfsumme: ['checksum', 'hash'],
+  hashwert: ['hash'],
+  kennung: ['id', 'identifier'],
+  bezeichner: ['identifier', 'symbol'],
+  nebenläufigkeit: ['concurrency'],
+  zustand: ['state'],
+  muster: ['pattern'],
+  vorlage: ['template'],
+  // runtime + IO
+  fehler: ['error'],
+  ausnahme: ['exception'],
+  protokoll: ['log', 'protocol'],
+  protokollierung: ['logging'],
+  ereignis: ['event'],
+  nachricht: ['message'],
+  unterhaltung: ['conversation', 'chat'],
+  verlauf: ['history'],
+  verbindung: ['connection'],
+  netzwerk: ['network'],
+  eingabe: ['input'],
+  ausgabe: ['output'],
+  konfiguration: ['config', 'configuration'],
+  einstellung: ['settings'],
+  einstellungen: ['settings'],
+  umgebung: ['environment', 'env'],
+  aktualisierung: ['update'],
+  veröffentlichung: ['release'],
+  bereitstellung: ['deploy', 'deployment'],
+  herunterladen: ['download'],
+  hochladen: ['upload'],
+  // UI
+  oberfläche: ['ui', 'interface'],
+  ansicht: ['view'],
+  schaltfläche: ['button'],
+  fenster: ['window'],
+  menü: ['menu'],
+  seite: ['page'],
 }
 
-/** English code terms implied by any German code-noun in the query. */
+// Compound decomposition keys: map keys long enough that a prefix/suffix match
+// inside a longer German compound ("datenbankschema", "konfigurationsdatei",
+// "authentifizierungsdienst") is almost certainly a real morpheme boundary.
+// Short keys are excluded (≥5 chars), plus known false-positive stems whose
+// edges occur in unrelated everyday words: "kontrolle" is not about 'rolle',
+// "versuche"/"anmeldeversuche" not about 'suche', "wiederherstellen" not about
+// 'erstellen', "beziehungsweise" not about 'beziehung'.
+const COMPOUND_EXCLUDED = new Set([
+  'rolle',
+  'seite',
+  'laden',
+  'lesen',
+  'suche',
+  'erstellen',
+  'beziehung',
+])
+let compoundKeys: string[] | null = null
+function getCompoundKeys(): string[] {
+  compoundKeys ??= Object.keys(GERMAN_CODE_TERMS).filter(
+    (k) => k.length >= 5 && !COMPOUND_EXCLUDED.has(k),
+  )
+  return compoundKeys
+}
+
+/** English code terms implied by any German code-noun in the query. Inflected
+ *  forms ("klassen", "dienste", "abfragen") resolve via light suffix stripping,
+ *  and unmapped compounds fall back to their leading/trailing morpheme so the
+ *  map doesn't have to enumerate every composition. */
 export function expandGermanCodeTerms(query: string): string[] {
   const out = new Set<string>()
   for (const tok of query.toLowerCase().split(/[^a-zäöüß]+/)) {
-    const mapped = GERMAN_CODE_TERMS[tok]
+    const mapped = lookupGermanCodeTerm(tok)
     if (mapped) for (const e of mapped) out.add(e)
   }
   return [...out]
+}
+
+function lookupGermanCodeTerm(tok: string): string[] | undefined {
+  const direct = GERMAN_CODE_TERMS[tok]
+  if (direct) return direct
+  for (const suffix of ['es', 'en', 'e', 'n', 's']) {
+    if (tok.length - suffix.length >= 4 && tok.endsWith(suffix)) {
+      const base = GERMAN_CODE_TERMS[tok.slice(0, -suffix.length)]
+      if (base) return base
+    }
+  }
+  // Compound fallback: "datenbankschema" → database/db (starts with) + schema
+  // (ends with). Only edge morphemes — a mid-word hit is too false-positive-
+  // prone. Both edges can contribute ("datenbanktabelle" → database + table).
+  if (tok.length >= 8) {
+    const out = new Set<string>()
+    for (const key of getCompoundKeys()) {
+      if (tok.length - key.length >= 3 && (tok.startsWith(key) || tok.endsWith(key))) {
+        for (const e of GERMAN_CODE_TERMS[key]!) out.add(e)
+      }
+    }
+    if (out.size > 0) return [...out]
+  }
+  return undefined
 }
 
 // Test-intent: the user is asking ABOUT tests, not the implementation. EN + DE.

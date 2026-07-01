@@ -4,13 +4,22 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { ImportError, type ParsedDocument, type PageText, type PdfSection } from './types'
 import { parseMarkdownSections, stripFrontmatter } from './markdownParser'
-import { NodeCanvasFactory, ocrImageFile, ocrPdfPage, pageNeedsOcr, type PdfPageLike } from './ocr'
+import {
+  NodeCanvasFactory,
+  ocrConcurrency,
+  ocrEmbeddedImages,
+  ocrImageFile,
+  ocrPdfPage,
+  pageNeedsOcr,
+  type PdfPageLike,
+} from './ocr'
 
 /** Optional hooks threaded through the parse so callers can surface the slow
  *  per-page OCR pass (scanned PDFs) as progress instead of a silent stall. */
 export interface ParseOptions {
-  /** Called once per OCR'd page. `total` is the number of scanned pages found
-   *  in this document, not the page count. */
+  /** Called once per OCR'd item — a scanned PDF page, or an embedded image in
+   *  a .docx. `total` is the number of items that go through OCR in this
+   *  document, not the page count. */
   onOcrProgress?: (done: number, total: number) => void
 }
 
@@ -71,7 +80,7 @@ export async function parseFile(
 ): Promise<ParsedDocument> {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.pdf') return parsePdf(filePath, opts)
-  if (ext === '.docx') return parseDocx(filePath)
+  if (ext === '.docx') return parseDocx(filePath, opts)
   if (ext === '.md' || ext === '.markdown') return parseMarkdown(filePath)
   if (IMAGE_EXTS.has(ext)) return parseImage(filePath)
   if (TEXT_EXTS.has(ext)) return parsePlainText(filePath)
@@ -114,7 +123,11 @@ async function parseMarkdown(filePath: string): Promise<ParsedDocument> {
   }
 }
 
-async function parseDocx(filePath: string): Promise<ParsedDocument> {
+// Cap how many embedded images a single .docx can send to OCR — a
+// picture-heavy slide export must not stall the indexing queue for minutes.
+const MAX_DOCX_OCR_IMAGES = 50
+
+async function parseDocx(filePath: string, opts: ParseOptions = {}): Promise<ParsedDocument> {
   // mammoth converts .docx (OOXML) → markdown with Heading 1/2/3 styles
   // mapped to #/##/###. We then feed the markdown through the same
   // section-aware pipeline markdown files use, so DOCX chunks inherit
@@ -122,11 +135,35 @@ async function parseDocx(filePath: string): Promise<ParsedDocument> {
   const mammoth = (await import('mammoth')) as unknown as {
     convertToMarkdown: (
       input: { buffer: Buffer } | { path: string },
+      options?: { convertImage?: unknown },
     ) => Promise<{ value: string; messages: { type: string; message: string }[] }>
+    images: {
+      imgElement: (
+        handler: (image: { readAsBuffer: () => Promise<Buffer> }) => Promise<{ src: string }>,
+      ) => unknown
+    }
   }
+  // Embedded images (scans pasted into Word, screenshots, photographed pages)
+  // carry no text layer, so collect their bytes during conversion and leave a
+  // numbered placeholder ref where each one sat. After conversion the batch is
+  // OCR'd in parallel and each placeholder becomes the recognised text — the
+  // DOCX counterpart of the hybrid PDF OCR pass.
+  const images: Buffer[] = []
+  const convertImage = mammoth.images.imgElement(async (image) => {
+    if (images.length >= MAX_DOCX_OCR_IMAGES) return { src: '' }
+    try {
+      images.push(await image.readAsBuffer())
+      return { src: `loklm-ocr:${images.length - 1}` }
+    } catch {
+      return { src: '' } // unreadable image part — the empty ref is stripped below
+    }
+  })
   // Pass {path} so mammoth streams the zip itself — saves the full-buffer copy
   // we used to make with readFile() before handing it back over.
-  const { value: rawMarkdown, messages } = await mammoth.convertToMarkdown({ path: filePath })
+  const { value: rawMarkdown, messages } = await mammoth.convertToMarkdown(
+    { path: filePath },
+    { convertImage },
+  )
   if (messages.length > 0) {
     // mammoth warns about unsupported styles, dropped elements, etc. Log
     // them so they're discoverable without surfacing them to the user.
@@ -135,11 +172,16 @@ async function parseDocx(filePath: string): Promise<ParsedDocument> {
       `[documents] mammoth produced ${messages.length} message(s) for ${basename(filePath)}`,
     )
   }
-  // Strip image refs + collapse 3+ newlines in a single pass — was two
-  // sequential .replace calls each re-scanning the whole markdown buffer.
-  const markdown = rawMarkdown.replace(/!\[[^\]]*\]\([^)]*\)|\n{3,}/g, (m) =>
-    m.startsWith('!') ? '' : '\n\n',
-  )
+  const ocrTexts = await ocrEmbeddedImages(images, opts.onOcrProgress)
+  const markdown = rawMarkdown
+    // OCR placeholders → recognised text (or nothing when the image had none).
+    .replace(/!\[[^\]]*\]\(loklm-ocr:(\d+)\)/g, (_m, id: string) => {
+      const text = ocrTexts[Number(id)] ?? ''
+      return text.length > 0 ? `\n\n${text}\n\n` : ''
+    })
+    // Strip leftover image refs + collapse 3+ newlines in a single pass — was
+    // two sequential .replace calls each re-scanning the whole markdown buffer.
+    .replace(/!\[[^\]]*\]\([^)]*\)|\n{3,}/g, (m) => (m.startsWith('!') ? '' : '\n\n'))
   const sections = parseMarkdownSections(markdown)
   const fullText = stripFrontmatter(markdown)
   return {
@@ -216,7 +258,11 @@ async function parsePdf(filePath: string, opts: ParseOptions = {}): Promise<Pars
 }
 
 /** Find pages with no usable text layer and replace their text with OCR output,
- *  in place. Mutates `pages`. Swallows all failures (see parsePdf rationale). */
+ *  in place. Mutates `pages`. Pages are independent, so a small runner pool
+ *  sized to the OCR worker count works through them concurrently — near-linear
+ *  speedup on multi-page scans. Swallows all failures per page (see parsePdf
+ *  rationale); an engine that can't initialise at all (e.g. missing tessdata)
+ *  shows up as every page failing while the extracted text layer stays as-is. */
 async function ocrScannedPages(
   doc: PdfDoc,
   pages: PageText[],
@@ -224,9 +270,13 @@ async function ocrScannedPages(
 ): Promise<void> {
   const scanned = pages.filter((p) => pageNeedsOcr(p.text))
   if (scanned.length === 0) return
-  try {
-    let done = 0
-    for (const page of scanned) {
+  let next = 0
+  let done = 0
+  const runner = async (): Promise<void> => {
+    for (;;) {
+      const page = scanned[next]
+      next += 1
+      if (page === undefined) return
       try {
         const proxy = (await doc.getPage(page.num)) as unknown as PdfPageLike
         const text = await ocrPdfPage(proxy)
@@ -242,16 +292,8 @@ async function ocrScannedPages(
         onProgress?.(done, scanned.length)
       }
     }
-  } catch (err) {
-    // OCR engine couldn't initialise at all (e.g. missing tessdata) — keep the
-    // extracted text layer and move on. A text PDF must not fail just because
-    // OCR is unavailable.
-    // eslint-disable-next-line no-console
-    console.warn(
-      '[documents] OCR unavailable, indexing without it:',
-      err instanceof Error ? err.message : err,
-    )
   }
+  await Promise.all(Array.from({ length: ocrConcurrency(scanned.length) }, runner))
 }
 
 /** Minimal slice of pdfjs's PDFDocumentProxy that we actually use here.

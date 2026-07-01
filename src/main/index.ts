@@ -700,6 +700,9 @@ function getQAService(): QAService {
       // doc_summary route (ADR-0003): summary intent + resolved target doc →
       // cached whole-doc summary as context instead of topK fragments.
       getSummarizationService(),
+      // Codebase-aware answering (ADR-0006): same workspace+tier resolver the
+      // retrieval pipeline uses — drives the code topK floor + CODE prompt mode.
+      (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
     )
   }
   return qaService
@@ -776,6 +779,33 @@ function getRetrievalService(): RetrievalService {
       // identity no longer implies it (single-embedder-per-tier: Qwen serves
       // library workspaces too).
       (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
+      // Maßnahme 4 (R3): MADLAD EN-variant for retrieval. PRO ONLY — a lazy
+      // spawn mid-chat would pull the ~3 GB CT2 model onto the GPU on Standard
+      // too (the full model set peaks ~15 GB with MADLAD resident, beyond
+      // Standard's target hardware). Soft contract — null unless the tier is
+      // pro, the query is confidently non-english, the wizard provisioned the
+      // model, and the sidecar answers inside the budget (warmed on the
+      // prepare screen, so it only bites on a cold crash). The manual
+      // translation UI is not gated here — it stays user-triggered on-demand.
+      async (q) => {
+        try {
+          if (getEffectiveTier() !== 'pro') return null
+          const svc = getTranslationService()
+          const st = svc.status().state
+          if (st === 'not_installed' || st === 'error') return null
+          const { detectIsoLanguage } = await import('./services/documents/languageDetector')
+          const iso = await detectIsoLanguage(q).catch(() => null)
+          if (!iso || iso === 'en') return null
+          const res = await Promise.race([
+            svc.translate(q, { target: 'en' }),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+          ])
+          const text = res?.text.trim()
+          return text && text.length > 3 ? text : null
+        } catch {
+          return null
+        }
+      },
     )
   }
   return retrievalService
@@ -831,6 +861,17 @@ function getFolderSyncService(): FolderSyncService {
     })
   }
   return folderSyncService
+}
+
+// Cover the explicit lock/logout sequence (drainIndexingForLock + the vault
+// re-encryption inside lock()) with the same "finishing & saving" overlay the
+// quit path uses — without it a Lock click reads as a hang for up to
+// LOCK_DRAIN_MAX_MS. Unlike app:quitting the window survives, so `false` is
+// sent afterwards to tear the overlay back down.
+function broadcastLockDraining(active: boolean): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('app:locking', active)
+  }
 }
 
 function broadcastAuthState(): void {
@@ -935,16 +976,28 @@ function registerIpc(): void {
 
   ipcMain.handle('auth:logout', async () => {
     cancelPostLoginWarmup()
-    await getAuth().logout()
-    resetSessionServices()
-    broadcastAuthState()
+    broadcastLockDraining(true)
+    try {
+      await drainIndexingForLock()
+      await getAuth().logout()
+      resetSessionServices()
+      broadcastAuthState()
+    } finally {
+      broadcastLockDraining(false)
+    }
   })
 
   ipcMain.handle('auth:lock', async () => {
     cancelPostLoginWarmup()
-    await getAuth().lock()
-    resetSessionServices()
-    broadcastAuthState()
+    broadcastLockDraining(true)
+    try {
+      await drainIndexingForLock()
+      await getAuth().lock()
+      resetSessionServices()
+      broadcastAuthState()
+    } finally {
+      broadcastLockDraining(false)
+    }
   })
 
   ipcMain.handle('auth:reset', async (_e, input: { passphrase: string; newPassword: string }) => {
@@ -1206,18 +1259,10 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle('documents:delete', async (_e, id: number) => {
-    // ADR-0005: capture the doc's workspace + chunk ids before the cascade
-    // delete, then drop those vectors from the encrypted Lance store. (Hydrate
-    // already filters orphans, so this is for space, not correctness.)
-    const repo = getAuth().requireDatabase().documents()
-    const doc = await repo.getDocument(id)
-    const chunkIds = doc ? await repo.chunkIdsForDocument(id) : []
-    await repo.deleteDocument(id)
-    if (doc && chunkIds.length > 0) {
-      await getWorkspaceVectorService()
-        .remove(doc.workspaceId, chunkIds)
-        .catch((err) => console.warn(`[documents] Lance remove on delete failed:`, err))
-    }
+    // ADR-0005: DocumentService.deleteDocuments drops the doc's vectors from
+    // the encrypted Lance store before the cascade delete wipes its chunks —
+    // shared with folder-removal cleanup so no delete path orphans vectors.
+    await getDocumentService().deleteDocuments([id])
   })
 
   // Export = reveal the original file in the OS file manager. The bytes stay
@@ -1817,6 +1862,20 @@ function registerIpc(): void {
   ipcMain.handle('models:warmupForQa', async () => {
     void (async () => {
       const reg = providerRegistry
+      // MADLAD prepare-screen warm — PRO ONLY (VRAM budget): with the CT2
+      // sidecar resident next to LLM + embedder + reranker the full set peaks
+      // ~15 GB, beyond Standard's target hardware. Explicit 'pro' only (dev
+      // emulates via `pnpm dev --pro`); Standard/Lite never spawn it here and
+      // the retrieval EN-variant carries the same gate, so nothing pulls the
+      // model in lazily either. The sidecar is its OWN process (CT2, not
+      // node-llama-cpp) and warms in parallel with the sequential GGUF loads
+      // below. Retrieval's EN-variant budgets ~2 s per query — without this
+      // warm, the first question of a session misses that window.
+      if (getEffectiveTier() === 'pro') {
+        void getTranslationService()
+          .warmup()
+          .catch(() => undefined)
+      }
       await getEmbeddingService()
         .ensureReady()
         .catch(() => undefined)
@@ -2383,13 +2442,19 @@ function createMainWindow(): BrowserWindow {
     },
   })
 
-  // Allow microphone capture for in-app audio recording (transcription). Scoped
-  // to the media permission only; the renderer is our own trusted, isolated
+  // Allow microphone capture for in-app audio recording (transcription) and
+  // sanitized clipboard writes — every copy button in the renderer goes through
+  // navigator.clipboard.writeText, which Chromium gates behind the
+  // clipboard-sanitized-write permission; denying it made all copies silent
+  // no-ops. Scoped to these two; the renderer is our own trusted, isolated
   // context (contextIsolation: true, nodeIntegration: false).
+  const grantedPermissions = new Set(['media', 'clipboard-sanitized-write'])
   window.webContents.session.setPermissionRequestHandler((_wc, permission, cb) =>
-    cb(permission === 'media'),
+    cb(grantedPermissions.has(permission)),
   )
-  window.webContents.session.setPermissionCheckHandler((_wc, permission) => permission === 'media')
+  window.webContents.session.setPermissionCheckHandler((_wc, permission) =>
+    grantedPermissions.has(permission),
+  )
 
   // mirror the OS maximize/unmaximize state to the renderer so the React
   // titlebar can swap the maximize <-> restore icon.
@@ -2564,6 +2629,34 @@ async function drainIndexingForQuit(): Promise<void> {
     pollMs: QUIT_DRAIN_POLL_MS,
     stallMs: QUIT_DRAIN_STALL_MS,
     maxMs: QUIT_DRAIN_MAX_MS,
+  })
+}
+
+// Explicit lock/logout drain caps. Tighter than the quit drain: lock is a
+// security action (the user may be walking away), so the vault must not stay
+// open for up to 90 s over a book-length document. Work cut at the cap
+// self-heals — the doc is reset by sweepOrphanedIndexing on the next unlock.
+const LOCK_DRAIN_STALL_MS = 10_000
+const LOCK_DRAIN_MAX_MS = 30_000
+
+/** Lock/logout drain: resumable counterpart to drainIndexingForQuit. Cancels
+ *  the queued jobs (reconciling their doc rows while the DB is still open)
+ *  instead of quiescing — the session may unlock again — then briefly waits
+ *  for the in-flight jobs so their writes land before the store closes.
+ *  Without this, lock() clears the manifest under a full queue and the pump
+ *  cascades one "workspace not found" failure per queued document. */
+async function drainIndexingForLock(): Promise<void> {
+  await documentService?.cancelAllIndexing().catch(() => undefined)
+  backfillService?.cancelAll()
+  await runQuitDrain({
+    isActive: () =>
+      (documentService?.hasActiveIndexing() ?? false) || (backfillService?.isAnyRunning() ?? false),
+    progressTicks: totalIndexProgressTicks,
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    pollMs: QUIT_DRAIN_POLL_MS,
+    stallMs: LOCK_DRAIN_STALL_MS,
+    maxMs: LOCK_DRAIN_MAX_MS,
   })
 }
 
