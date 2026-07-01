@@ -86,6 +86,26 @@ def _force_utf8_io() -> None:
             pass
 
 
+def _is_oom(e: BaseException) -> bool:
+    """True for a CUDA out-of-memory error. torch raises torch.cuda.OutOfMemoryError
+    (a RuntimeError subclass), but some paths surface a plain RuntimeError carrying
+    the text — so match the message rather than the type."""
+    return "out of memory" in str(e).lower()
+
+
+def _free_cuda() -> None:
+    """Return PyTorch's cached-but-unused VRAM to the driver. Matters because the
+    embedder shares the GPU with the llama.cpp chat LLM + reranker: after an OOM the
+    caching allocator can hold freed blocks that neither the retry nor the other
+    process can use until they are released."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
 def main() -> int:
     _force_utf8_io()
     ap = argparse.ArgumentParser()
@@ -149,35 +169,60 @@ def main() -> int:
         idx_nonempty = [i for i, t in enumerate(clean) if t.strip()]
         out: list = [None] * len(texts)
 
-        def _encode(items: list) -> list:
-            return model.encode(
+        def _encode(items: list, bs: int) -> list:
+            return list(model.encode(
                 items,
-                batch_size=batch_size,
+                batch_size=bs,
                 normalize_embeddings=normalize,
                 convert_to_numpy=True,
                 show_progress_bar=False,
-            )
+            ))
+
+        def _encode_adaptive(items: list, bs: int) -> list:
+            # On a CUDA OOM, free the cache, halve the batch, and recurse on each
+            # half — so a momentary VRAM spike (the shared llama.cpp chat LLM /
+            # reranker growing on the same GPU) costs a few extra forward passes
+            # instead of collapsing to the per-item path, which is ~batch_size×
+            # slower. Bottoms out at a single item; one sequence that still won't
+            # fit re-raises and is handled per-item (nulled, deferred to backfill).
+            try:
+                return _encode(items, bs)
+            except Exception as e:
+                if not _is_oom(e):
+                    raise
+                _free_cuda()
+                if len(items) <= 1:
+                    raise
+                mid = len(items) // 2
+                nbs = max(1, bs // 2)
+                _log(f"CUDA OOM on {len(items)} texts @ batch={bs}; "
+                     f"splitting {mid}/{len(items) - mid} @ batch={nbs}")
+                return (_encode_adaptive(items[:mid], nbs)
+                        + _encode_adaptive(items[mid:], nbs))
 
         if idx_nonempty:
             payload = [clean[i] for i in idx_nonempty]
             try:
-                vecs = _encode(payload)
+                vecs = _encode_adaptive(payload, batch_size)
                 for k, i in enumerate(idx_nonempty):
                     out[i] = vecs[k].tolist()
             except Exception as e:
-                # Surrogates are already stripped above, so this is a rarer
-                # tokenizer/encoder fault. Isolate it per-item so one bad passage
-                # never nulls the whole batch — and the request NEVER fails, or the
-                # parent would tear down the sidecar and drop the rest of the
-                # corpus onto the slow embedder. Null items defer to backfill.
+                # Adaptive splitting bottomed out on a single oversized sequence, or
+                # this is a non-OOM tokenizer/encoder fault. Isolate per item so one
+                # bad passage never nulls the whole batch — and the request NEVER
+                # fails, or the parent would tear down the sidecar and drop the rest
+                # of the corpus onto the slow embedder. Null items defer to backfill.
                 _log(f"batch encode failed ({e}); retrying per-item")
+                _free_cuda()
                 for i in idx_nonempty:
                     try:
-                        out[i] = _encode([clean[i]])[0].tolist()
+                        out[i] = _encode([clean[i]], 1)[0].tolist()
                     except Exception as e_single:
                         _diag(f"passage#{i} single-encode failed "
                               f"({type(e_single).__name__})", clean[i])
                         out[i] = None
+                        if _is_oom(e_single):
+                            _free_cuda()
         return {"id": req["id"], "ok": True, "vectors": out}
 
     for line in sys.stdin:

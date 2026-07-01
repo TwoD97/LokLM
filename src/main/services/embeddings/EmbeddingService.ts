@@ -80,6 +80,14 @@ const SANITIZE_MAX_CHARS = 6000
 // Inputs the sidecar mini-batches per forward pass. 64 is near the throughput
 // sweet spot measured on a 5090 (peak ~74k tok/s at batch 16-64, 2026-06-29).
 const SIDECAR_BATCH = 64
+// Passages the indexer/backfill hands embedPassages per call (ingestBatchSize).
+// The sidecar wants LARGE batches: 256 amortises the NDJSON round-trip and keeps
+// the GPU fed (4 internal forward passes of SIDECAR_BATCH per call). Feeding it
+// small per-document batches was the throughput cap — only ~28k of ~74k tok/s on
+// a 5090 (README sidecar TODO #2). The llama.cpp path stays small so a single
+// embed op doesn't hold the shared worker (and stall chat) for too long.
+const SIDECAR_INGEST_BATCH = 256
+const LLAMA_INGEST_BATCH = 32
 
 export function bundledEmbedderPath(): string {
   return join(getModelSearchDirs()[0]!, BUNDLED_EMBEDDER_FILE)
@@ -177,6 +185,14 @@ export class EmbeddingService {
   private sidecarActive = false
   private sidecarFailed = false
   private sidecarStartPromise: Promise<void> | null = null
+  // Dev-only embedding throughput meter (recordThroughput). Accumulates embedded
+  // texts + approx tokens and the active embed time, logging a rolling rate every
+  // ~2s so dev can watch the sidecar's real speed (sanity-checks the ~12x vs
+  // llama.cpp). Tokens are approximated as chars/4; never logs in production.
+  private tpTexts = 0
+  private tpTokens = 0
+  private tpActiveMs = 0
+  private tpLastLog = 0
 
   constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
@@ -470,6 +486,13 @@ export class EmbeddingService {
     return out[0] ?? null
   }
 
+  /** Preferred passages-per-embed-call for ingest/backfill — large on the PyTorch
+   *  sidecar (throughput), small on the llama.cpp path (shared-worker hold). Read
+   *  AFTER ensureReady() so the active backend is known. */
+  ingestBatchSize(): number {
+    return this.sidecarActive ? SIDECAR_INGEST_BATCH : LLAMA_INGEST_BATCH
+  }
+
   /** Batch query embedding WITH the model-appropriate query instruction. The
    *  retrieval hot path uses this (via the provider's embedQuery) so a natural-
    *  language question aligns with the raw passages. `opts.codebase` selects the
@@ -496,7 +519,42 @@ export class EmbeddingService {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : PASSAGE_PREFIX + cleaned
     })
-    return this.runEmbed(prepared)
+    const t0 = Date.now()
+    const out = await this.runEmbed(prepared)
+    this.recordThroughput(prepared, out, Date.now() - t0)
+    return out
+  }
+
+  /** Dev throughput meter (see fields). Counts only successfully embedded texts;
+   *  the rate is tokens / active embed time, so it reflects the embedder's raw
+   *  speed rather than orchestration gaps. No-op in production. */
+  private recordThroughput(
+    prepared: string[],
+    out: Array<number[] | null>,
+    elapsedMs: number,
+  ): void {
+    if (process.env['NODE_ENV'] === 'production') return
+    for (let i = 0; i < prepared.length; i++) {
+      if (out[i] == null || prepared[i]!.length === 0) continue
+      this.tpTexts++
+      this.tpTokens += Math.ceil(prepared[i]!.length / 4) // ~4 chars/token (approx)
+    }
+    this.tpActiveMs += elapsedMs
+    const now = Date.now()
+    if (this.tpLastLog === 0) this.tpLastLog = now
+    if (now - this.tpLastLog < 2000 || this.tpActiveMs <= 0) return
+    const tokPerS = (this.tpTokens / this.tpActiveMs) * 1000
+    const txPerS = (this.tpTexts / this.tpActiveMs) * 1000
+    const backend = this.sidecarActive ? 'pytorch/cuda' : 'llama.cpp'
+    // eslint-disable-next-line no-console
+    console.log(
+      `[embedder] ${backend}: ~${(tokPerS / 1000).toFixed(1)}k tok/s, ${txPerS.toFixed(0)} texts/s ` +
+        `(${this.tpTexts} texts in ${(this.tpActiveMs / 1000).toFixed(1)}s active; tokens approx)`,
+    )
+    this.tpTexts = 0
+    this.tpTokens = 0
+    this.tpActiveMs = 0
+    this.tpLastLog = now
   }
 
   /** Route a prepared batch to the active backend. Sidecar first when active;

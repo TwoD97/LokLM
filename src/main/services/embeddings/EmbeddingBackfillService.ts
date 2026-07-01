@@ -94,6 +94,8 @@ export class EmbeddingBackfillService {
     if (existing && existing.state === 'running') return
 
     const embedder = this.registry.embedder()
+    // Large on the PyTorch sidecar (throughput), small on llama.cpp — same lever
+    // the indexer uses. Read after ensureReady() below so the backend is known.
     // ensureReady is void on the provider contract; probe readiness via
     // isReady() to keep the "no embedder model — skip backfill" branch that
     // the bundled embedder used to flag via a `false` return.
@@ -108,6 +110,8 @@ export class EmbeddingBackfillService {
       })
       return
     }
+    // Now the backend is known — large batch on the sidecar, small on llama.cpp.
+    const page = embedder.ingestBatchSize?.() ?? PAGE
 
     // Identity round-trip: before processing missing-embedding rows, null out
     // any pre-existing vectors that were produced by a *different* underlying
@@ -187,7 +191,7 @@ export class EmbeddingBackfillService {
           this.update({ workspaceId, state: 'idle', done, total, message: null })
           return
         }
-        const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, PAGE)
+        const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, page)
         if (batch.length === 0) break
         // Grow the denominator to cover work discovered after the initial snapshot
         // (concurrent indexing), keeping total ≥ done so progress never exceeds 100%.
@@ -331,11 +335,12 @@ export class EmbeddingBackfillService {
       }
     }
 
+    const page = embedder.ingestBatchSize?.() ?? PAGE
     let embedded = 0
     let consecutiveNoProgress = 0
     for (;;) {
       if (this.stopRequested) break
-      const batch = await repo.listDocsMissingSummaryEmbedding(workspaceId, PAGE)
+      const batch = await repo.listDocsMissingSummaryEmbedding(workspaceId, page)
       if (batch.length === 0) break
       let vectors: Float32Array[] | null
       try {

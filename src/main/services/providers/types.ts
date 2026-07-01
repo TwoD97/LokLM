@@ -58,6 +58,11 @@ export interface EmbedderProvider {
   embedQuery?(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]>
   dimension(): number
   identity(): string // "bundled:bge-m3" | "ollama:nomic-embed-text"
+  /** Preferred passages-per-embed() call for ingest/backfill. The PyTorch sidecar
+   *  wants LARGE batches (amortise the NDJSON round-trip, keep the GPU fed); the
+   *  llama.cpp path keeps it small so one embed op doesn't hold the shared worker
+   *  (and stall chat) for too long. Optional — callers fall back to a default. */
+  ingestBatchSize?(): number
   isReady(): boolean
   ensureReady(): Promise<void>
 }

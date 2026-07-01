@@ -535,8 +535,13 @@ export class DocumentService {
           const acc: Array<Float32Array | null> = new Array(texts.length).fill(null)
           let anyEmbedded = false
           let embeddedSoFar = 0
-          for (let start = 0; start < texts.length; start += EMBED_BATCH) {
-            const slice = texts.slice(start, start + EMBED_BATCH)
+          // The PyTorch sidecar reports a large batch (256) — feeding it big arrays
+          // amortises the per-call IPC and keeps the GPU saturated (the small 32
+          // batch capped throughput at ~28k/74k tok/s); the llama.cpp path keeps
+          // EMBED_BATCH so one embed op doesn't hog the shared worker.
+          const batch = embedder.ingestBatchSize?.() ?? EMBED_BATCH
+          for (let start = 0; start < texts.length; start += batch) {
+            const slice = texts.slice(start, start + batch)
             try {
               const vs = await embedder.embed(slice)
               for (let j = 0; j < vs.length; j++) acc[start + j] = vs[j] ?? null

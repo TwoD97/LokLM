@@ -146,6 +146,15 @@ export class EmbedderSidecar {
         PYTHONUTF8: '1',
         PYTHONIOENCODING: 'utf-8',
       }
+      // Cut VRAM fragmentation when the embedder shares the GPU with the llama.cpp
+      // chat LLM + reranker: the expandable-segments allocator lets PyTorch grow/
+      // shrink one arena instead of stranding fixed cached blocks, which is the
+      // usual trigger for the mid-batch "CUDA out of memory" (the sidecar also
+      // backs off + empty_cache()es on OOM — this is the proactive half). Respect
+      // an explicit override if the user already set it.
+      if (!env['PYTORCH_CUDA_ALLOC_CONF']) {
+        env['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+      }
       if (this.opts.cudaDeviceIndex != null) {
         env['CUDA_VISIBLE_DEVICES'] = String(this.opts.cudaDeviceIndex)
       }

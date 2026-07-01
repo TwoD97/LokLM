@@ -995,18 +995,12 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
     loadProgress: 0,
     message: 'Initialising reranker backend…',
   })
-  // The reranker normally shares the chat model's GPU backend ('primary') — it's
-  // the query hot path and much faster on the GPU. BUT on Pro/NVIDIA the PyTorch
-  // embedder sidecar holds its OWN torch CUDA context on the same device for the
-  // whole session, and creating the reranker's CUDA context alongside it can hard-
-  // crash the app (the window closes) — a fault that only appears once the sidecar
-  // is in play. When the reranker is pinned to CPU (placement === 'cpu', or
-  // LOKLM_RERANKER_CPU=1) load it on the CPU ('aux') backend instead, sidestepping
-  // the GPU entirely. The reranker is tiny (~0.4 GB) so CPU is a viable fallback.
-  const forceCpu = process.env['LOKLM_RERANKER_CPU'] === '1' || payload.placement === 'cpu'
-  const backendKey: BackendKey = forceCpu ? 'aux' : 'primary'
+  // Reranker shares the chat model's GPU backend ('primary'). This is the heavy
+  // hitter on the query hot path (~25x faster on the iGPU than CPU), and as an
+  // XLM-RoBERTa encoder it errors gracefully on over-context input rather than
+  // native-crashing like the jina decoder. RAM-only snapshot (see embedder).
   const resources = planner.snapshot()
-  const llama = await ensureBackend(backendKey, false, (msg) =>
+  const llama = await ensureBackend('primary', false, (msg) =>
     pushStatus('reranker', { message: msg }),
   )
   pushStatus('reranker', {
@@ -1032,15 +1026,11 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
   rerankerModel = model
   rerankerContext = context
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
-  const onGpu = !forceCpu && primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
+  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
     resources,
     resolvedPlacement: onGpu ? 'gpu' : 'cpu',
-    reason: forceCpu
-      ? 'CPU backend (reranker pinned to CPU to avoid the CUDA crash alongside the PyTorch embedder)'
-      : onGpu
-        ? `shared ${primaryGpuLabel} backend`
-        : 'shared CPU backend',
+    reason: onGpu ? `shared ${primaryGpuLabel} backend` : 'shared CPU backend',
   }
 }
 

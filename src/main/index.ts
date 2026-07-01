@@ -2567,6 +2567,35 @@ async function drainIndexingForQuit(): Promise<void> {
   })
 }
 
+// Hard cap on the embedder teardown so a wedged worker unload can't hold the quit
+// open. The PyTorch sidecar's own dispose() is already ≤1s (graceful shutdown then
+// kill); this only guards the llama.cpp embedderUnload RPC behind it.
+const QUIT_EMBEDDER_DISPOSE_MAX_MS = 5_000
+
+/** Tear the embedder down deterministically at quit — the PyTorch sidecar above
+ *  all. before-quit otherwise relies solely on stdin-EOF to kill the python
+ *  child, which a torch process can't act on until its in-flight model.encode()
+ *  batch returns — so it keeps hammering the GPU for seconds after the window is
+ *  gone (and a hard-killed parent on Windows can orphan it outright). unload() →
+ *  EmbedderSidecar.dispose() asks for a graceful shutdown then hard-kills. Called
+ *  AFTER the drain+lock so the job's vectors have already landed; bounded and
+ *  fully swallowed so it can never throw or hang the exit. */
+async function disposeEmbedderForQuit(): Promise<void> {
+  const svc = embeddingService
+  if (!svc) return
+  try {
+    await Promise.race([
+      svc.unload(),
+      new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, QUIT_EMBEDDER_DISPOSE_MAX_MS)
+        t.unref?.()
+      }),
+    ])
+  } catch {
+    /* best-effort — we're exiting regardless */
+  }
+}
+
 // Flush durably before the process exits. before-quit fires before the windows
 // close , so we still have a chance to do async work here. Two things must
 // survive: the active indexing batch (drained so it isn't killed mid-write) and
@@ -2606,6 +2635,11 @@ app.on('before-quit', (event) => {
     .catch(() => {
       /* swallow , we exit anyway and the vault stays at the last good state */
     })
+    // Job has drained (or hit the cap) and the vault is locked — now kill the
+    // PyTorch embedder sidecar deterministically instead of leaving it to
+    // stdin-EOF (which it can't act on mid-batch). .finally awaits a returned
+    // promise, so app.quit() still waits for the bounded teardown.
+    .finally(() => disposeEmbedderForQuit())
     .finally(() => {
       didFinalPersist = true
       app.quit()

@@ -55,6 +55,11 @@ export class BundledEmbedderProvider implements EmbedderProvider {
     return this.inner.activeIdentity()
   }
 
+  /** Large on the PyTorch sidecar, small on llama.cpp — see EmbeddingService. */
+  ingestBatchSize(): number {
+    return this.inner.ingestBatchSize()
+  }
+
   isReady(): boolean {
     return this.inner.isReady()
   }
