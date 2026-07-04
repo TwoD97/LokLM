@@ -9,7 +9,7 @@ import {
   LockedError,
 } from '@main/services/auth/AuthService'
 
-// AP-T.1 (Pflichtenheft §8.1) — Unit-Tests der Auth-Hashing-Wrapper.
+// AP-T.1 — Unit-Tests der Auth-Hashing-Wrapper.
 //
 // Abweichung vom Ticket-Text: das Ticket nennt einen "PBKDF2-Wrapper". Den gibt
 // es bewusst NICHT — ADR-0001 hat PBKDF2 (speicherarm, GPU-/ASIC-billig)

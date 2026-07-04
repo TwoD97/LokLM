@@ -15,7 +15,7 @@ import type { LlmProvider, RerankerProvider } from '@main/services/providers/typ
 import type { IndexProgress } from '@main/services/documents/types'
 import { KORPUS, FRAGEN } from '../fixtures/retrieval/korpus'
 
-// AP-T.2 (Pflichtenheft §8.2) — RetrievalService E2E: 50-Chunk-Korpus mit
+// AP-T.2 — RetrievalService E2E: 50-Chunk-Korpus mit
 // echtem Embedder importieren, 10 vorbereitete Fragen stellen, Top-K muss
 // deterministisch sein und die erwarteten Chunks enthalten. Korpus + Fragen
 // liegen in tests/fixtures/retrieval/korpus.ts.

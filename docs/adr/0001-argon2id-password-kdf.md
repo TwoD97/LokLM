@@ -3,7 +3,7 @@
 **Status:** accepted
 **Datum:** 2026-05-14
 **Owner:** Denys
-**Bezug:** [PH] Pflichtenheft §3.1.1 (Passwortspeicherung), §3.1.3 (Recovery), AP-2.1 (Auth)
+**Bezug:** AP-2.1 (Auth: Passwortspeicherung, Recovery)
 **Implementierung:** [src/main/services/auth/AuthService.ts:54-61](../../src/main/services/auth/AuthService.ts#L54-L61), [src/main/services/auth/AuthService.ts:516-520](../../src/main/services/auth/AuthService.ts#L516-L520)
 
 ## Libraries

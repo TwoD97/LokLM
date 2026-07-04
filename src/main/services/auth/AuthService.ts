@@ -91,7 +91,7 @@ export type { AuthStatus, LoginResult, ResetResult }
 
 const ARGON_OPTS = {
   type: argon2.argon2id,
-  memoryCost: 65536, // 64 MiB , per Pflichtenheft 3.1.1
+  memoryCost: 65536, // 64 MiB
   timeCost: 3,
   parallelism: 4,
   hashLength: 32,
@@ -127,11 +127,11 @@ const HEADER_OFFSET = VAULT_MAGIC.length + HEADER_LEN_BYTES
 const DEK_BYTES = 32
 const KEK_SALT_BYTES = 32
 
-// Pflichtenheft 3.1.2 , 5 fails → 5 min lockout , in-memory only.
+// 5 fails → 5 min lockout , in-memory only.
 const MAX_FAIL_ATTEMPTS = 5
 const FAIL_LOCKOUT_MS = 5 * 60 * 1000
 
-// Pflichtenheft 3.1.4 , 15 min default inactivity lock.
+// 15 min default inactivity lock.
 const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000
 
 /** Thrown by requireDatabase() when the session is locked. Detect on the
@@ -1157,7 +1157,7 @@ function validatePassword(pw: string): void {
 
 export type { AuthHeader, RecoveryEntry, WrappedKey, EncryptedBody }
 
-// Exposed for AP-T.1 unit tests (Pflichtenheft §8.1, tests/unit/auth-crypto.test.ts):
+// Exposed for AP-T.1 unit tests (tests/unit/auth-crypto.test.ts):
 // the crypto wrappers — Argon2id KDF (deriveKEK) and AES-256-GCM key-wrap /
 // body-decrypt. Kept module-private in practice; this export only widens
 // visibility so the failure branches (wrong key, tampered tag, length guard)

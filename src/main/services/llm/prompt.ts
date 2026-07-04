@@ -118,7 +118,7 @@ export function packHitsToBudget(
  * Build the system prompt for a given response language. The MVP locks the
  * model to exactly one of DE / EN per session — this keeps Piper TTS happy
  * (the bundled voices only cover those two languages) and matches the
- * Lastenheft's bilingual scope.
+ * project's bilingual scope.
  *
  * The prompt is written natively per language. Research (Cross-Lingual
  * Prompt Steerability, MultiQ, Native Design Bias) shows language-matched

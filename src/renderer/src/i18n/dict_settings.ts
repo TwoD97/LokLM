@@ -476,7 +476,7 @@ export const settingsDict: DomainDict = {
     'settings.ollama.bearerTokenPlaceholder': '(optional)',
     'settings.ollama.remoteHostWarning': 'Externer Host, Daten verlassen diesen Rechner',
     'settings.ollama.remoteHostWarningTitle':
-      'Anfragen verlassen diesen Rechner. Lastenheft-Grundsatz (offline) ist hierfür ausgesetzt.',
+      'Anfragen verlassen diesen Rechner. Der Offline-Grundsatz ist hierfür ausgesetzt.',
     'settings.ollama.probing': 'Prüfe…',
     'settings.ollama.connected': 'Verbunden · Ollama v{version} · {count} Modell',
     'settings.ollama.connectedPlural': 'Verbunden · Ollama v{version} · {count} Modelle',

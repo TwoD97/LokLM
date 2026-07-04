@@ -3,7 +3,7 @@
 **Status:** proposed
 **Datum:** 2026-06-13
 **Owner:** Denys
-**Bezug:** [PH] Pflichtenheft (Runtime/Modell-Lifecycle, AP-9 `runtime.conversationSwitch`) ; [ADR-0002](0002-envelope-encryption-aes-gcm.md) (Vault, in dem das Usage-Journal verschlüsselt liegt) ; [ADR-0003](0003-query-routing-und-summary-index.md) (teilt sich den einen LLM-Worker, dessen Residency diese Policy steuert)
+**Bezug:** (Runtime/Modell-Lifecycle, AP-9 `runtime.conversationSwitch`) ; [ADR-0002](0002-envelope-encryption-aes-gcm.md) (Vault, in dem das Usage-Journal verschlüsselt liegt) ; [ADR-0003](0003-query-routing-und-summary-index.md) (teilt sich den einen LLM-Worker, dessen Residency diese Policy steuert)
 **Implementierung (geplant, neu sofern nicht anders vermerkt):**
 [src/main/services/placement/ResidencyCoordinator.ts](../../src/main/services/placement/ResidencyCoordinator.ts),
 [src/main/services/placement/ManagedModel.ts](../../src/main/services/placement/ManagedModel.ts),
@@ -113,7 +113,7 @@ export interface UsageEvent {
 }
 ```
 
-**Privacy ist eine harte Anforderung, keine Fußnote.** Nutzungsverhalten ist Verhaltensdaten. Das Journal liegt **verschlüsselt im bestehenden Vault** ([ADR-0002], neue Tabelle `usage_events`), verlässt die Maschine **nie** (Lastenheft-Offline-Grundsatz), und ist über die Settings **vollständig löschbar**. Kein Netzwerkpfad berührt diese Tabelle.
+**Privacy ist eine harte Anforderung, keine Fußnote.** Nutzungsverhalten ist Verhaltensdaten. Das Journal liegt **verschlüsselt im bestehenden Vault** ([ADR-0002], neue Tabelle `usage_events`), verlässt die Maschine **nie** (Offline-Grundsatz), und ist über die Settings **vollständig löschbar**. Kein Netzwerkpfad berührt diese Tabelle.
 
 ### L2 — `DemandModel`: full-feedback Prädiktor (kein Bandit)
 

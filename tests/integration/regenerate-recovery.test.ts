@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
 
-// AP-9 Account §3.8 "neue Recovery-Codes anfordern". Integration: real argon2 +
+// AP-9 Account "neue Recovery-Codes anfordern". Integration: real argon2 +
 // real AES-GCM vault. Regenerating wraps the live DEK under a fresh recovery
 // passphrase and replaces the recovery entry, invalidating the old codes; the
 // password wrap + body are untouched. Requires the current password. Slow

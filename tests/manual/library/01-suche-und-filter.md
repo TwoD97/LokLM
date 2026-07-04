@@ -16,7 +16,7 @@
 
 ## Ziel
 
-Es wird geprüft, ob die Library-Suche (AP-6, Pflichtenheft §3.5) zu einer Eingabe eine
+Es wird geprüft, ob die Library-Suche (AP-6) zu einer Eingabe eine
 Trefferliste mit Dokumentname, Seitenzahl/Heading und gehighlightetem Auszug liefert, ob
 die Filter (Typ/Datum/Größe) und die Sortierung (Relevanz/Dateiname/Importdatum) wirken,
 und ob ein Klick auf einen Treffer die Quelle im SourceViewer (AP-8) an der richtigen
