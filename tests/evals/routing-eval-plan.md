@@ -9,7 +9,7 @@ Wiring in [tests/unit/retrieval-doc-prefilter.test.ts](../unit/retrieval-doc-pre
 
 Was hier **fehlt** und der Eval-Säule gehört (Zahlen, nicht Pass/Fail —
 [README](README.md) „Warum getrennt"): drei Qualitäts-/Regressions-Vergleiche.
-Owner-Entscheidung (Dominik), weil es Modelle + Judge braucht und Stunden läuft.
+Owner-Entscheidung, weil es Modelle + Judge braucht und Stunden läuft.
 
 ## Szenario 1 — Long-Doc-Summary-Qualität: Route vs. alte topK-12
 

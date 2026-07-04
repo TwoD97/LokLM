@@ -34,7 +34,7 @@ const KEY_FACTS: string[] = [
   'Formats: PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, JSON, and source code; folder sync for codebases.',
   'Also: local document translation (MADLAD-400, 400+ languages), audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
   'Best for: questions whose answer is in your own files. Not optimised for open-domain knowledge without context.',
-  'Built by Denys Tudosa and Dominik Furlan.',
+  'Built by Denys Tudosa.',
 ]
 
 export function buildLlmsTxt(siteUrl: string, posts: LlmsPost[] = []): string {

@@ -9,7 +9,7 @@ edition = "2021"
 # the output to loklm.exe so the on-disk filename doesn't trip IDT either.
 # Package name stays loklm-installer for crate / user-agent / docs continuity.
 description = "LokLM"
-authors = ["Projektgruppe LokLM ( Denys Tudosa , Dominik Furlan )"]
+authors = ["Projektgruppe LokLM ( Denys Tudosa )"]
 license = "MIT"
 
 [[bin]]

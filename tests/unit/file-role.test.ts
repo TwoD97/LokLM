@@ -40,7 +40,7 @@ describe('fileRole', () => {
 
   it('prose is doc wherever it lives — even under tests/ (pitfall)', () => {
     expect(fileRole('README.md')).toBe('doc')
-    expect(fileRole('docs/project-handbook/STYLE_GUIDE.md')).toBe('doc')
+    expect(fileRole('docs/adr/0003-query-routing-und-summary-index.md')).toBe('doc')
     expect(fileRole('tests/manual/checklist.md')).toBe('doc') // path-test loses to doc-by-extension
   })
 

@@ -10,7 +10,7 @@
 | Arbeitspaket        | AP-T.3 (M9)                     |
 | Priorität           | Hoch                            |
 | Datum               |                                 |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      |                                 |
 | App-Version / Build |                                 |
 
@@ -33,7 +33,7 @@ Dokumente, Konversationen) unverändert erhalten bleiben.
 
 | Feld               | Wert                                                               |
 | ------------------ | ------------------------------------------------------------------ |
-| Benutzerkonto      | dominik.furlan@lbs4.salzburg.at                                    |
+| Benutzerkonto      | max.mustermann@example.com                                    |
 | Passwort           | (Login-Passwort des Testkontos)                                    |
 | Nachprüfbare Daten | Name eines Workspaces, ein Dokumenttitel, eine letzte Chat-Antwort |
 | Snapshot-Pfad      | `%APPDATA%/LokLM/pgdata/` (entpackter Cluster)                     |

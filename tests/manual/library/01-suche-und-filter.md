@@ -10,7 +10,7 @@
 | Arbeitspaket        | AP-6                            |
 | Priorität           | Hoch                            |
 | Datum               | 2026-06-10                      |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      | Windows 11 Home (10.0.26200)    |
 | App-Version / Build | 0.3.1                           |
 

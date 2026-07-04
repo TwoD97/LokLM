@@ -10,7 +10,7 @@
 | Arbeitspaket        | AP-2.1                          |
 | Priorität           | Hoch                            |
 | Datum               |                                 |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      |                                 |
 | App-Version / Build |                                 |
 
@@ -30,7 +30,7 @@ Es wird geprüft, ob sich ein bestehender Benutzer erfolgreich einloggen und wie
 
 | Feld     | Wert                            |
 | -------- | ------------------------------- |
-| E-Mail   | dominik.furlan@lbs4.salzburg.at |
+| E-Mail   | max.mustermann@example.com |
 | Passwort | Test12345!                      |
 
 ## Schritte

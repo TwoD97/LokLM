@@ -33,7 +33,7 @@ describe('Auth E2E §8.2 (M3 / G2)', () => {
     // ─── 1. Registrierung + seed-daten anlegen ────────────────────────────────
     const first = new AuthService(userDataDir)
     const { passphrase } = await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })
@@ -56,7 +56,7 @@ describe('Auth E2E §8.2 (M3 / G2)', () => {
     const statusBefore = await second.status()
     expect(statusBefore.registered).toBe(true)
     expect(statusBefore.locked).toBe(true)
-    expect(statusBefore.displayName).toBe('Dominik')
+    expect(statusBefore.displayName).toBe('Alex')
 
     const loginOld = await second.login('Test12345!')
     expect(loginOld.ok).toBe(true)

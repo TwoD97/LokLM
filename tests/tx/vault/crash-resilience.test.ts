@@ -30,7 +30,7 @@ describe('vault crash-resilienz', () => {
   async function registerAndLock(): Promise<void> {
     const auth = new AuthService(userDataDir)
     await auth.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })
@@ -56,7 +56,7 @@ describe('vault crash-resilienz', () => {
     const second = new AuthService(userDataDir)
     const status = await second.status()
     expect(status.registered).toBe(true)
-    expect(status.displayName).toBe('Dominik')
+    expect(status.displayName).toBe('Alex')
 
     const login = await second.login('Test12345!')
     expect(login.ok).toBe(true)
@@ -106,7 +106,7 @@ describe('vault crash-resilienz', () => {
   it('passwort-wechsel erneuert die .bak , das alte passwort bleibt draussen', async () => {
     const auth = new AuthService(userDataDir)
     await auth.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })

@@ -2,7 +2,7 @@
 // fragen) zurück und schreibt ein dataset.json kompatibel zur eval-pipeline.
 //
 // Workflow:
-//   1. dominik füllt das YAML mit fragen pro chunk
+//   1. der fragen-autor füllt das YAML mit fragen pro chunk
 //   2. dieses script:
 //      - parsed YAML
 //      - validiert dass jede frage.requiredChunkIds (falls gesetzt) auf
@@ -14,7 +14,7 @@
 //   tsx tests/evals/synth/compile-harvest.ts
 //     --input <path>           pfad zum ausgefüllten YAML-template
 //     [--output <path>]        default: data/datasets/curated-de-<n>q-<stamp>.json
-//     [--name <label>]         dataset-name-tag (z.b. "dominik-curated-2026-05")
+//     [--name <label>]         dataset-name-tag (z.b. "curated-2026-05")
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
