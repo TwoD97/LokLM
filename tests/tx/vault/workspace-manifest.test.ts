@@ -26,7 +26,7 @@ describe('vault workspace manifest round-trip', () => {
     const target = vec()
 
     const first = new AuthService(userDataDir)
-    await first.register({ displayName: 'Dominik', password: 'Test12345!', recoveryLang: 'de' })
+    await first.register({ displayName: 'Alex', password: 'Test12345!', recoveryLang: 'de' })
 
     const ws = first.getWorkspaceStore()
     const entry = await ws.create('Research')
@@ -59,7 +59,7 @@ describe('vault workspace manifest round-trip', () => {
   it('recovery passphrase reset keeps workspaces openable', async () => {
     const first = new AuthService(userDataDir)
     const { passphrase } = await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })

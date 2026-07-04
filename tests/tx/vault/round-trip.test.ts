@@ -24,7 +24,7 @@ describe('vault round-trip', () => {
   it('register → lock → neuer AuthService → login', async () => {
     const first = new AuthService(userDataDir)
     await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })
@@ -39,7 +39,7 @@ describe('vault round-trip', () => {
     const beforeLogin = await second.status()
     expect(beforeLogin.registered).toBe(true)
     expect(beforeLogin.locked).toBe(true)
-    expect(beforeLogin.displayName).toBe('Dominik')
+    expect(beforeLogin.displayName).toBe('Alex')
 
     const login = await second.login('Test12345!')
     expect(login.ok).toBe(true)
@@ -53,7 +53,7 @@ describe('vault round-trip', () => {
   it('reset mit passphrase überlebt round-trip', async () => {
     const first = new AuthService(userDataDir)
     const { passphrase } = await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })

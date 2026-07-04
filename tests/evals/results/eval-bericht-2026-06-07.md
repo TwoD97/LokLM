@@ -1,7 +1,7 @@
 # LokLM — Eval-Bericht: Antwort-LLM-Vergleich (15-Modell-Pack)
 
-**Datum:** 2026-06-07 · **Branch:** `dom/evals-automation` · **git-sha:** `af20084` (dirty=false)
-**Durchgeführt von:** Dominik (Test-Owner) · **Pack:** `tests/evals/answer/model-pack.json`
+**Datum:** 2026-06-07 · **git-sha:** `af20084` (dirty=false)
+**Durchgeführt von:** Test-Owner · **Pack:** `tests/evals/answer/model-pack.json`
 
 ---
 

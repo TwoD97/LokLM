@@ -38,11 +38,8 @@ describe('buildOrganizationSchema', () => {
     expect(schema.sameAs).toContain('https://github.com/TwoD97/LokLM')
   })
 
-  it('lists both founders as Person nodes', () => {
-    expect(schema.founder).toEqual([
-      { '@type': 'Person', name: 'Denys Tudosa' },
-      { '@type': 'Person', name: 'Dominik Furlan' },
-    ])
+  it('lists the founder as a Person node', () => {
+    expect(schema.founder).toEqual([{ '@type': 'Person', name: 'Denys Tudosa' }])
   })
 
   it('round-trips through JSON unchanged', () => {

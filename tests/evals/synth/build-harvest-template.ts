@@ -1,5 +1,5 @@
 // build-harvest-template , erzeugt ein YAML-template aus einem chunks-file
-// damit dominik (oder wer auch immer fragen schreibt) zu jedem chunk 0..3
+// damit der fragen-autor zu jedem chunk 0..3
 // fragen handschriftlich eintragen kann , ohne JSON von hand zu schreiben.
 //
 // Workflow:
@@ -14,7 +14,7 @@
 //          # chunks braucht , setze intent: broad und liste die unter
 //          # requiredChunkIds (chunk-ids aus dieser datei).
 //          questions: []
-//   3. dominik füllt das YAML
+//   3. der fragen-autor füllt das YAML
 //   4. compile-step (compile-harvest.ts) liest das YAML zurück und erzeugt
 //      ein dataset.json kompatibel zum eval-pipeline
 //

@@ -18,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..', '..')
 const casesPath = resolve(repoRoot, 'tests/evals/data/cases.jsonl')
 const chunksPath = resolve(repoRoot, 'tests/evals/data/staging/sample-doc-chunks.json')
-const holdoutPath = resolve(repoRoot, 'tests/evals/data/holdout/dominik-15.jsonl')
+const holdoutPath = resolve(repoRoot, 'tests/evals/data/holdout/holdout-15.jsonl')
 
 interface EvalCase {
   id: string

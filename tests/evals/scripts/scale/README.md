@@ -170,7 +170,7 @@ um ~4×; B/Vektor und die Krypto-/Query-Kurven sind davon unberührt.)
 
 ## Zuständigkeit
 
-Dominik betreibt diese Säule mit. Beim Aufnehmen eines neuen Embedders oder
+Beim Aufnehmen eines neuen Embedders oder
 Rerankers in [`../pipeline/configs.ts`](../pipeline/configs.ts) gehört ein
 scale-Lauf mit dazu , bevor das Ding live geht. Die kleinen Stufen (tiny ,
 small) reichen für PR-Checks , medium/large fahren wir vor jedem Release einmal.

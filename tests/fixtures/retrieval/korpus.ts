@@ -24,7 +24,7 @@
 // ist. Jede Frage trägt einen Vokabel-Anker, der nur in ihrer Zielsektion
 // vorkommt (z.B. "Calvin-Zyklus", "Ohm's Law", "Gezeiten").
 //
-// TODO(Dominik) — fachliche Gegenprobe: Bitte für jede Frage prüfen, ob ein
+// TODO — fachliche Gegenprobe: Bitte für jede Frage prüfen, ob ein
 // Mitschüler die Antwort tatsächlich NUR in der angegebenen Sektion suchen
 // würde. Inhalte/Fragen frei anpassen — Mechanik (Auflösung Sektion→Chunk-ID)
 // bleibt davon unberührt.

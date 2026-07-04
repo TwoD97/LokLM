@@ -8,7 +8,7 @@
 | ----------------------- | -------------------------------------------------- |
 | **Angebot an**          | Landesberufsschule 4 Salzburg                      |
 | **Auftraggeber**        | Christoph Wirrer                                   |
-| **Autor des Dokuments** | Projektgruppe LokLM (Denys Tudosa, Dominik Furlan) |
+| **Autor des Dokuments** | Projektgruppe LokLM (Denys Tudosa)                 |
 | **Version**             | 1.0                                                |
 | **Dateiname**           | Lastenheft_LokLM.md                                |
 | **Ort, Datum**          | Salzburg, 08.05.2026                               |

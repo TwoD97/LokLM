@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
-  "author": "Projektgruppe LokLM (Denys Tudosa, Dominik Furlan)",
+  "author": "Projektgruppe LokLM (Denys Tudosa)",
   "license": "MIT",
   "packageManager": "pnpm@10.33.4",
   "engines": {

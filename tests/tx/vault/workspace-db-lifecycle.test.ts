@@ -21,7 +21,7 @@ describe('WorkspaceDb in the vault lifecycle', () => {
 
   it('persists documents + chunks in the encrypted libSQL store across lock/login', async () => {
     const first = new AuthService(userDataDir)
-    await first.register({ displayName: 'Dominik', password: 'Test12345!', recoveryLang: 'de' })
+    await first.register({ displayName: 'Alex', password: 'Test12345!', recoveryLang: 'de' })
     const ws = await first.getWorkspaceStore().create('Research')
 
     const db = await first.getWorkspaceDb(ws.id)
@@ -52,7 +52,7 @@ describe('WorkspaceDb in the vault lifecycle', () => {
   it('rejects the workspace libSQL store under the wrong master key', async () => {
     const first = new AuthService(userDataDir)
     const { passphrase } = await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })

@@ -74,22 +74,21 @@ ist gewollt.
 
 ## Zuständigkeit
 
-Dominik ist Test-Owner. Das heißt: er verantwortet die gesamte Test-Strategie,
+Denys ist Test-Owner. Das heißt: er verantwortet die gesamte Test-Strategie,
 die Abdeckung, das Schreiben und Pflegen der Tests sowie die Durchführung der
-manuellen Szenarien. Denys schreibt Tests nur zu dem Code dazu, den er gerade
-selbst implementiert (kleine Co-Located-Unit-Tests neben neuen Modulen) — der
-Rest läuft über Dominik.
+manuellen Szenarien. Neue Module bekommen kleine Co-Located-Unit-Tests direkt
+beim Implementieren.
 
 Konkret:
 
-- **Unit-Tests**: Dominik baut die Abdeckung breitflächig auf. Denys ergänzt
-  punktuell, wenn er ein Modul schreibt.
-- **Integration- und Transaktions-Tests**: Dominik komplett. Bei Fragen zum
-  Auth-Pfad fragt er Denys, sonst eigenverantwortlich.
-- **e2e-Tests**: Dominik. Pro neuem User-Flow ein Spec.
-- **Manuelle Tests**: Dominik führt durch und protokolliert in den jeweiligen
-  Markdown-Dateien. Mindestens vor jedem Release.
-- **Quality-Evals**: Dominik baut Datasets, pflegt Configs, fährt Vergleiche.
+- **Unit-Tests**: Abdeckung breitflächig aufbauen; punktuell ergänzen, wenn
+  ein Modul geschrieben wird.
+- **Integration- und Transaktions-Tests**: vollständig gepflegt, inklusive
+  Auth-Pfad.
+- **e2e-Tests**: pro neuem User-Flow ein Spec.
+- **Manuelle Tests**: durchführen und in den jeweiligen Markdown-Dateien
+  protokollieren. Mindestens vor jedem Release.
+- **Quality-Evals**: Datasets bauen, Configs pflegen, Vergleiche fahren.
 
 ## Pflichtenheft-Bezug
 

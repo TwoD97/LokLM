@@ -29,8 +29,8 @@ Es wird geprüft, ob ein neuer Benutzer erfolgreich registriert werden kann.
 
 | Feld                | Wert                            |
 | ------------------- | ------------------------------- |
-| E-Mail              | dominik.furlan@lbs4.salzburg.at |
-| Benutzername        | Dominik Furlan                  |
+| E-Mail              | max.mustermann@example.com      |
+| Benutzername        | Max Mustermann                  |
 | Passwort            | Test12345!                      |
 | Passwort bestätigen | Test12345!                      |
 
