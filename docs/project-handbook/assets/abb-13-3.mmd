@@ -1,7 +1,0 @@
-flowchart LR
-    F[Datei] --> P["parseFile<br/>(PDF/MD/Text + OCR)"]
-    P --> CH["chunkPages / chunkMarkdown<br/>(maxChars, overlap)"]
-    CH --> LG["tagChunkLanguages (eld)"]
-    LG --> PER["persistChunks (batch 200)"]
-    PER --> EMB["EmbeddingService.embed<br/>(modelsWorker, batch 32)"]
-    EMB --> VEC["chunks.embedding = vector(1024)"]
