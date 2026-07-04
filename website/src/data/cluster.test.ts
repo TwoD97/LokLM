@@ -1,25 +1,25 @@
 import { describe, it, expect } from 'vitest'
 import { personas, pillars, personaUrl, pillarUrl } from './cluster'
 
-describe('cluster topology', () => {
-  it('has four personas with both locale slugs', () => {
+describe('SEO cluster data', () => {
+  it('defines the four personas, each with a DE and an EN slug', () => {
     expect(personas.map((p) => p.key)).toEqual(['lawyer', 'research', 'consulting', 'development'])
-    for (const p of personas) {
-      expect(p.slug.de).toMatch(/^einsatz\//)
-      expect(p.slug.en).toMatch(/^use-cases\//)
+    for (const persona of personas) {
+      expect(persona.slug.de).toMatch(/^einsatz\//)
+      expect(persona.slug.en).toMatch(/^use-cases\//)
     }
   })
 
-  it('has three pillars with both locale slugs', () => {
+  it('defines the three pillars', () => {
     expect(pillars.map((p) => p.key)).toEqual(['privacy', 'architecture', 'benchmarks'])
   })
 
-  it('personaUrl builds DE (unprefixed) and EN (/en) absolute paths', () => {
+  it('personaUrl yields root-relative DE paths and /en-prefixed EN paths', () => {
     expect(personaUrl('lawyer', 'de')).toBe('/einsatz/anwalt')
     expect(personaUrl('lawyer', 'en')).toBe('/en/use-cases/lawyer')
   })
 
-  it('pillarUrl builds DE and EN paths', () => {
+  it('pillarUrl yields the localized pillar path per locale', () => {
     expect(pillarUrl('privacy', 'de')).toBe('/lokale-ki')
     expect(pillarUrl('privacy', 'en')).toBe('/en/local-ai')
     expect(pillarUrl('architecture', 'de')).toBe('/architektur')

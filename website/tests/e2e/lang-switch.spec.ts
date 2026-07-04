@@ -1,29 +1,30 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('language switch', () => {
-  test('clicking EN from / navigates to /en', async ({ page }) => {
+test.describe('locale switching', () => {
+  test('the EN link in the header takes / to /en', async ({ page }) => {
     await page.goto('/')
     await page.locator('header').locator('a[href="/en"]').click()
     await expect(page).toHaveURL(/\/en\/?$/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })
 
-  test('clicking DE from /en navigates back to /', async ({ page }) => {
+  test('the DE link in the header takes /en back to /', async ({ page }) => {
     await page.goto('/en')
     await page.locator('header').locator('a[href="/"]').click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.locator('html')).toHaveAttribute('lang', 'de')
   })
 
-  test('active locale has aria-current=page in switch', async ({ page }) => {
+  test('only the current locale is marked aria-current=page', async ({ page }) => {
     await page.goto('/')
-    const deLink = page.locator('header').locator('a[href="/"]').last()
-    const enLink = page.locator('header').locator('a[href="/en"]')
-    await expect(deLink).toHaveAttribute('aria-current', 'page')
-    await expect(enLink).not.toHaveAttribute('aria-current', 'page')
+    // the logo is also a[href="/"]; the switcher's DE link comes last
+    const deSwitch = page.locator('header').locator('a[href="/"]').last()
+    const enSwitch = page.locator('header').locator('a[href="/en"]')
+    await expect(deSwitch).toHaveAttribute('aria-current', 'page')
+    await expect(enSwitch).not.toHaveAttribute('aria-current', 'page')
   })
 
-  test('imprint exists in both languages', async ({ page }) => {
+  test('the imprint page is available in de and en', async ({ page }) => {
     await page.goto('/imprint')
     await expect(page.locator('html')).toHaveAttribute('lang', 'de')
     await expect(page.locator('h1')).toContainText('Impressum')
@@ -33,7 +34,7 @@ test.describe('language switch', () => {
     await expect(page.locator('h1')).toContainText('Imprint')
   })
 
-  test('privacy exists in both languages', async ({ page }) => {
+  test('the privacy page is available in de and en', async ({ page }) => {
     await page.goto('/privacy')
     await expect(page.locator('html')).toHaveAttribute('lang', 'de')
     await expect(page.locator('h1')).toContainText('Datenschutz')
