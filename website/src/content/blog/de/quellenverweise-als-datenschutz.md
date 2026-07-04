@@ -7,84 +7,82 @@ pubDate: 2026-05-28
 tags: ['lokale-ki', 'architektur', 'datenschutz']
 ---
 
-> **Hinweis:** Erstentwurf — wird vor der Veröffentlichung redaktionell überarbeitet.
+Wenn Produkte vorgeführt werden, laufen Quellenverweise üblicherweise unter Komfort: _"Der Beleg steht auf Seite 47."_ Elegant, nachprüfbar, angenehm zu benutzen. Alles richtig — und trotzdem greift diese Sicht zu kurz. Denn Quellenverweise sind gleichzeitig ein **Privacy-Merkmal**. Die These, um die es hier geht, wirkt zunächst unscheinbar, ist bei näherem Hinsehen aber geradezu banal: Eine Antwort, die auf Quellen verweist, verrät weniger über das Modell als eine Antwort ohne jeden Verweis.
 
-In Produkt-Demos werden Quellenverweise meist als Komfort-Feature vorgeführt. _"Hier steht der Beleg, Seite 47."_ Schick. Verifizierbar. Nutzerfreundlich. Das ist nicht falsch — aber es übersieht, dass Quellenverweise zugleich eine **Privacy-Eigenschaft** sind. Die folgende These ist nicht offensichtlich, ist aber bei genauem Hinsehen schlicht: Antworten mit Quellenverweis geben weniger über das Modell preis als Antworten ohne.
-
-Dieser Artikel arbeitet die These aus.
+Auf den folgenden Abschnitten wird diese These entfaltet.
 
 ## Was eine "reine Modell-Antwort" ist
 
-Ein Sprachmodell ist auf großen Textcorpora trainiert worden. Wenn es eine Frage beantwortet, ohne auf spezifische Quellen zu verweisen, schöpft es aus einer Mischung: dem Trainingscorpus, eventuellen Fine-Tuning-Daten, und der internen statistischen Generalisierung. Die Antwort kann korrekt sein. Sie kann auch erfunden sein (das Phänomen wird Halluzination genannt[^1]). Aus der Antwort allein lässt sich oft nicht erkennen, welcher Teil welcher Sorte ist.
+Sprachmodelle entstehen durch Training auf riesigen Textmengen. Beantwortet ein Modell eine Frage, ohne sich auf konkrete Quellen zu stützen, speist sich die Antwort aus einem Gemisch: aus dem Trainingscorpus, aus eventuellem Fine-Tuning-Material und aus der statistischen Generalisierung im Inneren des Modells. Das Ergebnis kann stimmen — oder frei erfunden sein, ein Phänomen, das als Halluzination bekannt ist[^1]. Welcher Teil der Antwort in welche Kategorie fällt, lässt sich von außen meist nicht feststellen.
 
-Diese Mischung ist die _"Model-knows-things"_-Fläche. Sie ist die Summe aller Aussagen, die das Modell ohne Stützung durch konkrete Quellen treffen kann. Sie ist groß: ein Modell der Größenordnung 7–70 Milliarden Parameter hat Trainingsdaten in zweistelliger Terabyte-Größenordnung gesehen.
+Man kann dieses Gemisch als _"Model-knows-things"_-Fläche beschreiben: die Gesamtheit aller Aussagen, die das Modell ohne Rückhalt in konkreten Quellen produzieren kann. Diese Fläche ist enorm — ein Modell mit 7 bis 70 Milliarden Parametern hat im Training Textmengen im zweistelligen Terabyte-Bereich gesehen.
 
 ## Wie ein Quellenverweis die Fläche schrumpft
 
-Eine Retrieval-augmentierte Antwort ist anders aufgebaut. Vor der Generierung sucht das System in einem Index nach passenden Textpassagen. Die gefundenen Passagen werden dem Modell als Kontext mitgegeben. Das Modell soll die Antwort **auf diesen Kontext stützen**, nicht auf sein Trainings-Wissen.
+Bei einer Retrieval-augmentierten Antwort läuft der Prozess anders. Bevor das Modell überhaupt generiert, durchsucht das System einen Index nach passenden Textstellen und legt die Treffer dem Modell als Kontext vor. Die Anweisung lautet: **Stütze die Antwort auf diesen Kontext** — nicht auf das, was im Training hängen geblieben ist.
 
-Wenn der Index nur die eigenen Dokumente eines Nutzers enthält — Mandantenakten, Forschungsdrafts, Geschäftsunterlagen —, dann steht das Modell vor einer schmaleren Aufgabe: _"Beantworte diese Frage mit Bezug auf diese Stellen aus diesen Dokumenten."_ Die Aussagefläche schrumpft von _"alles, was ich aus dem Training weiß"_ auf _"das, was in diesen 30 Absätzen steht"_.
+Besteht der Index ausschließlich aus den eigenen Dokumenten eines Nutzers — Mandantenakten, Forschungsdrafts, Geschäftsunterlagen —, verengt sich die Aufgabe des Modells erheblich: _"Beantworte die Frage anhand dieser Stellen aus diesen Dokumenten."_ Aus der Fläche _"alles, was ich im Training gelernt habe"_ wird die Fläche _"das, was in diesen 30 Absätzen steht"_.
 
-Quellenverweise sind die Sichtbarkeit dieser Schrumpfung. Wenn an einer Antwort _"Seite 17, Absatz 3"_ steht, hat der Nutzer einen direkten Hebel: er kann die Stelle prüfen und erkennt, ob die Antwort der Quelle treu ist oder ob das Modell darüber hinausgegangen ist.
+Der Quellenverweis macht genau diese Verengung sichtbar. Steht an der Antwort _"Seite 17, Absatz 3"_, hat der Nutzer einen konkreten Hebel in der Hand: Er schlägt die Stelle nach und sieht sofort, ob die Antwort bei der Quelle geblieben ist — oder ob das Modell darüber hinausgeschossen ist.
 
 ## Privacy und Verifizierbarkeit als dieselbe Eigenschaft
 
-Hier kommt die These zum Tragen. Was ist das Privacy-Risiko bei einer Antwort ohne Quellenverweis?
+An dieser Stelle greift die These. Worin besteht eigentlich das Privacy-Risiko einer Antwort ohne Quellenverweis?
 
-Zwei Dinge gleichzeitig:
+In zwei Dingen zugleich:
 
-1. **Information-Leak aus dem Training.** Das Modell könnte Inhalte ausgeben, die in seinem Trainingscorpus waren — und zwar wörtlich oder paraphrasiert. Wenn der Corpus Webseiten, Forendaten, möglicherweise gescrappte Dokumente enthält, kann eine Antwort versehentlich Inhalte enthalten, die nicht zur Nutzerfrage gehören. Forschung zu _Training Data Extraction_ hat gezeigt, dass das technisch möglich ist[^2].
-2. **Information-Mix aus mehreren Eingaben.** Bei Mehr-Turn-Konversationen kann das Modell Inhalte aus früheren Eingaben verquicken. Was der Nutzer in Frage 1 eingegeben hat, kann in Antwort 3 wieder auftauchen — gewollt oder nicht.
+1. **Information-Leak aus dem Training.** Ein Modell kann Inhalte reproduzieren, die im Trainingscorpus lagen — wörtlich oder umformuliert. Steckt in diesem Corpus Web-Material, Forendaten oder gescrapte Dokumente, kann eine Antwort unbeabsichtigt Fremdinhalte transportieren, die mit der Nutzerfrage nichts zu tun haben. Dass so etwas technisch machbar ist, hat die Forschung zu _Training Data Extraction_ belegt[^2].
+2. **Information-Mix aus mehreren Eingaben.** In längeren Konversationen kann das Modell Inhalte verschiedener Eingaben miteinander vermengen. Was in Frage 1 stand, kann — beabsichtigt oder nicht — in Antwort 3 wieder auftauchen.
 
-Beide Risiken werden kleiner, wenn das Modell explizit auf einen begrenzten Kontext gezwungen wird und die genutzten Stellen in der Antwort markiert sind. Quellenverweise sind nicht der Mechanismus, der das Risiko schrumpft — der Mechanismus ist der enge Kontext. Aber die Verweise machen das **prüfbar**: ohne sie könnte der Nutzer nicht erkennen, ob das Modell tatsächlich nur den Kontext genutzt hat.
+Beide Risiken sinken, sobald das Modell auf einen eng umrissenen Kontext festgelegt wird und die verwendeten Stellen in der Antwort ausgewiesen sind. Genau genommen schrumpft nicht der Verweis das Risiko — das leistet der enge Kontext. Aber erst die Verweise machen das Ganze **überprüfbar**: Ohne sie hätte der Nutzer keine Möglichkeit festzustellen, ob sich das Modell tatsächlich an den Kontext gehalten hat.
 
-Damit fallen zwei Eigenschaften zusammen:
+So fallen zwei Eigenschaften in eins:
 
-- **Verifizierbarkeit:** Habe ich nachgeschlagen, was das Modell mir sagt?
-- **Privacy-Bounding:** Habe ich Grund anzunehmen, dass das Modell nicht aus anderen Quellen herübergegriffen hat?
+- **Verifizierbarkeit:** Kann ich nachschlagen, was mir das Modell erzählt?
+- **Privacy-Bounding:** Habe ich Anhaltspunkte dafür, dass das Modell nicht aus fremden Quellen dazugegriffen hat?
 
-Beide Fragen werden mit derselben technischen Eigenschaft beantwortbar.
+Ein und dasselbe technische Merkmal beantwortet beide Fragen.
 
 ## Was Quellenverweise nicht leisten
 
-Drei wichtige Einschränkungen, damit die These nicht überdehnt wird:
+Damit die These nicht mehr trägt, als sie kann, drei klare Grenzen:
 
-- **Quellenverweise garantieren keine Treue.** Ein Modell kann eine korrekte Quelle zitieren und dabei eine Aussage treffen, die in der Quelle so nicht steht. Das nennt sich _Citation Hallucination_ und ist messbar verbreitet[^3]. Verweise reduzieren das Risiko, eliminieren es nicht.
-- **Quellenverweise allein machen ein System nicht privat.** Ein Cloud-RAG-System mit perfekten Quellenverweisen verschickt die Anfrage trotzdem an einen externen Server. Die Privacy-Eigenschaft _"Daten verlassen das Gerät nicht"_ ist orthogonal zur Verweis-Eigenschaft.
-- **Quellenverweise sind nur so gut wie ihr Index.** Wenn der Index unvollständig ist, kann das System ehrlich antworten _"in den verfügbaren Quellen finde ich nichts dazu"_ — und das ist eine wertvolle Aussage. Es kann aber auch das Modell zwingen, doch wieder auf Training-Wissen auszuweichen. Wie ein System mit _"nicht gefunden"_ umgeht, ist eine Design-Entscheidung, die das Privacy-Bild ändert.
+- **Quellenverweise garantieren keine Treue.** Ein Modell kann auf eine echte Quelle verweisen und trotzdem etwas behaupten, das dort gar nicht steht — sogenannte _Citation Hallucination_, und die ist messbar häufig[^3]. Verweise senken dieses Risiko, sie beseitigen es nicht.
+- **Quellenverweise allein machen ein System nicht privat.** Auch ein Cloud-RAG-System mit makellosen Verweisen schickt jede Anfrage an einen fremden Server. Die Eigenschaft _"Daten verlassen das Gerät nicht"_ steht senkrecht auf der Verweis-Eigenschaft — die eine folgt nicht aus der anderen.
+- **Quellenverweise sind nur so gut wie ihr Index.** Bei einem lückenhaften Index kann ein System ehrlich sagen: _"In den verfügbaren Quellen finde ich dazu nichts"_ — eine durchaus wertvolle Auskunft. Es kann aber auch passieren, dass das Modell dann doch auf sein Trainingswissen ausweicht. Wie ein System den Fall _"nicht gefunden"_ behandelt, ist eine Design-Entscheidung — und sie verändert das Privacy-Bild.
 
 ## Wie die Eigenschaft in einer lokalen Architektur konkret aussieht
 
-In einer On-Device-RAG-Architektur wie LokLM laufen drei Schritte ab, bevor eine Antwort entsteht:
+In einer On-Device-RAG-Architektur wie der von LokLM durchläuft jede Antwort drei Stationen:
 
-1. **Indexieren.** Dokumente werden in Chunks zerlegt, jeder Chunk bekommt ein Embedding. Index liegt lokal als Datenbank.
-2. **Retrieven.** Die Nutzerfrage wird zu einem Embedding, die ähnlichsten Chunks aus dem Index werden ausgewählt — meist eine Mischung aus dense (Vektor-Ähnlichkeit) und lexikalisch (BM25). Diese Hybrid-Retrieval-Logik wird im [Architektur-Artikel](/architektur) ausführlicher.
-3. **Generieren.** Das Modell bekommt die Frage plus die ausgewählten Chunks als Prompt. Es wird angewiesen, die Antwort auf diese Chunks zu stützen und die Chunk-Quelle in der Antwort zu markieren.
+1. **Indexieren.** Die Dokumente werden in Chunks aufgeteilt; für jeden Chunk entsteht ein Embedding. Der gesamte Index liegt als lokale Datenbank vor.
+2. **Retrieven.** Aus der Nutzerfrage wird ebenfalls ein Embedding erzeugt; das System wählt die ähnlichsten Chunks aus dem Index — typischerweise kombiniert aus dense Retrieval (Vektor-Ähnlichkeit) und lexikalischer Suche (BM25). Diese Hybrid-Retrieval-Logik behandelt der [Architektur-Artikel](/architektur) im Detail.
+3. **Generieren.** Das Modell erhält Frage und ausgewählte Chunks als Prompt — mit der Anweisung, sich auf diese Chunks zu stützen und deren Herkunft in der Antwort kenntlich zu machen.
 
-Schritt 3 ist die Stelle, an der die Privacy-Eigenschaft _sichtbar_ wird. Ohne die Verweise könnte der Nutzer nicht zwischen _"das stand in meinem Dokument"_ und _"das hat sich das Modell ausgedacht"_ unterscheiden — die Lokalität allein hilft hier nicht.
+Erst in Schritt 3 wird die Privacy-Eigenschaft _sichtbar_. Ohne die Verweise könnte niemand unterscheiden, ob eine Aussage aus dem eigenen Dokument stammt oder eine Erfindung des Modells ist — daran ändert auch die Lokalität nichts.
 
 ## Eine praktische Konsequenz
 
-Wer Quellenverweise als reines UX-Feature bewertet, verpasst eine Bewertungsdimension. Bei der Auswahl eines KI-Werkzeugs für vertrauliche Inhalte ist die Frage _"liefert das System pro Aussage eine prüfbare Stelle?"_ nicht nur eine UX-Frage. Sie ist auch:
+Wer Quellenverweise nur als UX-Detail einordnet, lässt eine ganze Bewertungsdimension liegen. Bei der Auswahl eines KI-Werkzeugs für vertrauliche Inhalte ist _"liefert das System zu jeder Aussage eine nachschlagbare Stelle?"_ eben nicht nur eine Frage der Bedienbarkeit, sondern zugleich:
 
-- eine Privacy-Frage (Wie eng ist die Aussage an die Eingabe gebunden?)
-- eine Haftungs-Frage (Wer ist verantwortlich für eine Aussage, die in keiner zitierten Quelle steht?)
-- eine Audit-Frage (Lässt sich nach drei Monaten nachvollziehen, woher eine Antwort kam?)
+- eine Privacy-Frage (Wie fest ist die Aussage an die eigene Eingabe gekoppelt?)
+- eine Haftungs-Frage (Wer steht für eine Aussage ein, die sich in keiner zitierten Quelle findet?)
+- eine Audit-Frage (Kann man nach drei Monaten noch rekonstruieren, woher eine Antwort stammt?)
 
-Drei Fragen, eine technische Eigenschaft.
+Drei Fragen — beantwortet durch ein einziges technisches Merkmal.
 
 ## Weiter im Cluster
 
-Dieser Artikel verbindet die [Privacy-Säule](/lokale-ki) mit der [Architektur-Säule](/architektur). Die ersten drei Artikel der Reihe — [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport) — sind rechtlich-konzeptionell. Dieser hier ist technisch-konzeptionell.
+Dieser Beitrag schlägt die Brücke zwischen der [Privacy-Säule](/lokale-ki) und der [Architektur-Säule](/architektur). Die ersten drei Artikel der Reihe — [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport) — argumentieren rechtlich-konzeptionell; dieser hier technisch-konzeptionell.
 
-Das nächste Stück der Reihe wird eine [Taxonomie lokaler KI](/blog/taxonomie-lokaler-ki) skizzieren — Inferenz, Retrieval, Training, und wofür welche Eigenschaft greift.
+Als Nächstes folgt eine [Taxonomie lokaler KI](/blog/taxonomie-lokaler-ki): Inferenz, Retrieval, Training — und welche Eigenschaft an welcher Stelle zählt.
 
 LokLM zum Testen: [Download](/#download), ohne Konto.
 
 ---
 
-[^1]: Übersichtsarbeit zur Halluzination in Sprachmodellen: Huang et al., "A Survey on Hallucination in Large Language Models". https://arxiv.org/abs/2311.05232
+[^1]: Übersichtsarbeit zur Halluzination in Sprachmodellen: "A Survey on Hallucination in Large Language Models". https://arxiv.org/abs/2311.05232
 
-[^2]: Carlini et al., "Extracting Training Data from Large Language Models". USENIX Security 2021. https://arxiv.org/abs/2012.07805
+[^2]: "Extracting Training Data from Large Language Models". USENIX Security 2021. https://arxiv.org/abs/2012.07805
 
-[^3]: Liu et al., "Evaluating Verifiability in Generative Search Engines". EMNLP 2023. https://arxiv.org/abs/2304.09848
+[^3]: "Evaluating Verifiability in Generative Search Engines". EMNLP 2023. https://arxiv.org/abs/2304.09848

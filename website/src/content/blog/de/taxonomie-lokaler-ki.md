@@ -7,33 +7,33 @@ pubDate: 2026-05-28
 tags: ['lokale-ki', 'architektur', 'datenschutz']
 ---
 
-In der Diskussion über KI-Werkzeuge wird das Wort _"lokal"_ oft so verwendet, als bedeute es eine einzige Sache. Tatsächlich beschreibt eine moderne KI-Anwendung drei verschiedene Etappen, die jede für sich lokal oder entfernt laufen kann. Wer die drei nicht auseinanderhält, vergleicht Produkte, die in unterschiedlichen Achsen unterschiedlich sind, mit einem einzigen Begriff.
+Wer über KI-Werkzeuge spricht, benutzt _"lokal"_ meist so, als gäbe es dafür genau eine Bedeutung. In Wirklichkeit besteht eine moderne KI-Anwendung aus drei getrennten Etappen — und jede davon kann für sich genommen auf dem eigenen Gerät oder auf fremden Servern stattfinden. Wer diese Trennung ignoriert, legt ein einziges Wort über Produkte, die sich auf ganz verschiedenen Achsen unterscheiden — und vergleicht damit Unvergleichbares.
 
-Dieser Artikel ist die Referenz, auf die andere Artikel der Reihe verweisen. Er definiert die drei Etappen knapp und zeigt, welche Konstellationen in der Praxis existieren.
+Dieser Text ist als Nachschlagepunkt gedacht: die Referenz, auf die die übrigen Artikel der Reihe zeigen. Er umreißt die drei Etappen so knapp wie möglich und ordnet die Konstellationen ein, die in der Praxis tatsächlich vorkommen.
 
 ## Die drei Etappen
 
-Eine KI-Anwendung, die auf eigene Dokumente angewandt wird (Retrieval Augmented Generation, RAG[^1]), durchläuft drei trennbare Schritte:
+Wird KI auf eigene Dokumente angesetzt (Retrieval Augmented Generation, RAG[^1]), zerfällt der Gesamtprozess in drei sauber trennbare Schritte:
 
 ### 1. Training
 
-Hier wird das Sprachmodell auf großen Textcorpora trainiert. Das ist die rechen- und datenintensivste Etappe. Sie passiert einmal pro Modellversion, bei den Modell-Anbietern (Meta, Mistral, Microsoft, Alibaba, etc.), in deren Rechenzentren. Für den Endanwender ist Training in nahezu allen Fällen **nicht-lokal** — selbst Open-Weight-Modelle werden zentral trainiert und dann als Datei freigegeben.
+In dieser Etappe entsteht das Sprachmodell selbst — durch Training auf gewaltigen Textcorpora. Nichts in der Pipeline verschlingt mehr Rechenleistung und Daten. Training geschieht einmal je Modellversion, in den Rechenzentren der Modell-Anbieter (Meta, Mistral, Microsoft, Alibaba und andere). Aus Sicht des Endanwenders ist Training damit praktisch immer **nicht-lokal**: Auch Open-Weight-Modelle werden zentral trainiert und anschließend als Datei zum Download bereitgestellt.
 
-Ausnahmen: Fine-Tuning kann lokal stattfinden (LoRA, QLoRA[^2]), wenn ein Anwender ein bestehendes Modell auf eigene Texte spezialisiert. Volltrainings von Grund auf sind für Endanwender wirtschaftlich nicht realistisch.
+Eine Ausnahme gibt es: Fine-Tuning lässt sich lokal durchführen (LoRA, QLoRA[^2]), etwa um ein vorhandenes Modell auf eigene Texte zuzuschneiden. Ein komplettes Training von Null ist für Endanwender dagegen ökonomisch außer Reichweite.
 
 ### 2. Retrieval und Indexierung
 
-Wenn KI auf eigene Dokumente angewandt werden soll, müssen diese Dokumente in einem durchsuchbaren Index liegen. Texte werden in Chunks zerlegt, jeder Chunk wird durch ein Embedding-Modell zu einem numerischen Vektor; diese Vektoren landen in einer Datenbank. Bei der Anfrage wird die Frage selbst zu einem Vektor; das System sucht im Index die ähnlichsten Chunks.
+Sollen eigene Dokumente durchsuchbar werden, braucht es einen Index. Dafür werden die Texte in Chunks zerteilt; ein Embedding-Modell übersetzt jeden Chunk in einen numerischen Vektor, und diese Vektoren wandern in eine Datenbank. Kommt später eine Frage, wird auch sie zu einem Vektor — und der Index liefert die ähnlichsten Chunks zurück.
 
-Diese Etappe **kann** lokal sein. Sie kann auch in der Cloud sein. Die Wahl ist eine Architektur-Entscheidung des Werkzeug-Anbieters und betrifft direkt, wo die Embeddings der Anwender-Dokumente liegen.
+Diese Etappe **kann** auf dem Gerät laufen — oder in der Cloud. Das ist eine Architektur-Entscheidung des jeweiligen Herstellers, und sie bestimmt unmittelbar, wo die Embeddings der Anwender-Dokumente liegen.
 
 ### 3. Inferenz
 
-Der Schritt, der den meisten als "die KI" gilt: das Modell erzeugt aus Frage + Kontext eine Antwort. Auch diese Etappe **kann** lokal oder entfernt laufen. Lokale Inferenz wird typischerweise mit Werkzeugen wie `llama.cpp`, `ollama` oder `vLLM` umgesetzt; entfernte Inferenz über eine API zu OpenAI, Anthropic, Google, oder Self-Hosted-Endpoints.
+Was die meisten für "die KI" halten, ist genau dieser Schritt: Aus Frage plus Kontext erzeugt das Modell eine Antwort. Auch hier gilt: lokal **oder** entfernt, beides ist möglich. Lokal geschieht Inferenz typischerweise mit Werkzeugen wie `llama.cpp`, `ollama` oder `vLLM`; entfernt läuft sie über eine API — zu OpenAI, Anthropic, Google oder einem selbst gehosteten Endpoint.
 
 ## Die Konstellationen in der Praxis
 
-Drei Etappen, zwei mögliche Orte (lokal/entfernt) je Etappe. Theoretisch ergäben sich acht Kombinationen; praktisch sieht man fünf Konstellationen — wobei A und B dasselbe Lokalitäts-Profil teilen und sich nur in der Architektur unterscheiden:
+Drei Etappen mal zwei mögliche Orte (lokal/entfernt) ergäben rechnerisch acht Kombinationen. In der Praxis begegnet man fünf Konstellationen — wobei A und B im Lokalitäts-Profil identisch sind und sich nur architektonisch unterscheiden:
 
 | #   | Training              | Retrieval/Index | Inferenz  | Beispiel-Typ                                                                                             |
 | --- | --------------------- | --------------- | --------- | -------------------------------------------------------------------------------------------------------- |
@@ -43,40 +43,40 @@ Drei Etappen, zwei mögliche Orte (lokal/entfernt) je Etappe. Theoretisch ergäb
 | D   | entfernt              | **lokal**       | **lokal** | On-Device RAG mit Open-Weight-Modell — z. B. LokLM                                                       |
 | E   | **lokal** (Fine-Tune) | **lokal**       | **lokal** | Spezialisiertes lokales System — eher Forschung/Enterprise                                               |
 
-Konstellation C ist instruktiv: ein lokaler Index erzeugt keinen Privacy-Vorteil, wenn die Anfrage samt gefundener Chunks für die Inferenz an eine Cloud-API geht. Die Daten verlassen das Gerät trotzdem. _"Lokal"_ in einem Teil der Pipeline ist nicht _"lokal"_ als Ganzes.
+Besonders lehrreich ist Konstellation C: Der lokale Index bringt keinerlei Privacy-Gewinn, wenn Anfrage und gefundene Chunks für die Inferenz doch an eine Cloud-API geschickt werden — die Daten verlassen das Gerät ja trotzdem. _"Lokal"_ an einer Stelle der Pipeline macht die Pipeline nicht als Ganzes lokal.
 
 ## Warum die Unterscheidung Privacy-Folgen hat
 
-Pro Etappe entscheidet sich, **wo die Daten dieses Nutzers anfallen**.
+Jede Etappe beantwortet ihre eigene Version der Frage: **Wo fallen die Daten dieses Nutzers an?**
 
-- **Training**: hier sind nicht die Daten des Endanwenders gemeint, sondern die Trainings-Daten. Solange der Anwender keine Daten zum Training freigibt, ist Training-Lokalität für seine Privacy zweitrangig. Relevant wird sie, wenn ein Anbieter Nutzer-Eingaben in zukünftige Trainingsläufe aufnimmt — eine Konstellation, die in den AGB vieler Cloud-Anbieter geregelt ist (oft per opt-out).
-- **Retrieval/Index**: hier liegen die Daten des Anwenders selbst, in Form von Embeddings und Original-Chunks. Wenn der Index in der Cloud ist, sind die Anwender-Dokumente in der Cloud — auch wenn keine "echte" Inferenz dort stattfindet.
-- **Inferenz**: hier wird die einzelne Anfrage verarbeitet. Wenn die Inferenz remote läuft, geht **jede Anfrage** an einen externen Server — inklusive der Chunks, die das lokale Retrieval ggf. ausgewählt hat.
+- **Training**: Hier geht es nicht um die Daten des Endanwenders, sondern um das Trainingsmaterial. Solange der Anwender nichts zum Training beisteuert, spielt die Trainings-Lokalität für seine Privacy eine Nebenrolle. Kritisch wird es erst, wenn ein Anbieter Nutzer-Eingaben in künftige Trainingsläufe einspeist — viele Cloud-AGB sehen genau das vor, häufig mit Opt-out-Regelung.
+- **Retrieval/Index**: Hier liegen die eigentlichen Anwender-Daten — als Embeddings plus Original-Chunks. Ein Cloud-Index bedeutet: Die Dokumente des Anwenders liegen in der Cloud, selbst wenn dort nie "echte" Inferenz stattfindet.
+- **Inferenz**: Hier wird jede einzelne Anfrage verarbeitet. Läuft die Inferenz remote, erreicht **jede Anfrage** einen fremden Server — mitsamt den Chunks, die ein etwaiges lokales Retrieval ausgewählt hat.
 
-Die [DSGVO-Pflichten](/blog/dsgvo-und-llm-datenexport), die in einem früheren Artikel der Reihe besprochen wurden, greifen an jeder dieser drei Stellen unterschiedlich. Drittlandtransfer entsteht in Etappe 2 oder 3, sobald Daten ein Drittland erreichen. Auftragsverarbeitung entsteht ebenfalls je Etappe.
+Die [DSGVO-Pflichten](/blog/dsgvo-und-llm-datenexport), die ein früherer Artikel der Reihe behandelt hat, setzen an allen drei Stellen verschieden an: Ein Drittlandtransfer entsteht in Etappe 2 oder 3, sobald Daten die EU-Grenze in Richtung Drittland überschreiten; auch Auftragsverarbeitung ist je Etappe getrennt zu beurteilen.
 
 ## Wo LokLM sich auf den Achsen positioniert
 
-LokLM gehört zu Konstellation D: Training extern (Modell wird heruntergeladen), Retrieval und Inferenz lokal. Der Index liegt als SQLite-Datei im Anwendungs-Datenverzeichnis; die Inferenz läuft über `llama.cpp`. Es existiert kein Server, der Anwender-Anfragen empfängt.
+LokLM fällt in Konstellation D: Das Training geschieht extern — das fertige Modell wird heruntergeladen —, Retrieval und Inferenz laufen lokal. Der Index ist eine SQLite-Datei im Anwendungs-Datenverzeichnis, die Inferenz übernimmt `llama.cpp`. Einen Server, der Anfragen von Anwendern entgegennimmt, gibt es schlicht nicht.
 
-LokLM bietet keine lokale Fine-Tuning-Option. Wer ein Modell auf eigene Texte spezialisieren möchte, verwendet dafür getrennte Werkzeuge (Unsloth, axolotl, transformers-trainer) — das ist Konstellation E und liegt außerhalb des LokLM-Funktionsumfangs.
+Lokales Fine-Tuning gehört nicht zum Funktionsumfang von LokLM. Wer ein Modell auf eigene Texte spezialisieren will, greift zu eigenständigen Werkzeugen (Unsloth, axolotl, transformers-trainer) — das entspricht Konstellation E und liegt außerhalb dessen, was LokLM abdeckt.
 
 ## Was diese Taxonomie nicht klärt
 
-Eine Taxonomie ist eine Sortierung, kein Urteil. Sie sagt nichts darüber, **welche Konstellation für welchen Zweck die richtige ist**. Konstellation A (alles Cloud) hat ihre eigenen Vorteile: stärkere Modelle, kein Setup-Aufwand, immer aktuell. Wer mit nicht-sensitiven Inhalten arbeitet — Blog-Texte, Coding-Hilfe, allgemeine Fragen — hat in A wenig zu verlieren.
+Eine Taxonomie sortiert — sie urteilt nicht. Sie beantwortet nicht, **welche Konstellation zu welchem Zweck passt**. Konstellation A (alles in der Cloud) hat handfeste Vorteile: leistungsfähigere Modelle, null Einrichtungsaufwand, stets aktuell. Wer ausschließlich mit unkritischen Inhalten arbeitet — Blog-Texte, Coding-Hilfe, Alltagsfragen —, riskiert in A wenig.
 
-Konstellation D wird interessant, sobald die Inhalte sensibel sind: Mandantenakten, Forschungsdrafts, Geschäftsunterlagen, medizinische Notizen. Dort verschiebt die Lokalität von Retrieval und Inferenz die rechtlichen Pflichten messbar — siehe die früheren Artikel der Reihe.
+Interessant wird Konstellation D, sobald sensible Inhalte im Spiel sind: Mandantenakten, Forschungsdrafts, Geschäftsunterlagen, medizinische Notizen. Dann verschiebt die Lokalität von Retrieval und Inferenz die rechtliche Pflichtenlage spürbar — die früheren Artikel der Reihe zeigen, wie.
 
 ## Weiter im Cluster
 
-Diese Taxonomie schließt die konzeptionelle Vorrunde der Privacy-Säule ab. Vorangegangen sind: [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport), [Quellenverweise als Datenschutz-Merkmal](/blog/quellenverweise-als-datenschutz).
+Mit dieser Taxonomie endet die konzeptionelle Vorrunde der Privacy-Säule. Vorausgegangen sind: [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport), [Quellenverweise als Datenschutz-Merkmal](/blog/quellenverweise-als-datenschutz).
 
-Die folgenden Artikel der Reihe werden konkrete Workflows zeigen — wie eine [Anwaltskanzlei](/einsatz/anwalt) oder eine [Forschungsgruppe](/einsatz/forschung) lokale KI in der Praxis einsetzt.
+Die kommenden Beiträge werden konkret: Sie zeigen Workflows, mit denen eine [Anwaltskanzlei](/einsatz/anwalt) oder eine [Forschungsgruppe](/einsatz/forschung) lokale KI im Alltag einsetzt.
 
 Die Pillar-Seiten: [Lokale KI](/lokale-ki) und [Architektur](/architektur). LokLM zum Testen: [Download](/#download).
 
 ---
 
-[^1]: Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks". NeurIPS 2020. Der RAG-Ursprungs-Beitrag, der die hier vorgestellte Pipeline-Trennung erstmals systematisch beschreibt. https://arxiv.org/abs/2005.11401
+[^1]: "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks". NeurIPS 2020. Der RAG-Ursprungs-Beitrag, der die hier vorgestellte Pipeline-Trennung erstmals systematisch beschreibt. https://arxiv.org/abs/2005.11401
 
-[^2]: Hu et al., "LoRA: Low-Rank Adaptation of Large Language Models". ICLR 2022. Standard-Verfahren für ressourcenschonendes Fine-Tuning, auch lokal möglich. https://arxiv.org/abs/2106.09685
+[^2]: "LoRA: Low-Rank Adaptation of Large Language Models". ICLR 2022. Standard-Verfahren für ressourcenschonendes Fine-Tuning, auch lokal möglich. https://arxiv.org/abs/2106.09685
