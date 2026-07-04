@@ -7,106 +7,104 @@ pubDate: 2026-05-28
 tags: ['local-ai', 'gdpr', 'privacy']
 ---
 
-> **Note:** First draft — will be edited before publication.
+Hardly a product page in the AI market goes without the word "private" anymore — and hardly any two of them use it to mean the same thing. A cloud provider saying "private" usually means "your inputs won't be used for training, promise." A browser plug-in means "we encrypt the connection." An on-device system means "the text never leaves your machine."
 
-The word "private" now appears on almost every product page that markets artificial intelligence. It means something different every time. From a cloud provider, "private" often means "we promise not to use your input for training." From a browser plug-in, it means "encrypted in transit." From an on-device system, it means "the text never leaves the device."
+Three claims, superficially interchangeable. Underneath, three entirely different facts.
 
-These three statements look similar. They describe fundamentally different things.
+For anyone bringing AI tools into a law firm, a research group, or a consultancy, this vagueness is a real hazard. The failure mode is not vendor malice — it is a purchase in which "private" quietly meant one thing to the buyer and another to the seller, and the resulting system falls short of the buyer's confidentiality obligations.
 
-Anyone introducing AI tools into a law firm, a research group, or a consultancy needs more precise language. Otherwise you risk adopting a system that does not meet your confidentiality obligations — not from any bad intent on the vendor's side, but because "private" meant two different things on either side of the conversation.
-
-This article proposes a definition. Five properties, each testable on its own. After running a piece of software through this list, you know what you have.
+What follows is an attempt at precision: a definition built from five properties, each of which can be tested independently. Put any piece of software through the list, and you know exactly what you are holding.
 
 ## Why the question is not legally trivial
 
-The General Data Protection Regulation contains no word "private." It contains **personal data** (Art. 4(1) GDPR[^1]) and **processing** (Art. 4(2) GDPR). The moment an AI system processes personal content — a client letter, an email thread, a draft contract — the obligations from Arts. 5, 24, and 32 GDPR apply: legal basis, technical and organizational measures, records of processing.
+Search the General Data Protection Regulation for the word "private" and you find nothing. What the regulation knows is **personal data** (Art. 4(1) GDPR[^1]) and **processing** (Art. 4(2) GDPR). As soon as an AI system processes personal content — a client letter, an email thread, a contract draft — Arts. 5, 24, and 32 GDPR engage: a legal basis is required, technical and organizational measures are required, records of processing are required.
 
-A second layer comes from the EU AI Act, in force since August 2024, with its obligations applying on a staggered schedule[^2]. For most end-user tools, the transparency obligations from Art. 50 matter: users must be able to recognize that they are interacting with an AI system and which content was AI-generated.
+The EU AI Act adds a second layer; it has been in force since August 2024, with obligations arriving on a staggered timetable[^2]. For the typical end-user tool, the relevant piece is Art. 50 on transparency: people must be able to tell that they are dealing with an AI system, and which outputs it generated.
 
-What follows from both texts: using "private" as a marketing claim says nothing about whether the processing is **lawful**. "Private" is not a legal category. It is a marketing word that can describe a technical situation accurately — or obscure one.
+Together, the two texts yield a sobering conclusion: printing "private" on a landing page establishes nothing about whether the underlying processing is **lawful**. "Private" carries no legal weight at all. It is marketing vocabulary — sometimes an accurate summary of a technical reality, sometimes a fog around one.
 
 ## The five properties
 
-The five points below describe what must combine in an AI assistant for "private" to become a testable claim rather than an atmosphere.
+Here are the five properties that have to hold together before "private" stops being an atmosphere and becomes a claim you can test.
 
 ### 1. On-device inference
 
-**The model that generates the answer runs on the end device.** No request travels to an external server, no API call, no reverse tunnel.
+**Answer generation happens on the end device itself.** Nothing goes out to a server, no API is called, no reverse tunnel is opened.
 
-How to test: open a network monitor, ask a question, watch outbound traffic. A genuinely local system produces no outbound traffic during inference, save for a possible one-shot update check on startup.
+Testing it: run a network monitor, submit a question, and watch what leaves the machine. If the system is genuinely local, inference generates zero outbound traffic — a single update check at launch being the acceptable exception.
 
-This is not a subtlety. "Encrypted transmission to the vendor" and "no transmission to the vendor" describe different legal situations. The first is processing by a processor in the sense of Art. 28 GDPR — requiring a data processing agreement, a record entry, and possibly a third-country transfer mechanism[^3]. The second is no transmission to a third party at all.
+The distinction is anything but pedantic. "We encrypt what we send to our servers" and "we send nothing to our servers" sit in different legal worlds. The former is processing through a processor under Art. 28 GDPR — which drags in a data processing agreement, an entry in the records, and potentially a third-country transfer mechanism[^3]. The latter involves no third party at all.
 
 ### 2. Local index, local storage
 
-Anyone applying AI to their own documents — retrieval-augmented generation, RAG for short — generates **vector embeddings**: numerical representations of the texts that the system uses to find similar passages. These embeddings are derivatives of the content. They are not harmless.
+Running AI over one's own documents — retrieval-augmented generation, RAG — produces **vector embeddings**: numerical encodings of the texts, used to locate similar passages. An embedding is a derivative of the document. It is anything but innocuous.
 
-**Where do the embeddings live?** Software that promises "local AI" but uploads embeddings to a cloud server has moved the confidentiality problem, not solved it. Anyone holding embeddings can reconstruct many properties of the source text — research on embedding inversion shows this clearly[^4].
+So: **where do the embeddings end up?** A tool that advertises "local AI" while pushing embeddings to a cloud server has not eliminated the confidentiality problem — it has relocated it. Whoever possesses the embeddings can recover a great deal about the underlying text; the embedding-inversion literature leaves little doubt[^4].
 
-How to test: after indexing a document, check the application's data directory for a file-backed database (a SQLite file, a vector store). If one appears: is it local? The second question matters as much as the first.
+Testing it: index a document, then look inside the application's data directory for a file-backed database (a SQLite file, a vector store). Finding one raises the follow-up: is it actually local? Both questions carry equal weight.
 
 ### 3. No telemetry
 
-Telemetry is the default assumption of modern software: small data packets about usage, errors, and device properties going automatically to the vendor. Common, often anonymized, technically useful for bug fixes.
+Modern software phones home by default: small packets describing usage, crashes, and device characteristics flow automatically back to the vendor. It is widespread, frequently anonymized, and genuinely handy for debugging.
 
-For a confidential system, that is a problem. Anonymization in telemetry data is weaker than commonly assumed — device fingerprints and usage patterns alone are often enough for re-identification. Furthermore, the GDPR does not distinguish "content data" from "metadata": both can be personal data.
+In a confidential setting, it is a liability. Telemetry anonymization is flimsier than its reputation — device fingerprints combined with usage patterns often suffice to re-identify someone. And the GDPR draws no line between "content" and "metadata": either can be personal data.
 
-How to test: network monitor again. Software claiming to be fully local should produce no outbound traffic across long sessions. Optionally: check the settings for whether telemetry is toggleable, and what its default state is.
+Testing it: the network monitor again. A tool that claims full locality should stay silent on the wire over long working sessions. As a bonus check: do the settings expose a telemetry switch, and which way does it point out of the box?
 
 ### 4. Auditable code
 
-This is the structural property. The first three points are behavioural observations. They can change with the next update.
+This property differs in kind from the previous three. Points 1 through 3 are observations of behaviour — and behaviour can flip with any update.
 
-When source code is publicly available — open source — an interested third party (or a contracted security firm) can verify the behavioural claims against the code. With proprietary software, the marketing material is all that remains.
+Publicly available source code — open source — lets a motivated third party (or a hired security firm) check the behavioural claims against what the code actually does. Closed software leaves you with nothing but the brochure.
 
-Auditability is not the same as "audited." Open source code does not guarantee security; it makes verification possible. That is the only form in which a confidentiality claim stays stable over time: by being checkable, not by being promised.
+Auditable does not mean audited. Open code is no security guarantee; what it provides is the possibility of verification. And that possibility is the only mechanism by which a confidentiality claim survives over time: not because someone promised, but because anyone can check.
 
-How to test: look for a repository link on the vendor's website. With open-source projects, usually GitHub or GitLab. No link findable means probably no open code.
+Testing it: hunt for a repository link on the vendor's site — for open-source projects, usually GitHub or GitLab. If no link turns up, open code probably does not exist.
 
 ### 5. No background synchronisation
 
-A final point that is often overlooked. Some "local" software synchronises settings, conversation histories, or templates with a cloud account belonging to the same vendor — a convenience feature. The moment that happens, the system is no longer local in the sense the first point describes.
+The last property is the easiest to miss. Plenty of nominally "local" software quietly syncs settings, chat histories, or templates against a cloud account run by the same vendor — sold as convenience. From the first sync onward, the system no longer satisfies property 1's sense of "local."
 
-How to test: scan the settings for account, sync, or cloud options. If present: enabled by default, or disabled by default? Software that ships with nothing syncing and offers synchronisation as opt-in behaves differently from software that ships with sync opt-out.
+Testing it: comb the settings for anything labelled account, sync, or cloud. Where such options exist, the default matters: a tool that syncs nothing until asked (opt-in) behaves fundamentally differently from one that syncs until stopped (opt-out).
 
 ## Why the list is neither longer nor shorter
 
-These five points cover the paths by which data leaves an end device or becomes reconstructable. Inference (1), index persistence (2), telemetry (3), and sync (5) are the four possible egress paths. Auditability (4) is the structural condition that lets the other four claims remain checkable over time.
+The five properties are not arbitrary: they enumerate the routes by which data can escape a device or be reconstructed afterwards. Four egress routes exist — inference (1), persisted index data (2), telemetry (3), and sync (5). Property 4, auditability, is the structural backstop that keeps the other four verifiable as the software evolves.
 
-Items that appear in other definitions and are deliberately absent here:
+Some criteria that other definitions include are left out here on purpose:
 
-- **"Encrypted"**: encryption says nothing about who holds the key. It is a necessary but not sufficient criterion.
-- **"GDPR-compliant"**: software can satisfy five of the five points and still be operated in a non-compliant way (e.g., without a record of processing, without a legal basis). Compliance is a property of the deployment, not of the tool alone.
-- **"Privacy-first"**: a self-description, not a test.
+- **"Encrypted"**: encryption is silent on the decisive question — who holds the key. Necessary, never sufficient.
+- **"GDPR-compliant"**: a tool can pass all five tests and still be run unlawfully (no record of processing, no legal basis). Compliance describes a deployment, never the software in isolation.
+- **"Privacy-first"**: a slogan, not something you can test.
 
 ## How to apply the list
 
-Six steps to evaluate a specific AI tool:
+Evaluating a concrete AI tool takes six steps:
 
-1. Open the vendor's site. Does "local" or "on-device" appear on the landing page? If so, is it specified concretely (which model runs where)?
-2. Network monitor during a sample query: does traffic leave the LAN? (Update checks excepted.)
-3. Inspect the application data directory after indexing: does a local file database appear?
-4. Review settings: is there toggleable telemetry? What is its default?
-5. Repository link on the website — and how recent is the latest release?
-6. Cloud sync options: opt-in, or opt-out?
+1. Visit the vendor's site. Do "local" or "on-device" appear on the landing page — and if so, with specifics (which model, running where)?
+2. Watch the network monitor during a test query: does anything leave the LAN? (Update checks aside.)
+3. After indexing, open the application data directory: has a local file database appeared?
+4. Go through the settings: is telemetry present, switchable, and what is the default?
+5. Find the repository link on the website — and check the date of the latest release.
+6. Look at cloud sync options: opt-in or opt-out?
 
-Three of the six (1, 2, 6) take ten minutes. The other three (3, 4, 5) take a bit of patience but yield the full picture.
+Steps 1, 2, and 6 fit into ten minutes. Steps 3, 4, and 5 demand a little more patience — and complete the picture.
 
 ## How LokLM relates to the list
 
-LokLM is an [on-device application](/en/local-ai) for Windows and macOS. Inference runs through `llama.cpp` locally, the vector index is a SQLite file in the application data directory, there is no telemetry and no account. The source code is on GitHub[^5].
+LokLM is an [on-device application](/en/local-ai) for Windows and macOS. Inference runs locally via `llama.cpp`, the vector index is a SQLite file in the application data directory, and there is neither telemetry nor an account. The source code is public on GitHub[^5].
 
-Point 5 — background sync — does not exist in LokLM: there is no cloud component to sync with.
+As for point 5 — background sync — LokLM has nothing to test: no cloud component exists that anything could sync with.
 
-That is the honest position. Other tools satisfy subsets of this list — that is not a judgement, only an observation. The checklist's purpose is that anyone can decide for themselves which subset is sufficient for their use case.
+That is the honest self-assessment. Other tools meet other subsets of the list, which is stated here as observation, not verdict. The point of the checklist is precisely that every reader can determine which subset their own use case demands.
 
 ## Further in the cluster
 
-For readers who want to follow the legal thread: the next article in the series covers [GDPR obligations when feeding documents into cloud LLMs](/en/blog/gdpr-and-llm-data-export) (Arts. 44 ff. — third-country transfer).
+For the legal thread: the next article in the series treats [GDPR obligations when feeding documents into cloud LLMs](/en/blog/gdpr-and-llm-data-export) (Arts. 44 ff. — third-country transfer).
 
-For readers who want the technical architecture these properties rest on: the [full architecture](/en/architecture) describes the hybrid retrieval, the embedding model for German text, and the storage strategy.
+For the technical foundations beneath these properties: the [full architecture](/en/architecture) covers hybrid retrieval, the embedding model for German text, and the storage strategy.
 
-For readers who want to try LokLM: the [download](/en/#download) is available without an account or an email address.
+To try LokLM yourself: the [download](/en/#download) requires neither an account nor an email address.
 
 ---
 
