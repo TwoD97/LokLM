@@ -1,9 +1,0 @@
-flowchart TD
-    U["Unit (Vitest)<br/>src/**/*.test.ts + tests/unit/<br/>schnell, isoliert, keine externen Services"]
-    I["Integration (Vitest)<br/>tests/integration/<br/>mehrere Module, echte PGlite, in-process"]
-    TX["Transaktional (Vitest)<br/>tests/tx/db (BEGIN/ROLLBACK) + tests/tx/vault (Round-Trip)"]
-    E["End-to-End (Playwright)<br/>tests/e2e/ — gebaute Electron-App"]
-    M["Manuell (Mensch)<br/>tests/manual/ — Markdown-Skripte an der lauffähigen App"]
-    EV["Quality-Evals (tsx + Ollama/Anthropic)<br/>tests/evals/ — recall@k, MRR, nDCG, Span-Recall, Judge"]
-    U --> I --> TX --> E --> M
-    EV -. eigene Säule, kein Pass/Fail .-> M
