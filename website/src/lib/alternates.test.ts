@@ -1,26 +1,26 @@
 import { describe, it, expect } from 'vitest'
 import { resolveAlternates } from './alternates'
 
-const SITE = 'https://loklm.com'
+const ORIGIN = 'https://loklm.com'
 
 describe('resolveAlternates', () => {
-  it('defaults to homepage pair when no paths given', () => {
-    expect(resolveAlternates(SITE)).toEqual({
+  it('without paths, falls back to the homepage in both locales (DE as x-default)', () => {
+    expect(resolveAlternates(ORIGIN)).toEqual({
       de: 'https://loklm.com',
       en: 'https://loklm.com/en',
       xDefault: 'https://loklm.com',
     })
   })
 
-  it('builds a translation pair from explicit paths', () => {
-    expect(resolveAlternates(SITE, { de: '/lokale-ki', en: '/en/local-ai' })).toEqual({
+  it('expands explicit DE/EN paths into absolute alternates', () => {
+    expect(resolveAlternates(ORIGIN, { de: '/lokale-ki', en: '/en/local-ai' })).toEqual({
       de: 'https://loklm.com/lokale-ki',
       en: 'https://loklm.com/en/local-ai',
       xDefault: 'https://loklm.com/lokale-ki',
     })
   })
 
-  it('strips a trailing slash from the site url', () => {
+  it('normalises a trailing slash on the site url before joining', () => {
     expect(resolveAlternates('https://loklm.com/', { de: '/x', en: '/en/x' }).de).toBe(
       'https://loklm.com/x',
     )
