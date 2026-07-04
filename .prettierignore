@@ -10,7 +10,6 @@ drizzle/
 pnpm-lock.yaml
 
 # Project source documents are kept verbatim
-Pflichtenheft_LokLM.md
 docs/work/
 docs/specs/database-drizzle.md
 docs/specs/2026-05-13-drizzle-switch-design.md

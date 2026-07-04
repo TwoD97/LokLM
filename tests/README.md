@@ -90,11 +90,9 @@ Konkret:
   protokollieren. Mindestens vor jedem Release.
 - **Quality-Evals**: Datasets bauen, Configs pflegen, Vergleiche fahren.
 
-## Pflichtenheft-Bezug
+## Test-Ebenen im Überblick
 
-Die Test-Ebenen decken §8 (Testkonzept) des Pflichtenhefts ab:
-
-- §8.1 Unit-Tests → `src/**/*.test.ts`
-- §8.2 Integrationstests → `tests/integration/`, `tests/tx/`
-- §8.3 Manuelle Testszenarien → `tests/manual/`
-- §8.4 Abnahme-/Systemtests → `tests/e2e/`
+- Unit-Tests → `src/**/*.test.ts`
+- Integrationstests → `tests/integration/`, `tests/tx/`
+- Manuelle Testszenarien → `tests/manual/`
+- Abnahme-/Systemtests → `tests/e2e/`

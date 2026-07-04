@@ -8,8 +8,8 @@ klickbare Quellenverweise auf die Originalstelle (PDF-Seite bzw. Code-Zeile).
 Die Anwendung läuft vollständig offline; keine externen KI-APIs, keine
 Telemetrie.
 
-Siehe [Lastenheft](docs/Lastenheft.md) und [Pflichtenheft](docs/Pflichtenheft.md)
-für Kontext und Anforderungen; Architektur-Entscheidungen in [docs/adr/](docs/adr/).
+Architektur-Entscheidungen sind in [docs/adr/](docs/adr/) dokumentiert;
+Feature-Specs in [docs/specs/](docs/specs/).
 
 ## Editionen
 

@@ -23,11 +23,6 @@
 // gemischt, damit keine Frage versehentlich in zwei Dokumenten beantwortbar
 // ist. Jede Frage trägt einen Vokabel-Anker, der nur in ihrer Zielsektion
 // vorkommt (z.B. "Calvin-Zyklus", "Ohm's Law", "Gezeiten").
-//
-// TODO — fachliche Gegenprobe: Bitte für jede Frage prüfen, ob ein
-// Mitschüler die Antwort tatsächlich NUR in der angegebenen Sektion suchen
-// würde. Inhalte/Fragen frei anpassen — Mechanik (Auflösung Sektion→Chunk-ID)
-// bleibt davon unberührt.
 
 export interface KorpusDokument {
   /** Dateiname im Test-Workspace — stabiler Schlüssel für erwartete Treffer. */
