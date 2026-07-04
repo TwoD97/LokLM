@@ -16,7 +16,6 @@ Each ADR should include the following sections:
 
 Decisions should reference, where useful, **production deployments** that have made the same call (Bitwarden/Vaultwarden, 1Password, age, Signal, AWS KMS, …) — concrete prior art is worth more than abstract justification.
 
-Referenced from [Pflichtenheft](../../Pflichtenheft_LokLM.md) §1.5 as `[ADR-NNNN]`.
 
 ## Index
 

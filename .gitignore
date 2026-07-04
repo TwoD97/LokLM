@@ -144,8 +144,6 @@ vite.config.ts.timestamp-*
 electron.vite.config.*.mjs
 .vite/
 
-Pflichtenheft_LokLM.md
-
 # Comparison clones (not part of LokLM)
 _reference/
 

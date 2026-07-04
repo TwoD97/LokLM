@@ -5,7 +5,7 @@ befüllen → `lock()` schreibt die verschlüsselte Snapshot-Datei → neuer
 `AuthService` liest sie wieder ein → `login()` entschlüsselt den DEK → DB-Daten
 sind wieder da.
 
-Der Name "transaktional" kommt aus dem Pflichtenheft. Gemeint ist: jeder Test
+Der Name "transaktional" meint: jeder Test
 ist ein abgeschlossenes Round-Trip-Geschäft, das danach garantiert keinen Zustand
 auf dem Filesystem hinterlässt.
 
