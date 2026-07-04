@@ -7,7 +7,7 @@ import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { DocumentService } from '@main/services/documents/DocumentService'
 import type { IndexProgress } from '@main/services/documents/types'
 
-// AP-6 DoD (Pflichtenheft §3.5): "Mit Test-Korpus aus M2/M3 liefert die Suche
+// AP-6 DoD: "Mit Test-Korpus aus M2/M3 liefert die Suche
 // gefilterte, sortierte, gehighlightete Treffer." This drives a small corpus
 // (markdown + plain text + code — the M3 markdown scenario plus the PDF/MD/TXT/
 // Code/DOCX type spread) through the REAL import pipeline, then asserts

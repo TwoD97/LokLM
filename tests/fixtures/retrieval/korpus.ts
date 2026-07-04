@@ -1,4 +1,4 @@
-// AP-T.2 — Retrieval-Korpus für den RetrievalService-E2E-Test (Pflichtenheft §8.2).
+// AP-T.2 — Retrieval-Korpus für den RetrievalService-E2E-Test.
 //
 // Aufbau: ≥50 Chunks aus mehreren Dokumenten. Jede `##`-Sektion wird vom
 // markdown-aware Chunker zu (mindestens) einem Chunk mit heading_path, darüber

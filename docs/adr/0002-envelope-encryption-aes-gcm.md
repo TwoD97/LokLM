@@ -3,7 +3,7 @@
 **Status:** accepted
 **Datum:** 2026-05-14
 **Owner:** Denys
-**Bezug:** [PH] Pflichtenheft §3.1.1 (Verschlüsselung der lokalen DB), §3.1.3 (Recovery-Flow), [ADR-0001](0001-argon2id-password-kdf.md)
+**Bezug:** Verschlüsselung der lokalen DB, Recovery-Flow, [ADR-0001](0001-argon2id-password-kdf.md)
 **Implementierung:** [src/main/services/auth/AuthService.ts:17-96](../../src/main/services/auth/AuthService.ts#L17-L96), [src/main/services/auth/AuthService.ts:380-455](../../src/main/services/auth/AuthService.ts#L380-L455), [src/main/services/auth/AuthService.ts:528-573](../../src/main/services/auth/AuthService.ts#L528-L573)
 
 ## Libraries

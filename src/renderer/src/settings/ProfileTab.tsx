@@ -18,7 +18,7 @@ export function ProfileTab(): JSX.Element {
   const [activePresetHue, setActivePresetHue] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
-  // AP-9 Account §3.8 "Passwort ändern" — own form state, kept out of the
+  // AP-9 Account "Passwort ändern" — own form state, kept out of the
   // name/avatar `error`/`savedFlash` so the two sections don't cross-talk.
   const [pwCurrent, setPwCurrent] = useState('')
   const [pwNew, setPwNew] = useState('')

@@ -1,7 +1,7 @@
 /** Returns true when `baseUrl` resolves to a loopback host — `localhost`,
  *  `127.0.0.0/8`, or `::1`. Anything else (LAN IP, public hostname, https
  *  proxy) is non-loopback and triggers the PasswordRetypeGate before the
- *  Ollama connector will use it. Lastenheft grundsatz: "lokal , offline
+ *  Ollama connector will use it. Projekt-Grundsatz: "lokal , offline
  *  nutzbar , keine externen KI-APIs" — loopback is the only host that
  *  satisfies that by default.
  *

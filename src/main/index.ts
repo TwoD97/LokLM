@@ -87,7 +87,7 @@ let quitDraining = false
 // runs — but ONLY while it is actually advancing. If a worker wedges (a native
 // embed hang is documented as possible on the iGPU Vulkan backend), the progress
 // counter freezes; after this long with no progress the guard stops suppressing
-// so the vault still locks (Pflichtenheft 3.1.4) instead of staying open forever.
+// so the vault still locks instead of staying open forever.
 // Generous vs. a single slow batch (seconds), tight vs. the idle window.
 const INDEXING_GUARD_WATCHDOG_MS = 3 * 60_000
 

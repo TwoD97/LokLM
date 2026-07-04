@@ -3,7 +3,7 @@
 **Status:** accepted
 **Datum:** 2026-06-13
 **Owner:** Denys
-**Bezug:** [PH] Pflichtenheft §3.5 (Retrieval), §3.6 (Chat/QA) ; [ADR-0002](0002-envelope-encryption-aes-gcm.md) (Vault, in dem die Summaries+Embeddings liegen)
+**Bezug:** Retrieval + Chat/QA ; [ADR-0002](0002-envelope-encryption-aes-gcm.md) (Vault, in dem die Summaries+Embeddings liegen)
 **Implementierung:**
 [src/main/services/qa/router.ts](../../src/main/services/qa/router.ts),
 [src/main/services/qa/QAService.ts](../../src/main/services/qa/QAService.ts),

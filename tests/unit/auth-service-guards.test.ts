@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { AuthService } from '@main/services/auth/AuthService'
 
-// AP-T.1 (Pflichtenheft §8.1) — characterization unit tests for AuthService's
+// AP-T.1 — characterization unit tests for AuthService's
 // locked-state guards and register input validation. Every path here
 // short-circuits BEFORE any Argon2 KDF or pglite/vault I/O, so they unit-test
 // cheaply and cover the branch arms the (success-path) integration tests skip.

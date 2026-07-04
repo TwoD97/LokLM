@@ -59,7 +59,7 @@ export interface UserSettings {
       requestTimeoutMs: number
       /** Loopback gate. Default false , the connector refuses non-loopback
        *  hosts. Flipped to true once via the PasswordRetypeGate in
-       *  OllamaSection ; that confirmation acknowledges the Lastenheft
+       *  OllamaSection ; that confirmation acknowledges the
        *  offline-grundsatz being relaxed (data leaves this machine). */
       allowRemoteOllama: boolean
     }

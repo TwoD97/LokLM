@@ -39,7 +39,7 @@ erste Antwortzeit) wird dokumentiert.
 | Dateigröße          | (in MB notieren)                                               |
 | Chunk-Konfiguration | Standard (Größe 2000 / Überlappung 200), sofern nicht geändert |
 | Testfrage           | Eine Frage, deren Antwort im PDF steht                         |
-| Hardware-Profil     | (HW-1 / HW-2 / … gemäß Pflichtenheft 8.4)                      |
+| Hardware-Profil     | (HW-1 / HW-2 / …)                      |
 
 ## Schritte
 

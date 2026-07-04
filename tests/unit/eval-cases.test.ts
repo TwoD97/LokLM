@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 /**
- * AP-E.1 — Validator für das Eval-Dev-Set (eval/cases.json laut Pflichtenheft §8.5,
+ * AP-E.1 — Validator für das Eval-Dev-Set (eval/cases.json,
  * im Repo abgelegt als tests/evals/data/cases.jsonl).
  *
  * Der Test ist gleichzeitig der Loader, den AP-E.2 wiederverwenden kann: er prüft

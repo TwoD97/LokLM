@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { shouldUnloadOnConversationSwitch } from '@main/services/llm/conversationSwitch'
 
-// AP-9 §3.8 "Konv.-Wechsel": unload | keep (default keep). When the user
+// AP-9 "Konv.-Wechsel": unload | keep (default keep). When the user
 // switches conversations and the mode is "unload", the LLM is freed eagerly
 // (instead of waiting for LlamaService's idle timer). The one hard constraint:
 // never unload while a generation is streaming, or we'd kill the in-flight
