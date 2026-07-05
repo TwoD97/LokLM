@@ -39,7 +39,7 @@ describe('buildLlmsTxt', () => {
       title: 'Taxonomy',
       description: 'd',
       url: 'https://loklm.com/en/blog/taxonomy-of-local-ai',
-      lang: 'en',
+      lang: 'en' as const,
     }
     const withPosts = buildLlmsTxt(SITE, [post])
     expect(withPosts).toContain('https://loklm.com/en/blog/taxonomy-of-local-ai.md')

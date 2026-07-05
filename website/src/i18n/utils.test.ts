@@ -27,7 +27,7 @@ describe('localisedPath', () => {
     ['en', '/', '/en', 'en root becomes /en'],
     ['en', '/imprint', '/en/imprint', 'en paths get the /en prefix'],
     ['en', 'privacy', '/en/privacy', 'relative en input is normalised and prefixed'],
-  ] as const)('(%s, %s) -> %s (%s)', (lang, input, want) => {
+  ] as const)('(%s, %s) -> %s (%s)', (lang, input, want, _why) => {
     expect(localisedPath(lang, input)).toBe(want)
   })
 })
