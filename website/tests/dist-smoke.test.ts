@@ -140,7 +140,8 @@ describe.skipIf(!hasBuild)('AI-crawler / structured-data extras (phase 2)', () =
     const full = readDist('llms-full.txt')
     expect(full.startsWith('# LokLM — full content')).toBe(true)
     // this phrase only occurs inside a post body, never in frontmatter
-    expect(full).toContain('three separable stages')
+    // (sentinel tracks the current wording of the taxonomy article)
+    expect(full).toContain('three separable steps')
   })
 
   it('the home page inlines the WebSite JSON-LD node', () => {
