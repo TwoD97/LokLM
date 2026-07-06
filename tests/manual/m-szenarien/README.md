@@ -1,7 +1,6 @@
-# M-Szenarien (Pflichtenheft §8.3)
+# M-Szenarien
 
-Dieser Ordner enthält die manuellen Test-Szenarien aus der M-Liste des
-[Pflichtenhefts §8.3](../../../docs/Pflichtenheft.md) (Manuelle Test-Szenarien),
+Dieser Ordner enthält die manuellen Test-Szenarien aus der M-Liste,
 jeweils als eigene Markdown-Datei nach dem gemeinsamen Format der bestehenden
 Szenarien (siehe [../README.md](../README.md)).
 
@@ -25,9 +24,8 @@ Szenarien (siehe [../README.md](../README.md)).
 | M10 | Modell-Datei umbenennen → Fallback-Synthese                | [M10-modell-umbenennen-fallback.md](M10-modell-umbenennen-fallback.md)                 | Nicht durchgeführt |
 | M11 | 100+-Seiten-PDF → Indexierung + Performance                | [M11-grosses-pdf-performance.md](M11-grosses-pdf-performance.md)                       | Nicht durchgeführt |
 
-> Hinweis: Die vollständige M1–M11-Liste steht im Pflichtenheft §8.3. Die hier
-> nicht aufgeführten Szenarien (M1, M2, M5, M6, M7) sind in den themenbezogenen
-> Ordnern (`auth/`, `chat/` …) abgedeckt bzw. dort verortet.
+> Hinweis: Die hier nicht aufgeführten Szenarien (M1, M2, M5, M6, M7) sind in
+> den themenbezogenen Ordnern (`auth/`, `chat/` …) abgedeckt bzw. dort verortet.
 
 ## Status-Werte
 

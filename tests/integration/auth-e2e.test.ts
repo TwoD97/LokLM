@@ -5,8 +5,8 @@ import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 
-// Pflichtenheft §8.2 — Auth End-to-End. Meilenstein M3 (29.05.2026) / Gate G2.
-// Diese eine Test-Kette deckt die volle §8.2-Spec ab:
+// Auth End-to-End. Meilenstein M3 (29.05.2026) / Gate G2.
+// Diese eine Test-Kette deckt die volle Auth-Spec ab:
 //
 //   Registrierung → Login → Snapshot-Verschlüsselung → App-Restart
 //   → Login mit Snapshot-Entschlüsselung → Recovery-Code-Reset
@@ -18,7 +18,7 @@ import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 // nach jedem round-trip verifiziert. wenn nur die vault-datei wieder aufgeht
 // die seed-daten aber weg sind , schlägt der test fehl — genau das soll er.
 
-describe('Auth E2E §8.2 (M3 / G2)', () => {
+describe('Auth E2E (M3 / G2)', () => {
   let userDataDir: string
 
   beforeEach(async () => {
@@ -29,11 +29,11 @@ describe('Auth E2E §8.2 (M3 / G2)', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
-  it('vollständige §8.2-Kette mit Datenpersistenz über Snapshot-Round-Trip', async () => {
+  it('vollständige Auth-Kette mit Datenpersistenz über Snapshot-Round-Trip', async () => {
     // ─── 1. Registrierung + seed-daten anlegen ────────────────────────────────
     const first = new AuthService(userDataDir)
     const { passphrase } = await first.register({
-      displayName: 'Dominik',
+      displayName: 'Alex',
       password: 'Test12345!',
       recoveryLang: 'de',
     })
@@ -56,7 +56,7 @@ describe('Auth E2E §8.2 (M3 / G2)', () => {
     const statusBefore = await second.status()
     expect(statusBefore.registered).toBe(true)
     expect(statusBefore.locked).toBe(true)
-    expect(statusBefore.displayName).toBe('Dominik')
+    expect(statusBefore.displayName).toBe('Alex')
 
     const loginOld = await second.login('Test12345!')
     expect(loginOld.ok).toBe(true)

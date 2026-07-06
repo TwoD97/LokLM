@@ -167,7 +167,7 @@ export interface RetrievalHit {
 }
 
 // ---------------------------------------------------------------------------
-// AP-6 Library search (Pflichtenheft §3.5) — renderer + preload + main agree.
+// AP-6 Library search — renderer + preload + main agree.
 // Lexical (BM25 + ts_headline) library search with filters + sort, distinct
 // from the model-backed hybrid RetrievalService path above.
 // ---------------------------------------------------------------------------

@@ -10,13 +10,13 @@
 | Arbeitspaket        | AP-6                            |
 | Priorität           | Hoch                            |
 | Datum               | 2026-06-10                      |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      | Windows 11 Home (10.0.26200)    |
 | App-Version / Build | 0.3.1                           |
 
 ## Ziel
 
-Es wird geprüft, ob die Library-Suche (AP-6, Pflichtenheft §3.5) zu einer Eingabe eine
+Es wird geprüft, ob die Library-Suche (AP-6) zu einer Eingabe eine
 Trefferliste mit Dokumentname, Seitenzahl/Heading und gehighlightetem Auszug liefert, ob
 die Filter (Typ/Datum/Größe) und die Sortierung (Relevanz/Dateiname/Importdatum) wirken,
 und ob ein Klick auf einen Treffer die Quelle im SourceViewer (AP-8) an der richtigen

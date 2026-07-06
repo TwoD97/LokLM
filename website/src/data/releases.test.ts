@@ -8,131 +8,107 @@ import {
   type ReleaseAsset,
 } from './releases'
 
-// BASE_URL is captured at module load. In the vitest env PUBLIC_INSTALLER_BASE_URL
-// is unset, so the fallback applies.
-const FALLBACK_BASE = 'https://downloads.loklm.example'
+// The module reads PUBLIC_INSTALLER_BASE_URL once at import time. Vitest runs
+// without that variable, so every URL below is built on the fallback host.
+const BASE = 'https://downloads.loklm.example'
 
-function makeAsset(over: Partial<ReleaseAsset> = {}): ReleaseAsset {
-  return {
-    platform: 'windows',
-    file: 'LokLM-Setup-test.exe',
-    sizeBytes: 1024,
-    sha256: 'a'.repeat(64),
-    available: true,
-    ...over,
-  }
-}
+const stubAsset = (patch: Partial<ReleaseAsset> = {}): ReleaseAsset => ({
+  platform: 'windows',
+  file: 'LokLM-Setup-test.exe',
+  sizeBytes: 1024,
+  sha256: 'a'.repeat(64),
+  available: true,
+  ...patch,
+})
 
-describe('downloadUrl', () => {
-  it('joins base url, version prefix, and file name', () => {
-    const asset = makeAsset({ file: 'foo.exe' })
-    expect(downloadUrl(asset, '1.2.3')).toBe(`${FALLBACK_BASE}/v1.2.3/foo.exe`)
+describe('formatSize', () => {
+  it('shows an em-dash when the size is zero', () => {
+    expect(formatSize(0)).toBe('—')
   })
 
-  it('defaults to currentRelease.version when version arg omitted', () => {
-    const asset = makeAsset({ file: 'bar.AppImage' })
-    expect(downloadUrl(asset)).toBe(`${FALLBACK_BASE}/v${currentRelease.version}/bar.AppImage`)
+  it('shows an em-dash when the size is negative', () => {
+    expect(formatSize(-1)).toBe('—')
   })
 
-  it('does not encode special characters in file names (caller responsibility)', () => {
-    const asset = makeAsset({ file: 'has space.exe' })
-    expect(downloadUrl(asset, '0.1.0')).toBe(`${FALLBACK_BASE}/v0.1.0/has space.exe`)
+  it.each([
+    [512, '512 B', 'plain bytes carry no decimal'],
+    [1023, '1023 B', 'stays in bytes right up to the 1 KB edge'],
+    [1024, '1.0 KB', 'the exact 1 KB boundary gains one decimal'],
+    [15 * 1024, '15 KB', 'KB values of 10 or more drop the decimal'],
+    [1.5 * 1024 * 1024, '1.5 MB', 'MB values below 10 keep one decimal'],
+    [393408476, '375 MB', 'MB values of 10 or more drop the decimal'],
+    [2 * 1024 * 1024 * 1024, '2.0 GB', 'GB scale works'],
+  ])('formats %d bytes as "%s" (%s)', (bytes, wanted) => {
+    expect(formatSize(bytes)).toBe(wanted)
+  })
+
+  it('caps the unit ladder at TB', () => {
+    expect(formatSize(5 * 1024 ** 5)).toMatch(/ TB$/)
   })
 })
 
-describe('checksumUrl', () => {
-  it('appends .sha256 suffix to the file', () => {
-    const asset = makeAsset({ file: 'foo.exe' })
-    expect(checksumUrl(asset, '1.2.3')).toBe(`${FALLBACK_BASE}/v1.2.3/foo.exe.sha256`)
+describe('downloadUrl', () => {
+  it('composes base host, versioned folder and file name', () => {
+    expect(downloadUrl(stubAsset({ file: 'foo.exe' }), '1.2.3')).toBe(`${BASE}/v1.2.3/foo.exe`)
   })
 
-  it('defaults to currentRelease.version', () => {
-    const asset = makeAsset({ file: 'bar.AppImage' })
-    expect(checksumUrl(asset)).toBe(
-      `${FALLBACK_BASE}/v${currentRelease.version}/bar.AppImage.sha256`,
+  it('falls back to the current release version when none is passed', () => {
+    expect(downloadUrl(stubAsset({ file: 'bar.AppImage' }))).toBe(
+      `${BASE}/v${currentRelease.version}/bar.AppImage`,
+    )
+  })
+
+  it('leaves special characters in file names untouched — encoding is the caller\'s job', () => {
+    expect(downloadUrl(stubAsset({ file: 'has space.exe' }), '0.1.0')).toBe(
+      `${BASE}/v0.1.0/has space.exe`,
     )
   })
 })
 
-describe('formatSize', () => {
-  it('returns em-dash for zero', () => {
-    expect(formatSize(0)).toBe('—')
+describe('checksumUrl', () => {
+  it('is the download url plus a .sha256 suffix', () => {
+    expect(checksumUrl(stubAsset({ file: 'foo.exe' }), '1.2.3')).toBe(
+      `${BASE}/v1.2.3/foo.exe.sha256`,
+    )
   })
 
-  it('returns em-dash for negative input', () => {
-    expect(formatSize(-1)).toBe('—')
-  })
-
-  it('renders bytes without decimal', () => {
-    expect(formatSize(512)).toBe('512 B')
-  })
-
-  it('renders 1023 B (boundary just below 1 KB)', () => {
-    expect(formatSize(1023)).toBe('1023 B')
-  })
-
-  it('renders exactly 1024 as 1.0 KB', () => {
-    expect(formatSize(1024)).toBe('1.0 KB')
-  })
-
-  it('renders large KB without decimal once >= 10', () => {
-    expect(formatSize(15 * 1024)).toBe('15 KB')
-  })
-
-  it('renders MB with one decimal when < 10', () => {
-    expect(formatSize(1.5 * 1024 * 1024)).toBe('1.5 MB')
-  })
-
-  it('renders MB without decimal when >= 10', () => {
-    expect(formatSize(393408476)).toBe('375 MB')
-  })
-
-  it('renders GB scale', () => {
-    expect(formatSize(2 * 1024 * 1024 * 1024)).toBe('2.0 GB')
-  })
-
-  it('does not exceed TB unit', () => {
-    const huge = 5 * 1024 ** 5
-    expect(formatSize(huge)).toMatch(/ TB$/)
+  it('falls back to the current release version', () => {
+    expect(checksumUrl(stubAsset({ file: 'bar.AppImage' }))).toBe(
+      `${BASE}/v${currentRelease.version}/bar.AppImage.sha256`,
+    )
   })
 })
 
 describe('getAsset', () => {
-  it('returns the windows asset when present', () => {
-    const asset = getAsset('windows')
+  it.each(['windows', 'linux'] as const)('looks up the %s asset', (platform) => {
+    const asset = getAsset(platform)
     expect(asset).toBeDefined()
-    expect(asset?.platform).toBe('windows')
+    expect(asset?.platform).toBe(platform)
   })
 
-  it('returns the linux asset when present', () => {
-    const asset = getAsset('linux')
-    expect(asset).toBeDefined()
-    expect(asset?.platform).toBe('linux')
-  })
-
-  it('returns the macos asset placeholder (available may be false)', () => {
+  it('still resolves the macos entry even though it may be a placeholder', () => {
     const asset = getAsset('macos')
     expect(asset).toBeDefined()
     expect(asset?.platform).toBe('macos')
   })
 })
 
-describe('currentRelease shape', () => {
-  it('has a semver-style version string', () => {
+describe('currentRelease metadata', () => {
+  it('carries a plain semver version', () => {
     expect(currentRelease.version).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
-  it('has an ISO date for releasedAt', () => {
+  it('carries a parseable YYYY-MM-DD release date', () => {
     expect(currentRelease.releasedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(Number.isNaN(Date.parse(currentRelease.releasedAt))).toBe(false)
   })
 
-  it('covers all three platforms ( linux may have multiple variants )', () => {
+  it('ships assets for windows, macos and linux (linux may come in several variants)', () => {
     const platforms = new Set(currentRelease.assets.map((a) => a.platform))
     expect([...platforms].sort()).toEqual(['linux', 'macos', 'windows'])
   })
 
-  it('linux assets carry a variant key when more than one ships', () => {
+  it('distinguishes multiple linux builds via unique variant keys', () => {
     const linuxAssets = currentRelease.assets.filter((a) => a.platform === 'linux')
     if (linuxAssets.length > 1) {
       for (const a of linuxAssets) {
@@ -144,39 +120,44 @@ describe('currentRelease shape', () => {
   })
 })
 
-describe('release asset integrity', () => {
-  const SHA256_RE = /^[a-f0-9]{64}$/i
+describe('per-asset integrity', () => {
+  const HEX_SHA256 = /^[a-f0-9]{64}$/i
 
-  for (const asset of currentRelease.assets) {
-    describe(`asset: ${asset.platform}`, () => {
-      if (asset.available) {
-        it('has a non-empty file name', () => {
-          expect(asset.file.length).toBeGreaterThan(0)
-        })
+  const shipped = currentRelease.assets.filter((a) => a.available)
+  const placeholders = currentRelease.assets.filter((a) => !a.available)
 
-        it('has positive sizeBytes', () => {
-          expect(asset.sizeBytes).toBeGreaterThan(0)
-        })
+  for (const asset of shipped) {
+    describe(`${asset.platform} build (${asset.file})`, () => {
+      it('names its installer file', () => {
+        expect(asset.file.length).toBeGreaterThan(0)
+      })
 
-        it('has a 64-char hex sha256', () => {
-          expect(asset.sha256).toMatch(SHA256_RE)
-        })
+      it('reports a positive byte size', () => {
+        expect(asset.sizeBytes).toBeGreaterThan(0)
+      })
 
-        it('file extension matches platform', () => {
-          if (asset.platform === 'windows') expect(asset.file).toMatch(/\.exe$/i)
-          if (asset.platform === 'macos') expect(asset.file).toMatch(/\.dmg$/i)
-          if (asset.platform === 'linux') expect(asset.file).toMatch(/\.(run|deb)$/)
-        })
+      it('ships a full 64-hex-char sha256', () => {
+        expect(asset.sha256).toMatch(HEX_SHA256)
+      })
 
-        it('download url is pinned to the release version', () => {
-          expect(downloadUrl(asset)).toContain(`/v${currentRelease.version}/`)
-        })
-      } else {
-        it('not-yet-available asset has empty hash and zero size (placeholder shape)', () => {
-          expect(asset.sha256).toBe('')
-          expect(asset.sizeBytes).toBe(0)
-        })
-      }
+      it('uses the file extension expected for its platform', () => {
+        if (asset.platform === 'windows') expect(asset.file).toMatch(/\.exe$/i)
+        if (asset.platform === 'macos') expect(asset.file).toMatch(/\.dmg$/i)
+        if (asset.platform === 'linux') expect(asset.file).toMatch(/\.(run|deb)$/)
+      })
+
+      it('downloads from the folder of the current version', () => {
+        expect(downloadUrl(asset)).toContain(`/v${currentRelease.version}/`)
+      })
+    })
+  }
+
+  for (const asset of placeholders) {
+    describe(`${asset.platform} placeholder`, () => {
+      it('keeps the placeholder shape: empty hash, zero size', () => {
+        expect(asset.sha256).toBe('')
+        expect(asset.sizeBytes).toBe(0)
+      })
     })
   }
 })

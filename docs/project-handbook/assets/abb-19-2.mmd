@@ -1,7 +1,0 @@
-flowchart LR
-    SD["sample-docs / LAP-Korpus"] --> GEN["generate-dataset<br/>(Ollama / Anthropic)"]
-    GEN --> DS["dataset.json / lap-dataset.json<br/>(eingefrorenes Ground-Truth + Gold-Spans)"]
-    DS --> SWEEP["evals:sweep / evals:matrix<br/>Emb × Reranker × Chunker × LLM"]
-    SWEEP --> RES["report/runs/<stamp>_<sha>/<br/>result.json + per-question.jsonl + resource-samples"]
-    RES --> JUDGE["LLM-as-Judge<br/>correctness/groundedness/helpfulness"]
-    JUDGE --> PAPER["evals:paper<br/>paper-table.csv / .tex"]

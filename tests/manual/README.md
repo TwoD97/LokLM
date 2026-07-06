@@ -1,8 +1,6 @@
 # Manuelle Testszenarien
 
-Dieser Ordner enthält die manuellen Testszenarien, die im
-[Pflichtenheft](../../Pflichtenheft_LokLM.md) §8.3 (Manuelle Test-Szenarien)
-beschrieben sind.
+Dieser Ordner enthält die manuellen Testszenarien (M-Liste).
 
 Automatisierte Unit- und Integrationstests liegen direkt bei den jeweiligen
 Quellcode-Modulen als `*.test.ts` oder `*.test.tsx` Dateien

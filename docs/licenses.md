@@ -12,7 +12,7 @@ Diese Datei führt **alle direkten Abhängigkeiten** von LokLM (Produktion + Ent
 
 1. **Attribution** — MIT/BSD/ISC/Apache-2.0 verlangen, dass Copyright-Hinweis + Lizenztext bei Weiterverteilung mitgeliefert werden.
 2. **Lizenz-Kompatibilität** — Nachweis, dass keine der eingesetzten Lizenzen mit der MIT-Lizenz des Projekts kollidiert (alle aufgeführten Lizenzen sind GPL-kompatibel-permissive und mit MIT-Distribution vereinbar).
-3. **Projektdokumentation** — Pflichtenheft §1.5 verlangt eine Lizenzübersicht der eingesetzten Third-Party-Komponenten.
+3. **Projektdokumentation** — die Projektdokumentation verlangt eine Lizenzübersicht der eingesetzten Third-Party-Komponenten.
 
 Transitive Abhängigkeiten (npm-/pnpm-Resolver pflegt sie in `pnpm-lock.yaml`) werden hier **nicht einzeln gelistet**. Sie sind über `pnpm licenses list` reproduzierbar abrufbar — siehe [§ Reproduzierbarkeit](#reproduzierbarkeit). Die Lizenz-Verteilung der ~700 transitiven Pakete liegt zu > 95 % bei MIT/ISC/BSD/Apache-2.0 (kompatibel) — keine Copyleft-Lizenz (GPL/AGPL/LGPL/MPL) in der `dependencies`- oder `devDependencies`-Hülle.
 
@@ -38,7 +38,7 @@ Werden über Node.js / Electron-Runtime bezogen und unterliegen der jeweiligen R
 
 ## Entwicklungs-Abhängigkeiten
 
-Werden **nicht** ausgeliefert. Attribution ist nicht zwingend erforderlich, aber Inventar für Audit und Pflichtenheft.
+Werden **nicht** ausgeliefert. Attribution ist nicht zwingend erforderlich, aber Inventar für Audits.
 
 ### Build / Bundling
 
@@ -131,4 +131,4 @@ Die `.txt`-Dumps sind die Wahrheit; diese Markdown-Datei ist die kuratierte Übe
 
 Beim Bauen des Installers (`pnpm build` → electron-builder) wird ein `LICENSES.chromium.html`-Pendant + ein aus `node_modules/*/LICENSE` zusammengetragenes `licenses.txt` mitgeliefert, das den vollen Lizenztext jedes mitausgelieferten Pakets enthält. Diese Datei ist die menschenlesbare Kurzfassung; die Bundle-Datei ist die rechtlich erforderliche Vollfassung.
 
-**Aktuell offen:** Electron-Builder ist noch nicht konfiguriert (Pflichtenheft Anhang B sieht das in AP-1.x vor). Bis dahin gilt diese Datei + die unveränderten `node_modules/<paket>/LICENSE`-Dateien als Attribution-Trägermenge.
+**Aktuell offen:** Electron-Builder ist noch nicht konfiguriert (vorgesehen in AP-1.x). Bis dahin gilt diese Datei + die unveränderten `node_modules/<paket>/LICENSE`-Dateien als Attribution-Trägermenge.

@@ -1,8 +1,0 @@
-flowchart LR
-  REG["model-license-registry.json<br/>(verifiziert 2026-06-14)"] --> GATE
-  P1["model-pack.json (15 LLMs)"] --> GATE
-  P2["embedder-pack.json (8)"] --> GATE
-  P3["reranker-pack.json (2)"] --> GATE
-  J["Judge: mistral-small-3.2-24b"] --> GATE
-  GATE["validateLicenses()<br/>osi-permissive UND allowedInDefaultMatrix"] -->|ok| PASS["exit 0 — LICENSE CHECK PASSED"]
-  GATE -->|Verletzung| FAIL["exit 1 — VIOLATION pro Modell"]

@@ -1,4 +1,4 @@
-// AP-T.2 — Retrieval-Korpus für den RetrievalService-E2E-Test (Pflichtenheft §8.2).
+// AP-T.2 — Retrieval-Korpus für den RetrievalService-E2E-Test.
 //
 // Aufbau: ≥50 Chunks aus mehreren Dokumenten. Jede `##`-Sektion wird vom
 // markdown-aware Chunker zu (mindestens) einem Chunk mit heading_path, darüber
@@ -23,11 +23,6 @@
 // gemischt, damit keine Frage versehentlich in zwei Dokumenten beantwortbar
 // ist. Jede Frage trägt einen Vokabel-Anker, der nur in ihrer Zielsektion
 // vorkommt (z.B. "Calvin-Zyklus", "Ohm's Law", "Gezeiten").
-//
-// TODO(Dominik) — fachliche Gegenprobe: Bitte für jede Frage prüfen, ob ein
-// Mitschüler die Antwort tatsächlich NUR in der angegebenen Sektion suchen
-// würde. Inhalte/Fragen frei anpassen — Mechanik (Auflösung Sektion→Chunk-ID)
-// bleibt davon unberührt.
 
 export interface KorpusDokument {
   /** Dateiname im Test-Workspace — stabiler Schlüssel für erwartete Treffer. */

@@ -10,7 +10,7 @@
 | Arbeitspaket        | AP-?                            |
 | Priorität           | Hoch                            |
 | Datum               |                                 |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      |                                 |
 | App-Version / Build |                                 |
 
@@ -31,8 +31,8 @@ Es wird geprüft, ob der Benutzer eine Chat-Nachricht senden kann, eine Antwort 
 
 | Feld             | Wert                                                                |
 | ---------------- | ------------------------------------------------------------------- |
-| Testfrage        | Was steht im Pflichtenheft zu manuellen Testszenarien?              |
-| Erwartete Quelle | Pflichtenheft / Testdokumentation                                   |
+| Testfrage        | Was steht in der Testdokumentation zu manuellen Testszenarien?              |
+| Erwartete Quelle | Testdokumentation                                                    |
 | Benutzerkonto    | testuser@example.com                                                |
 | Besonderheit     | Antwort soll mindestens ein Zitat oder eine Quellenangabe enthalten |
 

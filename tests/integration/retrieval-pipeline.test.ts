@@ -73,7 +73,7 @@ describe.runIf(existsSync(MODEL_PATH))('hybrid retrieval (integration)', () => {
     await writeFile(
       wochen,
       '# Wochenbuch\n\nDiese Woche habe ich an LokLM gearbeitet: Datenbank-Schema in Postgres, ' +
-        'Embeddings mit BGE-M3, hybride Suche mit RRF. Auch Codereviews mit Dominik gemacht.',
+        'Embeddings mit BGE-M3, hybride Suche mit RRF. Auch Codereviews im Team gemacht.',
       'utf-8',
     )
     await writeFile(

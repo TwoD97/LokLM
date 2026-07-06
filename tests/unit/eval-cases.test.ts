@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 /**
- * AP-E.1 — Validator für das Eval-Dev-Set (eval/cases.json laut Pflichtenheft §8.5,
+ * AP-E.1 — Validator für das Eval-Dev-Set (eval/cases.json,
  * im Repo abgelegt als tests/evals/data/cases.jsonl).
  *
  * Der Test ist gleichzeitig der Loader, den AP-E.2 wiederverwenden kann: er prüft
@@ -18,7 +18,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '..', '..')
 const casesPath = resolve(repoRoot, 'tests/evals/data/cases.jsonl')
 const chunksPath = resolve(repoRoot, 'tests/evals/data/staging/sample-doc-chunks.json')
-const holdoutPath = resolve(repoRoot, 'tests/evals/data/holdout/dominik-15.jsonl')
 
 interface EvalCase {
   id: string
@@ -162,14 +161,4 @@ describe('AP-E.1 eval cases (cases.jsonl)', () => {
     }
   })
 
-  // Echo-Kammer-Schutz (R5): wenn das versiegelte Hold-out im Baum liegt, darf
-  // keine Dev-Frage wörtlich eine Hold-out-Frage doppeln.
-  it('does not duplicate any sealed hold-out question (when present)', () => {
-    if (!existsSync(holdoutPath)) return
-    const holdoutQs = new Set(loadJsonl(holdoutPath).map((c) => norm(c.question.toLowerCase())))
-    const collisions = cases
-      .map((c) => norm(c.question.toLowerCase()))
-      .filter((q) => holdoutQs.has(q))
-    expect(collisions).toEqual([])
-  })
 })

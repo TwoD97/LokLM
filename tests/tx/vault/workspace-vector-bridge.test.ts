@@ -20,7 +20,7 @@ describe('WorkspaceVectorService bridge (SQLite + LanceDB)', () => {
   beforeEach(async () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'loklm-bridge-'))
     auth = new AuthService(userDataDir)
-    await auth.register({ displayName: 'Dominik', password: 'Test12345!', recoveryLang: 'de' })
+    await auth.register({ displayName: 'Alex', password: 'Test12345!', recoveryLang: 'de' })
   })
   afterEach(async () => {
     await auth.lock().catch(() => undefined)

@@ -1,6 +1,6 @@
 /**
  * Citation marker handling — shared between the renderer chip pipeline and
- * the unit tests so we can verify edge cases (Pflichtenheft §8.1).
+ * the unit tests so we can verify edge cases.
  *
  * The model is instructed (system prompt in LlamaService) to cite as
  *   [doc:<document_id>, chunk:<chunk_id>]

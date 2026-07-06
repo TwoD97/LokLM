@@ -1,103 +1,103 @@
 # LokLM Website
 
-Landingpage. Astro 5 + Tailwind 4. Statischer output. Eigener
-pnpm-workspace , unabhängig von der Electron-App.
+Verteilungs-Homepage für LokLM. Astro 5 + Tailwind 4, rein statischer
+Build. Eigener pnpm-Workspace — läuft komplett getrennt von der
+Electron-App.
 
-## Quickstart
+## Loslegen
 
 ```bash
 cd website
-cp .env.example .env       # PUBLIC_INSTALLER_BASE_URL setzen
+cp .env.example .env       # PUBLIC_INSTALLER_BASE_URL eintragen
 pnpm install
 pnpm dev                   # http://localhost:4321
 ```
 
 ## Scripts
 
-| Script                 | Zweck                                                                 |
-| ---------------------- | --------------------------------------------------------------------- |
-| `pnpm dev`             | Astro Dev-Server mit HMR                                              |
-| `pnpm build`           | Production build → `dist/`                                            |
-| `pnpm preview`         | `dist/` lokal anschauen                                               |
-| `pnpm check`           | Astro + TypeScript check                                              |
-| `pnpm test`            | Vitest unit tests (i18n parity, releases, schema, github)             |
-| `pnpm test:watch`      | Vitest watch mode                                                     |
-| `pnpm test:coverage`   | Coverage report (v8, Thresholds 80%/70% in vitest.config)             |
-| `pnpm test:e2e`        | Playwright E2E (home, lang-switch, download, anchors, a11y, visual)   |
-| `pnpm test:e2e:headed` | E2E mit sichtbarem Browser                                            |
-| `pnpm lighthouse`      | Lighthouse-Report (preview muss laufen, schreibt nach `.lighthouse/`) |
-| `pnpm ci`              | check → coverage → build → e2e (komplette Pipeline lokal)             |
+| Script                 | Zweck                                                                  |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `pnpm dev`             | Astro-Dev-Server mit HMR                                               |
+| `pnpm build`           | Production-Build → `dist/`                                             |
+| `pnpm preview`         | Den `dist/`-Stand lokal servieren                                      |
+| `pnpm check`           | Astro- und TypeScript-Check                                            |
+| `pnpm test`            | Vitest-Unit-Suite (i18n-Parität, Releases, Schema, GitHub, Blog)       |
+| `pnpm test:watch`      | Vitest im Watch-Modus                                                  |
+| `pnpm test:coverage`   | Coverage-Report (v8; Schwellen 80 % / 70 % in `vitest.config`)         |
+| `pnpm test:e2e`        | Playwright-E2E (Home, Lang-Switch, Download, Anchors, a11y, Visual)    |
+| `pnpm test:e2e:headed` | E2E mit sichtbarem Browser                                             |
+| `pnpm lighthouse`      | Lighthouse-Report (Preview muss laufen; Ausgabe in `.lighthouse/`)     |
+| `pnpm ci`              | Komplette Pipeline lokal: check → coverage → build → e2e               |
 
-## Tests
+## Test-Ebenen
 
-| Layer  | Pfad                          | Coverage                                                                        |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------- |
-| Unit   | `src/**/*.test.ts`            | `lib/github`, `lib/schema`, `i18n/ui`, `i18n/utils`, `data/releases`            |
-| Public | `tests/public-assets.test.ts` | Brand-Assets + Screenshots + robots.txt vorhanden, kein 1×1-Stub                |
-| Dist   | `tests/dist-smoke.test.ts`    | 6 HTML-Seiten + JSON-LD + canonical + Sitemap (skip wenn `dist/` fehlt)         |
-| E2E    | `tests/e2e/*.spec.ts`         | DE/EN-Smoke, LangSwitch, Download-Links, Anchor-Nav, axe-a11y, Visual Snapshots |
+| Ebene  | Pfad                          | Deckt ab                                                                         |
+| ------ | ----------------------------- | --------------------------------------------------------------------------------- |
+| Unit   | `src/**/*.test.ts`            | `lib/github`, `lib/schema`, `i18n/ui`, `i18n/utils`, `data/releases`, `data/blog` |
+| Public | `tests/public-assets.test.ts` | Brand-Assets, Screenshots, robots.txt vorhanden und keine 1×1-Stubs               |
+| Dist   | `tests/dist-smoke.test.ts`    | HTML-Seiten, JSON-LD, canonical, Sitemap (skippt ohne `dist/`)                    |
+| E2E    | `tests/e2e/*.spec.ts`         | DE/EN-Smoke, LangSwitch, Download-Links, Anker-Navigation, axe-a11y, Visual       |
 
-Visual-Baselines liegen in `tests/e2e/visual.spec.ts-snapshots/`. Nach
-absichtlichen Design-Änderungen mit
-`pnpm test:e2e --update-snapshots` aktualisieren.
+Die visuellen Baselines liegen unter `tests/e2e/visual.spec.ts-snapshots/`.
+Nach gewollten Design-Änderungen per `pnpm test:e2e --update-snapshots`
+neu erzeugen.
 
-E2E-Setup startet `astro preview` automatisch (rebuild + serve auf
-`127.0.0.1:4321`). In CI wird der Build separat im `ci`-Script erledigt
-und `preview` reused.
+Das E2E-Setup fährt `astro preview` selbst hoch (Build + Serve auf
+`127.0.0.1:4321`); im `ci`-Script passiert der Build vorab und `preview`
+wird wiederverwendet.
 
-### Lighthouse-Baseline (Desktop, May 2026)
+### Lighthouse-Baseline (Desktop, Mai 2026)
 
-| Category       | Score |
+| Kategorie      | Score |
 | -------------- | ----- |
 | Performance    | 100   |
 | Accessibility  | 93    |
 | Best Practices | 100   |
 | SEO            | 100   |
 
-Restliche A11y-Punkte: Kontrast bei dekorativen `aria-hidden`-Numerals
-(`how__num`), Touch-Target-Size bei sehr kleinen Nav-Pills. Beide sind
-bewusste Design-Trade-offs , kein Bugfix offen.
+Die verbleibenden A11y-Punkte (Kontrast der dekorativen
+`aria-hidden`-Ziffern in `how__num`, Touch-Target-Größe der kleinen
+Nav-Pills) sind bewusste Design-Entscheidungen — hier ist kein Fix offen.
 
 ## Struktur
 
 | Pfad                       | Inhalt                                              |
 | -------------------------- | --------------------------------------------------- |
-| `src/pages/index.astro`    | DE (default locale, `/`)                            |
-| `src/pages/en/index.astro` | EN (`/en/`)                                         |
+| `src/pages/index.astro`    | Startseite DE (Default-Locale, `/`)                 |
+| `src/pages/en/index.astro` | Startseite EN (`/en/`)                              |
 | `src/components/`          | Hero, Features, Download, Nav, Footer, BackgroundFx |
-| `src/layouts/Base.astro`   | Shell (Meta, Background, Nav, Footer)               |
+| `src/layouts/Base.astro`   | Seiten-Shell (Meta, Background, Nav, Footer)        |
+| `src/content/blog/`        | Blog-Artikel DE/EN (Content Collections)            |
 | `src/i18n/ui.ts`           | Übersetzungs-Strings DE/EN                          |
 | `src/data/releases.ts`     | Version + Asset-Manifest pro Plattform              |
-| `src/styles/global.css`    | Tailwind tokens + Komponenten-Klassen               |
+| `src/styles/global.css`    | Tailwind-Tokens + Komponenten-Klassen               |
 
-## Release ausliefern
+## Release veröffentlichen
 
 1. Installer bauen (Electron-App).
-2. Hochladen nach `${PUBLIC_INSTALLER_BASE_URL}/v<version>/<asset>` , die
-   `.sha256`-Datei direkt daneben.
-3. `src/data/releases.ts` bumpen: `version`, `releasedAt`, `sizeBytes`,
+2. Nach `${PUBLIC_INSTALLER_BASE_URL}/v<version>/<asset>` hochladen — die
+   zugehörige `.sha256`-Datei direkt daneben.
+3. In `src/data/releases.ts` bumpen: `version`, `releasedAt`, `sizeBytes`,
    `sha256`, `available`.
-4. Push auf `main`. Action baut + rsync't.
+4. Auf `main` pushen — die Action baut und rsync't.
 
-Die Site selbst hostet keine Installer , sie verlinkt nur.
+Die Site hostet selbst keine Installer, sie verlinkt nur darauf.
 
 ## Plattform-Verfügbarkeit
 
-`available: boolean` in jedem Asset. Wenn `false` → Card zeigt "Bald
-verfügbar" statt link. Flippen sobald installer existiert.
+Jedes Asset trägt ein `available: boolean`. Bei `false` zeigt die Card
+„Bald verfügbar" statt eines Links. Aktuell sind Windows, macOS und Linux
+alle auf `true`.
 
-- Windows , `true`
-- macOS , `false`
-- Linux , `false`
-
-OS-Detection im Download component setzt nur ein "Erkannt"-Badge auf
-die passende Card. Render läuft ohne JS auch normal.
+Die OS-Erkennung in der Download-Komponente setzt nur ein
+„Erkannt"-Badge auf die passende Card — ohne JS rendert alles trotzdem
+normal.
 
 ## CI
 
 | Workflow             | Trigger                                           | Was                       |
 | -------------------- | ------------------------------------------------- | ------------------------- |
-| `checks.yml`         | PR + Push auf branches ≠ `main`                   | Astro check + smoke build |
+| `checks.yml`         | PR + Push auf Branches ≠ `main`                   | Astro-Check + Smoke-Build |
 | `deploy-website.yml` | Push auf `main` (`website/**`), workflow_dispatch | Build + rsync auf Hetzner |
 
 ### Secrets
@@ -106,26 +106,27 @@ Repo-Settings → Secrets and variables → Actions.
 
 | Name                        | Inhalt                                                   |
 | --------------------------- | -------------------------------------------------------- |
-| `HETZNER_HOST`              | Hostname/IP (z.B. `loklm.example`)                       |
-| `HETZNER_USER`              | SSH-User (z.B. `deploy`)                                 |
-| `HETZNER_PATH`              | Webroot (z.B. `/var/www/loklm`)                          |
-| `HETZNER_SSH_KEY`           | Private key , kompletter PEM inkl. BEGIN/END             |
-| `PUBLIC_INSTALLER_BASE_URL` | z.B. `https://downloads.loklm.example` (kein trailing /) |
+| `HETZNER_HOST`              | Hostname/IP (z. B. `loklm.example`)                      |
+| `HETZNER_USER`              | SSH-User (z. B. `deploy`)                                |
+| `HETZNER_PATH`              | Webroot (z. B. `/var/www/loklm`)                         |
+| `HETZNER_SSH_KEY`           | Private Key, kompletter PEM inkl. BEGIN/END              |
+| `PUBLIC_INSTALLER_BASE_URL` | z. B. `https://downloads.loklm.example` (ohne trailing /) |
 
 ### SSH-Key
 
 ```bash
-# lokal: deploy-key generieren (ohne passphrase)
+# lokal: Deploy-Key ohne Passphrase generieren
 ssh-keygen -t ed25519 -C "loklm-deploy" -f ~/.ssh/loklm_deploy -N ""
 
-# public key auf server
+# Public Key auf den Server
 ssh-copy-id -i ~/.ssh/loklm_deploy.pub deploy@loklm.example
 
-# private key in GitHub als HETZNER_SSH_KEY
+# Private Key in GitHub als HETZNER_SSH_KEY hinterlegen
 cat ~/.ssh/loklm_deploy
 ```
 
-Der `deploy`-user am besten ohne sudo , nur schreibrechte auf den webroot.
+Der `deploy`-User braucht kein sudo — Schreibrechte auf den Webroot
+genügen.
 
 ### Fallback (manuell)
 
@@ -135,7 +136,7 @@ pnpm build
 rsync -avz --delete dist/ deploy@loklm.example:/var/www/loklm/
 ```
 
-## nginx beispiel
+## nginx-Beispiel
 
 ```nginx
 server {
@@ -149,7 +150,7 @@ server {
     try_files $uri $uri/ $uri.html =404;
   }
 
-  # gehashte assets , aggressives caching
+  # gehashte Assets — aggressiv cachen
   location /assets/ {
     add_header Cache-Control "public, max-age=31536000, immutable";
   }
@@ -170,13 +171,13 @@ server {
 
 ## i18n
 
-Astro's eingebautes i18n. `de` ist default ohne präfix (`/`), `en` unter
-`/en/`. `LangSwitch` schaltet zwischen den startseiten , bei mehr routen
-dort pro route nachziehen.
+Astros eingebautes i18n: `de` ist Default ohne Präfix (`/`), `en` liegt
+unter `/en/`. `LangSwitch` wechselt zwischen den Sprachvarianten einer
+Route — neue Routen dort nachziehen.
 
-## Offen
+## Offene Punkte
 
-- Installer-build-automation , 20 GB-artefakte passen nicht auf GH-hosted
-  runners (~14 GB disk). Muss auf hetzner laufen , entweder cron oder
-  self-hosted runner.
-- Code-signatur-hinweis im UI , sobald wir signiert ausliefern.
+- Installer-Build-Automation: die ~20-GB-Artefakte passen nicht auf
+  GH-hosted Runner (~14 GB Disk) — muss auf Hetzner laufen, per Cron oder
+  self-hosted Runner.
+- Hinweis zur Code-Signatur im UI, sobald signiert ausgeliefert wird.

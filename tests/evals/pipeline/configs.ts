@@ -66,7 +66,7 @@ export function defaultConfigs(): PipelineConfig[] {
  * konstruieren und in mehreren configs wiederverwenden , statt n separate.
  *
  * Beispiel-bundle unten: vergleicht (rerank an/aus) × (k=5/k=8) bei gleichem
- * embedder/reranker/llm. Dominik erweitert das beim ersten echten sweep.
+ * embedder/reranker/llm. Wird beim ersten echten Sweep erweitert.
  */
 export async function sweepConfigs(): Promise<PipelineConfig[]> {
   const [{ EmbedderBridge }, { RerankerBridge, SkipReranker }, { LlmBridge }] = await Promise.all([
@@ -232,7 +232,7 @@ export async function gridConfigs(): Promise<PipelineConfig[]> {
       ],
     },
     // ZUM ERWEITERN (kosten chunk-axis ist re-embed pro punkt , also
-    // langsam — daher auskommentiert , dominik aktiviert wenn benötigt):
+    // langsam — daher auskommentiert , bei Bedarf aktivieren):
     //
     // { axis: 'chunk', values: [
     //   { name: 'c256', partial: { chunker: new FixedSizeChunker({ name: 'fixed-256-32', size: 256, overlap: 32 }) } },

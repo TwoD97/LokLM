@@ -7,115 +7,115 @@ pubDate: 2026-05-28
 tags: ['local-ai', 'gdpr', 'privacy']
 ---
 
-> **Note:** First draft — will be reviewed by someone with legal qualifications before publication. This text is not legal advice.
+_This article is not legal advice._
 
-This article names ChatGPT directly. That is intentional, because the legal situation is best described in terms of actual user behaviour: documents get pasted into ChatGPT because the tool is popular and within easy reach. The analysis itself applies to any cloud LLM with servers outside the EU — Claude, Gemini, Copilot, Perplexity, and many others. ChatGPT stands here as an example of a practice, not as a competitor in a comparison.
+ChatGPT is named explicitly throughout this article, and deliberately so: legal analysis is most useful when it starts from what people actually do, and what people actually do is paste documents into ChatGPT, because it is the tool everyone has open anyway. Everything said below applies equally to any cloud LLM whose servers sit outside the EU — Claude, Gemini, Copilot, Perplexity, and the rest. ChatGPT appears here as shorthand for a habit, not as the target of a product comparison.
 
-Anyone pasting client files, research drafts, or confidential business documents into a field of that kind triggers more legally than the word "paste" suggests. It is a transmission. That is the point of this article.
+The habit itself is the problem. Copying a client file, a research draft, or a confidential memo into such a text field sets off far more legal machinery than the innocuous word "paste" implies. What has happened is a transmission — and that is the whole point of this article.
 
 ## What happens technically
 
-When text is pasted into ChatGPT and the request is sent, the following sequence runs:
+Paste text into ChatGPT, press send, and the following chain executes:
 
-1. The text leaves the user's end device.
-2. It is transmitted via HTTPS to a server cluster operated by OpenAI — in the United States[^1].
-3. A language model processes it there.
-4. A response is sent back.
-5. Request and response are stored for a time, depending on settings and tier.
+1. The text departs from the user's device.
+2. It travels over HTTPS to server infrastructure operated by OpenAI — located in the United States[^1].
+3. There, a language model runs over it.
+4. A reply travels back.
+5. Both request and reply are retained for some period, the length depending on tier and settings.
 
-Step 2 is the legally relevant one. Its name is **third-country transfer**.
+The legally loaded step is number 2. The GDPR has a name for it: **third-country transfer**.
 
 ## Third-country transfer under Art. 44 GDPR
 
-The GDPR regulates the transfer of personal data to countries outside the European Economic Area in Arts. 44 ff. Such countries are called **third countries** in the regulation's vocabulary. The United States is a third country in the sense of the GDPR.
+Arts. 44 ff. GDPR govern moving personal data to destinations outside the European Economic Area — **third countries**, in the regulation's terminology. The United States is such a third country.
 
-A transfer to a third country is only permitted when one of the three mechanisms in Chapter V applies (Art. 44 GDPR):
+Chapter V allows a third-country transfer only when one of three mechanisms carries it (Art. 44 GDPR):
 
-- **Adequacy decision** (Art. 45) — the European Commission declares the data protection level of a third country adequate.
+- **Adequacy decision** (Art. 45) — the European Commission formally finds the third country's data protection level adequate.
 - **Appropriate safeguards** (Art. 46) — standard contractual clauses (SCC), binding corporate rules (BCR), codes of conduct.
-- **Derogations for specific situations** (Art. 49) — consent of the data subject, contract performance, vital interests.
+- **Derogations for specific situations** (Art. 49) — the data subject's consent, contract performance, vital interests.
 
-Without one of these mechanisms, the transfer is unlawful — regardless of encryption, technical safeguards, or contractual assurances.
+Absent all three, the transfer is unlawful. Encryption does not cure it; technical measures do not cure it; contractual promises do not cure it.
 
 ### Current status for the United States: Data Privacy Framework
 
-For the United States, the **EU-US Data Privacy Framework** has been in force since July 2023[^2]: an adequacy decision under Art. 45 GDPR for companies that have self-certified. OpenAI is listed[^3].
+Since July 2023, transfers to the United States can rest on the **EU-US Data Privacy Framework**[^2] — an Art. 45 adequacy decision covering companies that have self-certified under it. OpenAI appears on the certification list[^3].
 
-The framework is legally contested. NOYB and other privacy organisations have filed challenges; two predecessor mechanisms (Safe Harbor 2015, Privacy Shield 2020) were previously struck down by the European Court of Justice. Anyone relying on the framework should know that uncertainty is built into its construction.
+That footing is shakier than it looks. NOYB and other privacy organisations are litigating against the framework, and its two predecessors — Safe Harbor (struck down 2015) and Privacy Shield (struck down 2020) — both fell before the European Court of Justice. Uncertainty is not a bug in this arrangement; it is part of its history.
 
-While the decision stands, a transfer to a DPF-certified US recipient can be based on Art. 45 GDPR. If the decision falls — and that can happen overnight with a CJEU ruling —, the legal basis disappears and recipients must fall back on SCCs with additional measures (a Transfer Impact Assessment).
+As long as the decision stands, sending data to a DPF-certified US recipient can rely on Art. 45 GDPR. Should the CJEU annul it — which can happen from one day to the next — that basis evaporates, and recipients are thrown back on SCCs supplemented by additional measures, including a Transfer Impact Assessment.
 
 ## Lawful basis under Art. 6 GDPR
 
-Before the third-country-transfer question comes a prior one: on what lawful basis is the processing happening at all? Art. 6(1) GDPR lists six possible bases:
+The transfer question is actually the second question. The first: what lawful basis supports the processing in the first place? Art. 6(1) GDPR offers exactly six:
 
-- **a) Consent** — from the data subject, freely given, informed, withdrawable at any time.
-- **b) Performance of a contract** — processing is necessary to perform a contract with the data subject.
-- **c) Legal obligation** — statutory requirement.
-- **d) Vital interests** — emergencies.
-- **e) Public interest** — state functions.
-- **f) Legitimate interests** — balancing the controller's interest against the data subject's rights.
+- **a) Consent** — given by the data subject, freely, on an informed basis, revocable at any time.
+- **b) Performance of a contract** — the processing is necessary to fulfil a contract with the data subject.
+- **c) Legal obligation** — a statute requires it.
+- **d) Vital interests** — life-or-death situations.
+- **e) Public interest** — the exercise of official authority.
+- **f) Legitimate interests** — the controller's interest, weighed against the data subject's rights.
 
-For processing a client document in ChatGPT, c), d) and e) are usually out of scope. The candidates are a), b) and f).
+Running a client document through ChatGPT rules out c), d), and e) in nearly every scenario. That leaves a), b), and f) as candidates.
 
-**a) Consent:** the client would have to explicitly consent to processing of their personal data by a US company. A boilerplate clause in a retainer agreement will hardly meet the requirements of voluntariness and informedness — especially when the client does not know what happens technically.
+**a) Consent:** the client would need to consent, explicitly, to their personal data being processed by a US company. A pre-printed clause buried in an engagement letter is unlikely to clear the bar of voluntariness and informedness — particularly when the client has no idea what technically happens to their file.
 
-**b) Performance of a contract:** a retainer agreement obliges the lawyer to provide advice, not to do so using a specific tool. The performance can be achieved with other means. _Necessary_ in the sense of b) is therefore usually not met.
+**b) Performance of a contract:** an engagement obliges the lawyer to advise, not to advise with any particular tool. Because the same service can be rendered by other means, the _necessity_ that b) demands is normally absent.
 
-**f) Legitimate interests:** the most common basis invoked in practice. It requires a three-step test: legitimate interest, necessity, balancing against data subject rights. For confidential client or patient data, the balancing tends to favour the data subject — the expectation that one's own files are not transmitted to US providers is justified.
+**f) Legitimate interests:** the workhorse of practice, and the basis most often claimed. It demands a three-part test — a legitimate interest, necessity, and a balancing against the data subject's rights. Where confidential client or patient material is concerned, that balancing tilts toward the data subject: people are entitled to expect that their files do not end up with US providers.
 
 ## Controller and processor
 
-A second layer: the role allocation under Art. 4(7) and 4(8) GDPR.
+A second layer sits on top: who plays which role under Art. 4(7) and 4(8) GDPR?
 
-- **Controller** — the party that decides on the purposes and means of processing. In a law firm: the lawyer or the firm.
-- **Processor** — the party that processes on behalf of the controller, without independently deciding on the purposes.
+- **Controller** — whoever determines the purposes and means of the processing. In a firm, that is the lawyer or the firm itself.
+- **Processor** — whoever handles the data on the controller's instructions without setting the purposes independently.
 
-When a lawyer sends client data to OpenAI, OpenAI is typically a **processor**. Art. 28 GDPR then applies: a **data processing agreement (DPA)** must exist between lawyer and OpenAI, covering at least the contents required by Art. 28(3).
+A lawyer who feeds client data to OpenAI typically makes OpenAI a **processor**. Art. 28 GDPR then bites: a **data processing agreement (DPA)** must be in place between lawyer and OpenAI, containing at minimum what Art. 28(3) prescribes.
 
-OpenAI offers standardised DPAs for business tiers (Team, Enterprise, API platform)[^4]. The free and Plus tiers generally do not include a DPA — those tiers are primarily aimed at individual users.
+OpenAI provides standardised DPAs for its business offerings — Team, Enterprise, and the API platform[^4]. The free and Plus tiers, aimed at private individuals, generally come without one.
 
-**Practical consequence:** Anyone using a personal ChatGPT account (Plus tier at $20/month) in a professional context and pasting client documents into it usually has **no DPA with OpenAI**. A requirement of Art. 28 GDPR is therefore missing. The processing is in that constellation typically unlawful — regardless of whether the third-country-transfer mechanism is in order.
+**Practical consequence:** whoever works professionally out of a personal ChatGPT account (Plus, $20/month) and pastes client documents into it is, as a rule, operating **without a DPA**. One of Art. 28 GDPR's requirements is simply not met. In that configuration the processing is typically unlawful — even if the third-country-transfer side were entirely in order.
 
 ## An additional layer: professional secrecy
 
-For lawyers, physicians, tax advisors, and psychotherapists, **professional secrecy** is a separate duty regime that runs **in parallel** with the GDPR. In Germany:
+Lawyers, physicians, tax advisors, and psychotherapists carry **professional secrecy** obligations — a duty regime that operates **alongside** the GDPR, not inside it. In Germany:
 
-- **§ 43a(2) BRAO** — duty of confidentiality for lawyers.
-- **§ 203 StGB** — criminal liability for breaching private secrets, including by lawyers, physicians, tax advisors.
+- **§ 43a(2) BRAO** — the lawyer's duty of confidentiality.
+- **§ 203 StGB** — criminal liability for disclosing private secrets, applicable to lawyers, physicians, tax advisors, among others.
 
-§ 203 StGB differs from the GDPR on one decisive point: it is **criminal law**. Breaches are offences, not just regulatory violations. The covered class of persons is narrower, the threshold for "revealing" is lower.
+The decisive difference between § 203 StGB and the GDPR: it is **criminal law**. A violation is an offence, not merely a regulatory infraction. The circle of covered persons is smaller, but the threshold for what counts as "revealing" is lower.
 
-Transmission to a cloud provider can constitute revealing in the sense of § 203 StGB — even with a DPA in place and a third-country-transfer mechanism in order. The requirements for "assisting persons" (§ 203(4) StGB) must be satisfied: a duty of confidentiality, usually in writing, that the US company would have to accept.
+Handing data to a cloud provider can amount to revealing under § 203 StGB — a valid DPA and a working transfer mechanism notwithstanding. To avoid it, the conditions for "assisting persons" (§ 203(4) StGB) must be met: a confidentiality obligation, normally in writing, which the US company would have to accept.
 
-In practice, no clear standard has emerged for this. Some German states publish guidance, some bar associations explicitly advise against cloud LLMs for client data[^5]. The situation is in flux; a call to the relevant bar association before introducing a tool is not redundant.
+No settled market standard for this exists. Some German states have issued guidance; some bar associations advise outright against putting client data into cloud LLMs[^5]. The terrain is moving — a call to the competent bar association before adopting a tool is time well spent.
 
 ## What a law firm (or consultancy) needs to check
 
-Six questions before using a cloud LLM for professional content:
+Before a cloud LLM touches professional content, six questions:
 
-1. **Lawful basis:** which letter of Art. 6(1) GDPR carries the processing? Is the choice documented?
-2. **DPA:** is there a data processing agreement with the vendor? Does it meet Art. 28(3) GDPR?
-3. **Third-country-transfer mechanism:** does an adequacy decision (DPF) apply — and is the vendor certified? Otherwise, are SCCs in place? Was a Transfer Impact Assessment performed?
-4. **Professional secrecy:** has the relevant bar been consulted? Are assisting persons in the sense of § 203(4) StGB bound in writing?
-5. **Client transparency:** have data subjects been informed (Arts. 13/14 GDPR)? Can they object?
-6. **Data protection impact assessment (Art. 35):** required for extensive processing of sensitive data. Was it performed?
+1. **Lawful basis:** which letter of Art. 6(1) GDPR is the processing resting on — and is that choice written down?
+2. **DPA:** does a data processing agreement with the vendor exist, and does it satisfy Art. 28(3) GDPR?
+3. **Third-country-transfer mechanism:** is an adequacy decision (DPF) available, and is this vendor certified under it? If not, are SCCs in place, and has a Transfer Impact Assessment been done?
+4. **Professional secrecy:** has the competent bar been asked? Are assisting persons under § 203(4) StGB bound in writing?
+5. **Client transparency:** have the data subjects been informed (Arts. 13/14 GDPR), and can they object?
+6. **Data protection impact assessment (Art. 35):** mandatory for large-scale processing of sensitive data — has one been carried out?
 
-In a typical setup using a personal ChatGPT Plus subscription, at least four of these six are unanswered. That makes the constellation legally vulnerable.
+Run this checklist against the typical setup — a personal ChatGPT Plus subscription — and at least four of the six come back empty. Legally, that constellation stands on very thin ice.
 
 ## What changes with local processing
 
-When processing happens **fully on the end device** — no text travels to an external server — questions 2 and 3 fall away entirely. There is no processor, because no one works with the data other than the controller. There is no third-country transfer, because the data never reaches a third country.
+If the processing stays **entirely on the end device** — no text ever leaves for an external server — questions 2 and 3 simply disappear. No processor exists, since nobody besides the controller touches the data. No third-country transfer occurs, since the data never crosses into a third country.
 
-Questions 1, 4, 5, and 6 remain in place. GDPR does not vanish through locality — it merely applies through a considerably narrower set of questions.
+Questions 1, 4, 5, and 6 survive. Locality does not switch the GDPR off — it shortens the list of questions the GDPR asks.
 
-That is the actual difference between a cloud LLM and an on-device solution. Not "more" or "less" data protection, but **a different number of questions to answer**.
+And that is the real contrast between a cloud LLM and an on-device solution: not "better" or "worse" data protection in the abstract, but **a different number of open questions**.
 
 ## Further in the cluster
 
-The first article in this series defined the [five properties of local AI](/en/blog/what-private-actually-means). The second covered the [position of local AI under the EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act). This third one closes the legal-foundations round.
+This series opened by defining the [five properties of local AI](/en/blog/what-private-actually-means), then examined the [position of local AI under the EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act). With this third piece, the legal-foundations round is complete.
 
-The [local-AI pillar page](/en/local-ai) collects all three articles. For the technical architecture underpinning on-device processing in practice, see the [architecture page](/en/architecture).
+All three articles are gathered on the [local-AI pillar page](/en/local-ai). The technical side — how on-device processing actually works — is covered on the [architecture page](/en/architecture).
 
 To try LokLM: [download](/en/#download), no account, no email required.
 

@@ -5,7 +5,7 @@ import { useT } from '../i18n'
 type Props = { onClose: () => void }
 
 /**
- * AP-9 Account §3.8 "neue Recovery-Codes anfordern". Two steps:
+ * AP-9 Account "neue Recovery-Codes anfordern". Two steps:
  *   1. re-authenticate with the current password, then
  *   2. reveal the fresh passphrase once (reuses PassphraseReveal — copy +
  *      acknowledge checkbox).

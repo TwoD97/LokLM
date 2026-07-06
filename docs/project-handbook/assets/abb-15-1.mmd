@@ -1,9 +1,0 @@
-flowchart TD
-  A["lap-corpus/*.txt, *.md<br/>(UTF-8/LF)"] --> B["FixedSizeChunker 512/64<br/>chunk() pro Dokument"]
-  B --> C["chunks[]<br/>id, docId, text, start, end"]
-  D["questions.jsonl<br/>(kuratiert, eine Frage je Zeile)"] --> E["Zeile parsen + validieren"]
-  C --> E
-  E -->|"refusal: behalten<br/>non-refusal mit unbek. chunkId: raus"| F["GeneratedQuestion"]
-  F --> G["goldSpans aus<br/>requiredChunkSet-Offsets ableiten"]
-  C --> G
-  G --> H["LapDataset<br/>{ chunker, chunks, questions }"]

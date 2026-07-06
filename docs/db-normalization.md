@@ -99,7 +99,7 @@ Single-Transaction-Write garantiert.
 | Spalte                                       | Snapshot-Beziehung       | Warum brücke wäre falsch                                                                                                                                                                                             |
 | -------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `conversations.active_document_ids` (int[])  | Konversation ↔ Dokumente | Brücken-Tabelle + `ON DELETE CASCADE` würde den historischen Fokus-Zustand zerstören , wenn der User später eine Quelle löscht. Citation-Chip kann nicht mehr graceful zu „Quelle nicht mehr verfügbar" degradieren. |
-| `quiz_decks.document_ids` (int[])            | Deck ↔ Quell-Dokumente   | Deck soll Doc-Delete überleben , damit der Nutzer das Quiz auch nach Aufräumen der PDFs noch spielen kann. Fachliche Anforderung aus dem Lastenheft.                                                                 |
+| `quiz_decks.document_ids` (int[])            | Deck ↔ Quell-Dokumente   | Deck soll Doc-Delete überleben , damit der Nutzer das Quiz auch nach Aufräumen der PDFs noch spielen kann. Fachliche Anforderung.                                                                 |
 | `quiz_questions.source_chunk_ids` (int[])    | Frage ↔ Beweis-Chunks    | Frage muss Chunk-Delete überleben (Stem + Antwort + Erklärung bleiben gültig , nur der Beweis-Link degradiert).                                                                                                      |
 | `quiz_attempts.answers` (jsonb-Objekt-Array) | Attempt → Antworten      | Attempt-Historie soll Question-Regenerate überleben. Brücken-Tabelle würde durch CASCADE die Versuchs-Geschichte zerstören , wenn der User das Deck regeneriert.                                                     |
 
@@ -138,8 +138,8 @@ gegen die Umsetzung entschieden:
 | Quiz-Attempt nach Question-Regenerate  | Snapshot bleibt , Versuch lesbar                      | CASCADE löscht aus Brücken-Tabelle , Versuch verschwindet         | **Datenverlust**                                              |
 
 Strikt-3NF rettet _keine_ Integrität (wir haben keine zu retten , siehe
-Integritäts-Garantien oben) und zerstört semantische Anforderungen aus dem
-Lastenheft. Daher die Tier-1-Selektion , nicht die Vollnormalisierung.
+Integritäts-Garantien oben) und zerstört semantische Anforderungen aus den
+fachlichen Vorgaben. Daher die Tier-1-Selektion , nicht die Vollnormalisierung.
 
 ## Wie wir das im Prüfungsgespräch formulieren
 
@@ -159,7 +159,7 @@ Lastenheft. Daher die Tier-1-Selektion , nicht die Vollnormalisierung.
 > ihre Eliminierung würde messbare Performance-Regression _ohne_
 > Integritäts-Gewinn produzieren. Die vier verbleibenden jsonb-Snapshot-Arrays
 > modellieren immutable historische Tatsachen , deren Auflösung in
-> Brücken-Tabellen die fachliche Snapshot-Semantik aus dem Lastenheft
+> Brücken-Tabellen die fachliche Snapshot-Semantik aus den Anforderungen
 > verletzen würde.
 
 ## Referenzen

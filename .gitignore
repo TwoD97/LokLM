@@ -144,8 +144,6 @@ vite.config.ts.timestamp-*
 electron.vite.config.*.mjs
 .vite/
 
-Pflichtenheft_LokLM.md
-
 # Comparison clones (not part of LokLM)
 _reference/
 
@@ -204,20 +202,12 @@ docs/abgabe/
 # Lokaler Dogfood-Wissens-Korpus (regenerierbar via docs/abgabe-korpus/regenerate-korpus.sh) — nicht auf GitHub
 docs/abgabe-korpus/
 
-# Lokale Anleitung (nur für Dominik) — bleibt lokal, nicht auf GitHub
-tests/evals/ANLEITUNG-DOMINIK.md
-
 # Generated splash assets ( rebuilt by scripts/build-installer-splash.mjs
 # before package:win:installer ; source of truth is installer-ui/splash.html )
 resources/installer-splash.bmp
 resources/installer-splash.gif
 resources/installer-splash.png
 installer-wizard/.nsis-portable/
-
-# Bericht-Snapshots: nur die Markdown-Quellen werden veroeffentlicht.
-# PDFs bleiben generell lokal — jederzeit aus den .md reproduzierbar,
-# im Repo sonst nur Ballast.
-docs/berichte/**/*.pdf
 
 # IDE-/Editor-Konfiguration (lokal, nicht im Repo)
 .vscode/

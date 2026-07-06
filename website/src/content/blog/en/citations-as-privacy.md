@@ -7,77 +7,75 @@ pubDate: 2026-05-28
 tags: ['local-ai', 'architecture', 'privacy']
 ---
 
-> **Note:** First draft — will be edited before publication.
+When a product demo shows source citations, it frames them as a convenience. _"See for yourself — page 47."_ Polished, checkable, pleasant to use. None of that is false. What the framing leaves out is that a citation is simultaneously a **privacy property**. Put bluntly: an answer that carries source citations exposes less of the model's interior than an answer that carries none. The claim sounds odd at first and obvious once unpacked.
 
-Product demos usually present source citations as a convenience feature. _"Here's the source, page 47."_ Slick. Verifiable. User-friendly. That is not wrong — but it misses that citations are at the same time a **privacy property**. The thesis below is not obvious, but it is plain once stated: answers with source citations reveal less about the model than answers without.
-
-This article works the thesis out.
+Unpacking it is the job of this article.
 
 ## What a "plain model answer" is
 
-A language model has been trained on large text corpora. When it answers a question without referencing specific sources, it draws from a mixture: the training corpus, any fine-tuning data, and internal statistical generalisation. The answer can be correct. It can also be made up (the phenomenon is called hallucination[^1]). From the answer alone it is often not possible to see which part is which.
+A language model carries the imprint of enormous training corpora. Ask it something without pointing it at particular sources, and the reply is assembled from a blend of ingredients: pretraining text, fine-tuning material, and whatever statistical generalisation happens inside the network. Sometimes the result is right. Sometimes it is invented — the field calls this hallucination[^1]. Looking at the reply alone, you usually cannot separate the two.
 
-This mixture is the _"model-knows-things"_ surface. It is the sum of all statements the model can make without grounding in concrete sources. It is large: a model in the 7–70 billion parameter range has seen training data in the double-digit terabyte range.
+Call this blend the _"model-knows-things"_ surface: everything the model is capable of asserting without being anchored to any concrete document. That surface is vast — models in the 7–70 billion parameter class have digested training data measured in tens of terabytes.
 
 ## How a source citation shrinks the surface
 
-A retrieval-augmented answer is built differently. Before generation, the system searches an index for matching text passages. The retrieved passages are passed to the model as context. The model is supposed to ground its answer **on this context**, not on its training knowledge.
+Retrieval-augmented generation assembles its answers along a different path. First, the system queries an index and pulls out the text passages that best match the question. Those passages travel into the model's context window, and the model is instructed to build its reply **from that context** rather than from what it absorbed during training.
 
-When the index contains only the user's own documents — client files, research drafts, business records —, the model faces a narrower task: _"Answer this question with reference to these passages from these documents."_ The statement surface shrinks from _"everything I know from training"_ to _"what is in these thirty paragraphs."_
+Now suppose the index holds nothing but the user's own material — case files, draft papers, business correspondence. The model's job narrows dramatically: _"Answer using these passages from these documents."_ Instead of asserting from _"everything training taught me,"_ it asserts from _"whatever these thirty paragraphs contain."_
 
-Source citations are the visibility of that shrinking. When an answer ends with _"page 17, paragraph 3,"_ the user has a direct lever: they can check the passage and see whether the answer is faithful to the source or whether the model went beyond it.
+A citation is what makes that narrowing visible. The moment a reply closes with _"page 17, paragraph 3,"_ the user holds a concrete handle: open the passage, compare, and judge whether the answer stayed inside the source or drifted past it.
 
-## Privacy and verifiability as the same property
+## Privacy and verifiability turn out to be the same property
 
-Here is where the thesis lands. What is the privacy risk in an answer without source citations?
+This is where the argument comes together. Ask: what privacy risk does an uncited answer actually carry?
 
-Two things at once:
+Two risks, in fact:
 
-1. **Information leak from training.** The model could emit content that was in its training corpus — verbatim or paraphrased. When the corpus contains web pages, forum data, possibly scraped documents, an answer can accidentally include content unrelated to the user's question. Research on _training data extraction_ has shown this is technically possible[^2].
-2. **Information mix from multiple inputs.** In multi-turn conversations, the model can blend content from earlier inputs. What the user put into question 1 can resurface in answer 3 — intentionally or not.
+1. **Leakage from the training corpus.** Content the model saw during training can surface in its output — word for word or in paraphrase. Since training corpora include web pages, forum posts, and sometimes scraped documents, an answer may carry material that has nothing to do with the question asked. The _training data extraction_ literature demonstrates that this is more than a theoretical worry[^2].
+2. **Cross-contamination within a conversation.** Over several turns, a model can weave together fragments of earlier inputs. Something typed into question 1 may echo, deliberately or accidentally, in answer 3.
 
-Both risks shrink when the model is forced onto a bounded context and the passages used are marked in the answer. Citations are not the mechanism that reduces the risk — the mechanism is the tight context. But the citations make the bounding **checkable**: without them, the user cannot tell whether the model truly used only the context.
+Both risks contract once the model is pinned to a bounded context and each passage it used is flagged in the output. To be precise about the mechanics: the tight context is what reduces the risk, not the citations themselves. What the citations add is **checkability** — without them, a user has no way of knowing whether the model really confined itself to the context it was given.
 
-Two properties then collapse into one:
+At that point, two seemingly separate questions merge:
 
-- **Verifiability:** Did I look up what the model is telling me?
-- **Privacy bounding:** Do I have grounds to assume the model did not reach across into other sources?
+- **Verifiability:** can I look up what the model just told me?
+- **Privacy bounding:** do I have evidence the model stayed inside my documents and did not pull from elsewhere?
 
-Both questions become answerable through the same technical property.
+One technical property answers both.
 
 ## What citations do not deliver
 
-Three important limits, so the thesis is not over-extended:
+Three limits worth stating plainly, so the argument stays honest:
 
-- **Citations do not guarantee faithfulness.** A model can cite a correct source and yet state something that is not in the source as stated. This is called _citation hallucination_ and is measurably common[^3]. Citations reduce the risk; they do not eliminate it.
-- **Citations alone do not make a system private.** A cloud RAG system with perfect citations still sends the request to an external server. The privacy property _"data does not leave the device"_ is orthogonal to the citation property.
-- **Citations are only as good as their index.** When the index is incomplete, the system can honestly answer _"I find nothing on this in the available sources"_ — a valuable statement. It can also force the model to fall back on training knowledge anyway. How a system handles _"not found"_ is a design decision that changes the privacy picture.
+- **A citation is not a faithfulness guarantee.** A model can point at a genuine source while asserting something the source never says. The literature calls this _citation hallucination_, and measurements show it happens at meaningful rates[^3]. Citations lower the risk without removing it.
+- **Citations by themselves do not make a system private.** A cloud RAG service with flawless citations still ships every query to a remote server. Whether data leaves the device is a separate axis from whether answers carry references.
+- **A citation is only as trustworthy as the index behind it.** If the index has gaps, a well-behaved system can say _"the available sources contain nothing on this"_ — which is genuinely useful information. A badly designed one instead lets the model quietly fall back on training knowledge. How a tool handles _"not found"_ is a design choice, and it reshapes the privacy picture.
 
 ## What the property looks like in a local architecture
 
-In an on-device RAG architecture like LokLM, three steps run before an answer is produced:
+An on-device RAG system such as LokLM performs three steps before any answer appears:
 
-1. **Indexing.** Documents are split into chunks; each chunk is assigned an embedding. The index lives locally as a database.
-2. **Retrieving.** The user's question is converted to an embedding; the most similar chunks from the index are selected — usually a mix of dense (vector similarity) and lexical (BM25). This hybrid retrieval logic is detailed in the [architecture article](/en/architecture).
-3. **Generating.** The model receives the question plus the selected chunks as a prompt. It is instructed to ground its answer in these chunks and to mark the source of each chunk in the answer.
+1. **Indexing.** Documents get sliced into chunks, and every chunk receives an embedding. The resulting index sits on disk as a local database.
+2. **Retrieving.** The question is embedded too, and the closest chunks are pulled from the index — typically through a combination of dense vector similarity and lexical matching (BM25). The [architecture article](/en/architecture) walks through this hybrid retrieval in detail.
+3. **Generating.** The prompt handed to the model contains the question together with the retrieved chunks, plus an instruction: stay grounded in these chunks, and label each one you draw on.
 
-Step 3 is where the privacy property becomes _visible_. Without citations, the user could not tell _"this was in my document"_ from _"the model made this up"_ — locality alone does not help with that distinction.
+The privacy property becomes _observable_ only in step 3. Strip out the citations, and even a fully local system leaves the user unable to distinguish _"this came from my document"_ from _"the model invented this"_ — locality settles where the data lives, not where a claim came from.
 
 ## A practical consequence
 
-Anyone treating citations as a pure UX feature misses an evaluation dimension. When choosing an AI tool for confidential content, the question _"does the system deliver a verifiable source per statement?"_ is not only a UX question. It is also:
+Treating citations as mere UX means losing an entire evaluation dimension. When picking an AI tool for confidential material, asking _"does every statement come with a checkable source?"_ is not just about usability. The same question is:
 
-- a privacy question (How tightly is the statement bound to the input?)
-- a liability question (Who is responsible for a statement that appears in no cited source?)
-- an audit question (Can someone, three months later, trace where an answer came from?)
+- a privacy question (how firmly is each claim tethered to what I put in?)
+- a liability question (who answers for a claim that no cited source contains?)
+- an audit question (can the origin of an answer be reconstructed three months later?)
 
-Three questions, one technical property.
+One technical property, three questions settled.
 
 ## Further in the cluster
 
-This article links the [privacy pillar](/en/local-ai) with the [architecture pillar](/en/architecture). The first three articles in the series — [definition of "private"](/en/blog/what-private-actually-means), [EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act), [GDPR and the LLM](/en/blog/gdpr-and-llm-data-export) — are legal/conceptual. This one is technical/conceptual.
+This piece bridges the [privacy pillar](/en/local-ai) and the [architecture pillar](/en/architecture). The series opened with three legal/conceptual articles — the [definition of "private"](/en/blog/what-private-actually-means), the [EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act), and [GDPR and the LLM](/en/blog/gdpr-and-llm-data-export). This one sits on the technical/conceptual side.
 
-The next piece in the series will sketch a [taxonomy of local AI](/en/blog/taxonomy-of-local-ai) — inference, retrieval, training, and which property applies to which.
+Next up in the series: a [taxonomy of local AI](/en/blog/taxonomy-of-local-ai) — inference, retrieval, training, and which property attaches to which stage.
 
 To try LokLM: [download](/en/#download), no account.
 

@@ -15,7 +15,7 @@ import type { LlmProvider, RerankerProvider } from '@main/services/providers/typ
 import type { IndexProgress } from '@main/services/documents/types'
 import { KORPUS, FRAGEN } from '../fixtures/retrieval/korpus'
 
-// AP-T.2 (Pflichtenheft §8.2) — RetrievalService E2E: 50-Chunk-Korpus mit
+// AP-T.2 — RetrievalService E2E: 50-Chunk-Korpus mit
 // echtem Embedder importieren, 10 vorbereitete Fragen stellen, Top-K muss
 // deterministisch sein und die erwarteten Chunks enthalten. Korpus + Fragen
 // liegen in tests/fixtures/retrieval/korpus.ts.
@@ -148,11 +148,11 @@ describe.runIf(existsSync(MODEL_PATH))('AP-T.2 RetrievalService E2E (Korpus)', (
     const totalChunks = [...chunksByDatei.values()].reduce((n, c) => n + c.length, 0)
     expect(
       totalChunks,
-      `Korpus hat erst ${totalChunks} Chunks — TODO(Dominik) in tests/fixtures/retrieval/korpus.ts: Dokumente ergänzen bis ≥50`,
+      `Korpus hat erst ${totalChunks} Chunks — in tests/fixtures/retrieval/korpus.ts Dokumente ergänzen bis ≥50`,
     ).toBeGreaterThanOrEqual(50)
     expect(
       FRAGEN.length,
-      `Erst ${FRAGEN.length} Prüf-Fragen — TODO(Dominik) in tests/fixtures/retrieval/korpus.ts: ergänzen bis ≥10`,
+      `Erst ${FRAGEN.length} Prüf-Fragen — in tests/fixtures/retrieval/korpus.ts ergänzen bis ≥10`,
     ).toBeGreaterThanOrEqual(10)
   })
 

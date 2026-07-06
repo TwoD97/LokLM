@@ -7,33 +7,33 @@ pubDate: 2026-05-28
 tags: ['local-ai', 'architecture', 'privacy']
 ---
 
-In the discussion of AI tools, the word _"local"_ is often used as though it meant a single thing. A modern AI application in fact spans three separable stages, each of which can run locally or remotely. Anyone who does not pull the three apart ends up comparing products that differ on different axes — under a single label.
+Conversations about AI tools tend to treat _"local"_ as if it named one property. It does not. A modern AI application decomposes into three distinct stages, and each stage independently answers the question "does this run on my machine or somewhere else?" Skip that decomposition, and you find yourself weighing products against each other that actually differ along different axes — while both wear the same label.
 
-This article is the reference that other pieces in the series link back to. It defines the three stages briefly and shows which combinations appear in practice.
+This is the reference article the rest of the series points back to: a compact definition of the three stages, followed by the combinations that show up in the wild.
 
 ## The three stages
 
-An AI application applied to a user's own documents (retrieval-augmented generation, RAG[^1]) runs through three separable steps:
+Applying AI to one's own documents — retrieval-augmented generation, RAG[^1] — involves three separable steps:
 
 ### 1. Training
 
-The language model is trained on large text corpora. This is the most compute- and data-intensive stage. It happens once per model version, at the model vendor (Meta, Mistral, Microsoft, Alibaba, etc.), in their data centres. For end users, training is in almost all cases **not local** — even open-weight models are trained centrally and then released as a file.
+First, the language model itself is produced by training on massive text corpora. Nothing in the pipeline consumes more compute or more data. It happens once per model version, inside the data centres of the model vendor (Meta, Mistral, Microsoft, Alibaba, etc.). For an end user, this stage is essentially never local — open-weight models, too, are trained centrally and then published as downloadable files.
 
-Exceptions: fine-tuning can take place locally (LoRA, QLoRA[^2]), when a user specialises an existing model on their own texts. Full training from scratch is not economically realistic for end users.
+The exception is fine-tuning: adapting an existing model to one's own texts can happen on local hardware (LoRA, QLoRA[^2]). Training a model from zero, by contrast, sits far outside any end user's budget.
 
 ### 2. Retrieval and indexing
 
-When AI is to be applied to a user's own documents, those documents must sit in a searchable index. Texts are split into chunks; each chunk is converted by an embedding model into a numerical vector; those vectors land in a database. On a query, the question itself becomes a vector; the system searches the index for the most similar chunks.
+Before AI can answer questions about a user's documents, those documents need to live in a searchable index. The texts are cut into chunks; an embedding model turns each chunk into a numerical vector; the vectors go into a database. At query time, the question itself is embedded, and the index returns the chunks that sit closest to it.
 
-This stage **can** be local. It can also be in the cloud. The choice is an architectural decision by the tool vendor and directly affects where the user's document embeddings live.
+Nothing forces this stage to be local — and nothing forces it to be remote. Where it runs is an architectural choice made by the tool vendor, and that choice determines where the embeddings of the user's documents end up living.
 
 ### 3. Inference
 
-The step most people think of as "the AI": the model produces an answer from question + context. This stage too **can** be local or remote. Local inference is typically implemented with tools like `llama.cpp`, `ollama`, or `vLLM`; remote inference goes through an API to OpenAI, Anthropic, Google, or self-hosted endpoints.
+Finally, the part most people picture when they say "the AI": the model takes question plus context and produces an answer. Again, both locations are possible. On-device inference typically runs through tools such as `llama.cpp`, `ollama`, or `vLLM`; remote inference means an API call to OpenAI, Anthropic, Google, or a self-hosted endpoint.
 
 ## The combinations in practice
 
-Three stages, two possible locations (local/remote) per stage. Theoretically that gives eight combinations; in practice you see five constellations — with A and B sharing the same locality profile and differing only in architecture:
+Two locations per stage, three stages — eight combinations on paper. In practice, five constellations recur, of which A and B share an identical locality profile and diverge only architecturally:
 
 | #   | Training              | Retrieval/Index | Inference | Type                                                                                                      |
 | --- | --------------------- | --------------- | --------- | --------------------------------------------------------------------------------------------------------- |
@@ -43,35 +43,35 @@ Three stages, two possible locations (local/remote) per stage. Theoretically tha
 | D   | remote                | **local**       | **local** | On-device RAG with open-weight model — e.g., LokLM                                                        |
 | E   | **local** (fine-tune) | **local**       | **local** | Specialised local system — mostly research/enterprise                                                     |
 
-Constellation C is instructive: a local index produces no privacy benefit when the query plus retrieved chunks goes to a cloud API for inference. The data still leaves the device. _"Local"_ in one part of the pipeline is not _"local"_ as a whole.
+Constellation C repays a closer look: keeping the index on-device buys nothing for privacy if the query — bundled with the retrieved chunks — is then shipped to a cloud API for inference. The data leaves the device anyway. _"Local"_ in one pipeline stage does not add up to _"local"_ overall.
 
 ## Why the distinction has privacy consequences
 
-Each stage decides **where this user's data appears**.
+Each of the three stages answers a different instance of the question **"where does this user's data show up?"**
 
-- **Training**: this is not about the end user's data but about the training data. As long as the user does not contribute data to training, training-locality is secondary to their privacy. It becomes relevant when a vendor incorporates user inputs into future training runs — a constellation regulated in many cloud vendors' terms of service (often by opt-out).
-- **Retrieval/index**: this is where the user's own data sits, in the form of embeddings and original chunks. If the index lives in the cloud, the user's documents live in the cloud — even when no "actual" inference happens there.
-- **Inference**: this is where individual queries are processed. If inference is remote, **every query** goes to an external server — including the chunks the local retrieval may have selected.
+- **Training**: the data at stake here is the training corpus, not the end user's material. So long as none of the user's data flows into training, the locality of this stage matters little for their privacy. It starts to matter when a vendor folds user inputs into future training runs — an arrangement many cloud vendors' terms of service explicitly permit (frequently on an opt-out basis).
+- **Retrieval/index**: this stage physically holds the user's data — the embeddings and the original chunks. A cloud-hosted index means cloud-hosted documents, full stop, even if no "real" inference ever runs there.
+- **Inference**: this is where each individual query gets processed. Remote inference means **every single question** travels to an external server — carrying along whatever chunks the (possibly local) retrieval selected.
 
-The [GDPR obligations](/en/blog/gdpr-and-llm-data-export) discussed in an earlier article apply differently at each of these three points. Third-country transfer arises in stage 2 or 3, the moment data reaches a third country. Processorship arises per stage as well.
+The [GDPR obligations](/en/blog/gdpr-and-llm-data-export) examined earlier in the series attach differently at each of the three points. Third-country transfer becomes an issue at stage 2 or 3, precisely when data crosses into a third country; the processor question likewise has to be posed stage by stage.
 
 ## Where LokLM sits on the axes
 
-LokLM lives in constellation D: training external (the model is downloaded), retrieval and inference local. The index is a SQLite file in the application data directory; inference runs through `llama.cpp`. There is no server receiving user queries.
+On this map, LokLM occupies constellation D: the model is trained externally and downloaded; retrieval and inference both run on-device. The index is a SQLite file inside the application data directory, inference goes through `llama.cpp`, and no server anywhere receives a user query.
 
-LokLM does not offer a local fine-tuning option. Users who want to specialise a model on their own texts use separate tools (Unsloth, axolotl, transformers-trainer) — that is constellation E and lies outside LokLM's scope.
+Local fine-tuning is not part of LokLM. Users who want a model specialised on their own texts reach for dedicated tools (Unsloth, axolotl, transformers-trainer) — that is constellation E, and deliberately outside LokLM's scope.
 
 ## What this taxonomy does not settle
 
-A taxonomy is a sorting, not a verdict. It says nothing about **which constellation is right for which purpose**. Constellation A (all cloud) has its own merits: stronger models, no setup overhead, always current. For users working with non-sensitive content — blog drafts, coding help, general queries — there is little to lose in A.
+A taxonomy sorts; it does not judge. Nothing above says **which constellation fits which purpose**. All-cloud constellation A has genuine strengths: the most capable models, zero setup, always up to date. For non-sensitive work — blog drafts, coding assistance, everyday questions — A costs the user little.
 
-Constellation D becomes interesting once the content is sensitive: client files, research drafts, business records, medical notes. There, locality of retrieval and inference measurably shifts the legal obligations — see the earlier articles in the series.
+The case for constellation D begins where the content turns sensitive: client files, unpublished research, business records, medical notes. At that point, keeping retrieval and inference on-device measurably changes which legal obligations apply — the earlier articles in the series lay this out.
 
 ## Further in the cluster
 
-This taxonomy closes the conceptual round of the privacy pillar. Earlier: [definition of "private"](/en/blog/what-private-actually-means), [EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act), [GDPR and the LLM](/en/blog/gdpr-and-llm-data-export), [citations as a privacy property](/en/blog/citations-as-privacy).
+With this taxonomy, the conceptual arc of the privacy pillar is complete. It builds on: the [definition of "private"](/en/blog/what-private-actually-means), the [EU AI Act](/en/blog/on-device-ai-under-the-eu-ai-act), [GDPR and the LLM](/en/blog/gdpr-and-llm-data-export), and [citations as a privacy property](/en/blog/citations-as-privacy).
 
-The next articles in the series will show concrete workflows — how a [law firm](/en/use-cases/lawyer) or a [research group](/en/use-cases/research) uses local AI in practice.
+Upcoming articles turn to concrete workflows — what local AI looks like day to day in a [law firm](/en/use-cases/lawyer) or a [research group](/en/use-cases/research).
 
 Pillar pages: [local AI](/en/local-ai) and [architecture](/en/architecture). To try LokLM: [download](/en/#download).
 

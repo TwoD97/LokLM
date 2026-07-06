@@ -25,7 +25,7 @@ Quelle: `tests/evals/README.md`.
   damit Vergleiche über Wochen vergleichbar bleiben) (`README.md` Z. 14–17).
 - Zwei Eval-Pfade: (a) Retrieval-/Quality-Sweep über Configs; (b) Skalierungs-Eval
   (`build-library --size` → Distractor-Docs → Degradationskurve) (`README.md` Z. 37–52).
-- Owner: **Dominik ist Test-Owner**, betreibt die Säule eigenverantwortlich
+- Owner: **Denys ist Test-Owner**, betreibt die Säule eigenverantwortlich
   (Generator-Impl, Pipeline-Bridges, Dataset-Pflege, Vergleiche fahren vor Release)
   (`README.md` Z. 276–289).
 

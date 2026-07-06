@@ -10,7 +10,7 @@
 | Arbeitspaket        | AP-?                            |
 | Priorität           | Hoch                            |
 | Datum               |                                 |
-| Tester              | dominik.furlan@lbs4.salzburg.at |
+| Tester              | max.mustermann@example.com |
 | Betriebssystem      |                                 |
 | App-Version / Build |                                 |
 | Gerät / Hardware    |                                 |

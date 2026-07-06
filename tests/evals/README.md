@@ -275,13 +275,13 @@ sie genutzt wurde.
 
 ## Zuständigkeit
 
-Dominik ist Test-Owner und betreibt diese Säule eigenverantwortlich:
+Denys ist Test-Owner und betreibt diese Säule eigenverantwortlich:
 
 - **Generator-Implementierungen**: Anpassungen an Ollama-/Anthropic-Provider,
   neue Provider falls nötig.
 - **Pipeline-Bridges**: sobald in `src/main/services/` ein echter Embedder
-  oder Reranker landet, baut Dominik die Eval-Bridge dafür und ergänzt eine
-  Config in [`pipeline/configs.ts`](./pipeline/configs.ts).
+  oder Reranker landet, wird die Eval-Bridge dafür gebaut und eine
+  Config in [`pipeline/configs.ts`](./pipeline/configs.ts) ergänzt.
 - **Dataset-Pflege**: generieren, committen, nur regenerieren wenn Sample-Docs
   oder Generator-Prompts sich ändern.
 - **Vergleiche fahren**: vor jedem Release oder bei Modell-Wechsel die

@@ -4,37 +4,47 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fetchGitHubData, type GitHubData } from './github'
 
-describe('fetchGitHubData', () => {
+const REPO = 'TwoD97/LokLM'
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status })
+
+const rawContributor = (login: string, contributions: number) => ({
+  login,
+  avatar_url: `https://avatars/${login}`,
+  html_url: `https://github.com/${login}`,
+  contributions,
+})
+
+/**
+ * Replaces global fetch with a mock that plays back the given outcomes in
+ * order (first call = /repos, second call = /contributors). A Response
+ * resolves, an Error rejects.
+ */
+function playbackFetch(...outcomes: Array<Response | Error>) {
+  let mock = vi.fn()
+  for (const outcome of outcomes) {
+    mock =
+      outcome instanceof Error
+        ? mock.mockRejectedValueOnce(outcome)
+        : mock.mockResolvedValueOnce(outcome)
+  }
+  vi.stubGlobal('fetch', mock)
+  return mock
+}
+
+describe('fetchGitHubData (no cache)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('returns stars and contributors when both fetches succeed', async () => {
-    const repoResponse = { stargazers_count: 142 }
-    const contributorsResponse = [
-      {
-        login: 'alice',
-        avatar_url: 'https://avatars/alice',
-        html_url: 'https://github.com/alice',
-        contributions: 50,
-      },
-      {
-        login: 'bob',
-        avatar_url: 'https://avatars/bob',
-        html_url: 'https://github.com/bob',
-        contributions: 20,
-      },
-    ]
-
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response(JSON.stringify(repoResponse), { status: 200 }))
-        .mockResolvedValueOnce(new Response(JSON.stringify(contributorsResponse), { status: 200 })),
+  it('maps repo stars and contributor fields on a fully successful run', async () => {
+    playbackFetch(
+      json({ stargazers_count: 142 }),
+      json([rawContributor('alice', 50), rawContributor('bob', 20)]),
     )
 
-    const result: GitHubData = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+    const result: GitHubData = await fetchGitHubData(REPO, { useCache: false })
 
     expect(result.stars).toBe(142)
     expect(result.contributors).toHaveLength(2)
@@ -45,161 +55,109 @@ describe('fetchGitHubData', () => {
     })
   })
 
-  it('limits contributors to top 8', async () => {
-    const repoResponse = { stargazers_count: 10 }
-    const many = Array.from({ length: 15 }, (_, i) => ({
-      login: `user${i}`,
-      avatar_url: `https://avatars/u${i}`,
-      html_url: `https://github.com/user${i}`,
-      contributions: 15 - i,
-    }))
+  it('caps the contributor list at 8 and counts the overflow', async () => {
+    const fifteen = Array.from({ length: 15 }, (_, i) => rawContributor(`user${i}`, 15 - i))
+    playbackFetch(json({ stargazers_count: 10 }), json(fifteen))
 
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response(JSON.stringify(repoResponse), { status: 200 }))
-        .mockResolvedValueOnce(new Response(JSON.stringify(many), { status: 200 })),
-    )
-
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+    const result = await fetchGitHubData(REPO, { useCache: false })
     expect(result.contributors).toHaveLength(8)
     expect(result.extraContributors).toBe(7)
   })
 
-  it('returns empty contributors and null stars on fetch failure', async () => {
+  it('degrades to null stars and no contributors when the network is down', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ENOTFOUND')))
 
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+    const result = await fetchGitHubData(REPO, { useCache: false })
 
     expect(result.stars).toBeNull()
     expect(result.contributors).toEqual([])
     expect(result.extraContributors).toBe(0)
   })
 
-  it('returns empty contributors when contributors fetch fails but stars succeed', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 7 }), { status: 200 }),
-        )
-        .mockRejectedValueOnce(new Error('rate limit')),
-    )
+  it('keeps the stars when only the contributors request throws', async () => {
+    playbackFetch(json({ stargazers_count: 7 }), new Error('rate limit'))
 
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+    const result = await fetchGitHubData(REPO, { useCache: false })
 
     expect(result.stars).toBe(7)
     expect(result.contributors).toEqual([])
   })
 
-  it('returns null stars when /repos endpoint responds with non-ok status', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(new Response('not found', { status: 404 }))
-        .mockResolvedValueOnce(new Response('[]', { status: 200 })),
-    )
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+  it('yields null stars on a non-ok /repos response', async () => {
+    playbackFetch(new Response('not found', { status: 404 }), json([]))
+
+    const result = await fetchGitHubData(REPO, { useCache: false })
     expect(result.stars).toBeNull()
   })
 
-  it('returns empty contributors when /contributors endpoint responds with non-ok status', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 3 }), { status: 200 }),
-        )
-        .mockResolvedValueOnce(new Response('rate limited', { status: 403 })),
-    )
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+  it('yields no contributors on a non-ok /contributors response', async () => {
+    playbackFetch(json({ stargazers_count: 3 }), new Response('rate limited', { status: 403 }))
+
+    const result = await fetchGitHubData(REPO, { useCache: false })
     expect(result.stars).toBe(3)
     expect(result.contributors).toEqual([])
     expect(result.extraContributors).toBe(0)
   })
 
-  it('treats stargazers_count of wrong type as null', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 'oops' }), { status: 200 }),
-        )
-        .mockResolvedValueOnce(new Response('[]', { status: 200 })),
-    )
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: false })
+  it('rejects a non-numeric stargazers_count as null', async () => {
+    playbackFetch(json({ stargazers_count: 'oops' }), json([]))
+
+    const result = await fetchGitHubData(REPO, { useCache: false })
     expect(result.stars).toBeNull()
   })
 })
 
-describe('fetchGitHubData cache', () => {
-  let workDir: string
-  let originalCwd: string
-  let cachePath: string
+describe('fetchGitHubData disk cache', () => {
+  const cachePath = '.cache/github.json'
+  let sandbox: string
+  let previousCwd: string
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    workDir = mkdtempSync(join(tmpdir(), 'loklm-gh-cache-'))
-    originalCwd = process.cwd()
-    process.chdir(workDir)
-    cachePath = '.cache/github.json'
+    sandbox = mkdtempSync(join(tmpdir(), 'loklm-gh-cache-'))
+    previousCwd = process.cwd()
+    process.chdir(sandbox)
   })
 
   afterEach(() => {
-    process.chdir(originalCwd)
-    rmSync(workDir, { recursive: true, force: true })
+    process.chdir(previousCwd)
+    rmSync(sandbox, { recursive: true, force: true })
   })
 
-  it('writes a fresh cache file when useCache is on and fetch succeeds', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 9 }), { status: 200 }),
-        )
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify([
-              {
-                login: 'alice',
-                avatar_url: 'a',
-                html_url: 'a',
-                contributions: 1,
-              },
-            ]),
-            { status: 200 },
-          ),
-        ),
+  const seedCache = (fetchedAt: number, data: GitHubData) => {
+    mkdirSync('.cache', { recursive: true })
+    writeFileSync(cachePath, JSON.stringify({ fetchedAt, data }))
+  }
+
+  it('persists successful results to the cache file', async () => {
+    playbackFetch(
+      json({ stargazers_count: 9 }),
+      json([{ login: 'alice', avatar_url: 'a', html_url: 'a', contributions: 1 }]),
     )
 
-    await fetchGitHubData('TwoD97/LokLM', { useCache: true, cachePath })
+    await fetchGitHubData(REPO, { useCache: true, cachePath })
 
-    const raw = readFileSync(cachePath, 'utf-8')
-    const parsed = JSON.parse(raw) as { fetchedAt: number; data: GitHubData }
-    expect(parsed.data.stars).toBe(9)
-    expect(parsed.data.contributors[0]?.login).toBe('alice')
-    expect(parsed.fetchedAt).toBeGreaterThan(0)
+    const stored = JSON.parse(readFileSync(cachePath, 'utf-8')) as {
+      fetchedAt: number
+      data: GitHubData
+    }
+    expect(stored.data.stars).toBe(9)
+    expect(stored.data.contributors[0]?.login).toBe('alice')
+    expect(stored.fetchedAt).toBeGreaterThan(0)
   })
 
-  it('reads from cache and skips fetch when within TTL', async () => {
+  it('serves a fresh cache entry without touching the network', async () => {
     const cached: GitHubData = {
       stars: 42,
       contributors: [{ login: 'cached', avatarUrl: 'x', profileUrl: 'y' }],
       extraContributors: 0,
     }
-    mkdirSync('.cache', { recursive: true })
-    writeFileSync(cachePath, JSON.stringify({ fetchedAt: Date.now(), data: cached }))
+    seedCache(Date.now(), cached)
 
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 
-    const result = await fetchGitHubData('TwoD97/LokLM', {
+    const result = await fetchGitHubData(REPO, {
       useCache: true,
       cachePath,
       cacheTtlMs: 1000 * 60,
@@ -209,61 +167,37 @@ describe('fetchGitHubData cache', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('ignores stale cache (older than ttl) and re-fetches', async () => {
-    const stale: GitHubData = {
-      stars: 1,
-      contributors: [],
-      extraContributors: 0,
-    }
-    mkdirSync('.cache', { recursive: true })
-    writeFileSync(
-      cachePath,
-      JSON.stringify({ fetchedAt: Date.now() - 1000 * 60 * 60, data: stale }),
-    )
+  it('discards an expired entry and hits the network again', async () => {
+    // entry written an hour ago, but ttl is 60ms => stale
+    seedCache(Date.now() - 1000 * 60 * 60, { stars: 1, contributors: [], extraContributors: 0 })
 
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 99 }), { status: 200 }),
-        )
-        .mockResolvedValueOnce(new Response('[]', { status: 200 })),
-    )
+    playbackFetch(json({ stargazers_count: 99 }), json([]))
 
-    const result = await fetchGitHubData('TwoD97/LokLM', {
+    const result = await fetchGitHubData(REPO, {
       useCache: true,
       cachePath,
-      cacheTtlMs: 60, // 60ms — older entry is stale
+      cacheTtlMs: 60,
     })
 
     expect(result.stars).toBe(99)
   })
 
-  it('treats a corrupted cache file as no-cache and re-fetches', async () => {
+  it('falls back to fetching when the cache file is not valid JSON', async () => {
     mkdirSync('.cache', { recursive: true })
     writeFileSync(cachePath, 'this is not json {')
 
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ stargazers_count: 7 }), { status: 200 }),
-        )
-        .mockResolvedValueOnce(new Response('[]', { status: 200 })),
-    )
+    playbackFetch(json({ stargazers_count: 7 }), json([]))
 
-    const result = await fetchGitHubData('TwoD97/LokLM', { useCache: true, cachePath })
+    const result = await fetchGitHubData(REPO, { useCache: true, cachePath })
     expect(result.stars).toBe(7)
   })
 
-  it('does not write cache when both fetches fail', async () => {
+  it('leaves no cache file behind when every request fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
-    await fetchGitHubData('TwoD97/LokLM', { useCache: true, cachePath })
+    await fetchGitHubData(REPO, { useCache: true, cachePath })
 
-    // cache path should not exist since nothing was worth saving
+    // an all-error result carries no data worth persisting
     expect(() => readFileSync(cachePath, 'utf-8')).toThrow()
   })
 })

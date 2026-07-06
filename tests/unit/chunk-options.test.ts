@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { resolveChunkOptions } from '@main/services/documents/chunkOptions'
 
-// AP-9 §3.8 "Chunkgröße / Überlappung": the indexing sliders must drive how
+// AP-9 "Chunkgröße / Überlappung": the indexing sliders must drive how
 // documents are chunked. Precedence: an explicit per-import value (rare — e.g.
 // a future re-index-with-override) wins; otherwise the user's configured
 // retrieval defaults apply; if neither is set the chunker falls back to its own

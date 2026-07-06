@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
 
-// AP-9 Account §3.8 "Passwort ändern". Integration: real argon2 KEK derivation
+// AP-9 Account "Passwort ändern". Integration: real argon2 KEK derivation
 // + real AES-GCM vault, no IPC / BrowserWindow. Changing the password re-wraps
 // the same DEK under a new password-KEK; the body and recovery entries are
 // untouched. Slow (argon2) → generous timeouts.

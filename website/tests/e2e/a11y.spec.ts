@@ -1,25 +1,24 @@
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-// runs axe-core against each page in both locales. fails on any
-// 'serious' or 'critical' WCAG 2.1 AA violation.
+// Sweeps every indexable page in both locales with axe-core and fails the
+// suite as soon as a WCAG 2.1 AA rule reports a 'serious' or 'critical' hit.
 
-async function runAxe(page: Page) {
+async function auditPage(page: Page) {
   return (
     new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      // decorative content (aria-hidden) is intentionally subtle and not
-      // exposed to assistive tech; skip it from color-contrast checks.
+      // aria-hidden nodes are purely decorative and never reach assistive
+      // tech; their deliberately subtle styling would trip color-contrast.
       .exclude('[aria-hidden="true"]')
       .analyze()
   )
 }
 
-function severe(results: Awaited<ReturnType<typeof runAxe>>) {
-  return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
-}
+const severeOnly = (results: Awaited<ReturnType<typeof auditPage>>) =>
+  results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
 
-const pages: Array<{ url: string; label: string }> = [
+const targets: Array<{ url: string; label: string }> = [
   { url: '/', label: 'home (de)' },
   { url: '/en', label: 'home (en)' },
   { url: '/imprint', label: 'imprint (de)' },
@@ -28,16 +27,17 @@ const pages: Array<{ url: string; label: string }> = [
   { url: '/en/privacy', label: 'privacy (en)' },
 ]
 
-for (const { url, label } of pages) {
-  test(`a11y: ${label} has no serious/critical WCAG 2.1 AA violations`, async ({ page }) => {
+for (const { url, label } of targets) {
+  test(`axe audit: ${label} is free of serious/critical WCAG 2.1 AA violations`, async ({
+    page,
+  }) => {
     await page.goto(url)
-    const results = await runAxe(page)
-    const bad = severe(results)
-    if (bad.length > 0) {
-      // surface helpful diagnostics on failure
+    const findings = severeOnly(await auditPage(page))
+    if (findings.length > 0) {
+      // print rule ids + help links so the failure is actionable from CI logs
       console.log(
         `axe violations on ${label}:\n` +
-          bad
+          findings
             .map(
               (v) =>
                 `  [${v.impact}] ${v.id} — ${v.help} (${v.nodes.length} node(s)) — ${v.helpUrl}`,
@@ -45,6 +45,6 @@ for (const { url, label } of pages) {
             .join('\n'),
       )
     }
-    expect(bad, `${bad.length} serious/critical a11y issues on ${label}`).toEqual([])
+    expect(findings, `${findings.length} serious/critical a11y issues on ${label}`).toEqual([])
   })
 }

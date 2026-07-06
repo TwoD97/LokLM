@@ -25,10 +25,7 @@ export function buildOrganizationSchema(input: OrganizationSchemaInput) {
     url: siteUrl,
     logo: `${siteUrl}/brand/mark-color.svg`,
     sameAs: ['https://github.com/TwoD97/LokLM'],
-    founder: [
-      { '@type': 'Person', name: 'Denys Tudosa' },
-      { '@type': 'Person', name: 'Dominik Furlan' },
-    ],
+    founder: [{ '@type': 'Person', name: 'Denys Tudosa' }],
   } as const
 }
 

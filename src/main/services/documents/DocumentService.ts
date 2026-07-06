@@ -23,7 +23,7 @@ import { resolveChunkOptions } from './chunkOptions'
 import { fileTrack } from '../codebase/ignore'
 import { chunkCode, type CodeChunkOptions } from '../codebase/codeChunker'
 
-const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // Pflichtenheft §3.9
+const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // max. Import-Größe
 
 // Import-time embedding page size. Matches EmbeddingBackfillService's PAGE so
 // both ingest paths round-trip the embedder in equal, memory-bounded batches
