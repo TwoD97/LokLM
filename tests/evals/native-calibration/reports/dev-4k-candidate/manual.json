@@ -1,0 +1,128 @@
+[
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 48,260 EUR recorded revenue for 2025, with supporting actual supplied ledger passage 1:2. No extra claims. The decisive passage now ranks first rather than third in baseline. Eight passages are supplied. Terminal done event observed. Actual 4,096 context and 21/33 GPU layers; first visible token 61.513 s and total 71.582 s. Multiple changes are bundled, so this row cannot attribute the improvement to one intervention."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German response: 184 completed inspections in 2025, supported by actual supplied English ledger passage 1:2 and correctly cited. No extra claims or substitution of the 2026 planned count. Relevant passage still ranks seventh; eight passages are supplied."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "STRICT REGRESSION from baseline: March 9, 2026 is the correct semantic approval date, but the sole inline citation 4:7 is an unrelated Selka dispatch memo. The actual approval evidence 2:4 was supplied and is not cited. The answer also violates the explicit ISO-date request by writing March 9, 2026 instead of 2026-03-09; the date-format regex flags that separately. The date itself is not invented, but its citation attribution is unsupported."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Neral sample mass 18.4 kg for the survey dated 2026-04-12, in German. Actual supplied PDF passage 6:9 contains the date, correct row, and kg header and supports the citation. No extra claims. First token was whitespace-only: recorded first visible text at 67.984 s rather than first token event at 67.270 s."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct inputs and arithmetic: Neral 27 accepted trays plus Bexin 35 gives 62 accepted trays. The cited actual supplied PDF passage 6:9 contains both rows and units; rejected trays are excluded. No unsupported extra claims. Unlike baseline, the terminal done event is observed."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "missing",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct inputs and arithmetic: 53,780 minus 48,260 equals 5,520 EUR. The cited actual supplied ledger passage 1:2 supports the recorded 2025 input, improving on baseline's unrelated shipping citation. However, the required planned 2026 input is in supplied passage 2:5 and remains uncited. One input's citation cannot fully support the two-source derived comparison. This fails complete grounding/citation coverage despite numerically correct content; no source facts were invented."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "missing",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "The German answer gives the correct exact identifier MSX-417 from actual supplied draft A passage 3:6, with no extra facts. However, it contains no inline citation at all, whereas baseline cited 3:6 correctly. The supplied source-chip list is not answer attribution. This is a citation-completeness regression, not a wrong identifier."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct return value 4 for capacity 13 and occupied 5. The explanation correctly derives positive remaining capacity 8 and applies Math.min(4,8), supported by actual supplied function passage 5:8. It omits the irrelevant-to-this-positive-input lower clamp from the explanation without changing this result. Citation supports the whole answer; no unsupported extra behavior. Minor formatting/verbosity issue: bold result and a long sentence despite the short-answer request."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly declines to name a CFO because the actual supplied corpus contains no CFO identity. No invented name, authority, or external claim. Identical semantic answer to baseline. No citation is required for the absence of an unspecified fact. Model-generated abstention; terminal done event is observed."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Safely preserves both conflicting deadlines, 2026-10-14 and 2026-10-21, with their correct actual supplied draft passages 3:6 and 4:7. It states neither is approved or superseding and avoids asserting a definitive deadline; both source drafts support that explanation. No invented authority. As in baseline, the final explanatory sentence lacks its own marker and the response exceeds the requested single short sentence. These completeness/format issues are separate from semantic safe abstention."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly returns 0: max(0,3-9)=0 followed by min(4,0)=0. Actual supplied function passage 5:8 is cited correctly. This fixes baseline's erroneous final return value 4 on this first-pass observation. The concise German answer adds no unsupported behavior."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German limitation: the dated field survey contains no outdoor temperature measurements. The actual supplied PDF passage 6:9 states this explicitly and is cited correctly. It therefore cannot provide Bexin's requested average, and the answer does not substitute the unrelated 7-degree cabinet setting. No extra claims."
+  },
+  {
+    "caseId": "dev-01",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeated query remains correct: 48,260 EUR recorded revenue in 2025 with supporting actual supplied ledger citation 1:2. No extra claims. First visible token 19.357 s and total 35.023 s. This repeat is reported separately and does not add a new independent quality case or erase first-pass outcomes."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 1,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "The repeated query reproduces the first-pass failure exactly: correct semantic approval date March 9, 2026 but wrong citation 4:7 (Selka shipping memo) and no requested ISO formatting. Correct approval passage 2:4 was actually supplied. Faster cached-path timing (first visible 33.482 s, total 51.919 s) does not improve grounding or erase the first-pass regression."
+  }
+]

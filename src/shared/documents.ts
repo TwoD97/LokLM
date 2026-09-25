@@ -35,8 +35,8 @@ export interface Document {
    *  the aggregation so the field is omitted there. */
   language?: 'de' | 'en' | 'mixed' | null
   /** "Force into context" flag — set via Library row "Pin" action. When true,
-   *  the QA packer prepends top-of-document chunks from this doc before RAG
-   *  hits, so the model always sees it. Added in raw migration 0009; column is
+   *  the QA packer prioritizes this doc's chunks within the shared context
+   *  budget. Added in raw migration 0009; column is
    *  NOT NULL DEFAULT false, so this field is always present. */
   pinned: boolean
 }
@@ -92,11 +92,15 @@ export interface IndexProgress {
    *  concurrently indexing document) don't dilute the rate. Only set on
    *  'embedding' events; drives the Library batch bar's live rate readout. */
   chunksPerSec?: number
+  chunksDone?: number
+  chunksTotal?: number
 }
 
 export type EmbedderState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
 
 export interface EmbedderStatus {
+  /** False when configured but temporarily parked to free GPU memory. */
+  resident?: boolean
   kind: 'embedder'
   state: EmbedderState
   modelPath: string | null
@@ -128,6 +132,9 @@ export interface BackfillStatus {
 export type RerankerState = 'idle' | 'loading' | 'ready' | 'failed' | 'unloaded'
 
 export interface RerankerStatus {
+  /** Stable decision codes for localized status and startup explanations. */
+  policyDecision?: import('./modelCapabilities').RerankerDecision
+  resident?: boolean
   kind: 'reranker'
   state: RerankerState
   modelPath: string | null
@@ -288,6 +295,7 @@ export interface GpuDevice {
 export type LlmPlacementChoice = 'auto' | 'dedicated' | 'integrated'
 
 export interface ModelStatus {
+  resident?: boolean
   state: ModelState
   modelPath: string | null
   modelName: string | null
@@ -320,6 +328,7 @@ export interface AvailableProfile {
 export type LlmContextChoice = 'auto' | number
 
 export interface SystemInfo extends ModelStatus {
+  modelCapacity?: import('./modelCapabilities').ModelCapacity | null
   bundledModelPath: string
   bundledModelExists: boolean
   totalMemGB: number
@@ -358,7 +367,7 @@ export interface SystemInfo extends ModelStatus {
   pinnedDeviceVerified: boolean
 }
 
-export type RefusalReason = 'no_hits' | 'below_threshold'
+export type RefusalReason = 'no_hits' | 'below_threshold' | 'context_limit'
 
 /** Pipeline stages emitted as `stage` events so the renderer can show real-time
  *  progress before the first token arrives. Order is roughly the chronological
@@ -408,11 +417,21 @@ export type StreamEvent =
       message: string
       suggestions: Array<{ doc_id: number; title: string; score: number }>
     }
-  | { type: 'error'; message: string }
+  | {
+      type: 'error'
+      message: string
+      /** Final partial answer, including its visible failure state, when available. */
+      full_text?: string
+      citations?: Array<{ doc_id: number; chunk_id: number; score: number }>
+      /** True only when the final partial answer was successfully persisted. */
+      persisted?: boolean
+    }
   | {
       type: 'done'
       full_text: string
       citations: Array<{ doc_id: number; chunk_id: number; score: number }>
+      /** Omitted by internal QA producers; normalized by the chat transport. */
+      outcome?: 'completed' | 'cancelled'
     }
 
 export interface AnswerOptions {

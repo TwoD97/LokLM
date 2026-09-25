@@ -6,12 +6,12 @@ import { MarkdownView } from '../markdown/MarkdownView'
 import { useSettings } from '../settings/useSettings'
 import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
+import { useTranslationRequest } from '../translation/useTranslationRequest'
 
 // Inline translate panel under an assistant message. Self-contained on
 // purpose: status , languages and the translate call all go straight to
 // window.api.translation , so MessageList only owns "which message has the
-// panel open". The first translate after app start spawns the sidecar and
-// loads the 3 GB model (seconds) — the busy label says so.
+// panel open". Translation shares chat's selected language model.
 
 type Props = {
   content: string
@@ -22,6 +22,7 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
   const { begin: beginGeneration } = useGeneration()
+  const { runTranslation, cancel, progress } = useTranslationRequest()
   // Translate into the UI language by default — the common case for a DE/EN
   // user staring at a source in a language they don't read.
   const uiLang = settings?.basic.language === 'de' ? 'de' : 'en'
@@ -41,15 +42,14 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
     void window.api.translation.languages().then((l) => {
       if (mounted) setLanguages(l)
     })
+    const off = window.api.translation.onStatus((s) => mounted && setStatus(s))
     return () => {
       mounted = false
+      off()
     }
   }, [])
 
-  const installed =
-    status !== null &&
-    status.sidecarAvailable &&
-    (status.state === 'installed' || status.state === 'starting' || status.state === 'ready')
+  const installed = status !== null && status.state !== 'not_installed'
 
   const translate = async (): Promise<void> => {
     setBusy(true)
@@ -57,11 +57,8 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
     setResult(null)
     const endGeneration = beginGeneration('translation')
     try {
-      // Strip [doc:N, chunk:M] citation markers before translating: they're
-      // noise in a translation , and feeding them to MADLAD mangles them (it
-      // hallucinated "2000-2001" out of one). The assistant's markdown itself
-      // (**bold** , lists , `code`) survives translation and renders below.
-      setResult(await window.api.translation.translate(stripCitationMarkers(content), { target }))
+      // References remain on the original answer; translate its prose/Markdown.
+      setResult(await runTranslation(stripCitationMarkers(content), target))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -83,7 +80,10 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
               value={target}
               disabled={busy}
               aria-label={t('chat.translateTargetAria')}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(e) => {
+                setTarget(e.target.value)
+                setResult(null)
+              }}
             >
               {languages.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -99,6 +99,11 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
             >
               {busy ? t('chat.translateBusy') : t('chat.translateAction')}
             </button>
+            {busy && (
+              <button type="button" className="chat__translate-btn" onClick={cancel}>
+                {t('translation.cancel')}
+              </button>
+            )}
           </>
         )}
         <button
@@ -113,13 +118,14 @@ export function TranslationPanel({ content, onClose }: Props): JSX.Element {
       </div>
 
       {status !== null && !installed && (
-        <div className="chat__translate-hint">
-          {status.sidecarAvailable
-            ? t('chat.translateNotInstalled')
-            : t('settings.translation.sidecarMissing')}
-        </div>
+        <div className="chat__translate-hint">{t('chat.translateNotInstalled')}</div>
       )}
       {busy && <div className="chat__translate-hint">{t('chat.translateBusyHint')}</div>}
+      {busy && progress && (
+        <div className="chat__translate-hint" role="status">
+          {t('translation.progress', { n: progress.completed, total: progress.total })}
+        </div>
+      )}
       {error && <div className="chat__translate-error">{error}</div>}
       {result && (
         <>

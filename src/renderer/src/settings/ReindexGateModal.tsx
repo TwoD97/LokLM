@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
+import { useModalFocus } from '../ui/useModalFocus'
 
 type Props = {
   open: boolean
@@ -19,6 +20,19 @@ export function ReindexGateModal({
   const t = useT()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const modal = useRef<HTMLDivElement>(null)
+  useModalFocus(modal, open)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      if (!busy) onCancel()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open, busy, onCancel])
   useEffect(() => {
     if (!open) {
       setBusy(false)
@@ -28,7 +42,15 @@ export function ReindexGateModal({
   if (!open) return null
   return (
     <div className="settings-backdrop" role="presentation">
-      <div className="settings-modal" style={{ width: 520 }} role="dialog" aria-modal="true">
+      <div
+        ref={modal}
+        tabIndex={-1}
+        className="settings-modal"
+        style={{ width: 520 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('settings.reindex.heading')}
+      >
         <div className="settings-modal__body">
           <h3 style={{ marginTop: 0 }}>{t('settings.reindex.heading')}</h3>
           <p>
@@ -36,7 +58,11 @@ export function ReindexGateModal({
             {t('settings.reindex.bodyMid')} <code>{toIdentity}</code>{' '}
             {t('settings.reindex.bodyPost')}
           </p>
-          {error && <div style={{ color: 'var(--error)', marginBottom: 12 }}>{error}</div>}
+          {error && (
+            <div role="alert" style={{ color: 'var(--error)', marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button onClick={onCancel} disabled={busy}>
               {t('common.cancel')}

@@ -125,6 +125,100 @@ describe('OllamaClient', () => {
     expect(final.done).toBe(true)
   })
 
+  it('does not start an already cancelled request', async () => {
+    const fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as never
+    const c = new OllamaClient({
+      baseUrl: 'http://localhost:11434',
+      bearerToken: null,
+      timeoutMs: 5000,
+    })
+    const controller = new AbortController()
+    controller.abort()
+    await expect(c.postNdjson('/api/generate', {}, controller.signal).next()).rejects.toMatchObject(
+      {
+        kind: 'aborted',
+      },
+    )
+    await expect(c.postJson('/api/embed', {}, controller.signal)).rejects.toMatchObject({
+      kind: 'aborted',
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('cancels a stalled body read after headers and releases the response', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('{"a":1}\n'))
+      },
+      cancel,
+    })
+    const fetchMock = vi.fn().mockResolvedValue(new Response(stream, { status: 200 }))
+    globalThis.fetch = fetchMock as never
+    const c = new OllamaClient({
+      baseUrl: 'http://localhost:11434',
+      bearerToken: null,
+      timeoutMs: 5000,
+    })
+    const controller = new AbortController()
+    const gen = c.postNdjson('/api/chat', {}, controller.signal)
+    expect((await gen.next()).value).toEqual({ a: 1 })
+    const pendingRead = gen.next()
+    controller.abort()
+    await expect(pendingRead).rejects.toMatchObject({ kind: 'aborted' })
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    expect(init.signal?.aborted).toBe(true)
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(stream.locked).toBe(false)
+  })
+
+  it('does not emit buffered records after cancellation', async () => {
+    const stream = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('{"a":1}\n{"a":2}\n'))
+      },
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(stream, { status: 200 })) as never
+    const c = new OllamaClient({
+      baseUrl: 'http://localhost:11434',
+      bearerToken: null,
+      timeoutMs: 5000,
+    })
+    const controller = new AbortController()
+    const gen = c.postNdjson('/api/chat', {}, controller.signal)
+    expect((await gen.next()).value).toEqual({ a: 1 })
+    controller.abort()
+    await expect(gen.next()).rejects.toMatchObject({ kind: 'aborted' })
+    expect(stream.locked).toBe(false)
+  })
+
+  it('cancels an unfinished body and removes listeners when its consumer exits early', async () => {
+    const cancel = vi.fn()
+    const stream = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(new TextEncoder().encode('{"done":true}\n'))
+      },
+      cancel,
+    })
+    const fetchMock = vi.fn().mockResolvedValue(new Response(stream, { status: 200 }))
+    globalThis.fetch = fetchMock as never
+    const c = new OllamaClient({
+      baseUrl: 'http://localhost:11434',
+      bearerToken: null,
+      timeoutMs: 5000,
+    })
+    const controller = new AbortController()
+    for await (const item of c.postNdjson<{ done: boolean }>('/api/chat', {}, controller.signal)) {
+      if (item.done) break
+    }
+    expect(cancel).toHaveBeenCalledOnce()
+    expect(stream.locked).toBe(false)
+    controller.abort()
+    const init = fetchMock.mock.calls[0]![1] as RequestInit
+    expect(init.signal?.aborted).toBe(false)
+  })
+
   it('OllamaError is detectable by instanceof', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 500 })) as never
     const c = new OllamaClient({

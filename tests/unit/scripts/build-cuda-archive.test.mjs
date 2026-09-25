@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { it, expect, beforeAll, afterAll } from 'vitest'
+import { Buffer } from 'node:buffer'
 import { mkdtemp, rm, mkdir, writeFile, readFile, readdir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
@@ -13,7 +14,9 @@ async function walk(dir, base, out = new Map()) {
     else if (st.isFile())
       out.set(
         relative(base, full).replace(/\\/g, '/'),
-        createHash('sha256').update(await readFile(full)).digest('hex'),
+        createHash('sha256')
+          .update(await readFile(full))
+          .digest('hex'),
       )
   }
   return out
@@ -82,12 +85,12 @@ it('cuda archive extracted onto stripped payload reproduces full payload bit-for
   expect(Object.fromEntries(actualTree)).toEqual(Object.fromEntries(expectedTree))
 })
 
-it('places extraFiles (translator CUDA runtime) at their tar paths', async () => {
+it('places extraFiles (additional runtime files) at their tar paths', async () => {
   const extraSrc = join(work, 'extra')
   await mkdir(extraSrc, { recursive: true })
-  await writeFile(join(extraSrc, 'loklm-translator-cuda.exe'), 'gpu-sidecar')
+  await writeFile(join(extraSrc, 'runtime.dll'), 'gpu-runtime')
   await writeFile(join(extraSrc, 'cublasLt64_13.dll'), 'cublas-lt')
-  const dest = 'win-unpacked/resources/translator'
+  const dest = 'win-unpacked/resources/runtime'
   const out = join(work, 'cuda-extras.tar.zst')
   await buildCudaArchive({
     platform: 'win-x64',
@@ -95,7 +98,7 @@ it('places extraFiles (translator CUDA runtime) at their tar paths', async () =>
     payloadRoot: 'win-unpacked/resources/app.asar.unpacked/node_modules/@node-llama-cpp',
     outFile: out,
     extraFiles: [
-      { full: join(extraSrc, 'loklm-translator-cuda.exe'), tarPath: `${dest}/loklm-translator-cuda.exe` },
+      { full: join(extraSrc, 'runtime.dll'), tarPath: `${dest}/runtime.dll` },
       { full: join(extraSrc, 'cublasLt64_13.dll'), tarPath: `${dest}/cublasLt64_13.dll` },
     ],
   })
@@ -113,7 +116,7 @@ it('places extraFiles (translator CUDA runtime) at their tar paths', async () =>
     extract.on('finish', resolve).on('error', reject)
     extract.end(raw)
   })
-  expect(names).toContain(`${dest}/loklm-translator-cuda.exe`)
+  expect(names).toContain(`${dest}/runtime.dll`)
   expect(names).toContain(`${dest}/cublasLt64_13.dll`)
 })
 

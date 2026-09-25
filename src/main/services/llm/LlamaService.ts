@@ -10,6 +10,7 @@ import {
 import { getModelSearchDirs, listVisibleGgufs, resolveModelFile } from '../models/paths'
 import { readGpuInventory, getEffectiveTier, type Tier } from '../tier/TierMarker'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
+import type { LlmLoadResult } from '../workers/protocol'
 
 // Single source of truth in src/shared/documents.ts so renderer + preload + service agree.
 import type {
@@ -34,6 +35,11 @@ export type {
 }
 
 import type { RetrievalHit } from '../../../shared/documents'
+import {
+  CitationAliasOutput,
+  citationAliasesEnabled,
+  createCitationAliases,
+} from './citationAliases'
 
 import {
   buildPrompt,
@@ -63,6 +69,8 @@ export interface AskOptions {
    *  keep its tokens/sec metric accurate post-batching. */
   onChunk?: (text: string, count: number) => void
   abortSignal?: AbortSignal
+  /** Output allowance reserved by QA's context planner. */
+  maxTokens?: number
   /**
    * Optional tools the model may call during generation. Worker-mode does not
    * route tool calls back to main yet , callers passing tools will see them
@@ -347,6 +355,7 @@ export class LlamaService {
   private activeModelPath: string | null = null
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
+  private modelCapacity: import('../../../shared/modelCapabilities').ModelCapacity | null = null
   private status: ModelStatus = {
     state: 'idle',
     modelPath: null,
@@ -363,6 +372,7 @@ export class LlamaService {
   }
   private listeners: Array<(s: ModelStatus) => void> = []
   private loadPromise: Promise<void> | null = null
+  private autoLoadPromise: Promise<void> | null = null
   private lastUsedAt: number = Date.now()
   private idleMs: number = parseIdleMs(process.env['LOKLM_LLM_IDLE_MS']) ?? 30 * 60 * 1000
   private idleTimer: NodeJS.Timeout | null = null
@@ -373,6 +383,7 @@ export class LlamaService {
     this.planner = opts.planner ?? new ResourcePlanner()
     this.client = opts.client ?? null
     if (this.client) {
+      this.client.setLlmLoadListener?.((result) => this.acceptLoadResult(result))
       this.client.setStatusListener('llm', (patch) => {
         this.setStatus(patch as Partial<ModelStatus>)
       })
@@ -380,6 +391,20 @@ export class LlamaService {
   }
 
   // ---- status / introspection ------------------------------------------------
+
+  private acceptLoadResult(result: LlmLoadResult): void {
+    this.lastPlan = result.plan
+    this.lastResources = result.resources
+    this.modelCapacity = result.modelCapacity ?? null
+    this.gpuLabel = result.gpuLabel
+    this.resolvedPlacement = result.resolvedPlacement
+    this.placementReason = result.placementReason
+    this.resolvedGpuName = result.gpuName
+    this.resolvedGpuKind = result.gpuKind
+    this.pinnedDeviceVerified = result.pinnedDeviceVerified
+    this.lastUsedAt = Date.now()
+    this.startIdleTimer()
+  }
 
   subscribe(cb: (s: ModelStatus) => void): () => void {
     this.listeners.push(cb)
@@ -425,6 +450,7 @@ export class LlamaService {
       profiles,
       resources: this.lastResources,
       lastLlmPlan: this.lastPlan,
+      modelCapacity: this.modelCapacity,
       selectedContext: this.selectedContext,
       placementChoice: this.selectedPlacement,
       resolvedPlacement: this.resolvedPlacement,
@@ -599,20 +625,39 @@ export class LlamaService {
   }
 
   async autoLoad(): Promise<void> {
-    const profiles = discoverProfiles()
-    // Refreshed snapshot — used to be a RAM-only snapshot() to avoid the
-    // GPU-probe cost on main , but profile selection now uses hasGpu to
-    // override heavy tiers on CPU-only machines ( an 8B on CPU is multi-
-    // minutes per call , effectively unusable ) , so the ~100-500ms probe
-    // is worth it. The result is cached on the planner so subsequent
-    // callers don't re-probe.
-    const snapshot = await this.planner.refreshIfStale(60_000)
-    this.lastResources = snapshot
+    // Include device probing/planning in the shared load operation: concurrent
+    // first-use requests can arrive before loadModel has set loadPromise.
+    if (this.autoLoadPromise) return this.autoLoadPromise
+    this.autoLoadPromise = this.performAutoLoad().finally(() => {
+      this.autoLoadPromise = null
+    })
+    return this.autoLoadPromise
+  }
 
+  private async performAutoLoad(): Promise<void> {
+    const profiles = discoverProfiles()
     // Resolve the device plan (choice + install-time GPU inventory) and pin it on
     // the worker BEFORE loading — this restarts the worker when the physical
     // device changed so the next getLlama latches the right one.
     await this.applyDevicePlan()
+
+    // Probe the worker's selected device. Initialising another default GPU
+    // backend in main wastes memory and can report a different device budget.
+    let snapshot: SystemResources
+    try {
+      snapshot = this.client?.refreshResources
+        ? await this.client.refreshResources()
+        : await this.planner.refreshIfStale(60_000)
+    } catch (error) {
+      this.setStatus({
+        state: 'failed',
+        resident: false,
+        loadProgress: null,
+        message: `The selected GPU could not be initialised. Check the graphics driver or select another device. ${String(error)}`,
+      })
+      throw error
+    }
+    this.lastResources = snapshot
 
     // GPU required: the bundled LLM only runs on a GPU (dedicated or integrated).
     // Block only when there's genuinely no usable GPU — when the marker inventory
@@ -742,15 +787,7 @@ export class LlamaService {
       console.log(
         `[llm] context plan (tier=${tier ?? 'none'}, target=${profileDefaultContext}): ${result.plan.reason}`,
       )
-      this.lastResources = result.resources
-      this.gpuLabel = result.gpuLabel
-      this.resolvedPlacement = result.resolvedPlacement
-      this.placementReason = result.placementReason
-      this.resolvedGpuName = result.gpuName
-      this.resolvedGpuKind = result.gpuKind
-      this.pinnedDeviceVerified = result.pinnedDeviceVerified
-      this.lastUsedAt = Date.now()
-      this.startIdleTimer()
+      this.acceptLoadResult(result)
     } catch (err) {
       // Worker already pushed a failed status; record + bubble.
       const msg = err instanceof Error ? err.message : String(err)
@@ -773,6 +810,7 @@ export class LlamaService {
   // ---- inference -------------------------------------------------------------
 
   async ask(question: string, hits: RetrievalHit[], opts: AskOptions = {}): Promise<string> {
+    opts.abortSignal?.throwIfAborted()
     this.touchUsage()
     if (this.isReady() && this.client) {
       try {
@@ -803,6 +841,7 @@ export class LlamaService {
     const tickMs = Math.min(60_000, Math.max(5_000, Math.floor(this.idleMs / 10)))
     this.idleTimer = setInterval(() => {
       if (!this.isReady()) return
+      if (this.status.resident === false) return
       if (Date.now() - this.lastUsedAt < this.idleMs) return
       void this.unload().catch(() => undefined)
     }, tickMs)
@@ -823,11 +862,25 @@ export class LlamaService {
   ): Promise<string> {
     const client = this.client!
     const ctxSize = this.lastPlan?.contextSize ?? 8192
-    const maxTokens = answerMaxTokens(ctxSize)
+    const maxTokens = Math.max(
+      1,
+      Math.min(
+        answerMaxTokens(ctxSize),
+        Number.isFinite(opts.maxTokens) ? Math.floor(opts.maxTokens!) : answerMaxTokens(ctxSize),
+      ),
+    )
     const streamId = `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
     const filter = new ThinkFilter()
     const detector = new LoopDetector()
+    const aliases = citationAliasesEnabled()
+      ? createCitationAliases(hits, opts.pinnedHits, [
+          question,
+          opts.contextPreamble ?? '',
+          ...(opts.conversationHistory ?? []).map((message) => message.content),
+        ])
+      : null
+    const citationOutput = new CitationAliasOutput(aliases, opts.onChunk)
     // Accumulated post-ThinkFilter text — used to reconstruct the answer when
     // the loop detector aborts mid-stream (worker throws AbortError before
     // returning `raw`, but the user-visible text up to that point is fine).
@@ -846,7 +899,7 @@ export class LlamaService {
       // coalesced into this batched push — forward it so the renderer's
       // tokens/sec metric reflects native chunk granularity, not the 125 Hz
       // ceiling that batching would otherwise impose.
-      if (opts.onChunk) opts.onChunk(cleaned, count)
+      citationOutput.feed(cleaned, count)
       if (detector.feed(cleaned)) {
         loopAborted = true
         // eslint-disable-next-line no-console
@@ -864,8 +917,10 @@ export class LlamaService {
     }
 
     const runOnce = async (history: AskOptions['conversationHistory']): Promise<string> => {
+      opts.abortSignal?.throwIfAborted()
       filter.reset()
       detector.reset()
+      citationOutput.reset()
       accumulated = ''
       loopAborted = false
       const promptBody = buildPrompt(
@@ -875,6 +930,7 @@ export class LlamaService {
         this.language,
         opts.pinnedHits,
         opts.contextPreamble,
+        aliases,
       )
       // noThink: the system prompt already ends in /no_think, but this GGUF
       // honours the tag unreliably — the segment budget is the switch that
@@ -894,15 +950,17 @@ export class LlamaService {
         // Synthesized tails count as one batched event (the ThinkFilter
         // buffer held back partial-think markers; flushing emits whatever
         // survived as a single chunk).
-        if (tail) opts.onChunk(tail, 1)
+        if (tail) citationOutput.feed(tail, 1)
       }
+      citationOutput.flush()
       return raw
     }
 
     const finalizeLoop = (): string => {
       const hint = REPETITION_HINT_TEXT[this.language]
-      if (opts.onChunk) opts.onChunk(hint, 1)
-      return stripThink(accumulated) + hint
+      citationOutput.feed(hint, 1)
+      citationOutput.flush()
+      return citationOutput.final(stripThink(accumulated, !aliases) + hint)
     }
 
     // Turn a raw generation into the final answer, NEVER a silent blank. The
@@ -917,13 +975,16 @@ export class LlamaService {
     // retrieved Context as the answer. Re-emit via onChunk when the stream was
     // empty so the recovered text both renders and persists.
     const finalize = async (raw: string): Promise<string> => {
-      let text = stripThink(raw).trim()
-      if (text.includes('<think')) text = text.replace(/<\/?think>/g, '').trim()
-      if (!text) return this.askFallback(question, hits, opts)
+      let text = stripThink(raw, !aliases)
+      if (text.includes('<think')) text = text.replace(/<\/?think>/g, '')
+      // Decode before trimming: leading indentation may mark literal code.
+      if (!aliases) text = text.trim()
+      if (!text.trim()) return this.askFallback(question, hits, opts)
       if (accumulated.trim() === '' && opts.onChunk) {
-        for (const piece of chunkifyForStream(text)) opts.onChunk(piece, 1)
+        for (const piece of chunkifyForStream(text)) citationOutput.feed(piece, 1)
+        citationOutput.flush()
       }
-      return text
+      return citationOutput.final(text).trim()
     }
     try {
       try {
@@ -948,6 +1009,7 @@ export class LlamaService {
         throw err
       }
     } finally {
+      citationOutput.flush()
       unregister()
       if (abortListener && opts.abortSignal) {
         opts.abortSignal.removeEventListener('abort', abortListener)
@@ -962,8 +1024,13 @@ export class LlamaService {
       maxTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
+      systemPrompt?: string | undefined
+      temperature?: number | undefined
+      requireComplete?: boolean | undefined
+      background?: boolean | undefined
     } = {},
   ): Promise<string> {
+    opts.abortSignal?.throwIfAborted()
     this.touchUsage()
     if (!this.isReady() || !this.client) {
       throw new Error('Model is not loaded.')
@@ -984,13 +1051,21 @@ export class LlamaService {
         maxTokens?: number
         jsonSchema?: object
         noThink?: boolean
+        systemPrompt?: string
+        temperature?: number
+        requireComplete?: boolean
+        background?: boolean
       } = {
         streamId,
         prompt,
       }
       if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
       if (opts.jsonSchema != null) payload.jsonSchema = opts.jsonSchema
-      if (opts.noThink) payload.noThink = true
+      if (opts.noThink != null) payload.noThink = opts.noThink
+      if (opts.systemPrompt != null) payload.systemPrompt = opts.systemPrompt
+      if (opts.temperature != null) payload.temperature = opts.temperature
+      if (opts.requireComplete) payload.requireComplete = true
+      if (opts.background) payload.background = true
       const { raw } = await client.llmGenerateRaw(payload)
       return stripThink(raw).trim()
     } finally {
@@ -1005,7 +1080,8 @@ export class LlamaService {
     assistantMessage: string,
     opts: { abortSignal?: AbortSignal } = {},
   ): Promise<string | null> {
-    if (!this.isReady()) return null
+    // A title must never reload a parked chat model or delay the next task.
+    if (!this.isReady() || this.status.resident === false) return null
     const u = truncate(userMessage, 1200)
     const a = truncate(assistantMessage, 1200)
     const langWord = this.language === 'de' ? 'Deutsch' : 'English'
@@ -1015,11 +1091,25 @@ export class LlamaService {
       `Benutzer: ${u}\n\n` +
       `Assistent: ${a}\n\n` +
       `Titel:`
+    const timeout = new AbortController()
+    const timer = setTimeout(() => timeout.abort(), 30_000)
+    const abortSignal = opts.abortSignal
+      ? AbortSignal.any([opts.abortSignal, timeout.signal])
+      : timeout.signal
     try {
-      const raw = await this.generateRaw(prompt, opts)
+      const raw = await this.generateRaw(prompt, {
+        abortSignal,
+        maxTokens: 48,
+        noThink: true,
+        temperature: 0,
+        background: true,
+        systemPrompt: 'Write only a short conversation title in the requested language.',
+      })
       return cleanTitle(raw)
     } catch {
       return null
+    } finally {
+      clearTimeout(timer)
     }
   }
 

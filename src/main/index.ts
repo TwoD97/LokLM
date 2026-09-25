@@ -2,7 +2,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { mkdirSync } from 'node:fs'
-import { AuthService } from './services/auth/AuthService'
+import { AuthService, LockedError } from './services/auth/AuthService'
 import { runQuitDrain } from './lifecycle/quitDrain'
 import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
@@ -18,9 +18,14 @@ import { EmbeddingBackfillService } from './services/embeddings/EmbeddingBackfil
 import { WorkspaceVectorService } from './services/storage/WorkspaceVectorService'
 import { RerankerService } from './services/retrieval/RerankerService'
 import { RetrievalService } from './services/retrieval/RetrievalService'
-import { LlamaService, tierMarkerProfile } from './services/llm/LlamaService'
+import {
+  applyLeanRetrievalDefaults,
+  needsLeanRetrieval,
+} from './services/retrieval/hardwareDefaults'
+import { LlamaService, tierMarkerProfile, discoverProfiles } from './services/llm/LlamaService'
 import { shouldUnloadOnConversationSwitch } from './services/llm/conversationSwitch'
 import { QAService } from './services/qa/QAService'
+import { runChatTurn, persistChatTurn } from './services/qa/chatTurn'
 import { QuizService } from './services/quiz/QuizService'
 import { SummarizationService, SummarizationError } from './services/summarize/SummarizationService'
 import { WritingService, WritingError } from './services/writing/WritingService'
@@ -51,12 +56,13 @@ import { OllamaClient } from './services/providers/ollama/OllamaClient'
 import { OllamaLlmProvider } from './services/providers/ollama/OllamaLlmProvider'
 import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedderProvider'
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
+import { OrganizerService } from './services/organizer/OrganizerService'
 import { SettingsService } from './services/settings/SettingsService'
+import { runtimeSettingsChanged } from './services/settings/runtimeSettings'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
 import { isLoopbackBaseUrl } from '../shared/networkHelpers'
 import type { WorkspaceType } from '../shared/workspaceStorage'
 import { splitSentinels } from '../shared/docType'
-import { reconcileCitations } from '../shared/citationMarkers'
 import { ResourcePlanner } from './services/embeddings/ResourcePlanner'
 import { ModelsWorkerClient } from './services/workers/ModelsWorkerClient'
 import { DocumentsWorkerClient } from './services/workers/DocumentsWorkerClient'
@@ -162,6 +168,10 @@ function getAuth(): AuthService {
 }
 
 function resetSessionServices(): void {
+  sessionClosing = true
+  organizerService?.invalidate()
+  settingsService?.invalidate()
+  organizerService = null
   // The backfill + retrieval services capture a Database reference at
   // construction; after lock/logout that reference is stale, so drop both
   // singletons and let the next caller rebuild against the live Database.
@@ -235,7 +245,28 @@ let writingService: WritingService | null = null
 let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
+let organizerService: OrganizerService | null = null
+let sessionClosing = false
+
+function getOrganizerService(): OrganizerService {
+  const auth = getAuth()
+  if (!auth.isUnlocked() || sessionClosing) throw new LockedError()
+  organizerService ??= new OrganizerService(
+    auth,
+    () => auth.persistSnapshotIfUnlocked(),
+    () => auth.isUnlocked(),
+  )
+  return organizerService
+}
+
+async function drainPrivateWrites(): Promise<void> {
+  sessionClosing = true
+  organizerService?.invalidate()
+  settingsService?.invalidate()
+  await Promise.all([organizerService?.drain(), settingsService?.drain()])
+}
 let translationService: TranslationService | null = null
+const translationRuns = new Map<string, AbortController>()
 
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
@@ -244,6 +275,10 @@ let translationService: TranslationService | null = null
 // the heavy loadModel calls across LLM / embedder / reranker.
 const sharedPlanner = new ResourcePlanner()
 const modelsWorker = new ModelsWorkerClient()
+modelsWorker.onActivity((activity) => {
+  for (const win of BrowserWindow.getAllWindows())
+    if (!win.isDestroyed()) win.webContents.send('models:activity', activity)
+})
 // Document parsing + OCR + chunking run in their own utilityProcess, isolated
 // from model inference so a heavy/scanned PDF import never stutters chat-token
 // streaming or blocks main.
@@ -259,6 +294,7 @@ const transcriptionService = new TranscriptionService(transcriptionWorker, diari
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
 let postLoginWarmupTimer: NodeJS.Timeout | null = null
+let qaWarmupPromise: Promise<void> | null = null
 function cancelPostLoginWarmup(): void {
   if (postLoginWarmupTimer) {
     clearTimeout(postLoginWarmupTimer)
@@ -285,9 +321,9 @@ function schedulePostLoginWarmup(): void {
     // not warmed: lazy-load on first retrieval is fine, and an unconditional
     // ensureReady would load bundled even when the user's on external.)
     const reg = providerRegistry
-    if (!reg || reg.getLlmSource() !== 'ollama') {
+    if (!qaWarmupPromise && (!reg || reg.getLlmSource() !== 'ollama')) {
       void getLlamaService()
-        .autoLoad()
+        .ensureLoaded()
         .catch(() => undefined)
     }
   }, 1500)
@@ -301,20 +337,16 @@ function getModelDownloader(): ModelDownloader {
 
 function getTranslationService(): TranslationService {
   if (!translationService) {
-    translationService = new TranslationService((status) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        try {
-          win.webContents.send('translation:status', status)
-        } catch {
-          /* renderer torn down — drop the event */
+    translationService = new TranslationService(getProviderRegistry(), {
+      ensureReady: async () => {
+        if (getProviderRegistry().getLlmSource() !== 'ollama') {
+          await getLlamaService().ensureLoaded()
         }
-      }
+      },
+      hasLocalModel: () => discoverProfiles().some((profile) => profile.filename !== null),
     })
-    // Kill the sidecar with the app. It also exits on its own when stdin
-    // closes (see sidecars/translator/src/main.cpp) — this is the polite
-    // first attempt , the stdin-EOF exit is the orphan backstop.
     app.once('before-quit', () => {
-      void translationService?.dispose().catch(() => undefined)
+      for (const controller of translationRuns.values()) controller.abort()
     })
   }
   return translationService
@@ -458,15 +490,8 @@ function getProviderRegistry(): ProviderRegistry {
   return providerRegistry
 }
 
-// Reranker default per tier. Previously OFF on lite (ADR-0007) to spare low-RAM
-// machines the heaviest retrieval stage. Reinstated ON for lite: the
-// cross-encoder is the only stage that scores TRUE relevance, and without it the
-// collapsed-cosine dense list drags topically-adjacent noise into the fed set
-// (the interpreter-query trace fed 3 unrelated handbook chunks). The CPU rerank
-// pass measured ~7 s, acceptable against the iGPU's ~60 s LLM TTFT, and it runs
-// on the leading slice only (CPU_RERANK_MAX_CHARS). Every tier now keeps the
-// universal reranker-on default; the function is retained for future tier-
-// specific defaults.
+// Reranking defaults to Auto. Actual GPU capacity determines whether the
+// optional model is used; persisted off choices remain off on every tier.
 function tierBaseDefaults(): UserSettings {
   return DEFAULT_SETTINGS
 }
@@ -479,20 +504,6 @@ function tierBaseDefaults(): UserSettings {
 // slate. Conservative on purpose: it trims obvious noise without touching the
 // borderline band, so recall on genuinely-relevant chunks is unaffected.
 const CHAT_RELEVANCE_FLOOR = 0.2
-
-// One-time normalization for the ADR-0007 reranker reversal. A lite install made
-// while the reranker was OFF-by-default persisted `enabled:false` into its
-// settings snapshot (update() writes the full cache, so even an untouched
-// default leaks into persistence and then wins over baseDefaults on hydrate).
-// Because the lite tier HID the reranker toggle, that false can only be the
-// retired default — never a user choice — so flipping it once is safe. Scoped to
-// lite: standard/pro expose the toggle, so their false IS a real user choice and
-// must be left alone.
-async function normalizeRerankerEnabledForLite(settings: SettingsService): Promise<void> {
-  if (getEffectiveTier() === 'lite' && !settings.get().advanced.reranker.enabled) {
-    await settings.update({ advanced: { reranker: { enabled: true } } })
-  }
-}
 
 function getSettingsService(): SettingsService {
   if (!settingsService) {
@@ -507,11 +518,19 @@ function getSettingsService(): SettingsService {
   return settingsService
 }
 
+/** Finish session preferences before the renderer can request model warmup. */
+async function initializeSessionSettings(): Promise<void> {
+  sessionClosing = false
+  const settings = getSettingsService()
+  await settings.hydrate()
+  await applySettings(settings.get())
+  broadcastAuthState()
+}
+
 // Reads hydrated UserSettings and applies them to the live ProviderRegistry +
-// bundled services. Called after settings:update and once at login/register
-// after hydration. NOTE: embedder source is NOT changed here — flipping the
-// embedder requires a probe-then-commit flow via embedder:trySwitchSource so
-// the re-index gate stays consistent (see Task 15 + Task 17).
+// bundled services. Called after runtime settings change and once after vault
+// hydration. A persisted embedder source is restored here; interactive source
+// switching still uses embedder:trySwitchSource's dimension check.
 async function applySettings(s: UserSettings): Promise<void> {
   const reg = getProviderRegistry()
 
@@ -534,7 +553,6 @@ async function applySettings(s: UserSettings): Promise<void> {
       ? 'auto'
       : s.basic.llmProfile
   if (effectiveProfile !== s.basic.llmProfile) {
-    // eslint-disable-next-line no-console
     console.log(
       `[settings] persisted llmProfile "${s.basic.llmProfile}" contradicts tier profile "${tierProfile}" — using auto (tier wins)`,
     )
@@ -614,6 +632,12 @@ async function applySettings(s: UserSettings): Promise<void> {
   reg.setRerankerSource(nextRerankerSource)
   reg.setEmbedderSource(nextEmbedderSource)
 
+  await getRerankerService().setPolicy({
+    enabled: s.advanced.reranker.enabled,
+    mode: s.advanced.reranker.policy,
+    source: nextRerankerSource,
+  })
+
   // Free the bundled engines whose source just flipped to external. The user
   // explicitly chose Ollama; keeping the GGUFs in memory would waste several
   // GB of RAM/VRAM. (Bundled is lazy-loaded on demand if the user flips back.)
@@ -624,15 +648,7 @@ async function applySettings(s: UserSettings): Promise<void> {
       .unload()
       .catch(() => undefined)
   }
-  // Free the bundled reranker when it flipped to external OR when the user
-  // turned the rerank stage off entirely. Either way the bundled GGUF is dead
-  // weight ; unloading also drops isReady() to false so RetrievalService skips
-  // the rerank pass and falls back to the fused order.
-  if (nextRerankerSource === 'ollama' || !s.advanced.reranker.enabled) {
-    void getRerankerService()
-      .unload()
-      .catch(() => undefined)
-  }
+  // setPolicy above already unloads a disabled or externally provided reranker.
   if (nextEmbedderSource === 'ollama') {
     void getEmbeddingService()
       .unload()
@@ -702,6 +718,8 @@ function broadcastLlmStatus(
   for (const win of BrowserWindow.getAllWindows()) {
     try {
       win.webContents.send('llm:status', status)
+      if (translationService)
+        win.webContents.send('translation:status', translationService.status())
     } catch {
       /* ignore */
     }
@@ -757,6 +775,15 @@ function getRerankerService(): RerankerService {
   return rerankerService
 }
 
+function useLeanChatRetrieval(): boolean {
+  return needsLeanRetrieval({
+    tier: getEffectiveTier(),
+    llmSource: providerRegistry?.getLlmSource() ?? 'bundled',
+    rerankerDecision: getRerankerService().info().policyDecision,
+    totalVramGB: llamaService?.systemInfo().modelCapacity?.totalVramGB,
+  })
+}
+
 function composeRerankerStatus(
   raw: import('../shared/documents').RerankerStatus,
 ): import('../shared/documents').RerankerStatus {
@@ -764,7 +791,7 @@ function composeRerankerStatus(
   // Same overlay as composeEmbedderStatus — bundled reranker is unloaded on
   // external switch, so report 'ready' so the dot reflects the live Ollama
   // backend rather than the dormant bundled service.
-  if (source === 'ollama') {
+  if (source === 'ollama' && settingsService?.get().advanced.reranker.enabled !== false) {
     return { ...raw, source, state: 'ready', loadProgress: null }
   }
   return { ...raw, source }
@@ -800,32 +827,35 @@ function getRetrievalService(): RetrievalService {
       // of the MADLAD sidecar (which cost ~3 GB VRAM resident and was
       // therefore pro-only). The LLM is loaded anyway, a 96-token translation
       // is one short generate pass — Standard AND Pro get the variant now.
-      // Lite stays excluded: its iGPU-class hardware pays real latency for
-      // every extra LLM pass, the same reason its retrieval runs lean. MADLAD
-      // stays reserved for the manual translation UI (on-demand). Soft
-      // contract: null when the tier is lite, the LLM isn't ready or the
-      // query is already english; RetrievalService additionally skips it
-      // under the CPU preset and verifies identifiers survived.
-      async (q) => {
+      // Constrained local GPUs skip this extra pass. Manual translation still
+      // uses the LLM. Return null when the LLM is unavailable or the query is
+      // already English; retrieval also verifies identifiers survived.
+      async (q, opts) => {
         try {
-          if (getEffectiveTier() === 'lite') return null
+          opts?.abortSignal?.throwIfAborted()
+          if (useLeanChatRetrieval()) return null
           const reg = providerRegistry
           if (!reg || !reg.llm().isReady()) return null
           const { detectIsoLanguage } = await import('./services/documents/languageDetector')
           const iso = await detectIsoLanguage(q).catch(() => null)
+          opts?.abortSignal?.throwIfAborted()
           if (!iso || iso === 'en') return null
-          const raw = await reg.llm().generateRaw(
-            `Translate this search query to English. Keep any code identifiers ` +
-              `(camelCase, snake_case, dotted.paths) EXACTLY unchanged. Output ONLY ` +
-              `the translation, one line, no preamble.\n\nQuery: ${q}\n\nTranslation:`,
-            { maxTokens: 96 },
-          )
+          const raw = await reg
+            .llm()
+            .generateRaw(
+              `Translate this search query to English. Keep any code identifiers ` +
+                `(camelCase, snake_case, dotted.paths) EXACTLY unchanged. Output ONLY ` +
+                `the translation, one line, no preamble.\n\nQuery: ${q}\n\nTranslation:`,
+              { maxTokens: 96, ...(opts?.abortSignal ? { abortSignal: opts.abortSignal } : {}) },
+            )
           const text = raw
             ?.split(/\r?\n/)
             .map((s) => s.trim())
             .find((s) => s.length > 3)
           return text && text.length < 240 ? text : null
-        } catch {
+        } catch (error) {
+          opts?.abortSignal?.throwIfAborted()
+          if (error instanceof Error && error.name === 'AbortError') throw error
           return null
         }
       },
@@ -907,21 +937,22 @@ function broadcastAuthState(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle('models:activity', () => modelsWorker.activity())
+  ipcMain.handle('models:cancelIndexing', async () => {
+    backfillService?.cancelRunning()
+    await documentService?.cancelAllIndexing(true)
+  })
   ipcMain.handle('auth:status', async () => getAuth().status())
 
   ipcMain.handle(
     'auth:register',
     async (_e, input: { displayName: string; password: string; recoveryLang: 'de' | 'en' }) => {
       const result = await getAuth().register(input)
-      broadcastAuthState()
       // Settings hydrate before any model warming so applySettings (Task 16)
       // gets a chance to swap providers / placement before autoLoad fires.
       // Warmup itself is deferred by ~1.5s so the renderer can mount the main
       // UI before model loads start consuming the main thread + VRAM.
-      const settings = getSettingsService()
-      await settings.hydrate()
-      await normalizeRerankerEnabledForLite(settings)
-      await applySettings(settings.get())
+      await initializeSessionSettings()
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
       await getDocumentService()
@@ -963,15 +994,11 @@ function registerIpc(): void {
       },
     })
     if (result.ok) {
-      broadcastAuthState()
       // Settings hydrate before any model warming so applySettings (Task 16)
       // gets a chance to swap providers / placement before autoLoad fires.
       // Warmup itself is deferred by ~1.5s so the renderer can mount the main
       // UI before model loads start consuming the main thread + VRAM.
-      const settings = getSettingsService()
-      await settings.hydrate()
-      await normalizeRerankerEnabledForLite(settings)
-      await applySettings(settings.get())
+      await initializeSessionSettings()
       // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
       // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
       await getDocumentService()
@@ -1001,11 +1028,16 @@ function registerIpc(): void {
     cancelPostLoginWarmup()
     broadcastLockDraining(true)
     try {
+      await drainPrivateWrites()
       await drainIndexingForLock()
       await getAuth().logout()
-      resetSessionServices()
-      broadcastAuthState()
     } finally {
+      // Lock clears the key even when its final disk write fails. The private
+      // renderer must follow the actual auth state on that rejection path too.
+      if (!getAuth().isUnlocked()) {
+        resetSessionServices()
+        broadcastAuthState()
+      }
       broadcastLockDraining(false)
     }
   })
@@ -1014,18 +1046,27 @@ function registerIpc(): void {
     cancelPostLoginWarmup()
     broadcastLockDraining(true)
     try {
+      await drainPrivateWrites()
       await drainIndexingForLock()
       await getAuth().lock()
-      resetSessionServices()
-      broadcastAuthState()
     } finally {
+      if (!getAuth().isUnlocked()) {
+        resetSessionServices()
+        broadcastAuthState()
+      }
       broadcastLockDraining(false)
     }
   })
 
   ipcMain.handle('auth:reset', async (_e, input: { passphrase: string; newPassword: string }) => {
     const result = await getAuth().reset(input)
-    if (result.ok) broadcastAuthState()
+    if (result.ok) {
+      // Recovery unlocks a fresh vault session just like login. Retire any old
+      // service handles before restoring preferences and provider policy.
+      resetSessionServices()
+      await initializeSessionSettings()
+      schedulePostLoginWarmup()
+    }
     return result
   })
 
@@ -1443,6 +1484,7 @@ function registerIpc(): void {
   // Cancel still-queued imports/reindexes for a workspace (mis-dropped folder).
   // In-flight jobs finish; queued placeholder rows are deleted. Returns count.
   ipcMain.handle('documents:cancelIndexing', async (_e, workspaceId: number) => {
+    backfillService?.cancelWorkspace(workspaceId)
     return getDocumentService().cancelWorkspaceIndexing(workspaceId)
   })
   // Lazily compute (or return cached) whole-document summary. Coded errors so
@@ -1676,15 +1718,37 @@ function registerIpc(): void {
     return channel
   })
 
-  // translation — MADLAD via the loklm-translator sidecar. The model is
-  // provisioned by the installer wizard ( model-manifest.json , role
-  // "translation" ) ; the app only locates it and runs the sidecar. No
-  // in-app download path — a missing model points the user back to the
-  // installer ( see TranslationView / TranslationSection ).
+  // Translation shares the selected LLM. Requests are scoped to their window,
+  // so closing a panel/window cancels only its own queued or running work.
   ipcMain.handle('translation:status', async () => getTranslationService().status())
-  ipcMain.handle('translation:translate', async (_e, text: string, opts: TranslateOptions) =>
-    getTranslationService().translate(text, opts),
-  )
+  ipcMain.handle('translation:translate', async (e, text: string, opts: TranslateOptions) => {
+    const requestId =
+      opts?.requestId ?? `translation-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    if (typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(requestId)) {
+      throw new Error('Invalid translation request ID.')
+    }
+    const key = `${e.sender.id}:${requestId}`
+    if (translationRuns.has(key)) throw new Error('Translation request is already running.')
+    const controller = new AbortController()
+    translationRuns.set(key, controller)
+    const abort = (): void => controller.abort()
+    e.sender.once('destroyed', abort)
+    try {
+      return await getTranslationService().translate(text, opts, {
+        abortSignal: controller.signal,
+        onProgress: (progress) => {
+          if (!e.sender.isDestroyed())
+            e.sender.send('translation:progress', { requestId, ...progress })
+        },
+      })
+    } finally {
+      translationRuns.delete(key)
+      e.sender.removeListener('destroyed', abort)
+    }
+  })
+  ipcMain.handle('translation:cancel', (e, requestId: string) => {
+    translationRuns.get(`${e.sender.id}:${requestId}`)?.abort()
+  })
   ipcMain.handle('translation:languages', async () => TRANSLATION_LANGUAGES)
   // Pull a document's indexed text (chunks joined in order) for translation.
   // Reuses the same chunk store the summarizer reads — no re-parse of the
@@ -1834,21 +1898,27 @@ function registerIpc(): void {
   ipcMain.handle('reranker:status', async () =>
     composeRerankerStatus(getRerankerService().getStatus()),
   )
-  ipcMain.handle('reranker:info', async () => getRerankerService().info())
+  ipcMain.handle('reranker:info', async () => {
+    const reranker = getRerankerService()
+    await reranker.refreshPolicy()
+    const info = reranker.info()
+    return { ...info, ...composeRerankerStatus(info) }
+  })
   ipcMain.handle('reranker:reload', async () => {
-    await getRerankerService().unload()
-    await getRerankerService().ensureReady()
-    return getRerankerService().info()
+    const reg = getProviderRegistry()
+    if (reg.getRerankerSource() === 'bundled') await getRerankerService().unload()
+    if (getSettingsService().get().advanced.reranker.enabled) await reg.reranker().ensureReady()
+    const info = getRerankerService().info()
+    return { ...info, ...composeRerankerStatus(info) }
   })
   // Pre-warm the reranker so the first chat:stream doesn't pay the GGUF load.
   // ChatView fires this on mount ; idempotent (ensureReady dedupes) so repeated
   // calls (workspace switches, re-mounts) are cheap.
   ipcMain.handle('reranker:warmup', async () => {
-    // Reranker turned off in settings (default for the lite tier) : skip the
-    // load entirely. Retrieval falls back to the fused order, and the TitleBar
-    // hides the dot, so warming the GGUF would just waste RAM/VRAM.
+    // The provider and service enforce source choice and hardware policy.
     if (!getSettingsService().get().advanced.reranker.enabled) return
-    void getRerankerService()
+    void getProviderRegistry()
+      .reranker()
       .ensureReady()
       .catch(() => undefined)
   })
@@ -1874,42 +1944,56 @@ function registerIpc(): void {
   // Load them ONE AT A TIME (awaited in sequence): all three share a single
   // node-llama-cpp backend, and firing the loads concurrently makes the native
   // inits fight for the same device — thrash on an iGPU, up to "not responding".
-  // ORDER MATTERS: embedder FIRST. It's small (~0.4 GB) and gates BOTH indexing
-  // and retrieval; the LLM is the slow one (multi-GB, minutes on an iGPU). The
-  // single worker processes load requests in arrival order, so loading the LLM
-  // first starves indexing of the embedder it needs (the "0 vectors / stuck
-  // indexing" regression). Embedder → LLM → reranker keeps indexing alive while
-  // the LLM loads behind it. Idempotent (ensure* no-ops when ready / share the
-  // in-flight load) and fire-and-forget (the IIFE is voided): the renderer tracks
-  // progress via status pushes, so the handler never blocks on a multi-GB load.
+  // Warm small retrieval models first and finish with chat resident. The
+  // parked configurations remain ready on demand; startup does not keep
+  // every model in GPU memory or load chat twice on a small card.
   ipcMain.handle('models:warmupForQa', async () => {
-    void (async () => {
-      const reg = providerRegistry
-      // (0.6.5: no MADLAD warm here anymore — the retrieval EN-variant now
-      // uses the resident LLM, so the ~3 GB CT2 sidecar stays cold until the
-      // user explicitly opens the translation feature.)
-      await getEmbeddingService()
+    if (qaWarmupPromise) return
+    qaWarmupPromise = (async () => {
+      const reg = getProviderRegistry()
+      await reg
+        .embedder()
         .ensureReady()
         .catch(() => undefined)
-      // External Ollama: don't pull a multi-GB bundled GGUF into RAM only to
-      // leave it unused (same guard as the post-login warmup).
-      if (!reg || reg.getLlmSource() !== 'ollama') {
+      if (getSettingsService().get().advanced.reranker.enabled)
+        await reg
+          .reranker()
+          .ensureReady()
+          .catch(() => undefined)
+      if (reg.getLlmSource() !== 'ollama') {
         await getLlamaService()
           .ensureLoaded()
           .catch(() => undefined)
-      }
-      // Warm the reranker whenever it's enabled — now including lite (ADR-0007
-      // reversal): the CPU rerank pass (~7 s, leading-slice only) is the proper
-      // fix for dense-retriever noise that the BM25 lean only partially masks.
-      if (getSettingsService().get().advanced.reranker.enabled) {
-        await getRerankerService()
-          .ensureReady()
-          .catch(() => undefined)
+        await modelsWorker.restoreChat().catch(() => undefined)
       }
     })()
+      .catch((error) => console.warn('[models] warmup failed:', error))
+      .finally(() => {
+        qaWarmupPromise = null
+      })
   })
 
   // settings
+  ipcMain.handle('organizer:list', () => getOrganizerService().list())
+  ipcMain.handle('organizer:saveNote', (_e, input: unknown) =>
+    getOrganizerService().saveNote(input as never),
+  )
+  ipcMain.handle('organizer:deleteNote', (_e, input: unknown) =>
+    getOrganizerService().deleteNote(input as never),
+  )
+  ipcMain.handle('organizer:saveTask', (_e, input: unknown) =>
+    getOrganizerService().saveTask(input as never),
+  )
+  ipcMain.handle('organizer:deleteTask', (_e, input: unknown) =>
+    getOrganizerService().deleteTask(input as never),
+  )
+  ipcMain.handle('organizer:saveEvent', (_e, input: unknown) =>
+    getOrganizerService().saveEvent(input as never),
+  )
+  ipcMain.handle('organizer:deleteEvent', (_e, input: unknown) =>
+    getOrganizerService().deleteEvent(input as never),
+  )
+
   ipcMain.handle('settings:get', async () => {
     // useT() — and through it useSettings — runs on the pre-unlock login /
     // loading screens too , so settings:get is legitimately called while the
@@ -1921,10 +2005,25 @@ function registerIpc(): void {
     if (!getAuth().isUnlocked()) return DEFAULT_SETTINGS
     return getSettingsService().get()
   })
+  let settingsUpdateQueue: Promise<unknown> = Promise.resolve()
   ipcMain.handle('settings:update', async (_e, patch: unknown) => {
-    await getSettingsService().update(patch as never)
-    await applySettings(getSettingsService().get())
-    return getSettingsService().get()
+    if (!getAuth().isUnlocked() || sessionClosing) throw new LockedError()
+    const settings = getSettingsService()
+    const operation = settingsUpdateQueue
+      .catch(() => undefined)
+      .then(async () => {
+        if (settings !== settingsService || !getAuth().isUnlocked() || sessionClosing)
+          throw new LockedError()
+        const before = settings.get()
+        await settings.update(patch as never)
+        if (settings !== settingsService || !getAuth().isUnlocked() || sessionClosing)
+          throw new LockedError()
+        const after = settings.get()
+        if (runtimeSettingsChanged(before, after)) await applySettings(after)
+        return after
+      })
+    settingsUpdateQueue = operation
+    return operation
   })
   ipcMain.handle('settings:getAvatar', async () => {
     const bytes = await getSettingsService().getAvatar()
@@ -2046,234 +2145,103 @@ function registerIpc(): void {
       query: string,
       opts: import('../shared/documents').AnswerOptions = {},
     ) => {
-      // Answer language: honour the user's answerLanguage setting. 'de'/'en'
-      // force that language ; 'auto' (the default) leaves opts.language unset so
-      // QAService.answer detects it per-turn from the query (eld , mapped to the
-      // two supported answer languages). The MVP used to force the language
-      // unconditionally — Auto is now an explicit opt-in, so detection no longer
-      // silently overrides a manual DE/EN choice. ( The UI language lives in
-      // basic.language and is unaffected by this. )
-      const basic = getSettingsService().get().basic
-      if (basic.answerLanguage === 'de' || basic.answerLanguage === 'en') {
-        opts.language = basic.answerLanguage
-      } else {
-        // Auto: eld classifies the prompt per-turn (it handles short German like
-        // "Fasse Kapitel 3 zusammen" fine). For the genuinely ambiguous tail eld
-        // can't score ("ok", a bare number), answer in the user's UI language
-        // rather than a hardcoded English.
-        opts.fallbackLanguage = basic.language
-      }
-
-      // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
-      // setting. The renderer never pins opts.topK, so this always applies for
-      // chat; the configured value overrides the per-query adaptiveTopK
-      // heuristic (which remains the fallback for quiz / eval callers).
-      if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
-
-      // Relevance floor — ALL tiers, not just lite. Whenever the reranker runs
-      // its scores are real per-(query, passage) relevance, so drop the sub-
-      // relevant tail instead of padding the fed set to a fixed topK. Observed
-      // cliff on a focused query: on-topic matches ≥0.5, noise ≤0.13 — 0.2 sits
-      // in the gap, keeping the relevant chunks and dropping the OS/Java/team-
-      // roles chunks a fixed count (made worse by doc-diversity) was dragging
-      // in. RetrievalService gates this on rerank having actually run and always
-      // keeps the top hit, so the RRF fallback and weak-but-best matches are
-      // unaffected. Evals/quiz never set it → legacy fixed-K behaviour there.
-      if (opts.relevanceFloor == null) opts.relevanceFloor = CHAT_RELEVANCE_FLOOR
-
-      // Lite tier = low-end / iGPU-only target → force the lean retrieval preset.
-      // Query expansion runs a FULL extra LLM generation BEFORE retrieval; on an
-      // iGPU the first turn pays a cold ~80s for it, and its paraphrases drift the
-      // topic (e.g. "interpreter" pulls in a JIT-compiler chunk). Off on lite: far
-      // faster AND more on-topic. Auto-detect can't see this — the iGPU latches a
-      // Vulkan label, so RetrievalService reads it as a fast GPU and leaves
-      // expansion on. The tier is the reliable signal. Caller-pinned values win.
-      if (getEffectiveTier() === 'lite') {
-        if (opts.multiQuery === undefined) opts.multiQuery = false
-        // Follow-up rewriting via the LLM is a second full prefill+generation
-        // per turn — minutes on an iGPU. Resolve follow-ups with the pure
-        // heuristic instead (the contextualize stage still runs, just instant).
-        if (opts.contextualizeHeuristicOnly === undefined) opts.contextualizeHeuristicOnly = true
-        // No whole-doc expansion on lite. A multi-Q&A study sheet is one small
-        // doc; expanding it floods the prompt with every Q&A (so the model
-        // answered "interpreter" with the JIT section) AND bloats the prefill.
-        // The focused matched chunk(s) answer the actual question.
-        if (opts.wholeDocFallback === undefined) opts.wholeDocFallback = false
-        // Force the lean retrieval preset on lite. autoDetectCpuMode() keys off
-        // the GPU label, but the iGPU latches Vulkan and reads as a fast GPU —
-        // so without this it uses the heavy pool (FANOUT 4 / 64 candidates) and
-        // the reranker scores ~40 full-length passages, which is the bulk of the
-        // iGPU rerank cost. cpuOptimized halves the candidate pool (FANOUT 2 / 32)
-        // and scores only each passage's leading slice (CPU_RERANK_MAX_CHARS) —
-        // same final topK fed, roughly half the rerank time. Rerank itself stays
-        // ON: the renderer pins rerank:true, which wins over the cpuMode default.
-        if (opts.cpuOptimized === undefined) opts.cpuOptimized = true
-      }
-
-      // Pin to THIS chat's workspace, not the active one: a message append routed
-      // through active() lands in the wrong store when another workspace is active
-      // (FOREIGN KEY constraint failed on conversation_id).
-      const conversations =
-        opts.conversationId != null
-          ? await getAuth().requireDatabase().conversationsFor(workspaceId)
-          : null
-
-      // Persist the user message up-front so chat history is intact even if
-      // the stream errors or the renderer disconnects mid-flight.
-      if (conversations && opts.conversationId != null) {
-        await conversations.appendMessage(opts.conversationId, 'user', query)
-      }
-
-      // Register the abort controller only after the pre-flight work above
-      // (settings read, DB access, user-message persist) succeeds. Registering
-      // earlier would leak this entry in activeStreams whenever that work threw,
-      // since the try/finally that deletes it only starts below.
+      // Register before asynchronous preflight so Stop cannot miss this turn.
+      // The outer finally also covers settings and database failures.
       const ctrl = new AbortController()
       activeStreams.set(streamId, ctrl)
-
-      const tokenBuffer: string[] = []
-      const citations: Array<{ doc_id: number; chunk_id: number; score: number }> = []
-      // Accumulate the pipeline the same way the renderer does (push on 'start',
-      // flip the matching running row to 'done' with its duration/detail) so the
-      // persisted rows match what the live progress dropdown showed.
-      const pipeline: import('../shared/documents').PipelineStep[] = []
-      let refused = false
-      let refusalMessage: string | null = null
-      // Timing for stream metrics. streamStart marks when we begin pulling
-      // from QAService.answer (after the user message is persisted),
-      // firstTokenTime is set on the first 'token' event delivered to the UI.
-      const streamStart = performance.now()
-      let firstTokenTime: number | null = null
-      let tokenCount = 0
-
-      try {
-        const stream = getQAService().answer(workspaceId, query, opts, ctrl.signal)
-        for await (const ev of stream) {
-          if (ctrl.signal.aborted) break
-          try {
-            e.sender.send(`chat:stream-event:${streamId}`, ev)
-          } catch {
-            ctrl.abort()
-            break
-          }
-          if (ev.type === 'token') {
-            tokenBuffer.push(ev.text)
-            if (firstTokenTime == null) firstTokenTime = performance.now()
-            // Each token event may coalesce several native tokens (the 8 ms
-            // batcher). Count the underlying tokens, not the events, so the
-            // persisted tokens/sec matches the live metric ChatView shows.
-            tokenCount += ev.count ?? 1
-          } else if (ev.type === 'citation')
-            citations.push({ doc_id: ev.doc_id, chunk_id: ev.chunk_id, score: ev.score })
-          else if (ev.type === 'refusal') {
-            refused = true
-            refusalMessage = ev.message
-          } else if (ev.type === 'stage') {
-            if (ev.status === 'start') {
-              const step: import('../shared/documents').PipelineStep = {
-                stage: ev.stage,
-                status: 'running',
-              }
-              if (ev.detail !== undefined) step.detail = ev.detail
-              pipeline.push(step)
-            } else {
-              for (let i = pipeline.length - 1; i >= 0; i--) {
-                const cur = pipeline[i]
-                if (cur && cur.stage === ev.stage && cur.status === 'running') {
-                  pipeline[i] = {
-                    ...cur,
-                    status: 'done',
-                    ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-                    ...(ev.detail !== undefined ? { detail: ev.detail } : {}),
-                  }
-                  break
-                }
-              }
-            }
-          }
-        }
-        const pipelineToPersist = pipeline.length > 0 ? pipeline : null
-
-        // Persist the assistant turn. Even on cancel (user clicked stop, or
-        // the renderer disconnected mid-stream) we still write whatever tokens
-        // we got — losing the partial answer is worse than persisting a
-        // truncated one. Refusal short-circuits to a fixed message.
-        if (conversations && opts.conversationId != null) {
-          if (refused && refusalMessage != null) {
-            await conversations.appendMessage(
-              opts.conversationId,
-              'assistant',
-              refusalMessage,
-              undefined,
-              pipelineToPersist,
-            )
-          } else if (tokenBuffer.length > 0) {
-            const interrupted = ctrl.signal.aborted
-            const body = tokenBuffer.join('')
-            const assistantContent = interrupted
-              ? `${body}\n\n_[Antwort wurde unterbrochen]_`
-              : body
-            const ttftMs = firstTokenTime != null ? Math.round(firstTokenTime - streamStart) : null
-            const elapsedSinceFirst =
-              firstTokenTime != null ? (performance.now() - firstTokenTime) / 1000 : 0
-            // tokenCount > 1: a single synthesized token (e.g. the corpus
-            // route's whole templated answer in one event) has no meaningful
-            // rate — elapsedSinceFirst is just the event-loop gap to here , so
-            // tokenCount/elapsed yields a bogus 100s–1000s tok/s. Persist null
-            // instead so the metrics chip omits the rate for non-streamed turns.
-            const tokensPerSec =
-              tokenCount > 1 && elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
-            const asst = await conversations.appendMessage(
-              opts.conversationId,
-              'assistant',
-              assistantContent,
-              { ttftMs, tokensPerSec, tokenCount },
-              pipelineToPersist,
-            )
-            // Reconcile citations: when the model cited inline, persist ONLY
-            // the fed chunks it actually referenced so the chips the renderer
-            // derives from [doc:X, chunk:Y] markers match the persisted set (a
-            // hallucinated marker then has nothing to validate against). When it
-            // cited NOTHING inline — common with small / German outputs — fall
-            // back to the full fed set so the answer keeps its sources and the
-            // renderer's "Sources / Quellen" footer can surface them, instead of
-            // leaving the answer source-less. citations[] is already restricted
-            // to fedHits, so either branch stays faithful to what the model saw.
-            const citationsToPersist = reconcileCitations(
-              body,
-              citations,
-              (c) => `${c.doc_id}-${c.chunk_id}`,
-            )
-            if (citationsToPersist.length > 0) {
-              await conversations.persistCitations(asst.id, citationsToPersist)
-            }
-          }
-        }
-      } catch (err) {
-        // Without this catch a throw inside QAService.answer() (e.g. the LLM
-        // failing to create an inference context, a DB error, a retrieval crash)
-        // rejects the invoke silently — the renderer is left with an empty bubble
-        // stuck on streaming:true and the conversation shows only the user turn.
-        // Surface it as an 'error' event so the user sees what went wrong (and we
-        // get a diagnostic), then persist a short error turn so history stays honest.
-        const message = err instanceof Error ? err.message : String(err)
-        console.error('[chat:stream] failed:', err)
+      let terminal:
+        | Extract<import('../shared/documents').StreamEvent, { type: 'done' | 'error' }>
+        | undefined
+      const emit = (event: import('../shared/documents').StreamEvent): void => {
+        if (event.type === 'done' || event.type === 'error') terminal = event
         try {
-          e.sender.send(`chat:stream-event:${streamId}`, { type: 'error', message })
+          e.sender.send(`chat:stream-event:${streamId}`, event)
         } catch {
-          /* renderer gone — nothing to surface to */
+          ctrl.abort()
         }
-        if (conversations && opts.conversationId != null && tokenBuffer.length === 0 && !refused) {
-          try {
-            await conversations.appendMessage(
-              opts.conversationId,
-              'assistant',
-              `_[Fehler: ${message}]_`,
-            )
-          } catch {
-            /* DB unavailable — the error event above already informed the UI */
-          }
+      }
+      try {
+        // Answer language: honour the user's answerLanguage setting. 'de'/'en'
+        // force that language ; 'auto' (the default) leaves opts.language unset so
+        // QAService.answer detects it per-turn from the query (eld , mapped to the
+        // two supported answer languages). The MVP used to force the language
+        // unconditionally — Auto is now an explicit opt-in, so detection no longer
+        // silently overrides a manual DE/EN choice. ( The UI language lives in
+        // basic.language and is unaffected by this. )
+        const basic = getSettingsService().get().basic
+        if (basic.answerLanguage === 'de' || basic.answerLanguage === 'en') {
+          opts.language = basic.answerLanguage
+        } else {
+          // Auto: eld classifies the prompt per-turn (it handles short German like
+          // "Fasse Kapitel 3 zusammen" fine). For the genuinely ambiguous tail eld
+          // can't score ("ok", a bare number), answer in the user's UI language
+          // rather than a hardcoded English.
+          opts.fallbackLanguage = basic.language
         }
+
+        // AP-9 §3.8 "Treffer-K": drive chat retrieval depth from the user's
+        // setting. The renderer never pins opts.topK, so this always applies for
+        // chat; the configured value overrides the per-query adaptiveTopK
+        // heuristic (which remains the fallback for quiz / eval callers).
+        if (opts.topK == null) opts.topK = getSettingsService().get().retrieval.topK
+
+        // Relevance floor — ALL tiers, not just lite. Whenever the reranker runs
+        // its scores are real per-(query, passage) relevance, so drop the sub-
+        // relevant tail instead of padding the fed set to a fixed topK. Observed
+        // cliff on a focused query: on-topic matches ≥0.5, noise ≤0.13 — 0.2 sits
+        // in the gap, keeping the relevant chunks and dropping the OS/Java/team-
+        // roles chunks a fixed count (made worse by doc-diversity) was dragging
+        // in. RetrievalService gates this on rerank having actually run and always
+        // keeps the top hit, so the RRF fallback and weak-but-best matches are
+        // unaffected. Evals/quiz never set it → legacy fixed-K behaviour there.
+        if (opts.relevanceFloor == null) opts.relevanceFloor = CHAT_RELEVANCE_FLOOR
+
+        // A 4 GB-class local GPU pays for every extra generation/model swap,
+        // including Standard/dev installs. Keep caller-pinned retrieval controls.
+        if (useLeanChatRetrieval()) applyLeanRetrievalDefaults(opts)
+        // The master switch also applies to an external reranker, whose provider
+        // remains configured/ready even when the user turns this stage off.
+        const rerankerDecision = getRerankerService().info().policyDecision
+        if (
+          !getSettingsService().get().advanced.reranker.enabled ||
+          rerankerDecision?.allowed === false
+        )
+          opts.rerank = false
+
+        // Pin to THIS chat's workspace, not the active one: a message append routed
+        // through active() lands in the wrong store when another workspace is active
+        // (FOREIGN KEY constraint failed on conversation_id).
+        const conversations =
+          opts.conversationId != null
+            ? await getAuth().requireDatabase().conversationsFor(workspaceId)
+            : null
+
+        // Persist the user message up-front so chat history is intact even if
+        // the stream errors or the renderer disconnects mid-flight.
+        if (conversations && opts.conversationId != null) {
+          await conversations.appendMessage(opts.conversationId, 'user', query)
+        }
+
+        await runChatTurn({
+          stream: () => getQAService().answer(workspaceId, query, opts, ctrl.signal),
+          signal: ctrl.signal,
+          language: opts.language ?? opts.fallbackLanguage ?? basic.language,
+          emit,
+          ...(conversations && opts.conversationId != null
+            ? {
+                persist: (turn) => persistChatTurn(conversations, opts.conversationId!, turn),
+              }
+            : {}),
+        })
+        // The invoke reply and stream events use separate IPC channels. Return
+        // the same terminal so the renderer can finalize even if its event is late.
+        return terminal
+      } catch (err) {
+        // runChatTurn normalizes generation and persistence failures. This path
+        // covers preflight failure before an assistant turn can be collected.
+        console.error('[chat:stream] preflight failed:', err)
+        emit({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+        return terminal
       } finally {
         activeStreams.delete(streamId)
       }
@@ -2706,7 +2674,8 @@ app.on('before-quit', (event) => {
       /* renderer gone */
     }
   }
-  void drainIndexingForQuit()
+  void drainPrivateWrites()
+    .then(() => drainIndexingForQuit())
     .then(() => auth.lock())
     .catch(() => {
       /* swallow , we exit anyway and the vault stays at the last good state */

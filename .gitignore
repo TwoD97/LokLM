@@ -147,6 +147,9 @@ electron.vite.config.*.mjs
 # Comparison clones (not part of LokLM)
 _reference/
 
+# Legacy translator build artifacts (translation now shares the chat LLM)
+/sidecars/translator/
+
 # LokLM
 docs/api/
 .tsbuildinfo-node/
@@ -176,6 +179,12 @@ tests/e2e/.playwright-report/
 # Eval reports (regenerated per run, can be large with per-question.jsonl + LLM text)
 tests/evals/report/
 tests/evals/code/report/
+
+# Native calibration traces stay available locally; keep compact human reviews.
+tests/evals/native-calibration/reports/*/raw.json
+tests/evals/native-calibration/reports/*/*review.json
+tests/evals/native-calibration/reports/*/*.log
+tests/evals/native-calibration/reports/*/*samples.jsonl
 
 # FLORES-200 devtest slice (CC-BY-SA-4.0, re-fetched via pnpm evals:translation:data)
 tests/evals/translation/data/

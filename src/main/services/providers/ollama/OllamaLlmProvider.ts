@@ -5,9 +5,16 @@ import {
   buildPrompt,
   buildSystemPrompt,
   bumpDepthForCode,
+  answerMaxTokens,
+  DEFAULT_CONTEXT_TOKENS,
   type ResponseLanguage,
 } from '../../llm/prompt'
 import type { OllamaClient } from './OllamaClient'
+import {
+  CitationAliasOutput,
+  citationAliasesEnabled,
+  createCitationAliases,
+} from '../../llm/citationAliases'
 
 interface ChatChunk {
   message?: { content?: string }
@@ -36,6 +43,15 @@ export class OllamaLlmProvider implements LlmProvider {
   }
 
   async ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string> {
+    opts.abortSignal?.throwIfAborted()
+    const aliases = citationAliasesEnabled()
+      ? createCitationAliases(hits, opts.pinnedHits, [
+          question,
+          opts.contextPreamble ?? '',
+          ...(opts.conversationHistory ?? []).map((message) => message.content),
+        ])
+      : null
+    const citationOutput = new CitationAliasOutput(aliases, opts.onChunk)
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
         role: 'system',
@@ -51,27 +67,55 @@ export class OllamaLlmProvider implements LlmProvider {
     }
     messages.push({
       role: 'user',
-      content: buildPrompt(question, hits, [], this.language, opts.pinnedHits, opts.contextPreamble),
+      content: buildPrompt(
+        question,
+        hits,
+        [],
+        this.language,
+        opts.pinnedHits,
+        opts.contextPreamble,
+        aliases,
+      ),
     })
 
     let acc = ''
-    for await (const chunk of this.client.postNdjson<ChatChunk>(
-      '/api/chat',
-      { model: this.model, messages, stream: true },
-      opts.abortSignal,
-    )) {
-      if (chunk.error) throw new Error(chunk.error)
-      const piece = chunk.message?.content ?? ''
-      if (piece) {
-        acc += piece
-        // Ollama's NDJSON stream is one chunk per token-ish; pass count=1.
-        // (Native worker batches its own chunks; the count plumbing is the
-        // same shape across providers.)
-        opts.onChunk?.(piece, 1)
+    try {
+      for await (const chunk of this.client.postNdjson<ChatChunk>(
+        '/api/chat',
+        {
+          model: this.model,
+          messages,
+          stream: true,
+          options: {
+            num_ctx: this.contextWindowTokens(),
+            num_predict: Math.max(
+              1,
+              Math.min(
+                answerMaxTokens(this.contextWindowTokens()),
+                Number.isFinite(opts.maxTokens)
+                  ? Math.floor(opts.maxTokens!)
+                  : answerMaxTokens(this.contextWindowTokens()),
+              ),
+            ),
+          },
+        },
+        opts.abortSignal,
+      )) {
+        if (chunk.error) throw new Error(chunk.error)
+        const piece = chunk.message?.content ?? ''
+        if (piece) {
+          acc += piece
+          // Ollama's NDJSON stream is one chunk per token-ish; pass count=1.
+          // (Native worker batches its own chunks; the count plumbing is the
+          // same shape across providers.)
+          citationOutput.feed(piece, 1)
+        }
+        if (chunk.done) break
       }
-      if (chunk.done) break
+      return citationOutput.final(acc)
+    } finally {
+      citationOutput.flush()
     }
-    return acc
   }
 
   async generateRaw(
@@ -85,18 +129,33 @@ export class OllamaLlmProvider implements LlmProvider {
       jsonSchema?: object | undefined
       // Also accepted for parity but IGNORED — no reasoning-budget hook here.
       noThink?: boolean | undefined
+      systemPrompt?: string | undefined
+      temperature?: number | undefined
+      requireComplete?: boolean | undefined
     },
   ): Promise<string> {
     let acc = ''
     const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
-    if (opts.maxTokens != null) body.options = { num_predict: opts.maxTokens }
-    for await (const chunk of this.client.postNdjson<{ response?: string; done?: boolean }>(
-      '/api/generate',
-      body,
-      opts.abortSignal,
-    )) {
+    if (opts.systemPrompt != null) body.system = opts.systemPrompt
+    body.options = {
+      num_ctx: this.contextWindowTokens(),
+      ...(opts.maxTokens != null ? { num_predict: opts.maxTokens } : {}),
+      ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
+    }
+    for await (const chunk of this.client.postNdjson<{
+      response?: string
+      done?: boolean
+      done_reason?: string
+    }>('/api/generate', body, opts.abortSignal)) {
       if (chunk.response) acc += chunk.response
-      if (chunk.done) break
+      if (chunk.done) {
+        if (opts.requireComplete && chunk.done_reason === 'length') {
+          throw new Error(
+            'Translation reached the model output limit. Please retry with shorter text.',
+          )
+        }
+        break
+      }
     }
     return acc.trim()
   }
@@ -128,9 +187,9 @@ export class OllamaLlmProvider implements LlmProvider {
   }
 
   contextWindowTokens(): number {
-    // Unknown without an Ollama /api/show round-trip — callers fall back to
-    // FALLBACK_CONTEXT_TOKENS.
-    return 0
+    // Explicitly request this same window on /api/chat so QA does not budget
+    // for 8K while a server default silently gives the request less context.
+    return DEFAULT_CONTEXT_TOKENS
   }
 
   isCpuInference(): boolean {

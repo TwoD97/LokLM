@@ -1,23 +1,12 @@
 #!/usr/bin/env node
-// Download the GGUFs that LokLM bundles, by tier. Skips files already on disk.
-// Ship-tier LLMs are the Qwen3.5 family ( lite=2B , medium=4B , pro=9B ) , the
-// same lineup the installer wizard delivers ( installer-wizard/model-manifest
-// .json ). Usage:
-//   node scripts/download-models.mjs              # all tiers (ship-bundle only)
-//   node scripts/download-models.mjs lite         # Qwen3.5-2B + embedder
-//   node scripts/download-models.mjs medium       # 2B + 4B + embedder
-//   node scripts/download-models.mjs pro          # 2B + 4B + 9B + embedder
-//   node scripts/download-models.mjs embedder     # just the embedder
-//   node scripts/download-models.mjs evals        # 10-model pool + Mistral-Small judge
-//                                                 # for tests/evals/answer/model-pack.json
-//   node scripts/download-models.mjs translation  # ship-trio + gemma Q4/Q6 for
-//                                                 # tests/evals/translation/
-//
-// Re-running is safe: existing files are skipped. If a similar file already
-// matches the profile pattern (e.g. you renamed it), the script also skips.
-//
-// `evals` / `translation` tiers do NOT include `all` — eval-only , not shipped.
-// `tier` may be a string or an array when a file belongs to several pools.
+// Runtime downloads follow installer-wizard/model-manifest.json, verify checksums,
+// reuse installed models and resume partial transfers. Each tier is independent:
+//   lite      Qwen3.5-4B + BGE-M3 + reranker + audio
+//   standard  Qwen3.5-4B + Qwen3 embedding + reranker + audio (medium is an alias)
+//   pro       Qwen3.5-9B + Qwen3 embedding + reranker + audio
+//   all       all runtime tiers; embedder downloads just embedding/reranking models.
+// Evaluation-only pools (evals, matrix, translation, ...) use the catalogue below.
+// With no argument, downloads all runtime tiers. --dry-run lists without downloading.
 
 import {
   createWriteStream,
@@ -29,6 +18,7 @@ import {
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { provisionRuntimeModels, runtimeModels } from './lib/model-provisioning.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MODELS_DIR = resolve(__dirname, '..', 'models')
@@ -210,7 +200,8 @@ const MODELS = [
   // + evals tiers via TIER_INCLUDES.matrix below.
   {
     tier: 'matrix',
-    purpose: 'Matrix embedder — multilingual-e5-large (Q8_0, 1024d ; needs query:/passage: prefixes)',
+    purpose:
+      'Matrix embedder — multilingual-e5-large (Q8_0, 1024d ; needs query:/passage: prefixes)',
     filename: 'multilingual-e5-large-q8_0.gguf',
     url: 'https://huggingface.co/soichisumi/multilingual-e5-large-Q8_0-GGUF/resolve/main/multilingual-e5-large-q8_0.gguf',
     sizeGB: 0.6,
@@ -267,7 +258,8 @@ const MODELS = [
   },
   {
     tier: 'matrix',
-    purpose: 'Matrix embedder — nomic-embed-text-v2-moe (Q4_K_M, Apache-2.0 ; search_query:/search_document: prefixes)',
+    purpose:
+      'Matrix embedder — nomic-embed-text-v2-moe (Q4_K_M, Apache-2.0 ; search_query:/search_document: prefixes)',
     filename: 'nomic-embed-text-v2-moe.Q4_K_M.gguf',
     url: 'https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe-GGUF/resolve/main/nomic-embed-text-v2-moe.Q4_K_M.gguf',
     sizeGB: 0.5,
@@ -283,7 +275,8 @@ const MODELS = [
   },
   {
     tier: 'matrix-risk',
-    purpose: 'Matrix reranker — jina-reranker-v2-base-multilingual (Q4_K_M, cross-encoder ; mainline-converted)',
+    purpose:
+      'Matrix reranker — jina-reranker-v2-base-multilingual (Q4_K_M, cross-encoder ; mainline-converted)',
     filename: 'jina-reranker-v2-base-multilingual-q4_k_m.gguf',
     url: 'https://huggingface.co/minhtd14/jina-reranker-v2-base-multilingual-Q4_K_M-GGUF/resolve/main/jina-reranker-v2-base-multilingual-q4_k_m.gguf',
     sizeGB: 0.22,
@@ -299,7 +292,8 @@ const MODELS = [
   },
   {
     tier: 'matrix',
-    purpose: 'Matrix LLM — Ministral-3-14B-Instruct-2512 (Q4_K_M ; arch mistral3, needs llama.cpp >= 2025-12)',
+    purpose:
+      'Matrix LLM — Ministral-3-14B-Instruct-2512 (Q4_K_M ; arch mistral3, needs llama.cpp >= 2025-12)',
     filename: 'mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf',
     url: 'https://huggingface.co/bartowski/mistralai_Ministral-3-14B-Instruct-2512-GGUF/resolve/main/mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf',
     sizeGB: 8.24,
@@ -386,6 +380,18 @@ const TIER_INCLUDES = {
 // ---- main ------------------------------------------------------------------
 
 const tierArg = (process.argv[2] ?? 'all').toLowerCase()
+// Shipping tiers come from the installer manifest. The historical catalogue
+// below remains evaluation-only and must never choose a runtime model.
+if (['lite', 'standard', 'medium', 'pro', 'all', 'embedder'].includes(tierArg)) {
+  if (process.argv.includes('--dry-run')) {
+    for (const model of runtimeModels(tierArg)) {
+      console.log(`${model.role}: ${model.filename} (${model.sizeBytes} bytes)`)
+    }
+  } else {
+    await provisionRuntimeModels(tierArg)
+  }
+  process.exit(0)
+}
 const want = TIER_INCLUDES[tierArg]
 if (!want) {
   console.error(`Unknown tier: ${tierArg}`)

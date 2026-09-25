@@ -1,24 +1,33 @@
-import { useState } from 'react'
+import { SectionHeader } from './SectionHeader'
+import { useId, useState } from 'react'
 import type { UserSettings } from '@shared/settings'
 import { Slider } from '../Slider'
 import { useT } from '../../i18n'
+import { usePreferenceSave } from '../usePreferenceSave'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
 export function IndexingSection({ settings, update }: Props): JSX.Element {
   const t = useT()
+  const sectionId = useId()
   const [open, setOpen] = useState(true)
+  const { save, failed } = usePreferenceSave(update)
   const r = settings.retrieval
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.indexing.title')}</div>
-          <div className="settings-group__sub">{t('settings.indexing.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.indexing.title')}
+        subtitle={t('settings.indexing.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
           <div className="settings-row">
             <div className="settings-row__label">
@@ -31,7 +40,7 @@ export function IndexingSection({ settings, update }: Props): JSX.Element {
               min={500}
               max={8000}
               step={100}
-              onChange={(v) => void update({ retrieval: { chunkSize: v } })}
+              onChange={(v) => void save({ retrieval: { chunkSize: v } })}
             />
           </div>
           <div className="settings-row">
@@ -45,7 +54,7 @@ export function IndexingSection({ settings, update }: Props): JSX.Element {
               min={0}
               max={500}
               step={50}
-              onChange={(v) => void update({ retrieval: { chunkOverlap: v } })}
+              onChange={(v) => void save({ retrieval: { chunkOverlap: v } })}
             />
           </div>
           <div className="settings-row">
@@ -59,11 +68,16 @@ export function IndexingSection({ settings, update }: Props): JSX.Element {
               min={3}
               max={30}
               step={1}
-              onChange={(v) => void update({ retrieval: { topK: v } })}
+              onChange={(v) => void save({ retrieval: { topK: v } })}
             />
           </div>
+          {failed && (
+            <p role="alert" className="preferences-error">
+              {t('prefs.saveFailed')}
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -47,14 +47,18 @@ export async function registerAndUnlock(page: Page, displayName = 'Demo'): Promi
     .click()
 
   // Warming screen → unlocked. Skip the wait if a "continue anyway" escape shows.
-  const skip = page.getByRole('button', { name: /trotzdem|continue|überspringen|weiter/i })
+  const skip = page.getByRole('button', {
+    name: /Open workspace|Arbeitsbereich.*ffnen|trotzdem|continue|überspringen|weiter/i,
+  })
   await skip
     .first()
     .click({ timeout: 8_000 })
     .catch(() => undefined)
 
   // Unlocked when the nav rail is present.
-  await expect(page.getByRole('button', { name: 'Library' })).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('button', { name: /^(Library|Bibliothek)$/ })).toBeVisible({
+    timeout: 120_000,
+  })
 }
 
 /** Create a (non-encrypted) workspace via the API and return its id. */

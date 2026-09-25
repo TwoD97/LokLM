@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { SectionHeader } from './SectionHeader'
+import { useEffect, useId, useState } from 'react'
 import type { SystemInfo } from '@shared/documents'
 import { useT, type TFn } from '../../i18n'
 
@@ -19,33 +20,65 @@ function resourcesSummary(value: unknown): ResourcesSummary | null {
 
 export function DiagnosticsSection(): JSX.Element {
   const t = useT()
+  const sectionId = useId()
   const [open, setOpen] = useState(true)
   const [info, setInfo] = useState<SystemInfo | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    if (open && !info) void window.api.llm.info().then(setInfo)
-  }, [open, info])
+    if (!open || info) return
+    let current = true
+    setLoadFailed(false)
+    void window.api.llm
+      .info()
+      .then((value) => {
+        if (current) setInfo(value)
+      })
+      .catch(() => {
+        if (current) setLoadFailed(true)
+      })
+    return () => {
+      current = false
+    }
+  }, [open, info, attempt])
 
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.diag.title')}</div>
-          <div className="settings-group__sub">{t('settings.diag.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && info && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.diag.title')}
+        subtitle={t('settings.diag.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
-          <div className="settings-stat-grid">
-            {Object.entries(diagRows(info, t)).map(([k, v]) => (
-              <div key={k} className="settings-stat">
-                <span className="settings-stat__label">{k}</span>
-                <span className="settings-stat__value">{String(v)}</span>
-              </div>
-            ))}
-          </div>
+          {loadFailed ? (
+            <p className="preferences-error" role="alert">
+              {t('prefs.loadFailed')}{' '}
+              <button type="button" onClick={() => setAttempt((value) => value + 1)}>
+                {t('prefs.retry')}
+              </button>
+            </p>
+          ) : !info ? (
+            <p role="status">{t('settings.loading')}</p>
+          ) : (
+            <div className="settings-stat-grid">
+              {Object.entries(diagRows(info, t)).map(([k, v]) => (
+                <div key={k} className="settings-stat">
+                  <span className="settings-stat__label">{k}</span>
+                  <span className="settings-stat__value">{String(v)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

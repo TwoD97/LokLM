@@ -1,32 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { useSettings } from './useSettings'
 import { Segmented } from './Segmented'
 import { useT } from '../i18n'
-import type { SystemInfo } from '@shared/documents'
-
-/** `SystemInfo.lastLlmPlan` is typed as `unknown` on the wire because the
- *  underlying `LlmPlan` lives in the main-process module graph. Narrow it
- *  here to just the two fields we surface. */
-type LlmPlanSummary = { contextSize?: number; kvCacheType?: string }
-function planSummary(value: unknown): LlmPlanSummary {
-  if (value && typeof value === 'object') return value as LlmPlanSummary
-  return {}
-}
-
 export function BasicTab(): JSX.Element {
   const t = useT()
   const { settings, update, savedFlash } = useSettings()
-  const [info, setInfo] = useState<SystemInfo | null>(null)
-
-  useEffect(() => {
-    void window.api.llm.info().then(setInfo)
-  }, [])
-
+  const [error, setError] = useState(false)
+  const save = async (patch: unknown): Promise<void> => {
+    setError(false)
+    try {
+      await update(patch)
+    } catch {
+      setError(true)
+    }
+  }
   if (!settings) return <div>{t('settings.loading')}</div>
-
-  const plan = planSummary(info?.lastLlmPlan)
-  const ollamaActive = settings.advanced.llm.source === 'ollama'
 
   return (
     <div>
@@ -41,7 +30,7 @@ export function BasicTab(): JSX.Element {
           { value: 'de', label: 'Deutsch' },
           { value: 'en', label: 'English' },
         ]}
-        onChange={(v) => void update({ basic: { language: v } })}
+        onChange={(v) => void save({ basic: { language: v } })}
       />
 
       <div className="settings-section-head">
@@ -56,7 +45,7 @@ export function BasicTab(): JSX.Element {
           { value: 'light', label: t('settings.basic.themeLight') },
           { value: 'dark', label: t('settings.basic.themeDark') },
         ]}
-        onChange={(v) => void update({ basic: { theme: v } })}
+        onChange={(v) => void save({ basic: { theme: v } })}
       />
 
       <div className="settings-section-head">
@@ -73,7 +62,7 @@ export function BasicTab(): JSX.Element {
           { value: 'de', label: 'Deutsch' },
           { value: 'en', label: 'English' },
         ]}
-        onChange={(v) => void update({ basic: { answerLanguage: v } })}
+        onChange={(v) => void save({ basic: { answerLanguage: v } })}
       />
 
       <div className="settings-section-head">
@@ -91,48 +80,24 @@ export function BasicTab(): JSX.Element {
           { value: 'off', label: t('settings.basic.pipelineCollapse') },
           { value: 'on', label: t('settings.basic.pipelineKeepVisible') },
         ]}
-        onChange={(v) => void update({ basic: { showPipelineSteps: v === 'on' } })}
+        onChange={(v) => void save({ basic: { showPipelineSteps: v === 'on' } })}
       />
 
-      <div className="settings-section-head">
-        <span className="settings-section-head__title">
-          {t('settings.basic.systemInfo')}{' '}
-          {ollamaActive && (
-            <span style={{ color: 'var(--fg-3)' }}>· {t('settings.basic.idleTag')}</span>
-          )}
-        </span>
-        <span className="settings-section-head__sub">
-          {ollamaActive ? t('settings.basic.systemInfoSubIdle') : t('settings.basic.systemInfoSub')}
-        </span>
-      </div>
-      {info && (
-        <div className="settings-stat-grid">
-          <div className="settings-stat">
-            <span className="settings-stat__label">{t('settings.basic.statTotalRam')}</span>
-            <span className="settings-stat__value">{info.totalMemGB} GB</span>
-          </div>
-          <div className="settings-stat">
-            <span className="settings-stat__label">{t('settings.basic.statGpu')}</span>
-            <span className="settings-stat__value">{info.gpu ?? '—'}</span>
-          </div>
-          <div className="settings-stat">
-            <span className="settings-stat__label">{t('settings.basic.statModel')}</span>
-            <span className="settings-stat__value">{info.modelName ?? '—'}</span>
-          </div>
-          <div className="settings-stat">
-            <span className="settings-stat__label">{t('settings.basic.statContextSize')}</span>
-            <span className="settings-stat__value">{plan.contextSize ?? '—'}</span>
-          </div>
-          <div className="settings-stat">
-            <span className="settings-stat__label">{t('settings.basic.statKvCache')}</span>
-            <span className="settings-stat__value">{plan.kvCacheType ?? '—'}</span>
-          </div>
-        </div>
+      {error && (
+        <p className="preferences-error" role="alert">
+          {t('prefs.saveFailed')}
+        </p>
       )}
-
       <div style={{ marginTop: 14 }}>
-        <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
+        <span
+          role="status"
+          className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}
+        >
+          {savedFlash && (
+            <>
+              <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
+            </>
+          )}
         </span>
       </div>
     </div>

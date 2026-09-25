@@ -1,0 +1,56 @@
+export const activityDict = {
+  en: {
+    'activity.standby': 'Ready on demand',
+    'activity.restoreHint': 'Document processing has finished. Loading chat back onto the GPU…',
+    'activity.local': 'Local processing',
+    'activity.error': 'Unable to prepare the GPU',
+    'activity.restoring': 'Getting chat ready again',
+    'activity.indexing': 'Indexing your documents',
+    'activity.chat': 'Getting chat ready',
+    'activity.search': 'Preparing document search',
+    'activity.preparing': 'Preparing document indexing',
+    'activity.indexingHint':
+      'GPU memory is being used for indexing. Chat can continue when indexing finishes; the chat model loads when needed.',
+    'activity.switchHint':
+      'Loading the model needed for your request. Your conversations stay saved.',
+    'activity.stopping': 'Finishing the current batch, then stopping indexing…',
+    'activity.steps': 'Processing stages',
+    'activity.prepareStep': 'Prepare',
+    'activity.indexStep': 'Index documents',
+    'activity.restoreStep': 'Finish',
+    'activity.chunks': '{done} of {total} chunks',
+    'activity.releasing': 'Freeing GPU memory…',
+    'activity.loading': 'Loading model…',
+    'activity.backfill': 'Updating existing documents',
+    'activity.stop': 'Stop indexing',
+    'activity.browse': 'Continue browsing',
+  },
+  de: {
+    'activity.standby': 'Bei Bedarf bereit',
+    'activity.restoreHint':
+      'Die Dokumentverarbeitung ist abgeschlossen. Der Chat wird wieder auf die GPU geladen…',
+    'activity.local': 'Lokale Verarbeitung',
+    'activity.error': 'GPU konnte nicht vorbereitet werden',
+    'activity.restoring': 'Chat wird wieder bereitgestellt',
+    'activity.indexing': 'Dokumente werden indexiert',
+    'activity.chat': 'Chat wird vorbereitet',
+    'activity.search': 'Dokumentsuche wird vorbereitet',
+    'activity.preparing': 'Indexierung wird vorbereitet',
+    'activity.indexingHint':
+      'Der GPU-Speicher wird für die Indexierung verwendet. Nach der Indexierung kannst du weiter chatten. Das Chatmodell wird bei Bedarf geladen.',
+    'activity.switchHint':
+      'Das benötigte Modell wird geladen. Deine Gespräche bleiben gespeichert.',
+    'activity.stopping':
+      'Der aktuelle Stapel wird abgeschlossen. Danach wird die Indexierung gestoppt…',
+    'activity.steps': 'Verarbeitungsschritte',
+    'activity.prepareStep': 'Vorbereiten',
+    'activity.indexStep': 'Indexieren',
+    'activity.restoreStep': 'Abschließen',
+    'activity.chunks': '{done} von {total} Chunks',
+    'activity.releasing': 'GPU-Speicher wird freigegeben…',
+    'activity.loading': 'Modell wird geladen…',
+    'activity.backfill': 'Vorhandene Dokumente aktualisieren',
+    'activity.stop': 'Indexierung stoppen',
+    'activity.browse': 'Weiter stöbern',
+  },
+}

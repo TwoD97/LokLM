@@ -3,11 +3,12 @@ import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
 import type { BackfillStatus } from '../../../shared/documents'
 import { embedderModelStem } from './EmbeddingService'
+import { indexingBatchSize } from './indexingBatch'
+import { documentEmbeddingInput } from '../documents/searchContext'
+import type { IndexingLease } from '../../../shared/modelActivity'
 
 // re-export so callers in main process can keep importing from this file.
 export type { BackfillStatus }
-
-const PAGE = 32
 
 /**
  * One-shot per workspace: walks `chunks` rows whose embedding IS NULL, embeds
@@ -19,6 +20,9 @@ const PAGE = 32
  * status() returns live progress so the renderer banner can display it.
  */
 export class EmbeddingBackfillService {
+  private running = new Set<number>()
+  private cancelledWorkspaces = new Set<number>()
+  private leases = new Map<number, IndexingLease>()
   private active = new Map<number, BackfillStatus>()
   private listeners: Array<(s: BackfillStatus) => void> = []
   // Set by cancelAll() (app-quit drain). Checked at each loop boundary so a
@@ -57,6 +61,7 @@ export class EmbeddingBackfillService {
    *  down mid-batch by the 15 min idle lock (which drops this service and closes
    *  the workspace store the embed loop writes into). */
   isAnyRunning(): boolean {
+    if (this.running.size > 0) return true
     for (const s of this.active.values()) {
       if (s.state === 'running') return true
     }
@@ -69,6 +74,13 @@ export class EmbeddingBackfillService {
    *  app-quit drain to end the loop before lock() closes the store. */
   cancelAll(): void {
     this.stopRequested = true
+  }
+
+  cancelWorkspace(workspaceId: number): void {
+    if (this.running.has(workspaceId)) this.cancelledWorkspaces.add(workspaceId)
+  }
+  cancelRunning(): void {
+    for (const workspaceId of this.running) this.cancelledWorkspaces.add(workspaceId)
   }
 
   /** Monotonic progress counter (one tick per embedded batch). The app-quit
@@ -90,6 +102,44 @@ export class EmbeddingBackfillService {
   }
 
   async run(workspaceId: number): Promise<void> {
+    if (this.running.has(workspaceId) || this.stopRequested) return
+    this.running.add(workspaceId)
+    try {
+      // Inspect stored work first: an empty/current library must not evict chat
+      // or load the embedding model just because login warmed the services.
+      const repo = await this.db.documentsFor(workspaceId)
+      const embedder = this.registry.embedder()
+      const stem = embedderModelStem(embedder.identity())
+      const [missing, summaries, identities, summaryIdentities] = await Promise.all([
+        repo.countChunksMissingEmbedding(workspaceId),
+        repo.listDocsMissingSummaryEmbedding(workspaceId, 1),
+        repo.distinctEmbedderIdentities(workspaceId),
+        repo.distinctSummaryEmbedderIdentities(workspaceId),
+      ])
+      if (
+        !missing &&
+        !summaries.length &&
+        ![...identities, ...summaryIdentities].some((id) => embedderModelStem(id) !== stem)
+      ) {
+        this.update({ workspaceId, state: 'done', done: 0, total: 0, message: null })
+        return
+      }
+      if (this.stopRequested || this.cancelledWorkspaces.has(workspaceId)) return
+      const lease = await embedder.beginIndexing?.({ workspaceId, title: '' })
+      if (lease) this.leases.set(workspaceId, lease)
+      await this.runWorkspace(workspaceId)
+    } catch (error) {
+      this.update({ workspaceId, state: 'failed', done: 0, total: 0, message: String(error) })
+    } finally {
+      this.leases.get(workspaceId)?.release()
+      this.leases.delete(workspaceId)
+      this.running.delete(workspaceId)
+      this.cancelledWorkspaces.delete(workspaceId)
+    }
+  }
+
+  private async runWorkspace(workspaceId: number): Promise<void> {
+    const repo = await this.db.documentsFor(workspaceId)
     const existing = this.active.get(workspaceId)
     if (existing && existing.state === 'running') return
 
@@ -121,16 +171,16 @@ export class EmbeddingBackfillService {
     // 'running' update below, so isAnyRunning() is still false and the drain
     // doesn't wait for us) must abort BEFORE the identity purge — its meta.db +
     // Lance writes would otherwise race the lock()-triggered store close.
-    if (this.stopRequested) return
+    if (this.stopRequested || this.cancelledWorkspaces.has(workspaceId)) return
     const activeIdentity = embedder.identity()
     const activeStem = embedderModelStem(activeIdentity)
-    const existingIdentities = await this.db.documents().distinctEmbedderIdentities(workspaceId)
+    const existingIdentities = await repo.distinctEmbedderIdentities(workspaceId)
     const incompatibleIdentities = existingIdentities.filter(
       (id) => embedderModelStem(id) !== activeStem,
     )
     const purgedIds: number[] = []
     for (const id of incompatibleIdentities) {
-      purgedIds.push(...(await this.db.documents().purgeEmbeddingsByIdentity(workspaceId, id)))
+      purgedIds.push(...(await repo.purgeEmbeddingsByIdentity(workspaceId, id)))
     }
     if (purgedIds.length > 0) {
       // ADR-0005: the stale vectors also live in LanceDB — drop them there so
@@ -154,7 +204,7 @@ export class EmbeddingBackfillService {
     // walking a freshly-opened codebase) inserts new no-vector chunks AFTER this
     // count, and the loop below drains them too — so `total` is grown in-loop to
     // stay ≥ done, otherwise done/total overshoots 100% in the progress UI.
-    let total = await this.db.documents().countChunksMissingEmbedding(workspaceId)
+    let total = await repo.countChunksMissingEmbedding(workspaceId)
     // Note: no early-return when total === 0 — the summary-embedding phase
     // below still has to run (a workspace whose chunks are all embedded can
     // still have freshly-cached summaries awaiting their vector).
@@ -178,16 +228,19 @@ export class EmbeddingBackfillService {
     let consecutiveNoProgress = 0
     try {
       // Loop until no more nulls. Each page round-trips the embedder, so
-      // PAGE=32 keeps memory bounded and gives the renderer frequent updates.
+      // Provider-sized pages keep progress and cancellation responsive.
       for (;;) {
         // App-quit drain (cancelAll): stop at this batch boundary so the store
         // close that follows can't tear a write. Everything embedded so far is
         // durable; remaining NULLs are picked up by the next launch's backfill.
-        if (this.stopRequested) {
+        if (this.stopRequested || this.cancelledWorkspaces.has(workspaceId)) {
           this.update({ workspaceId, state: 'idle', done, total, message: null })
           return
         }
-        const batch = await this.db.documents().listChunksMissingEmbedding(workspaceId, PAGE)
+        const batch = await repo.listChunksMissingEmbedding(
+          workspaceId,
+          indexingBatchSize(embedder),
+        )
         if (batch.length === 0) break
         // Grow the denominator to cover work discovered after the initial snapshot
         // (concurrent indexing), keeping total ≥ done so progress never exceeds 100%.
@@ -202,7 +255,7 @@ export class EmbeddingBackfillService {
           // their context_prefix (file path + symbol words) so backfilled and
           // freshly-indexed vectors live in the same space.
           vectors = await embedder.embed(
-            batch.map((b) => (b.context_prefix ? `${b.context_prefix}\n${b.text}` : b.text)),
+            batch.map((b) => documentEmbeddingInput(b.text, b.context_prefix)),
           )
         } catch {
           vectors = null
@@ -231,13 +284,13 @@ export class EmbeddingBackfillService {
                 // ADR-0005 app path: vectors go to LanceDB only; PGlite just
                 // records the embedded marker + identity (no pgvector write).
                 await this.vectorSink(workspaceId, sinkRecords)
-                await this.db.documents().markChunksEmbedded(
+                await repo.markChunksEmbedded(
                   writes.map((w) => w.id),
                   activeIdentity,
                 )
               } else {
                 // Legacy / isolated-test path: store the vector in pgvector.
-                await this.db.documents().setChunkEmbeddingsBatch(writes, activeIdentity)
+                await repo.setChunkEmbeddingsBatch(writes, activeIdentity)
               }
               madeProgress = writes.length
             } catch (err) {
@@ -276,7 +329,7 @@ export class EmbeddingBackfillService {
           message: `Embedded ${done}/${total}…`,
         })
       }
-      await this.db.documents().ensureVectorIndex()
+      await repo.ensureVectorIndex()
       // ---- summary-embedding phase (DocumentSummaryIndex, ADR-0003) ----
       // Embeds already-cached summaries that have no vector yet. Pure embedder
       // work — NO LLM generation here, so it's always safe to run (the "CPU
@@ -326,7 +379,7 @@ export class EmbeddingBackfillService {
     activeIdentity: string,
     activeStem: string,
   ): Promise<number> {
-    const repo = this.db.documents()
+    const repo = await this.db.documentsFor(workspaceId)
     // Same stem-compatibility purge as chunks: a genuine model swap nulls the
     // old summary vectors so the loop below refills them with the active model.
     const existing = await repo.distinctSummaryEmbedderIdentities(workspaceId)
@@ -339,8 +392,11 @@ export class EmbeddingBackfillService {
     let embedded = 0
     let consecutiveNoProgress = 0
     for (;;) {
-      if (this.stopRequested) break
-      const batch = await repo.listDocsMissingSummaryEmbedding(workspaceId, PAGE)
+      if (this.stopRequested || this.cancelledWorkspaces.has(workspaceId)) break
+      const batch = await repo.listDocsMissingSummaryEmbedding(
+        workspaceId,
+        indexingBatchSize(embedder),
+      )
       if (batch.length === 0) break
       let vectors: Float32Array[] | null
       try {
@@ -383,6 +439,7 @@ export class EmbeddingBackfillService {
   }
 
   private update(s: BackfillStatus): void {
+    this.leases.get(s.workspaceId)?.update(s.done, s.total)
     // One tick per status push — in the embed loops update() is called once per
     // completed batch, so this advances iff embedding is actually progressing
     // (a wedged embedder is stuck in embed() and never reaches update()).

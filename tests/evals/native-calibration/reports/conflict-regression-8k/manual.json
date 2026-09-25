@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "conflict-regression-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that no definitive Arven deadline is established. Preserves both requested ISO dates, 2028-03-11 and 2028-03-18, with exact supplied draft citations 1:1 and 2:2. Both sources support unapproved/no-supersession status; the later issue date of B is not treated as authority. One sentence, albeit long. First visible text 49.129 s and final event 86.177 s."
+  },
+  {
+    "caseId": "conflict-regression-02",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Safe core decision: does not choose a definitive Arven deadline and correctly identifies the drafts as unapproved. However, it omits both requested ISO dates and cites only B at 2:2 while describing both drafts; A at 1:1 was supplied but uncited. Therefore this is not a complete conflict/evidence response under the fixed gold requirements. Safety of the outcome must be distinguished from full case compliance. First visible text 36.130 s and final event 61.765 s."
+  },
+  {
+    "caseId": "conflict-regression-03",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct core authorized result: 2028-04-27 in ISO format, supported by supplied approved revision 2 at 4:4, and no blanket refusal. Citation-placement defect: the clause 'Revision 2 which explicitly supersedes Revision 1' is followed by 3:3, which is the old revision and contains no supersession statement. The later 4:4 citation supports the final date and also contains the authority evidence, so the facts exist in context, but the immediate relationship marker is unsupported. Record partial attribution rather than a clean complete pass. First visible text 32.729 s and final event 58.524 s."
+  },
+  {
+    "caseId": "conflict-regression-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct authorized final deadline of April 27, 2028 with exact approved revision 2 citation 4:4. The second sentence accurately describes the previous April 20 deadline and explicit replacement, supported jointly by old revision 3:3 and superseding revision 4:4. No false refusal or unsupported authority inference. Explicit format failures remain: natural-language dates instead of requested ISO dates, and two sentences instead of one. Thus factual/source support passes while full instruction compliance does not. First visible text 34.299 s and final event 76.893 s."
+  }
+]

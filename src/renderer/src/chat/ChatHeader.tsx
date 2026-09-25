@@ -25,7 +25,7 @@ export function ChatHeader({ title, onDelete }: Props): JSX.Element {
 
   return (
     <header className="chat__header">
-      <span className="chat__header-title">{title}</span>
+      <h1 className="chat__header-title">{title}</h1>
       {status && status.source === 'ollama' && (
         <span
           className="chat__header-source"

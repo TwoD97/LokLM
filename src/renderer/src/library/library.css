@@ -1,7 +1,8 @@
 .library {
+  position: relative;
   height: 100%;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 28px 32px;
 }
 .library__table {
   width: 100%;
@@ -10,7 +11,7 @@
 .library__table th,
 .library__table td {
   text-align: left;
-  padding: 8px 10px;
+  padding: 14px 12px;
   border-bottom: 1px solid var(--border);
 }
 .library__status {
@@ -106,25 +107,21 @@
    the document list; a single slim row keeps drag-and-drop + click-to-pick while
    handing the vertical space back to the documents themselves. */
 .library__drop {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
-  border: 1.5px dashed var(--border-strong);
-  border-radius: 8px;
+  flex-shrink: 0;
+  min-height: 42px;
   padding: 10px 16px;
-  text-align: center;
-  margin: 10px 0;
-  background: transparent;
-  color: var(--fg-2);
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: var(--on-accent);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    border-color var(--t-fast) var(--ease),
-    color var(--t-fast) var(--ease),
-    background var(--t-fast) var(--ease);
 }
 .library__drop-icon {
   flex: none;
@@ -158,6 +155,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.library__indexing-detail {
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
 }
 .library__index-progress {
   height: 6px;
@@ -999,4 +1000,214 @@
 .library__pagination-range {
   font-size: 12px;
   color: var(--fg-2);
+}
+
+.library__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.library__heading {
+  min-width: 0;
+}
+.library__heading h1 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.3;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+.library__heading p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.library__drop:hover:not(:disabled),
+.library__drop--over {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+.library__table {
+  table-layout: fixed;
+  margin-top: 8px;
+}
+.library__table th {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--fg-2);
+  background: var(--bg-0);
+}
+.library__table th:first-child {
+  width: auto;
+  border-radius: 6px 0 0 6px;
+}
+.library__table th:nth-child(2) {
+  width: 148px;
+}
+.library__table th:nth-child(3) {
+  width: 72px;
+}
+.library__table th:nth-child(4) {
+  width: 125px;
+}
+.library__table th:last-child {
+  width: 44px;
+}
+.library__table td {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.library__table tr:hover td,
+.library__table tr:focus-within td {
+  background: var(--bg-0);
+}
+.library__row-title {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+}
+.library__row-title > svg,
+.library__lang-badge {
+  flex-shrink: 0;
+}
+.library__document-link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--fg-0);
+}
+.library__document-link:hover:not(:disabled) {
+  color: var(--accent);
+  background: transparent;
+  text-decoration: underline;
+}
+.library__added {
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.library__utilities {
+  margin-top: 32px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.library__storage-details {
+  font-size: 12px;
+  color: var(--fg-2);
+  margin-bottom: 12px;
+}
+.library__storage-details summary {
+  cursor: pointer;
+  padding: 8px 0;
+  width: fit-content;
+}
+.library__storage {
+  margin: 6px 0 0;
+  background: var(--bg-0);
+}
+.library__filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.library__filter-count {
+  min-width: 20px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.library__search-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+.library__reset-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.library__filters {
+  padding: 12px;
+  background: var(--bg-0);
+  border-radius: 8px;
+}
+.library__search-row {
+  flex-wrap: wrap;
+}
+.library__search-input {
+  min-width: 180px;
+}
+.library__empty {
+  color: var(--fg-2);
+  opacity: 1;
+  padding: 64px 24px;
+}
+@media (max-width: 1100px) {
+  .library {
+    padding: 24px;
+  }
+  .library__header {
+    gap: 16px;
+  }
+  .library__table th:nth-child(2) {
+    width: 108px;
+  }
+  .library__table th:nth-child(3) {
+    width: 60px;
+  }
+  .library__table th:nth-child(4) {
+    width: 106px;
+  }
+  .library__row-title {
+    gap: 6px;
+  }
+}
+
+.library__drop-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg-1);
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.library__import-error {
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.library__import-error ul {
+  padding-left: 20px;
 }

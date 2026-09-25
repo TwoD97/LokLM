@@ -2,6 +2,7 @@ import type { EmbeddingService } from '../../embeddings/EmbeddingService'
 import { EMBEDDING_DIM } from '../../embeddings/EmbeddingService'
 import { CODE_EMBEDDER_IDENTITY, CODE_EMBEDDING_DIM } from '../../codebase/codeEmbedder'
 import type { EmbedderProvider } from '../types'
+import type { IndexingJob, IndexingLease } from '../../../../shared/modelActivity'
 
 /**
  * Adapts the bundled BGE-M3 EmbeddingService to the EmbedderProvider contract.
@@ -18,6 +19,14 @@ import type { EmbedderProvider } from '../types'
  */
 export class BundledEmbedderProvider implements EmbedderProvider {
   constructor(private readonly inner: EmbeddingService) {}
+
+  beginIndexing(job: Omit<IndexingJob, 'done' | 'total'>): Promise<IndexingLease> {
+    return this.inner.beginIndexing(job)
+  }
+
+  preferredBatchSize(): number {
+    return 4
+  }
 
   async embed(texts: string[]): Promise<Float32Array[]> {
     const raw = await this.inner.embedPassages(texts)
@@ -40,6 +49,10 @@ export class BundledEmbedderProvider implements EmbedderProvider {
       }
       return new Float32Array(v)
     })
+  }
+
+  queryCacheKey(query: string, opts?: { codebase?: boolean }): string | null {
+    return this.inner.queryCacheKey(query, opts)
   }
 
   dimension(): number {

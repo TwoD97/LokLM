@@ -29,10 +29,27 @@ export interface LaunchOptions {
 export async function launchApp(opts: LaunchOptions = {}): Promise<LaunchedApp> {
   const userDataDir = await mkdtemp(join(tmpdir(), 'loklm-e2e-'))
   const mainEntry = resolve(__dirname, '..', '..', '..', 'out', 'main', 'index.js')
+  // CLI tooling can set this for native-module checks. Electron GUI tests must
+  // run as the application, otherwise Chromium flags are rejected by Node.
+  // Use the built renderer, never an inherited development-server URL.
+  const env: Record<string, string> = Object.fromEntries(
+    Object.entries({
+      ...process.env,
+      NODE_ENV: 'test',
+      // This override takes precedence over --user-data-dir in the app. Never
+      // inherit a developer's explicit vault path into an isolated test run.
+      LOKLM_DATA_DIR: join(userDataDir, 'vault'),
+    }).filter(
+      (entry): entry is [string, string] =>
+        entry[0] !== 'ELECTRON_RUN_AS_NODE' &&
+        entry[0] !== 'ELECTRON_RENDERER_URL' &&
+        typeof entry[1] === 'string',
+    ),
+  )
 
   const app = await electron.launch({
     args: [mainEntry, `--user-data-dir=${userDataDir}`, ...(opts.extraArgs ?? [])],
-    env: { ...process.env, NODE_ENV: 'test' },
+    env,
   })
 
   const page = await app.firstWindow()

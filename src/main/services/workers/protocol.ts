@@ -21,6 +21,7 @@ import type {
   PlacementChoice,
   LlmDevicePlan,
 } from '../embeddings/ResourcePlanner'
+import type { ModelTransition } from '../../../shared/modelActivity'
 
 export type ServiceKind = 'llm' | 'embedder' | 'reranker'
 
@@ -46,6 +47,7 @@ export type WorkerRequest =
   | { id: number; op: 'reranker.unload' }
   | { id: number; op: 'reranker.rank'; payload: { query: string; documents: string[] } }
   | { id: number; op: 'planner.refresh' }
+  | { id: number; op: 'gpu.restoreChat' }
   | { id: number; op: 'shutdown' }
 
 export interface LlmLoadPayload {
@@ -85,6 +87,13 @@ export interface LlmAskPayload {
 export interface LlmGenerateRawPayload {
   streamId: string
   prompt: string
+  /** Opportunistic work (conversation titles) yields to interactive requests. */
+  background?: boolean
+  /** Overrides only this generation; the chat's system prompt is restored afterwards. */
+  systemPrompt?: string
+  temperature?: number
+  /** Fail instead of returning truncated text when the token limit is reached. */
+  requireComplete?: boolean
   /** Optional ceiling so callers on the TTFT critical path (contextualize,
    *  multi-query expansion) don't get a full-answer-sized generation when
    *  the model ignores its single-line instructions. */
@@ -110,6 +119,8 @@ export interface RerankerLoadPayload {
   placement: PlacementChoice
   weightsBytes: number
   contextSize: number
+  /** Omitted by older clients: conservative Auto policy. */
+  policy?: import('../../../shared/modelCapabilities').RerankerPolicy
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +132,7 @@ export type WorkerResponse<T = unknown> =
   | { id: number; ok: false; error: string }
 
 export interface LlmLoadResult {
+  modelCapacity?: import('../../../shared/modelCapabilities').ModelCapacity
   plan: LlmPlan
   resources: SystemResources
   gpuLabel: string | null
@@ -159,6 +171,8 @@ export interface RerankerLoadResult {
 // ---------------------------------------------------------------------------
 
 export type WorkerPush =
+  | { ev: 'llm.loaded'; result: LlmLoadResult }
+  | { ev: 'activity'; activity: ModelTransition }
   | { ev: 'status'; service: 'llm'; status: Partial<ModelStatus> }
   | { ev: 'status'; service: 'embedder'; status: Partial<EmbedderStatus> }
   | { ev: 'status'; service: 'reranker'; status: Partial<RerankerStatus> }

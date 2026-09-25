@@ -142,7 +142,7 @@ test('@screenshots capture website screenshots for every feature view', async ()
       .catch(() => undefined)
   })
 
-  // --- Translation: text → translate (needs MADLAD; falls back to the input UI) ---
+  // --- Translation: text → translate (needs the selected LLM; falls back to the input UI) ---
   await shot('feature-translate', async () => {
     await goto(page, 'Translation')
     const src = page.getByRole('textbox').first()

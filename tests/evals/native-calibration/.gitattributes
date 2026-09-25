@@ -1,0 +1,5 @@
+# Keep the frozen corpus hashes portable across Windows and Unix checkouts.
+*.json text eol=lf
+fixtures/**/*.md text eol=lf
+fixtures/**/*.txt text eol=lf
+fixtures/**/*.pdf -text

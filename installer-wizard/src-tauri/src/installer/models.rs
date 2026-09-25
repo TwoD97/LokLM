@@ -67,6 +67,7 @@ pub enum ModelRole {
     Reranker,
     Whisper,
     Diarization,
+    // Keep deserializing legacy tier markers written before LLM translation.
     Translation,
 }
 
@@ -165,8 +166,7 @@ where
 
     for entry in common.iter().chain(bundle.models.iter()) {
         let target = models_dir.join(&entry.filename);
-        // The filename may carry a subpath ( e.g. the translation model lands
-        // in translator/madlad400-3b-mt-ct2-int8/model.bin ). The shared
+        // The filename may carry a subpath for nested model assets. The shared
         // download primitive opens the .partial straight at `target` and never
         // mkdirs , so create any intermediate directories here first. For the
         // flat-filename case parent == models_dir , and create_dir_all on an
@@ -430,33 +430,11 @@ mod tests {
     }
 
     #[test]
-    fn common_has_translation_model_with_subpath_filenames() {
+    fn translation_reuses_each_tiers_llm() {
         let m = manifest();
-        let translation: Vec<&ModelEntry> = m
-            .common
-            .iter()
-            .filter(|c| c.role == ModelRole::Translation)
-            .collect();
-        // The MADLAD CT2 model is four files , all wizard-provisioned via common[].
-        assert_eq!(translation.len(), 4, "expected 4 translation files in common[]");
-        for c in &translation {
-            // Subpath filename so the files land where the app's locateModelDir
-            // looks ( <models>/translator/madlad400-3b-mt-ct2-int8/<file> ). The
-            // downloader must mkdir these intermediate dirs.
-            assert!(
-                c.filename.starts_with("translator/madlad400-3b-mt-ct2-int8/"),
-                "{} filename '{}' missing the translator subpath",
-                c.id,
-                c.filename
-            );
-            // Mirrored to our own minio — not a third-party repo.
-            assert!(
-                c.url.starts_with("https://s3.ltwodl.com/loklm-installers/"),
-                "{} url '{}' is not on our minio",
-                c.id,
-                c.url
-            );
-            assert!(c.sha256.is_some(), "{} must pin a sha256", c.id);
+        assert!(m.common.iter().all(|entry| entry.role != ModelRole::Translation));
+        for bundle in m.tiers.values() {
+            assert!(bundle.models.iter().any(|entry| entry.role == ModelRole::Llm));
         }
     }
 
@@ -487,14 +465,15 @@ mod tests {
     }
 
     #[test]
-    fn only_lite_skips_reranker() {
-        for (key, expect_reranker) in [("lite", false), ("standard", true), ("pro", true)] {
+    fn every_tier_includes_reranker() {
+        // ADR-0008 restored the Lite reranker for retrieval precision.
+        for key in ["lite", "standard", "pro"] {
             let bundle = manifest().tiers.get(key).unwrap();
             let has_reranker = bundle
                 .models
                 .iter()
                 .any(|m| m.role == ModelRole::Reranker);
-            assert_eq!(has_reranker, expect_reranker, "tier {}", key);
+            assert!(has_reranker, "tier {}", key);
         }
     }
 
@@ -521,9 +500,8 @@ mod tests {
 
     #[test]
     fn bundle_for_tier_dispatches_correctly() {
-        // Single-embedder-per-tier (2026-06-26): Lite = 2B-LLM + bge-m3 (no reranker,
-        // no Qwen). Standard/Pro = LLM + Qwen3-Embedding + reranker (no bge-m3).
-        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 2);
+        // Each tier bundles one LLM, one embedder and one reranker.
+        assert_eq!(bundle_for_tier(Tier::Lite).models.len(), 3);
         assert_eq!(bundle_for_tier(Tier::Standard).models.len(), 3);
         assert_eq!(bundle_for_tier(Tier::Pro).models.len(), 3);
     }

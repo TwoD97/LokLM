@@ -32,23 +32,15 @@ export type GenerationKind =
   | 'translation'
   | 'transcription'
 
-/**
- * Which model/worker a kind runs on. The bundled LLM is one serial FIFO, so
- * chat/quiz/summary/writing queue behind each other ("N waiting"). Translation
- * (MADLAD) and transcription (Whisper) are SEPARATE models on their own workers
- * — they run concurrently with the LLM and with each other, so the indicator
- * gives them their own chip instead of counting them as queued behind an LLM
- * turn. (On a shared iGPU they still contend for compute, but they are not
- * FIFO-serialized by the LLM worker — different resource.)
- */
-export type GenerationEngine = 'llm' | 'translation' | 'transcription'
+/** Chat and translation share the LLM queue; transcription has its own worker. */
+export type GenerationEngine = 'llm' | 'transcription'
 
 const ENGINE_FOR_KIND: Record<GenerationKind, GenerationEngine> = {
   chat: 'llm',
   quiz: 'llm',
   summary: 'llm',
   writing: 'llm',
-  translation: 'translation',
+  translation: 'llm',
   transcription: 'transcription',
 }
 

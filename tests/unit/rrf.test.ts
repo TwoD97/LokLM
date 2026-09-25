@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fuseRrf, RRF_K } from '@main/services/retrieval/rrf'
+import { fuseRrf, fuseRrfLists, RRF_K } from '@main/services/retrieval/rrf'
 import type { SearchHit } from '@main/db/types'
 
 function hit(chunkId: number, score: number, docId = 1): SearchHit {
@@ -67,5 +67,50 @@ describe('fuseRrf', () => {
     // Sanity: the lean raised chunk 1's standing vs even fusion.
     const rank = (out: SearchHit[]): number => out.findIndex((h) => h.chunk_id === 1)
     expect(rank(leaned)).toBeLessThanOrEqual(rank(even))
+  })
+})
+
+describe('fuseRrfLists', () => {
+  it('retains earlier contributions until every ranking has voted', () => {
+    const lists = [
+      { hits: [hit(1, 1), hit(2, 0.9)] },
+      { hits: [hit(3, 1), hit(4, 0.9)] },
+      { hits: [hit(2, 1), hit(5, 0.9)] },
+    ]
+    const expected = fuseRrfLists(lists, 2)
+    expect(expected.map((item) => item.chunk_id)).toEqual([2, 1])
+    expect(expected[0]!.score).toBeCloseTo(1 / 62 + 1 / 61)
+    for (const order of [
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+      [2, 1, 0],
+    ]) {
+      expect(
+        fuseRrfLists(
+          order.map((index) => lists[index]!),
+          2,
+        ),
+      ).toEqual(expected)
+    }
+  })
+
+  it('preserves semantic-only candidates alongside a full lexical pool', () => {
+    const lexical = Array.from({ length: 20 }, (_, index) => hit(index + 1, 20 - index))
+    const dense = Array.from({ length: 20 }, (_, index) => hit(index + 101, 0.9 - index / 100))
+    const result = fuseRrfLists([{ hits: lexical }, { hits: dense }], 20)
+    expect(result.filter((item) => item.chunk_id < 100)).toHaveLength(10)
+    expect(result.filter((item) => item.chunk_id > 100)).toHaveLength(10)
+    expect(fuseRrfLists([{ hits: dense }, { hits: lexical }], 20)).toEqual(result)
+  })
+
+  it('keeps native relevance signals without counting duplicate rows as extra votes', () => {
+    const lexical = { ...hit(7, 9), bm25Score: 9 }
+    const dense = { ...hit(7, 0.8), cosineScore: 0.8 }
+    const result = fuseRrfLists([{ hits: [lexical, lexical] }, { hits: [dense] }], 10)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ bm25Score: 9, cosineScore: 0.8 })
+    expect(result[0]!.score).toBeCloseTo(2 / 61)
   })
 })

@@ -20,8 +20,10 @@ export function ConversationList({
   const t = useT()
   return (
     <aside
+      className="chat-history"
+      aria-label={t('ux.history')}
       style={{
-        borderRight: '1px solid #1f2a3a',
+        borderRight: '1px solid var(--border)',
         padding: 12,
         overflowY: 'auto',
       }}
@@ -42,7 +44,7 @@ export function ConversationList({
         {t('chat.newChatButton')}
       </button>
       {conversations.length === 0 ? (
-        <div style={{ opacity: 0.5, fontSize: 13 }}>{t('chat.noConversations')}</div>
+        <div style={{ color: 'var(--fg-2)', fontSize: 13 }}>{t('chat.noConversations')}</div>
       ) : (
         conversations.map((c) => (
           <div
@@ -56,6 +58,8 @@ export function ConversationList({
           >
             <button
               onClick={() => onSelect(c.id)}
+              aria-current={c.id === currentId ? 'true' : undefined}
+              title={c.title ?? t('chat.conversationFallback', { id: c.id })}
               style={{
                 flex: 1,
                 textAlign: 'left',
@@ -72,7 +76,9 @@ export function ConversationList({
               }}
             >
               {c.title ?? t('chat.conversationFallback', { id: c.id })}
-              <span style={{ display: 'block', fontSize: 11, opacity: 0.55 }}>
+              <span
+                style={{ display: 'block', fontSize: 12, color: 'var(--fg-2)', fontWeight: 400 }}
+              >
                 {t('chat.messageCount', { count: c.messageCount })}
               </span>
             </button>

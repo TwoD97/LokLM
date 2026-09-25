@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Library,
-  MessageSquare,
-  GraduationCap,
-  Languages,
-  Mic,
-  PenLine,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -19,6 +13,7 @@ import {
 import type { Document, Folder, FolderAssignment, Workspace } from '@shared/documents'
 import { useT } from '../i18n'
 import { DocIcon } from '../ui/DocIcon'
+import { useModalFocus } from '../ui/useModalFocus'
 import { FolderTree, type FolderScopeState } from '../folders/FolderTree'
 import {
   buildFolderTree,
@@ -26,7 +21,9 @@ import {
   topLevelFolderKeys,
 } from '../folders/folderTreeModel'
 
-type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription' | 'translation' | 'writing'
+import { isModuleVisible, type AppView as ViewKind } from '@shared/settings'
+import { useSettings } from '../settings/useSettings'
+import { MODULE_OPTIONS } from '../settings/moduleOptions'
 
 type Props = {
   expanded: boolean
@@ -42,7 +39,6 @@ type Props = {
   onSetDefaultWorkspace: (id: number) => void
   onViewChange: (v: ViewKind) => void
   onTogglePin: () => void
-  onPeek: (peek: boolean) => void
   chatViewActive: boolean
   workspaceDocs: Document[]
   activeDocumentIds: number[]
@@ -62,6 +58,8 @@ type Props = {
  *  Closes on backdrop click, the close button, or Escape. */
 function WorkspaceInfoModal({ onClose }: { onClose: () => void }): JSX.Element {
   const t = useT()
+  const ref = useRef<HTMLDivElement>(null)
+  useModalFocus(ref, true)
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
@@ -73,6 +71,7 @@ function WorkspaceInfoModal({ onClose }: { onClose: () => void }): JSX.Element {
     <div className="ws-info-modal__backdrop" onClick={onClose}>
       <div
         className="ws-info-modal"
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={t('shell.workspaceInfoTitle')}
@@ -115,7 +114,6 @@ export function Sidebar({
   onSetDefaultWorkspace,
   onViewChange,
   onTogglePin,
-  onPeek,
   chatViewActive,
   workspaceDocs,
   activeDocumentIds,
@@ -130,6 +128,7 @@ export function Sidebar({
   onToggleFolderScope,
 }: Props): JSX.Element {
   const t = useT()
+  const { settings } = useSettings()
   const [draft, setDraft] = useState('')
   // New-workspace encryption choice (fixed at creation). Default on; users opt
   // out for large, non-sensitive corpora to skip the decrypt-on-open wait.
@@ -212,62 +211,41 @@ export function Sidebar({
     : workspaces.filter((w) => w.id === activeWorkspaceId)
 
   return (
-    <aside
-      className="app-shell__sidebar"
-      onMouseEnter={() => !pinned && onPeek(true)}
-      onMouseLeave={() => !pinned && onPeek(false)}
-    >
-      <div className="sidebar__rail">
+    <aside className="app-shell__sidebar">
+      <div className="sidebar__top">
+        {expanded && <span className="sidebar__brand">LokLM</span>}
         <button
-          className={`sidebar__rail-btn ${activeView === 'library' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('library')}
-          aria-label={t('shell.navLibrary')}
-          title={t('shell.navLibrary')}
+          type="button"
+          className="sidebar__toggle"
+          onClick={onTogglePin}
+          aria-label={t(pinned ? 'ux.collapseSidebar' : 'ux.expandSidebar')}
+          aria-expanded={expanded}
         >
-          <Library size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
-        </button>
-        <button
-          className={`sidebar__rail-btn ${activeView === 'chat' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('chat')}
-          aria-label={t('shell.navChat')}
-          title={t('shell.navChat')}
-        >
-          <MessageSquare size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
-        </button>
-        <button
-          className={`sidebar__rail-btn ${activeView === 'quiz' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('quiz')}
-          aria-label={t('shell.navQuiz')}
-          title={t('shell.navQuiz')}
-        >
-          <GraduationCap size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
-        </button>
-        <button
-          className={`sidebar__rail-btn ${activeView === 'transcription' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('transcription')}
-          aria-label={t('shell.navTranscription')}
-          title={t('shell.navTranscription')}
-        >
-          <Mic size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
-        </button>
-        <button
-          className={`sidebar__rail-btn ${activeView === 'translation' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('translation')}
-          aria-label={t('shell.navTranslation')}
-          title={t('shell.navTranslation')}
-        >
-          <Languages size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
-        </button>
-        <button
-          className={`sidebar__rail-btn ${activeView === 'writing' ? 'sidebar__rail-btn--active' : ''}`}
-          onClick={() => onViewChange('writing')}
-          aria-label={t('shell.navWriting')}
-          title={t('shell.navWriting')}
-        >
-          <PenLine size={22} strokeWidth={2.25} color="currentColor" aria-hidden="true" />
+          {pinned ? (
+            <PanelLeftClose size={19} aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen size={19} aria-hidden="true" />
+          )}
         </button>
       </div>
-      {expanded && (
+      <nav className="sidebar__rail" aria-label={t('ux.navigation')}>
+        {MODULE_OPTIONS.filter(({ id }) => isModuleVisible(settings?.basic.modules, id)).map(
+          ({ id, key, Icon }) => (
+            <button
+              key={id}
+              className={`sidebar__rail-btn ${activeView === id ? 'sidebar__rail-btn--active' : ''}`}
+              onClick={() => onViewChange(id)}
+              aria-current={activeView === id ? 'page' : undefined}
+              aria-label={t(key)}
+              title={t(key)}
+            >
+              <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
+              {expanded && <span>{t(key)}</span>}
+            </button>
+          ),
+        )}
+      </nav>
+      {expanded && (inLibrary || chatViewActive) && (
         <div className="sidebar__expanded">
           <div className="sidebar__expanded-header">
             <div className="sidebar__section-heading">
@@ -285,18 +263,6 @@ export function Sidebar({
                 <Info size={14} aria-hidden="true" />
               </button>
             </div>
-            <button
-              className="sidebar__rail-btn"
-              onClick={onTogglePin}
-              aria-label={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
-              title={pinned ? t('shell.unpinSidebar') : t('shell.pinSidebar')}
-            >
-              {pinned ? (
-                <PanelLeftClose size={16} aria-hidden="true" />
-              ) : (
-                <PanelLeftOpen size={16} aria-hidden="true" />
-              )}
-            </button>
           </div>
           {infoOpen && <WorkspaceInfoModal onClose={() => setInfoOpen(false)} />}
           {visibleWorkspaces.map((w) => {
@@ -524,6 +490,9 @@ export function Sidebar({
                     />
                     <span>{t('shell.encryptWorkspace')}</span>
                   </label>
+                  <button type="submit" className="sidebar__create">
+                    {t('ux.createWorkspace')}
+                  </button>
                   <p className="sidebar__new-ws-hint">
                     {newWsEncrypted
                       ? t('shell.encryptWorkspaceOnHint')
@@ -543,9 +512,9 @@ export function Sidebar({
 export function usePinnedSidebar(): [boolean, () => void] {
   const [pinned, setPinned] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('loklm:sidebar:pinned') === '1'
+      return localStorage.getItem('loklm:sidebar:pinned') !== '0'
     } catch {
-      return false
+      return true
     }
   })
   useEffect(() => {

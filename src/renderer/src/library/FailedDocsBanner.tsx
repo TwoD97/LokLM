@@ -6,6 +6,7 @@ type Props = {
   count: number
   /** Re-index every failed document in one shot. */
   onRetryAll: () => void
+  pending?: boolean
 }
 
 /**
@@ -15,7 +16,11 @@ type Props = {
  * Retry-all). Re-indexing flips the docs back to pending/indexing, the list
  * refreshes on the index-progress events, and the banner clears itself.
  */
-export function FailedDocsBanner({ count, onRetryAll }: Props): JSX.Element | null {
+export function FailedDocsBanner({
+  count,
+  onRetryAll,
+  pending = false,
+}: Props): JSX.Element | null {
   const t = useT()
   if (count === 0) return null
   return (
@@ -24,9 +29,14 @@ export function FailedDocsBanner({ count, onRetryAll }: Props): JSX.Element | nu
         <AlertTriangle size={16} aria-hidden="true" />
         {count === 1 ? t('library.failedOne') : t('library.failedMany', { count })}
       </span>
-      <button type="button" className="library__failed-retry" onClick={onRetryAll}>
+      <button
+        type="button"
+        className="library__failed-retry"
+        onClick={onRetryAll}
+        disabled={pending}
+      >
         <RotateCcw size={14} aria-hidden="true" />
-        {t('library.retryAllFailed', { count })}
+        {pending ? t('common.loading') : t('library.retryAllFailed', { count })}
       </button>
     </div>
   )

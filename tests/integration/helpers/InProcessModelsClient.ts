@@ -71,6 +71,9 @@ const DUMMY_RESOURCES: SystemResources = {
 }
 
 export class InProcessModelsClient {
+  beginIndexing(): import('../../../src/shared/modelActivity').IndexingLease {
+    return { update: () => {}, release: () => {} }
+  }
   private statusListeners: StatusListener = {
     llm: () => undefined,
     embedder: () => undefined,

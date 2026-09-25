@@ -2,8 +2,9 @@ import type { ChunkRow, SearchHit } from '../../db/types'
 import type { WorkspaceDb } from '../../db/sqlite/WorkspaceDb'
 import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
 import type { ProviderRegistry } from '../providers/Registry'
+import type { EmbedderProvider } from '../providers/types'
 import type { StageName } from '../../../shared/documents'
-import { fuseRrf } from './rrf'
+import { fuseRrfLists } from './rrf'
 import {
   applyTitleBoost,
   applyShortChunkPenalty,
@@ -22,6 +23,7 @@ import {
 } from './heuristics'
 import { retrievalTrace } from './trace'
 import { CODE_EMBEDDER_IDENTITY } from '../codebase/codeEmbedder'
+import { QueryEmbeddingCache } from './QueryEmbeddingCache'
 import type { ResponseLanguage } from '../llm/prompt'
 
 /** Callback the caller (QAService) supplies to receive stage start/done events
@@ -50,6 +52,8 @@ export interface RetrievalHit {
 }
 
 export interface RetrievalOptions {
+  /** Internal request cancellation; never serialized over renderer IPC. */
+  abortSignal?: AbortSignal
   /** Send the user query through the LLM to generate 2 paraphrased variants
    *  before retrieving; RRF-fuse all variants. Big recall lift on
    *  conversational queries; ~1–2 extra LLM passes per chat turn. */
@@ -102,15 +106,16 @@ export interface RetrievalOptions {
    *  Skipped silently when `responseLanguage` is undefined. */
   responseLanguage?: ResponseLanguage
   languageMatchBoostFactor?: number
-  /** Apply the CPU-only TTFT preset:
+  /** Apply the reduced-work retrieval preset (does not change model placement):
    *    - rerank defaults to false (cross-encoder on CPU is the single biggest
    *      retrieval-side latency hit, ~0.5–2 s per pass)
    *    - multiQuery defaults to false (each variant adds a full LLM pass)
    *    - candidate pool shrinks (smaller FANOUT, lower MAX_CANDIDATES) so the
    *      RRF fusion and any surviving reranker call do less work
    *  Explicit RetrievalOptions still win — the preset only fills in undefined
-   *  fields. When `undefined` (the default), RetrievalService auto-detects from
-   *  the LLM backend: no GPU → preset on, GPU → preset off. */
+   *  fields. When undefined, use the provider's explicit CPU-inference
+   *  capability. Unknown and external providers are not inferred from a
+   *  missing local GPU label. Main also applies this preset on small GPUs. */
   cpuOptimized?: boolean
   /** Hierarchical doc pre-filter (DocumentSummaryIndex, ADR-0003). When on AND
    *  the embedder is loaded AND documents have summary embeddings, the query is
@@ -178,16 +183,6 @@ const MAX_CANDIDATES = 64
 // recall on document-diverse queries.
 const CPU_FANOUT = 2
 const CPU_MAX_CANDIDATES = 32
-// BM25-lean fusion weight applied ONLY when no reranker runs (lite / CPU
-// preset). The dense embedder's cosine scores collapse on short keyword
-// queries — every chunk lands ~0.5, so topically-adjacent noise (e.g. unrelated
-// docs that are merely "about software") rides into the top slate and can
-// outvote a literal-term BM25 hit that scored 12 vs the noise's 5. With no
-// cross-encoder to clean the pool, up-weighting the lexical list keeps that
-// high-confidence match in the final set. 2 was enough to retain a rank-1 BM25
-// hit against a full dense list in the interpreter-query trace; kept modest so
-// dense recall (paraphrase / conceptual matches with no shared term) survives.
-const BM25_FUSION_WEIGHT_NO_RERANK = 2
 // Per-passage char cap for reranking. The reranker context is 1024 tokens
 // (RERANK_CONTEXT_SIZE in RerankerService); a passage that fills it leaves KV
 // state at the last position and the next sequence (position 0) trips the
@@ -257,6 +252,9 @@ export type VectorSearchFn = (
 ) => Promise<SearchHit[]>
 
 export class RetrievalService {
+  private readonly queryEmbeddingCache =
+    process.env['LOKLM_QUERY_EMBEDDING_CACHE'] === '0' ? null : new QueryEmbeddingCache()
+
   constructor(
     private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
@@ -278,7 +276,10 @@ export class RetrievalService {
      *  resident model — no extra VRAM; the earlier MADLAD sidecar cost ~3 GB
      *  resident and was pro-only). The injected wrapper owns language
      *  detection + LLM readiness and resolves null for "no variant". */
-    private readonly translateQuery?: (query: string) => Promise<string | null>,
+    private readonly translateQuery?: (
+      query: string,
+      opts?: { abortSignal?: AbortSignal },
+    ) => Promise<string | null>,
   ) {}
 
   /** Cheap BM25-only top-score probe: FTS5 keyword search, top hit, no dense and
@@ -308,12 +309,17 @@ export class RetrievalService {
     topK: number,
     opts: RetrievalOptions = {},
   ): Promise<RetrievalHit[]> {
+    opts.abortSignal?.throwIfAborted()
+    const searchStartedAt = Date.now()
     const trimmed = query.trim()
     if (!trimmed) return []
+    const subQuestions = (opts.decomposeQuestions ?? true) ? splitQuestions(trimmed) : [trimmed]
+    const retrievalQuestion = subQuestions.join(' ')
 
     // ADR-0005: resolve the workspace's SQLite store once (opens it); all
     // relational/BM25 reads below route to it. null → legacy PGlite path.
     const wsdb = this.getWorkspaceDb ? await this.getWorkspaceDb(workspaceId) : null
+    opts.abortSignal?.throwIfAborted()
 
     let activeIds =
       opts.activeDocumentIds && opts.activeDocumentIds.length > 0 ? opts.activeDocumentIds : null
@@ -329,8 +335,12 @@ export class RetrievalService {
     // no resolver is wired (isolated unit tests). Drives the reranker gate, the
     // code heuristics, and the code-vs-document query instruction below.
     const codeWorkspace = this.isCodebaseWorkspace
-      ? await this.isCodebaseWorkspace(workspaceId).catch(() => false)
+      ? await this.isCodebaseWorkspace(workspaceId).catch((error) => {
+          rethrowCancellation(error, opts.abortSignal)
+          return false
+        })
       : this.registry.embedder().identity?.() === CODE_EMBEDDER_IDENTITY
+    opts.abortSignal?.throwIfAborted()
 
     // ------- 0a. hierarchical doc pre-filter (opt-in, default off) -------
     // Narrow chunk retrieval to the documents whose SUMMARY is closest to the
@@ -343,10 +353,13 @@ export class RetrievalService {
         const embedder = this.registry.embedder()
         // Query side gets the instruction (fix #1); fall back to embed() for
         // providers/mocks that don't implement embedQuery.
-        const vecs = embedder.embedQuery
-          ? await embedder.embedQuery([trimmed], { codebase: codeWorkspace })
-          : await embedder.embed([trimmed])
-        const qVec = vecs[0]
+        const qVec = await this.embedRetrievalQuery(
+          embedder,
+          retrievalQuestion,
+          codeWorkspace,
+          opts.abortSignal,
+        )
+        opts.abortSignal?.throwIfAborted()
         if (qVec && qVec.length > 0) {
           const topN = opts.docPrefilterTopN ?? DEFAULT_DOC_PREFILTER_TOPN
           const topDocs = wsdb
@@ -361,16 +374,14 @@ export class RetrievalService {
           if (topDocs.length > 0) activeIds = topDocs.map((d) => d.id)
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+        rethrowCancellation(err, opts.abortSignal)
         console.warn('[retrieval] doc-prefilter failed, using flat retrieval:', err)
       }
     }
+    opts.abortSignal?.throwIfAborted()
 
-    // CPU-mode trigger: explicit flag wins; otherwise auto-detect from the LLM
-    // backend. When the LLM has no GPU label, every CPU-heavy retrieval stage
-    // (rerank, multiQuery) is dwarfed by the LLM prefill cost anyway — but
-    // shaving a CPU rerank pass still buys 0.5–2 s of TTFT, and skipping
-    // multiQuery saves a full extra LLM pass.
+    // Explicit resource defaults win; otherwise ask the active provider.
+    // A missing local GPU label says nothing about an external server.
     const cpuMode = opts.cpuOptimized ?? this.autoDetectCpuMode()
     // Fix A: the prose-trained cross-encoder demotes exact code matches — measured
     // on the codebase eval, reranking dropped exact-symbol recall@5 0.97 → 0.43 and
@@ -380,7 +391,8 @@ export class RetrievalService {
     // turn (ChatView), so a `?? ` default would never apply. The reranker on/off
     // *setting* still works for doc workspaces via model unload. Outside codebase
     // workspaces: explicit opts.rerank wins, else auto (off under the CPU preset).
-    const effectiveRerank = codeWorkspace ? false : (opts.rerank ?? !cpuMode)
+    const effectiveRerank =
+      !codeWorkspace && (opts.rerank ?? !cpuMode) && this.registry.reranker().isReady()
     const effectiveMultiQuery = opts.multiQuery ?? !cpuMode
     const fanout = cpuMode ? CPU_FANOUT : FANOUT
     const maxCandidates = cpuMode ? CPU_MAX_CANDIDATES : MAX_CANDIDATES
@@ -397,7 +409,6 @@ export class RetrievalService {
     // the CPU preset, and TAKES PRECEDENCE over paraphrase expansion (the
     // sub-questions are the variants). Only fires on a genuinely compound
     // message; otherwise splitQuestions returns the single query.
-    const subQuestions = (opts.decomposeQuestions ?? true) ? splitQuestions(trimmed) : [trimmed]
     const llmReadyForExpansion = effectiveMultiQuery && this.registry.llm().isReady()
     let queries: string[]
     if (subQuestions.length > 1) {
@@ -406,11 +417,17 @@ export class RetrievalService {
       onStage?.('expand_queries', 'done', `${queries.length} questions`)
     } else if (llmReadyForExpansion) {
       onStage?.('expand_queries', 'start')
-      queries = await this.maybeExpandQueries(trimmed, effectiveMultiQuery, codeWorkspace)
+      queries = await this.maybeExpandQueries(
+        retrievalQuestion,
+        effectiveMultiQuery,
+        codeWorkspace,
+        opts.abortSignal,
+      )
       onStage?.('expand_queries', 'done', `${queries.length} variants`)
     } else {
-      queries = [trimmed]
+      queries = subQuestions
     }
+    opts.abortSignal?.throwIfAborted()
 
     // Maßnahme 4 (R3): EN translation as one more variant (LLM-backed since
     // 0.6.5). Runs for every workspace type — a German question over english
@@ -422,9 +439,16 @@ export class RetrievalService {
     // The identifier guard mirrors maybeExpandQueries: a translation that
     // rewrote an identifier would retrieve for the wrong anchor.
     if (this.translateQuery && !cpuMode && !(codeWorkspace && queries.length > 1)) {
-      const translated = await this.translateQuery(trimmed).catch(() => null)
+      const translated = await this.translateQuery(
+        retrievalQuestion,
+        opts.abortSignal ? { abortSignal: opts.abortSignal } : {},
+      ).catch((error) => {
+        rethrowCancellation(error, opts.abortSignal)
+        return null
+      })
+      opts.abortSignal?.throwIfAborted()
       if (translated) {
-        const mustKeep = extractRawIdentifiers(trimmed)
+        const mustKeep = extractRawIdentifiers(retrievalQuestion)
           .filter((id) => !/^([A-Za-z]\.)+[A-Za-z]$/.test(id))
           .map((id) => id.toLowerCase())
         const lower = translated.toLowerCase()
@@ -438,6 +462,7 @@ export class RetrievalService {
         }
       }
     }
+    opts.abortSignal?.throwIfAborted()
 
     // ------- 1. retrieve & RRF-fuse across variants -------
     // candidateK is the per-list ceiling. With the per-doc cap branch active
@@ -450,90 +475,36 @@ export class RetrievalService {
       activeDocumentIds: activeIds,
       ...(perDocCap > 0 ? { perDocK: perDocCap } : {}),
     }
-    // Fan out across variants: each variant's BM25 + vector pair already runs
-    // in parallel inside retrieveSingle, and the variants themselves are
-    // independent, so we issue them all at once and RRF-fuse the results
-    // sequentially when they come back. Was a serial for-loop , every extra
-    // variant added one full retrieval round-trip to TTFT.
+    // Retrieve bounded per-arm lists in parallel, then sum every contribution
+    // before applying the one final pool cap. Arrival order cannot discard
+    // evidence from a candidate that recurs in a later query variant.
     const perVariant = await Promise.all(
       queries.map((q) =>
-        this.retrieveSingle(workspaceId, q, candidateK, searchOpts, wsdb, codeWorkspace),
+        this.retrieveSingle(
+          workspaceId,
+          q,
+          candidateK,
+          searchOpts,
+          wsdb,
+          codeWorkspace,
+          opts.abortSignal,
+        ),
       ),
     )
 
-    // When no reranker runs (lite / CPU preset), nothing downstream cleans the
-    // pool, so a dense-retriever that collapsed to a narrow cosine band would
-    // otherwise let topically-adjacent noise outvote a strong literal-term BM25
-    // hit. Lean the fusion toward the lexical list in that case so a
-    // high-confidence keyword match keeps its seat. With rerank on, the
-    // cross-encoder reorders anyway, so fuse evenly and let it decide.
-    const bm25Weight = effectiveRerank ? 1 : BM25_FUSION_WEIGHT_NO_RERANK
-    let pool: SearchHit[] = []
-    for (const [bm25, vector] of perVariant) {
-      pool = fuseRrf(pool, bm25, candidateK, bm25Weight)
-      pool = fuseRrf(pool, vector, candidateK)
-    }
-    onStage?.('retrieve', 'done', `${pool.length} candidates`)
-    const poolSize = pool.length
+    opts.abortSignal?.throwIfAborted()
+    // Equal arm weights preserve semantic-only matches on small candidate
+    // pools: BM25 weight 2 excluded EVERY dense-only hit when its full list
+    // contained <=32 candidates. Keep native scores for the relevance floor;
+    // code/title boosts below still protect exact anchors without a new model.
+    const allCandidates = fuseRrfLists(
+      perVariant.flatMap(([bm25, vector]) => [{ hits: bm25 }, { hits: vector }]),
+      Number.POSITIVE_INFINITY,
+    )
+    const pool = allCandidates.slice(0, candidateK)
+    onStage?.('retrieve', 'done', `${allCandidates.length} candidates`)
+    const poolSize = allCandidates.length
     let flooredOut = 0
-
-    // ------- 1b. score adjustments BEFORE rerank -------
-    // Skipped when rerank is on , the reranker reassigns scores wholesale at
-    // stage 2, so the pre-rerank ordering is only used to pick the candidate
-    // slate. The same heuristics get applied AFTER rerank below where they
-    // actually shape the final ranking. Fallback path (no rerank) still does
-    // the boost-before-sort here.
-    if (!effectiveRerank) {
-      pool = applyTitleBoost(pool, trimmed, opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST)
-      pool = applyShortChunkPenalty(
-        pool,
-        opts.shortChunkPenalty ?? DEFAULT_SHORT_CHUNK_PENALTY,
-        opts.shortChunkMinChars ?? DEFAULT_SHORT_CHUNK_MIN_CHARS,
-      )
-      pool = applyRecencyBoost(
-        pool,
-        opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
-        opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
-      )
-      pool = applyLanguageMatchBoost(
-        pool,
-        opts.responseLanguage,
-        opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
-      )
-      pool = applyCodeSymbolBoost(
-        pool,
-        trimmed,
-        DEFAULT_CODE_SYMBOL_BOOST,
-        DEFAULT_CODE_DEFINE_BOOST,
-        codeWorkspace ? DEFAULT_CODE_LAY_SYMBOL_BOOST : 1.0,
-      )
-      pool = applyCodeFilenameBoost(
-        pool,
-        trimmed,
-        DEFAULT_CODE_FILENAME_BOOST,
-        codeWorkspace ? 'substring' : 'exact',
-      )
-      if (codeWorkspace) {
-        pool = applyRoleBoost(pool, trimmed, {
-          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
-          testBoost: DEFAULT_ROLE_TEST_BOOST,
-        })
-        pool = applyTrackPreference(pool, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
-      }
-      pool.sort((a, b) => b.score - a.score)
-      // R5: no-rerank relevance floor — see DEFAULT_NO_RERANK_COSINE_FLOOR.
-      const cosineFloor = opts.noRerankRelevanceFloor ?? DEFAULT_NO_RERANK_COSINE_FLOOR
-      if (cosineFloor > 0 && pool.length > 1) {
-        // A stamped bm25Score means the chunk MATCHED the FTS query (FTS5 only
-        // returns matching rows) — lexical hits are never floored.
-        const kept = pool.filter(
-          (h) => h.bm25Score !== undefined || (h.cosineScore ?? 0) >= cosineFloor,
-        )
-        const before = pool.length
-        pool = kept.length > 0 ? kept : pool.slice(0, 1)
-        flooredOut = before - pool.length
-      }
-    }
 
     // ------- 2. rerank (or fall back to fused order) -------
     // We rerank the *whole* candidate pool, not just the first topK, so the
@@ -555,58 +526,96 @@ export class RetrievalService {
     // assertion → "failed to decode". So cap at the context budget: generous
     // enough to keep a whole normal chunk (≤2000 chars), bounded enough that no
     // single passage can fill the 1024-token window.
-    const reranked = await this.maybeRerank(
-      trimmed,
+    const ranking = await this.maybeRerank(
+      retrievalQuestion,
       pool,
       effectiveRerank,
       RERANK_MAX_PASSAGE_CHARS,
+      opts.abortSignal,
     )
-    if (rerankWillRun) onStage?.('rerank', 'done', `${reranked.length} reranked`)
-
-    // ------- 2b. re-apply the same heuristics to the rerank output -------
-    // Cross-encoder scores live on a different scale, but the heuristics still
-    // express "I'd rather see a 600-char paragraph from a fresh doc than a
-    // 90-char cover line" — so they belong on whatever score we use to rank.
-    let postRank = reranked
-    if (effectiveRerank) {
-      postRank = applyTitleBoost(postRank, trimmed, opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST)
-      postRank = applyShortChunkPenalty(
-        postRank,
-        opts.shortChunkPenalty ?? DEFAULT_SHORT_CHUNK_PENALTY,
-        opts.shortChunkMinChars ?? DEFAULT_SHORT_CHUNK_MIN_CHARS,
+    opts.abortSignal?.throwIfAborted()
+    if (rerankWillRun) {
+      onStage?.(
+        'rerank',
+        'done',
+        ranking.reranked ? `${ranking.hits.length} reranked` : 'hybrid fallback',
       )
-      postRank = applyRecencyBoost(
-        postRank,
-        opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
-        opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
-      )
-      postRank = applyLanguageMatchBoost(
-        postRank,
-        opts.responseLanguage,
-        opts.languageMatchBoostFactor ?? DEFAULT_LANGUAGE_MATCH_BOOST,
-      )
-      postRank = applyCodeSymbolBoost(
-        postRank,
-        trimmed,
-        DEFAULT_CODE_SYMBOL_BOOST,
-        DEFAULT_CODE_DEFINE_BOOST,
-        codeWorkspace ? DEFAULT_CODE_LAY_SYMBOL_BOOST : 1.0,
-      )
-      postRank = applyCodeFilenameBoost(
-        postRank,
-        trimmed,
-        DEFAULT_CODE_FILENAME_BOOST,
-        codeWorkspace ? 'substring' : 'exact',
-      )
-      if (codeWorkspace) {
-        postRank = applyRoleBoost(postRank, trimmed, {
-          nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
-          testBoost: DEFAULT_ROLE_TEST_BOOST,
-        })
-        postRank = applyTrackPreference(postRank, trimmed, { docPenalty: DEFAULT_DOC_PENALTY })
-      }
-      postRank = postRank.slice().sort((a, b) => b.score - a.score)
     }
+    opts.abortSignal?.throwIfAborted()
+
+    // Apply score adjustments exactly once after the scoring path is known.
+    // Failed/invalid reranking uses the same fusion and floor as an unavailable
+    // reranker; cross-encoder thresholds must never be applied to RRF scores.
+    let postRank = ranking.hits
+    let keepSingleWeakFallback = false
+    if (!ranking.reranked) {
+      // Filter native signals before the fallback cap. Repeated weak dense
+      // hits can otherwise fill the capped slate and hide valid lexical
+      // evidence from other variants. Keep the reranker itself bounded above.
+      const cosineFloor = opts.noRerankRelevanceFloor ?? DEFAULT_NO_RERANK_COSINE_FLOOR
+      const eligible =
+        cosineFloor > 0
+          ? allCandidates.filter(
+              (hit) => hit.bm25Score !== undefined || (hit.cosineScore ?? 0) >= cosineFloor,
+            )
+          : allCandidates
+      keepSingleWeakFallback = allCandidates.length > 0 && eligible.length === 0
+      flooredOut = allCandidates.length - (keepSingleWeakFallback ? 1 : eligible.length)
+      postRank = (keepSingleWeakFallback ? allCandidates : eligible).slice(0, candidateK)
+    }
+    const scoringCandidates = postRank
+    postRank = applyTitleBoost(
+      postRank,
+      retrievalQuestion,
+      opts.titleBoostFactor ?? DEFAULT_TITLE_BOOST,
+    )
+    postRank = applyShortChunkPenalty(
+      postRank,
+      // Short factual statements remain valid evidence. This code heuristic
+      // demoted an exact approval date below unrelated prose in native evals.
+      opts.shortChunkPenalty ?? (codeWorkspace ? DEFAULT_SHORT_CHUNK_PENALTY : 1),
+      opts.shortChunkMinChars ?? DEFAULT_SHORT_CHUNK_MIN_CHARS,
+    )
+    postRank = applyRecencyBoost(
+      postRank,
+      opts.recencyBoostFactor ?? DEFAULT_RECENCY_BOOST,
+      opts.recencyBoostWindowMs ?? DEFAULT_RECENCY_WINDOW_MS,
+    )
+    postRank = applyLanguageMatchBoost(
+      postRank,
+      opts.responseLanguage,
+      // Response language controls generation, not which source is true.
+      // Keep the historical code defaults; bilingual library search is neutral.
+      opts.languageMatchBoostFactor ?? (codeWorkspace ? DEFAULT_LANGUAGE_MATCH_BOOST : 1),
+    )
+    postRank = applyCodeSymbolBoost(
+      postRank,
+      retrievalQuestion,
+      DEFAULT_CODE_SYMBOL_BOOST,
+      DEFAULT_CODE_DEFINE_BOOST,
+      codeWorkspace ? DEFAULT_CODE_LAY_SYMBOL_BOOST : 1.0,
+    )
+    postRank = applyCodeFilenameBoost(
+      postRank,
+      retrievalQuestion,
+      DEFAULT_CODE_FILENAME_BOOST,
+      codeWorkspace ? 'substring' : 'exact',
+    )
+    if (codeWorkspace) {
+      postRank = applyRoleBoost(postRank, retrievalQuestion, {
+        nonSourcePenalty: DEFAULT_ROLE_NONSOURCE_PENALTY,
+        testBoost: DEFAULT_ROLE_TEST_BOOST,
+      })
+      postRank = applyTrackPreference(postRank, retrievalQuestion, {
+        docPenalty: DEFAULT_DOC_PENALTY,
+      })
+    }
+    postRank = postRank.slice().sort((a, b) => b.score - a.score)
+    const adjustedCandidates = postRank
+
+    // Preserve the existing best-hit behavior for an entirely weak slate;
+    // this change does not introduce a new answerability/refusal threshold.
+    if (keepSingleWeakFallback) postRank = postRank.slice(0, 1)
 
     // ------- 2b-floor. relevance floor (rerank only) -------
     // Drop the long tail of clearly-irrelevant chunks BEFORE diversification.
@@ -621,7 +630,7 @@ export class RetrievalService {
     // pick among genuinely relevant chunks. Keep the top hit unconditionally so
     // a weak-but-best match (or a wholly off-corpus query) still has something
     // to answer from / refuse against, rather than feeding an empty Context.
-    if (rerankWillRun && opts.relevanceFloor != null) {
+    if (ranking.reranked && opts.relevanceFloor != null) {
       const kept = postRank.filter((h) => h.score >= opts.relevanceFloor!)
       const floored = kept.length > 0 ? kept : postRank.slice(0, 1)
       postRank = floored
@@ -665,6 +674,7 @@ export class RetrievalService {
         opts.wholeDocThreshold ?? DEFAULT_WHOLE_DOC_THRESHOLD,
         wsdb,
       )
+      opts.abortSignal?.throwIfAborted()
     }
     // Default OFF for documents, ±1 for code (code chunks don't overlap, so a
     // matched chunk can miss its symbol's body/signature). Trimmed first under
@@ -675,31 +685,92 @@ export class RetrievalService {
     if (neighbourRadius > 0) {
       withWhole = await this.expandNeighbours(withWhole, neighbourRadius, wsdb)
     }
+    opts.abortSignal?.throwIfAborted()
 
     const result = withWhole.map(toHit)
     // Opt-in per-query trace (LOKLM_RETRIEVAL_TRACE=1) → retrieval.log. Chunk
     // texts are logged as ids + lengths only, never content.
-    retrievalTrace(() => ({
-      workspaceId,
-      query: trimmed,
-      variants: queries,
-      lexicalQuery: codeWorkspace ? expandBm25Query(trimmed) : undefined,
-      codeWorkspace,
-      cpuMode,
-      rerank: rerankWillRun,
-      topK,
-      effectiveTopK,
-      poolSize,
-      flooredOut,
-      final: result.slice(0, topK + 5).map((h) => ({
-        chunk: h.chunk_id,
-        doc: h.document_id,
-        file: h.heading_path?.[0] ?? h.document_title,
-        origin: h.origin,
-        score: round4(h.score),
-        chars: h.text.length,
-      })),
-    }))
+    retrievalTrace(() => {
+      // Build detailed calibration data only inside the opt-in trace thunk.
+      // Native scores retain their precision (BM25 values can be tiny), and
+      // pre-floor/pre-cap IDs let an isolated eval join its relevance labels
+      // without putting source text into logs or runtime confidence policies.
+      const rerankPool = new Set(pool.map((hit) => hit.chunk_id))
+      const scoringPool = new Set(scoringCandidates.map((hit) => hit.chunk_id))
+      const survivedFloor = new Set(postRank.map((hit) => hit.chunk_id))
+      const selectedPrimary = new Set(ranked.map((hit) => hit.chunk_id))
+      const selectedFinal = new Set(result.map((hit) => hit.chunk_id))
+      const rerankScores = new Map(
+        ranking.reranked ? ranking.hits.map((hit) => [hit.chunk_id, hit.score] as const) : [],
+      )
+      const adjustedScores = new Map(adjustedCandidates.map((hit) => [hit.chunk_id, hit.score]))
+      const nativeFloor = opts.noRerankRelevanceFloor ?? DEFAULT_NO_RERANK_COSINE_FLOOR
+      const nativeRank = (hits: SearchHit[]) =>
+        hits.map((hit, index) => ({
+          chunk: hit.chunk_id,
+          doc: hit.document_id,
+          rank: index + 1,
+          score: hit.score,
+        }))
+      return {
+        traceVersion: 2,
+        workspaceId,
+        query: trimmed,
+        variants: queries,
+        lexicalQuery: codeWorkspace ? expandBm25Query(trimmed) : undefined,
+        codeWorkspace,
+        cpuMode,
+        rerank: ranking.reranked,
+        rerankAttempted: rerankWillRun,
+        embedderIdentity: this.registry.embedder().identity?.() ?? null,
+        queryEmbeddingCache: this.queryEmbeddingCache?.snapshot() ?? { enabled: false },
+        durationMs: Date.now() - searchStartedAt,
+        topK,
+        effectiveTopK,
+        candidateK,
+        poolSize,
+        flooredOut,
+        thresholds: { nativeCosine: nativeFloor, rerank: opts.relevanceFloor ?? null },
+        usedWeakFallback: keepSingleWeakFallback,
+        arms: perVariant.map(([lexical, dense], variant) => ({
+          variant,
+          lexical: nativeRank(lexical),
+          dense: nativeRank(dense),
+        })),
+        candidates: allCandidates.map((hit, index) => ({
+          chunk: hit.chunk_id,
+          doc: hit.document_id,
+          ordinal: hit.ordinal,
+          pageFrom: hit.page_from,
+          pageTo: hit.page_to,
+          language: hit.language,
+          chars: hit.text.length,
+          fusedRank: index + 1,
+          rrfScore: hit.score,
+          bm25Score: hit.bm25Score ?? null,
+          cosineScore: hit.cosineScore ?? null,
+          rerankScore: rerankScores.get(hit.chunk_id) ?? null,
+          adjustedScore: adjustedScores.get(hit.chunk_id) ?? null,
+          passesNativeFloor:
+            nativeFloor <= 0 ||
+            hit.bm25Score !== undefined ||
+            (hit.cosineScore ?? 0) >= nativeFloor,
+          inRerankPool: rerankWillRun && rerankPool.has(hit.chunk_id),
+          inScoringPool: scoringPool.has(hit.chunk_id),
+          survivedFloor: survivedFloor.has(hit.chunk_id),
+          selectedPrimary: selectedPrimary.has(hit.chunk_id),
+          selectedFinal: selectedFinal.has(hit.chunk_id),
+        })),
+        final: result.map((hit) => ({
+          chunk: hit.chunk_id,
+          doc: hit.document_id,
+          file: hit.heading_path?.[0] ?? hit.document_title,
+          origin: hit.origin,
+          score: round4(hit.score),
+          chars: hit.text.length,
+        })),
+      }
+    })
     return result
   }
 
@@ -714,7 +785,9 @@ export class RetrievalService {
     searchOpts: { activeDocumentIds: number[] | null; perDocK?: number },
     wsdb: WorkspaceDb | null,
     codeWorkspace: boolean,
+    abortSignal?: AbortSignal,
   ): Promise<[SearchHit[], SearchHit[]]> {
+    abortSignal?.throwIfAborted()
     // R3: the lexical arm gets the German→english bridge + identifier subtokens
     // appended (codebase workspaces only). The dense arm keeps the raw query —
     // the multilingual embedder handles semantics; the expansion exists because
@@ -733,26 +806,25 @@ export class RetrievalService {
       try {
         // Query side gets the model's instruction (fix #1); embed() fallback for
         // providers/mocks without embedQuery keeps the legacy behaviour.
-        const vecs = embedder.embedQuery
-          ? await embedder.embedQuery([q], { codebase: codeWorkspace })
-          : await embedder.embed([q])
-        const vec = vecs[0]
+        const vec = await this.embedRetrievalQuery(embedder, q, codeWorkspace, abortSignal)
+        abortSignal?.throwIfAborted()
         if (!vec || vec.length === 0) return []
         // searchChunksByVector expects number[]; convert from the provider's
         // Float32Array. Array.from on a typed array materialises a plain Array.
         const queryVec = Array.from(vec)
         // Prefer the injected LanceDB-backed dense search (ADR-0005); fall back
         // to the pgvector column when none is wired (isolated tests).
-        return this.vectorSearch
+        return await (this.vectorSearch
           ? this.vectorSearch(workspaceId, queryVec, candidateK, searchOpts)
-          : this.db.documents().searchChunksByVector(workspaceId, queryVec, candidateK, searchOpts)
+          : this.db.documents().searchChunksByVector(workspaceId, queryVec, candidateK, searchOpts))
       } catch (err) {
-        // eslint-disable-next-line no-console
+        rethrowCancellation(err, abortSignal)
         console.warn('[retrieval] embedder failed, falling back to BM25-only:', err)
         return []
       }
     })()
     const [bm25, vector] = await Promise.all([bm25Promise, vectorPromise])
+    abortSignal?.throwIfAborted()
     // Stamp each arm's native score before RRF fusion overwrites `score` with
     // rank numbers — the no-rerank relevance floor needs the raw signals.
     return [
@@ -761,35 +833,40 @@ export class RetrievalService {
     ]
   }
 
-  /**
-   * Auto-decide whether the CPU-mode preset should apply when the caller
-   * didn't pin `cpuOptimized` either way.
-   *
-   * Signal we trust: the loaded LLM's GPU label. node-llama-cpp populates
-   * `gpu` to 'cuda' / 'vulkan' / 'metal' when a real backend latched, or
-   * leaves it null/falsy when it fell back to CPU. The LLM prefill dominates
-   * end-to-end latency on CPU — when it's CPU-bound everything else might
-   * as well also pick its CPU-cheap defaults.
-   *
-   * Defensive: when no LLM is wired (e.g. retrieval-only test contexts) we
-   * stay on the non-CPU defaults so we don't quietly weaken recall in
-   * scenarios where TTFT isn't even a concern.
-   */
+  /** Provider capabilities distinguish CPU inference from unknown/external
+   * hardware. Small-GPU defaults arrive explicitly from the main process. */
   private autoDetectCpuMode(): boolean {
-    // MERGE_HEAD added cpuOptimized that probes the LLM directly; HEAD routed
-    // services through ProviderRegistry. Bridge both: ask the registry for the
-    // active llm provider and read its status. isReady() guards against a
-    // pre-load probe where the provider exists but has no resolved status yet.
     const llm = this.registry.llm()
     if (!llm.isReady()) return false
-    return !llm.getModelStatus().gpu
+    return llm.isCpuInference?.() ?? false
+  }
+
+  private async embedRetrievalQuery(
+    embedder: EmbedderProvider,
+    query: string,
+    codebase: boolean,
+    abortSignal?: AbortSignal,
+  ): Promise<Float32Array | null> {
+    const compute = async (): Promise<Float32Array | null> => {
+      const vectors = embedder.embedQuery
+        ? await embedder.embedQuery([query], { codebase })
+        : await embedder.embed([query])
+      return vectors[0] ?? null
+    }
+    const cache = this.queryEmbeddingCache
+    if (!cache) return compute()
+    cache.useProvider(embedder)
+    const key = embedder.queryCacheKey?.(query, { codebase })
+    return key ? cache.get(key, compute, abortSignal) : compute()
   }
 
   private async maybeExpandQueries(
     query: string,
     enabled: boolean,
     codeWorkspace = false,
+    abortSignal?: AbortSignal,
   ): Promise<string[]> {
+    abortSignal?.throwIfAborted()
     const llm = this.registry.llm()
     if (!enabled || !llm.isReady()) return [query]
     try {
@@ -813,7 +890,11 @@ export class RetrievalService {
       // 96 tokens easily fits 2 short paraphrases. Without this cap a model
       // that ignores "strictly two lines" runs to the full generation budget
       // on every retrieval call.
-      const raw = await llm.generateRaw(prompt, { maxTokens: 96 })
+      const raw = await llm.generateRaw(prompt, {
+        maxTokens: 96,
+        ...(abortSignal ? { abortSignal } : {}),
+      })
+      abortSignal?.throwIfAborted()
       // Identifier guard (both prompt variants): a variant that lost an
       // identifier from the original query would retrieve for the paraphrase
       // and MISS the literal-match chunks — worse than no variant at all.
@@ -845,7 +926,8 @@ export class RetrievalService {
         if (uniqueVariants.length >= 2) break
       }
       return [query, ...uniqueVariants]
-    } catch {
+    } catch (error) {
+      rethrowCancellation(error, abortSignal)
       return [query]
     }
   }
@@ -855,15 +937,15 @@ export class RetrievalService {
     hits: SearchHit[],
     enabled: boolean,
     maxChars?: number,
-  ): Promise<SearchHit[]> {
+    abortSignal?: AbortSignal,
+  ): Promise<{ hits: SearchHit[]; reranked: boolean }> {
+    abortSignal?.throwIfAborted()
     const reranker = this.registry.reranker()
     if (!enabled || !reranker.isReady() || hits.length === 0) {
-      return hits
+      return { hits, reranked: false }
     }
-    // Optional per-passage truncation. The hot path passes undefined (score the
-    // full passage) — a leading slice mis-scored coarse multi-topic chunks whose
-    // relevant section sat past the cutoff. Kept as a knob for callers that have
-    // uniformly front-loaded passages and want the speed.
+    // Bound passages to the reranker's context while retaining ordinary chunks
+    // in full. The caller supplies RERANK_MAX_PASSAGE_CHARS.
     const docs = hits.map((h) =>
       maxChars && h.text.length > maxChars ? h.text.slice(0, maxChars) : h.text,
     )
@@ -874,14 +956,19 @@ export class RetrievalService {
     try {
       scores = await reranker.rerank(query, docs)
     } catch (err) {
-      // eslint-disable-next-line no-console
+      rethrowCancellation(err, abortSignal)
       console.warn('[retrieval] reranker failed, keeping RRF order:', err)
-      return hits
+      return { hits, reranked: false }
     }
-    if (scores.length !== hits.length) return hits
+    abortSignal?.throwIfAborted()
+    if (scores.length !== hits.length || scores.some((score) => !Number.isFinite(score)))
+      return { hits, reranked: false }
     // Pair, sort by reranker score descending, write the score back so the
     // downstream UI can show the model's confidence on each chip.
-    return hits.map((h, i) => ({ ...h, score: scores[i]! })).sort((a, b) => b.score - a.score)
+    return {
+      hits: hits.map((h, i) => ({ ...h, score: scores[i]! })).sort((a, b) => b.score - a.score),
+      reranked: true,
+    }
   }
 
   private async expandSmallDocs(
@@ -963,6 +1050,11 @@ export class RetrievalService {
 // Pure helpers (testable, no I/O)
 // ---------------------------------------------------------------------------
 
+function rethrowCancellation(error: unknown, signal?: AbortSignal): void {
+  signal?.throwIfAborted()
+  if (error instanceof Error && error.name === 'AbortError') throw error
+}
+
 interface HitWithOrigin {
   hit: SearchHit
   origin: 'primary' | 'neighbour' | 'whole_doc'
@@ -1026,7 +1118,7 @@ export function trimToCharBudget(hits: RetrievalHit[], maxChars: number): Retrie
   if (total(hits) <= maxChars) return hits
 
   // Phase 1 — drop neighbours from the back forward.
-  let working = [...hits]
+  const working = [...hits]
   for (let i = working.length - 1; i >= 0 && total(working) > maxChars; i--) {
     if (working[i]!.origin === 'neighbour') working.splice(i, 1)
   }

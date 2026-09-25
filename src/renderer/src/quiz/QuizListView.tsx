@@ -155,6 +155,9 @@ export function reduceProgress(
 
 type Props = {
   decks: QuizDeckSummary[]
+  loading?: boolean
+  failed?: boolean
+  pendingDecks?: Set<number>
   /** Active workspace the quizzes draw from — shown beside the heading now that
    *  the sidebar's "Workspaces" panel is hidden on this tab. */
   workspaceName?: string
@@ -175,6 +178,9 @@ type Props = {
 
 export function QuizListView({
   decks,
+  loading = false,
+  failed = false,
+  pendingDecks,
   workspaceName,
   progress,
   onCreate,
@@ -224,14 +230,17 @@ export function QuizListView({
           </button>
         </div>
       </header>
-      {decks.length === 0 ? (
-        <p className="quiz-list__empty">{t('quiz.list.empty')}</p>
+      {loading ? (
+        <p role="status">{t('common.loading')}</p>
+      ) : decks.length === 0 ? (
+        <p className="quiz-list__empty">{!failed && t('quiz.list.empty')}</p>
       ) : (
         <ul className="quiz-list__items">
           {decks.map((deck) => (
             <DeckCard
               key={deck.id}
               deck={deck}
+              pending={pendingDecks?.has(deck.id) ?? false}
               progress={progress?.get(deck.id)}
               t={t}
               historyOpen={openHistory.has(deck.id)}
@@ -250,6 +259,7 @@ export function QuizListView({
 
 function DeckCard({
   deck,
+  pending,
   progress,
   t,
   historyOpen,
@@ -260,6 +270,7 @@ function DeckCard({
   onCancel,
 }: {
   deck: QuizDeckSummary
+  pending: boolean
   progress?: QuizProgress | undefined
   t: TFn
   historyOpen: boolean
@@ -326,7 +337,7 @@ function DeckCard({
           </button>
         )}
         {deck.status === 'failed' && (
-          <button type="button" className="quiz-btn" onClick={onRetry}>
+          <button type="button" className="quiz-btn" onClick={onRetry} disabled={pending}>
             <RotateCcw size={14} strokeWidth={2.5} />
             {t('common.retry')}
           </button>
@@ -341,6 +352,7 @@ function DeckCard({
           type="button"
           className="quiz-btn quiz-btn--danger"
           onClick={onDelete}
+          disabled={pending || deck.status === 'generating'}
           aria-label={t('quiz.list.deleteDeck')}
           title={t('quiz.list.deleteDeck')}
         >

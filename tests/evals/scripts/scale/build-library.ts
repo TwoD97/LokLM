@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const generator = buildGenerator(provider)
   const chunker = new FixedSizeChunker({ name: 'fixed-512-64', size: 512, overlap: 64 })
 
-  const outDir = join(__dirname, '..', 'data', 'libraries')
+  const outDir = join(__dirname, '..', '..', 'data', 'libraries')
   await mkdir(outDir, { recursive: true })
   const outPath = join(outDir, `${preset.name}.json`)
 

@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { RecoveryCodesModal } from './RecoveryCodesModal'
+
+afterEach(() => vi.restoreAllMocks())
 
 // Drives the modal into the reveal step via the setupTests mock
 // (regenerateRecovery resolves ok with 18 'test' words).
@@ -13,6 +15,32 @@ async function revealCodes(): Promise<void> {
 }
 
 describe('RecoveryCodesModal', () => {
+  it('keeps the dialog open while replacement recovery codes are being generated', async () => {
+    let finish!: (value: Awaited<ReturnType<typeof window.api.auth.regenerateRecovery>>) => void
+    const generate = vi.spyOn(window.api.auth, 'regenerateRecovery').mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const onClose = vi.fn()
+    render(<RecoveryCodesModal onClose={onClose} />)
+    const password = screen.getByLabelText('Current password')
+    expect(password).toHaveFocus()
+    fireEvent.change(password, { target: { value: 'Correct password' } })
+    fireEvent.click(screen.getByRole('button', { name: /Generate/ }))
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    const backdrop = screen.getByRole('presentation')
+    fireEvent.mouseDown(backdrop)
+    fireEvent.click(backdrop)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(generate).toHaveBeenCalledTimes(1)
+    finish({ ok: true, passphrase: Array(18).fill('test') })
+    await waitFor(() => expect(screen.getAllByText('test')).toHaveLength(18))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
   it('Escape on the password step closes only the recovery modal', () => {
     const onClose = vi.fn()
     render(<RecoveryCodesModal onClose={onClose} />)

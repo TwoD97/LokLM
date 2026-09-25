@@ -1,0 +1,128 @@
+[
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct planned 2026 revenue 53,780 EUR, recorded 2025 revenue 48,260 EUR, and difference 5,520 EUR. Both exact supporting passages are supplied and cited: 1:2 and 2:5. Unlike previous observations, the 2026 input does not cite approval-only passage 2:4. No unsupported extras. First visible text 30.875 s; terminal captured at 59.387 s; actual 8,192 context and 14/33 GPU layers."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct approval date in the explicitly requested ISO form, 2026-03-09, with exact supporting supplied passage 2:4. No unsupported extras or draft-shipping citation confusion. First visible text 36.239 s and final event 49.068 s."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "missing",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "The German answer gives the correct batch identifier MSX-417 but contains no inline citation. Exact supporting draft A passage 3:6 was supplied at rank 2. This is a citation-completeness regression from the 8K balanced observation, despite a correct requested fact; source chips alone do not support claim-level attribution. First visible text 39.610 s and final event 47.313 s."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct return value 0 and correct ordered calculation: 3 minus 9 is -6, the inner maximum clamps it to 0, and the outer minimum remains 0. Each calculation step cites the exact supplied function passage 5:8, including the final result. The introductory repeated result has its support in the following cited steps. Separate instruction-following failure: the user requested one short sentence, but the answer includes a bold opening and three numbered steps. First visible text 39.653 s; total 111.358 s, longer than the balanced run's 78.815 s despite earlier visible output."
+  },
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct recorded service-credit revenue 48,260 EUR for 2025, but the inline citation points to ledger introduction 1:1, which contains no revenue figure. The exact revenue table 1:2 is supplied at rank 2 and remains uncited. This is a wrong-passage attribution failure, not an incorrect amount or a fabricated citation ID; same-document membership is insufficient. First visible text 39.418 s and final event 52.619 s."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer of 184 completed inspections in 2025 with exact supplied supporting operations table 1:2. No unsupported extras or confusion with the 2026 plan. First visible text 39.177 s and final event 52.509 s."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Neral sample mass 18.4 kg, expressed using the German decimal comma as 18,4 kg, and correct survey date. Exact supplied PDF table 6:9 supports every claim. No confusion with Bexin's 22.7 kg or tray counts. First visible text 39.603 s and final event 58.579 s."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct accepted-tray inputs, Neral 27 and Bexin 35, and their sum 62; rejected trays are not included. Exact supplied PDF table 6:9 supports inputs, units, sites, and survey date. No unsupported extras. First visible text 37.199 s and final event 61.816 s."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct reserveSlots(13, 5) result 4, supported by the exact supplied function 5:8: remaining capacity is 8, then the outer minimum caps the returned value at 4. No unsupported claims. The answer stays within one short sentence, with harmless unrequested bold emphasis. First visible text 36.457 s and final event 46.071 s."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that the provided context does not identify a chief financial officer. All nine source chunks were supplied and none names that role. No invented person, false refusal of available evidence, or unrelated extra claim. An absence-of-information limitation does not require a fabricated supporting source marker. First visible text 36.713 s and final event 43.055 s."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Preserves conflicting ISO dates 2026-10-14 and 2026-10-21 with exact supplied draft citations 3:6 and 4:7. Does not select a definitive deadline or invent supersession. The extra sentence's draft/no-supersession facts are supported by 4:7 but not directly cited, so citation completeness is partial. Saying both dates remain valid 'within their respective documents' is less clear than explicitly stating that no definitive deadline can be established; it does not claim both are authoritative in operation. Separate format failure: two sentences despite the one-short-sentence request. First visible text 37.208 s and final event 79.737 s."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "missing",
+    "citationCompleteness": "none",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that the dated field report contains no outdoor temperature measurements; actual supplied PDF passage 6:9 says this explicitly. No invented average and no substitution of the unrelated cabinet temperature. Unlike the earlier baseline and candidates, the response omits the supporting PDF citation. This remains a safe missing-information outcome but is a citation-completeness regression. First visible text 38.271 s and final event 49.758 s."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeat preserves the correct planned and recorded revenues and 5,520 EUR difference, with both exact supplied input passages 1:2 and 2:5 cited. Answer text and source mapping match the first pass. No unsupported extras. First visible text 20.547 s and final event 46.801 s; repeat timing is separate from distinct-case quality."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeat preserves the correct requested ISO approval date 2026-03-09 and exact supplied approval passage 2:4. Answer text and citation match the first pass, with no unsupported extras. First visible text 18.648 s and final event 31.093 s; repeat timing is separate from distinct-case quality."
+  }
+]

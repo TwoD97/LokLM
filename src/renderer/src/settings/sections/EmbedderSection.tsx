@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { SectionHeader } from './SectionHeader'
+import { useId, useState } from 'react'
 import type { UserSettings } from '@shared/settings'
 import { ReindexGateModal } from '../ReindexGateModal'
 import { Segmented } from '../Segmented'
@@ -11,6 +12,7 @@ type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void>
 
 export function EmbedderSection({ settings }: Props): JSX.Element {
   const t = useT()
+  const sectionId = useId()
   const [open, setOpen] = useState(true)
   const [gate, setGate] = useState<{
     from: string
@@ -22,8 +24,12 @@ export function EmbedderSection({ settings }: Props): JSX.Element {
 
   const startSwitch = (next: 'bundled' | 'ollama'): void => {
     if (next === a.source) return
-    const fromId = a.source === 'ollama' ? `ollama:${ollamaEmbedderModel ?? '?'}` : 'bundled:bge-m3'
-    const toId = next === 'ollama' ? `ollama:${ollamaEmbedderModel ?? '?'}` : 'bundled:bge-m3'
+    const fromId =
+      a.source === 'ollama'
+        ? `ollama:${ollamaEmbedderModel ?? '?'}`
+        : t('settings.embedder.bundled')
+    const toId =
+      next === 'ollama' ? `ollama:${ollamaEmbedderModel ?? '?'}` : t('settings.embedder.bundled')
     setGate({ from: fromId, to: toId, targetSource: next })
   }
 
@@ -41,14 +47,19 @@ export function EmbedderSection({ settings }: Props): JSX.Element {
 
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.embedder.title')}</div>
-          <div className="settings-group__sub">{t('settings.embedder.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.embedder.title')}
+        subtitle={t('settings.embedder.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
           <div className="settings-row">
             <div className="settings-row__label">
@@ -74,7 +85,7 @@ export function EmbedderSection({ settings }: Props): JSX.Element {
               so it has no independent compute-device control — the LLM's
               Auto/Dedicated/Integrated choice governs it. */}
         </div>
-      )}
+      </div>
       <ReindexGateModal
         open={gate !== null}
         fromIdentity={gate?.from ?? ''}

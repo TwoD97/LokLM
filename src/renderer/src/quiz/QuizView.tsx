@@ -6,6 +6,8 @@ import { QuizRunner } from './QuizRunner'
 import { CreateQuizDialog } from './CreateQuizDialog'
 import { MergeQuizDialog } from './MergeQuizDialog'
 import { useGeneration } from '../generation/GenerationContext'
+import { useT } from '../i18n'
+import { ConfirmModal } from '../chat/ConfirmModal'
 import './quiz.css'
 
 type Screen =
@@ -37,6 +39,12 @@ export function QuizView({
   documents,
   active = true,
 }: Props): JSX.Element {
+  const t = useT()
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [deleteDeck, setDeleteDeck] = useState<QuizDeckSummary | null>(null)
+  const [pendingDecks, setPendingDecks] = useState<Set<number>>(new Set())
+  const pendingRef = useRef(new Set<number>())
   const [screen, setScreen] = useState<Screen>({ kind: 'list' })
   const [decks, setDecks] = useState<QuizDeckSummary[]>([])
   // streamId → off() handle, kept in state so we can clean up on unmount and
@@ -61,8 +69,14 @@ export function QuizView({
   const { begin: beginGeneration } = useGeneration()
 
   const refresh = useCallback(async () => {
-    const list = await window.api.quiz.listDecks(workspaceId)
-    setDecks(list)
+    try {
+      const list = await window.api.quiz.listDecks(workspaceId)
+      setDecks(list)
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setLoading(false)
+    }
   }, [workspaceId])
 
   useEffect(() => {
@@ -103,47 +117,52 @@ export function QuizView({
 
   const startGeneration = useCallback(
     (deckId: number) => {
+      if (endGenRef.current.has(deckId)) return
+      setError(null)
       const streamId = crypto.randomUUID()
-      const endGeneration = beginGeneration('quiz')
-      endGenRef.current.set(deckId, endGeneration)
+      endGenRef.current.set(deckId, beginGeneration('quiz'))
+      let finished = false
+      const finish = (): void => {
+        if (finished) return
+        finished = true
+        endGenRef.current.get(deckId)?.()
+        endGenRef.current.delete(deckId)
+        streamHandlesRef.current.get(deckId)?.()
+        streamHandlesRef.current.delete(deckId)
+        setStreamHandles((prev) => {
+          const next = new Map(prev)
+          next.delete(deckId)
+          return next
+        })
+        setStreamIds((prev) => {
+          const next = new Map(prev)
+          next.delete(deckId)
+          return next
+        })
+        setProgress((prev) => {
+          const next = new Map(prev)
+          next.delete(deckId)
+          return next
+        })
+        void refresh()
+      }
       const off = window.api.quiz.onGenerateEvent(streamId, (ev) => {
         if (ev.type === 'done' || ev.type === 'error') {
-          endGenRef.current.get(deckId)?.()
-          endGenRef.current.delete(deckId)
-          void refresh()
-          // Drop the live progress entry — the deck card flips to ready/failed
-          // on refresh and shouldn't keep a stale bar.
-          setProgress((prev) => {
-            const next = new Map(prev)
-            next.delete(deckId)
-            return next
-          })
-          // After the stream settles we can drop the subscription.
-          setStreamHandles((prev) => {
-            const next = new Map(prev)
-            const handle = next.get(deckId)
-            if (handle) handle()
-            next.delete(deckId)
-            return next
-          })
-          setStreamIds((prev) => {
-            const next = new Map(prev)
-            next.delete(deckId)
-            return next
-          })
+          finish()
         } else {
-          // stage / doc-themes / theme / question → fold into the running
-          // progress (phase timeline + timing). warning yields null → ignored.
           setProgress((prev) => {
             const next = reduceProgress(prev.get(deckId), ev, Date.now())
-            if (!next) return prev
-            return new Map(prev).set(deckId, next)
+            return next ? new Map(prev).set(deckId, next) : prev
           })
         }
       })
+      streamHandlesRef.current.set(deckId, off)
       setStreamHandles((prev) => new Map(prev).set(deckId, off))
       setStreamIds((prev) => new Map(prev).set(deckId, streamId))
-      void window.api.quiz.generate(streamId, deckId)
+      void window.api.quiz.generate(streamId, deckId).catch((err: unknown) => {
+        setError(String(err))
+        finish()
+      })
     },
     [refresh, beginGeneration],
   )
@@ -154,10 +173,27 @@ export function QuizView({
   const cancelGeneration = useCallback(
     (deckId: number) => {
       const streamId = streamIds.get(deckId)
-      if (streamId) void window.api.quiz.cancelGenerate(streamId)
+      if (streamId)
+        void window.api.quiz.cancelGenerate(streamId).catch((err: unknown) => setError(String(err)))
     },
     [streamIds],
   )
+
+  const mutateDeck = async (deckId: number, action: () => Promise<unknown>): Promise<void> => {
+    if (pendingRef.current.has(deckId)) return
+    pendingRef.current.add(deckId)
+    setPendingDecks(new Set(pendingRef.current))
+    setError(null)
+    try {
+      await action()
+      await refresh()
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      pendingRef.current.delete(deckId)
+      setPendingDecks(new Set(pendingRef.current))
+    }
+  }
 
   if (screen.kind === 'create') {
     return (
@@ -202,24 +238,55 @@ export function QuizView({
   }
 
   return (
-    <QuizListView
-      decks={decks}
-      workspaceName={workspaceName}
-      progress={progress}
-      onCreate={() => setScreen({ kind: 'create' })}
-      onMerge={() => setScreen({ kind: 'merge' })}
-      onStart={(deckId) => setScreen({ kind: 'runner', deckId })}
-      onDelete={async (deckId) => {
-        await window.api.quiz.deleteDeck(deckId)
-        await refresh()
-      }}
-      onRetry={async (deckId) => {
-        await window.api.quiz.regenerateDeck(deckId)
-        startGeneration(deckId)
-        await refresh()
-      }}
-      onCancel={cancelGeneration}
-    />
+    <>
+      {error && (
+        <div className="quiz-workflow-error" role="alert">
+          <span>
+            {t('quiz.list.actionFailed')} {error}
+          </span>
+          <button
+            className="quiz-btn"
+            onClick={() => {
+              setError(null)
+              void refresh()
+            }}
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
+      <QuizListView
+        decks={decks}
+        loading={loading}
+        failed={error !== null}
+        pendingDecks={pendingDecks}
+        workspaceName={workspaceName}
+        progress={progress}
+        onCreate={() => setScreen({ kind: 'create' })}
+        onMerge={() => setScreen({ kind: 'merge' })}
+        onStart={(deckId) => setScreen({ kind: 'runner', deckId })}
+        onDelete={(deckId) => setDeleteDeck(decks.find((deck) => deck.id === deckId) ?? null)}
+        onRetry={(deckId) =>
+          void mutateDeck(deckId, async () => {
+            await window.api.quiz.regenerateDeck(deckId)
+            startGeneration(deckId)
+          })
+        }
+        onCancel={cancelGeneration}
+      />
+      {deleteDeck && (
+        <ConfirmModal
+          title={t('quiz.list.deleteDeck')}
+          body={t('quiz.list.deleteConfirm', { name: deleteDeck.name })}
+          onCancel={() => setDeleteDeck(null)}
+          onConfirm={() => {
+            const id = deleteDeck.id
+            setDeleteDeck(null)
+            void mutateDeck(id, () => window.api.quiz.deleteDeck(id))
+          }}
+        />
+      )}
+    </>
   )
 }
 

@@ -1,4 +1,5 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import {
   ResourcePlanner,
@@ -144,6 +145,20 @@ export function resolveCodeEmbedderPath(): string | null {
 }
 
 export class EmbeddingService {
+  async beginIndexing(
+    job: Omit<import('../../../shared/modelActivity').IndexingJob, 'done' | 'total'>,
+  ): Promise<import('../../../shared/modelActivity').IndexingLease> {
+    if (!this.client) throw new Error('GPU model worker is unavailable.')
+    const lease = this.client.beginIndexing(job)
+    try {
+      if (!(await this.ensureReady()))
+        throw new Error(this.status.message ?? 'Embedding model is unavailable.')
+      return lease
+    } catch (error) {
+      lease.release()
+      throw error
+    }
+  }
   private status: EmbedderStatus = {
     kind: 'embedder',
     state: 'idle',
@@ -157,13 +172,15 @@ export class EmbeddingService {
   }
   private listeners: Array<(s: EmbedderStatus) => void> = []
   private loadPromise: Promise<void> | null = null
-  private placement: PlacementChoice = 'cpu'
+  private placement: PlacementChoice = 'auto'
   private lastResolvedPlacement: Placement | null = null
   private lastReason: string | null = null
   private planner: ResourcePlanner
   private client: ModelsWorkerClient | null
   // Path of the GGUF actually loaded (drives activeIdentity + swap detection).
   private loadedPath: string | null = null
+  private queryCacheGeneration = 0
+  private loadedQueryCacheFile: { path: string; size: number; mtimeMs: number } | null = null
 
   constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
@@ -176,7 +193,7 @@ export class EmbeddingService {
   }
 
   setPlacement(p: PlacementChoice): void {
-    this.placement = p
+    this.placement = p === 'cpu' ? 'auto' : p
   }
 
   getPlacement(): PlacementChoice {
@@ -244,9 +261,8 @@ export class EmbeddingService {
    *  (BGE-M3) model — so chunks get the right embedder_identity for model-swap
    *  detection. Reflects the model actually resident, not the tier intent. */
   activeIdentity(): string {
-    return this.loadedPath && isCodeEmbedderFile(this.loadedPath)
-      ? CODE_EMBEDDER_IDENTITY
-      : BUNDLED_EMBEDDER_IDENTITY
+    const path = this.loadedPath ?? this.resolveTargetPath()
+    return path && isCodeEmbedderFile(path) ? CODE_EMBEDDER_IDENTITY : BUNDLED_EMBEDDER_IDENTITY
   }
 
   /** Single-embedder-per-tier (chosen 2026-06-26): the resident embedder is fixed
@@ -296,6 +312,15 @@ export class EmbeddingService {
   }
 
   async loadModel(modelPath: string): Promise<void> {
+    this.queryCacheGeneration++
+    this.loadedQueryCacheFile = null
+    let fileRevision: { path: string; size: number; mtimeMs: number } | null = null
+    try {
+      const file = statSync(modelPath)
+      fileRevision = { path: modelPath, size: file.size, mtimeMs: file.mtimeMs }
+    } catch {
+      /* An unverifiable model can run but its query vectors cannot be cached. */
+    }
     if (!this.client) {
       throw new Error(
         'EmbeddingService.loadModel requires a ModelsWorkerClient (in-process loads are gone).',
@@ -311,6 +336,7 @@ export class EmbeddingService {
       this.lastResolvedPlacement = result.resolvedPlacement
       this.lastReason = result.reason
       this.loadedPath = modelPath
+      this.loadedQueryCacheFile = fileRevision
       void result.resources
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -320,6 +346,8 @@ export class EmbeddingService {
   }
 
   async unload(): Promise<void> {
+    this.queryCacheGeneration++
+    this.loadedQueryCacheFile = null
     if (this.client) {
       try {
         await this.client.embedderUnload()
@@ -338,6 +366,38 @@ export class EmbeddingService {
   private queryInstruction(codebase: boolean): string {
     if (this.activeIdentity() !== CODE_EMBEDDER_IDENTITY) return ''
     return codebase ? CODE_QUERY_INSTRUCTION : DOC_QUERY_INSTRUCTION
+  }
+
+  /** Match the exact sanitized input passed to the native model. Generation
+   * changes on explicit reload/source switching, while worker parking keeps
+   * it stable. A replaced GGUF invalidates even a parked model's old vectors. */
+  queryCacheKey(query: string, opts: { codebase?: boolean } = {}): string | null {
+    const revision = this.loadedQueryCacheFile
+    if (!this.loadedPath || !revision || !this.isReady()) return null
+    try {
+      const file = statSync(this.loadedPath)
+      if (
+        revision.path !== this.loadedPath ||
+        revision.size !== file.size ||
+        revision.mtimeMs !== file.mtimeMs
+      )
+        return null
+      return createHash('sha256')
+        .update(
+          JSON.stringify([
+            this.loadedPath,
+            file.size,
+            file.mtimeMs,
+            this.queryCacheGeneration,
+            this.activeIdentity(),
+            this.queryInstruction(opts.codebase ?? false),
+            sanitize(query),
+          ]),
+        )
+        .digest('hex')
+    } catch {
+      return null
+    }
   }
 
   async embedQuery(text: string, opts: { codebase?: boolean } = {}): Promise<number[] | null> {

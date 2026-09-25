@@ -56,4 +56,6 @@ export interface IndexProgress {
    *  concurrently indexing document) don't dilute the rate. Only set on
    *  'embedding' events; drives the Library batch bar's live rate readout. */
   chunksPerSec?: number
+  chunksDone?: number
+  chunksTotal?: number
 }

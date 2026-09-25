@@ -2,6 +2,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { BundledEmbedderProvider } from '@main/services/providers/bundled/BundledEmbedderProvider'
 
 describe('BundledEmbedderProvider', () => {
+  it.each([
+    ['cpu', 4],
+    ['gpu', 4],
+  ])('bounds indexing batches on %s', (placement, size) => {
+    const p = new BundledEmbedderProvider({ resolvedPlacement: () => placement } as never)
+    expect(p.preferredBatchSize()).toBe(size)
+  })
   it('reports bundled:bge-m3 identity', () => {
     const p = new BundledEmbedderProvider({
       embedPassages: vi.fn(),

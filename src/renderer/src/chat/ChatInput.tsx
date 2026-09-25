@@ -1,18 +1,25 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
 
 type Props = {
   onSend: (text: string) => void
   busy: boolean
   onCancel?: () => void
+  suggestion?: { text: string } | null
 }
 
 const MAX_HEIGHT_PX = 200
 
-export function ChatInput({ onSend, busy, onCancel }: Props): JSX.Element {
+export function ChatInput({ onSend, busy, onCancel, suggestion }: Props): JSX.Element {
   const t = useT()
   const [draft, setDraft] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const hintId = useId()
+  useEffect(() => {
+    if (!suggestion) return
+    setDraft(suggestion.text)
+    textareaRef.current?.focus()
+  }, [suggestion])
   const trimmed = draft.trim()
   const canSend = trimmed.length > 0 && !busy
 
@@ -46,12 +53,23 @@ export function ChatInput({ onSend, busy, onCancel }: Props): JSX.Element {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             // Enter sends; Shift+Enter / Ctrl+Enter inserts a newline.
-            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            if (
+              e.key === 'Enter' &&
+              !e.nativeEvent.isComposing &&
+              e.keyCode !== 229 &&
+              !e.shiftKey &&
+              !e.ctrlKey &&
+              !e.metaKey &&
+              !e.altKey
+            ) {
               e.preventDefault()
               submit()
             }
           }}
-          placeholder={t('chat.inputPlaceholder')}
+          placeholder={t('chat.emptyState')}
+          aria-label={t('ux.composer')}
+          aria-describedby={hintId}
+          name="chat-message"
           disabled={busy && !onCancel}
           rows={1}
         />
@@ -82,6 +100,9 @@ export function ChatInput({ onSend, busy, onCancel }: Props): JSX.Element {
           </button>
         )}
       </div>
+      <p className="chat__input-hint" id={hintId}>
+        {t('ux.composerHint')}
+      </p>
     </div>
   )
 }

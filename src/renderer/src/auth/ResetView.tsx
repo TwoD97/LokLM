@@ -83,6 +83,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
               <label className="auth-card__field">
                 <span className="sr-only">{t('auth.recoveryWords')}</span>
                 <textarea
+                  disabled={busy}
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
                   rows={4}
@@ -122,6 +123,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
                 <span className="sr-only">{t('auth.newPassword')}</span>
                 <input
                   type="password"
+                  disabled={busy}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
@@ -137,6 +139,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
                 <span className="sr-only">{t('auth.newPasswordRepeat')}</span>
                 <input
                   type="password"
+                  disabled={busy}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   autoComplete="new-password"
@@ -170,7 +173,7 @@ export function ResetView({ status, onReset, onCancel }: Props): JSX.Element {
           <button type="submit" className="primary" disabled={!canSubmit}>
             {busy ? t('auth.resetting') : t('auth.resetSubmit')}
           </button>
-          <button type="button" className="link" onClick={onCancel}>
+          <button type="button" className="link" disabled={busy} onClick={onCancel}>
             {t('common.cancel')}
           </button>
         </div>

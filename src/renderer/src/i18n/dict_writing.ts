@@ -4,9 +4,11 @@ import type { DomainDict } from './types'
 
 export const writingDict: DomainDict = {
   en: {
+    'writing.waiting':
+      'Waiting for the model or rewriting. Your text stays here until this finishes.',
+    'writing.copyFailed': 'Could not copy. Select the result to copy it manually.',
     'writing.title': 'Write',
-    'writing.subtitle':
-      'Improve and rephrase text in the same language — runs locally on the built-in model.',
+    'writing.subtitle': 'Improve and rephrase text in the same language with your selected model.',
     'writing.modeLabel': 'Rewrite style',
     'writing.mode.improve': 'Improve',
     'writing.mode.formal': 'Formal',
@@ -30,9 +32,13 @@ export const writingDict: DomainDict = {
     'writing.errorGeneric': 'Could not rewrite the text. Try again.',
   },
   de: {
+    'writing.waiting':
+      'Warten auf das Modell oder Umschreiben. Dein Text bleibt bis zum Abschluss erhalten.',
+    'writing.copyFailed':
+      'Kopieren fehlgeschlagen. Markiere das Ergebnis, um es manuell zu kopieren.',
     'writing.title': 'Schreiben',
     'writing.subtitle':
-      'Text in derselben Sprache verbessern und umformulieren — läuft lokal auf dem integrierten Modell.',
+      'Text mit deinem ausgewählten Modell in derselben Sprache verbessern und umformulieren.',
     'writing.modeLabel': 'Umschreibstil',
     'writing.mode.improve': 'Verbessern',
     'writing.mode.formal': 'Förmlich',

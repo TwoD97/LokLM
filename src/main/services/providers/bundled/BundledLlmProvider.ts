@@ -27,9 +27,14 @@ export class BundledLlmProvider implements LlmProvider {
       maxTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
+      systemPrompt?: string | undefined
+      temperature?: number | undefined
+      requireComplete?: boolean | undefined
     },
   ): Promise<string> {
+    opts.abortSignal?.throwIfAborted()
     await this.inner.ensureLoaded()
+    opts.abortSignal?.throwIfAborted()
     return this.inner.generateRaw(prompt, opts)
   }
 
@@ -46,7 +51,6 @@ export class BundledLlmProvider implements LlmProvider {
     assistant: string,
     opts?: { abortSignal?: AbortSignal },
   ): Promise<string | null> {
-    await this.inner.ensureLoaded()
     return this.inner.generateTitle(user, assistant, opts)
   }
 

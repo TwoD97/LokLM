@@ -1,0 +1,417 @@
+{
+  "startedAt": "2026-09-24T17:08:12.615Z",
+  "completedAt": "2026-09-24T17:21:21.178Z",
+  "configuration": {
+    "queryEmbeddingCache": true,
+    "vramPaddingMiB": "default",
+    "inferenceThreads": "default",
+    "citationAliases": false,
+    "reuseGpuLayerPlan": true,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": false,
+    "selectedCases": [
+      "heldout-01",
+      "heldout-02",
+      "heldout-03",
+      "heldout-04",
+      "heldout-05",
+      "heldout-06",
+      "heldout-07",
+      "heldout-08",
+      "heldout-09",
+      "heldout-10",
+      "heldout-11",
+      "heldout-12"
+    ],
+    "repeats": 1
+  },
+  "startupMs": 43532,
+  "indexingMs": 9047,
+  "startupPlan": "8192-token context, f16 KV, 14 GPU layers",
+  "defaultEvidence": [
+    "19:08:14.818 > [modelsWorker] primary vulkan inference threads: maxThreads=6, cpuMathCores=6, logicalCores=12, availableParallelism=12 (hardware-aware default)",
+    "19:08:14.818 > [modelsWorker] primary vulkan VRAM padding: 1024.0 MiB (default)"
+  ],
+  "rows": [
+    {
+      "id": "heldout-01",
+      "kv": "q8_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": false,
+      "miss": true,
+      "loadMs": 33591,
+      "cacheReadyMs": null,
+      "visibleMs": 55293,
+      "ttftMs": 55293,
+      "totalMs": 72012,
+      "firstEventMs": 24,
+      "metrics": {
+        "elapsedMs": 38111,
+        "firstVisibleTextMs": 20513,
+        "usedInputTokens": 2023,
+        "usedOutputTokens": 42
+      },
+      "freeRamGB": 4.9,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-02",
+      "kv": "q8_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9844,
+      "cacheReadyMs": 9614,
+      "visibleMs": 36689,
+      "ttftMs": 36689,
+      "totalMs": 49148,
+      "firstEventMs": 31,
+      "metrics": {
+        "elapsedMs": 32605,
+        "firstVisibleTextMs": 19292,
+        "usedInputTokens": 1903,
+        "usedOutputTokens": 32
+      },
+      "freeRamGB": 4.8,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-03",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": false,
+      "miss": true,
+      "loadMs": 32898,
+      "cacheReadyMs": null,
+      "visibleMs": 60372,
+      "ttftMs": 60372,
+      "totalMs": 75447,
+      "firstEventMs": 27,
+      "metrics": {
+        "elapsedMs": 35630,
+        "firstVisibleTextMs": 19651,
+        "usedInputTokens": 1905,
+        "usedOutputTokens": 38
+      },
+      "freeRamGB": 4.8,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-04",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9825,
+      "cacheReadyMs": 9607,
+      "visibleMs": 37636,
+      "ttftMs": 37636,
+      "totalMs": 56675,
+      "firstEventMs": 31,
+      "metrics": {
+        "elapsedMs": 39975,
+        "firstVisibleTextMs": 20478,
+        "usedInputTokens": 1917,
+        "usedOutputTokens": 46
+      },
+      "freeRamGB": 4.8,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-05",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9839,
+      "cacheReadyMs": 9640,
+      "visibleMs": 41711,
+      "ttftMs": 41711,
+      "totalMs": 64596,
+      "firstEventMs": 23,
+      "metrics": {
+        "elapsedMs": 48115,
+        "firstVisibleTextMs": 24299,
+        "usedInputTokens": 2041,
+        "usedOutputTokens": 55
+      },
+      "freeRamGB": 4.7,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-06",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9857,
+      "cacheReadyMs": 9659,
+      "visibleMs": 40516,
+      "ttftMs": 40516,
+      "totalMs": 68592,
+      "firstEventMs": 25,
+      "metrics": {
+        "elapsedMs": 52102,
+        "firstVisibleTextMs": 23090,
+        "usedInputTokens": 2186,
+        "usedOutputTokens": 65
+      },
+      "freeRamGB": 4.7,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-07",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 10102,
+      "cacheReadyMs": 9906,
+      "visibleMs": 43153,
+      "ttftMs": 43153,
+      "totalMs": 53282,
+      "firstEventMs": 22,
+      "metrics": {
+        "elapsedMs": 36170,
+        "firstVisibleTextMs": 25144,
+        "usedInputTokens": 1799,
+        "usedOutputTokens": 27
+      },
+      "freeRamGB": 4.7,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-08",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9898,
+      "cacheReadyMs": 9697,
+      "visibleMs": 39538,
+      "ttftMs": 39538,
+      "totalMs": 52409,
+      "firstEventMs": 20,
+      "metrics": {
+        "elapsedMs": 35711,
+        "firstVisibleTextMs": 22395,
+        "usedInputTokens": 2163,
+        "usedOutputTokens": 32
+      },
+      "freeRamGB": 4.6,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-09",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9832,
+      "cacheReadyMs": 9626,
+      "visibleMs": 36884,
+      "ttftMs": 36884,
+      "totalMs": 44697,
+      "firstEventMs": 24,
+      "metrics": {
+        "elapsedMs": 28104,
+        "firstVisibleTextMs": 19836,
+        "usedInputTokens": 1897,
+        "usedOutputTokens": 20
+      },
+      "freeRamGB": 4.6,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-10",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9879,
+      "cacheReadyMs": 9683,
+      "visibleMs": 40236,
+      "ttftMs": 40236,
+      "totalMs": 78731,
+      "firstEventMs": 25,
+      "metrics": {
+        "elapsedMs": 62072,
+        "firstVisibleTextMs": 23099,
+        "usedInputTokens": 2173,
+        "usedOutputTokens": 87
+      },
+      "freeRamGB": 4.6,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-11",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 10156,
+      "cacheReadyMs": 9932,
+      "visibleMs": 38057,
+      "ttftMs": 37629,
+      "totalMs": 57000,
+      "firstEventMs": 29,
+      "metrics": {
+        "elapsedMs": 40103,
+        "firstVisibleTextMs": 19840,
+        "usedInputTokens": 1905,
+        "usedOutputTokens": 48
+      },
+      "freeRamGB": 4.7,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    },
+    {
+      "id": "heldout-12",
+      "kv": "q4_0",
+      "layers": 14,
+      "context": 8192,
+      "hit": true,
+      "miss": false,
+      "loadMs": 9785,
+      "cacheReadyMs": 9571,
+      "visibleMs": 38904,
+      "ttftMs": 38904,
+      "totalMs": 62006,
+      "firstEventMs": 25,
+      "metrics": {
+        "elapsedMs": 45297,
+        "firstVisibleTextMs": 21743,
+        "usedInputTokens": 2037,
+        "usedOutputTokens": 54
+      },
+      "freeRamGB": 4.7,
+      "terminal": true,
+      "timeout": false,
+      "issues": []
+    }
+  ],
+  "counts": {
+    "hits": 10,
+    "misses": 2,
+    "terminal": 12,
+    "timeouts": 0,
+    "issues": []
+  },
+  "timings": {
+    "hitLoad": {
+      "count": 10,
+      "min": 9785,
+      "median": 9850.5,
+      "max": 10156
+    },
+    "hitToReady": {
+      "count": 10,
+      "min": 9571,
+      "median": 9649.5,
+      "max": 9932
+    },
+    "allLoad": {
+      "count": 12,
+      "min": 9785,
+      "median": 9868,
+      "max": 33591
+    },
+    "visible": {
+      "count": 12,
+      "min": 36689,
+      "median": 39887,
+      "max": 60372
+    },
+    "total": {
+      "count": 12,
+      "min": 44697,
+      "median": 59503,
+      "max": 78731
+    },
+    "workerVisible": {
+      "count": 12,
+      "min": 19292,
+      "median": 21128,
+      "max": 25144
+    },
+    "workerElapsed": {
+      "count": 12,
+      "min": 28104,
+      "median": 39043,
+      "max": 62072
+    },
+    "firstEvent": {
+      "count": 12,
+      "min": 20,
+      "median": 25,
+      "max": 31
+    },
+    "outputTokens": {
+      "count": 12,
+      "min": 20,
+      "median": 44,
+      "max": 87
+    }
+  },
+  "memory": {
+    "peakUsedMiB": 3271,
+    "totalMiB": 4096,
+    "minObservedHeadroomMiB": 825,
+    "samples": 522,
+    "sampleIntervalMs": {
+      "count": 521,
+      "min": 1436,
+      "median": 1509,
+      "max": 1575
+    },
+    "peakSamples": [
+      {
+        "at": "2026-09-24T17:08:56.447Z",
+        "gpuName": "NVIDIA GeForce GTX 1050 Ti",
+        "totalMiB": 4096,
+        "usedMiB": 3271,
+        "utilization": 4
+      }
+    ],
+    "freeRamGB": {
+      "count": 12,
+      "min": 4.6,
+      "median": 4.7,
+      "max": 4.9
+    }
+  }
+}

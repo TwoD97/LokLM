@@ -4,6 +4,10 @@ import type { DomainDict } from './types'
 
 export const libraryDict: DomainDict = {
   en: {
+    'library.deleteFailed': 'The document could not be deleted. {message}',
+    'library.retryFailed': 'Indexing could not be restarted. {message}',
+    'library.stopFailed': 'Indexing could not be stopped. It may still be running. {message}',
+    'library.stopping': 'Stopping…',
     // LibraryView
     'library.exportTitle': 'Export document',
     'library.exportBody':
@@ -163,6 +167,11 @@ export const libraryDict: DomainDict = {
     'library.pageRange': 'p. {from}–{to}',
   },
   de: {
+    'library.deleteFailed': 'Das Dokument konnte nicht gelöscht werden. {message}',
+    'library.retryFailed': 'Die Indexierung konnte nicht neu gestartet werden. {message}',
+    'library.stopFailed':
+      'Die Indexierung konnte nicht gestoppt werden. Sie läuft möglicherweise noch. {message}',
+    'library.stopping': 'Wird gestoppt…',
     // LibraryView
     'library.exportTitle': 'Dokument exportieren',
     'library.exportBody':

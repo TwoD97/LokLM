@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { isModuleVisible, type UserSettings } from '@shared/settings'
+import { refreshSettings } from './settings/useSettings'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AuthStatus } from '@shared/authTypes'
 import { LoginView } from './auth/LoginView'
 import { WarmingView } from './auth/WarmingView'
@@ -51,30 +53,66 @@ export function App(): JSX.Element {
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'basic' | 'system'>('basic')
+  const openSettings = useCallback((section?: 'system') => {
+    setSettingsInitialTab(section ?? 'basic')
+    setSettingsOpen(true)
+  }, [])
+
+  const authEpoch = useRef(0)
+  const applyAuthStatus = useCallback(async (next: AuthStatus): Promise<void> => {
+    const epoch = ++authEpoch.current
+    let preferences: UserSettings | null = null
+    try {
+      if (!next.locked) preferences = await refreshSettings()
+    } catch (error) {
+      if (authEpoch.current === epoch)
+        setPhase({ kind: 'error', message: error instanceof Error ? error.message : String(error) })
+      return
+    }
+    if (authEpoch.current !== epoch) return
+    setStatus(next)
+    setPhase((current) => {
+      const nextPhase = pickPhaseFromStatus(next, current)
+      const startView = preferences?.basic.startView
+      // Personal tools do not require model initialization. Keep the requested
+      // landing view immediately usable; AI can prepare in the background.
+      if (
+        nextPhase.kind === 'warming' &&
+        current.kind !== 'warming' &&
+        startView &&
+        ['calendar', 'notes', 'todos'].includes(startView) &&
+        isModuleVisible(preferences?.basic.modules, startView)
+      ) {
+        return { kind: 'unlocked' }
+      }
+      return nextPhase
+    })
+    if (next.locked) setSettingsOpen(false)
+  }, [])
 
   const refresh = useCallback(async () => {
+    const epoch = ++authEpoch.current
     try {
       // Models are provided by the installer (wizard tier bundle), so the app
       // never gates on them or offers an in-app download — go straight to the
       // auth phase. A missing model surfaces later as a not-ready service, not
       // a download prompt.
       const s = await window.api.auth.status()
-      setStatus(s)
-      setPhase((current) => pickPhaseFromStatus(s, current))
+      if (authEpoch.current === epoch) await applyAuthStatus(s)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      setPhase({ kind: 'error', message })
+      if (authEpoch.current === epoch) setPhase({ kind: 'error', message })
     }
-  }, [])
+  }, [applyAuthStatus])
 
   useEffect(() => {
     void refresh()
     const off = window.api.auth.onState((s) => {
-      setStatus(s)
-      setPhase((current) => pickPhaseFromStatus(s, current))
+      void applyAuthStatus(s)
     })
     return () => off()
-  }, [refresh])
+  }, [refresh, applyAuthStatus])
 
   // Global LockedError → re-route to login. The inactivity timer in main can
   // fire at any moment; without this, the first IPC call after that lock
@@ -122,14 +160,12 @@ export function App(): JSX.Element {
       </section>
     )
   } else if (phase.kind === 'register') {
-    content = (
-      <RegisterView onRegistered={(words) => setPhase({ kind: 'reveal', words })} />
-    )
+    content = <RegisterView onRegistered={(words) => setPhase({ kind: 'reveal', words })} />
   } else if (phase.kind === 'login' && status) {
     content = (
       <LoginView
         status={status}
-        onUnlocked={() => setPhase({ kind: 'warming' })}
+        onUnlocked={() => void refresh()}
         onForgotPassword={() => setPhase({ kind: 'reset' })}
       />
     )
@@ -150,7 +186,15 @@ export function App(): JSX.Element {
       />
     )
   } else if (phase.kind === 'warming') {
-    content = <WarmingView onReady={() => setPhase({ kind: 'unlocked' })} />
+    content = (
+      <WarmingView
+        onReady={() => setPhase({ kind: 'unlocked' })}
+        onOpenSettings={() => {
+          setPhase({ kind: 'unlocked' })
+          openSettings('system')
+        }}
+      />
+    )
   } else {
     content = (
       <section className="auth-card">
@@ -165,19 +209,20 @@ export function App(): JSX.Element {
     // jobs), so the "model busy · N queued" signal is shared across them.
     <GenerationProvider>
       <QuitOverlay />
-      <BackgroundFx />
-      <TitleBar
-        unlocked={isUnlocked}
-        {...(isUnlocked ? { onOpenSettings: () => setSettingsOpen(true) } : {})}
-      />
+      {!isUnlocked && <BackgroundFx />}
+      <TitleBar unlocked={isUnlocked} {...(isUnlocked ? { onOpenSettings: openSettings } : {})} />
       {isUnlocked ? (
         <>
           {content}
-          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-          <FallbackToast onOpenSettings={() => setSettingsOpen(true)} />
+          <SettingsModal
+            open={settingsOpen}
+            initialTab={settingsInitialTab}
+            onClose={() => setSettingsOpen(false)}
+          />
+          <FallbackToast onOpenSettings={() => openSettings('system')} />
         </>
       ) : (
-        <main className="app">
+        <main className="app" tabIndex={0}>
           {/* The window frame (TitleBar) already shows the LokLM mark + name, so
               the auth screen drops the redundant brand block and just centers the
               card with a slim tagline above it. */}

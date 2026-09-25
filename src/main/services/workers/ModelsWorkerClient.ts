@@ -1,5 +1,7 @@
 import { utilityProcess, app, type UtilityProcess } from 'electron'
 import { join } from 'node:path'
+import { GpuWorkCoordinator } from './GpuWorkCoordinator'
+import type { IndexingJob, IndexingLease, ModelActivity } from '../../../shared/modelActivity'
 import type {
   ServiceKind,
   WorkerRequest,
@@ -39,6 +41,55 @@ type Pending = {
  * EmbeddingService / RerankerService (and lives for the lifetime of the app).
  */
 export class ModelsWorkerClient {
+  private backgroundStreams = new Set<string>()
+
+  private cancelBackgroundWork(): void {
+    for (const streamId of this.backgroundStreams) {
+      this.backgroundStreams.delete(streamId)
+      void this.llmAbort(streamId).catch(() => undefined)
+    }
+  }
+  private llmLoadListener: ((result: LlmLoadResult) => void) | null = null
+  setLlmLoadListener(listener: (result: LlmLoadResult) => void): void {
+    this.llmLoadListener = listener
+  }
+  private activityListeners = new Set<(activity: ModelActivity) => void>()
+  private latestResources: Pick<SystemResources, 'hasGpu' | 'totalVramGB'> | null = null
+  private gpuWork = new GpuWorkCoordinator(
+    () => this.send<void>('gpu.restoreChat'),
+    (activity) => {
+      for (const listener of this.activityListeners) listener(activity)
+    },
+    () => {
+      const resources = this.latestResources
+      // Match the worker's one-model-at-a-time policy using the actual selected
+      // device, not its label, free VRAM, or the machine's system RAM.
+      return !(
+        resources?.hasGpu &&
+        Number.isFinite(resources.totalVramGB) &&
+        resources.totalVramGB > 0 &&
+        resources.totalVramGB <= 6
+      )
+    },
+  )
+
+  activity(): ModelActivity {
+    return this.gpuWork.status()
+  }
+  onActivity(listener: (activity: ModelActivity) => void): () => void {
+    this.activityListeners.add(listener)
+    return () => {
+      this.activityListeners.delete(listener)
+    }
+  }
+  beginIndexing(job: Omit<IndexingJob, 'done' | 'total'>): IndexingLease {
+    this.cancelBackgroundWork()
+    return this.gpuWork.acquire(job)
+  }
+  async restoreChat(): Promise<void> {
+    await this.gpuWork.waitForChat()
+    await this.send<void>('gpu.restoreChat')
+  }
   private child: UtilityProcess | null = null
   private spawnPromise: Promise<UtilityProcess> | null = null
   private nextId = 1
@@ -73,6 +124,7 @@ export class ModelsWorkerClient {
 
   private async ensureChild(): Promise<UtilityProcess> {
     if (this.child) return this.child
+    if (this.shuttingDown) throw new Error('Models worker is shutting down.')
     if (this.spawnPromise) return this.spawnPromise
     this.spawnPromise = (async () => {
       // The worker bundle sits next to the compiled main entry — see the
@@ -106,6 +158,8 @@ export class ModelsWorkerClient {
       child.on('message', (msg: WorkerResponse | WorkerPush) => this.dispatch(msg))
       child.on('exit', (code) => {
         const reason = `models worker exited (code=${code ?? 'null'})`
+        this.latestResources = null
+        this.gpuWork.reset(this.shuttingDown ? undefined : reason, this.shuttingDown)
         // A non-graceful exit is a native crash — log the code + which ops were
         // in flight so support can tell a concurrent-inference fault (2+ ops on
         // the shared session) from a single-call segfault. code 3221225477 is
@@ -185,12 +239,31 @@ export class ModelsWorkerClient {
     const p = this.pending.get(m.id)
     if (!p) return
     this.pending.delete(m.id)
-    if (m.ok) p.resolve(m.result)
-    else p.reject(new Error(m.error))
+    if (m.ok) {
+      if (p.op === 'planner.refresh') this.recordResources(m.result)
+      else if (p.op === 'llm.load' || p.op === 'embedder.load' || p.op === 'reranker.load')
+        this.recordResources((m.result as { resources?: SystemResources } | null)?.resources)
+      p.resolve(m.result)
+    } else p.reject(new Error(m.error))
+  }
+
+  private recordResources(value: unknown): void {
+    const resources = value as Partial<SystemResources> | null | undefined
+    this.latestResources =
+      typeof resources?.hasGpu === 'boolean' && typeof resources.totalVramGB === 'number'
+        ? { hasGpu: resources.hasGpu, totalVramGB: resources.totalVramGB }
+        : null
   }
 
   private handlePush(ev: WorkerPush): void {
     switch (ev.ev) {
+      case 'llm.loaded':
+        this.recordResources(ev.result.resources)
+        this.llmLoadListener?.(ev.result)
+        return
+      case 'activity':
+        this.gpuWork.setTransition(ev.activity)
+        return
       case 'status':
         this.statusListeners[ev.service](ev.status as never)
         return
@@ -209,6 +282,28 @@ export class ModelsWorkerClient {
   }
 
   private async send<T>(op: WorkerRequest['op'], payload?: unknown): Promise<T> {
+    // Native work is FIFO in the worker. Abort an optional title before adding
+    // user work to that queue, including the first embedding of a chat query.
+    if (
+      op === 'llm.ask' ||
+      (op === 'llm.generateRaw' && !(payload as LlmGenerateRawPayload).background) ||
+      op === 'llm.load' ||
+      op === 'llm.unload' ||
+      op === 'embedder.load' ||
+      op === 'embedder.embed' ||
+      op === 'reranker.load' ||
+      op === 'reranker.rank' ||
+      op === 'gpu.restoreChat'
+    )
+      this.cancelBackgroundWork()
+    if (
+      op === 'llm.load' ||
+      op === 'llm.ask' ||
+      op === 'llm.generateRaw' ||
+      op === 'reranker.load' ||
+      op === 'reranker.rank'
+    )
+      await this.gpuWork.waitForChat()
     const child = await this.ensureChild()
     const id = this.nextId++
     return new Promise<T>((resolve, reject) => {
@@ -240,8 +335,16 @@ export class ModelsWorkerClient {
   llmAsk(p: LlmAskPayload): Promise<{ raw: string }> {
     return this.send<{ raw: string }>('llm.ask', p)
   }
-  llmGenerateRaw(p: LlmGenerateRawPayload): Promise<{ raw: string }> {
-    return this.send<{ raw: string }>('llm.generateRaw', p)
+  async llmGenerateRaw(p: LlmGenerateRawPayload): Promise<{ raw: string }> {
+    if (!p.background) return this.send<{ raw: string }>('llm.generateRaw', p)
+    if (this.backgroundStreams.size || this.pending.size || this.activity().phase !== 'idle')
+      throw new Error('Background generation skipped: the model is busy.')
+    this.backgroundStreams.add(p.streamId)
+    try {
+      return await this.send<{ raw: string }>('llm.generateRaw', p)
+    } finally {
+      this.backgroundStreams.delete(p.streamId)
+    }
   }
   llmAbort(streamId: string): Promise<void> {
     return this.send<void>('llm.abort', { streamId })
@@ -285,8 +388,10 @@ export class ModelsWorkerClient {
    * equivalent plan is a no-op. Returns true when a restart happened.
    */
   async setDevicePlan(plan: LlmDevicePlan): Promise<boolean> {
+    await this.gpuWork.waitForChat()
     const changed = !devicePlansEquivalent(this.devicePlan, plan)
     this.devicePlan = plan
+    if (changed) this.latestResources = null
     if (changed && this.child) {
       await this.restart()
       return true
@@ -317,6 +422,8 @@ export class ModelsWorkerClient {
    *  device env). Unlike shutdown(), the client stays usable afterwards. */
   private async restart(): Promise<void> {
     if (!this.child) return
+    const previous = this.child
+    const exited = new Promise<void>((resolve) => previous.once('exit', () => resolve()))
     this.shuttingDown = true
     try {
       await Promise.race([
@@ -327,17 +434,23 @@ export class ModelsWorkerClient {
       /* killing it anyway */
     }
     try {
-      this.child.kill()
+      previous.kill()
     } catch {
       /* ignore */
     }
+    await exited
     this.child = null
     this.spawnPromise = null
     // Re-arm crash detection for the respawned worker.
     this.shuttingDown = false
+    this.gpuWork.reset()
+    this.statusListeners.llm({ state: 'unloaded', resident: false })
+    this.statusListeners.embedder({ state: 'unloaded', resident: false })
+    this.statusListeners.reranker({ state: 'unloaded', resident: false })
   }
 
   async shutdown(): Promise<void> {
+    this.gpuWork.reset(undefined, true)
     if (!this.child) return
     this.shuttingDown = true
     try {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { deriveIndexBatchProgress } from './indexProgress'
+import type { IndexProgress } from './documents'
 
 const docs = (
   ...statuses: Array<'pending' | 'indexing' | 'ready' | 'failed'>
@@ -7,6 +8,25 @@ const docs = (
   statuses.map((status) => ({ status }))
 
 describe('deriveIndexBatchProgress', () => {
+  it('shows progress within a single document and waits for persistence before 100%', () => {
+    const docs = [{ id: 1, status: 'indexing' as const }]
+    const p: IndexProgress = {
+      documentId: 1,
+      title: 'Test',
+      phase: 'embedding',
+      step: 3,
+      total: 4,
+      chunksDone: 10,
+      chunksTotal: 20,
+    }
+    expect(deriveIndexBatchProgress(docs, new Map([[1, p]])).percent).toBe(50)
+    expect(deriveIndexBatchProgress(docs, new Map([[1, { ...p, chunksDone: 20 }]])).percent).toBe(
+      99,
+    )
+    expect(deriveIndexBatchProgress(docs, new Map([[1, { ...p, phase: 'failed' }]])).percent).toBe(
+      0,
+    )
+  })
   it('returns all-zero progress for an empty workspace', () => {
     expect(deriveIndexBatchProgress([])).toEqual({
       total: 0,

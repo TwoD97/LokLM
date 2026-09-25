@@ -14,6 +14,7 @@ describe('MessageBubble', () => {
       <MessageBubble
         role="assistant"
         content="argon2id is used [doc:5, chunk:42] in the vault"
+        citations={[{ documentId: 5, chunkId: 42 }]}
         onCitationClick={onClick}
       />,
     )
@@ -43,6 +44,7 @@ describe('MessageBubble', () => {
       <MessageBubble
         role="assistant"
         content="a [doc:1, chunk:1] b [doc:1, chunk:1] c"
+        citations={[{ documentId: 1, chunkId: 1 }]}
         onCitationClick={() => undefined}
       />,
     )
@@ -77,5 +79,70 @@ describe('MessageBubble', () => {
       />,
     )
     expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('keeps unknown prose markers visible and denies sources until supplied', () => {
+    const props = {
+      role: 'assistant' as const,
+      content: 'Known [doc:1, chunk:11], unknown [doc:9, chunk:99].',
+      onCitationClick: vi.fn(),
+    }
+    const view = render(<MessageBubble {...props} />)
+    expect(view.container.querySelector('.citation-chip')).toBeNull()
+    expect(view.container).toHaveTextContent('[doc:1, chunk:11]')
+    view.rerender(<MessageBubble {...props} citations={[{ documentId: 1, chunkId: 11 }]} />)
+    expect(view.container.querySelectorAll('.citation-chip')).toHaveLength(1)
+    expect(view.container).toHaveTextContent('[doc:9, chunk:99]')
+  })
+
+  it('blocks direct Markdown citation links that bypass marker transformation', () => {
+    const click = vi.fn()
+    const view = render(
+      <MessageBubble
+        role="assistant"
+        content="[Invented source](#cite-99-99) [Permitted source](#cite-1-11)"
+        citations={[{ documentId: 1, chunkId: 11 }]}
+        onCitationClick={click}
+      />,
+    )
+    fireEvent.click(screen.getByText('Invented source'))
+    expect(click).not.toHaveBeenCalled()
+    expect(view.container.querySelectorAll('.citation-chip')).toHaveLength(1)
+    fireEvent.click(screen.getByText('Permitted source'))
+    expect(click).toHaveBeenCalledWith(expect.objectContaining({ documentId: 1, chunkId: 11 }))
+  })
+
+  it.each([
+    '[Invalid](#cite-0-11)',
+    '[Invalid](#cite-999999999999999999999-11)',
+    '[Invalid](#cite-not-a-source)',
+  ])('keeps malformed reserved links inert: %s', (content) => {
+    const view = render(
+      <MessageBubble
+        role="assistant"
+        content={content}
+        citations={[{ documentId: 1, chunkId: 11 }]}
+        onCitationClick={vi.fn()}
+      />,
+    )
+    expect(view.container.querySelector('a')).toBeNull()
+    expect(screen.getByText('Invalid')).toBeVisible()
+  })
+
+  it.each([
+    '`[doc:1, chunk:11]`',
+    '```text\n[doc:1, chunk:11]\n```',
+    '[doc:1, chunk:11](https://example.test)',
+    '\\[doc:1, chunk:11]',
+  ])('does not turn a literal marker into a source chip: %s', (content) => {
+    const view = render(
+      <MessageBubble
+        role="assistant"
+        content={content}
+        citations={[{ documentId: 1, chunkId: 11 }]}
+        onCitationClick={vi.fn()}
+      />,
+    )
+    expect(view.container.querySelector('.citation-chip')).toBeNull()
   })
 })

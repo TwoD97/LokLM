@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "conflict-regression-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Authority-safe and factually complete: does not choose a definitive deadline, reports draft A's 2028-03-11 and draft B's 2028-03-18, and cites exact supplied passages 1:1 and 2:2. Both passages explicitly lack approval and supersession. English and ISO-date requirements are satisfied. Format limitation: the answer is one long sentence (about 59 words), not the requested short sentence; do not count this as a brevity-complete pass or confuse it with fabricating a final deadline."
+  },
+  {
+    "caseId": "conflict-regression-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Authority-safe but incomplete: the German answer correctly states that neither unapproved, unsigned draft establishes a definitive deadline, and exact supplied passages 1:1 and 2:2 support these claims. It does not invent a definitive date. However, it omits both requested ISO alternatives 2028-03-11 and 2028-03-18 even though both were supplied. This fails full requested-answer completeness, not citation support or authority safety. One sentence."
+  },
+  {
+    "caseId": "conflict-regression-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct definitive ISO deadline 2028-04-27, justified by explicit approved supersession rather than a merely later document date. Exact supplied passage 3:3 supports the historical 2028-04-20 deadline, and 4:4 supports the replacement/final deadline. One extended English sentence; no unsupported claim or invented authority."
+  },
+  {
+    "caseId": "conflict-regression-04",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct primary final deadline (27 April 2028), approval date (8 April 2028), and explicit BEL-REV-2 supersession, supported by supplied passage 4:4. Two limitations prevent a full pass: the answer does not use the requested ISO-date format, and the additional historical 20-April deadline is present only in supplied passage 3:3, which is not cited. Its phrase 'Revision BEL-REV-1 vom 20. April 2028' can ambiguously attach that date to the revision rather than its deadline; do not infer a fabricated approval date from that ambiguity. Authority selection is correct and no definitive date is invented."
+  }
+]

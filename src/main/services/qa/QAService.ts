@@ -6,17 +6,9 @@ import type { AskOptions } from '../llm/LlamaService'
 import type { WsDocument as Document } from '../../db/sqlite/WorkspaceDb'
 import type { SummarizationService } from '../summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
-import {
-  REFUSAL_TEXT,
-  buildSystemPrompt,
-  buildSummaryPreamble,
-  packHitsToBudget,
-  answerMaxTokens,
-  estimateTokens,
-  estimateHistoryTokens,
-  DEFAULT_CONTEXT_TOKENS,
-  CONTEXT_PACK_MARGIN_TOKENS,
-} from '../llm/prompt'
+import { DEFAULT_CONTEXT_TOKENS, REFUSAL_TEXT } from '../llm/prompt'
+import { planAnswerContext } from './contextBudget'
+export { pinnedBudgetTokens, PINNED_BUDGET_MAX_TOKENS } from './contextBudget'
 import { SUMMARY_MAX_TOKENS, SUMMARY_PROMPT_RESERVE_TOKENS } from '../summarize/prompt'
 import { detectResponseLanguage } from '../documents/languageDetector'
 import {
@@ -91,6 +83,7 @@ export class QAService {
      *  IPC and AbortSignal isn't structured-cloneable. */
     abortSignal?: AbortSignal,
   ): AsyncIterable<StreamEvent> {
+    if (abortSignal?.aborted) return
     // Pinned docs are workspace-scoped "force into context" — fetched up-front
     // so the refusal path can skip "no hits" when pinned content alone could
     // answer the question, and so the packer can reserve budget for them.
@@ -363,6 +356,7 @@ export class QAService {
         // retrieval and the LLM agree on the target language.
         responseLanguage: language,
       }
+      if (abortSignal) searchOpts.abortSignal = abortSignal
       if (opts.rerank !== undefined) searchOpts.rerank = opts.rerank
       if (opts.multiQuery !== undefined) searchOpts.multiQuery = opts.multiQuery
       if (opts.cpuOptimized !== undefined) searchOpts.cpuOptimized = opts.cpuOptimized
@@ -392,6 +386,7 @@ export class QAService {
         if (settled !== SLEEP_SENTINEL) {
           const result = settled as { ok: true; hits: RetrievalHit[] } | { ok: false; err: unknown }
           if (!result.ok) {
+            if (abortSignal?.aborted) return
             yield {
               type: 'error',
               message: result.err instanceof Error ? result.err.message : String(result.err),
@@ -405,6 +400,7 @@ export class QAService {
       // Flush any remaining stage events the race may have skipped past.
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
     } catch (err) {
+      if (abortSignal?.aborted) return
       yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
       return
     }
@@ -431,83 +427,42 @@ export class QAService {
       return
     }
 
-    // ---- 2.5 pack the Context block to the model's window ----
-    // Trim hits so the prompt fits the (often small) local context window.
-    // CRITICAL: this runs BEFORE citations are emitted, so the chips the UI
-    // shows match exactly what the model was fed — packing inside the provider
-    // would surface citations for chunks that got trimmed out of the prompt.
-    // The LlamaService overflow-retry stays as a belt-and-suspenders fallback
-    // for any non-QAService caller that passes unpacked hits.
-    const ctxTokens = this.registry.llm().contextWindowTokens() || DEFAULT_CONTEXT_TOKENS
-    // Stable-content-first fill order (ADR-0003): the pinned reserve and the
-    // summary preamble are budgeted up front — RAG chunk top-ups absorb the
-    // overflow , never the other way around. The preamble is budgeted with
-    // the hasExcerpts=true wording (the longer of the two variants differs
-    // by a handful of tokens — CONTEXT_PACK_MARGIN absorbs the delta); the
-    // final wording is picked after packing , once we know whether any
-    // excerpt blocks survived.
-    const preambleForBudget = summaryInfo
-      ? buildSummaryPreamble(language, summaryInfo.title, summaryInfo.summary, true)
-      : null
-    const totalBudget =
-      ctxTokens -
-      answerMaxTokens(ctxTokens) -
-      estimateTokens(buildSystemPrompt(language, 'concise', { codebase: codebaseWorkspace })) -
-      estimateHistoryTokens(opts.history) -
-      estimateTokens(query) -
-      (preambleForBudget ? estimateTokens(preambleForBudget) : 0) -
-      CONTEXT_PACK_MARGIN_TOKENS
-
-    // Reserve a slice of the budget for pinned-doc chunks so they're guaranteed
-    // a seat; RAG hits compete for the remainder. With no pinned docs the
-    // packer collapses to the previous behaviour (RAG gets everything).
-    const pinnedBudget = pinnedBudgetTokens(totalBudget, pinnedDocs.length)
-    const ragBudget = totalBudget - pinnedBudget
-
-    const pinnedHits: RetrievalHit[] = []
-    if (pinnedDocs.length > 0 && pinnedBudget > 0) {
-      // Per-doc fair share. The Math.max(1, …) gives the "keep at least one"
-      // guarantee even on tight budgets with many pinned docs; packHitsToBudget
-      // itself also keeps the top hit when its argument is below one chunk's
-      // cost, so combined this never drops a pinned doc entirely.
-      const perDocBudget = Math.max(1, Math.floor(pinnedBudget / pinnedDocs.length))
-      // Parallelize the per-doc fetches (separately try/catch'd so one corrupt
-      // chunks row degrades that doc only, not the whole turn).
-      const perDocResults = await Promise.all(
-        pinnedDocs.map(async (doc) => {
-          try {
-            const chunks = await docsRepo.listChunksForDocument(doc.id)
-            if (chunks.length === 0) return []
-            // Top-of-document chunks are the natural "summary" stand-in for a
-            // small model — coherent and ordered, beats a random sample.
-            return packHitsToBudget(chunksToPinnedHits(chunks, doc), perDocBudget, language)
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[qa] failed to load pinned doc ${doc.id}:`,
-              err instanceof Error ? err.message : err,
-            )
-            return []
-          }
-        }),
-      )
-      for (const list of perDocResults) pinnedHits.push(...list)
+    // Pack before publishing citations, so every displayed source is actually
+    // supplied to generation. One planner owns all context allocations.
+    const pinnedGroups = await Promise.all(
+      pinnedDocs.map(async (doc) => {
+        try {
+          return chunksToPinnedHits(await docsRepo.listChunksForDocument(doc.id), doc)
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[qa] failed to load pinned doc ' + doc.id + ':', err)
+          return []
+        }
+      }),
+    )
+    if (abortSignal?.aborted) return
+    const contextPlan = planAnswerContext({
+      contextTokens: this.registry.llm().contextWindowTokens(),
+      question: query,
+      language,
+      codebase: codebaseWorkspace,
+      ...(opts.history ? { history: opts.history } : {}),
+      hits,
+      pinnedGroups,
+      summary: summaryInfo,
+    })
+    if (!contextPlan.fits) {
+      yield {
+        type: 'error',
+        message:
+          language === 'de'
+            ? 'Die Frage passt nicht in das Kontextfenster des Modells. Bitte kürze sie oder teile sie in mehrere Fragen auf.'
+            : 'The question does not fit the model context. Please shorten it or split it into several questions.',
+      }
+      return
     }
-    const packedRagHits = packHitsToBudget(hits, ragBudget, language)
-    // Pinned first: they lead the prompt (buildPrompt renders them as the
-    // opening section), which both gives them early-context weight on small
-    // models AND keeps the [system][pinned] token prefix stable across turns
-    // so the worker's sequence alignment reuses its KV state instead of
-    // re-prefilling pinned content every question. fedHits is the combined
-    // view for citations + the post-pack refusal check; the provider receives
-    // the two lists separately via ask(query, packedRagHits, { pinnedHits }).
+    const { pinnedHits, hits: packedRagHits, contextPreamble: summaryPreamble } = contextPlan
     const fedHits = [...pinnedHits, ...packedRagHits]
-    // Final preamble wording: hasExcerpts when ANY citable block (pinned or
-    // RAG) made it into the prompt — only the truly block-free prompt gets
-    // the "answer uncited" variant.
-    const summaryPreamble = summaryInfo
-      ? buildSummaryPreamble(language, summaryInfo.title, summaryInfo.summary, fedHits.length > 0)
-      : null
 
     // ---- 2.7 post-pack refusal ----
     // If NOTHING made it through — no RAG hits AND no pinned doc had usable
@@ -517,13 +472,24 @@ export class QAService {
     // don't reliably honour. The summary route is exempt: its preamble IS the
     // context , the prompt is never empty.
     if (summaryPreamble == null && fedHits.length === 0) {
-      const message = REFUSAL_TEXT[language]
+      const sourcesFound =
+        hits.length > 0 || pinnedGroups.some((group) => group.length > 0) || summaryInfo != null
+      const message = sourcesFound
+        ? language === 'de'
+          ? 'Quellen wurden gefunden, aber ihre Textabschnitte passen nicht in das Kontextfenster dieses Modells. Verwende ein größeres Kontextfenster oder indexiere die Dokumente mit kleineren Abschnitten erneut.'
+          : 'Sources were found, but their excerpts do not fit this model’s context window. Use a larger context window or reindex the documents with smaller sections.'
+        : REFUSAL_TEXT[language]
       const suggestions = uniqueByDoc(hits, 3).map((h) => ({
         doc_id: h.document_id,
         title: h.document_title,
         score: h.score,
       }))
-      yield { type: 'refusal', reason: 'no_hits', message, suggestions }
+      yield {
+        type: 'refusal',
+        reason: sourcesFound ? 'context_limit' : 'no_hits',
+        message,
+        suggestions,
+      }
       yield { type: 'done', full_text: message, citations: [] }
       return
     }
@@ -538,22 +504,19 @@ export class QAService {
       yield { type: 'citation', ...c }
     }
 
-    // Diagnostic: the real prefill cost is driven by prompt size + the loaded
-    // context window. Logs the ACTUAL numbers so a slow prefill can be traced to
-    // its cause (window not reloaded to 8K? prompt still huge from whole-doc?)
-    // instead of guessed at. Prefill is intrinsic — this shows how big it is.
-    const promptTokens =
-      estimateTokens(buildSystemPrompt(language, 'concise', { codebase: codebaseWorkspace })) +
-      estimateHistoryTokens(opts.history) +
-      estimateTokens(query) +
-      fedHits.reduce((n, h) => n + estimateTokens(h.text), 0) +
-      (summaryPreamble ? estimateTokens(summaryPreamble) : 0)
+    // Counts cover the selected prompt, including headers and history.
+    // No document text is written to diagnostics.
     // eslint-disable-next-line no-console
-    console.log(
-      `[qa] prefill input: ctxWindow=${ctxTokens} promptTokens≈${promptTokens} ` +
-        `fedHits=${fedHits.length} (pinned=${pinnedHits.length} rag=${packedRagHits.length}) ` +
-        `multiQuery=${opts.multiQuery ?? 'auto'} wholeDoc=${opts.wholeDocFallback ?? 'auto'}`,
-    )
+    console.log('[qa] context:', {
+      window: contextPlan.contextTokens,
+      promptEstimate: contextPlan.promptTokens,
+      outputLimit: contextPlan.maxTokens,
+      fedHits: fedHits.length,
+      pinned: pinnedHits.length,
+      rag: packedRagHits.length,
+      historyTurns: contextPlan.history.length,
+      summaryOmitted: contextPlan.summaryOmitted,
+    })
 
     // Prefill = the gap between "prompt assembled" and "first token". On CPU
     // this is the dominant unobserved latency; emitting start now and done on
@@ -575,10 +538,11 @@ export class QAService {
     try {
       const askOpts: AskOptions = {
         onChunk: collector,
+        maxTokens: contextPlan.maxTokens,
       }
       if (pinnedHits.length > 0) askOpts.pinnedHits = pinnedHits
       if (summaryPreamble) askOpts.contextPreamble = summaryPreamble
-      if (opts.history) askOpts.conversationHistory = opts.history
+      if (contextPlan.history.length) askOpts.conversationHistory = contextPlan.history
       // Forward the server-side cancel signal so chat:cancel tears down the
       // worker generation (the longest LLM call) — not just the contextualize
       // step. LlamaService.askWithModel wires this to llmAbort(streamId).
@@ -590,6 +554,7 @@ export class QAService {
       // Same contract for the codebase prompt mode (CODE section) — no-op when
       // unchanged, unknown providers stay in document mode.
       await this.registry.llm().setCodebaseMode?.(codebaseWorkspace)
+      if (abortSignal?.aborted) return
       const askPromise = this.registry.llm().ask(query, packedRagHits, askOpts)
       // drain the queue while ask is still running
       while (true) {
@@ -631,29 +596,6 @@ export class QAService {
       citations,
     }
   }
-}
-
-// Of the available context budget, this fraction is reserved for pinned-doc
-// chunks (force-into-context). RAG hits compete for the remainder. 40% gives
-// a single pinned doc enough room on a tight 8K window without crowding out
-// retrieved hits, and shrinks per-doc if the user pins many.
-const PINNED_BUDGET_FRAC = 0.4
-
-// Absolute ceiling on the pinned share. Prefill cost scales linearly with
-// prompt tokens and nothing is KV-reused across turns (history precedes the
-// Context block, so the prefix changes every turn) — every pinned token is
-// re-prefilled on every question. On the real profile windows a pure fraction
-// explodes: 40% of a 32K budget is ~9.5K tokens, of 131K it's ~39K — tens of
-// seconds of prefill per turn. 4K tokens (~14K chars, roughly the first 7–10
-// pages) keeps pinning useful while bounding the per-turn cost; tight 8K
-// windows stay under the cap and are unaffected.
-export const PINNED_BUDGET_MAX_TOKENS = 4096
-
-/** Token budget reserved for pinned-doc chunks. Pure helper, exported for
- *  tests; QAService.answer is the only production caller. */
-export function pinnedBudgetTokens(totalBudget: number, pinnedCount: number): number {
-  if (pinnedCount === 0 || totalBudget <= 0) return 0
-  return Math.min(Math.floor(totalBudget * PINNED_BUDGET_FRAC), PINNED_BUDGET_MAX_TOKENS)
 }
 
 const SLEEP_SENTINEL = Symbol('sleep')

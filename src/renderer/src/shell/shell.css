@@ -1,6 +1,7 @@
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w, 48px) 1fr;
+  grid-template-columns: var(--sidebar-w, 64px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   position: absolute;
   top: 36px;
   left: 0;
@@ -11,19 +12,23 @@
    * would push past bottom:0 and surface a body-level scrollbar. Clip here and
    * let .app-shell__main own the vertical scroll. */
   overflow: hidden;
-  transition: grid-template-columns 200ms ease;
 }
 .app-shell--expanded {
-  --sidebar-w: 260px;
+  --sidebar-w: 240px;
 }
 .app-shell__sidebar {
   display: flex;
-  background: var(--bg-1);
+  flex-direction: column;
+  grid-row: 1 / -1;
+  background: var(--bg-0);
   border-right: 1px solid var(--border);
   overflow-x: hidden;
   min-height: 0;
 }
 .app-shell__main {
+  grid-column: 2;
+  grid-row: 2;
+  background: var(--bg-1);
   /* min-height:0 lets the grid item shrink below its content's intrinsic size
    * so overflow-y:auto actually engages instead of stretching the row. */
   min-height: 0;
@@ -32,22 +37,20 @@
   overflow-x: hidden;
 }
 .sidebar__rail {
-  flex: 0 0 48px;
-  width: 48px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 8px 0;
+  padding: 0 10px 16px;
   gap: 4px;
-  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   overflow-y: auto;
 }
 .sidebar__rail-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 11px;
   box-sizing: border-box;
-  flex: 0 0 36px;
+  flex: 0 0 auto;
   border-radius: 8px;
   background: transparent;
   border: 1px solid transparent;
@@ -55,8 +58,11 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 16px;
+  justify-content: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
   transition: color var(--t-fast) var(--ease);
 }
 .sidebar__rail-btn > svg {
@@ -67,14 +73,14 @@
   background: var(--bg-2);
 }
 .sidebar__rail-btn--active {
-  color: var(--fg-0);
-  background: var(--bg-2);
-  border-color: var(--border-strong);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
 }
 .sidebar__expanded {
   flex: 1;
   min-width: 0;
-  padding: 12px;
+  padding: 20px 12px;
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -88,10 +94,9 @@
   margin: 0;
 }
 .sidebar__section-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.55;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-2);
   margin: 12px 0 6px;
 }
 .sidebar__pin {
@@ -106,14 +111,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--fg-1);
-  opacity: 0.55;
   cursor: pointer;
 }
 .sidebar__info-btn:hover,
@@ -233,7 +237,8 @@
   pointer-events: none;
   transition: opacity 0.12s ease;
 }
-.sidebar__ws-row:hover .sidebar__ws-actions {
+.sidebar__ws-row:hover .sidebar__ws-actions,
+.sidebar__ws-row:focus-within .sidebar__ws-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -295,8 +300,8 @@
   padding: 4px 0;
 }
 .sidebar__doc-scope-label {
-  font-size: 11px;
-  opacity: 0.6;
+  font-size: 12px;
+  color: var(--fg-2);
 }
 .sidebar__doc-scope-clear {
   font-size: 11px;
@@ -468,5 +473,52 @@
 @media (prefers-reduced-motion: reduce) {
   .app-shell__switching-spinner {
     animation-duration: 2s;
+  }
+}
+
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 70px;
+  padding: 12px;
+  gap: 12px;
+}
+.sidebar__brand {
+  padding-left: 10px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.6px;
+}
+.sidebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fg-2);
+}
+.sidebar__rail-btn--active:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+.sidebar__create {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.sidebar__ws-row:focus-within .sidebar__nav-btn-label,
+.sidebar__ws-row:hover .sidebar__nav-btn-label {
+  padding-right: 64px;
+}
+@media (max-width: 1100px) {
+  .app-shell--expanded {
+    --sidebar-w: 216px;
   }
 }

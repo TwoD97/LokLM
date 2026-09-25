@@ -1,210 +1,234 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check, Circle, CircleAlert, LoaderCircle, ShieldCheck, Minus } from 'lucide-react'
+import type { ModelStatus, EmbedderStatus, RerankerStatus } from '@shared/documents'
 import { useT } from '../i18n'
 import { useSettings } from '../settings/useSettings'
+import { startupPresentation } from './startupStatus'
+import './warming.css'
 
-type Props = {
-  /** Called once the QA models are ready, or when the user clicks "Continue
-   *  anyway". App.tsx routes this to the unlocked workspace. */
-  onReady: () => void
-}
+type Props = { onReady: () => void; onOpenSettings?: () => void }
+type ReadSource = 'chat' | 'search' | 'refinement' | 'warmup'
 
-type Step = 'pending' | 'loading' | 'ready' | 'failed'
-
-function toStep(state: string): Step {
-  switch (state) {
-    case 'ready':
-      return 'ready'
-    case 'loading':
-      return 'loading'
-    case 'failed':
-      return 'failed'
-    default:
-      return 'pending'
-  }
-}
-
-// States where a model is DONE loading (or never will). Used to release the
-// auto-advance gate so a missing / failed optional model can't trap the screen.
-function isTerminal(state: string): boolean {
-  return state === 'ready' || state === 'unloaded' || state === 'failed'
-}
-
-/**
- * Post-unlock loading screen. Kicks the QA model warmup (idempotent — see the
- * `models:warmupForQa` IPC) and shows a staged checklist driven by the live
- * status pushes. Auto-advances once the models are ready; a "Continue anyway"
- * link enters early while loads finish in the background. The vault is already
- * unlocked by the time this renders, so its row is shown done from the start.
- *
- * The reranker row shows on ALL tiers when enabled (the default now, lite
- * included). It's waited on only until it reaches a terminal state, so a
- * missing/failed model never hangs entry.
- */
-export function WarmingView({ onReady }: Props): JSX.Element {
+/** Startup explains availability; it never requires local organizers to wait for AI. */
+export function WarmingView({ onReady, onOpenSettings }: Props): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
-  const rerankerEnabled = settings?.advanced.reranker.enabled ?? true
-  // The reranker is now default-on across ALL tiers (lite included — it ships
-  // the GGUF and is the precision gate the relevance floor depends on), so the
-  // row shows whenever it's enabled. Was previously hidden on lite (ADR-0007),
-  // when lite shipped no reranker.
-  const rerankerVisible = rerankerEnabled
-
-  const [llm, setLlm] = useState<{ state: string; loadProgress: number | null; source: string }>({
-    state: 'idle',
-    loadProgress: null,
-    source: 'bundled',
-  })
-  const [embedder, setEmbedder] = useState<{ state: string; loadProgress: number | null }>({
-    state: 'idle',
-    loadProgress: null,
-  })
-  const [reranker, setReranker] = useState<{ state: string; loadProgress: number | null }>({
-    state: 'idle',
-    loadProgress: null,
-  })
+  const [llm, setLlm] = useState<ModelStatus | null>(null)
+  const [embedder, setEmbedder] = useState<EmbedderStatus | null>(null)
+  const [reranker, setReranker] = useState<RerankerStatus | null>(null)
+  const [readErrors, setReadErrors] = useState<ReadSource[]>([])
+  const [retrying, setRetrying] = useState(false)
+  const [slow, setSlow] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const advanced = useRef(false)
 
   useEffect(() => {
-    // Dedupe identical pushes: a multi-GB load streams loadProgress rapidly, so
-    // bail when nothing changed to keep React idle during the load.
-    const applyLlm = (s: { state: string; loadProgress: number | null; source: string }): void =>
-      setLlm((p) =>
-        p.state === s.state && p.loadProgress === s.loadProgress && p.source === s.source ? p : s,
-      )
-    const applyEmb = (s: { state: string; loadProgress: number | null }): void =>
-      setEmbedder((p) => (p.state === s.state && p.loadProgress === s.loadProgress ? p : s))
-    const applyRr = (s: { state: string; loadProgress: number | null }): void =>
-      setReranker((p) => (p.state === s.state && p.loadProgress === s.loadProgress ? p : s))
-
-    // Decoupled from triggering: the warmup is fire-and-forget on the main side
-    // (serialized, idempotent), so this screen never blocks on it — it only
-    // observes the resulting status pushes.
-    void window.api.models.warmupForQa().catch(() => undefined)
+    let mounted = true
+    const recordRead = (source: ReadSource, failed: boolean): void => {
+      if (!mounted) return
+      setReadErrors((previous) => {
+        if (previous.includes(source) === failed) return previous
+        return failed ? [...previous, source] : previous.filter((item) => item !== source)
+      })
+    }
+    let llmPushed = false
+    let embPushed = false
+    let rrPushed = false
+    const offLlm = window.api.llm.onStatus((s) => {
+      llmPushed = true
+      if (mounted) {
+        setLlm(s)
+        recordRead('chat', false)
+      }
+    })
+    const offEmb = window.api.embedder.onStatus((s) => {
+      embPushed = true
+      if (mounted) {
+        setEmbedder(s)
+        recordRead('search', false)
+      }
+    })
+    const offRr = window.api.reranker.onStatus((s) => {
+      rrPushed = true
+      if (mounted) {
+        setReranker(s)
+        recordRead('refinement', false)
+      }
+    })
     void window.api.llm
       .status()
-      .then((s) => applyLlm({ state: s.state, loadProgress: s.loadProgress, source: s.source }))
+      .then((s) => {
+        if (mounted && !llmPushed) {
+          setLlm(s)
+          recordRead('chat', false)
+        }
+      })
+      .catch(() => {
+        if (!llmPushed) recordRead('chat', true)
+      })
     void window.api.embedder
       .status()
-      .then((s) => applyEmb({ state: s.state, loadProgress: s.loadProgress }))
+      .then((s) => {
+        if (mounted && !embPushed) {
+          setEmbedder(s)
+          recordRead('search', false)
+        }
+      })
+      .catch(() => {
+        if (!embPushed) recordRead('search', true)
+      })
     void window.api.reranker
       .status()
-      .then((s) => applyRr({ state: s.state, loadProgress: s.loadProgress }))
-    const offLlm = window.api.llm.onStatus((s) =>
-      applyLlm({ state: s.state, loadProgress: s.loadProgress, source: s.source }),
-    )
-    const offEmb = window.api.embedder.onStatus((s) =>
-      applyEmb({ state: s.state, loadProgress: s.loadProgress }),
-    )
-    const offRr = window.api.reranker.onStatus((s) =>
-      applyRr({ state: s.state, loadProgress: s.loadProgress }),
-    )
+      .then((s) => {
+        if (mounted && !rrPushed) {
+          setReranker(s)
+          recordRead('refinement', false)
+        }
+      })
+      .catch(() => {
+        if (!rrPushed) recordRead('refinement', true)
+      })
+    setRetrying(true)
+    void window.api.models
+      .warmupForQa()
+      .then(() => recordRead('warmup', false))
+      .catch(() => recordRead('warmup', true))
+      .finally(() => {
+        if (mounted) setRetrying(false)
+      })
     return () => {
+      mounted = false
       offLlm()
       offEmb()
       offRr()
     }
+  }, [attempt])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 15_000)
+    return () => clearTimeout(timer)
   }, [])
 
-  // External Ollama never loads the bundled GGUF, so its status stays idle —
-  // treat the remote LLM as ready so the screen doesn't hang on a load that
-  // will never fire.
-  const llmReady = llm.state === 'ready' || llm.source === 'ollama'
-  const embReady = embedder.state === 'ready'
-  // Wait for the reranker when it's enabled, but release on any terminal state
-  // so a missing/failed model can't trap entry. Skipped only if disabled.
-  const rrReady = !rerankerVisible || isTerminal(reranker.state)
-  const allReady = llmReady && embReady && rrReady
-
-  const enter = (): void => {
+  const enter = useCallback(() => {
     if (advanced.current) return
     advanced.current = true
     onReady()
-  }
-
+  }, [onReady])
+  // Optional refinement never gates entry. Configured external services do not
+  // have a local load to wait for; the UI does not claim their connection is verified.
+  const usable = (status: ModelStatus | EmbedderStatus | null): boolean =>
+    status?.state === 'ready' ||
+    (status?.source === 'ollama' &&
+      status.state !== 'failed' &&
+      !('fallback' in status && status.fallback.active))
+  const readError = readErrors.length > 0
+  const coreReadError = readErrors.includes('chat') || readErrors.includes('search')
+  const ready = usable(llm) && usable(embedder) && !coreReadError
+  const preparing = retrying || llm?.state === 'loading' || embedder?.state === 'loading'
   useEffect(() => {
-    if (allReady) enter()
-    // enter() is idempotent via the ref guard; deps intentionally minimal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allReady])
+    if (ready) enter()
+  }, [ready, enter])
 
-  const rows: Array<{ key: string; label: string; step: Step; progress: number | null }> = [
-    { key: 'vault', label: t('auth.warmVault'), step: 'ready', progress: null },
+  const rows = [
     {
-      key: 'llm',
-      label: t('auth.warmLlm'),
-      step: llmReady ? 'ready' : toStep(llm.state),
-      progress: llm.loadProgress,
+      id: 'chat',
+      title: 'startup.chat',
+      hint: 'startup.chatHint',
+      status: startupPresentation(llm),
     },
     {
-      key: 'embedder',
-      label: t('auth.warmEmbedder'),
-      step: toStep(embedder.state),
-      progress: embedder.loadProgress,
+      id: 'search',
+      title: 'startup.search',
+      hint: 'startup.searchHint',
+      status: startupPresentation(embedder),
     },
-    // Present on all tiers when the reranker is enabled (the default). Omitted
-    // only if a user explicitly disabled it in settings.
-    ...(rerankerVisible
-      ? [
-          {
-            key: 'reranker',
-            label: t('auth.warmReranker'),
-            step: toStep(reranker.state),
-            progress: reranker.loadProgress,
-          },
-        ]
-      : []),
+    {
+      id: 'refinement',
+      title: 'startup.refinement',
+      hint: 'startup.refinementHint',
+      status: startupPresentation(reranker, settings?.advanced.reranker.enabled ?? true),
+    },
   ]
+  const failed = rows.some(
+    ({ id, status }) =>
+      id !== 'refinement' && (status.state === 'unavailable' || status.state === 'notLoaded'),
+  )
 
   return (
-    <section
-      className="auth-card auth-card--warming"
-      aria-labelledby="warming-title"
-      aria-live="polite"
-    >
-      <h1 id="warming-title">{t('auth.warmTitle')}</h1>
-      <p className="auth-card__lead auth-card__lead--centered">{t('auth.warmLead')}</p>
-      <ul className="warming__list">
-        {rows.map((r) => (
-          <li key={r.key} className={`warming__row warming__row--${r.step}`}>
-            <span className="warming__icon" aria-hidden="true">
-              {r.step === 'loading' ? (
-                <span className="warming__spinner" />
-              ) : r.step === 'ready' ? (
-                '✓'
-              ) : r.step === 'failed' ? (
-                '⚠'
+    <section className="auth-card startup" aria-labelledby="warming-title">
+      <div className="startup__vault">
+        <ShieldCheck size={17} aria-hidden="true" />
+        {t('auth.warmVault')}
+      </div>
+      <h1 id="warming-title">
+        {t(failed || readError ? 'startup.problemTitle' : 'startup.title')}
+      </h1>
+      <p className="startup__lead">
+        {t(failed || readError ? 'startup.problemLead' : 'startup.lead')}
+      </p>
+      <ul className="startup__models">
+        {rows.map(({ id, title, hint, status }) => (
+          <li key={id} className={`startup__model startup__model--${status.state}`}>
+            <span className="startup__icon" aria-hidden="true">
+              {status.state === 'loading' || status.state === 'checking' ? (
+                <LoaderCircle size={19} className="startup__spinner" />
+              ) : status.state === 'ready' ? (
+                <Check size={19} />
+              ) : status.state === 'unavailable' || status.state === 'notLoaded' ? (
+                <CircleAlert size={19} />
+              ) : status.state === 'off' || status.state === 'offAuto' ? (
+                <Minus size={19} />
               ) : (
-                '○'
+                <Circle size={16} />
               )}
             </span>
-            <span className="warming__label">{r.label}</span>
-            <span className="warming__state">
-              {r.step === 'loading' ? (
-                <span className="warming__bar">
-                  <span
-                    className={`warming__bar-fill${
-                      r.progress == null ? ' warming__bar-fill--indeterminate' : ''
-                    }`}
-                    style={
-                      r.progress != null ? { width: `${Math.round(r.progress * 100)}%` } : undefined
-                    }
-                  />
+            <div className="startup__model-content">
+              <div className="startup__model-head">
+                <strong>{t(title)}</strong>
+                {id === 'refinement' && (
+                  <span className="startup__optional">{t('startup.optional')}</span>
+                )}
+                <span className="startup__state" role="status">
+                  {t(`startup.${status.state}`)}
                 </span>
-              ) : r.step === 'ready' ? (
-                <span className="warming__done">{t('auth.warmReady')}</span>
-              ) : r.step === 'failed' ? (
-                <span className="warming__failed">{t('auth.warmFailed')}</span>
-              ) : (
-                <span className="warming__pending">{t('auth.warmPending')}</span>
+              </div>
+              <p>{t(status.hint ?? hint)}</p>
+              {status.state === 'loading' && (
+                <div className="startup__progress">
+                  <progress
+                    max={1}
+                    {...(status.progress === null ? {} : { value: status.progress })}
+                    aria-label={t(title)}
+                  />
+                  {status.progress !== null && <span>{Math.round(status.progress * 100)}%</span>}
+                </div>
               )}
-            </span>
+            </div>
           </li>
         ))}
       </ul>
-      <button type="button" className="link link--centered" onClick={enter}>
-        {t('auth.warmContinue')}
-      </button>
+      {readError && (
+        <p role="alert" className="startup__error">
+          {t('startup.readError')}
+        </p>
+      )}
+      {slow && !failed && !readError && (
+        <p className="startup__slow" role="status">
+          {t('startup.slow')}
+        </p>
+      )}
+      <div className="startup__actions">
+        <button className="startup__open" onClick={enter}>
+          {t('startup.open')}
+        </button>
+        {onOpenSettings && <button onClick={onOpenSettings}>{t('startup.settings')}</button>}
+        {(failed || readError) && (
+          <button disabled={preparing} onClick={() => setAttempt((current) => current + 1)}>
+            {t(preparing ? 'startup.retrying' : 'startup.retry')}
+          </button>
+        )}
+      </div>
+      <p className="startup__continue-hint">{t('startup.continueHint')}</p>
     </section>
   )
 }

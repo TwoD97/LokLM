@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, fireEvent, waitFor, screen } from '@testing-library/react'
 import { ChatView } from './ChatView'
+import type { StreamEvent } from '@shared/documents'
 
 describe('ChatView', () => {
   afterEach(() => {
@@ -35,5 +36,88 @@ describe('ChatView', () => {
     await waitFor(() => {
       expect(container.querySelector('.chat__send--cancel')).toBeNull()
     })
+    expect(textarea).toHaveValue('hello there')
+    expect(screen.getByRole('alert')).toHaveTextContent('db down')
+  })
+
+  it('ends the streaming placeholder and preserves the question after an IPC failure', async () => {
+    vi.spyOn(window.api.chat, 'stream').mockRejectedValue(new Error('worker stopped'))
+    const { container } = render(
+      <ChatView
+        workspaceId={1}
+        currentConversationId={1}
+        activeDocumentIds={[]}
+        documents={[]}
+        onConversationChange={() => {}}
+      />,
+    )
+    const textarea = container.querySelector('.chat__input')!
+    fireEvent.change(textarea, { target: { value: 'Keep this question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('worker stopped')
+    expect(screen.getByText('Keep this question')).toBeVisible()
+    expect(container.querySelector('.chat__send--cancel')).toBeNull()
+  })
+
+  it('does not reopen an old conversation when its stream finishes after navigation', async () => {
+    let finish!: () => void
+    vi.spyOn(window.api.chat, 'stream').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const open = vi.spyOn(window.api.conversations, 'getWithMessages')
+    const change = vi.fn()
+    const props = {
+      workspaceId: 1,
+      activeDocumentIds: [],
+      documents: [],
+      onConversationChange: change,
+    }
+    const view = render(<ChatView {...props} currentConversationId={1} />)
+    const textarea = view.container.querySelector('.chat__input')!
+    fireEvent.change(textarea, { target: { value: 'Question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    view.rerender(<ChatView {...props} currentConversationId={2} />)
+    await act(async () => finish())
+    expect(open).not.toHaveBeenCalled()
+    expect(change).not.toHaveBeenCalled()
+  })
+
+  it('preserves streamed text when the worker emits an error before the invoke resolves', async () => {
+    let emit!: (event: StreamEvent) => void
+    let finish!: () => void
+    vi.spyOn(window.api.chat, 'onEvent').mockImplementation((_id, callback) => {
+      emit = callback
+      return () => {}
+    })
+    vi.spyOn(window.api.chat, 'stream').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const open = vi.spyOn(window.api.conversations, 'getWithMessages')
+    const view = render(
+      <ChatView
+        workspaceId={1}
+        currentConversationId={1}
+        activeDocumentIds={[]}
+        documents={[]}
+        onConversationChange={() => {}}
+      />,
+    )
+    const textarea = view.container.querySelector('.chat__input')!
+    fireEvent.change(textarea, { target: { value: 'A question' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await act(async () => {
+      emit({ type: 'token', text: 'Partial useful answer' })
+      emit({ type: 'error', message: 'GPU interrupted' })
+      finish()
+    })
+    expect(screen.getByText('Partial useful answer')).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('GPU interrupted')
+    expect(open).not.toHaveBeenCalled()
   })
 })

@@ -4,6 +4,10 @@ import type { DomainDict } from './types'
 
 export const chatDict: DomainDict = {
   en: {
+    'chat.loadFailed': 'Could not load the conversation. Select it again to retry. {message}',
+    'chat.sendFailed':
+      'The request could not finish. Your text is kept here; try sending again. {message}',
+    'chat.copyFailed': 'Could not copy. Select the message to copy it manually.',
     // ChatInput
     'chat.inputPlaceholder':
       'Ask a question about your documents… (Enter to send · Shift+Enter for a new line)',
@@ -21,12 +25,12 @@ export const chatDict: DomainDict = {
     'chat.translateAction': 'Translate',
     'chat.translateBusy': 'Translating…',
     'chat.translateBusyHint':
-      'First use loads the translation model — this can take a few seconds.',
+      'Uses your selected language model. Long texts are translated in sections.',
     'chat.translateClose': 'Close translation',
     'chat.translateNotInstalled':
-      'Translation model not installed. Download it under Settings → Advanced → Translation.',
-    'chat.translateMetaDetected': 'MADLAD-400 · {from} → {to} · {s} s',
-    'chat.translateMeta': 'MADLAD-400 · → {to} · {s} s',
+      'No language model available. Check Settings → Advanced → Language model.',
+    'chat.translateMetaDetected': '{from} → {to} · {s} s',
+    'chat.translateMeta': '→ {to} · {s} s',
     // ChatHeader
     'chat.viaOllama': 'via Ollama',
     'chat.viaOllamaFallback': 'via Ollama → bundled (fallback)',
@@ -54,17 +58,19 @@ export const chatDict: DomainDict = {
     'chat.stagePrefill': 'Prefill',
     // Collapsible pipeline dropdown
     'chat.pipelineDone': 'Done · {ms}',
+    'chat.pipelineIncomplete': 'Incomplete',
     'chat.pipelineToggle': 'Toggle pipeline details',
     'chat.generating': 'Generating…',
     'chat.metricsPipeline': 'pipeline {ms} · ',
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} tok/s',
     'chat.metricsTokens': ' · {count} tok',
-    // Grounding badge — per-answer citation trust signal. Count is the number
-    // of distinct documents cited; clicking lists them by file name.
-    'chat.groundingOne': 'Grounded · 1 source',
-    'chat.groundingMany': 'Grounded · {count} sources',
-    'chat.sourcesPopoverTitle': 'Documents used for this answer',
+    // Source navigation distinguishes cited passages from supplied context.
+    'chat.groundingOne': '1 cited source',
+    'chat.groundingMany': '{count} cited sources',
+    'chat.sourcesPopoverTitle': 'Cited sources',
+    'chat.providedSources': 'Provided sources · {count}',
+    'chat.providedSourcesTitle': 'Provided sources',
     'chat.documentFallback': 'Document #{id}',
     // Fallback sources footer — shown when the model answered from the fed
     // chunks but emitted no inline citation markers.
@@ -86,6 +92,12 @@ export const chatDict: DomainDict = {
     'chat.rendering': 'Rendering…',
   },
   de: {
+    'chat.loadFailed':
+      'Der Chat konnte nicht geladen werden. Wähle ihn erneut, um es noch einmal zu versuchen. {message}',
+    'chat.sendFailed':
+      'Die Anfrage konnte nicht abgeschlossen werden. Dein Text bleibt erhalten; versuche es erneut. {message}',
+    'chat.copyFailed':
+      'Kopieren fehlgeschlagen. Markiere die Nachricht, um sie manuell zu kopieren.',
     // ChatInput
     'chat.inputPlaceholder':
       'Stelle eine Frage zu deinen Dokumenten… (Enter senden · Shift+Enter neue Zeile)',
@@ -104,12 +116,12 @@ export const chatDict: DomainDict = {
     'chat.translateAction': 'Übersetzen',
     'chat.translateBusy': 'Übersetzt…',
     'chat.translateBusyHint':
-      'Beim ersten Mal wird das Übersetzungsmodell geladen — das kann einige Sekunden dauern.',
+      'Verwendet dein ausgewähltes Sprachmodell. Lange Texte werden abschnittsweise übersetzt.',
     'chat.translateClose': 'Übersetzung schließen',
     'chat.translateNotInstalled':
-      'Übersetzungsmodell nicht installiert. Download unter Einstellungen → Erweitert → Übersetzung.',
-    'chat.translateMetaDetected': 'MADLAD-400 · {from} → {to} · {s} s',
-    'chat.translateMeta': 'MADLAD-400 · → {to} · {s} s',
+      'Kein Sprachmodell verfügbar. Prüfe Einstellungen → Erweitert → Sprachmodell.',
+    'chat.translateMetaDetected': '{from} → {to} · {s} s',
+    'chat.translateMeta': '→ {to} · {s} s',
     // ChatHeader
     'chat.viaOllama': 'über Ollama',
     'chat.viaOllamaFallback': 'über Ollama → integriert (Fallback)',
@@ -138,17 +150,19 @@ export const chatDict: DomainDict = {
     'chat.stagePrefill': 'Vorbefüllung',
     // Collapsible pipeline dropdown
     'chat.pipelineDone': 'Fertig · {ms}',
+    'chat.pipelineIncomplete': 'Nicht abgeschlossen',
     'chat.pipelineToggle': 'Pipeline-Details umschalten',
     'chat.generating': 'Wird erzeugt…',
     'chat.metricsPipeline': 'Pipeline {ms} · ',
     'chat.metricsTtft': 'TTFT {s} s',
     'chat.metricsTokensPerSec': ' · {rate} Tok/s',
     'chat.metricsTokens': ' · {count} Tok',
-    // Grounding badge — per-answer citation trust signal. Count is the number
-    // of distinct documents cited; clicking lists them by file name.
-    'chat.groundingOne': 'Belegt · 1 Quelle',
-    'chat.groundingMany': 'Belegt · {count} Quellen',
-    'chat.sourcesPopoverTitle': 'Für diese Antwort genutzte Dokumente',
+    // Source navigation distinguishes cited passages from supplied context.
+    'chat.groundingOne': '1 zitierte Quelle',
+    'chat.groundingMany': '{count} zitierte Quellen',
+    'chat.sourcesPopoverTitle': 'Zitierte Quellen',
+    'chat.providedSources': 'Quellen im Kontext · {count}',
+    'chat.providedSourcesTitle': 'Quellen im Kontext',
     'chat.documentFallback': 'Dokument #{id}',
     // Fallback sources footer — shown when the model answered from the fed
     // chunks but emitted no inline citation markers.

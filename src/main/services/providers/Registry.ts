@@ -127,6 +127,9 @@ class RegistryLlmProvider implements LlmProvider {
       maxTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
+      systemPrompt?: string | undefined
+      temperature?: number | undefined
+      requireComplete?: boolean | undefined
     },
   ): Promise<string> {
     const active = this.active()

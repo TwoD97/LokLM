@@ -9,6 +9,7 @@ import {
   RefreshCcw,
 } from 'lucide-react'
 import type { Document, StageName } from '@shared/documents'
+import { hasCitedSources } from '@shared/citationMarkers'
 import { MessageBubble } from './MessageBubble'
 import { TranslationPanel } from './TranslationPanel'
 import { useT, type TFn } from '../i18n'
@@ -36,13 +37,12 @@ type LocalMessage =
       isRefusal?: boolean
       metrics?: StreamMetrics
       pipeline?: StageRow[]
-      /** Persisted citations for this turn (the chunks fed AND cited). Present
-       *  on re-hydrated/finished turns, undefined while streaming. Drives both
-       *  marker validation in the bubble and the grounding badge below it. */
+      /** Supplied passage allow-list, reconciled against the final answer. */
       citations?: Array<{ documentId: number; chunkId: number }>
     }
 
 type Props = {
+  onPrompt?: (text: string) => void
   messages: LocalMessage[]
   onCitationClick: (m: { documentId: number; chunkId: number; messageText: string }) => void
   /** All workspace documents — resolves a citation's documentId to its file
@@ -81,13 +81,9 @@ function fmtMs(ms: number | undefined): string {
 
 type SourceDoc = { documentId: number; chunkId: number; name: string; path: string | null }
 
-// Per-answer trust signal: "Grounded · N source(s)" where N is the number of
-// distinct DOCUMENTS this turn cited (multiple cited chunks from the same file
-// collapse to one source). Only the positive case is shown — an answer that
-// cited nothing (a refusal, a greeting, or a genuinely ungrounded reply) gets
-// no badge rather than a false "unverified" flag. Clicking the badge opens a
-// popover listing those documents by file name; each row opens that document's
-// cited passage in the SourceViewer.
+// Source navigation, not a factual-verification badge. A valid passage ID does
+// not establish that its text supports the model's claim. Count distinct
+// documents and let readers open their passages in the SourceViewer.
 function GroundingBadge({
   citations,
   documents,
@@ -143,21 +139,34 @@ function GroundingBadge({
   }, [open])
 
   const count = sources.length
+  const cited = hasCitedSources(
+    messageText,
+    new Set(citations.map((citation) => `${citation.documentId}-${citation.chunkId}`)),
+  )
   return (
     <div className="chat__grounding-wrap" ref={wrapRef}>
       <button
         type="button"
-        className="chat__grounding chat__grounding--ok"
+        className="chat__grounding"
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {t(count === 1 ? 'chat.groundingOne' : 'chat.groundingMany', { count })}
+        {t(
+          cited
+            ? count === 1
+              ? 'chat.groundingOne'
+              : 'chat.groundingMany'
+            : 'chat.providedSources',
+          { count },
+        )}
         <ChevronDown size={11} aria-hidden="true" />
       </button>
       {open && (
         <div className="chat__sources-pop" role="menu">
-          <span className="chat__sources-pop-title">{t('chat.sourcesPopoverTitle')}</span>
+          <span className="chat__sources-pop-title">
+            {t(cited ? 'chat.sourcesPopoverTitle' : 'chat.providedSourcesTitle')}
+          </span>
           {sources.map((s, i) => (
             <button
               key={s.documentId}
@@ -195,10 +204,12 @@ function pipelineTotalMs(pipeline: StageRow[]): number {
 function PipelinePanel({
   pipeline,
   awaitingFirstToken,
+  finished,
   t,
 }: {
   pipeline: StageRow[]
   awaitingFirstToken: boolean
+  finished: boolean
   t: TFn
 }): JSX.Element {
   const [open, setOpen] = useState(false)
@@ -209,6 +220,7 @@ function PipelinePanel({
   // token lands the pipeline is finished — flip to a check + "Done · {time}".
   // Expanding always reveals the timed detail list.
   const running = awaitingFirstToken
+  const incomplete = finished && pipeline.some((row) => row.status === 'running')
   const current = pipeline.find((r) => r.status === 'running') ?? pipeline[pipeline.length - 1]
   return (
     <div className={`chat__pipeline-dd${open ? ' chat__pipeline-dd--open' : ''}`}>
@@ -225,7 +237,7 @@ function PipelinePanel({
             className="chat__pipeline-leddot chat__pipeline-leddot--running"
             aria-hidden="true"
           />
-        ) : (
+        ) : incomplete ? null : (
           <Check size={12} className="chat__pipeline-check" aria-hidden="true" />
         )}
         <span className="chat__pipeline-summary">
@@ -234,6 +246,8 @@ function PipelinePanel({
               {t(STAGE_LABEL_KEY[current.stage])}
               <span className="chat__pipeline-ellipsis">…</span>
             </>
+          ) : incomplete ? (
+            t('chat.pipelineIncomplete')
           ) : (
             t('chat.pipelineDone', { ms: fmtMs(totalMs) })
           )}
@@ -244,13 +258,17 @@ function PipelinePanel({
           {pipeline.map((row, i) => (
             <li
               key={`${row.stage}-${i}`}
-              className={`chat__pipeline-row chat__pipeline-row--${row.status}`}
+              className={`chat__pipeline-row${incomplete && row.status === 'running' ? '' : ` chat__pipeline-row--${row.status}`}`}
             >
               <span className="chat__pipeline-dot" aria-hidden="true" />
               <span className="chat__pipeline-label">{t(STAGE_LABEL_KEY[row.stage])}</span>
               {row.detail && <span className="chat__pipeline-detail">{row.detail}</span>}
               <span className="chat__pipeline-time">
-                {row.status === 'done' ? fmtMs(row.durationMs) : '…'}
+                {row.status === 'done'
+                  ? fmtMs(row.durationMs)
+                  : incomplete
+                    ? t('chat.pipelineIncomplete')
+                    : '…'}
               </span>
             </li>
           ))}
@@ -263,6 +281,7 @@ function PipelinePanel({
 const NEAR_BOTTOM_PX = 64
 
 export function MessageList({
+  onPrompt,
   messages,
   onCitationClick,
   keepPipelineVisible,
@@ -309,7 +328,21 @@ export function MessageList({
   if (messages.length === 0) {
     return (
       <div className="chat__messages" ref={ref} onScroll={onScroll}>
-        <div className="chat__messages-empty">{t('chat.emptyState')}</div>
+        <div className="chat__messages-empty">
+          <FileText size={28} strokeWidth={1.5} aria-hidden="true" />
+          <h2>{t(documents.length > 0 ? 'ux.chatHeading' : 'ux.chatEmptyHeading')}</h2>
+          <p>{t(documents.length > 0 ? 'ux.chatDescription' : 'ux.chatEmptyDescription')}</p>
+          {documents.length > 0 && onPrompt && (
+            <div className="chat__prompts">
+              {['ux.promptSummary', 'ux.promptCompare', 'ux.promptQuestions'].map((key) => (
+                <button type="button" key={key} onClick={() => onPrompt(t(key))}>
+                  {t(key)}
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -337,6 +370,7 @@ export function MessageList({
                 <PipelinePanel
                   pipeline={m.pipeline!}
                   awaitingFirstToken={m.streaming && m.content.length === 0}
+                  finished={!m.streaming}
                   t={t}
                 />
               )}

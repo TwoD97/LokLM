@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "split": "dev",
+  "sources": [
+    {
+      "key": "dev-ledger",
+      "file": "fixtures/dev/mica-harbor-2025.md",
+      "title": "Mica Harbor: 2025 operating ledger",
+      "format": "markdown"
+    },
+    {
+      "key": "dev-plan",
+      "file": "fixtures/dev/mica-harbor-2026.md",
+      "title": "Mica Harbor: Betriebsplan 2026",
+      "format": "markdown"
+    },
+    {
+      "key": "dev-memo-a",
+      "file": "fixtures/dev/selka-draft-a.txt",
+      "title": "Selka dispatch memo - draft A",
+      "format": "text"
+    },
+    {
+      "key": "dev-memo-b",
+      "file": "fixtures/dev/selka-draft-b.md",
+      "title": "Selka: Versandvermerk, Entwurf B",
+      "format": "markdown"
+    },
+    {
+      "key": "dev-code",
+      "file": "fixtures/dev/reserve-slots.md",
+      "title": "Qerlan slot reservation function",
+      "format": "markdown"
+    },
+    {
+      "key": "dev-survey",
+      "file": "fixtures/dev/mica-field-survey.pdf",
+      "title": "Mica Harbor field survey",
+      "format": "pdf"
+    }
+  ],
+  "cases": [
+    {
+      "id": "dev-01",
+      "question": "What service-credit revenue did Mica Harbor record in 2025? Answer in one short sentence.",
+      "language": "en",
+      "kind": "exact-amount",
+      "requiredSourceKeys": ["dev-ledger"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Mica Harbor recorded EUR 48,260 in service-credit revenue in 2025.",
+      "answerChecks": [
+        {
+          "label": "revenue",
+          "pattern": "(?<!\\d)48[.,\\s\\u00a0\\u202f]?260(?!\\d)"
+        },
+        {
+          "label": "currency",
+          "pattern": "(?:\\bEUR\\b|€|\\beuros?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-02",
+      "question": "Wie viele Inspektionen schloss Mica Harbor im Jahr 2025 ab? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "cross-language",
+      "requiredSourceKeys": ["dev-ledger"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Mica Harbor schloss 2025 insgesamt 184 Inspektionen ab.",
+      "answerChecks": [
+        {
+          "label": "completed inspections",
+          "pattern": "\\b184\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-03",
+      "question": "On which ISO date was Mica Harbor's 2026 operating plan approved? Answer in one short sentence.",
+      "language": "en",
+      "kind": "exact-date",
+      "requiredSourceKeys": ["dev-plan"],
+      "expectedAbstention": false,
+      "referenceAnswer": "The 2026 operating plan was approved on 2026-03-09.",
+      "answerChecks": [
+        {
+          "label": "approval date",
+          "pattern": "\\b2026-03-09\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-04",
+      "question": "Welche Probenmasse in kg nennt der Mica-Harbor-Feldbericht vom 2026-04-12 für Neral? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "table-unit",
+      "requiredSourceKeys": ["dev-survey"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Für Neral beträgt die Probenmasse 18,4 kg.",
+      "answerChecks": [
+        {
+          "label": "sample mass",
+          "pattern": "(?<!\\d)18[.,]4(?!\\d)"
+        },
+        {
+          "label": "unit",
+          "pattern": "(?:\\bkg\\b|\\bKilogramm\\b|\\bkilograms?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-05",
+      "question": "How many accepted trays did Neral and Bexin have together in the Mica Harbor field survey of 2026-04-12? Answer in one short sentence.",
+      "language": "en",
+      "kind": "table-arithmetic",
+      "requiredSourceKeys": ["dev-survey"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Neral and Bexin had 62 accepted trays in total.",
+      "answerChecks": [
+        {
+          "label": "accepted total",
+          "pattern": "\\b62\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-06",
+      "question": "By how much does Mica Harbor's planned 2026 service-credit revenue exceed its recorded 2025 service-credit revenue? Answer in one short sentence.",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "requiredSourceKeys": ["dev-ledger", "dev-plan"],
+      "expectedAbstention": false,
+      "referenceAnswer": "The 2026 target exceeds recorded 2025 revenue by EUR 5,520.",
+      "answerChecks": [
+        {
+          "label": "revenue difference",
+          "pattern": "(?<!\\d)5[.,\\s\\u00a0\\u202f]?520(?!\\d)"
+        },
+        {
+          "label": "currency",
+          "pattern": "(?:\\bEUR\\b|€|\\beuros?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-07",
+      "question": "Welche Chargenkennung nennt Selkas Versandvermerk A? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "exact-identifier",
+      "requiredSourceKeys": ["dev-memo-a"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Der Versandvermerk A nennt die Chargenkennung MSX-417.",
+      "answerChecks": [
+        {
+          "label": "batch identifier",
+          "pattern": "\\bMSX-417\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-08",
+      "question": "What does Qerlan's reserveSlots(13, 5) return? Answer in one short sentence.",
+      "language": "en",
+      "kind": "code-semantics",
+      "requiredSourceKeys": ["dev-code"],
+      "expectedAbstention": false,
+      "referenceAnswer": "reserveSlots(13, 5) returns 4 slots.",
+      "answerChecks": [
+        {
+          "label": "return value",
+          "pattern": "\\b4\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-09",
+      "question": "Who is Mica Harbor's chief financial officer? Answer in one short sentence.",
+      "language": "en",
+      "kind": "missing-fact",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "The supplied documents do not name Mica Harbor's chief financial officer.",
+      "answerChecks": [],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-10",
+      "question": "What is the definitive Selka dispatch deadline according to drafts A and B? Use ISO dates. Answer in one short sentence.",
+      "language": "en",
+      "kind": "conflicting-sources",
+      "requiredSourceKeys": ["dev-memo-a", "dev-memo-b"],
+      "expectedAbstention": true,
+      "referenceAnswer": "No definitive deadline is established: the drafts conflict between 2026-10-14 and 2026-10-21.",
+      "answerChecks": [
+        {
+          "label": "draft A deadline",
+          "pattern": "\\b2026-10-14\\b"
+        },
+        {
+          "label": "draft B deadline",
+          "pattern": "\\b2026-10-21\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-11",
+      "question": "Was gibt Qerlans reserveSlots(3, 9) zurück? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "code-semantics",
+      "requiredSourceKeys": ["dev-code"],
+      "expectedAbstention": false,
+      "referenceAnswer": "reserveSlots(3, 9) gibt 0 Plätze zurück.",
+      "answerChecks": [
+        {
+          "label": "clamped return value",
+          "pattern": "\\b0\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "dev-12",
+      "question": "Welche durchschnittliche Außentemperatur wurde für Bexin im Mica-Harbor-Feldbericht vom 2026-04-12 gemessen? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "missing-fact",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "Der Feldbericht nennt keine durchschnittliche Außentemperatur für Bexin.",
+      "answerChecks": [],
+      "allowPartial": false
+    }
+  ]
+}

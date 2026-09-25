@@ -83,7 +83,11 @@ export function chunkMarkdown(
 
   for (const section of sections) {
     const lastHeading = section.headingPath[section.headingPath.length - 1] ?? null
-    const headingPrefix = lastHeading ? `# ${lastHeading}\n\n` : ''
+    // A heading is metadata even when it is too long to repeat in the body.
+    // Leave at least half the budget for source text; a very long heading must
+    // not turn its entire section into a stream of tiny fragments.
+    const headingPrefix =
+      lastHeading && lastHeading.length + 4 <= maxChars / 2 ? `# ${lastHeading}\n\n` : ''
     const body = section.text.trim()
     if (body.length === 0) continue
     const full = headingPrefix + body
@@ -104,7 +108,9 @@ export function chunkMarkdown(
     // it to the first piece only so we don't bloat every chunk for one
     // mega-section). Subsequent pieces still carry the same headingPath,
     // which is what citations care about.
-    const pieces = mergeWithOverlap(splitText(body, maxChars), maxChars, overlap)
+    // Reserve room for the first piece's heading. Every table fragment is
+    // independently readable: rows retain their original column headers.
+    const pieces = splitMarkdownBody(body, maxChars - headingPrefix.length, overlap)
     for (let i = 0; i < pieces.length; i++) {
       const piece = pieces[i]!.trim()
       if (piece.length === 0) continue
@@ -120,6 +126,101 @@ export function chunkMarkdown(
     }
   }
   return chunks
+}
+
+/** Recognize conservative GFM pipe tables, preserving source spelling. Escaped
+ * pipes belong to cells; optional outer pipes do not add extra columns. */
+function tableCells(line: string): string[] | null {
+  if (/^ {4}|^\t/.test(line)) return null
+  const text = line.trim()
+  const cells: string[] = []
+  let start = 0
+  let escaped = false
+  let pipes = 0
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (char === '|' && !escaped) {
+      cells.push(text.slice(start, i).trim())
+      start = i + 1
+      pipes++
+    }
+    escaped = char === '\\' && !escaped
+  }
+  if (pipes === 0) return null
+  cells.push(text.slice(start).trim())
+  if (text.startsWith('|')) cells.shift()
+  if (start === text.length) cells.pop()
+  return cells
+}
+
+function splitMarkdownBody(body: string, maxChars: number, overlap: number): string[] {
+  const lines = body.split(/\r?\n/)
+  const out: string[] = []
+  let prose: string[] = []
+  let fence: { marker: string; length: number } | null = null
+  const flushProse = (): void => {
+    const text = prose.join('\n').trim()
+    if (text) out.push(...mergeWithOverlap(splitText(text, maxChars), maxChars, overlap))
+    prose = []
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line)
+    if (marker) {
+      const run = marker[1]!
+      if (!fence) fence = { marker: run[0]!, length: run.length }
+      else if (run[0] === fence.marker && run.length >= fence.length && marker[2]!.trim() === '') {
+        fence = null
+      }
+      prose.push(line)
+      continue
+    }
+    if (fence) {
+      prose.push(line)
+      continue
+    }
+    const header = tableCells(line)
+    const delimiter = tableCells(lines[i + 1] ?? '')
+    if (
+      !header?.length ||
+      !delimiter ||
+      header.length !== delimiter.length ||
+      !delimiter.every((cell) => /^:?-{3,}:?$/.test(cell))
+    ) {
+      prose.push(line)
+      continue
+    }
+    flushProse()
+    const table = [line, lines[++i]!]
+    while (i + 1 < lines.length) {
+      const row = tableCells(lines[i + 1]!)
+      if (!row || row.length !== header.length) break
+      table.push(lines[++i]!)
+    }
+    const tableHeader = table.slice(0, 2).join('\n')
+    const rows = table.slice(2)
+    if (
+      tableHeader.length > maxChars ||
+      rows.some((row) => tableHeader.length + 1 + row.length > maxChars)
+    ) {
+      // An individual wide/long row cannot keep its header inside the budget.
+      // Fall back to bounded plain text rather than truncate cells, invent a
+      // column mapping, or send an unbounded table to the embedding model.
+      out.push(...splitText(table.join('\n'), maxChars))
+      continue
+    }
+    let fragment = tableHeader
+    for (const row of rows) {
+      if (fragment.length + 1 + row.length > maxChars) {
+        out.push(fragment)
+        fragment = tableHeader
+      }
+      fragment += '\n' + row
+    }
+    out.push(fragment)
+  }
+  flushProse()
+  return out
 }
 
 /** Post-pass over a chunk list that fills in the `language` field on each
@@ -198,9 +299,12 @@ function mergeWithOverlap(pieces: string[], maxChars: number, overlap: number): 
     const prev = out[out.length - 1]
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     let current = pieces[i]!
-    if (prev && current.length + overlap <= maxChars) {
+    if (prev) {
       const tail = prev.slice(-overlap)
-      current = tail + (tail.endsWith(' ') ? '' : ' ') + current
+      const separator = tail.endsWith(' ') ? '' : ' '
+      if (current.length + tail.length + separator.length <= maxChars) {
+        current = tail + separator + current
+      }
     }
     out.push(current)
   }

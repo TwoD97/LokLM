@@ -76,6 +76,7 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
           <span className="sr-only">{t('auth.passwordLabel')}</span>
           <input
             type="password"
+            disabled={busy}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -103,7 +104,12 @@ export function LoginView({ status, onUnlocked, onForgotPassword }: Props): JSX.
         >
           {busyLabel}
         </button>
-        <button type="button" className="link link--centered" onClick={onForgotPassword}>
+        <button
+          type="button"
+          className="link link--centered"
+          disabled={busy}
+          onClick={onForgotPassword}
+        >
           {t('auth.forgotPassword')}
         </button>
       </form>

@@ -1,0 +1,342 @@
+import { describe, expect, it, vi } from 'vitest'
+import {
+  allocateChat,
+  GpuLayerPlanCache,
+  gpuLayerPlanKey,
+  gpuLayerPlanReuseEnabled,
+  type ChatModel,
+  type ChatModelOptions,
+} from '@main/services/workers/modelMemory'
+import type { LlmPlan } from '@main/services/embeddings/ResourcePlanner'
+
+const plan: LlmPlan = {
+  contextSize: 8192,
+  kvCacheType: 'q4_0',
+  fitsInVram: false,
+  estimatedFreeVramGBAfterLoad: 0,
+  reason: 'test',
+}
+const identity = {
+  modelRevision: 'model.gguf:revision1',
+  backendIdentity: 'vulkan:device0',
+  contextSize: 8192,
+  batchSize: 254,
+  paddingBytes: 1024 ** 3,
+}
+function model(layers = 14): ChatModel {
+  return {
+    gpuLayers: layers,
+    dispose: vi.fn(async () => {}),
+    createContext: vi.fn(async () => ({
+      contextSize: 8192,
+      getSequence: () => ({}),
+      dispose: async () => {},
+    })),
+  }
+}
+function options(cache?: GpuLayerPlanCache) {
+  return {
+    modelPath: 'model.gguf',
+    plan,
+    batchSize: 254,
+    onLoadProgress: () => {},
+    log: vi.fn<(message: string) => void>(),
+    layerPlanReuse: cache ? { cache, key: gpuLayerPlanKey(identity)! } : undefined,
+  }
+}
+
+describe('guarded GPU layer-plan reuse', () => {
+  it('leaves ordinary automatic fitting unchanged when disabled', async () => {
+    const loadModel = vi
+      .fn<(call: ChatModelOptions) => Promise<ChatModel>>()
+      .mockImplementation(async () => model())
+    const opts = options()
+    await allocateChat({ ...opts, loadModel })
+    await allocateChat({ ...opts, loadModel })
+    expect(loadModel.mock.calls.map(([call]) => call.gpuLayers)).toEqual([
+      { fitContext: { contextSize: 8192 } },
+      { fitContext: { contextSize: 8192 } },
+    ])
+    expect(opts.log.mock.calls.flat().some((message) => message.includes('cache'))).toBe(false)
+  })
+
+  it('remembers only successful allocation and revalidates the exact bounded fit on reuse', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    const first = model()
+    const second = model()
+    const loadModel = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+    await allocateChat({ ...opts, loadModel })
+    expect(cache.get(opts.layerPlanReuse!.key)).toBe(14)
+    await allocateChat({ ...opts, loadModel })
+    expect(loadModel.mock.calls[1]![0]).toEqual({
+      modelPath: 'model.gguf',
+      gpuLayers: { min: 14, max: 14, fitContext: { contextSize: 8192 } },
+      defaultContextFlashAttention: true,
+      onLoadProgress: opts.onLoadProgress,
+    })
+    expect(second.createContext).toHaveBeenCalledWith({
+      contextSize: { min: 4096, max: 8192 },
+      flashAttention: true,
+      batchSize: 254,
+      experimentalKvCacheKeyType: 'Q4_0',
+      experimentalKvCacheValueType: 'Q4_0',
+    })
+    expect(opts.log).toHaveBeenCalledWith(expect.stringContaining('cache miss'))
+    expect(opts.log).toHaveBeenCalledWith(expect.stringContaining('cache hit'))
+  })
+
+  it('reuses the same native weight fit while honoring each fresh context KV preference', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    const models = [model(), model(), model()]
+    const loadModel = vi
+      .fn()
+      .mockResolvedValueOnce(models[0])
+      .mockResolvedValueOnce(models[1])
+      .mockResolvedValueOnce(models[2])
+    for (const kvCacheType of ['f16', 'q4_0', 'q8_0'] as const) {
+      const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType }, loadModel })
+      expect(result.plan.kvCacheType).toBe(kvCacheType)
+    }
+    expect(loadModel.mock.calls.map(([call]) => call.gpuLayers)).toEqual([
+      { fitContext: { contextSize: 8192 } },
+      { min: 14, max: 14, fitContext: { contextSize: 8192 } },
+      { min: 14, max: 14, fitContext: { contextSize: 8192 } },
+    ])
+    for (const [call] of loadModel.mock.calls) {
+      expect(call).not.toHaveProperty('experimentalDefaultContextKvCacheKeyType')
+      expect(call).not.toHaveProperty('experimentalDefaultContextKvCacheValueType')
+    }
+    expect(models[0]!.createContext).toHaveBeenCalledWith({
+      contextSize: { min: 4096, max: 8192 },
+      flashAttention: true,
+      batchSize: 254,
+    })
+    expect(models[1]!.createContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experimentalKvCacheKeyType: 'Q4_0',
+        experimentalKvCacheValueType: 'Q4_0',
+      }),
+    )
+    expect(models[2]!.createContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experimentalKvCacheKeyType: 'Q8_0',
+        experimentalKvCacheValueType: 'Q8_0',
+      }),
+    )
+  })
+
+  it('tries the current KV order after a hint and does not reuse a previous successful precision', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    const old = model()
+    const current = model()
+    const contextTypes: unknown[] = []
+    current.createContext = vi.fn(async (contextOptions) => {
+      const type = contextOptions.experimentalKvCacheKeyType ?? 'F16'
+      contextTypes.push(type)
+      if (type === 'F16') throw new Error('Unsupported KV type for the current context')
+      return { contextSize: 8192, getSequence: () => ({}), dispose: async () => {} }
+    })
+    const loadModel = vi.fn().mockResolvedValueOnce(old).mockResolvedValueOnce(current)
+    await allocateChat({ ...opts, loadModel }) // First allocation uses q4_0.
+    const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType: 'f16' }, loadModel })
+    expect(contextTypes).toEqual(['F16', 'Q8_0'])
+    expect(result.plan.kvCacheType).toBe('q8_0')
+    expect(loadModel.mock.calls[1]![0].gpuLayers).toEqual({
+      min: 14,
+      max: 14,
+      fitContext: { contextSize: 8192 },
+    })
+  })
+
+  it('releases a cross-KV hint rejected by current memory checks before automatic fitting', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    const first = model()
+    const rejected = model()
+    const replacement = model(10)
+    const order: string[] = []
+    const contextTypes: unknown[] = []
+    rejected.createContext = vi.fn(async (contextOptions) => {
+      contextTypes.push(contextOptions.experimentalKvCacheKeyType ?? 'F16')
+      throw new Error('Insufficient VRAM for the current context')
+    })
+    rejected.dispose = vi.fn(async () => {
+      order.push('disposed')
+    })
+    const loadModel = vi
+      .fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(rejected)
+      .mockImplementationOnce(async () => {
+        order.push('fallback')
+        return replacement
+      })
+    await allocateChat({ ...opts, loadModel }) // q4_0 succeeds before memory pressure.
+    const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType: 'f16' }, loadModel })
+    expect(contextTypes).toEqual(['F16', 'Q8_0', 'Q4_0'])
+    expect(order).toEqual(['disposed', 'fallback'])
+    expect(loadModel).toHaveBeenCalledTimes(3)
+    expect(loadModel.mock.calls[2]![0].gpuLayers).toEqual({ fitContext: { contextSize: 8192 } })
+    expect(result.plan.kvCacheType).toBe('f16')
+    expect(result.model.gpuLayers).toBe(10)
+    expect(cache.get(opts.layerPlanReuse!.key)).toBe(10)
+  })
+
+  it('falls back once to automatic fit when fresh native memory checks reject a hint', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    const loadModel = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Not enough VRAM to fit the model'))
+      .mockResolvedValueOnce(model(10))
+    const result = await allocateChat({ ...opts, loadModel })
+    expect(result.model.gpuLayers).toBe(10)
+    expect(loadModel.mock.calls[1]![0].gpuLayers).toEqual({ fitContext: { contextSize: 8192 } })
+    expect(cache.get(opts.layerPlanReuse!.key)).toBe(10)
+    expect(opts.log).toHaveBeenCalledWith(expect.stringContaining('cache fallback'))
+  })
+
+  it('awaits rejected context weights disposal before any fallback allocation', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    let finishDisposal!: () => void
+    const disposal = new Promise<void>((resolve) => {
+      finishDisposal = resolve
+    })
+    const old = model()
+    old.createContext = vi.fn().mockRejectedValue(new Error('Insufficient VRAM'))
+    old.dispose = vi.fn(() => disposal)
+    const loadModel = vi.fn().mockResolvedValueOnce(old).mockResolvedValueOnce(model(10))
+    const allocation = allocateChat({ ...opts, loadModel })
+    await vi.waitFor(() => expect(old.dispose).toHaveBeenCalledOnce())
+    expect(loadModel).toHaveBeenCalledOnce()
+    expect(cache.get(opts.layerPlanReuse!.key)).toBeUndefined()
+    finishDisposal()
+    await allocation
+    expect(loadModel).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not allocate again when cleanup fails', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    const old = model()
+    old.createContext = vi.fn().mockRejectedValue(new Error('Insufficient VRAM'))
+    old.dispose = vi.fn().mockRejectedValue(new Error('disposal failed'))
+    const loadModel = vi.fn().mockResolvedValue(old)
+    await expect(allocateChat({ ...opts, loadModel })).rejects.toThrow('disposal failed')
+    expect(loadModel).toHaveBeenCalledOnce()
+    expect(cache.get(opts.layerPlanReuse!.key)).toBeUndefined()
+  })
+
+  it.each([false, true])(
+    'stops an ordinary retry after failed disposal (cached preflight rejection: %s)',
+    async (rejectCachedFirst) => {
+      const cache = new GpuLayerPlanCache()
+      const opts = options(rejectCachedFirst ? cache : undefined)
+      if (opts.layerPlanReuse) cache.remember(opts.layerPlanReuse.key, 14)
+      const old = model(20)
+      old.createContext = vi.fn().mockRejectedValue(new Error('Insufficient VRAM'))
+      old.dispose = vi.fn().mockRejectedValue(new Error('native weights disposal failed'))
+      const loadModel = vi.fn().mockResolvedValue(old)
+      if (rejectCachedFirst)
+        loadModel.mockRejectedValueOnce(new Error('Not enough VRAM to fit the cached model'))
+      await expect(allocateChat({ ...opts, loadModel })).rejects.toThrow(
+        'native weights disposal failed',
+      )
+      expect(loadModel).toHaveBeenCalledTimes(rejectCachedFirst ? 2 : 1)
+      expect(old.dispose).toHaveBeenCalledOnce()
+      if (opts.layerPlanReuse) expect(cache.get(opts.layerPlanReuse.key)).toBeUndefined()
+    },
+  )
+
+  it('invalidates a failed hint without retrying corrupted models or unrelated driver failures', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    const loadModel = vi.fn().mockRejectedValue(new Error('Invalid GGUF magic'))
+    await expect(allocateChat({ ...opts, loadModel })).rejects.toThrow('Invalid GGUF magic')
+    expect(loadModel).toHaveBeenCalledOnce()
+    expect(cache.get(opts.layerPlanReuse!.key)).toBeUndefined()
+  })
+
+  it('rejects a mismatched or CPU-only hint result before making a context', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    const wrong = model(0)
+    const loadModel = vi.fn().mockResolvedValueOnce(wrong).mockResolvedValueOnce(model(10))
+    await allocateChat({ ...opts, loadModel })
+    expect(wrong.createContext).not.toHaveBeenCalled()
+    expect(wrong.dispose).toHaveBeenCalledOnce()
+    expect(loadModel.mock.calls[1]![0].gpuLayers).toEqual({ fitContext: { contextSize: 8192 } })
+  })
+
+  it('keeps the fallback bounded and never stores a failed context allocation', async () => {
+    const cache = new GpuLayerPlanCache()
+    const opts = options(cache)
+    cache.remember(opts.layerPlanReuse!.key, 14)
+    const disposals = vi.fn(async () => {})
+    const loadModel = vi.fn(async (call: ChatModelOptions) => {
+      const layers =
+        typeof call.gpuLayers === 'number' ? call.gpuLayers : (call.gpuLayers.min ?? 20)
+      return {
+        ...model(layers),
+        dispose: disposals,
+        createContext: vi.fn().mockRejectedValue(new Error('Insufficient VRAM')),
+      }
+    })
+    await expect(allocateChat({ ...opts, loadModel })).rejects.toThrow('Insufficient VRAM')
+    expect(loadModel).toHaveBeenCalledTimes(5)
+    expect(disposals).toHaveBeenCalledTimes(5)
+    expect(loadModel.mock.calls.map(([call]) => call.gpuLayers)).toEqual([
+      { min: 14, max: 14, fitContext: { contextSize: 8192 } },
+      { fitContext: { contextSize: 8192 } },
+      10,
+      5,
+      2,
+    ])
+    expect(cache.get(opts.layerPlanReuse!.key)).toBeUndefined()
+  })
+})
+
+describe('GPU layer-plan identity and bounds', () => {
+  it('enables guarded reuse by default with an explicit diagnostic opt-out', () => {
+    expect(gpuLayerPlanReuseEnabled()).toBe(true)
+    expect(gpuLayerPlanReuseEnabled('')).toBe(true)
+    expect(gpuLayerPlanReuseEnabled('1')).toBe(true)
+    expect(gpuLayerPlanReuseEnabled('0')).toBe(false)
+  })
+
+  it('isolates model revision, backend/device, context, batch, and resolved padding', () => {
+    const original = gpuLayerPlanKey(identity)
+    for (const change of [
+      { modelRevision: 'model.gguf:revision2' },
+      { backendIdentity: 'vulkan:device1' },
+      { contextSize: 4096 },
+      { batchSize: 128 },
+      { paddingBytes: 768 * 1024 ** 2 },
+    ])
+      expect(gpuLayerPlanKey({ ...identity, ...change })).not.toBe(original)
+    expect(gpuLayerPlanKey({ ...identity, paddingBytes: NaN })).toBeNull()
+    expect(gpuLayerPlanKey({ ...identity, modelRevision: '' })).toBeNull()
+  })
+
+  it('keeps at most four recent scalar hints and ignores invalid layer counts', () => {
+    const cache = new GpuLayerPlanCache()
+    for (let index = 0; index < 4; index++) cache.remember(String(index), index + 1)
+    expect(cache.get('0')).toBe(1)
+    cache.remember('4', 5)
+    expect(cache.get('1')).toBeUndefined()
+    expect(cache.get('0')).toBe(1)
+    for (const layers of [0, -1, 1.5, NaN, Infinity]) cache.remember('bad', layers)
+    expect(cache.get('bad')).toBeUndefined()
+    cache.forget('0')
+    expect(cache.get('0')).toBeUndefined()
+  })
+})

@@ -1,25 +1,52 @@
-import { useEffect, useState } from 'react'
+import { SectionHeader } from './SectionHeader'
+import { useCallback, useEffect, useId, useState } from 'react'
 import type { UserSettings } from '@shared/settings'
 import type { SystemInfo, LlmPlacementChoice } from '@shared/documents'
 import { Segmented } from '../Segmented'
 import { useT } from '../../i18n'
+import { usePreferenceSave } from '../usePreferenceSave'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 
 export function LlmSection({ settings, update }: Props): JSX.Element {
   const t = useT()
+  const sectionId = useId()
   const [open, setOpen] = useState(true)
   const [info, setInfo] = useState<SystemInfo | null>(null)
+  const [infoFailed, setInfoFailed] = useState(false)
+  const [reloadFailed, setReloadFailed] = useState(false)
+  const [reloading, setReloading] = useState(false)
+  const { save, busy, failed } = usePreferenceSave(update)
+  const disabled = busy || reloading
   const a = settings.advanced.llm
   const hasOllama = Boolean(settings.advanced.ollama.baseUrl && settings.advanced.ollama.llmModel)
 
   // System info gives the install-time GPU inventory (which picker options to
   // offer) + the resolved device of the last load. Refreshed on a placement
   // change via the same reload that re-resolves the device.
-  const refreshInfo = (): void => {
-    void window.api.llm.info().then(setInfo)
+  const refreshInfo = useCallback(async (): Promise<void> => {
+    try {
+      setInfo(await window.api.llm.info())
+      setInfoFailed(false)
+    } catch {
+      setInfoFailed(true)
+    }
+  }, [])
+  useEffect(() => {
+    void refreshInfo()
+  }, [refreshInfo])
+  const reload = async (): Promise<void> => {
+    setReloading(true)
+    setReloadFailed(false)
+    try {
+      await window.api.llm.reload()
+      await refreshInfo()
+    } catch {
+      setReloadFailed(true)
+    } finally {
+      setReloading(false)
+    }
   }
-  useEffect(refreshInfo, [])
 
   const gpus = info?.availableGpus ?? []
   const hasDedicated = gpus.some((g) => g.kind === 'dedicated')
@@ -44,14 +71,19 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
   ]
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.llm.title')}</div>
-          <div className="settings-group__sub">{t('settings.llm.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.llm.title')}
+        subtitle={t('settings.llm.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
           <div className="settings-row">
             <div className="settings-row__label">
@@ -62,15 +94,15 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
               ariaLabel={t('settings.llm.sourceAria')}
               value={a.source}
               options={[
-                { value: 'bundled', label: t('settings.llm.bundled') },
+                { value: 'bundled', label: t('settings.llm.bundled'), disabled },
                 {
                   value: 'ollama',
                   label: t('settings.llm.externalOllama'),
-                  disabled: !hasOllama,
+                  disabled: disabled || !hasOllama,
                   hint: hasOllama ? undefined : t('settings.llm.configureOllamaFirst'),
                 },
               ]}
-              onChange={(v) => void update({ advanced: { llm: { source: v } } })}
+              onChange={(v) => void save({ advanced: { llm: { source: v } } })}
             />
           </div>
           <div className="settings-row">
@@ -86,17 +118,17 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
               // class in the install-time inventory.
               value={placementValue}
               options={[
-                { value: 'auto', label: t('settings.llm.placementAuto') },
+                { value: 'auto', label: t('settings.llm.placementAuto'), disabled },
                 {
                   value: 'dedicated',
                   label: t('settings.llm.placementDedicated'),
-                  disabled: !hasDedicated,
+                  disabled: disabled || !hasDedicated,
                   hint: hasDedicated ? undefined : t('settings.llm.noDedicated'),
                 },
                 {
                   value: 'integrated',
                   label: t('settings.llm.placementIntegrated'),
-                  disabled: !hasIntegrated,
+                  disabled: disabled || !hasIntegrated,
                   hint: hasIntegrated ? undefined : t('settings.llm.noIntegrated'),
                 },
               ]}
@@ -104,9 +136,9 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
               // (the worker restarts when the physical device changes), then
               // refresh the resolved-device label.
               onChange={(v) =>
-                void update({ advanced: { llm: { placement: v } } })
-                  .then(() => window.api.llm.reload())
-                  .then(refreshInfo)
+                void save({ advanced: { llm: { placement: v } } }).then(async (saved) => {
+                  if (saved) await reload()
+                })
               }
             />
             {info?.gpuName && (
@@ -133,15 +165,36 @@ export function LlmSection({ settings, update }: Props): JSX.Element {
             <Segmented
               ariaLabel={t('settings.llm.contextSize')}
               value={a.contextChoice === 'auto' ? 'auto' : String(a.contextChoice)}
-              options={ctxOptions}
+              options={ctxOptions.map((option) => ({ ...option, disabled }))}
               onChange={(v) => {
                 const next = v === 'auto' ? 'auto' : Number(v)
-                void update({ advanced: { llm: { contextChoice: next } } })
+                void save({ advanced: { llm: { contextChoice: next } } })
               }}
             />
           </div>
+          {failed && (
+            <p role="alert" className="preferences-error">
+              {t('prefs.saveFailed')}
+            </p>
+          )}
+          {infoFailed && (
+            <p role="alert" className="preferences-error">
+              {t('prefs.loadFailed')}{' '}
+              <button type="button" onClick={() => void refreshInfo()}>
+                {t('prefs.retry')}
+              </button>
+            </p>
+          )}
+          {reloadFailed && (
+            <p role="alert" className="preferences-error">
+              {t('settings.llm.reloadFailed')}{' '}
+              <button type="button" disabled={disabled} onClick={() => void reload()}>
+                {t('prefs.retry')}
+              </button>
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

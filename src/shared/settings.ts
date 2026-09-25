@@ -2,6 +2,33 @@ import type { LlmProfileChoice, LlmContextChoice, LlmPlacementChoice } from './d
 
 export type ProviderSource = 'bundled' | 'ollama'
 
+export const OPTIONAL_MODULES = [
+  'calendar',
+  'notes',
+  'todos',
+  'quiz',
+  'transcription',
+  'translation',
+  'writing',
+] as const
+export type OptionalModule = (typeof OPTIONAL_MODULES)[number]
+export type AppView = 'library' | 'chat' | OptionalModule
+export const DEFAULT_MODULES: Record<OptionalModule, boolean> = {
+  calendar: true,
+  notes: true,
+  todos: true,
+  quiz: true,
+  transcription: true,
+  translation: true,
+  writing: true,
+}
+export function isModuleVisible(
+  modules: Partial<Record<OptionalModule, boolean>> | undefined,
+  view: AppView,
+): boolean {
+  return view === 'library' || view === 'chat' || modules?.[view] !== false
+}
+
 export interface UserSettings {
   schemaVersion: 1
   basic: {
@@ -24,6 +51,10 @@ export interface UserSettings {
      *  force it. Applied instantly in the renderer via
      *  document.documentElement.dataset.theme (see theme/useTheme.ts). */
     theme: 'system' | 'light' | 'dark'
+    /** Controls navigation visibility only; hiding a tool does not delete its data. */
+    modules: Record<OptionalModule, boolean>
+    startView: AppView
+    weekStartsOn: 0 | 1
   }
   advanced: {
     llm: {
@@ -44,9 +75,10 @@ export interface UserSettings {
       /** Master switch for the rerank stage. When false the cross-encoder is
        *  never warmed/loaded and retrieval falls back to the fused (RRF +
        *  heuristic) ordering , and the TitleBar hides the Reranker status dot.
-       *  Defaults true here ; the 'lite' install tier overrides it to false in
-       *  SettingsService (see getSettingsService in main/index.ts). */
+       *  Auto policy skips it on constrained local GPUs; an explicit off is preserved. */
       enabled: boolean
+      /** Auto skips the optional reranking model on constrained GPUs. */
+      policy: 'auto' | 'always'
       source: ProviderSource
       placement: 'auto' | 'cpu' | 'gpu'
     }
@@ -94,11 +126,14 @@ export const DEFAULT_SETTINGS: UserSettings = {
     llmProfile: 'auto',
     showPipelineSteps: false,
     theme: 'system',
+    modules: DEFAULT_MODULES,
+    startView: 'library',
+    weekStartsOn: 1,
   },
   advanced: {
     llm: { source: 'bundled', contextChoice: 'auto', placement: 'auto' },
     embedder: { source: 'bundled', placement: 'auto' },
-    reranker: { enabled: true, source: 'bundled', placement: 'auto' },
+    reranker: { enabled: true, policy: 'auto', source: 'bundled', placement: 'auto' },
     ollama: {
       baseUrl: 'http://localhost:11434',
       bearerToken: null,

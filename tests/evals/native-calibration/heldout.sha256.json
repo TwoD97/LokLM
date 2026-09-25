@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "files": {
+    "heldout.json": "3e6ed6bfa07894504f41b5c4dea15bb07223658c27e01b1e61a6d395c533bbb1",
+    "fixtures/heldout/veldrin-yard-2024.md": "7fcf5c7a29a7e228657c882c11f9f3e9604d97e6cb67ed76a3aa87f8f9b3fd61",
+    "fixtures/heldout/veldrin-yard-2025.md": "e39cf82409e8301feb1d4c459a6736e60eed63ee9e30a2435a437e6ff172f3a4",
+    "fixtures/heldout/orvo-draft-a.txt": "65ac52f328dd7d2b7a13385fa1e608f9c9ffdc66a1c48c956cce19c619e45eaa",
+    "fixtures/heldout/orvo-draft-b.md": "1c5795dc3b1ebc6e89dc0b05772b1e2c6644c9c4f64893a87db635c9da1c99a3",
+    "fixtures/heldout/retry-delay.md": "4685d5ad41def3e8ede5179b25d5d4ced534ca1fc53a4a9c8f668cdc7fda91c0",
+    "fixtures/heldout/veldrin-field-survey.pdf": "8ab7b7c290b681cc031328709bf1b7d4a76d4856eb09f817fe63c2061befb659"
+  }
+}

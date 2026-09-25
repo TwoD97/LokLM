@@ -1,0 +1,1057 @@
+{
+  "kind": "offline-native-rank-replay",
+  "generatedAt": "2026-09-24T15:53:58.085Z",
+  "rawSha256": "e1deeeac339343bc49fa8f62829cb48ebc4fedb8b6bbcebddb4bd53e26955a5c",
+  "traceSha256": "6daca9552943e33ba2034eaae8868139261b51a9eaa615879435d9c45cbe0f46",
+  "originalParityCases": 12,
+  "limitations": [
+    "Frozen baseline native lexical/dense rankings; no new queries, vectors, models, or GPU calls.",
+    "Only the clean first retrieval arm is replayed; this does not measure rewritten-query model quality.",
+    "Exact decisive fact passages are manually mapped from this small DEV corpus; no heldout data opened.",
+    "Rank movements do not establish answer quality, refusal reliability, or citation correctness.",
+    "The nine-chunk corpus fits topK10; ranking changes do not prove recall improvements on a larger corpus."
+  ],
+  "sourceHashes": {
+    "src/main/services/retrieval/rrf.ts": "def37a8d68f3d142de909f3fd90374c937b52c4f69227befd6e581a2c28b4099",
+    "src/main/services/retrieval/heuristics.ts": "5f1fac3bc5af542c52bedf830c0f96f4ebc567c4a724c547db9effbb899aaf08",
+    "src/main/services/retrieval/RetrievalService.ts": "20178fa3c1a364d4de30c2c1f60d2c9533f07ef1b1ea6b7a4fbff2a14354ce4c"
+  },
+  "rows": [
+    {
+      "caseId": "dev-01",
+      "question": "What service-credit revenue did Mica Harbor record in 2025?",
+      "kind": "exact-amount",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "3:6", "1:2", "4:7", "1:1", "2:4", "2:5", "5:8", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 recorded revenue",
+              "rank": 3,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.4934474229812622
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["1:2", "6:9", "3:6", "1:1", "4:7", "2:4", "2:5", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 recorded revenue",
+              "rank": 1,
+              "fusedRank": 2,
+              "chars": 351,
+              "cosine": 0.4934474229812622
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["1:1", "1:2", "6:9", "2:4", "3:6", "4:7", "1:3", "2:5"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 recorded revenue",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 351,
+              "cosine": 0.4934474229812622
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["1:2", "6:9", "4:7", "3:6", "1:1", "2:4", "2:5", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 recorded revenue",
+              "rank": 1,
+              "fusedRank": 2,
+              "chars": 351,
+              "cosine": 0.4934474229812622
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["1:1", "1:2", "2:4", "6:9", "4:7", "3:6", "2:5", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 recorded revenue",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 351,
+              "cosine": 0.4934474229812622
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-02",
+      "question": "Wie viele Inspektionen schloss Mica Harbor im Jahr 2025 ab?",
+      "kind": "cross-language",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "2:5", "4:7", "3:6", "2:4", "1:1", "1:2", "5:8", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "184",
+              "label": "2025 completed inspections",
+              "rank": 7,
+              "fusedRank": 9,
+              "chars": 351,
+              "cosine": 0.44819676876068115
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["2:5", "6:9", "2:4", "1:1", "1:2", "4:7", "3:6", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "184",
+              "label": "2025 completed inspections",
+              "rank": 5,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.44819676876068115
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["2:4", "2:5", "1:1", "6:9", "1:2", "1:3", "4:7", "3:6"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "184",
+              "label": "2025 completed inspections",
+              "rank": 5,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.44819676876068115
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["2:5", "6:9", "1:1", "2:4", "1:2", "3:6", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "184",
+              "label": "2025 completed inspections",
+              "rank": 5,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.44819676876068115
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["1:1", "2:4", "2:5", "6:9", "1:2", "1:3", "3:6", "4:7"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "184",
+              "label": "2025 completed inspections",
+              "rank": 5,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.44819676876068115
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-03",
+      "question": "On which ISO date was Mica Harbor's 2026 operating plan approved?",
+      "kind": "exact-date",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "3:6", "1:2", "4:7", "2:5", "1:1", "2:4", "5:8", "1:3"],
+          "facts": [
+            {
+              "key": "2:4",
+              "proof": "2026-03-09",
+              "label": "2026 plan approval date",
+              "rank": 7,
+              "fusedRank": 5,
+              "chars": 153,
+              "cosine": 0.8771510124206543
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["6:9", "1:2", "2:5", "3:6", "1:1", "4:7", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "2:4",
+              "proof": "2026-03-09",
+              "label": "2026 plan approval date",
+              "rank": 7,
+              "fusedRank": 2,
+              "chars": 153,
+              "cosine": 0.8771510124206543
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["1:1", "6:9", "1:2", "2:4", "2:5", "3:6", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "2:4",
+              "proof": "2026-03-09",
+              "label": "2026 plan approval date",
+              "rank": 4,
+              "fusedRank": 2,
+              "chars": 153,
+              "cosine": 0.8771510124206543
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["6:9", "1:2", "2:5", "3:6", "4:7", "1:1", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "2:4",
+              "proof": "2026-03-09",
+              "label": "2026 plan approval date",
+              "rank": 7,
+              "fusedRank": 2,
+              "chars": 153,
+              "cosine": 0.8771510124206543
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["1:1", "2:4", "6:9", "1:2", "2:5", "3:6", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "2:4",
+              "proof": "2026-03-09",
+              "label": "2026 plan approval date",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 153,
+              "cosine": 0.8771510124206543
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-04",
+      "question": "Welche Probenmasse in kg nennt der Mica-Harbor-Feldbericht vom 2026-04-12 für Neral?",
+      "kind": "table-unit",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "4:7", "2:5", "3:6", "2:4", "1:1", "1:2", "5:8", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "18.4",
+              "label": "Neral sample mass and kg unit",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.7167636752128601
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["2:5", "6:9", "4:7", "2:4", "3:6", "1:1", "1:2", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "18.4",
+              "label": "Neral sample mass and kg unit",
+              "rank": 2,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.7167636752128601
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["2:4", "2:5", "6:9", "1:1", "4:7", "3:6", "1:3", "1:2"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "18.4",
+              "label": "Neral sample mass and kg unit",
+              "rank": 3,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.7167636752128601
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["6:9", "2:5", "3:6", "4:7", "2:4", "1:1", "1:2", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "18.4",
+              "label": "Neral sample mass and kg unit",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.7167636752128601
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["6:9", "2:4", "1:1", "2:5", "3:6", "4:7", "1:3", "1:2"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "18.4",
+              "label": "Neral sample mass and kg unit",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.7167636752128601
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-05",
+      "question": "How many accepted trays did Neral and Bexin have together in the Mica Harbor field survey of 2026-04-12?",
+      "kind": "table-arithmetic",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "3:6", "1:2", "4:7", "2:5", "5:8", "1:1", "1:3", "2:4"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "Neral | 27 | 2 | 18.4\nBexin | 35 | 3 | 22.7",
+              "label": "accepted trays, excluding rejected",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.874372124671936
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["6:9", "1:2", "2:5", "3:6", "5:8", "1:1", "4:7", "1:3", "2:4"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "Neral | 27 | 2 | 18.4\nBexin | 35 | 3 | 22.7",
+              "label": "accepted trays, excluding rejected",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.874372124671936
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["6:9", "1:1", "1:2", "1:3", "2:4", "2:5", "3:6", "5:8", "4:7"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "Neral | 27 | 2 | 18.4\nBexin | 35 | 3 | 22.7",
+              "label": "accepted trays, excluding rejected",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.874372124671936
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["6:9", "1:2", "2:5", "4:7", "3:6", "5:8", "1:1", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "Neral | 27 | 2 | 18.4\nBexin | 35 | 3 | 22.7",
+              "label": "accepted trays, excluding rejected",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.874372124671936
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["6:9", "1:1", "2:4", "1:2", "1:3", "2:5", "4:7", "3:6", "5:8"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "Neral | 27 | 2 | 18.4\nBexin | 35 | 3 | 22.7",
+              "label": "accepted trays, excluding rejected",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.874372124671936
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-06",
+      "question": "By how much does Mica Harbor's planned 2026 service-credit revenue exceed its recorded 2025 service-credit revenue?",
+      "kind": "multi-document-comparison",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "3:6", "1:2", "4:7", "2:5", "5:8", "1:1", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 actual revenue",
+              "rank": 3,
+              "fusedRank": 5,
+              "chars": 351,
+              "cosine": 0.49869298934936523
+            },
+            {
+              "key": "2:5",
+              "proof": "53780",
+              "label": "2026 target revenue",
+              "rank": 5,
+              "fusedRank": 8,
+              "chars": 381,
+              "cosine": 0.45007526874542236
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["1:2", "6:9", "2:5", "5:8", "3:6", "1:1", "4:7", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 actual revenue",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 351,
+              "cosine": 0.49869298934936523
+            },
+            {
+              "key": "2:5",
+              "proof": "53780",
+              "label": "2026 target revenue",
+              "rank": 3,
+              "fusedRank": 6,
+              "chars": 381,
+              "cosine": 0.45007526874542236
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["1:2", "1:1", "6:9", "2:4", "2:5", "5:8", "3:6", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 actual revenue",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 351,
+              "cosine": 0.49869298934936523
+            },
+            {
+              "key": "2:5",
+              "proof": "53780",
+              "label": "2026 target revenue",
+              "rank": 5,
+              "fusedRank": 6,
+              "chars": 381,
+              "cosine": 0.45007526874542236
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["1:2", "6:9", "2:5", "5:8", "4:7", "3:6", "1:1", "2:4", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 actual revenue",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 351,
+              "cosine": 0.49869298934936523
+            },
+            {
+              "key": "2:5",
+              "proof": "53780",
+              "label": "2026 target revenue",
+              "rank": 3,
+              "fusedRank": 6,
+              "chars": 381,
+              "cosine": 0.45007526874542236
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["1:2", "1:1", "2:4", "6:9", "2:5", "5:8", "4:7", "3:6", "1:3"],
+          "facts": [
+            {
+              "key": "1:2",
+              "proof": "48260",
+              "label": "2025 actual revenue",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 351,
+              "cosine": 0.49869298934936523
+            },
+            {
+              "key": "2:5",
+              "proof": "53780",
+              "label": "2026 target revenue",
+              "rank": 5,
+              "fusedRank": 6,
+              "chars": 381,
+              "cosine": 0.45007526874542236
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-07",
+      "question": "Welche Chargenkennung nennt Selkas Versandvermerk A?",
+      "kind": "exact-identifier",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["4:7", "3:6", "6:9", "2:5", "5:8", "1:2", "1:3", "1:1"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "MSX-417",
+              "label": "draft A batch identifier",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 337,
+              "cosine": 0.6422823667526245
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["4:7", "2:5", "3:6", "1:2", "6:9", "5:8", "1:3", "1:1"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "MSX-417",
+              "label": "draft A batch identifier",
+              "rank": 3,
+              "fusedRank": 2,
+              "chars": 337,
+              "cosine": 0.6422823667526245
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["4:7", "2:5", "3:6", "1:3", "1:2", "6:9", "5:8", "1:1"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "MSX-417",
+              "label": "draft A batch identifier",
+              "rank": 3,
+              "fusedRank": 2,
+              "chars": 337,
+              "cosine": 0.6422823667526245
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["4:7", "3:6", "1:2", "2:5", "6:9", "5:8", "1:3", "1:1"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "MSX-417",
+              "label": "draft A batch identifier",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 337,
+              "cosine": 0.6422823667526245
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["4:7", "3:6", "1:3", "1:2", "2:5", "6:9", "5:8", "1:1"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "MSX-417",
+              "label": "draft A batch identifier",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 337,
+              "cosine": 0.6422823667526245
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-08",
+      "question": "What does Qerlan's reserveSlots(13, 5) return?",
+      "kind": "code-semantics",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["5:8", "3:6", "6:9", "4:7", "1:2", "2:5", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7192171216011047
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["5:8", "1:2", "3:6", "6:9", "2:5", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7192171216011047
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["5:8", "1:3", "1:2", "3:6", "6:9", "2:5", "4:7"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7192171216011047
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["5:8", "1:2", "2:5", "3:6", "6:9", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7192171216011047
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["5:8", "1:3", "1:2", "2:5", "3:6", "6:9", "4:7"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7192171216011047
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-09",
+      "question": "Who is Mica Harbor's chief financial officer?",
+      "kind": "missing-fact",
+      "expectedAbstention": true,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "3:6", "1:2", "5:8", "4:7", "1:1", "1:3", "2:4", "2:5"],
+          "facts": []
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["6:9", "1:2", "3:6", "5:8", "1:1", "1:3", "2:4", "2:5", "4:7"],
+          "facts": []
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["1:1", "6:9", "1:2", "1:3", "2:4", "3:6", "5:8", "2:5", "4:7"],
+          "facts": []
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["6:9", "1:2", "3:6", "5:8", "1:1", "2:4", "1:3", "2:5", "4:7"],
+          "facts": []
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["1:1", "2:4", "6:9", "1:2", "1:3", "3:6", "5:8", "2:5", "4:7"],
+          "facts": []
+        }
+      ]
+    },
+    {
+      "caseId": "dev-10",
+      "question": "What is the definitive Selka dispatch deadline according to drafts A and B?",
+      "kind": "conflicting-sources",
+      "expectedAbstention": true,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["3:6", "4:7", "6:9", "1:2", "5:8", "1:3", "1:1", "2:5", "2:4"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "2026-10-14",
+              "label": "draft A conflicting deadline",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 337,
+              "cosine": 0.7620114684104919
+            },
+            {
+              "key": "4:7",
+              "proof": "2026-10-21",
+              "label": "draft B conflicting deadline",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 355,
+              "cosine": 0.7664300203323364
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["3:6", "4:7", "1:2", "5:8", "6:9", "1:1", "1:3", "2:5", "2:4"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "2026-10-14",
+              "label": "draft A conflicting deadline",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 337,
+              "cosine": 0.7620114684104919
+            },
+            {
+              "key": "4:7",
+              "proof": "2026-10-21",
+              "label": "draft B conflicting deadline",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 355,
+              "cosine": 0.7664300203323364
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["3:6", "4:7", "1:1", "1:3", "1:2", "5:8", "6:9", "2:5", "2:4"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "2026-10-14",
+              "label": "draft A conflicting deadline",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 337,
+              "cosine": 0.7620114684104919
+            },
+            {
+              "key": "4:7",
+              "proof": "2026-10-21",
+              "label": "draft B conflicting deadline",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 355,
+              "cosine": 0.7664300203323364
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["3:6", "4:7", "1:2", "5:8", "6:9", "1:1", "1:3", "2:5", "2:4"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "2026-10-14",
+              "label": "draft A conflicting deadline",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 337,
+              "cosine": 0.7620114684104919
+            },
+            {
+              "key": "4:7",
+              "proof": "2026-10-21",
+              "label": "draft B conflicting deadline",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 355,
+              "cosine": 0.7664300203323364
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["3:6", "4:7", "1:1", "1:3", "1:2", "5:8", "6:9", "2:5", "2:4"],
+          "facts": [
+            {
+              "key": "3:6",
+              "proof": "2026-10-14",
+              "label": "draft A conflicting deadline",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 337,
+              "cosine": 0.7620114684104919
+            },
+            {
+              "key": "4:7",
+              "proof": "2026-10-21",
+              "label": "draft B conflicting deadline",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 355,
+              "cosine": 0.7664300203323364
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-11",
+      "question": "Was gibt Qerlans reserveSlots(3, 9) zurück?",
+      "kind": "code-semantics",
+      "expectedAbstention": false,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["4:7", "5:8", "3:6", "6:9", "2:5", "1:1", "1:2", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 2,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7095158696174622
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["5:8", "1:1", "2:5", "4:7", "1:2", "3:6", "6:9", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7095158696174622
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["5:8", "1:1", "2:5", "4:7", "1:3", "1:2", "3:6", "6:9"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7095158696174622
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["5:8", "1:1", "2:5", "1:2", "3:6", "6:9", "4:7", "1:3"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7095158696174622
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["5:8", "1:1", "1:3", "2:5", "1:2", "3:6", "6:9", "4:7"],
+          "facts": [
+            {
+              "key": "5:8",
+              "proof": "Math.min(4, remaining)",
+              "label": "reservation function",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 491,
+              "cosine": 0.7095158696174622
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "caseId": "dev-12",
+      "question": "Welche durchschnittliche Außentemperatur wurde für Bexin im Mica-Harbor-Feldbericht vom 2026-04-12 gemessen?",
+      "kind": "missing-fact",
+      "expectedAbstention": true,
+      "runs": [
+        {
+          "config": "original-all-arms",
+          "order": ["6:9", "4:7", "2:5", "3:6", "2:4", "1:1", "1:2", "5:8", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "temperature",
+              "label": "explicit absence of temperature measurements",
+              "rank": 1,
+              "fusedRank": 1,
+              "chars": 474,
+              "cosine": 0.6406077146530151
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1.1",
+          "order": ["2:5", "6:9", "4:7", "2:4", "3:6", "1:1", "1:2", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "temperature",
+              "label": "explicit absence of temperature measurements",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 474,
+              "cosine": 0.6406077146530151
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1.1",
+          "order": ["2:4", "2:5", "6:9", "1:1", "4:7", "3:6", "1:3", "1:2"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "temperature",
+              "label": "explicit absence of temperature measurements",
+              "rank": 3,
+              "fusedRank": 2,
+              "chars": 474,
+              "cosine": 0.6406077146530151
+            }
+          ]
+        },
+        {
+          "config": "clean-short0.7-lang1",
+          "order": ["6:9", "2:5", "4:7", "3:6", "2:4", "1:1", "1:2", "1:3"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "temperature",
+              "label": "explicit absence of temperature measurements",
+              "rank": 1,
+              "fusedRank": 2,
+              "chars": 474,
+              "cosine": 0.6406077146530151
+            }
+          ]
+        },
+        {
+          "config": "clean-short1-lang1",
+          "order": ["2:4", "6:9", "1:1", "2:5", "4:7", "3:6", "1:3", "1:2"],
+          "facts": [
+            {
+              "key": "6:9",
+              "proof": "temperature",
+              "label": "explicit absence of temperature measurements",
+              "rank": 2,
+              "fusedRank": 2,
+              "chars": 474,
+              "cosine": 0.6406077146530151
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

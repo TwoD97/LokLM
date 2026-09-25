@@ -42,6 +42,7 @@ export const settingsDict: DomainDict = {
     'settings.basic.reloadConfirmBody':
       'Switching to the {profile} profile reloads the local model (unload + load). This can take a few seconds to a couple of minutes depending on size.',
     'settings.basic.reloadConfirmAction': 'Switch & reload',
+    'settings.llm.reloadFailed': 'Your preference was saved, but the model could not be reloaded.',
     'settings.basic.systemInfo': 'System info',
     'settings.basic.idleTag': 'idle',
     'settings.basic.systemInfoSubIdle':
@@ -69,17 +70,16 @@ export const settingsDict: DomainDict = {
     // TranslationSection
     'settings.translation.title': 'Translation',
     'settings.translation.sub':
-      'Offline machine translation (MADLAD-400 , 400+ languages). Installed by the LokLM installer.',
+      'Translation with your selected language model. Quality varies by language.',
     'settings.translation.status': 'Status',
+    'settings.translation.loadError': 'Translation status could not be loaded.',
     'settings.translation.stateNotInstalled': 'Not installed',
     'settings.translation.stateInstalled': 'Installed — starts on first use',
     'settings.translation.stateStarting': 'Starting (loading model)…',
     'settings.translation.stateReady': 'Ready',
     'settings.translation.stateError': 'Error',
     'settings.translation.notInstalledHint':
-      'The translation model isn’t installed. Re-run the LokLM installer to add offline translation (~2.8 GB).',
-    'settings.translation.sidecarMissing':
-      'The translator component is missing from this build — translation is unavailable.',
+      'No language model is available. Check Settings → Advanced → Language model.',
     'settings.translation.usageHint':
       'Use the translate button under an answer in the chat to translate it.',
 
@@ -112,6 +112,8 @@ export const settingsDict: DomainDict = {
     'settings.profile.displayNameSub': '1–40 characters.',
     'settings.profile.displayNameError': 'Display name must be 1–40 characters.',
     'settings.profile.avatarSizeError': 'Avatar must be ≤ 2 MB.',
+    'settings.profile.loadError': 'Your profile could not be loaded.',
+    'settings.ollama.probeError': 'The connection could not be checked. Try again.',
     'settings.profile.editSave': 'Save (Enter)',
     'settings.profile.editCancel': 'Cancel (Esc)',
     'settings.profile.edit': 'Edit',
@@ -236,7 +238,7 @@ export const settingsDict: DomainDict = {
     'settings.embedder.source': 'Source',
     'settings.embedder.sourceHint': 'Re-index modal will open when you change this.',
     'settings.embedder.sourceAria': 'Embedder source',
-    'settings.embedder.bundled': 'Bundled (BGE-M3)',
+    'settings.embedder.bundled': 'Bundled (local)',
     'settings.embedder.externalOllama': 'External Ollama',
     'settings.embedder.pickModelFirst': 'Pick an Ollama embedder model first',
     'settings.embedder.placement': 'Placement',
@@ -356,6 +358,8 @@ export const settingsDict: DomainDict = {
     'settings.basic.reloadConfirmBody':
       'Der Wechsel auf das Profil {profile} lädt das lokale Modell neu (entladen + laden). Das kann je nach Größe einige Sekunden bis ein paar Minuten dauern.',
     'settings.basic.reloadConfirmAction': 'Wechseln & neu laden',
+    'settings.llm.reloadFailed':
+      'Deine Einstellung wurde gespeichert, aber das Modell konnte nicht neu geladen werden.',
     'settings.basic.systemInfo': 'Systeminfo',
     'settings.basic.idleTag': 'inaktiv',
     'settings.basic.systemInfoSubIdle':
@@ -384,17 +388,16 @@ export const settingsDict: DomainDict = {
     // TranslationSection
     'settings.translation.title': 'Übersetzung',
     'settings.translation.sub':
-      'Offline-Maschinenübersetzung (MADLAD-400 , 400+ Sprachen). Wird vom LokLM-Installationsprogramm installiert.',
+      'Übersetzung mit deinem ausgewählten Sprachmodell. Die Qualität variiert je nach Sprache.',
     'settings.translation.status': 'Status',
+    'settings.translation.loadError': 'Der Übersetzungsstatus konnte nicht geladen werden.',
     'settings.translation.stateNotInstalled': 'Nicht installiert',
     'settings.translation.stateInstalled': 'Installiert — startet bei erster Nutzung',
     'settings.translation.stateStarting': 'Startet (Modell wird geladen)…',
     'settings.translation.stateReady': 'Bereit',
     'settings.translation.stateError': 'Fehler',
     'settings.translation.notInstalledHint':
-      'Das Übersetzungsmodell ist nicht installiert. Führen Sie das LokLM-Installationsprogramm erneut aus, um die Offline-Übersetzung hinzuzufügen (~2,8 GB).',
-    'settings.translation.sidecarMissing':
-      'Die Übersetzungskomponente fehlt in diesem Build — Übersetzung ist nicht verfügbar.',
+      'Kein Sprachmodell verfügbar. Prüfe Einstellungen → Erweitert → Sprachmodell.',
     'settings.translation.usageHint':
       'Antworten lassen sich im Chat über den Übersetzen-Button unter der Antwort übersetzen.',
 
@@ -427,6 +430,8 @@ export const settingsDict: DomainDict = {
     'settings.profile.displayNameSub': '1–40 Zeichen.',
     'settings.profile.displayNameError': 'Anzeigename muss 1–40 Zeichen lang sein.',
     'settings.profile.avatarSizeError': 'Avatar darf höchstens 2 MB groß sein.',
+    'settings.profile.loadError': 'Dein Profil konnte nicht geladen werden.',
+    'settings.ollama.probeError': 'Die Verbindung konnte nicht geprüft werden. Versuche es erneut.',
     'settings.profile.editSave': 'Speichern (Enter)',
     'settings.profile.editCancel': 'Abbrechen (Esc)',
     'settings.profile.edit': 'Bearbeiten',
@@ -555,7 +560,7 @@ export const settingsDict: DomainDict = {
     'settings.embedder.source': 'Quelle',
     'settings.embedder.sourceHint': 'Beim Ändern öffnet sich der Neuindizierungs-Dialog.',
     'settings.embedder.sourceAria': 'Embedder-Quelle',
-    'settings.embedder.bundled': 'Gebündelt (BGE-M3)',
+    'settings.embedder.bundled': 'Gebündelt (lokal)',
     'settings.embedder.externalOllama': 'Externes Ollama',
     'settings.embedder.pickModelFirst': 'Wähle zuerst ein Ollama-Embedder-Modell',
     'settings.embedder.placement': 'Platzierung',

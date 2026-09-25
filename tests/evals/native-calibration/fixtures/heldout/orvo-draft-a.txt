@@ -1,0 +1,9 @@
+Orvo dispatch memo - draft A
+Facility: Orvo
+Issue date: 2027-04-01
+Status: draft
+
+Orvo has one shipment in this dispatch cycle, using batch identifier ORV-862.
+The dispatch deadline for that batch is 2027-05-08.
+The retention period for shipment records is 23 days.
+This draft contains no approval signature or supersession statement.

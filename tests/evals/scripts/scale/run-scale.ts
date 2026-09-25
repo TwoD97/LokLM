@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   }
 
   const wanted = args.libraries ?? [...ALL_LIBRARIES]
-  const libDir = join(__dirname, '..', 'data', 'libraries')
+  const libDir = join(__dirname, '..', '..', 'data', 'libraries')
 
   // baseline ohne library
   const stages: Array<{ name: string; library: Library | null }> = [
@@ -111,7 +111,7 @@ function formatRowConsole(libraryName: string, corpusChunks: number, r: FullRepo
 }
 
 async function writeReport(rows: ScaleRow[], dataset: Dataset): Promise<void> {
-  const outDir = join(__dirname, '..', 'report')
+  const outDir = join(__dirname, '..', '..', 'report')
   await mkdir(outDir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const json = {
@@ -161,7 +161,7 @@ function formatMarkdown(rows: ScaleRow[], dataset: Dataset): string {
 }
 
 async function latestDataset(): Promise<string> {
-  const dir = join(__dirname, '..', 'data', 'datasets')
+  const dir = join(__dirname, '..', '..', 'data', 'datasets')
   const files = (await readdir(dir)).filter((f) => f.endsWith('.json'))
   if (files.length === 0)
     throw new Error(`keine datasets unter ${dir} , erst pnpm evals:generate laufen lassen`)

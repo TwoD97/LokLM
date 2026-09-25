@@ -1,0 +1,101 @@
+[
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "The answer gives recorded 2025 service-credit revenue as 48,260 EUR. Actual supplied document 1/chunk 2 contains that exact row and currency; the inline marker points to that passage. No additional factual claims. All nine imported chunks were supplied, so this answer does not establish selective retrieval quality."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German response to the cross-language question: 184 completed inspections in 2025. Actual supplied document 1/chunk 2 provides the English table row and the marker cites it correctly. The 2026 planned inspections value was not substituted. No unsupported extra claims. The decisive chunk ranked seventh but all nine chunks were supplied."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct English response with the requested ISO approval date 2026-03-09. Actual supplied document 2/chunk 4 states this date in German and is cited correctly. The answer does not confuse the 2025 ledger review date with approval of the 2026 operating plan. No extra unsupported claims."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer: Neral sample mass is 18.4 kg in the survey dated 2026-04-12. The supplied PDF passage at document 6/chunk 9 contains the table header, Neral row, kg unit, and survey date; the inline citation supports the complete sentence. No confusion with Bexin's 22.7 kg or tray counts."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "The observed answer correctly combines 27 Neral accepted trays and 35 Bexin accepted trays into 62, excludes rejected trays, and cites supplied PDF document 6/chunk 9. No extra unsupported claims. Measurement caveat: this observation contains citation and token events but no terminal done/error event although the native worker logged completion; the harness may have unsubscribed before the final IPC event arrived. Raw citations is empty, but the actual citation events establish that chunk 9 was supplied. Treat totalMs as invoke-completion timing, not confirmed final-event latency, for this row."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "unsupportedExtraClaims": [],
+    "notes": "STRICT FAILURE: the arithmetic is correct (53,780 minus 48,260 equals 5,520 EUR) and the relevant actual supplied passages are document 2/chunk 5 and document 1/chunk 2. However, the answer's sole inline citation is document 4/chunk 7, a Selka dispatch draft about shipment deadlines and retention that contains no revenue facts. Neither required revenue source is cited. This is unsupported citation attribution despite the marker being a valid supplied ID; no additional arithmetic facts were invented. The observation also lacks a terminal done/error event, so final-event latency is unconfirmed."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer with exact case-sensitive batch identifier MSX-417. Actual supplied document 3/chunk 6 explicitly gives that identifier for draft A and is cited correctly; draft B does not supply the identifier. No extra unsupported claims. A terminal done event is observed for this row."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct result: max(0,13-5)=8 and min(4,8)=4. Actual supplied document 5/chunk 8 contains the complete function and is cited correctly. The short answer introduces no unsupported behavior. Minor presentation deviation: it bolds the result despite the system prompt preferring plain text; factual and citation checks pass."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that the supplied context does not identify Mica Harbor's chief financial officer. Independently checked all supplied chunks: no such person or role assignment is present. The answer does not invent a name or imply an external search. A citation for an absent fact is not required. This is model-generated abstention, not a programmatic refusal event."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly preserves draft A deadline 2026-10-14 and draft B deadline 2026-10-21, links each to its supporting actual supplied passage (3:6 and 4:7), and declines to choose a definitive deadline because neither is approved or superseding. Both drafts explicitly lack approval/supersession, so this reasoning is grounded. The proposed ambiguity failure is not observed. Minor completeness issue: the final sentence explaining missing authority has no trailing marker despite the per-sentence citation instruction. No invented authority or extra facts. This row also lacks a terminal done/error event; final-event latency is unconfirmed."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "CRITICAL WRONG RESULT: the answer correctly computes remaining capacity as 0 but then claims the function returns 4. The actual function in supplied and cited document 5/chunk 8 is Math.min(4, remaining), so Math.min(4,0) returns 0. This is generation/reasoning failure despite sufficient correct evidence, not retrieval loss. The expected-value regex still matches the intermediate 0 and would produce a false positive without manual review. The citation points to the correct function but does not support the asserted final return value."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German abstention: no outdoor temperature measurements are provided for Bexin. Actual supplied PDF document 6/chunk 9 explicitly says the report contains no outdoor temperature measurements and is cited correctly. The answer does not substitute the unrelated cabinet setting of 7 degrees Celsius from the ledger. This is model-generated limitation text rather than a programmatic refusal. Missing terminal done/error event makes final-event latency unconfirmed for this row."
+  }
+]

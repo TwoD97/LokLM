@@ -1,12 +1,10 @@
 import type { RetrievalHit } from '../../../shared/documents'
+import { citationAliasesEnabled, type CitationAliases } from './citationAliases'
 
 export type ResponseLanguage = 'de' | 'en'
 
-/** How fully the model should develop an answer. Keyed off the active tier so a
- *  bigger model is allowed to say more: Lite stays terse, Standard answers in
- *  full, Pro develops the explanation. This steers verbosity through the system
- *  prompt — `answerMaxTokens` already hands Standard and Pro the full 32K
- *  ceiling, so the cap was never what kept their answers short; the prompt was. */
+/** How fully the model should develop an answer. The system prompt steers
+ *  verbosity; the output limit also respects the actual resolved context. */
 export type AnswerDepth = 'concise' | 'standard' | 'thorough'
 
 /** Code answers need room the doc-QA depths deliberately don't grant: a class
@@ -33,10 +31,8 @@ export const REPETITION_HINT_TEXT: Record<ResponseLanguage, string> = {
   en: '\n\n[…] (response stopped due to repetition loop — try rephrasing or narrowing the context)',
 }
 
-// Per-message length cap when embedding prior conversation. ~1500 chars
-// keeps each turn ~400 tokens, so 10 turns is ~4 K tokens — fits comfortably
-// alongside the system prompt + tools + retrieval block + answer in 32 K+
-// context windows.
+// Per-message cap. QA additionally limits the total history to the actual
+// window, retaining recent turns so a long conversation cannot displace RAG.
 export const HISTORY_MESSAGE_CHAR_CAP = 1500
 export const HISTORY_TRUNCATION_MARKER = '… [truncated]'
 
@@ -49,9 +45,8 @@ export const HISTORY_TRUNCATION_MARKER = '… [truncated]'
 // trim hits to a token budget before they're fed (and before QAService emits
 // citations, so the chips match exactly what the model saw).
 //
-// Tokens are estimated by characters (~3.5 chars/token across DE+EN) rather
-// than a real tokenizer: within ~10%, zero hot-path cost, and consistent with
-// how the chunker + quiz themes already budget.
+// Character estimates are inexpensive but are not tokenizer guarantees,
+// especially for code and unusual scripts. Keep explicit framing slack.
 export const CHARS_PER_TOKEN = 3.5
 
 /** Window assumed when the active provider can't report one (e.g. Ollama
@@ -66,17 +61,55 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN)
 }
 
-/** Answer-generation reserve. SINGLE source for both the maxTokens LlamaService
- *  passes the worker AND the packer's reserve — reserve == ceiling, so a long
- *  answer can never overrun the window. ~1/2 of the window, floored at 4K, capped
- *  at 128K. 0.6.4: raised from ~1/4-capped-32K so a 'thorough' answer isn't
- *  clipped — it scales with the tier's window: Lite's 8K keeps the 4K floor
- *  (lean tier unchanged), Standard's 128K window → 64K answer, Pro's 256K → 128K.
- *  Even with half the window reserved, each tier keeps the other half for prompt
- *  + RAG — far above the handful of chunks topK ever packs, so grounding budget
- *  is untouched in practice. */
+/** Reserve a quarter of the actual window for generation. In particular, a
+ *  4K window must leave space for instructions and evidence instead of reserving
+ *  all 4K for output. QA passes this same limit to both inference providers. */
 export function answerMaxTokens(contextSize: number): number {
-  return Math.max(4096, Math.min(131072, Math.floor(contextSize / 2)))
+  const size =
+    Number.isFinite(contextSize) && contextSize > 0 ? contextSize : DEFAULT_CONTEXT_TOKENS
+  return Math.max(1, Math.min(131072, Math.floor(size / 4)))
+}
+
+export type HistoryMessage = { role: 'user' | 'assistant'; content: string }
+
+function capHistoryMessage(content: string, limit = HISTORY_MESSAGE_CHAR_CAP): string {
+  if (content.length <= limit) return content
+  if (limit <= HISTORY_TRUNCATION_MARKER.length) return ''
+  return content.slice(0, limit - HISTORY_TRUNCATION_MARKER.length) + HISTORY_TRUNCATION_MARKER
+}
+
+/** Keep a contiguous suffix of recent conversation with a strict total budget. */
+export function packHistoryToBudget(
+  history: ReadonlyArray<HistoryMessage> | undefined,
+  budgetTokens: number,
+): HistoryMessage[] {
+  if (!history?.length || !Number.isFinite(budgetTokens) || budgetTokens <= 0) return []
+  const out: HistoryMessage[] = []
+  for (let i = history.length - 1; i >= 0; i--) {
+    const message = history[i]!
+    const content = capHistoryMessage(message.content)
+    const candidate = [{ role: message.role, content }, ...out]
+    if (estimateHistoryTokens(candidate) <= budgetTokens) {
+      out.unshift({ role: message.role, content })
+      continue
+    }
+    // Retain what fits of the boundary turn, then stop rather than skipping
+    // across gaps in the conversation. Never send an unlabeled cut-off message.
+    // Include the actual history heading and the boundary turn's role label.
+    // A fixed character allowance can miss by one token and drop the whole
+    // recent turn even though a slightly shorter excerpt would fit.
+    const framingTokens = estimateHistoryTokens([{ role: message.role, content: '' }, ...out])
+    const room = Math.floor((Math.floor(budgetTokens) - framingTokens) * CHARS_PER_TOKEN)
+    const clipped = capHistoryMessage(content, Math.max(0, room))
+    if (
+      clipped &&
+      estimateHistoryTokens([{ role: message.role, content: clipped }, ...out]) <= budgetTokens
+    ) {
+      out.unshift({ role: message.role, content: clipped })
+    }
+    break
+  }
+  return out
 }
 
 /** Rough token cost of the rendered history block — mirrors the per-message
@@ -86,28 +119,33 @@ export function estimateHistoryTokens(
   history?: ReadonlyArray<{ role: 'user' | 'assistant'; content: string }>,
 ): number {
   if (!history || history.length === 0) return 0
-  let chars = 0
-  for (const m of history) chars += Math.min(m.content.length, HISTORY_MESSAGE_CHAR_CAP) + 12
+  let chars = 'Previous conversation in this chat:\n'.length
+  for (const m of history) chars += capHistoryMessage(m.content).length + 13
   return Math.ceil(chars / CHARS_PER_TOKEN)
 }
 
-/** Trim retrieval hits to fit `budgetTokens`, preserving rank order and ALWAYS
- *  keeping at least the top hit (a single chunk that alone exceeds the budget
- *  is still better than refusing). Cost per hit matches buildPrompt's rendering
- *  (header + text + the "\n\n---\n\n" separator). */
+export function hitTokenCost(hit: RetrievalHit, language?: ResponseLanguage): number {
+  return estimateTokens(`${renderHitPassage(hit, language)}\n\n---\n\n`)
+}
+
+/** Whole source passages only: preserve primary rank, then fit expansions.
+ *  An oversized passage never displaces later evidence or escapes the budget. */
 export function packHitsToBudget(
   hits: RetrievalHit[],
   budgetTokens: number,
   responseLang?: ResponseLanguage,
 ): RetrievalHit[] {
-  if (hits.length <= 1) return hits
-  const SEP_TOKENS = 4
+  if (!Number.isFinite(budgetTokens) || budgetTokens <= 0) return []
   const out: RetrievalHit[] = []
+  const seen = new Set<string>()
   let used = 0
-  for (const h of hits) {
-    const cost =
-      estimateTokens(formatHitHeader(h, responseLang)) + estimateTokens(h.text) + SEP_TOKENS
-    if (out.length > 0 && used + cost > budgetTokens) break
+  const primary = (h: RetrievalHit): boolean => !h.origin || h.origin === 'primary'
+  for (const h of [...hits.filter(primary), ...hits.filter((h) => !primary(h))]) {
+    const key = `${h.document_id}:${h.chunk_id}`
+    if (seen.has(key) || !h.text.trim()) continue
+    seen.add(key)
+    const cost = hitTokenCost(h, responseLang)
+    if (used + cost > budgetTokens) continue
     out.push(h)
     used += cost
   }
@@ -187,11 +225,14 @@ const LENGTH_DE: Record<AnswerDepth, string> = {
 }
 
 function buildSystemPromptEn(depth: AnswerDepth, codebase = false): string {
+  const citationRule = citationAliasesEnabled()
+    ? "After each sentence that uses the Context, copy its supporting passage's source label exactly, in the form [S<number>]. Use only labels in the CURRENT Context headers. Earlier conversation may contain historical citation markers; those are not current source labels. Keep source labels outside code and links."
+    : "After each sentence that uses the Context, append its supporting passage's marker in exactly this form: [doc:<documentId>, chunk:<chunkId>]. Copy BOTH ids together from that passage's header. Put each marker directly after the claim it supports. Use only markers present in the Context."
   return `You are LokLM, a local assistant grounded in the user's document library.
 
 Always respond in English. If the user writes in another language, translate the question internally but answer only in English.
 
-After each sentence that uses the Context, append the marker of the passage you used, in exactly this form: [doc:<documentId>, chunk:<chunkId>] — for example: The report lists three risk factors [doc:4, chunk:1]. Use only ids that appear in the Context, and put each marker right after its own sentence, never gathered into a list at the end. (Do not copy these instructions into your reply.)
+${citationRule}
 
 SOURCE
 Answer using the ENTIRE provided Context. Use every relevant passage in it — do not single out one source or one chunk and ignore the rest, and do not compress the Context down to a single point when several passages bear on the question. Combine what all the relevant passages say into one answer.
@@ -201,13 +242,14 @@ DERIVATION
 You may combine and compute values from the Context — arithmetic, percentages, ratios, residuals, multi-step calculations. Inputs may appear in different sections; check the full Context before concluding the answer is unavailable.
 
 CALCULATIONS
-Name the inputs and where they appear, show the operation, then state the final answer at the end. The final answer is the conclusion of the work shown, not a value asserted before it. Match the precision of the source — do not produce 4-decimal outputs from 2-significant-figure inputs.
+Identify each input and cite the passage containing it. For a result that combines sources, cite every passage supplying an input. Check that each cited passage actually supports the claim next to its marker.
+Substitute the supplied values and evaluate operations in order. For code, evaluate inner calls before outer calls and check branch conditions and limits; a maximum allowed value is not necessarily the returned value. Calculate carefully even when only the result is requested. Honor requests for one sentence or result-only: give the result and supporting citations without a separate derivation. Otherwise show the short calculation, then its final result, preserving source units and precision.
 
 DISCIPLINE
 Reason internally before writing. Never emit "wait", "actually", "let me reconsider", parenthetical corrections, multiple competing calculations, lists of alternative interpretations, meta-commentary on your reasoning, or trailing summary blocks. One calculation, one final answer per question.
 
 AMBIGUITY
-If a question could refer to multiple things in the Context, briefly note the ambiguity and commit to the most likely reading. Do not list alternatives.
+Keep an unclear question separate from conflicting source facts. For an unclear question, briefly state your interpretation. When sources disagree, report both values with their source markers and state that the conflict is unresolved. Select one only if the Context explicitly resolves the disagreement through approval or supersession; a later date alone is insufficient. Never substitute a probable value for an unresolved fact.
 
 PARSIMONY
 Use the simplest calculation path the question supports — no extra adjustments unless explicitly required.
@@ -218,15 +260,20 @@ ${LENGTH_EN[depth]}
 FORMAT
 Plain text. No LaTeX, decorative headers, or tables unless asked. Do not bold a final answer at the top — the final answer comes at the end of the work.${codebase ? CODE_SECTION_EN : ''}
 
+Before sending: check the result, requested units and date format, and the source markers. Every factual claim needs its supporting passage's exact marker; a comparison or calculation needs the markers for all its source inputs.
+
 /no_think`
 }
 
 function buildSystemPromptDe(depth: AnswerDepth, codebase = false): string {
+  const citationRule = citationAliasesEnabled()
+    ? 'Übernimm nach jedem Satz, der den Context nutzt, exakt die Quellenmarke der belegenden Passage in der Form [S<Nummer>]. Verwende nur Marken aus den Köpfen des AKTUELLEN Contexts. Frühere Gesprächsbeiträge können historische Quellenmarker enthalten; diese sind keine aktuellen Quellenmarken. Setze Quellenmarken außerhalb von Code und Links.'
+    : 'Hänge an jeden Satz, der den Context nutzt, den Marker der belegenden Passage in genau dieser Form an: [doc:<documentId>, chunk:<chunkId>]. Übernimm BEIDE IDs gemeinsam aus dem Kopf dieser Passage. Setze jeden Marker direkt hinter die Aussage, die er belegt. Verwende nur Marker aus dem Context.'
   return `Du bist LokLM, ein lokaler Assistent, der in der Dokumentbibliothek des Nutzers verankert ist.
 
 Antworte immer auf Deutsch. Schreibt der Nutzer in einer anderen Sprache, übersetze die Frage intern, aber antworte ausschließlich auf Deutsch.
 
-Hänge an jeden Satz, der den Context nutzt, den Marker der verwendeten Passage in genau dieser Form an: [doc:<documentId>, chunk:<chunkId>] — zum Beispiel: Der Bericht nennt drei Risikofaktoren [doc:4, chunk:1]. Verwende nur IDs, die im Context vorkommen, und setze jeden Marker direkt hinter seinen eigenen Satz, niemals gesammelt in einer Liste am Ende. (Übernimm diese Anweisungen nicht in deine Antwort.)
+${citationRule}
 
 QUELLE
 Beantworte die Frage mit dem GESAMTEN bereitgestellten Context. Nutze jede relevante Passage darin — suche dir nicht eine einzelne Quelle oder ein einzelnes Stück heraus und ignoriere den Rest, und komprimiere den Context nicht auf einen einzigen Punkt, wenn mehrere Passagen zur Frage beitragen. Führe zusammen, was alle relevanten Passagen sagen.
@@ -236,13 +283,14 @@ ABLEITUNG
 Du darfst Werte aus dem Context kombinieren und berechnen — Arithmetik, Prozente, Verhältnisse, Residuen, mehrstufige Rechnungen. Eingangswerte können in verschiedenen Abschnitten stehen; prüfe den vollständigen Context, bevor du zu dem Schluss kommst, die Antwort sei nicht verfügbar.
 
 RECHENWEG
-Nenne die Eingangswerte und wo sie stehen, zeige die Rechenoperation, gib die finale Antwort am Ende an. Die finale Antwort ist das Ergebnis des gezeigten Wegs, kein vorab genannter Wert. Übernimm die Präzision der Quelle — keine 4 Nachkommastellen aus 2 signifikanten Stellen.
+Nenne jeden Eingangswert und zitiere die Passage, die ihn enthält. Kombiniert ein Ergebnis mehrere Quellen, zitiere alle Passagen mit den verwendeten Eingangswerten. Prüfe, dass jede zitierte Passage die Aussage neben ihrem Marker tatsächlich belegt.
+Setze die gegebenen Werte ein und werte die Operationen der Reihe nach aus. Bei Code: zuerst innere, dann äußere Funktionsaufrufe; prüfe Bedingungen und Grenzen. Ein zulässiger Höchstwert ist nicht zwangsläufig der Rückgabewert. Rechne sorgfältig, auch wenn nur das Ergebnis gefragt ist. Beachte Wünsche nach einem Satz oder nur dem Ergebnis: nenne das Ergebnis mit Quellenmarkern ohne gesonderten Rechenweg. Andernfalls zeige den kurzen Rechenweg und dann das Ergebnis mit Einheiten und Präzision der Quelle.
 
 DISZIPLIN
 Denke intern, bevor du schreibst. Verwende nie "Moment", "eigentlich", "lass mich noch einmal nachdenken", Korrekturen in Klammern, mehrere konkurrierende Rechnungen, Listen alternativer Lesarten, Meta-Kommentare zu deinem Denken oder abschließende Zusammenfassungsblöcke. Eine Rechnung, eine finale Antwort pro Frage.
 
 UNSCHÄRFE
-Könnte eine Frage mehrere Dinge im Context meinen, benenne die Mehrdeutigkeit kurz und entscheide dich für die wahrscheinlichste Lesart. Liste keine Alternativen auf.
+Trenne eine unklare Frage von widersprüchlichen Quellenangaben. Bei einer unklaren Frage nenne kurz deine Auslegung. Widersprechen sich Quellen, nenne beide Werte mit ihren Quellenmarkern und kennzeichne den Widerspruch als ungeklärt. Wähle nur dann einen Wert, wenn der Context den Widerspruch durch eine ausdrückliche Freigabe oder Ablösung auflöst; ein späteres Datum allein reicht nicht. Ersetze eine ungeklärte Angabe nie durch einen nur wahrscheinlichen Wert.
 
 SPARSAMKEIT
 Nutze den einfachsten Rechenweg, den die Frage hergibt — keine zusätzlichen Anpassungen, wenn nicht ausdrücklich gefordert.
@@ -252,6 +300,8 @@ ${LENGTH_DE[depth]}
 
 FORMAT
 Reiner Text. Kein LaTeX, keine dekorativen Überschriften, keine Tabellen, sofern nicht gefordert. Setze die finale Antwort nicht fett ganz oben — sie steht am Ende des Rechenwegs.${codebase ? CODE_SECTION_DE : ''}
+
+Prüfe vor dem Antworten das Ergebnis, die gewünschten Einheiten, das Datumsformat und die Quellenmarker. Jede Tatsachenbehauptung braucht den exakten Marker der belegenden Passage; bei Vergleichen oder Rechnungen sind die Marker aller verwendeten Eingangswerte nötig.
 
 /no_think`
 }
@@ -281,11 +331,14 @@ export function buildPrompt(
    *  (resolved doc + packing outcome) , and anything ahead of the pinned
    *  block would break the stable KV prefix the section order above buys. */
   contextPreamble?: string,
+  /** Per-ask aliases replace header metadata only. The planner may omit this
+   * and conservatively estimate the longer canonical header representation. */
+  citationAliases?: CitationAliases | null,
 ): string {
   const sections: string[] = []
 
   const renderHits = (list: RetrievalHit[]): string =>
-    list.map((h) => `${formatHitHeader(h, responseLang)}\n${h.text}`).join('\n\n---\n\n')
+    list.map((h) => renderHitPassage(h, responseLang, citationAliases)).join('\n\n---\n\n')
 
   const hasPinned = pinnedHits !== undefined && pinnedHits.length > 0
   if (hasPinned) {
@@ -296,11 +349,7 @@ export function buildPrompt(
     const lines: string[] = []
     for (const m of history) {
       const role = m.role === 'user' ? 'User' : 'Assistant'
-      const text =
-        m.content.length > HISTORY_MESSAGE_CHAR_CAP
-          ? m.content.slice(0, HISTORY_MESSAGE_CHAR_CAP - HISTORY_TRUNCATION_MARKER.length) +
-            HISTORY_TRUNCATION_MARKER
-          : m.content
+      const text = capHistoryMessage(m.content)
       lines.push(`${role}: ${text}`)
     }
     sections.push(`Previous conversation in this chat:\n${lines.join('\n\n')}`)
@@ -318,6 +367,15 @@ export function buildPrompt(
   }
 
   sections.push(`Question: ${question}`)
+  // This lives in the shared rendering path so the context planner reserves
+  // the same instructions even when estimating longer canonical headers.
+  if ([...hits, ...(pinnedHits ?? [])].some((hit) => hit.text.trim().length > 0)) {
+    sections.push(
+      responseLang === 'de'
+        ? 'Antwortvorgabe: Beachte das gewünschte Antwortformat. Belege Tatsachenbehauptungen mit dem exakten Quellenmarker der passenden Passage im bereitgestellten Context. Fehlt die gesuchte Information, sage das, ohne einen Quellenmarker zu erfinden.'
+        : "Answer instructions: Follow the requested answer format. Cite factual claims with the supporting passage's exact source marker from the supplied Context. If the requested fact is missing, say so without inventing a citation.",
+    )
+  }
   return sections.join('\n\n')
 }
 
@@ -373,6 +431,28 @@ export function renderFallback(
   return intro + body
 }
 
+/** One lossless rendering for both context budgeting and actual generation.
+ *  The opt-in footer experiment repeats provenance next to the passage's end;
+ *  it neither edits source text nor verifies that an answer cites it correctly.
+ *  Budgeting uses canonical markers; active aliases shorten this same framing. */
+function renderHitPassage(
+  hit: RetrievalHit,
+  responseLang?: ResponseLanguage,
+  aliases?: CitationAliases | null,
+): string {
+  const passage = `${formatHitHeader(hit, responseLang, aliases)}\n${hit.text}`
+  if (process.env['LOKLM_SOURCE_MARKER_FOOTERS'] !== '1') return passage
+  const endLabel = responseLang === 'de' ? 'Ende der Passage' : 'End of passage'
+  return `${passage}\n\n${endLabel}: ${formatHitMarker(hit, aliases)}`
+}
+
+function formatHitMarker(hit: RetrievalHit, aliases?: CitationAliases | null): string {
+  return (
+    aliases?.labels.get(`${hit.document_id}:${hit.chunk_id}`) ??
+    `[doc:${hit.document_id}, chunk:${hit.chunk_id}]`
+  )
+}
+
 /** Header line for a single retrieval hit in the LLM context block. Prefers
  *  the heading breadcrumb (markdown) over the page number (PDFs/text) because
  *  it gives the model — and the user reading the citation — a far more
@@ -384,7 +464,11 @@ export function renderFallback(
  *  text too short for eld) is treated as unknown and no tag is emitted —
  *  silent fallback is safer than guessing wrong, because tagging EN as DE
  *  would actively mislead the model. */
-function formatHitHeader(h: RetrievalHit, responseLang?: ResponseLanguage): string {
+function formatHitHeader(
+  h: RetrievalHit,
+  responseLang?: ResponseLanguage,
+  aliases?: CitationAliases | null,
+): string {
   // Location label follows the response language ('S.' vs 'p.') so the CODE
   // system-prompt section's reading instruction matches what the model sees.
   const loc = formatHitLocation(h, responseLang ?? 'en')
@@ -392,7 +476,7 @@ function formatHitHeader(h: RetrievalHit, responseLang?: ResponseLanguage): stri
     responseLang && h.language && h.language !== 'other' && h.language !== responseLang
       ? `, lang:${h.language}`
       : ''
-  return `[doc:${h.document_id}, chunk:${h.chunk_id}] (${h.document_title}${loc}${langTag})`
+  return `${formatHitMarker(h, aliases)} (${h.document_title}${loc}${langTag})`
 }
 
 function formatHitLocation(h: RetrievalHit, lang: ResponseLanguage): string {
@@ -401,8 +485,11 @@ function formatHitLocation(h: RetrievalHit, lang: ResponseLanguage): string {
   // Range when the chunk spans pages/lines (code chunks carry LINE numbers in
   // page_from/page_to — the CODE prompt section explains the reading).
   const pageRange =
-    h.page_to != null && h.page_to !== h.page_from ? `${h.page_from}–${h.page_to}` : `${h.page_from}`
-  const pagePart = h.page_from != null ? (lang === 'de' ? `S. ${pageRange}` : `p.${pageRange}`) : null
+    h.page_to != null && h.page_to !== h.page_from
+      ? `${h.page_from}–${h.page_to}`
+      : `${h.page_from}`
+  const pagePart =
+    h.page_from != null ? (lang === 'de' ? `S. ${pageRange}` : `p.${pageRange}`) : null
   // PDFs with bookmarks emit both — heading first (topical), page second
   // (positional). Markdown produces only the heading; PDFs without bookmarks
   // only the page. Both null → empty string.
@@ -433,8 +520,9 @@ export function chunkifyForStream(text: string): string[] {
   return parts
 }
 
-export function stripThink(text: string): string {
-  return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+export function stripThink(text: string, trim = true): string {
+  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '')
+  return trim ? cleaned.trim() : cleaned
 }
 
 /**

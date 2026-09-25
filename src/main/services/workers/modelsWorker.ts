@@ -21,9 +21,21 @@
 // runs one-at-a-time; only control ops (abort / setLanguage / shutdown) bypass
 // it — see SERIALIZED_OPS.
 
-import { cpus } from 'node:os'
+import { realpathSync, statSync } from 'node:fs'
+import { availableParallelism, cpus } from 'node:os'
 import { ResourcePlanner, ggufWeightBytes } from '../embeddings/ResourcePlanner'
-import type { KvCacheType } from '../embeddings/ResourcePlanner'
+import type { SystemResources, ServicePlan } from '../embeddings/ResourcePlanner'
+import {
+  allocateChat,
+  chatContextTarget,
+  resolveVramPadding,
+  resolveInferenceThreads,
+  GpuLayerPlanCache,
+  gpuLayerPlanKey,
+  gpuLayerPlanReuseEnabled,
+  type ChatModelOptions,
+  type ChatModel,
+} from './modelMemory'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -37,8 +49,19 @@ import type {
   EmbedderLoadResult,
   RerankerLoadResult,
 } from './protocol'
-import { fitsUtilityContext, UTILITY_CONTEXT_MAX_TOKENS } from './llmRouting'
+import {
+  fitsUtilityContext,
+  UTILITY_CONTEXT_MAX_TOKENS,
+  UTILITY_GEN_DEFAULT_RESERVE,
+} from './llmRouting'
 import { createBackendSerializer } from './backendSerializer'
+import { ModelResidency } from './ModelResidency'
+import { assessRerankerPolicy, describeRerankerDecision } from '../../../shared/modelCapabilities'
+import {
+  IDLE_MODEL_TRANSITION,
+  type ModelTask,
+  type ModelTransition,
+} from '../../../shared/modelActivity'
 
 // --- GPU enablement inside the utility process (load-bearing) ----------------
 // Before loading a GPU binary on Windows, node-llama-cpp FORCES a compatibility
@@ -68,22 +91,22 @@ declare const process: NodeJS.Process & {
 }
 
 const planner = new ResourcePlanner()
+// Small scalar hints, never native model or context handles.
+const gpuLayerPlans = new GpuLayerPlanCache()
 
 // ---- shared state for the three services ----------------------------------
 
-// ONE shared llama backend ('primary') owns the chat LLM, the embedder AND the
-// reranker — all on the same GPU device. On a small AMD iGPU, TWO Vulkan devices
-// (a second getLlama) fast-fail the driver, so a single shared device is the
-// only stable GPU layout; the 17 GB unified memory fits all three easily. Safety
-// rests on two guards, NOT on isolation:
+// All models use the primary GPU backend. On small cards, inactive models
+// release their allocations and are reloaded for their next task.
+// Native operations retain two guards:
 //   1. backendSerializer funnels every native op through one FIFO so no two
 //      overlap on the device (the cross-op 0xC0000409 class).
 //   2. embed inputs are token-truncated to the context (embedderContextSize) so
 //      jina-code never gets the over-context passage that NATIVE-crashes it on
 //      Vulkan (llama.cpp #20098/#20515) — the trigger that defeated every
 //      earlier GPU attempt.
-// 'aux' (CPU) is retained as a fallback key but unused on a working GPU.
 type BackendKey = 'primary' | 'aux'
+let llmBackendKey: BackendKey = 'primary'
 const backends = new Map<BackendKey, unknown>()
 // In-flight creation per key, so two concurrent loads of the same backend
 // (e.g. embedder.load + reranker.load both warming the 'aux' backend at startup)
@@ -148,7 +171,6 @@ let llmSession: unknown = null
 // failed (tight VRAM/RAM); raw gens then share the main session as before.
 let llmUtilityContext: { getSequence: () => unknown; contextSize?: number } | null = null
 let llmUtilitySession: unknown = null
-let llmLanguage: 'de' | 'en' = 'de'
 
 let embedderModel: unknown = null
 // Pool of embedding contexts — length 1 on Vulkan/CPU, up to
@@ -261,6 +283,12 @@ function pushStatus(
   service: 'llm' | 'embedder' | 'reranker',
   status: Record<string, unknown>,
 ): void {
+  if (
+    typeof status.loadProgress === 'number' &&
+    transition.phase === 'switching' &&
+    transition.target === service
+  )
+    setTransition({ ...transition, progress: status.loadProgress })
   send({ ev: 'status', service, status } as WorkerPush)
 }
 
@@ -299,40 +327,74 @@ async function createBackend(
   const pinned = (process.env['LLAMA_GPU'] ?? '').toLowerCase()
   type Gpu = 'cuda' | 'vulkan' | 'metal' | 'auto' | false
   const order: Gpu[] = (() => {
-    // The aux backend (embedder + reranker) is ALWAYS CPU — it must never share
-    // a GPU device context with the chat (primary) backend. LLAMA_GPU / forceCpu
-    // only steer the primary device choice.
-    if (key === 'aux') return [false]
-    // LLAMA_GPU=cpu/false is the hard "true CPU" escape — kept so CPU-timing evals
-    // can still measure the pure-CPU floor. Wins over every path below.
-    if (pinned === 'cpu' || pinned === 'false') return [false]
+    if (key === 'aux') throw new Error('CPU-only inference is disabled.')
+    if (pinned === 'cpu' || pinned === 'false')
+      throw new Error('CPU-only inference is disabled. Select a GPU.')
     if (pinned === 'cuda' || pinned === 'vulkan' || pinned === 'metal') return [pinned, 'auto']
     // App device plan: ModelsWorkerClient sets LOKLM_PRIMARY_BACKEND (+ the
     // CUDA_VISIBLE_DEVICES / GGML_VK_VISIBLE_DEVICES pin) in this worker's spawn
     // env from the resolved GPU device. 'cuda' for an NVIDIA dedicated card,
     // 'vulkan' for an AMD/Intel card (dedicated or integrated) pinned by index.
     const planBackend = (process.env['LOKLM_PRIMARY_BACKEND'] ?? '').toLowerCase()
-    if (planBackend === 'cpu') return [false]
+    if (planBackend === 'cpu') throw new Error('A working GPU is required.')
     if (planBackend === 'cuda') return ['cuda', 'auto']
     if (planBackend === 'vulkan') return ['vulkan']
     // No plan (legacy/auto). `forceCpu` is the old low-power tier hint: prefer a
     // single Vulkan device (the iGPU on integrated-only boxes) over true CPU —
     // still ONE device, so the shared-backend + serializer safety holds.
-    if (forceCpu) return ['vulkan', false]
+    if (forceCpu) return ['vulkan']
     return ['auto']
   })()
   let lastErr: unknown = null
-  // primary: all but one core (node-llama-cpp's default underuses physical cores
-  // on Windows; one core stays free for the OS / Electron main loop). aux: capped
-  // lower so background CPU embedding/reranking doesn't starve a CPU-resident
-  // chat model — and so the two backends don't oversubscribe every core.
+  // Bound inference to available scheduling capacity. The native math-core
+  // count becomes available after backend creation; this does not pin a UI core.
   const cpuCount = cpus().length
-  const maxThreads =
-    key === 'aux' ? Math.max(1, Math.floor(cpuCount / 2)) : Math.max(1, cpuCount - 1)
+  const availableCpuCount = availableParallelism()
+  const threadOverride = process.env['LOKLM_INFERENCE_THREADS']
+  const initialThreads = resolveInferenceThreads(availableCpuCount, threadOverride)
+  if (initialThreads.invalidOverride)
+    log(
+      'warn',
+      `LOKLM_INFERENCE_THREADS must be an integer from 1 to ${Math.max(1, availableCpuCount - 1)}; using default threads.`,
+    )
+  const paddingOverride = process.env['LOKLM_VRAM_PADDING_MIB']
   for (const gpu of order) {
     try {
       onMessage(`Initialising ${key} llama backend (${gpu === false ? 'cpu' : gpu})…`)
-      const llama = await lib.getLlama({ gpu, maxThreads })
+      let padding = resolveVramPadding(0, paddingOverride)
+      const llama = await lib.getLlama({
+        gpu,
+        maxThreads: initialThreads.maxThreads,
+        // Keep a real allocation margin on small cards as well as large ones.
+        vramPadding: (total) => {
+          padding = resolveVramPadding(total, paddingOverride)
+          return padding.paddingBytes
+        },
+      })
+      if (llama.gpu === false)
+        throw new Error('A working GPU is required. Check your graphics driver.')
+      const threads = resolveInferenceThreads(availableCpuCount, threadOverride, llama.cpuMathCores)
+      llama.maxThreads = threads.maxThreads
+      log(
+        'info',
+        `${key} ${llama.gpu} inference threads: maxThreads=${llama.maxThreads}, cpuMathCores=${llama.cpuMathCores}, logicalCores=${cpuCount}, availableParallelism=${availableCpuCount} ` +
+          (threads.overrideThreads == null
+            ? '(hardware-aware default)'
+            : '(LOKLM_INFERENCE_THREADS calibration override)'),
+      )
+      if (padding.invalidOverride) {
+        log(
+          'warn',
+          'LOKLM_VRAM_PADDING_MIB must be an integer from 512 to 1229; using default padding.',
+        )
+      }
+      log(
+        'info',
+        `${key} ${llama.gpu} VRAM padding: ${(llama.vramPaddingSize / 1024 ** 2).toFixed(1)} MiB ` +
+          (padding.overrideMiB == null
+            ? '(default)'
+            : '(LOKLM_VRAM_PADDING_MIB calibration override)'),
+      )
       backends.set(key, llama)
       const obj = llama as { gpu?: string | false }
       const label = obj.gpu === false ? 'cpu' : (obj.gpu ?? null) || null
@@ -351,7 +413,7 @@ async function createBackend(
   throw lastErr ?? new Error('No backend could be initialised')
 }
 
-function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
+function hasDispose(o: unknown): o is { dispose: () => void | Promise<void> } {
   return (
     typeof o === 'object' &&
     o !== null &&
@@ -359,11 +421,37 @@ function hasDispose(o: unknown): o is { dispose: () => Promise<void> } {
   )
 }
 
+async function traceGpuMemory(llama: unknown, phase: string): Promise<void> {
+  if (process.env['LOKLM_RETRIEVAL_TRACE'] !== '1') return
+  try {
+    const backend = llama as { getVramState(): Promise<unknown>; vramPaddingSize: number }
+    log(
+      'info',
+      `memory snapshot ${phase}: ${JSON.stringify({
+        at: new Date().toISOString(),
+        vram: await backend.getVramState(),
+        paddingBytes: backend.vramPaddingSize,
+      })}`,
+    )
+  } catch {
+    /* Optional diagnostics must not prevent model loading. */
+  }
+}
+
 // ---- LLM ------------------------------------------------------------------
 
 async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
+  try {
+    return await performLlmLoad(payload)
+  } catch (error) {
+    // A failed context allocation must release the weights before a retry.
+    await llmUnloadInternal()
+    throw error
+  }
+}
+
+async function performLlmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   await llmUnloadInternal()
-  llmLanguage = payload.language
   llmSystemPrompt = payload.systemPrompt
   pushStatus('llm', {
     state: 'loading',
@@ -384,9 +472,10 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   pushStatus('llm', { gpu: primaryGpuLabel, message: 'Loading model weights…' })
 
   // Probe resources BEFORE the weights allocate so planLlm's freeVram math
-  // doesn't double-count weights. Use the TTL'd refresh so back-to-back
-  // service warmups don't each re-probe VRAM (post-load is still forced).
-  const resources = await planner.refreshIfStale()
+  // doesn't double-count weights. Refresh after each service allocation so
+  // startup planning includes any models already resident.
+  const resources = await planner.refresh()
+  await traceGpuMemory(llama, 'before-chat-weights')
   const weightsBytes = payload.weightsBytes || ggufWeightBytes(payload.modelPath)
   // 'cpu' placement can now still latch the iGPU (Vulkan) — see createBackend — so
   // key the KV plan off the device the backend ACTUALLY latched, not the request:
@@ -398,123 +487,78 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     ? { ...resources, hasGpu: false, freeVramGB: 0, totalVramGB: 0 }
     : resources
 
-  const model = await (
-    llama as {
-      loadModel: (o: {
-        modelPath: string
-        onLoadProgress?: (p: number) => void
-      }) => Promise<unknown>
-    }
-  ).loadModel({
-    modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('llm', { loadProgress: p }),
-  })
-
-  // KV fallback loop , q4_0 → q8_0 → f16 with a shrinking max context.
+  // Reserve a useful context and adjust GPU offload if the native allocator rejects it.
   const userChoice =
     payload.envContextOverride != null ? payload.envContextOverride : payload.userContextChoice
   const initialPlan = planner.planLlm({
     profileName: payload.profileName ?? 'full',
-    profileDefaultContext: payload.profileDefaultContext,
+    profileDefaultContext: chatContextTarget(
+      payload.profileDefaultContext,
+      userChoice,
+      planResources,
+      weightsBytes,
+    ),
     weightsBytes,
     resources: planResources,
     userContextChoice: userChoice,
   })
 
-  const fallbackOrder: KvCacheType[] = ['q4_0', 'q8_0', 'f16']
-  const startIdx = fallbackOrder.indexOf(initialPlan.kvCacheType)
-  const minCtxBound = 4096
-  let maxCtxBound = Math.min(initialPlan.contextSize, payload.profileDefaultContext)
-  let context: { getSequence: () => unknown } | null = null
-  let activePlan = initialPlan
-  // KV element type of the attempt that succeeded — reused for the utility
-  // context so both contexts share the same quantization trade-off.
-  let successKvEnum: 'Q8_0' | 'Q4_0' | null = null
-
-  const enumNameFor = (t: KvCacheType): 'Q8_0' | 'Q4_0' | null =>
-    t === 'q8_0' ? 'Q8_0' : t === 'q4_0' ? 'Q4_0' : null
-
-  for (let i = Math.max(0, startIdx); i < fallbackOrder.length; i++) {
-    const attemptType = fallbackOrder[i]!
-    const attemptPlan =
-      i === startIdx
-        ? initialPlan
-        : planner.planLlm({
-            profileName: payload.profileName ?? 'full',
-            profileDefaultContext: maxCtxBound,
-            weightsBytes,
-            resources: planResources,
-            userContextChoice: userChoice,
-            forceKvType: attemptType,
-          })
-    const attemptMax = Math.min(attemptPlan.contextSize, maxCtxBound)
-    const opts: Record<string, unknown> = {
-      contextSize: { min: minCtxBound, max: attemptMax },
-      flashAttention: true,
-      // Prefill batch. Default 1024 on a fast dedicated/unified GPU (one batch per
-      // ~1k-token quiz prompt). On a slow integrated GPU a 1024-token prefill
-      // submission can exceed the ~2 s Vulkan GPU-job timeout and HANG
-      // `session.prompt` (llama.cpp #21724/#20515) — the intermittent "prefill
-      // never returns / blank answer" failure. Capping it makes each submission
-      // small enough to finish under the timeout (same fix the embedder needed);
-      // prefill takes more, smaller batches (slightly slower) but completes
-      // RELIABLY. Decode (1 token/step) was never the problem. dGPU keeps 1024.
-      batchSize: isFastDedicatedGpu(primaryGpuLabel) ? 1024 : LLM_PREFILL_SAFE_BATCH,
-    }
-    const kvEnum = enumNameFor(attemptType)
-    if (kvEnum) {
-      opts.experimentalKvCacheKeyType = kvEnum
-      opts.experimentalKvCacheValueType = kvEnum
-    }
-    pushStatus('llm', {
-      message: `Creating context (≤${attemptMax} tokens — ${attemptPlan.reason})…`,
-      loadProgress: 1,
-    })
+  const batchSize = isFastDedicatedGpu(primaryGpuLabel) ? 1024 : LLM_PREFILL_SAFE_BATCH
+  let layerPlanReuse: { cache: GpuLayerPlanCache; key: string } | undefined
+  if (gpuLayerPlanReuseEnabled(process.env['LOKLM_REUSE_GPU_LAYER_PLAN'])) {
     try {
-      context = await (
-        model as {
-          createContext: (o: Record<string, unknown>) => Promise<{ getSequence: () => unknown }>
-        }
-      ).createContext(opts)
-      activePlan = attemptPlan
-      successKvEnum = kvEnum
-      // Diagnostic: confirms the batch cap actually applied + the resolved
-      // context/KV/GPU. Cross-reference with the QAService `[qa] prefill input`
-      // log and any `ErrorDeviceLost` / `llama_decode failed` to trace a watchdog
-      // trip to its batch + token count.
-      log(
-        'info',
-        `llm context ready: batch=${String(opts.batchSize)} ctx≤${attemptMax} ` +
-          `kv=${attemptType} flashAttn=true gpu=${primaryGpuLabel ?? 'cpu'}`,
-      )
-      break
-    } catch (err) {
-      maxCtxBound = Math.max(minCtxBound, Math.floor(attemptMax / 2))
-      log(
-        'warn',
-        `KV ${attemptType} ≤${attemptMax} rejected: ${err instanceof Error ? err.message : String(err)}`,
-      )
-      if (i === fallbackOrder.length - 1) break
+      const modelPath = realpathSync(payload.modelPath)
+      const revision = statSync(modelPath, { bigint: true })
+      const backend = llama as { vramPaddingSize: number; maxThreads: number }
+      const key = gpuLayerPlanKey({
+        modelRevision: JSON.stringify([
+          modelPath,
+          ...[revision.dev, revision.ino, revision.size, revision.mtimeNs, revision.ctimeNs].map(
+            String,
+          ),
+        ]),
+        backendIdentity: JSON.stringify([
+          primaryGpuLabel,
+          payload.device,
+          process.env['CUDA_VISIBLE_DEVICES'] ?? '',
+          process.env['GGML_VK_VISIBLE_DEVICES'] ?? '',
+          backend.maxThreads,
+        ]),
+        contextSize: initialPlan.contextSize,
+        batchSize,
+        paddingBytes: backend.vramPaddingSize,
+      })
+      if (key) layerPlanReuse = { cache: gpuLayerPlans, key }
+      else log('warn', 'GPU layer plan cache bypassed: incomplete allocation identity')
+    } catch (error) {
+      log('warn', `GPU layer plan cache bypassed: ${String(error)}`)
     }
   }
-  if (!context) {
-    log('warn', 'all bounded attempts failed; falling back to auto context resolution')
-    context = await (
-      model as {
-        createContext: (o: Record<string, unknown>) => Promise<{ getSequence: () => unknown }>
-      }
-    ).createContext({ contextSize: 'auto', flashAttention: true })
-    activePlan = {
-      ...initialPlan,
-      kvCacheType: 'f16',
-      reason: 'auto fallback after rejection chain',
-    }
-  }
+  const allocation = await allocateChat({
+    loadModel: (opts: ChatModelOptions) =>
+      (llama as { loadModel: (opts: ChatModelOptions) => Promise<ChatModel> }).loadModel(opts),
+    modelPath: payload.modelPath,
+    plan: initialPlan,
+    batchSize,
+    layerPlanReuse,
+    onLoadProgress: (p) => pushStatus('llm', { loadProgress: p }),
+    log: (message) => log('info', message),
+  })
+  const { model, context, plan: activePlan, kvEnum: successKvEnum } = allocation
+  await traceGpuMemory(llama, 'after-chat-context')
+  llmModel = model
+  llmContext = context
+  const modelOnGpu = model.gpuLayers > 0 && !latchedCpu
+  const modelGpuLabel = modelOnGpu ? primaryGpuLabel : 'cpu'
 
   const session = new (lib as { LlamaChatSession: new (o: unknown) => unknown }).LlamaChatSession({
     contextSequence: context.getSequence(),
+    // Release sequence checkpoints before their native context is destroyed.
+    autoDisposeSequence: true,
     systemPrompt: llmSystemPrompt,
   })
+
+  llmSession = session
 
   // Small second context for raw utility generations so they don't erase the
   // main sequence's KV state (the stable [system][pinned][history] prompt
@@ -523,37 +567,44 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   // which is exactly the pre-utility-context behaviour.
   let utilityContext: { getSequence: () => unknown; contextSize?: number } | null = null
   let utilitySession: unknown = null
-  try {
-    const utilOpts: Record<string, unknown> = {
-      contextSize: { min: 1024, max: Math.min(UTILITY_CONTEXT_MAX_TOKENS, activePlan.contextSize) },
-      flashAttention: true,
-      batchSize: 512,
-    }
-    if (successKvEnum) {
-      utilOpts.experimentalKvCacheKeyType = successKvEnum
-      utilOpts.experimentalKvCacheValueType = successKvEnum
-    }
-    utilityContext = await (
-      model as {
-        createContext: (
-          o: Record<string, unknown>,
-        ) => Promise<{ getSequence: () => unknown; contextSize?: number }>
+  if (!modelOnGpu || resources.totalVramGB > 6)
+    try {
+      const utilOpts: Record<string, unknown> = {
+        contextSize: {
+          min: 1024,
+          max: Math.min(UTILITY_CONTEXT_MAX_TOKENS, activePlan.contextSize),
+        },
+        flashAttention: true,
+        batchSize: isFastDedicatedGpu(primaryGpuLabel) ? 512 : LLM_PREFILL_SAFE_BATCH,
       }
-    ).createContext(utilOpts)
-    utilitySession = new (
-      lib as { LlamaChatSession: new (o: unknown) => unknown }
-    ).LlamaChatSession({
-      contextSequence: utilityContext.getSequence(),
-      systemPrompt: llmSystemPrompt,
-    })
-  } catch (err) {
-    log(
-      'warn',
-      `utility context creation failed — raw generations will share the main context: ${err instanceof Error ? err.message : String(err)}`,
-    )
-    utilityContext = null
-    utilitySession = null
-  }
+      if (successKvEnum) {
+        utilOpts.experimentalKvCacheKeyType = successKvEnum
+        utilOpts.experimentalKvCacheValueType = successKvEnum
+      }
+      utilityContext = await (
+        model as {
+          createContext: (
+            o: Record<string, unknown>,
+          ) => Promise<{ getSequence: () => unknown; contextSize?: number }>
+        }
+      ).createContext(utilOpts)
+      utilitySession = new (
+        lib as { LlamaChatSession: new (o: unknown) => unknown }
+      ).LlamaChatSession({
+        contextSequence: utilityContext.getSequence(),
+        autoDisposeSequence: true,
+        systemPrompt: llmSystemPrompt,
+      })
+    } catch (err) {
+      log(
+        'warn',
+        `utility context creation failed — raw generations will share the main context: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      if (hasDispose(utilityContext))
+        await Promise.resolve(utilityContext.dispose()).catch(() => undefined)
+      utilityContext = null
+      utilitySession = null
+    }
 
   llmModel = model
   llmContext = context
@@ -567,7 +618,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   } catch {
     /* keep pre-load snapshot on probe failure */
   }
-  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
+  const onGpu = modelOnGpu
   const resolvedPlacement: 'cpu' | 'gpu' = onGpu ? 'gpu' : 'cpu'
 
   // Resolve the real device name from the post-pin device list and verify the
@@ -601,7 +652,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     state: 'ready',
     loadProgress: null,
     message: 'Ready.',
-    gpu: primaryGpuLabel,
+    gpu: modelGpuLabel,
     gpuName,
     gpuKind,
   })
@@ -610,11 +661,21 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
     ? pinnedDeviceVerified
       ? `gpu: ${gpuName ?? primaryGpuLabel} (${gpuKind ?? 'gpu'}, ${primaryGpuLabel})`
       : `gpu: requested ${expectedName ?? 'device'} not confirmed — running on ${gpuName ?? primaryGpuLabel} (${primaryGpuLabel})`
-    : 'cpu: no GPU backend available — fell back'
+    : 'GPU unavailable'
   return {
     plan: activePlan,
+    modelCapacity: {
+      gpuLayers: model.gpuLayers,
+      totalModelLayers: model.fileInsights?.totalLayers ?? null,
+      fullyOnGpu:
+        model.fileInsights?.totalLayers != null
+          ? model.gpuLayers >= model.fileInsights.totalLayers
+          : null,
+      contextSize: context.contextSize,
+      totalVramGB: postResources.totalVramGB > 0 ? postResources.totalVramGB : null,
+    },
     resources: postResources,
-    gpuLabel: primaryGpuLabel,
+    gpuLabel: modelGpuLabel,
     resolvedPlacement,
     placementReason,
     gpuName,
@@ -624,20 +685,28 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
 }
 
 async function llmUnloadInternal(): Promise<void> {
-  try {
-    if (llmUtilitySession && hasDispose(llmUtilitySession)) await llmUtilitySession.dispose()
-    if (llmUtilityContext && hasDispose(llmUtilityContext)) await llmUtilityContext.dispose()
-    if (llmSession && hasDispose(llmSession)) await llmSession.dispose()
-    if (llmContext && hasDispose(llmContext)) await llmContext.dispose()
-    if (llmModel && hasDispose(llmModel)) await llmModel.dispose()
-  } catch {
-    /* ignore */
+  for (const [name, resource] of [
+    ['utility session', llmUtilitySession],
+    ['utility context', llmUtilityContext],
+    ['chat session', llmSession],
+    ['chat context', llmContext],
+    ['model weights', llmModel],
+  ] as const) {
+    try {
+      if (hasDispose(resource)) {
+        log('info', `Releasing ${name}`)
+        await resource.dispose()
+      }
+    } catch {
+      // Continue releasing the other allocations if one handle fails to dispose.
+    }
   }
   llmUtilitySession = null
   llmUtilityContext = null
   llmSession = null
   llmContext = null
   llmModel = null
+  llmBackendKey = 'primary'
 }
 
 async function llmUnload(): Promise<void> {
@@ -667,13 +736,12 @@ const grammarCache = new Map<string, unknown>()
  *  when the backend doesn't expose createGrammarForJsonSchema or the build
  *  throws — the caller then generates without a grammar. */
 async function grammarForSchema(schema: object): Promise<unknown> {
-  // Grammar building belongs to the chat (primary) backend — it's only used by
-  // LLM generation. The aux CPU backend never builds grammars.
-  const backend = backends.get('primary') as {
+  // Native grammar handles must belong to the model's GPU backend.
+  const backend = backends.get(llmBackendKey) as {
     createGrammarForJsonSchema?: (s: object) => Promise<unknown>
   } | null
   if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
-  const key = JSON.stringify(schema)
+  const key = `${llmBackendKey}:${JSON.stringify(schema)}`
   const cached = grammarCache.get(key)
   if (cached) return cached
   try {
@@ -703,6 +771,15 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
       },
     ) => Promise<string>
     resetChatHistory?: () => void
+    sequence?: {
+      tokenMeter: {
+        getState(): { usedInputTokens: number; usedOutputTokens: number }
+        diff(previous: { usedInputTokens: number; usedOutputTokens: number }): {
+          usedInputTokens: number
+          usedOutputTokens: number
+        }
+      }
+    }
   }
   try {
     session.resetChatHistory?.()
@@ -718,12 +795,20 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   // that arrives during the next microtask still finds the controller.
   activeAborts.set(payload.streamId, ctrl)
   if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
+  const tracing = process.env['LOKLM_RETRIEVAL_TRACE'] === '1'
+  const meter = tracing ? session.sequence?.tokenMeter : undefined
+  const tokenStart = meter?.getState()
+  const askStarted = Date.now()
+  let firstVisibleTextMs: number | null = null
   try {
     const promptOpts: Parameters<typeof session.prompt>[1] = {
       maxTokens: payload.maxTokens,
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
-      onTextChunk: (chunk: string) => bufferToken(payload.streamId, chunk),
+      onTextChunk: (chunk: string) => {
+        if (firstVisibleTextMs == null && chunk.trim()) firstVisibleTextMs = Date.now() - askStarted
+        bufferToken(payload.streamId, chunk)
+      },
     }
     // Same segment-aware switch llmGenerateRaw uses for the quiz path: the
     // /no_think tag in the system prompt is unreliable for this GGUF, while
@@ -746,6 +831,15 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
     )
     throw err
   } finally {
+    if (tracing)
+      log(
+        'info',
+        `llm.ask metrics: ${JSON.stringify({
+          elapsedMs: Date.now() - askStarted,
+          firstVisibleTextMs,
+          ...(meter && tokenStart ? meter.diff(tokenStart) : {}),
+        })}`,
+      )
     activeAborts.delete(payload.streamId)
     // Drain any buffered tail before resolving so the renderer's "done"
     // event arrives strictly AFTER the last token chunk. Without this, the
@@ -780,7 +874,7 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   // main window) fall back to the main session with history save/restore.
   const useUtility = routeToUtility(payload)
   const session = (useUtility ? llmUtilitySession : llmSession) as {
-    prompt: (
+    promptWithMeta: (
       text: string,
       options: {
         signal?: AbortSignal
@@ -789,12 +883,14 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
         grammar?: unknown
         budgets?: { thoughtTokens: number }
       },
-    ) => Promise<string>
+    ) => Promise<{ responseText: string; stopReason: string }>
     getChatHistory?: () => unknown[]
     setChatHistory?: (history: unknown[]) => void
     resetChatHistory?: () => void
   }
   const ctrl = new AbortController()
+  const startedAt = Date.now()
+  const label = payload.background ? 'title' : 'utility'
   activeAborts.set(payload.streamId, ctrl)
   if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
   // History save/restore only matters on the main session — the utility
@@ -810,24 +906,27 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
   }
   try {
     session.resetChatHistory?.()
-    // Same reset caveat as llmAsk: restore the last-pushed system prompt.
-    if (llmSystemPrompt) patchSessionSystemPrompt(session, llmSystemPrompt)
+    // Utility tasks must not inherit the RAG-only chat instructions (e.g. a
+    // translator should translate a question instead of answering it).
+    const systemPrompt = payload.systemPrompt ?? llmSystemPrompt
+    if (systemPrompt) patchSessionSystemPrompt(session, systemPrompt)
     const promptOpts: {
       signal: AbortSignal
       repeatPenalty: typeof REPEAT_PENALTY
       maxTokens?: number
       grammar?: unknown
       budgets?: { thoughtTokens: number }
+      temperature?: number
     } = {
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
+      // Utility calls must always terminate, even if a caller omits a budget.
+      maxTokens: payload.maxTokens ?? UTILITY_GEN_DEFAULT_RESERVE,
     }
-    if (payload.maxTokens != null) promptOpts.maxTokens = payload.maxTokens
-    // Disable the reasoning segment when asked. This model thinks by default and
-    // `/no_think` is unreliable for its GGUF; budgeting thought tokens to 0 is
-    // node-llama-cpp's segment-aware switch and is most of the per-call speedup
-    // on the quiz path.
-    if (payload.noThink) promptOpts.budgets = { thoughtTokens: 0 }
+    if (payload.temperature != null) promptOpts.temperature = payload.temperature
+    // Utilities return their result directly unless reasoning was requested.
+    // The segment budget enforces this even when the GGUF ignores /no_think.
+    if (payload.noThink !== false) promptOpts.budgets = { thoughtTokens: 0 }
     // Grammar guarantees JSON *syntax* only; the main side still runs semantic
     // validation + JSON-retry. A grammar build failure must never crash the
     // worker — grammarForSchema returns null and we generate unconstrained.
@@ -835,16 +934,31 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
       const grammar = await grammarForSchema(payload.jsonSchema)
       if (grammar) promptOpts.grammar = grammar
     }
-    const raw = await session.prompt(payload.prompt, promptOpts)
-    return { raw }
+    log(
+      'info',
+      `llm.generateRaw start: task=${label} maxTokens=${promptOpts.maxTokens} noThink=${payload.noThink !== false}`,
+    )
+    const result = await session.promptWithMeta(payload.prompt, promptOpts)
+    if (payload.requireComplete && result.stopReason === 'maxTokens') {
+      throw new Error('Translation reached the model output limit. Please retry with shorter text.')
+    }
+    return { raw: result.responseText }
   } finally {
+    log(
+      'info',
+      `llm.generateRaw finished: task=${label} elapsedMs=${Date.now() - startedAt} cancelled=${ctrl.signal.aborted}`,
+    )
     activeAborts.delete(payload.streamId)
     if (!useUtility && saved && session.setChatHistory) {
       try {
         session.setChatHistory(saved)
       } catch {
-        /* drop history on restore failure */
+        session.resetChatHistory?.()
+        patchSessionSystemPrompt(session, llmSystemPrompt)
       }
+    } else if (!useUtility) {
+      session.resetChatHistory?.()
+      patchSessionSystemPrompt(session, llmSystemPrompt)
     }
   }
 }
@@ -866,8 +980,7 @@ function patchSessionSystemPrompt(target: unknown, systemPrompt: string): void {
   }
 }
 
-function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
-  llmLanguage = lang
+function llmSetLanguage(systemPrompt: string): void {
   llmSystemPrompt = systemPrompt
   patchSessionSystemPrompt(llmSession, systemPrompt)
   patchSessionSystemPrompt(llmUtilitySession, systemPrompt)
@@ -875,84 +988,93 @@ function llmSetLanguage(lang: 'de' | 'en', systemPrompt: string): void {
 
 // ---- Embedder -------------------------------------------------------------
 
-async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadResult> {
-  await embedderUnloadInternal()
-  pushStatus('embedder', {
+interface AuxiliaryModel {
+  gpuLayers: number
+  dispose(): Promise<void>
+  createEmbeddingContext(options: { contextSize: number; batchSize: number }): Promise<unknown>
+  createRankingContext(options: { contextSize: number; batchSize: number }): Promise<unknown>
+}
+
+async function loadAuxiliary(
+  service: 'embedder' | 'reranker',
+  payload: EmbedderLoadPayload | RerankerLoadPayload,
+): Promise<{
+  model: AuxiliaryModel
+  contexts: unknown[]
+  resources: SystemResources
+  placement: ServicePlan
+}> {
+  pushStatus(service, {
     state: 'loading',
     modelPath: payload.modelPath,
-    modelName: payload.modelPath.split(/[\\/]/).pop() ?? 'embedder.gguf',
+    modelName: payload.modelPath.split(/[\\/]/).pop() ?? `${service}.gguf`,
     loadProgress: 0,
-    message: 'Initialising embedder backend…',
+    message: `Initialising ${service} backend...`,
   })
-  // The embedder shares the chat model's GPU backend ('primary'). RAM-only
-  // snapshot, NOT refreshIfStale(): the LLM load owns the live VRAM probe.
-  const resources = planner.snapshot()
-  const llama = await ensureBackend('primary', false, (msg) =>
-    pushStatus('embedder', { message: msg }),
+  const primary = await ensureBackend('primary', false, (message) =>
+    pushStatus(service, { message }),
   )
-  pushStatus('embedder', {
-    message: 'Loading embedder weights…',
-  })
-  const model = await (
-    llama as {
-      loadModel: (o: {
-        modelPath: string
-        onLoadProgress?: (p: number) => void
-      }) => Promise<unknown>
-    }
-  ).loadModel({
-    modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('embedder', { loadProgress: p }),
-  })
-  pushStatus('embedder', { message: 'Creating embedding context…', loadProgress: 1 })
-  const embedModel = model as {
-    createEmbeddingContext: (opts?: {
-      contextSize?: number
-      batchSize?: number
-    }) => Promise<unknown>
-  }
-  const fastGpu = isFastDedicatedGpu(primaryGpuLabel)
-  // Batch gating mirrors the LLM context: the 128-token watchdog cap is an
-  // iGPU-only concern. A dedicated GPU gets batch = full context, so a
-  // max-length passage is ONE llama_decode submission instead of
-  // ceil(tokens/128) — the difference between ~7k tok/s and the card's real
-  // prefill rate.
-  const embedBatchSize = fastGpu ? payload.contextSize : VULKAN_SAFE_BATCH
-  const contexts: unknown[] = [
-    await embedModel.createEmbeddingContext({
+  const resources = await planner.refresh()
+  let model: AuxiliaryModel | null = null
+  const contexts: unknown[] = []
+  try {
+    model = await (
+      primary as { loadModel: (options: Record<string, unknown>) => Promise<AuxiliaryModel> }
+    ).loadModel({
+      modelPath: payload.modelPath,
+      gpuLayers: 'max',
+      onLoadProgress: (progress: number) => pushStatus(service, { loadProgress: progress }),
+    })
+    if (model.gpuLayers < 1)
+      throw new Error(
+        'Not enough GPU memory for this model. Close other GPU applications or choose a smaller model.',
+      )
+    const onGpu = model.gpuLayers > 0 && resources.hasGpu
+    const fastGpu = onGpu && isFastDedicatedGpu(primaryGpuLabel)
+    const contextOptions = {
       contextSize: payload.contextSize,
-      batchSize: embedBatchSize,
-    }),
-  ]
-  // Best-effort pool for cross-passage parallelism (see EMBEDDER_FAST_GPU_CONTEXTS).
-  // The planner's RAM-only snapshot above doesn't account for the extra contexts,
-  // so a creation failure on tight VRAM just shrinks the pool instead of failing
-  // the load.
-  if (fastGpu) {
-    for (let i = 1; i < EMBEDDER_FAST_GPU_CONTEXTS; i++) {
-      try {
-        contexts.push(
-          await embedModel.createEmbeddingContext({
-            contextSize: payload.contextSize,
-            batchSize: embedBatchSize,
-          }),
-        )
-      } catch {
-        break
+      batchSize: fastGpu || !onGpu ? payload.contextSize : VULKAN_SAFE_BATCH,
+    }
+    contexts.push(
+      service === 'embedder'
+        ? await model.createEmbeddingContext(contextOptions)
+        : await model.createRankingContext(contextOptions),
+    )
+    if (service === 'embedder' && fastGpu) {
+      for (let i = 1; i < EMBEDDER_FAST_GPU_CONTEXTS; i++) {
+        try {
+          contexts.push(await model.createEmbeddingContext(contextOptions))
+        } catch {
+          break
+        }
       }
     }
+    const resolved: ServicePlan = { placement: 'gpu', reason: 'GPU assigned to the active task' }
+    log(
+      'info',
+      `${service} ready: ${resolved.placement}, ${model.gpuLayers} GPU layers (${resolved.reason})`,
+    )
+    return { model, contexts, resources: { ...(await planner.refresh()) }, placement: resolved }
+  } catch (error) {
+    for (const resource of [...contexts, model]) {
+      if (hasDispose(resource)) await Promise.resolve(resource.dispose()).catch(() => undefined)
+    }
+    pushStatus(service, { state: 'failed', loadProgress: null, message: String(error) })
+    throw error
   }
-  embedderModel = model
-  embedderContexts = contexts
+}
+
+async function embedderLoad(payload: EmbedderLoadPayload): Promise<EmbedderLoadResult> {
+  await embedderUnloadInternal()
+  const loaded = await loadAuxiliary('embedder', payload)
+  embedderModel = loaded.model
+  embedderContexts = loaded.contexts
   embedderContextSize = payload.contextSize
   pushStatus('embedder', { state: 'ready', loadProgress: null, message: 'Embedder ready.' })
-  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
-    resources,
-    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
-    reason: onGpu
-      ? `shared ${primaryGpuLabel} backend (input token-clamped to ${payload.contextSize})`
-      : 'shared CPU backend',
+    resources: loaded.resources,
+    resolvedPlacement: loaded.placement.placement,
+    reason: loaded.placement.reason,
   }
 }
 
@@ -1040,49 +1162,14 @@ async function embedderEmbed(texts: string[]): Promise<Array<number[] | null>> {
 
 async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadResult> {
   await rerankerUnloadInternal()
-  pushStatus('reranker', {
-    state: 'loading',
-    modelPath: payload.modelPath,
-    modelName: payload.modelPath.split(/[\\/]/).pop() ?? 'reranker.gguf',
-    loadProgress: 0,
-    message: 'Initialising reranker backend…',
-  })
-  // Reranker shares the chat model's GPU backend ('primary'). This is the heavy
-  // hitter on the query hot path (~25x faster on the iGPU than CPU), and as an
-  // XLM-RoBERTa encoder it errors gracefully on over-context input rather than
-  // native-crashing like the jina decoder. RAM-only snapshot (see embedder).
-  const resources = planner.snapshot()
-  const llama = await ensureBackend('primary', false, (msg) =>
-    pushStatus('reranker', { message: msg }),
-  )
-  pushStatus('reranker', {
-    message: 'Loading reranker weights…',
-  })
-  const model = await (
-    llama as {
-      loadModel: (o: {
-        modelPath: string
-        onLoadProgress?: (p: number) => void
-      }) => Promise<unknown>
-    }
-  ).loadModel({
-    modelPath: payload.modelPath,
-    onLoadProgress: (p: number) => pushStatus('reranker', { loadProgress: p }),
-  })
-  pushStatus('reranker', { message: 'Creating ranking context…', loadProgress: 1 })
-  const context = await (
-    model as {
-      createRankingContext: (opts?: { contextSize?: number }) => Promise<unknown>
-    }
-  ).createRankingContext({ contextSize: payload.contextSize })
-  rerankerModel = model
-  rerankerContext = context
+  const loaded = await loadAuxiliary('reranker', payload)
+  rerankerModel = loaded.model
+  rerankerContext = loaded.contexts[0]
   pushStatus('reranker', { state: 'ready', loadProgress: null, message: 'Reranker ready.' })
-  const onGpu = primaryGpuLabel != null && primaryGpuLabel !== 'cpu'
   return {
-    resources,
-    resolvedPlacement: onGpu ? 'gpu' : 'cpu',
-    reason: onGpu ? `shared ${primaryGpuLabel} backend` : 'shared CPU backend',
+    resources: loaded.resources,
+    resolvedPlacement: loaded.placement.placement,
+    reason: loaded.placement.reason,
   }
 }
 
@@ -1116,6 +1203,83 @@ async function rerankerRank(query: string, documents: string[]): Promise<number[
   }
 }
 
+const configs: {
+  llm?: LlmLoadPayload
+  embedder?: EmbedderLoadPayload
+  reranker?: RerankerLoadPayload
+} = {}
+const loadResults = new Map<ModelTask, LlmLoadResult | EmbedderLoadResult | RerankerLoadResult>()
+let transition: ModelTransition = IDLE_MODEL_TRANSITION
+function setTransition(next: ModelTransition): void {
+  transition = next
+  send({ ev: 'activity', activity: next })
+}
+function isResident(task: ModelTask): boolean {
+  return task === 'llm'
+    ? llmModel != null
+    : task === 'embedder'
+      ? embedderModel != null
+      : rerankerModel != null
+}
+const residency = new ModelResidency({
+  loaded: isResident,
+  resources: async () => {
+    await ensureBackend('primary', false, () => {})
+    return planner.refresh()
+  },
+  activity: setTransition,
+  unload: async (task) => {
+    if (task === 'llm') await llmUnloadInternal()
+    else if (task === 'embedder') await embedderUnloadInternal()
+    else await rerankerUnloadInternal()
+    // Available on demand even while parked. Native inference reloads it.
+    pushStatus(task, { state: 'ready', resident: false, message: 'Available on demand.' })
+  },
+})
+async function ensureResident(task: ModelTask, force = false): Promise<unknown> {
+  const config = configs[task]
+  if (!config) throw new Error(`${task} model is not configured.`)
+  if (task === 'reranker') {
+    // Defence in depth for direct worker callers and parked configurations.
+    // Check BEFORE ModelResidency can evict chat to prepare an unwanted model.
+    await ensureBackend('primary', false, () => {})
+    const decision = assessRerankerPolicy({
+      enabled: true,
+      mode: (config as RerankerLoadPayload).policy ?? 'auto',
+      source: 'bundled',
+      resources: await planner.refresh(),
+    })
+    if (!decision.allowed) {
+      await rerankerUnloadInternal()
+      delete configs.reranker
+      const message = describeRerankerDecision(decision)
+      pushStatus('reranker', { state: 'unloaded', resident: false, loadProgress: null, message })
+      throw new Error(message)
+    }
+  }
+  if (!force && isResident(task)) return loadResults.get(task)
+  log('info', `Preparing ${task} on GPU`)
+  try {
+    const result = await residency.load(task, config.weightsBytes, async () => {
+      if (task === 'llm') return llmLoad(config as LlmLoadPayload)
+      if (task === 'embedder') return embedderLoad(config as EmbedderLoadPayload)
+      return rerankerLoad(config as RerankerLoadPayload)
+    })
+    loadResults.set(task, result)
+    if (task === 'llm') send({ ev: 'llm.loaded', result: result as LlmLoadResult })
+    pushStatus(task, { resident: true })
+    return result
+  } catch (error) {
+    pushStatus(task, {
+      state: 'failed',
+      resident: false,
+      loadProgress: null,
+      message: String(error),
+    })
+    throw error
+  }
+}
+
 // ---- request dispatch -----------------------------------------------------
 
 process.parentPort.on('message', (raw: WorkerRequest) => {
@@ -1126,29 +1290,53 @@ process.parentPort.on('message', (raw: WorkerRequest) => {
   // Funnel through the FIFO serializer keyed on the op. Native-backend ops run
   // one-at-a-time; control ops (abort / setLanguage / shutdown) and any
   // unknown/malformed op bypass and reach handle() immediately.
-  void runSerialized(msg.op, () => handle(msg)).catch((err) => {
+  const queuedAt = Date.now()
+  void runSerialized(msg.op, () => {
+    const waitedMs = Date.now() - queuedAt
+    if (waitedMs > 1000) log('info', `${msg.op} starting after ${waitedMs} ms in the worker queue`)
+    return handle(msg)
+  }).catch((err) => {
     if ('id' in msg) fail(msg.id, err)
     else log('error', err instanceof Error ? err.message : String(err))
   })
 })
 
+function rejectCancelledGeneration(streamId: string): void {
+  if (!abortedBeforeStart.delete(streamId)) return
+  throw new Error('Generation cancelled before starting.')
+}
+
 async function handle(msg: WorkerRequest): Promise<void> {
   switch (msg.op) {
     case 'llm.load':
-      reply(msg.id, await llmLoad(msg.payload))
+      configs.llm = msg.payload
+      reply(msg.id, await ensureResident('llm', true))
       return
     case 'llm.unload':
+      delete configs.llm
       await llmUnload()
       reply(msg.id, null)
       return
     case 'llm.setLanguage':
-      llmSetLanguage(msg.payload.lang, msg.payload.systemPrompt)
+      if (configs.llm)
+        configs.llm = {
+          ...configs.llm,
+          language: msg.payload.lang,
+          systemPrompt: msg.payload.systemPrompt,
+        }
+      llmSetLanguage(msg.payload.systemPrompt)
       reply(msg.id, null)
       return
     case 'llm.ask':
+      rejectCancelledGeneration(msg.payload.streamId)
+      await ensureResident('llm')
       reply(msg.id, await llmAsk(msg.payload))
       return
     case 'llm.generateRaw':
+      rejectCancelledGeneration(msg.payload.streamId)
+      if (msg.payload.background && !isResident('llm'))
+        throw new Error('Background generation skipped: chat is parked.')
+      await ensureResident('llm')
       reply(msg.id, await llmGenerateRaw(msg.payload))
       return
     case 'llm.abort': {
@@ -1161,26 +1349,38 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     }
     case 'embedder.load':
-      reply(msg.id, await embedderLoad(msg.payload))
+      configs.embedder = msg.payload
+      reply(msg.id, await ensureResident('embedder', true))
       return
     case 'embedder.unload':
+      delete configs.embedder
       await embedderUnload()
       reply(msg.id, null)
       return
     case 'embedder.embed':
+      await ensureResident('embedder')
       reply(msg.id, await embedderEmbed(msg.payload.texts))
       return
     case 'reranker.load':
-      reply(msg.id, await rerankerLoad(msg.payload))
+      configs.reranker = msg.payload
+      reply(msg.id, await ensureResident('reranker', true))
       return
     case 'reranker.unload':
+      delete configs.reranker
       await rerankerUnload()
       reply(msg.id, null)
       return
     case 'reranker.rank':
+      await ensureResident('reranker')
       reply(msg.id, await rerankerRank(msg.payload.query, msg.payload.documents))
       return
+    case 'gpu.restoreChat':
+      if (configs.llm) await ensureResident('llm')
+      reply(msg.id, null)
+      return
     case 'planner.refresh':
+      // Probe the actual selected GPU/backend, not a second default instance.
+      await ensureBackend('primary', false, () => {})
       reply(msg.id, await planner.refresh())
       return
     case 'shutdown': {

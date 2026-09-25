@@ -1,15 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowRight, Copy, Check } from 'lucide-react'
 import { WRITING_MODES, type WriteResult, type WritingMode } from '@shared/writing'
 import { useGeneration } from '../generation/GenerationContext'
 import { useT, type TFn } from '../i18n'
 import './writing.css'
 
-// Standalone writing-assistant page (the DeepL Write analogue). Pick a mode ,
-// paste text , get a rewrite in the SAME language on the bundled LLM. No model
-// download — it reuses the chat model , so readiness is whatever the LLM
-// TitleBar dot shows; a cold model surfaces as a 'model_not_ready' error and
-// the handler kicks off a load , so a second click succeeds.
+// Reuses the selected chat provider. The main handler waits for a parked
+// bundled model to load before requesting a rewrite.
 
 // Map an IPC rejection to a user message. Electron wraps the thrown error
 // ("Error invoking remote method 'writing:improve': Error: <code>: <msg>") so
@@ -36,12 +33,20 @@ export function WritingView(): JSX.Element {
   const [elapsed, setElapsed] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const pending = useRef(false)
+
+  const clearResult = (): void => {
+    setResult(null)
+    setElapsed(null)
+    setCopied(false)
+    setError(null)
+  }
 
   const rewrite = async (): Promise<void> => {
-    if (!source.trim()) return
+    if (!source.trim() || pending.current) return
+    pending.current = true
     setBusy(true)
     setError(null)
-    setResult(null)
     const t0 = performance.now()
     const endGeneration = beginGeneration('writing')
     try {
@@ -52,15 +57,20 @@ export function WritingView(): JSX.Element {
       setError(writeErrorText(t, err instanceof Error ? err.message : String(err)))
     } finally {
       endGeneration()
+      pending.current = false
       setBusy(false)
     }
   }
 
   const copyOut = async (): Promise<void> => {
     if (!result) return
-    await navigator.clipboard.writeText(result.text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(result.text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setError(t('writing.copyFailed'))
+    }
   }
 
   return (
@@ -77,8 +87,12 @@ export function WritingView(): JSX.Element {
               key={m}
               role="tab"
               aria-selected={mode === m}
+              disabled={busy}
               className={`writing-view__mode ${mode === m ? 'writing-view__mode--active' : ''}`}
-              onClick={() => setMode(m)}
+              onClick={() => {
+                if (mode !== m) clearResult()
+                setMode(m)
+              }}
             >
               {t(`writing.mode.${m}`)}
             </button>
@@ -94,6 +108,17 @@ export function WritingView(): JSX.Element {
         </button>
       </div>
 
+      {busy && (
+        <p className="writing-view__meta" role="status">
+          {t('writing.waiting')}
+        </p>
+      )}
+      {error && (
+        <p className="writing-view__output-error" role="alert">
+          {error}
+        </p>
+      )}
+
       <div className="writing-view__workbench">
         <div className="writing-view__pane">
           <div className="writing-view__pane-head">
@@ -101,8 +126,13 @@ export function WritingView(): JSX.Element {
           </div>
           <textarea
             className="writing-view__textarea"
+            aria-label={t('writing.sourceLabel')}
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            readOnly={busy}
+            onChange={(e) => {
+              setSource(e.target.value)
+              clearResult()
+            }}
             placeholder={t('writing.sourcePlaceholder')}
             spellCheck={false}
           />
@@ -128,9 +158,7 @@ export function WritingView(): JSX.Element {
             )}
           </div>
           <div className="writing-view__output">
-            {error ? (
-              <span className="writing-view__output-error">{error}</span>
-            ) : result ? (
+            {result ? (
               result.text
             ) : (
               <span className="writing-view__output-empty">{t('writing.outputEmpty')}</span>

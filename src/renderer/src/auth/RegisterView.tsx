@@ -58,6 +58,7 @@ export function RegisterView({ onRegistered }: Props): JSX.Element {
             <span>{t('auth.displayName')}</span>
             <input
               type="text"
+              disabled={busy}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               autoComplete="off"
@@ -71,7 +72,7 @@ export function RegisterView({ onRegistered }: Props): JSX.Element {
             </small>
           </label>
 
-          <fieldset className="auth-card__field">
+          <fieldset className="auth-card__field" disabled={busy}>
             <legend>{t('auth.recoveryLangLegend')}</legend>
             <label className="auth-card__radio">
               <input
@@ -101,6 +102,7 @@ export function RegisterView({ onRegistered }: Props): JSX.Element {
             <span>{t('auth.password')}</span>
             <input
               type="password"
+              disabled={busy}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
@@ -116,6 +118,7 @@ export function RegisterView({ onRegistered }: Props): JSX.Element {
             <span>{t('auth.repeatPassword')}</span>
             <input
               type="password"
+              disabled={busy}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               autoComplete="new-password"

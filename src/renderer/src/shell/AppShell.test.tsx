@@ -10,34 +10,27 @@ describe('AppShell', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders rail when not pinned and not peeking', async () => {
+  it('renders labeled navigation by default', async () => {
     render(<AppShell />)
     await waitFor(() => {
       expect(screen.getByLabelText(/library/i)).toBeInTheDocument()
     })
   })
 
-  it('pin button toggles expanded state', async () => {
+  it('changes sidebar width only on an explicit toggle and preserves it across views', async () => {
     const { container } = render(<AppShell />)
-    await waitFor(() => container.querySelector('.app-shell'))
-
+    expect(container.querySelector('.app-shell--expanded')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(container.querySelector('.app-shell--expanded')).toBeNull()
     const sidebar = container.querySelector('.app-shell__sidebar') as HTMLElement
     fireEvent.mouseEnter(sidebar)
-
-    const pinBtn = await screen.findByLabelText(/pin sidebar/i)
-    fireEvent.click(pinBtn)
+    expect(container.querySelector('.app-shell--expanded')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
     fireEvent.mouseLeave(sidebar)
-    await waitFor(() => {
-      expect(container.querySelector('.app-shell--expanded')).not.toBeNull()
-    })
-
-    fireEvent.mouseEnter(sidebar)
-    const unpin = await screen.findByLabelText(/unpin sidebar/i)
-    fireEvent.click(unpin)
-    fireEvent.mouseLeave(sidebar)
-    await waitFor(() => {
-      expect(container.querySelector('.app-shell--expanded')).toBeNull()
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'Write' }))
+    expect(container.querySelector('.app-shell--expanded')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Write' })).toHaveAttribute('aria-current', 'page')
+    expect(localStorage.getItem('loklm:sidebar:pinned')).toBe('1')
   })
 
   it('chat view shows "create or select a workspace" when none active', async () => {
@@ -58,7 +51,7 @@ describe('AppShell', () => {
     vi.spyOn(window.api.translation, 'status').mockResolvedValue({
       state: 'ready',
       message: null,
-      sidecarAvailable: true,
+      modelName: 'Qwen3.5-4B',
     })
     vi.spyOn(window.api.translation, 'translate').mockResolvedValue({
       text: 'KEEPALIVE_RESULT',

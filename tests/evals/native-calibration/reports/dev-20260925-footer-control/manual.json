@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct inputs EUR 53,780 planned for 2026 and EUR 48,260 recorded in 2025, and correct difference EUR 5,520. Inline citations are 1:1 (2025 ledger introduction, no revenue values) and 1:2 (recorded 2025 table). Neither supports the planned 2026 input; the exact planned-value passage 2:5 was supplied at rank 5. This is a source-attribution failure, not a retrieval or arithmetic failure. One English sentence with all requested quantities and no invented extra fact."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct approval date 2026-03-09 in the explicitly requested ISO format, with exact supplied approval passage 2:4. One short English sentence and no unsupported extras."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer with exact batch identifier MSX-417 and supplied draft A passage 3:6. The inline marker after the sentence refers to the claim immediately before it. No draft B confusion or unsupported extra fact; one short sentence."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German result 0 for reserveSlots(3, 9), grounded in exact supplied function passage 5:8: max(0, 3 - 9) = 0, then min(4, 0) = 0. One short German sentence; code formatting and bold emphasis add no claim."
+  }
+]

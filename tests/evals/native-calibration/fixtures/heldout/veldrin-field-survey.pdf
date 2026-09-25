@@ -1,0 +1,53 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 1091 >>
+stream
+BT /F2 18 Tf 1 0 0 1 48 788 Tm (Veldrin Yard field survey) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 750 Tm (Survey date: 2027-02-23) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 726 Tm (Synthetic calibration data - one recorded survey.) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 702 Tm (Each row describes one site. Tray counts are whole trays.) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 678 Tm (The sample mass is measured in kilograms \(kg\).) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 630 Tm (Site       | Accepted trays | Rejected trays | Sample mass \(kg\)) Tj ET
+0.4 w 48 621 m 548 621 l S
+BT /F1 11 Tf 1 0 0 1 48 600 Tm (Teral      |             18 |              0 |             31.6) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 572 Tm (Luvon      |             29 |              3 |             26.9) Tj ET
+0.4 w 48 560 m 548 560 l S
+BT /F1 11 Tf 1 0 0 1 48 520 Tm (Accepted and rejected trays are separate counts.) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 496 Tm (Sample mass is independent of the number of trays.) Tj ET
+BT /F1 11 Tf 1 0 0 1 48 472 Tm (The report contains no outdoor temperature measurements.) Tj ET
+BT /F1 10 Tf 1 0 0 1 48 54 Tm (Page 1 of 1) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Title (Veldrin Yard field survey) /Creator (LokLM synthetic calibration fixture) >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000319 00000 n 
+0000000394 00000 n 
+0000001536 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R /Info 7 0 R >>
+startxref
+1639
+%%EOF

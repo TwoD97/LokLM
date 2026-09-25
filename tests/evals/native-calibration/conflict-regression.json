@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "split": "conflict-regression",
+  "sources": [
+    {
+      "key": "regression-arven-a",
+      "file": "fixtures/conflict-regression/arven-draft-a.md",
+      "title": "Arven dispatch draft A",
+      "format": "markdown"
+    },
+    {
+      "key": "regression-arven-b",
+      "file": "fixtures/conflict-regression/arven-draft-b.md",
+      "title": "Arven Versandentwurf B",
+      "format": "markdown"
+    },
+    {
+      "key": "regression-belvar-1",
+      "file": "fixtures/conflict-regression/belvar-revision-1.md",
+      "title": "Belvar dispatch revision 1",
+      "format": "markdown"
+    },
+    {
+      "key": "regression-belvar-2",
+      "file": "fixtures/conflict-regression/belvar-revision-2.md",
+      "title": "Belvar Versandrevision 2",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "conflict-regression-01",
+      "question": "What is Arven's definitive dispatch deadline according to drafts A and B? Use ISO dates and answer in one short sentence.",
+      "language": "en",
+      "kind": "conflicting-sources",
+      "requiredSourceKeys": ["regression-arven-a", "regression-arven-b"],
+      "expectedAbstention": true,
+      "referenceAnswer": "No definitive deadline is established: the unapproved drafts conflict between 2028-03-11 and 2028-03-18, and neither supersedes the other.",
+      "answerChecks": [
+        { "label": "draft A date", "pattern": "\\b2028-03-11\\b" },
+        { "label": "draft B date", "pattern": "\\b2028-03-18\\b" }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "conflict-regression-02",
+      "question": "Welche endgültige Versandfrist gilt für Arven laut den Entwürfen A und B? Verwende ISO-Daten und antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "requiredSourceKeys": ["regression-arven-a", "regression-arven-b"],
+      "expectedAbstention": true,
+      "referenceAnswer": "Eine endgültige Frist ist nicht festgelegt: Die nicht freigegebenen Entwürfe widersprechen sich mit 2028-03-11 und 2028-03-18, und keiner ersetzt den anderen.",
+      "answerChecks": [
+        { "label": "draft A date", "pattern": "\\b2028-03-11\\b" },
+        { "label": "draft B date", "pattern": "\\b2028-03-18\\b" }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "conflict-regression-03",
+      "question": "What is Belvar's definitive dispatch deadline according to revisions 1 and 2? Use an ISO date and answer in one short sentence.",
+      "language": "en",
+      "kind": "exact-date",
+      "requiredSourceKeys": ["regression-belvar-2"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Belvar's definitive deadline is 2028-04-27 because approved revision BEL-REV-2 explicitly supersedes BEL-REV-1 and its deadline.",
+      "answerChecks": [{ "label": "authorized final date", "pattern": "\\b2028-04-27\\b" }],
+      "allowPartial": false
+    },
+    {
+      "id": "conflict-regression-04",
+      "question": "Welche endgültige Versandfrist gilt für Belvar laut den Revisionen 1 und 2? Verwende ein ISO-Datum und antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "exact-date",
+      "requiredSourceKeys": ["regression-belvar-2"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Belvars endgültige Versandfrist ist 2028-04-27, weil die freigegebene Revision BEL-REV-2 ausdrücklich BEL-REV-1 einschließlich ihrer Frist ersetzt.",
+      "answerChecks": [{ "label": "authorized final date", "pattern": "\\b2028-04-27\\b" }],
+      "allowPartial": false
+    }
+  ]
+}

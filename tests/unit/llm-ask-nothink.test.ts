@@ -46,6 +46,26 @@ function hit(text: string): RetrievalHit {
 }
 
 describe('LlamaService.askWithModel noThink', () => {
+  it('uses the output limit reserved by the QA planner', async () => {
+    const { svc, captured } = makeService('answer')
+    await svc.ask('how?', [], { maxTokens: 512 })
+    expect(captured()?.maxTokens).toBe(512)
+  })
+
+  it('bounds an excessive caller limit to the resolved window allowance', async () => {
+    const { svc, captured } = makeService('answer')
+    await svc.ask('how?', [], { maxTokens: 100_000 })
+    expect(captured()?.maxTokens).toBe(2048)
+  })
+
+  it('does not start generation when cancellation has already arrived', async () => {
+    const { svc, captured } = makeService('answer')
+    const controller = new AbortController()
+    controller.abort()
+    await expect(svc.ask('how?', [], { abortSignal: controller.signal })).rejects.toThrow()
+    expect(captured()).toBeUndefined()
+  })
+
   it('passes noThink to the worker llm.ask payload', async () => {
     const { svc, captured } = makeService('answer')
     const out = await svc.ask('how?', [])

@@ -1,9 +1,7 @@
-import type { Document } from './documents'
+import type { Document, IndexProgress } from './documents'
 
-/** Aggregate indexing progress for a workspace's document list, derived purely
- *  from each document's status. Drives the Library's batch progress bar
- *  ("X von N indexiert (Y %)"). No backend plumbing — the renderer already has
- *  the document statuses and receives live `indexing:progress` updates. */
+/** Aggregate finished documents and live chunk progress. A single large file
+ *  advances the bar during embedding, with 100% reserved for durable writes. */
 export interface IndexBatchProgress {
   /** Total documents in the workspace. */
   total: number
@@ -13,22 +11,32 @@ export interface IndexBatchProgress {
   active: number
   /** Documents whose indexing failed. */
   failed: number
-  /** ready / total as a 0–100 integer percent; 0 when there are no documents. */
+  /** Finished documents plus partial chunk progress, as a 0–100 percent. */
   percent: number
 }
 
 export function deriveIndexBatchProgress(
-  docs: ReadonlyArray<Pick<Document, 'status'>>,
+  docs: ReadonlyArray<Pick<Document, 'status'> & { id?: number }>,
+  progress?: ReadonlyMap<number, IndexProgress>,
 ): IndexBatchProgress {
   let ready = 0
   let active = 0
   let failed = 0
-  for (const { status } of docs) {
+  let partial = 0
+  for (const { id, status } of docs) {
     if (status === 'ready') ready++
     else if (status === 'failed') failed++
-    else if (status === 'pending' || status === 'indexing') active++
+    else if (status === 'pending' || status === 'indexing') {
+      active++
+      const p = id == null ? undefined : progress?.get(id)
+      if (p?.phase === 'done') partial += 1
+      else if (p?.phase === 'embedding' && p.chunksTotal && p.chunksTotal > 0)
+        partial += Math.max(0, Math.min(0.99, (p.chunksDone ?? 0) / p.chunksTotal))
+      else if (p?.phase === 'persisting') partial += 0.99
+    }
   }
   const total = docs.length
-  const percent = total === 0 ? 0 : Math.round((ready / total) * 100)
+  const percent =
+    total === 0 ? 0 : Math.min(active > 0 ? 99 : 100, Math.round(((ready + partial) / total) * 100))
   return { total, ready, active, failed, percent }
 }

@@ -1,130 +1,170 @@
-import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Info, Settings as SettingsIcon, User } from 'lucide-react'
+﻿import { useEffect, useRef, useState } from 'react'
+import {
+  SlidersHorizontal,
+  Info,
+  Settings as SettingsIcon,
+  User,
+  LayoutGrid,
+  Cpu,
+  X,
+} from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { BasicTab } from './BasicTab'
+import { ModulesTab } from './ModulesTab'
+import { SystemTab } from './SystemTab'
 import { AdvancedTab } from './AdvancedTab'
 import { AboutTab } from './AboutTab'
 import { useT } from '../i18n'
+import { useModalFocus } from '../ui/useModalFocus'
 import './SettingsModal.css'
 
-type Tab = 'profile' | 'basic' | 'advanced' | 'about'
+const SECTIONS = [
+  { id: 'basic', title: 'prefs.general', hint: 'prefs.generalHint', Icon: SettingsIcon },
+  { id: 'modules', title: 'prefs.modules', hint: 'prefs.modulesHint', Icon: LayoutGrid },
+  { id: 'system', title: 'prefs.system', hint: 'prefs.systemHint', Icon: Cpu },
+  {
+    id: 'advanced',
+    title: 'settings.tab.advanced',
+    hint: 'prefs.advancedHint',
+    Icon: SlidersHorizontal,
+  },
+  { id: 'profile', title: 'settings.tab.profile', hint: 'prefs.profileHint', Icon: User },
+  { id: 'about', title: 'settings.tab.about', hint: 'prefs.aboutHint', Icon: Info },
+] as const
+type Tab = (typeof SECTIONS)[number]['id']
 
-type Props = {
+export function SettingsModal({
+  open,
+  onClose,
+  initialTab = 'basic',
+}: {
   open: boolean
   onClose: () => void
+  initialTab?: Tab
+}): JSX.Element | null {
+  return open ? <SettingsDialog key={initialTab} onClose={onClose} initialTab={initialTab} /> : null
 }
 
-export function SettingsModal({ open, onClose }: Props): JSX.Element | null {
+function SettingsDialog({
+  onClose,
+  initialTab,
+}: {
+  onClose: () => void
+  initialTab: Tab
+}): JSX.Element {
   const t = useT()
-  const [tab, setTab] = useState<Tab>('basic')
-  // Tracks whether the mouse press that precedes a click started on the
-  // backdrop itself. Without this, selecting text in a field and releasing the
-  // mouse over the backdrop fires a click whose target is the backdrop, which
-  // would close the modal mid-selection (the press began inside, not on it).
+  const [tab, setTab] = useState<Tab>(initialTab)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useModalFocus(modalRef, true)
   const backdropPressed = useRef(false)
-
-  // Reset to Basic when the modal opens — keyed on `open` ONLY. Keeping onClose
-  // out of these deps is load-bearing: App passes a fresh inline onClose every
-  // render and a settings update re-renders App, so depending on onClose here
-  // would snap the tab back to Basic on every setting change (e.g. dragging a
-  // slider in the Advanced tab).
   useEffect(() => {
-    if (open) setTab('basic')
-  }, [open])
-
-  // Escape closes while the modal is open.
-  useEffect(() => {
-    if (!open) return
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
-  if (!open) return null
-
+  }, [onClose])
+  const current = SECTIONS.find((section) => section.id === tab)!
   return (
     <div
       className="settings-backdrop"
+      role="presentation"
       onMouseDown={(e) => {
         backdropPressed.current = e.target === e.currentTarget
       }}
       onClick={(e) => {
-        // Close only on a genuine backdrop click — press AND release on the
-        // backdrop. A drag that started inside (text selection) leaves
-        // backdropPressed false even if the click resolves on the backdrop.
         if (e.target === e.currentTarget && backdropPressed.current) onClose()
         backdropPressed.current = false
       }}
-      role="presentation"
     >
       <div
         className="settings-modal"
+        ref={modalRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-label={t('prefs.title')}
       >
         <header className="settings-modal__header">
-          <div className="settings-modal__tabs" role="tablist">
-            <button
-              role="tab"
-              aria-selected={tab === 'profile'}
-              className={`settings-tab ${tab === 'profile' ? 'settings-tab--active' : ''}`}
-              onClick={() => setTab('profile')}
-            >
-              <span className="settings-tab__icon" aria-hidden="true">
-                <User size={18} />
-              </span>
-              {t('settings.tab.profile')}
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'basic'}
-              className={`settings-tab ${tab === 'basic' ? 'settings-tab--active' : ''}`}
-              onClick={() => setTab('basic')}
-            >
-              <span className="settings-tab__icon" aria-hidden="true">
-                <SettingsIcon size={18} />
-              </span>
-              {t('settings.tab.basic')}
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'advanced'}
-              className={`settings-tab ${tab === 'advanced' ? 'settings-tab--active' : ''}`}
-              onClick={() => setTab('advanced')}
-            >
-              <span className="settings-tab__icon" aria-hidden="true">
-                <AlertTriangle size={18} />
-              </span>
-              {t('settings.tab.advanced')}
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'about'}
-              className={`settings-tab ${tab === 'about' ? 'settings-tab--active' : ''}`}
-              onClick={() => setTab('about')}
-            >
-              <span className="settings-tab__icon" aria-hidden="true">
-                <Info size={18} />
-              </span>
-              {t('settings.tab.about')}
-            </button>
+          <div>
+            <h2>{t('prefs.title')}</h2>
+            <p>{t('prefs.subtitle')}</p>
           </div>
           <button
             className="settings-modal__close"
             onClick={onClose}
             aria-label={t('common.close')}
           >
-            ×
+            <X size={20} aria-hidden="true" />
           </button>
         </header>
-        <div className="settings-modal__body">
-          {tab === 'profile' && <ProfileTab />}
-          {tab === 'basic' && <BasicTab />}
-          {tab === 'advanced' && <AdvancedTab />}
-          {tab === 'about' && <AboutTab />}
+        <div className="settings-modal__layout">
+          <div
+            className="settings-modal__tabs"
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label={t('prefs.title')}
+            onKeyDown={(event) => {
+              const index = SECTIONS.findIndex((section) => section.id === tab)
+              const next = ['ArrowDown', 'ArrowRight'].includes(event.key)
+                ? (index + 1) % SECTIONS.length
+                : ['ArrowUp', 'ArrowLeft'].includes(event.key)
+                  ? (index + SECTIONS.length - 1) % SECTIONS.length
+                  : event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? SECTIONS.length - 1
+                      : null
+              if (next === null) return
+              event.preventDefault()
+              setTab(SECTIONS[next]!.id)
+              event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+            }}
+          >
+            {SECTIONS.map(({ id, title, Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={tab === id}
+                tabIndex={tab === id ? 0 : -1}
+                id={`settings-tab-${id}`}
+                aria-controls="settings-panel"
+                className={`settings-tab ${tab === id ? 'settings-tab--active' : ''}`}
+                onClick={() => setTab(id)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                {t(title)}
+              </button>
+            ))}
+          </div>
+          <div
+            className="settings-modal__body"
+            role="tabpanel"
+            id="settings-panel"
+            aria-labelledby={`settings-tab-${tab}`}
+            tabIndex={0}
+            key={tab}
+          >
+            <div className="preferences-heading">
+              <h3>{t(current.title)}</h3>
+              <p>{t(current.hint)}</p>
+            </div>
+            {tab === 'basic' && <BasicTab />}
+            {tab === 'modules' && <ModulesTab />}
+            {tab === 'system' && (
+              <SystemTab
+                onOpenAdvanced={() => {
+                  setTab('advanced')
+                  modalRef.current
+                    ?.querySelector<HTMLButtonElement>('#settings-tab-advanced')
+                    ?.focus()
+                }}
+              />
+            )}
+            {tab === 'advanced' && <AdvancedTab />}
+            {tab === 'profile' && <ProfileTab />}
+            {tab === 'about' && <AboutTab />}
+          </div>
         </div>
       </div>
     </div>

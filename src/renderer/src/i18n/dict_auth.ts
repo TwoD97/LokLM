@@ -76,6 +76,10 @@ export const authDict: DomainDict = {
     'auth.revealLead':
       'These {count} words are your only way back if you forget your password. Write them down now — they are not stored anywhere and cannot be shown again.',
     'auth.copyToClipboard': 'Copy to clipboard',
+    'auth.copyingToClipboard': 'Copying…',
+    'auth.retryCopy': 'Try copying again',
+    'auth.copyFailed':
+      'The words could not be copied. Try again or write them down from this screen.',
     'auth.copiedToClipboard': 'Copied to clipboard',
     'auth.revealConfirm': 'I have safely written down the 18 words.',
 
@@ -168,6 +172,10 @@ export const authDict: DomainDict = {
     'auth.revealLead':
       'Diese {count} Wörter sind dein einziger Weg zurück, falls du das Passwort vergisst. Notiere sie jetzt — sie werden nirgendwo gespeichert und können nicht erneut angezeigt werden.',
     'auth.copyToClipboard': 'In Zwischenablage kopieren',
+    'auth.copyingToClipboard': 'Wird kopiert…',
+    'auth.retryCopy': 'Erneut kopieren',
+    'auth.copyFailed':
+      'Die Wörter konnten nicht kopiert werden. Versuche es erneut oder schreibe sie von diesem Bildschirm ab.',
     'auth.copiedToClipboard': 'In Zwischenablage',
     'auth.revealConfirm': 'Ich habe die 18 Wörter sicher notiert.',
 

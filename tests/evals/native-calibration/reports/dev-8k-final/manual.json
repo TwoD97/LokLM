@@ -1,0 +1,110 @@
+[
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct recorded service-credit revenue 48,260 EUR for 2025 with the exact supplied operations table 1:2. Unlike the alias experiment, it does not cite introduction-only passage 1:1. One short sentence with no unsupported extras. First visible text 53.620 s and final event 68.693 s. Extracted source chunks match previous DEV runs."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct planned-minus-recorded revenue difference 5,520 EUR. The 2025 input citation 1:2 is exact, but the 2026 input cites approval/introduction passage 2:4 instead of the actual planned-revenue table 2:5. Passage 2:5 was supplied at rank 5. Both document IDs are valid, yet the cited 2026 passage does not contain the required input. This unresolved exact-passage attribution failure also occurred in the earlier canonical 8K balanced run. First visible text 38.068 s and final event 62.003 s."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German batch identifier MSX-417 and exact supplied draft A citation 3:6. The conflicting draft B does not supply this identifier. One short sentence, no unsupported extras, and the omitted-citation regression from the alias experiment is absent. First visible text 43.992 s and final event 56.552 s."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct reserveSlots(3, 9) result 0, with exact supplied function passage 5:8. The lower clamp and outer minimum are correctly reflected in the result; no baseline mistake of returning 4. Honors the requested single short sentence, unlike the alias run's long derivation. Harmless unrequested bold emphasis remains. First visible text 44.084 s and final event 56.342 s."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 184 completed inspections in 2025, expressed in German and citing exact supplied operations table 1:2. No confusion with planned 2026 inspections or unsupported extra claim. One short sentence. First visible text 37.945 s and final event 51.636 s."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct approval date 2026-03-09 in the requested ISO format, with exact supplied approval passage 2:4. No draft-shipping date or citation confusion; one short English sentence. First visible text 35.636 s and final event 50.414 s."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Neral sample mass 18.4 kg, localized as 18,4 kg, with exact supplied PDF table 6:9. Correct site and unit; no tray-count or Bexin-row confusion. One concise German sentence without extra claims. First visible text 37.824 s and final event 48.376 s."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Neral 27 and Bexin 35 accepted trays and their combined total 62; rejected trays are excluded. Exact supplied PDF table 6:9 supports both inputs, the survey date, and units. One sentence with no unsupported extra claim. First visible text 37.086 s and final event 63.399 s."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct reserveSlots(13, 5) return value 4 slots with exact supplied function passage 5:8. The source explicitly describes integer slot counts, so the unit is supported. No erroneous return of the unclamped remaining capacity 8. One short sentence. First visible text 35.950 s and final event 47.314 s."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that no chief financial officer is mentioned in the supplied context. All nine corpus chunks were supplied and none identifies this role. No invented person or misleading partial answer; one short sentence. A limitation about absent information does not require an invented source citation. First visible text 37.121 s and final event 43.008 s."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct conflicting ISO dates 2026-10-14 and 2026-10-21 with exact supplied sources 3:6 and 4:7. Explicitly states that neither draft establishes definitive authority through approval or supersession; both passages support this. Preserves the conflict without inventing a final deadline. This is one compound sentence supported by both inline sources, though long for a request for a short sentence. First visible text 36.402 s and final event 77.378 s."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly says no outdoor temperature information is available for Bexin or other survey sites and cites exact supplied PDF passage 6:9, which explicitly states there are no outdoor temperature measurements. Does not invent an average or substitute the unrelated cabinet setting. The supporting citation omitted in the alias run is restored. First visible text 38.034 s and final event 62.578 s."
+  }
+]

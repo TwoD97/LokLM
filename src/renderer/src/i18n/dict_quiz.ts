@@ -4,6 +4,8 @@ import type { DomainDict } from './types'
 
 export const quizDict: DomainDict = {
   en: {
+    'quiz.list.actionFailed': 'The action could not finish. Your quizzes are still here.',
+    'quiz.list.deleteConfirm': 'Delete “{name}” and its saved attempts? This cannot be undone.',
     // CreateQuizDialog
     'quiz.create.heading': 'New Quiz',
     'quiz.create.nameLabel': 'Name',
@@ -85,6 +87,10 @@ export const quizDict: DomainDict = {
     'quiz.merge.merging': 'Merging…',
   },
   de: {
+    'quiz.list.actionFailed':
+      'Die Aktion konnte nicht abgeschlossen werden. Deine Quiz bleiben erhalten.',
+    'quiz.list.deleteConfirm':
+      '„{name}“ und die gespeicherten Versuche löschen? Dies kann nicht rückgängig gemacht werden.',
     // CreateQuizDialog
     'quiz.create.heading': 'Neues Quiz',
     'quiz.create.nameLabel': 'Name',

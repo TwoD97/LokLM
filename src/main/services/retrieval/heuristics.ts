@@ -97,6 +97,34 @@ export function nonStopwordTokens(text: string): string[] {
 const MAX_SUBQUESTIONS = 5
 const MIN_SUBQUESTION_CHARS = 10
 
+/** Presentation requests are constraints on an answer, not extra search topics.
+ * Deliberately narrow: an imperative asking about another subject must still
+ * get its own retrieval pass. Keep these words in the original user prompt. */
+function isResponseDirective(text: string): boolean {
+  const clauses = text
+    .split(/[.!]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return (
+    clauses.length > 0 &&
+    clauses.every(
+      (clause) =>
+        /^(?:please\s+)?(?:answer|reply|respond)\s+(?:briefly|concisely|in\s+(?:(?:one|a|two|three|\d+)\s+)?(?:(?:short|brief|complete)\s+)?(?:sentences?|paragraphs?|bullet points|plain text|English|German))(?:\s+only)?$/i.test(
+          clause,
+        ) ||
+        /^(?:bitte\s+)?(?:antworte|antworten Sie)\s+(?:kurz|knapp|auf\s+(?:Deutsch|Englisch)|in\s+(?:(?:einem|einen|zwei|drei|\d+)\s+)?(?:(?:kurzen|knappen|vollständigen)\s+)?(?:Satz|Sätzen|Absatz|Absätzen|Stichpunkten))$/iu.test(
+          clause,
+        ) ||
+        /^(?:please\s+)?use\s+(?:ISO(?:[- ]8601)?\s+dates?|bullet points|plain text)$/i.test(
+          clause,
+        ) ||
+        /^(?:bitte\s+)?(?:verwende|nutze)\s+(?:ISO(?:[- ]8601)?[- ]?(?:Daten|Datumsangaben)|Stichpunkte|Klartext)$/iu.test(
+          clause,
+        ),
+    )
+  )
+}
+
 /**
  * Split a chat message into distinct sub-questions for separate retrieval
  * (ADR-0003). Pure + hot-path safe — NO LLM. Conservative by design: splits
@@ -118,6 +146,13 @@ export function splitQuestions(query: string): string[] {
     .split(/(?<=\?)/)
     .map((s) => s.trim())
     .filter((s) => s.length >= MIN_SUBQUESTION_CHARS && nonStopwordTokens(s).length >= 1)
+  const tail = segments.at(-1)
+  if (segments.length > 1 && tail && isResponseDirective(tail)) {
+    segments.pop()
+    // QA keeps the original message. Generic formatting words must not
+    // contribute lexical matches or separate semantic retrieval votes.
+    if (segments.length <= MAX_SUBQUESTIONS) return segments
+  }
   if (segments.length < 2 || segments.length > MAX_SUBQUESTIONS) return [trimmed]
   return segments
 }
@@ -373,8 +408,7 @@ export function applyCodeSymbolBoost(
     const hp = h.heading_path!
     const symbol = hp.length > 1 ? hp[hp.length - 1]!.toLowerCase() : null
     const symbolMatch = symbol != null && symbolFactor > 1.0 && ids.some((id) => id === symbol)
-    const layMatch =
-      !symbolMatch && symbol != null && layTerms.some((t) => symbol.includes(t))
+    const layMatch = !symbolMatch && symbol != null && layTerms.some((t) => symbol.includes(t))
     const definesMatch =
       !symbolMatch && defineFactor > 1.0 && ids.some((id) => definesIdentifier(h.text, id))
     // Exclusive branches keep the intended hierarchy: exact breadcrumb match

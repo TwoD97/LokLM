@@ -42,7 +42,24 @@ describe('LibraryView search integration', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     delete (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView
+  })
+
+  it('accepts files across the library and clears the drag hint after import', async () => {
+    const importFiles = vi.spyOn(window.api.documents, 'import')
+    vi.spyOn(window.api.documents, 'getPathForFile').mockReturnValue('D:/Research/report.pdf')
+    const { container } = render(<LibraryView workspaceId={1} workspaceName="WS" />)
+    const library = container.querySelector('.library')!
+    const dataTransfer = {
+      types: ['Files'],
+      files: [new File(['report'], 'report.pdf', { type: 'application/pdf' })],
+    }
+    fireEvent.dragEnter(library, { dataTransfer })
+    expect(screen.getByText('Drop documents to import')).toBeInTheDocument()
+    fireEvent.drop(screen.getByRole('heading', { name: 'WS' }), { dataTransfer })
+    await waitFor(() => expect(importFiles).toHaveBeenCalledWith(1, 'D:/Research/report.pdf'))
+    expect(screen.queryByText('Drop documents to import')).not.toBeInTheDocument()
   })
 
   it('runs a search as the user types and shows highlighted hits', async () => {
@@ -56,6 +73,27 @@ describe('LibraryView search integration', () => {
     await waitFor(() => expect(screen.getByText('Found.pdf')).toBeTruthy())
     expect(screen.getByText('match').tagName).toBe('MARK')
     expect(screen.getByText('p. 2')).toBeTruthy()
+  })
+
+  it('shows import failures in the workspace instead of only logging them', async () => {
+    vi.spyOn(window.api.documents, 'pickFiles').mockResolvedValue(['D:/Research/locked.pdf'])
+    vi.spyOn(window.api.documents, 'import').mockRejectedValue(new Error('Access denied'))
+    render(<LibraryView workspaceId={1} workspaceName="WS" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Import documents' }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('locked.pdf: Access denied'),
+    )
+  })
+
+  it('shows a failed library load with retry instead of the empty library prompt', async () => {
+    vi.spyOn(window.api.documents, 'list')
+      .mockRejectedValueOnce(new Error('Vault unavailable'))
+      .mockResolvedValue([])
+    render(<LibraryView workspaceId={1} workspaceName="WS" />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Vault unavailable')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(window.api.documents.list).toHaveBeenCalledTimes(2)
   })
 
   it('opens the SourceViewer at the clicked hit chunk', async () => {

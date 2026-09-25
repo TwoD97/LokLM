@@ -1,0 +1,974 @@
+{
+  "kind": "synthetic-production-mechanics",
+  "generatedAt": "2026-09-24T14:47:53.985Z",
+  "gitCommit": "ed9a276e926f0f30fbe915a481d385c7d44d072f",
+  "gitDirty": true,
+  "sourceHashes": {
+    "src/main/services/qa/QAService.ts": "3ae9b134e9ef8d8ff4e6caa0656b98b56a071137b490c5a2926be24081918e6c",
+    "src/main/services/llm/prompt.ts": "fe51aa7996eeac74f5392333768a831953a7840728211e795af216c76e602bf0",
+    "src/main/services/retrieval/RetrievalService.ts": "0f9f2c0df94816342ac87adc5b3fb57acd0f5ac087ce8faecc8a8f173566e132",
+    "src/main/services/retrieval/rrf.ts": "def37a8d68f3d142de909f3fd90374c937b52c4f69227befd6e581a2c28b4099",
+    "src/main/services/qa/contextBudget.ts": "f132143539e58bb04f79650021b6ec9880edee3a59c429a581ee1a7822dba53d",
+    "src/main/services/llm/LlamaService.ts": "c9b3b3675389d20fd5fe2c8efba873b53d739d4b281e01735392e9b73e68baa0"
+  },
+  "fixtureSha256": "791bd11f12572b2ebf16d75f3e137b4a9720e10ead28bcb723d100564a3e592e",
+  "limitations": [
+    "Inference and index scores are deterministic fixtures.",
+    "Not a model accuracy, PDF parser, latency, or GPU-residency benchmark.",
+    "Weak-only answerability is reported as a known unresolved limitation."
+  ],
+  "cases": 24,
+  "passing": 22,
+  "unexpectedFailures": 0,
+  "knownLimitations": 2,
+  "rows": [
+    {
+      "id": "de-date",
+      "contextTokens": 4096,
+      "language": "de",
+      "category": "date",
+      "retrieved": [
+        {
+          "id": 11,
+          "origin": "primary",
+          "chars": 119
+        }
+      ],
+      "fed": [
+        {
+          "id": 11,
+          "chars": 119
+        }
+      ],
+      "citationIds": [11],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1027,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2243,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "en-table",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "table",
+      "retrieved": [
+        {
+          "id": 21,
+          "origin": "primary",
+          "chars": 127
+        }
+      ],
+      "fed": [
+        {
+          "id": 21,
+          "chars": 127
+        }
+      ],
+      "citationIds": [21],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 946,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2162,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "de-to-en",
+      "contextTokens": 4096,
+      "language": "de",
+      "category": "cross-language",
+      "retrieved": [
+        {
+          "id": 31,
+          "origin": "primary",
+          "chars": 121
+        }
+      ],
+      "fed": [
+        {
+          "id": 31,
+          "chars": 121
+        }
+      ],
+      "citationIds": [31],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1029,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2245,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "en-to-de",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "cross-language",
+      "retrieved": [
+        {
+          "id": 41,
+          "origin": "primary",
+          "chars": 113
+        }
+      ],
+      "fed": [
+        {
+          "id": 41,
+          "chars": 113
+        }
+      ],
+      "citationIds": [41],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 942,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2158,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "multi-source",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 974,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2190,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "oversize-neighbour",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 52,
+          "origin": "neighbour",
+          "chars": 56000
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 974,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2190,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "long-history",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1458,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 69600,
+      "historyCharsAfter": 1634,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2674,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "single-oversize",
+      "contextTokens": 4096,
+      "language": "de",
+      "category": "oversize",
+      "retrieved": [
+        {
+          "id": 71,
+          "origin": "primary",
+          "chars": 39600
+        }
+      ],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "empty-de",
+      "contextTokens": 4096,
+      "language": "de",
+      "category": "no-answer",
+      "retrieved": [],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "empty-en",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "no-answer",
+      "retrieved": [],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "weak-only",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "no-answer",
+      "retrieved": [
+        {
+          "id": 81,
+          "origin": "primary",
+          "chars": 121
+        }
+      ],
+      "fed": [
+        {
+          "id": 81,
+          "chars": 121
+        }
+      ],
+      "citationIds": [81],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 940,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2156,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": true,
+      "refusalMatches": false,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": false,
+      "knownLimitation": "Top-ranked weak dense evidence is retained; calibrated answerability admission is outside this change."
+    },
+    {
+      "id": "long-history-pins",
+      "contextTokens": 4096,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 11,
+          "chars": 119
+        },
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [11, 51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1513,
+      "generationTokens": 1024,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 69600,
+      "historyCharsAfter": 1634,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 2729,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "de-date",
+      "contextTokens": 8192,
+      "language": "de",
+      "category": "date",
+      "retrieved": [
+        {
+          "id": 11,
+          "origin": "primary",
+          "chars": 119
+        }
+      ],
+      "fed": [
+        {
+          "id": 11,
+          "chars": 119
+        }
+      ],
+      "citationIds": [11],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1027,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3267,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "en-table",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "table",
+      "retrieved": [
+        {
+          "id": 21,
+          "origin": "primary",
+          "chars": 127
+        }
+      ],
+      "fed": [
+        {
+          "id": 21,
+          "chars": 127
+        }
+      ],
+      "citationIds": [21],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 946,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3186,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "de-to-en",
+      "contextTokens": 8192,
+      "language": "de",
+      "category": "cross-language",
+      "retrieved": [
+        {
+          "id": 31,
+          "origin": "primary",
+          "chars": 121
+        }
+      ],
+      "fed": [
+        {
+          "id": 31,
+          "chars": 121
+        }
+      ],
+      "citationIds": [31],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1029,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3269,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "en-to-de",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "cross-language",
+      "retrieved": [
+        {
+          "id": 41,
+          "origin": "primary",
+          "chars": 113
+        }
+      ],
+      "fed": [
+        {
+          "id": 41,
+          "chars": 113
+        }
+      ],
+      "citationIds": [41],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 942,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3182,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "multi-source",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 974,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3214,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "oversize-neighbour",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 52,
+          "origin": "neighbour",
+          "chars": 56000
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 974,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3214,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "long-history",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 1987,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 69600,
+      "historyCharsAfter": 3473,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 4227,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "single-oversize",
+      "contextTokens": 8192,
+      "language": "de",
+      "category": "oversize",
+      "retrieved": [
+        {
+          "id": 71,
+          "origin": "primary",
+          "chars": 39600
+        }
+      ],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "empty-de",
+      "contextTokens": 8192,
+      "language": "de",
+      "category": "no-answer",
+      "retrieved": [],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "empty-en",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "no-answer",
+      "retrieved": [],
+      "fed": [],
+      "citationIds": [],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 0,
+      "generationTokens": 0,
+      "outputLimitProvided": false,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 0,
+      "estimatedTotalTokens": 0,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": true,
+      "expectedRefusal": true,
+      "refusalMatches": true,
+      "generationCalls": 0,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    },
+    {
+      "id": "weak-only",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "no-answer",
+      "retrieved": [
+        {
+          "id": 81,
+          "origin": "primary",
+          "chars": 121
+        }
+      ],
+      "fed": [
+        {
+          "id": 81,
+          "chars": 121
+        }
+      ],
+      "citationIds": [81],
+      "requiredEvidenceCoverage": null,
+      "promptTokens": 940,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 0,
+      "historyCharsAfter": 0,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 3180,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": true,
+      "refusalMatches": false,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": false,
+      "knownLimitation": "Top-ranked weak dense evidence is retained; calibrated answerability admission is outside this change."
+    },
+    {
+      "id": "long-history-pins",
+      "contextTokens": 8192,
+      "language": "en",
+      "category": "multi-source",
+      "retrieved": [
+        {
+          "id": 51,
+          "origin": "primary",
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "origin": "primary",
+          "chars": 87
+        }
+      ],
+      "fed": [
+        {
+          "id": 11,
+          "chars": 119
+        },
+        {
+          "id": 51,
+          "chars": 87
+        },
+        {
+          "id": 61,
+          "chars": 87
+        }
+      ],
+      "citationIds": [11, 51, 61],
+      "requiredEvidenceCoverage": 1,
+      "promptTokens": 2042,
+      "generationTokens": 2048,
+      "outputLimitProvided": true,
+      "historyCharsBefore": 69600,
+      "historyCharsAfter": 3473,
+      "framingMarginTokens": 192,
+      "estimatedTotalTokens": 4282,
+      "contextFits": true,
+      "sourceTextUnchanged": true,
+      "citationEvidenceMatches": true,
+      "refused": false,
+      "expectedRefusal": false,
+      "refusalMatches": true,
+      "generationCalls": 1,
+      "errors": [],
+      "checksPassed": true,
+      "knownLimitation": null
+    }
+  ]
+}

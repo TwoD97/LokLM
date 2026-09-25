@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -45,8 +45,11 @@ const SUBTABS: { id: SubTab; labelKey: string; Icon: LucideIcon }[] = [
 
 export function AdvancedTab(): JSX.Element {
   const t = useT()
+  const tabId = useId()
   const { settings, update, savedFlash } = useSettings()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [resetFailed, setResetFailed] = useState(false)
   const [sub, setSub] = useState<SubTab>('llm')
   // When the wizard checkbox was left unticked the Ollama subtab doesn't
   // exist at all — by design there is no in-app way to enable the connector ;
@@ -77,14 +80,38 @@ export function AdvancedTab(): JSX.Element {
         </span>
       </div>
 
-      <div className="settings-subtabs" role="tablist">
+      <div className="settings-subtabs" role="tablist" aria-label={t('prefs.advancedHint')}>
         {subtabs.map((st) => (
           <button
             key={st.id}
+            id={`${tabId}-${st.id}`}
+            type="button"
             role="tab"
             aria-selected={sub === st.id}
+            aria-controls={`${tabId}-panel-${st.id}`}
+            tabIndex={sub === st.id ? 0 : -1}
             className={`settings-subtab ${sub === st.id ? 'settings-subtab--active' : ''}`}
             onClick={() => setSub(st.id)}
+            onKeyDown={(event) => {
+              const index = subtabs.findIndex((item) => item.id === st.id)
+              const next =
+                event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? subtabs.length - 1
+                    : event.key === 'ArrowRight'
+                      ? (index + 1) % subtabs.length
+                      : event.key === 'ArrowLeft'
+                        ? (index + subtabs.length - 1) % subtabs.length
+                        : null
+              if (next === null) return
+              event.preventDefault()
+              // The outer settings navigation also handles arrow keys.
+              event.stopPropagation()
+              const target = subtabs[next]!
+              setSub(target.id)
+              document.getElementById(`${tabId}-${target.id}`)?.focus()
+            }}
           >
             <span className="settings-subtab__icon" aria-hidden="true">
               <st.Icon size={16} />
@@ -94,18 +121,34 @@ export function AdvancedTab(): JSX.Element {
         ))}
       </div>
 
-      {sub === 'llm' && <LlmSection settings={settings} update={update} />}
-      {sub === 'retrieval' && (
-        <>
-          <IndexingSection settings={settings} update={update} />
-          <EmbedderSection settings={settings} update={update} />
-          <RerankerSection settings={settings} update={update} />
-        </>
-      )}
-      {sub === 'behavior' && <BehaviorSection settings={settings} update={update} />}
-      {sub === 'translation' && <TranslationSection />}
-      {sub === 'ollama' && ollamaUnlocked && <OllamaSection settings={settings} update={update} />}
-      {sub === 'diagnostics' && <DiagnosticsSection />}
+      {subtabs.map((item) => (
+        <div
+          key={item.id}
+          id={`${tabId}-panel-${item.id}`}
+          role="tabpanel"
+          aria-labelledby={`${tabId}-${item.id}`}
+          hidden={sub !== item.id}
+        >
+          {sub === item.id && (
+            <>
+              {sub === 'llm' && <LlmSection settings={settings} update={update} />}
+              {sub === 'retrieval' && (
+                <>
+                  <IndexingSection settings={settings} update={update} />
+                  <EmbedderSection settings={settings} update={update} />
+                  <RerankerSection settings={settings} update={update} />
+                </>
+              )}
+              {sub === 'behavior' && <BehaviorSection settings={settings} update={update} />}
+              {sub === 'translation' && <TranslationSection />}
+              {sub === 'ollama' && ollamaUnlocked && (
+                <OllamaSection settings={settings} update={update} />
+              )}
+              {sub === 'diagnostics' && <DiagnosticsSection />}
+            </>
+          )}
+        </div>
+      ))}
 
       <div className="settings-reset-row">
         <span className="settings-reset-row__copy">{t('settings.advanced.resetCopy')}</span>
@@ -116,18 +159,32 @@ export function AdvancedTab(): JSX.Element {
         ) : (
           <button
             className="settings-btn--danger-confirm"
+            disabled={resetting}
             onClick={async () => {
-              await update({ advanced: DEFAULT_SETTINGS.advanced })
-              setConfirmReset(false)
+              setResetting(true)
+              setResetFailed(false)
+              try {
+                await update({ advanced: DEFAULT_SETTINGS.advanced })
+                setConfirmReset(false)
+              } catch {
+                setResetFailed(true)
+              } finally {
+                setResetting(false)
+              }
             }}
           >
-            {t('settings.advanced.resetConfirm')}
+            {t(resetting ? 'prefs.saving' : 'settings.advanced.resetConfirm')}
           </button>
         )}
         <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
           <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
         </span>
       </div>
+      {resetFailed && (
+        <p className="preferences-error" role="alert">
+          {t('prefs.saveFailed')}
+        </p>
+      )}
     </div>
   )
 }

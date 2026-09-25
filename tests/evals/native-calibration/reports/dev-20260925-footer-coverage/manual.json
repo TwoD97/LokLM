@@ -1,0 +1,76 @@
+[
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct recorded 2025 service-credit revenue 48,260 EUR, citing exact supplied ledger table 1:2 rather than the introduction-only passage 1:1. Correct year and currency, one short English sentence, and no unsupported extras."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 184 completed inspections for 2025, answered in German and citing exact supplied recorded-operations table 1:2. Does not confuse recorded 2025 figures with planned 2026 figures. One short sentence with no unsupported extras."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Neral sample mass 18.4 kg (localized 18,4 kg) for survey date 2026-04-12. Exact supplied PDF table 6:9 supports site, value, unit, and date. One short German sentence and no tray-count or Bexin-row confusion."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct accepted counts Neral 27 and Bexin 35, with independent sum 62 accepted trays. Exact supplied PDF passage 6:9 supports both site rows, the survey date 2026-04-12, and tray units. Rejected counts are excluded. One English sentence with supported calculation detail."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct reserveSlots(13, 5) return value 4, with correct intermediate remaining capacity 8 and four-slot cap. Exact supplied complete function 5:8 supports the code semantics. One extended English sentence with a supported derivation; no incorrect use of the unclamped intermediate value as the result."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly says the provided context does not identify Mica Harbor's chief financial officer; no person or unsupported role-holder is invented. All supplied passages were checked and none names that officer. One short English sentence. There are no prose citation markers: terminal source entries retain provided context for navigation and must not be treated as individually cited claims."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly gives both conflicting ISO deadlines 2026-10-14 and 2026-10-21 with exact supplied draft passages 3:6 and 4:7. The added MSX-417 identifier is supported by 3:6. It explains neither draft establishes which is definitive and chooses no winner. Clarity/brevity limitation: the long sentence ends 'there is no resolved conflict between these two values'; in the preceding context this means no resolution, not no disagreement, but the wording is awkward. This is a safe abstention with complete facts and citations, not perfect phrasing."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [
+      "States that no outdoor temperatures were measured, and attributes that statement to the report; the source only says the report contains no outdoor temperature measurements."
+    ],
+    "notes": "The German answer correctly declines to provide an outdoor-temperature value and cites the supplied survey passage 6:9. However, 'der Feldbericht ... erwähnt lediglich, dass keine Außentemperaturen gemessen wurden' overstates that passage. The actual text is 'The report contains no outdoor temperature measurements': absence from this report does not establish that no measurements were taken. No numeric temperature is invented, but the extra process/source-description claim is unsupported, so this is not a full safe-abstention pass. The contextual survey date is correct; no ISO-date format was requested in this question."
+  }
+]

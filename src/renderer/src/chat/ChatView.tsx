@@ -40,8 +40,7 @@ type LocalMessage =
       /** Pipeline stages observed for this turn, in arrival order. Empty for
        *  re-hydrated messages from the DB (stage timings aren't persisted). */
       pipeline?: StageRow[]
-      /** Persisted citations (fed AND cited chunks). Populated on re-hydrate;
-       *  undefined while streaming. Drives marker validation + grounding badge. */
+      /** Supplied passage allow-list, reconciled against the final answer. */
       citations?: Array<{ documentId: number; chunkId: number }>
     }
 
@@ -73,6 +72,17 @@ export function ChatView({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sendPending = useRef(false)
+  const deletePending = useRef(false)
+  const navigation = useRef(0)
+  // Includes a selection whose database read has not completed yet. The
+  // displayed ID alone cannot tell a terminal refresh from reopening a chat
+  // the user is currently leaving.
+  const navigationTarget = useRef<number | null>(currentConversationId)
+  const cancelledStream = useRef<string | null>(null)
+  const pendingSendCancelled = useRef(false)
+  const [draftSuggestion, setDraftSuggestion] = useState<{ text: string } | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Conversation | null>(null)
   const [sourceViewer, setSourceViewer] = useState<{
@@ -94,6 +104,10 @@ export function ChatView({
   // of whichever conv the user happens to be viewing.
   const currentIdRef = useRef<number | null>(currentConversationId)
   useEffect(() => {
+    if (currentIdRef.current !== currentConversationId) {
+      navigation.current++
+      navigationTarget.current = currentConversationId
+    }
     currentIdRef.current = currentConversationId
   }, [currentConversationId])
 
@@ -118,11 +132,16 @@ export function ChatView({
   }, [messages])
 
   const refresh = useCallback(async () => {
-    const list = await window.api.conversations.list(workspaceId)
-    setConversations(list)
+    try {
+      const list = await window.api.conversations.list(workspaceId)
+      setConversations(list)
+    } catch (err) {
+      setError(String(err))
+    }
   }, [workspaceId])
 
   useEffect(() => {
+    navigation.current++
     setMessages([])
     void refresh()
     // Kick the reranker load up-front so the first chat:stream call doesn't
@@ -133,14 +152,27 @@ export function ChatView({
   }, [workspaceId, refresh])
 
   const openConversation = useCallback(
-    async (id: number) => {
+    async (id: number, preserveError = false) => {
+      const request = ++navigation.current
+      navigationTarget.current = id
       // AP-9 Konv.-Wechsel: on an actual switch, tell main we're leaving the
       // current conversation so it can free the model under the "unload"
       // setting. Best-effort + fire-and-forget; "keep" makes this a no-op.
       if (id !== currentIdRef.current) {
         void window.api.chat.conversationSwitched().catch(() => undefined)
       }
-      const data = await window.api.conversations.getWithMessages(id)
+      let data
+      try {
+        data = await window.api.conversations.getWithMessages(id)
+      } catch (err) {
+        if (request === navigation.current) {
+          const message = t('chat.loadFailed', { message: String(err) })
+          setError((previous) => (preserveError ? (previous ?? message) : message))
+        }
+        return
+      }
+      if (request !== navigation.current) return
+      currentIdRef.current = id
       onConversationChange(id, data.conversation.activeDocumentIds)
       setMessages(
         data.messages.map((m) => {
@@ -154,9 +186,7 @@ export function ChatView({
             role: 'assistant',
             content: m.content,
             streaming: false,
-            // Always set (possibly empty) so the bubble validates markers and
-            // the grounding badge renders — distinguishes "cited nothing" from
-            // "still streaming" (undefined).
+            // Always set, including empty: only supplied passages may be opened.
             citations: m.citations.map((c) => ({ documentId: c.documentId, chunkId: c.chunkId })),
             // Re-hydrate the persisted pipeline so the progress dropdown shows
             // after a reload (empty/absent on legacy rows → no dropdown).
@@ -174,23 +204,32 @@ export function ChatView({
         }),
       )
     },
-    [onConversationChange],
+    [onConversationChange, t],
   )
 
   const startNewChat = useCallback(() => {
+    navigation.current++
+    navigationTarget.current = null
+    currentIdRef.current = null
+    setError(null)
     onConversationChange(null, [])
     setMessages([])
   }, [onConversationChange])
 
-  const onCopyMessage = useCallback((content: string) => {
-    // No toast — modern OS clipboard write is reliable enough that confirming
-    // every copy creates noise rather than reassurance. If the API ever fails
-    // the catch quietly swallows it (browser permission denial in dev, etc.).
-    void navigator.clipboard.writeText(content).catch(() => undefined)
-  }, [])
+  const onCopyMessage = useCallback(
+    (content: string) => {
+      void navigator.clipboard.writeText(content).catch(() => setError(t('chat.copyFailed')))
+    },
+    [t],
+  )
 
   const onSend = useCallback(
     async (text: string) => {
+      if (sendPending.current) return
+      sendPending.current = true
+      pendingSendCancelled.current = false
+      const startedNavigation = navigation.current
+      setError(null)
       setBusy(true)
       // Captured here so we still know it was a fresh chat after we mint a
       // conversation row below — `currentConversationId` won't reflect the
@@ -209,6 +248,15 @@ export function ChatView({
         try {
           const conv = await window.api.conversations.create(workspaceId, undefined, idsForSend)
           convId = conv.id
+          if (navigation.current !== startedNavigation || pendingSendCancelled.current) {
+            if (navigation.current === startedNavigation) setDraftSuggestion({ text })
+            sendPending.current = false
+            setBusy(false)
+            void refresh()
+            return
+          }
+          currentIdRef.current = convId
+          navigationTarget.current = convId
           onConversationChange(convId, idsForSend)
           await refresh()
         } catch (err) {
@@ -218,37 +266,93 @@ export function ChatView({
           // entered yet, so reset it here or the composer stays stuck showing
           // the stop button with no way to send.
           console.error('[chat] failed to create conversation', err)
+          setError(t('chat.sendFailed', { message: String(err) }))
+          setDraftSuggestion({ text })
+          sendPending.current = false
           setBusy(false)
           return
         }
       }
+      if (navigation.current !== startedNavigation || pendingSendCancelled.current) {
+        if (navigation.current === startedNavigation) setDraftSuggestion({ text })
+        sendPending.current = false
+        setBusy(false)
+        return
+      }
       const sendTime = performance.now()
       let firstTokenTime: number | null = null
       let tokenCount = 0
+      const assistantId = newMessageId()
       setMessages((prev) => [
         ...prev,
         { id: newMessageId(), role: 'user', content: text },
         {
-          id: newMessageId(),
+          id: assistantId,
           role: 'assistant',
           content: '',
           streaming: true,
           metrics: { ttftMs: null, tokensPerSec: null, tokenCount: 0 },
           pipeline: [],
+          citations: [],
         },
       ])
       const streamId = crypto.randomUUID()
       const streamConvId = convId
+      let streamFailed = false
+      let streamRefused = false
+      let completedSuccessfully = false
+      let durableError = false
+      let terminalReceived = false
+      cancelledStream.current = null
       setActiveStreamId(streamId)
-      const offEvent = window.api.chat.onEvent(streamId, (ev: StreamEvent) => {
+      const onStreamEvent = (ev: StreamEvent): void => {
+        if (terminalReceived) return
+        // Outcome bookkeeping survives navigation; a failed background turn
+        // must not launch a second generation to name the conversation.
+        if (ev.type === 'refusal') streamRefused = true
+        if (ev.type === 'error') {
+          streamFailed = true
+          durableError = ev.persisted === true
+          terminalReceived = true
+        } else if (ev.type === 'done') {
+          completedSuccessfully = ev.outcome !== 'cancelled' && !streamRefused
+          terminalReceived = true
+        }
         // User navigated to a different conv mid-stream — drop the event so
         // we don't append to the wrong conv. The main process keeps streaming
         // and persists the full answer; openConversation() refetches on return.
-        if (currentIdRef.current !== streamConvId) return
+        if (
+          currentIdRef.current !== streamConvId ||
+          navigationTarget.current !== streamConvId ||
+          (navigation.current !== startedNavigation && !terminalReceived)
+        )
+          return
+        if (ev.type === 'error') {
+          setError(t('chat.streamError', { message: ev.message }))
+        }
         setMessages((prev) => {
           const next = prev.slice()
-          const last = next[next.length - 1]
-          if (!last || last.role !== 'assistant') return prev
+          const index = next.findIndex((message) => message.id === assistantId)
+          const last = next[index]
+          if (!last || last.role !== 'assistant') {
+            // Returning to this conversation can replace the live placeholder
+            // with a DB snapshot taken before the assistant was saved. An
+            // unsaved terminal has no later DB row to recover from.
+            if (ev.type === 'error' && ev.persisted !== true && ev.full_text !== undefined) {
+              next.push({
+                id: assistantId,
+                role: 'assistant',
+                content: ev.full_text,
+                streaming: false,
+                citations: (ev.citations ?? []).map((c) => ({
+                  documentId: c.doc_id,
+                  chunkId: c.chunk_id,
+                })),
+              })
+              return next
+            }
+            return prev
+          }
           if (ev.type === 'token') {
             if (firstTokenTime == null) firstTokenTime = performance.now()
             // Worker coalesces ~8 ms worth of native onTextChunk callbacks
@@ -263,10 +367,18 @@ export function ChatView({
             // than show a meaningless 100s–1000s figure.
             const tokensPerSec =
               tokenCount > 1 && elapsedSinceFirst > 0 ? tokenCount / elapsedSinceFirst : null
-            next[next.length - 1] = {
+            next[index] = {
               ...last,
               content: last.content + ev.text,
               metrics: { ttftMs, tokensPerSec, tokenCount },
+            }
+          } else if (ev.type === 'citation') {
+            const citations = last.citations ?? []
+            if (citations.some((c) => c.documentId === ev.doc_id && c.chunkId === ev.chunk_id))
+              return prev
+            next[index] = {
+              ...last,
+              citations: [...citations, { documentId: ev.doc_id, chunkId: ev.chunk_id }],
             }
           } else if (ev.type === 'stage') {
             // Mutate-via-copy: find the existing row for this stage (started
@@ -291,26 +403,35 @@ export function ChatView({
                 }
               }
             }
-            next[next.length - 1] = { ...last, pipeline }
+            next[index] = { ...last, pipeline }
           } else if (ev.type === 'refusal') {
-            next[next.length - 1] = {
+            next[index] = {
               ...last,
               content: ev.message,
               streaming: false,
               isRefusal: true,
             }
           } else if (ev.type === 'error') {
-            next[next.length - 1] = {
+            next[index] = {
               ...last,
-              content: t('chat.streamError', { message: ev.message }),
+              content: ev.full_text ?? last.content,
+              citations: ev.citations
+                ? ev.citations.map((c) => ({ documentId: c.doc_id, chunkId: c.chunk_id }))
+                : (last.citations ?? []),
               streaming: false,
             }
           } else if (ev.type === 'done') {
-            next[next.length - 1] = { ...last, streaming: false }
+            next[index] = {
+              ...last,
+              content: ev.full_text,
+              citations: ev.citations.map((c) => ({ documentId: c.doc_id, chunkId: c.chunk_id })),
+              streaming: false,
+            }
           }
           return next
         })
-      })
+      }
+      const offEvent = window.api.chat.onEvent(streamId, onStreamEvent)
       // Register this turn with the global generation registry so the TitleBar
       // Activity indicator reflects it (the model is serial; this is what makes
       // "busy / queued" legible while the user is on another tab).
@@ -318,23 +439,42 @@ export function ChatView({
       try {
         // History = the turns captured at send-start (above), already excluding
         // this turn's user message + placeholder — no fragile post-push slice.
-        await window.api.chat.stream(streamId, workspaceId, text, {
+        const terminal = await window.api.chat.stream(streamId, workspaceId, text, {
           conversationId: convId,
           history: priorMessages.map((m) => ({ role: m.role, content: m.content })),
           rerank: true,
           contextualize: true,
           activeDocumentIds: idsForSend,
         })
-        // IPC stream events can race with the invoke reply that resolves
-        // chat.stream — once we unsubscribe in `finally`, any late `done` or
-        // trailing token is dropped, leaving the UI stuck mid-stream. Re-sync
-        // from the DB so the final assistant turn is always rendered.
-        if (convId != null) await openConversation(convId)
+        // The invoke result carries the exact terminal event too: Electron's
+        // event and invoke channels can arrive in either order. Apply it through
+        // the same handler before deciding whether a DB refresh is safe.
+        if (terminal) onStreamEvent(terminal)
+        // Rehydrate the conversation the user currently intends to view,
+        // including returning to this chat while its generation was running.
+        // A pending selection elsewhere must keep priority over this refresh.
+        if (
+          convId != null &&
+          (!streamFailed || durableError) &&
+          navigationTarget.current === convId
+        )
+          await openConversation(convId, streamFailed)
+      } catch (err) {
+        streamFailed = true
+        if (currentIdRef.current === convId && navigation.current === startedNavigation) {
+          setError((previous) => previous ?? t('chat.sendFailed', { message: String(err) }))
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.role === 'assistant' && m.streaming ? { ...m, streaming: false } : m,
+            ),
+          )
+        }
       } finally {
         endGeneration()
         offEvent()
         setActiveStreamId(null)
         setBusy(false)
+        sendPending.current = false
         void refresh()
       }
       // Auto-name brand-new chats AFTER the turn is no longer streaming. Title gen
@@ -345,7 +485,13 @@ export function ChatView({
       // the name just updates when it lands, even after a switch. The IPC handler
       // is idempotent (skips a row that already has a title), so a later manual
       // rename survives subsequent sends.
-      if (wasNewConversation && convId != null) {
+      if (
+        wasNewConversation &&
+        convId != null &&
+        completedSuccessfully &&
+        !streamFailed &&
+        cancelledStream.current !== streamId
+      ) {
         void window.api.conversations
           .generateTitle(convId)
           .then((title) => {
@@ -374,7 +520,11 @@ export function ChatView({
   const onSendForInput = useCallback((t: string) => void onSend(t), [onSend])
 
   const onCancel = useCallback(() => {
-    if (activeStreamId) void window.api.chat.cancel(activeStreamId)
+    pendingSendCancelled.current = true
+    if (activeStreamId) {
+      cancelledStream.current = activeStreamId
+      void window.api.chat.cancel(activeStreamId).catch((err: unknown) => setError(String(err)))
+    }
   }, [activeStreamId])
 
   /**
@@ -437,15 +587,26 @@ export function ChatView({
 
   const onDelete = useCallback(
     async (id: number) => {
-      await window.api.conversations.delete(id)
-      if (currentConversationId === id) {
-        onConversationChange(null, [])
-        setMessages([])
+      if (deletePending.current) return
+      deletePending.current = true
+      try {
+        await window.api.conversations.delete(id)
+        if (currentIdRef.current === id) {
+          navigation.current++
+          navigationTarget.current = null
+          currentIdRef.current = null
+          onConversationChange(null, [])
+          setMessages([])
+        }
+        void refresh()
+      } catch (err) {
+        setError(String(err))
+      } finally {
+        deletePending.current = false
+        setConfirmDelete(null)
       }
-      setConfirmDelete(null)
-      void refresh()
     },
-    [currentConversationId, refresh, onConversationChange],
+    [refresh, onConversationChange],
   )
 
   const currentTitle =
@@ -471,15 +632,7 @@ export function ChatView({
   )
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '240px minmax(0, 1fr)',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="chat-workspace">
       <ConversationList
         conversations={conversations}
         currentId={currentConversationId}
@@ -499,7 +652,16 @@ export function ChatView({
               : null
           }
         />
+        {error && (
+          <div className="chat__error" role="alert">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)}>
+              {t('common.close')}
+            </button>
+          </div>
+        )}
         <MessageList
+          onPrompt={(text) => setDraftSuggestion({ text })}
           messages={messages}
           onCitationClick={onCitationClick}
           keepPipelineVisible={keepPipelineVisible}
@@ -507,7 +669,12 @@ export function ChatView({
           documents={documents}
           {...(busy ? {} : { onRegenerate: () => void onRegenerate() })}
         />
-        <ChatInput onSend={onSendForInput} busy={busy} onCancel={onCancel} />
+        <ChatInput
+          onSend={onSendForInput}
+          busy={busy}
+          onCancel={onCancel}
+          suggestion={draftSuggestion}
+        />
       </section>
       {sourceViewer && (
         <ErrorBoundary label={t('chat.sourcePreview')} onError={() => setSourceViewer(null)}>

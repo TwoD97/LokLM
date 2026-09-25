@@ -19,7 +19,7 @@ Feature-Specs in [docs/specs/](docs/specs/).
 | Standard | Qwen3.5 4B | ~4 GB   | Mittelklasse       |
 | Pro      | Qwen3.5 9B | ~7 GB   | dedizierte GPU     |
 
-Dazu optional: lokale Dokument-Übersetzung (MADLAD-400), Audio-Transkription
+Dazu optional: lokale Dokument-Übersetzung über das Chat-Sprachmodell, Audio-Transkription
 (Whisper) und Lern-/Produktivitäts-Tools — alles on-device.
 
 ## Voraussetzungen
@@ -32,42 +32,49 @@ Dazu optional: lokale Dokument-Übersetzung (MADLAD-400), Audio-Transkription
 
 ```bash
 pnpm install     # installiert deps + baut Native-Module für Electron neu
-pnpm dev         # startet das Electron-Fenster mit HMR
+pnpm dev         # prüft/lädt Standard-Modelle und startet Electron mit HMR
 pnpm test        # Vitest-Lauf (Unit + jsdom)
 pnpm build       # Production-Build → out/{main,preload,renderer}
 ```
 
+Unter Windows PowerShell bei Bedarf `pnpm.cmd` verwenden. `pnpm dev` nutzt
+Standard (unter 16 GiB RAM Lite); `pnpm dev --lite`, `--standard` oder `--pro`
+wählt die Edition explizit. `pnpm models:standard` lädt die Modelle ohne App-Start.
+Vorhandene Modelle einer lokalen Installation werden nach Prüfsummenprüfung
+kopiert, unterbrochene Downloads fortgesetzt. Übersetzung nutzt das ausgewählte
+Chat-Modell und benötigt keinen zusätzlichen Sidecar (siehe [ADR-0009](docs/adr/0009-shared-llm-translation.md)).
+
 ## Scripts (Auswahl)
 
-| Script                              | Zweck                                            |
-| ----------------------------------- | ------------------------------------------------ |
-| `pnpm dev`                          | Electron + Vite Dev-Server mit HMR               |
-| `pnpm build`                        | Production-Build (alle drei Bundles)             |
-| `pnpm start`                        | Production-Build lokal vorschauen                |
-| `pnpm test` / `test:watch`          | Vitest (Unit + jsdom)                            |
-| `pnpm test:integration` / `test:tx` | Integrations- bzw. Transaktions-Tests            |
-| `pnpm test:e2e`                     | Playwright-E2E gegen die gebaute App             |
-| `pnpm evals:run` / `evals:sweep`    | Qualitäts-Evals (Retrieval/Antwort, s. `tests/evals/`) |
-| `pnpm package:win` / `package:linux` / `package:mac` | Installer-Builds pro Plattform |
-| `pnpm typecheck`                    | `tsc -b` über die Project References             |
-| `pnpm lint` / `pnpm format`         | ESLint flat-config / Prettier                    |
-| `pnpm doc`                          | TypeDoc-Doku → `docs/api/`                       |
+| Script                                               | Zweck                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| `pnpm dev`                                           | Electron + Vite Dev-Server mit HMR                     |
+| `pnpm build`                                         | Production-Build (alle drei Bundles)                   |
+| `pnpm start`                                         | Production-Build lokal vorschauen                      |
+| `pnpm test` / `test:watch`                           | Vitest (Unit + jsdom)                                  |
+| `pnpm test:integration` / `test:tx`                  | Integrations- bzw. Transaktions-Tests                  |
+| `pnpm test:e2e`                                      | Playwright-E2E gegen die gebaute App                   |
+| `pnpm evals:run` / `evals:sweep`                     | Qualitäts-Evals (Retrieval/Antwort, s. `tests/evals/`) |
+| `pnpm package:win` / `package:linux` / `package:mac` | Installer-Builds pro Plattform                         |
+| `pnpm typecheck`                                     | `tsc -b` über die Project References                   |
+| `pnpm lint` / `pnpm format`                          | ESLint flat-config / Prettier                          |
+| `pnpm doc`                                           | TypeDoc-Doku → `docs/api/`                             |
 
 Vollständige Liste: `package.json`.
 
 ## Projektstruktur
 
-| Pfad                | Inhalt                                                                |
-| ------------------- | --------------------------------------------------------------------- |
-| `src/main/`         | Electron-Hauptprozess (Window-Lifecycle, IPC, Services)               |
-| `src/preload/`      | contextBridge-Fassade (`window.api`)                                  |
-| `src/renderer/`     | React-App (Vite-Root: `src/renderer/`, Sourcen: `src/renderer/src/`)  |
-| `src/shared/`       | Pure-Funktionen, die Main und Renderer teilen                         |
-| `installer-wizard/` | Tauri-basierter Installer-Wizard                                      |
-| `website/`          | Verteilungs-Homepage (Astro)                                          |
-| `docs/adr/`         | Architecture Decision Records                                         |
-| `docs/specs/`       | Feature-Specs und Designdokumente                                     |
-| `tests/`            | Unit-, Integrations-, Transaktions-, E2E-Tests + Eval-Säule           |
+| Pfad                | Inhalt                                                               |
+| ------------------- | -------------------------------------------------------------------- |
+| `src/main/`         | Electron-Hauptprozess (Window-Lifecycle, IPC, Services)              |
+| `src/preload/`      | contextBridge-Fassade (`window.api`)                                 |
+| `src/renderer/`     | React-App (Vite-Root: `src/renderer/`, Sourcen: `src/renderer/src/`) |
+| `src/shared/`       | Pure-Funktionen, die Main und Renderer teilen                        |
+| `installer-wizard/` | Tauri-basierter Installer-Wizard                                     |
+| `website/`          | Verteilungs-Homepage (Astro)                                         |
+| `docs/adr/`         | Architecture Decision Records                                        |
+| `docs/specs/`       | Feature-Specs und Designdokumente                                    |
+| `tests/`            | Unit-, Integrations-, Transaktions-, E2E-Tests + Eval-Säule          |
 
 ## Pre-Commit-Hook
 
@@ -84,7 +91,8 @@ node-llama-cpp (Qwen3.5 GGUF, BGE-M3-Embeddings, BGE-Reranker).
 
 ## Status
 
-In aktiver Entwicklung; aktueller Release **v0.6.6** (Windows, Linux, macOS).
+In aktiver Entwicklung; Version **v0.7.0** (Windows, Linux, macOS).
+Änderungen: [Release Notes](docs/releases/v0.7.0.md).
 
 **Query-Routing (ADR-0003):** Chat-Anfragen werden regex-first auf drei Routen
 verteilt, statt jede Frage durch Chunk-Retrieval zu zwingen:

@@ -50,5 +50,11 @@ describe('QAService.answer abort propagation', () => {
     }
 
     expect(capturedOpts?.abortSignal).toBe(controller.signal)
+    expect(retrieval.search).toHaveBeenCalledWith(
+      1,
+      expect.any(String),
+      1,
+      expect.objectContaining({ abortSignal: controller.signal }),
+    )
   })
 })

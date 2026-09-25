@@ -3,6 +3,14 @@ import type { DomainDict } from './types'
 
 export const transcriptionDict: DomainDict = {
   en: {
+    'tx.saving': 'Saving…',
+    'tx.saveFailed': 'Could not save. The transcript is still here; retry when ready.',
+    'tx.copyFailed': 'Could not copy. Select the transcript to copy it manually.',
+    'tx.queued': 'Queued',
+    'tx.complete': 'Complete',
+    'tx.queueActive':
+      'Files are processed one at a time. Clear becomes available when the queue finishes.',
+    'tx.partial': 'The transcription did not finish. You can copy the text recovered so far.',
     'tx.title': 'Transcription',
     'tx.drop': 'Drop audio here, or record. Files stay on your device.',
     'tx.pick': 'Choose audio',
@@ -41,6 +49,16 @@ export const transcriptionDict: DomainDict = {
     'tx.clear': 'Clear',
   },
   de: {
+    'tx.saving': 'Wird gespeichert…',
+    'tx.saveFailed':
+      'Speichern fehlgeschlagen. Das Transkript bleibt erhalten; versuche es erneut.',
+    'tx.copyFailed': 'Kopieren fehlgeschlagen. Markiere das Transkript, um es manuell zu kopieren.',
+    'tx.queued': 'In Warteschlange',
+    'tx.complete': 'Abgeschlossen',
+    'tx.queueActive':
+      'Dateien werden nacheinander verarbeitet. Leeren ist nach Abschluss der Warteschlange verfügbar.',
+    'tx.partial':
+      'Die Transkription wurde nicht abgeschlossen. Du kannst den bisher erkannten Text kopieren.',
     'tx.title': 'Transkription',
     'tx.drop': 'Audio hier ablegen oder aufnehmen. Dateien bleiben auf deinem Gerät.',
     'tx.pick': 'Audio auswählen',

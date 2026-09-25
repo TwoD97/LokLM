@@ -66,9 +66,9 @@ export const ui = {
     'features.opensource.title': 'Quelltext einsehbar',
     'features.opensource.body':
       'MIT-Lizenz. Audit, fork, beitragen — der gesamte Code ist auf GitHub einsehbar.',
-    'features.translate.title': 'Übersetzung (400+ Sprachen)',
+    'features.translate.title': 'Lokale Übersetzung',
     'features.translate.body':
-      'Übersetze Dokumente und Textstellen lokal mit einem dedizierten Übersetzungsmodell (MADLAD-400). Kein Cloud-Übersetzer, keine API.',
+      'Übersetze Dokumente und Textstellen lokal mit dem integrierten Sprachmodell. Kein Cloud-Übersetzer, keine API.',
     'features.transcribe.title': 'Audio-Transkription',
     'features.transcribe.body':
       'Transkribiere Audio lokal mit Whisper, inklusive Sprechertrennung — speichere das Transkript in einen Arbeitsbereich und befrage es wie jedes Dokument.',
@@ -157,9 +157,9 @@ export const ui = {
     'deepdive.study.cta': 'Funktionen ansehen',
     'deepdive.study.alt': 'Screenshot: aus einem Dokument generiertes Quiz',
     'deepdive.translate.eyebrow': 'Übersetzung',
-    'deepdive.translate.title': '400+ Sprachen, ohne Cloud.',
+    'deepdive.translate.title': 'Übersetzen, ohne Cloud.',
     'deepdive.translate.body':
-      'Übersetze markierten Text oder ganze Dokumente mit einem lokalen Übersetzungsmodell (MADLAD-400). Nichts verlässt dein Gerät — auch nicht der zu übersetzende Text.',
+      'Übersetze markierten Text oder ganze Dokumente mit dem integrierten Sprachmodell. Nichts verlässt dein Gerät — auch nicht der zu übersetzende Text.',
     'deepdive.translate.cta': 'Funktionen ansehen',
     'deepdive.translate.alt': 'Screenshot: Übersetzungsansicht mit Quell- und Zieltext',
 
@@ -205,7 +205,7 @@ export const ui = {
       'Ja. Modelle und Index laufen lokal. Die einzige Netzwerkaktivität ist der einmalige Modell-Download bei der Installation und Updates, wenn du sie startest.',
     'faq.q2.q': 'Wie groß sind die Modelle und woher kommen sie?',
     'faq.q2.a':
-      'Bei der Installation wählst du eine Edition: Lite (Qwen3.5-4B, ~3,6 GB, für integrierte Grafik / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, empfohlen) oder Pro (Qwen3.5-9B, ~7 GB). Dazu kommen das Embedding-Modell (BGE-M3) und der Reranker (BGE Reranker v2-M3) — zusammen ~0,9 GB, geladen von Hugging Face. Danach läuft alles lokal.',
+      'Bei der Installation wählst du eine Edition: Lite (Qwen3.5-4B, ~3,6 GB, für integrierte Grafik / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, empfohlen) oder Pro (Qwen3.5-9B, ~7 GB). Die Edition enthält auch ein Embedding-Modell (BGE-M3 bei Lite, Qwen3-Embedding bei Standard und Pro) und den BGE Reranker v2-M3. Auf kleinen GPUs bleibt der Reranker im Automatikmodus deaktiviert. Nach dem Download läuft alles lokal.',
     'faq.q3.q': 'Kann ich ein eigenes Modell mitbringen (GGUF)?',
     'faq.q3.a':
       'Ja. LokLM führt GGUF-Modelle lokal über llama.cpp aus — eigene GGUF-Dateien lassen sich in den Modellordner legen und in den Einstellungen auswählen. Optional kann LokLM stattdessen einen lokalen Ollama-Server nutzen.',
@@ -405,9 +405,9 @@ export const ui = {
     'features.opensource.title': 'Source-available',
     'features.opensource.body':
       'MIT licence. Audit, fork, contribute — the full source is on GitHub.',
-    'features.translate.title': 'Translation (400+ languages)',
+    'features.translate.title': 'Local translation',
     'features.translate.body':
-      'Translate documents and passages locally with a dedicated translation model (MADLAD-400). No cloud translator, no API.',
+      'Translate documents and passages locally with the bundled language model. No cloud translator, no API.',
     'features.transcribe.title': 'Audio transcription',
     'features.transcribe.body':
       'Transcribe audio locally with Whisper, including speaker separation — save the transcript into a workspace and query it like any document.',
@@ -494,9 +494,9 @@ export const ui = {
     'deepdive.study.cta': 'See the features',
     'deepdive.study.alt': 'Screenshot: a quiz generated from a document',
     'deepdive.translate.eyebrow': 'Translation',
-    'deepdive.translate.title': '400+ languages, no cloud.',
+    'deepdive.translate.title': 'Translate without the cloud.',
     'deepdive.translate.body':
-      'Translate selected text or whole documents with a local translation model (MADLAD-400). Nothing leaves your device — not even the text being translated.',
+      'Translate selected text or whole documents with the bundled language model. Nothing leaves your device — not even the text being translated.',
     'deepdive.translate.cta': 'See the features',
     'deepdive.translate.alt': 'Screenshot: translation view with source and target text',
 
@@ -542,7 +542,7 @@ export const ui = {
       'Yes. Models and index run locally. The only network activity is the one-time model download at install and updates when you initiate them.',
     'faq.q2.q': 'How big are the models, and where do they come from?',
     'faq.q2.a':
-      'At setup you pick an edition: Lite (Qwen3.5-4B, ~3.6 GB, for integrated graphics / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, recommended), or Pro (Qwen3.5-9B, ~7 GB). Add the embedding model (BGE-M3) and the reranker (BGE Reranker v2-M3) — ~0.9 GB together, fetched from Hugging Face. After that everything runs locally.',
+      'At setup you pick an edition: Lite (Qwen3.5-4B, ~3.6 GB, for integrated graphics / 12 GB RAM), Standard (Qwen3.5-4B, ~4 GB, recommended), or Pro (Qwen3.5-9B, ~7 GB). The edition also includes an embedding model (BGE-M3 for Lite, Qwen3-Embedding for Standard and Pro) and BGE Reranker v2-M3. On small GPUs, Auto leaves the reranker disabled. After the download everything runs locally.',
     'faq.q3.q': 'Can I bring my own model (GGUF)?',
     'faq.q3.a':
       'Yes. LokLM runs GGUF models locally through llama.cpp — drop your own GGUF files into the model directory and pick them in settings. Optionally, LokLM can use a local Ollama server instead.',

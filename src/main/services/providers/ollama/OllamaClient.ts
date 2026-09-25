@@ -19,24 +19,27 @@ export interface OllamaClientConfig {
 
 const RETRYABLE_4XX = new Set([408, 429])
 
+interface PendingResponse {
+  response: Response
+  signal: AbortSignal
+  close(): void
+}
+
 export class OllamaClient {
   constructor(private readonly cfg: OllamaClientConfig) {}
 
   async version(): Promise<string> {
-    const res = await this.request('GET', '/api/version')
-    const data = (await res.json()) as { version?: string }
+    const data = await this.jsonRequest<{ version?: string }>('GET', '/api/version')
     return data.version ?? 'unknown'
   }
 
   async listModels(): Promise<string[]> {
-    const res = await this.request('GET', '/api/tags')
-    const data = (await res.json()) as { models?: Array<{ name: string }> }
+    const data = await this.jsonRequest<{ models?: Array<{ name: string }> }>('GET', '/api/tags')
     return (data.models ?? []).map((m) => m.name)
   }
 
   async postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-    const res = await this.request('POST', path, body, signal)
-    return (await res.json()) as T
+    return this.jsonRequest<T>('POST', path, body, signal)
   }
 
   /**
@@ -44,19 +47,30 @@ export class OllamaClient {
    * Yields parsed objects until the stream ends or signal aborts.
    */
   async *postNdjson<T>(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<T> {
-    const res = await this.request('POST', path, body, signal)
-    if (!res.body) throw new OllamaError('server', 'empty body')
-    const reader = res.body.getReader()
+    const pending = await this.request('POST', path, body, signal)
+    if (!pending.response.body) {
+      pending.close()
+      throw new OllamaError('server', 'empty body')
+    }
+    const reader = pending.response.body.getReader()
+    // Cancelling the reader also releases a pending read when a test adapter or
+    // proxy does not propagate fetch's abort signal into the response body.
+    const cancelReader = (): void => {
+      void reader.cancel().catch(() => undefined)
+    }
+    pending.signal.addEventListener('abort', cancelReader, { once: true })
     const decoder = new TextDecoder('utf-8')
     let buf = ''
     try {
       while (true) {
-        if (signal?.aborted) throw new OllamaError('aborted', 'aborted')
+        if (pending.signal.aborted) throw new OllamaError('aborted', 'cancelled')
         const { value, done } = await reader.read()
+        if (pending.signal.aborted) throw new OllamaError('aborted', 'cancelled')
         if (done) break
         buf += decoder.decode(value, { stream: true })
         let nl = buf.indexOf('\n')
         while (nl !== -1) {
+          if (pending.signal.aborted) throw new OllamaError('aborted', 'cancelled')
           const line = buf.slice(0, nl).trim()
           buf = buf.slice(nl + 1)
           if (line.length > 0) yield JSON.parse(line) as T
@@ -65,12 +79,36 @@ export class OllamaClient {
       }
       const tail = buf.trim()
       if (tail.length > 0) yield JSON.parse(tail) as T
+    } catch (err) {
+      if (pending.signal.aborted) throw new OllamaError('aborted', 'cancelled')
+      throw err
     } finally {
+      pending.signal.removeEventListener('abort', cancelReader)
       try {
+        // A provider exits at the final NDJSON message, often before the HTTP
+        // body closes. Release that body on both early return and cancellation.
+        await reader.cancel().catch(() => undefined)
+      } finally {
         reader.releaseLock()
-      } catch {
-        /* ignore */
+        pending.close()
       }
+    }
+  }
+
+  private async jsonRequest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    const pending = await this.request(method, path, body, signal)
+    try {
+      return (await pending.response.json()) as T
+    } catch (err) {
+      if (pending.signal.aborted) throw new OllamaError('aborted', 'cancelled')
+      throw err
+    } finally {
+      pending.close()
     }
   }
 
@@ -79,7 +117,8 @@ export class OllamaClient {
     path: string,
     body?: unknown,
     signal?: AbortSignal,
-  ): Promise<Response> {
+  ): Promise<PendingResponse> {
+    if (signal?.aborted) throw new OllamaError('aborted', 'cancelled')
     const url = this.cfg.baseUrl.replace(/\/+$/, '') + path
     const headers: Record<string, string> = { 'content-type': 'application/json' }
     if (this.cfg.bearerToken) headers.Authorization = `Bearer ${this.cfg.bearerToken}`
@@ -88,6 +127,7 @@ export class OllamaClient {
     const timer = setTimeout(() => ctrl.abort('timeout'), this.cfg.timeoutMs)
     const onUserAbort = (): void => ctrl.abort('user-cancel')
     if (signal) signal.addEventListener('abort', onUserAbort, { once: true })
+    const close = (): void => signal?.removeEventListener('abort', onUserAbort)
 
     const init: RequestInit = { method, headers, signal: ctrl.signal }
     if (body !== undefined) init.body = JSON.stringify(body)
@@ -96,6 +136,7 @@ export class OllamaClient {
     try {
       res = await fetch(url, init)
     } catch (err) {
+      close()
       const reason = ctrl.signal.reason
       if (reason === 'timeout')
         throw new OllamaError('timeout', `timeout after ${this.cfg.timeoutMs} ms`)
@@ -106,15 +147,17 @@ export class OllamaClient {
       }
       throw new OllamaError('network', err instanceof Error ? err.message : String(err))
     } finally {
+      // This is a connection/header timeout. Slow generation is allowed to run
+      // longer, while explicit cancellation stays wired until body consumption.
       clearTimeout(timer)
-      if (signal) signal.removeEventListener('abort', onUserAbort)
     }
 
-    if (res.status >= 500) throw new OllamaError('server', `HTTP ${res.status}`, res.status)
-    if (res.status >= 400 && !RETRYABLE_4XX.has(res.status)) {
-      throw new OllamaError('client', `HTTP ${res.status}`, res.status)
+    if (res.status >= 400) {
+      close()
+      void res.body?.cancel().catch(() => undefined)
+      const kind = res.status < 500 && !RETRYABLE_4XX.has(res.status) ? 'client' : 'server'
+      throw new OllamaError(kind, `HTTP ${res.status}`, res.status)
     }
-    if (res.status >= 400) throw new OllamaError('server', `HTTP ${res.status}`, res.status)
-    return res
+    return { response: res, signal: ctrl.signal, close }
   }
 }

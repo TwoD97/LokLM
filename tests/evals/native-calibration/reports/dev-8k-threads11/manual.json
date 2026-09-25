@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO approval date 2026-03-09 with exact supporting supplied passage 2:4. Answer text and source attribution match the six-thread run. No unsupported claims. Actual context 8,192 and 14/33 GPU layers; thread count is the intended control variable."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct final return value 0 with supporting actual supplied function passage 5:8. The answer text and citation match the six-thread observation. No extra claims or erroneous raising of the lower-clamped remaining capacity to four."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeated approval query preserves correct ISO date 2026-03-09 and exact supplied passage citation 2:4, matching the six-thread answer. No unsupported claims. First visible text 20.580 s and total 45.486 s; repeat timing is separate from distinct-case quality counts."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeated function query remains correct: return value 0 with exact supporting supplied citation 5:8. Answer text/citation match the six-thread answer; no additional claims. First visible text 23.701 s and total 42.099 s."
+  }
+]

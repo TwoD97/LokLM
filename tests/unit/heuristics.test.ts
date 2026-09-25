@@ -202,6 +202,38 @@ describe('splitQuestions (multi-question decomposition)', () => {
     expect(splitQuestions(many)).toEqual([many])
   })
 
+  it.each([
+    [
+      'What revenue did the harbor record? Answer in one short sentence.',
+      'What revenue did the harbor record?',
+    ],
+    [
+      'Which deadline applies? Use ISO dates. Answer in one short sentence.',
+      'Which deadline applies?',
+    ],
+    [
+      'Wie viele Inspektionen wurden abgeschlossen? Antworte in einem kurzen Satz.',
+      'Wie viele Inspektionen wurden abgeschlossen?',
+    ],
+    ['Welche Frist gilt? Bitte antworte auf Deutsch.', 'Welche Frist gilt?'],
+    ['Which deadline applies? Please respond briefly.', 'Which deadline applies?'],
+  ])('searches facts without answer-format instructions: %s', (input, question) => {
+    expect(splitQuestions(input!)).toEqual([question])
+  })
+
+  it('removes response formatting from genuine compound retrieval questions', () => {
+    expect(
+      splitQuestions('What revenue was recorded? Which plan was approved? Use ISO dates.'),
+    ).toEqual(['What revenue was recorded?', 'Which plan was approved?'])
+  })
+
+  it('does not mistake a substantive imperative for an answer-format request', () => {
+    expect(splitQuestions('What is argon2id? Answer the question about vault recovery.')).toEqual([
+      'What is argon2id?',
+      'Answer the question about vault recovery.',
+    ])
+  })
+
   it('caps at the max sub-question count (exactly max splits)', () => {
     const five = Array.from({ length: 5 }, (_, i) => `What is concept ${i + 1}?`).join(' ')
     expect(splitQuestions(five)).toHaveLength(5)

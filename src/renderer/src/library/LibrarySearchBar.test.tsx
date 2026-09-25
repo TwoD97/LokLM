@@ -27,9 +27,24 @@ function defaults() {
 }
 
 describe('LibrarySearchBar', () => {
+  it('discloses filters while keeping active filters visible and resettable', () => {
+    const p = defaults()
+    p.filters.types = new Set<LibraryDocType>(['pdf'])
+    p.filters.date = '30d'
+    render(<LibrarySearchBar {...p} />)
+    expect(screen.queryByRole('button', { name: 'PDF' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Filters/ })).toHaveTextContent('2')
+    fireEvent.click(screen.getByRole('button', { name: /^Clear filters/ }))
+    expect(p.onTypesChange).toHaveBeenCalledWith(new Set())
+    expect(p.onDateChange).toHaveBeenCalledWith('any')
+    expect(p.onSizeChange).toHaveBeenCalledWith('any')
+    expect(p.onStatusChange).toHaveBeenCalledWith('all')
+  })
+
   it('reports typing through onQueryChange', () => {
     const p = defaults()
     render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     fireEvent.change(screen.getByPlaceholderText('Search documents…'), {
       target: { value: 'invoice' },
     })
@@ -39,6 +54,7 @@ describe('LibrarySearchBar', () => {
   it('toggles a type bucket on when its chip is clicked', () => {
     const p = defaults()
     render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
     expect(p.onTypesChange).toHaveBeenCalledWith(new Set(['pdf']))
   })
@@ -47,6 +63,7 @@ describe('LibrarySearchBar', () => {
     const p = defaults()
     p.filters.types = new Set<LibraryDocType>(['pdf', 'md'])
     render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     fireEvent.click(screen.getByRole('button', { name: 'PDF' }))
     expect(p.onTypesChange).toHaveBeenCalledWith(new Set(['md']))
   })
@@ -54,6 +71,7 @@ describe('LibrarySearchBar', () => {
   it('reports sort, date and size changes', () => {
     const p = defaults()
     render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     // The dropdowns are now custom listboxes (ui/Select): open the trigger, then
     // click the option. Each pick closes its menu, so only one is open at a time.
     fireEvent.click(screen.getByRole('button', { name: 'Sort' }))
@@ -72,6 +90,7 @@ describe('LibrarySearchBar', () => {
   it('reports a status filter change while browsing', () => {
     const p = defaults()
     render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Status' }))
     fireEvent.click(screen.getByRole('option', { name: 'Indexing' }))
     expect(p.onStatusChange).toHaveBeenCalledWith('indexing')
@@ -80,6 +99,7 @@ describe('LibrarySearchBar', () => {
   it('hides the status filter while a search query is active', () => {
     const p = defaults()
     const { rerender } = render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     expect(screen.getByRole('button', { name: 'Status' })).toBeTruthy()
     // Status has no meaning over search hits, so it drops out in search mode.
     rerender(<LibrarySearchBar {...p} query="foo" active />)
@@ -89,6 +109,7 @@ describe('LibrarySearchBar', () => {
   it('shows a clear button only when there is a query', () => {
     const p = defaults()
     const { rerender } = render(<LibrarySearchBar {...p} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
     expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
     rerender(<LibrarySearchBar {...p} query="foo" active />)
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))

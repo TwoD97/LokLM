@@ -1,16 +1,13 @@
 /**
- * Shared renderer/main types for the MADLAD translation layer. The model is
- * MADLAD-400-3B-MT via the loklm-translator sidecar (see sidecars/translator/
- * README.md for the protocol and the why-a-sidecar rationale).
+ * Translation uses the selected chat model and the same inference queue.
  */
 
 export type TranslatorState =
-  /** Model files missing — provisioned by the installer wizard , not the app.
-   *  The UI points the user back to re-running the LokLM installer. */
+  /** No local chat model is available. */
   | 'not_installed'
-  /** Files present , sidecar not running. First translate() starts it. */
+  /** Chat model available; loaded lazily on first use. */
   | 'installed'
-  /** Sidecar spawned , model loading (5-30 s from cold disk). */
+  /** Shared language model loading. */
   | 'starting'
   | 'ready'
   | 'error'
@@ -19,26 +16,26 @@ export interface TranslatorStatus {
   state: TranslatorState
   /** Detail for 'error' , null otherwise. */
   message: string | null
-  /** False when the sidecar binary isn't shipped/built — translation can't
-   *  start even if the model is installed. Surfaced separately from `state`
-   *  so the UI can distinguish "needs download" from "this build can't". */
-  sidecarAvailable: boolean
+  modelName: string | null
 }
 
 export interface TranslateOptions {
-  /** MADLAD target code — the `<2xx>` token , e.g. 'de' , 'en' , 'uk'.
-   *  Validated by the sidecar against the model vocabulary. */
+  /** Target language from TRANSLATION_LANGUAGES. */
   target: string
-  /** CTranslate2 beam size. Default 1 (greedy , matches the reference
-   *  CT2-MADLAD usage); raise to 4 for the quality-over-speed path. */
-  beam?: number
+  /** Renderer-generated ID for progress and cancellation of this request. */
+  requestId?: string
+}
+
+export interface TranslationProgress {
+  requestId: string
+  completed: number
+  total: number
 }
 
 export interface TranslateResult {
   text: string
   /** ISO-639-1 source language per eld , null when too short/unreliable.
-   *  Informational — MADLAD doesn't need the source language , only the
-   *  `<2xx>` target token. */
+   *  Informational; the LLM identifies the source language itself. */
   detected: string | null
   /** Sentences sent through the model — diagnostics , not UI-critical. */
   sentences: number
@@ -52,10 +49,7 @@ export interface TranslationLanguage {
 }
 
 /**
- * Curated subset of MADLAD-400's 400+ targets — the ones worth a dropdown.
- * Codes follow the model's vocabulary (Google-style: Hebrew is 'iw' ,
- * Filipino is 'fil'). Any other code the vocabulary knows also works when
- * passed straight to translate(); the sidecar validates either way.
+ * Language choices. Translation quality depends on the selected LLM.
  */
 export const TRANSLATION_LANGUAGES: TranslationLanguage[] = [
   { code: 'af', name: 'Afrikaans' },
@@ -89,7 +83,7 @@ export const TRANSLATION_LANGUAGES: TranslationLanguage[] = [
   { code: 'id', name: 'Indonesian' },
   { code: 'is', name: 'Icelandic' },
   { code: 'it', name: 'Italian' },
-  { code: 'iw', name: 'Hebrew' },
+  { code: 'he', name: 'Hebrew' },
   { code: 'ja', name: 'Japanese' },
   { code: 'ka', name: 'Georgian' },
   { code: 'kk', name: 'Kazakh' },

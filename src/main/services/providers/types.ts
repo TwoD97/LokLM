@@ -1,5 +1,6 @@
 import type { RetrievalHit, ModelStatus } from '../../../shared/documents'
 import type { AskOptions, ResponseLanguage } from '../llm/LlamaService'
+import type { IndexingJob, IndexingLease } from '../../../shared/modelActivity'
 
 export interface ProviderStatus {
   ready: boolean
@@ -22,6 +23,10 @@ export interface LlmProvider {
       /** Disable the model's reasoning segment. Bundled maps this to
        *  budgets.thoughtTokens=0; providers that can't honour it ignore it. */
       noThink?: boolean | undefined
+      /** Per-call task instructions; does not change the chat's system prompt. */
+      systemPrompt?: string | undefined
+      temperature?: number | undefined
+      requireComplete?: boolean | undefined
     },
   ): Promise<string>
   generateTitle(
@@ -53,6 +58,9 @@ export interface LlmProvider {
 }
 
 export interface EmbedderProvider {
+  beginIndexing?(job: Omit<IndexingJob, 'done' | 'total'>): Promise<IndexingLease>
+  /** Small local batches keep indexing progress and cancellation responsive. */
+  preferredBatchSize?(): number
   /** Embed PASSAGES/documents (raw — no instruction). Used at ingest/backfill. */
   embed(texts: string[]): Promise<Float32Array[]>
   /** Embed QUERIES with the model-appropriate query-side instruction (ADR-0006
@@ -61,6 +69,9 @@ export interface EmbedderProvider {
    *  when a provider/mock omits it, preserving the legacy "query embedded like a
    *  passage" behaviour. */
   embedQuery?(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]>
+  /** Optional opaque model-revision/task/query key for the opt-in session
+   * query-vector cache. Providers without a reliable key bypass caching. */
+  queryCacheKey?(query: string, opts?: { codebase?: boolean }): string | null
   dimension(): number
   identity(): string // "bundled:bge-m3" | "ollama:nomic-embed-text"
   isReady(): boolean

@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct EUR 53,780 planned 2026 revenue, EUR 48,260 recorded 2025 revenue, and EUR 5,520 difference. Exact supplied tables 1:2 and 2:5 support both inputs; independent subtraction confirms the result. One English sentence and no unsupported extras. Same supplied passage order as control, but actual KV is f16 rather than control q8_0, so this observed attribution improvement alone cannot establish footer causality."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO date 2026-03-09, supported by exact supplied approval passage 2:4. One short English sentence without extra claims. Text and supplied passage order match the control answer."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German batch identifier MSX-417 with exact supplied draft A passage 3:6. One short sentence and no unsupported extras. Answer text and supplied passage order match control."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German return value 0 for reserveSlots(3, 9), supported by exact supplied function passage 5:8. Both the lower clamp and outer minimum yield 0. One short sentence; harmless code/bold formatting. Answer text and supplied passage order match control."
+  }
+]

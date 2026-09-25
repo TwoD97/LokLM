@@ -18,6 +18,13 @@ export function ProfileTab(): JSX.Element {
   const [activePresetHue, setActivePresetHue] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [nameBusy, setNameBusy] = useState(false)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const namePending = useRef(false)
+  const avatarPending = useRef(false)
+  const passwordPending = useRef(false)
   // AP-9 Account "Passwort ändern" — own form state, kept out of the
   // name/avatar `error`/`savedFlash` so the two sections don't cross-talk.
   const [pwCurrent, setPwCurrent] = useState('')
@@ -28,14 +35,26 @@ export function ProfileTab(): JSX.Element {
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    void window.api.auth.status().then((s) => {
-      const name = s.displayName ?? ''
-      setSavedName(name)
-      setDraftName(name)
-    })
-    void window.api.settings.getAvatar().then((b) => setAvatarBytes(b ? Uint8Array.from(b) : null))
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadFailed(false)
+    try {
+      const [status, avatar] = await Promise.all([
+        window.api.auth.status(),
+        window.api.settings.getAvatar(),
+      ])
+      setSavedName(status.displayName ?? '')
+      setDraftName(status.displayName ?? '')
+      setAvatarBytes(avatar ? Uint8Array.from(avatar) : null)
+    } catch {
+      setLoadFailed(true)
+    } finally {
+      setLoading(false)
+    }
   }, [])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   useEffect(() => {
     if (editing) inputRef.current?.focus()
@@ -48,21 +67,27 @@ export function ProfileTab(): JSX.Element {
 
   const saveName = useCallback(
     async (next: string): Promise<boolean> => {
+      if (namePending.current) return false
       const trimmed = next.trim()
       if (trimmed.length === 0 || trimmed.length > 40) {
         setError(t('settings.profile.displayNameError'))
         return false
       }
       setError(null)
+      namePending.current = true
+      setNameBusy(true)
       try {
         await window.api.settings.setDisplayName(trimmed)
         setSavedName(trimmed)
         setDraftName(trimmed)
         flashSaved()
         return true
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+      } catch {
+        setError(t('prefs.saveFailed'))
         return false
+      } finally {
+        namePending.current = false
+        setNameBusy(false)
       }
     },
     [flashSaved, t],
@@ -89,6 +114,25 @@ export function ProfileTab(): JSX.Element {
     setError(null)
   }, [savedName])
 
+  const changeAvatar = useCallback(
+    async (operation: () => Promise<void>): Promise<void> => {
+      if (avatarPending.current) return
+      avatarPending.current = true
+      setAvatarBusy(true)
+      setError(null)
+      try {
+        await operation()
+        flashSaved()
+      } catch {
+        setError(t('prefs.saveFailed'))
+      } finally {
+        avatarPending.current = false
+        setAvatarBusy(false)
+      }
+    },
+    [flashSaved, t],
+  )
+
   const pickAvatar = useCallback(async (): Promise<void> => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -100,49 +144,46 @@ export function ProfileTab(): JSX.Element {
         setError(t('settings.profile.avatarSizeError'))
         return
       }
-      try {
+      await changeAvatar(async () => {
         const bytes = await downscaleTo256(file)
         await window.api.settings.setAvatar(Array.from(bytes))
         setAvatarBytes(bytes)
         setActivePresetHue(null)
         setError(null)
-        flashSaved()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      }
+      })
     }
     input.click()
-  }, [flashSaved, t])
+  }, [changeAvatar, t])
 
   const removeAvatar = useCallback(async (): Promise<void> => {
-    await window.api.settings.setAvatar(null)
-    setAvatarBytes(null)
-    setActivePresetHue(null)
-    flashSaved()
-  }, [flashSaved])
+    await changeAvatar(async () => {
+      await window.api.settings.setAvatar(null)
+      setAvatarBytes(null)
+      setActivePresetHue(null)
+    })
+  }, [changeAvatar])
 
   const pickPreset = useCallback(
     async (hue: number): Promise<void> => {
-      try {
+      await changeAvatar(async () => {
         const bytes = await renderPresetPng(hue, savedName)
         await window.api.settings.setAvatar(Array.from(bytes))
         setAvatarBytes(bytes)
         setActivePresetHue(hue)
         setError(null)
-        flashSaved()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      }
+      })
     },
-    [savedName, flashSaved],
+    [savedName, changeAvatar],
   )
 
   const submitPassword = useCallback(async (): Promise<void> => {
+    if (passwordPending.current || !pwCurrent || !pwNew || !pwConfirm) return
     setPwError(null)
     if (pwNew !== pwConfirm) {
       setPwError(t('settings.profile.pwMismatch'))
       return
     }
+    passwordPending.current = true
     setPwBusy(true)
     try {
       const res = await window.api.auth.changePassword(pwCurrent, pwNew)
@@ -160,17 +201,29 @@ export function ProfileTab(): JSX.Element {
     } catch (e) {
       setPwError(e instanceof Error ? e.message : String(e))
     } finally {
+      passwordPending.current = false
       setPwBusy(false)
     }
   }, [pwCurrent, pwNew, pwConfirm, t, flashSaved])
 
   return (
     <div>
+      {loading && <p role="status">{t('settings.loading')}</p>}
+      {loadFailed && (
+        <p className="preferences-error" role="alert">
+          {t('settings.profile.loadError')}{' '}
+          <button type="button" onClick={() => void load()}>
+            {t('prefs.retry')}
+          </button>
+        </p>
+      )}
       <div className="settings-profile-card">
         <Avatar bytes={avatarBytes} name={savedName} size={96} />
         <div className="settings-profile-card__actions">
-          <button onClick={() => void pickAvatar()}>{t('settings.profile.upload')}</button>
-          <button onClick={() => void removeAvatar()} disabled={!avatarBytes}>
+          <button onClick={() => void pickAvatar()} disabled={loading || avatarBusy}>
+            {t('settings.profile.upload')}
+          </button>
+          <button onClick={() => void removeAvatar()} disabled={!avatarBytes || avatarBusy}>
             {t('common.remove')}
           </button>
         </div>
@@ -182,6 +235,7 @@ export function ProfileTab(): JSX.Element {
             {PRESET_HUES.map((hue) => (
               <button
                 key={hue}
+                disabled={loading || avatarBusy}
                 className={`settings-profile-preset ${activePresetHue === hue ? 'settings-profile-preset--active' : ''}`}
                 onClick={() => void pickPreset(hue)}
                 aria-label={t('settings.profile.pickPresetAvatarNum', { num: hue })}
@@ -209,17 +263,26 @@ export function ProfileTab(): JSX.Element {
             <input
               ref={inputRef}
               className="settings-inline-field__input"
+              aria-label={t('settings.profile.displayName')}
+              name="profile-display-name"
+              autoComplete="nickname"
+              disabled={nameBusy}
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void commitEdit()
-                else if (e.key === 'Escape') cancelEdit()
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) void commitEdit()
+                else if (e.key === 'Escape' && !nameBusy) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  cancelEdit()
+                }
               }}
               maxLength={40}
             />
             <button
               className="settings-inline-field__action settings-inline-field__action--save"
               onClick={() => void commitEdit()}
+              disabled={nameBusy}
               title={t('settings.profile.editSave')}
             >
               <Check size={16} aria-hidden="true" /> {t('common.save')}
@@ -227,6 +290,7 @@ export function ProfileTab(): JSX.Element {
             <button
               className="settings-inline-field__action settings-inline-field__action--cancel"
               onClick={cancelEdit}
+              disabled={nameBusy}
               title={t('settings.profile.editCancel')}
               aria-label={t('common.cancel')}
             >
@@ -239,6 +303,7 @@ export function ProfileTab(): JSX.Element {
             <button
               className="settings-inline-field__action"
               onClick={startEdit}
+              disabled={loading || loadFailed}
               title={t('settings.profile.edit')}
             >
               <Pencil size={14} aria-hidden="true" /> {t('settings.profile.edit')}
@@ -246,7 +311,11 @@ export function ProfileTab(): JSX.Element {
           </>
         )}
       </div>
-      {error && <div style={{ color: 'var(--error)', marginTop: 6, fontSize: 13 }}>{error}</div>}
+      {error && (
+        <div role="alert" className="preferences-error">
+          {error}
+        </div>
+      )}
 
       <div className="settings-section-head">
         <span className="settings-section-head__title">{t('settings.profile.recovery')}</span>
@@ -279,41 +348,73 @@ export function ProfileTab(): JSX.Element {
           {t('settings.profile.changePasswordSub')}
         </span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
-        <input
-          type="password"
-          autoComplete="current-password"
-          placeholder={t('settings.profile.currentPassword')}
-          value={pwCurrent}
-          onChange={(e) => setPwCurrent(e.target.value)}
-        />
-        <input
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('settings.profile.newPassword')}
-          value={pwNew}
-          onChange={(e) => setPwNew(e.target.value)}
-        />
-        <input
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('settings.profile.confirmPassword')}
-          value={pwConfirm}
-          onChange={(e) => setPwConfirm(e.target.value)}
-        />
+      <form
+        style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submitPassword()
+        }}
+      >
+        <label className="preferences-field">
+          <span>{t('settings.profile.currentPassword')}</span>
+          <input
+            name="current-password"
+            disabled={pwBusy}
+            type="password"
+            autoComplete="current-password"
+            placeholder={t('settings.profile.currentPassword')}
+            value={pwCurrent}
+            onChange={(e) => setPwCurrent(e.target.value)}
+          />
+        </label>
+        <label className="preferences-field">
+          <span>{t('settings.profile.newPassword')}</span>
+          <input
+            name="new-password"
+            disabled={pwBusy}
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('settings.profile.newPassword')}
+            value={pwNew}
+            onChange={(e) => setPwNew(e.target.value)}
+          />
+        </label>
+        <label className="preferences-field">
+          <span>{t('settings.profile.confirmPassword')}</span>
+          <input
+            name="confirm-password"
+            disabled={pwBusy}
+            type="password"
+            autoComplete="new-password"
+            placeholder={t('settings.profile.confirmPassword')}
+            value={pwConfirm}
+            onChange={(e) => setPwConfirm(e.target.value)}
+          />
+        </label>
         <button
+          type="submit"
           style={{ alignSelf: 'flex-start' }}
           disabled={!pwCurrent || !pwNew || !pwConfirm || pwBusy}
-          onClick={() => void submitPassword()}
         >
           {t('settings.profile.changePasswordAction')}
         </button>
-        {pwError && <div style={{ color: 'var(--error)', fontSize: 13 }}>{pwError}</div>}
-      </div>
+        {pwError && (
+          <div role="alert" className="preferences-error">
+            {pwError}
+          </div>
+        )}
+      </form>
 
       <div style={{ marginTop: 14 }}>
-        <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> {t('settings.profile.saved')}
+        <span
+          role="status"
+          className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}
+        >
+          {savedFlash && (
+            <>
+              <Check size={14} aria-hidden="true" /> {t('settings.profile.saved')}
+            </>
+          )}
         </span>
       </div>
     </div>

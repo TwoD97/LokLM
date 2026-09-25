@@ -16,7 +16,6 @@ Each ADR should include the following sections:
 
 Decisions should reference, where useful, **production deployments** that have made the same call (Bitwarden/Vaultwarden, 1Password, age, Signal, AWS KMS, …) — concrete prior art is worth more than abstract justification.
 
-
 ## Index
 
 | #    | Titel                                                                                                                                  | Status                                              |
@@ -29,6 +28,8 @@ Decisions should reference, where useful, **production deployments** that have m
 | 0006 | [Codebase-Workspace: code-aware Indexing & Analytics](0006-codebase-workspace-indexing.md)                                             | accepted                                            |
 | 0007 | [Lite-Tier: iGPU-/Low-End-Performance-Preset](0007-lite-igpu-performance-preset.md)                                                    | accepted (Reranker-/Slice-Hebel ersetzt durch 0008) |
 | 0008 | [Lite-Retrieval-Präzision: Reranker, Full-Text-Scoring, Relevance-Floor](0008-lite-retrieval-precision.md)                             | accepted                                            |
+| 0009 | [Translation through the selected LLM](0009-shared-llm-translation.md)                                                                 | accepted                                            |
+| 0010 | [Bounded model memory and native reloads](0010-bounded-model-memory.md)                                                                | accepted                                            |
 
 ## Verwandte Dokumente
 

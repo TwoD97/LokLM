@@ -14,6 +14,7 @@ import {
   answerMaxTokens,
   estimateTokens,
   estimateHistoryTokens,
+  packHistoryToBudget,
 } from '@main/services/llm/prompt'
 import type { RetrievalHit } from '@shared/documents'
 
@@ -103,6 +104,20 @@ describe('buildPrompt', () => {
     const out = buildPrompt('q', [hit(1, 'fact')], [{ role: 'user', content: huge }])
     expect(out.length).toBeLessThan(huge.length + 2000)
     expect(out).toContain('truncated')
+  })
+
+  it('retains the latest history turn at tight token boundaries instead of dropping it', () => {
+    const history = [
+      { role: 'user' as const, content: 'Earlier: ' + 'context '.repeat(500) },
+      { role: 'assistant' as const, content: 'Latest: ' + 'supported fact '.repeat(500) },
+    ]
+    for (let budget = 40; budget <= 60; budget++) {
+      const packed = packHistoryToBudget(history, budget)
+      expect(packed).toHaveLength(1)
+      expect(packed[0]!.content).toContain('Latest:')
+      expect(packed[0]!.content).toContain('[truncated]')
+      expect(estimateHistoryTokens(packed)).toBeLessThanOrEqual(budget)
+    }
   })
 
   // Pinned chunks lead the prompt so the [system][pinned] token prefix stays
@@ -453,17 +468,16 @@ describe('chunkifyForStream', () => {
 })
 
 describe('answerMaxTokens', () => {
-  it('reserves ~1/2 of the window, floored at 4K', () => {
-    // 8K Lite: ctx/2 = 4096, already at the floor → lean tier unchanged.
-    expect(answerMaxTokens(8192)).toBe(4096)
-    // 32K mid window: ctx/2 = 16384.
-    expect(answerMaxTokens(32768)).toBe(16384)
+  it('leaves three quarters of the actual window for input', () => {
+    for (const size of [4096, 8192, 32768, 131072, 262144]) {
+      expect(answerMaxTokens(size)).toBe(size / 4)
+    }
   })
-  it('scales with the tier window, capped at 128K', () => {
-    // 0.6.4: Standard's 128K window backs a 64K answer; Pro's 256K backs 128K.
-    expect(answerMaxTokens(131072)).toBe(65536) // Standard → 64K
-    expect(answerMaxTokens(262144)).toBe(131072) // Pro → 128K
-    expect(answerMaxTokens(1_000_000)).toBe(131072) // cap holds
+  it('bounds large windows and invalid provider values', () => {
+    expect(answerMaxTokens(1_000_000)).toBe(131072)
+    for (const invalid of [0, -1, NaN, Infinity]) {
+      expect(answerMaxTokens(invalid)).toBe(2048)
+    }
   })
 })
 
@@ -496,13 +510,13 @@ describe('packHitsToBudget', () => {
     expect(packed.map((h) => h.chunk_id)).toEqual([1, 2]) // top-ranked kept, in order
   })
 
-  it('always keeps at least the top hit even if it alone exceeds the budget', () => {
-    expect(packHitsToBudget(hits, 0)).toHaveLength(1)
-    expect(packHitsToBudget(hits, 0)[0]!.chunk_id).toBe(1)
+  it('returns no hits when no evidence budget remains', () => {
+    expect(packHitsToBudget(hits, 0)).toEqual([])
+    expect(packHitsToBudget(hits, -100)).toEqual([])
   })
 
-  it('returns a single-hit list unchanged regardless of budget', () => {
+  it('also enforces the budget for a sole hit', () => {
     const one = [hit(9, body(9))]
-    expect(packHitsToBudget(one, 0)).toEqual(one)
+    expect(packHitsToBudget(one, 0)).toEqual([])
   })
 })

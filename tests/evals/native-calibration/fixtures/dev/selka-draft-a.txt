@@ -1,0 +1,9 @@
+Selka dispatch memo - draft A
+Facility: Selka
+Issue date: 2026-09-01
+Status: draft
+
+Selka has one shipment in this dispatch cycle, using batch identifier MSX-417.
+The dispatch deadline for that batch is 2026-10-14.
+The retention period for shipment records is 17 days.
+This draft contains no approval signature or supersession statement.

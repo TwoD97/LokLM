@@ -203,6 +203,12 @@ export class AuthService {
   // Serializes vault writes — see writeVault. Without this, two overlapping
   // persists race on the shared loklm.vault.tmp file.
   private vaultWriteChain: Promise<void> = Promise.resolve()
+  // Serialize snapshot CAPTURE as well as the file replacement. A write-only
+  // queue permits a later snapshot to overwrite a successful KV transaction
+  // with data captured before that transaction committed.
+  private vaultSnapshotChain: Promise<void> = Promise.resolve()
+  private lockingPromise: Promise<void> | null = null
+  private sessionClosing = false
 
   // Root for the vault + per-workspace stores. Portable (install-relative) or
   // userData depending on tier/platform — see resolveDataDir. Named generically
@@ -288,12 +294,14 @@ export class AuthService {
       createdAt: nowSec(),
     }
 
-    this.dek = dek
-    this.manifest = emptyManifest()
-    this.globalKv = {}
-    const body = this.encryptBody(dek)
-    await this.writeVault(header, body)
-    this.liveHeader = header
+    await this.queueVaultSnapshot(async () => {
+      this.dek = dek
+      this.manifest = emptyManifest()
+      this.globalKv = {}
+      const body = this.encryptBody(dek)
+      await this.writeVault(header, body)
+      this.liveHeader = header
+    })
     this.startInactivityTimer()
     return { passphrase }
   }
@@ -302,6 +310,9 @@ export class AuthService {
     password: string,
     opts: { onProgress?: (stage: AuthLoginStage) => void } = {},
   ): Promise<LoginResult> {
+    // A new login must not hydrate a session that an earlier lock is still
+    // closing or let its finalizer wipe the freshly unwrapped key.
+    if (this.lockingPromise) await this.lockingPromise
     const emit = (stage: AuthLoginStage): void => {
       try {
         opts.onProgress?.(stage)
@@ -407,24 +418,43 @@ export class AuthService {
     return { ok: true }
   }
 
-  async lock(): Promise<void> {
-    if (!this.dek) return
-    try {
-      // Close the active workspace first — it re-encrypts its files, wipes the
-      // plaintext working copy, and refreshes the manifest (which persistSnapshot
-      // then commits inside the vault body). Best-effort: a workspace close
-      // failure must not strand the session unlocked.
-      if (this.workspaceStore) {
-        await this.workspaceStore.close().catch((err) => {
-          console.warn('[auth] workspace store close failed during lock:', err)
+  lock(): Promise<void> {
+    if (this.lockingPromise) return this.lockingPromise
+    if (!this.dek) return Promise.resolve()
+    const sessionDek = this.dek
+    this.sessionClosing = true
+    const closing = (async () => {
+      try {
+        // Close the active workspace first — it re-encrypts its files, wipes the
+        // plaintext working copy, and refreshes the manifest (which persistSnapshot
+        // then commits inside the vault body). Best-effort: a workspace close
+        // failure must not strand the session unlocked.
+        if (this.workspaceStore) {
+          await this.workspaceStore.close().catch((err) => {
+            console.warn('[auth] workspace store close failed during lock:', err)
+          })
+        }
+        // Keep the final snapshot and key invalidation in the same queue slot.
+        // Later queued mutations cannot start between persistence and zeroKey.
+        await this.queueVaultSnapshot(async () => {
+          try {
+            this.assertVaultSession(sessionDek)
+            await this.writeVault(this.liveHeader!, this.encryptBody(sessionDek))
+          } finally {
+            if (this.dek === sessionDek) {
+              this.zeroKey()
+              this.stopInactivityTimer()
+              this.liveHeader = null
+            }
+          }
         })
+      } finally {
+        this.sessionClosing = false
+        this.lockingPromise = null
       }
-      await this.persistSnapshot()
-    } finally {
-      this.zeroKey()
-      this.stopInactivityTimer()
-      this.liveHeader = null
-    }
+    })()
+    this.lockingPromise = closing
+    return closing
   }
 
   async logout(): Promise<void> {
@@ -433,6 +463,7 @@ export class AuthService {
   }
 
   async reset(input: { passphrase: string; newPassword: string }): Promise<ResetResult> {
+    if (this.lockingPromise) await this.lockingPromise
     const vault = await this.readVault()
     if (!vault) return { ok: false, reason: 'no_user' }
     const cooldown = this.cooldownRemainingMs()
@@ -521,12 +552,14 @@ export class AuthService {
     }
     // Body decrypted + frame-parsed cleanly above; commit the recovered DEK.
     // No PGlite snapshot to load — per-workspace stores open lazily.
-    this.dek = dek
-    this.manifest = parsed.manifest
-    this.globalKv = parsed.kv
-    const newBody = this.encryptBody(dek)
-    await this.writeVault(newHeader, newBody)
-    this.liveHeader = newHeader
+    await this.queueVaultSnapshot(async () => {
+      this.dek = dek
+      this.manifest = parsed.manifest
+      this.globalKv = parsed.kv
+      const newBody = this.encryptBody(dek)
+      await this.writeVault(newHeader, newBody)
+      this.liveHeader = newHeader
+    })
     this.failures = []
     this.startInactivityTimer()
     return { ok: true, passphrase: newPassphrase }
@@ -565,6 +598,7 @@ export class AuthService {
     // verifyPassword confirmed the session is unlocked, so dek + liveHeader are
     // both set; the guard is just to satisfy the type narrowing.
     if (!this.dek || !this.liveHeader) return { ok: false, reason: 'locked_session' }
+    const sessionDek = this.dek
 
     const newSalt = randomBytes(KEK_SALT_BYTES)
     const newKek = await deriveKEK(newPassword, Buffer.from(newSalt))
@@ -572,7 +606,8 @@ export class AuthService {
     try {
       // wrapKey can throw if an auto-lock zeroed this.dek during the argon2
       // await above; the finally keeps the KEK wipe exception-safe.
-      newWrappedDek = wrapKey(newKek, this.dek)
+      this.assertVaultSession(sessionDek, true)
+      newWrappedDek = wrapKey(newKek, sessionDek)
     } finally {
       secureWipe(newKek)
     }
@@ -584,14 +619,10 @@ export class AuthService {
     // setDisplayName, settings autosave) would then silently commit a password
     // change the caller saw fail. recoveryEntries + DEK are left untouched, so
     // recovery codes keep working.
-    const newHeader: AuthHeader = {
-      ...this.liveHeader,
+    await this.persistHeaderPatch(sessionDek, {
       passwordSalt: newSalt.toString('base64'),
       passwordWrappedDek: newWrappedDek,
-    }
-    const newBody = this.encryptBody(this.dek)
-    await this.writeVault(newHeader, newBody)
-    this.liveHeader = newHeader
+    })
     return { ok: true }
   }
 
@@ -617,6 +648,7 @@ export class AuthService {
     // verifyPassword confirmed the session is unlocked; the guard satisfies the
     // type narrowing.
     if (!this.dek || !this.liveHeader) return { ok: false, reason: 'locked_session' }
+    const sessionDek = this.dek
 
     const wordlist = getWordlist(this.liveHeader.recoveryLang)
     const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
@@ -626,9 +658,10 @@ export class AuthService {
     try {
       // wrapKey can throw if an auto-lock zeroed this.dek during the argon2
       // await above; the finally keeps the KEK wipe exception-safe.
+      this.assertVaultSession(sessionDek, true)
       newEntry = {
         salt: salt.toString('base64'),
-        wrappedDek: wrapKey(kek, this.dek),
+        wrappedDek: wrapKey(kek, sessionDek),
         createdAt: nowSec(),
         usedAt: null,
       }
@@ -639,18 +672,14 @@ export class AuthService {
     // Candidate header, swapped in only after the write succeeds (same pattern
     // as changePassword/reset). Replacing recoveryEntries invalidates the old
     // codes; the password wrap + DEK are left untouched.
-    const newHeader: AuthHeader = {
-      ...this.liveHeader,
+    await this.persistHeaderPatch(sessionDek, {
       recoveryEntries: [newEntry],
-    }
-    const newBody = this.encryptBody(this.dek)
-    await this.writeVault(newHeader, newBody)
-    this.liveHeader = newHeader
+    })
     return { ok: true, passphrase }
   }
 
   /**
-   * Mutates the in-memory AuthHeader displayName and re-persists the vault.
+   * Persists a candidate display name before publishing it to the session.
    * Throws on invalid input. No-op when locked.
    */
   async setDisplayName(name: string): Promise<void> {
@@ -660,8 +689,7 @@ export class AuthService {
     }
     if (!this.isUnlocked()) return
     if (!this.liveHeader) throw new Error('vault header not loaded')
-    this.liveHeader.displayName = trimmed
-    await this.persistSnapshot()
+    await this.persistHeaderPatch(this.dek!, { displayName: trimmed })
   }
 
   // -------------------------------------------------------------------------
@@ -706,6 +734,48 @@ export class AuthService {
   deleteKv(key: string): void {
     delete this.globalKv[key]
     this.touch()
+  }
+
+  /** Atomically replaces one encrypted-vault value. Candidate data is never
+   * exposed through getKv or copied into unrelated snapshots until the disk
+   * write succeeds. Null deletes the key. Rejects while locked or closing. */
+  async setKvDurably(key: string, value: string | null): Promise<void> {
+    if (typeof key !== 'string' || key.length < 1 || key.length > 128 || key.includes('\0')) {
+      throw new Error('Invalid vault key')
+    }
+    if (
+      value !== null &&
+      (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 32 * 1024 * 1024)
+    ) {
+      throw new Error('Vault value must be text of at most 32 MiB')
+    }
+    const sessionDek = this.dek
+    this.assertVaultSession(sessionDek, true)
+    this.touch()
+    await this.queueVaultSnapshot(async () => {
+      this.assertVaultSession(sessionDek, true)
+      const candidate = { ...this.globalKv }
+      if (value === null) delete candidate[key]
+      else
+        Object.defineProperty(candidate, key, {
+          value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        })
+      await this.writeVault(this.liveHeader!, this.encryptBody(sessionDek!, candidate))
+      this.assertVaultSession(sessionDek)
+      // Publish just this key: legacy setters may have changed unrelated keys
+      // while the async file write was in progress.
+      if (value === null) delete this.globalKv[key]
+      else
+        Object.defineProperty(this.globalKv, key, {
+          value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        })
+    })
   }
 
   /** The per-workspace encrypted vector store (ADR-0005), bound to the live
@@ -962,22 +1032,49 @@ export class AuthService {
     }
   }
 
-  private async persistSnapshot(): Promise<void> {
-    if (!this.dek || !this.liveHeader) {
-      throw new Error('persistSnapshot called without a live session')
+  private persistSnapshot(): Promise<void> {
+    const sessionDek = this.dek
+    return this.queueVaultSnapshot(async () => {
+      this.assertVaultSession(sessionDek)
+      await this.writeVault(this.liveHeader!, this.encryptBody(sessionDek!))
+    })
+  }
+
+  private queueVaultSnapshot<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.vaultSnapshotChain.then(operation)
+    this.vaultSnapshotChain = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
+  }
+
+  private assertVaultSession(sessionDek: Buffer | null, rejectClosing = false): void {
+    if (
+      !sessionDek ||
+      this.dek !== sessionDek ||
+      !this.liveHeader ||
+      (rejectClosing && this.sessionClosing)
+    ) {
+      throw new LockedError()
     }
-    const body = this.encryptBody(this.dek)
-    await this.writeVault(this.liveHeader, body)
+  }
+
+  private persistHeaderPatch(sessionDek: Buffer, patch: Partial<AuthHeader>): Promise<void> {
+    return this.queueVaultSnapshot(async () => {
+      this.assertVaultSession(sessionDek, true)
+      const candidate = { ...this.liveHeader!, ...patch }
+      await this.writeVault(candidate, this.encryptBody(sessionDek))
+      this.assertVaultSession(sessionDek)
+      this.liveHeader = candidate
+    })
   }
 
   /** Encrypts the v6 vault body: a single JSON object { manifest, kv } under
    *  AES-256-GCM(DEK). No PGlite tar — relational/vector data lives in the
    *  per-workspace stores. */
-  private encryptBody(dek: Buffer): EncryptedBody {
-    const plain = Buffer.from(
-      JSON.stringify({ manifest: this.manifest, kv: this.globalKv }),
-      'utf8',
-    )
+  private encryptBody(dek: Buffer, kv: Record<string, string> = this.globalKv): EncryptedBody {
+    const plain = Buffer.from(JSON.stringify({ manifest: this.manifest, kv }), 'utf8')
     const nonce = randomBytes(AES_NONCE_BYTES)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
     const chunks = [cipher.update(plain), cipher.final()]

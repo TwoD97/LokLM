@@ -215,6 +215,17 @@ const stub: Api = {
     setDocumentFolder: () => Promise.resolve(),
   },
   models: {
+    cancelIndexing: () => Promise.resolve(),
+    activity: () =>
+      Promise.resolve({
+        phase: 'idle' as const,
+        target: null,
+        stage: null,
+        progress: null,
+        error: null,
+        jobs: [],
+      }),
+    onActivity: () => () => undefined,
     status: () =>
       Promise.resolve({
         downloadDir: '/tmp/models',
@@ -439,6 +450,33 @@ const stub: Api = {
         pinned: false,
       }),
   },
+  organizer: {
+    list: async () => ({ notes: [], tasks: [], events: [] }),
+    saveNote: async (input) => ({
+      ...input,
+      id: input.id ?? 'note-test',
+      revision: (input.revision ?? 0) + 1,
+      createdAt: '2026-09-24T10:00:00.000Z',
+      updatedAt: '2026-09-24T10:00:00.000Z',
+    }),
+    deleteNote: async () => {},
+    saveTask: async (input) => ({
+      ...input,
+      id: input.id ?? 'task-test',
+      revision: (input.revision ?? 0) + 1,
+      createdAt: '2026-09-24T10:00:00.000Z',
+      updatedAt: '2026-09-24T10:00:00.000Z',
+    }),
+    deleteTask: async () => {},
+    saveEvent: async (input) => ({
+      ...input,
+      id: input.id ?? 'event-test',
+      revision: (input.revision ?? 0) + 1,
+      createdAt: '2026-09-24T10:00:00.000Z',
+      updatedAt: '2026-09-24T10:00:00.000Z',
+    }),
+    deleteEvent: async () => {},
+  },
   settings: {
     get: () => Promise.resolve(TEST_SETTINGS),
     update: () => Promise.resolve(TEST_SETTINGS),
@@ -528,8 +566,10 @@ const stub: Api = {
   },
   translation: {
     status: () =>
-      Promise.resolve({ state: 'not_installed' as const, message: null, sidecarAvailable: false }),
+      Promise.resolve({ state: 'not_installed' as const, message: null, modelName: null }),
     translate: () => Promise.resolve({ text: '', detected: null, sentences: 0, ms: 0 }),
+    cancel: () => Promise.resolve(),
+    onProgress: () => () => undefined,
     languages: () => Promise.resolve([]),
     documentText: () => Promise.resolve({ title: '', text: '' }),
     saveDocument: (workspaceId: number, title: string) =>

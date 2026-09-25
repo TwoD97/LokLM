@@ -44,7 +44,13 @@ export function TranscriptionView({
   const [diarize, setDiarize] = useState(false)
   const [speakers, setSpeakers] = useState('')
   const [over, setOver] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [savedTo, setSavedTo] = useState<number | null>(null)
+  const saved = savedTo !== null && savedTo === workspaceId
+  const [saving, setSaving] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const savingRef = useRef(false)
+  const filesPending = useRef(false)
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -77,10 +83,18 @@ export function TranscriptionView({
 
   const onFiles = useCallback(
     async (files: File[]) => {
-      if (files.length === 0) return
-      setSaved(false)
-      if (files.length === 1) await transcribe(await files[0]!.arrayBuffer(), opts)
-      else await transcribeMany(files, opts)
+      if (files.length === 0 || filesPending.current) return
+      filesPending.current = true
+      setSavedTo(null)
+      setActionError(null)
+      try {
+        if (files.length === 1) await transcribe(await files[0]!.arrayBuffer(), opts)
+        else await transcribeMany(files, opts)
+      } catch (err) {
+        setActionError(String(err))
+      } finally {
+        filesPending.current = false
+      }
     },
     [transcribe, transcribeMany, opts],
   )
@@ -113,11 +127,31 @@ export function TranscriptionView({
   )
 
   const onSave = useCallback(async () => {
-    if (workspaceId == null) return
+    if (workspaceId == null || savingRef.current || saved) return
+    savingRef.current = true
+    setSaving(true)
+    setActionError(null)
     const ext = distinctSpeakers.length > 0 ? 'md' : 'txt'
-    await window.api.transcription.saveToWorkspace(workspaceId, toTxt(display), ext)
-    setSaved(true)
-  }, [workspaceId, display, distinctSpeakers])
+    try {
+      await window.api.transcription.saveToWorkspace(workspaceId, toTxt(display), ext)
+      setSavedTo(workspaceId)
+    } catch (err) {
+      setActionError(`${t('tx.saveFailed')} ${String(err)}`)
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
+  }, [workspaceId, display, distinctSpeakers, saved, t])
+
+  const onCopy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(toTxt(display))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setActionError(t('tx.copyFailed'))
+    }
+  }
 
   const onExport = useCallback(
     (fmt: 'txt' | 'srt' | 'vtt') => {
@@ -134,7 +168,17 @@ export function TranscriptionView({
 
   return (
     <div className="transcription">
-      <header className="transcription__header">{t('tx.title')}</header>
+      <header className="transcription__header">
+        <h1>{t('tx.title')}</h1>
+      </header>
+      {actionError && (
+        <div className="transcription__error" role="alert">
+          <span>{actionError}</span>
+          <button className="transcription__btn" onClick={() => setActionError(null)}>
+            {t('common.close')}
+          </button>
+        </div>
+      )}
 
       {queue.length > 0 && (
         <TranscriptList rows={queue} workspaceId={workspaceId} onClear={reset} />
@@ -174,6 +218,7 @@ export function TranscriptionView({
                 value={speakers}
                 onChange={(e) => setSpeakers(e.target.value)}
                 title={t('tx.speakers')}
+                aria-label={t('tx.speakers')}
               />
             )}
             <button
@@ -215,7 +260,9 @@ export function TranscriptionView({
       )}
 
       {state.phase === 'decoding' && (
-        <div className="transcription__status">{t('tx.decoding')}</div>
+        <div className="transcription__status" role="status">
+          {t('tx.decoding')}
+        </div>
       )}
 
       {state.phase === 'transcribing' && (
@@ -227,12 +274,18 @@ export function TranscriptionView({
                 className="transcription__bar"
                 value={state.progress.done}
                 max={state.progress.total}
+                aria-label={t('tx.transcribing')}
               />
             )}
           </div>
           <button className="transcription__btn" onClick={cancel}>
             {t('tx.cancel')}
           </button>
+          {state.error && (
+            <p className="transcription__error" role="alert">
+              {state.error}
+            </p>
+          )}
           <TranscriptBody segments={state.segments} />
         </div>
       )}
@@ -240,15 +293,13 @@ export function TranscriptionView({
       {state.phase === 'done' && (
         <div className="transcription__result">
           <div className="transcription__actions">
-            <button
-              className="transcription__btn"
-              onClick={() => void navigator.clipboard.writeText(toTxt(display))}
-            >
-              {t('tx.copy')}
+            <button className="transcription__btn" onClick={() => void onCopy()}>
+              {t(copied ? 'tx.copied' : 'tx.copy')}
             </button>
             <select
               className="transcription__btn"
               value=""
+              aria-label={t('tx.export')}
               onChange={(e) => {
                 if (e.target.value) onExport(e.target.value as 'txt' | 'srt' | 'vtt')
                 e.target.value = ''
@@ -262,21 +313,34 @@ export function TranscriptionView({
             <button
               className="transcription__btn"
               onClick={() => void onSave()}
-              disabled={workspaceId == null || state.segments.length === 0}
+              disabled={workspaceId == null || state.segments.length === 0 || saving || saved}
               title={workspaceId == null ? t('tx.needWorkspace') : undefined}
             >
-              {saved ? t('tx.saved') : t('tx.save')}
+              {t(saving ? 'tx.saving' : saved ? 'tx.saved' : 'tx.save')}
             </button>
-            <button className="transcription__btn" onClick={reset}>
+            <button
+              className="transcription__btn"
+              disabled={saving}
+              onClick={() => {
+                setActionError(null)
+                reset()
+              }}
+            >
               {t('tx.again')}
             </button>
           </div>
+          {workspaceId == null && <p className="transcription__status">{t('tx.needWorkspace')}</p>}
           {distinctSpeakers.length > 0 && (
-            <SpeakerLabels
-              originals={distinctSpeakers}
-              names={speakerNames}
-              onRename={(orig, name) => setSpeakerNames((p) => ({ ...p, [orig]: name }))}
-            />
+            <fieldset disabled={saving} className="transcription__speaker-fieldset">
+              <SpeakerLabels
+                originals={distinctSpeakers}
+                names={speakerNames}
+                onRename={(orig, name) => {
+                  setSavedTo(null)
+                  setSpeakerNames((p) => ({ ...p, [orig]: name }))
+                }}
+              />
+            </fieldset>
           )}
           {state.segments.length === 0 ? (
             <div className="transcription__status">{t('tx.noSpeech')}</div>
@@ -287,11 +351,20 @@ export function TranscriptionView({
       )}
 
       {state.phase === 'error' && (
-        <div className="transcription__error">
+        <div className="transcription__error" role="alert">
           <span>{state.error?.startsWith('tx.') ? t(state.error) : state.error}</span>
           <button className="transcription__btn" onClick={reset}>
             {t('tx.again')}
           </button>
+        </div>
+      )}
+      {state.phase === 'error' && state.segments.length > 0 && (
+        <div className="transcription__result">
+          <p>{t('tx.partial')}</p>
+          <button className="transcription__btn" onClick={() => void onCopy()}>
+            {t(copied ? 'tx.copied' : 'tx.copy')}
+          </button>
+          <TranscriptBody segments={display} />
         </div>
       )}
     </div>

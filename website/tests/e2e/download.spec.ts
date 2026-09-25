@@ -13,8 +13,7 @@ test.describe('download area', () => {
     const link = page.locator('[data-platform-link="windows"]')
     await expect(link).toBeVisible()
     const href = await link.getAttribute('href')
-    expect(href).toMatch(/LokLM-Setup-.*\.exe$/)
-    expect(href).toContain('/v')
+    expect(href).toMatch(/\/v\d+\.\d+\.\d+\/LokLM-x64\.exe$/)
   })
 
   test('linux card offers a versioned .run installer', async ({ page }) => {

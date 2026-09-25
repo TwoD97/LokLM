@@ -9,9 +9,8 @@ type Props = {
   role: Role
   content: string
   isRefusal?: boolean
-  /** The chunks this turn actually cited (fed AND referenced). When present,
-   *  markers outside this set are stripped instead of rendered as broken chips.
-   *  Undefined while a turn is still streaming (citations aren't known yet).
+  /** Allowed supplied passages for this turn, including while streaming.
+   *  Unknown markers remain text; an absent set grants no clickable sources.
    *  Passed as the message's stable array so the surrounding memo() still
    *  short-circuits — the Set is derived here, not rebuilt by the parent. */
   citations?: ReadonlyArray<{ documentId: number; chunkId: number }>
@@ -29,7 +28,7 @@ function MessageBubbleImpl({
   onCitationClick,
 }: Props): JSX.Element {
   const citedKeys = useMemo(
-    () => (citations ? new Set(citations.map((c) => `${c.documentId}-${c.chunkId}`)) : undefined),
+    () => new Set((citations ?? []).map((c) => `${c.documentId}-${c.chunkId}`)),
     [citations],
   )
   // Hooks unconditionally before the user-role early return so React's hook
@@ -42,10 +41,10 @@ function MessageBubbleImpl({
   const components = useMemo(
     () => ({
       a: (props: React.ComponentProps<'a'>) => (
-        <CitationChip {...props} onCitationClick={handleChipClick} />
+        <CitationChip {...props} allowedKeys={citedKeys} onCitationClick={handleChipClick} />
       ),
     }),
-    [handleChipClick],
+    [handleChipClick, citedKeys],
   )
 
   if (role === 'user') {
@@ -53,8 +52,8 @@ function MessageBubbleImpl({
   }
   // Inline [doc:X,chunk:Y] markers become clickable chips via the markdown `a`
   // override below. A marker-less answer is NOT left source-less here: the
-  // per-turn "Belegt · N Quellen" GroundingBadge under the bubble (MessageList)
-  // already lists the fed sources as a dropdown, so an in-bubble source footer
+  // per-turn source list under the bubble already distinguishes provided from
+  // cited sources, so an in-bubble source footer
   // only duplicated it — removed.
   const { text } = transformCitationMarkers(content, citedKeys)
   return (

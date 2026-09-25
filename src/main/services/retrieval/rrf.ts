@@ -2,12 +2,49 @@ import type { SearchHit } from '@main/db/types'
 
 export const RRF_K = 60
 
+export interface RankedList {
+  hits: readonly SearchHit[]
+  weight?: number
+}
+
+/** Sum every bounded ranking before applying the final pool cap. Truncating a
+ * running accumulator loses earlier contributions when a candidate reappears
+ * in a later query variant. Stable summation and chunk-id ties make the result
+ * independent of arm/variant arrival order. */
+export function fuseRrfLists(lists: readonly RankedList[], cap: number): SearchHit[] {
+  const candidates = new Map<number, { hit: SearchHit; contributions: number[] }>()
+  for (const { hits, weight = 1 } of lists) {
+    const seen = new Set<number>()
+    for (let index = 0; index < hits.length; index++) {
+      const hit = hits[index]!
+      // A chunk gets one vote per ranking, even if an adapter repeats a row.
+      if (seen.has(hit.chunk_id)) continue
+      seen.add(hit.chunk_id)
+      const contribution = weight / (RRF_K + index + 1)
+      const candidate = candidates.get(hit.chunk_id)
+      if (candidate) {
+        candidate.contributions.push(contribution)
+        candidate.hit = mergeArmScores(candidate.hit, hit)
+      } else candidates.set(hit.chunk_id, { hit, contributions: [contribution] })
+    }
+  }
+  return Array.from(candidates.values())
+    .map(({ hit, contributions }) => ({
+      ...hit,
+      score: contributions.sort((a, b) => a - b).reduce((sum, value) => sum + value, 0),
+    }))
+    .sort((a, b) => b.score - a.score || a.chunk_id - b.chunk_id)
+    .slice(0, Math.max(0, cap))
+}
+
 /**
  * Reciprocal Rank Fusion. Each list is treated as a ranking; a hit's RRF
  * score is the sum of `weight` / (k + rank) across the lists it appears in.
  * The caller seeds with `seed` (the running pool from previous variants) and
  * fuses in `next` (one new ranked list). Same hit can appear in both — its
  * scores add. Returns the top `cap` hits sorted by fused score desc.
+ * Prefer fuseRrfLists for multiple arms/variants; repeatedly capping this
+ * two-list helper cannot recover candidates discarded in an earlier call.
  *
  * `weight` (default 1) scales this list's contribution. Use it to lean the
  * fusion toward the retriever that's actually discriminating on a given corpus:

@@ -5,6 +5,13 @@ import { useT } from '../i18n'
 import type { TFn } from '../i18n'
 import { DocumentActionsMenu, type DocumentActions } from './DocumentActionsMenu'
 import { deriveRowStatus, type RowStatus } from './documentStatus'
+import { DocIcon } from '../ui/DocIcon'
+import { useSettings } from '../settings/useSettings'
+
+const DATE_FORMATTERS = {
+  'de-DE': new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', year: 'numeric' }),
+  'en-GB': new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+}
 
 type Props = {
   doc: Document
@@ -17,12 +24,23 @@ type Props = {
 // Single source of truth for the status pill — class + label — so the three row
 // layouts (table, folders, location tree) stay in lockstep.
 export function StatusBadge({ status }: { status: RowStatus }): JSX.Element {
-  const label = status === 'reembedding' ? 're-embedding' : status
+  const t = useT()
+  const label = t(
+    {
+      pending: 'ux.pending',
+      indexing: 'library.statusIndexing',
+      ready: 'library.statusReady',
+      failed: 'library.statusFailed',
+      reembedding: 'ux.reembedding',
+    }[status],
+  )
   return <span className={`library__status library__status--${status}`}>{label}</span>
 }
 
 function DocumentRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX.Element {
   const t = useT()
+  const { settings } = useSettings()
+  const locale = settings?.basic.language === 'de' ? 'de-DE' : 'en-GB'
   const status = deriveRowStatus(doc, progress, reembedding)
   const isMissing = doc.missingAt != null
 
@@ -33,6 +51,7 @@ function DocumentRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX
     >
       <td>
         <span className="library__row-title">
+          <DocIcon source={doc.sourcePath} size={18} />
           {isMissing && (
             <AlertTriangle
               size={14}
@@ -43,7 +62,14 @@ function DocumentRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX
           {doc.pinned && (
             <Pin size={12} aria-label={t('library.pinned')} className="library__row-pinned-icon" />
           )}
-          {doc.title}
+          <button
+            type="button"
+            className="library__document-link"
+            onClick={() => actions.onRead(doc)}
+            title={doc.title}
+          >
+            {doc.title}
+          </button>
           {doc.language && <LanguageBadge language={doc.language} t={t} />}
         </span>
       </td>
@@ -55,8 +81,10 @@ function DocumentRowImpl({ doc, progress, reembedding, ...actions }: Props): JSX
           </span>
         )}
       </td>
-      <td>{doc.chunkCount}</td>
-      <td>{new Date(doc.addedAt * 1000).toLocaleString()}</td>
+      <td>{progress?.chunksTotal ?? doc.chunkCount}</td>
+      <td className="library__added" title={new Date(doc.addedAt * 1000).toLocaleString(locale)}>
+        {DATE_FORMATTERS[locale].format(doc.addedAt * 1000)}
+      </td>
       <td style={{ width: 40 }}>
         <DocumentActionsMenu doc={doc} {...actions} />
       </td>

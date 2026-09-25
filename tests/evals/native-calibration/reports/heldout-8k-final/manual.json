@@ -1,0 +1,110 @@
+[
+  {
+    "caseId": "heldout-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct recorded 2024 service-credit revenue 73,410 GBP, using German thousands notation 73.410, and exact supplied revenue table 1:2. No confusion with the planned 2025 amount, reserve account, or DEV currency. One short German sentence. First visible text 55.293 s and final event 72.012 s."
+  },
+  {
+    "caseId": "heldout-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 156 planned inspections in 2025 with exact supplied German planning table 2:5, answered in English as requested. Does not confuse planned inspections with 129 completed inspections in 2024. One short sentence and no unsupported extra claim. First visible text 36.689 s and final event 49.148 s."
+  },
+  {
+    "caseId": "heldout-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO approval date 2025-02-06 with exact supplied approval passage 2:4. No ledger review-date or shipping-date confusion. One short English sentence. First visible text 60.372 s and final event 75.447 s; this measured latency is retained rather than discarded as an outlier."
+  },
+  {
+    "caseId": "heldout-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Teral sample mass 31.6 kg and survey date 2027-02-23, supported by exact supplied PDF table 6:9. No confusion with Luvon's 26.9 kg or accepted-tray counts. One short English sentence with no extra claim. First visible text 37.636 s and final event 56.675 s."
+  },
+  {
+    "caseId": "heldout-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "The requested combined total is correctly stated as 47 accepted trays with exact supplied PDF table 6:9; Teral's additionally mentioned 18 is also correct. The German wording 'verzeichneten Teral 18 und Luvon zusammen 47' is grammatically awkward because it fails to connect the individual count cleanly to the combined total. The word 'zusammen' qualifies 47 as the total, so this review does not infer an explicit false claim that Luvon alone had 47. Record a clarity defect separately from numerical/source correctness; Luvon's individual count 29 was not requested. First visible text 41.711 s and final event 64.596 s."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct planned-minus-recorded difference 4,755 GBP, but the recorded-revenue citation is ledger introduction 1:1, which contains no revenue amount. Actual recorded-revenue table 1:2 was supplied at rank 5 but is not cited. The plan input is correctly cited as 2:5. Thus the comparison repeats the DEV exact-passage attribution failure on the other input: both document IDs are valid, but one passage does not support its input. No numerical error or fabricated citation ID. First visible text 40.516 s and final event 68.592 s."
+  },
+  {
+    "caseId": "heldout-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct batch identifier ORV-862 with exact supplied Orvo draft A passage 3:6. No DEV identifier leakage or draft B misattribution. One short English sentence. First visible text 43.153 s and final event 53.282 s."
+  },
+  {
+    "caseId": "heldout-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct retryDelaySeconds(3, 20) result 60 seconds with exact supplied function passage 5:8. Positive attempt follows the multiplication branch; min(3 times 20, 90) is 60, not the maximum 90. Correct German unit and one short sentence, with no extra claim. First visible text 39.538 s and final event 52.409 s."
+  },
+  {
+    "caseId": "heldout-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct limitation: the supplied documents do not identify Veldrin Yard's chief executive officer. All nine chunks were supplied and none names that role. No fabricated person or misleading substitute. No invented citation is needed for an absence-of-information limitation. First visible text 36.884 s and final event 44.697 s."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": ["2027-05-15 is the definitive Orvo dispatch deadline."],
+    "notes": "Critical conflict-handling failure: definitively selects draft B's 2027-05-15 and cites only 4:7. Draft A's conflicting 2027-05-08 was supplied at rank 2; both drafts explicitly lack approval or supersession statements. Draft B supports its own proposed date, not authority over draft A. The answer even uses the absence of approval/supersession as a reason to declare B definitive, an unsupported inference. This is not safe abstention and is not a retrieval omission. It matches the preregistered conflict-selection failure mode; the answer alone does not establish which prompt instruction caused it. First visible text 40.236 s and final event 78.731 s."
+  },
+  {
+    "caseId": "heldout-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct early-branch return value 0 seconds for retryDelaySeconds(-1, 20), with exact supplied function passage 5:8. The explanation accurately states that attempts less than or equal to zero return zero; no multiplication or cap is incorrectly applied to the early return. One English sentence. First visible text 38.057 s and final event 57.000 s."
+  },
+  {
+    "caseId": "heldout-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that no measured outdoor temperature is provided for Luvon in the dated survey. Exact supplied PDF passage 6:9 explicitly says there are no outdoor measurements. No invented average or substitution of the unrelated 11-degree cabinet setting. One German sentence with a supporting source citation. First visible text 38.904 s and final event 62.006 s."
+  }
+]

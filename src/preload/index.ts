@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
+import type { ModelActivity } from '../shared/modelActivity'
 import type {
   AuthLoginProgressEvent,
   AuthStatus,
@@ -7,6 +8,13 @@ import type {
   RegisterResult,
   ResetResult,
 } from '../shared/authTypes'
+import type {
+  OrganizerApi,
+  SaveNoteInput,
+  SaveTaskInput,
+  SaveEventInput,
+  DeleteOrganizerInput,
+} from '../shared/organizer'
 import type { UserSettings } from '../shared/settings'
 import type {
   TranscriptionOptions,
@@ -29,6 +37,7 @@ import type {
   TranslateResult,
   TranslationLanguage,
   TranslatorStatus,
+  TranslationProgress,
 } from '../shared/translation'
 import type { WriteResult, WritingMode } from '../shared/writing'
 import type { WorkspaceType, WorkspaceStorageFootprint } from '../shared/workspaceStorage'
@@ -86,6 +95,16 @@ export interface SyncProgressEvent {
 }
 
 const api = {
+  organizer: {
+    list: () => ipcRenderer.invoke('organizer:list'),
+    saveNote: (input: SaveNoteInput) => ipcRenderer.invoke('organizer:saveNote', input),
+    deleteNote: (input: DeleteOrganizerInput) => ipcRenderer.invoke('organizer:deleteNote', input),
+    saveTask: (input: SaveTaskInput) => ipcRenderer.invoke('organizer:saveTask', input),
+    deleteTask: (input: DeleteOrganizerInput) => ipcRenderer.invoke('organizer:deleteTask', input),
+    saveEvent: (input: SaveEventInput) => ipcRenderer.invoke('organizer:saveEvent', input),
+    deleteEvent: (input: DeleteOrganizerInput) =>
+      ipcRenderer.invoke('organizer:deleteEvent', input),
+  } as OrganizerApi,
   auth: {
     status: (): Promise<AuthStatus> => ipcRenderer.invoke('auth:status'),
     register: (
@@ -371,6 +390,16 @@ const api = {
       ipcRenderer.invoke('folders:setDocumentFolder', workspaceId, documentId, folderId),
   },
   models: {
+    activity: (): Promise<ModelActivity> => ipcRenderer.invoke('models:activity'),
+    cancelIndexing: (): Promise<void> => ipcRenderer.invoke('models:cancelIndexing'),
+    onActivity: (cb: (activity: ModelActivity) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, activity: ModelActivity): void => cb(activity)
+      ipcRenderer.on('models:activity', listener)
+      return () => {
+        ipcRenderer.removeListener('models:activity', listener)
+      }
+    },
+
     status: (): Promise<ModelsStatus> => ipcRenderer.invoke('models:status'),
     /** Kick (idempotently) the LLM + embedder + reranker loads the QA pipeline
      *  needs. Fire-and-forget; progress arrives via the per-model onStatus
@@ -468,7 +497,8 @@ const api = {
       workspaceId: number,
       query: string,
       opts?: AnswerOptions,
-    ): Promise<void> => ipcRenderer.invoke('chat:stream', streamId, workspaceId, query, opts ?? {}),
+    ): Promise<Extract<StreamEvent, { type: 'done' | 'error' }> | void> =>
+      ipcRenderer.invoke('chat:stream', streamId, workspaceId, query, opts ?? {}),
     cancel: (streamId: string): Promise<void> => ipcRenderer.invoke('chat:cancel', streamId),
     // AP-9 Konv.-Wechsel: signal a conversation switch so main can free the
     // model when the user picked "unload" (no-op for "keep").
@@ -582,6 +612,13 @@ const api = {
     status: (): Promise<TranslatorStatus> => ipcRenderer.invoke('translation:status'),
     translate: (text: string, opts: TranslateOptions): Promise<TranslateResult> =>
       ipcRenderer.invoke('translation:translate', text, opts),
+    cancel: (requestId: string): Promise<void> =>
+      ipcRenderer.invoke('translation:cancel', requestId),
+    onProgress: (cb: (progress: TranslationProgress) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, progress: TranslationProgress): void => cb(progress)
+      ipcRenderer.on('translation:progress', listener)
+      return () => ipcRenderer.removeListener('translation:progress', listener)
+    },
     languages: (): Promise<TranslationLanguage[]> => ipcRenderer.invoke('translation:languages'),
     /** Indexed text of a document (chunks joined) , for translating a whole doc. */
     documentText: (documentId: number): Promise<{ title: string; text: string }> =>

@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, Check, Save } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import type { TranslateResult, TranslationLanguage, TranslatorStatus } from '@shared/translation'
+import { TRANSLATION_LANGUAGES } from '@shared/translation'
 import { useSettings } from '../settings/useSettings'
 import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
+import { useTranslationRequest } from './useTranslationRequest'
 import './translation.css'
 
 // Standalone translation page (DeepL-style): paste text on the left , pick a
 // target language , get the translation on the right. Two source modes — free
 // text , or a document pulled from a workspace which can be saved back as a new
-// translated document. The MADLAD model is provisioned by the installer wizard
-// ( not downloaded in-app ) ; when it's absent this page points the user back to
-// the LokLM installer rather than offering a download.
+// translated document. Uses the same selected language model as chat.
 
 type SourceMode = 'text' | 'document'
 
@@ -20,10 +20,18 @@ export function TranslationView(): JSX.Element {
   const t = useT()
   const { settings } = useSettings()
   const { begin: beginGeneration } = useGeneration()
+  const { runTranslation, cancel, progress } = useTranslationRequest()
   const uiLang = settings?.basic.language === 'de' ? 'de' : 'en'
 
   const [status, setStatus] = useState<TranslatorStatus | null>(null)
-  const [languages, setLanguages] = useState<TranslationLanguage[]>([])
+  const [languages, setLanguages] = useState<TranslationLanguage[]>([...TRANSLATION_LANGUAGES])
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [stopping, setStopping] = useState(false)
+  const [stopped, setStopped] = useState(false)
+  const pending = useRef(false)
+  const savePending = useRef(false)
 
   const [source, setSource] = useState('')
   const [target, setTarget] = useState<string>(uiLang)
@@ -46,23 +54,45 @@ export function TranslationView(): JSX.Element {
 
   useEffect(() => {
     let mounted = true
-    void window.api.translation.status().then((s) => mounted && setStatus(s))
-    void window.api.translation.languages().then((l) => mounted && setLanguages(l))
-    const offStatus = window.api.translation.onStatus((s) => setStatus(s))
+    setStatusError(null)
+    void window.api.translation
+      .status()
+      .then((s) => mounted && setStatus(s))
+      .catch((err: unknown) => {
+        if (mounted) setStatusError(String(err))
+      })
+    void window.api.translation
+      .languages()
+      .then((l) => mounted && setLanguages(l))
+      .catch(() => undefined)
+    const offStatus = window.api.translation.onStatus((s) => {
+      setStatus(s)
+      setStatusError(null)
+    })
     return () => {
       mounted = false
       offStatus()
     }
-  }, [])
+  }, [reload])
 
   // Load workspaces lazily the first time the user opens document mode.
   useEffect(() => {
     if (sourceMode !== 'document' || workspaces.length > 0) return
-    void window.api.workspaces.list().then((ws) => {
-      setWorkspaces(ws)
-      setWsId((cur) => cur ?? (ws.length > 0 ? ws[0]!.id : null))
-    })
-  }, [sourceMode, workspaces.length])
+    let mounted = true
+    void window.api.workspaces
+      .list()
+      .then((ws) => {
+        if (!mounted) return
+        setWorkspaces(ws)
+        setWsId((cur) => cur ?? (ws.length > 0 ? ws[0]!.id : null))
+      })
+      .catch((err: unknown) => {
+        if (mounted) setError(String(err))
+      })
+    return () => {
+      mounted = false
+    }
+  }, [sourceMode, workspaces.length, reload])
 
   // Document list follows the selected workspace.
   useEffect(() => {
@@ -71,20 +101,32 @@ export function TranslationView(): JSX.Element {
       return
     }
     let mounted = true
-    void window.api.documents.list(wsId).then((d) => mounted && setDocs(d))
+    setDocs([])
+    setLoadingDocs(true)
+    void window.api.documents
+      .list(wsId)
+      .then((d) => mounted && setDocs(d))
+      .catch((err: unknown) => {
+        if (mounted) setError(String(err))
+      })
+      .finally(() => {
+        if (mounted) setLoadingDocs(false)
+      })
     return () => {
       mounted = false
     }
-  }, [wsId])
+  }, [wsId, reload])
 
   const state = status?.state ?? null
-  const ready = state === 'installed' || state === 'starting' || state === 'ready'
-  const sidecarMissing = status !== null && !status.sidecarAvailable
+  const ready =
+    state === 'installed' || state === 'starting' || state === 'ready' || state === 'error'
 
   const langName = (code: string): string => languages.find((l) => l.code === code)?.name ?? code
 
   const loadDocument = async (id: number): Promise<void> => {
     setDocId(id)
+    setSource('')
+    setDocTitle('')
     setResult(null)
     setSavedTitle(null)
     setError(null)
@@ -94,6 +136,7 @@ export function TranslationView(): JSX.Element {
       setDocTitle(title)
       setSource(text)
     } catch (err) {
+      setDocId(null)
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoadingDoc(false)
@@ -101,24 +144,32 @@ export function TranslationView(): JSX.Element {
   }
 
   const translate = async (): Promise<void> => {
-    if (!source.trim()) return
+    if (!source.trim() || pending.current || savePending.current) return
+    pending.current = true
+    setStopping(false)
+    setStopped(false)
     setBusy(true)
     setError(null)
     setResult(null)
     setSavedTitle(null)
     const endGeneration = beginGeneration('translation')
     try {
-      setResult(await window.api.translation.translate(source, { target }))
+      const translated = await runTranslation(source, target)
+      setResult(translated)
+      setStopped(translated === null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       endGeneration()
+      pending.current = false
+      setStopping(false)
       setBusy(false)
     }
   }
 
   const saveTranslation = async (): Promise<void> => {
-    if (!result || wsId == null) return
+    if (!result || wsId == null || savePending.current || savedTitle) return
+    savePending.current = true
     setSaving(true)
     setError(null)
     try {
@@ -132,15 +183,20 @@ export function TranslationView(): JSX.Element {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
+      savePending.current = false
       setSaving(false)
     }
   }
 
   const copyOut = async (): Promise<void> => {
     if (!result) return
-    await navigator.clipboard.writeText(result.text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(result.text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setError(t('translation.copyFailed'))
+    }
   }
 
   // Linked scrolling for side-by-side comparison: mirror the panes by scroll
@@ -169,24 +225,36 @@ export function TranslationView(): JSX.Element {
         <p className="translation-view__sub">{t('translation.subtitle')}</p>
       </header>
 
-      {sidecarMissing && (
-        <div className="translation-view__notice translation-view__notice--warn">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <span>{t('settings.translation.sidecarMissing')}</span>
+      {status === null && !statusError && <p role="status">{t('translation.checking')}</p>}
+      {statusError && (
+        <div role="alert" className="translation-view__notice translation-view__notice--warn">
+          <span>
+            {t('translation.statusFailed')} {statusError}
+          </span>
+          <button className="translation-view__btn" onClick={() => setReload((n) => n + 1)}>
+            {t('common.retry')}
+          </button>
         </div>
       )}
+      {error && (
+        <div role="alert" className="translation-view__notice translation-view__notice--warn">
+          <span>{error}</span>
+          <button className="translation-view__btn" onClick={() => setError(null)}>
+            {t('common.close')}
+          </button>
+        </div>
+      )}
+      {stopped && (
+        <p role="status" className="translation-view__hint">
+          {t('translation.stopped')}
+        </p>
+      )}
 
-      {/* Not installed / sidecar error → point back to the installer. The
-          model is wizard-provisioned ; there is no in-app download. */}
-      {status !== null && !ready && !sidecarMissing && (
+      {status !== null && !ready && (
         <div className="translation-view__install">
           <div className="translation-view__notice translation-view__notice--warn">
             <AlertTriangle size={16} aria-hidden="true" />
-            <span>
-              {state === 'error' && status.message
-                ? status.message
-                : t('settings.translation.notInstalledHint')}
-            </span>
+            <span>{t('settings.translation.notInstalledHint')}</span>
           </div>
         </div>
       )}
@@ -194,10 +262,15 @@ export function TranslationView(): JSX.Element {
       {/* Installed → the translate workbench. */}
       {ready && (
         <>
-          <div className="translation-view__tabs" role="tablist">
+          <div
+            className="translation-view__tabs"
+            role="tablist"
+            aria-label={t('translation.sourceLabel')}
+          >
             <button
               role="tab"
               aria-selected={sourceMode === 'text'}
+              disabled={busy || loadingDoc || saving}
               className={`translation-view__tab ${sourceMode === 'text' ? 'translation-view__tab--active' : ''}`}
               onClick={() => setSourceMode('text')}
             >
@@ -206,6 +279,7 @@ export function TranslationView(): JSX.Element {
             <button
               role="tab"
               aria-selected={sourceMode === 'document'}
+              disabled={busy || loadingDoc || saving}
               className={`translation-view__tab ${sourceMode === 'document' ? 'translation-view__tab--active' : ''}`}
               onClick={() => setSourceMode('document')}
             >
@@ -219,9 +293,11 @@ export function TranslationView(): JSX.Element {
                 className="translation-view__select"
                 value={wsId ?? ''}
                 aria-label={t('translation.pickWorkspace')}
+                disabled={busy || loadingDoc || saving}
                 onChange={(e) => {
                   setWsId(Number(e.target.value))
                   setDocId(null)
+                  setDocTitle('')
                   setSource('')
                   setResult(null)
                   setSavedTitle(null)
@@ -237,11 +313,15 @@ export function TranslationView(): JSX.Element {
                 className="translation-view__select"
                 value={docId ?? ''}
                 aria-label={t('translation.pickDocument')}
-                disabled={docs.length === 0}
+                disabled={docs.length === 0 || busy || loadingDoc || loadingDocs || saving}
                 onChange={(e) => void loadDocument(Number(e.target.value))}
               >
                 <option value="" disabled>
-                  {docs.length === 0 ? t('translation.noDocuments') : t('translation.pickDocument')}
+                  {loadingDocs
+                    ? t('translation.loadingDoc')
+                    : docs.length === 0
+                      ? t('translation.noDocuments')
+                      : t('translation.pickDocument')}
                 </option>
                 {docs.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -249,6 +329,16 @@ export function TranslationView(): JSX.Element {
                   </option>
                 ))}
               </select>
+              <button
+                className="translation-view__btn"
+                disabled={busy || saving || loadingDoc || loadingDocs}
+                onClick={() => {
+                  setError(null)
+                  setReload((n) => n + 1)
+                }}
+              >
+                {t('translation.refreshDocuments')}
+              </button>
             </div>
           )}
 
@@ -259,9 +349,13 @@ export function TranslationView(): JSX.Element {
             <select
               className="translation-view__select"
               value={target}
-              disabled={busy}
+              disabled={busy || saving}
               aria-label={t('chat.translateTargetAria')}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(e) => {
+                setTarget(e.target.value)
+                setResult(null)
+                setSavedTitle(null)
+              }}
             >
               {languages.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -271,12 +365,31 @@ export function TranslationView(): JSX.Element {
             </select>
             <button
               className="translation-view__btn translation-view__btn--primary"
-              disabled={busy || !source.trim()}
+              disabled={busy || loadingDoc || saving || !source.trim()}
               onClick={() => void translate()}
             >
               {busy ? t('chat.translateBusy') : t('translation.translate')}
               {!busy && <ArrowRight size={15} aria-hidden="true" />}
             </button>
+            {busy && (
+              <>
+                <button
+                  className="translation-view__btn"
+                  disabled={stopping}
+                  onClick={() => {
+                    setStopping(true)
+                    cancel()
+                  }}
+                >
+                  {t(stopping ? 'translation.stopping' : 'translation.cancel')}
+                </button>
+                {progress && (
+                  <span className="translation-view__hint" role="status">
+                    {t('translation.progress', { n: progress.completed, total: progress.total })}
+                  </span>
+                )}
+              </>
+            )}
             {state === 'starting' && (
               <span className="translation-view__hint">{t('chat.translateBusyHint')}</span>
             )}
@@ -295,8 +408,14 @@ export function TranslationView(): JSX.Element {
               <textarea
                 ref={sourceRef}
                 className="translation-view__textarea"
+                aria-label={t('translation.sourceLabel')}
                 value={source}
-                onChange={(e) => setSource(e.target.value)}
+                readOnly={busy || loadingDoc || saving}
+                onChange={(e) => {
+                  setSource(e.target.value)
+                  setResult(null)
+                  setSavedTitle(null)
+                }}
                 onScroll={() => mirrorScroll(sourceRef.current, outputRef.current)}
                 placeholder={
                   loadingDoc ? t('translation.loadingDoc') : t('translation.sourcePlaceholder')
@@ -331,9 +450,7 @@ export function TranslationView(): JSX.Element {
                 ref={outputRef}
                 onScroll={() => mirrorScroll(outputRef.current, sourceRef.current)}
               >
-                {error ? (
-                  <span className="translation-view__output-error">{error}</span>
-                ) : result ? (
+                {result ? (
                   result.text
                 ) : (
                   <span className="translation-view__output-empty">
@@ -350,14 +467,14 @@ export function TranslationView(): JSX.Element {
                 <div className="translation-view__saverow">
                   <button
                     className="translation-view__btn"
-                    disabled={saving}
+                    disabled={saving || savedTitle !== null}
                     onClick={() => void saveTranslation()}
                   >
                     <Save size={14} aria-hidden="true" />
                     {saving ? t('translation.saving') : t('translation.saveToWorkspace')}
                   </button>
                   {savedTitle && (
-                    <span className="translation-view__saved">
+                    <span className="translation-view__saved" role="status">
                       <Check size={13} aria-hidden="true" />{' '}
                       {t('translation.savedAs', { title: savedTitle })}
                     </span>

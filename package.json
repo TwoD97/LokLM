@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverifikation",
   "private": true,
   "type": "module",
@@ -44,15 +44,17 @@
     "screenshots": "pnpm build && playwright test --config tests/e2e/playwright.config.ts --grep @screenshots --headed",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:quiz-pipeline": "tsx tests/bench/quiz-pipeline.ts",
+    "test:models": "pnpm build && node tests/bench/model-residency.cjs",
     "evals:generate": "tsx tests/evals/synth/generate-dataset.ts",
     "evals:run": "tsx tests/evals/run.ts",
+    "evals:production": "tsx tests/evals/production/run.ts --check",
     "evals:sweep": "tsx tests/evals/sweep.ts",
     "evals:matrix": "tsx tests/evals/sweep.ts --configs matrix",
     "evals:paper": "tsx tests/evals/aggregate-paper.ts",
     "evals:datasets": "tsx tests/evals/run-datasets.ts",
     "evals:build-lap": "tsx tests/evals/synth/build-lap-dataset.ts",
-    "evals:build-library": "tsx tests/evals/scale/build-library.ts",
-    "evals:scale": "tsx tests/evals/scale/run-scale.ts",
+    "evals:build-library": "tsx tests/evals/scripts/scale/build-library.ts",
+    "evals:scale": "tsx tests/evals/scripts/scale/run-scale.ts",
     "evals:pack": "tsx tests/evals/answer/run-pack.ts",
     "evals:matrix-run": "pnpm evals:licenses:check && tsx tests/evals/answer/run-pack.ts --configs matrix",
     "evals:matrix-summary": "pnpm evals:licenses:check && tsx tests/evals/answer/run-pack.ts --configs matrix --summary",
@@ -85,7 +87,7 @@
     "models:matrix:risk": "node scripts/download-models.mjs matrix-risk",
     "models:translation": "node scripts/download-models.mjs translation",
     "tessdata": "node scripts/download-tessdata.mjs",
-    "sidecar:translator": "pwsh scripts/build-translator-sidecar.ps1"
+    "models:standard": "node scripts/download-models.mjs standard"
   },
   "devDependencies": {
     "@electron/fuses": "^2.1.2",
@@ -140,7 +142,7 @@
     "katex": "^0.16.47",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
-    "node-llama-cpp": "^3.18.1",
+    "node-llama-cpp": "^3.21.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",
     "react-markdown": "^10.1.0",
@@ -192,14 +194,6 @@
       {
         "from": "tessdata",
         "to": "tessdata"
-      },
-      {
-        "from": "sidecars/translator/dist",
-        "to": "translator",
-        "filter": [
-          "**/*",
-          "!*-cuda*"
-        ]
       }
     ],
     "win": {

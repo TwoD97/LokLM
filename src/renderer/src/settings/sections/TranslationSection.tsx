@@ -1,31 +1,43 @@
-import { useEffect, useState } from 'react'
+import { SectionHeader } from './SectionHeader'
+import { useEffect, useId, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type { TranslatorStatus } from '@shared/translation'
 import { useT } from '../../i18n'
 
-// Status of the MADLAD translation model (~2.8 GB). The model is provisioned
-// by the installer wizard ( model-manifest.json , role "translation" ) , not
-// downloaded in-app — so this section only reports state and , when the model
-// is absent , points the user back to re-running the LokLM installer. State
-// lives in main (TranslationService) and is mirrored here via translation:status
-// pushes.
+// Translation shares the selected chat model and its lifecycle/status.
 
 export function TranslationSection(): JSX.Element {
   const t = useT()
+  const sectionId = useId()
   const [open, setOpen] = useState(true)
   const [status, setStatus] = useState<TranslatorStatus | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let mounted = true
-    void window.api.translation.status().then((s) => {
-      if (mounted) setStatus(s)
+    let receivedUpdate = false
+    setLoadFailed(false)
+    void window.api.translation
+      .status()
+      .then((s) => {
+        if (mounted && !receivedUpdate) setStatus(s)
+      })
+      .catch(() => {
+        if (mounted && !receivedUpdate) setLoadFailed(true)
+      })
+    const offStatus = window.api.translation.onStatus((s) => {
+      receivedUpdate = true
+      if (mounted) {
+        setStatus(s)
+        setLoadFailed(false)
+      }
     })
-    const offStatus = window.api.translation.onStatus((s) => setStatus(s))
     return () => {
       mounted = false
       offStatus()
     }
-  }, [])
+  }, [attempt])
 
   const state = status?.state ?? null
   const stateKey =
@@ -45,19 +57,32 @@ export function TranslationSection(): JSX.Element {
 
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((o) => !o)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.translation.title')}</div>
-          <div className="settings-group__sub">{t('settings.translation.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.translation.title')}
+        subtitle={t('settings.translation.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
+          {loadFailed && (
+            <p className="preferences-error" role="alert">
+              {t('settings.translation.loadError')}{' '}
+              <button type="button" onClick={() => setAttempt((value) => value + 1)}>
+                {t('prefs.retry')}
+              </button>
+            </p>
+          )}
           <div className="settings-row">
             <div className="settings-row__label">
               <span className="settings-row__label-text">{t('settings.translation.status')}</span>
-              <span className="settings-row__hint">{t(stateKey)}</span>
+              {!loadFailed && <span className="settings-row__hint">{t(stateKey)}</span>}
             </div>
           </div>
 
@@ -68,15 +93,6 @@ export function TranslationSection(): JSX.Element {
                   {t('settings.translation.notInstalledHint')}
                 </span>
               </div>
-            </div>
-          )}
-
-          {status && !status.sidecarAvailable && (
-            <div className="settings-inline-warning">
-              <span className="settings-inline-warning__icon" aria-hidden="true">
-                <AlertTriangle size={14} />
-              </span>
-              <span>{t('settings.translation.sidecarMissing')}</span>
             </div>
           )}
 
@@ -97,7 +113,7 @@ export function TranslationSection(): JSX.Element {
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

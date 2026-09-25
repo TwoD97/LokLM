@@ -39,6 +39,7 @@ export const SERIALIZED_OPS: ReadonlySet<WorkerOp> = new Set<WorkerOp>([
   'reranker.unload',
   'reranker.rank',
   'planner.refresh',
+  'gpu.restoreChat',
 ])
 
 export type BackendSerializer = <T>(op: WorkerOp, fn: () => Promise<T>) => Promise<T>

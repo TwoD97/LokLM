@@ -22,7 +22,7 @@ const SUMMARY =
   'Local AI knowledge assistant with source citations — runs fully offline, encrypted on-device, no cloud APIs.'
 
 const OVERVIEW =
-  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model (a Qwen3.5 GGUF) runs locally through llama.cpp; retrieval is hybrid (BM25 keyword + BGE-M3 dense vectors) with reciprocal-rank fusion and a BGE reranker; all data is stored encrypted on-device. No cloud, no external AI APIs, no telemetry, no account. Every answer carries clickable citations back to the exact passage (PDF page or code line) in the source.'
+  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model (a Qwen3.5 GGUF) runs locally through llama.cpp; retrieval combines BM25 keywords and dense vectors with reciprocal-rank fusion and optional reranking; all data is stored encrypted on-device. No cloud, no external AI APIs, no telemetry, no account. Clickable source citations let you inspect the referenced passage (PDF page or code line).'
 
 const KEY_FACTS: string[] = [
   'License: MIT (open source), source available on GitHub.',
@@ -30,9 +30,9 @@ const KEY_FACTS: string[] = [
   'Privacy: fully offline; no telemetry; no account; documents never leave the device.',
   'Security: AES-256-GCM encryption, Argon2id key derivation, per-workspace data keys; everything is encrypted at rest in the local app data folder, with an 18-word recovery phrase.',
   'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (4B, ~3.6 GB, iGPU / 12 GB RAM), Standard (4B, ~4 GB), Pro (9B, ~7 GB); optional local Ollama backend; optional CUDA acceleration.',
-  'Retrieval: hybrid BM25 + BGE-M3 dense embeddings, RRF fusion, BGE Reranker v2-M3; clickable citations to PDF page or code line.',
+  'Retrieval: hybrid BM25 + dense embeddings (BGE-M3 for Lite, Qwen3-Embedding for Standard/Pro), RRF fusion, optional BGE Reranker v2-M3; Auto skips reranking on small GPUs. Clickable source citations open the referenced PDF page or code line.',
   'Formats: PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, JSON, and source code; folder sync for codebases.',
-  'Also: local document translation (MADLAD-400, 400+ languages), audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
+  'Also: local document translation with the bundled language model, audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
   'Best for: questions whose answer is in your own files. Not optimised for open-domain knowledge without context.',
   'Built by Denys Tudosa.',
 ]

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, Globe } from 'lucide-react'
 import type { UserSettings } from '@shared/settings'
 import { isLoopbackBaseUrl } from '@shared/networkHelpers'
@@ -6,6 +6,8 @@ import { Segmented } from './Segmented'
 import { ReindexGateModal } from './ReindexGateModal'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
 import { useT, type TFn } from '../i18n'
+import { SectionHeader } from './sections/SectionHeader'
+import { usePreferenceSave } from './usePreferenceSave'
 
 type Props = { settings: UserSettings; update: (patch: unknown) => Promise<void> }
 type Probe =
@@ -26,6 +28,9 @@ const TIMEOUT_PRESETS = [
 
 export function OllamaSection({ settings, update }: Props): JSX.Element {
   const t = useT()
+  const sectionId = useId()
+  const probeRequest = useRef(0)
+  const { save, failed } = usePreferenceSave(update)
   const [open, setOpen] = useState(true)
   const [probe, setProbe] = useState<Probe>({ state: 'idle' })
   const [showAllForEmbedder, setShowAllForEmbedder] = useState(false)
@@ -72,8 +77,11 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   const startMasterSwitch = (next: 'bundled' | 'ollama'): void => {
     if (next === (allOnOllama ? 'ollama' : 'bundled')) return
     const fromId =
-      adv.embedder.source === 'ollama' ? `ollama:${o.embedderModel ?? '?'}` : 'bundled:bge-m3'
-    const toId = next === 'ollama' ? `ollama:${o.embedderModel ?? '?'}` : 'bundled:bge-m3'
+      adv.embedder.source === 'ollama'
+        ? `ollama:${o.embedderModel ?? '?'}`
+        : t('settings.embedder.bundled')
+    const toId =
+      next === 'ollama' ? `ollama:${o.embedderModel ?? '?'}` : t('settings.embedder.bundled')
     setMasterGate({ from: fromId, to: toId, targetSource: next })
   }
 
@@ -103,6 +111,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   }
 
   const doProbe = useCallback(async () => {
+    const request = ++probeRequest.current
     // Loopback gate: never roundtrip to a non-loopback host until the user
     // has acknowledged the offline-grundsatz relaxation via the retype gate.
     // Surface the block as a probe-state so the rest of the UI (chip pickers ,
@@ -116,25 +125,33 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
       return
     }
     setProbe({ state: 'probing' })
-    const r = await window.api.ollama.probe({
-      baseUrl: o.baseUrl,
-      bearerToken: o.bearerToken,
-      timeoutMs: o.requestTimeoutMs,
-    })
-    if (r.ok) setProbe({ state: 'ok', version: r.version, models: r.models })
-    else setProbe({ state: 'err', kind: r.kind, message: r.message })
+    try {
+      const r = await window.api.ollama.probe({
+        baseUrl: o.baseUrl,
+        bearerToken: o.bearerToken,
+        timeoutMs: o.requestTimeoutMs,
+      })
+      if (request !== probeRequest.current) return
+      if (r.ok) setProbe({ state: 'ok', version: r.version, models: r.models })
+      else setProbe({ state: 'err', kind: r.kind, message: r.message })
+    } catch {
+      if (request === probeRequest.current)
+        setProbe({ state: 'err', kind: 'connection', message: t('settings.ollama.probeError') })
+    }
   }, [o.baseUrl, o.bearerToken, o.requestTimeoutMs, blockedByRemoteGate, t])
 
-  useEffect(() => {
-    if (open && probe.state === 'idle') void doProbe()
-  }, [open, probe.state, doProbe])
-
-  // Re-probe whenever the gate state flips , so a freshly-confirmed remote
-  // host probes immediately instead of waiting for the next user interaction.
+  // Probe committed connection values, never the stale URL captured by a blur
+  // event. Obsolete replies cannot overwrite results from a newer connection.
   useEffect(() => {
     if (open) void doProbe()
+    return () => {
+      // This is a sequence counter, not a DOM ref; invalidate every pending reply.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      probeRequest.current++
+    }
+    // Language changes do not require another connection attempt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blockedByRemoteGate])
+  }, [open, o.baseUrl, o.bearerToken, o.requestTimeoutMs, blockedByRemoteGate])
 
   const models = probe.state === 'ok' ? probe.models : []
   const embedderModels = showAllForEmbedder ? models : models.filter((m) => EMBED_NAME_RE.test(m))
@@ -145,15 +162,25 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
 
   return (
     <div className={`settings-group ${open ? 'settings-group--open' : ''}`}>
-      <div className="settings-group__header" onClick={() => setOpen((s) => !s)}>
-        <div className="settings-group__title">
-          <div className="settings-group__title-row">{t('settings.ollama.title')}</div>
-          <div className="settings-group__sub">{t('settings.ollama.sub')}</div>
-        </div>
-        <span className="settings-group__chevron">▶</span>
-      </div>
-      {open && (
+      <SectionHeader
+        id={sectionId}
+        title={t('settings.ollama.title')}
+        subtitle={t('settings.ollama.sub')}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+      <div
+        id={`${sectionId}-body`}
+        role="region"
+        aria-labelledby={`${sectionId}-title`}
+        hidden={!open}
+      >
         <div className="settings-group__body">
+          {failed && (
+            <p role="alert" className="preferences-error">
+              {t('prefs.saveFailed')}
+            </p>
+          )}
           <div className="settings-block">
             <div className="settings-block__head">
               <div className="settings-block__head-text">
@@ -166,6 +193,9 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             </div>
             <input
               type="text"
+              name="ollama-base-url"
+              aria-label={t('settings.ollama.baseUrl')}
+              autoComplete="url"
               value={baseUrlDraft}
               onChange={(e) => setBaseUrlDraft(e.target.value)}
               onBlur={() => {
@@ -174,13 +204,12 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                   // Otherwise a user who once allowed remote-A could swap to
                   // remote-B and silently inherit the prior consent ; each
                   // host has to be re-confirmed independently.
-                  void update({
+                  void save({
                     advanced: {
                       ollama: { baseUrl: baseUrlDraft, allowRemoteOllama: false },
                     },
                   })
                 }
-                void doProbe()
               }}
               style={{ width: '100%' }}
             />
@@ -195,14 +224,16 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
             </div>
             <input
               type="password"
+              name="ollama-token"
+              aria-label={t('settings.ollama.bearerToken')}
+              autoComplete="off"
               value={bearerTokenDraft}
               onChange={(e) => setBearerTokenDraft(e.target.value)}
               onBlur={() => {
                 const next = bearerTokenDraft || null
                 if (next !== (o.bearerToken ?? null)) {
-                  void update({ advanced: { ollama: { bearerToken: next } } })
+                  void save({ advanced: { ollama: { bearerToken: next } } })
                 }
-                void doProbe()
               }}
               placeholder={t('settings.ollama.bearerTokenPlaceholder')}
               style={{ width: '100%' }}
@@ -265,7 +296,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                 hint={t('settings.ollama.llmModelHint')}
                 models={models}
                 value={o.llmModel}
-                onChange={(v) => void update({ advanced: { ollama: { llmModel: v } } })}
+                onChange={(v) => void save({ advanced: { ollama: { llmModel: v } } })}
               />
 
               <ChipPicker
@@ -274,7 +305,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                 hint={t('settings.ollama.embedderModelHint')}
                 models={embedderModels}
                 value={o.embedderModel}
-                onChange={(v) => void update({ advanced: { ollama: { embedderModel: v } } })}
+                onChange={(v) => void save({ advanced: { ollama: { embedderModel: v } } })}
                 trailing={
                   !showAllForEmbedder && hiddenEmbedderCount > 0 ? (
                     <button
@@ -303,7 +334,7 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                 hint={t('settings.ollama.rerankerModelHint')}
                 models={models}
                 value={o.rerankerModel}
-                onChange={(v) => void update({ advanced: { ollama: { rerankerModel: v } } })}
+                onChange={(v) => void save({ advanced: { ollama: { rerankerModel: v } } })}
               />
 
               <div className="settings-row">
@@ -355,14 +386,14 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
                   ]}
                   onChange={(v) => {
                     if (v === 'custom') return
-                    void update({ advanced: { ollama: { requestTimeoutMs: Number(v) } } })
+                    void save({ advanced: { ollama: { requestTimeoutMs: Number(v) } } })
                   }}
                 />
               </div>
             </>
           )}
         </div>
-      )}
+      </div>
       <ReindexGateModal
         open={masterGate !== null}
         fromIdentity={masterGate?.from ?? ''}

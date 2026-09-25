@@ -6,14 +6,22 @@ import type { DomainDict } from './types'
 
 export const translationDict: DomainDict = {
   en: {
+    'translation.refreshDocuments': 'Refresh documents',
+    'translation.checking': 'Checking translation availability…',
+    'translation.statusFailed': 'Could not check the model. Retry to continue.',
+    'translation.copyFailed': 'Could not copy. Select the translation to copy it manually.',
+    'translation.stopping': 'Stopping…',
+    'translation.stopped': 'Translation stopped. Your source text is still here.',
     'translation.title': 'Translation',
     'translation.subtitle':
-      'Offline machine translation — runs locally on your machine, nothing leaves the device.',
+      'Translate with your selected language model. The bundled model runs entirely on your device.',
     'translation.sourceLabel': 'Source text',
     'translation.sourcePlaceholder': 'Type or paste text to translate…',
     'translation.targetLabel': 'Translation ({lang})',
     'translation.targetLabelShort': 'Translate to',
     'translation.translate': 'Translate',
+    'translation.cancel': 'Stop',
+    'translation.progress': '{n} of {total} sections translated',
     'translation.detected': 'Detected: {lang}',
     'translation.outputEmpty': 'The translation appears here.',
     'translation.meta': '{s} s · {n} sentences',
@@ -28,14 +36,23 @@ export const translationDict: DomainDict = {
     'translation.savedAs': 'Saved as “{title}”',
   },
   de: {
+    'translation.refreshDocuments': 'Dokumente aktualisieren',
+    'translation.checking': 'Verfügbarkeit der Übersetzung wird geprüft…',
+    'translation.statusFailed': 'Das Modell konnte nicht geprüft werden. Bitte erneut versuchen.',
+    'translation.copyFailed':
+      'Kopieren fehlgeschlagen. Markiere die Übersetzung, um sie manuell zu kopieren.',
+    'translation.stopping': 'Wird gestoppt…',
+    'translation.stopped': 'Übersetzung gestoppt. Dein Ausgangstext bleibt erhalten.',
     'translation.title': 'Übersetzung',
     'translation.subtitle':
-      'Offline-Maschinenübersetzung — läuft lokal auf deinem Rechner, nichts verlässt das Gerät.',
+      'Übersetze mit deinem ausgewählten Sprachmodell. Das integrierte Modell läuft vollständig auf deinem Gerät.',
     'translation.sourceLabel': 'Ausgangstext',
     'translation.sourcePlaceholder': 'Text zum Übersetzen eingeben oder einfügen…',
     'translation.targetLabel': 'Übersetzung ({lang})',
     'translation.targetLabelShort': 'Übersetzen nach',
     'translation.translate': 'Übersetzen',
+    'translation.cancel': 'Stoppen',
+    'translation.progress': '{n} von {total} Abschnitten übersetzt',
     'translation.detected': 'Erkannt: {lang}',
     'translation.outputEmpty': 'Die Übersetzung erscheint hier.',
     'translation.meta': '{s} s · {n} Sätze',

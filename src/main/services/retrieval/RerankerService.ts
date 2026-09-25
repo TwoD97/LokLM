@@ -8,6 +8,12 @@ import {
 } from '../embeddings/ResourcePlanner'
 import { getModelSearchDirs, resolveModelFile } from '../models/paths'
 import type { ModelsWorkerClient } from '../workers/ModelsWorkerClient'
+import {
+  assessRerankerPolicy,
+  describeRerankerDecision,
+  type RerankerDecision,
+  type RerankerPolicy,
+} from '../../../shared/modelCapabilities'
 
 export const BUNDLED_RERANKER_FILE = 'bge-reranker-v2-m3-Q4_K_M.gguf'
 
@@ -84,23 +90,90 @@ export class RerankerService {
   private lastReason: string | null = null
   private planner: ResourcePlanner
   private client: ModelsWorkerClient | null
+  private policy = {
+    enabled: true,
+    mode: 'auto' as RerankerPolicy,
+    source: 'bundled' as 'bundled' | 'ollama',
+  }
+  private policyDecision: RerankerDecision = assessRerankerPolicy({
+    ...this.policy,
+    resources: null,
+  })
+  private policyRevision = 0
 
   constructor(opts: { planner?: ResourcePlanner; client?: ModelsWorkerClient } = {}) {
     this.planner = opts.planner ?? new ResourcePlanner()
     this.client = opts.client ?? null
     if (this.client) {
       this.client.setStatusListener('reranker', (patch) => {
+        // A native load already in flight may finish after settings changed.
+        // Never advertise that now-disabled model as available to retrieval.
+        if (!this.bundledAllowed() && patch.state === 'ready') return
         this.setStatus(patch as Partial<RerankerStatus>)
       })
     }
   }
 
   setPlacement(p: PlacementChoice): void {
-    this.placement = p
+    this.placement = p === 'cpu' ? 'auto' : p
   }
 
   getPlacement(): PlacementChoice {
     return this.placement
+  }
+
+  async setPolicy(policy: typeof this.policy): Promise<void> {
+    const wasConfigured =
+      this.status.state === 'ready' || this.status.state === 'loading' || this.loadPromise !== null
+    this.policy = { ...policy }
+    const revision = ++this.policyRevision
+    this.policyDecision = assessRerankerPolicy({ ...this.policy, resources: null })
+    await this.refreshPolicy()
+    if (revision !== this.policyRevision) return
+    if (!this.bundledAllowed()) {
+      // Wait for any outstanding native load before dropping its configuration.
+      await this.loadPromise?.catch(() => undefined)
+      if (revision !== this.policyRevision) return
+      if (wasConfigured) await this.unload()
+      this.publishPolicyStatus()
+    }
+  }
+
+  private bundledAllowed(): boolean {
+    return this.policy.source === 'bundled' && this.policyDecision.allowed
+  }
+
+  private publishPolicyStatus(): void {
+    if (JSON.stringify(this.status.policyDecision) !== JSON.stringify(this.policyDecision)) {
+      this.setStatus({ policyDecision: this.policyDecision })
+    }
+    if (this.bundledAllowed()) return
+    this.lastResolvedPlacement = null
+    this.lastReason = describeRerankerDecision(this.policyDecision)
+    this.setStatus({
+      state: 'unloaded',
+      resident: false,
+      loadProgress: null,
+      message: this.lastReason,
+    })
+  }
+
+  async refreshPolicy(): Promise<RerankerDecision> {
+    const revision = this.policyRevision
+    let resources: Awaited<ReturnType<ModelsWorkerClient['refreshResources']>> | null = null
+    // Do not initialise a local GPU for an external provider or a disabled feature.
+    if (this.policy.enabled && this.policy.source === 'bundled' && this.client) {
+      try {
+        resources = await this.client.refreshResources()
+      } catch {
+        // Unknown capability is reported honestly; never guess from system RAM.
+      }
+    }
+    if (revision === this.policyRevision) {
+      this.policyDecision = assessRerankerPolicy({ ...this.policy, resources })
+      this.publishPolicyStatus()
+    }
+    return this.policyDecision
   }
 
   resolvedPlacement(): Placement | null {
@@ -146,18 +219,21 @@ export class RerankerService {
       resolvedPlacement: this.lastResolvedPlacement,
       placementChoice: this.placement,
       placementReason: this.lastReason,
+      policyDecision: this.policyDecision,
     }
   }
 
   isReady(): boolean {
-    return this.status.state === 'ready'
+    return this.bundledAllowed() && this.status.state === 'ready'
   }
 
   isAvailable(): boolean {
-    return resolveRerankerPath() !== null || this.isReady()
+    return this.bundledAllowed() && (resolveRerankerPath() !== null || this.isReady())
   }
 
   async ensureReady(): Promise<boolean> {
+    await this.refreshPolicy()
+    if (!this.bundledAllowed()) return false
     if (this.isReady()) return true
     if (this.loadPromise) {
       try {
@@ -196,6 +272,8 @@ export class RerankerService {
   }
 
   async loadModel(modelPath: string): Promise<void> {
+    await this.refreshPolicy()
+    if (!this.bundledAllowed()) return
     if (!this.client) {
       throw new Error(
         'RerankerService.loadModel requires a ModelsWorkerClient (in-process loads are gone).',
@@ -207,6 +285,7 @@ export class RerankerService {
         placement: this.placement,
         weightsBytes: ggufWeightBytes(modelPath),
         contextSize: RERANK_CONTEXT_SIZE,
+        policy: this.policy.mode,
       })
       this.lastResolvedPlacement = result.resolvedPlacement
       this.lastReason = result.reason
@@ -226,6 +305,8 @@ export class RerankerService {
         /* worker status push reflects reality */
       }
     }
+    this.setStatus({ state: 'unloaded', resident: false, loadProgress: null })
+    this.publishPolicyStatus()
   }
 
   async rank(query: string, documents: string[]): Promise<number[] | null> {

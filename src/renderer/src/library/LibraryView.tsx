@@ -47,6 +47,18 @@ export function LibraryView({
 }: Props): JSX.Element {
   const t = useT()
   const [docs, setDocs] = useState<Document[]>([])
+  const [draggingFiles, setDraggingFiles] = useState(false)
+  const dragDepth = useRef(0)
+  const [importErrors, setImportErrors] = useState<string[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [stopping, setStopping] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const stopPending = useRef(false)
+  const retryPending = useRef(false)
+  const workspaceRef = useRef(workspaceId)
+  workspaceRef.current = workspaceId
   // Three views of the same documents, persisted so the choice sticks:
   //   'list'     — flat sortable table
   //   'folders'  — user-created organizational folders (shared with the chat
@@ -165,18 +177,37 @@ export function LibraryView({
   const refreshFolders = folders.refresh
   const refreshDocs = useCallback(
     async (id: number) => {
-      setDocs(await window.api.documents.list(id))
-      // Keep folder assignments/counts in step with adds/deletes/moves.
-      void refreshFolders()
+      try {
+        const list = await window.api.documents.list(id)
+        if (workspaceRef.current !== id) return
+        setDocs(list)
+        setLoadFailed(false)
+        void refreshFolders().catch((err: unknown) => setActionError(String(err)))
+      } catch (err) {
+        if (workspaceRef.current === id) {
+          setActionError(String(err))
+          setLoadFailed(true)
+        }
+      } finally {
+        if (workspaceRef.current === id) setLoading(false)
+      }
     },
     [refreshFolders],
   )
 
   const refreshSyncRoots = useCallback(async (id: number) => {
-    setSyncRoots(await window.api.workspaces.listSyncFolders(id))
+    try {
+      const roots = await window.api.workspaces.listSyncFolders(id)
+      if (workspaceRef.current === id) setSyncRoots(roots)
+    } catch (err) {
+      if (workspaceRef.current === id) setActionError(String(err))
+    }
   }, [])
 
   useEffect(() => {
+    setLoading(true)
+    setDocs([])
+    setActionError(null)
     void refreshDocs(workspaceId)
     void refreshSyncRoots(workspaceId)
   }, [workspaceId, refreshDocs, refreshSyncRoots])
@@ -256,11 +287,16 @@ export function LibraryView({
 
   const onImport = useCallback(
     async (paths: string[]) => {
+      setImportErrors([])
       for (const p of paths) {
         try {
           await window.api.documents.import(workspaceId, p)
         } catch (err) {
-          console.error('import failed', err)
+          const name = p.split(/[\\/]/).pop() ?? p
+          setImportErrors((errors) => [
+            ...errors,
+            `${name}: ${err instanceof Error ? err.message : String(err)}`,
+          ])
         }
       }
       void refreshDocs(workspaceId)
@@ -270,18 +306,26 @@ export function LibraryView({
 
   const onDelete = useCallback(
     async (id: number) => {
-      await window.api.documents.delete(id)
-      void refreshDocs(workspaceId)
+      try {
+        await window.api.documents.delete(id)
+        void refreshDocs(workspaceId)
+      } catch (err) {
+        setActionError(t('library.deleteFailed', { message: String(err) }))
+      }
     },
-    [workspaceId, refreshDocs],
+    [workspaceId, refreshDocs, t],
   )
 
   const onReindex = useCallback(
     async (id: number) => {
-      await window.api.documents.reindex(id)
-      void refreshDocs(workspaceId)
+      try {
+        await window.api.documents.reindex(id)
+        void refreshDocs(workspaceId)
+      } catch (err) {
+        setActionError(t('library.retryFailed', { message: String(err) }))
+      }
     },
-    [workspaceId, refreshDocs],
+    [workspaceId, refreshDocs, t],
   )
 
   const onReveal = useCallback(
@@ -318,25 +362,43 @@ export function LibraryView({
   )
 
   const onCancelIndexing = useCallback(async () => {
-    await window.api.documents.cancelIndexing(workspaceId)
-    void refreshDocs(workspaceId)
-  }, [workspaceId, refreshDocs])
+    if (stopPending.current) return
+    stopPending.current = true
+    setStopping(true)
+    try {
+      await window.api.documents.cancelIndexing(workspaceId)
+      await refreshDocs(workspaceId)
+    } catch (err) {
+      setActionError(t('library.stopFailed', { message: String(err) }))
+    } finally {
+      stopPending.current = false
+      setStopping(false)
+    }
+  }, [workspaceId, refreshDocs, t])
 
   // Bulk "retry failed" — re-index every failed doc in one shot instead of
   // doing it one-by-one through each row's ⋯ menu. Loops the existing per-doc
   // reindex IPC (same pattern as onImport), then refreshes once at the end.
   const onRetryFailed = useCallback(
     async (ids: number[]) => {
+      if (retryPending.current) return
+      retryPending.current = true
+      setRetrying(true)
+      const failures: string[] = []
       for (const id of ids) {
         try {
           await window.api.documents.reindex(id)
         } catch (err) {
-          console.error('retry failed doc', err)
+          failures.push(`#${id}: ${String(err)}`)
         }
       }
       void refreshDocs(workspaceId)
+      if (failures.length)
+        setActionError(t('library.retryFailed', { message: failures.join('; ') }))
+      retryPending.current = false
+      setRetrying(false)
     },
-    [workspaceId, refreshDocs],
+    [workspaceId, refreshDocs, t],
   )
 
   const onRead = useCallback((d: Document) => {
@@ -384,7 +446,12 @@ export function LibraryView({
   // Aggregate indexing progress (ready / total / percent) — drives the batch
   // progress bar. Updates as the queue drains (each finished doc fires an
   // indexing:progress 'done' → refreshDocs).
-  const indexBatch = deriveIndexBatchProgress(docs)
+  const indexBatch = deriveIndexBatchProgress(docs, progress)
+  const indexingDetails = docs.flatMap((doc) => {
+    const p = progress.get(doc.id)
+    if (!p || p.phase === 'done' || p.phase === 'failed') return []
+    return [{ id: doc.id, title: doc.title, detail: p.detail ?? `${p.phase} ${p.step}/${p.total}` }]
+  })
 
   // Queue drained (or nothing indexing) — the sticky throughput readout is no
   // longer describing anything live, so retire it before the bar unmounts.
@@ -429,50 +496,99 @@ export function LibraryView({
   const filteredEmpty = search.filtersActive && docs.length > 0 && browseDocs.length === 0
 
   return (
-    <div className="library">
-      <h1 style={{ margin: '8px 0 4px' }}>{workspaceName}</h1>
-      {/* workspaceName is user data, rendered verbatim. */}
-      {storage && (storage.atRestBytes > 0 || storage.vectorCount > 0) && (
-        <div className="library__storage" role="group">
-          <span className="library__storage-stat">
-            <span className="library__storage-label">{t('library.storage.atRest')}</span>
-            <span className="library__storage-value">
-              {!storage.measured && '~'}
-              {formatBytes(storage.atRestBytes)}
-            </span>
-          </span>
-          <span className="library__storage-stat" title={t('library.storage.whenOpenHint')}>
-            <span className="library__storage-label">{t('library.storage.whenOpen')}</span>
-            <span className="library__storage-value">≈ {formatBytes(storage.openBytes)}</span>
-          </span>
-          <span className="library__storage-stat" title={t('library.storage.openTimeHint')}>
-            <span className="library__storage-label">{t('library.storage.openTime')}</span>
-            <span className="library__storage-value">
-              ≈ {formatDuration(storage.estDecryptOnOpenMs)}
-            </span>
-          </span>
-          <span className="library__storage-meta">
-            {docs.length} {t('library.storage.docsLabel')} · {formatCount(storage.vectorCount)}{' '}
-            {t('library.storage.vectorsLabel')}
-          </span>
+    <div
+      className="library"
+      onDragEnter={(event) => {
+        if (!Array.from(event.dataTransfer.types).includes('Files')) return
+        event.preventDefault()
+        dragDepth.current += 1
+        setDraggingFiles(true)
+      }}
+      onDragOver={(event) => {
+        if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault()
+      }}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1)
+        if (dragDepth.current === 0) setDraggingFiles(false)
+      }}
+      onDrop={(event) => {
+        dragDepth.current = 0
+        setDraggingFiles(false)
+        if (!Array.from(event.dataTransfer.types).includes('Files')) return
+        event.preventDefault()
+        const paths = Array.from(event.dataTransfer.files)
+          .map((file) => window.api.documents.getPathForFile(file))
+          .filter(Boolean)
+        if (paths.length) void onImport(paths)
+      }}
+    >
+      {draggingFiles && (
+        <div className="library__drop-overlay">
+          <Upload size={32} aria-hidden="true" />
+          <span>{t('ux.drop')}</span>
         </div>
       )}
-      <SyncFoldersPanel
-        workspaceId={workspaceId}
-        onSyncDone={() => void refreshDocs(workspaceId)}
-      />
+      <header className="library__header">
+        <div className="library__heading">
+          <h1>{workspaceName}</h1>
+          <p>
+            {t(docs.length === 1 ? 'ux.librarySummaryOne' : 'ux.librarySummary', {
+              count: docs.length,
+            })}
+          </p>
+        </div>
+        <ImportButton
+          onPick={async () => {
+            try {
+              const paths = await window.api.documents.pickFiles()
+              if (paths.length > 0) void onImport(paths)
+            } catch (error) {
+              setImportErrors([error instanceof Error ? error.message : String(error)])
+            }
+          }}
+        />
+      </header>
+      {loading && <p role="status">{t('common.loading')}</p>}
+      {actionError && (
+        <div className="library__import-error" role="alert">
+          <span>{actionError}</span>
+          {loadFailed && (
+            <button
+              onClick={() => {
+                setActionError(null)
+                setLoading(true)
+                void refreshDocs(workspaceId)
+              }}
+            >
+              {t('common.retry')}
+            </button>
+          )}
+          <button onClick={() => setActionError(null)}>{t('common.close')}</button>
+        </div>
+      )}
+      {importErrors.length > 0 && (
+        <div className="library__import-error" role="alert">
+          <strong>{t('ux.importFailed')}</strong>
+          <ul>
+            {importErrors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+          <button type="button" onClick={() => setImportErrors([])}>
+            {t('common.close')}
+          </button>
+        </div>
+      )}
+      {/* workspaceName is user data, rendered verbatim. */}
       <MissingDocsBanner
         workspaceId={workspaceId}
         refreshKey={missingTick}
         onChanged={() => void refreshDocs(workspaceId)}
       />
-      <FailedDocsBanner count={failedIds.length} onRetryAll={() => void onRetryFailed(failedIds)} />
-      <DropZone
-        onFiles={(paths) => void onImport(paths)}
-        onPick={async () => {
-          const paths = await window.api.documents.pickFiles()
-          if (paths.length > 0) void onImport(paths)
-        }}
+      <FailedDocsBanner
+        count={failedIds.length}
+        pending={retrying}
+        onRetryAll={() => void onRetryFailed(failedIds)}
       />
       {indexBatch.active > 0 && (
         <div className="library__indexing-bar" role="status" aria-live="polite">
@@ -489,11 +605,17 @@ export function LibraryView({
             <button
               type="button"
               className="library__indexing-stop"
+              disabled={stopping}
               onClick={() => void onCancelIndexing()}
             >
-              {t('library.stopIndexing')}
+              {t(stopping ? 'library.stopping' : 'library.stopIndexing')}
             </button>
           </div>
+          {indexingDetails.map((p) => (
+            <div key={p.id} className="library__indexing-detail">
+              {p.title}: {p.detail}
+            </div>
+          ))}
           <div className="library__index-progress" aria-hidden="true">
             <div
               className="library__index-progress-fill"
@@ -576,7 +698,8 @@ export function LibraryView({
            *  the rows' React.memo can actually skip re-renders for rows whose
            *  doc + progress didn't change. Wrapping them inline with arrows used
            *  to mint fresh fns each render and defeat the memo. */}
-          {filteredEmpty && viewMode !== 'folders' ? (
+          {loading || (loadFailed && docs.length === 0) ? null : filteredEmpty &&
+            viewMode !== 'folders' ? (
             <div className="library__filtered-empty">
               <span>{t('library.noFilterMatches')}</span>
               <button type="button" className="library__empty-action" onClick={search.resetFilters}>
@@ -656,6 +779,40 @@ export function LibraryView({
           )}
         </>
       )}
+      <footer className="library__utilities">
+        {storage && (storage.atRestBytes > 0 || storage.vectorCount > 0) && (
+          <details className="library__storage-details">
+            <summary>{t('ux.storage')}</summary>
+            <div className="library__storage" role="group" aria-label={t('ux.storage')}>
+              <span className="library__storage-stat">
+                <span className="library__storage-label">{t('library.storage.atRest')}</span>
+                <span className="library__storage-value">
+                  {!storage.measured && '~'}
+                  {formatBytes(storage.atRestBytes)}
+                </span>
+              </span>
+              <span className="library__storage-stat" title={t('library.storage.whenOpenHint')}>
+                <span className="library__storage-label">{t('library.storage.whenOpen')}</span>
+                <span className="library__storage-value">≈ {formatBytes(storage.openBytes)}</span>
+              </span>
+              <span className="library__storage-stat" title={t('library.storage.openTimeHint')}>
+                <span className="library__storage-label">{t('library.storage.openTime')}</span>
+                <span className="library__storage-value">
+                  ≈ {formatDuration(storage.estDecryptOnOpenMs)}
+                </span>
+              </span>
+              <span className="library__storage-meta">
+                {docs.length} {t('library.storage.docsLabel')} · {formatCount(storage.vectorCount)}{' '}
+                {t('library.storage.vectorsLabel')}
+              </span>
+            </div>
+          </details>
+        )}
+        <SyncFoldersPanel
+          workspaceId={workspaceId}
+          onSyncDone={() => void refreshDocs(workspaceId)}
+        />
+      </footer>
       {sourceHit && (
         <ErrorBoundary label={t('library.previewDoc')} onError={() => setSourceHit(null)}>
           <SourceViewer
@@ -688,36 +845,12 @@ export function LibraryView({
   )
 }
 
-function DropZone({
-  onFiles,
-  onPick,
-}: {
-  onFiles: (paths: string[]) => void
-  onPick: () => void
-}): JSX.Element {
+function ImportButton({ onPick }: { onPick: () => void }): JSX.Element {
   const t = useT()
-  const [over, setOver] = useState(false)
   return (
-    <button
-      type="button"
-      className={`library__drop ${over ? 'library__drop--over' : ''}`}
-      onClick={onPick}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setOver(false)
-        const files = Array.from(e.dataTransfer.files)
-          .map((f) => window.api.documents.getPathForFile(f))
-          .filter(Boolean)
-        onFiles(files)
-      }}
-    >
-      <Upload size={15} aria-hidden="true" className="library__drop-icon" />
-      <span>{t('library.dropZone')}</span>
+    <button type="button" title={t('library.dropZone')} className="library__drop" onClick={onPick}>
+      <Upload size={16} aria-hidden="true" className="library__drop-icon" />
+      <span>{t('ux.import')}</span>
     </button>
   )
 }

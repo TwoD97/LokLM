@@ -20,8 +20,20 @@ import { commonDict } from './dict_common'
 import { transcriptionDict } from './dict_transcription'
 import { translationDict } from './dict_translation'
 import { writingDict } from './dict_writing'
+import { activityDict } from './dict_activity'
+import { workspaceDict } from './dict_workspace'
+import { organizerDict } from './dict_organizer'
+import { statusDict } from '../status/dict_status'
+import { startupDict } from './dict_startup'
+import { preferencesDict } from './dict_preferences'
 
 const DOMAINS = [
+  statusDict,
+  startupDict,
+  organizerDict,
+  preferencesDict,
+  workspaceDict,
+  activityDict,
   authDict,
   shellDict,
   chatDict,

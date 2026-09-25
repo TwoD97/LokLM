@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "split": "heldout",
+  "sources": [
+    {
+      "key": "heldout-ledger",
+      "file": "fixtures/heldout/veldrin-yard-2024.md",
+      "title": "Veldrin Yard: 2024 operating ledger",
+      "format": "markdown"
+    },
+    {
+      "key": "heldout-plan",
+      "file": "fixtures/heldout/veldrin-yard-2025.md",
+      "title": "Veldrin Yard: Betriebsplan 2025",
+      "format": "markdown"
+    },
+    {
+      "key": "heldout-memo-a",
+      "file": "fixtures/heldout/orvo-draft-a.txt",
+      "title": "Orvo dispatch memo - draft A",
+      "format": "text"
+    },
+    {
+      "key": "heldout-memo-b",
+      "file": "fixtures/heldout/orvo-draft-b.md",
+      "title": "Orvo: Versandvermerk, Entwurf B",
+      "format": "markdown"
+    },
+    {
+      "key": "heldout-code",
+      "file": "fixtures/heldout/retry-delay.md",
+      "title": "Fenrik retry scheduling function",
+      "format": "markdown"
+    },
+    {
+      "key": "heldout-survey",
+      "file": "fixtures/heldout/veldrin-field-survey.pdf",
+      "title": "Veldrin Yard field survey",
+      "format": "pdf"
+    }
+  ],
+  "cases": [
+    {
+      "id": "heldout-01",
+      "question": "Welche Erlöse aus Servicegutschriften erzielte Veldrin Yard 2024? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "exact-amount",
+      "requiredSourceKeys": ["heldout-ledger"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Veldrin Yard erzielte 2024 Erlöse aus Servicegutschriften von 73.410 GBP.",
+      "answerChecks": [
+        {
+          "label": "revenue",
+          "pattern": "(?<!\\d)73[.,\\s\\u00a0\\u202f]?410(?!\\d)"
+        },
+        {
+          "label": "currency",
+          "pattern": "(?:\\bGBP\\b|£|\\bPfund\\b|\\bpounds?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-02",
+      "question": "How many inspections are planned for Veldrin Yard in 2025? Answer in one short sentence.",
+      "language": "en",
+      "kind": "cross-language",
+      "requiredSourceKeys": ["heldout-plan"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Veldrin Yard plans 156 inspections in 2025.",
+      "answerChecks": [
+        {
+          "label": "planned inspections",
+          "pattern": "\\b156\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-03",
+      "question": "On which ISO date was Veldrin Yard's 2025 operating plan approved? Answer in one short sentence.",
+      "language": "en",
+      "kind": "exact-date",
+      "requiredSourceKeys": ["heldout-plan"],
+      "expectedAbstention": false,
+      "referenceAnswer": "The 2025 operating plan was approved on 2025-02-06.",
+      "answerChecks": [
+        {
+          "label": "approval date",
+          "pattern": "\\b2025-02-06\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-04",
+      "question": "What sample mass in kg is listed for Teral in the Veldrin Yard field survey of 2027-02-23? Answer in one short sentence.",
+      "language": "en",
+      "kind": "table-unit",
+      "requiredSourceKeys": ["heldout-survey"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Teral's sample mass is 31.6 kg.",
+      "answerChecks": [
+        {
+          "label": "sample mass",
+          "pattern": "(?<!\\d)31[.,]6(?!\\d)"
+        },
+        {
+          "label": "unit",
+          "pattern": "(?:\\bkg\\b|\\bKilogramm\\b|\\bkilograms?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-05",
+      "question": "Wie viele angenommene Trays verzeichneten Teral und Luvon zusammen im Veldrin-Yard-Feldbericht vom 2027-02-23? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "table-arithmetic",
+      "requiredSourceKeys": ["heldout-survey"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Teral und Luvon verzeichneten zusammen 47 angenommene Trays.",
+      "answerChecks": [
+        {
+          "label": "accepted total",
+          "pattern": "\\b47\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-06",
+      "question": "Um wie viel übersteigen Veldrin Yards geplante Erlöse aus Servicegutschriften für 2025 die tatsächlich erzielten Erlöse von 2024? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "requiredSourceKeys": ["heldout-ledger", "heldout-plan"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Das Erlösziel für 2025 liegt um 4.755 GBP über den tatsächlich erzielten Erlösen von 2024.",
+      "answerChecks": [
+        {
+          "label": "revenue difference",
+          "pattern": "(?<!\\d)4[.,\\s\\u00a0\\u202f]?755(?!\\d)"
+        },
+        {
+          "label": "currency",
+          "pattern": "(?:\\bGBP\\b|£|\\bPfund\\b|\\bpounds?\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-07",
+      "question": "Which batch identifier is listed in Orvo dispatch memo A? Answer in one short sentence.",
+      "language": "en",
+      "kind": "exact-identifier",
+      "requiredSourceKeys": ["heldout-memo-a"],
+      "expectedAbstention": false,
+      "referenceAnswer": "Orvo dispatch memo A lists batch ORV-862.",
+      "answerChecks": [
+        {
+          "label": "batch identifier",
+          "pattern": "\\bORV-862\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-08",
+      "question": "Wie viele Sekunden liefert Fenriks retryDelaySeconds(3, 20)? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "code-semantics",
+      "requiredSourceKeys": ["heldout-code"],
+      "expectedAbstention": false,
+      "referenceAnswer": "retryDelaySeconds(3, 20) liefert 60 Sekunden.",
+      "answerChecks": [
+        {
+          "label": "delay",
+          "pattern": "\\b60\\b"
+        },
+        {
+          "label": "seconds",
+          "pattern": "(?:\\bSekunden?\\b|\\bseconds?\\b|\\bs\\b)"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-09",
+      "question": "Who is Veldrin Yard's chief executive officer? Answer in one short sentence.",
+      "language": "en",
+      "kind": "missing-fact",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "The supplied documents do not name Veldrin Yard's chief executive officer.",
+      "answerChecks": [],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-10",
+      "question": "Welche endgültige Versandfrist gilt für Orvo laut den Entwürfen A und B? Verwende ISO-Daten. Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "requiredSourceKeys": ["heldout-memo-a", "heldout-memo-b"],
+      "expectedAbstention": true,
+      "referenceAnswer": "Eine endgültige Frist ist nicht festgelegt: Die Entwürfe widersprechen sich mit 2027-05-08 und 2027-05-15.",
+      "answerChecks": [
+        {
+          "label": "draft A deadline",
+          "pattern": "\\b2027-05-08\\b"
+        },
+        {
+          "label": "draft B deadline",
+          "pattern": "\\b2027-05-15\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-11",
+      "question": "How many seconds does Fenrik's retryDelaySeconds(-1, 20) return? Answer in one short sentence.",
+      "language": "en",
+      "kind": "code-semantics",
+      "requiredSourceKeys": ["heldout-code"],
+      "expectedAbstention": false,
+      "referenceAnswer": "retryDelaySeconds(-1, 20) returns 0 seconds.",
+      "answerChecks": [
+        {
+          "label": "nonpositive delay",
+          "pattern": "\\b0\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "heldout-12",
+      "question": "Welche durchschnittliche Außentemperatur wurde für Luvon im Veldrin-Yard-Feldbericht vom 2027-02-23 gemessen? Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "missing-fact",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "Der Feldbericht nennt keine durchschnittliche Außentemperatur für Luvon.",
+      "answerChecks": [],
+      "allowPartial": false
+    }
+  ]
+}

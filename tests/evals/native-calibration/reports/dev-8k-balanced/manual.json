@@ -1,0 +1,74 @@
+[
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer: 184 completed inspections in 2025, with exact supporting supplied English ledger passage 1:2. No substitution of the 2026 planned value and no extra claims. Actual context is 8,192 with 14/33 GPU layers."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO date 2026-03-09 with correct supporting supplied approval passage 2:4. The date-format and wrong-source failures from the 4K candidate are absent on this observation. The decisive source ranks second rather than seventh. Multiple settings changed, so this observation cannot attribute improvement to 8K context alone."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [],
+    "notes": "STRICT WRONG-PASSAGE ATTRIBUTION: 5,520 EUR is the correct difference, and cited supplied ledger passage 1:2 supports the recorded 2025 input. However, the other citation is 2:4, containing only the plan introduction and approval date. It does not contain the 53,780 EUR planned-revenue input, which is in actually supplied 2:5. Both document IDs are present but the calculation still lacks correct supporting passage attribution. Document-level source coverage and number matching would falsely pass this case."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct exact identifier MSX-417 and correct actual supplied draft A citation 3:6. This restores the inline attribution missing from the 4K candidate. No unsupported facts. Minor bold formatting does not change factual or citation correctness."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct return value 0 for reserveSlots(3,9), supported by actual supplied and cited function passage 5:8. The lower clamp yields zero and the outer minimum cannot raise it to four. No additional unsupported behavior."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that the dated field survey contains no outdoor temperature measurements and cites the exact supplied PDF passage 6:9 saying so. It does not substitute the unrelated cabinet temperature or invent a Bexin average."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "The repeated approval query preserves the correct ISO date 2026-03-09 and supporting supplied passage 2:4. No unsupported extra claims. The repetition is kept separate from first-pass quality counts; first visible text is 21.927 s and total 41.813 s."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 1,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Repeated code query remains correct: reserveSlots(3,9) returns 0, with exact supporting supplied function passage 5:8. No unsupported behavior. First visible text 22.218 s and total 35.597 s are reported separately from first-pass observations."
+  }
+]

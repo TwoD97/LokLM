@@ -12,8 +12,11 @@ import { WritingView } from '../writing/WritingView'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import './shell.css'
+import { ModelActivityOverlay } from '../generation/ModelActivityOverlay'
 
-type ViewKind = 'library' | 'chat' | 'quiz' | 'transcription' | 'translation' | 'writing'
+import { isModuleVisible, type AppView as ViewKind } from '@shared/settings'
+import { useSettings } from '../settings/useSettings'
+import { OrganizerView } from '../organizer/OrganizerView'
 
 export function AppShell(): JSX.Element {
   const t = useT()
@@ -24,17 +27,26 @@ export function AppShell(): JSX.Element {
   // vector set materialised). Drives the full-area loading screen on switch.
   const [activating, setActivating] = useState(false)
   const [activeView, setActiveView] = useState<ViewKind>('library')
+  const { settings } = useSettings()
+  const initialViewApplied = useRef(false)
+  const lastOrganizerView = useRef<'calendar' | 'notes' | 'todos'>('calendar')
+  const organizerActive =
+    activeView === 'calendar' || activeView === 'notes' || activeView === 'todos'
+  if (organizerActive) lastOrganizerView.current = activeView
+  useEffect(() => {
+    if (!settings) return
+    if (!initialViewApplied.current) {
+      initialViewApplied.current = true
+      const start = settings.basic.startView ?? 'library'
+      setActiveView(isModuleVisible(settings.basic.modules, start) ? start : 'library')
+    } else if (!isModuleVisible(settings.basic.modules, activeView)) {
+      setActiveView('library')
+    }
+  }, [settings, activeView])
   const [pinned, togglePin] = usePinnedSidebar()
-  const [peeking, setPeeking] = useState(false)
-  // The expanded "Workspaces" panel only does anything where workspace
-  // selection / document scoping lives: Library (workspace CRUD + switching)
-  // and Chat (the per-conversation doc-scope picker). Quiz surfaces its source
-  // workspace inside its own view, and transcription/translation/writing are
-  // workspace-independent — so on those tabs the panel is dead weight. Collapse
-  // to just the icon rail there (pin/peek are inert) instead of sliding out a
-  // redundant panel of a single non-actionable workspace row.
-  const showWorkspacePanel = activeView === 'library' || activeView === 'chat'
-  const expanded = (pinned || peeking) && showWorkspacePanel
+  // Navigation stays in place across views. Only an explicit user action
+  // changes its width, so moving the pointer never shifts the working area.
+  const expanded = pinned
 
   // Chat-scope state lifted here so the Sidebar can render the per-conversation
   // document picker. ChatView is a controlled consumer that reports
@@ -252,6 +264,9 @@ export function AppShell(): JSX.Element {
 
   return (
     <div className={`app-shell ${expanded ? 'app-shell--expanded' : ''}`}>
+      <a className="skip-link" href="#workspace-content">
+        {t('ux.skipContent')}
+      </a>
       <Sidebar
         expanded={expanded}
         pinned={pinned}
@@ -266,7 +281,6 @@ export function AppShell(): JSX.Element {
         onSetDefaultWorkspace={(id) => void handleSetDefaultWorkspace(id)}
         onViewChange={setActiveView}
         onTogglePin={togglePin}
-        onPeek={setPeeking}
         chatViewActive={activeView === 'chat'}
         workspaceDocs={workspaceDocs}
         activeDocumentIds={activeDocumentIds}
@@ -280,8 +294,8 @@ export function AppShell(): JSX.Element {
         onMoveDocumentToFolder={(docId, folderId) => void folders.moveDocument(docId, folderId)}
         onToggleFolderScope={(id) => void onToggleFolderScope(id)}
       />
-      <main className="app-shell__main">
-        {activating && (
+      <main id="workspace-content" tabIndex={-1} className="app-shell__main">
+        {activating && !organizerActive && (
           <div className="app-shell__switching" role="status" aria-live="polite">
             <div className="app-shell__switching-spinner" aria-hidden="true" />
             <p className="app-shell__switching-title">
@@ -295,7 +309,8 @@ export function AppShell(): JSX.Element {
             {activeWorkspaceId == null &&
               activeView !== 'transcription' &&
               activeView !== 'translation' &&
-              activeView !== 'writing' && (
+              activeView !== 'writing' &&
+              !organizerActive && (
                 <div className="app-shell__empty">{t('shell.selectWorkspaceFirst')}</div>
               )}
             {activeView === 'library' && activeWorkspaceId != null && (
@@ -361,7 +376,11 @@ export function AppShell(): JSX.Element {
         <KeepAlive active={!activating && activeView === 'writing'}>
           <WritingView />
         </KeepAlive>
+        <KeepAlive active={organizerActive}>
+          <OrganizerView view={lastOrganizerView.current} />
+        </KeepAlive>
       </main>
+      <ModelActivityOverlay />
       {confirmDeleteWorkspace && (
         <ConfirmModal
           title={t('shell.deleteWorkspaceTitle')}

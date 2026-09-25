@@ -86,10 +86,13 @@ export function useTranscription(): {
   const [state, setState] = useState<TxState>(IDLE)
   const [queue, setQueue] = useState<QueueRow[]>([])
   const streamIdRef = useRef<string | null>(null)
+  const inFlight = useRef(false)
   const { begin: beginGeneration } = useGeneration()
 
   const transcribe = useCallback(
     async (bytes: ArrayBuffer, opts: TranscriptionOptions) => {
+      if (inFlight.current) return
+      inFlight.current = true
       setQueue([])
       setState({ ...IDLE, phase: 'decoding' })
       const endGeneration = beginGeneration('transcription')
@@ -109,6 +112,8 @@ export function useTranscription(): {
           error: err instanceof Error ? err.message : String(err),
         }))
       } finally {
+        inFlight.current = false
+        streamIdRef.current = null
         endGeneration()
       }
     },
@@ -117,8 +122,10 @@ export function useTranscription(): {
 
   const transcribeMany = useCallback(
     async (files: File[], opts: TranscriptionOptions) => {
+      if (inFlight.current) return
+      inFlight.current = true
       setState(IDLE)
-      setQueue(files.map((f) => ({ name: f.name, phase: 'decoding', segments: [], error: null })))
+      setQueue(files.map((f) => ({ name: f.name, phase: 'idle', segments: [], error: null })))
       // One job for the whole batch — files are transcribed sequentially on the
       // single Whisper worker, so the chip shows "Transcribing" until the batch
       // finishes rather than flickering per file.
@@ -145,6 +152,8 @@ export function useTranscription(): {
           }
         }
       } finally {
+        inFlight.current = false
+        streamIdRef.current = null
         endGeneration()
       }
     },
@@ -152,10 +161,14 @@ export function useTranscription(): {
   )
 
   const cancel = useCallback(() => {
-    if (streamIdRef.current) void window.api.transcription.cancel(streamIdRef.current)
+    if (streamIdRef.current)
+      void window.api.transcription.cancel(streamIdRef.current).catch((err: unknown) => {
+        setState((s) => ({ ...s, error: String(err) }))
+      })
   }, [])
 
   const reset = useCallback(() => {
+    if (inFlight.current) return
     setState(IDLE)
     setQueue([])
   }, [])

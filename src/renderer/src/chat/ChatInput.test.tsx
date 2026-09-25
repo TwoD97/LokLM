@@ -3,6 +3,26 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ChatInput } from './ChatInput'
 
 describe('ChatInput', () => {
+  it('keeps composition Enter in the draft instead of sending it', () => {
+    const onSend = vi.fn()
+    render(<ChatInput onSend={onSend} busy={false} />)
+    const input = screen.getByRole('textbox', { name: 'Your message' })
+    fireEvent.change(input, { target: { value: '日本語' } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+    expect(onSend).not.toHaveBeenCalled()
+    expect(input).toHaveValue('日本語')
+  })
+
+  it('fills and focuses a suggested prompt without sending it', () => {
+    const onSend = vi.fn()
+    render(
+      <ChatInput onSend={onSend} busy={false} suggestion={{ text: 'Compare the key findings' }} />,
+    )
+    expect(screen.getByRole('textbox')).toHaveValue('Compare the key findings')
+    expect(screen.getByRole('textbox')).toHaveFocus()
+    expect(onSend).not.toHaveBeenCalled()
+  })
   it('disables send when input is empty', () => {
     render(<ChatInput onSend={() => undefined} busy={false} />)
     const send = screen.getByRole('button', { name: /send message/i })

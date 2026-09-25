@@ -20,7 +20,7 @@
 .quiz-create__header h2,
 .quiz-runner__header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 600;
 }
 /* New Quiz + Merge buttons share the header's right edge. */
@@ -56,7 +56,7 @@
 }
 .quiz-list__empty,
 .quiz-create__empty {
-  opacity: 0.55;
+  color: var(--fg-2);
   font-size: 14px;
   margin: 16px 0;
 }
@@ -789,4 +789,19 @@
   margin: 0;
   font-size: 12px;
   opacity: 0.8;
+}
+.quiz-workflow-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 24px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--error);
+  color: var(--error);
+  background: var(--error-bg);
+  overflow-wrap: anywhere;
+}
+.quiz-workflow-error span {
+  flex: 1;
 }

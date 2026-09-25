@@ -20,15 +20,18 @@ import {
   type Chunk,
 } from './chunker'
 import { resolveChunkOptions } from './chunkOptions'
+import { documentEmbeddingInput } from './searchContext'
 import { fileTrack } from '../codebase/ignore'
 import { chunkCode, type CodeChunkOptions } from '../codebase/codeChunker'
+import { indexingBatchSize } from '../embeddings/indexingBatch'
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // max. Import-Größe
 
-// Import-time embedding page size. Matches EmbeddingBackfillService's PAGE so
-// both ingest paths round-trip the embedder in equal, memory-bounded batches
-// and a single failing passage only affects its own page.
-const EMBED_BATCH = 32
+class IndexingCancelledError extends Error {
+  constructor() {
+    super('Indexing cancelled.')
+  }
+}
 
 type ProgressSender = WebContents | { send: (channel: string, payload: IndexProgress) => void }
 
@@ -80,6 +83,10 @@ export class DocumentService {
   // worker's event loop thrashing.
   private static readonly MAX_CONCURRENT_INDEXING = 2
   private activeIndexing = 0
+  private activeJobs = new Map<
+    string,
+    { workspaceId: number; kind: 'import' | 'reindex'; cancelled: boolean }
+  >()
   // Set by quiesce() (app-quit drain). Once true the pump stops starting new
   // jobs so the active ones can settle before the workspace store is closed.
   private quiescing = false
@@ -152,6 +159,12 @@ export class DocumentService {
     ) {
       const job = this.indexQueue.shift()!
       this.activeIndexing += 1
+      const jobKey = `${job.doc.workspaceId}:${job.doc.id}`
+      this.activeJobs.set(jobKey, {
+        workspaceId: job.input.workspaceId,
+        kind: job.kind,
+        cancelled: false,
+      })
       void this.indexInBackground(job.doc, job.input)
         .catch(() => {
           // errors are surfaced via the IPC progress 'failed' event and the
@@ -160,22 +173,28 @@ export class DocumentService {
         })
         .finally(() => {
           this.activeIndexing -= 1
+          this.activeJobs.delete(jobKey)
           this.pumpIndexQueue()
         })
     }
   }
 
-  /** Drop every not-yet-started indexing job for a workspace. Jobs already
-   *  running are left to finish — the worker requests aren't abortable
-   *  mid-parse. Returns how many queued jobs were cancelled. */
+  /** Stop queued jobs and active jobs at the next parse/embedding boundary. */
   async cancelWorkspaceIndexing(workspaceId: number): Promise<number> {
+    let active = 0
+    for (const job of this.activeJobs.values()) {
+      if (job.workspaceId === workspaceId && !job.cancelled) {
+        job.cancelled = true
+        active++
+      }
+    }
     const cancelled: typeof this.indexQueue = []
     for (let i = this.indexQueue.length - 1; i >= 0; i--) {
       if (this.indexQueue[i]!.input.workspaceId === workspaceId) {
         cancelled.push(this.indexQueue.splice(i, 1)[0]!)
       }
     }
-    return this.reconcileCancelledJobs(cancelled)
+    return active + (await this.reconcileCancelledJobs(cancelled))
   }
 
   /** Drop every not-yet-started indexing job across all workspaces and
@@ -187,8 +206,19 @@ export class DocumentService {
    *  cycles and must be able to index again after the next login. In-flight
    *  jobs are left to finish — the caller drains hasActiveIndexing() before
    *  locking. */
-  async cancelAllIndexing(): Promise<number> {
-    return this.reconcileCancelledJobs(this.indexQueue.splice(0, this.indexQueue.length))
+  async cancelAllIndexing(includeActive = false): Promise<number> {
+    let active = 0
+    if (includeActive)
+      for (const job of this.activeJobs.values()) {
+        if (!job.cancelled) {
+          job.cancelled = true
+          active++
+        }
+      }
+    return (
+      active +
+      (await this.reconcileCancelledJobs(this.indexQueue.splice(0, this.indexQueue.length)))
+    )
   }
 
   /** Import placeholders (no chunks yet) are deleted outright; reindex jobs
@@ -196,9 +226,9 @@ export class DocumentService {
    *  user can retry. */
   private async reconcileCancelledJobs(cancelled: typeof this.indexQueue): Promise<number> {
     if (cancelled.length === 0) return 0
-    const repo = this.auth.requireDatabase().documents()
     for (const job of cancelled) {
       try {
+        const repo = await this.auth.requireDatabase().documentsFor(job.doc.workspaceId)
         if (job.kind === 'import') await repo.deleteDocument(job.doc.id)
         else await repo.setDocumentStatus(job.doc.id, 'failed')
       } catch {
@@ -468,10 +498,7 @@ export class DocumentService {
    */
   private async resolveCodeRelPath(doc: Document): Promise<string> {
     try {
-      const roots = await this.auth
-        .requireDatabase()
-        .workspaces()
-        .getSyncFolders(doc.workspaceId)
+      const roots = await this.auth.requireDatabase().workspaces().getSyncFolders(doc.workspaceId)
       const norm = (p: string): string => p.replace(/\\/g, '/')
       const src = norm(doc.sourcePath)
       const srcLower = src.toLowerCase()
@@ -491,6 +518,8 @@ export class DocumentService {
   }
 
   private async indexInBackground(doc: Document, input: ImportInput): Promise<void> {
+    let indexingLease: import('../../../shared/modelActivity').IndexingLease | undefined
+    const jobKey = `${doc.workspaceId}:${doc.id}`
     const TOTAL = 4
     const sender = input.sender
     const send = (
@@ -499,10 +528,14 @@ export class DocumentService {
       error?: string,
       detail?: string,
       chunksPerSec?: number,
+      chunksDone?: number,
+      chunksTotal?: number,
     ): void => {
       // Tick before the sender guard: the quit drain's liveness signal must
       // advance even in contexts with no renderer attached (folder-sync).
       this.progressTicks++
+      if (chunksDone !== undefined && chunksTotal !== undefined)
+        indexingLease?.update(chunksDone, chunksTotal)
       if (!sender) return
       try {
         const payload: IndexProgress = {
@@ -515,10 +548,15 @@ export class DocumentService {
         if (error !== undefined) payload.error = error
         if (detail !== undefined) payload.detail = detail
         if (chunksPerSec !== undefined) payload.chunksPerSec = chunksPerSec
+        if (chunksDone !== undefined) payload.chunksDone = chunksDone
+        if (chunksTotal !== undefined) payload.chunksTotal = chunksTotal
         sender.send('indexing:progress', payload)
       } catch {
         // renderer gone
       }
+    }
+    const checkCancelled = (): void => {
+      if (this.activeJobs.get(jobKey)?.cancelled) throw new IndexingCancelledError()
     }
     // requireDatabase() used to live outside this try, which meant a lock or
     // logout firing between addDocument and the first await would throw past
@@ -527,6 +565,10 @@ export class DocumentService {
     // inside guarantees the catch arm at the bottom flips status='failed' so
     // the row reflects what actually happened.
     try {
+      indexingLease = await this.registry
+        ?.embedder()
+        .beginIndexing?.({ workspaceId: doc.workspaceId, title: doc.title })
+      checkCancelled()
       // Pin to the document's OWN workspace, not the active one. Folder-sync
       // indexes documents across every workspace at login regardless of which is
       // on screen; routing persistChunks/setDocumentStatus through active() lands
@@ -613,25 +655,28 @@ export class DocumentService {
       //
       // The provider contract throws on failure (no embedder model on disk,
       // Ollama unreachable, per-passage embed error). We page the forward pass
-      // in fixed-size batches (mirroring EmbeddingBackfillService's PAGE=32)
+      // in provider-sized batches (one on CPU, four on a bundled GPU)
       // rather than embedding every chunk in one call: a book-length or OCR'd
       // PDF can be hundreds of passages, and a single embed() over all of them
       // is both a memory/timeout spike AND all-or-nothing — one bad passage
       // throws for the whole batch and NULLs the entire document's vectors.
       // Batching isolates a failure to its own page; the rest persist embedded
       // and only the failed page defers to the backfill service.
-      send('embedding', 3)
+      checkCancelled()
+      send('embedding', 3, undefined, `embedding 0/${out.length}`, undefined, 0, out.length)
       let vectors: Array<Float32Array | null> | null = null
       let activeIdentity: string | null = null
       if (this.registry) {
         const embedder = this.registry.embedder()
+        indexingLease?.update(0, out.length)
+        checkCancelled()
         await embedder.ensureReady()
         if (embedder.isReady()) {
           // R3: code chunks carry their file/symbol identity in contextPrefix —
           // prepend it so the vector says WHERE the code lives, not just what
           // it does. Chunks without a prefix embed exactly as before. The
           // backfill path (EmbeddingBackfillService) mirrors this concat.
-          const texts = out.map((c) => (c.contextPrefix ? `${c.contextPrefix}\n${c.text}` : c.text))
+          const texts = out.map((c) => documentEmbeddingInput(c.text, c.contextPrefix))
           const acc: Array<Float32Array | null> = new Array(texts.length).fill(null)
           let anyEmbedded = false
           let embeddedSoFar = 0
@@ -643,8 +688,11 @@ export class DocumentService {
           // contribute neither chunks nor time, keeping the ratio "speed of
           // the output that was produced".
           let embedMs = 0
-          for (let start = 0; start < texts.length; start += EMBED_BATCH) {
-            const slice = texts.slice(start, start + EMBED_BATCH)
+          const batchSize = indexingBatchSize(embedder)
+          for (let start = 0; start < texts.length; ) {
+            checkCancelled()
+            // Return the first progress update promptly, even on a slow CPU.
+            const slice = texts.slice(start, start + (start === 0 ? 1 : batchSize))
             const batchStart = performance.now()
             try {
               const vs = await embedder.embed(slice)
@@ -658,6 +706,9 @@ export class DocumentService {
                 `[documents] embed batch ${start}–${start + slice.length} failed for "${doc.title}", deferring to backfill:`,
                 err,
               )
+              // A lost worker must not cause every remaining batch to spawn
+              // a fresh process during shutdown. Backfill can retry later.
+              if (!embedder.isReady()) throw err
             }
             // Per-batch progress: gives a book-length document's embedding phase a
             // live "embedding n/total" in the Library row (replacing the frozen
@@ -678,7 +729,10 @@ export class DocumentService {
               undefined,
               `embedding ${embeddedSoFar}/${texts.length}`,
               embeddedSoFar > 0 && embedS >= 0.2 ? embeddedSoFar / embedS : undefined,
+              embeddedSoFar,
+              texts.length,
             )
+            start += slice.length
           }
           if (anyEmbedded) {
             vectors = acc
@@ -687,7 +741,8 @@ export class DocumentService {
         }
       }
 
-      send('persisting', 4)
+      checkCancelled()
+      send('persisting', 4, undefined, undefined, undefined, out.length, out.length)
       // persistChunks returns the new chunk ids in insertion order, which is the
       // same order as `out` (and therefore `vectors`). ADR-0005: this replaces
       // the old document_id+ordinal re-query against the raw PGlite handle.
@@ -737,6 +792,14 @@ export class DocumentService {
       await repo.setDocumentStatus(doc.id, 'ready')
       send('done', 4)
     } catch (err) {
+      if (err instanceof IndexingCancelledError) {
+        const cancelledRepo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
+        if (this.activeJobs.get(jobKey)?.kind === 'import')
+          await cancelledRepo.deleteDocument(doc.id)
+        else await cancelledRepo.setDocumentStatus(doc.id, 'failed')
+        send('failed', 0, err.message)
+        return
+      }
       // Log so silent stalls don't hide behind a 'pending' row — without the
       // log we'd lose every parser crash, embedder timeout, or locked-DB
       // hiccup. The catch then re-resolves the repo (the try's reference is
@@ -745,12 +808,14 @@ export class DocumentService {
       // eslint-disable-next-line no-console
       console.error(`[documents] indexing failed for ${doc.title} (#${doc.id}):`, err)
       try {
-        const failRepo = this.auth.requireDatabase().documents()
+        const failRepo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
         await failRepo.setDocumentStatus(doc.id, 'failed')
       } catch {
         // DB is gone (lock/logout race) ; nothing left we can do here.
       }
       send('failed', 0, err instanceof Error ? err.message : String(err))
+    } finally {
+      indexingLease?.release()
     }
   }
 }

@@ -1,3 +1,5 @@
+import { useId, useState } from 'react'
+import { SlidersHorizontal, X } from 'lucide-react'
 import type { LibraryDocType, LibrarySort } from '@shared/documents'
 import { LIBRARY_DOC_TYPES } from '@shared/docType'
 import { useT } from '../i18n'
@@ -79,6 +81,19 @@ export function LibrarySearchBar({
   resultCount,
 }: Props): JSX.Element {
   const t = useT()
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filtersId = useId()
+  const filterCount =
+    filters.types.size +
+    Number(filters.date !== 'any') +
+    Number(filters.size !== 'any') +
+    Number(!active && filters.status !== 'all')
+  const resetFilters = (): void => {
+    onTypesChange(new Set())
+    onDateChange('any')
+    onSizeChange('any')
+    onStatusChange('all')
+  }
   return (
     <div className="library__search">
       <div className="library__search-row">
@@ -86,6 +101,9 @@ export function LibrarySearchBar({
           type="search"
           className="library__search-input"
           placeholder={t('library.searchPlaceholder')}
+          aria-label={t('library.searchPlaceholder')}
+          name="document-search"
+          autoComplete="off"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
         />
@@ -96,7 +114,7 @@ export function LibrarySearchBar({
             aria-label={t('library.searchClear')}
             onClick={onClear}
           >
-            ×
+            <X size={16} aria-hidden="true" />
           </button>
         )}
         <Select
@@ -105,8 +123,19 @@ export function LibrarySearchBar({
           options={SORTS.map((s) => ({ value: s, label: t(SORT_LABEL_KEY[s]) }))}
           onChange={onSortChange}
         />
+        <button
+          type="button"
+          className="library__filter-toggle"
+          aria-expanded={filtersOpen}
+          aria-controls={filtersId}
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          {t('ux.filters')}
+          {filterCount > 0 && <span className="library__filter-count">{filterCount}</span>}
+        </button>
       </div>
-      <div className="library__filters">
+      <div id={filtersId} className="library__filters" hidden={!filtersOpen}>
         <span className="library__filters-label">{t('library.filterType')}</span>
         {LIBRARY_DOC_TYPES.map((ty) => {
           const on = filters.types.has(ty)
@@ -148,12 +177,22 @@ export function LibrarySearchBar({
             onChange={onStatusChange}
           />
         )}
-        {active && resultCount != null && (
-          <span className="library__results-count">
-            {t('library.searchResultsCount', { count: resultCount })}
-          </span>
-        )}
       </div>
+      {(filterCount > 0 || (active && resultCount != null)) && (
+        <div className="library__search-summary">
+          {filterCount > 0 && (
+            <button type="button" className="library__reset-filters" onClick={resetFilters}>
+              <X size={14} aria-hidden="true" />
+              {t('library.clearFilters')} ({filterCount})
+            </button>
+          )}
+          {active && resultCount != null && (
+            <span className="library__results-count">
+              {t('library.searchResultsCount', { count: resultCount })}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
