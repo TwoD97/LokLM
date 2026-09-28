@@ -1,0 +1,65 @@
+name: Set up MinIO client
+description: Install a pinned official MinIO client and verify its SHA-256 before execution.
+
+runs:
+  using: composite
+  steps:
+    - name: Download and verify mc
+      shell: bash
+      run: |
+        set -euo pipefail
+        release="RELEASE.2025-08-13T08-35-41Z"
+        # Official release assets and their published .sha256sum digests:
+        # https://github.com/minio/mc/releases/tag/RELEASE.2025-08-13T08-35-41Z
+        # dl.min.io no longer serves these binaries (HTTP 410).
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Windows-X64)
+            asset="mc.windows-amd64.${release}.exe"
+            sha256="c8db13ebeda31497f354c0e950809db0ae9b2a2a69b8afee68c128c37300c157"
+            binary="mc.exe"
+            ;;
+          Linux-X64)
+            asset="mc.linux-amd64.${release}"
+            sha256="01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891"
+            binary="mc"
+            ;;
+          macOS-X64)
+            asset="mc.darwin-amd64.${release}"
+            sha256="2862c79cce11b09be9a8911a279b2e9465bebf74b9f01abca9c348a0d795f0cb"
+            binary="mc"
+            ;;
+          macOS-ARM64)
+            asset="mc.darwin-arm64.${release}"
+            sha256="a877fd0c183409da9f20f9d6e1811987298bbbca1aa03428eebdffba79fb9445"
+            binary="mc"
+            ;;
+          *)
+            echo "::error::Unsupported MinIO client runner: ${RUNNER_OS}-${RUNNER_ARCH}"
+            exit 1
+            ;;
+        esac
+
+        install_dir="${RUNNER_TEMP}/loklm-mc"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          install_dir="$(cygpath -u "$RUNNER_TEMP")/loklm-mc"
+        fi
+        mkdir -p "$install_dir"
+        download="$install_dir/${binary}.download"
+        curl --fail --silent --show-error --location \
+          --connect-timeout 15 --max-time 120 --retry 3 --retry-max-time 180 \
+          --output "$download" \
+          "https://github.com/minio/mc/releases/download/${release}/${asset}"
+        if [ "$RUNNER_OS" = "macOS" ]; then
+          printf '%s  %s\n' "$sha256" "$download" | shasum -a 256 -c -
+        else
+          printf '%s  %s\n' "$sha256" "$download" | sha256sum -c -
+        fi
+        mv "$download" "$install_dir/$binary"
+        chmod +x "$install_dir/$binary"
+        "$install_dir/$binary" --version
+
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cygpath -w "$install_dir" >> "$GITHUB_PATH"
+        else
+          printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
+        fi

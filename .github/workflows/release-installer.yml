@@ -80,6 +80,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install verified MinIO client
+        uses: ./.github/actions/setup-mc
+
       - name: Resolve version (tag oder dispatch-input)
         id: resolve
         shell: bash
@@ -238,12 +241,6 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $EXE , size=$SIZE sha256=$SHA"
 
-      - name: Install mc
-        shell: bash
-        run: |
-          curl -fsSL -o /tmp/mc.exe https://dl.min.io/client/mc/release/windows-amd64/mc.exe
-          /tmp/mc.exe --version | head -1
-
       - name: Upload installer + payload + cuda archives to minio
         shell: bash
         env:
@@ -253,7 +250,7 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           DEST="s3target/loklm-installers/v${V}/"
-          /tmp/mc.exe alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           # User-facing installer + sha256. Payload archive is the v0.3.1+
           # CDN fallback ( embedded in the .exe primarily ) ; cuda addon is
           # still fetched from PUBLIC_INSTALLER_BASE_URL at install time.
@@ -265,9 +262,9 @@ jobs:
             release/cuda-win-x64.tar.zst \
             release/cuda-win-x64.tar.zst.sha256
           do
-            /tmp/mc.exe cp "$f" "$DEST"
+            mc cp "$f" "$DEST"
           done
-          /tmp/mc.exe ls "$DEST"
+          mc ls "$DEST"
 
       - name: Verify uploaded archives match baked manifest
         # Gate : re-fetch the just-uploaded payload + cuda from the PUBLIC URL
@@ -295,6 +292,9 @@ jobs:
       size_deb: ${{ steps.hash.outputs.size_deb }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install verified MinIO client
+        uses: ./.github/actions/setup-mc
 
       - name: Resolve version (tag oder dispatch-input)
         id: resolve
@@ -415,12 +415,6 @@ jobs:
           echo "built $RUN , size=$SIZE_RUN sha256=$SHA_RUN"
           echo "built $DEB , size=$SIZE_DEB sha256=$SHA_DEB"
 
-      - name: Install mc
-        run: |
-          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
-          chmod +x /tmp/mc
-          /tmp/mc --version | head -1
-
       - name: Upload installer + payload + cuda archives to minio
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -429,7 +423,7 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           DEST="s3target/loklm-installers/v${V}/"
-          /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           # User-facing installers ( .run for makeself / generic distros ;
           # .deb for Ubuntu/Debian ) + sha256 sidecars. Payload archive is
           # the v0.3.1+ CDN fallback ( embedded in the .run primarily ) ;
@@ -445,9 +439,9 @@ jobs:
             release/cuda-linux-x64.tar.zst \
             release/cuda-linux-x64.tar.zst.sha256
           do
-            /tmp/mc cp "$f" "$DEST"
+            mc cp "$f" "$DEST"
           done
-          /tmp/mc ls "$DEST"
+          mc ls "$DEST"
 
       - name: Verify uploaded archives match baked manifest
         # See the Windows job for rationale. Gates the linux payload + cuda.
@@ -464,6 +458,9 @@ jobs:
       size: ${{ steps.hash.outputs.size }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install verified MinIO client
+        uses: ./.github/actions/setup-mc
 
       - name: Resolve version (tag oder dispatch-input)
         id: resolve
@@ -538,12 +535,6 @@ jobs:
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
           echo "built $DMG , size=$SIZE sha256=$SHA"
 
-      - name: Install mc
-        run: |
-          curl -fsSL -o /tmp/mc https://dl.min.io/client/mc/release/darwin-amd64/mc
-          chmod +x /tmp/mc
-          /tmp/mc --version | head -1
-
       - name: Upload installer + payload archives to minio
         env:
           MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
@@ -552,7 +543,7 @@ jobs:
         run: |
           V="${{ steps.resolve.outputs.version }}"
           DEST="s3target/loklm-installers/v${V}/"
-          /tmp/mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
           # User-facing .dmg + sha256 , plus the payload archives the
           # wizard fetches at install ( both mac-arm64 and mac-x64 since
           # the wizard's payload-manifest knows both ). No cuda branch on mac.
@@ -564,9 +555,9 @@ jobs:
             release/payload-mac-x64.tar.zst \
             release/payload-mac-x64.tar.zst.sha256
           do
-            /tmp/mc cp "$f" "$DEST"
+            mc cp "$f" "$DEST"
           done
-          /tmp/mc ls "$DEST"
+          mc ls "$DEST"
 
       - name: Verify uploaded archives match baked manifest
         # See the Windows job for rationale. Both mac arch payloads ( no cuda ).
