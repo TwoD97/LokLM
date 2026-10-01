@@ -4,11 +4,11 @@ Veldrin Yard is a fictional inspection facility. This ledger covers the calendar
 
 ## Recorded operations
 
-| Metric                   | Recorded value | Unit        |
-| ------------------------ | -------------: | ----------- |
-| Service-credit revenue   |          73410 | GBP         |
-| Completed inspections    |            129 | inspections |
-| Spare crates at year end |             28 | crates      |
+| Metric | Recorded value | Unit |
+| --- | ---: | --- |
+| Service-credit revenue | 73410 | GBP |
+| Completed inspections | 129 | inspections |
+| Spare crates at year end | 28 | crates |
 
 The operating revenue is recorded revenue, not a forecast. The reserve account balance is GBP 8400 and is not part of service-credit revenue.
 

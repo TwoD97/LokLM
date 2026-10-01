@@ -1,0 +1,112 @@
+[
+  {
+    "caseId": "dev-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct EUR 48,260 for recorded 2025 service-credit revenue, one short English sentence; supplied exact table 1:2 supports the claim. No unsupported additional fact."
+  },
+  {
+    "caseId": "dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 184 completed inspections in 2025, one short German sentence, with supplied exact operations table 1:2. No confusion with the planned 2026 count of 212."
+  },
+  {
+    "caseId": "dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO approval date 2026-03-09, one English sentence, with supplied approval passage 2:4. No wrong revenue-table or draft citation."
+  },
+  {
+    "caseId": "dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct German answer: Neral sample mass 18.4 kg in the 2026-04-12 survey; supplied exact PDF table 6:9 supports the date, site, number and unit. One sentence."
+  },
+  {
+    "caseId": "dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 27 + 35 = 62 accepted trays, with both component counts and survey date supported by supplied PDF table 6:9. One English sentence; wordier than necessary but no extraneous or unsupported fact."
+  },
+  {
+    "caseId": "dev-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct planned 2026 EUR 53,780 minus recorded 2025 EUR 48,260 equals EUR 5,520. Both exact supplied input tables 1:2 and 2:5 appear after the comparison sentence. Unlike the old canonical DEV comparison, no introduction/approval-only passage is used as the revenue evidence. Single English sentence; citations follow the period."
+  },
+  {
+    "caseId": "dev-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct batch identifier MSX-417, one short German sentence, citing supplied draft A 3:6 despite draft B being supplied first."
+  },
+  {
+    "caseId": "dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct reserveSlots(13, 5) return value 4: max(0, 13 - 5) = 8, then min(4, 8) = 4. The supplied complete function 5:8 supports the result. One short English sentence."
+  },
+  {
+    "caseId": "dev-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "Clearly limits the response to the supplied context and does not invent a chief financial officer. No inline source marker is claimed; the terminal source array represents provided context, not cited support. Missing-fact cases do not require a citation."
+  },
+  {
+    "caseId": "dev-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Preserves both requested ISO dates (A 2026-10-14, B 2026-10-21), cites each exact supplied draft (3:6 and 4:7), and explicitly leaves definitive authority unresolved because neither draft contains approval/supersession. Does not treat later deadline as authority. One compound English sentence; longer than necessary, a brevity limitation rather than an authority or evidence failure."
+  },
+  {
+    "caseId": "dev-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct lower-bound result 0 for reserveSlots(3, 9), with exact supplied complete function 5:8. One short German sentence; harmless unrequested bold formatting."
+  },
+  {
+    "caseId": "dev-12",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [
+      "Says the report explicitly states that it does not measure outdoor temperatures; the supplied report says only that it contains no outdoor temperature measurements."
+    ],
+    "notes": "Safely gives no numeric outdoor temperature for Bexin and cites the supplied PDF 6:9. However, the second clause strengthens absence of measurements in the report into an explicit claim about not measuring temperatures. This is an unsupported process/source-description claim, the same distinction used in the earlier footer diagnostic; not a fabricated numeric temperature. One German compound sentence."
+  }
+]

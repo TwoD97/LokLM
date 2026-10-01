@@ -80,6 +80,9 @@ export default defineConfig({
     },
     build: {
       outDir: resolve(__dirname, 'out/renderer'),
+      // Shrink shipped renderer JavaScript; keep existing CSS output unchanged.
+      minify: 'esbuild',
+      cssMinify: false,
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') },
       },

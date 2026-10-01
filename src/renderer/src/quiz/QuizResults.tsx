@@ -1,5 +1,6 @@
 import type { QuizAttempt, QuizDeck, QuizQuestion } from '@shared/quiz'
-import { QuizDeckHistory, scoreTone } from './QuizDeckHistory'
+import { QuizDeckHistory } from './QuizDeckHistory'
+import { scoreTone } from './quizPresentation'
 import { useT } from '../i18n'
 
 type Props = {

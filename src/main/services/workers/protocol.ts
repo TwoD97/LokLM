@@ -22,6 +22,7 @@ import type {
   LlmDevicePlan,
 } from '../embeddings/ResourcePlanner'
 import type { ModelTransition } from '../../../shared/modelActivity'
+import type { GpuLayerPlanHint } from './modelMemory'
 
 export type ServiceKind = 'llm' | 'embedder' | 'reranker'
 
@@ -51,6 +52,8 @@ export type WorkerRequest =
   | { id: number; op: 'shutdown' }
 
 export interface LlmLoadPayload {
+  /** Qualified allocation metadata only; never private prompts or native state. */
+  gpuLayerPlanHints?: GpuLayerPlanHint[]
   modelPath: string
   profileName: LlmProfileName | null
   profileDefaultContext: number
@@ -79,6 +82,8 @@ export interface LlmAskPayload {
   // the prompt-builder module. Same with system prompt + max tokens.
   prompt: string
   maxTokens: number
+  /** Prevent context shifting if GPU reallocation reduced a packed turn's window. */
+  plannedContextTokens?: number
   // Enforce the system prompt's /no_think via node-llama-cpp's segment budget
   // (budgets.thoughtTokens = 0) — the tag alone is unreliable for this GGUF.
   noThink?: boolean
@@ -98,6 +103,7 @@ export interface LlmGenerateRawPayload {
    *  multi-query expansion) don't get a full-answer-sized generation when
    *  the model ignores its single-line instructions. */
   maxTokens?: number
+  plannedContextTokens?: number
   /** Optional node-llama-cpp GbnfJsonSchema. The worker builds (and caches) a
    *  grammar from it and constrains generation to valid JSON. On any grammar
    *  build failure the worker logs a warn and generates without it. */
@@ -132,6 +138,7 @@ export type WorkerResponse<T = unknown> =
   | { id: number; ok: false; error: string }
 
 export interface LlmLoadResult {
+  gpuLayerPlanHint?: GpuLayerPlanHint
   modelCapacity?: import('../../../shared/modelCapabilities').ModelCapacity
   plan: LlmPlan
   resources: SystemResources

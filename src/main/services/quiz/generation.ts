@@ -39,6 +39,7 @@ export async function generateQuestionsForUnit(
   input: GenerateQuestionsForUnitInput,
 ): Promise<Array<Omit<AcceptedQuestion, 'ordinal'>>> {
   const { unit, language, acceptedStems, abortSignal } = input
+  abortSignal?.throwIfAborted()
   if (unit.chunks.length === 0) return []
 
   // Full chunk text — units are budget-bounded at build time, so no slicing.
@@ -62,10 +63,12 @@ export async function generateQuestionsForUnit(
     noThink: true,
     ...(abortSignal ? { abortSignal } : {}),
   })
+  abortSignal?.throwIfAborted()
   const parsed = parseAndValidateArray(raw, allowedChunkIds)
   if (parsed.length === 0) {
-    // eslint-disable-next-line no-console
-    console.warn(`[quiz] no valid questions for unit "${unit.title}"; raw: ${snippet(raw)}`)
+    console.warn(
+      `[quiz] no valid questions: chunks=${unit.chunks.length}, responseChars=${raw.length}`,
+    )
     return []
   }
 
@@ -123,7 +126,6 @@ export function parseAndValidateArray(raw: string, allowedChunkIds: Set<number>)
     if (q) out.push(q)
   }
   if (out.length === 0 && rejections.length > 0) {
-    // eslint-disable-next-line no-console
     console.warn(`[quiz] validateQuestion rejected all items: ${rejections.join(' | ')}`)
   }
   return out
@@ -238,12 +240,4 @@ function stripCodeFences(text: string): string {
     .replace(/^[^[{]*```(?:json)?\s*/i, '')
     .replace(/```[^`]*$/i, '')
     .trim()
-}
-
-/** First ~1000 chars of raw model output for actionable logs (one line). Long
- *  enough to capture a full short question (stem + 4 options + explanation +
- *  citation ids) so post-mortem reads aren't truncated mid-shape. */
-function snippet(raw: string): string {
-  const oneLine = raw.replace(/\s+/g, ' ').trim()
-  return oneLine.length > 1000 ? `${oneLine.slice(0, 1000)}…` : oneLine || '(empty)'
 }

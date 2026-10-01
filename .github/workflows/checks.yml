@@ -1,9 +1,8 @@
 name: Checks
 
-# läuft auf PRs und auf jeden push außer main , main hat eigenen deploy workflow.
+# Application checks also run on main; the website deploy does not cover them.
 on:
   push:
-    branches-ignore: [main]
   pull_request:
 
 concurrency:
@@ -11,10 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # AP-T.2 : Integration- + TX-Tests in CI. Modell-gebundene Suiten (GGUF)
-  # skippen sich selbst via describe.runIf , der Rest läuft komplett.
   tests:
-    name: Tests (integration + tx)
+    name: Application (types + unit + integration + tx)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -39,6 +36,15 @@ jobs:
       - name: Rebuild better-sqlite3 for the Node test ABI
         run: pnpm rebuild better-sqlite3-multiple-ciphers
 
+      - name: Typecheck application and tests
+        run: pnpm typecheck
+
+      - name: Lint application and development tools
+        run: pnpm lint
+
+      - name: Unit tests (main, renderer, scripts, installer)
+        run: pnpm test:unit
+
       # Der OCR-Integrationstest (tests/integration/ocr.test.ts) gated sich auf
       # vorhandene tessdata — ohne diesen Download skippt er sich still und die
       # OCR-Pipeline bliebe in CI ungetestet. Fast-Variante, ~5 MB gesamt.
@@ -52,8 +58,9 @@ jobs:
         run: pnpm test:tx
 
   website:
-    name: Website (astro check + build)
+    name: Website (types + tests + build)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -80,3 +87,18 @@ jobs:
         env:
           PUBLIC_INSTALLER_BASE_URL: https://downloads.loklm.example
         run: pnpm build
+
+      # Static-output tests require this run's build, not an absent/stale dist/.
+      - name: Unit tests, built-page smoke checks and coverage
+        working-directory: website
+        run: pnpm test:coverage
+
+      - name: Install Chromium for browser checks
+        working-directory: website
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Pixel baselines are Windows-specific; behavioral and accessibility
+      # checks run on Linux too. Visual comparisons remain available locally.
+      - name: Browser workflows and accessibility
+        working-directory: website
+        run: pnpm exec playwright test --config tests/e2e/playwright.config.ts --grep-invert "visual regression"

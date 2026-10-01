@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, type LaunchedApp } from './helpers/launch'
+import { registerAndUnlock } from './helpers/seed'
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // ADR-0006 index-scoping verification: honor .gitignore, and (no .gitignore) the
@@ -12,20 +12,6 @@ import { join } from 'node:path'
 test.setTimeout(180_000)
 
 let launched: LaunchedApp
-
-async function registerAndUnlock(l: LaunchedApp): Promise<void> {
-  const { page } = l
-  await expect(page.getByRole('heading', { level: 1, name: 'Konto anlegen' })).toBeVisible()
-  await page.getByLabel('Anzeigename').fill('Scope Bot')
-  const pw = page.locator('input[type="password"]')
-  await pw.nth(0).fill('Pass123456')
-  await pw.nth(1).fill('Pass123456')
-  await page.getByRole('button', { name: 'Konto anlegen' }).click()
-  await expect(page.getByRole('heading', { name: 'Wiederherstellungs-Wörter' })).toBeVisible()
-  await page.getByRole('checkbox').check()
-  await page.getByRole('button', { name: 'Weiter' }).click()
-  await expect(page.getByText(/Workspace/i).first()).toBeVisible({ timeout: 20_000 })
-}
 
 async function stubFolderPicker(l: LaunchedApp, dir: string): Promise<void> {
   await l.app.evaluate(({ dialog }, picked) => {
@@ -42,7 +28,7 @@ async function docTitles(l: LaunchedApp, wsId: number): Promise<string[]> {
 
 test.beforeEach(async () => {
   launched = await launchApp()
-  await registerAndUnlock(launched)
+  await registerAndUnlock(launched.page, 'Scope Bot')
 })
 test.afterEach(async () => {
   await launched.cleanup()
@@ -50,7 +36,7 @@ test.afterEach(async () => {
 
 test('honors .gitignore — ignored dir/file not indexed', async () => {
   const { page } = launched
-  const repo = await mkdtemp(join(tmpdir(), 'scope-gi-'))
+  const repo = await mkdtemp(join(launched.userDataDir, 'scope-gi-'))
   await writeFile(join(repo, 'package.json'), '{"name":"gi","type":"module"}')
   await writeFile(join(repo, '.gitignore'), 'build/\ngenerated.ts\n')
   await mkdir(join(repo, 'src'), { recursive: true })
@@ -78,7 +64,7 @@ test('honors .gitignore — ignored dir/file not indexed', async () => {
 
 test('no .gitignore — only selected top-level dirs indexed', async () => {
   const { page } = launched
-  const repo = await mkdtemp(join(tmpdir(), 'scope-inc-'))
+  const repo = await mkdtemp(join(launched.userDataDir, 'scope-inc-'))
   await writeFile(join(repo, 'package.json'), '{"name":"inc","type":"module"}')
   await mkdir(join(repo, 'src'), { recursive: true })
   await writeFile(join(repo, 'src', 'app.ts'), 'export const app = 1\n')
@@ -123,7 +109,7 @@ test('no .gitignore — only selected top-level dirs indexed', async () => {
 
 test('nested .gitignore — deeper re-include overrides a shallower exclude', async () => {
   const { page } = launched
-  const repo = await mkdtemp(join(tmpdir(), 'scope-nest-'))
+  const repo = await mkdtemp(join(launched.userDataDir, 'scope-nest-'))
   await writeFile(join(repo, 'package.json'), '{"name":"nest","type":"module"}')
   await writeFile(join(repo, '.gitignore'), '*.gen.ts\n')
   await writeFile(join(repo, 'top.gen.ts'), 'export const a = 1\n')

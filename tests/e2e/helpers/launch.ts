@@ -14,10 +14,14 @@ export interface LaunchedApp {
   app: ElectronApplication
   page: Page
   userDataDir: string
+  /** Restart the same isolated profile and vault without inheriting host paths. */
+  restart(): Promise<void>
   cleanup(): Promise<void>
 }
 
 export interface LaunchOptions {
+  /** Keep background tests off the desktop; opt in for interactive debugging. */
+  visible?: boolean
   /** Extra Electron argv flags (after the main entry). The screenshot harness
    *  passes `--force-device-scale-factor=2` here for 2× DPR captures. */
   extraArgs?: string[]
@@ -47,35 +51,59 @@ export async function launchApp(opts: LaunchOptions = {}): Promise<LaunchedApp> 
     ),
   )
 
-  const app = await electron.launch({
-    args: [mainEntry, `--user-data-dir=${userDataDir}`, ...(opts.extraArgs ?? [])],
-    env,
-  })
-
-  const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-
-  if (opts.contentSize) {
-    // Resize the native BrowserWindow's content area (page.setViewportSize does
-    // not move an Electron window). Done in the main process via the window handle.
-    const { width, height } = opts.contentSize
-    await app.evaluate(
-      ({ BrowserWindow }, size) => {
-        const win = BrowserWindow.getAllWindows()[0]
-        win?.setContentSize(size.width, size.height)
-      },
-      { width, height },
-    )
-    await page.waitForTimeout(150) // let the renderer reflow to the new size
-  }
-
-  return {
-    app,
-    page,
-    userDataDir,
-    cleanup: async () => {
+  const start = async (): Promise<{ app: ElectronApplication; page: Page }> => {
+    const app = await electron.launch({
+      args: [mainEntry, `--user-data-dir=${userDataDir}`, ...(opts.extraArgs ?? [])],
+      env,
+    })
+    try {
+      const page = await app.firstWindow()
+      await app.evaluate(({ BrowserWindow }, visible) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.setBackgroundThrottling(false)
+          if (!visible) window.hide()
+        }
+      }, opts.visible === true)
+      await page.waitForLoadState('domcontentloaded')
+      if (opts.contentSize) {
+        // Resize the native BrowserWindow's content area (page.setViewportSize does
+        // not move an Electron window). Done in the main process via the window handle.
+        const { width, height } = opts.contentSize
+        await app.evaluate(
+          ({ BrowserWindow }, size) => {
+            const win = BrowserWindow.getAllWindows()[0]
+            win?.setContentSize(size.width, size.height)
+          },
+          { width, height },
+        )
+        await page.waitForTimeout(150) // let the renderer reflow to the new size
+      }
+      return { app, page }
+    } catch (error) {
       await app.close().catch(() => undefined)
+      throw error
+    }
+  }
+  let running: { app: ElectronApplication; page: Page }
+  try {
+    running = await start()
+  } catch (error) {
+    await rm(userDataDir, { recursive: true, force: true })
+    throw error
+  }
+  const launched: LaunchedApp = {
+    ...running,
+    userDataDir,
+    restart: async () => {
+      await running.app.close()
+      running = await start()
+      launched.app = running.app
+      launched.page = running.page
+    },
+    cleanup: async () => {
+      await running.app.close().catch(() => undefined)
       await rm(userDataDir, { recursive: true, force: true })
     },
   }
+  return launched
 }

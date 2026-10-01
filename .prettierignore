@@ -1,6 +1,11 @@
 out/
 dist/
 coverage/
+release/
+test-results/
+.playwright-report/
+.astro/
+.lighthouse/
 docs/api/
 node_modules/
 .tsbuildinfo-node/
@@ -16,4 +21,8 @@ docs/specs/2026-05-13-drizzle-switch-design.md
 
 # Pre-existing wordlist data (2048 entries each) — not formatting candidates
 src/shared/passPhraseWords/
+
+# Frozen evaluation inputs are byte-hashed; formatting changes invalidate them.
+tests/evals/native-calibration/heldout*.json
+tests/evals/native-calibration/fixtures/heldout/
 

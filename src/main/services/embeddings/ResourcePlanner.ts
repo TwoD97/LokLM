@@ -350,7 +350,6 @@ export class ResourcePlanner {
         )
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('[planner] VRAM probe failed; falling back to RAM-only:', err)
       base.hasGpu = false
     }

@@ -6,7 +6,7 @@ describe('OllamaEmbedderProvider', () => {
     const client = {
       postJson: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] }),
     }
-    const p = new OllamaEmbedderProvider(client as never, 'nomic-embed-text', 768)
+    const p = new OllamaEmbedderProvider(client as never, 'nomic-embed-text', 3)
     const out = await p.embed(['hello'])
     expect(out).toHaveLength(1)
     expect(out[0]).toBeInstanceOf(Float32Array)
@@ -40,5 +40,51 @@ describe('OllamaEmbedderProvider', () => {
     }
     const p = new OllamaEmbedderProvider(client as never, 'nomic-embed-text', 3)
     await expect(p.embed(['a', 'b', 'c'])).rejects.toThrow(/mismatch/i)
+  })
+
+  it.each(
+    [
+      [[]],
+      [[1, NaN]],
+      [[1, Infinity]],
+      [[1, 1e100]],
+      [[0, 0]],
+      [[1e-300, 0]],
+      [['1', '2']],
+      [null],
+    ].map((embeddings) => ({ embeddings })),
+  )(
+    'rejects unusable vector output without learning a bad dimension: %j',
+    async ({ embeddings }) => {
+      const client = {
+        postJson: vi
+          .fn()
+          .mockResolvedValueOnce({ embeddings })
+          .mockResolvedValueOnce({ embeddings: [[1, 2, 3]] }),
+      }
+      const p = new OllamaEmbedderProvider(client as never, 'fixture', null)
+      await expect(p.embed(['source'])).rejects.toThrow()
+      expect(() => p.dimension()).toThrow(/not yet known/)
+      await p.embed(['source'])
+      expect(p.dimension()).toBe(3)
+    },
+  )
+
+  it('rejects a changed or mixed dimension before downstream storage can be marked embedded', async () => {
+    const client = {
+      postJson: vi
+        .fn()
+        .mockResolvedValueOnce({
+          embeddings: [
+            [1, 2],
+            [1, 2, 3],
+          ],
+        })
+        .mockResolvedValueOnce({ embeddings: [[1, 2, 3]] }),
+    }
+    const p = new OllamaEmbedderProvider(client as never, 'fixture', 2)
+    await expect(p.embed(['first', 'second'])).rejects.toThrow(/dimension mismatch/)
+    await expect(p.embed(['source'])).rejects.toThrow(/dimension mismatch/)
+    expect(p.dimension()).toBe(2)
   })
 })

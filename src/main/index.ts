@@ -4,10 +4,17 @@ import { dirname, join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { AuthService, LockedError } from './services/auth/AuthService'
 import { runQuitDrain } from './lifecycle/quitDrain'
+import { SessionRequests } from './lifecycle/sessionRequests'
+import { SessionCloseGate } from './lifecycle/sessionCloseGate'
+import { withPrivateIpcAdmission } from './lifecycle/ipcAdmission'
+import { isGeneratedDocumentSource } from '../shared/documentSource'
+import { validateDeleteConversationTurn } from '../shared/conversationTurn'
+import type { DeleteConversationTurnInput } from '../shared/documents'
 import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
+import { exportDocument } from './services/documents/exportDocument'
 import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
 import { isSupported as isSupportedDocPath } from './services/documents/parser'
@@ -56,6 +63,7 @@ import { OllamaClient } from './services/providers/ollama/OllamaClient'
 import { OllamaLlmProvider } from './services/providers/ollama/OllamaLlmProvider'
 import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedderProvider'
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
+import { ollamaProviderAvailability } from './services/providers/ollama/configuration'
 import { OrganizerService } from './services/organizer/OrganizerService'
 import { SettingsService } from './services/settings/SettingsService'
 import { runtimeSettingsChanged } from './services/settings/runtimeSettings'
@@ -97,11 +105,11 @@ let quitDraining = false
 // Generous vs. a single slow batch (seconds), tight vs. the idle window.
 const INDEXING_GUARD_WATCHDOG_MS = 3 * 60_000
 
-// In-flight quiz generation streams, keyed by streamId. Module-scoped (not
-// local to registerIpc) so the lock handler can abort them: a quiz generation
-// runs for minutes on CPU, and (auto-)locking mid-run would otherwise leave it
-// pegging the worker and writing to the database we're about to tear down.
-const activeQuizStreams = new Map<string, AbortController>()
+// Inference belongs to the window and vault session that started it. Locking
+// retires every request before its late native result can reach another session.
+const sessionRequests = new SessionRequests()
+const sessionCloseGate = new SessionCloseGate()
+let sessionRequestSequence = 0
 
 function getAuth(): AuthService {
   if (!authService) {
@@ -117,13 +125,10 @@ function getAuth(): AuthService {
     mkdirSync(dataDir, { recursive: true })
     console.log(`[auth] vault data dir: ${dataDir}`)
     authService = new AuthService(dataDir)
+    authService.setBeforeLock(() => drainPrivateWrites().finally(() => resetSessionServices()))
     authService.setOnLock(() => {
-      // Inactivity auto-lock fires here too — abort any in-flight quiz
-      // generation first so it stops pegging the worker and won't write to the
-      // database we're about to zero (the row is reconciled to 'failed' by the
-      // resetStuckDecks sweep on next unlock). Then kill any pending warmup so a
-      // backfill kicked off seconds before the lock doesn't try to use it.
-      for (const ctrl of activeQuizStreams.values()) ctrl.abort()
+      // The pre-lock hook already retired private work before the key wipe.
+      // Final cleanup and notification also cover inactivity-triggered locks.
       cancelPostLoginWarmup()
       resetSessionServices()
       broadcastAuthState()
@@ -169,6 +174,17 @@ function getAuth(): AuthService {
 
 function resetSessionServices(): void {
   sessionClosing = true
+  cancelPostLoginWarmup()
+  sessionRequests.reset()
+  documentService?.invalidateSession()
+  folderSyncService?.invalidateSession()
+  backfillService?.invalidateSession()
+  providerRegistry?.invalidateSession()
+  documentService = null
+  folderSyncService = null
+  void resetTranscriptionSession()
+  void resetModelSession().catch(() => undefined)
+  void resetDocumentsSession().catch(() => undefined)
   organizerService?.invalidate()
   settingsService?.invalidate()
   organizerService = null
@@ -176,10 +192,9 @@ function resetSessionServices(): void {
   // construction; after lock/logout that reference is stale, so drop both
   // singletons and let the next caller rebuild against the live Database.
   //
-  // workspaceService + documentService stay cached because they hold AuthService
-  // only and re-resolve the Database lazily on each call. embeddingService +
-  // rerankerService are deliberately kept too — the GGUFs take seconds to
-  // reload, so warming them across a lock cycle is the right UX.
+  // Workspace CRUD holds no private background work. Model service objects
+  // keep subscribers, but their native worker and session state are retired.
+  // Ingestion and folder watchers are recreated with the next session's stores.
   //
   // ProviderRegistry + SettingsService are also reset — the registry depends
   // on AuthService-bound state indirectly through the SettingsService, and
@@ -193,12 +208,9 @@ function resetSessionServices(): void {
   quizService = null
   summarizationService = null
   writingService = null
+  translationService = null
   providerRegistry = null
   settingsService = null
-  // Watchers hold OS handles on the user's folders ; they must not survive a
-  // lock or logout (a different account on the same machine would otherwise
-  // inherit the previous user's sync targets).
-  if (folderSyncService) folderSyncService.stopAll()
 }
 
 async function scheduleBackfillForAllWorkspaces(): Promise<void> {
@@ -212,8 +224,10 @@ async function scheduleBackfillForAllWorkspaces(): Promise<void> {
   // model swap to coordinate — every workspace backfills under the same model.
   // (On an install that just switched to the tier model, this also performs the
   // one-time migration: chunks on the previous embedder are purged + re-embedded.)
-  const wss = await getAuth().requireDatabase().workspaces().list()
   const svc = getBackfillService()
+  const epoch = warmupEpoch
+  const wss = await getAuth().requireDatabase().workspaces().list()
+  if (!isWarmupCurrent(epoch)) return
   for (const ws of wss) {
     void svc.run(ws.id).catch(() => undefined)
   }
@@ -224,8 +238,10 @@ async function startSyncWatchersForAllWorkspaces(): Promise<void> {
   // are cheap (a single inotify/ReadDirectoryChangesW handle per folder) so
   // starting them all at login keeps "automatic file update" honest without
   // waiting for the user to first navigate into each workspace.
-  const wss = await getAuth().requireDatabase().workspaces().list()
   const svc = getFolderSyncService()
+  const epoch = warmupEpoch
+  const wss = await getAuth().requireDatabase().workspaces().list()
+  if (!isWarmupCurrent(epoch)) return
   for (const ws of wss) svc.start(ws.id)
 }
 
@@ -248,9 +264,46 @@ let settingsService: SettingsService | null = null
 let organizerService: OrganizerService | null = null
 let sessionClosing = false
 
+function requireOpenSession(): void {
+  if (!getAuth().isUnlocked() || sessionClosing) throw new LockedError()
+}
+
+function sessionGuard(): () => void {
+  const isCurrent = sessionRequests.captureSession()
+  return () => {
+    if (!isCurrent() || !getAuth().isUnlocked()) throw new LockedError()
+  }
+}
+
+async function awaitAuthenticationAdmission(): Promise<void> {
+  await sessionCloseGate.waitForClose()
+  if (quitDraining) throw new LockedError()
+}
+
+/** One-shot private work shares the same lock/window cancellation as streams. */
+async function withSessionRequest<T>(
+  scope: Parameters<SessionRequests['begin']>[0],
+  sender: Electron.WebContents,
+  work: (request: ReturnType<SessionRequests['begin']>) => Promise<T>,
+): Promise<T> {
+  requireOpenSession()
+  const request = sessionRequests.begin(scope, sender.id, String(++sessionRequestSequence))
+  const abort = (): void => request.controller.abort()
+  sender.once('destroyed', abort)
+  try {
+    const result = await work(request)
+    if (!request.isCurrent()) throw new LockedError()
+    request.controller.signal.throwIfAborted()
+    return result
+  } finally {
+    request.finish()
+    sender.removeListener('destroyed', abort)
+  }
+}
+
 function getOrganizerService(): OrganizerService {
+  requireOpenSession()
   const auth = getAuth()
-  if (!auth.isUnlocked() || sessionClosing) throw new LockedError()
   organizerService ??= new OrganizerService(
     auth,
     () => auth.persistSnapshotIfUnlocked(),
@@ -261,12 +314,29 @@ function getOrganizerService(): OrganizerService {
 
 async function drainPrivateWrites(): Promise<void> {
   sessionClosing = true
+  sessionRequests.reset()
+  documentService?.invalidateSession()
+  folderSyncService?.invalidateSession()
+  backfillService?.invalidateSession()
+  providerRegistry?.invalidateSession()
   organizerService?.invalidate()
   settingsService?.invalidate()
-  await Promise.all([organizerService?.drain(), settingsService?.drain()])
+  // A failed worker shutdown must not let another admitted write lose its
+  // database mid-cleanup. Settle every drain before the vault can close.
+  const drains = await Promise.allSettled([
+    documentService?.drainMutations(),
+    organizerService?.drain(),
+    settingsService?.drain(),
+    resetTranscriptionSession(),
+    resetModelSession(),
+    resetDocumentsSession(),
+  ])
+  const failures = drains.flatMap((result) =>
+    result.status === 'rejected' ? [result.reason as unknown] : [],
+  )
+  if (failures.length > 0) throw new AggregateError(failures, 'Private session cleanup failed.')
 }
 let translationService: TranslationService | null = null
-const translationRuns = new Map<string, AbortController>()
 
 // Shared infrastructure for the three model services. The planner stays on
 // main for its cheap pure helpers ; the worker owns its own planner instance
@@ -276,8 +346,12 @@ const translationRuns = new Map<string, AbortController>()
 const sharedPlanner = new ResourcePlanner()
 const modelsWorker = new ModelsWorkerClient()
 modelsWorker.onActivity((activity) => {
+  const visibleActivity =
+    !authService?.isUnlocked() || sessionClosing
+      ? { phase: 'idle', target: null, stage: null, progress: null, error: null, jobs: [] }
+      : activity
   for (const win of BrowserWindow.getAllWindows())
-    if (!win.isDestroyed()) win.webContents.send('models:activity', activity)
+    if (!win.isDestroyed()) win.webContents.send('models:activity', visibleActivity)
 })
 // Document parsing + OCR + chunking run in their own utilityProcess, isolated
 // from model inference so a heavy/scanned PDF import never stutters chat-token
@@ -290,12 +364,49 @@ const documentsWorker = new DocumentsWorkerClient()
 const transcriptionWorker = new TranscriptionWorkerClient()
 const diarizationWorker = new DiarizationWorkerClient()
 const transcriptionService = new TranscriptionService(transcriptionWorker, diarizationWorker)
+let transcriptionReset: Promise<void> = Promise.resolve()
+function resetTranscriptionSession(): Promise<void> {
+  transcriptionReset = transcriptionService.resetSession()
+  void transcriptionReset.catch((error: unknown) => {
+    console.error('[transcription] session cleanup failed', error)
+  })
+  return transcriptionReset
+}
+
+let modelReset: Promise<void> = Promise.resolve()
+function resetModelSession(): Promise<void> {
+  llamaService?.invalidateSession()
+  embeddingService?.invalidateSession()
+  rerankerService?.invalidateSession()
+  modelReset = modelsWorker.resetSession()
+  // Observe failures here but retain the rejection for unlock: it must not
+  // admit new native work until the old private process has actually exited.
+  void modelReset.catch((error: unknown) =>
+    console.error('[models] session cleanup failed:', error),
+  )
+  return modelReset
+}
+
+let documentsReset: Promise<void> = Promise.resolve()
+function resetDocumentsSession(): Promise<void> {
+  documentsReset = documentsWorker.resetSession()
+  void documentsReset.catch((error: unknown) =>
+    console.error('[documents] session cleanup failed:', error),
+  )
+  return documentsReset
+}
 // Post-login warmup runs on a small delay so the renderer can mount the main
 // UI before model loads start consuming the main thread and VRAM. The handle
 // is kept so a lock/logout can cancel a pending warmup that did not yet fire.
 let postLoginWarmupTimer: NodeJS.Timeout | null = null
 let qaWarmupPromise: Promise<void> | null = null
+let warmupEpoch = 0
+function isWarmupCurrent(epoch: number): boolean {
+  return epoch === warmupEpoch && !sessionClosing && getAuth().isUnlocked()
+}
 function cancelPostLoginWarmup(): void {
+  warmupEpoch++
+  qaWarmupPromise = null
   if (postLoginWarmupTimer) {
     clearTimeout(postLoginWarmupTimer)
     postLoginWarmupTimer = null
@@ -303,11 +414,13 @@ function cancelPostLoginWarmup(): void {
 }
 function schedulePostLoginWarmup(): void {
   cancelPostLoginWarmup()
+  const epoch = warmupEpoch
   // 1.5s is enough for the renderer to swap from the lock screen to the main
   // view on a typical machine ; the load lock serialises the actual work that
   // follows so even if backfill + autoLoad both fire immediately they queue.
   postLoginWarmupTimer = setTimeout(() => {
     postLoginWarmupTimer = null
+    if (!isWarmupCurrent(epoch)) return
     // Backfill is safe under either source — it goes through the registry, so
     // when the embedder is on Ollama it embeds via HTTP without touching the
     // bundled GGUF. Always run it; pending chunks need vectors either way.
@@ -337,16 +450,14 @@ function getModelDownloader(): ModelDownloader {
 
 function getTranslationService(): TranslationService {
   if (!translationService) {
-    translationService = new TranslationService(getProviderRegistry(), {
+    const registry = getProviderRegistry()
+    translationService = new TranslationService(registry, {
       ensureReady: async () => {
-        if (getProviderRegistry().getLlmSource() !== 'ollama') {
+        if (registry.getLlmSource() !== 'ollama') {
           await getLlamaService().ensureLoaded()
         }
       },
       hasLocalModel: () => discoverProfiles().some((profile) => profile.filename !== null),
-    })
-    app.once('before-quit', () => {
-      for (const controller of translationRuns.values()) controller.abort()
     })
   }
   return translationService
@@ -394,24 +505,9 @@ function broadcastEmbedderStatus(raw: import('../shared/documents').EmbedderStat
 }
 
 function getWorkspaceVectorService(): WorkspaceVectorService {
-  // Holds only AuthService; resolves the workspace store + Database lazily.
+  // Bound to this vault session; old background jobs cannot resolve a new store.
   workspaceVectorService ??= new WorkspaceVectorService(getAuth())
   return workspaceVectorService
-}
-
-/** Bound sink passed to ingestion services — mirrors embeddings into the
- *  per-workspace encrypted Lance store (ADR-0005). */
-function vectorSink(
-  workspaceId: number,
-  records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
-): Promise<void> {
-  return getWorkspaceVectorService().upsert(workspaceId, records)
-}
-
-/** Bound removal passed to ingestion/backfill — drops chunk vectors from the
- *  per-workspace encrypted Lance store (reindex, model-swap purge). */
-function vectorRemove(workspaceId: number, chunkIds: number[]): Promise<void> {
-  return getWorkspaceVectorService().remove(workspaceId, chunkIds)
 }
 
 /** ADR-0006: immediate subdirectories of a synced folder, minus the always-on
@@ -432,26 +528,15 @@ async function listTopLevelDirs(root: string): Promise<string[]> {
 
 function getBackfillService(): EmbeddingBackfillService {
   if (!backfillService) {
+    const vectors = getWorkspaceVectorService()
     backfillService = new EmbeddingBackfillService(
       getAuth().requireDatabase(),
       getProviderRegistry(),
-      vectorSink,
-      vectorRemove,
+      vectors.upsert.bind(vectors),
+      vectors.remove.bind(vectors),
     )
-    // Push backfill progress to the renderer so the TitleBar can surface
-    // "re-embedding N%". Without this the embedder dot reads "ready" while a
-    // model-swap re-embed (e.g. BGE-M3 → Qwen3 on first codebase open) silently
-    // purges vectors and degrades retrieval to BM25-only — which is exactly the
-    // "code question returns docs" confusion. Mirrors the embedder:status push.
-    backfillService.subscribe((s) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        try {
-          win.webContents.send('embedder:backfillStatus', s)
-        } catch {
-          /* renderer torn down — drop the event */
-        }
-      }
-    })
+    // The service broadcasts its own progress; a second subscription here
+    // would duplicate every batch update sent to the renderer.
   }
   return backfillService
 }
@@ -477,14 +562,8 @@ function getProviderRegistry(): ProviderRegistry {
             /* renderer torn down — drop the event */
           }
         }
-        // An LLM fallback flips the chat-header pill from 'ollama' to
-        // 'bundled' with fallback.active = true. The next clean broadcast
-        // from LlamaService (state transition, reload, etc.) naturally
-        // clears the fallback flag.
-        if (ev.kind === 'llm') {
-          broadcastLlmStatus(getLlamaService().getStatus(), { active: true, reason: ev.reason })
-        }
       },
+      onLlmStatusChanged: () => broadcastLlmStatus(getLlamaService().getStatus()),
     })
   }
   return providerRegistry
@@ -519,19 +598,42 @@ function getSettingsService(): SettingsService {
 }
 
 /** Finish session preferences before the renderer can request model warmup. */
-async function initializeSessionSettings(): Promise<void> {
+async function initializeSessionSettings(assertCurrent: () => void): Promise<void> {
+  await Promise.all([transcriptionReset, modelReset, documentsReset])
+  assertCurrent()
+  modelsWorker.resumeSession()
+  documentsWorker.resumeSession()
   sessionClosing = false
   const settings = getSettingsService()
   await settings.hydrate()
-  await applySettings(settings.get())
+  assertCurrent()
+  await applySettings(settings.get(), assertCurrent)
+  assertCurrent()
   broadcastAuthState()
+}
+
+/** Registration, login and recovery share one guarded initialization path. */
+async function completeSessionOpening(assertCurrent: () => void): Promise<void> {
+  assertCurrent()
+  await initializeSessionSettings(assertCurrent)
+  const documents = getDocumentService()
+  const quizzes = getAuth().requireDatabase().quizzes()
+  // Reconcile interrupted work before sync watchers and model warmup resume.
+  await documents.sweepOrphanedIndexing().catch(() => undefined)
+  assertCurrent()
+  await quizzes.resetStuckDecks().catch(() => undefined)
+  assertCurrent()
+  await quizzes.deleteAbandonedAttempts().catch(() => undefined)
+  assertCurrent()
+  schedulePostLoginWarmup()
 }
 
 // Reads hydrated UserSettings and applies them to the live ProviderRegistry +
 // bundled services. Called after runtime settings change and once after vault
 // hydration. A persisted embedder source is restored here; interactive source
 // switching still uses embedder:trySwitchSource's dimension check.
-async function applySettings(s: UserSettings): Promise<void> {
+async function applySettings(s: UserSettings, assertCurrent = sessionGuard()): Promise<void> {
+  assertCurrent()
   const reg = getProviderRegistry()
 
   // Session baseline for the LLM answer language. There's no query here , so
@@ -567,6 +669,7 @@ async function applySettings(s: UserSettings): Promise<void> {
   // llm:reload loads the model on the new device.
   getLlamaService().setSelectedPlacement(s.advanced.llm.placement)
   await getLlamaService().applyDevicePlan()
+  assertCurrent()
 
   // Push placement choices:
   getEmbeddingService().setPlacement(s.advanced.embedder.placement)
@@ -588,12 +691,8 @@ async function applySettings(s: UserSettings): Promise<void> {
   // to bypass it). Non-loopback baseUrl without allowRemoteOllama => treat
   // as "no ollama configured" , the registry stays bundled-only.
   const o = s.advanced.ollama
-  const remoteOk = isLoopbackBaseUrl(o.baseUrl) || o.allowRemoteOllama
-  const haveOllama =
-    isOllamaConnectorEnabled() &&
-    remoteOk &&
-    Boolean(o.baseUrl && o.llmModel && o.embedderModel && o.rerankerModel)
-  if (haveOllama) {
+  const availableOllama = ollamaProviderAvailability(o, isOllamaConnectorEnabled())
+  if (Object.values(availableOllama).some(Boolean)) {
     const client = new OllamaClient({
       baseUrl: o.baseUrl,
       bearerToken: o.bearerToken,
@@ -603,12 +702,16 @@ async function applySettings(s: UserSettings): Promise<void> {
     // prompt matches the user's basic.language choice. Without this, the
     // Ollama provider falls back to its constructor default ('de') and an
     // English-speaking user with Ollama active gets German system prompts.
-    const llm = new OllamaLlmProvider(client, o.llmModel!)
-    void llm.setLanguage(answerBaseline)
+    const llm = availableOllama.llm ? new OllamaLlmProvider(client, o.llmModel!) : null
+    void llm?.setLanguage(answerBaseline)
     reg.replaceOllama({
       llm,
-      embedder: new OllamaEmbedderProvider(client, o.embedderModel!, null),
-      reranker: new OllamaRerankerProvider(client, o.rerankerModel!),
+      embedder: availableOllama.embedder
+        ? new OllamaEmbedderProvider(client, o.embedderModel!, null)
+        : null,
+      reranker: availableOllama.reranker
+        ? new OllamaRerankerProvider(client, o.rerankerModel!)
+        : null,
     })
   } else {
     reg.replaceOllama({ llm: null, embedder: null, reranker: null })
@@ -616,9 +719,9 @@ async function applySettings(s: UserSettings): Promise<void> {
 
   // Switch sources only if Ollama providers are actually built; otherwise stay bundled.
   const nextLlmSource: 'bundled' | 'ollama' =
-    haveOllama && s.advanced.llm.source === 'ollama' ? 'ollama' : 'bundled'
+    availableOllama.llm && s.advanced.llm.source === 'ollama' ? 'ollama' : 'bundled'
   const nextRerankerSource: 'bundled' | 'ollama' =
-    haveOllama && s.advanced.reranker.source === 'ollama' ? 'ollama' : 'bundled'
+    availableOllama.reranker && s.advanced.reranker.source === 'ollama' ? 'ollama' : 'bundled'
   // Embedder used to be excluded here so a UI flip could only happen via the
   // probe-and-commit `embedder:trySwitchSource` handler (dim-mismatch guard).
   // That left a hole at login: the persisted source was already dim-verified
@@ -627,7 +730,7 @@ async function applySettings(s: UserSettings): Promise<void> {
   // when the user had picked Ollama. Apply the persisted source here too —
   // trySwitchSource still owns runtime flips, this just rehydrates state.
   const nextEmbedderSource: 'bundled' | 'ollama' =
-    haveOllama && s.advanced.embedder.source === 'ollama' ? 'ollama' : 'bundled'
+    availableOllama.embedder && s.advanced.embedder.source === 'ollama' ? 'ollama' : 'bundled'
   reg.setLlmSource(nextLlmSource)
   reg.setRerankerSource(nextRerankerSource)
   reg.setEmbedderSource(nextEmbedderSource)
@@ -637,6 +740,7 @@ async function applySettings(s: UserSettings): Promise<void> {
     mode: s.advanced.reranker.policy,
     source: nextRerankerSource,
   })
+  assertCurrent()
 
   // Free the bundled engines whose source just flipped to external. The user
   // explicitly chose Ollama; keeping the GGUFs in memory would waste several
@@ -676,23 +780,23 @@ function getLlamaService(): LlamaService {
 }
 
 /**
- * Overlay the live provider source + an optional fallback flag onto the raw
+ * Overlay the selected provider and the registry's current fallback state onto the raw
  * status emitted by LlamaService. LlamaService always reports `source:
  * 'bundled'` in its own initializer because it has no view of the registry;
  * the registry is the source of truth for which engine is currently active.
  */
 function composeLlmStatus(
   bundledStatus: import('./services/llm/LlamaService').ModelStatus,
-  fallback?: { active: boolean; reason: string },
 ): import('./services/llm/LlamaService').ModelStatus {
   const source = providerRegistry?.getLlmSource() ?? 'bundled'
+  const fallback = providerRegistry?.getLlmFallback() ?? { active: false, reason: null }
   // When Ollama is the live source, the bundled LLM is unloaded (see
   // applySettings) so its raw state is 'unloaded'/'idle' — that would render
   // the TitleBar dot grey. Force 'ready' so the dot reflects the active
-  // external backend. A fallback flip is the one case we preserve the bundled
-  // status untouched — the chat header pill reads fallback.active to surface
+  // external backend. During fallback, preserve the bundled load/residency
+  // status — the chat header pill reads fallback.active to surface
   // that the request actually ran against bundled despite source='ollama'.
-  if (source === 'ollama' && !fallback) {
+  if (source === 'ollama' && !fallback.active) {
     return {
       ...bundledStatus,
       source,
@@ -704,17 +808,14 @@ function composeLlmStatus(
   return {
     ...bundledStatus,
     source,
-    fallback: fallback
-      ? { active: true, reason: fallback.reason }
-      : { active: false, reason: null },
+    fallback,
   }
 }
 
 function broadcastLlmStatus(
   bundledStatus: import('./services/llm/LlamaService').ModelStatus,
-  fallback?: { active: boolean; reason: string },
 ): void {
-  const status = composeLlmStatus(bundledStatus, fallback)
+  const status = composeLlmStatus(bundledStatus)
   for (const win of BrowserWindow.getAllWindows()) {
     try {
       win.webContents.send('llm:status', status)
@@ -728,8 +829,9 @@ function broadcastLlmStatus(
 
 function getQAService(): QAService {
   if (!qaService) {
+    const database = getAuth().requireDatabase()
     qaService = new QAService(
-      getAuth().requireDatabase(),
+      database,
       getRetrievalService(),
       getProviderRegistry(),
       // doc_summary route (ADR-0003): summary intent + resolved target doc →
@@ -737,7 +839,7 @@ function getQAService(): QAService {
       getSummarizationService(),
       // Codebase-aware answering (ADR-0006): same workspace+tier resolver the
       // retrieval pipeline uses — drives the code topK floor + CODE prompt mode.
-      (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
+      (workspaceId) => isActiveCodebaseWorkspace(workspaceId, database),
     )
   }
   return qaService
@@ -810,19 +912,22 @@ function broadcastRerankerStatus(raw: import('../shared/documents').RerankerStat
 
 function getRetrievalService(): RetrievalService {
   if (!retrievalService) {
+    const database = getAuth().requireDatabase()
+    const store = getAuth().getWorkspaceStore()
+    const vectors = getWorkspaceVectorService()
+    const registry = getProviderRegistry()
     retrievalService = new RetrievalService(
-      getAuth().requireDatabase(),
-      getProviderRegistry(),
+      database,
+      registry,
       // ADR-0005: dense search reads from the per-workspace encrypted Lance store.
-      (workspaceId, queryVec, topK, opts) =>
-        getWorkspaceVectorService().search(workspaceId, queryVec, topK, opts),
+      vectors.search.bind(vectors),
       // ADR-0005: relational/BM25 reads run against the workspace's SQLite store.
-      (workspaceId) => getAuth().getWorkspaceDb(workspaceId),
+      (workspaceId) => store.openDb(workspaceId),
       // Codebase-workspace + tier resolver: drives the reranker gate, code
       // heuristics, and the code-vs-document query instruction. The embedder
       // identity no longer implies it (single-embedder-per-tier: Qwen serves
       // library workspaces too).
-      (workspaceId) => isActiveCodebaseWorkspace(workspaceId),
+      (workspaceId) => isActiveCodebaseWorkspace(workspaceId, database),
       // Maßnahme 4 (R3), 0.6.5-Umbau: EN-variant via the RESIDENT LLM instead
       // of the MADLAD sidecar (which cost ~3 GB VRAM resident and was
       // therefore pro-only). The LLM is loaded anyway, a 96-token translation
@@ -834,8 +939,8 @@ function getRetrievalService(): RetrievalService {
         try {
           opts?.abortSignal?.throwIfAborted()
           if (useLeanChatRetrieval()) return null
-          const reg = providerRegistry
-          if (!reg || !reg.llm().isReady()) return null
+          const reg = registry
+          if (!reg.llm().isReady()) return null
           const { detectIsoLanguage } = await import('./services/documents/languageDetector')
           const iso = await detectIsoLanguage(q).catch(() => null)
           opts?.abortSignal?.throwIfAborted()
@@ -866,9 +971,12 @@ function getRetrievalService(): RetrievalService {
 
 /** True when the workspace is a 'codebase' AND the tier allows codebase indexing
  *  (Standard/Pro; no-marker/dev → allowed). Shared by retrieval + the folder gate. */
-async function isActiveCodebaseWorkspace(workspaceId: number): Promise<boolean> {
+async function isActiveCodebaseWorkspace(
+  workspaceId: number,
+  database: ReturnType<AuthService['requireDatabase']>,
+): Promise<boolean> {
   try {
-    const wss = await getAuth().requireDatabase().workspaces().list()
+    const wss = await database.workspaces().list()
     return wss.find((w) => w.id === workspaceId)?.type === 'codebase' && isCodebaseIndexingEnabled()
   } catch {
     return false
@@ -876,18 +984,22 @@ async function isActiveCodebaseWorkspace(workspaceId: number): Promise<boolean> 
 }
 
 function getDocumentService(): DocumentService {
-  documentService ??= new DocumentService(
-    getAuth(),
-    getProviderRegistry(),
-    documentsWorker,
-    // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
-    // ingest path (import, reindex, refresh, folder-sync).
-    () => getSettingsService().get().retrieval,
-    // ADR-0005: mirror embeddings into the per-workspace encrypted Lance store,
-    // and drop a document's vectors from it on reindex.
-    vectorSink,
-    vectorRemove,
-  )
+  if (!documentService) {
+    const vectors = getWorkspaceVectorService()
+    const settings = getSettingsService()
+    documentService = new DocumentService(
+      getAuth(),
+      getProviderRegistry(),
+      documentsWorker,
+      // AP-9 §3.8: chunk size/overlap come from the indexing settings for every
+      // ingest path (import, reindex, refresh, folder-sync).
+      () => settings.get().retrieval,
+      // ADR-0005: mirror embeddings into the per-workspace encrypted Lance store,
+      // and drop a document's vectors from it on reindex.
+      vectors.upsert.bind(vectors),
+      vectors.remove.bind(vectors),
+    )
+  }
   return documentService
 }
 
@@ -929,7 +1041,9 @@ function broadcastLockDraining(active: boolean): void {
 
 function broadcastAuthState(): void {
   if (!authService) return
+  const isCurrent = sessionRequests.captureSession()
   void authService.status().then((state) => {
+    if (!isCurrent()) return
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send('auth:state', state)
     }
@@ -937,7 +1051,15 @@ function broadcastAuthState(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('models:activity', () => modelsWorker.activity())
+  registerIpcHandlers(withPrivateIpcAdmission(ipcMain, requireOpenSession, sessionGuard))
+}
+
+function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
+  ipcMain.handle('models:activity', () =>
+    !getAuth().isUnlocked() || sessionClosing
+      ? { phase: 'idle', target: null, stage: null, progress: null, error: null, jobs: [] }
+      : modelsWorker.activity(),
+  )
   ipcMain.handle('models:cancelIndexing', async () => {
     backfillService?.cancelRunning()
     await documentService?.cancelAllIndexing(true)
@@ -947,38 +1069,17 @@ function registerIpc(): void {
   ipcMain.handle(
     'auth:register',
     async (_e, input: { displayName: string; password: string; recoveryLang: 'de' | 'en' }) => {
+      await awaitAuthenticationAdmission()
+      const assertCurrent = sessionGuard()
       const result = await getAuth().register(input)
-      // Settings hydrate before any model warming so applySettings (Task 16)
-      // gets a chance to swap providers / placement before autoLoad fires.
-      // Warmup itself is deferred by ~1.5s so the renderer can mount the main
-      // UI before model loads start consuming the main thread + VRAM.
-      await initializeSessionSettings()
-      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
-      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
-      await getDocumentService()
-        .sweepOrphanedIndexing()
-        .catch(() => undefined)
-      // Same orphan problem for quiz decks: a deck left 'generating' by a
-      // locked/closed/navigated-away session would spin forever. Flip stuck
-      // decks to 'failed' so the user sees them and can retry.
-      await getAuth()
-        .requireDatabase()
-        .quizzes()
-        .resetStuckDecks()
-        .catch(() => undefined)
-      // Same orphan problem for quiz attempts: a run left un-scored by a
-      // closed/locked/navigated-away session strands its row. Reclaim them.
-      await getAuth()
-        .requireDatabase()
-        .quizzes()
-        .deleteAbandonedAttempts()
-        .catch(() => undefined)
-      schedulePostLoginWarmup()
+      await completeSessionOpening(assertCurrent)
       return result
     },
   )
 
   ipcMain.handle('auth:login', async (e, input: { password: string }) => {
+    await awaitAuthenticationAdmission()
+    const assertCurrent = sessionGuard()
     const result = await getAuth().login(input.password, {
       // Stream stage events to the renderer so the LoginView can swap the
       // "Entsperre …" label for the actual phase ("Schlüssel ableiten…",
@@ -994,78 +1095,47 @@ function registerIpc(): void {
       },
     })
     if (result.ok) {
-      // Settings hydrate before any model warming so applySettings (Task 16)
-      // gets a chance to swap providers / placement before autoLoad fires.
-      // Warmup itself is deferred by ~1.5s so the renderer can mount the main
-      // UI before model loads start consuming the main thread + VRAM.
-      await initializeSessionSettings()
-      // Clear any docs stuck 'indexing'/'pending' from a prior crashed session
-      // BEFORE warmup starts the sync watchers (which enqueue fresh imports).
-      await getDocumentService()
-        .sweepOrphanedIndexing()
-        .catch(() => undefined)
-      // Same orphan problem for quiz decks: a deck left 'generating' by a
-      // locked/closed/navigated-away session would spin forever. Flip stuck
-      // decks to 'failed' so the user sees them and can retry.
-      await getAuth()
-        .requireDatabase()
-        .quizzes()
-        .resetStuckDecks()
-        .catch(() => undefined)
-      // Same orphan problem for quiz attempts: a run left un-scored by a
-      // closed/locked/navigated-away session strands its row. Reclaim them.
-      await getAuth()
-        .requireDatabase()
-        .quizzes()
-        .deleteAbandonedAttempts()
-        .catch(() => undefined)
-      schedulePostLoginWarmup()
+      await completeSessionOpening(assertCurrent)
     }
     return result
   })
 
-  ipcMain.handle('auth:logout', async () => {
-    cancelPostLoginWarmup()
-    broadcastLockDraining(true)
-    try {
-      await drainPrivateWrites()
-      await drainIndexingForLock()
-      await getAuth().logout()
-    } finally {
-      // Lock clears the key even when its final disk write fails. The private
-      // renderer must follow the actual auth state on that rejection path too.
-      if (!getAuth().isUnlocked()) {
-        resetSessionServices()
-        broadcastAuthState()
+  const lockSession = (): Promise<void> =>
+    sessionCloseGate.close(async () => {
+      cancelPostLoginWarmup()
+      broadcastLockDraining(true)
+      try {
+        try {
+          await drainPrivateWrites()
+          await drainIndexingForLock()
+        } finally {
+          // A failed worker shutdown or pending save must not leave the vault
+          // unlocked with private-work admission already disabled.
+          await getAuth().lock()
+        }
+      } finally {
+        // Lock clears the key even when its final disk write fails. The private
+        // renderer must follow the actual auth state on that rejection path too.
+        if (!getAuth().isUnlocked()) {
+          resetSessionServices()
+          broadcastAuthState()
+        }
+        broadcastLockDraining(false)
       }
-      broadcastLockDraining(false)
-    }
-  })
-
-  ipcMain.handle('auth:lock', async () => {
-    cancelPostLoginWarmup()
-    broadcastLockDraining(true)
-    try {
-      await drainPrivateWrites()
-      await drainIndexingForLock()
-      await getAuth().lock()
-    } finally {
-      if (!getAuth().isUnlocked()) {
-        resetSessionServices()
-        broadcastAuthState()
-      }
-      broadcastLockDraining(false)
-    }
-  })
+    })
+  ipcMain.handle('auth:logout', lockSession)
+  ipcMain.handle('auth:lock', lockSession)
 
   ipcMain.handle('auth:reset', async (_e, input: { passphrase: string; newPassword: string }) => {
+    await awaitAuthenticationAdmission()
+    const assertCurrent = sessionGuard()
     const result = await getAuth().reset(input)
     if (result.ok) {
       // Recovery unlocks a fresh vault session just like login. Retire any old
       // service handles before restoring preferences and provider policy.
+      assertCurrent()
       resetSessionServices()
-      await initializeSessionSettings()
-      schedulePostLoginWarmup()
+      await completeSessionOpening(sessionGuard())
     }
     return result
   })
@@ -1089,8 +1159,10 @@ function registerIpc(): void {
   // AP-9 Account §3.8: regenerate the recovery passphrase. Requires the current
   // password; replaces the recovery entry (old codes stop working) without
   // touching the password wrap or the body. Returns the new passphrase once.
-  ipcMain.handle('auth:regenerateRecovery', async (_e, input: { currentPassword: string }) =>
-    getAuth().regenerateRecovery(input.currentPassword),
+  ipcMain.handle('auth:regenerateRecovery', async (e, input: { currentPassword: string }) =>
+    withSessionRequest('read', e.sender, async () =>
+      getAuth().regenerateRecovery(input.currentPassword),
+    ),
   )
 
   // Copies a secret (recovery passphrase) and clears the clipboard after a
@@ -1164,26 +1236,28 @@ function registerIpc(): void {
   // store + materialises its LanceDB vectors). The renderer calls this whenever
   // the user switches workspace, so the id-keyed data ops (documents:get,
   // conversations, quizzes, …) operate on the right workspace's store.
-  ipcMain.handle('workspaces:activate', async (_e, workspaceId: number) => {
-    await getAuth().activate(workspaceId)
-    // Single-embedder-per-tier (chosen 2026-06-26): the embedder is fixed by install
-    // tier — Qwen3-Embedding on Standard/Pro (serves library AND codebase), BGE-M3 on
-    // Lite — with NO per-workspace model swap. So activation no longer switches models
-    // or lazily fetches a code embedder. It just re-embeds any chunks still on a
-    // previous embedder so the active workspace catches up promptly (best-effort +
-    // deduped; the login backfill also covers every workspace).
-    void getBackfillService()
-      .run(workspaceId)
-      .catch(() => undefined)
-    // Reconcile this workspace's watched folders now that it's the active one.
-    // Watcher events that fired while it was inactive (or before unlock finished
-    // activating it) were skipped by the active-workspace gate in FolderSync, so
-    // pick up any changes made since. Fire-and-forget — activation must never
-    // block on a folder walk, and a no-sync-folders workspace returns instantly.
-    void getFolderSyncService()
-      .sync(workspaceId)
-      .catch(() => undefined)
-  })
+  ipcMain.handle('workspaces:activate', (e, workspaceId: number) =>
+    withSessionRequest('mutation', e.sender, async (request) => {
+      const auth = getAuth()
+      const backfill = getBackfillService()
+      const folders = getFolderSyncService()
+      await auth.activate(workspaceId)
+      request.controller.signal.throwIfAborted()
+      // Single-embedder-per-tier (chosen 2026-06-26): the embedder is fixed by install
+      // tier — Qwen3-Embedding on Standard/Pro (serves library AND codebase), BGE-M3 on
+      // Lite — with NO per-workspace model swap. So activation no longer switches models
+      // or lazily fetches a code embedder. It just re-embeds any chunks still on a
+      // previous embedder so the active workspace catches up promptly (best-effort +
+      // deduped; the login backfill also covers every workspace).
+      void backfill.run(workspaceId).catch(() => undefined)
+      // Reconcile this workspace's watched folders now that it's the active one.
+      // Watcher events that fired while it was inactive (or before unlock finished
+      // activating it) were skipped by the active-workspace gate in FolderSync, so
+      // pick up any changes made since. Fire-and-forget — activation must never
+      // block on a folder walk, and a no-sync-folders workspace returns instantly.
+      void folders.sync(workspaceId).catch(() => undefined)
+    }),
+  )
   // ADR-0005: default workspace auto-loaded on unlock.
   ipcMain.handle('workspaces:getDefault', async () => getWorkspaceService().getDefault())
   ipcMain.handle('workspaces:setDefault', async (_e, id: number | null) =>
@@ -1194,41 +1268,44 @@ function registerIpc(): void {
   ipcMain.handle('workspaces:listSyncFolders', async (_e, workspaceId: number) =>
     getFolderSyncService().getFolders(workspaceId),
   )
-  ipcMain.handle('workspaces:addSyncFolder', async (e, workspaceId: number) => {
-    const win = BrowserWindow.fromWebContents(e.sender)
-    const options: Electron.OpenDialogOptions = {
-      properties: ['openDirectory'],
-    }
-    const picked = win
-      ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options)
-    if (picked.canceled || picked.filePaths.length === 0) return null
-    const folder = picked.filePaths[0]!
-    const folders = await getFolderSyncService().addFolder(workspaceId, folder)
-    // ADR-0006: a codebase folder with NO .gitignore — let the renderer pick which
-    // top-level directories to index BEFORE the first sync (so we don't embed the
-    // whole tree). When a .gitignore exists, or it isn't a codebase, sync now as
-    // before. classifyFolders is idempotent (only ever flips type → 'codebase').
-    try {
-      const classification = await getFolderSyncService().classifyFolders(workspaceId)
-      const hasGitignore = (await loadGitignore(folder)) !== null
-      if (classification.isCodebase && !hasGitignore) {
-        const topLevelDirs = await listTopLevelDirs(folder)
-        if (topLevelDirs.length > 0) {
-          // Defer the sync — the renderer calls setIndexDirs(...) then syncNow.
-          return { folders, needsDirSelection: { folder, topLevelDirs } }
-        }
+  ipcMain.handle('workspaces:addSyncFolder', (e, workspaceId: number) =>
+    withSessionRequest('mutation', e.sender, async (request) => {
+      const service = getFolderSyncService()
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openDirectory'],
       }
-    } catch {
-      /* classify/gitignore probe failed — fall through to a normal immediate sync */
-    }
-    // Kick off an immediate sync so the folder's existing contents land in
-    // the library without a manual "Sync now" click.
-    void getFolderSyncService()
-      .sync(workspaceId)
-      .catch(() => undefined)
-    return { folders }
-  })
+      const picked = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      request.controller.signal.throwIfAborted()
+      if (picked.canceled || picked.filePaths.length === 0) return null
+      const folder = picked.filePaths[0]!
+      const folders = await service.addFolder(workspaceId, folder)
+      // ADR-0006: a codebase folder with NO .gitignore — let the renderer pick which
+      // top-level directories to index BEFORE the first sync (so we don't embed the
+      // whole tree). When a .gitignore exists, or it isn't a codebase, sync now as
+      // before. classifyFolders is idempotent (only ever flips type → 'codebase').
+      try {
+        const classification = await service.classifyFolders(workspaceId)
+        const hasGitignore = (await loadGitignore(folder)) !== null
+        if (classification.isCodebase && !hasGitignore) {
+          const topLevelDirs = await listTopLevelDirs(folder)
+          if (topLevelDirs.length > 0) {
+            // Defer the sync — the renderer calls setIndexDirs(...) then syncNow.
+            return { folders, needsDirSelection: { folder, topLevelDirs } }
+          }
+        }
+      } catch {
+        /* classify/gitignore probe failed — fall through to a normal immediate sync */
+      }
+      // Kick off an immediate sync so the folder's existing contents land in
+      // the library without a manual "Sync now" click.
+      request.controller.signal.throwIfAborted()
+      void service.sync(workspaceId).catch(() => undefined)
+      return { folders }
+    }),
+  )
   // ADR-0006: persist / read the user's top-level-dir selection for a synced folder
   // (used when the folder has no .gitignore). Empty list ⇒ index everything.
   ipcMain.handle(
@@ -1272,41 +1349,43 @@ function registerIpc(): void {
   ipcMain.handle('documents:list', async (_e, workspaceId: number) => {
     return getAuth().requireDatabase().documents().listDocumentsByWorkspace(workspaceId)
   })
-  ipcMain.handle('documents:pickFiles', async (e) => {
-    const options: Electron.OpenDialogOptions = {
-      properties: ['openFile', 'multiSelections'],
-      filters: [
-        {
-          name: 'Dokumente',
-          extensions: [
-            'pdf',
-            'md',
-            'markdown',
-            'txt',
-            'rst',
-            'json',
-            'yaml',
-            'yml',
-            'toml',
-            'png',
-            'jpg',
-            'jpeg',
-            'webp',
-            'tif',
-            'tiff',
-            'bmp',
-            'gif',
-          ],
-        },
-        { name: 'Alle Dateien', extensions: ['*'] },
-      ],
-    }
-    const win = BrowserWindow.fromWebContents(e.sender)
-    const result = win
-      ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options)
-    return result.canceled ? [] : result.filePaths
-  })
+  ipcMain.handle('documents:pickFiles', (e) =>
+    withSessionRequest('read', e.sender, async () => {
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: 'Dokumente',
+            extensions: [
+              'pdf',
+              'md',
+              'markdown',
+              'txt',
+              'rst',
+              'json',
+              'yaml',
+              'yml',
+              'toml',
+              'png',
+              'jpg',
+              'jpeg',
+              'webp',
+              'tif',
+              'tiff',
+              'bmp',
+              'gif',
+            ],
+          },
+          { name: 'Alle Dateien', extensions: ['*'] },
+        ],
+      }
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const result = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      return result.canceled ? [] : result.filePaths
+    }),
+  )
   ipcMain.handle('documents:import', async (e, workspaceId: number, sourcePath: string) => {
     try {
       return await getDocumentService().importFile({
@@ -1329,21 +1408,21 @@ function registerIpc(): void {
     await getDocumentService().deleteDocuments([id])
   })
 
-  // Export = reveal the original file in the OS file manager. The bytes stay
-  // on the user's disk ; the encrypted vault never holds a copy, so there's
-  // nothing to "save as" from us. shell.showItemInFolder is a no-op when the
-  // path is gone, so we stat first and return a structured "missing" result
-  // for the renderer to surface.
-  ipcMain.handle('documents:revealSource', async (_e, id: number) => {
-    const doc = await getAuth().requireDatabase().documents().getDocument(id)
-    if (!doc) throw new Error(`Document ${id} not found`)
-    const { existsSync } = await import('node:fs')
-    if (!existsSync(doc.sourcePath)) {
-      return { ok: false as const, kind: 'missing' as const, sourcePath: doc.sourcePath }
-    }
-    shell.showItemInFolder(doc.sourcePath)
-    return { ok: true as const, sourcePath: doc.sourcePath }
-  })
+  // Reveal the original file in the OS file manager. Generated documents have
+  // an encrypted text source instead, and the renderer hides this action.
+  ipcMain.handle('documents:revealSource', (e, id: number) =>
+    withSessionRequest('read', e.sender, async (request) => {
+      const doc = await getAuth().requireDatabase().documents().getDocument(id)
+      if (!doc) throw new Error(`Document ${id} not found`)
+      const { existsSync } = await import('node:fs')
+      request.controller.signal.throwIfAborted()
+      if (!existsSync(doc.sourcePath)) {
+        return { ok: false as const, kind: 'missing' as const, sourcePath: doc.sourcePath }
+      }
+      shell.showItemInFolder(doc.sourcePath)
+      return { ok: true as const, sourcePath: doc.sourcePath }
+    }),
+  )
 
   // Export = save a copy of the source file to a path the user picks. Distinct
   // from reveal/openExternal in that the gated PasswordRetypeGate runs first
@@ -1351,108 +1430,142 @@ function registerIpc(): void {
   // so the user has reconfirmed they intend to write plaintext outside the
   // vault. Mirrors documents:revealSource's "stat first" guard so a missing
   // source returns a structured result instead of a crash.
-  ipcMain.handle('documents:exportDocument', async (e, id: number) => {
-    const doc = await getAuth().requireDatabase().documents().getDocument(id)
-    if (!doc) throw new Error(`Document ${id} not found`)
-    const { existsSync } = await import('node:fs')
-    if (!existsSync(doc.sourcePath)) {
-      return { ok: false as const, kind: 'missing' as const, message: 'Quelldatei fehlt.' }
-    }
-    const win = BrowserWindow.fromWebContents(e.sender)
-    const { basename, extname } = await import('node:path')
-    const defaultName = basename(doc.sourcePath)
-    const ext = extname(doc.sourcePath).replace(/^\./, '').toLowerCase() || 'bin'
-    const options: Electron.SaveDialogOptions = {
-      title: 'Dokument exportieren',
-      defaultPath: defaultName,
-      filters: [
-        { name: 'Originalformat', extensions: [ext] },
-        { name: 'Alle Dateien', extensions: ['*'] },
-      ],
-    }
-    const picked = win
-      ? await dialog.showSaveDialog(win, options)
-      : await dialog.showSaveDialog(options)
-    if (picked.canceled || !picked.filePath) {
-      return { ok: false as const, kind: 'cancelled' as const, message: 'abgebrochen' }
-    }
-    try {
-      const { copyFile } = await import('node:fs/promises')
-      await copyFile(doc.sourcePath, picked.filePath)
-      return { ok: true as const, destPath: picked.filePath }
-    } catch (err) {
-      return {
-        ok: false as const,
-        kind: 'write_failed' as const,
-        message: err instanceof Error ? err.message : String(err),
+  ipcMain.handle('documents:exportDocument', (e, id: number) =>
+    withSessionRequest('export', e.sender, async (request) => {
+      const database = getAuth().requireDatabase()
+      const doc = await database.documents().getDocument(id)
+      if (!doc) throw new Error(`Document ${id} not found`)
+      const generated = isGeneratedDocumentSource(doc.sourcePath)
+      const { existsSync } = await import('node:fs')
+      if (!generated && !existsSync(doc.sourcePath)) {
+        return { ok: false as const, kind: 'missing' as const, message: 'Quelldatei fehlt.' }
       }
-    }
-  })
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const { basename, extname } = await import('node:path')
+      const defaultName = basename(generated ? doc.title : doc.sourcePath)
+      const ext = generated
+        ? doc.mimeType === 'text/markdown'
+          ? 'md'
+          : 'txt'
+        : extname(doc.sourcePath).replace(/^\./, '').toLowerCase() || 'bin'
+      const options: Electron.SaveDialogOptions = {
+        title: 'Dokument exportieren',
+        defaultPath: defaultName,
+        filters: [
+          { name: 'Originalformat', extensions: [ext] },
+          { name: 'Alle Dateien', extensions: ['*'] },
+        ],
+      }
+      const picked = win
+        ? await dialog.showSaveDialog(win, options)
+        : await dialog.showSaveDialog(options)
+      if (picked.canceled || !picked.filePath) {
+        return { ok: false as const, kind: 'cancelled' as const, message: 'abgebrochen' }
+      }
+      request.controller.signal.throwIfAborted()
+      try {
+        if (generated) {
+          const repo = await database.documentsFor(doc.workspaceId)
+          const text = await repo.getGeneratedText(id)
+          if (text === null)
+            return {
+              ok: false as const,
+              kind: 'missing' as const,
+              message: 'Document source unavailable.',
+            }
+          request.controller.signal.throwIfAborted()
+          await exportDocument(picked.filePath, { text }, request.controller.signal)
+        } else {
+          request.controller.signal.throwIfAborted()
+          await exportDocument(picked.filePath, { path: doc.sourcePath }, request.controller.signal)
+        }
+        return { ok: true as const, destPath: picked.filePath }
+      } catch (err) {
+        return {
+          ok: false as const,
+          kind: 'write_failed' as const,
+          message: err instanceof Error ? err.message : String(err),
+        }
+      }
+    }),
+  )
 
   // Open externally with the OS-default app (PDF viewer, editor, etc.). Same
   // missing-file guard as reveal , plus a defense-in-depth extension check so
   // a stored sourcePath pointing at a .lnk / .url / .scpt (e.g. via a stale
   // pre-symlink-fix sync) can't get shell-executed. isSupportedDocPath only
   // accepts the doc extensions we know how to parse.
-  ipcMain.handle('documents:openExternal', async (_e, id: number) => {
-    const doc = await getAuth().requireDatabase().documents().getDocument(id)
-    if (!doc) throw new Error(`Document ${id} not found`)
-    if (!isSupportedDocPath(doc.sourcePath)) {
-      return {
-        ok: false as const,
-        kind: 'missing' as const,
-        message: 'Unsupported file type for the OS opener.',
+  ipcMain.handle('documents:openExternal', (e, id: number) =>
+    withSessionRequest('read', e.sender, async (request) => {
+      const doc = await getAuth().requireDatabase().documents().getDocument(id)
+      if (!doc) throw new Error(`Document ${id} not found`)
+      if (!isSupportedDocPath(doc.sourcePath)) {
+        return {
+          ok: false as const,
+          kind: 'missing' as const,
+          message: 'Unsupported file type for the OS opener.',
+        }
       }
-    }
-    const err = await shell.openPath(doc.sourcePath)
-    if (err) return { ok: false as const, kind: 'missing' as const, message: err }
-    return { ok: true as const }
-  })
+      request.controller.signal.throwIfAborted()
+      const err = await shell.openPath(doc.sourcePath)
+      if (err) return { ok: false as const, kind: 'missing' as const, message: err }
+      return { ok: true as const }
+    }),
+  )
 
   // Replace = pick a new file on disk + reindex against it. The doc row keeps
   // its id (so chats / quizzes referencing it stay valid), only sourcePath +
   // title + metadata flip.
-  ipcMain.handle('documents:replaceSource', async (e, id: number) => {
-    const win = BrowserWindow.fromWebContents(e.sender)
-    const options: Electron.OpenDialogOptions = {
-      properties: ['openFile'],
-      filters: [
-        {
-          name: 'Dokumente',
-          extensions: [
-            'pdf',
-            'md',
-            'markdown',
-            'txt',
-            'rst',
-            'json',
-            'yaml',
-            'yml',
-            'toml',
-            'png',
-            'jpg',
-            'jpeg',
-            'webp',
-            'tif',
-            'tiff',
-            'bmp',
-            'gif',
-          ],
-        },
-        { name: 'Alle Dateien', extensions: ['*'] },
-      ],
-    }
-    const picked = win
-      ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options)
-    if (picked.canceled || picked.filePaths.length === 0) return null
-    try {
-      return await getDocumentService().replaceSource(id, picked.filePaths[0]!, e.sender)
-    } catch (err) {
-      if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
-      throw err
-    }
-  })
+  ipcMain.handle('documents:replaceSource', (e, id: number) =>
+    withSessionRequest('mutation', e.sender, async (request) => {
+      // Resolve the origin before the native picker yields. Document IDs are
+      // local to a workspace, and another window may activate a different one.
+      const documents = getDocumentService()
+      const doc = await getAuth().requireDatabase().documents().getDocument(id)
+      if (!doc) throw new Error(`Document ${id} not found`)
+      request.controller.signal.throwIfAborted()
+      const win = BrowserWindow.fromWebContents(e.sender)
+      const options: Electron.OpenDialogOptions = {
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Dokumente',
+            extensions: [
+              'pdf',
+              'md',
+              'markdown',
+              'txt',
+              'rst',
+              'json',
+              'yaml',
+              'yml',
+              'toml',
+              'png',
+              'jpg',
+              'jpeg',
+              'webp',
+              'tif',
+              'tiff',
+              'bmp',
+              'gif',
+            ],
+          },
+          { name: 'Alle Dateien', extensions: ['*'] },
+        ],
+      }
+      const picked = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      request.controller.signal.throwIfAborted()
+      if (picked.canceled || picked.filePaths.length === 0) return null
+      try {
+        return await documents.replaceSource(id, picked.filePaths[0]!, e.sender, doc.workspaceId)
+      } catch (err) {
+        if (err instanceof ImportError) throw new Error(`${err.code}: ${err.message}`)
+        throw err
+      }
+    }),
+  )
 
   // Refresh = re-stat + hash the existing path ; reindex only if bytes changed.
   // Returns the outcome so the UI can show "Aktuell" / "Aktualisiert" / "Quelle fehlt".
@@ -1489,9 +1602,13 @@ function registerIpc(): void {
   })
   // Lazily compute (or return cached) whole-document summary. Coded errors so
   // the renderer can localize 'no_content' / 'model_not_ready' distinctly.
-  ipcMain.handle('documents:summarize', async (_e, documentId: number) => {
+  ipcMain.handle('documents:summarize', async (e, documentId: number) => {
     try {
-      return await getSummarizationService().summarize(documentId)
+      return await withSessionRequest('summary', e.sender, (request) =>
+        getSummarizationService().summarize(documentId, {
+          abortSignal: request.controller.signal,
+        }),
+      )
     } catch (err) {
       if (err instanceof SummarizationError) throw new Error(`${err.code}: ${err.message}`)
       throw err
@@ -1573,15 +1690,27 @@ function registerIpc(): void {
   // Returns raw bytes for a PDF document so the renderer can display the page
   // via pdfjs. We gate this on mime-type/extension so it can't be used to
   // exfiltrate arbitrary files; the caller must know a valid document id.
-  ipcMain.handle('documents:readDocumentBytes', async (_e, documentId: number) => {
-    const doc = await getAuth().requireDatabase().documents().getDocument(documentId)
-    if (!doc) return null
-    const isPdf = doc.mimeType === 'application/pdf' || /\.pdf$/i.test(doc.sourcePath)
-    if (!isPdf) return null
-    const { readFile } = await import('node:fs/promises')
-    const buf = await readFile(doc.sourcePath)
-    return new Uint8Array(buf)
-  })
+  ipcMain.handle('documents:readDocumentBytes', async (e, documentId: number) =>
+    withSessionRequest('read', e.sender, async (request) => {
+      const doc = await getAuth().requireDatabase().documents().getDocument(documentId)
+      if (!doc) return null
+      const isPdf = doc.mimeType === 'application/pdf' || /\.pdf$/i.test(doc.sourcePath)
+      if (!isPdf) return null
+      const { readFile } = await import('node:fs/promises')
+      const buf = await readFile(doc.sourcePath, { signal: request.controller.signal })
+      return new Uint8Array(buf)
+    }),
+  )
+
+  ipcMain.handle('documents:readGeneratedText', (e, documentId: number) =>
+    withSessionRequest('read', e.sender, async () => {
+      const database = getAuth().requireDatabase()
+      const doc = await database.documents().getDocument(documentId)
+      if (!doc || !isGeneratedDocumentSource(doc.sourcePath)) return null
+      const repo = await database.documentsFor(doc.workspaceId)
+      return repo.getGeneratedText(documentId)
+    }),
+  )
 
   // conversations
   ipcMain.handle('conversations:list', async (_e, workspaceId: number) =>
@@ -1613,6 +1742,14 @@ function registerIpc(): void {
   ipcMain.handle('conversations:deleteMessage', async (_e, messageId: number) => {
     await getAuth().requireDatabase().conversations().deleteMessage(messageId)
   })
+  ipcMain.handle('conversations:deleteLatestTurn', (e, input: DeleteConversationTurnInput) =>
+    withSessionRequest('mutation', e.sender, async (request) => {
+      validateDeleteConversationTurn(input)
+      const repo = await getAuth().requireDatabase().conversationsFor(input.workspaceId)
+      request.controller.signal.throwIfAborted()
+      await repo.deleteLatestTurn(input)
+    }),
+  )
 
   // ---- folders (user-created document organization) ----
   ipcMain.handle('folders:list', async (_e, workspaceId: number) => {
@@ -1650,20 +1787,31 @@ function registerIpc(): void {
   // manual rename is preserved. Returns the title that ended up on the row
   // (existing or freshly generated, or null if the model couldn't produce
   // anything usable).
-  ipcMain.handle('conversations:generateTitle', async (_e, id: number): Promise<string | null> => {
-    const repo = getAuth().requireDatabase().conversations()
-    const data = await repo.getWithMessages(id)
-    if (!data) return null
-    if (data.conversation.title != null && data.conversation.title.trim().length > 0) {
-      return data.conversation.title
-    }
-    const firstUser = data.messages.find((m) => m.role === 'user')
-    const firstAssistant = data.messages.find((m) => m.role === 'assistant')
-    if (!firstUser || !firstAssistant) return null
-    const title = await getLlamaService().generateTitle(firstUser.content, firstAssistant.content)
-    if (!title) return null
-    await repo.setTitle(id, title)
-    return title
+  ipcMain.handle('conversations:generateTitle', async (e, id: number): Promise<string | null> => {
+    return withSessionRequest('title', e.sender, async (request) => {
+      const database = getAuth().requireDatabase()
+      const data = await database.conversations().getWithMessages(id)
+      request.controller.signal.throwIfAborted()
+      if (!data) return null
+      if (data.conversation.title != null && data.conversation.title.trim().length > 0) {
+        return data.conversation.title
+      }
+      const repo = await database.conversationsFor(data.conversation.workspaceId)
+      request.controller.signal.throwIfAborted()
+      const firstUser = data.messages.find((m) => m.role === 'user')
+      const firstAssistant = data.messages.find((m) => m.role === 'assistant')
+      if (!firstUser || !firstAssistant) return null
+      const title = await getLlamaService().generateTitle(
+        firstUser.content,
+        firstAssistant.content,
+        {
+          abortSignal: request.controller.signal,
+        },
+      )
+      request.controller.signal.throwIfAborted()
+      if (!title) return null
+      return await repo.setTitleIfEmpty(id, title)
+    })
   })
 
   // models — manifest-driven download + availability
@@ -1722,41 +1870,44 @@ function registerIpc(): void {
   // so closing a panel/window cancels only its own queued or running work.
   ipcMain.handle('translation:status', async () => getTranslationService().status())
   ipcMain.handle('translation:translate', async (e, text: string, opts: TranslateOptions) => {
+    requireOpenSession()
     const requestId =
       opts?.requestId ?? `translation-${Date.now()}-${Math.random().toString(36).slice(2)}`
     if (typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(requestId)) {
       throw new Error('Invalid translation request ID.')
     }
-    const key = `${e.sender.id}:${requestId}`
-    if (translationRuns.has(key)) throw new Error('Translation request is already running.')
-    const controller = new AbortController()
-    translationRuns.set(key, controller)
+    const request = sessionRequests.begin('translation', e.sender.id, requestId)
+    const controller = request.controller
     const abort = (): void => controller.abort()
     e.sender.once('destroyed', abort)
     try {
-      return await getTranslationService().translate(text, opts, {
+      const result = await getTranslationService().translate(text, opts, {
         abortSignal: controller.signal,
         onProgress: (progress) => {
-          if (!e.sender.isDestroyed())
+          if (request.isCurrent() && !e.sender.isDestroyed())
             e.sender.send('translation:progress', { requestId, ...progress })
         },
       })
+      if (!request.isCurrent()) throw new LockedError()
+      return result
     } finally {
-      translationRuns.delete(key)
+      request.finish()
       e.sender.removeListener('destroyed', abort)
     }
   })
   ipcMain.handle('translation:cancel', (e, requestId: string) => {
-    translationRuns.get(`${e.sender.id}:${requestId}`)?.abort()
+    sessionRequests.cancel('translation', e.sender.id, requestId)
   })
   ipcMain.handle('translation:languages', async () => TRANSLATION_LANGUAGES)
   // Pull a document's indexed text (chunks joined in order) for translation.
   // Reuses the same chunk store the summarizer reads — no re-parse of the
   // original file.
   ipcMain.handle('translation:documentText', async (_e, documentId: number) => {
-    const repo = getAuth().requireDatabase().documents()
-    const doc = await repo.getDocument(documentId)
+    requireOpenSession()
+    const database = getAuth().requireDatabase()
+    const doc = await database.documents().getDocument(documentId)
     if (!doc) throw new Error('Document not found')
+    const repo = await database.documentsFor(doc.workspaceId)
     const chunks = await repo.listChunksForDocument(documentId)
     return { title: doc.title, text: chunks.map((c) => c.text).join('\n\n') }
   })
@@ -1765,21 +1916,20 @@ function registerIpc(): void {
   ipcMain.handle(
     'translation:saveDocument',
     async (e, workspaceId: number, title: string, text: string, target: string) => {
-      const { mkdirSync, writeFileSync } = await import('node:fs')
-      // A per-save timestamped subdir keeps the source_path unique (the
-      // (workspace_id, source_path) index rejects a re-save otherwise) while
-      // the filename — and thus the imported doc's title — stays readable.
-      const dir = join(app.getPath('temp'), 'loklm-translations', String(Date.now()))
-      mkdirSync(dir, { recursive: true })
+      requireOpenSession()
       const base =
         title
           .replace(/\.[a-z0-9]{1,8}$/i, '') // drop the source extension (report.pdf → report)
           .replace(/[\\/:*?"<>|\r\n]/g, '_')
           .slice(0, 100)
           .trim() || 'document'
-      const path = join(dir, `${base} (${target}).md`)
-      writeFileSync(path, text, 'utf8')
-      return getDocumentService().importFile({ workspaceId, sourcePath: path, sender: e.sender })
+      return getDocumentService().importGeneratedText({
+        workspaceId,
+        title: `${base} (${target}).md`,
+        text,
+        mimeType: 'text/markdown',
+        sender: e.sender,
+      })
     },
   )
 
@@ -1788,20 +1938,18 @@ function registerIpc(): void {
   // (the post-login warmup usually beat us here; this covers the cold case).
   // Skipped when the user is on external Ollama — its provider reports ready
   // by reachability and there's no local GGUF to load.
-  ipcMain.handle('writing:improve', async (_e, text: string, mode: WritingMode) => {
-    const reg = getProviderRegistry()
-    if (!reg.llm().isReady() && reg.getLlmSource() !== 'ollama') {
-      // ensureLoaded (not autoLoad): no-op if ready , and shares the warmup's
-      // in-flight load instead of racing a second one. Log a load failure —
-      // otherwise it surfaces only as a downstream 'model_not_ready'.
-      try {
-        await getLlamaService().ensureLoaded()
-      } catch (err) {
-        console.error('[writing] LLM load failed before rewrite:', err)
-      }
-    }
+  ipcMain.handle('writing:improve', async (e, text: string, mode: WritingMode) => {
     try {
-      return await getWritingService().improve(text, mode)
+      return await withSessionRequest('writing', e.sender, async (request) => {
+        const reg = getProviderRegistry()
+        if (!reg.llm().isReady() && reg.getLlmSource() !== 'ollama') {
+          await getLlamaService().ensureLoaded()
+        }
+        request.controller.signal.throwIfAborted()
+        return getWritingService().improve(text, mode, {
+          abortSignal: request.controller.signal,
+        })
+      })
     } catch (err) {
       if (err instanceof WritingError) throw new Error(`${err.code}: ${err.message}`)
       console.error('[writing] rewrite failed:', err)
@@ -1813,28 +1961,45 @@ function registerIpc(): void {
   // renderer decodes/resamples audio to 16 kHz mono and streams the PCM to a
   // temp file via stageChunk; run() drives transcribe → (diarize → align) and
   // forwards events on transcription:event:<streamId>.
-  ipcMain.handle('transcription:stageBegin', () => transcriptionService.stager.begin())
+  ipcMain.handle('transcription:stageBegin', () => {
+    requireOpenSession()
+    return transcriptionService.stager.begin()
+  })
   ipcMain.handle('transcription:stageChunk', async (_e, audioId: string, bytes: Uint8Array) => {
+    requireOpenSession()
     await transcriptionService.stager.chunk(audioId, bytes)
   })
   ipcMain.handle('transcription:stageCommit', async (_e, audioId: string, durationSec: number) => {
-    await transcriptionService.stager.commit(audioId, durationSec)
+    requireOpenSession()
+    await transcriptionService.stager.commit(audioId)
     return { audioId, durationSec }
   })
   ipcMain.handle(
     'transcription:run',
     async (e, streamId: string, audioId: string, opts: TranscriptionOptions) => {
-      await transcriptionService.run(streamId, audioId, opts, (ev: TranscriptionEvent) => {
-        try {
-          if (!e.sender.isDestroyed()) e.sender.send(`transcription:event:${streamId}`, ev)
-        } catch {
-          /* renderer torn down — drop the event */
-        }
-      })
+      requireOpenSession()
+      const key = `${e.sender.id}:${streamId}`
+      const cancel = (): void => transcriptionService.cancel(key)
+      e.sender.once('destroyed', cancel)
+      try {
+        await transcriptionService.run(key, audioId, opts, (ev: TranscriptionEvent) => {
+          if (sessionClosing || !getAuth().isUnlocked()) {
+            if (ev.type !== 'done' && ev.type !== 'error') return
+            ev = { type: 'done', segments: [] }
+          }
+          try {
+            if (!e.sender.isDestroyed()) e.sender.send(`transcription:event:${streamId}`, ev)
+          } catch {
+            /* renderer torn down — drop the event */
+          }
+        })
+      } finally {
+        e.sender.removeListener('destroyed', cancel)
+      }
     },
   )
-  ipcMain.handle('transcription:cancel', (_e, streamId: string) => {
-    transcriptionService.cancel(streamId)
+  ipcMain.handle('transcription:cancel', (e, streamId: string) => {
+    transcriptionService.cancel(`${e.sender.id}:${streamId}`)
   })
   ipcMain.handle('transcription:modelStatus', (): WhisperModelStatus[] =>
     (Object.keys(WHISPER_MODELS) as Array<keyof typeof WHISPER_MODELS>).map((id) => ({
@@ -1847,8 +2012,15 @@ function registerIpc(): void {
   ipcMain.handle(
     'transcription:saveToWorkspace',
     async (e, workspaceId: number, text: string, ext: 'txt' | 'md') => {
-      const path = transcriptionService.writeTranscriptFile(text, ext)
-      return getDocumentService().importFile({ workspaceId, sourcePath: path, sender: e.sender })
+      requireOpenSession()
+      if (ext !== 'txt' && ext !== 'md') throw new Error('Invalid transcript format')
+      return getDocumentService().importGeneratedText({
+        workspaceId,
+        title: `transcript-${Date.now()}.${ext}`,
+        text,
+        mimeType: ext === 'md' ? 'text/markdown' : 'text/plain',
+        sender: e.sender,
+      })
     },
   )
 
@@ -1886,12 +2058,18 @@ function registerIpc(): void {
   ipcMain.handle(
     'search:hybrid',
     async (
-      _e,
+      e,
       workspaceId: number,
       query: string,
       topK: number,
       opts: import('../shared/documents').RetrievalOptions = {},
-    ) => getRetrievalService().search(workspaceId, query, topK, opts),
+    ) =>
+      withSessionRequest('search', e.sender, (request) =>
+        getRetrievalService().search(workspaceId, query, topK, {
+          ...opts,
+          abortSignal: request.controller.signal,
+        }),
+      ),
   )
 
   // reranker
@@ -1948,29 +2126,35 @@ function registerIpc(): void {
   // parked configurations remain ready on demand; startup does not keep
   // every model in GPU memory or load chat twice on a small card.
   ipcMain.handle('models:warmupForQa', async () => {
+    requireOpenSession()
     if (qaWarmupPromise) return
-    qaWarmupPromise = (async () => {
-      const reg = getProviderRegistry()
+    const epoch = warmupEpoch
+    const reg = getProviderRegistry()
+    const rerankerEnabled = getSettingsService().get().advanced.reranker.enabled
+    const llama = getLlamaService()
+    const warming = (async () => {
       await reg
         .embedder()
         .ensureReady()
         .catch(() => undefined)
-      if (getSettingsService().get().advanced.reranker.enabled)
+      if (!isWarmupCurrent(epoch)) return
+      if (rerankerEnabled)
         await reg
           .reranker()
           .ensureReady()
           .catch(() => undefined)
+      if (!isWarmupCurrent(epoch)) return
       if (reg.getLlmSource() !== 'ollama') {
-        await getLlamaService()
-          .ensureLoaded()
-          .catch(() => undefined)
+        await llama.ensureLoaded().catch(() => undefined)
+        if (!isWarmupCurrent(epoch)) return
         await modelsWorker.restoreChat().catch(() => undefined)
       }
     })()
       .catch((error) => console.warn('[models] warmup failed:', error))
       .finally(() => {
-        qaWarmupPromise = null
+        if (qaWarmupPromise === warming) qaWarmupPromise = null
       })
+    qaWarmupPromise = warming
   })
 
   // settings
@@ -2002,7 +2186,7 @@ function registerIpc(): void {
     // old throw only spammed the main log and poisoned the renderer's settings
     // hook (every Settings tab stuck on "loading" after a slow-unlock race ,
     // e.g. on a reinstall). The renderer re-reads the real settings on unlock.
-    if (!getAuth().isUnlocked()) return DEFAULT_SETTINGS
+    if (!getAuth().isUnlocked() || sessionClosing) return DEFAULT_SETTINGS
     return getSettingsService().get()
   })
   let settingsUpdateQueue: Promise<unknown> = Promise.resolve()
@@ -2135,7 +2319,6 @@ function registerIpc(): void {
   })
 
   // chat streaming — one stream per (sender, streamId); caller assigns id
-  const activeStreams = new Map<string, AbortController>()
   ipcMain.handle(
     'chat:stream',
     async (
@@ -2145,14 +2328,21 @@ function registerIpc(): void {
       query: string,
       opts: import('../shared/documents').AnswerOptions = {},
     ) => {
+      requireOpenSession()
       // Register before asynchronous preflight so Stop cannot miss this turn.
       // The outer finally also covers settings and database failures.
-      const ctrl = new AbortController()
-      activeStreams.set(streamId, ctrl)
+      const request = sessionRequests.begin('chat', e.sender.id, streamId)
+      const ctrl = request.controller
+      const abort = (): void => ctrl.abort()
+      e.sender.once('destroyed', abort)
       let terminal:
         | Extract<import('../shared/documents').StreamEvent, { type: 'done' | 'error' }>
         | undefined
       const emit = (event: import('../shared/documents').StreamEvent): void => {
+        if (!request.isCurrent()) {
+          if (event.type !== 'done' && event.type !== 'error') return
+          event = { type: 'done', full_text: '', citations: [], outcome: 'cancelled' }
+        }
         if (event.type === 'done' || event.type === 'error') terminal = event
         try {
           e.sender.send(`chat:stream-event:${streamId}`, event)
@@ -2219,6 +2409,7 @@ function registerIpc(): void {
         // Persist the user message up-front so chat history is intact even if
         // the stream errors or the renderer disconnects mid-flight.
         if (conversations && opts.conversationId != null) {
+          ctrl.signal.throwIfAborted()
           await conversations.appendMessage(opts.conversationId, 'user', query)
         }
 
@@ -2229,7 +2420,10 @@ function registerIpc(): void {
           emit,
           ...(conversations && opts.conversationId != null
             ? {
-                persist: (turn) => persistChatTurn(conversations, opts.conversationId!, turn),
+                persist: (turn) =>
+                  request.isCurrent()
+                    ? persistChatTurn(conversations, opts.conversationId!, turn)
+                    : Promise.resolve(),
               }
             : {}),
         })
@@ -2243,22 +2437,23 @@ function registerIpc(): void {
         emit({ type: 'error', message: err instanceof Error ? err.message : String(err) })
         return terminal
       } finally {
-        activeStreams.delete(streamId)
+        request.finish()
+        e.sender.removeListener('destroyed', abort)
       }
     },
   )
-  ipcMain.handle('chat:cancel', async (_e, streamId: string) => {
-    activeStreams.get(streamId)?.abort()
+  ipcMain.handle('chat:cancel', async (e, streamId: string) => {
+    sessionRequests.cancel('chat', e.sender.id, streamId)
   })
 
   // AP-9 §3.8 "Konv.-Wechsel": the renderer calls this when the user switches to
   // a different conversation. When the setting is 'unload' we free the LLM
   // eagerly (rather than waiting for LlamaService's idle timer); 'keep' is a
   // no-op. shouldUnloadOnConversationSwitch skips the unload while any chat
-  // stream is live (activeStreams) so an in-flight answer is never killed.
+  // stream is live so an in-flight answer is never killed.
   ipcMain.handle('chat:conversationSwitched', async () => {
     const mode = getSettingsService().get().runtime.conversationSwitch
-    if (shouldUnloadOnConversationSwitch(mode, activeStreams.size > 0)) {
+    if (shouldUnloadOnConversationSwitch(mode, sessionRequests.has('chat'))) {
       await getLlamaService()
         .unload()
         .catch(() => undefined)
@@ -2276,22 +2471,23 @@ function registerIpc(): void {
     return data
   })
 
-  ipcMain.handle(
-    'quiz:create-deck',
-    async (_e, input: import('../shared/quiz').CreateQuizInput) => {
-      // QuizService.createDeckRow validates name/docs and resolves
-      // language from 'auto' before insert.
-      return getQuizService().createDeckRow(input)
-    },
-  )
+  ipcMain.handle('quiz:create-deck', async (e, input: import('../shared/quiz').CreateQuizInput) => {
+    // QuizService.createDeckRow validates name/docs and resolves
+    // language from 'auto' before insert.
+    return withSessionRequest('read', e.sender, (request) =>
+      getQuizService().createDeckRow(input, request.controller.signal),
+    )
+  })
 
   // Create-dialog preview: derived question count for a document selection.
   // Pure chunk-stat math in the service — no LLM call, returns in ms.
-  ipcMain.handle('quiz:estimate', async (_e, documentIds: number[]) => {
+  ipcMain.handle('quiz:estimate', async (e, documentIds: number[]) => {
     if (!Array.isArray(documentIds) || documentIds.some((id) => !Number.isInteger(id))) {
       throw new Error('documentIds must be an array of integers')
     }
-    return getQuizService().estimate(documentIds)
+    return withSessionRequest('read', e.sender, (request) =>
+      getQuizService().estimate(documentIds, request.controller.signal),
+    )
   })
 
   ipcMain.handle('quiz:delete-deck', async (_e, deckId: number) => {
@@ -2318,18 +2514,17 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('quiz:regenerate-deck', async (_e, deckId: number) => {
-    const quizzes = getAuth().requireDatabase().quizzes()
-    await quizzes.clearQuestions(deckId)
-    // Derived counts: the re-plan can change the deck size, so attempts scored
-    // against the old count must go too (a 20/30 score against a re-planned
-    // 12-question deck would render as >100 %).
-    await quizzes.deleteAttempts(deckId)
-    await quizzes.setDeckStatus(deckId, 'generating', null)
+    requireOpenSession()
+    return getQuizService().prepareRegeneration(deckId)
   })
 
   ipcMain.handle('quiz:generate', async (e, streamId: string, deckId: number) => {
-    const ctrl = new AbortController()
-    activeQuizStreams.set(streamId, ctrl)
+    requireOpenSession()
+    const quizzes = getAuth().requireDatabase().quizzes()
+    const request = sessionRequests.begin('quiz', e.sender.id, streamId)
+    const ctrl = request.controller
+    const abort = (): void => ctrl.abort()
+    e.sender.once('destroyed', abort)
     try {
       const stream = getQuizService().generate(deckId, ctrl.signal)
       for await (const ev of stream) {
@@ -2342,6 +2537,7 @@ function registerIpc(): void {
         }
       }
     } catch (err) {
+      if (!request.isCurrent()) return
       // A throw BEFORE the generator reaches its own try-block (service
       // construction, getDeck, model init) bypasses QuizService.generate's
       // internal failure handling. Without this catch the deck row stays
@@ -2352,7 +2548,7 @@ function registerIpc(): void {
 
       console.error(`[quiz] generation failed before stream start (deck ${deckId}): ${message}`)
       try {
-        await getAuth().requireDatabase().quizzes().setDeckStatus(deckId, 'failed', message)
+        await quizzes.setDeckStatus(deckId, 'failed', message)
       } catch {
         /* DB unavailable — nothing more we can do */
       }
@@ -2362,11 +2558,12 @@ function registerIpc(): void {
         /* renderer gone */
       }
     } finally {
-      activeQuizStreams.delete(streamId)
+      request.finish()
+      e.sender.removeListener('destroyed', abort)
     }
   })
-  ipcMain.handle('quiz:cancel-generate', async (_e, streamId: string) => {
-    activeQuizStreams.get(streamId)?.abort()
+  ipcMain.handle('quiz:cancel-generate', async (e, streamId: string) => {
+    sessionRequests.cancel('quiz', e.sender.id, streamId)
   })
 
   ipcMain.handle('quiz:start-attempt', async (_e, deckId: number) =>
@@ -2658,10 +2855,8 @@ app.on('before-quit', (event) => {
     return
   }
   const auth = authService
-  if (!auth.isUnlocked()) {
-    didFinalPersist = true
-    return
-  }
+  // isUnlocked() is also false while a lock is still persisting. Always await
+  // the idempotent lock promise, including a quit that interrupts that drain.
   event.preventDefault()
   quitDraining = true
   // Tell every renderer we're shutting down so it can cover the drain wait with
@@ -2674,11 +2869,16 @@ app.on('before-quit', (event) => {
       /* renderer gone */
     }
   }
-  void drainPrivateWrites()
-    .then(() => drainIndexingForQuit())
-    .then(() => auth.lock())
-    .catch(() => {
-      /* swallow , we exit anyway and the vault stays at the last good state */
+  void (async () => {
+    try {
+      await drainPrivateWrites()
+      await drainIndexingForQuit()
+    } finally {
+      await auth.lock()
+    }
+  })()
+    .catch((error: unknown) => {
+      console.error('[app] shutdown cleanup failed:', error)
     })
     .finally(() => {
       didFinalPersist = true

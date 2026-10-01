@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { avatarColorForName } from './avatarColors'
 
 type Props = {
   bytes: Uint8Array | null
@@ -38,7 +39,7 @@ export function Avatar({ bytes, name, size, alt }: Props): JSX.Element {
 
   const trimmed = name.trim()
   const initial = trimmed.length > 0 ? trimmed[0]!.toUpperCase() : '?'
-  const color = colorFromString(trimmed.length > 0 ? trimmed : '?')
+  const color = avatarColorForName(trimmed)
   return (
     <div
       data-testid="avatar-initials"
@@ -59,11 +60,4 @@ export function Avatar({ bytes, name, size, alt }: Props): JSX.Element {
       {initial}
     </div>
   )
-}
-
-function colorFromString(s: string): string {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  const hue = h % 360
-  return `hsl(${hue}, 55%, 45%)`
 }

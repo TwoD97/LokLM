@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { matrixConfigs } from '../evals/pipeline/configs'
 
 describe('matrixConfigs', () => {

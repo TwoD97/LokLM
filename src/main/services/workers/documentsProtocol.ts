@@ -9,8 +9,7 @@
 
 export interface ParseAndChunkPayload {
   sourcePath: string
-  /** Echoed back in `ocr` progress pushes so the main side can map progress to
-   *  the right document's indexing:progress stream. */
+  /** Optional diagnostic document identity; OCR routing uses request IDs. */
   documentId?: number
   chunkSize?: number
   chunkOverlap?: number
@@ -44,7 +43,7 @@ export type DocWorkerResponse<T = unknown> =
 // ---- push events : worker → main (no id, fire-and-forget) -----------------
 
 export type DocWorkerPush =
-  | { ev: 'ocr'; documentId: number | null; done: number; total: number }
+  | { ev: 'ocr'; requestId: number; done: number; total: number }
   | { ev: 'log'; level: 'info' | 'warn' | 'error'; message: string }
 
 export type DocWorkerMessage = DocWorkerResponse | DocWorkerPush

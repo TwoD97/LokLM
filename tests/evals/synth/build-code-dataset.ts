@@ -9,8 +9,7 @@
 
 import * as ts from 'typescript'
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import { join, basename, extname, relative, dirname } from 'node:path'
+import { join, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildLapDataset } from './build-lap-dataset.js'
 import { FixedSizeChunker } from '../pipeline/Chunker.js'
@@ -65,11 +64,11 @@ async function collectSourceFiles(dir: string): Promise<string[]> {
 // ---------------------------------------------------------------------------
 // JSDoc extraction
 // ---------------------------------------------------------------------------
-function extractJsDocText(node: ts.Node, sourceFile: ts.SourceFile): string | null {
+function extractJsDocText(node: ts.Node): string | null {
   // ts.getJSDocCommentsAndTags returns comment ranges. Instead we use the
   // jsDoc property attached by the parser (available on many node kinds).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const jsDocNodes: ts.JSDoc[] = (node as any).jsDoc as ts.JSDoc[] | undefined ?? []
+  const jsDocNodes: ts.JSDoc[] = ((node as any).jsDoc as ts.JSDoc[] | undefined) ?? []
   if (jsDocNodes.length === 0) return null
 
   // Take the last JSDoc block (closest to the node).
@@ -100,7 +99,9 @@ function extractJsDocText(node: ts.Node, sourceFile: ts.SourceFile): string | nu
         ? tag.comment
         : Array.isArray(tag.comment)
           ? (tag.comment as ts.NodeArray<ts.JSDocComment>)
-              .map((p) => (typeof (p as ts.JSDocText).text === 'string' ? (p as ts.JSDocText).text : ''))
+              .map((p) =>
+                typeof (p as ts.JSDocText).text === 'string' ? (p as ts.JSDocText).text : '',
+              )
               .join('')
           : ''
     if (tagComment) prose += (prose ? ' ' : '') + tagComment
@@ -115,7 +116,11 @@ function extractJsDocText(node: ts.Node, sourceFile: ts.SourceFile): string | nu
 // Symbol name extraction
 // ---------------------------------------------------------------------------
 function symbolName(node: ts.Node): string {
-  if (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)) {
+  if (
+    ts.isFunctionDeclaration(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isConstructorDeclaration(node)
+  ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const name = (node as any).name as ts.Identifier | undefined
     return name?.text ?? '(anon)'
@@ -149,10 +154,7 @@ function isArrowFunctionDeclaration(node: ts.VariableStatement): boolean {
   const decl = node.declarationList.declarations[0]
   if (!decl) return false
   const init = decl.initializer
-  return (
-    init !== undefined &&
-    (ts.isArrowFunction(init) || ts.isFunctionExpression(init))
-  )
+  return init !== undefined && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))
 }
 
 function collectPairsFromFile(filePath: string, sourceText: string): CodePair[] {
@@ -177,7 +179,7 @@ function collectPairsFromFile(filePath: string, sourceText: string): CodePair[] 
     }
 
     if (isCandidate) {
-      doc = extractJsDocText(node, sourceFile)
+      doc = extractJsDocText(node)
       if (doc !== null) {
         // Get the full source text of the node (includes JSDoc comment in the raw text)
         const fullText = node.getText(sourceFile)
@@ -265,8 +267,8 @@ async function main(): Promise<void> {
   console.error(`[build-code-dataset] Found ${sourceFiles.length} source files`)
 
   // Collect all pairs
-  let allPairs: CodePair[] = []
-  let droppedTrivial = 0
+  const allPairs: CodePair[] = []
+  const droppedTrivial = 0
 
   for (const filePath of sourceFiles) {
     const text = await readFile(filePath, 'utf-8')
@@ -280,7 +282,9 @@ async function main(): Promise<void> {
 
   // Dedup
   const { kept: deduped, droppedDup } = deduplicatePairs(allPairs)
-  console.error(`[build-code-dataset] After dedup: ${deduped.length} (dropped ${droppedDup} duplicates)`)
+  console.error(
+    `[build-code-dataset] After dedup: ${deduped.length} (dropped ${droppedDup} duplicates)`,
+  )
 
   // Cap at 450
   let droppedCap = 0

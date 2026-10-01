@@ -5,6 +5,10 @@ import type { DomainDict } from './types'
 export const libraryDict: DomainDict = {
   en: {
     'library.deleteFailed': 'The document could not be deleted. {message}',
+    'library.foldersFailed': 'The folder list could not be updated. {message}',
+    'library.deleteTitle': 'Delete document?',
+    'library.deleteBody':
+      'Remove “{title}” and its indexed text from this workspace? The original file on disk will stay unchanged.',
     'library.retryFailed': 'Indexing could not be restarted. {message}',
     'library.stopFailed': 'Indexing could not be stopped. It may still be running. {message}',
     'library.stopping': 'Stopping…',
@@ -89,6 +93,10 @@ export const libraryDict: DomainDict = {
     'library.keepSelected': 'Keep ({count})',
     'library.removeSelected': 'Delete ({count})',
     'library.missingShow': 'Show files',
+    'library.missingActionFailed': 'Could not finish updating missing documents. {message}',
+    'library.missingDeleteTitle': 'Delete indexed documents?',
+    'library.missingDeleteBody':
+      'Delete the {count} selected document(s) and their indexed text from this workspace? Original files are not changed.',
     'library.missingHide': 'Hide files',
     // FailedDocsBanner (bulk retry of failed indexing)
     'library.failedOne': '1 document failed to index',
@@ -101,6 +109,10 @@ export const libraryDict: DomainDict = {
     'library.syncIntro':
       'Connect folders and LokLM imports new files automatically and reindexes changed ones. Deleted files are marked as "no longer found" — you decide whether to keep or remove them.',
     'library.removeFolder': 'Remove {folder}',
+    'library.disconnectTitle': 'Disconnect folder?',
+    'library.disconnectBody':
+      'Disconnect “{folder}” and delete its indexed documents from this workspace? Original files on disk are kept.',
+    'library.disconnectConfirm': 'Disconnect folder',
     'library.removeFromSyncTitle':
       'Remove from sync (also removes its indexed documents from this workspace — files on disk stay untouched)',
     'library.addFolder': 'Add folder',
@@ -109,6 +121,7 @@ export const libraryDict: DomainDict = {
     'library.pickDirsIntro':
       'No .gitignore here, so pick which top-level folders to index. Binaries, build output, and dependencies are skipped automatically either way.',
     'library.pickDirsConfirm': 'Index selected',
+    'library.pickDirsChooseOne': 'Select at least one folder. An empty selection cannot be saved.',
     'library.pickDirsAll': 'Index everything',
     'library.pickDirsSelectAll': 'Select all',
     'library.pickDirsSave': 'Save',
@@ -130,6 +143,8 @@ export const libraryDict: DomainDict = {
     'library.searchClear': 'Clear search',
     'library.searchResultsCount': '{count} result(s)',
     'library.searchNoHits': 'No documents match your search.',
+    'library.searching': 'Searching documents…',
+    'library.searchFailed': 'Search could not finish. Try again. {message}',
     'library.sortBy': 'Sort',
     'library.sortRelevance': 'Relevance',
     'library.sortFilename': 'Filename',
@@ -168,6 +183,10 @@ export const libraryDict: DomainDict = {
   },
   de: {
     'library.deleteFailed': 'Das Dokument konnte nicht gelöscht werden. {message}',
+    'library.foldersFailed': 'Die Ordnerliste konnte nicht aktualisiert werden. {message}',
+    'library.deleteTitle': 'Dokument löschen?',
+    'library.deleteBody':
+      '„{title}“ und den indexierten Text aus diesem Arbeitsbereich entfernen? Die Originaldatei auf der Festplatte bleibt unverändert.',
     'library.retryFailed': 'Die Indexierung konnte nicht neu gestartet werden. {message}',
     'library.stopFailed':
       'Die Indexierung konnte nicht gestoppt werden. Sie läuft möglicherweise noch. {message}',
@@ -253,6 +272,11 @@ export const libraryDict: DomainDict = {
     'library.keepSelected': 'Behalten ({count})',
     'library.removeSelected': 'Löschen ({count})',
     'library.missingShow': 'Dateien anzeigen',
+    'library.missingActionFailed':
+      'Fehlende Dokumente konnten nicht vollständig aktualisiert werden. {message}',
+    'library.missingDeleteTitle': 'Indexierte Dokumente löschen?',
+    'library.missingDeleteBody':
+      'Die {count} ausgewählten Dokumente und ihren indexierten Text aus diesem Workspace löschen? Originaldateien werden nicht verändert.',
     'library.missingHide': 'Dateien ausblenden',
     // FailedDocsBanner (Stapel-Wiederholung fehlgeschlagener Indexierung)
     'library.failedOne': '1 Dokument konnte nicht indexiert werden',
@@ -265,6 +289,10 @@ export const libraryDict: DomainDict = {
     'library.syncIntro':
       'Verbinde Ordner und LokLM importiert neue Dateien automatisch und reindiziert geänderte. Gelöschte Dateien werden als „nicht mehr gefunden“ markiert – du entscheidest selbst über behalten oder entfernen.',
     'library.removeFolder': '{folder} entfernen',
+    'library.disconnectTitle': 'Ordner trennen?',
+    'library.disconnectBody':
+      '„{folder}“ trennen und seine indexierten Dokumente aus diesem Workspace löschen? Die Originaldateien auf dem Datenträger bleiben erhalten.',
+    'library.disconnectConfirm': 'Ordner trennen',
     'library.removeFromSyncTitle':
       'Aus Sync entfernen (entfernt auch die indexierten Dokumente aus diesem Workspace — Dateien auf der Platte bleiben unberührt)',
     'library.addFolder': 'Ordner hinzufügen',
@@ -273,6 +301,8 @@ export const libraryDict: DomainDict = {
     'library.pickDirsIntro':
       'Keine .gitignore vorhanden – wähle, welche obersten Ordner indiziert werden. Binärdateien, Build-Ausgaben und Abhängigkeiten werden ohnehin übersprungen.',
     'library.pickDirsConfirm': 'Auswahl indizieren',
+    'library.pickDirsChooseOne':
+      'Wähle mindestens einen Ordner. Eine leere Auswahl kann nicht gespeichert werden.',
     'library.pickDirsAll': 'Alles indizieren',
     'library.pickDirsSelectAll': 'Alle auswählen',
     'library.pickDirsSave': 'Speichern',
@@ -294,6 +324,9 @@ export const libraryDict: DomainDict = {
     'library.searchClear': 'Suche zurücksetzen',
     'library.searchResultsCount': '{count} Treffer',
     'library.searchNoHits': 'Keine Dokumente entsprechen deiner Suche.',
+    'library.searching': 'Dokumente werden durchsucht…',
+    'library.searchFailed':
+      'Die Suche konnte nicht abgeschlossen werden. Versuche es erneut. {message}',
     'library.sortBy': 'Sortierung',
     'library.sortRelevance': 'Relevanz',
     'library.sortFilename': 'Dateiname',

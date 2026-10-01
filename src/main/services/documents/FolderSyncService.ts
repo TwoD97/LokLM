@@ -4,6 +4,8 @@ import { join, resolve, relative } from 'node:path'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
+import type { WorkspaceStore } from '../storage/WorkspaceStore'
 import { isSupported } from './parser'
 import { classifyCodebase, type CodebaseClassification } from '../codebase/classify'
 import { IGNORED_DIRS, isPathIgnored, isDirIncluded, fileTrack } from '../codebase/ignore'
@@ -66,6 +68,9 @@ export interface SyncResult {
  * files doesn't trigger 200 syncs.
  */
 export class FolderSyncService {
+  private readonly database: WorkspaceDbFacade
+  private readonly workspaceStore: WorkspaceStore
+  private invalidated = false
   // workspaceId -> watchers (one per registered folder)
   private readonly watchers = new Map<number, FSWatcher[]>()
   // workspaceId -> pending debounce timer
@@ -78,9 +83,21 @@ export class FolderSyncService {
   private senderFactory: (() => Sender | undefined) | null = null
 
   constructor(
-    private readonly auth: AuthService,
+    auth: AuthService,
     private readonly documents: DocumentService,
-  ) {}
+  ) {
+    this.database = auth.requireDatabase()
+    this.workspaceStore = auth.getWorkspaceStore()
+  }
+
+  invalidateSession(): void {
+    this.invalidated = true
+    this.stopAll()
+  }
+
+  private assertSession(): void {
+    if (this.invalidated) throw new Error('Folder sync session is closed.')
+  }
 
   /** Allow main/index.ts to plug in a "broadcast to all renderer windows" sender
    *  so sync progress shows up in the UI without each caller passing one in. */
@@ -89,14 +106,16 @@ export class FolderSyncService {
   }
 
   async getFolders(workspaceId: number): Promise<string[]> {
-    return this.auth.requireDatabase().workspaces().getSyncFolders(workspaceId)
+    this.assertSession()
+    return this.database.workspaces().getSyncFolders(workspaceId)
   }
 
   async addFolder(workspaceId: number, folderPath: string): Promise<string[]> {
     const abs = resolve(folderPath)
     const folders = await this.getFolders(workspaceId)
+    this.assertSession()
     if (!folders.includes(abs)) folders.push(abs)
-    await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
+    await this.database.workspaces().setSyncFolders(workspaceId, folders)
     this.restartWatchers(workspaceId, folders)
     // ADR-0006: auto-classify so syncing a project folder flips the workspace to
     // 'codebase'. Best-effort + fire-and-forget — never block adding the folder.
@@ -115,17 +134,19 @@ export class FolderSyncService {
     const folders = await this.getFolders(workspaceId)
     const rels: string[] = []
     for (const folder of folders) {
+      this.assertSession()
       if (rels.length >= CLASSIFY_FILE_CAP) break
       await walkForClassification(resolve(folder), rels, CLASSIFY_FILE_CAP)
     }
     const classification = classifyCodebase(rels)
+    this.assertSession()
     // Codebase indexing is a Standard+Pro feature (chosen 2026-06-26). On the
     // Lite tier the folder still syncs, but the workspace stays 'library' and is
     // embedded with BGE-M3 — never flipped to 'codebase' / the Qwen code model.
     // The classification is still returned so the renderer can surface an
     // "upgrade to index as code" hint. No-marker (dev/legacy) keeps full access.
     if (classification.isCodebase && isCodebaseIndexingEnabled()) {
-      await this.auth.requireDatabase().workspaces().setType(workspaceId, 'codebase')
+      await this.database.workspaces().setType(workspaceId, 'codebase')
     }
     return classification
   }
@@ -133,10 +154,10 @@ export class FolderSyncService {
   async removeFolder(workspaceId: number, folderPath: string): Promise<string[]> {
     const abs = resolve(folderPath)
     const folders = (await this.getFolders(workspaceId)).filter((p) => p !== abs)
-    await this.auth.requireDatabase().workspaces().setSyncFolders(workspaceId, folders)
+    this.assertSession()
+    await this.database.workspaces().setSyncFolders(workspaceId, folders)
     // ADR-0006: drop the folder's index-dir selection so a later re-add starts clean.
-    await this.auth
-      .requireDatabase()
+    await this.database
       .workspaces()
       .clearIndexDirs(workspaceId, abs)
       .catch(() => undefined)
@@ -148,15 +169,16 @@ export class FolderSyncService {
     // embeddings parked in the workspace vault, and no later sync pass would
     // ever mark them missing (the marker scope is watched folders only).
     try {
-      const docs = await this.auth
-        .requireDatabase()
-        .documents()
-        .listDocumentsByWorkspace(workspaceId)
+      const docs = await this.database.documents().listDocumentsByWorkspace(workspaceId)
+      this.assertSession()
       const doomed = docs.filter(
         (d) => isUnderAny(d.sourcePath, [abs]) && !isUnderAny(d.sourcePath, folders),
       )
       if (doomed.length > 0) {
-        await this.documents.deleteDocuments(doomed.map((d) => d.id))
+        await this.documents.deleteDocuments(
+          doomed.map((d) => d.id),
+          workspaceId,
+        )
       }
     } catch (err) {
       console.warn(`[folder-sync] document cleanup after removeFolder failed:`, err)
@@ -171,6 +193,7 @@ export class FolderSyncService {
    *  run in parallel — the DB-level unique index on (workspace_id,
    *  source_path) is the belt-and-suspenders against accidental duplicates. */
   async sync(workspaceId: number): Promise<SyncResult> {
+    this.assertSession()
     const prev = this.syncTails.get(workspaceId) ?? Promise.resolve()
     const run = prev.catch(() => undefined).then(() => this.syncInternal(workspaceId))
     // The stored tail swallows rejections: a failed sync surfaces to the caller
@@ -188,6 +211,7 @@ export class FolderSyncService {
   }
 
   private async syncInternal(workspaceId: number): Promise<SyncResult> {
+    this.assertSession()
     const empty = (): SyncResult => ({
       imported: 0,
       reindexed: 0,
@@ -196,26 +220,22 @@ export class FolderSyncService {
       stillMissing: 0,
     })
 
-    // ADR-0005: a sync's writes are bound to the ACTIVE workspace. The id-keyed
-    // repo ops it drives (setDocumentStatus, markMissing, clearMissing, …) target
-    // whatever workspace is active, and indexing's vectors land in the single
-    // materialised LanceDB. A watcher can fire for a NON-active workspace, or
-    // before any workspace is active during the post-unlock window — running the
-    // sync then throws "no active workspace" (and would otherwise write doc rows
-    // into the wrong store, or hijack the user's open vector store). Skip
-    // silently ; workspaces:activate kicks a fresh sync once this workspace is the
-    // active one, so changes made while it was inactive are still reconciled.
+    // Keep the existing active-workspace scheduling policy: don't start an
+    // inactive library's scan/model work merely because its watcher fired.
+    // workspaces:activate starts a fresh reconciliation later. Once a scan
+    // starts, all its reads/writes remain pinned even if navigation changes.
     // getWorkspaceStore() throws when the session is locked, which is itself a
     // "don't sync now" signal — treat it the same way.
     let activeId: number | null
     try {
-      activeId = this.auth.getWorkspaceStore().activeWorkspaceId()
+      activeId = this.workspaceStore.activeWorkspaceId()
     } catch {
       return empty()
     }
     if (activeId !== workspaceId) return empty()
 
     const send = (ev: Partial<SyncEvent> & Pick<SyncEvent, 'phase'>): void => {
+      if (this.invalidated) return
       const sender = this.senderFactory?.()
       if (!sender) return
       try {
@@ -234,6 +254,7 @@ export class FolderSyncService {
     send({ phase: 'start' })
 
     const folders = await this.getFolders(workspaceId)
+    this.assertSession()
     const result: SyncResult = empty()
     if (folders.length === 0) {
       send({ phase: 'done', ...result })
@@ -243,7 +264,7 @@ export class FolderSyncService {
     try {
       // Snapshot indexed docs for this workspace once — the diff is computed
       // against this map and folder walks won't double-process.
-      const docRepo = this.auth.requireDatabase().documents()
+      const docRepo = await this.database.documentsFor(workspaceId)
       const docs = await docRepo.listDocumentsByWorkspace(workspaceId)
       const docByPath = new Map(docs.map((d) => [d.sourcePath, d]))
       const seenPaths = new Set<string>()
@@ -251,10 +272,11 @@ export class FolderSyncService {
 
       // ADR-0006: codebase workspaces ingest source + prose files (the code/doc
       // tracks); library workspaces ingest only the supported document types.
-      const wss = await this.auth.requireDatabase().workspaces().list()
+      const wss = await this.database.workspaces().list()
       const isCodebase = wss.find((w) => w.id === workspaceId)?.type === 'codebase'
 
       for (const folder of watchedRoots) {
+        this.assertSession()
         let files: string[]
         if (isCodebase) {
           // ADR-0006: honor the folder's .gitignore(s) — loaded per-directory inside
@@ -263,14 +285,13 @@ export class FolderSyncService {
           const hasRootGitignore = (await loadGitignore(folder)) !== null
           const includeDirs = hasRootGitignore
             ? new Set<string>()
-            : new Set(
-                await this.auth.requireDatabase().workspaces().getIndexDirs(workspaceId, folder),
-              )
+            : new Set(await this.database.workspaces().getIndexDirs(workspaceId, folder))
           files = await walkIndexable(folder, includeDirs)
         } else {
           files = await walkSupported(folder)
         }
         for (const file of files) {
+          this.assertSession()
           seenPaths.add(file)
           const existing = docByPath.get(file)
           if (existing == null) {
@@ -302,9 +323,10 @@ export class FolderSyncService {
           if (existing.missingAt != null) {
             await docRepo.clearMissing(existing.id)
           }
+          this.assertSession()
           const sender = this.senderFactory?.()
           const outcome = await this.documents
-            .refreshDocument(existing.id, sender ?? undefined)
+            .refreshDocument(existing.id, sender ?? undefined, workspaceId)
             .catch(() => 'missing' as const)
           if (outcome === 'reindexed') {
             result.reindexed += 1
@@ -331,6 +353,7 @@ export class FolderSyncService {
       // Outside-of-root docs aren't touched (a one-off Desktop import that
       // got moved should stay until the user removes it manually).
       for (const doc of docs) {
+        this.assertSession()
         if (seenPaths.has(doc.sourcePath)) continue
         if (!isUnderAny(doc.sourcePath, watchedRoots)) continue
         if (doc.missingAt != null) {
@@ -360,6 +383,7 @@ export class FolderSyncService {
    *  watcher set for that workspace. Call after login (per workspace) or
    *  whenever the folder list changes. */
   start(workspaceId: number): void {
+    if (this.invalidated) return
     // Fire-and-forget: getFolders hits requireDatabase(), which throws if a lock
     // races in between login and this call. .catch keeps that from becoming an
     // unhandled rejection (matches scheduleSync's fire-and-forget handling).
@@ -389,10 +413,12 @@ export class FolderSyncService {
 
   stopAll(): void {
     for (const id of this.watchers.keys()) this.stop(id)
+    for (const id of this.timers.keys()) this.stop(id)
   }
 
   private restartWatchers(workspaceId: number, folders: string[]): void {
     this.stop(workspaceId)
+    if (this.invalidated) return
     if (folders.length === 0) return
     const list: FSWatcher[] = []
     for (const folder of folders) {
@@ -417,6 +443,7 @@ export class FolderSyncService {
   }
 
   private scheduleSync(workspaceId: number): void {
+    if (this.invalidated) return
     const existing = this.timers.get(workspaceId)
     if (existing) clearTimeout(existing)
     const t = setTimeout(() => {

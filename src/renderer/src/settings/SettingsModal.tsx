@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   SlidersHorizontal,
   Info,
@@ -8,15 +8,25 @@ import {
   Cpu,
   X,
 } from 'lucide-react'
-import { ProfileTab } from './ProfileTab'
-import { BasicTab } from './BasicTab'
-import { ModulesTab } from './ModulesTab'
-import { SystemTab } from './SystemTab'
-import { AdvancedTab } from './AdvancedTab'
-import { AboutTab } from './AboutTab'
 import { useT } from '../i18n'
 import { useModalFocus } from '../ui/useModalFocus'
+import { ErrorBoundary } from '../ErrorBoundary'
 import './SettingsModal.css'
+
+const ProfileTab = lazy(() =>
+  import('./ProfileTab').then((module) => ({ default: module.ProfileTab })),
+)
+const BasicTab = lazy(() => import('./BasicTab').then((module) => ({ default: module.BasicTab })))
+const ModulesTab = lazy(() =>
+  import('./ModulesTab').then((module) => ({ default: module.ModulesTab })),
+)
+const SystemTab = lazy(() =>
+  import('./SystemTab').then((module) => ({ default: module.SystemTab })),
+)
+const AdvancedTab = lazy(() =>
+  import('./AdvancedTab').then((module) => ({ default: module.AdvancedTab })),
+)
+const AboutTab = lazy(() => import('./AboutTab').then((module) => ({ default: module.AboutTab })))
 
 const SECTIONS = [
   { id: 'basic', title: 'prefs.general', hint: 'prefs.generalHint', Icon: SettingsIcon },
@@ -149,21 +159,25 @@ function SettingsDialog({
               <h3>{t(current.title)}</h3>
               <p>{t(current.hint)}</p>
             </div>
-            {tab === 'basic' && <BasicTab />}
-            {tab === 'modules' && <ModulesTab />}
-            {tab === 'system' && (
-              <SystemTab
-                onOpenAdvanced={() => {
-                  setTab('advanced')
-                  modalRef.current
-                    ?.querySelector<HTMLButtonElement>('#settings-tab-advanced')
-                    ?.focus()
-                }}
-              />
-            )}
-            {tab === 'advanced' && <AdvancedTab />}
-            {tab === 'profile' && <ProfileTab />}
-            {tab === 'about' && <AboutTab />}
+            <ErrorBoundary>
+              <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
+                {tab === 'basic' && <BasicTab />}
+                {tab === 'modules' && <ModulesTab />}
+                {tab === 'system' && (
+                  <SystemTab
+                    onOpenAdvanced={() => {
+                      setTab('advanced')
+                      modalRef.current
+                        ?.querySelector<HTMLButtonElement>('#settings-tab-advanced')
+                        ?.focus()
+                    }}
+                  />
+                )}
+                {tab === 'advanced' && <AdvancedTab />}
+                {tab === 'profile' && <ProfileTab />}
+                {tab === 'about' && <AboutTab />}
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       </div>

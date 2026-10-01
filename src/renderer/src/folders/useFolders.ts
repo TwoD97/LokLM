@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Folder, FolderAssignment } from '@shared/documents'
 
 export interface UseFolders {
   folders: Folder[]
   assignments: FolderAssignment[]
+  error: string | null
   /** Refetch folders + assignments (call after document add/delete elsewhere). */
   refresh: () => Promise<void>
   createFolder: (name: string, parentId: number | null) => Promise<void>
@@ -19,33 +20,89 @@ export interface UseFolders {
  * decision). Null workspaceId yields empty data (no active workspace).
  */
 export function useFolders(workspaceId: number | null): UseFolders {
-  const [folders, setFolders] = useState<Folder[]>([])
-  const [assignments, setAssignments] = useState<FolderAssignment[]>([])
+  const [snapshot, setSnapshot] = useState<{
+    workspaceId: number | null
+    folders: Folder[]
+    assignments: FolderAssignment[]
+    error: string | null
+  }>({ workspaceId, folders: [], assignments: [], error: null })
+  const currentWorkspace = useRef(workspaceId)
+  currentWorkspace.current = workspaceId
+  const request = useRef(0)
+  const alive = useRef(true)
 
   const refresh = useCallback(async () => {
-    if (workspaceId == null) {
-      setFolders([])
-      setAssignments([])
-      return
+    if (currentWorkspace.current !== workspaceId || !alive.current) return
+    const generation = ++request.current
+    if (workspaceId == null) return
+    try {
+      const data = await window.api.folders.list(workspaceId)
+      if (
+        alive.current &&
+        generation === request.current &&
+        currentWorkspace.current === workspaceId
+      ) {
+        setSnapshot({
+          workspaceId,
+          folders: data.folders,
+          assignments: data.assignments,
+          error: null,
+        })
+      }
+    } catch (error) {
+      if (
+        alive.current &&
+        generation === request.current &&
+        currentWorkspace.current === workspaceId
+      ) {
+        setSnapshot((current) => ({
+          ...current,
+          workspaceId,
+          error: error instanceof Error ? error.message : String(error),
+        }))
+      }
+      throw error
     }
-    const data = await window.api.folders.list(workspaceId)
-    setFolders(data.folders)
-    setAssignments(data.assignments)
   }, [workspaceId])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    alive.current = true
+    setSnapshot({ workspaceId, folders: [], assignments: [], error: null })
+    void refresh().catch(() => {})
+    return () => {
+      alive.current = false
+    }
+  }, [workspaceId, refresh])
+
+  const mutate = useCallback(
+    async (operation: () => Promise<unknown>) => {
+      if (workspaceId == null || currentWorkspace.current !== workspaceId || !alive.current) return
+      try {
+        await operation()
+        await refresh()
+      } catch (error) {
+        // Callers launch row actions without awaiting them; retain visible error
+        // state instead of leaking an unhandled rejected IPC promise.
+        if (alive.current && currentWorkspace.current === workspaceId) {
+          setSnapshot((current) => ({
+            ...current,
+            workspaceId,
+            error: error instanceof Error ? error.message : String(error),
+          }))
+        }
+      }
+    },
+    [workspaceId, refresh],
+  )
 
   const createFolder = useCallback(
     async (name: string, parentId: number | null) => {
       if (workspaceId == null) return
       const trimmed = name.trim()
       if (trimmed.length === 0) return
-      await window.api.folders.create(workspaceId, trimmed, parentId)
-      await refresh()
+      await mutate(() => window.api.folders.create(workspaceId, trimmed, parentId))
     },
-    [workspaceId, refresh],
+    [workspaceId, mutate],
   )
 
   const renameFolder = useCallback(
@@ -53,29 +110,37 @@ export function useFolders(workspaceId: number | null): UseFolders {
       if (workspaceId == null) return
       const trimmed = name.trim()
       if (trimmed.length === 0) return
-      await window.api.folders.rename(workspaceId, id, trimmed)
-      await refresh()
+      await mutate(() => window.api.folders.rename(workspaceId, id, trimmed))
     },
-    [workspaceId, refresh],
+    [workspaceId, mutate],
   )
 
   const deleteFolder = useCallback(
     async (id: number) => {
       if (workspaceId == null) return
-      await window.api.folders.delete(workspaceId, id)
-      await refresh()
+      await mutate(() => window.api.folders.delete(workspaceId, id))
     },
-    [workspaceId, refresh],
+    [workspaceId, mutate],
   )
 
   const moveDocument = useCallback(
     async (documentId: number, folderId: number | null) => {
       if (workspaceId == null) return
-      await window.api.folders.setDocumentFolder(workspaceId, documentId, folderId)
-      await refresh()
+      await mutate(() => window.api.folders.setDocumentFolder(workspaceId, documentId, folderId))
     },
-    [workspaceId, refresh],
+    [workspaceId, mutate],
   )
 
-  return { folders, assignments, refresh, createFolder, renameFolder, deleteFolder, moveDocument }
+  const current =
+    snapshot.workspaceId === workspaceId ? snapshot : { folders: [], assignments: [], error: null }
+  return {
+    folders: current.folders,
+    assignments: current.assignments,
+    error: current.error,
+    refresh,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveDocument,
+  }
 }

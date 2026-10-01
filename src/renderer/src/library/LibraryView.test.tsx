@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { Api } from '@preload/index'
 import type { LibrarySearchHit } from '@shared/documents'
 import { LibraryView } from './LibraryView'
@@ -75,6 +75,24 @@ describe('LibraryView search integration', () => {
     expect(screen.getByText('p. 2')).toBeTruthy()
   })
 
+  it('distinguishes a failed search from no matches and retries the same query', async () => {
+    const search = vi
+      .spyOn(window.api.documents, 'searchLibrary')
+      .mockRejectedValueOnce(new Error('Workspace unavailable'))
+      .mockResolvedValueOnce([hit()])
+    render(<LibraryView workspaceId={1} workspaceName="WS" />)
+    fireEvent.change(screen.getByPlaceholderText('Search documents…'), {
+      target: { value: 'match' },
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Workspace unavailable')
+    expect(screen.queryByText('No documents match your search.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Found.pdf')).toBeVisible()
+    expect(search).toHaveBeenCalledTimes(2)
+    expect(search.mock.calls.map((call) => call[1])).toEqual(['match', 'match'])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows import failures in the workspace instead of only logging them', async () => {
     vi.spyOn(window.api.documents, 'pickFiles').mockResolvedValue(['D:/Research/locked.pdf'])
     vi.spyOn(window.api.documents, 'import').mockRejectedValue(new Error('Access denied'))
@@ -106,6 +124,11 @@ describe('LibraryView search integration', () => {
     })
     const row = await screen.findByRole('button', { name: /Found\.pdf/ })
     fireEvent.click(row)
+    // Lazy reader loading includes module transformation in Vitest; wait for
+    // that boundary explicitly rather than imposing a 1 s machine-speed gate.
+    await act(async () => {
+      await vi.dynamicImportSettled()
+    })
 
     await waitFor(() => expect(getSourceForChunk).toHaveBeenCalledWith(99))
   })

@@ -61,11 +61,10 @@ export class QueryEmbeddingCache {
     if (pending) this.coalesced++
     else {
       this.misses++
-      if (this.pending.size >= this.maxPending) {
-        const vector = await compute()
-        signal?.throwIfAborted()
-        return vector
-      }
+      // Overflow work stays uncached, but still gets the same cancellation
+      // boundary as a shared entry. A full map must not make Stop wait for a
+      // native result or dispatch work canceled before its first microtask.
+      const cacheable = this.pending.size < this.maxPending
       const epoch = this.epoch
       const consumers = new Set<symbol>()
       // Defer compute until the first consumer has registered. This also turns
@@ -75,12 +74,13 @@ export class QueryEmbeddingCache {
         promise: Promise.resolve()
           .then(() => (consumers.size > 0 ? compute() : null))
           .then((vector) => {
-            if (epoch === this.epoch && consumers.size > 0 && vector) this.put(key, vector)
+            if (cacheable && epoch === this.epoch && consumers.size > 0 && vector)
+              this.put(key, vector)
             return vector
           }),
       }
       pending = entry
-      this.pending.set(key, entry)
+      if (cacheable) this.pending.set(key, entry)
       void entry.promise
         .finally(() => {
           if (this.pending.get(key) === entry) this.pending.delete(key)

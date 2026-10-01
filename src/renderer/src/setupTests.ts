@@ -6,11 +6,12 @@ import { DEFAULT_SETTINGS, type UserSettings } from '../../shared/settings'
 
 // pdfjs-dist touches DOMMatrix at module-load time, which jsdom doesn't provide.
 // Stub the module so any test that transitively imports MultiPagePdfPreview
-// doesn't blow up — no test currently exercises an actual PDF render path.
+// doesn't blow up. Preview lifecycle tests replace this with focused task mocks.
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
   getDocument: () => ({
     promise: Promise.reject(new Error('pdfjs-dist mocked in tests')),
+    destroy: async () => undefined,
   }),
 }))
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
@@ -164,6 +165,7 @@ const stub: Api = {
     getSourceForChunk: () => Promise.resolve(null),
     searchLibrary: () => Promise.resolve([]),
     readDocumentBytes: () => Promise.resolve(null),
+    readGeneratedText: () => Promise.resolve(null),
     revealSource: () => Promise.resolve({ ok: true as const, sourcePath: '/stub' }),
     openExternal: () => Promise.resolve({ ok: true as const }),
     exportDocument: () => Promise.resolve({ ok: true as const, destPath: '/stub/export' }),
@@ -204,6 +206,7 @@ const stub: Api = {
       }),
     generateTitle: () => Promise.resolve(null),
     deleteMessage: () => Promise.resolve(),
+    deleteLatestTurn: () => Promise.resolve(),
     setActiveDocumentIds: () => Promise.resolve(),
   },
   folders: {

@@ -8,6 +8,20 @@ const QUESTIONS = [
 ]
 
 describe('scoreAnswers', () => {
+  it('rejects duplicate answers instead of inflating the score', () => {
+    expect(() =>
+      scoreAnswers(QUESTIONS, [
+        { questionId: 10, selectedIndex: 0 },
+        { questionId: 10, selectedIndex: 0 },
+      ]),
+    ).toThrow(/answered more than once/)
+    expect(() =>
+      scoreAnswers(QUESTIONS, [
+        { questionId: 10, selectedIndex: 1 },
+        { questionId: 10, selectedIndex: 0 },
+      ]),
+    ).toThrow(/answered more than once/)
+  })
   it('scores all-correct as the full count', () => {
     const result = scoreAnswers(QUESTIONS, [
       { questionId: 10, selectedIndex: 0 },

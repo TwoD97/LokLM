@@ -4,6 +4,8 @@ import {
   GpuLayerPlanCache,
   gpuLayerPlanKey,
   gpuLayerPlanReuseEnabled,
+  QualifiedGpuLayerPlanHints,
+  seedGpuLayerPlanHints,
   type ChatModel,
   type ChatModelOptions,
 } from '@main/services/workers/modelMemory'
@@ -44,6 +46,129 @@ function options(cache?: GpuLayerPlanCache) {
     layerPlanReuse: cache ? { cache, key: gpuLayerPlanKey(identity)! } : undefined,
   }
 }
+
+describe('quality-qualified hints across native session reset', () => {
+  const fullHint = {
+    key: gpuLayerPlanKey(identity)!,
+    layers: 14,
+    requestedContext: 8192,
+    achievedContext: 8192,
+  }
+
+  it('retains only full-target numeric metadata, bounds entries, and isolates snapshots', () => {
+    const hints = new QualifiedGpuLayerPlanHints()
+    hints.remember({ ...fullHint, privateText: 'must not be retained' })
+    expect(hints.snapshot()).toEqual([fullHint])
+    const snapshot = hints.snapshot()
+    snapshot[0]!.layers = 99
+    expect(hints.snapshot()[0]!.layers).toBe(14)
+    hints.remember({ ...fullHint, achievedContext: 4096 })
+    expect(hints.snapshot()).toEqual([])
+    for (let i = 0; i < 7; i++) hints.remember({ ...fullHint, key: String(i) })
+    expect(hints.snapshot().map((hint) => hint.key)).toEqual(['3', '4', '5', '6'])
+  })
+
+  it.each([
+    { layers: 0 },
+    { layers: 1.5 },
+    { achievedContext: Number.NaN },
+    { requestedContext: 1024 },
+    { key: '' },
+    { key: 'x'.repeat(16_385) },
+  ])('ignores invalid or unbounded metadata %j', (invalid) => {
+    const hints = new QualifiedGpuLayerPlanHints()
+    hints.remember({ ...fullHint, ...invalid })
+    expect(hints.snapshot()).toEqual([])
+  })
+
+  it('revalidates seeded full-context hints using bounded native fit and fresh context creation', async () => {
+    const cache = new GpuLayerPlanCache()
+    seedGpuLayerPlanHints(cache, [fullHint])
+    const loaded = model()
+    const loadModel = vi.fn(async () => loaded)
+    await allocateChat({ ...options(cache), loadModel })
+    expect(loadModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gpuLayers: { min: 14, max: 14, fitContext: { contextSize: 8192 } },
+      }),
+    )
+    expect(loaded.createContext).toHaveBeenCalledWith(
+      expect.objectContaining({ contextSize: { min: 4096, max: 8192 } }),
+    )
+  })
+
+  it('does not use a retained hint when model/backend/context/reserve identity differs', async () => {
+    for (const changed of [
+      { modelRevision: 'new' },
+      { backendIdentity: 'other-GPU' },
+      { contextSize: 4096 },
+      { paddingBytes: 1234 },
+    ]) {
+      const cache = new GpuLayerPlanCache()
+      seedGpuLayerPlanHints(cache, [
+        { ...fullHint, key: gpuLayerPlanKey({ ...identity, ...changed })! },
+      ])
+      const loadModel = vi.fn(async () => model())
+      await allocateChat({ ...options(cache), loadModel })
+      expect(loadModel).toHaveBeenCalledWith(
+        expect.objectContaining({ gpuLayers: { fitContext: { contextSize: 8192 } } }),
+      )
+    }
+  })
+
+  it('rejects a retained hint that now only yields a smaller window before retrying automatic fit', async () => {
+    const events: string[] = []
+    const cache = new GpuLayerPlanCache()
+    seedGpuLayerPlanHints(cache, [fullHint])
+    const reduced = model(14)
+    vi.mocked(reduced.createContext).mockResolvedValue({
+      contextSize: 4096,
+      getSequence: () => ({}),
+      dispose: async () => {
+        events.push('context disposed')
+      },
+    })
+    vi.mocked(reduced.dispose).mockImplementation(async () => {
+      events.push('weights disposed')
+    })
+    const loadModel = vi
+      .fn()
+      .mockResolvedValueOnce(reduced)
+      .mockImplementationOnce(async () => {
+        events.push('automatic fit')
+        return model(13)
+      })
+    const result = await allocateChat({ ...options(cache), loadModel })
+    expect(result.plan.contextSize).toBe(8192)
+    expect(result.model.gpuLayers).toBe(13)
+    expect(events).toEqual(['context disposed', 'weights disposed', 'automatic fit'])
+    expect(loadModel.mock.calls[1]![0].gpuLayers).toEqual({ fitContext: { contextSize: 8192 } })
+  })
+
+  it('does not retry after disposal of a reduced-context hint fails', async () => {
+    const cache = new GpuLayerPlanCache()
+    seedGpuLayerPlanHints(cache, [fullHint])
+    const reduced = model()
+    vi.mocked(reduced.createContext).mockResolvedValue({
+      contextSize: 4096,
+      getSequence: () => ({}),
+      dispose: async () => {
+        throw new Error('dispose failed')
+      },
+    })
+    const loadModel = vi.fn(async () => reduced)
+    await expect(allocateChat({ ...options(cache), loadModel })).rejects.toThrow('dispose failed')
+    expect(loadModel).toHaveBeenCalledOnce()
+    expect(cache.get(fullHint.key)).toBeUndefined()
+  })
+
+  it('does not replace a fresh worker-local decision with an older cross-session seed', () => {
+    const cache = new GpuLayerPlanCache()
+    cache.remember(fullHint.key, 13)
+    seedGpuLayerPlanHints(cache, [fullHint])
+    expect(cache.get(fullHint.key)).toBe(13)
+  })
+})
 
 describe('guarded GPU layer-plan reuse', () => {
   it('leaves ordinary automatic fitting unchanged when disabled', async () => {

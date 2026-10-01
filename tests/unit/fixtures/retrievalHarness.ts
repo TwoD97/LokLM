@@ -1,8 +1,13 @@
-import { vi } from 'vitest'
+import { vi, type Mock } from 'vitest'
 import type { SearchHit } from '@main/db/types'
 import type { ProviderRegistry } from '@main/services/providers/Registry'
 import type { WorkspaceDbFacade } from '@main/services/storage/WorkspaceDbFacade'
-import { RetrievalService } from '@main/services/retrieval/RetrievalService'
+import { RetrievalService, type VectorSearchFn } from '@main/services/retrieval/RetrievalService'
+import type {
+  EmbedderProvider,
+  LlmProvider,
+  RerankerProvider,
+} from '@main/services/providers/types'
 
 export function hit(id: number, score = 0.8, patch: Partial<SearchHit> = {}): SearchHit {
   return {
@@ -39,13 +44,19 @@ export function retrievalHarness(
     translate?: (query: string, opts?: { abortSignal?: AbortSignal }) => Promise<string | null>
   } = {},
 ) {
-  const lexical = vi.fn().mockResolvedValue([])
-  const dense = vi.fn().mockResolvedValue([])
-  const generate = vi.fn().mockResolvedValue('First alternative query\nSecond alternative query')
-  const embed = vi.fn().mockResolvedValue([new Float32Array([1, 0])])
-  const rank = vi.fn().mockResolvedValue([])
-  const cpu = vi.fn().mockReturnValue(false)
-  const rerankerReady = vi.fn().mockReturnValue(false)
+  const lexical: Mock<ReturnType<WorkspaceDbFacade['documents']>['searchChunks']> = vi
+    .fn()
+    .mockResolvedValue([])
+  const dense: Mock<VectorSearchFn> = vi.fn().mockResolvedValue([])
+  const generate: Mock<LlmProvider['generateRaw']> = vi
+    .fn()
+    .mockResolvedValue('First alternative query\nSecond alternative query')
+  const embed: Mock<NonNullable<EmbedderProvider['embedQuery']>> = vi
+    .fn()
+    .mockResolvedValue([new Float32Array([1, 0])])
+  const rank: Mock<RerankerProvider['rerank']> = vi.fn().mockResolvedValue([])
+  const cpu: Mock<() => boolean> = vi.fn().mockReturnValue(false)
+  const rerankerReady: Mock<() => boolean> = vi.fn().mockReturnValue(false)
   const db = { documents: () => ({ searchChunks: lexical }) } as unknown as WorkspaceDbFacade
   const llm = {
     isReady: () => true,

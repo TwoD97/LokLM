@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CreateQuizDialog, defaultQuizName } from './CreateQuizDialog'
+import { CreateQuizDialog } from './CreateQuizDialog'
+import { defaultQuizName } from './quizPresentation'
 import type { Document } from '@shared/documents'
 import type { QuizDeck } from '@shared/quiz'
 

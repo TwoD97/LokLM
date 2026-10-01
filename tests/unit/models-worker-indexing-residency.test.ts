@@ -44,6 +44,19 @@ const job = { workspaceId: 1, title: 'document' }
 const ask = { streamId: 'answer', question: 'Question', prompt: 'Prompt', maxTokens: 10 }
 
 describe('post-indexing model residency', () => {
+  it('cancels context preparation while indexing without queuing a later chat restoration', async () => {
+    const { client, operations } = fixture(4)
+    await client.refreshResources()
+    const lease = client.beginIndexing(job)
+    const abort = new AbortController()
+    const pending = client.restoreChat(abort.signal)
+    const rejected = expect(pending).rejects.toThrow(/abort/i)
+    abort.abort()
+    await rejected
+    lease.release()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(operations).toEqual(['planner.refresh'])
+  })
   it.each([4.1, 6])('keeps the embedder resident on an actual %s GiB GPU', async (vram) => {
     const { client, operations } = fixture(vram)
     await client.refreshResources()
@@ -107,17 +120,17 @@ describe('post-indexing model residency', () => {
     expect(operations).toEqual(['planner.refresh'])
   })
 
-  it('delivers cancellation while a foreground request waits and adds no restore ahead of it', async () => {
+  it('cancels waiting foreground work locally and never enqueues it after indexing', async () => {
     const { client, operations } = fixture(4)
     await client.refreshResources()
     const lease = client.beginIndexing(job)
     const pending = client.llmAsk(ask)
+    const rejected = expect(pending).rejects.toThrow(/abort/i)
     await client.llmAbort(ask.streamId)
-    expect(operations).toEqual(['planner.refresh', 'llm.abort'])
+    await rejected
+    expect(operations).toEqual(['planner.refresh'])
     lease.release()
     await vi.advanceTimersByTimeAsync(250)
-    await pending
-    // The real worker consumes this abort tombstone before ensureResident.
-    expect(operations).toEqual(['planner.refresh', 'llm.abort', 'llm.ask'])
+    expect(operations).toEqual(['planner.refresh'])
   })
 })

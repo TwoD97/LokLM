@@ -1,5 +1,6 @@
 import type { EmbedderProvider } from '../types'
 import type { OllamaClient } from './OllamaClient'
+import { validateEmbeddingBatch } from '../../embeddings/validateBatch'
 
 export class OllamaEmbedderProvider implements EmbedderProvider {
   private dim: number | null
@@ -19,16 +20,10 @@ export class OllamaEmbedderProvider implements EmbedderProvider {
       input: texts,
     })
     const vectors = data.embeddings ?? []
-    if (vectors.length === 0) throw new Error('Ollama embed returned no vectors')
-    // Callers (DocumentService, EmbeddingBackfillService) zip vectors back to
-    // chunks by index, so a short or padded response would persist embeddings
-    // against the wrong chunks. Fail loud rather than corrupt the vector store.
-    if (vectors.length !== texts.length) {
-      throw new Error(
-        `Ollama embed count mismatch: requested ${texts.length}, received ${vectors.length}`,
-      )
-    }
-    if (this.dim === null) this.dim = vectors[0]!.length
+    const dimension = validateEmbeddingBatch(vectors, texts.length, this.dim ?? undefined)
+    // Learn only from a wholly usable batch; a malformed first response must
+    // not poison the provider's dimension for later successful requests.
+    this.dim ??= dimension
     return vectors.map((v) => Float32Array.from(v))
   }
 

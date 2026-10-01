@@ -1,0 +1,4 @@
+# Frozen evaluation inputs are hashed as bytes on every platform.
+tests/evals/native-calibration/heldout.json text eol=lf
+tests/evals/native-calibration/fixtures/heldout/** text eol=lf
+tests/evals/native-calibration/fixtures/heldout/*.pdf -text

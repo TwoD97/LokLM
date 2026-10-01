@@ -8,6 +8,8 @@ import { useT, type TFn } from '../i18n'
 type Props = {
   hits: LibrarySearchHit[]
   status: SearchStatus
+  error?: string | null
+  onRetry?: () => void
   onOpen: (hit: LibrarySearchHit) => void
   /** Current query — used to highlight the matched part of the filename (the
    *  searchLibrary filename arm matches the title with an ILIKE on this). */
@@ -49,6 +51,8 @@ function locationLabel(hit: LibrarySearchHit, t: TFn): string | null {
 export function SearchResults({
   hits,
   status,
+  error,
+  onRetry,
   onOpen,
   query = '',
   docs,
@@ -63,6 +67,21 @@ export function SearchResults({
     for (const d of docs ?? []) m.set(d.id, d)
     return m
   }, [docs])
+  if (status === 'error') {
+    return (
+      <div className="library__import-error" role="alert">
+        <span>{t('library.searchFailed', { message: error ?? '' })}</span>
+        {onRetry && (
+          <button type="button" onClick={onRetry}>
+            {t('common.retry')}
+          </button>
+        )}
+      </div>
+    )
+  }
+  if (status === 'searching') {
+    return <p role="status">{t('library.searching')}</p>
+  }
   if (status === 'done' && hits.length === 0) {
     return <p className="library__search-empty">{t('library.searchNoHits')}</p>
   }

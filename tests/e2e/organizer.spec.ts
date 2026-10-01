@@ -13,8 +13,12 @@ import type { Api } from '../../src/preload'
 const PASSWORD = 'Organizer-regression-42!'
 const RECOVERED_PASSWORD = 'Organizer-recovered-43!'
 
-// This spec deliberately does not use the legacy launch helper: BOTH the vault
-// and Chromium profile must be isolated, and Electron must not inherit Node mode.
+// Recovery credentials stay inside the disposable renderer. Keep automatic
+// captures off throughout the password-reset and restart exercise.
+test.use({ trace: 'off', screenshot: 'off', video: 'off' })
+
+// This lifecycle test keeps its dedicated vault and Chromium profile across
+// recovery and restart; Electron must never inherit Node mode.
 test('organizer and workspace preferences survive lock, login and application restart', async () => {
   test.setTimeout(240_000)
   const dataRoot = await mkdtemp(join(tmpdir(), 'loklm-organizer-e2e-'))
@@ -83,15 +87,37 @@ test('organizer and workspace preferences survive lock, login and application re
       }
     })
   const expectLockedOrganizer = async (page: Page) => {
-    const error = await page.evaluate(async () => {
-      try {
-        await (globalThis as unknown as { api: Api }).api.organizer.list()
-        return null
-      } catch (error) {
-        return String(error)
+    const errors = await page.evaluate(async () => {
+      const api = (globalThis as unknown as { api: Api }).api
+      const calls = {
+        organizer: () => api.organizer.list(),
+        audio: () => api.transcription.stageBegin(),
+        writing: () => api.writing.improve('Private draft', 'improve'),
+        translation: () => api.translation.translate('Private draft', { target: 'de' }),
+        search: () => api.search.hybrid(1, 'Private query', 5),
+        summary: () => api.documents.summarize(1),
+        title: () => api.conversations.generateTitle(1),
+        generatedSource: () => api.documents.readGeneratedText(1),
+        pdf: () => api.documents.readDocumentBytes(1),
+        quizEstimate: () => api.quiz.estimate([1]),
+        warmup: () => api.models.warmupForQa(),
       }
+      return Object.fromEntries(
+        await Promise.all(
+          Object.entries(calls).map(async ([name, call]) => {
+            try {
+              await call()
+              return [name, null]
+            } catch (error) {
+              return [name, String(error)]
+            }
+          }),
+        ),
+      )
     })
-    expect(error).toMatch(/locked/i)
+    for (const [name, error] of Object.entries(errors)) {
+      expect(error, `${name} must reject while locked`).toMatch(/locked/i)
+    }
   }
   const expectSavedShell = async (page: Page) => {
     await enterWorkspace(page)

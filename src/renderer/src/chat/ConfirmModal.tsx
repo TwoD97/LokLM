@@ -1,6 +1,8 @@
 import { useT } from '../i18n'
 import { useId, useRef } from 'react'
 import { useModalFocus } from '../ui/useModalFocus'
+// This dialog is also used before Chat is visited (Library and Organizer).
+import './chat.css'
 
 type Props = {
   title: string

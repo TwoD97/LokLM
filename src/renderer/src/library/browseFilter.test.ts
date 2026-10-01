@@ -106,7 +106,7 @@ describe('filterBrowseDocs', () => {
       doc({ id: 3, status: 'ready' }), // ready row but actively indexing per progress
     ]
     const progress = new Map<number, IndexProgress>([
-      [3, { documentId: 3, title: 'Doc', phase: 'embedding', step: 1, total: 4 }],
+      [3, { workspaceId: 1, documentId: 3, title: 'Doc', phase: 'embedding', step: 1, total: 4 }],
     ])
     const reembed = new Set([1])
     const indexing = filterBrowseDocs(docs, filters({ status: 'indexing' }), progress, reembed, NOW)

@@ -10,18 +10,10 @@
 const path = require('path')
 const fs = require('fs')
 
-// jszip ships with mammoth — resolve via mammoth's node_modules so we don't
-// need a direct jszip dependency.
-const mammothDir = path.dirname(require.resolve('mammoth/package.json'))
-const jszipPath = path.join(mammothDir, '..', '..', '..', '.pnpm')
-// Fallback: just require by name; pnpm flattens it for us in modern setups.
-let JSZip
-try {
-  JSZip = require('jszip')
-} catch {
-  // Use the path we found earlier in this repo.
-  JSZip = require(path.join(__dirname, '..', '..', '..', 'node_modules', '.pnpm', 'jszip@3.10.1', 'node_modules', 'jszip', 'lib', 'index.js'))
-}
+// Resolve from the package that owns the dependency; do not hard-code pnpm's
+// store layout or a particular transitive version.
+const { createRequire } = require('node:module')
+const JSZip = createRequire(require.resolve('mammoth'))('jszip')
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">

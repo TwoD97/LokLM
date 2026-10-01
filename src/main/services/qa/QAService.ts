@@ -87,8 +87,12 @@ export class QAService {
     // Pinned docs are workspace-scoped "force into context" — fetched up-front
     // so the refusal path can skip "no hits" when pinned content alone could
     // answer the question, and so the packer can reserve budget for them.
-    const docsRepo = this.db.documents()
+    // Document/chunk ids are local to each workspace. Keep every later read
+    // pinned to this turn even if the user switches libraries during retrieval.
+    const docsRepo = await this.db.documentsFor(workspaceId)
+    if (abortSignal?.aborted) return
     const pinnedDocs = await docsRepo.listPinned(workspaceId)
+    if (abortSignal?.aborted) return
     // Codebase workspaces (ADR-0006): floor topK at the broad tier (the k=3
     // sweep was prose-calibrated; a class spans several disjoint code chunks)
     // and flip the LLM's system prompt into code mode below.
@@ -104,6 +108,7 @@ export class QAService {
     // defaulting to English. opts.fallbackLanguage (the user's UI language) is
     // used only for the genuinely ambiguous tail eld can't score.
     const language = opts.language ?? (await detectResponseLanguage(query, opts.fallbackLanguage))
+    if (abortSignal?.aborted) return
 
     // Stage events emitted from inside awaited helpers (RetrievalService) land
     // here; we drain the buffer between awaits and re-yield as StreamEvents.
@@ -151,11 +156,12 @@ export class QAService {
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
       route = await resolveRoute(query, {
         activeDocumentIds: opts.activeDocumentIds ?? null,
-        getDocuments: () => this.db.documents().listDocumentTitles(workspaceId),
+        getDocuments: () => docsRepo.listDocumentTitles(workspaceId),
         // Exactly one workspace-pinned doc = the implied subject of "fasse
         // das zusammen" — but only as last resort behind title matching.
         pinnedFallbackDocumentId: pinnedDocs.length === 1 ? pinnedDocs[0]!.id : null,
       })
+      if (abortSignal?.aborted) return
 
       // ---- corpus route: answered from the documents table , no LLM ----
       // A count is exact or it is wrong — the answer is templated (DE/EN) and
@@ -177,26 +183,37 @@ export class QAService {
           const embedder = this.registry.embedder()
           if (embedder.isReady()) {
             try {
-              const vecs = await embedder.embed([route.themeTokens.join(' ')])
-              const v = vecs[0]
-              if (v && v.length > 0) themeEmbedding = Array.from(v)
+              // A freshly indexed library normally has no lazy summaries yet.
+              // Avoid parking chat/loading the embedder for a vector that no
+              // ready document in this source scope could consume.
+              const hasVectors = await docsRepo.hasSummaryEmbeddings(opts.activeDocumentIds ?? null)
+              if (abortSignal?.aborted) return
+              if (hasVectors) {
+                const texts = [route.themeTokens.join(' ')]
+                const vecs = embedder.embedQuery
+                  ? await embedder.embedQuery(texts, { codebase: false })
+                  : await embedder.embed(texts)
+                const v = vecs[0]
+                if (v && v.length > 0) themeEmbedding = Array.from(v)
+              }
             } catch {
               /* fall back to literal matching */
             }
           }
         }
+        if (abortSignal?.aborted) return
         let corpusDocs: CorpusDoc[]
         try {
-          corpusDocs = await this.db
-            .documents()
-            .searchDocumentsByTheme(workspaceId, route.themeTokens, {
-              activeDocumentIds: opts.activeDocumentIds ?? null,
-              themeEmbedding,
-            })
+          corpusDocs = await docsRepo.searchDocumentsByTheme(workspaceId, route.themeTokens, {
+            activeDocumentIds: opts.activeDocumentIds ?? null,
+            themeEmbedding,
+          })
         } catch (err) {
+          if (abortSignal?.aborted) return
           yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
           return
         }
+        if (abortSignal?.aborted) return
         emitStage('corpus', 'done', `${corpusDocs.length} docs`)
         while (stageBuffer.length > 0) yield stageBuffer.shift()!
 
@@ -241,7 +258,8 @@ export class QAService {
       let routeDetail = '→ retrieval'
       let routeDoneEmitted = false
       if (route.kind === 'doc_summary') {
-        const target = await this.db.documents().getDocument(route.documentId)
+        const target = await docsRepo.getDocument(route.documentId)
+        if (abortSignal?.aborted) return
         const llm = this.registry.llm()
         const cached = Boolean(target?.summary && target.summary.trim().length > 0)
         // Window estimate mirrors SummarizationService's packContentWindows
@@ -278,10 +296,11 @@ export class QAService {
           emitStage('summarize', 'start')
           while (stageBuffer.length > 0) yield stageBuffer.shift()!
           try {
-            const res = await this.summarization.summarize(
-              route.documentId,
-              abortSignal ? { abortSignal } : {},
-            )
+            const res = await this.summarization.summarize(route.documentId, {
+              workspaceId,
+              ...(abortSignal ? { abortSignal } : {}),
+            })
+            if (abortSignal?.aborted) return
             summaryInfo = { title: target.title, summary: res.summary }
             summaryDocId = route.documentId
             emitStage('summarize', 'done', res.cached ? 'cached' : 'generated')
@@ -341,6 +360,7 @@ export class QAService {
         )
         contextDetail = retrievalQuery === query ? 'unchanged' : 'rewritten'
       }
+      if (abortSignal?.aborted) return
       emitStage('contextualize', 'done', contextDetail)
       while (stageBuffer.length > 0) yield stageBuffer.shift()!
     }
@@ -434,15 +454,31 @@ export class QAService {
         try {
           return chunksToPinnedHits(await docsRepo.listChunksForDocument(doc.id), doc)
         } catch (err) {
-          // eslint-disable-next-line no-console
           console.warn('[qa] failed to load pinned doc ' + doc.id + ':', err)
           return []
         }
       }),
     )
     if (abortSignal?.aborted) return
+    // Retrieval may have parked chat and freed its context. Load the answering
+    // provider only once evidence is ready, then budget against the context it
+    // actually obtained under current memory pressure, not its previous load.
+    const answeringLlm = this.registry.llm()
+    let contextTokens = answeringLlm.contextWindowTokens()
+    const hasEvidence =
+      hits.length > 0 || pinnedGroups.some((group) => group.length > 0) || summaryInfo != null
+    if (hasEvidence && answeringLlm.prepareContext) {
+      try {
+        contextTokens = await answeringLlm.prepareContext(abortSignal ? { abortSignal } : {})
+      } catch (error) {
+        if (abortSignal?.aborted) return
+        yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
+        return
+      }
+      if (abortSignal?.aborted) return
+    }
     const contextPlan = planAnswerContext({
-      contextTokens: this.registry.llm().contextWindowTokens(),
+      contextTokens,
       question: query,
       language,
       codebase: codebaseWorkspace,
@@ -506,7 +542,6 @@ export class QAService {
 
     // Counts cover the selected prompt, including headers and history.
     // No document text is written to diagnostics.
-    // eslint-disable-next-line no-console
     console.log('[qa] context:', {
       window: contextPlan.contextTokens,
       promptEstimate: contextPlan.promptTokens,
@@ -539,6 +574,7 @@ export class QAService {
       const askOpts: AskOptions = {
         onChunk: collector,
         maxTokens: contextPlan.maxTokens,
+        plannedContextTokens: contextPlan.contextTokens,
       }
       if (pinnedHits.length > 0) askOpts.pinnedHits = pinnedHits
       if (summaryPreamble) askOpts.contextPreamble = summaryPreamble
@@ -550,12 +586,12 @@ export class QAService {
       // Bind the provider to this turn's language before streaming. Awaited so
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.
-      await this.registry.llm().setLanguage(language)
+      await answeringLlm.setLanguage(language)
       // Same contract for the codebase prompt mode (CODE section) — no-op when
       // unchanged, unknown providers stay in document mode.
-      await this.registry.llm().setCodebaseMode?.(codebaseWorkspace)
+      await answeringLlm.setCodebaseMode?.(codebaseWorkspace)
       if (abortSignal?.aborted) return
-      const askPromise = this.registry.llm().ask(query, packedRagHits, askOpts)
+      const askPromise = answeringLlm.ask(query, packedRagHits, askOpts)
       // drain the queue while ask is still running
       while (true) {
         if (queue.length > 0) {

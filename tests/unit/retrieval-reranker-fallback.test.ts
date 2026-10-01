@@ -28,7 +28,6 @@ function retrieval(ready: boolean, rank = vi.fn().mockResolvedValue([0.9, 0.5, 0
   const db = {
     documents: () => ({
       searchChunks: vi.fn().mockResolvedValue([hit(1, 9), hit(2, 5)]),
-      searchChunksByVector: vi.fn().mockResolvedValue([hit(3, 0.1)]),
     }),
   } as unknown as WorkspaceDbFacade
   const registry = {
@@ -40,7 +39,10 @@ function retrieval(ready: boolean, rank = vi.fn().mockResolvedValue([0.9, 0.5, 0
     }),
     reranker: () => ({ isReady: () => ready, rerank: rank }),
   } as unknown as ProviderRegistry
-  return { service: new RetrievalService(db, registry), rank }
+  return {
+    service: new RetrievalService(db, registry, vi.fn().mockResolvedValue([hit(3, 0.1)])),
+    rank,
+  }
 }
 
 const options = {

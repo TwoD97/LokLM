@@ -28,6 +28,10 @@ export function TodosView({
   const action = useOrganizerAction()
   const guard = useDiscardGuard()
   const today = dateKey(new Date())
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }),
+    [locale],
+  )
   const dirty = !!editing && (editTitle !== editing.title || editDue !== (editing.dueDate ?? ''))
   const tasks = useMemo(
     () =>
@@ -184,13 +188,7 @@ export function TodosView({
                   className={`organizer__due${!task.completed && task.dueDate < today ? ' is-overdue' : ''}`}
                 >
                   {!task.completed && task.dueDate < today && `${t('organizer.overdue')}: `}
-                  <time dateTime={task.dueDate}>
-                    {new Intl.DateTimeFormat(locale, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    }).format(localDate(task.dueDate))}
-                  </time>
+                  <time dateTime={task.dueDate}>{dateFormat.format(localDate(task.dueDate))}</time>
                 </span>
               )}
               <button

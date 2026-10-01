@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { packContentWindows } from '@main/services/summarize/SummarizationService'
 import { buildSummaryPrompt } from '@main/services/summarize/prompt'
+import { estimateTokens } from '@main/services/llm/prompt'
 import type { ChunkRow } from '@main/db/types'
 
 const chunk = (id: number, text: string, tokens: number): ChunkRow => ({
@@ -37,6 +38,30 @@ describe('packContentWindows', () => {
     const c = { ...chunk(1, big, 0), token_count: null }
     const windows = packContentWindows([c, c], 1500)
     // Each ~1000 tokens, budget 1500 → can't co-locate two → 2 windows.
+    expect(windows).toHaveLength(2)
+  })
+
+  it('splits oversized legacy chunks without losing text or breaking Unicode pairs', () => {
+    const text = 'Legacy 📖 source line with café and numbers 12.5 kg.\n'.repeat(40)
+    const windows = packContentWindows([chunk(1, text, estimateTokens(text))], 90)
+    expect(windows.length).toBeGreaterThan(1)
+    expect(windows.join('')).toBe(text)
+    expect(windows.every((window) => estimateTokens(window) <= 90)).toBe(true)
+    expect(windows.every((window) => !/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/u.test(window))).toBe(true)
+  })
+
+  it('does not trust a stale token count that underestimates a large body', () => {
+    const text = 'unbroken'.repeat(100)
+    const windows = packContentWindows([chunk(1, text, 1)], 40)
+    expect(windows.every((window) => estimateTokens(window) <= 40)).toBe(true)
+    expect(windows.join('')).toBe(text)
+  })
+
+  it('accounts for separators at a full-window boundary', () => {
+    const windows = packContentWindows(
+      [chunk(1, 'x'.repeat(35), 10), chunk(2, 'y'.repeat(35), 10)],
+      20,
+    )
     expect(windows).toHaveLength(2)
   })
 })

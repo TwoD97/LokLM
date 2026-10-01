@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, FileX, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Document } from '@shared/documents'
+import { isGeneratedDocumentSource } from '@shared/documentSource'
 import { useT } from '../i18n'
+import { ConfirmModal } from '../chat/ConfirmModal'
 
 type Props = {
   workspaceId: number
@@ -25,31 +27,53 @@ type Props = {
  * spelled out and individually checkable, and nothing is selected by default —
  * select-all is an explicit act, not a hidden Remove-all.
  */
-export function MissingDocsBanner({
-  workspaceId,
-  refreshKey,
-  onChanged,
-}: Props): JSX.Element | null {
+export function MissingDocsBanner(props: Props): JSX.Element {
+  return <MissingDocsContent key={props.workspaceId} {...props} />
+}
+
+function MissingDocsContent({ workspaceId, refreshKey, onChanged }: Props): JSX.Element | null {
   const t = useT()
   const [missing, setMissing] = useState<Document[]>([])
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
   const [open, setOpen] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [removePending, setRemovePending] = useState<number[] | null>(null)
+  const alive = useRef(true)
+  const pending = useRef(false)
+  const request = useRef(0)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
 
-  const reload = useCallback(async () => {
-    // Guard against a stale preload bundle — Electron's preload doesn't hot-
-    // reload alongside the renderer, so an in-flight dev session that updated
-    // index.ts but didn't restart will hit this. Treat as "no missing docs"
-    // rather than crashing the LibraryView mount effect.
-    const api = window.api.documents as typeof window.api.documents & {
-      listMissing?: (id: number) => Promise<Document[]>
-    }
-    if (typeof api.listMissing !== 'function') {
-      setMissing([])
-      return
-    }
-    setMissing(await api.listMissing(workspaceId))
-  }, [workspaceId])
+  const reload = useCallback(
+    async (clearError = true) => {
+      const current = ++request.current
+      // Guard against a stale preload bundle — Electron's preload doesn't hot-
+      // reload alongside the renderer, so an in-flight dev session that updated
+      // index.ts but didn't restart will hit this. Treat as "no missing docs"
+      // rather than crashing the LibraryView mount effect.
+      const api = window.api.documents as typeof window.api.documents & {
+        listMissing?: (id: number) => Promise<Document[]>
+      }
+      if (typeof api.listMissing !== 'function') {
+        setMissing([])
+        return
+      }
+      try {
+        const next = await api.listMissing(workspaceId)
+        if (!alive.current || current !== request.current) return
+        setMissing(next.filter((doc) => !isGeneratedDocumentSource(doc.sourcePath)))
+        if (clearError) setError(null)
+      } catch (cause) {
+        if (alive.current && current === request.current) setError(String(cause))
+      }
+    },
+    [workspaceId],
+  )
 
   useEffect(() => {
     void reload()
@@ -92,38 +116,49 @@ export function MissingDocsBanner({
 
   // Sequential, not Promise.all — the writes hit one sqlite connection and a
   // few hundred parallel invokes only add lock contention for no speedup.
-  const keepIds = useCallback(
-    async (ids: number[]) => {
+  const changeIds = useCallback(
+    async (ids: number[], method: 'keepMissing' | 'delete') => {
+      if (pending.current || !alive.current) return
+      pending.current = true
+      request.current++
       setBusy(true)
+      setError(null)
       try {
-        for (const id of ids) await window.api.documents.keepMissing(id)
-        await reload()
-        onChanged()
+        for (const id of ids) {
+          if (!alive.current) return
+          await window.api.documents[method](id)
+        }
+      } catch (cause) {
+        if (alive.current) setError(String(cause))
       } finally {
-        setBusy(false)
+        pending.current = false
+        if (alive.current) {
+          await reload(false)
+          if (alive.current) {
+            onChanged()
+            setBusy(false)
+          }
+        }
       }
     },
     [reload, onChanged],
   )
 
-  const removeIds = useCallback(
-    async (ids: number[]) => {
-      setBusy(true)
-      try {
-        for (const id of ids) await window.api.documents.delete(id)
-        await reload()
-        onChanged()
-      } finally {
-        setBusy(false)
-      }
-    },
-    [reload, onChanged],
-  )
+  const keepIds = (ids: number[]): Promise<void> => changeIds(ids, 'keepMissing')
 
-  if (missing.length === 0) return null
+  const errorView = error && (
+    <div className="library__import-error" role="alert">
+      {t('library.missingActionFailed', { message: error })}
+      <button type="button" disabled={busy} onClick={() => void reload()}>
+        {t('common.retry')}
+      </button>
+    </div>
+  )
+  if (missing.length === 0) return errorView || null
   const selCount = selected.size
   return (
     <div className="library__missing">
+      {errorView}
       <div className="library__missing-header">
         <AlertTriangle size={16} aria-hidden="true" />
         <span>
@@ -174,7 +209,7 @@ export function MissingDocsBanner({
           <button
             type="button"
             className="library__missing-action library__missing-action--danger"
-            onClick={() => void removeIds([...selected])}
+            onClick={() => setRemovePending([...selected])}
             disabled={busy || selCount === 0}
             title={t('library.removeTitle')}
           >
@@ -216,7 +251,7 @@ export function MissingDocsBanner({
               <button
                 type="button"
                 className="library__missing-action library__missing-action--danger"
-                onClick={() => void removeIds([d.id])}
+                onClick={() => setRemovePending([d.id])}
                 disabled={busy}
                 title={t('library.removeTitle')}
               >
@@ -226,6 +261,18 @@ export function MissingDocsBanner({
             </li>
           ))}
         </ul>
+      )}
+      {removePending && (
+        <ConfirmModal
+          title={t('library.missingDeleteTitle')}
+          body={t('library.missingDeleteBody', { count: removePending.length })}
+          onCancel={() => setRemovePending(null)}
+          onConfirm={() => {
+            const ids = removePending
+            setRemovePending(null)
+            void changeIds(ids, 'delete')
+          }}
+        />
       )}
     </div>
   )

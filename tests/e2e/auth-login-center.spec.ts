@@ -1,55 +1,34 @@
-import { test, expect, _electron as electron } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { test, expect } from '@playwright/test'
+import { launchApp } from './helpers/launch'
+import { registerVault } from './helpers/seed'
 
-const dir = fileURLToPath(new URL('.', import.meta.url))
-const mainEntry = resolve(dir, '..', '..', 'out', 'main', 'index.js')
+// This UI exercise briefly displays a disposable recovery phrase. Never retain
+// automatic captures; the explicit image below is taken only after locked login.
+test.use({ trace: 'off', screenshot: 'off', video: 'off' })
 
 test('login prompt is centered and has no in-pane logo', async () => {
-  const userData = await mkdtemp(join(tmpdir(), 'loklm-login-'))
-  // 1) fresh launch → register a user (creates the vault in userData)
-  let app = await electron.launch({
-    args: [mainEntry, `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'test' },
-  })
-  let page = await app.firstWindow()
-  await page.getByLabel('Anzeigename').fill('Center Bot')
-  const pw = page.locator('input[type="password"]')
-  await pw.nth(0).fill('Pass123456')
-  await pw.nth(1).fill('Pass123456')
-  await page.getByRole('button', { name: 'Konto anlegen' }).click()
-  await expect(page.getByRole('heading', { name: 'Wiederherstellungs-Wörter' })).toBeVisible()
-  await app.close()
-
-  // 2) relaunch SAME userData → locked, registered → LoginView (the password prompt)
-  app = await electron.launch({
-    args: [mainEntry, `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: 'test' },
-  })
-  page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-  // a single password field + unlock button = the login prompt
-  await expect(page.locator('input[type="password"]')).toHaveCount(1)
-
-  await expect(page.locator('.app__mark')).toHaveCount(0)
-  await expect(page.locator('.app__brand')).toHaveCount(0)
-
-  // String-form evaluate (matches app.spec.ts) so the e2e tsconfig doesn't need
-  // the DOM lib for inline browser globals.
-  const m = (await page.evaluate(
-    `(() => {
-       const r = document.querySelector('main.app > section').getBoundingClientRect()
-       return { top: r.top, bottom: r.bottom, h: r.height, vh: window.innerHeight }
-     })()`,
-  )) as { top: number; bottom: number; h: number; vh: number }
-  const center = (m.top + m.bottom) / 2
-  const off = Math.abs(center - m.vh / 2) / m.vh
-  console.log('LOGIN_CENTER', JSON.stringify({ ...m, center, off: +off.toFixed(3) }))
-  await page.screenshot({ path: 'test-results/login-centered.png' })
-  await app.close()
-  await rm(userData, { recursive: true, force: true })
-
-  expect(off).toBeLessThan(0.12) // genuinely centered (short pane)
+  const launched = await launchApp()
+  try {
+    // Restart from recovery without capturing the phrase. Registration may
+    // still schedule background model warmup; cleanup owns its cancellation.
+    await registerVault(launched.page, 'Center Bot')
+    await launched.restart()
+    const { page } = launched
+    await expect(page.locator('input[type="password"]')).toHaveCount(1)
+    await expect(page.locator('.app__mark')).toHaveCount(0)
+    await expect(page.locator('.app__brand')).toHaveCount(0)
+    // Select the card itself without coupling to the app root's element type.
+    const card = page.locator('.auth-card')
+    await expect(card).toBeVisible()
+    const height = await page.evaluate<number>('window.innerHeight')
+    await expect
+      .poll(async () => {
+        const current = await card.boundingBox()
+        return Math.abs(current!.y + current!.height / 2 - height / 2) / height
+      })
+      .toBeLessThan(0.12)
+    await page.screenshot({ path: test.info().outputPath('login-centered.png') })
+  } finally {
+    await launched.cleanup()
+  }
 })

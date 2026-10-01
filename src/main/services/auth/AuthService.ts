@@ -192,6 +192,7 @@ export class AuthService {
   private inactivityMs = DEFAULT_INACTIVITY_MS
   private inactivityTimer: NodeJS.Timeout | null = null
   private onLockCallback: (() => void) | null = null
+  private beforeLockCallback: (() => void | Promise<void>) | null = null
   // Optional guard the auto-lock timer consults before firing. Returning true
   // suppresses the lock and resets the idle clock — used to pause auto-lock
   // while a long background task (e.g. a multi-GB model download) is running.
@@ -209,6 +210,27 @@ export class AuthService {
   private vaultSnapshotChain: Promise<void> = Promise.resolve()
   private lockingPromise: Promise<void> | null = null
   private sessionClosing = false
+  private authenticationPending = false
+  private authenticationEpoch = 0
+
+  /** Only one key-derivation/session publication may run at a time. Locking
+   * retires its epoch immediately, including when no DEK has been published yet. */
+  private async authenticate<T>(operation: (epoch: number) => Promise<T>): Promise<T> {
+    if (this.authenticationPending) throw new Error('Authentication is already in progress.')
+    this.authenticationPending = true
+    const epoch = this.authenticationEpoch
+    try {
+      if (this.lockingPromise) await this.lockingPromise
+      this.assertAuthentication(epoch)
+      return await operation(epoch)
+    } finally {
+      this.authenticationPending = false
+    }
+  }
+
+  private assertAuthentication(epoch: number): void {
+    if (epoch !== this.authenticationEpoch || this.sessionClosing) throw new LockedError()
+  }
 
   // Root for the vault + per-workspace stores. Portable (install-relative) or
   // userData depending on tier/platform — see resolveDataDir. Named generically
@@ -238,7 +260,7 @@ export class AuthService {
     }
     return {
       registered: true,
-      locked: this.dek === null,
+      locked: !this.isUnlocked(),
       displayName: a.displayName,
       remainingRecoveryCodes: a.recoveryEntries.filter((r) => r.usedAt == null).length,
       recoveryLang: a.recoveryLang,
@@ -250,6 +272,17 @@ export class AuthService {
     password: string
     recoveryLang: WordlistLang
   }): Promise<{ passphrase: string[] }> {
+    return this.authenticate((epoch) => this.registerSession(input, epoch))
+  }
+
+  private async registerSession(
+    input: {
+      displayName: string
+      password: string
+      recoveryLang: WordlistLang
+    },
+    epoch: number,
+  ): Promise<{ passphrase: string[] }> {
     if (await this.loadHeader()) {
       throw new Error('A user is already registered on this installation.')
     }
@@ -265,54 +298,80 @@ export class AuthService {
     // Session-lifetime key → guarded + mlock'd memory from the start , so it
     // can never be paged out to disk. ( intoSecure wipes the randomBytes temp. )
     const dek = intoSecure(randomBytes(DEK_BYTES))
+    try {
+      const passwordSalt = randomBytes(KEK_SALT_BYTES)
+      const passwordKek = await deriveKEK(input.password, Buffer.from(passwordSalt))
+      const passwordWrappedDek = wrapKey(passwordKek, dek)
+      secureWipe(passwordKek)
 
-    const passwordSalt = randomBytes(KEK_SALT_BYTES)
-    const passwordKek = await deriveKEK(input.password, Buffer.from(passwordSalt))
-    const passwordWrappedDek = wrapKey(passwordKek, dek)
-    secureWipe(passwordKek)
+      // one recovery entry , derived from the canonicalized passphrase.
+      const wordlist = getWordlist(input.recoveryLang)
+      const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
+      const recoverySalt = randomBytes(KEK_SALT_BYTES)
+      const recoveryKek = await deriveKEK(passphrase.join(' '), Buffer.from(recoverySalt))
+      const recoveryEntry: RecoveryEntry = {
+        salt: recoverySalt.toString('base64'),
+        wrappedDek: wrapKey(recoveryKek, dek),
+        createdAt: nowSec(),
+        usedAt: null,
+      }
+      secureWipe(recoveryKek)
 
-    // one recovery entry , derived from the canonicalized passphrase.
-    const wordlist = getWordlist(input.recoveryLang)
-    const passphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
-    const recoverySalt = randomBytes(KEK_SALT_BYTES)
-    const recoveryKek = await deriveKEK(passphrase.join(' '), Buffer.from(recoverySalt))
-    const recoveryEntry: RecoveryEntry = {
-      salt: recoverySalt.toString('base64'),
-      wrappedDek: wrapKey(recoveryKek, dek),
-      createdAt: nowSec(),
-      usedAt: null,
+      const header: AuthHeader = {
+        version: 6,
+        displayName,
+        passwordSalt: passwordSalt.toString('base64'),
+        passwordWrappedDek,
+        recoveryEntries: [recoveryEntry],
+        recoveryLang: input.recoveryLang,
+        createdAt: nowSec(),
+      }
+
+      await this.queueVaultSnapshot(async () => {
+        this.assertAuthentication(epoch)
+        const body = this.encryptBody(dek, {}, emptyManifest())
+        await this.writeVault(header, body)
+        this.assertAuthentication(epoch)
+        this.dek = dek
+        this.manifest = emptyManifest()
+        this.globalKv = {}
+        this.liveHeader = header
+      })
+      this.startInactivityTimer()
+      return { passphrase }
+    } finally {
+      if (this.dek !== dek) secureWipe(dek)
     }
-    secureWipe(recoveryKek)
-
-    const header: AuthHeader = {
-      version: 6,
-      displayName,
-      passwordSalt: passwordSalt.toString('base64'),
-      passwordWrappedDek,
-      recoveryEntries: [recoveryEntry],
-      recoveryLang: input.recoveryLang,
-      createdAt: nowSec(),
-    }
-
-    await this.queueVaultSnapshot(async () => {
-      this.dek = dek
-      this.manifest = emptyManifest()
-      this.globalKv = {}
-      const body = this.encryptBody(dek)
-      await this.writeVault(header, body)
-      this.liveHeader = header
-    })
-    this.startInactivityTimer()
-    return { passphrase }
   }
 
   async login(
     password: string,
     opts: { onProgress?: (stage: AuthLoginStage) => void } = {},
   ): Promise<LoginResult> {
+    return this.authenticate((epoch) => this.loginSession(password, opts, epoch))
+  }
+
+  private async loginSession(
+    password: string,
+    opts: { onProgress?: (stage: AuthLoginStage) => void },
+    epoch: number,
+  ): Promise<LoginResult> {
     // A new login must not hydrate a session that an earlier lock is still
     // closing or let its finalizer wipe the freshly unwrapped key.
     if (this.lockingPromise) await this.lockingPromise
+    if (this.isUnlocked()) {
+      // A duplicate login must not replace the live key/manifest while open
+      // SQLite handles and unsaved mutations still belong to that session.
+      const verified = await this.verifyPassword(password)
+      this.assertAuthentication(epoch)
+      if (verified.ok) return verified
+      if (verified.reason === 'locked_session') throw new LockedError()
+      return {
+        ok: false,
+        reason: verified.reason,
+        ...(verified.reason === 'rate_limited' ? { retryAfterMs: verified.retryAfterMs } : {}),
+      }
+    }
     const emit = (stage: AuthLoginStage): void => {
       try {
         opts.onProgress?.(stage)
@@ -336,49 +395,55 @@ export class AuthService {
       this.recordFailure()
       return { ok: false, reason: 'bad_password' }
     }
+    try {
+      this.assertAuthentication(epoch)
 
-    // got the DEK , now decrypt the body. with single-file vaults the header
-    // and body live together so any failure here is just file corruption ,
-    // not an auth/snapshot drift.
-    emit('decrypting')
-    let parsed = openBody(vault.body, vault.header.version, dek)
-    if (parsed == null && vault.source === 'primary') {
-      // primary body failed its gcm tag. the DEK is install-lifetime , it
-      // opens any generation's body — so the backup can rescue the last good
-      // persist even though we keep the primary's (intact) header for the
-      // session. the next persist rewrites both files and self-heals.
-      const backup = await this.readBackupQuiet()
-      if (backup) {
-        parsed = openBody(backup.body, backup.header.version, dek)
-        if (parsed != null) {
-          console.warn(
-            '[auth] vault body corrupt , restored last good generation from loklm.vault.bak',
-          )
+      // got the DEK , now decrypt the body. with single-file vaults the header
+      // and body live together so any failure here is just file corruption ,
+      // not an auth/snapshot drift.
+      emit('decrypting')
+      let parsed = openBody(vault.body, vault.header.version, dek)
+      if (parsed == null && vault.source === 'primary') {
+        // primary body failed its gcm tag. the DEK is install-lifetime , it
+        // opens any generation's body — so the backup can rescue the last good
+        // persist even though we keep the primary's (intact) header for the
+        // session. the next persist rewrites both files and self-heals.
+        const backup = await this.readBackupQuiet()
+        if (backup) {
+          parsed = openBody(backup.body, backup.header.version, dek)
+          if (parsed != null) {
+            console.warn(
+              '[auth] vault body corrupt , restored last good generation from loklm.vault.bak',
+            )
+          }
         }
       }
-    }
-    if (parsed == null) {
-      secureWipe(dek)
-      throw new Error(
-        'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
-      )
-    }
+      if (parsed == null) {
+        secureWipe(dek)
+        throw new Error(
+          'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
+        )
+      }
 
-    emit('restoring')
-    // The body decrypted and frame-parsed cleanly above (openBody), so the
-    // session can be committed. There is no PGlite snapshot to load any more —
-    // relational/vector data lives in the per-workspace stores, opened lazily.
-    this.dek = dek
-    this.manifest = parsed.manifest
-    this.globalKv = parsed.kv
-    // migrate-on-load: a v4/v5 vault is read transparently, then re-headered to
-    // v6 so the next persist writes the manifest-only (no-tar) body.
-    vault.header.version = 6
-    this.liveHeader = vault.header
-    this.failures = []
-    this.startInactivityTimer()
-    emit('ready')
-    return { ok: true }
+      emit('restoring')
+      this.assertAuthentication(epoch)
+      // The body decrypted and frame-parsed cleanly above (openBody), so the
+      // session can be committed. There is no PGlite snapshot to load any more —
+      // relational/vector data lives in the per-workspace stores, opened lazily.
+      this.dek = dek
+      this.manifest = parsed.manifest
+      this.globalKv = parsed.kv
+      // migrate-on-load: a v4/v5 vault is read transparently, then re-headered to
+      // v6 so the next persist writes the manifest-only (no-tar) body.
+      vault.header.version = 6
+      this.liveHeader = vault.header
+      this.failures = []
+      this.startInactivityTimer()
+      emit('ready')
+      return { ok: true }
+    } finally {
+      if (this.dek !== dek) secureWipe(dek)
+    }
   }
 
   /** Re-runs argon2id + tries the DEK unwrap against the supplied password
@@ -400,6 +465,7 @@ export class AuthService {
     | { ok: false; reason: 'rate_limited'; retryAfterMs: number }
   > {
     if (!this.isUnlocked()) return { ok: false, reason: 'locked_session' }
+    const sessionDek = this.dek
     const header = this.liveHeader
     if (!header) return { ok: false, reason: 'no_user' }
     const cooldown = this.cooldownRemainingMs()
@@ -414,17 +480,42 @@ export class AuthService {
     }
     // got the DEK , zero it immediately , the verify only confirms identity.
     secureWipe(probe)
+    if (!this.isUnlocked() || this.dek !== sessionDek)
+      return { ok: false, reason: 'locked_session' }
     this.touch()
     return { ok: true }
   }
 
   lock(): Promise<void> {
     if (this.lockingPromise) return this.lockingPromise
-    if (!this.dek) return Promise.resolve()
+    this.authenticationEpoch++
     const sessionDek = this.dek
     this.sessionClosing = true
+    let beforeLockDrain: void | Promise<void> = undefined
+    try {
+      // Manual, inactivity and quit locks share this synchronous boundary.
+      // Close admission immediately, then let already-admitted cleanup finish
+      // against its captured stores before closing them or wiping their keys.
+      beforeLockDrain = this.beforeLockCallback?.()
+    } catch (error) {
+      console.error('[auth] pre-lock cleanup failed:', error)
+    }
+    if (!sessionDek && !beforeLockDrain) {
+      this.sessionClosing = false
+      return Promise.resolve()
+    }
     const closing = (async () => {
       try {
+        if (beforeLockDrain) {
+          try {
+            await beforeLockDrain
+          } catch (error) {
+            // A failed drain must never strand the key or leave an unobserved
+            // rejection, including a lock while authentication is in flight.
+            console.error('[auth] pre-lock cleanup failed:', error)
+          }
+        }
+        if (!sessionDek) return
         // Close the active workspace first — it re-encrypts its files, wipes the
         // plaintext working copy, and refreshes the manifest (which persistSnapshot
         // then commits inside the vault body). Best-effort: a workspace close
@@ -463,7 +554,15 @@ export class AuthService {
   }
 
   async reset(input: { passphrase: string; newPassword: string }): Promise<ResetResult> {
+    return this.authenticate((epoch) => this.recoverSession(input, epoch))
+  }
+
+  private async recoverSession(
+    input: { passphrase: string; newPassword: string },
+    epoch: number,
+  ): Promise<ResetResult> {
     if (this.lockingPromise) await this.lockingPromise
+    if (this.isUnlocked()) throw new Error('Lock the vault before using account recovery.')
     const vault = await this.readVault()
     if (!vault) return { ok: false, reason: 'no_user' }
     const cooldown = this.cooldownRemainingMs()
@@ -496,73 +595,80 @@ export class AuthService {
       this.recordFailure()
       return { ok: false, reason: 'bad_code' }
     }
+    try {
+      this.assertAuthentication(epoch)
 
-    // re-wrap the same DEK under a new password-KEK and mint a fresh
-    // passphrase , same recoveryLang as at registration.
-    const newPasswordSalt = randomBytes(KEK_SALT_BYTES)
-    const newPasswordKek = await deriveKEK(input.newPassword, Buffer.from(newPasswordSalt))
-    const newPasswordWrappedDek = wrapKey(newPasswordKek, dek)
-    secureWipe(newPasswordKek)
+      // re-wrap the same DEK under a new password-KEK and mint a fresh
+      // passphrase , same recoveryLang as at registration.
+      const newPasswordSalt = randomBytes(KEK_SALT_BYTES)
+      const newPasswordKek = await deriveKEK(input.newPassword, Buffer.from(newPasswordSalt))
+      const newPasswordWrappedDek = wrapKey(newPasswordKek, dek)
+      secureWipe(newPasswordKek)
 
-    const newPassphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
-    const newRecoverySalt = randomBytes(KEK_SALT_BYTES)
-    const newRecoveryKek = await deriveKEK(newPassphrase.join(' '), Buffer.from(newRecoverySalt))
-    const newEntry: RecoveryEntry = {
-      salt: newRecoverySalt.toString('base64'),
-      wrappedDek: wrapKey(newRecoveryKek, dek),
-      createdAt: nowSec(),
-      usedAt: null,
-    }
-    secureWipe(newRecoveryKek)
+      const newPassphrase = generatePassphraseShared(wordlist, PASSPHRASE_WORDS, randomBytes)
+      const newRecoverySalt = randomBytes(KEK_SALT_BYTES)
+      const newRecoveryKek = await deriveKEK(newPassphrase.join(' '), Buffer.from(newRecoverySalt))
+      const newEntry: RecoveryEntry = {
+        salt: newRecoverySalt.toString('base64'),
+        wrappedDek: wrapKey(newRecoveryKek, dek),
+        createdAt: nowSec(),
+        usedAt: null,
+      }
+      secureWipe(newRecoveryKek)
 
-    const newHeader: AuthHeader = {
-      ...vault.header,
-      version: 6,
-      passwordSalt: newPasswordSalt.toString('base64'),
-      passwordWrappedDek: newPasswordWrappedDek,
-      recoveryEntries: [newEntry],
-    }
-    const usedEntry = vault.header.recoveryEntries[matchedIdx]
-    if (usedEntry) usedEntry.usedAt = nowSec()
+      const newHeader: AuthHeader = {
+        ...vault.header,
+        version: 6,
+        passwordSalt: newPasswordSalt.toString('base64'),
+        passwordWrappedDek: newPasswordWrappedDek,
+        recoveryEntries: [newEntry],
+      }
+      const usedEntry = vault.header.recoveryEntries[matchedIdx]
+      if (usedEntry) usedEntry.usedAt = nowSec()
 
-    // Fail closed on an undecryptable body — same guard login() uses. Without
-    // this a corrupt body (decryptBody → null) would fall through to a FRESH
-    // EMPTY database and writeVault would then overwrite the still-recoverable
-    // ciphertext with that empty snapshot — i.e. the recovery flow would wipe
-    // the very data it exists to save. Try the .bak generation first (the DEK
-    // is install-lifetime , it opens any generation's body); if that fails too
-    // an external backup is the only path left , so we must not touch the file.
-    let parsed = openBody(vault.body, vault.header.version, dek)
-    if (parsed == null && vault.source === 'primary') {
-      const backup = await this.readBackupQuiet()
-      if (backup) {
-        parsed = openBody(backup.body, backup.header.version, dek)
-        if (parsed != null) {
-          console.warn(
-            '[auth] vault body corrupt , reset continues from the loklm.vault.bak generation',
-          )
+      // Fail closed on an undecryptable body — same guard login() uses. Without
+      // this a corrupt body (decryptBody → null) would fall through to a FRESH
+      // EMPTY database and writeVault would then overwrite the still-recoverable
+      // ciphertext with that empty snapshot — i.e. the recovery flow would wipe
+      // the very data it exists to save. Try the .bak generation first (the DEK
+      // is install-lifetime , it opens any generation's body); if that fails too
+      // an external backup is the only path left , so we must not touch the file.
+      let parsed = openBody(vault.body, vault.header.version, dek)
+      if (parsed == null && vault.source === 'primary') {
+        const backup = await this.readBackupQuiet()
+        if (backup) {
+          parsed = openBody(backup.body, backup.header.version, dek)
+          if (parsed != null) {
+            console.warn(
+              '[auth] vault body corrupt , reset continues from the loklm.vault.bak generation',
+            )
+          }
         }
       }
+      if (parsed == null) {
+        secureWipe(dek)
+        throw new Error(
+          'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
+        )
+      }
+      // Body decrypted + frame-parsed cleanly above; commit the recovered DEK.
+      // No PGlite snapshot to load — per-workspace stores open lazily.
+      await this.queueVaultSnapshot(async () => {
+        this.assertAuthentication(epoch)
+        const newBody = this.encryptBody(dek, parsed.kv, parsed.manifest)
+        await this.writeVault(newHeader, newBody)
+        this.assertAuthentication(epoch)
+        this.dek = dek
+        this.manifest = parsed.manifest
+        this.globalKv = parsed.kv
+        this.liveHeader = newHeader
+      })
+      this.failures = []
+      this.startInactivityTimer()
+      return { ok: true, passphrase: newPassphrase }
+    } finally {
+      if (this.dek !== dek) secureWipe(dek)
     }
-    if (parsed == null) {
-      secureWipe(dek)
-      throw new Error(
-        'Vault body failed to decrypt and no usable backup exists — file is corrupt. Restore from an external backup if available.',
-      )
-    }
-    // Body decrypted + frame-parsed cleanly above; commit the recovered DEK.
-    // No PGlite snapshot to load — per-workspace stores open lazily.
-    await this.queueVaultSnapshot(async () => {
-      this.dek = dek
-      this.manifest = parsed.manifest
-      this.globalKv = parsed.kv
-      const newBody = this.encryptBody(dek)
-      await this.writeVault(newHeader, newBody)
-      this.liveHeader = newHeader
-    })
-    this.failures = []
-    this.startInactivityTimer()
-    return { ok: true, passphrase: newPassphrase }
   }
 
   /**
@@ -701,7 +807,7 @@ export class AuthService {
    *  can detect via `isLockedError(err)` (works across IPC). Lazily built and
    *  cached for the session; dropped on lock. */
   requireDatabase(): WorkspaceDbFacade {
-    if (!this.dek) {
+    if (!this.dek || this.sessionClosing) {
       throw new LockedError()
     }
     this.touch()
@@ -783,7 +889,7 @@ export class AuthService {
    *  Mutations call back into persistSnapshot() so the manifest is committed
    *  inside the encrypted vault body. */
   getWorkspaceStore(): WorkspaceStore {
-    if (!this.dek) throw new LockedError()
+    if (!this.dek || this.sessionClosing) throw new LockedError()
     this.touch()
     if (!this.workspaceStore) {
       this.workspaceStore = new WorkspaceStore({
@@ -807,7 +913,7 @@ export class AuthService {
   }
 
   isUnlocked(): boolean {
-    return this.dek !== null
+    return this.dek !== null && !this.sessionClosing
   }
 
   touch(): void {
@@ -820,6 +926,10 @@ export class AuthService {
 
   setOnLock(cb: () => void): void {
     this.onLockCallback = cb
+  }
+
+  setBeforeLock(cb: () => void | Promise<void>): void {
+    this.beforeLockCallback = cb
   }
 
   /** Install a guard that, while it returns true, suppresses the inactivity
@@ -1073,8 +1183,12 @@ export class AuthService {
   /** Encrypts the v6 vault body: a single JSON object { manifest, kv } under
    *  AES-256-GCM(DEK). No PGlite tar — relational/vector data lives in the
    *  per-workspace stores. */
-  private encryptBody(dek: Buffer, kv: Record<string, string> = this.globalKv): EncryptedBody {
-    const plain = Buffer.from(JSON.stringify({ manifest: this.manifest, kv }), 'utf8')
+  private encryptBody(
+    dek: Buffer,
+    kv: Record<string, string> = this.globalKv,
+    manifest: VaultManifest = this.manifest,
+  ): EncryptedBody {
+    const plain = Buffer.from(JSON.stringify({ manifest, kv }), 'utf8')
     const nonce = randomBytes(AES_NONCE_BYTES)
     const cipher = createCipheriv(AES_ALGO, dek, nonce)
     const chunks = [cipher.update(plain), cipher.final()]

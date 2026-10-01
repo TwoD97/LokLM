@@ -37,7 +37,7 @@ describe('QAService.answer abort propagation', () => {
     } as unknown as RetrievalService
     // answer() fetches pinned docs up-front; no pins in this scenario.
     const db = {
-      documents: () => ({ listPinned: vi.fn().mockResolvedValue([]) }),
+      documentsFor: async () => ({ listPinned: vi.fn().mockResolvedValue([]) }),
     } as unknown as WorkspaceDbFacade
     const summarization = { summarize: vi.fn() } as unknown as SummarizationService
 

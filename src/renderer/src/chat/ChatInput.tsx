@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
 
 const MAX_HEIGHT_PX = 200
 
-export function ChatInput({ onSend, busy, onCancel, suggestion }: Props): JSX.Element {
+function ChatInputImpl({ onSend, busy, onCancel, suggestion }: Props): JSX.Element {
   const t = useT()
   const [draft, setDraft] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -106,3 +106,5 @@ export function ChatInput({ onSend, busy, onCancel, suggestion }: Props): JSX.El
     </div>
   )
 }
+
+export const ChatInput = memo(ChatInputImpl)

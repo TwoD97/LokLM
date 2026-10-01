@@ -50,14 +50,21 @@ export function CalendarView({
   const id = useId()
   const days = useMemo(() => monthDays(month, weekStartsOn), [month, weekStartsOn])
   const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(original)
-  const events = store.data.events
-    .filter((event) => event.date === selectedDay)
-    .sort(
-      (a, b) =>
-        (a.startTime ?? '').localeCompare(b.startTime ?? '') ||
-        a.title.localeCompare(b.title, locale),
-    )
-  const tasks = store.data.tasks.filter((task) => task.dueDate === selectedDay)
+  const events = useMemo(
+    () =>
+      store.data.events
+        .filter((event) => event.date === selectedDay)
+        .sort(
+          (a, b) =>
+            (a.startTime ?? '').localeCompare(b.startTime ?? '') ||
+            a.title.localeCompare(b.title, locale),
+        ),
+    [store.data.events, selectedDay, locale],
+  )
+  const tasks = useMemo(
+    () => store.data.tasks.filter((task) => task.dueDate === selectedDay),
+    [store.data.tasks, selectedDay],
+  )
   const counts = useMemo(() => {
     const byDate = new Map<string, number>()
     for (const event of store.data.events) byDate.set(event.date, (byDate.get(event.date) ?? 0) + 1)
@@ -66,16 +73,23 @@ export function CalendarView({
         byDate.set(task.dueDate, (byDate.get(task.dueDate) ?? 0) + 1)
     return byDate
   }, [store.data.events, store.data.tasks])
-  const longDate = (date: string) =>
-    new Intl.DateTimeFormat(locale, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(localDate(date))
-  const monthLabel = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(
-    localDate(`${month}-01`),
+  const formats = useMemo(
+    () => ({
+      long: new Intl.DateTimeFormat(locale, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+      month: new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }),
+      weekday: new Intl.DateTimeFormat(locale, { weekday: 'long' }),
+      weekdayShort: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
+      day: new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }),
+    }),
+    [locale],
   )
+  const longDate = (date: string) => formats.long.format(localDate(date))
+  const monthLabel = formats.month.format(localDate(`${month}-01`))
   function chooseDay(day: string, focus = false) {
     if (action.busy || !isOrganizerDate(day)) return
     guard(dirty, () => {
@@ -161,12 +175,8 @@ export function CalendarView({
             <tr>
               {days.slice(0, 7).map((day) => (
                 <th key={day} scope="col">
-                  <abbr
-                    title={new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(
-                      localDate(day),
-                    )}
-                  >
-                    {new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(localDate(day))}
+                  <abbr title={formats.weekday.format(localDate(day))}>
+                    {formats.weekdayShort.format(localDate(day))}
                   </abbr>
                 </th>
               ))}
@@ -216,13 +226,9 @@ export function CalendarView({
         <div className="organizer__agenda-heading">
           <div>
             <span className="organizer__muted">
-              {new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(localDate(selectedDay))}
+              {formats.weekday.format(localDate(selectedDay))}
             </span>
-            <h2>
-              {new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).format(
-                localDate(selectedDay),
-              )}
-            </h2>
+            <h2>{formats.day.format(localDate(selectedDay))}</h2>
           </div>
           <button
             ref={addEventRef}

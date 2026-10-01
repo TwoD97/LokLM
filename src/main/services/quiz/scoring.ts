@@ -31,6 +31,7 @@ export interface ScoringResult {
  *
  * Validation rules:
  *  - every `questionId` MUST belong to the deck (i.e. exist in `questions`)
+ *  - each question may be answered only once
  *  - `selectedIndex` MUST be an integer in [0, 3]
  *
  * The 0..3 range matches the spec's MCQ shape; a future deck shape change
@@ -42,12 +43,17 @@ export function scoreAnswers(
 ): ScoringResult {
   const correctById = new Map(questions.map((q) => [q.id, q.correctIndex]))
   const scored: ScoredAnswer[] = []
+  const submitted = new Set<number>()
   let score = 0
   for (const a of answers) {
     const correctIdx = correctById.get(a.questionId)
     if (correctIdx === undefined) {
       throw new Error(`Question ${a.questionId} does not belong to this attempt`)
     }
+    if (submitted.has(a.questionId)) {
+      throw new Error(`Question ${a.questionId} was answered more than once`)
+    }
+    submitted.add(a.questionId)
     if (!Number.isInteger(a.selectedIndex) || a.selectedIndex < 0 || a.selectedIndex > 3) {
       throw new Error(`Invalid selectedIndex ${a.selectedIndex} for question ${a.questionId}`)
     }

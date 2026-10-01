@@ -129,7 +129,9 @@ export class OllamaClient {
     if (signal) signal.addEventListener('abort', onUserAbort, { once: true })
     const close = (): void => signal?.removeEventListener('abort', onUserAbort)
 
-    const init: RequestInit = { method, headers, signal: ctrl.signal }
+    // Consent applies to this configured endpoint. In particular, a loopback
+    // 307/308 must never forward private prompts/documents to another origin.
+    const init: RequestInit = { method, headers, signal: ctrl.signal, redirect: 'error' }
     if (body !== undefined) init.body = JSON.stringify(body)
 
     let res: Response

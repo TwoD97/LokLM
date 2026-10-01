@@ -23,7 +23,6 @@ function buildRetrieval(opts: {
   const db = {
     documents: () => ({
       searchChunks,
-      searchChunksByVector,
       topDocumentsBySummarySimilarity: topDocs,
     }),
   } as unknown as WorkspaceDbFacade
@@ -46,7 +45,7 @@ function buildRetrieval(opts: {
     reranker: () => reranker,
   } as unknown as ProviderRegistry
 
-  return { rs: new RetrievalService(db, registry), searchChunks, topDocs }
+  return { rs: new RetrievalService(db, registry, searchChunksByVector), searchChunks, topDocs }
 }
 
 // Flat options that keep the pipeline to retrieve→fuse (no rerank / expand /

@@ -42,62 +42,65 @@ const MODEL_PATH = join(process.cwd(), 'models', 'bge-m3-Q4_K_M.gguf')
 
 // gated on the GGUF being present locally — CI without a bundled model skips
 // the whole suite, dev runs it after `pnpm models:embedder`.
-describe.runIf(existsSync(MODEL_PATH))('embedding backfill (integration)', () => {
-  let dir: string
-  let auth: AuthService
+describe.runIf(process.env['LOKLM_NATIVE_INTEGRATION'] === '1' && existsSync(MODEL_PATH))(
+  'embedding backfill (integration)',
+  () => {
+    let dir: string
+    let auth: AuthService
 
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'loklm-embed-'))
-    auth = new AuthService(dir)
-    await auth.register({ displayName: 'Tst', password: 'Test12345!', recoveryLang: 'en' })
-  })
-  afterEach(async () => {
-    await auth.lock().catch(() => undefined)
-    await rm(dir, { recursive: true, force: true })
-  })
-
-  it('imports without embedder → backfill fills NULL embeddings', async () => {
-    const ws = await new WorkspaceService(auth).create('WS')
-    const filePath = join(dir, 'sample.md')
-    await writeFile(
-      filePath,
-      '# Hello\n\nFirst paragraph.\n\nSecond paragraph.\n\nDrittes auf deutsch.',
-      'utf-8',
-    )
-
-    // Phase 1: import with no embedder → all chunks land with NULL embedding.
-    const sent: IndexProgress[] = []
-    const docsNoEmbed = new DocumentService(auth)
-    const doc = await docsNoEmbed.importFile({
-      workspaceId: ws.id,
-      sourcePath: filePath,
-      sender: {
-        send: (_c: string, p: IndexProgress) => sent.push(p),
-      } as unknown as Electron.WebContents,
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), 'loklm-embed-'))
+      auth = new AuthService(dir)
+      await auth.register({ displayName: 'Tst', password: 'Test12345!', recoveryLang: 'en' })
     })
-    await waitFor(() => sent.some((e) => e.phase === 'done' || e.phase === 'failed'), 10_000)
+    afterEach(async () => {
+      await auth.lock().catch(() => undefined)
+      await rm(dir, { recursive: true, force: true })
+    })
 
-    const db = auth.requireDatabase()
-    const missing = await db.documents().countChunksMissingEmbedding(ws.id)
-    expect(missing).toBeGreaterThan(0)
+    it('imports without embedder → backfill fills NULL embeddings', async () => {
+      const ws = await new WorkspaceService(auth).create('WS')
+      const filePath = join(dir, 'sample.md')
+      await writeFile(
+        filePath,
+        '# Hello\n\nFirst paragraph.\n\nSecond paragraph.\n\nDrittes auf deutsch.',
+        'utf-8',
+      )
 
-    // Phase 2: warm the embedder + run backfill → all NULLs filled.
-    const modelsClient = new InProcessModelsClient()
-    const embedder = new EmbeddingService({ client: asModelsWorkerClient(modelsClient) })
-    const ok = await embedder.ensureReady()
-    expect(ok).toBe(true)
-    const registry = buildRegistry(embedder)
-    const backfill = new EmbeddingBackfillService(db, registry)
-    await backfill.run(ws.id)
+      // Phase 1: import with no embedder → all chunks land with NULL embedding.
+      const sent: IndexProgress[] = []
+      const docsNoEmbed = new DocumentService(auth)
+      const doc = await docsNoEmbed.importFile({
+        workspaceId: ws.id,
+        sourcePath: filePath,
+        sender: {
+          send: (_c: string, p: IndexProgress) => sent.push(p),
+        } as unknown as Electron.WebContents,
+      })
+      await waitFor(() => sent.some((e) => e.phase === 'done' || e.phase === 'failed'), 10_000)
 
-    const missingAfter = await db.documents().countChunksMissingEmbedding(ws.id)
-    expect(missingAfter).toBe(0)
+      const db = auth.requireDatabase()
+      const missing = await db.documents().countChunksMissingEmbedding(ws.id)
+      expect(missing).toBeGreaterThan(0)
 
-    // unload to release VRAM before the suite tears down
-    await embedder.unload()
-    void doc
-  }, 180_000)
-})
+      // Phase 2: warm the embedder + run backfill → all NULLs filled.
+      const modelsClient = new InProcessModelsClient()
+      const embedder = new EmbeddingService({ client: asModelsWorkerClient(modelsClient) })
+      const ok = await embedder.ensureReady()
+      expect(ok).toBe(true)
+      const registry = buildRegistry(embedder)
+      const backfill = new EmbeddingBackfillService(db, registry)
+      await backfill.run(ws.id)
+
+      const missingAfter = await db.documents().countChunksMissingEmbedding(ws.id)
+      expect(missingAfter).toBe(0)
+
+      // unload to release VRAM before the suite tears down
+      await embedder.unload()
+      void doc
+    }, 180_000)
+  },
+)
 
 async function waitFor(check: () => boolean, ms: number): Promise<void> {
   const start = Date.now()

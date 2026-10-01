@@ -39,23 +39,4 @@ export class ImportError extends Error {
   }
 }
 
-export interface IndexProgress {
-  documentId: number
-  title: string
-  phase: 'parsing' | 'chunking' | 'embedding' | 'persisting' | 'done' | 'failed'
-  step: number
-  total: number
-  error?: string
-  /** Optional sub-status for a long-running phase. Used by the parsing phase to
-   *  surface scanned-page OCR progress (e.g. "OCR 3/40") so it doesn't look
-   *  like a stall. */
-  detail?: string
-  /** Embedding throughput — successfully embedded chunks per second, cumulative
-   *  over the current document's embedding phase. Divides by the time spent
-   *  inside the embed calls only, so parse/persist pauses (own or of the
-   *  concurrently indexing document) don't dilute the rate. Only set on
-   *  'embedding' events; drives the Library batch bar's live rate readout. */
-  chunksPerSec?: number
-  chunksDone?: number
-  chunksTotal?: number
-}
+export type { IndexProgress } from '../../../shared/documents'

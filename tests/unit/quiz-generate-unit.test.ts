@@ -142,6 +142,22 @@ describe('generateQuestionsForUnit', () => {
     expect(llm.generateRaw).toHaveBeenCalledTimes(1)
   })
 
+  it('does not copy private titles or malformed model output into diagnostic logs', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      await generateQuestionsForUnit(fakeLlm(['Private malformed response']), {
+        language: 'en',
+        unit: makeUnit([makeChunk(1, 'Private source text')], { title: 'Private title' }),
+        acceptedStems: [],
+      })
+      const messages = warn.mock.calls.flat().join(' ')
+      expect(messages).toContain('responseChars=')
+      expect(messages).not.toContain('Private')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('salvages the valid prefix from a truncated batch array', async () => {
     const valid = [mcq('Q1'), mcq('Q2')].map((q) => JSON.stringify(q)).join(',')
     const truncated = `[${valid},{"stem":"Q3","options":["A","B"`

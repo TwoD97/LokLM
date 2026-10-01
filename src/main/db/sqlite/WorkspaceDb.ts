@@ -1,7 +1,12 @@
 import Database from 'better-sqlite3-multiple-ciphers'
 import { WORKSPACE_SCHEMA_SQL, CHUNKS_FTS_SQL } from './schema.sql'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../types'
-import type { LibrarySearchOptions, PipelineStep } from '../../../shared/documents'
+import type {
+  DeleteConversationTurnInput,
+  LibrarySearchOptions,
+  PipelineStep,
+} from '../../../shared/documents'
+import { validateDeleteConversationTurn } from '../../../shared/conversationTurn'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -45,6 +50,8 @@ export interface NewDocumentInput {
   status?: string
   contentHash?: string | null
   sourceMtime?: number | null
+  /** Original generated source, encrypted with this workspace's metadata. */
+  generatedText?: string | null
 }
 
 export interface NewQuizQuestion {
@@ -77,6 +84,14 @@ export interface WsDocument {
   summary: string | null
   pinned: boolean
   language: string | null
+}
+
+/** Indexed source snapshot used to reject model output after a reindex. Chunk
+ * ids are AUTOINCREMENT and their text is immutable until replacement. */
+export interface SummarySourceRevision {
+  contentHash: string | null
+  chunkCount: number
+  lastChunkId: number
 }
 
 export interface ConversationRow {
@@ -196,44 +211,66 @@ export class WorkspaceDb {
    *  is the workspace WDEK as 64 hex chars; used as a raw 256-bit SQLCipher key
    *  (no KDF — the WDEK is already a strong random key). */
   static async open(filePath: string, keyHex: string, workspaceId: number): Promise<WorkspaceDb> {
-    const db = new Database(filePath)
-    db.pragma(`cipher='sqlcipher'`)
-    db.pragma(`key="x'${keyHex}'"`)
-    db.pragma('foreign_keys = ON')
-    db.exec(WORKSPACE_SCHEMA_SQL)
-    // Additive column migrations. There's no migration runner — the schema is
-    // applied via CREATE…IF NOT EXISTS, which can't add a column to a table
-    // that already exists. Each entry is a guarded, idempotent ALTER for DBs
-    // created before the column was introduced.
-    const messageCols = new Set(
-      (db.prepare(`PRAGMA table_info(messages)`).all() as Array<{ name: string }>).map(
-        (c) => c.name,
-      ),
-    )
-    if (!messageCols.has('pipeline')) {
-      db.exec(`ALTER TABLE messages ADD COLUMN pipeline TEXT`)
+    if (!/^[a-fA-F0-9]{64}$/.test(keyHex)) {
+      throw new Error('Workspace encryption key must contain exactly 64 hexadecimal characters')
     }
-    // FTS migration (R3): chunks_fts gained the context_prefix column. A
-    // virtual table can't be ALTERed, so DBs created with the single-column
-    // shape get a drop + recreate + rebuild (repopulates from the content
-    // table `chunks` by column name — context_prefix exists there since the
-    // original schema). One-time per workspace; rebuild is O(chunks).
-    const ftsCols = new Set(
-      (db.prepare(`PRAGMA table_info(chunks_fts)`).all() as Array<{ name: string }>).map(
-        (c) => c.name,
-      ),
-    )
-    if (!ftsCols.has('context_prefix')) {
-      db.exec(`
+    const db = new Database(filePath)
+    try {
+      db.pragma(`cipher='sqlcipher'`)
+      db.pragma(`key="x'${keyHex}'"`)
+      db.pragma('foreign_keys = ON')
+      db.exec(WORKSPACE_SCHEMA_SQL)
+      // Additive column migrations. There's no migration runner — the schema is
+      // applied via CREATE…IF NOT EXISTS, which can't add a column to a table
+      // that already exists. Each entry is a guarded, idempotent ALTER for DBs
+      // created before the column was introduced.
+      const messageCols = new Set(
+        (db.prepare(`PRAGMA table_info(messages)`).all() as Array<{ name: string }>).map(
+          (c) => c.name,
+        ),
+      )
+      if (!messageCols.has('pipeline')) {
+        db.exec(`ALTER TABLE messages ADD COLUMN pipeline TEXT`)
+      }
+      const documentCols = new Set(
+        (db.prepare(`PRAGMA table_info(documents)`).all() as Array<{ name: string }>).map(
+          (c) => c.name,
+        ),
+      )
+      if (!documentCols.has('generated_text')) {
+        db.exec(`ALTER TABLE documents ADD COLUMN generated_text TEXT`)
+      }
+      // FTS migration (R3): chunks_fts gained the context_prefix column. A
+      // virtual table can't be ALTERed, so DBs created with the single-column
+      // shape get a drop + recreate + rebuild (repopulates from the content
+      // table `chunks` by column name — context_prefix exists there since the
+      // original schema). One-time per workspace; rebuild is O(chunks).
+      const ftsCols = new Set(
+        (db.prepare(`PRAGMA table_info(chunks_fts)`).all() as Array<{ name: string }>).map(
+          (c) => c.name,
+        ),
+      )
+      if (!ftsCols.has('context_prefix')) {
+        db.exec(`
         DROP TRIGGER IF EXISTS chunks_fts_ai;
         DROP TRIGGER IF EXISTS chunks_fts_ad;
         DROP TRIGGER IF EXISTS chunks_fts_au;
         DROP TABLE IF EXISTS chunks_fts;
       `)
-      db.exec(CHUNKS_FTS_SQL)
-      db.exec(`INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild');`)
+        db.exec(CHUNKS_FTS_SQL)
+        db.exec(`INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild');`)
+      }
+      return new WorkspaceDb(db, workspaceId)
+    } catch (error) {
+      // A wrong key, corrupt file, or failed migration must not leave an open
+      // native handle behind. On Windows it otherwise locks the file until exit.
+      try {
+        db.close()
+      } catch {
+        /* Preserve the original initialization error. */
+      }
+      throw error
     }
-    return new WorkspaceDb(db, workspaceId)
   }
 
   close(): void {
@@ -256,8 +293,8 @@ export class WorkspaceDb {
 
   async addDocument(input: NewDocumentInput): Promise<WsDocument> {
     const row = this.one(
-      `INSERT INTO documents (title, source_path, mime_type, byte_size, status, content_hash, source_mtime)
-       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO documents (title, source_path, mime_type, byte_size, status, content_hash, source_mtime, generated_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
       [
         input.title,
         input.sourcePath,
@@ -266,6 +303,7 @@ export class WorkspaceDb {
         input.status ?? 'pending',
         input.contentHash ?? null,
         input.sourceMtime ?? null,
+        input.generatedText ?? null,
       ],
     )
     return this.toDoc(row!)
@@ -274,6 +312,11 @@ export class WorkspaceDb {
   async getDocument(id: number): Promise<WsDocument | null> {
     const row = this.one(`SELECT * FROM documents WHERE id = ?`, [id])
     return row ? this.toDoc(row) : null
+  }
+
+  async getGeneratedText(documentId: number): Promise<string | null> {
+    const row = this.one('SELECT generated_text FROM documents WHERE id = ?', [documentId])
+    return row?.generated_text == null ? null : String(row.generated_text)
   }
 
   async findByWorkspaceAndPath(sourcePath: string): Promise<WsDocument | null> {
@@ -294,6 +337,7 @@ export class WorkspaceDb {
       byteSize?: number | null
       contentHash?: string | null
       sourceMtime?: number | null
+      generatedText?: string | null
     },
   ): Promise<void> {
     const map: Record<string, string> = {
@@ -303,6 +347,7 @@ export class WorkspaceDb {
       byteSize: 'byte_size',
       contentHash: 'content_hash',
       sourceMtime: 'source_mtime',
+      generatedText: 'generated_text',
     }
     const sets: string[] = []
     const args: SqlArg[] = []
@@ -421,17 +466,53 @@ export class WorkspaceDb {
 
   // ---- summaries + summary embeddings (ADR-0003) --------------------------
 
-  async setSummary(documentId: number, summary: string | null): Promise<void> {
-    this.run(
-      `UPDATE documents SET summary = ?, summary_embedding = NULL, summary_embedder_identity = NULL WHERE id = ?`,
-      [summary, documentId],
+  async setSummary(
+    documentId: number,
+    summary: string | null,
+    expectedSource?: SummarySourceRevision,
+  ): Promise<boolean> {
+    // Native generation can outlive a source replacement, deletion or same-file
+    // reindex. Validate the snapshot in the write itself, including nullable
+    // legacy hashes and a completed reindex whose status is already ready again.
+    const condition = expectedSource
+      ? ` AND status = 'ready' AND content_hash IS ?
+          AND (SELECT COUNT(*) FROM chunks WHERE document_id = documents.id) = ?
+          AND (SELECT MAX(id) FROM chunks WHERE document_id = documents.id) = ?`
+      : ''
+    return (
+      this.one(
+        `UPDATE documents SET summary = ?, summary_embedding = NULL, summary_embedder_identity = NULL WHERE id = ?${condition} RETURNING id`,
+        [
+          summary,
+          documentId,
+          ...(expectedSource
+            ? [expectedSource.contentHash, expectedSource.chunkCount, expectedSource.lastChunkId]
+            : []),
+        ],
+      ) !== undefined
     )
   }
 
-  async setSummaryEmbedding(documentId: number, vector: number[], identity: string): Promise<void> {
-    this.run(
-      `UPDATE documents SET summary_embedding = ?, summary_embedder_identity = ? WHERE id = ?`,
-      [f32ToBlob(vector), identity, documentId],
+  async setSummaryEmbedding(
+    documentId: number,
+    vector: number[],
+    identity: string,
+    expectedSummary?: string,
+  ): Promise<boolean> {
+    // A reindex or newly generated summary may finish while native embedding
+    // is in flight. Compare in the same SQL write, never stamp old evidence
+    // onto the replacement summary (or onto a now-pending document).
+    const condition = expectedSummary === undefined ? '' : " AND summary = ? AND status = 'ready'"
+    return (
+      this.one(
+        `UPDATE documents SET summary_embedding = ?, summary_embedder_identity = ? WHERE id = ?${condition} RETURNING id`,
+        [
+          f32ToBlob(vector),
+          identity,
+          documentId,
+          ...(expectedSummary === undefined ? [] : [expectedSummary]),
+        ],
+      ) !== undefined
     )
   }
 
@@ -459,6 +540,21 @@ export class WorkspaceDb {
       `SELECT DISTINCT summary_embedder_identity AS i FROM documents
         WHERE summary_embedding IS NOT NULL AND summary_embedder_identity IS NOT NULL`,
     ).map((r) => String(r.i))
+  }
+
+  /** Cheap admission check for semantic theme lookup. Read IDs only, never
+   * vector BLOBs, and honor the same ready/source scope as the actual lookup. */
+  async hasSummaryEmbeddings(activeDocumentIds?: number[] | null): Promise<boolean> {
+    if (!activeDocumentIds?.length)
+      return (
+        this.one(
+          `SELECT 1 FROM documents WHERE status = 'ready' AND summary_embedding IS NOT NULL LIMIT 1`,
+        ) !== undefined
+      )
+    const active = new Set(activeDocumentIds)
+    return this.rows(
+      `SELECT id FROM documents WHERE status = 'ready' AND summary_embedding IS NOT NULL`,
+    ).some((row) => active.has(Number(row.id)))
   }
 
   async purgeSummaryEmbeddingsByIdentity(identity: string): Promise<number> {
@@ -610,6 +706,22 @@ export class WorkspaceDb {
     )
   }
 
+  /** ID-only admission for late embedding results; never loads source text. */
+  async chunkOwners(chunkIds: number[]): Promise<Map<number, number>> {
+    const owners = new Map<number, number>()
+    const ids = [...new Set(chunkIds)]
+    // Stay below SQLite's parameter limit even for a large ingest batch.
+    for (let offset = 0; offset < ids.length; offset += 500) {
+      const batch = ids.slice(offset, offset + 500)
+      for (const row of this.rows(
+        `SELECT id, document_id FROM chunks WHERE id IN (${batch.map(() => '?').join(',')})`,
+        batch,
+      ))
+        owners.set(Number(row.id), Number(row.document_id))
+    }
+    return owners
+  }
+
   async listChunksForDocument(documentId: number): Promise<ChunkRow[]> {
     return this.rows(
       `SELECT id, document_id, ordinal, text, token_count, page_from, page_to, heading_path, language
@@ -693,7 +805,9 @@ export class WorkspaceDb {
 
   async listChunksMissingEmbedding(
     limit: number,
-  ): Promise<Array<{ id: number; text: string; document_id: number; context_prefix: string | null }>> {
+  ): Promise<
+    Array<{ id: number; text: string; document_id: number; context_prefix: string | null }>
+  > {
     return this.rows(
       `SELECT id, text, context_prefix, document_id FROM chunks WHERE embedded = 0 ORDER BY id LIMIT ?`,
       [limit],
@@ -1078,6 +1192,53 @@ export class WorkspaceDb {
     this.run(`DELETE FROM quiz_questions WHERE deck_id = ?`, [deckId])
   }
 
+  /** Publish questions and their count/status together. A failed transaction
+   *  cannot leave a partly published deck or a stale score denominator. */
+  async completeGeneration(deckId: number, items: NewQuizQuestion[]): Promise<void> {
+    if (items.length === 0) throw new Error('no questions accepted by validation')
+    const insert = this.db.prepare(
+      `INSERT INTO quiz_questions
+        (deck_id, ordinal, stem, options, correct_index, explanation, source_chunk_ids, theme_title)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    this.db.transaction(() => {
+      const deck = this.one(`SELECT status FROM quiz_decks WHERE id = ?`, [deckId])
+      if (!deck) throw new Error(`Deck ${deckId} not found`)
+      if (deck.status !== 'generating') throw new Error('Quiz is not awaiting generation')
+      this.run(`DELETE FROM quiz_questions WHERE deck_id = ?`, [deckId])
+      items.forEach((q, ordinal) => {
+        insert.run(
+          deckId,
+          ordinal,
+          q.stem,
+          JSON.stringify(q.options),
+          q.correctIndex,
+          q.explanation,
+          JSON.stringify(q.sourceChunkIds),
+          q.themeTitle,
+        )
+      })
+      this.run(
+        `UPDATE quiz_decks SET question_count = ?, status = 'ready', error = NULL WHERE id = ?`,
+        [items.length, deckId],
+      )
+    })()
+  }
+
+  async resetDeckForGeneration(deckId: number): Promise<void> {
+    this.db.transaction(() => {
+      if (!this.one(`SELECT id FROM quiz_decks WHERE id = ?`, [deckId])) {
+        throw new Error(`Deck ${deckId} not found`)
+      }
+      this.run(`DELETE FROM quiz_questions WHERE deck_id = ?`, [deckId])
+      this.run(`DELETE FROM quiz_attempts WHERE deck_id = ?`, [deckId])
+      this.run(
+        `UPDATE quiz_decks SET question_count = 0, status = 'generating', error = NULL WHERE id = ?`,
+        [deckId],
+      )
+    })()
+  }
+
   /** Combine several finished decks into one new ready deck. Copies every
    *  question from the sources (optionally shuffling the combined order) into a
    *  fresh deck; the sources are left untouched. The new deck's document_ids is
@@ -1090,6 +1251,8 @@ export class WorkspaceDb {
   }): Promise<QuizDeck> {
     const { name, deckIds, shuffle } = input
     if (deckIds.length < 2) throw new Error('Select at least two quizzes to merge')
+    if (new Set(deckIds).size !== deckIds.length)
+      throw new Error('Select distinct quizzes to merge')
 
     const sources: Array<{ deck: QuizDeck; questions: QuizQuestion[] }> = []
     for (const id of deckIds) {
@@ -1171,11 +1334,12 @@ export class WorkspaceDb {
   ): Promise<QuizAttempt> {
     const row = this.one(
       `UPDATE quiz_attempts SET finished_at = unixepoch(), answers = ?, score = ?
-        WHERE id = ?
+        WHERE id = ? AND finished_at IS NULL
        RETURNING id, deck_id, started_at, finished_at, score, answers`,
       [JSON.stringify(answers), score, attemptId],
     )
-    return this.toAttempt(row!)
+    if (!row) throw new Error(`Attempt ${attemptId} not found or already finished`)
+    return this.toAttempt(row)
   }
 
   async listAttempts(deckId: number): Promise<QuizAttempt[]> {
@@ -1270,6 +1434,16 @@ export class WorkspaceDb {
     this.run(`UPDATE conversations SET title = ? WHERE id = ?`, [title, id])
   }
 
+  /** A delayed generated title must not overwrite a user's intervening rename. */
+  async setConversationTitleIfEmpty(id: number, title: string): Promise<string | null> {
+    this.run(
+      `UPDATE conversations SET title = ? WHERE id = ? AND (title IS NULL OR trim(title) = '')`,
+      [title, id],
+    )
+    const row = this.rows('SELECT title FROM conversations WHERE id = ?', [id])[0]
+    return row?.title == null ? null : String(row.title)
+  }
+
   async setActiveDocumentIds(conversationId: number, ids: number[]): Promise<void> {
     this.run(`UPDATE conversations SET active_document_ids = ? WHERE id = ?`, [
       JSON.stringify(ids),
@@ -1295,6 +1469,33 @@ export class WorkspaceDb {
 
   async deleteMessage(messageId: number): Promise<void> {
     this.run(`DELETE FROM messages WHERE id = ?`, [messageId])
+  }
+
+  /** Regenerate may replace only the unchanged, adjacent final user/assistant pair.
+   * Validation and both cascading deletes share one synchronous transaction, so
+   * a stale request or a failed second delete cannot remove half an exchange. */
+  async deleteLatestTurn(input: DeleteConversationTurnInput): Promise<void> {
+    validateDeleteConversationTurn(input)
+    if (input.workspaceId !== this.workspaceId) {
+      throw new Error('Conversation turn belongs to another workspace')
+    }
+    this.db.transaction(() => {
+      const latest = this.rows(
+        `SELECT id, role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 2`,
+        [input.conversationId],
+      )
+      if (
+        latest.length !== 2 ||
+        latest[0]!.role !== 'assistant' ||
+        latest[0]!.id !== input.assistantMessageId ||
+        latest[1]!.role !== 'user' ||
+        latest[1]!.id !== input.userMessageId
+      ) {
+        throw new Error('Conversation changed; reload it before regenerating')
+      }
+      this.run(`DELETE FROM messages WHERE id = ?`, [input.assistantMessageId])
+      this.run(`DELETE FROM messages WHERE id = ?`, [input.userMessageId])
+    })()
   }
 
   async appendMessage(

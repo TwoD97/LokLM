@@ -1,17 +1,17 @@
 import type { MarkdownSection } from './types'
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
-const ATX_HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/
+const ATX_HEADING = /^(#{1,6})[\t ]+(.+?)[\t ]*$/
 const SETEXT_UNDERLINE_H1 = /^=+\s*$/
 const SETEXT_UNDERLINE_H2 = /^-+\s*$/
-const FENCE = /^(\s{0,3})(`{3,}|~{3,})/
+const FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/
 
 /** Strip an optional leading YAML / TOML frontmatter block. Returns the text
  *  without the frontmatter; the frontmatter content itself is discarded since
  *  the indexer doesn't yet use any of it. */
 export function stripFrontmatter(text: string): string {
   // Strip BOM first — it would otherwise break the leading-anchor.
-  const noBom = text.startsWith('﻿') ? text.slice(1) : text
+  const noBom = text.startsWith('\uFEFF') ? text.slice(1) : text
   const m = FRONTMATTER.exec(noBom)
   return m ? noBom.slice(m[0].length) : noBom
 }
@@ -57,11 +57,20 @@ export function parseMarkdownSections(rawText: string): MarkdownSection[] {
     // Fence toggling — track open/close so we don't treat `#` inside code as headings.
     const fenceMatch = FENCE.exec(line)
     if (fenceMatch) {
-      const marker = fenceMatch[2]!.slice(0, 3)
+      const marker = fenceMatch[2]!
+      const tail = fenceMatch[3]!
       if (!inFence) {
-        inFence = true
-        fenceMarker = marker
-      } else if (marker === fenceMarker) {
+        // Backtick fence info cannot itself contain backticks. Preserve such
+        // text without hiding subsequent real headings as code.
+        if (marker[0] !== '`' || !tail.includes('`')) {
+          inFence = true
+          fenceMarker = marker
+        }
+      } else if (
+        marker[0] === fenceMarker[0] &&
+        marker.length >= fenceMarker.length &&
+        /^[\t ]*$/.test(tail)
+      ) {
         inFence = false
         fenceMarker = ''
       }
@@ -77,7 +86,9 @@ export function parseMarkdownSections(rawText: string): MarkdownSection[] {
     if (atx) {
       flush()
       const level = atx[1]!.length
-      const heading = atx[2]!.trim()
+      // Only a whitespace-separated closing sequence is markup; C# is a
+      // literal title whose hash must survive into section/citation metadata.
+      const heading = atx[2]!.replace(/[\t ]+#+$/, '').trim()
       while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop()
       stack.push({ level, heading })
       continue

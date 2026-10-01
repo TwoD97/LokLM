@@ -3,6 +3,7 @@ import { EMBEDDING_DIM } from '../../embeddings/EmbeddingService'
 import { CODE_EMBEDDER_IDENTITY, CODE_EMBEDDING_DIM } from '../../codebase/codeEmbedder'
 import type { EmbedderProvider } from '../types'
 import type { IndexingJob, IndexingLease } from '../../../../shared/modelActivity'
+import { validateEmbeddingBatch } from '../../embeddings/validateBatch'
 
 /**
  * Adapts the bundled BGE-M3 EmbeddingService to the EmbedderProvider contract.
@@ -30,6 +31,7 @@ export class BundledEmbedderProvider implements EmbedderProvider {
 
   async embed(texts: string[]): Promise<Float32Array[]> {
     const raw = await this.inner.embedPassages(texts)
+    validateEmbeddingBatch(raw, texts.length, this.dimension())
     return raw.map((v, i) => {
       if (v === null) {
         throw new Error(`BundledEmbedderProvider: passage #${i} could not be embedded`)
@@ -43,6 +45,7 @@ export class BundledEmbedderProvider implements EmbedderProvider {
    *  null-means-unembeddable contract as embed(). */
   async embedQuery(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]> {
     const raw = await this.inner.embedQueries(texts, opts)
+    validateEmbeddingBatch(raw, texts.length, this.dimension())
     return raw.map((v, i) => {
       if (v === null) {
         throw new Error(`BundledEmbedderProvider: query #${i} could not be embedded`)
@@ -70,6 +73,10 @@ export class BundledEmbedderProvider implements EmbedderProvider {
 
   isReady(): boolean {
     return this.inner.isReady()
+  }
+
+  isResident(): boolean {
+    return this.inner.isReady() && this.inner.getStatus().resident === true
   }
 
   async ensureReady(): Promise<void> {

@@ -58,7 +58,7 @@ export function sizePresetToBounds(preset: SizePreset): {
   }
 }
 
-export type SearchStatus = 'idle' | 'searching' | 'done'
+export type SearchStatus = 'idle' | 'searching' | 'done' | 'error'
 
 export interface UseLibrarySearch {
   query: string
@@ -77,6 +77,8 @@ export interface UseLibrarySearch {
   setSort: (sort: LibrarySort) => void
   hits: LibrarySearchHit[]
   status: SearchStatus
+  error: string | null
+  retry: () => void
   /** True when there is a non-empty query — drives the search-vs-browse switch. */
   active: boolean
   clear: () => void
@@ -121,12 +123,16 @@ export function useLibrarySearch(
   const [sort, setSort] = useState<LibrarySort>('relevance')
   const [hits, setHits] = useState<LibrarySearchHit[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const [retryAttempt, setRetryAttempt] = useState(0)
 
   const reqId = useRef(0)
   const active = query.trim().length > 0
 
   useEffect(() => {
     const trimmed = query.trim()
+    setError(null)
+    setHits([])
     if (!trimmed) {
       reqId.current++ // invalidate any in-flight response
       setHits([])
@@ -135,6 +141,7 @@ export function useLibrarySearch(
     }
     setStatus('searching')
     const myReq = ++reqId.current
+    let cancelled = false
     const handle = setTimeout(() => {
       const bounds = sizePresetToBounds(filters.size)
       const opts: LibrarySearchOptions = {
@@ -147,18 +154,24 @@ export function useLibrarySearch(
       void window.api.documents
         .searchLibrary(workspaceId, trimmed, opts)
         .then((res) => {
-          if (myReq !== reqId.current) return
+          if (cancelled || myReq !== reqId.current) return
           setHits(res)
           setStatus('done')
         })
-        .catch(() => {
-          if (myReq !== reqId.current) return
+        .catch((error: unknown) => {
+          if (cancelled || myReq !== reqId.current) return
           setHits([])
-          setStatus('done')
+          setError(error instanceof Error ? error.message : String(error))
+          setStatus('error')
         })
     }, DEBOUNCE_MS)
-    return () => clearTimeout(handle)
-  }, [query, filters, sort, workspaceId])
+    return () => {
+      clearTimeout(handle)
+      cancelled = true
+    }
+  }, [query, filters.types, filters.date, filters.size, sort, workspaceId, retryAttempt])
+
+  const retry = useCallback(() => setRetryAttempt((attempt) => attempt + 1), [])
 
   const clear = useCallback(() => setQuery(''), [setQuery])
   const setTypes = useCallback(
@@ -195,6 +208,8 @@ export function useLibrarySearch(
     setSort,
     hits,
     status,
+    error,
+    retry,
     active,
     clear,
   }

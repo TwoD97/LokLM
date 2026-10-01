@@ -4,6 +4,9 @@ import { expect, type Page } from '@playwright/test'
 // page.evaluate. Route through `globalThis` (in `window` is the global object)
 // with a minimal local view of the preload API surface we actually call.
 interface SeedApi {
+  auth: {
+    register(displayName: string, password: string, recoveryLang: 'de' | 'en'): Promise<unknown>
+  }
   workspaces: {
     create(name: string, encrypted: boolean): Promise<{ id: number }>
     activate(id: number): Promise<unknown>
@@ -15,11 +18,10 @@ interface SeedApi {
 }
 
 /**
- * Demo vault seeding for the screenshot harness. Registration is driven through
- * the real UI (the app default language is German — see app.spec.ts); document
- * import goes through the EXPOSED IPC (`window.api.documents.import`, the same
- * call the drop-zone uses after resolving paths) because the click path opens a
- * native file dialog Playwright can't drive.
+ * Synthetic vault seeding for ordinary workflows and screenshots. Registration
+ * uses the exposed auth IPC without returning/displaying recovery words.
+ * Document import likewise uses exposed IPC because the click path opens a
+ * native file dialog Playwright cannot drive.
  *
  * NOTE: indexing needs the embedder model present in the model dir (./models for
  * the unpackaged e2e build). Without it, import leaves docs unindexed and the
@@ -28,23 +30,31 @@ interface SeedApi {
 
 const PASSWORD = 'Demo-Vault-2026!'
 
-/** Register a fresh vault and land on the unlocked app shell. */
-export async function registerAndUnlock(page: Page, displayName = 'Demo'): Promise<void> {
+/** Explicit registration/recovery UI exercise. Callers must disable all capture
+ * before using this helper; ordinary workflows use registerAndUnlock instead. */
+export async function registerVault(page: Page, displayName = 'Demo'): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: 'Konto anlegen' })).toBeVisible()
   await page.getByLabel('Anzeigename').fill(displayName)
   const pw = page.locator('input[type="password"]')
   await pw.nth(0).fill(PASSWORD)
   await pw.nth(1).fill(PASSWORD)
   await page.getByRole('button', { name: 'Konto anlegen' }).click()
+  await expect(page.getByRole('heading', { name: 'Wiederherstellungs-Wörter' })).toBeVisible({
+    timeout: 20_000,
+  })
+}
 
-  // Recovery-phrase reveal: confirm the checkbox and continue.
-  const checkbox = page.locator('input[type="checkbox"]').first()
-  await checkbox.waitFor({ state: 'visible', timeout: 20_000 })
-  await checkbox.check()
-  await page
-    .getByRole('button', { name: /weiter|nächst|next/i })
-    .first()
-    .click()
+/** Register a fresh vault and land on the unlocked app shell. */
+export async function registerAndUnlock(page: Page, displayName = 'Demo'): Promise<void> {
+  await page.evaluate(
+    async ({ name, password }) => {
+      const api = (globalThis as unknown as { api: SeedApi }).api
+      // Deliberately return undefined: the disposable phrase must stay inside
+      // this renderer and never enter Playwright logs, traces or screenshots.
+      await api.auth.register(name, password, 'en')
+    },
+    { name: displayName, password: PASSWORD },
+  )
 
   // Warming screen → unlocked. Skip the wait if a "continue anyway" escape shows.
   const skip = page.getByRole('button', {

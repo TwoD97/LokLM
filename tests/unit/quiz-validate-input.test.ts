@@ -6,7 +6,7 @@ function input(overrides: Partial<CreateQuizInput> = {}): CreateQuizInput {
   return {
     workspaceId: 1,
     name: 'Sample',
-    documentIds: [1, 2],
+    documentIds: [1],
     ...overrides,
   }
 }
@@ -30,7 +30,13 @@ describe('validateCreateInput', () => {
   })
 
   it('rejects empty documentIds', () => {
-    expect(() => validateCreateInput(input({ documentIds: [] }))).toThrow(/at least one document/i)
+    expect(() => validateCreateInput(input({ documentIds: [] }))).toThrow(/exactly one document/i)
+  })
+
+  it('rejects multiple documents before generating a quiz', () => {
+    expect(() => validateCreateInput(input({ documentIds: [1, 2] }))).toThrow(
+      /exactly one document/i,
+    )
   })
 
   it('rejects non-integer workspaceId', () => {

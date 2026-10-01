@@ -265,7 +265,7 @@ function splitText(text: string, maxChars: number, sepIndex = 0): string[] {
     for (let i = 0; i < text.length; i += maxChars) out.push(text.slice(i, i + maxChars))
     return out
   }
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const sep = SEPARATORS[sepIndex]!
   const parts = text.split(sep)
   if (parts.length === 1) return splitText(text, maxChars, sepIndex + 1)
@@ -297,7 +297,7 @@ function mergeWithOverlap(pieces: string[], maxChars: number, overlap: number): 
   const out: string[] = []
   for (let i = 0; i < pieces.length; i++) {
     const prev = out[out.length - 1]
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
     let current = pieces[i]!
     if (prev) {
       const tail = prev.slice(-overlap)

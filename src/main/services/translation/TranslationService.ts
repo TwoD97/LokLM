@@ -105,9 +105,11 @@ export class TranslationService {
       run.onProgress?.({ completed: translated.length, total: segmented.chunks.length })
     }
 
+    const detected = await detectedPromise
+    run.abortSignal?.throwIfAborted()
     return {
       text: segmented.reassemble(translated),
-      detected: await detectedPromise,
+      detected,
       sentences: segmented.sentences,
       ms: Date.now() - started,
     }

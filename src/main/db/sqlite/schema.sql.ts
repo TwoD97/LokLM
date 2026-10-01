@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS documents (
   added_at                  INTEGER NOT NULL DEFAULT (unixepoch()),
   content_hash              TEXT,
   source_mtime              INTEGER,
+  generated_text            TEXT,
   missing_at                INTEGER,
   missing_dismissed_at      INTEGER,
   summary                   TEXT,

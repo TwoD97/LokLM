@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { createServer, type Server } from 'node:http'
 import { OllamaClient, OllamaError } from '@main/services/providers/ollama/OllamaClient'
 
 describe('OllamaClient', () => {
@@ -9,6 +10,84 @@ describe('OllamaClient', () => {
   afterEach(() => {
     globalThis.fetch = realFetch
   })
+
+  it.each([
+    [307, 'json'],
+    [308, 'json'],
+    [307, 'ndjson'],
+    [308, 'ndjson'],
+  ] as const)(
+    'refuses HTTP %i redirects for %s without forwarding private content',
+    async (status, format) => {
+      const forwarded: string[] = []
+      const originals: string[] = []
+      const privateBody = { prompt: 'Synthetic private document: violet archive 08:35.' }
+      const listen = (server: Server): Promise<string> =>
+        new Promise((resolve, reject) => {
+          server.once('error', reject)
+          server.listen(0, '127.0.0.1', () => {
+            const address = server.address()
+            if (!address || typeof address === 'string') return reject(new Error('No HTTP port'))
+            resolve(`http://127.0.0.1:${address.port}`)
+          })
+        })
+      const close = (server: Server): Promise<void> =>
+        new Promise((resolve, reject) => {
+          server.closeAllConnections()
+          server.close((error) => (error ? reject(error) : resolve()))
+        })
+      // A second loopback origin represents an unapproved redirect destination;
+      // this test never sends fixture text to any external service.
+      const target = createServer((request, response) => {
+        let body = ''
+        request.setEncoding('utf8')
+        request.on('data', (chunk: string) => {
+          body += chunk
+        })
+        request.on('end', () => {
+          forwarded.push(body)
+          response.end('{"done":true}\n')
+        })
+      })
+      let destination = ''
+      const origin = createServer((request, response) => {
+        let body = ''
+        request.setEncoding('utf8')
+        request.on('data', (chunk: string) => {
+          body += chunk
+        })
+        request.on('end', () => {
+          originals.push(body)
+          response.writeHead(status, { location: `${destination}/collect` })
+          response.end()
+        })
+      })
+      try {
+        destination = await listen(target)
+        const client = new OllamaClient({
+          baseUrl: await listen(origin),
+          bearerToken: 'synthetic-fixture-token',
+          timeoutMs: 5000,
+        })
+        const request =
+          format === 'json'
+            ? client.postJson('/api/embed', privateBody)
+            : client.postNdjson('/api/chat', privateBody).next()
+        const result = await request.then(
+          () => ({ rejected: false, kind: undefined }),
+          (error: unknown) => ({
+            rejected: true,
+            kind: error instanceof OllamaError ? error.kind : undefined,
+          }),
+        )
+        expect(originals).toEqual([JSON.stringify(privateBody)])
+        expect(forwarded).toEqual([])
+        expect(result).toEqual({ rejected: true, kind: 'network' })
+      } finally {
+        await Promise.all([close(origin), close(target)])
+      }
+    },
+  )
 
   it('builds requests with Authorization header when bearer set', async () => {
     const fetchMock = vi

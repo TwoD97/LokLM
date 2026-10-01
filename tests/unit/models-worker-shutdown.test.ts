@@ -10,11 +10,14 @@ describe('model worker shutdown', () => {
   it('accepts work after a device restart and invalidates parked model availability', async () => {
     mocks.fork.mockImplementation(() => {
       const child = new EventEmitter() as EventEmitter & {
-        postMessage: (m: { id: number }) => void
+        postMessage: (m: { id: number; op: string }) => void
         kill: () => void
       }
       child.postMessage = (m) => {
-        queueMicrotask(() => child.emit('message', { id: m.id, ok: true, result: [] }))
+        queueMicrotask(() => {
+          child.emit('message', { id: m.id, ok: true, result: [] })
+          if (m.op === 'shutdown') child.emit('exit', 0)
+        })
       }
       child.kill = () => {
         child.emit('exit', 0)
@@ -33,7 +36,9 @@ describe('model worker shutdown', () => {
       expectedName: 'test',
       expectedKind: 'dedicated',
     } as never)
-    expect(status).toHaveBeenCalledWith({ state: 'unloaded', resident: false })
+    expect(status).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'unloaded', resident: false }),
+    )
     const lease = client.beginIndexing({ workspaceId: 1, title: 'test' })
     await expect(client.embedderEmbed(['next'])).resolves.toEqual([])
     await client.shutdown()
@@ -48,7 +53,10 @@ describe('model worker shutdown', () => {
     const operations: string[] = []
     child.postMessage = (m) => {
       operations.push(m.op)
-      queueMicrotask(() => child.emit('message', { id: m.id, ok: true, result: [] }))
+      queueMicrotask(() => {
+        child.emit('message', { id: m.id, ok: true, result: [] })
+        if (m.op === 'shutdown') child.emit('exit', 0)
+      })
     }
     child.kill = () => {
       child.emit('exit', 0)

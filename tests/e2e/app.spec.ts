@@ -22,12 +22,5 @@ test('titelbar zeigt LokLM brand', async () => {
   await expect(brand).toBeVisible()
 })
 
-// weitere specs als vorlage:
-//
-// test('registrierung happy-path' , async () => {
-//   await launched.page.getByLabel('Anzeigename').fill('Alex')
-//   await launched.page.getByLabel('Passwort').fill('Test12345!')
-//   await launched.page.getByLabel('Passwort bestätigen').fill('Test12345!')
-//   await launched.page.getByRole('button' , { name: 'Registrieren' }).click()
-//   await expect(launched.page.getByText(/passphrase/i)).toBeVisible()
-// })
+// Ordinary workflows use helpers/seed.registerAndUnlock: programmatic auth keeps
+// recovery words out of captures while sharing the current warmup selectors.

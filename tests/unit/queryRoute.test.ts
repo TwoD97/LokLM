@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, type Mock } from 'vitest'
 import {
   resolveRoute,
   resolveTargetDocument,
@@ -214,9 +214,12 @@ describe('extractThemeTokens', () => {
 describe('resolveRoute', () => {
   const ctx = (
     overrides: Partial<{ activeDocumentIds: number[] | null; docs: RouteDocument[] }> = {},
-  ): { activeDocumentIds: number[] | null; getDocuments: ReturnType<typeof vi.fn> } => ({
+  ): {
+    activeDocumentIds: number[] | null
+    getDocuments: Mock<() => Promise<RouteDocument[]>>
+  } => ({
     activeDocumentIds: overrides.activeDocumentIds ?? null,
-    getDocuments: vi.fn().mockResolvedValue(overrides.docs ?? docs),
+    getDocuments: vi.fn(async () => overrides.docs ?? docs),
   })
 
   it('non-summary query → retrieval WITHOUT touching the documents table', async () => {
@@ -380,6 +383,8 @@ function buildFakes(opts: {
   docWorkspaceId?: number
   corpusDocs?: Array<{ id: number; title: string; chunkHits: number; firstChunkId: number | null }>
   embedderReady?: boolean
+  summaryVectors?: boolean
+  queryEmbedding?: boolean
   summarizeImpl?: () => Promise<{ summary: string; cached: boolean }>
 }): {
   qa: QAService
@@ -388,6 +393,8 @@ function buildFakes(opts: {
   search: ReturnType<typeof vi.fn>
   searchDocumentsByTheme: ReturnType<typeof vi.fn>
   embed: ReturnType<typeof vi.fn>
+  embedQuery: ReturnType<typeof vi.fn>
+  hasSummaryEmbeddings: ReturnType<typeof vi.fn>
 } {
   const llmAsk = vi.fn(async (...args: [string, RetrievalHit[], AskOptions]) => {
     void args
@@ -403,11 +410,17 @@ function buildFakes(opts: {
   // off and themeEmbedding is null (the literal path). Set embedderReady to
   // exercise the summary-embedding signal.
   const embed = vi.fn().mockResolvedValue([new Float32Array([0.1, 0.2, 0.3])])
-  const embedder = { isReady: () => opts.embedderReady ?? false, embed }
+  const embedQuery = vi.fn().mockResolvedValue([new Float32Array([0.1, 0.2, 0.3])])
+  const embedder = {
+    isReady: () => opts.embedderReady ?? false,
+    embed,
+    ...(opts.queryEmbedding ? { embedQuery } : {}),
+  }
   const registry = { llm: () => llm, embedder: () => embedder } as unknown as ProviderRegistry
   const search = vi.fn().mockResolvedValue([mkHit(11, 1, 'TudosaDenys_Wochenbuch.pdf')])
   const retrieval = { search } as unknown as RetrievalService
   const searchDocumentsByTheme = vi.fn().mockResolvedValue(opts.corpusDocs ?? [])
+  const hasSummaryEmbeddings = vi.fn().mockResolvedValue(opts.summaryVectors ?? true)
   const documentsRepo = {
     // answer() fetches workspace-pinned docs up-front; none in these scenarios.
     listPinned: vi.fn().mockResolvedValue([]),
@@ -421,8 +434,9 @@ function buildFakes(opts: {
       tokenCount: opts.tokenCount ?? 2000,
     }),
     searchDocumentsByTheme,
+    hasSummaryEmbeddings,
   }
-  const db = { documents: () => documentsRepo } as unknown as WorkspaceDbFacade
+  const db = { documentsFor: async () => documentsRepo } as unknown as WorkspaceDbFacade
   const summarize = vi.fn(
     opts.summarizeImpl ??
       (async () => ({ summary: 'Cached overview of the Wochenbuch.', cached: true })),
@@ -435,6 +449,8 @@ function buildFakes(opts: {
     search,
     searchDocumentsByTheme,
     embed,
+    embedQuery,
+    hasSummaryEmbeddings,
   }
 }
 
@@ -610,6 +626,37 @@ describe('QAService corpus route', () => {
       activeDocumentIds: null,
       themeEmbedding: [expect.closeTo(0.1, 5), expect.closeTo(0.2, 5), expect.closeTo(0.3, 5)],
     })
+  })
+
+  it('skips native embedding when the selected source scope has no summary vectors', async () => {
+    const { qa, embed, embedQuery, hasSummaryEmbeddings, searchDocumentsByTheme } = buildFakes({
+      corpusDocs,
+      embedderReady: true,
+      summaryVectors: false,
+      queryEmbedding: true,
+    })
+    const events = await collect(qa, 'wie viele dokumente habe ich zu strom?', {
+      activeDocumentIds: [1],
+    })
+    expect(hasSummaryEmbeddings).toHaveBeenCalledWith([1])
+    expect(embed).not.toHaveBeenCalled()
+    expect(embedQuery).not.toHaveBeenCalled()
+    expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
+      activeDocumentIds: [1],
+      themeEmbedding: null,
+    })
+    expect(events.at(-1)).toMatchObject({ type: 'done' })
+  })
+
+  it('uses the asymmetric query instruction path for semantic theme lookup', async () => {
+    const { qa, embed, embedQuery } = buildFakes({
+      corpusDocs,
+      embedderReady: true,
+      queryEmbedding: true,
+    })
+    await collect(qa, 'wie viele dokumente habe ich zu strom?')
+    expect(embedQuery).toHaveBeenCalledWith(['strom'], { codebase: false })
+    expect(embed).not.toHaveBeenCalled()
   })
 
   it('themeless count does not embed (nothing to match semantically)', async () => {

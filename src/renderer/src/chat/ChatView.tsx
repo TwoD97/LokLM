@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Conversation, Document, StageName, StreamEvent } from '@shared/documents'
+import type {
+  Conversation,
+  ConversationWithMessages,
+  Document,
+  StageName,
+  StreamEvent,
+} from '@shared/documents'
 import { ChatHeader } from './ChatHeader'
 import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
 import { ConversationList } from './ConversationList'
 import { ConfirmModal } from './ConfirmModal'
-import { SourceViewer } from './SourceViewer'
+import { SourceViewer, ReaderBoundary } from '../ui/lazyReaders'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useSettings } from '../settings/useSettings'
 import { useGeneration } from '../generation/GenerationContext'
@@ -51,6 +57,35 @@ function newMessageId(): string {
   return crypto.randomUUID()
 }
 
+function restoredMessages(messages: ConversationWithMessages['messages']): LocalMessage[] {
+  return messages.map((message) => {
+    if (message.role === 'user')
+      return { id: newMessageId(), role: 'user', content: message.content }
+    const hasMetrics =
+      message.ttftMs != null || message.tokensPerSec != null || (message.tokenCount ?? 0) > 0
+    return {
+      id: newMessageId(),
+      role: 'assistant',
+      content: message.content,
+      streaming: false,
+      citations: message.citations.map((citation) => ({
+        documentId: citation.documentId,
+        chunkId: citation.chunkId,
+      })),
+      ...(message.pipeline?.length ? { pipeline: message.pipeline } : {}),
+      ...(hasMetrics
+        ? {
+            metrics: {
+              ttftMs: message.ttftMs,
+              tokensPerSec: message.tokensPerSec,
+              tokenCount: message.tokenCount ?? 0,
+            },
+          }
+        : {}),
+    }
+  })
+}
+
 type Props = {
   workspaceId: number
   currentConversationId: number | null
@@ -74,6 +109,7 @@ export function ChatView({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const sendPending = useRef(false)
+  const regeneratePending = useRef(false)
   const deletePending = useRef(false)
   const navigation = useRef(0)
   // Includes a selection whose database read has not completed yet. The
@@ -96,6 +132,16 @@ export function ChatView({
   // Default false matches the original "collapse on first token" UX; setting
   // is undefined while settings hydrate from disk on first launch.
   const keepPipelineVisible = settings?.basic.showPipelineSteps ?? false
+
+  useEffect(
+    () => () => {
+      // Pending preflight reads must never start a new generation after this
+      // workspace view has been removed (for example, while switching vaults).
+      navigation.current++
+      pendingSendCancelled.current = true
+    },
+    [],
+  )
 
   // Closures captured by the stream listener see a stale `currentConversationId`
   // — we use a ref so the listener can compare against the live value and drop
@@ -174,35 +220,7 @@ export function ChatView({
       if (request !== navigation.current) return
       currentIdRef.current = id
       onConversationChange(id, data.conversation.activeDocumentIds)
-      setMessages(
-        data.messages.map((m) => {
-          if (m.role === 'user') return { id: newMessageId(), role: 'user', content: m.content }
-          // Persisted assistant turns carry the stream metrics they were
-          // recorded with. Re-hydrate the metrics chip if any of them survived
-          // the round-trip (older rows have all-null and render without a chip).
-          const hasMetrics = m.ttftMs != null || m.tokensPerSec != null || (m.tokenCount ?? 0) > 0
-          return {
-            id: newMessageId(),
-            role: 'assistant',
-            content: m.content,
-            streaming: false,
-            // Always set, including empty: only supplied passages may be opened.
-            citations: m.citations.map((c) => ({ documentId: c.documentId, chunkId: c.chunkId })),
-            // Re-hydrate the persisted pipeline so the progress dropdown shows
-            // after a reload (empty/absent on legacy rows → no dropdown).
-            ...(m.pipeline && m.pipeline.length > 0 ? { pipeline: m.pipeline } : {}),
-            ...(hasMetrics
-              ? {
-                  metrics: {
-                    ttftMs: m.ttftMs,
-                    tokensPerSec: m.tokensPerSec,
-                    tokenCount: m.tokenCount ?? 0,
-                  },
-                }
-              : {}),
-          }
-        }),
-      )
+      setMessages(restoredMessages(data.messages))
     },
     [onConversationChange, t],
   )
@@ -216,6 +234,11 @@ export function ChatView({
     setMessages([])
   }, [onConversationChange])
 
+  const onSelectConversation = useCallback(
+    (id: number) => void openConversation(id),
+    [openConversation],
+  )
+
   const onCopyMessage = useCallback(
     (content: string) => {
       void navigator.clipboard.writeText(content).catch(() => setError(t('chat.copyFailed')))
@@ -224,8 +247,8 @@ export function ChatView({
   )
 
   const onSend = useCallback(
-    async (text: string) => {
-      if (sendPending.current) return
+    async (text: string, retryHistory?: LocalMessage[]) => {
+      if (sendPending.current || (regeneratePending.current && retryHistory === undefined)) return
       sendPending.current = true
       pendingSendCancelled.current = false
       const startedNavigation = navigation.current
@@ -242,7 +265,7 @@ export function ChatView({
       // captures the empty placeholder or drops the 2 most recent real turns,
       // both of which feed the contextualizer the wrong history. Empty for a new
       // chat, so a fresh conversation never inherits prior turns.
-      const priorMessages = messagesRef.current
+      const priorMessages = retryHistory ?? messagesRef.current
       let convId = currentConversationId
       if (convId == null) {
         try {
@@ -527,63 +550,66 @@ export function ChatView({
     }
   }, [activeStreamId])
 
-  /**
-   * Re-roll the most recent assistant turn. Uses the persisted DB messages as
-   * the single source of truth for BOTH the user text and the ids to delete —
-   * the in-memory `messagesRef` could disagree with the DB after a partial
-   * persist + UI refresh, so reading both from getWithMessages avoids deleting
-   * the wrong pair.
-   *
-   * Deletes the trailing assistant + user from DB (chat:stream persists user
-   * up-front, so we'd otherwise double-record on the re-send), then drops the
-   * trailing pair from in-memory state and re-fires onSend with the same user
-   * text. Disabled while busy so two re-rolls can't interleave.
-   *
-   * Failure mode: if either delete fails, we surface an error and bail. The
-   * conversation may be left with a dangling user message (assistant deleted,
-   * user undeleted) — the next regular Send still works; the next Regenerate
-   * will re-try the cleanup. We deliberately don't re-create the deleted
-   * message: a local-Electron DB error is rare and the simpler degraded state
-   * is preferable to a re-create that could itself fail.
-   */
+  // Regeneration owns the same composer for its entire read/delete/send cycle.
+  // Capture history from the stored prefix, excluding the turn being replaced.
   const onRegenerate = useCallback(async () => {
-    if (busy || currentConversationId == null) return
-    let lastUserText: string | null = null
-    let lastUserId: number | null = null
-    let lastAssistantId: number | null = null
+    if (sendPending.current || regeneratePending.current || currentConversationId == null) return
+    const conversationId = currentConversationId
+    const visibleHistory = messagesRef.current.map(({ role, content }) => ({ role, content }))
+    const startedNavigation = navigation.current
+    const stillHere = (): boolean =>
+      navigation.current === startedNavigation &&
+      currentIdRef.current === conversationId &&
+      navigationTarget.current === conversationId
+    regeneratePending.current = true
+    pendingSendCancelled.current = false
+    setBusy(true)
+    setError(null)
     try {
-      const data = await window.api.conversations.getWithMessages(currentConversationId)
-      for (let i = data.messages.length - 1; i >= 0; i--) {
-        const m = data.messages[i]
-        if (!m) continue
-        if (lastAssistantId == null && m.role === 'assistant') lastAssistantId = m.id
-        else if (lastUserId == null && m.role === 'user') {
-          lastUserId = m.id
-          lastUserText = m.content
-          break
-        }
+      const data = await window.api.conversations.getWithMessages(conversationId)
+      if (!stillHere() || pendingSendCancelled.current) return
+      const userIndex = data.messages.length - 2
+      const user = data.messages[userIndex]
+      const assistant = data.messages[userIndex + 1]
+      if (
+        data.conversation.workspaceId !== workspaceId ||
+        data.conversation.id !== conversationId ||
+        user?.role !== 'user' ||
+        assistant?.role !== 'assistant' ||
+        data.messages.length !== visibleHistory.length ||
+        data.messages.some(
+          (message, index) =>
+            message.role !== visibleHistory[index]?.role ||
+            message.content !== visibleHistory[index]?.content,
+        )
+      ) {
+        throw new Error('Conversation changed; reload it before regenerating')
       }
-      if (lastUserText == null) return
-      // Drop assistant first so a failed user-delete leaves the conversation in
-      // an unambiguous "needs re-answer" state instead of "duplicate user".
-      if (lastAssistantId != null) await window.api.conversations.deleteMessage(lastAssistantId)
-      if (lastUserId != null) await window.api.conversations.deleteMessage(lastUserId)
+      await window.api.conversations.deleteLatestTurn({
+        workspaceId,
+        conversationId,
+        userMessageId: user.id,
+        assistantMessageId: assistant.id,
+      })
+      if (!stillHere()) return
+      const history = restoredMessages(data.messages.slice(0, userIndex))
+      setMessages(history)
+      if (pendingSendCancelled.current) {
+        setDraftSuggestion({ text: user.content })
+        return
+      }
+      await onSend(user.content, history)
     } catch (err) {
       console.error('[chat] regenerate failed', err)
-      window.alert(t('chat.regenerateFailed'))
-      return
+      if (stillHere()) {
+        setError(t('chat.regenerateFailed'))
+        await openConversation(conversationId, true)
+      }
+    } finally {
+      regeneratePending.current = false
+      setBusy(false)
     }
-
-    // Drop the trailing user+assistant from the in-memory list; onSend will
-    // re-append fresh ones with the same query.
-    setMessages((prev) => {
-      const next = prev.slice()
-      if (next[next.length - 1]?.role === 'assistant') next.pop()
-      if (next[next.length - 1]?.role === 'user') next.pop()
-      return next
-    })
-    await onSend(lastUserText)
-  }, [busy, currentConversationId, onSend, t])
+  }, [currentConversationId, workspaceId, onSend, openConversation, t])
 
   const onDelete = useCallback(
     async (id: number) => {
@@ -636,7 +662,7 @@ export function ChatView({
       <ConversationList
         conversations={conversations}
         currentId={currentConversationId}
-        onSelect={(id) => void openConversation(id)}
+        onSelect={onSelectConversation}
         onNewChat={startNewChat}
         onRequestDelete={(c) => setConfirmDelete(c)}
       />
@@ -678,17 +704,22 @@ export function ChatView({
       </section>
       {sourceViewer && (
         <ErrorBoundary label={t('chat.sourcePreview')} onError={() => setSourceViewer(null)}>
-          <SourceViewer
-            chunkId={sourceViewer.chunkId}
-            messageText={sourceViewer.messageText}
-            documentTitle={sourceViewer.documentTitle}
-            // Small / German answers routinely emit no inline [doc,chunk]
-            // markers, so the "Quellen" footer is the only citation. Fuzzy-match
-            // the whole answer against the cited chunk to surface its grounding
-            // passage instead of opening the source with nothing highlighted.
-            wholeMessageFallback={true}
+          <ReaderBoundary
+            label={sourceViewer.documentTitle ?? t('chat.sourcePreview')}
             onClose={() => setSourceViewer(null)}
-          />
+          >
+            <SourceViewer
+              chunkId={sourceViewer.chunkId}
+              messageText={sourceViewer.messageText}
+              documentTitle={sourceViewer.documentTitle}
+              // Small / German answers routinely emit no inline [doc,chunk]
+              // markers, so the "Quellen" footer is the only citation. Fuzzy-match
+              // the whole answer against the cited chunk to surface its grounding
+              // passage instead of opening the source with nothing highlighted.
+              wholeMessageFallback={true}
+              onClose={() => setSourceViewer(null)}
+            />
+          </ReaderBoundary>
         </ErrorBoundary>
       )}
       {confirmDelete && (

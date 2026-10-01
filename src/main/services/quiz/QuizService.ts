@@ -19,6 +19,8 @@ import { targetQuestionCount } from './prompts'
 import { planQuiz, type QuizUnitDoc } from './units'
 
 export class QuizService {
+  private readonly generations = new Set<string>()
+
   constructor(
     private readonly db: WorkspaceDbFacade,
     private readonly registry: ProviderRegistry,
@@ -30,14 +32,18 @@ export class QuizService {
     workspaceId: number,
     documentIds: number[],
     requested: QuizLanguage | 'auto' | undefined,
+    abortSignal?: AbortSignal,
   ): Promise<QuizLanguage> {
+    checkCancelled(abortSignal)
     if (requested === 'de' || requested === 'en') return requested
-    void workspaceId
-    const repo = this.db.documents()
+    const repo = await this.db.documentsFor(workspaceId)
+    checkCancelled(abortSignal)
     for (const id of documentIds) {
       const doc = await repo.getDocument(id)
+      checkCancelled(abortSignal)
       if (!doc) continue
       const chunks = await repo.listChunksForDocument(id)
+      checkCancelled(abortSignal)
       const sample = (doc.title + ' ' + (chunks[0]?.text ?? '')).slice(0, 600)
       if (looksGerman(sample)) return 'de'
       if (looksEnglish(sample)) return 'en'
@@ -47,18 +53,24 @@ export class QuizService {
 
   /** Load (docId, title, non-empty chunks) for each existing document. */
   private async loadUnitDocs(
+    workspaceId: number,
     documentIds: number[],
+    abortSignal?: AbortSignal,
   ): Promise<{ unitDocs: QuizUnitDoc[]; warnings: string[] }> {
-    const documents = this.db.documents()
+    checkCancelled(abortSignal)
+    const documents = await this.db.documentsFor(workspaceId)
+    checkCancelled(abortSignal)
     const unitDocs: QuizUnitDoc[] = []
     const warnings: string[] = []
     for (const docId of documentIds) {
       const doc = await documents.getDocument(docId)
+      checkCancelled(abortSignal)
       if (!doc) {
         warnings.push(`Document ${docId} not found, skipping.`)
         continue
       }
       const chunks = await documents.listChunksForDocument(docId)
+      checkCancelled(abortSignal)
       const ready = chunks.filter((c) => (c.text ?? '').trim().length > 0)
       if (ready.length === 0) {
         warnings.push(`"${doc.title}" has no indexable content.`)
@@ -73,8 +85,9 @@ export class QuizService {
    *  the size-scaled target question count. Pure chunk-stat math — runs in
    *  milliseconds, no LLM. The model's final count can differ, so
    *  questionEstimate is a guide, not a promise. */
-  async estimate(documentIds: number[]): Promise<QuizEstimate> {
-    const { unitDocs } = await this.loadUnitDocs(documentIds)
+  async estimate(documentIds: number[], abortSignal?: AbortSignal): Promise<QuizEstimate> {
+    const workspaceId = this.db.quizzes().workspaceId
+    const { unitDocs } = await this.loadUnitDocs(workspaceId, documentIds, abortSignal)
     const { units } = planQuiz(unitDocs)
     const questionEstimate = units.reduce(
       (sum, u) => sum + targetQuestionCount(u.tokens, u.docTokens),
@@ -87,20 +100,35 @@ export class QuizService {
    *  has something to render while the pipeline runs. question_count starts
    *  at 0 (unknown — the model decides per unit) and settles to the persisted
    *  row count when generation finishes. */
-  async createDeckRow(input: CreateQuizInput): Promise<QuizDeck> {
+  async createDeckRow(input: CreateQuizInput, abortSignal?: AbortSignal): Promise<QuizDeck> {
     validateCreateInput(input)
+    checkCancelled(abortSignal)
+    const quizzes = await this.db.quizzesFor(input.workspaceId)
+    checkCancelled(abortSignal)
     const language = await this.resolveLanguage(
       input.workspaceId,
       input.documentIds,
       input.language,
+      abortSignal,
     )
-    return this.db.quizzes().createDeck({
+    checkCancelled(abortSignal)
+    return quizzes.createDeck({
       workspaceId: input.workspaceId,
       name: input.name.trim(),
       documentIds: input.documentIds,
       questionCount: 0,
       language,
     })
+  }
+
+  /** Never clear a deck underneath its running generator. The storage reset
+   *  itself is atomic and uses the workspace captured before any await. */
+  async prepareRegeneration(deckId: number): Promise<void> {
+    const quizzes = this.db.quizzes()
+    if (this.generations.has(`${quizzes.workspaceId}:${deckId}`)) {
+      throw new Error('Quiz generation is already running')
+    }
+    await quizzes.resetDeckForGeneration(deckId)
   }
 
   /** Run the chunk-driven pipeline for an existing deck row. Yields
@@ -112,44 +140,62 @@ export class QuizService {
    *  units — there is no target and deliberately no retry. */
   async *generate(deckId: number, abortSignal?: AbortSignal): AsyncIterable<QuizGenerationEvent> {
     const quizzes = this.db.quizzes()
-    const llm = this.registry.llm()
-
     const deck = await quizzes.getDeck(deckId)
     if (!deck) {
       yield { type: 'error', message: `Deck ${deckId} not found` }
       return
     }
+    const key = `${quizzes.workspaceId}:${deckId}`
+    if (this.generations.has(key)) {
+      yield { type: 'error', message: 'Quiz generation is already running' }
+      return
+    }
+    if (deck.status !== 'generating') {
+      yield { type: 'error', message: 'Quiz is not awaiting generation' }
+      return
+    }
+    this.generations.add(key)
+    let settled = false
 
     try {
-      const { unitDocs, warnings } = await this.loadUnitDocs(deck.documentIds)
-      for (const message of warnings) yield { type: 'warning', message }
-      if (abortSignal?.aborted) throw new Error('cancelled')
+      checkCancelled(abortSignal)
+      const llm = this.registry.llm()
+      const { unitDocs, warnings } = await this.loadUnitDocs(
+        deck.workspaceId,
+        deck.documentIds,
+        abortSignal,
+      )
+      for (const message of warnings) {
+        checkCancelled(abortSignal)
+        yield { type: 'warning', message }
+      }
+      checkCancelled(abortSignal)
 
       // Plan in code: section-aware units covering ALL the material. How many
       // questions each unit yields is the model's decision during generation.
       const { units } = planQuiz(unitDocs)
       if (units.length === 0) {
-        const msg = 'no indexable content in selected documents'
-        await quizzes.setDeckStatus(deckId, 'failed', msg)
-        yield { type: 'error', message: msg }
-        return
+        throw new Error('no indexable content in selected documents')
       }
       yield { type: 'plan', unitCount: units.length }
 
       // One grammar-constrained call per unit. Small prompts by construction
-      // (units are token-bounded), so the same code path serves GPU and CPU.
+      // (units are token-bounded), with no speculative background model calls.
       const accepted: AcceptedQuestion[] = []
       for (let i = 0; i < units.length; i += 1) {
         const unit = units[i]!
-        if (abortSignal?.aborted) throw new Error('cancelled')
+        checkCancelled(abortSignal)
         yield { type: 'unit', unitIndex: i + 1, unitTotal: units.length, unitTitle: unit.title }
+        checkCancelled(abortSignal)
         const batch = await generateQuestionsForUnit(llm, {
           language: deck.language,
           unit,
           acceptedStems: accepted.map((a) => a.stem),
           ...(abortSignal ? { abortSignal } : {}),
         })
+        checkCancelled(abortSignal)
         for (const q of batch) {
+          checkCancelled(abortSignal)
           accepted.push({ ...q, ordinal: accepted.length })
           yield {
             type: 'question',
@@ -162,12 +208,11 @@ export class QuizService {
       }
 
       if (accepted.length === 0) {
-        await quizzes.setDeckStatus(deckId, 'failed', 'no questions accepted by validation')
-        yield { type: 'error', message: 'no questions accepted by validation' }
-        return
+        throw new Error('no questions accepted by validation')
       }
 
-      await quizzes.insertQuestions(
+      checkCancelled(abortSignal)
+      await quizzes.completeGeneration(
         deckId,
         accepted.map((a, i) => ({
           ordinal: i,
@@ -179,22 +224,37 @@ export class QuizService {
           themeTitle: a.themeTitle,
         })),
       )
-      // The deck's question_count must match the persisted rows — score
-      // displays divide by it.
-      await quizzes.updateDeckQuestionCount(deckId, accepted.length)
-      await quizzes.setDeckStatus(deckId, 'ready', null)
+      // Publishing is one synchronous SQLite transaction. Once committed, a
+      // cancellation cannot turn the complete, usable deck into a failed one.
+      settled = true
+      if (abortSignal?.aborted) return
       yield { type: 'done', deckId }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      const errorText = message === 'cancelled' ? 'cancelled' : message
+      const errorText = abortSignal?.aborted ? 'cancelled' : message
       try {
         await quizzes.setDeckStatus(deckId, 'failed', errorText)
       } catch {
         /* DB might be gone — swallow */
       }
+      settled = true
       yield { type: 'error', message: errorText }
+    } finally {
+      try {
+        // for-await break/return does not enter catch. Do not leave a deck
+        // permanently "generating" when its consumer stops reading events.
+        if (!settled) await quizzes.setDeckStatus(deckId, 'failed', 'cancelled')
+      } catch {
+        /* The originating workspace may have been locked or deleted. */
+      } finally {
+        this.generations.delete(key)
+      }
     }
   }
+}
+
+function checkCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error('cancelled')
 }
 
 export function validateCreateInput(input: CreateQuizInput): void {

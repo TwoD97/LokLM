@@ -85,6 +85,7 @@ export class RerankerService {
   }
   private listeners: Array<(s: RerankerStatus) => void> = []
   private loadPromise: Promise<void> | null = null
+  private sessionEpoch = 0
   private placement: PlacementChoice = 'auto'
   private lastResolvedPlacement: Placement | null = null
   private lastReason: string | null = null
@@ -159,6 +160,7 @@ export class RerankerService {
   }
 
   async refreshPolicy(): Promise<RerankerDecision> {
+    const epoch = this.sessionEpoch
     const revision = this.policyRevision
     let resources: Awaited<ReturnType<ModelsWorkerClient['refreshResources']>> | null = null
     // Do not initialise a local GPU for an external provider or a disabled feature.
@@ -169,6 +171,7 @@ export class RerankerService {
         // Unknown capability is reported honestly; never guess from system RAM.
       }
     }
+    this.assertSession(epoch)
     if (revision === this.policyRevision) {
       this.policyDecision = assessRerankerPolicy({ ...this.policy, resources })
       this.publishPolicyStatus()
@@ -232,7 +235,9 @@ export class RerankerService {
   }
 
   async ensureReady(): Promise<boolean> {
+    const epoch = this.sessionEpoch
     await this.refreshPolicy()
+    this.assertSession(epoch)
     if (!this.bundledAllowed()) return false
     if (this.isReady()) return true
     if (this.loadPromise) {
@@ -241,7 +246,7 @@ export class RerankerService {
       } catch {
         /* status reflects failure */
       }
-      return this.isReady()
+      return epoch === this.sessionEpoch && this.isReady()
     }
     const path = resolveRerankerPath()
     if (!path) {
@@ -260,19 +265,35 @@ export class RerankerService {
       })
       return false
     }
-    this.loadPromise = this.loadModel(path).finally(() => {
-      this.loadPromise = null
+    const loading = this.loadModel(path).finally(() => {
+      if (this.loadPromise === loading) this.loadPromise = null
     })
+    this.loadPromise = loading
     try {
       await this.loadPromise
     } catch {
       /* status already updated */
     }
-    return this.isReady()
+    return epoch === this.sessionEpoch && this.isReady()
+  }
+
+  invalidateSession(): void {
+    this.sessionEpoch++
+    this.policyRevision++
+    this.loadPromise = null
+    this.lastResolvedPlacement = null
+    this.lastReason = null
+    this.setStatus({ state: 'unloaded', resident: false, loadProgress: null, message: null })
+  }
+
+  private assertSession(epoch: number): void {
+    if (epoch !== this.sessionEpoch) throw new Error('Model session is closed.')
   }
 
   async loadModel(modelPath: string): Promise<void> {
+    const epoch = this.sessionEpoch
     await this.refreshPolicy()
+    this.assertSession(epoch)
     if (!this.bundledAllowed()) return
     if (!this.client) {
       throw new Error(
@@ -287,10 +308,12 @@ export class RerankerService {
         contextSize: RERANK_CONTEXT_SIZE,
         policy: this.policy.mode,
       })
+      this.assertSession(epoch)
       this.lastResolvedPlacement = result.resolvedPlacement
       this.lastReason = result.reason
       void result.resources
     } catch (err) {
+      this.assertSession(epoch)
       const msg = err instanceof Error ? err.message : String(err)
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
@@ -298,6 +321,7 @@ export class RerankerService {
   }
 
   async unload(): Promise<void> {
+    const epoch = this.sessionEpoch
     if (this.client) {
       try {
         await this.client.rerankerUnload()
@@ -305,17 +329,22 @@ export class RerankerService {
         /* worker status push reflects reality */
       }
     }
+    this.assertSession(epoch)
     this.setStatus({ state: 'unloaded', resident: false, loadProgress: null })
     this.publishPolicyStatus()
   }
 
   async rank(query: string, documents: string[]): Promise<number[] | null> {
+    const epoch = this.sessionEpoch
     if (documents.length === 0) return []
     if (!(await this.ensureReady())) return null
+    this.assertSession(epoch)
     try {
-      return await this.client!.rerankerRank(query, documents)
+      const result = await this.client!.rerankerRank(query, documents)
+      this.assertSession(epoch)
+      return result
     } catch (err) {
-      // eslint-disable-next-line no-console
+      this.assertSession(epoch)
       console.warn('[reranker] rank failed:', err)
       return null
     }

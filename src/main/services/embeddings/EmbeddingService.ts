@@ -172,6 +172,7 @@ export class EmbeddingService {
   }
   private listeners: Array<(s: EmbedderStatus) => void> = []
   private loadPromise: Promise<void> | null = null
+  private sessionEpoch = 0
   private placement: PlacementChoice = 'auto'
   private lastResolvedPlacement: Placement | null = null
   private lastReason: string | null = null
@@ -280,6 +281,7 @@ export class EmbeddingService {
   }
 
   async ensureReady(): Promise<boolean> {
+    const epoch = this.sessionEpoch
     if (this.isReady()) return true
     if (this.loadPromise) {
       try {
@@ -287,7 +289,7 @@ export class EmbeddingService {
       } catch {
         /* status reflects failure */
       }
-      return this.isReady()
+      return epoch === this.sessionEpoch && this.isReady()
     }
     const path = this.resolveTargetPath()
     if (!path) {
@@ -300,18 +302,35 @@ export class EmbeddingService {
       })
       return false
     }
-    this.loadPromise = this.loadModel(path).finally(() => {
-      this.loadPromise = null
+    const loading = this.loadModel(path).finally(() => {
+      if (this.loadPromise === loading) this.loadPromise = null
     })
+    this.loadPromise = loading
     try {
       await this.loadPromise
     } catch {
       /* status already updated */
     }
-    return this.isReady()
+    return epoch === this.sessionEpoch && this.isReady()
+  }
+
+  invalidateSession(): void {
+    this.sessionEpoch++
+    this.queryCacheGeneration++
+    this.loadedQueryCacheFile = null
+    this.loadedPath = null
+    this.loadPromise = null
+    this.lastResolvedPlacement = null
+    this.lastReason = null
+    this.setStatus({ state: 'unloaded', resident: false, loadProgress: null, message: null })
+  }
+
+  private assertSession(epoch: number): void {
+    if (epoch !== this.sessionEpoch) throw new Error('Model session is closed.')
   }
 
   async loadModel(modelPath: string): Promise<void> {
+    const epoch = this.sessionEpoch
     this.queryCacheGeneration++
     this.loadedQueryCacheFile = null
     let fileRevision: { path: string; size: number; mtimeMs: number } | null = null
@@ -333,12 +352,14 @@ export class EmbeddingService {
         weightsBytes: ggufWeightBytes(modelPath),
         contextSize: EMBED_CONTEXT_SIZE,
       })
+      this.assertSession(epoch)
       this.lastResolvedPlacement = result.resolvedPlacement
       this.lastReason = result.reason
       this.loadedPath = modelPath
       this.loadedQueryCacheFile = fileRevision
       void result.resources
     } catch (err) {
+      this.assertSession(epoch)
       const msg = err instanceof Error ? err.message : String(err)
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
       throw err
@@ -414,33 +435,41 @@ export class EmbeddingService {
     texts: string[],
     opts: { codebase?: boolean } = {},
   ): Promise<Array<number[] | null>> {
+    const epoch = this.sessionEpoch
     if (texts.length === 0) return []
     if (!(await this.ensureReady())) return texts.map(() => null)
+    this.assertSession(epoch)
     const instruction = this.queryInstruction(opts.codebase ?? false)
     const prepared = texts.map((raw) => {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : instruction + cleaned
     })
     try {
-      return await this.client!.embedderEmbed(prepared)
+      const result = await this.client!.embedderEmbed(prepared)
+      this.assertSession(epoch)
+      return result
     } catch (err) {
-      // eslint-disable-next-line no-console
+      this.assertSession(epoch)
       console.warn('[embedder] embedQueries failed:', err)
       return texts.map(() => null)
     }
   }
 
   async embedPassages(texts: string[]): Promise<Array<number[] | null>> {
+    const epoch = this.sessionEpoch
     if (texts.length === 0) return []
     if (!(await this.ensureReady())) return texts.map(() => null)
+    this.assertSession(epoch)
     const prepared = texts.map((raw) => {
       const cleaned = sanitize(raw)
       return cleaned.length === 0 ? '' : PASSAGE_PREFIX + cleaned
     })
     try {
-      return await this.client!.embedderEmbed(prepared)
+      const result = await this.client!.embedderEmbed(prepared)
+      this.assertSession(epoch)
+      return result
     } catch (err) {
-      // eslint-disable-next-line no-console
+      this.assertSession(epoch)
       console.warn('[embedder] embedPassages failed:', err)
       return texts.map(() => null)
     }

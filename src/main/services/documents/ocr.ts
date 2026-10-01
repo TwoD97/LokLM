@@ -147,7 +147,6 @@ function createTessWorker(tesseract: TesseractModule, langPath: string): Promise
     corePath: tesseractCorePath(),
     logger: () => {},
     errorHandler: (e: unknown) =>
-      // eslint-disable-next-line no-console
       console.warn('[ocr] tesseract worker error:', e instanceof Error ? e.message : e),
   })
 }
@@ -179,7 +178,6 @@ async function ensureWorkers(target: number): Promise<TesseractScheduler> {
       throw firstFailure instanceof Error ? firstFailure : new Error(String(firstFailure))
     }
     if (firstFailure !== undefined) {
-      // eslint-disable-next-line no-console
       console.warn(
         `[ocr] some OCR workers failed to spawn, continuing with ${pool.workers}:`,
         firstFailure instanceof Error ? firstFailure.message : firstFailure,
@@ -283,7 +281,6 @@ export async function ocrEmbeddedImages(
       try {
         if (await isOcrCandidate(image)) out[i] = await ocrImageBuffer(image)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn(
           `[ocr] embedded image ${i + 1}/${images.length} failed:`,
           err instanceof Error ? err.message : err,

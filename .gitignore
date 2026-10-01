@@ -173,6 +173,8 @@ claude
 tests/e2e/screenshots/output/
 
 # Playwright trace / HTML report artifacts
+/test-results/
+/.playwright-report/
 tests/e2e/test-results/
 tests/e2e/.playwright-report/
 

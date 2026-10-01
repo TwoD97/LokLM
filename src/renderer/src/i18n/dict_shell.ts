@@ -51,8 +51,12 @@ export const shellDict: DomainDict = {
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Create or select a workspace first.',
+    'shell.documentsLoadFailed': 'The document list could not be loaded. {message}',
+    'shell.workspaceActionFailed': 'The workspace could not be updated. {message}',
+    'shell.deletingWorkspace': 'Deleting {name}…',
     'shell.switchingWorkspace': 'Opening {name}…',
     'shell.switchingWorkspaceHint': 'Decrypting and loading its documents.',
+    'shell.workspaceOpenFailed': 'Could not open “{name}”. Try again or choose another workspace.',
 
     // Sidebar.tsx
     'shell.navLibrary': 'Library',
@@ -150,8 +154,13 @@ export const shellDict: DomainDict = {
 
     // AppShell.tsx
     'shell.selectWorkspaceFirst': 'Erstelle oder wähle zuerst einen Workspace.',
+    'shell.documentsLoadFailed': 'Die Dokumentliste konnte nicht geladen werden. {message}',
+    'shell.workspaceActionFailed': 'Der Workspace konnte nicht aktualisiert werden. {message}',
+    'shell.deletingWorkspace': '{name} wird gelöscht…',
     'shell.switchingWorkspace': '„{name}“ wird geöffnet…',
     'shell.switchingWorkspaceHint': 'Dokumente werden entschlüsselt und geladen.',
+    'shell.workspaceOpenFailed':
+      '„{name}“ konnte nicht geöffnet werden. Versuche es erneut oder wähle einen anderen Arbeitsbereich.',
 
     // Sidebar.tsx
     'shell.navLibrary': 'Bibliothek',

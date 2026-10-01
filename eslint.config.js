@@ -14,6 +14,14 @@ export default tseslint.config(
       'coverage/**',
       'docs/api/**',
       'node_modules/**',
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/test-results/**',
+      '**/.playwright-report/**',
+      '**/.astro/**',
+      'installer-wizard/src-tauri/target/**',
+      'sidecars/**/build/**',
       '_reference/**',
       '.tsbuildinfo-*/**',
       'public/**',
@@ -22,8 +30,6 @@ export default tseslint.config(
       // Local benchmark / diagnostic probes run via tsx (loose by nature —
       // `any`, console logging); dev tooling, not shipped code.
       'tests/bench/**',
-      // Excluded from AP-1.1 typecheck/lint; AP-2.1 brings these back.
-      'src/main/services/**',
     ],
   },
 
@@ -48,11 +54,27 @@ export default tseslint.config(
       'src/preload/**/*.ts',
       'src/shared/**/*.ts',
       'scripts/**/*.{js,mjs,cjs,ts}',
-      '*.{ts,js}',
+      'tests/**/*.{js,mjs,cjs,ts}',
+      '*.{ts,js,mjs,cjs}',
     ],
     languageOptions: {
       globals: { ...globals.node },
     },
+  },
+
+  {
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+
+  {
+    files: ['installer-wizard/frontend/**/*.js'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    // The installer dictionary also exports through CommonJS for unit tests.
+    files: ['installer-wizard/frontend/i18n.js'],
+    languageOptions: { globals: { module: 'readonly' } },
   },
 
   // Browser globals + React rules for renderer

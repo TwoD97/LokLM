@@ -42,29 +42,33 @@ describe('BundledEmbedderProvider', () => {
   })
 
   it('embedQuery() delegates to embedQueries() (fix #1 query-instruction path)', async () => {
-    const embedQueries = vi.fn().mockResolvedValue([[4, 5, 6]])
+    const vector = Array.from({ length: 1024 }, (_, index) => index + 1)
+    const embedQueries = vi.fn().mockResolvedValue([vector])
     const p = new BundledEmbedderProvider({
       embedPassages: vi.fn(),
       embedQueries,
       isReady: () => true,
       ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:bge-m3',
     } as never)
     const out = await p.embedQuery(['how does the auth class work'])
-    expect(out[0]).toEqual(new Float32Array([4, 5, 6]))
+    expect(out[0]).toEqual(new Float32Array(vector))
     // embedQuery threads the codebase opt through to embedQueries(texts, opts);
     // with no opts passed here that's an explicit `undefined` second arg.
     expect(embedQueries).toHaveBeenCalledWith(['how does the auth class work'], undefined)
   })
 
   it('delegates embed() to embedPassages() and converts number[] → Float32Array', async () => {
-    const embedPassages = vi.fn().mockResolvedValue([[1, 2, 3]])
+    const vector = Array.from({ length: 1024 }, (_, index) => index + 1)
+    const embedPassages = vi.fn().mockResolvedValue([vector])
     const p = new BundledEmbedderProvider({
       embedPassages,
       isReady: () => true,
       ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:bge-m3',
     } as never)
     const out = await p.embed(['hello'])
-    expect(out[0]).toEqual(new Float32Array([1, 2, 3]))
+    expect(out[0]).toEqual(new Float32Array(vector))
     expect(embedPassages).toHaveBeenCalledWith(['hello'])
   })
 
@@ -74,7 +78,23 @@ describe('BundledEmbedderProvider', () => {
       embedPassages,
       isReady: () => true,
       ensureReady: vi.fn(),
+      activeIdentity: () => 'bundled:bge-m3',
     } as never)
     await expect(p.embed(['bad'])).rejects.toThrow()
   })
+
+  it.each(['embed', 'embedQuery'] as const)(
+    'rejects malformed native output through %s',
+    async (method) => {
+      const invalid = vi.fn().mockResolvedValue([[1, 2, 3]])
+      const p = new BundledEmbedderProvider({
+        embedPassages: invalid,
+        embedQueries: invalid,
+        activeIdentity: () => 'bundled:bge-m3',
+      } as never)
+      await expect(p[method](['source'])).rejects.toThrow(/dimension mismatch/)
+      invalid.mockResolvedValue([])
+      await expect(p[method](['source'])).rejects.toThrow(/count mismatch/)
+    },
+  )
 })

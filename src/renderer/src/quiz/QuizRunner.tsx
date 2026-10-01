@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { QuizAttempt, QuizDeckWithQuestions, QuizQuestion } from '@shared/quiz'
 import { QuestionCard } from './QuestionCard'
 import { QuizResults } from './QuizResults'
-import { SourceViewer } from '../chat/SourceViewer'
+import { SourceViewer, ReaderBoundary } from '../ui/lazyReaders'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useT, type TFn } from '../i18n'
 
@@ -346,12 +346,14 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
         // SourceViewer renders its own backdrop + role=dialog modal — no extra
         // wrapper here.
         <ErrorBoundary label="Source preview" onError={() => setSource(null)}>
-          <SourceViewer
-            chunkId={source.chunkId}
-            messageText={source.explanation}
-            documentTitle={null}
-            onClose={() => setSource(null)}
-          />
+          <ReaderBoundary label={t('chat.sourcePreview')} onClose={() => setSource(null)}>
+            <SourceViewer
+              chunkId={source.chunkId}
+              messageText={source.explanation}
+              documentTitle={null}
+              onClose={() => setSource(null)}
+            />
+          </ReaderBoundary>
         </ErrorBoundary>
       )}
     </section>

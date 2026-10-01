@@ -22,30 +22,33 @@ const VisibilityContext = createContext<VisibilityRegister | null>(null)
 
 function createVisibilityRegistry(): { register: VisibilityRegister; dispose: () => void } {
   const callbacks = new Map<Element, () => void>()
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue
-        const cb = callbacks.get(entry.target)
-        if (!cb) continue
-        callbacks.delete(entry.target)
-        io.unobserve(entry.target)
-        cb()
-      }
-    },
-    { rootMargin: '400px 0px' }, // start rendering a bit before scroll arrival
-  )
+  let io: IntersectionObserver | null = null
+  const observer = (): IntersectionObserver =>
+    (io ??= new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const cb = callbacks.get(entry.target)
+          if (!cb) continue
+          callbacks.delete(entry.target)
+          io?.unobserve(entry.target)
+          cb()
+        }
+      },
+      { rootMargin: '400px 0px' }, // start rendering a bit before scroll arrival
+    ))
   return {
     register: (el, onVisible) => {
       callbacks.set(el, onVisible)
-      io.observe(el)
+      observer().observe(el)
       return () => {
-        if (callbacks.delete(el)) io.unobserve(el)
+        if (callbacks.delete(el)) io?.unobserve(el)
       }
     },
     dispose: () => {
       callbacks.clear()
-      io.disconnect()
+      io?.disconnect()
+      io = null
     },
   }
 }
@@ -69,33 +72,6 @@ type Props = {
   citedPageTo?: number
 }
 
-type DocCacheEntry = { documentId: number; promise: Promise<PDFDocumentProxy> }
-
-// Cache the PDFDocumentProxy per documentId for the lifetime of the renderer
-// process so opening a different chunk of the same doc doesn't re-parse the
-// file. The previous single-page preview kept the same cache shape.
-let cached: DocCacheEntry | null = null
-
-async function loadPdf(documentId: number): Promise<PDFDocumentProxy> {
-  if (cached && cached.documentId === documentId) return cached.promise
-  // Free the previous doc's parsed structure + worker-side buffers before
-  // swapping , otherwise opening N different PDFs leaks N-1 of them.
-  if (cached) {
-    const stale = cached.promise
-    void stale.then((p) => p.destroy()).catch(() => undefined)
-  }
-  const promise = (async (): Promise<PDFDocumentProxy> => {
-    const bytes = await window.api.documents.readDocumentBytes(documentId)
-    if (!bytes) throw new Error('Document bytes unavailable')
-    // readDocumentBytes returns a fresh Uint8Array per IPC call , no need to
-    // copy. pdfjs detaches the underlying ArrayBuffer.
-    const task = pdfjsLib.getDocument({ data: bytes })
-    return task.promise
-  })()
-  cached = { documentId, promise }
-  return promise
-}
-
 export function MultiPagePdfPreview({
   documentId,
   targetPage,
@@ -113,12 +89,19 @@ export function MultiPagePdfPreview({
   // render uses the page's own viewport so the canvas always matches).
   useEffect(() => {
     let cancelled = false
+    let task: ReturnType<typeof pdfjsLib.getDocument> | undefined
     setError(null)
     setPdf(null)
     setAspectRatio(null)
     void (async () => {
       try {
-        const doc = await loadPdf(documentId)
+        const bytes = await window.api.documents.readDocumentBytes(documentId)
+        if (cancelled) return
+        if (!bytes) throw new Error('Document bytes unavailable')
+        // The preview owns its worker and decrypted bytes. Document IDs are
+        // local to each workspace, so a renderer-wide ID cache is unsafe.
+        task = pdfjsLib.getDocument({ data: bytes })
+        const doc = await task.promise
         if (cancelled) return
         const probe = await doc.getPage(1)
         if (cancelled) {
@@ -135,12 +118,13 @@ export function MultiPagePdfPreview({
     })()
     return () => {
       cancelled = true
+      void task?.destroy().catch(() => undefined)
     }
   }, [documentId])
 
   // One IntersectionObserver shared by every page of this preview. Created
-  // per-mount (one preview = one document = one observer) and torn down when
-  // the modal closes or the document changes.
+  // per-mount and created lazily when a page registers. This also avoids
+  // allocating an observer during an abandoned React render.
   const visibility = useMemo(() => createVisibilityRegistry(), [])
   useEffect(() => () => visibility.dispose(), [visibility])
 
@@ -322,7 +306,7 @@ async function renderTextLayerWithHighlights({
   snippets: string[]
 }): Promise<void> {
   container.replaceChildren()
-  // pdfjs-dist 5.x positions each span via CSS variables driven by this one.
+  // PDF.js positions each span via CSS variables driven by this one.
   container.style.setProperty('--total-scale-factor', String(viewport.scale))
   container.style.width = `${Math.floor(viewport.width)}px`
   container.style.height = `${Math.floor(viewport.height)}px`

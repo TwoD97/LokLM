@@ -18,6 +18,60 @@ describe('WorkspaceDb quiz + sync folders', () => {
     await fs.rm(dir, { recursive: true, force: true })
   })
 
+  it('publishes a generated deck atomically and leaves the old state intact on insertion failure', async () => {
+    const deck = await db.createDeck({
+      name: 'Draft',
+      documentIds: [1],
+      questionCount: 0,
+      language: 'en',
+    })
+    const question = {
+      ordinal: 17,
+      stem: 'Valid question',
+      options: ['A', 'B', 'C', 'D'],
+      correctIndex: 0,
+      explanation: 'Evidence',
+      sourceChunkIds: [1],
+      themeTitle: 'Topic',
+    }
+    await expect(
+      db.completeGeneration(deck.id, [question, { ...question, stem: null as unknown as string }]),
+    ).rejects.toThrow()
+    expect(await db.listQuestions(deck.id)).toEqual([])
+    expect(await db.getDeck(deck.id)).toMatchObject({ status: 'generating', questionCount: 0 })
+    await db.completeGeneration(deck.id, [question])
+    expect(await db.getDeck(deck.id)).toMatchObject({
+      status: 'ready',
+      questionCount: 1,
+      error: null,
+    })
+    expect((await db.listQuestions(deck.id))[0]!.ordinal).toBe(0)
+    const attempt = await db.startAttempt(deck.id)
+    await db.finishAttempt(attempt.id, [], 0)
+    await db.resetDeckForGeneration(deck.id)
+    expect(await db.listQuestions(deck.id)).toEqual([])
+    expect(await db.listAttempts(deck.id)).toEqual([])
+    expect(await db.getDeck(deck.id)).toMatchObject({
+      status: 'generating',
+      questionCount: 0,
+      error: null,
+    })
+  })
+
+  it('cannot silently rewrite an already scored attempt or finish a missing attempt', async () => {
+    const deck = await db.createDeck({
+      name: 'Quiz',
+      documentIds: [],
+      questionCount: 1,
+      language: 'en',
+    })
+    const attempt = await db.startAttempt(deck.id)
+    const original = await db.finishAttempt(attempt.id, [], 0)
+    await expect(db.finishAttempt(attempt.id, [], 1)).rejects.toThrow('already finished')
+    expect(await db.getAttempt(attempt.id)).toEqual(original)
+    await expect(db.finishAttempt(99999, [], 1)).rejects.toThrow('not found')
+  })
+
   it('runs the full quiz lifecycle', async () => {
     const deck = await db.createDeck({
       name: 'Bio',
@@ -139,6 +193,9 @@ describe('WorkspaceDb quiz + sync folders', () => {
     await expect(db.mergeDecks({ name: 'X', deckIds: [ready.id], shuffle: true })).rejects.toThrow(
       /at least two/i,
     )
+    await expect(
+      db.mergeDecks({ name: 'X', deckIds: [ready.id, ready.id], shuffle: true }),
+    ).rejects.toThrow(/distinct/i)
     await expect(
       db.mergeDecks({ name: 'X', deckIds: [ready.id, generating.id], shuffle: true }),
     ).rejects.toThrow(/not ready/i)

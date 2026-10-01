@@ -190,5 +190,46 @@ describe('WorkspaceDb (encrypted libSQL + FTS5)', () => {
 
     // wrong key fails
     await expect(WorkspaceDb.open(dbPath, randomBytes(32).toString('hex'), 1)).rejects.toThrow()
+    // The rejected open must release its native handle immediately (Windows
+    // cannot rename/delete an open SQLite file). The valid data stays intact.
+    const moved = join(dir, 'reopened.db')
+    await fs.rename(dbPath, moved)
+    const reopened = await WorkspaceDb.open(moved, keyHex, 1)
+    expect((await reopened.searchChunks('fox', 5)).length).toBeGreaterThan(0)
+    reopened.close()
+    await fs.unlink(moved)
   })
+
+  it('releases a corrupt database after initialization fails', async () => {
+    await fs.writeFile(dbPath, Buffer.alloc(4096, 0x42))
+    await expect(WorkspaceDb.open(dbPath, keyHex, 1)).rejects.toThrow()
+    await fs.unlink(dbPath)
+  })
+
+  it('preserves manual conversation names when a generated title arrives late', async () => {
+    const db = await WorkspaceDb.open(dbPath, keyHex, 1)
+    try {
+      const conversation = await db.createConversation()
+      await db.setConversationTitle(conversation.id, 'My chosen title')
+      expect(await db.setConversationTitleIfEmpty(conversation.id, 'Generated title')).toBe(
+        'My chosen title',
+      )
+      await db.setConversationTitle(conversation.id, null)
+      expect(await db.setConversationTitleIfEmpty(conversation.id, 'Generated title')).toBe(
+        'Generated title',
+      )
+      await db.deleteConversation(conversation.id)
+      expect(await db.setConversationTitleIfEmpty(conversation.id, 'Late title')).toBeNull()
+    } finally {
+      db.close()
+    }
+  })
+
+  it.each(['', 'not-a-key', 'a'.repeat(63), 'a'.repeat(65), 'g'.repeat(64)])(
+    'rejects an invalid encryption key before creating a database (%s)',
+    async (invalidKey) => {
+      await expect(WorkspaceDb.open(dbPath, invalidKey, 1)).rejects.toThrow(/64 hexadecimal/)
+      await expect(fs.stat(dbPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    },
+  )
 })

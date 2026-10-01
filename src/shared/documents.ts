@@ -77,6 +77,7 @@ export interface FolderTreeData {
 }
 
 export interface IndexProgress {
+  workspaceId: number
   documentId: number
   title: string
   phase: 'parsing' | 'chunking' | 'embedding' | 'persisting' | 'done' | 'failed'
@@ -564,6 +565,14 @@ export interface Citation {
 export interface ConversationWithMessages {
   conversation: Conversation
   messages: Array<Message & { citations: Citation[] }>
+}
+
+/** Compare-and-delete only the exact latest completed exchange in this workspace. */
+export interface DeleteConversationTurnInput {
+  workspaceId: number
+  conversationId: number
+  userMessageId: number
+  assistantMessageId: number
 }
 
 export interface ChunkWithContext {

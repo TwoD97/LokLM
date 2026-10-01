@@ -3,6 +3,9 @@ import { useT } from './i18n'
 
 // Functional fallback so the class boundary can still use the translation hook
 // (hooks can't run inside a class component). Rendered only on error.
+// The exported error boundary must be a class; its local fallback belongs to it.
+// React Refresh does not support class boundaries, so a module reload is expected.
+// eslint-disable-next-line react-refresh/only-export-components
 function ErrorFallback({
   label,
   message,

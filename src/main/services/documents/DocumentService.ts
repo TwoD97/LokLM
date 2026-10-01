@@ -1,7 +1,7 @@
 import { basename, extname } from 'node:path'
 import { statSync, type Stats } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 // ADR-0005: documents now come from the per-workspace encrypted SQLite store;
@@ -24,6 +24,15 @@ import { documentEmbeddingInput } from './searchContext'
 import { fileTrack } from '../codebase/ignore'
 import { chunkCode, type CodeChunkOptions } from '../codebase/codeChunker'
 import { indexingBatchSize } from '../embeddings/indexingBatch'
+import type { WorkspaceDbFacade } from '../storage/WorkspaceDbFacade'
+import { validateEmbeddingBatch } from '../embeddings/validateBatch'
+import { parseMarkdownSections } from './markdownParser'
+import {
+  GENERATED_DOCUMENT_SOURCE_PREFIX,
+  isGeneratedDocumentSource,
+} from '../../../shared/documentSource'
+
+type DocumentsRepo = Awaited<ReturnType<WorkspaceDbFacade['documentsFor']>>
 
 const MAX_IMPORT_BYTES = 50 * 1024 * 1024 // max. Import-Größe
 
@@ -43,7 +52,20 @@ export interface ImportInput {
   chunkOverlap?: number
 }
 
+export interface GeneratedTextImportInput {
+  workspaceId: number
+  title: string
+  text: string
+  mimeType: 'text/plain' | 'text/markdown'
+  sender?: ProgressSender
+}
+
+type IndexJobKind = 'import' | 'reindex' | 'generated'
+
 export class DocumentService {
+  private readonly database: WorkspaceDbFacade
+  private invalidated = false
+
   constructor(
     private readonly auth: AuthService,
     private readonly registry?: ProviderRegistry,
@@ -66,11 +88,32 @@ export class DocumentService {
       workspaceId: number,
       records: Array<{ chunkId: number; documentId: number; vector: number[] }>,
     ) => Promise<void>,
-    /** ADR-0005: drops a document's chunk vectors from the Lance store before a
-     *  reindex (chunks are deleted + recreated with new ids, so the old vectors
-     *  would otherwise be orphaned). Optional — tests omit it. */
+    /** ADR-0005: drops retired chunk vectors before replacement indexing
+     *  (chunks are recreated with new IDs). Optional — tests omit it. */
     private readonly vectorRemove?: (workspaceId: number, chunkIds: number[]) => Promise<void>,
-  ) {}
+  ) {
+    this.database = auth.requireDatabase()
+  }
+
+  /** Permanent session boundary. Native work may finish later, but it cannot
+   * publish progress, acquire more work, or write into a subsequent login. */
+  invalidateSession(): void {
+    this.invalidated = true
+    this.quiescing = true
+    this.indexQueue.length = 0
+    for (const job of this.activeJobs.values()) job.cancelled = true
+  }
+
+  /** Call after invalidateSession(), before closing the captured workspace
+   *  store. A mutation that already retired SQLite rows still owes its queued
+   *  vector cleanup; no new destructive work can pass the session guard. */
+  async drainMutations(): Promise<void> {
+    await Promise.all([...this.documentOperations.values()])
+  }
+
+  private assertSession(): void {
+    if (this.invalidated) throw new Error('Document session is closed.')
+  }
 
   // ---- bounded indexing queue --------------------------------------------
   //
@@ -85,8 +128,14 @@ export class DocumentService {
   private activeIndexing = 0
   private activeJobs = new Map<
     string,
-    { workspaceId: number; kind: 'import' | 'reindex'; cancelled: boolean }
+    {
+      workspaceId: number
+      kind: IndexJobKind
+      cancelled: boolean
+      completion: Promise<void>
+    }
   >()
+  private readonly documentOperations = new Map<string, Promise<void>>()
   // Set by quiesce() (app-quit drain). Once true the pump stops starting new
   // jobs so the active ones can settle before the workspace store is closed.
   private quiescing = false
@@ -101,10 +150,11 @@ export class DocumentService {
     /** 'import' rows are placeholders with no chunks yet — cancellation may
      *  delete them. 'reindex' rows are real docs (chunks already wiped by
      *  reindex_document); cancellation marks them failed instead of deleting. */
-    kind: 'import' | 'reindex'
+    kind: IndexJobKind
   }> = []
 
-  private enqueueIndexing(doc: Document, input: ImportInput, kind: 'import' | 'reindex'): void {
+  private enqueueIndexing(doc: Document, input: ImportInput, kind: IndexJobKind): void {
+    this.assertSession()
     this.indexQueue.push({ doc, input, kind })
     this.pumpIndexQueue()
   }
@@ -148,7 +198,7 @@ export class DocumentService {
     // the finally below. Drop the queue instead; the rows stay 'pending' and
     // sweepOrphanedIndexing reconciles them on the next unlock, exactly like a
     // crashed session.
-    if (!this.auth.isUnlocked()) {
+    if (this.invalidated || !this.auth.isUnlocked()) {
       this.indexQueue.length = 0
       return
     }
@@ -160,12 +210,14 @@ export class DocumentService {
       const job = this.indexQueue.shift()!
       this.activeIndexing += 1
       const jobKey = `${job.doc.workspaceId}:${job.doc.id}`
-      this.activeJobs.set(jobKey, {
+      const activeJob = {
         workspaceId: job.input.workspaceId,
         kind: job.kind,
         cancelled: false,
-      })
-      void this.indexInBackground(job.doc, job.input)
+        completion: Promise.resolve(),
+      }
+      this.activeJobs.set(jobKey, activeJob)
+      activeJob.completion = this.indexInBackground(job.doc, job.input)
         .catch(() => {
           // errors are surfaced via the IPC progress 'failed' event and the
           // doc row's status; indexInBackground never rejects with anything we
@@ -173,14 +225,77 @@ export class DocumentService {
         })
         .finally(() => {
           this.activeIndexing -= 1
-          this.activeJobs.delete(jobKey)
+          if (this.activeJobs.get(jobKey) === activeJob) this.activeJobs.delete(jobKey)
           this.pumpIndexQueue()
         })
     }
   }
 
+  /** Serialize changes to a workspace-local document. Background native work
+   *  is drained separately before replacing/deleting the rows it can write. */
+  private async withDocumentLock<T>(doc: Document, operation: () => Promise<T>): Promise<T> {
+    const key = `${doc.workspaceId}:${doc.id}`
+    const previous = this.documentOperations.get(key)
+    const result = (async () => {
+      await previous
+      this.assertSession()
+      return operation()
+    })()
+    const settled = result.then(
+      () => {},
+      () => {},
+    )
+    this.documentOperations.set(key, settled)
+    try {
+      return await result
+    } finally {
+      if (this.documentOperations.get(key) === settled) this.documentOperations.delete(key)
+    }
+  }
+
+  private async withDocument<T>(
+    documentId: number,
+    operation: (doc: Document, repo: DocumentsRepo) => Promise<T>,
+    workspaceId?: number,
+  ): Promise<T> {
+    this.assertSession()
+    // Resolve the active document once, before any file/model work; all later
+    // operations stay in its original workspace even if the UI navigates away.
+    const initialRepo =
+      workspaceId === undefined
+        ? this.database.documents()
+        : await this.database.documentsFor(workspaceId)
+    const initial = await initialRepo.getDocument(documentId)
+    this.assertSession()
+    if (!initial) throw new Error(`Document ${documentId} not found`)
+    return this.withDocumentLock(initial, async () => {
+      const repo = await this.database.documentsFor(initial.workspaceId)
+      this.assertSession()
+      const doc = await repo.getDocument(documentId)
+      this.assertSession()
+      if (!doc) throw new Error(`Document ${documentId} not found`)
+      return operation(doc, repo)
+    })
+  }
+
+  private async stopDocumentIndexing(doc: Document): Promise<void> {
+    for (let i = this.indexQueue.length - 1; i >= 0; i--) {
+      const queued = this.indexQueue[i]!
+      if (queued.doc.workspaceId === doc.workspaceId && queued.doc.id === doc.id)
+        this.indexQueue.splice(i, 1)
+    }
+    const active = this.activeJobs.get(`${doc.workspaceId}:${doc.id}`)
+    if (!active) return
+    // The row is about to be reused or explicitly deleted by the caller.
+    // Canceling an unfinished import must not delete it behind that caller.
+    active.kind = 'reindex'
+    active.cancelled = true
+    await active.completion
+  }
+
   /** Stop queued jobs and active jobs at the next parse/embedding boundary. */
   async cancelWorkspaceIndexing(workspaceId: number): Promise<number> {
+    if (this.invalidated) return 0
     let active = 0
     for (const job of this.activeJobs.values()) {
       if (job.workspaceId === workspaceId && !job.cancelled) {
@@ -201,12 +316,12 @@ export class DocumentService {
    *  reconcile their rows while the vault DB is still open. Called by the
    *  explicit lock/logout drain before AuthService closes the workspace store —
    *  without it, lock() clears the manifest under a full queue and the pump
-   *  cascades one "workspace not found" failure per queued document. Unlike
-   *  quiesce() this is resumable: the service is cached across lock/unlock
-   *  cycles and must be able to index again after the next login. In-flight
-   *  jobs are left to finish — the caller drains hasActiveIndexing() before
-   *  locking. */
+   *  cascades one "workspace not found" failure per queued document. This is
+   *  resumable within the current session; invalidateSession permanently
+   *  retires this instance at lock. In-flight jobs are left to finish unless
+   *  includeActive is set. */
   async cancelAllIndexing(includeActive = false): Promise<number> {
+    if (this.invalidated) return 0
     let active = 0
     if (includeActive)
       for (const job of this.activeJobs.values()) {
@@ -227,8 +342,10 @@ export class DocumentService {
   private async reconcileCancelledJobs(cancelled: typeof this.indexQueue): Promise<number> {
     if (cancelled.length === 0) return 0
     for (const job of cancelled) {
+      if (this.invalidated) break
       try {
-        const repo = await this.auth.requireDatabase().documentsFor(job.doc.workspaceId)
+        const repo = await this.database.documentsFor(job.doc.workspaceId)
+        this.assertSession()
         if (job.kind === 'import') await repo.deleteDocument(job.doc.id)
         else await repo.setDocumentStatus(job.doc.id, 'failed')
       } catch {
@@ -241,13 +358,17 @@ export class DocumentService {
   /** Reset documents left mid-index by a previous crashed session. Call once at
    *  login, before any new import is enqueued. Returns the number reset. */
   async sweepOrphanedIndexing(): Promise<number> {
-    return this.auth.requireDatabase().documents().resetStuckIndexing()
+    this.assertSession()
+    return this.database.documents().resetStuckIndexing()
   }
 
   async importFile(input: ImportInput): Promise<Document> {
+    this.assertSession()
     const { stat, hash } = await this.statAndHashOrThrow(input.sourcePath)
+    this.assertSession()
     const mime = mimeFromExt(extname(input.sourcePath))
-    const repo = this.auth.requireDatabase().documents()
+    const repo = await this.database.documentsFor(input.workspaceId)
+    this.assertSession()
     // Guard the unique (workspace_id, source_path) index in JS so callers get a
     // coded ImportError instead of a raw SQL stack. Pre-fix, the bug surfaced
     // as `documents:reindex` doing reindex_document + importFile back-to-back ,
@@ -256,6 +377,7 @@ export class DocumentService {
     // the right verb for this case ; this layer just refuses to be the one
     // that masks it.
     const existing = await repo.findByWorkspaceAndPath(input.workspaceId, input.sourcePath)
+    this.assertSession()
     if (existing) {
       throw new ImportError(
         `${basename(input.sourcePath)} ist bereits in dieser Bibliothek — Reindex statt erneuter Import.`,
@@ -276,6 +398,48 @@ export class DocumentService {
     return doc
   }
 
+  /** Persist generated source atomically with its document before queueing any
+   * model work. Stop, lock, quit, or an indexing error cannot lose the only
+   * source copy, and no plaintext staging file needs cleanup. */
+  async importGeneratedText(input: GeneratedTextImportInput): Promise<Document> {
+    this.assertSession()
+    const sourcePath = `${GENERATED_DOCUMENT_SOURCE_PREFIX}${randomUUID()}.${input.mimeType === 'text/markdown' ? 'md' : 'txt'}`
+    if (input.mimeType !== 'text/plain' && input.mimeType !== 'text/markdown')
+      throw new ImportError('Unsupported generated document type.', 'unsupported', sourcePath)
+    if (typeof input.text !== 'string' || !input.text.trim())
+      throw new ImportError('The generated document is empty.', 'unreadable', sourcePath)
+    if (typeof input.title !== 'string' || !input.title.trim())
+      throw new ImportError('A generated document needs a title.', 'unreadable', sourcePath)
+    const bytes = Buffer.byteLength(input.text, 'utf8')
+    if (bytes > MAX_IMPORT_BYTES)
+      throw new ImportError(
+        'Generated text exceeds the 50 MB import limit.',
+        'too_large',
+        sourcePath,
+      )
+    const repo = await this.database.documentsFor(input.workspaceId)
+    this.assertSession()
+    const doc = await repo.addDocument({
+      workspaceId: input.workspaceId,
+      title: input.title.trim(),
+      sourcePath,
+      mimeType: input.mimeType,
+      byteSize: bytes,
+      contentHash: createHash('sha256').update(input.text, 'utf8').digest('hex'),
+      generatedText: input.text,
+    })
+    this.enqueueIndexing(
+      doc,
+      {
+        workspaceId: input.workspaceId,
+        sourcePath,
+        ...(input.sender ? { sender: input.sender } : {}),
+      },
+      'generated',
+    )
+    return doc
+  }
+
   /** Repoints an existing document at a new path on disk and reindexes from
    *  scratch. Title is refreshed too (the user likely picked a renamed copy).
    *  Returns the updated doc row pre-index ; chunks repopulate via the
@@ -285,31 +449,42 @@ export class DocumentService {
     documentId: number,
     newPath: string,
     sender?: ProgressSender,
+    workspaceId?: number,
   ): Promise<Document> {
-    const repo = this.auth.requireDatabase().documents()
-    if (!(await repo.getDocument(documentId))) {
-      throw new Error(`Document ${documentId} not found`)
-    }
-    const { stat, hash } = await this.statAndHashOrThrow(newPath)
-    await this.purgeDocumentVectors(documentId)
-    await repo.reindexDocument(documentId) // wipes chunks, sets status='pending'
-    await repo.setSourceMetadata(documentId, {
-      sourcePath: newPath,
-      title: basename(newPath),
-      mimeType: mimeFromExt(extname(newPath)) ?? null,
-      byteSize: stat.size,
-      contentHash: hash,
-      sourceMtime: Math.round(stat.mtimeMs),
-    })
-    // Replacing the source always satisfies any prior "file missing" banner
-    // for this doc id — clear both the marker and the dismissal so a future
-    // disappearance gets re-notified.
-    await repo.clearMissing(documentId)
-    const doc = (await repo.getDocument(documentId))!
-    const indexInput: ImportInput = { workspaceId: doc.workspaceId, sourcePath: newPath }
-    if (sender) indexInput.sender = sender
-    this.enqueueIndexing(doc, indexInput, 'reindex')
-    return doc
+    return this.withDocument(
+      documentId,
+      async (original, repo) => {
+        const { stat, hash } = await this.statAndHashOrThrow(newPath)
+        this.assertSession()
+        const existing = await repo.findByWorkspaceAndPath(original.workspaceId, newPath)
+        this.assertSession()
+        if (existing && existing.id !== documentId)
+          throw new ImportError('This file is already in the library.', 'already_imported', newPath)
+        await this.stopDocumentIndexing(original)
+        this.assertSession()
+        await this.resetDocumentChunks(original, repo)
+        this.assertSession()
+        await repo.setSourceMetadata(documentId, {
+          sourcePath: newPath,
+          title: basename(newPath),
+          mimeType: mimeFromExt(extname(newPath)) ?? null,
+          byteSize: stat.size,
+          contentHash: hash,
+          sourceMtime: Math.round(stat.mtimeMs),
+          generatedText: null,
+        })
+        // Replacing the source always satisfies any prior "file missing" banner
+        // for this doc id — clear both the marker and the dismissal so a future
+        // disappearance gets re-notified.
+        await repo.clearMissing(documentId)
+        const doc = (await repo.getDocument(documentId))!
+        const indexInput: ImportInput = { workspaceId: doc.workspaceId, sourcePath: newPath }
+        if (sender) indexInput.sender = sender
+        this.enqueueIndexing(doc, indexInput, 'reindex')
+        return doc
+      },
+      workspaceId,
+    )
   }
 
   /** Cheap "did the file change since we indexed it" probe used by both the
@@ -322,60 +497,68 @@ export class DocumentService {
   async refreshDocument(
     documentId: number,
     sender?: ProgressSender,
+    workspaceId?: number,
   ): Promise<'unchanged' | 'reindexed' | 'missing'> {
-    const repo = this.auth.requireDatabase().documents()
-    const doc = await repo.getDocument(documentId)
-    if (!doc) throw new Error(`Document ${documentId} not found`)
-    let stat: Stats
-    try {
-      stat = statSync(doc.sourcePath)
-    } catch {
-      // Stamp the soft-missing marker so the LibraryView banner picks this
-      // doc up. Idempotent at the repo level — repeated probes won't bump
-      // the timestamp once it's set.
-      await repo.markMissing(documentId)
-      return 'missing'
-    }
-    // File reachable — if a prior probe marked it missing, lift that marker
-    // so the banner drops it.
-    if (doc.missingAt != null) {
-      await repo.clearMissing(documentId)
-    }
-    const mtime = Math.round(stat.mtimeMs)
-    if (doc.sourceMtime != null && doc.sourceMtime === mtime && doc.contentHash != null) {
-      return 'unchanged'
-    }
-    // mtime differs (or we never recorded one) — confirm with the hash before
-    // paying the reindex cost. Some editors rewrite-then-restore mtime, and
-    // some sync tools touch mtime without changing bytes.
-    if (stat.size > MAX_IMPORT_BYTES) {
-      throw new ImportError(
-        `${basename(doc.sourcePath)} is ${(stat.size / 1024 / 1024).toFixed(1)} MB, exceeds the 50 MB import limit.`,
-        'too_large',
-        doc.sourcePath,
-      )
-    }
-    const hash = await sha256OfFile(doc.sourcePath)
-    if (doc.contentHash === hash) {
-      // touch-only — refresh mtime so the next probe short-circuits.
-      await repo.setSourceMetadata(documentId, { sourceMtime: mtime })
-      return 'unchanged'
-    }
-    await this.purgeDocumentVectors(documentId)
-    await repo.reindexDocument(documentId)
-    await repo.setSourceMetadata(documentId, {
-      byteSize: stat.size,
-      contentHash: hash,
-      sourceMtime: mtime,
-    })
-    const refreshed = (await repo.getDocument(documentId))!
-    const indexInput: ImportInput = {
-      workspaceId: refreshed.workspaceId,
-      sourcePath: refreshed.sourcePath,
-    }
-    if (sender) indexInput.sender = sender
-    this.enqueueIndexing(refreshed, indexInput, 'reindex')
-    return 'reindexed'
+    return this.withDocument(
+      documentId,
+      async (doc, repo) => {
+        if (isGeneratedDocumentSource(doc.sourcePath)) return 'unchanged'
+        let stat: Stats
+        try {
+          stat = statSync(doc.sourcePath)
+        } catch {
+          // Stamp the soft-missing marker so the LibraryView banner picks this
+          // doc up. Idempotent at the repo level — repeated probes won't bump
+          // the timestamp once it's set.
+          await repo.markMissing(documentId)
+          return 'missing'
+        }
+        // File reachable — if a prior probe marked it missing, lift that marker
+        // so the banner drops it.
+        if (doc.missingAt != null) {
+          await repo.clearMissing(documentId)
+        }
+        const mtime = Math.round(stat.mtimeMs)
+        if (doc.sourceMtime != null && doc.sourceMtime === mtime && doc.contentHash != null) {
+          return 'unchanged'
+        }
+        // mtime differs (or we never recorded one) — confirm with the hash before
+        // paying the reindex cost. Some editors rewrite-then-restore mtime, and
+        // some sync tools touch mtime without changing bytes.
+        if (stat.size > MAX_IMPORT_BYTES) {
+          throw new ImportError(
+            `${basename(doc.sourcePath)} is ${(stat.size / 1024 / 1024).toFixed(1)} MB, exceeds the 50 MB import limit.`,
+            'too_large',
+            doc.sourcePath,
+          )
+        }
+        const hash = await sha256OfFile(doc.sourcePath)
+        this.assertSession()
+        if (doc.contentHash === hash) {
+          // touch-only — refresh mtime so the next probe short-circuits.
+          await repo.setSourceMetadata(documentId, { sourceMtime: mtime })
+          return 'unchanged'
+        }
+        await this.stopDocumentIndexing(doc)
+        this.assertSession()
+        await this.resetDocumentChunks(doc, repo)
+        this.assertSession()
+        await repo.setSourceMetadata(documentId, {
+          byteSize: stat.size,
+          contentHash: hash,
+          sourceMtime: mtime,
+        })
+        const refreshed = (await repo.getDocument(documentId))!
+        const indexInput: ImportInput = {
+          workspaceId: refreshed.workspaceId,
+          sourcePath: refreshed.sourcePath,
+        }
+        if (sender) indexInput.sender = sender
+        this.enqueueIndexing(refreshed, indexInput, 'reindex')
+        return 'reindexed'
+      },
+      workspaceId,
+    )
   }
 
   /** User-triggered "Reindex" button. Unconditionally wipes chunks + re-parses
@@ -383,76 +566,121 @@ export class DocumentService {
    *  hash short-circuit. ImportError surfaces if the file vanished or is
    *  oversized so the renderer can show the same toast as the import flow. */
   async reindex(documentId: number, sender?: ProgressSender): Promise<Document> {
-    const repo = this.auth.requireDatabase().documents()
-    const doc = await repo.getDocument(documentId)
-    if (!doc) throw new Error(`Document ${documentId} not found`)
-    const { stat, hash } = await this.statAndHashOrThrow(doc.sourcePath)
-    await this.purgeDocumentVectors(documentId)
-    await repo.reindexDocument(documentId)
-    await repo.setSourceMetadata(documentId, {
-      byteSize: stat.size,
-      contentHash: hash,
-      sourceMtime: Math.round(stat.mtimeMs),
+    return this.withDocument(documentId, async (doc, repo) => {
+      const generated = isGeneratedDocumentSource(doc.sourcePath)
+      const source = generated ? await repo.getGeneratedText(documentId) : null
+      if (generated && source == null)
+        throw new ImportError(
+          'The stored generated source is unavailable.',
+          'unreadable',
+          doc.sourcePath,
+        )
+      const file = generated ? null : await this.statAndHashOrThrow(doc.sourcePath)
+      this.assertSession()
+      await this.stopDocumentIndexing(doc)
+      this.assertSession()
+      await this.resetDocumentChunks(doc, repo)
+      this.assertSession()
+      if (file)
+        await repo.setSourceMetadata(documentId, {
+          byteSize: file.stat.size,
+          contentHash: file.hash,
+          sourceMtime: Math.round(file.stat.mtimeMs),
+        })
+      if (doc.missingAt != null) {
+        await repo.clearMissing(documentId)
+      }
+      const refreshed = (await repo.getDocument(documentId))!
+      const indexInput: ImportInput = {
+        workspaceId: refreshed.workspaceId,
+        sourcePath: refreshed.sourcePath,
+      }
+      if (sender) indexInput.sender = sender
+      this.enqueueIndexing(refreshed, indexInput, 'reindex')
+      return refreshed
     })
-    if (doc.missingAt != null) {
-      await repo.clearMissing(documentId)
-    }
-    const refreshed = (await repo.getDocument(documentId))!
-    const indexInput: ImportInput = {
-      workspaceId: refreshed.workspaceId,
-      sourcePath: refreshed.sourcePath,
-    }
-    if (sender) indexInput.sender = sender
-    this.enqueueIndexing(refreshed, indexInput, 'reindex')
-    return refreshed
   }
 
-  /** Deletes documents (rows cascade to chunks + FTS) after dropping their
-   *  vectors from the Lance store — the one shared delete path, used by both
-   *  the documents:delete IPC and folder-removal cleanup so neither can orphan
-   *  vectors. Chunk ids are batched per workspace: one Lance delete (and one
-   *  compaction pass — see LanceWorkspaceStore.remove) per store rather than
-   *  per document. */
-  async deleteDocuments(documentIds: number[]): Promise<void> {
-    const repo = this.auth.requireDatabase().documents()
-    const chunksByWorkspace = new Map<number, number[]>()
-    for (const id of documentIds) {
-      const doc = await repo.getDocument(id)
-      if (!doc) continue
-      const chunkIds = await repo.chunkIdsForDocument(id)
-      if (chunkIds.length === 0) continue
-      const list = chunksByWorkspace.get(doc.workspaceId)
-      if (list) list.push(...chunkIds)
-      else chunksByWorkspace.set(doc.workspaceId, chunkIds)
+  /** Retires documents (rows cascade to chunks + FTS), then drops their vectors.
+   *  This order prevents an in-flight backfill from restoring deleted vectors:
+   *  the vector service rejects retired IDs, and its FIFO purge follows any
+   *  already admitted write. Purges are best effort on storage failure; a
+   *  failed purge is logged and can leave derived vectors without source rows.
+   *  Chunk IDs are batched per workspace to avoid per-document compaction. */
+  async deleteDocuments(documentIds: number[], workspaceId?: number): Promise<void> {
+    this.assertSession()
+    const activeRepo =
+      workspaceId === undefined
+        ? this.database.documents()
+        : await this.database.documentsFor(workspaceId)
+    // Resolve all ids before yielding so a workspace switch cannot mix stores.
+    const documents = (
+      await Promise.all([...new Set(documentIds)].map((id) => activeRepo.getDocument(id)))
+    )
+      .filter((doc): doc is Document => doc != null)
+      .sort((a, b) => a.workspaceId - b.workspaceId || a.id - b.id)
+    const withLocks = (index: number): Promise<void> => {
+      const doc = documents[index]
+      return doc ? this.withDocumentLock(doc, () => withLocks(index + 1)) : remove()
     }
-    if (this.vectorRemove) {
-      for (const [workspaceId, chunkIds] of chunksByWorkspace) {
-        try {
-          await this.vectorRemove(workspaceId, chunkIds)
-        } catch (err) {
-          console.warn(`[documents] vector remove failed for workspace #${workspaceId}:`, err)
+    const remove = async (): Promise<void> => {
+      const repos = new Map<number, DocumentsRepo>()
+      for (const doc of documents) {
+        await this.stopDocumentIndexing(doc)
+        this.assertSession()
+        if (!repos.has(doc.workspaceId))
+          repos.set(doc.workspaceId, await this.database.documentsFor(doc.workspaceId))
+      }
+      const chunksByDocument = new Map<Document, number[]>()
+      for (const doc of documents) {
+        const chunkIds = await repos.get(doc.workspaceId)!.chunkIdsForDocument(doc.id)
+        chunksByDocument.set(doc, chunkIds)
+      }
+      const retiredByWorkspace = new Map<number, number[]>()
+      try {
+        for (const doc of documents) {
+          this.assertSession()
+          await repos.get(doc.workspaceId)!.deleteDocument(doc.id)
+          const chunkIds = chunksByDocument.get(doc)!
+          if (chunkIds.length > 0) {
+            const list = retiredByWorkspace.get(doc.workspaceId)
+            if (list) list.push(...chunkIds)
+            else retiredByWorkspace.set(doc.workspaceId, chunkIds)
+          }
+        }
+      } finally {
+        // If a later SQLite delete fails, still purge the earlier successful
+        // deletions without touching vectors belonging to retained documents.
+        if (this.vectorRemove) {
+          for (const [workspaceId, chunkIds] of retiredByWorkspace) {
+            try {
+              await this.vectorRemove(workspaceId, chunkIds)
+            } catch (err) {
+              console.warn(`[documents] vector remove failed for workspace #${workspaceId}:`, err)
+            }
+          }
         }
       }
     }
-    for (const id of documentIds) {
-      await repo.deleteDocument(id)
-    }
+    await withLocks(0)
+    this.assertSession()
   }
 
-  /** ADR-0005: drop a document's current chunk vectors from the Lance store
-   *  before a reindex/delete wipes the chunks. Must run BEFORE reindexDocument
-   *  (which deletes the chunk rows). No-op without a vectorRemove hook. */
-  private async purgeDocumentVectors(documentId: number): Promise<void> {
-    if (!this.vectorRemove) return
-    const repo = this.auth.requireDatabase().documents()
-    const doc = await repo.getDocument(documentId)
-    if (!doc) return
-    const ids = await repo.chunkIdsForDocument(documentId)
-    if (ids.length === 0) return
+  /** Capture IDs before retiring rows, then queue the native purge before any
+   *  replacement indexing. The vector FIFO + live-owner check also excludes
+   *  late backfill results. A storage purge failure remains best effort. */
+  private async resetDocumentChunks(doc: Document, repo: DocumentsRepo): Promise<void> {
+    const ids = this.vectorRemove ? await repo.chunkIdsForDocument(doc.id) : []
+    this.assertSession()
+    await repo.reindexDocument(doc.id)
+    // Once rows have been retired, finish their captured-session cleanup even
+    // if lock invalidates this service. Session shutdown drains this mutation
+    // before closing the store; callers still guard replacement indexing.
+    if (!this.vectorRemove || ids.length === 0) return
     try {
       await this.vectorRemove(doc.workspaceId, ids)
     } catch (err) {
-      console.warn(`[documents] vector remove failed for doc #${documentId}:`, err)
+      console.warn(`[documents] vector remove failed for doc #${doc.id}:`, err)
     }
   }
 
@@ -498,7 +726,7 @@ export class DocumentService {
    */
   private async resolveCodeRelPath(doc: Document): Promise<string> {
     try {
-      const roots = await this.auth.requireDatabase().workspaces().getSyncFolders(doc.workspaceId)
+      const roots = await this.database.workspaces().getSyncFolders(doc.workspaceId)
       const norm = (p: string): string => p.replace(/\\/g, '/')
       const src = norm(doc.sourcePath)
       const srcLower = src.toLowerCase()
@@ -531,6 +759,7 @@ export class DocumentService {
       chunksDone?: number,
       chunksTotal?: number,
     ): void => {
+      if (this.invalidated) return
       // Tick before the sender guard: the quit drain's liveness signal must
       // advance even in contexts with no renderer attached (folder-sync).
       this.progressTicks++
@@ -539,6 +768,7 @@ export class DocumentService {
       if (!sender) return
       try {
         const payload: IndexProgress = {
+          workspaceId: doc.workspaceId,
           documentId: doc.id,
           title: doc.title,
           phase,
@@ -556,6 +786,7 @@ export class DocumentService {
       }
     }
     const checkCancelled = (): void => {
+      this.assertSession()
       if (this.activeJobs.get(jobKey)?.cancelled) throw new IndexingCancelledError()
     }
     // requireDatabase() used to live outside this try, which meant a lock or
@@ -573,8 +804,10 @@ export class DocumentService {
       // indexes documents across every workspace at login regardless of which is
       // on screen; routing persistChunks/setDocumentStatus through active() lands
       // them in the wrong store and trips the FK (chunks.document_id → documents).
-      const repo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
+      const repo = await this.database.documentsFor(doc.workspaceId)
+      checkCancelled()
       await repo.setDocumentStatus(doc.id, 'indexing')
+      checkCancelled()
       send('parsing', 1)
 
       // Markdown gets section-aware chunking so citations can render breadcrumbs
@@ -590,7 +823,26 @@ export class DocumentService {
       // through here, so all of them honour the sliders.
       const effChunk = resolveChunkOptions(input, this.retrievalDefaults?.())
       let out: Chunk[]
-      if (fileTrack(doc.sourcePath) === 'code') {
+      if (isGeneratedDocumentSource(doc.sourcePath)) {
+        const source = await repo.getGeneratedText(doc.id)
+        if (source == null)
+          throw new ImportError(
+            'The stored generated source is unavailable.',
+            'unreadable',
+            doc.sourcePath,
+          )
+        checkCancelled()
+        send('chunking', 2)
+        const chunkOpts = {
+          ...(effChunk.chunkSize !== undefined ? { maxChars: effChunk.chunkSize } : {}),
+          ...(effChunk.chunkOverlap !== undefined ? { overlap: effChunk.chunkOverlap } : {}),
+        }
+        out =
+          doc.mimeType === 'text/markdown'
+            ? chunkMarkdown(parseMarkdownSections(source), chunkOpts)
+            : chunkPages([{ num: 1, text: source }], chunkOpts)
+        out = await tagChunkLanguages(out)
+      } else if (fileTrack(doc.sourcePath) === 'code') {
         // ADR-0006 code track: structure-aware chunking (line ranges in
         // pageFrom/pageTo). Bypasses the PDF/markdown parser + worker entirely —
         // a source file is just UTF-8 text. Language tagging is skipped (eld's
@@ -614,16 +866,13 @@ export class DocumentService {
         if (effChunk.chunkSize !== undefined) chunkPayload.chunkSize = effChunk.chunkSize
         if (effChunk.chunkOverlap !== undefined) chunkPayload.chunkOverlap = effChunk.chunkOverlap
         // Surface scanned-page OCR progress under the parsing phase so a slow
-        // OCR pass reads as progress, not a hang. Unregister once parse returns.
-        const offOcr = this.worker.registerOcrProgress(doc.id, (done, total) =>
-          send('parsing', 1, undefined, `OCR ${done}/${total}`),
+        // OCR pass reads as progress, not a hang. The worker client routes this
+        // callback by request ID, including overlapping workspace-local doc IDs.
+        const { chunks: workerChunks } = await this.worker.parseAndChunk(
+          chunkPayload,
+          (done, total) => send('parsing', 1, undefined, `OCR ${done}/${total}`),
         )
-        try {
-          const { chunks: workerChunks } = await this.worker.parseAndChunk(chunkPayload)
-          out = workerChunks
-        } finally {
-          offOcr()
-        }
+        out = workerChunks
         send('chunking', 2)
       } else {
         const parsed = await parseFile(doc.sourcePath, {
@@ -671,6 +920,7 @@ export class DocumentService {
         indexingLease?.update(0, out.length)
         checkCancelled()
         await embedder.ensureReady()
+        checkCancelled()
         if (embedder.isReady()) {
           // R3: code chunks carry their file/symbol identity in contextPrefix —
           // prepend it so the vector says WHERE the code lives, not just what
@@ -696,12 +946,14 @@ export class DocumentService {
             const batchStart = performance.now()
             try {
               const vs = await embedder.embed(slice)
+              this.assertSession()
+              validateEmbeddingBatch(vs, slice.length)
               embedMs += performance.now() - batchStart
               for (let j = 0; j < vs.length; j++) acc[start + j] = vs[j] ?? null
               anyEmbedded = true
               embeddedSoFar += slice.length
             } catch (err) {
-              // eslint-disable-next-line no-console
+              this.assertSession()
               console.warn(
                 `[documents] embed batch ${start}–${start + slice.length} failed for "${doc.title}", deferring to backfill:`,
                 err,
@@ -759,6 +1011,7 @@ export class DocumentService {
           contextPrefix: c.contextPrefix ?? null,
         })),
       )
+      this.assertSession()
       if (vectors && activeIdentity) {
         const writes: Array<{ id: number; vector: Float32Array }> = []
         for (let i = 0; i < out.length; i++) {
@@ -779,6 +1032,7 @@ export class DocumentService {
                 vector: Array.from(w.vector),
               })),
             )
+            this.assertSession()
             await repo.markChunksEmbedded(
               writes.map((w) => w.id),
               activeIdentity,
@@ -789,11 +1043,14 @@ export class DocumentService {
           }
         }
       }
+      this.assertSession()
       await repo.setDocumentStatus(doc.id, 'ready')
       send('done', 4)
     } catch (err) {
+      if (this.invalidated) return
       if (err instanceof IndexingCancelledError) {
-        const cancelledRepo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
+        const cancelledRepo = await this.database.documentsFor(doc.workspaceId)
+        if (this.invalidated) return
         if (this.activeJobs.get(jobKey)?.kind === 'import')
           await cancelledRepo.deleteDocument(doc.id)
         else await cancelledRepo.setDocumentStatus(doc.id, 'failed')
@@ -805,10 +1062,10 @@ export class DocumentService {
       // hiccup. The catch then re-resolves the repo (the try's reference is
       // out of scope here) and best-effort flips status='failed' so the UI
       // doesn't stay stuck at 'pending' forever.
-      // eslint-disable-next-line no-console
       console.error(`[documents] indexing failed for ${doc.title} (#${doc.id}):`, err)
       try {
-        const failRepo = await this.auth.requireDatabase().documentsFor(doc.workspaceId)
+        const failRepo = await this.database.documentsFor(doc.workspaceId)
+        if (this.invalidated) return
         await failRepo.setDocumentStatus(doc.id, 'failed')
       } catch {
         // DB is gone (lock/logout race) ; nothing left we can do here.

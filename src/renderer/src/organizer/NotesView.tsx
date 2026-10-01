@@ -26,6 +26,10 @@ export function NotesView({
   const action = useOrganizerAction()
   const { guard, confirmation } = useDiscardGuard()
   const dirty = title !== (selected?.title ?? '') || body !== (selected?.body ?? '')
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }),
+    [locale],
+  )
   const notes = useMemo(
     () =>
       store.data.notes
@@ -36,6 +40,11 @@ export function NotesView({
         )
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [store.data.notes, query, locale],
+  )
+  // Draft keystrokes should not rescan every saved note body for its preview.
+  const previews = useMemo(
+    () => new Map(notes.map((note) => [note.id, note.body.replace(/\s+/g, ' ').slice(0, 110)])),
+    [notes],
   )
 
   function choose(note: OrganizerNote | null) {
@@ -97,14 +106,8 @@ export function NotesView({
                 disabled={action.busy}
               >
                 <strong>{note.title}</strong>
-                <span>
-                  {note.body.replace(/\s+/g, ' ').slice(0, 110) || t('organizer.emptyNote')}
-                </span>
-                <time dateTime={note.updatedAt}>
-                  {new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
-                    new Date(note.updatedAt),
-                  )}
-                </time>
+                <span>{previews.get(note.id) || t('organizer.emptyNote')}</span>
+                <time dateTime={note.updatedAt}>{dateFormat.format(new Date(note.updatedAt))}</time>
               </button>
             ))
           )}

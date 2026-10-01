@@ -8,8 +8,8 @@ Playwright-Browser — alles passiert in-Process unter Vitest.
 
 - Der Test instanziiert mehr als ein eigenes Modul (z.B. `AuthService` _und_
   `Database`).
-- Er benutzt echte Krypto oder echte PGlite, _aber_ ohne Disk-Round-Trip oder
-  ohne IPC.
+- Er benutzt echte Krypto oder verschlüsselte SQLite-Datenbanken, ohne
+  Electron-IPC.
 - Er braucht ein tmp-Verzeichnis fürs Filesystem.
 
 Sobald der Test den vollen Vault-Disk-Round-Trip prüft, gehört er nach
@@ -18,11 +18,36 @@ Sobald der Test den vollen Vault-Disk-Round-Trip prüft, gehört er nach
 
 ## Konventionen
 
-- Dateinamen: `*.test.ts`. Werden über `vitest.workspace.ts` als project
+- Dateinamen: `*.test.ts`. Werden über `vitest.config.ts` als project
   `integration` eingesammelt.
 - Jeder Test räumt seine tmp-Pfade in einem `afterEach` weg.
 - Keine globalen Singletons. Pro Test ein frischer `AuthService` mit eigenem
   tmp-Verzeichnis.
+
+## Native Modelle ausdrücklich aktivieren
+
+`pnpm test:integration` und `pnpm test:tx` wählen automatisch die Laufzeit,
+die zur installierten SQLite-Bindung passt: Node oder Electron im Node-Modus.
+Dabei wird kein Fenster geöffnet und kein natives Modul neu gebaut. So bleibt
+`pnpm dev` nach dem Testlauf funktionsfähig. Bei Bedarf lässt sich die Auswahl
+mit `LOKLM_TEST_RUNTIME=node` oder `LOKLM_TEST_RUNTIME=electron` festlegen.
+
+Die vier älteren GGUF-Suites (`embedding-backfill`, `retrieval-pipeline`,
+`retrieval-corpus-e2e`, `qa-answer`) laufen nur mit
+`LOKLM_NATIVE_INTEGRATION=1` **und** vorhandenen Modelldateien. Ein lokaler
+Modell-Cache darf den normalen Datenbank-Testlauf nicht automatisch in einen
+mehrminütigen Inferenzlauf verwandeln.
+
+```powershell
+$env:LOKLM_NATIVE_INTEGRATION = '1'
+pnpm.cmd test:integration tests/integration/retrieval-pipeline.test.ts
+Remove-Item Env:LOKLM_NATIVE_INTEGRATION
+```
+
+Diese älteren Tests verwenden einen In-Process-Modelladapter und prüfen nicht
+die GPU-Ressourcenverwaltung der Anwendung. Dafür dient der gesonderte native
+Electron-Testlauf unter `tests/e2e/`; Modellläufe müssen die Hardware exklusiv
+nutzen. Der normale Testlauf aktiviert diese Modelltests nicht.
 
 ## Beispiel
 

@@ -9,6 +9,7 @@ import { freemem, totalmem } from 'node:os'
 import type { Api } from '../../src/preload'
 import type { StreamEvent } from '../../src/shared/documents'
 import { launchApp } from './helpers/launch'
+import { fingerprintCompiledBuild } from './helpers/buildFingerprint'
 import { registerAndUnlock, createWorkspace } from './helpers/seed'
 import { loadCalibrationSplit } from '../evals/native-calibration/fixtures'
 
@@ -112,6 +113,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       async (path) => ({ path, sha256: await hashFile(path), bytes: (await stat(path)).size }),
     ),
   )
+  const compiledBuildHashes = await fingerprintCompiledBuild()
   const raw: Record<string, unknown> = {
     kind: 'native-rag-calibration',
     runId,
@@ -134,6 +136,17 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     },
     startedAt: new Date().toISOString(),
     gitCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    // Hash only: no source diff/private content is written to the run report.
+    // This identifies tracked edits; untracked input files are not covered.
+    trackedDiffSha256: createHash('sha256')
+      .update(
+        execFileSync('git', ['diff', '--no-ext-diff', '--binary', 'HEAD'], {
+          maxBuffer: 32 * 1024 ** 2,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }),
+      )
+      .digest('hex'),
+    compiledBuildHashes,
     sourceHashes: Object.fromEntries(
       await Promise.all(sourcePaths.map(async (path) => [path, await hashFile(path)])),
     ),
@@ -363,5 +376,16 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     clearInterval(sampler)
     await writeFile(join(output, 'app.log'), logs)
     await launched.cleanup()
+    const after = await fingerprintCompiledBuild()
+    raw.compiledBuildHashesAfter = after
+    raw.compiledBuildUnchanged = JSON.stringify(after) === JSON.stringify(compiledBuildHashes)
+    if (!raw.compiledBuildUnchanged) {
+      raw.integrityError =
+        'Compiled application files changed during calibration; results are not from a frozen build.'
+    }
+    await flush()
+    expect(after, 'Compiled application must remain frozen throughout calibration').toEqual(
+      compiledBuildHashes,
+    )
   }
 })

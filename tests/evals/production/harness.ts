@@ -117,7 +117,10 @@ export async function runProductionCase(
         ),
       ).map(asChunk),
   }
-  const db = { documents: () => documents } as unknown as WorkspaceDbFacade
+  const db = {
+    documents: () => documents,
+    documentsFor: async () => documents,
+  } as unknown as WorkspaceDbFacade
   let fed: RetrievalHit[] = []
   let prompt = ''
   let generationTokens = 0
@@ -205,7 +208,7 @@ export async function runProductionCase(
       return hits
     }
   }
-  const retrieval = new RecordingRetrieval(db, registry)
+  const retrieval = new RecordingRetrieval(db, registry, documents.searchChunksByVector)
   const summaries = {
     summarize: async () => {
       throw new Error('Unexpected summary route')

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { QuizAttempt } from '@shared/quiz'
 import { useT } from '../i18n'
+import { scoreTone } from './quizPresentation'
 
 type Props = {
   deckId: number
@@ -68,12 +69,6 @@ function AttemptRow({
       </span>
     </li>
   )
-}
-
-export function scoreTone(pct: number): 'good' | 'mid' | 'low' {
-  if (pct >= 80) return 'good'
-  if (pct >= 50) return 'mid'
-  return 'low'
 }
 
 function formatDate(epochSeconds: number): string {

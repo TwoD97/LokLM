@@ -49,6 +49,8 @@ export function SystemTab({ onOpenAdvanced }: { onOpenAdvanced?: () => void }): 
     return () => {
       off()
       offReranker()
+      // This is a cancellation generation counter, not a captured DOM ref.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       refreshId.current++
     }
   }, [refresh])

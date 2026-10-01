@@ -5,6 +5,7 @@ import { extractCitationSnippets } from '@shared/citationContext'
 import { applyHighlights, findFuzzyHighlights } from '@shared/fuzzyHighlight'
 import { MultiPagePdfPreview } from './MultiPagePdfPreview'
 import { useT } from '../i18n'
+import { useModalFocus } from '../ui/useModalFocus'
 
 type Props = {
   chunkId: number
@@ -40,7 +41,8 @@ function classifySource(source: ChunkSource | null): BodyMode {
   if (source.mimeType === 'application/pdf' || path.endsWith('.pdf')) return 'pdf'
   // .docx is mammoth-converted to markdown at parse time — same render path as .md.
   if (source.mimeType === DOCX_MIME || path.endsWith('.docx')) return 'markdown'
-  if (path.endsWith('.md') || path.endsWith('.markdown')) return 'markdown'
+  if (source.mimeType === 'text/markdown' || path.endsWith('.md') || path.endsWith('.markdown'))
+    return 'markdown'
   if (langFromPath(path)) return 'code'
   return 'text'
 }
@@ -193,6 +195,7 @@ export function SourceViewer({
   // from the live DOM so newly-rendered lazy PDF pages join the rotation
   // automatically. markIdx lives in a ref to keep the click handler stable.
   const asideRef = useRef<HTMLElement | null>(null)
+  useModalFocus(asideRef, true)
   const markIdxRef = useRef(-1)
   const didInitialFocusRef = useRef(false)
   const [markGroupCount, setMarkGroupCount] = useState(0)

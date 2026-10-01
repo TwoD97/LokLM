@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { QuizRunner } from './QuizRunner'
 import type { QuizAttempt, QuizDeckWithQuestions, QuizQuestion } from '@shared/quiz'
@@ -107,10 +107,9 @@ function setupApiSpies(opts: {
 }
 
 describe('QuizRunner', () => {
-  // Each test installs its own vi.spyOn — they cumulatively wrap the
-  // setupTests.ts stub and the latest mockResolvedValue wins. Avoid
-  // vi.restoreAllMocks() between tests in this file: it interacts badly with
-  // the jsdom + React setup here (next render dies on "useState is null").
+  // Vitest 4 reuses an existing spy instead of stacking wrappers. Restore each
+  // test's API replacements so call counts and pending gates cannot leak.
+  afterEach(() => vi.restoreAllMocks())
 
   it('renders the first question after loading the deck', async () => {
     setupApiSpies({ questions: [makeQuestion(1, 1, 'First?')] })

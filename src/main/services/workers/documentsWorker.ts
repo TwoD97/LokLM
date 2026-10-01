@@ -101,10 +101,12 @@ function log(level: 'info' | 'warn' | 'error', message: string): void {
   send({ ev: 'log', level, message })
 }
 
-async function parseAndChunk(payload: ParseAndChunkPayload): Promise<ParseAndChunkResult> {
-  const documentId = payload.documentId ?? null
+async function parseAndChunk(
+  payload: ParseAndChunkPayload,
+  requestId: number,
+): Promise<ParseAndChunkResult> {
   const parsed = await parseFile(payload.sourcePath, {
-    onOcrProgress: (done, total) => send({ ev: 'ocr', documentId, done, total }),
+    onOcrProgress: (done, total) => send({ ev: 'ocr', requestId, done, total }),
   })
   const opts: Partial<{ maxChars: number; overlap: number }> = {}
   if (payload.chunkSize !== undefined) opts.maxChars = payload.chunkSize
@@ -134,7 +136,7 @@ process.parentPort.on('message', (raw: DocWorkerRequest) => {
 async function handle(msg: DocWorkerRequest): Promise<void> {
   switch (msg.op) {
     case 'documents.parseAndChunk':
-      reply(msg.id, await parseAndChunk(msg.payload))
+      reply(msg.id, await parseAndChunk(msg.payload, msg.id))
       return
     case 'shutdown': {
       reply(msg.id, null)

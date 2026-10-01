@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
 import { Avatar } from '../components/Avatar'
+import { avatarColorForHue } from '../components/avatarColors'
 import { RecoveryCodesModal } from './RecoveryCodesModal'
 import { useT } from '../i18n'
 
@@ -243,7 +244,7 @@ export function ProfileTab(): JSX.Element {
               >
                 <span
                   className="settings-profile-preset__swatch"
-                  style={{ background: `hsl(${hue}, 55%, 45%)` }}
+                  style={{ background: avatarColorForHue(hue) }}
                 >
                   {initialOf(savedName)}
                 </span>
@@ -435,7 +436,7 @@ async function renderPresetPng(hue: number, name: string): Promise<Uint8Array> {
   canvas.height = 256
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2D canvas context.')
-  ctx.fillStyle = `hsl(${hue}, 55%, 45%)`
+  ctx.fillStyle = avatarColorForHue(hue)
   ctx.beginPath()
   ctx.arc(128, 128, 128, 0, Math.PI * 2)
   ctx.fill()

@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   site: 'https://loklm.com',
   trailingSlash: 'never',
+  // Keep spaces between inline elements when upgrading the Astro compiler.
+  compressHTML: true,
   build: {
     assets: 'assets',
     inlineStylesheets: 'always',

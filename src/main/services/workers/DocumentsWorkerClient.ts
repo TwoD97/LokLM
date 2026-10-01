@@ -11,6 +11,7 @@ import type {
 type Pending = {
   resolve: (v: unknown) => void
   reject: (e: Error) => void
+  onProgress?: (done: number, total: number) => void
 }
 
 /**
@@ -27,20 +28,28 @@ export class DocumentsWorkerClient {
   private spawnPromise: Promise<UtilityProcess> | null = null
   private nextId = 1
   private pending = new Map<number, Pending>()
-  // OCR progress listeners keyed by documentId. DocumentService registers one
-  // around each parseAndChunk call so it can forward progress onto that doc's
-  // indexing:progress IPC stream.
-  private ocrListeners = new Map<number, (done: number, total: number) => void>()
   private beforeQuitRegistered = false
+  private epoch = 0
+  private suspended = false
+  private stopped = false
+  private resetting: Promise<void> | null = null
+  private resetError: Error | null = null
 
-  registerOcrProgress(documentId: number, cb: (done: number, total: number) => void): () => void {
-    this.ocrListeners.set(documentId, cb)
-    return () => this.ocrListeners.delete(documentId)
+  private assertSession(epoch: number): void {
+    if (this.stopped) throw new Error('Documents worker is shutting down.')
+    if (this.suspended || epoch !== this.epoch) throw new Error('Document session is closed.')
   }
 
   private async ensureChild(): Promise<UtilityProcess> {
-    if (this.child) return this.child
+    this.assertSession(this.epoch)
     if (this.spawnPromise) return this.spawnPromise
+    if (this.child) return this.child
+    if (!this.beforeQuitRegistered) {
+      this.beforeQuitRegistered = true
+      app.once('before-quit', () => {
+        void this.shutdown().catch(() => undefined)
+      })
+    }
     this.spawnPromise = (async () => {
       // The worker bundle sits next to the compiled main entry — see the
       // additional rollup input in electron.vite.config.ts. __dirname points at
@@ -60,6 +69,20 @@ export class DocumentsWorkerClient {
               : join(app.getAppPath(), 'tessdata')),
         },
       })
+      // Own the process while Electron is still spawning it. Lock/quit must
+      // reap that process too, rather than allowing a late orphaned parser.
+      this.child = child
+      child.on('message', (msg: DocWorkerResponse | DocWorkerPush) => {
+        if (this.child === child) this.dispatch(msg)
+      })
+      child.on('exit', (code) => {
+        if (this.child !== child) return
+        const reason = `documents worker exited (code=${code ?? 'null'})`
+        for (const p of this.pending.values()) p.reject(new Error(reason))
+        this.pending.clear()
+        this.child = null
+        this.spawnPromise = null
+      })
       await new Promise<void>((resolve, reject) => {
         const onSpawn = (): void => {
           child.removeListener('exit', onExit)
@@ -72,29 +95,13 @@ export class DocumentsWorkerClient {
         child.once('spawn', onSpawn)
         child.once('exit', onExit)
       })
-      child.on('message', (msg: DocWorkerResponse | DocWorkerPush) => this.dispatch(msg))
-      child.on('exit', (code) => {
-        const reason = `documents worker exited (code=${code ?? 'null'})`
-        for (const p of this.pending.values()) p.reject(new Error(reason))
-        this.pending.clear()
-        this.ocrListeners.clear()
-        this.child = null
-        this.spawnPromise = null
-      })
-      this.child = child
-      // Kill the worker on app quit so it doesn't outlive main. Register ONCE.
-      if (!this.beforeQuitRegistered) {
-        this.beforeQuitRegistered = true
-        app.once('before-quit', () => {
-          void this.shutdown().catch(() => undefined)
-        })
-      }
       return child
     })()
+    const spawning = this.spawnPromise
     try {
-      return await this.spawnPromise
+      return await spawning
     } finally {
-      this.spawnPromise = null
+      if (this.spawnPromise === spawning) this.spawnPromise = null
     }
   }
 
@@ -105,7 +112,6 @@ export class DocumentsWorkerClient {
       return
     }
     if (!m || typeof m !== 'object' || typeof (m as { id?: unknown }).id !== 'number') {
-      // eslint-disable-next-line no-console
       console.warn('[documentsWorkerClient] dropped malformed worker message', m)
       return
     }
@@ -117,13 +123,13 @@ export class DocumentsWorkerClient {
   }
 
   private handlePush(ev: DocWorkerPush): void {
+    if (this.suspended || this.stopped) return
     switch (ev.ev) {
       case 'ocr': {
-        if (ev.documentId != null) this.ocrListeners.get(ev.documentId)?.(ev.done, ev.total)
+        this.pending.get(ev.requestId)?.onProgress?.(ev.done, ev.total)
         return
       }
       case 'log':
-        // eslint-disable-next-line no-console
         console[ev.level === 'error' ? 'error' : ev.level === 'warn' ? 'warn' : 'log'](
           `[documentsWorker] ${ev.message}`,
         )
@@ -131,11 +137,34 @@ export class DocumentsWorkerClient {
     }
   }
 
-  private async send<T>(op: DocWorkerRequest['op'], payload?: unknown): Promise<T> {
+  private async send<T>(
+    op: DocWorkerRequest['op'],
+    payload?: unknown,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<T> {
+    const epoch = this.epoch
+    this.assertSession(epoch)
     const child = await this.ensureChild()
+    this.assertSession(epoch)
+    if (this.child !== child) throw new Error('Documents worker was stopped.')
+    const result = await this.postRequest<T>(child, op, payload, onProgress)
+    this.assertSession(epoch)
+    return result
+  }
+
+  private postRequest<T>(
+    child: UtilityProcess,
+    op: DocWorkerRequest['op'],
+    payload?: unknown,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<T> {
     const id = this.nextId++
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+      this.pending.set(id, {
+        resolve: resolve as (v: unknown) => void,
+        reject,
+        ...(onProgress ? { onProgress } : {}),
+      })
       try {
         child.postMessage(payload === undefined ? { id, op } : { id, op, payload })
       } catch (err) {
@@ -145,25 +174,99 @@ export class DocumentsWorkerClient {
     })
   }
 
-  parseAndChunk(p: ParseAndChunkPayload): Promise<ParseAndChunkResult> {
-    return this.send<ParseAndChunkResult>('documents.parseAndChunk', p)
+  parseAndChunk(
+    p: ParseAndChunkPayload,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<ParseAndChunkResult> {
+    // Request IDs, unlike workspace-local document IDs, never collide across
+    // simultaneous imports, retries or different workspaces.
+    return this.send<ParseAndChunkResult>('documents.parseAndChunk', p, onProgress)
   }
 
-  async shutdown(): Promise<void> {
-    if (!this.child) return
+  resetSession(): Promise<void> {
+    if (this.resetting) return this.resetting
+    if (this.suspended) {
+      if (!this.resetError) return Promise.resolve()
+      if (this.child || this.spawnPromise) return Promise.reject(this.resetError)
+    }
+    this.epoch++
+    this.suspended = true
+    for (const pending of this.pending.values())
+      pending.reject(new Error('Document session is closed.'))
+    this.pending.clear()
+    const resetting = this.stopChild().then(
+      () => {
+        this.resetError = null
+      },
+      (error: unknown) => {
+        this.resetError = error instanceof Error ? error : new Error(String(error))
+        throw this.resetError
+      },
+    )
+    this.resetting = resetting
+    void resetting
+      .finally(() => {
+        if (this.resetting === resetting) this.resetting = null
+      })
+      .catch(() => undefined)
+    return resetting
+  }
+
+  resumeSession(): void {
+    if (this.resetting || this.resetError || this.stopped)
+      throw new Error('Documents worker session cleanup is not complete.')
+    this.suspended = false
+  }
+
+  shutdown(): Promise<void> {
+    this.stopped = true
+    return this.resetSession()
+  }
+
+  private async stopChild(): Promise<void> {
+    const child = this.child
+    if (!child) return
+    let didExit = false
+    const exited = new Promise<void>((resolve) =>
+      child.once('exit', () => {
+        didExit = true
+        resolve()
+      }),
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
       await Promise.race([
-        this.send<void>('shutdown'),
-        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+        (async () => {
+          try {
+            if (this.spawnPromise) await this.spawnPromise
+            if (this.child === child) await this.postRequest<void>(child, 'shutdown')
+          } catch {
+            /* Early process exit still counts as successful cleanup. */
+          }
+          await exited
+        })(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 2000)
+        }),
       ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+    if (didExit) return
+    try {
+      child.kill()
     } catch {
-      /* ignore — we're killing the worker anyway */
+      /* Require confirmed exit below. */
     }
     try {
-      this.child.kill()
-    } catch {
-      /* ignore */
+      await Promise.race([
+        exited,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('Documents worker did not exit.')), 1000)
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
     }
-    this.child = null
   }
 }

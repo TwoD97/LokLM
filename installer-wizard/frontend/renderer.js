@@ -31,7 +31,6 @@ let selectedTier = 'standard'
 
 // Per-file download state — updated by every model-progress event so the
 // install page can show which model is currently downloading.
-let activeDownload = { id: null, label: null, kind: null }
 
 const els = {
   back: document.getElementById('back'),
@@ -155,9 +154,7 @@ const MODEL_EVENTS = new Set([
 function friendlyModelName(id) {
   // "Qwen_Qwen3.5-4B-Q4_K_M" → "Qwen3.5-4B" ( drop vendor prefix + quant ).
   // "bge-m3-Q4_K_M" → "bge-m3". "bge-reranker-v2-m3-Q4_K_M" → "bge-reranker-v2-m3".
-  return id
-    .replace(/^Qwen_/, '')
-    .replace(/-(Q\d[\w_]+|IQ\d_\w+|UD-Q\d[\w_]+|MTP-Q\d[\w_]+)$/, '')
+  return id.replace(/^Qwen_/, '').replace(/-(Q\d[\w_]+|IQ\d_\w+|UD-Q\d[\w_]+|MTP-Q\d[\w_]+)$/, '')
 }
 
 function setProgress(key, percent) {
@@ -171,7 +168,6 @@ function setProgress(key, percent) {
     const [event, modelId] = key.split(':', 2)
     if (MODEL_EVENTS.has(event)) {
       const name = friendlyModelName(modelId)
-      activeDownload = { id: modelId, label: name, kind: event }
       els.progressLabel.textContent = t('progress.downloading-models')
       const subKey =
         event === 'model-start'
@@ -196,7 +192,6 @@ function setProgress(key, percent) {
   // Non-model step ( prepare , copy , registry , done ) : clear the per-file
   // sub-label so the user doesn't see stale "Lade …" text after the download
   // phase finishes.
-  activeDownload = { id: null, label: null, kind: null }
   els.progressModel.hidden = true
   els.progressLabel.textContent = key.includes('.') ? t(key) : t(`progress.${key}`)
 }

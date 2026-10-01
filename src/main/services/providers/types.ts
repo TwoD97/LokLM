@@ -10,11 +10,15 @@ export interface ProviderStatus {
 
 export interface LlmProvider {
   ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string>
+  /** Prepare chat only after retrieval has finished using the GPU. Returns the
+   * actual context window for packing this turn; remote providers may omit it. */
+  prepareContext?(opts?: { abortSignal?: AbortSignal }): Promise<number>
   generateRaw(
     prompt: string,
     opts: {
       abortSignal?: AbortSignal | undefined
       maxTokens?: number | undefined
+      plannedContextTokens?: number | undefined
       /** Optional node-llama-cpp GbnfJsonSchema. When supplied AND the engine
        *  supports grammar (bundled), output is constrained to valid JSON.
        *  Providers that can't honour it (Ollama) ignore it and fall back to
@@ -58,6 +62,9 @@ export interface LlmProvider {
 }
 
 export interface EmbedderProvider {
+  /** Whether work can run without loading this model or evicting chat. Remote
+   * providers may omit this local residency capability. */
+  isResident?(): boolean
   beginIndexing?(job: Omit<IndexingJob, 'done' | 'total'>): Promise<IndexingLease>
   /** Small local batches keep indexing progress and cancellation responsive. */
   preferredBatchSize?(): number

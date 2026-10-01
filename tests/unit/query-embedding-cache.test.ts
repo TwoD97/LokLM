@@ -102,4 +102,40 @@ describe('bounded session query-vector cache', () => {
     await first
     expect(cache.snapshot()).toMatchObject({ entries: 1 })
   })
+
+  it('detaches an overflow consumer immediately without waiting for native work', async () => {
+    const cache = new QueryEmbeddingCache(2, 16, 1)
+    const occupied = deferred<Float32Array | null>()
+    const overflow = deferred<Float32Array | null>()
+    const first = cache.get('occupied', () => occupied.promise)
+    const compute = vi.fn(() => overflow.promise)
+    const ctrl = new AbortController()
+    const result = cache.get('overflow', compute, ctrl.signal)
+    let canceled = false
+    const observed = result.catch((error: unknown) => {
+      expect(error).toMatchObject({ name: 'AbortError' })
+      canceled = true
+    })
+    await vi.waitFor(() => expect(compute).toHaveBeenCalledOnce())
+    ctrl.abort()
+    try {
+      await vi.waitFor(() => expect(canceled).toBe(true), { timeout: 100 })
+    } finally {
+      overflow.resolve(new Float32Array([2]))
+      occupied.resolve(new Float32Array([1]))
+      await Promise.all([first, observed])
+    }
+    expect(cache.snapshot()).toMatchObject({ pending: 0, entries: 1 })
+  })
+
+  it('does not dispatch overflow work canceled before its microtask starts', async () => {
+    const cache = new QueryEmbeddingCache(2, 16, 0)
+    const compute = vi.fn(async () => new Float32Array([2]))
+    const ctrl = new AbortController()
+    const result = cache.get('overflow', compute, ctrl.signal)
+    ctrl.abort()
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    expect(compute).not.toHaveBeenCalled()
+    expect(cache.snapshot()).toMatchObject({ pending: 0, entries: 0 })
+  })
 })

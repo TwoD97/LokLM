@@ -33,9 +33,12 @@ import {
   GpuLayerPlanCache,
   gpuLayerPlanKey,
   gpuLayerPlanReuseEnabled,
+  seedGpuLayerPlanHints,
+  MIN_CHAT_CONTEXT,
   type ChatModelOptions,
   type ChatModel,
 } from './modelMemory'
+import { assertPreparedPromptFits, prepareChatPromptBudget } from './contextBudget'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -663,6 +666,16 @@ async function performLlmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
       : `gpu: requested ${expectedName ?? 'device'} not confirmed — running on ${gpuName ?? primaryGpuLabel} (${primaryGpuLabel})`
     : 'GPU unavailable'
   return {
+    ...(layerPlanReuse
+      ? {
+          gpuLayerPlanHint: {
+            key: layerPlanReuse.key,
+            layers: model.gpuLayers,
+            requestedContext: Math.max(MIN_CHAT_CONTEXT, initialPlan.contextSize),
+            achievedContext: activePlan.contextSize,
+          },
+        }
+      : {}),
     plan: activePlan,
     modelCapacity: {
       gpuLayers: model.gpuLayers,
@@ -801,8 +814,16 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
   const askStarted = Date.now()
   let firstVisibleTextMs: number | null = null
   try {
-    const promptOpts: Parameters<typeof session.prompt>[1] = {
+    const maxTokens = prepareChatPromptBudget({
+      session: llmSession as Parameters<typeof assertPreparedPromptFits>[0]['session'],
+      plannedContextTokens: payload.plannedContextTokens,
+      actualContextTokens: (llmContext as { contextSize?: number } | null)?.contextSize ?? 0,
+      prompt: payload.prompt,
       maxTokens: payload.maxTokens,
+      signal: ctrl.signal,
+    })
+    const promptOpts: Parameters<typeof session.prompt>[1] = {
+      maxTokens,
       signal: ctrl.signal,
       repeatPenalty: REPEAT_PENALTY,
       onTextChunk: (chunk: string) => {
@@ -816,7 +837,7 @@ async function llmAsk(payload: LlmAskPayload): Promise<{ raw: string }> {
     if (payload.noThink) promptOpts.budgets = { thoughtTokens: 0 }
     log(
       'info',
-      `llm.ask start: promptChars=${payload.prompt.length} maxTokens=${payload.maxTokens} noThink=${String(!!payload.noThink)}`,
+      `llm.ask start: promptChars=${payload.prompt.length} maxTokens=${maxTokens} noThink=${String(!!payload.noThink)}`,
     )
     const raw = await session.prompt(payload.prompt, promptOpts)
     log('info', `llm.ask done: chars=${raw.length}`)
@@ -934,6 +955,16 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
       const grammar = await grammarForSchema(payload.jsonSchema)
       if (grammar) promptOpts.grammar = grammar
     }
+    assertPreparedPromptFits({
+      session: session as unknown as Parameters<typeof assertPreparedPromptFits>[0]['session'],
+      plannedContextTokens: payload.plannedContextTokens,
+      actualContextTokens:
+        ((useUtility ? llmUtilityContext : llmContext) as { contextSize?: number } | null)
+          ?.contextSize ?? 0,
+      prompt: payload.prompt,
+      maxTokens: promptOpts.maxTokens!,
+      signal: ctrl.signal,
+    })
     log(
       'info',
       `llm.generateRaw start: task=${label} maxTokens=${promptOpts.maxTokens} noThink=${payload.noThink !== false}`,
@@ -1282,6 +1313,8 @@ async function ensureResident(task: ModelTask, force = false): Promise<unknown> 
 
 // ---- request dispatch -----------------------------------------------------
 
+let workerClosing = false
+
 process.parentPort.on('message', (raw: WorkerRequest) => {
   // Some Electron versions wrap utility-process messages in { data: ... }; the
   // protocol shape lives on the message itself. Defensive unwrap so we cope
@@ -1292,16 +1325,24 @@ process.parentPort.on('message', (raw: WorkerRequest) => {
   // unknown/malformed op bypass and reach handle() immediately.
   const queuedAt = Date.now()
   void runSerialized(msg.op, () => {
+    if (workerClosing && msg.op !== 'shutdown' && msg.op !== 'llm.abort')
+      throw new Error('Models worker is shutting down.')
     const waitedMs = Date.now() - queuedAt
     if (waitedMs > 1000) log('info', `${msg.op} starting after ${waitedMs} ms in the worker queue`)
     return handle(msg)
-  }).catch((err) => {
-    if ('id' in msg) fail(msg.id, err)
-    else log('error', err instanceof Error ? err.message : String(err))
   })
+    .catch((err) => {
+      if ('id' in msg) fail(msg.id, err)
+      else log('error', err instanceof Error ? err.message : String(err))
+    })
+    .finally(() => {
+      if (msg.op === 'llm.ask' || msg.op === 'llm.generateRaw')
+        abortedBeforeStart.delete(msg.payload.streamId)
+    })
 })
 
 function rejectCancelledGeneration(streamId: string): void {
+  if (workerClosing) throw new Error('Models worker is shutting down.')
   if (!abortedBeforeStart.delete(streamId)) return
   throw new Error('Generation cancelled before starting.')
 }
@@ -1309,6 +1350,14 @@ function rejectCancelledGeneration(streamId: string): void {
 async function handle(msg: WorkerRequest): Promise<void> {
   switch (msg.op) {
     case 'llm.load':
+      if (gpuLayerPlanReuseEnabled(process.env['LOKLM_REUSE_GPU_LAYER_PLAN'])) {
+        const seeded = seedGpuLayerPlanHints(gpuLayerPlans, msg.payload.gpuLayerPlanHints)
+        if (seeded > 0)
+          log(
+            'info',
+            `Restored ${seeded} qualified GPU allocation hint(s); native checks still required`,
+          )
+      }
       configs.llm = msg.payload
       reply(msg.id, await ensureResident('llm', true))
       return
@@ -1330,6 +1379,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
     case 'llm.ask':
       rejectCancelledGeneration(msg.payload.streamId)
       await ensureResident('llm')
+      rejectCancelledGeneration(msg.payload.streamId)
       reply(msg.id, await llmAsk(msg.payload))
       return
     case 'llm.generateRaw':
@@ -1337,6 +1387,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
       if (msg.payload.background && !isResident('llm'))
         throw new Error('Background generation skipped: chat is parked.')
       await ensureResident('llm')
+      rejectCancelledGeneration(msg.payload.streamId)
       reply(msg.id, await llmGenerateRaw(msg.payload))
       return
     case 'llm.abort': {
@@ -1385,14 +1436,22 @@ async function handle(msg: WorkerRequest): Promise<void> {
       return
     case 'shutdown': {
       reply(msg.id, null)
+      if (workerClosing) return
+      workerClosing = true
+      for (const controller of activeAborts.values()) controller.abort()
       // Let the postMessage above drain through the parent pipe before we
       // start disposing native handles. Dispose-then-exit can take seconds
       // on big GPU contexts and we want the main side to see the ack first.
       await new Promise<void>((r) => setImmediate(r))
       try {
-        await llmUnloadInternal()
-        await embedderUnloadInternal()
-        await rerankerUnloadInternal()
+        // Interrupt generation immediately, then wait for the owner of native
+        // buffers to leave the FIFO before freeing them. Queued work is rejected
+        // by the admission check above. Main enforces a bounded process timeout.
+        await runSerialized('llm.unload', async () => {
+          await llmUnloadInternal()
+          await embedderUnloadInternal()
+          await rerankerUnloadInternal()
+        })
       } finally {
         // Always exit , a hanging dispose used to leave the worker process
         // alive past main's `before-quit` (the orphan-on-Windows scenario

@@ -71,6 +71,9 @@ export interface AskOptions {
   abortSignal?: AbortSignal
   /** Output allowance reserved by QA's context planner. */
   maxTokens?: number
+  /** Actual window used to pack sources; the worker rejects a later shrink
+   * rather than letting native context shifting silently discard evidence. */
+  plannedContextTokens?: number
   /**
    * Optional tools the model may call during generation. Worker-mode does not
    * route tool calls back to main yet , callers passing tools will see them
@@ -374,6 +377,8 @@ export class LlamaService {
   private loadPromise: Promise<void> | null = null
   private autoLoadPromise: Promise<void> | null = null
   private lastUsedAt: number = Date.now()
+  private activeRequests = 0
+  private sessionEpoch = 0
   private idleMs: number = parseIdleMs(process.env['LOKLM_LLM_IDLE_MS']) ?? 30 * 60 * 1000
   private idleTimer: NodeJS.Timeout | null = null
   private planner: ResourcePlanner
@@ -610,6 +615,26 @@ export class LlamaService {
 
   // ---- lifecycle -------------------------------------------------------------
 
+  /** Retire main-side load continuations before ModelsWorkerClient reaps the
+   *  native session. This does not queue an unload or start another worker. */
+  invalidateSession(): void {
+    this.sessionEpoch++
+    this.loadPromise = null
+    this.autoLoadPromise = null
+    this.stopIdleTimer()
+    this.activeProfile = null
+    this.activeModelPath = null
+    this.lastPlan = null
+    this.lastResources = null
+    this.modelCapacity = null
+    this.codebaseMode = false
+    this.setStatus({ state: 'unloaded', resident: false, loadProgress: null, message: null })
+  }
+
+  private assertSession(epoch: number): void {
+    if (epoch !== this.sessionEpoch) throw new Error('Model session is closed.')
+  }
+
   /**
    * Lazy load: no-op when already loaded, otherwise runs autoLoad. Concurrent
    * callers share the same in-flight load — second-and-later callers get the
@@ -624,22 +649,45 @@ export class LlamaService {
     return this.autoLoad()
   }
 
+  async prepareContext(opts?: { abortSignal?: AbortSignal }): Promise<number> {
+    const epoch = this.sessionEpoch
+    opts?.abortSignal?.throwIfAborted()
+    this.activeRequests++
+    this.touchUsage()
+    try {
+      await this.ensureLoaded()
+      this.assertSession(epoch)
+      opts?.abortSignal?.throwIfAborted()
+      // A ready model can be parked while embeddings own the GPU. Its previous
+      // load plan is not a capacity guarantee: restore before packing sources.
+      if (this.isReady() && this.client) await this.client.restoreChat(opts?.abortSignal)
+      this.assertSession(epoch)
+      opts?.abortSignal?.throwIfAborted()
+      return this.contextWindowTokens()
+    } finally {
+      this.activeRequests--
+      this.touchUsage()
+    }
+  }
+
   async autoLoad(): Promise<void> {
     // Include device probing/planning in the shared load operation: concurrent
     // first-use requests can arrive before loadModel has set loadPromise.
     if (this.autoLoadPromise) return this.autoLoadPromise
-    this.autoLoadPromise = this.performAutoLoad().finally(() => {
-      this.autoLoadPromise = null
+    const loading = this.performAutoLoad(this.sessionEpoch).finally(() => {
+      if (this.autoLoadPromise === loading) this.autoLoadPromise = null
     })
-    return this.autoLoadPromise
+    this.autoLoadPromise = loading
+    return loading
   }
 
-  private async performAutoLoad(): Promise<void> {
+  private async performAutoLoad(epoch: number): Promise<void> {
     const profiles = discoverProfiles()
     // Resolve the device plan (choice + install-time GPU inventory) and pin it on
     // the worker BEFORE loading — this restarts the worker when the physical
     // device changed so the next getLlama latches the right one.
     await this.applyDevicePlan()
+    this.assertSession(epoch)
 
     // Probe the worker's selected device. Initialising another default GPU
     // backend in main wastes memory and can report a different device budget.
@@ -649,6 +697,7 @@ export class LlamaService {
         ? await this.client.refreshResources()
         : await this.planner.refreshIfStale(60_000)
     } catch (error) {
+      this.assertSession(epoch)
       this.setStatus({
         state: 'failed',
         resident: false,
@@ -657,6 +706,7 @@ export class LlamaService {
       })
       throw error
     }
+    this.assertSession(epoch)
     this.lastResources = snapshot
 
     // GPU required: the bundled LLM only runs on a GPU (dedicated or integrated).
@@ -668,7 +718,6 @@ export class LlamaService {
     const inventory = readGpuInventory()
     const noUsableGpu = inventory.length > 0 ? this.devicePlan.noGpu : !snapshot.hasGpu
     if (noUsableGpu) {
-      // eslint-disable-next-line no-console
       console.warn('[llm] no GPU detected — refusing to load (GPU is required)')
       this.setStatus({
         state: 'failed',
@@ -739,13 +788,18 @@ export class LlamaService {
       )
     }
     if (this.loadPromise) return this.loadPromise
-    this.loadPromise = this.performLoad(modelPath, profileName).finally(() => {
-      this.loadPromise = null
+    const loading = this.performLoad(this.sessionEpoch, modelPath, profileName).finally(() => {
+      if (this.loadPromise === loading) this.loadPromise = null
     })
-    return this.loadPromise
+    this.loadPromise = loading
+    return loading
   }
 
-  private async performLoad(modelPath: string, profileName?: LlmProfileName): Promise<void> {
+  private async performLoad(
+    epoch: number,
+    modelPath: string,
+    profileName?: LlmProfileName,
+  ): Promise<void> {
     const profile = profileName ? profileByName(profileName) : null
     // Pin the tier + model before building the prompt so the verbosity depth
     // matches the model being loaded ( 4B → 'standard', 2B fallback → 'concise' ;
@@ -779,16 +833,17 @@ export class LlamaService {
           codebase: this.codebaseMode,
         }),
       })
+      this.assertSession(epoch)
       this.lastPlan = result.plan
       // Surface WHY auto picked this window ("manual 8192-tok context" vs
       // "auto: sized to free memory …") — the one line that turns a
       // too-small-context report from guesswork into a diagnosis.
-      // eslint-disable-next-line no-console
       console.log(
         `[llm] context plan (tier=${tier ?? 'none'}, target=${profileDefaultContext}): ${result.plan.reason}`,
       )
       this.acceptLoadResult(result)
     } catch (err) {
+      this.assertSession(epoch)
       // Worker already pushed a failed status; record + bubble.
       const msg = err instanceof Error ? err.message : String(err)
       this.setStatus({ state: 'failed', loadProgress: null, message: msg })
@@ -813,9 +868,11 @@ export class LlamaService {
     opts.abortSignal?.throwIfAborted()
     this.touchUsage()
     if (this.isReady() && this.client) {
+      this.activeRequests++
       try {
         return await this.askWithModel(question, hits, opts)
       } finally {
+        this.activeRequests--
         this.touchUsage()
       }
     }
@@ -842,6 +899,9 @@ export class LlamaService {
     this.idleTimer = setInterval(() => {
       if (!this.isReady()) return
       if (this.status.resident === false) return
+      // Prefill and utility generations can run for minutes without a token
+      // push. They are active work, even if lastUsedAt has not advanced yet.
+      if (this.activeRequests > 0) return
       if (Date.now() - this.lastUsedAt < this.idleMs) return
       void this.unload().catch(() => undefined)
     }, tickMs)
@@ -902,7 +962,6 @@ export class LlamaService {
       citationOutput.feed(cleaned, count)
       if (detector.feed(cleaned)) {
         loopAborted = true
-        // eslint-disable-next-line no-console
         console.warn('[llama] repetition loop detected, aborting generation')
         void client.llmAbort(streamId).catch(() => undefined)
       }
@@ -943,6 +1002,7 @@ export class LlamaService {
         question,
         prompt: promptBody,
         maxTokens,
+        plannedContextTokens: opts.plannedContextTokens ?? ctxSize,
         noThink: true,
       })
       if (opts.onChunk) {
@@ -998,7 +1058,6 @@ export class LlamaService {
         // question + retrieved Context still answer most follow-ups.
         const hasHistory = opts.conversationHistory && opts.conversationHistory.length > 0
         if (!isOverflowError(err) || !hasHistory) throw err
-        // eslint-disable-next-line no-console
         console.warn('[llama] context overflowed, retrying without conversation history')
       }
       try {
@@ -1022,6 +1081,7 @@ export class LlamaService {
     opts: {
       abortSignal?: AbortSignal | undefined
       maxTokens?: number | undefined
+      plannedContextTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
       systemPrompt?: string | undefined
@@ -1037,6 +1097,7 @@ export class LlamaService {
     }
     const client = this.client
     const streamId = `gen-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    this.activeRequests++
     let abortListener: (() => void) | null = null
     if (opts.abortSignal) {
       abortListener = (): void => {
@@ -1049,6 +1110,7 @@ export class LlamaService {
         streamId: string
         prompt: string
         maxTokens?: number
+        plannedContextTokens?: number
         jsonSchema?: object
         noThink?: boolean
         systemPrompt?: string
@@ -1060,6 +1122,8 @@ export class LlamaService {
         prompt,
       }
       if (opts.maxTokens != null) payload.maxTokens = opts.maxTokens
+      if (opts.plannedContextTokens != null)
+        payload.plannedContextTokens = opts.plannedContextTokens
       if (opts.jsonSchema != null) payload.jsonSchema = opts.jsonSchema
       if (opts.noThink != null) payload.noThink = opts.noThink
       if (opts.systemPrompt != null) payload.systemPrompt = opts.systemPrompt
@@ -1067,8 +1131,11 @@ export class LlamaService {
       if (opts.requireComplete) payload.requireComplete = true
       if (opts.background) payload.background = true
       const { raw } = await client.llmGenerateRaw(payload)
+      opts.abortSignal?.throwIfAborted()
       return stripThink(raw).trim()
     } finally {
+      this.activeRequests--
+      this.touchUsage()
       if (abortListener && opts.abortSignal) {
         opts.abortSignal.removeEventListener('abort', abortListener)
       }

@@ -43,9 +43,7 @@ describe.skipIf(!hasBuild)('core pages', () => {
     for (const page of corePages) {
       const html = readDist(page)
       expect(html, `${page} missing Organization`).toContain('"@type":"Organization"')
-      expect(html, `${page} missing SoftwareApplication`).toContain(
-        '"@type":"SoftwareApplication"',
-      )
+      expect(html, `${page} missing SoftwareApplication`).toContain('"@type":"SoftwareApplication"')
     }
   })
 
@@ -68,7 +66,7 @@ describe.skipIf(!hasBuild)('sitemap output', () => {
     const body = readDist('sitemap-0.xml')
 
     const expectedUrls = [
-      'https://loklm.com',
+      'https://loklm.com/',
       'https://loklm.com/imprint',
       'https://loklm.com/privacy',
       'https://loklm.com/en',

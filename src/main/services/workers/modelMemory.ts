@@ -2,6 +2,37 @@ import type { KvCacheType, LlmPlan, SystemResources } from '../embeddings/Resour
 
 export const MIN_CHAT_CONTEXT = 4096
 
+/** Check after the final GPU handoff and before native generation. The main
+ * planner must repack instead of allowing a smaller window to drop sources. */
+export function assertPlannedContextFits(
+  planned: number | undefined,
+  actual: number,
+  exactBudget?: { promptTokens: number; maxTokens: number },
+): void {
+  if (planned == null) return
+  if (!Number.isFinite(planned) || planned <= 0 || !Number.isFinite(actual) || actual <= 0) {
+    throw new Error('The model context size could not be verified. Please retry the question.')
+  }
+  if (actual < planned) {
+    // A fallback provider may have a smaller context while the actual packed
+    // prompt still fits. Preserve that useful fallback, but only with a native
+    // token count including its actual wrapper and system instructions.
+    const margin = Math.max(64, Math.ceil(actual / 10))
+    if (
+      exactBudget &&
+      Number.isSafeInteger(exactBudget.promptTokens) &&
+      exactBudget.promptTokens >= 0 &&
+      Number.isSafeInteger(exactBudget.maxTokens) &&
+      exactBudget.maxTokens > 0 &&
+      exactBudget.promptTokens + exactBudget.maxTokens + margin <= actual
+    )
+      return
+    throw new Error(
+      'The model context became smaller after sources were selected. Please retry the question so its sources can be repacked.',
+    )
+  }
+}
+
 /** Prefer native math cores, capped by available scheduling capacity. An explicit
  * calibration override may use SMT threads, but cannot exceed that capacity. */
 export function resolveInferenceThreads(
@@ -94,27 +125,86 @@ export function gpuLayerPlanReuseEnabled(rawOverride?: string): boolean {
 
 /** Worker-local allocation hint, never a cache of native allocations or free memory. */
 export class GpuLayerPlanCache {
-  private readonly entries = new Map<string, number>()
+  private readonly entries = new Map<string, { layers: number; minimumContext?: number }>()
 
   get(key: string): number | undefined {
-    const layers = this.entries.get(key)
-    if (layers != null) {
+    const entry = this.entries.get(key)
+    if (entry != null) {
       this.entries.delete(key)
-      this.entries.set(key, layers)
+      this.entries.set(key, entry)
     }
-    return layers
+    return entry?.layers
   }
 
-  remember(key: string, layers: number): void {
+  minimumContext(key: string): number | undefined {
+    return this.entries.get(key)?.minimumContext
+  }
+
+  remember(key: string, layers: number, minimumContext?: number): void {
     if (!key || !Number.isSafeInteger(layers) || layers < 1) return
     this.entries.delete(key)
-    this.entries.set(key, layers)
+    this.entries.set(key, { layers, ...(minimumContext != null ? { minimumContext } : {}) })
     while (this.entries.size > 4) this.entries.delete(this.entries.keys().next().value!)
   }
 
   forget(key: string): void {
     this.entries.delete(key)
   }
+}
+
+export interface GpuLayerPlanHint {
+  key: string
+  layers: number
+  requestedContext: number
+  achievedContext: number
+}
+
+/** App-lifetime numeric hints only. Reduced-context plans must never pin a new
+ * vault session to a worse window merely to save allocation-estimation time. */
+export class QualifiedGpuLayerPlanHints {
+  private readonly entries = new Map<string, GpuLayerPlanHint>()
+
+  remember(value: unknown): void {
+    if (!value || typeof value !== 'object') return
+    const hint = value as Partial<GpuLayerPlanHint>
+    if (typeof hint.key !== 'string' || !hint.key || hint.key.length > 16_384) return
+    this.entries.delete(hint.key)
+    if (
+      !Number.isSafeInteger(hint.layers) ||
+      hint.layers! < 1 ||
+      !Number.isSafeInteger(hint.requestedContext) ||
+      hint.requestedContext! < MIN_CHAT_CONTEXT ||
+      !Number.isSafeInteger(hint.achievedContext) ||
+      hint.achievedContext! < hint.requestedContext!
+    )
+      return
+    this.entries.set(hint.key, {
+      key: hint.key,
+      layers: hint.layers!,
+      requestedContext: hint.requestedContext!,
+      achievedContext: hint.achievedContext!,
+    })
+    while (this.entries.size > 4) this.entries.delete(this.entries.keys().next().value!)
+  }
+
+  snapshot(): GpuLayerPlanHint[] {
+    return [...this.entries.values()].map((hint) => ({ ...hint }))
+  }
+}
+
+export function seedGpuLayerPlanHints(cache: GpuLayerPlanCache, values: unknown): number {
+  if (!Array.isArray(values)) return 0
+  const qualified = new QualifiedGpuLayerPlanHints()
+  for (const value of values.slice(-4)) qualified.remember(value)
+  let seeded = 0
+  for (const hint of qualified.snapshot()) {
+    // Freshly measured worker-local choices take precedence over a seed.
+    if (cache.get(hint.key) == null) {
+      cache.remember(hint.key, hint.layers, hint.requestedContext)
+      seeded++
+    }
+  }
+  return seeded
 }
 
 /** Match the native model-load fit, not the later context's preferred KV order.
@@ -172,6 +262,7 @@ export async function allocateChat(options: {
   const types = [...new Set<KvCacheType>([options.plan.kvCacheType, 'q8_0', 'q4_0', 'f16'])]
   const reuse = options.layerPlanReuse
   const rememberedLayers = reuse?.cache.get(reuse.key)
+  const minimumHintContext = reuse?.cache.minimumContext(reuse.key)
   if (reuse)
     options.log(
       rememberedLayers == null
@@ -191,6 +282,7 @@ export async function allocateChat(options: {
     const usingHint = attempt === -1
     let model: ChatModel | null = null
     let rejectedHint = false
+    let hintCleanupFailed = false
     try {
       model = await options.loadModel({
         modelPath: options.modelPath,
@@ -218,6 +310,16 @@ export async function allocateChat(options: {
               ? { experimentalKvCacheKeyType: kvEnum, experimentalKvCacheValueType: kvEnum }
               : {}),
           })
+          if (usingHint && minimumHintContext != null && context.contextSize < minimumHintContext) {
+            try {
+              await context.dispose()
+            } catch (error) {
+              hintCleanupFailed = true
+              throw error
+            }
+            rejectedHint = true
+            throw new Error('Cached GPU layers no longer preserve the requested context')
+          }
           const reason =
             `${context.contextSize}-token context, ${type} KV, ${model.gpuLayers} GPU layers` +
             (attempt > 0 ? ' (reduced offload after memory pressure)' : '')
@@ -231,6 +333,7 @@ export async function allocateChat(options: {
           }
         } catch (error) {
           lastError = error
+          if (rejectedHint || hintCleanupFailed) throw error
           memoryFailure ||= isMemoryError(error)
           if (!isMemoryError(error) && !isContextCompatibilityError(error)) throw error
           options.log(
@@ -251,6 +354,7 @@ export async function allocateChat(options: {
         // Never overlap a fallback allocation with a failed disposal. Ordinary
         // corrupt-model / driver errors remain fail-fast rather than retried.
         if (model) await model.dispose()
+        if (hintCleanupFailed) throw error
         if (!rejectedHint && !isMemoryError(error) && !isContextCompatibilityError(error))
           throw error
         options.log(`GPU layer plan cache fallback: ${String(error)}; retrying automatic fit`)

@@ -5,6 +5,47 @@ afterEach(() => vi.useRealTimers())
 const job = { workspaceId: 1, title: 'document.pdf' }
 
 describe('GPU ownership across bulk indexing', () => {
+  it('cancels one waiting chat immediately without releasing indexing or other callers', async () => {
+    vi.useFakeTimers()
+    const coordinator = new GpuWorkCoordinator(vi.fn(), vi.fn(), () => false)
+    const lease = coordinator.acquire(job)
+    const controller = new AbortController()
+    const cancelled = coordinator.waitForChat(controller.signal)
+    const rejection = expect(cancelled).rejects.toThrow('cancelled')
+    const continued = vi.fn()
+    const other = coordinator.waitForChat().then(continued)
+    controller.abort(new Error('cancelled'))
+    await rejection
+    expect(coordinator.status().phase).toBe('indexing')
+    expect(continued).not.toHaveBeenCalled()
+    lease.release()
+    await vi.advanceTimersByTimeAsync(250)
+    await other
+    expect(continued).toHaveBeenCalledOnce()
+  })
+
+  it.each([false, true])('ignores a stale restoration after reset (failure=%s)', async (fail) => {
+    vi.useFakeTimers()
+    let finish!: () => void
+    const restore = new Promise<void>((resolve, reject) => {
+      finish = () => (fail ? reject(new Error('old failure')) : resolve())
+    })
+    const coordinator = new GpuWorkCoordinator(() => restore, vi.fn())
+    coordinator.acquire(job).release()
+    await vi.advanceTimersByTimeAsync(250)
+    coordinator.reset('worker crashed')
+    const lease = coordinator.acquire({ ...job, title: 'new job' })
+    finish()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(coordinator.status()).toMatchObject({
+      phase: 'error',
+      error: 'worker crashed',
+      jobs: [{ title: 'new job' }],
+    })
+    coordinator.reset(undefined, true)
+    lease.release()
+  })
+
   it('holds chat until all jobs finish and restoration completes', async () => {
     vi.useFakeTimers()
     let restored!: () => void

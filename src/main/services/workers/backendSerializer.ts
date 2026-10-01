@@ -24,8 +24,8 @@ export type WorkerOp = WorkerRequest['op']
  * on the same device.
  *
  * NOT included: `llm.abort` (must interrupt an ask that is HOLDING the queue),
- * `llm.setLanguage` (JS-only chat-history patch), and `shutdown` (runs its own
- * dispose on quit).
+ * `llm.setLanguage` (JS-only chat-history patch), and `shutdown` (interrupts
+ * generation immediately, then queues native disposal through this FIFO).
  */
 export const SERIALIZED_OPS: ReadonlySet<WorkerOp> = new Set<WorkerOp>([
   'llm.load',

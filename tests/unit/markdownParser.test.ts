@@ -98,4 +98,29 @@ describe('parseMarkdownSections', () => {
     const out = parseMarkdownSections(md)
     expect(out).toEqual([{ headingPath: ['Heading with closing hashes'], text: 'body' }])
   })
+
+  it.each(['`', '~'])(
+    'keeps shorter and non-closing %s fences inside the original section',
+    (char) => {
+      const body = [
+        char.repeat(4) + 'markdown',
+        char.repeat(3),
+        '# literal inner heading',
+        char.repeat(4) + ' more code',
+        '# still literal code',
+        char.repeat(5),
+      ].join('\n')
+      expect(parseMarkdownSections(`# Outer\n${body}\n# Next\nreal body`)).toEqual([
+        { headingPath: ['Outer'], text: body },
+        { headingPath: ['Next'], text: 'real body' },
+      ])
+    },
+  )
+
+  it('preserves literal hash suffixes in technical section headings', () => {
+    expect(parseMarkdownSections('# C#\nlanguage\n## F# ##\nother language')).toEqual([
+      { headingPath: ['C#'], text: 'language' },
+      { headingPath: ['C#', 'F#'], text: 'other language' },
+    ])
+  })
 })

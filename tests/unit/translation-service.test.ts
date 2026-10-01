@@ -4,6 +4,7 @@ import {
   TRANSLATION_SYSTEM_PROMPT,
 } from '../../src/main/services/translation/TranslationService'
 import type { ProviderRegistry } from '../../src/main/services/providers/Registry'
+import { detectIsoLanguage } from '../../src/main/services/documents/languageDetector'
 
 vi.mock('../../src/main/services/documents/languageDetector', () => ({
   detectIsoLanguage: vi.fn(async () => 'en'),
@@ -104,6 +105,26 @@ describe('shared LLM translation', () => {
     await expect(service.translate('hello', { target: 'de' })).rejects.toThrow('empty translation')
     generateRaw.mockRejectedValueOnce(new Error('Model failed'))
     await expect(service.translate('hello', { target: 'de' })).rejects.toThrow('Model failed')
+  })
+
+  it('discards a completed translation when cancellation arrives during language detection', async () => {
+    let detect!: (language: string) => void
+    vi.mocked(detectIsoLanguage).mockReturnValueOnce(
+      new Promise((resolve) => {
+        detect = resolve
+      }),
+    )
+    const controller = new AbortController()
+    const translation = service.translate(
+      'private source',
+      { target: 'de' },
+      { abortSignal: controller.signal },
+    )
+    const rejected = expect(translation).rejects.toThrow()
+    await vi.waitFor(() => expect(generateRaw).toHaveBeenCalledOnce())
+    controller.abort()
+    detect('en')
+    await rejected
   })
 
   it('reports the selected model and checks readiness and context', async () => {

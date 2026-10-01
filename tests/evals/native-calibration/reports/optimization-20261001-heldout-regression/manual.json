@@ -1,0 +1,112 @@
+[
+  {
+    "caseId": "heldout-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "German one-sentence answer gives recorded 2024 service-credit revenue as 73.410 GBP. Exact supplied table 1:2 contains 73410 GBP, distinct from the reserve and planned 2025 amount."
+  },
+  {
+    "caseId": "heldout-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "English one-sentence answer gives 156 planned inspections for 2025. Exact supplied plan table 2:5 supports the value and planned status."
+  },
+  {
+    "caseId": "heldout-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "English one-sentence answer gives approval date 2025-02-06 in requested ISO format. Exact supplied introduction/approval passage 2:4 contains that date; the introduction is the correct evidence for this question."
+  },
+  {
+    "caseId": "heldout-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "English one-sentence answer gives Teral sample mass 31.6 kg and survey date 2027-02-23. Exact supplied PDF table passage 6:9 supports both; no confusion with tray counts."
+  },
+  {
+    "caseId": "heldout-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "German one-sentence response correctly adds accepted trays Teral 18 plus Luvon 29 to 47, with survey date 2027-02-23. Exact supplied PDF table 6:9 supports all operands and date; rejected trays are not included. Slightly longer than needed but no factual or attribution defect."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "German one compound sentence correctly distinguishes planned 2025 revenue 78165 GBP from recorded 2024 revenue 73410 GBP and derives 4755 GBP. Both supplied exact table passages 2:5 and 1:2 are cited after the sentence, supporting both operands and derived difference. The original run's wrong introduction citation is absent here. Wordier than requested, but no invented fact or missing evidence."
+  },
+  {
+    "caseId": "heldout-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "English short sentence identifies ORV-862 and cites supplied draft A 3:6, which contains that exact identifier. No unsupported attribution to draft B."
+  },
+  {
+    "caseId": "heldout-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "German one-sentence answer evaluates retryDelaySeconds(3,20) as Math.min(3*20,90)=60 seconds. Complete supplied function 5:8 supports the expression, maximum and units. Correct but wordier than requested."
+  },
+  {
+    "caseId": "heldout-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "unsupportedExtraClaims": [],
+    "notes": "English short sentence accurately limits its statement to the provided context not identifying the CEO. No person or external fact invented, and no inline citation claimed. Terminal citation array represents provided context, not evidence the answer explicitly cites."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "unsupportedExtraClaims": [
+      "Claims 2027-05-15 is Orvo's definitive deadline even though supplied draft A states 2027-05-08 and neither draft establishes approval or supersession. Absence of an approval/supersession statement does not establish draft B's authority."
+    ],
+    "notes": "Critical conflicting-source failure: German response definitively selects B's 2027-05-15, cites only 4:7, and omits A's 2027-05-08 although both 4:7 and 3:6 were supplied. B supports its draft date, issue date and lack of approval/supersession, but not the claimed definitive authority. ISO syntax is correct; this is not just a formatting or brevity failure."
+  },
+  {
+    "caseId": "heldout-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "English one-sentence response correctly returns 0 seconds for attempt -1 and explains the attempt<=0 early return. Supplied complete function 5:8 supports result, condition and units."
+  },
+  {
+    "caseId": "heldout-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "unsupportedExtraClaims": [],
+    "notes": "German one-sentence response limits its claim to the supplied context containing no measured outdoor temperature for Luvon in the 2027-02-23 survey. Exact supplied PDF passage 6:9 states the report contains no outdoor temperature measurements. No numeric temperature invented and no stronger claim that measurements were not taken."
+  }
+]

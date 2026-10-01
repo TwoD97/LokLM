@@ -22,7 +22,7 @@
 
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, mkdir, writeFile, cp, chmod, rm } from 'node:fs/promises'
+import { mkdir, writeFile, cp, chmod, rm } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -35,11 +35,15 @@ async function findMakeself() {
   try {
     await execFileAsync('makeself', ['--version'])
     return 'makeself'
-  } catch {}
+  } catch {
+    /* Try the alternate executable name. */
+  }
   try {
     await execFileAsync('makeself.sh', ['--version'])
     return 'makeself.sh'
-  } catch {}
+  } catch {
+    /* Neither executable is available; report the installation step below. */
+  }
   throw new Error(
     'makeself not found on PATH. Install via `apt install makeself` , ' +
       '`dnf install makeself` , or the upstream tarball at https://makeself.io',
@@ -53,21 +57,12 @@ async function requireFile(path, label) {
 }
 
 async function main() {
-  const wizardBin = join(
-    ROOT,
-    'installer-wizard',
-    'src-tauri',
-    'target',
-    'release',
-    'loklm',
-  )
+  const wizardBin = join(ROOT, 'installer-wizard', 'src-tauri', 'target', 'release', 'loklm')
   const licenseFile = join(ROOT, 'LICENSE')
 
   await requireFile(wizardBin, 'wizard binary ( cargo build first )')
   await requireFile(licenseFile, 'LICENSE')
 
-  const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'))
-  const version = pkg.version
   // Version stays out of the filename ; the Bunny URL path still has the
   // version folder so we can serve specific versions for rollback / pinning.
   const outputFile = join(ROOT, 'release', 'LokLM-Setup-linux-x64.run')
@@ -81,7 +76,10 @@ async function main() {
   // payload_dir() resolves it via ../linux-unpacked at runtime. The
   // optional CUDA addon + GGUF models are still fetched at install time.
   const payloadDir = join(ROOT, 'release', 'linux-unpacked')
-  await requireFile(payloadDir, 'payload dir release/linux-unpacked ( run package:linux:payload first )')
+  await requireFile(
+    payloadDir,
+    'payload dir release/linux-unpacked ( run package:linux:payload first )',
+  )
   const stage = join(ROOT, 'release', '.installer-stub-staging-linux')
   if (existsSync(stage)) await rm(stage, { recursive: true, force: true })
   await mkdir(join(stage, 'installer'), { recursive: true })

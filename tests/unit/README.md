@@ -1,47 +1,33 @@
 # Unit-Tests
 
-Unit-Tests prüfen einzelne Funktionen oder Komponenten in Isolation: keine
-echte DB, keine echte Krypto-IO, keine Electron-Fenster.
+`pnpm test:unit` führt alle fünf Unit-Projekte aus. Datenbanken, native Modelle
+und Electron-Fenster werden dabei nicht gestartet.
 
-## Wo sie liegen
+| Vitest-Projekt    | Dateien                                            | Laufzeit |
+| ----------------- | -------------------------------------------------- | -------- |
+| `node`            | `src/{main,preload,shared}/**/*.test.ts`           | Node     |
+| `unit`            | `tests/unit/**/*.test.ts`                          | Node     |
+| `web`             | `src/renderer/**/*.test.{ts,tsx}`                  | jsdom    |
+| `scripts`         | `tests/unit/scripts/**/*.test.mjs`                 | Node     |
+| `wizard-frontend` | `installer-wizard/frontend/__tests__/**/*.test.ts` | Node     |
 
-Unit-Tests werden _nicht_ unter `tests/unit/` abgelegt, sondern direkt neben
-dem zu testenden Modul:
+Die Zuordnung steht in [`vitest.config.ts`](../../vitest.config.ts). Neue Tests
+können neben ihrem Modul oder bei den zugehörigen Service-Tests in diesem
+Verzeichnis liegen. Tests für Race Conditions verwenden kontrollierte Promises,
+damit sie nicht von der Geschwindigkeit der Maschine abhängen.
 
+```bash
+pnpm test:unit
+pnpm exec vitest run --project unit tests/unit/query-embedding-cache.test.ts
+pnpm exec vitest --project web
 ```
-src/shared/authHelpers.ts
-src/shared/authHelpers.smoke.test.ts        <- unit test daneben
-```
 
-Diese Konvention ist in `vitest.workspace.ts` über die Patterns
-`src/main/**/*.test.ts`, `src/preload/**/*.test.ts`, `src/shared/**/*.test.ts`
-und `src/renderer/**/*.test.{ts,tsx}` verdrahtet.
+Renderer-Tests verwenden die IPC-Stubs aus
+[`setupTests.ts`](../../src/renderer/src/setupTests.ts). Fehler, verzögerte Antworten,
+Abbruch und Workspace-Wechsel sollten dort geprüft werden, wo sie für den
+Workflow relevant sind.
 
-Diesen Ordner gibt es nur, damit die README hier dokumentiert ist. Es gehören
-keine Tests hier rein.
-
-## Beispiele im Repo
-
-- [`src/shared/authHelpers.smoke.test.ts`](../../src/shared/authHelpers.smoke.test.ts) — reine Funktions-Tests ohne externe Abhängigkeit.
-- [`src/renderer/src/App.smoke.test.tsx`](../../src/renderer/src/App.smoke.test.tsx) — React-Komponente mit gestubbtem `window.api` über `setupTests.ts`.
-
-## Wann ein Test ein Unit-Test ist
-
-- Er hängt nicht von der Reihenfolge anderer Tests ab.
-- Er braucht keine echte Datei und keinen echten Prozess.
-- Er ist in unter 100ms durch.
-- Externe Abhängigkeiten (DB, Filesystem, Krypto-IO) sind gestubbt.
-
-Sobald _eines_ davon nicht mehr stimmt, gehört der Test eine Ebene tiefer in
-`tests/integration/` oder `tests/tx/`.
-
-## Was sich hier gut testen lässt
-
-- Reine Helper-Funktionen (`shared/`)
-- Argumentvalidierung, Edge-Cases von Funktionssignaturen
-- React-Komponenten gegen einen gestubbten `window.api`
-- Pure Logik in Services (z.B. die Berechnung von Lockout-Zeitstempeln)
-
-Was sich hier _nicht_ gut testen lässt: alles, was über das Filesystem, einen
-echten PGlite-Prozess oder echte Krypto-Round-Trips läuft — das gehört nach
-`tests/integration/` oder `tests/tx/`.
+Tests mit echter verschlüsselter SQLite-Datenbank, Krypto oder gemeinsam
+verdrahteten Services gehören nach [`tests/integration`](../integration/README.md).
+Vault-Transaktionen liegen unter `tests/tx/`; echte Electron-IPC und native
+GPU-Workflows unter [`tests/e2e`](../e2e/README.md).

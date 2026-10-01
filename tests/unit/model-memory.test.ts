@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { allocateChat, chatContextTarget } from '@main/services/workers/modelMemory'
+import {
+  allocateChat,
+  assertPlannedContextFits,
+  chatContextTarget,
+} from '@main/services/workers/modelMemory'
 import type { LlmPlan, SystemResources } from '@main/services/embeddings/ResourcePlanner'
 
 const smallGpu: SystemResources = {
@@ -19,6 +23,24 @@ const plan: LlmPlan = {
   estimatedFreeVramGBAfterLoad: 0,
   reason: 'test',
 }
+
+describe('packed answer context guard', () => {
+  it('rejects smaller native capacity before generation can shift away selected sources', () => {
+    expect(() => assertPlannedContextFits(8192, 4096)).toThrow(/smaller.*sources/)
+  })
+  it.each([4096, 8192])('accepts the packed window when actual capacity is %s', (actual) => {
+    expect(() => assertPlannedContextFits(4096, actual)).not.toThrow()
+  })
+  it.each([0, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects unverifiable actual capacity %s',
+    (actual) => {
+      expect(() => assertPlannedContextFits(4096, actual)).toThrow(/verified/)
+    },
+  )
+  it('keeps non-QA legacy callers compatible when no packed-window contract was supplied', () => {
+    expect(() => assertPlannedContextFits(undefined, 4096)).not.toThrow()
+  })
+})
 
 describe('model residency on limited VRAM', () => {
   it('caps automatic context on constrained GPUs while retaining explicit choices', () => {

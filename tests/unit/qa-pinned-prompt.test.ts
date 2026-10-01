@@ -55,7 +55,7 @@ describe('QAService.answer pinned-hit plumbing', () => {
       search: vi.fn().mockResolvedValue([ragHit]),
     } as unknown as RetrievalService
     const db = {
-      documents: () => ({
+      documentsFor: async () => ({
         listPinned: vi.fn().mockResolvedValue([{ id: 1, title: 'Pinned Doc' }]),
         listChunksForDocument: vi.fn().mockResolvedValue([pinnedChunk]),
       }),

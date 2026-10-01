@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   checks:
-    name: Checks (typecheck + astro check)
+    name: Checks (types + tests + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +44,10 @@ jobs:
         env:
           PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL || 'https://downloads.loklm.example' }}
         run: pnpm build
+
+      - name: Unit tests, built-page smoke checks and coverage
+        working-directory: website
+        run: pnpm test:coverage
 
   deploy:
     name: Build + deploy to Hetzner

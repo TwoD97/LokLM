@@ -98,10 +98,10 @@ async function parseImage(filePath: string): Promise<ParsedDocument> {
 
 async function parsePlainText(filePath: string): Promise<ParsedDocument> {
   const raw = await readFile(filePath, 'utf-8')
-  // Strip UTF-8 BOM — keeping it makes the first chunk start with ﻿,
+  // Strip UTF-8 BOM — keeping it makes the first chunk start with U+FEFF,
   // which then bleeds into embeddings and preview text. parseMarkdown already
   // does this via stripFrontmatter; .txt files went without.
-  const text = raw.startsWith('﻿') ? raw.slice(1) : raw
+  const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw
   return {
     kind: 'text',
     pages: [{ num: 1, text }],
@@ -167,7 +167,6 @@ async function parseDocx(filePath: string, opts: ParseOptions = {}): Promise<Par
   if (messages.length > 0) {
     // mammoth warns about unsupported styles, dropped elements, etc. Log
     // them so they're discoverable without surfacing them to the user.
-    // eslint-disable-next-line no-console
     console.warn(
       `[documents] mammoth produced ${messages.length} message(s) for ${basename(filePath)}`,
     )
@@ -282,7 +281,6 @@ async function ocrScannedPages(
         const text = await ocrPdfPage(proxy)
         if (text.length > 0) page.text = normalizePdfPageText(text)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn(
           `[documents] OCR failed for page ${page.num}:`,
           err instanceof Error ? err.message : err,

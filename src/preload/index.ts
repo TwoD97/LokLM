@@ -60,6 +60,7 @@ import type {
   StreamEvent,
   Conversation,
   ConversationWithMessages,
+  DeleteConversationTurnInput,
   ChunkSource,
   DocumentChunk,
   ModelsStatus,
@@ -342,6 +343,9 @@ const api = {
       ipcRenderer.invoke('documents:searchLibrary', workspaceId, query, opts ?? {}),
     readDocumentBytes: (documentId: number): Promise<Uint8Array | null> =>
       ipcRenderer.invoke('documents:readDocumentBytes', documentId),
+    /** Original text of a generated document, stored inside the encrypted workspace. */
+    readGeneratedText: (documentId: number): Promise<string | null> =>
+      ipcRenderer.invoke('documents:readGeneratedText', documentId),
     onIndexProgress: (cb: (p: IndexProgress) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, p: IndexProgress): void => cb(p)
       ipcRenderer.on('indexing:progress', listener)
@@ -364,10 +368,12 @@ const api = {
       ipcRenderer.invoke('conversations:getWithMessages', id),
     generateTitle: (id: number): Promise<string | null> =>
       ipcRenderer.invoke('conversations:generateTitle', id),
-    /** Delete a single message (cascades to its citations). Used by the chat
-     *  Regenerate flow to drop the last assistant turn before re-streaming. */
+    /** Delete a single message (cascades to its citations). */
     deleteMessage: (messageId: number): Promise<void> =>
       ipcRenderer.invoke('conversations:deleteMessage', messageId),
+    /** Atomically remove the unchanged latest exchange before regenerating it. */
+    deleteLatestTurn: (input: DeleteConversationTurnInput): Promise<void> =>
+      ipcRenderer.invoke('conversations:deleteLatestTurn', input),
     setActiveDocumentIds: (conversationId: number, ids: number[]): Promise<void> =>
       ipcRenderer.invoke('conversations:setActiveDocumentIds', conversationId, ids),
   },

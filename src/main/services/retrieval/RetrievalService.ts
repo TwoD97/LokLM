@@ -801,6 +801,9 @@ export class RetrievalService {
     // Wrap in try/catch to preserve the user-visible "no embedder → BM25-only"
     // soft-fail behaviour.
     const vectorPromise: Promise<SearchHit[]> = (async () => {
+      // No index is a real lexical-only mode. Do not load/compute query
+      // embeddings for the retired facade stub that could only return [].
+      if (!this.vectorSearch) return []
       const embedder = this.registry.embedder()
       if (!embedder.isReady()) return []
       try {
@@ -809,14 +812,9 @@ export class RetrievalService {
         const vec = await this.embedRetrievalQuery(embedder, q, codeWorkspace, abortSignal)
         abortSignal?.throwIfAborted()
         if (!vec || vec.length === 0) return []
-        // searchChunksByVector expects number[]; convert from the provider's
-        // Float32Array. Array.from on a typed array materialises a plain Array.
+        // The vector-store boundary accepts a plain numeric array.
         const queryVec = Array.from(vec)
-        // Prefer the injected LanceDB-backed dense search (ADR-0005); fall back
-        // to the pgvector column when none is wired (isolated tests).
-        return await (this.vectorSearch
-          ? this.vectorSearch(workspaceId, queryVec, candidateK, searchOpts)
-          : this.db.documents().searchChunksByVector(workspaceId, queryVec, candidateK, searchOpts))
+        return await this.vectorSearch(workspaceId, queryVec, candidateK, searchOpts)
       } catch (err) {
         rethrowCancellation(err, abortSignal)
         console.warn('[retrieval] embedder failed, falling back to BM25-only:', err)

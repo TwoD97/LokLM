@@ -32,8 +32,11 @@ type Props = {
   activeWorkspaceId: number | null
   activeView: ViewKind
   onWorkspaceSelect: (id: number) => void
-  onCreateWorkspace: (name: string, encrypted: boolean) => void
-  onRenameWorkspace: (id: number, name: string) => void
+  onCreateWorkspace: (name: string, encrypted: boolean) => void | Promise<boolean>
+  onRenameWorkspace: (id: number, name: string) => void | Promise<boolean>
+  workspaceBusy?: boolean
+  workspaceError?: string | undefined
+  onRetryWorkspaces?: (() => void) | undefined
   onRequestDeleteWorkspace: (ws: Workspace) => void
   defaultWorkspaceId: number | null
   onSetDefaultWorkspace: (id: number) => void
@@ -46,6 +49,10 @@ type Props = {
   onClearScope: () => void
   // User-created folders for the active workspace (chat-scope organization).
   folders: Folder[]
+  folderError?: string | null
+  onRetryFolders?: () => void
+  documentError?: string | null
+  onRetryDocuments?: () => void
   folderAssignments: FolderAssignment[]
   onCreateFolder: (name: string, parentId: number | null) => void
   onRenameFolder: (id: number, name: string) => void
@@ -109,6 +116,9 @@ export function Sidebar({
   onWorkspaceSelect,
   onCreateWorkspace,
   onRenameWorkspace,
+  workspaceBusy = false,
+  workspaceError,
+  onRetryWorkspaces,
   onRequestDeleteWorkspace,
   defaultWorkspaceId,
   onSetDefaultWorkspace,
@@ -120,6 +130,10 @@ export function Sidebar({
   onToggleDocument,
   onClearScope,
   folders,
+  folderError,
+  onRetryFolders,
+  documentError,
+  onRetryDocuments,
   folderAssignments,
   onCreateFolder,
   onRenameFolder,
@@ -138,6 +152,8 @@ export function Sidebar({
   // id of the workspace whose name is being edited inline, plus its draft text.
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState('')
+  const createPending = useRef(false)
+  const renamePending = useRef(false)
 
   // Folder tree for the chat doc-scope picker, built from folders + assignments
   // + the workspace's documents (unfiled docs surface at the root).
@@ -189,10 +205,19 @@ export function Sidebar({
     [folders, folderAssignments, activeDocumentIds],
   )
 
-  const commitRename = (id: number): void => {
+  const commitRename = async (id: number): Promise<void> => {
+    if (renamePending.current || workspaceBusy) return
     const trimmed = editDraft.trim()
-    setEditingId(null)
-    if (trimmed.length > 0) onRenameWorkspace(id, trimmed)
+    if (!trimmed || workspaces.find((workspace) => workspace.id === id)?.name === trimmed) {
+      setEditingId(null)
+      return
+    }
+    renamePending.current = true
+    try {
+      if ((await onRenameWorkspace(id, trimmed)) !== false) setEditingId(null)
+    } finally {
+      renamePending.current = false
+    }
   }
 
   // Stale-id filter: a document may have been deleted while still referenced
@@ -317,7 +342,22 @@ export function Sidebar({
                         </button>
                       )}
                     </div>
-                    {folders.length === 0 && workspaceDocs.length === 0 ? (
+                    {folderError || documentError ? (
+                      <div className="sidebar__doc-scope-empty" role="alert">
+                        <p>
+                          {t(
+                            documentError ? 'shell.documentsLoadFailed' : 'library.foldersFailed',
+                            { message: documentError ?? folderError ?? '' },
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={documentError ? onRetryDocuments : onRetryFolders}
+                        >
+                          {t('common.retry')}
+                        </button>
+                      </div>
+                    ) : folders.length === 0 && workspaceDocs.length === 0 ? (
                       <div className="sidebar__doc-scope-empty">{t('shell.noDocumentsYet')}</div>
                     ) : (
                       <FolderTree
@@ -371,15 +411,16 @@ export function Sidebar({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault()
-                      commitRename(w.id)
+                      void commitRename(w.id)
                     }}
                   >
                     <input
                       className="sidebar__ws-edit-input"
                       value={editDraft}
+                      disabled={workspaceBusy}
                       autoFocus
                       onChange={(e) => setEditDraft(e.target.value)}
-                      onBlur={() => commitRename(w.id)}
+                      onBlur={() => void commitRename(w.id)}
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') setEditingId(null)
                       }}
@@ -390,6 +431,7 @@ export function Sidebar({
                   <div className="sidebar__ws-row">
                     <button
                       className={`sidebar__nav-btn ${isActive ? 'sidebar__nav-btn--active' : ''}`}
+                      disabled={workspaceBusy}
                       onClick={() => onWorkspaceSelect(w.id)}
                     >
                       <span className="sidebar__nav-btn-label">{w.name}</span>
@@ -413,6 +455,7 @@ export function Sidebar({
                         type="button"
                         className="sidebar__ws-action"
                         aria-label={t('shell.setDefaultWorkspace')}
+                        disabled={workspaceBusy}
                         aria-pressed={w.id === defaultWorkspaceId}
                         title={
                           w.id === defaultWorkspaceId
@@ -434,6 +477,7 @@ export function Sidebar({
                         type="button"
                         className="sidebar__ws-action"
                         aria-label={t('shell.renameWorkspace')}
+                        disabled={workspaceBusy}
                         title={t('shell.renameWorkspace')}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -447,6 +491,7 @@ export function Sidebar({
                         type="button"
                         className="sidebar__ws-action"
                         aria-label={t('shell.deleteWorkspace')}
+                        disabled={workspaceBusy}
                         title={t('shell.deleteWorkspace')}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -466,16 +511,25 @@ export function Sidebar({
               onSubmit={(e) => {
                 e.preventDefault()
                 const trimmed = draft.trim()
-                if (trimmed.length === 0) return
-                onCreateWorkspace(trimmed, newWsEncrypted)
-                setDraft('')
-                setNewWsEncrypted(true)
+                if (!trimmed || createPending.current || workspaceBusy) return
+                createPending.current = true
+                void Promise.resolve(onCreateWorkspace(trimmed, newWsEncrypted))
+                  .then((saved) => {
+                    if (saved !== false) {
+                      setDraft('')
+                      setNewWsEncrypted(true)
+                    }
+                  })
+                  .finally(() => {
+                    createPending.current = false
+                  })
               }}
               className="sidebar__new-ws-form"
             >
               <input
                 className="sidebar__new-ws-input"
                 value={draft}
+                disabled={workspaceBusy}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={t('shell.newWorkspace')}
                 aria-label={t('shell.newWorkspace')}
@@ -486,11 +540,12 @@ export function Sidebar({
                     <input
                       type="checkbox"
                       checked={newWsEncrypted}
+                      disabled={workspaceBusy}
                       onChange={(e) => setNewWsEncrypted(e.target.checked)}
                     />
                     <span>{t('shell.encryptWorkspace')}</span>
                   </label>
-                  <button type="submit" className="sidebar__create">
+                  <button type="submit" className="sidebar__create" disabled={workspaceBusy}>
                     {t('ux.createWorkspace')}
                   </button>
                   <p className="sidebar__new-ws-hint">
@@ -501,6 +556,16 @@ export function Sidebar({
                 </>
               )}
             </form>
+          )}
+          {workspaceError && (
+            <div className="sidebar__doc-scope-empty" role="alert">
+              <p>{t('shell.workspaceActionFailed', { message: workspaceError })}</p>
+              {onRetryWorkspaces && (
+                <button type="button" disabled={workspaceBusy} onClick={onRetryWorkspaces}>
+                  {t('common.retry')}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

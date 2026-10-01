@@ -1,4 +1,5 @@
 import type { AuthService } from '../auth/AuthService'
+import type { WorkspaceStore } from './WorkspaceStore'
 import type {
   WorkspaceDb,
   WsDocument,
@@ -8,9 +9,15 @@ import type {
   MessageWithCitations,
   NewChunk,
   NewQuizQuestion,
+  SummarySourceRevision,
 } from '../../db/sqlite/WorkspaceDb'
 import type { SearchHit, ChunkSearchOptions, ChunkRow, LibrarySearchRow } from '../../db/types'
-import type { LibrarySearchOptions, PipelineStep, Workspace } from '../../../shared/documents'
+import type {
+  DeleteConversationTurnInput,
+  LibrarySearchOptions,
+  PipelineStep,
+  Workspace,
+} from '../../../shared/documents'
 import { workspaceTypeOf, type WorkspaceType } from '../../../shared/workspaceStorage'
 import type {
   QuizDeck,
@@ -30,24 +37,27 @@ import type {
 //   - id-keyed methods (by document/chunk/conversation/quiz id) → the ACTIVE
 //     workspace (the renderer calls workspaces:activate on switch, so the active
 //     workspace is the one the id belongs to). Throws if none is active.
-// Vectors are NOT here — they live in LanceDB; searchChunksByVector returns []
-// (retrieval injects the LanceDB-backed vector search separately).
+// Vectors are NOT here — retrieval injects the LanceDB-backed search separately.
 
 export class WorkspaceDbFacade {
-  constructor(private readonly auth: AuthService) {}
+  private readonly store: WorkspaceStore
+
+  constructor(auth: AuthService) {
+    this.store = auth.getWorkspaceStore()
+  }
 
   /** The active workspace's relational store; the id-keyed ops operate on it. */
   private active(): WorkspaceDb {
-    const db = this.auth.getWorkspaceStore().currentDb()
+    const db = this.store.currentDb()
     if (!db) throw new Error('no active workspace — call workspaces:activate first')
     return db
   }
 
   documents(): DocumentsApi {
-    return new DocumentsApi(this.auth, () => this.active())
+    return new DocumentsApi(this.store, () => this.active())
   }
   conversations(): ConversationsApi {
-    return new ConversationsApi(this.auth, () => this.active())
+    return new ConversationsApi(this.store, () => this.active())
   }
 
   /** Like documents()/conversations() but PINNED to a specific workspace's store
@@ -57,31 +67,46 @@ export class WorkspaceDbFacade {
    *  chunks/messages in the wrong store and trips the FK ("FOREIGN KEY constraint
    *  failed"). These pre-open the workspace's meta.db and pin every op to it. */
   async documentsFor(workspaceId: number): Promise<DocumentsApi> {
-    const db = await this.auth.getWorkspaceStore().openMetaDb(workspaceId)
-    return new DocumentsApi(this.auth, () => db)
+    const db = await this.store.openMetaDb(workspaceId)
+    return new DocumentsApi(this.store, () => db)
   }
   async conversationsFor(workspaceId: number): Promise<ConversationsApi> {
-    const db = await this.auth.getWorkspaceStore().openMetaDb(workspaceId)
-    return new ConversationsApi(this.auth, () => db)
+    const db = await this.store.openMetaDb(workspaceId)
+    return new ConversationsApi(this.store, () => db)
   }
   folders(): FoldersApi {
-    return new FoldersApi(this.auth)
+    return new FoldersApi(this.store)
   }
   quizzes(): QuizzesApi {
-    return new QuizzesApi(this.auth, () => this.active())
+    // Capture now: ID-specific operations may span several awaits while the
+    // renderer activates another workspace with colliding local IDs. Keep
+    // workspace-keyed methods and startup sweeps usable without an active DB.
+    const db = this.store.currentDb()
+    return new QuizzesApi(
+      this.store,
+      () => {
+        if (!db) throw new Error('no active workspace — call workspaces:activate first')
+        return db
+      },
+      db ?? undefined,
+    )
+  }
+  async quizzesFor(workspaceId: number): Promise<QuizzesApi> {
+    const db = await this.store.openMetaDb(workspaceId)
+    return new QuizzesApi(this.store, () => db, db)
   }
   workspaces(): WorkspacesApi {
-    return new WorkspacesApi(this.auth)
+    return new WorkspacesApi(this.store)
   }
 }
 
 class DocumentsApi {
   constructor(
-    private readonly auth: AuthService,
+    private readonly store: WorkspaceStore,
     private readonly active: () => WorkspaceDb,
   ) {}
   private meta(id: number): Promise<WorkspaceDb> {
-    return this.auth.getWorkspaceStore().openMetaDb(id)
+    return this.store.openMetaDb(id)
   }
 
   // workspaceId-keyed
@@ -112,14 +137,6 @@ class DocumentsApi {
     opts?: ChunkSearchOptions,
   ): Promise<SearchHit[]> {
     return (await this.meta(workspaceId)).searchChunks(query, topK, opts)
-  }
-  async searchChunksByVector(
-    _workspaceId?: number,
-    _embedding?: number[],
-    _topK?: number,
-    _opts?: ChunkSearchOptions,
-  ): Promise<SearchHit[]> {
-    return [] // vectors live in LanceDB; retrieval injects the vector search
   }
   async searchLibrary(
     workspaceId: number,
@@ -185,14 +202,16 @@ class DocumentsApi {
   // cold-boot sweeps across all workspaces
   async resetStuckIndexing(): Promise<number> {
     let n = 0
-    for (const w of this.auth.getWorkspaceStore().list())
-      n += await (await this.meta(w.id)).resetStuckIndexing()
+    for (const w of this.store.list()) n += await (await this.meta(w.id)).resetStuckIndexing()
     return n
   }
 
   // id-keyed (active workspace)
   async getDocument(id: number): Promise<WsDocument | null> {
     return this.active().getDocument(id)
+  }
+  async getGeneratedText(id: number): Promise<string | null> {
+    return this.active().getGeneratedText(id)
   }
   async deleteDocument(id: number): Promise<void> {
     return this.active().deleteDocument(id)
@@ -221,11 +240,23 @@ class DocumentsApi {
   async setPinned(id: number, pinned: boolean): Promise<void> {
     return this.active().setPinned(id, pinned)
   }
-  async setSummary(id: number, summary: string | null): Promise<void> {
-    return this.active().setSummary(id, summary)
+  async setSummary(
+    id: number,
+    summary: string | null,
+    expectedSource?: SummarySourceRevision,
+  ): Promise<boolean> {
+    return this.active().setSummary(id, summary, expectedSource)
   }
-  async setSummaryEmbedding(id: number, vector: number[], identity: string): Promise<void> {
-    return this.active().setSummaryEmbedding(id, vector, identity)
+  async setSummaryEmbedding(
+    id: number,
+    vector: number[],
+    identity: string,
+    expectedSummary?: string,
+  ): Promise<boolean> {
+    return this.active().setSummaryEmbedding(id, vector, identity, expectedSummary)
+  }
+  async hasSummaryEmbeddings(activeDocumentIds?: number[] | null): Promise<boolean> {
+    return this.active().hasSummaryEmbeddings(activeDocumentIds)
   }
   async persistChunks(documentId: number, items: NewChunk[]): Promise<number[]> {
     return this.active().persistChunks(documentId, items)
@@ -270,13 +301,12 @@ class DocumentsApi {
   ): Promise<Awaited<ReturnType<WorkspaceDb['getChunkWithContext']>>> {
     return this.active().getChunkWithContext(chunkId, before, after)
   }
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   async ensureVectorIndex(): Promise<void> {}
 }
 
 class ConversationsApi {
   constructor(
-    private readonly auth: AuthService,
+    private readonly store: WorkspaceStore,
     private readonly active: () => WorkspaceDb,
   ) {}
   async create(
@@ -284,16 +314,16 @@ class ConversationsApi {
     title?: string | null,
     activeDocumentIds?: number[],
   ): Promise<ConversationRow> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).createConversation(
-      title,
-      activeDocumentIds,
-    )
+    return (await this.store.openMetaDb(workspaceId)).createConversation(title, activeDocumentIds)
   }
   async list(workspaceId: number): Promise<ConversationRow[]> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).listConversations()
+    return (await this.store.openMetaDb(workspaceId)).listConversations()
   }
   async setTitle(id: number, title: string | null): Promise<void> {
     return this.active().setConversationTitle(id, title)
+  }
+  async setTitleIfEmpty(id: number, title: string): Promise<string | null> {
+    return this.active().setConversationTitleIfEmpty(id, title)
   }
   async setActiveDocumentIds(conversationId: number, ids: number[]): Promise<void> {
     return this.active().setActiveDocumentIds(conversationId, ids)
@@ -303,6 +333,9 @@ class ConversationsApi {
   }
   async deleteMessage(messageId: number): Promise<void> {
     return this.active().deleteMessage(messageId)
+  }
+  async deleteLatestTurn(input: DeleteConversationTurnInput): Promise<void> {
+    return this.active().deleteLatestTurn(input)
   }
   async appendMessage(
     conversationId: number,
@@ -327,9 +360,9 @@ class ConversationsApi {
 }
 
 class FoldersApi {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly store: WorkspaceStore) {}
   private meta(id: number): Promise<WorkspaceDb> {
-    return this.auth.getWorkspaceStore().openMetaDb(id)
+    return this.store.openMetaDb(id)
   }
   async list(workspaceId: number): Promise<WsFolder[]> {
     return (await this.meta(workspaceId)).listFolders()
@@ -359,11 +392,16 @@ class FoldersApi {
 
 class QuizzesApi {
   constructor(
-    private readonly auth: AuthService,
+    private readonly store: WorkspaceStore,
     private readonly active: () => WorkspaceDb,
+    private readonly pinnedDb?: WorkspaceDb,
   ) {}
   private meta(id: number): Promise<WorkspaceDb> {
-    return this.auth.getWorkspaceStore().openMetaDb(id)
+    if (this.pinnedDb?.workspaceId === id) return Promise.resolve(this.pinnedDb)
+    return this.store.openMetaDb(id)
+  }
+  get workspaceId(): number {
+    return this.active().workspaceId
   }
   async createDeck(input: {
     workspaceId: number
@@ -385,14 +423,12 @@ class QuizzesApi {
   }
   async resetStuckDecks(): Promise<number> {
     let n = 0
-    for (const w of this.auth.getWorkspaceStore().list())
-      n += await (await this.meta(w.id)).resetStuckDecks()
+    for (const w of this.store.list()) n += await (await this.meta(w.id)).resetStuckDecks()
     return n
   }
   async deleteAbandonedAttempts(): Promise<number> {
     let n = 0
-    for (const w of this.auth.getWorkspaceStore().list())
-      n += await (await this.meta(w.id)).deleteAbandonedAttempts()
+    for (const w of this.store.list()) n += await (await this.meta(w.id)).deleteAbandonedAttempts()
     return n
   }
   async getDeck(deckId: number): Promise<QuizDeck | null> {
@@ -406,6 +442,12 @@ class QuizzesApi {
   }
   async insertQuestions(deckId: number, items: NewQuizQuestion[]): Promise<void> {
     return this.active().insertQuestions(deckId, items)
+  }
+  async completeGeneration(deckId: number, items: NewQuizQuestion[]): Promise<void> {
+    return this.active().completeGeneration(deckId, items)
+  }
+  async resetDeckForGeneration(deckId: number): Promise<void> {
+    return this.active().resetDeckForGeneration(deckId)
   }
   async clearQuestions(deckId: number): Promise<void> {
     return this.active().clearQuestions(deckId)
@@ -443,10 +485,9 @@ class QuizzesApi {
 }
 
 class WorkspacesApi {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly store: WorkspaceStore) {}
   async list(): Promise<Workspace[]> {
-    return this.auth
-      .getWorkspaceStore()
+    return this.store
       .list()
       .map((e) => ({
         id: e.id,
@@ -458,7 +499,7 @@ class WorkspacesApi {
       .sort((a, b) => b.createdAt - a.createdAt)
   }
   async create(name: string, opts?: { encrypted?: boolean }): Promise<Workspace> {
-    const e = await this.auth.getWorkspaceStore().create(name, opts)
+    const e = await this.store.create(name, opts)
     return {
       id: e.id,
       name: e.name,
@@ -468,31 +509,28 @@ class WorkspacesApi {
     }
   }
   async rename(id: number, name: string): Promise<void> {
-    return this.auth.getWorkspaceStore().rename(id, name)
+    return this.store.rename(id, name)
   }
   async setType(id: number, type: WorkspaceType): Promise<void> {
-    return this.auth.getWorkspaceStore().setType(id, type)
+    return this.store.setType(id, type)
   }
   async delete(id: number): Promise<void> {
-    return this.auth.getWorkspaceStore().delete(id)
+    return this.store.delete(id)
   }
   async getSyncFolders(workspaceId: number): Promise<string[]> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).getSyncFolders()
+    return (await this.store.openMetaDb(workspaceId)).getSyncFolders()
   }
   async setSyncFolders(workspaceId: number, folders: string[]): Promise<void> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setSyncFolders(folders)
+    return (await this.store.openMetaDb(workspaceId)).setSyncFolders(folders)
   }
   // ADR-0006: per-folder top-level-dir include-set (no-gitignore selection).
   async getIndexDirs(workspaceId: number, folderPath: string): Promise<string[]> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).getIndexDirs(folderPath)
+    return (await this.store.openMetaDb(workspaceId)).getIndexDirs(folderPath)
   }
   async setIndexDirs(workspaceId: number, folderPath: string, dirs: string[]): Promise<void> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).setIndexDirs(
-      folderPath,
-      dirs,
-    )
+    return (await this.store.openMetaDb(workspaceId)).setIndexDirs(folderPath, dirs)
   }
   async clearIndexDirs(workspaceId: number, folderPath: string): Promise<void> {
-    return (await this.auth.getWorkspaceStore().openMetaDb(workspaceId)).clearIndexDirs(folderPath)
+    return (await this.store.openMetaDb(workspaceId)).clearIndexDirs(folderPath)
   }
 }

@@ -14,6 +14,7 @@ export class GpuWorkCoordinator {
   private restoreTimer: ReturnType<typeof setTimeout> | null = null
   private restoring = false
   private stopped = false
+  private epoch = 0
 
   constructor(
     private readonly restoreChat: () => Promise<void>,
@@ -81,13 +82,26 @@ export class GpuWorkCoordinator {
     }
   }
 
-  async waitForChat(): Promise<void> {
-    while (this.gate) await this.gate.promise
+  async waitForChat(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
+    while (this.gate) {
+      const gate = this.gate.promise
+      if (!signal) await gate
+      else
+        await new Promise<void>((resolve, reject) => {
+          const abort = (): void => reject(signal.reason)
+          signal.addEventListener('abort', abort, { once: true })
+          if (signal.aborted) abort()
+          void gate.then(resolve).finally(() => signal.removeEventListener('abort', abort))
+        })
+      signal?.throwIfAborted()
+    }
     if (this.stopped) throw new Error('Model worker is shutting down.')
   }
 
   private async restore(): Promise<void> {
-    if (this.jobs.size || this.stopped) return
+    if (this.jobs.size || this.stopped || this.restoring) return
+    const epoch = this.epoch
     if (!this.shouldRestoreChat()) {
       // ask/generate/rank ensure their own model is resident inside the native
       // FIFO. Unblock those callers without an eager chat load that the next
@@ -101,20 +115,24 @@ export class GpuWorkCoordinator {
     this.publish()
     try {
       await this.restoreChat()
-      this.transition = IDLE_MODEL_TRANSITION
+      if (epoch === this.epoch) this.transition = IDLE_MODEL_TRANSITION
     } catch (error) {
-      this.transition = { ...IDLE_MODEL_TRANSITION, phase: 'error', error: String(error) }
+      if (epoch === this.epoch)
+        this.transition = { ...IDLE_MODEL_TRANSITION, phase: 'error', error: String(error) }
     } finally {
-      this.restoring = false
-      if (!this.jobs.size) {
-        this.gate?.resolve()
-        this.gate = null
+      if (epoch === this.epoch) {
+        this.restoring = false
+        if (!this.jobs.size) {
+          this.gate?.resolve()
+          this.gate = null
+        }
+        this.publish()
       }
-      this.publish()
     }
   }
 
   reset(error?: string, stopped = false): void {
+    this.epoch++
     this.stopped = stopped
     if (this.restoreTimer) clearTimeout(this.restoreTimer)
     this.restoreTimer = null

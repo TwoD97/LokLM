@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   cpuGrammar: vi.fn(),
   gpuGrammar: vi.fn(),
   stopReason: 'eogToken',
+  promptWait: null as Promise<void> | null,
   totalVramGB: 16,
   instructions: [] as string[],
   promptOptions: [] as Array<Record<string, unknown>>,
@@ -65,6 +66,7 @@ vi.mock('node-llama-cpp', () => ({
     async promptWithMeta(_text: string, options: Record<string, unknown>) {
       mocks.promptOptions.push(options)
       mocks.instructions.push(this.history[0]!.text)
+      if (mocks.promptWait) await mocks.promptWait
       return { responseText: 'translated', stopReason: mocks.stopReason }
     }
   },
@@ -110,6 +112,7 @@ beforeEach(async () => {
   mocks.promptOptions.length = 0
   mocks.lifecycle.length = 0
   mocks.stopReason = 'eogToken'
+  mocks.promptWait = null
   mocks.totalVramGB = 16
   mocks.dispose.mockResolvedValue(undefined)
   mocks.getLlama.mockImplementation(async (options) => ({
@@ -163,6 +166,44 @@ afterEach(() => {
 })
 
 describe('translation in the native worker', () => {
+  it('aborts generation on shutdown but drains native work before disposing contexts', async () => {
+    await load()
+    let finish!: () => void
+    mocks.promptWait = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    try {
+      const generation = request({
+        op: 'llm.generateRaw',
+        payload: { streamId: 'active', prompt: 'Task' },
+      })
+      await vi.waitFor(() => expect(mocks.promptOptions).toHaveLength(1))
+      const queued = request({
+        op: 'embedder.load',
+        payload: { modelPath: 'aux.gguf', weightsBytes: 1000, contextSize: 512, placement: 'gpu' },
+      })
+      await request({ op: 'shutdown' })
+      expect((mocks.promptOptions[0]!.signal as AbortSignal).aborted).toBe(true)
+      expect(mocks.lifecycle).toEqual([])
+      expect(mocks.dispose).not.toHaveBeenCalled()
+      expect(exit).not.toHaveBeenCalled()
+      finish()
+      await generation
+      await expect(queued).resolves.toMatchObject({
+        ok: false,
+        error: expect.stringContaining('shutting down'),
+      })
+      await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0))
+      expect(mocks.loadModel).toHaveBeenCalledOnce()
+      expect(mocks.dispose).toHaveBeenCalledOnce()
+      expect(mocks.lifecycle.length).toBeGreaterThan(0)
+    } finally {
+      finish()
+      exit.mockRestore()
+    }
+  })
+
   it('bounds utility generations and disables hidden reasoning by default', async () => {
     await load()
     expect(
@@ -173,6 +214,53 @@ describe('translation in the native worker', () => {
       budgets: { thoughtTokens: 0 },
     })
   })
+
+  it.each(['cancel', 'shutdown'] as const)(
+    'does not begin native generation after %s during chat restoration',
+    async (action) => {
+      mocks.totalVramGB = 4
+      await load()
+      await request({
+        op: 'embedder.load',
+        payload: { modelPath: 'aux.gguf', weightsBytes: 1000, contextSize: 512, placement: 'gpu' },
+      })
+      let finish!: () => void
+      const restoring = new Promise<void>((resolve) => {
+        finish = resolve
+      })
+      const createContext = mocks.createContext.getMockImplementation()!
+      const initialContexts = mocks.createContext.mock.calls.length
+      mocks.createContext.mockImplementationOnce(async (...args) => {
+        await restoring
+        return createContext(...args)
+      })
+      const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+      try {
+        const generation = request({
+          op: 'llm.generateRaw',
+          payload: { streamId: 'restoring', prompt: 'Task' },
+        })
+        await vi.waitFor(() =>
+          expect(mocks.createContext).toHaveBeenCalledTimes(initialContexts + 1),
+        )
+        await request(
+          action === 'cancel'
+            ? { op: 'llm.abort', payload: { streamId: 'restoring' } }
+            : { op: 'shutdown' },
+        )
+        finish()
+        await expect(generation).resolves.toMatchObject({
+          ok: false,
+          error: expect.stringMatching(action === 'cancel' ? /cancelled/ : /shutting down/),
+        })
+        expect(mocks.promptOptions).toHaveLength(0)
+        if (action === 'shutdown') await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0))
+      } finally {
+        finish()
+        exit.mockRestore()
+      }
+    },
+  )
   it('rejects cancelled requests before loading a model', async () => {
     await request({ op: 'llm.abort', payload: { streamId: 'cancelled' } })
     expect(

@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react'
+import { memo } from 'react'
 import type { Conversation } from '@shared/documents'
 import { useT } from '../i18n'
 
@@ -10,7 +11,7 @@ type Props = {
   onRequestDelete: (c: Conversation) => void
 }
 
-export function ConversationList({
+function ConversationListImpl({
   conversations,
   currentId,
   onSelect,
@@ -104,3 +105,7 @@ export function ConversationList({
     </aside>
   )
 }
+
+// Streaming updates the active answer many times per second. The conversation
+// list changes only when its rows/selection change, not for each answer token.
+export const ConversationList = memo(ConversationListImpl)

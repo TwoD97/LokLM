@@ -138,6 +138,26 @@ test('indexes a real PDF with live chunk progress and durable vectors', async ()
       }),
     )
     await page.screenshot({ path: testInfo.outputPath('indexing-complete.png') })
+    // Exercise PDF.js in the real renderer. A successful import alone does not
+    // prove that the reader's worker, canvas API and close/reopen lifecycle work.
+    const documentRow = page
+      .getByRole('row')
+      .filter({ hasText: /Attention Is All You Need|\.pdf/i })
+      .last()
+    for (let pass = 0; pass < 2; pass++) {
+      await documentRow.dblclick()
+      const reader = page.getByRole('dialog').filter({ has: page.locator('.pdf-doc') })
+      await expect(reader).toBeVisible()
+      await expect(
+        reader.locator('canvas.pdf-doc__page-canvas:not(.is-hidden)').first(),
+      ).toBeVisible({
+        timeout: 30_000,
+      })
+      await expect(reader.locator('.pdf-doc__error')).toHaveCount(0)
+      if (pass === 0) await page.screenshot({ path: testInfo.outputPath('pdf-preview.png') })
+      await page.keyboard.press('Escape')
+      await expect(reader).toHaveCount(0)
+    }
     // Stop a second run through the real UI. Cancellation must also release
     // the gate while preserving the same on-demand residency policy.
     await page.evaluate(async (id) => {

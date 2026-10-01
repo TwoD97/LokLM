@@ -11,22 +11,25 @@ const fixture = readFileSync(
 
 describe('source structure in document chunks', () => {
   it('keeps German table rows with their original years, units and column headers', () => {
-    const chunks = chunkMarkdown(parseMarkdownSections(fixture), { maxChars: 180, overlap: 24 })
+    // The checked-in table keeps padded Markdown cells. Its complete header
+    // plus one row must fit, while the whole table must still be fragmented.
+    const lines = fixture.split(/\r?\n/)
+    const header = lines.find((line) => line.startsWith('| Region'))!
+    const delimiter = lines.find((line) => line.startsWith('| :---'))!
+    const chunks = chunkMarkdown(parseMarkdownSections(fixture), { maxChars: 260, overlap: 24 })
     const tableChunks = chunks.filter((chunk) => chunk.text.includes('| :---'))
     expect(tableChunks.length).toBeGreaterThan(1)
     for (const chunk of tableChunks) {
-      expect(chunk.text).toContain('| Region | Übernachtungen 2025 | Auslastung 2026 (%) |')
-      expect(chunk.text).toContain('| :--- | ---: | ---: |')
+      expect(chunk.text).toContain(header)
+      expect(chunk.text).toContain(delimiter)
       expect(chunk.headingPath).toEqual(['Tourismusbericht 2026', 'Regionen'])
       expect(chunk.text).not.toContain('Beispieldaten')
       expect(chunk.text).not.toContain('Die Tabelle')
     }
-    for (const row of fixture
-      .split('\n')
-      .filter((line) => /^\| (Nord|Süd|Ost|West|Stadt|Küste)/.test(line))) {
+    for (const row of lines.filter((line) => /^\| (Nord|Süd|Ost|West|Stadt|Küste)/.test(line))) {
       expect(tableChunks.filter((chunk) => chunk.text.includes(row))).toHaveLength(1)
     }
-    for (const chunk of chunks) expect(chunk.text.length).toBeLessThanOrEqual(180)
+    for (const chunk of chunks) expect(chunk.text.length).toBeLessThanOrEqual(260)
     expect(chunks.at(-1)?.headingPath).toEqual(['Tourismusbericht 2026', 'Hinweise'])
     expect(chunks.map((chunk) => chunk.ordinal)).toEqual(chunks.map((_, index) => index))
   })

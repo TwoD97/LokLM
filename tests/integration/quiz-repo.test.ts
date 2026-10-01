@@ -6,10 +6,8 @@ import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
 import { scoreAnswers } from '@main/services/quiz/scoring'
 
-// Exercises QuizzesRepo end-to-end against a real PGlite — the same surface
-// the `quiz:*` IPC handlers use. This is the smoke test that the new 0004
-// migration applied cleanly + that the JOIN-heavy listDecks SQL behaves under
-// real Postgres semantics, not just type checks.
+// Exercises the quiz facade against real per-workspace encrypted SQLite stores,
+// using the same surface as the quiz IPC handlers.
 //
 // We deliberately do not run QuizService.generate() here (would need a fake
 // LLM scaffold) — questions are inserted directly via repo.insertQuestions.
@@ -26,6 +24,84 @@ describe('quiz repo (integration)', () => {
   afterEach(async () => {
     await auth.lock().catch(() => undefined)
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it('pins ID-based scoring and generation writes across a workspace switch with colliding IDs', async () => {
+    const workspaces = new WorkspaceService(auth)
+    const a = await workspaces.create('Origin')
+    const b = await workspaces.create('Other')
+    const facade = auth.requireDatabase()
+    const qa = await facade.quizzesFor(a.id)
+    const qb = await facade.quizzesFor(b.id)
+    const create = async (api: typeof qa, workspaceId: number, correctIndex: number) => {
+      const deck = await api.createDeck({
+        workspaceId,
+        name: 'Quiz',
+        documentIds: [1],
+        questionCount: 0,
+        language: 'en',
+      })
+      await api.completeGeneration(deck.id, [
+        {
+          ordinal: 0,
+          stem: 'Question',
+          options: ['A', 'B', 'C', 'D'],
+          correctIndex,
+          explanation: 'Evidence',
+          sourceChunkIds: [1],
+          themeTitle: 'Topic',
+        },
+      ])
+      return { deck, attempt: await api.startAttempt(deck.id) }
+    }
+    const origin = await create(qa, a.id, 0)
+    const other = await create(qb, b.id, 1)
+    expect(origin.deck.id).toBe(other.deck.id)
+    expect(origin.attempt.id).toBe(other.attempt.id)
+    await auth.activate(a.id)
+    const captured = facade.quizzes()
+    const attempt = await captured.getAttempt(origin.attempt.id)
+    await auth.activate(b.id)
+    const questions = await captured.listQuestions(attempt!.deckId)
+    const { scored, score } = scoreAnswers(questions, [
+      { questionId: questions[0]!.id, selectedIndex: 0 },
+    ])
+    await captured.finishAttempt(attempt!.id, scored, score)
+    expect((await qa.getAttempt(attempt!.id))!.score).toBe(1)
+    expect((await qb.getAttempt(attempt!.id))!.finishedAt).toBeNull()
+    await captured.resetDeckForGeneration(origin.deck.id)
+    await captured.completeGeneration(origin.deck.id, [
+      {
+        ordinal: 0,
+        stem: 'Regenerated origin',
+        options: ['A', 'B', 'C', 'D'],
+        correctIndex: 0,
+        explanation: 'Evidence',
+        sourceChunkIds: [1],
+        themeTitle: 'Topic',
+      },
+    ])
+    expect((await qa.listQuestions(origin.deck.id))[0]!.stem).toBe('Regenerated origin')
+    expect((await qb.listQuestions(other.deck.id))[0]!.stem).toBe('Question')
+  })
+
+  it('keeps explicit-workspace operations and startup sweeps usable without an active workspace', async () => {
+    const ws = await new WorkspaceService(auth).create('Not activated')
+    expect(auth.getWorkspaceStore().currentDb()).toBeNull()
+    const quizzes = auth.requireDatabase().quizzes()
+    const deck = await quizzes.createDeck({
+      workspaceId: ws.id,
+      name: 'Quiz',
+      documentIds: [1],
+      questionCount: 0,
+      language: 'en',
+    })
+    expect(await quizzes.listDecks(ws.id)).toHaveLength(1)
+    expect(await quizzes.resetStuckDecks()).toBe(1)
+    expect(await quizzes.deleteAbandonedAttempts()).toBe(0)
+    await auth.activate(ws.id)
+    await expect(quizzes.getDeck(deck.id)).rejects.toThrow('no active workspace')
+    expect((await auth.requireDatabase().quizzes().getDeck(deck.id))!.status).toBe('failed')
   })
 
   it('createDeck → getDeck round-trip preserves the documentIds snapshot, status, language', async () => {

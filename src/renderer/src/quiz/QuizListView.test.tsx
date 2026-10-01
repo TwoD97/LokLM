@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { QuizListView, reduceProgress, formatDuration, type QuizProgress } from './QuizListView'
+import { QuizListView } from './QuizListView'
+import { reduceProgress, formatDuration, type QuizProgress } from './quizProgress'
 import type { QuizDeckSummary } from '@shared/quiz'
 
 const NOW = Math.floor(Date.now() / 1000)

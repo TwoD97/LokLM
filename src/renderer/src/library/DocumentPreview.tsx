@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MarkdownView } from '../markdown/MarkdownView'
 import type { Document, DocumentChunk } from '@shared/documents'
+import { isGeneratedDocumentSource } from '@shared/documentSource'
 import { MultiPagePdfPreview } from '../chat/MultiPagePdfPreview'
 import { useT } from '../i18n'
+import { useModalFocus } from '../ui/useModalFocus'
 
 type Props = {
   doc: Document
@@ -18,7 +20,8 @@ function classifyDoc(doc: Document): BodyMode {
   const path = (doc.sourcePath ?? '').toLowerCase()
   if (doc.mimeType === 'application/pdf' || path.endsWith('.pdf')) return 'pdf'
   if (doc.mimeType === DOCX_MIME || path.endsWith('.docx')) return 'markdown'
-  if (path.endsWith('.md') || path.endsWith('.markdown')) return 'markdown'
+  if (doc.mimeType === 'text/markdown' || path.endsWith('.md') || path.endsWith('.markdown'))
+    return 'markdown'
   return 'text'
 }
 
@@ -32,13 +35,18 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [chunks, setChunks] = useState<DocumentChunk[]>([])
+  const [generatedText, setGeneratedText] = useState<string | null>(null)
+  const generated = isGeneratedDocumentSource(doc.sourcePath)
   const bodyMode = classifyDoc(doc)
+  const modalRef = useRef<HTMLElement>(null)
+  useModalFocus(modalRef, true)
 
   useEffect(() => {
     let cancelled = false
     setStatus('loading')
     setErrorMessage(null)
     setChunks([])
+    setGeneratedText(null)
     if (bodyMode === 'pdf') {
       // MultiPagePdfPreview owns its own load lifecycle ; nothing to fetch here.
       setStatus('ready')
@@ -46,6 +54,13 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
     }
     void (async () => {
       try {
+        if (generated) {
+          const text = await window.api.documents.readGeneratedText(doc.id)
+          if (cancelled) return
+          setGeneratedText(text)
+          setStatus('ready')
+          return
+        }
         const all = await window.api.documents.listChunksForDocument(doc.id)
         if (cancelled) return
         setChunks(all)
@@ -59,7 +74,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [doc.id, bodyMode])
+  }, [doc.id, bodyMode, generated])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -81,6 +96,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
       }}
     >
       <aside
+        ref={modalRef}
         className={`source-viewer ${showPdf ? 'source-viewer--pdf' : 'source-viewer--text'}`}
         role="dialog"
         aria-modal="true"
@@ -107,16 +123,29 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
         </header>
         <div className="source-viewer__body">
           {status === 'error' && errorMessage && (
-            <div className="source-viewer__error">{errorMessage}</div>
+            <div className="source-viewer__error" role="alert">
+              {errorMessage}
+            </div>
           )}
           {status === 'loading' && (
-            <div className="source-viewer__empty">{t('library.loading')}</div>
+            <div className="source-viewer__empty" role="status">
+              {t('library.loading')}
+            </div>
           )}
           {status === 'ready' && showPdf && (
             <MultiPagePdfPreview documentId={doc.id} targetPage={1} />
           )}
-          {status === 'ready' && !showPdf && chunks.length === 0 && (
+          {status === 'ready' && !showPdf && generatedText === null && chunks.length === 0 && (
             <div className="source-viewer__empty">{t('library.noChunks')}</div>
+          )}
+          {status === 'ready' && !showPdf && generatedText !== null && (
+            <article className="source-viewer__doc" aria-label={t('library.previewDoc')}>
+              {renderMarkdown ? (
+                <MarkdownView>{generatedText}</MarkdownView>
+              ) : (
+                <pre className="source-viewer__chunk-pre">{generatedText}</pre>
+              )}
+            </article>
           )}
           {status === 'ready' && !showPdf && chunks.length > 0 && (
             <article className="source-viewer__doc" aria-label={t('library.previewDoc')}>

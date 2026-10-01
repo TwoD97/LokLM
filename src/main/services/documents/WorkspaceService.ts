@@ -58,15 +58,10 @@ export class WorkspaceService {
     return null
   }
 
-  /** Sets (or clears) the default workspace. Ensures the manifest entry exists
-   *  first so a never-indexed workspace can still be made default. */
+  /** The manifest is authoritative even before a workspace has been indexed. */
   async setDefault(id: number | null): Promise<void> {
-    if (id != null) {
-      const ws = (await this.list()).find((w) => w.id === id)
-      if (!ws) throw new Error(`workspace ${id} not found`)
-      await this.auth.getWorkspaceStore().ensure(id, ws.name)
-    }
-    await this.auth.getWorkspaceStore().setDefault(id)
+    const store = this.auth.getWorkspaceStore()
+    await store.setDefault(id)
   }
 
   private validateName(name: string): void {

@@ -11,6 +11,7 @@ describe('deriveIndexBatchProgress', () => {
   it('shows progress within a single document and waits for persistence before 100%', () => {
     const docs = [{ id: 1, status: 'indexing' as const }]
     const p: IndexProgress = {
+      workspaceId: 1,
       documentId: 1,
       title: 'Test',
       phase: 'embedding',

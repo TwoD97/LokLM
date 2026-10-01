@@ -18,6 +18,7 @@ import type {
 } from './protocol'
 import type { ModelStatus, EmbedderStatus, RerankerStatus } from '../../../shared/documents'
 import type { SystemResources, LlmDevicePlan } from '../embeddings/ResourcePlanner'
+import { QualifiedGpuLayerPlanHints, gpuLayerPlanReuseEnabled } from './modelMemory'
 
 type StatusListener = {
   llm: (s: Partial<ModelStatus>) => void
@@ -41,6 +42,12 @@ type Pending = {
  * EmbeddingService / RerankerService (and lives for the lifetime of the app).
  */
 export class ModelsWorkerClient {
+  // Unlike native/KV state, these bounded numeric hints are safe across locks.
+  private readonly gpuLayerPlanHints = new QualifiedGpuLayerPlanHints()
+  private sessionEpoch = 0
+  private sessionSuspended = false
+  private sessionResetPromise: Promise<void> | null = null
+  private sessionResetError: Error | null = null
   private backgroundStreams = new Set<string>()
 
   private cancelBackgroundWork(): void {
@@ -83,15 +90,26 @@ export class ModelsWorkerClient {
     }
   }
   beginIndexing(job: Omit<IndexingJob, 'done' | 'total'>): IndexingLease {
+    this.assertSession(this.sessionEpoch)
     this.cancelBackgroundWork()
     return this.gpuWork.acquire(job)
   }
-  async restoreChat(): Promise<void> {
-    await this.gpuWork.waitForChat()
+  async restoreChat(signal?: AbortSignal): Promise<void> {
+    const epoch = this.sessionEpoch
+    this.assertSession(epoch)
+    signal?.throwIfAborted()
+    await this.gpuWork.waitForChat(signal)
+    this.assertSession(epoch)
+    signal?.throwIfAborted()
     await this.send<void>('gpu.restoreChat')
+    this.assertSession(epoch)
+    signal?.throwIfAborted()
   }
   private child: UtilityProcess | null = null
   private spawnPromise: Promise<UtilityProcess> | null = null
+  private restartPromise: Promise<void> | null = null
+  private shutdownPromise: Promise<void> | null = null
+  private generations = new Map<string, { controller: AbortController; dispatched: boolean }>()
   private nextId = 1
   private pending = new Map<number, Pending>()
   private statusListeners: StatusListener = {
@@ -119,13 +137,27 @@ export class ModelsWorkerClient {
 
   registerStream(streamId: string, onToken: (text: string, count: number) => void): () => void {
     this.tokenListeners.set(streamId, onToken)
-    return () => this.tokenListeners.delete(streamId)
+    return () => {
+      if (this.tokenListeners.get(streamId) === onToken) this.tokenListeners.delete(streamId)
+    }
   }
 
   private async ensureChild(): Promise<UtilityProcess> {
-    if (this.child) return this.child
+    const epoch = this.sessionEpoch
+    this.assertSession(epoch)
+    if (this.restartPromise) await this.restartPromise
+    this.assertSession(epoch)
     if (this.shuttingDown) throw new Error('Models worker is shutting down.')
     if (this.spawnPromise) return this.spawnPromise
+    if (this.child) return this.child
+    // Register before spawning: quitting during the first spawn must also
+    // stop that process. Keep one listener across any subsequent respawns.
+    if (!this.beforeQuitRegistered) {
+      this.beforeQuitRegistered = true
+      app.once('before-quit', () => {
+        void this.shutdown().catch(() => undefined)
+      })
+    }
     this.spawnPromise = (async () => {
       // The worker bundle sits next to the compiled main entry — see the
       // additional rollup input in electron.vite.config.ts.
@@ -143,20 +175,14 @@ export class ModelsWorkerClient {
         // getLlama call, hence spawn-time rather than load-time.
         env: this.deviceEnv(),
       })
-      await new Promise<void>((resolve, reject) => {
-        const onSpawn = (): void => {
-          child.removeListener('exit', onExit)
-          resolve()
-        }
-        const onExit = (code: number | null): void => {
-          child.removeListener('spawn', onSpawn)
-          reject(new Error(`models worker exited before spawn (code=${code ?? 'null'})`))
-        }
-        child.once('spawn', onSpawn)
-        child.once('exit', onExit)
+      // Own the process immediately, including while Electron is spawning it,
+      // so shutdown/device changes cannot leave a late worker orphaned.
+      this.child = child
+      child.on('message', (msg: WorkerResponse | WorkerPush) => {
+        if (this.child === child) this.dispatch(msg)
       })
-      child.on('message', (msg: WorkerResponse | WorkerPush) => this.dispatch(msg))
       child.on('exit', (code) => {
+        if (this.child !== child) return
         const reason = `models worker exited (code=${code ?? 'null'})`
         this.latestResources = null
         this.gpuWork.reset(this.shuttingDown ? undefined : reason, this.shuttingDown)
@@ -166,7 +192,6 @@ export class ModelsWorkerClient {
         // 0xC0000005 (Windows access violation) inside node-llama-cpp.
         if (!this.shuttingDown) {
           const inFlight = [...this.pending.values()].map((p) => p.op)
-          // eslint-disable-next-line no-console
           console.error(
             `[modelsWorkerClient] ${reason}; in-flight ops: ${inFlight.join(', ') || '(none)'}`,
           )
@@ -176,6 +201,7 @@ export class ModelsWorkerClient {
         // Token streams that were in flight have no way to drain — drop their
         // listeners so a stale callback isn't held by a long-running renderer.
         this.tokenListeners.clear()
+        this.backgroundStreams.clear()
         this.child = null
         this.spawnPromise = null
         // Crash recovery: tell every service the worker is gone so the UI
@@ -197,26 +223,27 @@ export class ModelsWorkerClient {
           })
         }
       })
-      this.child = child
-      // Kill the worker on app quit so it doesn't survive the main process and
-      // leak the GPU context. before-quit fires early enough to give the worker
-      // a chance to dispose the models cleanly via the shutdown op. Register
-      // ONCE — re-running on every respawn (after a crash) used to stack
-      // listeners on the app singleton.
-      if (!this.beforeQuitRegistered) {
-        this.beforeQuitRegistered = true
-        app.once('before-quit', () => {
-          void this.shutdown().catch(() => undefined)
-        })
-      }
+      await new Promise<void>((resolve, reject) => {
+        const onSpawn = (): void => {
+          child.removeListener('exit', onExit)
+          resolve()
+        }
+        const onExit = (code: number | null): void => {
+          child.removeListener('spawn', onSpawn)
+          reject(new Error(`models worker exited before spawn (code=${code ?? 'null'})`))
+        }
+        child.once('spawn', onSpawn)
+        child.once('exit', onExit)
+      })
       return child
     })()
+    const spawning = this.spawnPromise
     try {
-      return await this.spawnPromise
+      return await spawning
     } finally {
       // Keep spawnPromise around only while the worker is alive — once we have
       // `this.child`, the early-return at the top of this method handles reuse.
-      this.spawnPromise = null
+      if (this.spawnPromise === spawning) this.spawnPromise = null
     }
   }
 
@@ -232,7 +259,6 @@ export class ModelsWorkerClient {
     // typeof guard, the lookup `pending.get(undefined)` returns null and the
     // matching request hangs forever.
     if (!m || typeof m !== 'object' || typeof (m as { id?: unknown }).id !== 'number') {
-      // eslint-disable-next-line no-console
       console.warn('[modelsWorkerClient] dropped malformed worker message', m)
       return
     }
@@ -240,6 +266,7 @@ export class ModelsWorkerClient {
     if (!p) return
     this.pending.delete(m.id)
     if (m.ok) {
+      if (p.op === 'llm.load') this.recordLayerPlanHint(m.result)
       if (p.op === 'planner.refresh') this.recordResources(m.result)
       else if (p.op === 'llm.load' || p.op === 'embedder.load' || p.op === 'reranker.load')
         this.recordResources((m.result as { resources?: SystemResources } | null)?.resources)
@@ -255,9 +282,22 @@ export class ModelsWorkerClient {
         : null
   }
 
+  private recordLayerPlanHint(value: unknown): void {
+    if (
+      this.sessionSuspended ||
+      !gpuLayerPlanReuseEnabled(process.env['LOKLM_REUSE_GPU_LAYER_PLAN'])
+    )
+      return
+    this.gpuLayerPlanHints.remember((value as Partial<LlmLoadResult> | null)?.gpuLayerPlanHint)
+  }
+
   private handlePush(ev: WorkerPush): void {
+    // Retired workers may still flush tokens/load notifications while draining.
+    // None may repopulate a locked service's status or private stream listeners.
+    if (this.sessionSuspended) return
     switch (ev.ev) {
       case 'llm.loaded':
+        this.recordLayerPlanHint(ev.result)
         this.recordResources(ev.result.resources)
         this.llmLoadListener?.(ev.result)
         return
@@ -273,7 +313,6 @@ export class ModelsWorkerClient {
         return
       }
       case 'log':
-        // eslint-disable-next-line no-console
         console[ev.level === 'error' ? 'error' : ev.level === 'warn' ? 'warn' : 'log'](
           `[modelsWorker] ${ev.message}`,
         )
@@ -281,7 +320,14 @@ export class ModelsWorkerClient {
     }
   }
 
-  private async send<T>(op: WorkerRequest['op'], payload?: unknown): Promise<T> {
+  private async send<T>(
+    op: WorkerRequest['op'],
+    payload?: unknown,
+    generation?: { controller: AbortController; dispatched: boolean },
+  ): Promise<T> {
+    const epoch = this.sessionEpoch
+    this.assertSession(epoch)
+    generation?.controller.signal.throwIfAborted()
     // Native work is FIFO in the worker. Abort an optional title before adding
     // user work to that queue, including the first embedding of a chat query.
     if (
@@ -303,8 +349,22 @@ export class ModelsWorkerClient {
       op === 'reranker.load' ||
       op === 'reranker.rank'
     )
-      await this.gpuWork.waitForChat()
+      await this.gpuWork.waitForChat(generation?.controller.signal)
+    this.assertSession(epoch)
     const child = await this.ensureChild()
+    this.assertSession(epoch)
+    generation?.controller.signal.throwIfAborted()
+    if (this.shuttingDown || this.child !== child)
+      throw new Error('Models worker is shutting down.')
+    if (generation) generation.dispatched = true
+    return this.postRequest<T>(child, op, payload)
+  }
+
+  private postRequest<T>(
+    child: UtilityProcess,
+    op: WorkerRequest['op'],
+    payload?: unknown,
+  ): Promise<T> {
     const id = this.nextId++
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, {
@@ -324,7 +384,10 @@ export class ModelsWorkerClient {
   // ---- llm ---------------------------------------------------------------
 
   llmLoad(p: LlmLoadPayload): Promise<LlmLoadResult> {
-    return this.send<LlmLoadResult>('llm.load', p)
+    const hints = gpuLayerPlanReuseEnabled(process.env['LOKLM_REUSE_GPU_LAYER_PLAN'])
+      ? this.gpuLayerPlanHints.snapshot()
+      : []
+    return this.send<LlmLoadResult>('llm.load', { ...p, gpuLayerPlanHints: hints })
   }
   llmUnload(): Promise<void> {
     return this.send<void>('llm.unload')
@@ -333,21 +396,46 @@ export class ModelsWorkerClient {
     return this.send<void>('llm.setLanguage', { lang, systemPrompt })
   }
   llmAsk(p: LlmAskPayload): Promise<{ raw: string }> {
-    return this.send<{ raw: string }>('llm.ask', p)
+    return this.sendGeneration('llm.ask', p)
   }
   async llmGenerateRaw(p: LlmGenerateRawPayload): Promise<{ raw: string }> {
-    if (!p.background) return this.send<{ raw: string }>('llm.generateRaw', p)
+    if (!p.background) return this.sendGeneration('llm.generateRaw', p)
     if (this.backgroundStreams.size || this.pending.size || this.activity().phase !== 'idle')
       throw new Error('Background generation skipped: the model is busy.')
     this.backgroundStreams.add(p.streamId)
     try {
-      return await this.send<{ raw: string }>('llm.generateRaw', p)
+      return await this.sendGeneration('llm.generateRaw', p)
     } finally {
       this.backgroundStreams.delete(p.streamId)
     }
   }
   llmAbort(streamId: string): Promise<void> {
-    return this.send<void>('llm.abort', { streamId })
+    const generation = this.generations.get(streamId)
+    if (!generation) return Promise.resolve()
+    generation.controller.abort()
+    // A waiting request has not reached native code. Cancelling it must not
+    // spawn a worker or leave a tombstone for a request that will never arrive.
+    return generation.dispatched && this.child
+      ? this.postRequest<void>(this.child, 'llm.abort', { streamId })
+      : Promise.resolve()
+  }
+
+  private async sendGeneration(
+    op: 'llm.ask' | 'llm.generateRaw',
+    payload: LlmAskPayload | LlmGenerateRawPayload,
+  ): Promise<{ raw: string }> {
+    if (this.generations.has(payload.streamId))
+      throw new Error('A generation with this stream ID is already running.')
+    const generation = { controller: new AbortController(), dispatched: false }
+    this.generations.set(payload.streamId, generation)
+    try {
+      const result = await this.send<{ raw: string }>(op, payload, generation)
+      generation.controller.signal.throwIfAborted()
+      return result
+    } finally {
+      if (this.generations.get(payload.streamId) === generation)
+        this.generations.delete(payload.streamId)
+    }
   }
 
   // ---- embedder ----------------------------------------------------------
@@ -376,6 +464,72 @@ export class ModelsWorkerClient {
 
   // ---- misc --------------------------------------------------------------
 
+  private assertSession(epoch: number): void {
+    if (this.sessionSuspended || epoch !== this.sessionEpoch)
+      throw new Error('Model session is closed.')
+  }
+
+  /** A vault lock must release native KV, private payloads and worker heaps,
+   *  not merely reset the public chat-history array. Admission stays closed
+   *  until the next session explicitly resumes after this bounded teardown. */
+  resetSession(): Promise<void> {
+    if (this.sessionResetPromise) return this.sessionResetPromise
+    if (this.sessionSuspended) {
+      if (!this.sessionResetError) return Promise.resolve()
+      // Keep a failed stop observable on repeated lock hooks. Only an actual
+      // later exit permits a new teardown attempt to reconcile the state.
+      if (this.child || this.spawnPromise) return Promise.reject(this.sessionResetError)
+    }
+    this.sessionEpoch++
+    this.sessionSuspended = true
+    const error = new Error('Model session is closed.')
+    for (const generation of this.generations.values()) generation.controller.abort(error)
+    this.generations.clear()
+    this.tokenListeners.clear()
+    this.backgroundStreams.clear()
+    for (const pending of this.pending.values()) pending.reject(error)
+    this.pending.clear()
+    this.latestResources = null
+    this.gpuWork.reset(undefined, true)
+    this.publishUnloaded()
+    const resetting = (this.shutdownPromise ?? this.restart()).then(
+      () => {
+        this.sessionResetError = null
+      },
+      (error: unknown) => {
+        this.sessionResetError = error instanceof Error ? error : new Error(String(error))
+        throw this.sessionResetError
+      },
+    )
+    this.sessionResetPromise = resetting
+    void resetting
+      .finally(() => {
+        if (this.sessionResetPromise === resetting) this.sessionResetPromise = null
+      })
+      .catch(() => undefined)
+    return resetting
+  }
+
+  resumeSession(): void {
+    if (
+      this.sessionResetPromise ||
+      this.sessionResetError ||
+      this.shuttingDown ||
+      this.shutdownPromise
+    )
+      throw new Error('Models worker session cleanup is not complete.')
+    if (!this.sessionSuspended) return
+    this.sessionSuspended = false
+    this.gpuWork.reset()
+  }
+
+  private publishUnloaded(): void {
+    const patch = { state: 'unloaded' as const, resident: false, loadProgress: null, message: null }
+    this.statusListeners.llm(patch)
+    this.statusListeners.embedder(patch)
+    this.statusListeners.reranker(patch)
+  }
+
   refreshResources(): Promise<SystemResources> {
     return this.send<SystemResources>('planner.refresh')
   }
@@ -388,14 +542,18 @@ export class ModelsWorkerClient {
    * equivalent plan is a no-op. Returns true when a restart happened.
    */
   async setDevicePlan(plan: LlmDevicePlan): Promise<boolean> {
+    const epoch = this.sessionEpoch
+    this.assertSession(epoch)
     await this.gpuWork.waitForChat()
+    this.assertSession(epoch)
     const changed = !devicePlansEquivalent(this.devicePlan, plan)
     this.devicePlan = plan
     if (changed) this.latestResources = null
-    if (changed && this.child) {
+    if (changed && (this.child || this.spawnPromise)) {
       await this.restart()
       return true
     }
+    if (this.restartPromise) await this.restartPromise
     return false
   }
 
@@ -421,52 +579,79 @@ export class ModelsWorkerClient {
   /** Cleanly stop the worker so the next request respawns it (with a fresh
    *  device env). Unlike shutdown(), the client stays usable afterwards. */
   private async restart(): Promise<void> {
-    if (!this.child) return
-    const previous = this.child
-    const exited = new Promise<void>((resolve) => previous.once('exit', () => resolve()))
-    this.shuttingDown = true
+    if (this.restartPromise) return this.restartPromise
+    this.restartPromise = (async () => {
+      this.shuttingDown = true
+      await this.stopChild()
+      // A concurrent application shutdown is permanent, unlike a device switch.
+      if (this.shutdownPromise) return
+      this.shuttingDown = false
+      this.gpuWork.reset(undefined, this.sessionSuspended)
+      this.publishUnloaded()
+    })()
     try {
-      await Promise.race([
-        this.send<void>('shutdown'),
-        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
-      ])
-    } catch {
-      /* killing it anyway */
+      await this.restartPromise
+    } finally {
+      this.restartPromise = null
     }
-    try {
-      previous.kill()
-    } catch {
-      /* ignore */
-    }
-    await exited
-    this.child = null
-    this.spawnPromise = null
-    // Re-arm crash detection for the respawned worker.
-    this.shuttingDown = false
-    this.gpuWork.reset()
-    this.statusListeners.llm({ state: 'unloaded', resident: false })
-    this.statusListeners.embedder({ state: 'unloaded', resident: false })
-    this.statusListeners.reranker({ state: 'unloaded', resident: false })
   }
 
   async shutdown(): Promise<void> {
-    this.gpuWork.reset(undefined, true)
-    if (!this.child) return
+    if (this.shutdownPromise) return this.shutdownPromise
     this.shuttingDown = true
+    this.gpuWork.reset(undefined, true)
+    this.shutdownPromise = this.restartPromise ?? this.stopChild()
+    return this.shutdownPromise
+  }
+
+  private async stopChild(): Promise<void> {
+    const previous = this.child
+    if (!previous) return
+    let didExit = false
+    const exited = new Promise<void>((resolve) =>
+      previous.once('exit', () => {
+        didExit = true
+        resolve()
+      }),
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // Wait for native work to drain and dispose after its shutdown ack. A hung
+    // native call cannot block app quit forever; force termination after 2 s.
     try {
       await Promise.race([
-        this.send<void>('shutdown'),
-        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+        (async () => {
+          try {
+            if (this.spawnPromise) await this.spawnPromise
+            if (this.child === previous) await this.postRequest<void>(previous, 'shutdown')
+          } catch {
+            /* An early exit or broken IPC still proceeds to process cleanup. */
+          }
+          await exited
+        })(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 2000)
+        }),
       ])
-    } catch {
-      /* ignore , we're killing the worker anyway */
+    } finally {
+      if (timer) clearTimeout(timer)
     }
-    try {
-      this.child.kill()
-    } catch {
-      /* ignore */
+    if (!didExit) {
+      try {
+        previous.kill()
+      } catch {
+        /* Report a process that fails to exit below, without respawning on it. */
+      }
+      try {
+        await Promise.race([
+          exited,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => reject(new Error('Models worker did not exit.')), 1000)
+          }),
+        ])
+      } finally {
+        if (timer) clearTimeout(timer)
+      }
     }
-    this.child = null
   }
 }
 

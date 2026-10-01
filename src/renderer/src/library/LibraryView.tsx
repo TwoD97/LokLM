@@ -9,7 +9,7 @@ import { LibraryFileRow } from './LibraryFileRow'
 import { FolderTree } from '../folders/FolderTree'
 import { useFolders } from '../folders/useFolders'
 import { buildFolderTree, topLevelFolderKeys } from '../folders/folderTreeModel'
-import { DocumentPreview } from './DocumentPreview'
+import { DocumentPreview, SourceViewer, ReaderBoundary } from '../ui/lazyReaders'
 import { SummaryModal } from './SummaryModal'
 import { SyncFoldersPanel } from './SyncFoldersPanel'
 import { MissingDocsBanner } from './MissingDocsBanner'
@@ -19,7 +19,6 @@ import { SearchResults } from './SearchResults'
 import { useLibrarySearch } from './useLibrarySearch'
 import { filterBrowseDocs, sortBrowseDocs } from './browseFilter'
 import { PasswordRetypeGate } from '../auth/PasswordRetypeGate'
-import { SourceViewer } from '../chat/SourceViewer'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { useT } from '../i18n'
 import { formatBytes, formatDuration, formatCount } from '../lib/format'
@@ -37,7 +36,11 @@ type Props = {
   onPageChange?: ((page: number) => void) | undefined
 }
 
-export function LibraryView({
+export function LibraryView(props: Props): JSX.Element {
+  return <LibraryContent key={props.workspaceId} {...props} />
+}
+
+function LibraryContent({
   workspaceId,
   workspaceName,
   searchQuery,
@@ -57,8 +60,16 @@ export function LibraryView({
   const [retrying, setRetrying] = useState(false)
   const stopPending = useRef(false)
   const retryPending = useRef(false)
-  const workspaceRef = useRef(workspaceId)
+  const workspaceRef = useRef<number | null>(workspaceId)
   workspaceRef.current = workspaceId
+  useEffect(() => {
+    workspaceRef.current = workspaceId
+    return () => {
+      workspaceRef.current = null
+    }
+  }, [workspaceId])
+  const documentsRequest = useRef(0)
+  const storageRequest = useRef(0)
   // Three views of the same documents, persisted so the choice sticks:
   //   'list'     — flat sortable table
   //   'folders'  — user-created organizational folders (shared with the chat
@@ -86,12 +97,19 @@ export function LibraryView({
   // when documents are added.
   const [storage, setStorage] = useState<WorkspaceStorageFootprint | null>(null)
   const refreshStorage = useCallback((wsId: number) => {
+    if (workspaceRef.current !== wsId) return
+    const request = ++storageRequest.current
     void window.api.workspaces
       .storageEstimate(wsId)
-      .then(setStorage)
-      .catch(() => setStorage(null))
+      .then((next) => {
+        if (workspaceRef.current === wsId && request === storageRequest.current) setStorage(next)
+      })
+      .catch(() => {
+        if (workspaceRef.current === wsId && request === storageRequest.current) setStorage(null)
+      })
   }, [])
   useEffect(() => {
+    setStorage(null)
     refreshStorage(workspaceId)
   }, [workspaceId, refreshStorage])
   // Manual folders for this workspace (shared model with the chat sidebar).
@@ -177,19 +195,24 @@ export function LibraryView({
   const refreshFolders = folders.refresh
   const refreshDocs = useCallback(
     async (id: number) => {
+      if (workspaceRef.current !== id) return
+      const request = ++documentsRequest.current
       try {
         const list = await window.api.documents.list(id)
-        if (workspaceRef.current !== id) return
+        if (workspaceRef.current !== id || request !== documentsRequest.current) return
         setDocs(list)
         setLoadFailed(false)
-        void refreshFolders().catch((err: unknown) => setActionError(String(err)))
+        void refreshFolders().catch((err: unknown) => {
+          if (workspaceRef.current === id && request === documentsRequest.current)
+            setActionError(String(err))
+        })
       } catch (err) {
-        if (workspaceRef.current === id) {
+        if (workspaceRef.current === id && request === documentsRequest.current) {
           setActionError(String(err))
           setLoadFailed(true)
         }
       } finally {
-        if (workspaceRef.current === id) setLoading(false)
+        if (workspaceRef.current === id && request === documentsRequest.current) setLoading(false)
       }
     },
     [refreshFolders],
@@ -207,6 +230,13 @@ export function LibraryView({
   useEffect(() => {
     setLoading(true)
     setDocs([])
+    setProgress(new Map())
+    setSyncRoots([])
+    setPreviewDoc(null)
+    setSummaryDoc(null)
+    setSourceHit(null)
+    setExportPending(null)
+    setImportErrors([])
     setActionError(null)
     void refreshDocs(workspaceId)
     void refreshSyncRoots(workspaceId)
@@ -222,21 +252,36 @@ export function LibraryView({
   // it + refresh the doc list on done/failed.
   useEffect(() => {
     let cancelled = false
+    let pendingRead = 0
+    let statusPushed = false
     const refreshPending = (): void => {
-      void window.api.embedder.pendingReembedDocs(workspaceId).then((ids) => {
-        if (!cancelled) setReembedDocIds(new Set(ids))
-      })
+      const request = ++pendingRead
+      void window.api.embedder
+        .pendingReembedDocs(workspaceId)
+        .then((ids) => {
+          if (!cancelled && request === pendingRead) setReembedDocIds(new Set(ids))
+        })
+        .catch((error: unknown) => {
+          if (!cancelled && request === pendingRead) setActionError(String(error))
+        })
     }
     setReembedDocIds(new Set())
-    void window.api.embedder.backfillStatus(workspaceId).then((s) => {
-      if (cancelled || s.workspaceId !== workspaceId) return
-      if (s.state === 'running') refreshPending()
-    })
+    void window.api.embedder
+      .backfillStatus(workspaceId)
+      .then((s) => {
+        if (cancelled || statusPushed || s.workspaceId !== workspaceId) return
+        if (s.state === 'running') refreshPending()
+      })
+      .catch((error: unknown) => {
+        if (!cancelled && !statusPushed) setActionError(String(error))
+      })
     const off = window.api.embedder.onBackfillStatus((s) => {
       if (s.workspaceId !== workspaceId) return
+      statusPushed = true
       if (s.state === 'running') {
         refreshPending()
       } else {
+        pendingRead++
         setReembedDocIds(new Set())
         if (s.state === 'done' || s.state === 'failed') void refreshDocs(workspaceId)
       }
@@ -249,6 +294,7 @@ export function LibraryView({
 
   useEffect(() => {
     const off = window.api.documents.onIndexProgress((p) => {
+      if (p.workspaceId !== workspaceId) return
       setProgress((prev) => {
         const next = new Map(prev)
         next.set(p.documentId, p)
@@ -289,9 +335,11 @@ export function LibraryView({
     async (paths: string[]) => {
       setImportErrors([])
       for (const p of paths) {
+        if (workspaceRef.current !== workspaceId) return
         try {
           await window.api.documents.import(workspaceId, p)
         } catch (err) {
+          if (workspaceRef.current !== workspaceId) return
           const name = p.split(/[\\/]/).pop() ?? p
           setImportErrors((errors) => [
             ...errors,
@@ -386,12 +434,14 @@ export function LibraryView({
       setRetrying(true)
       const failures: string[] = []
       for (const id of ids) {
+        if (workspaceRef.current !== workspaceId) return
         try {
           await window.api.documents.reindex(id)
         } catch (err) {
           failures.push(`#${id}: ${String(err)}`)
         }
       }
+      if (workspaceRef.current !== workspaceId) return
       void refreshDocs(workspaceId)
       if (failures.length)
         setActionError(t('library.retryFailed', { message: failures.join('; ') }))
@@ -566,6 +616,14 @@ export function LibraryView({
           <button onClick={() => setActionError(null)}>{t('common.close')}</button>
         </div>
       )}
+      {folders.error && (
+        <div className="library__import-error" role="alert">
+          <span>{t('library.foldersFailed', { message: folders.error })}</span>
+          <button type="button" onClick={() => void folders.refresh().catch(() => {})}>
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
       {importErrors.length > 0 && (
         <div className="library__import-error" role="alert">
           <strong>{t('ux.importFailed')}</strong>
@@ -644,6 +702,8 @@ export function LibraryView({
         <SearchResults
           hits={search.hits}
           status={search.status}
+          error={search.error}
+          onRetry={search.retry}
           onOpen={onOpenHit}
           query={search.query}
           docs={docs}
@@ -815,15 +875,23 @@ export function LibraryView({
       </footer>
       {sourceHit && (
         <ErrorBoundary label={t('library.previewDoc')} onError={() => setSourceHit(null)}>
-          <SourceViewer
-            chunkId={sourceHit.chunkId}
-            documentTitle={sourceHit.documentTitle}
-            messageText={null}
-            onClose={() => setSourceHit(null)}
-          />
+          <ReaderBoundary label={sourceHit.documentTitle} onClose={() => setSourceHit(null)}>
+            <SourceViewer
+              chunkId={sourceHit.chunkId}
+              documentTitle={sourceHit.documentTitle}
+              messageText={null}
+              onClose={() => setSourceHit(null)}
+            />
+          </ReaderBoundary>
         </ErrorBoundary>
       )}
-      {previewDoc && <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {previewDoc && (
+        <ErrorBoundary label={t('library.previewDoc')} onError={() => setPreviewDoc(null)}>
+          <ReaderBoundary label={previewDoc.title} onClose={() => setPreviewDoc(null)}>
+            <DocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+          </ReaderBoundary>
+        </ErrorBoundary>
+      )}
       {summaryDoc && <SummaryModal doc={summaryDoc} onClose={() => setSummaryDoc(null)} />}
       <PasswordRetypeGate
         open={exportPending !== null}

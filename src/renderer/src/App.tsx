@@ -1,13 +1,12 @@
 import { isModuleVisible, type UserSettings } from '@shared/settings'
 import { refreshSettings } from './settings/useSettings'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { AuthStatus } from '@shared/authTypes'
 import { LoginView } from './auth/LoginView'
 import { WarmingView } from './auth/WarmingView'
 import { PassphraseReveal } from './auth/PassphraseReveal'
 import { RegisterView } from './auth/RegisterView'
 import { ResetView } from './auth/ResetView'
-import { AppShell } from './shell/AppShell'
 import { BackgroundFx } from './BackgroundFx'
 import { QuitOverlay } from './QuitOverlay'
 import { TitleBar } from './TitleBar'
@@ -18,6 +17,10 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { isLockedError } from './lib/lockedError'
 import { useT } from './i18n'
 import { useThemeEffect } from './theme/useTheme'
+
+const AppShell = lazy(() =>
+  import('./shell/AppShell').then((module) => ({ default: module.AppShell })),
+)
 
 type Phase =
   | { kind: 'loading' }
@@ -140,7 +143,17 @@ export function App(): JSX.Element {
   if (isUnlocked) {
     content = (
       <ErrorBoundary label="Workspace">
-        <AppShell />
+        <Suspense
+          fallback={
+            <main className="app">
+              <section className="auth-card" role="status">
+                {t('common.loading')}
+              </section>
+            </main>
+          }
+        >
+          <AppShell />
+        </Suspense>
       </ErrorBoundary>
     )
   } else if (phase.kind === 'loading') {
