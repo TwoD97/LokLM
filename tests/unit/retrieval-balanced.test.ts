@@ -45,6 +45,26 @@ describe('production hybrid candidate selection', () => {
     expect(embed.mock.calls[0]![0]).toEqual(['When was the plan approved?'])
   })
 
+  it.each(['Briefly explain the evidence.', 'Bitte erkläre kurz die Belege.'])(
+    'does not let a generic evidence instruction cast independent RRF votes: %s',
+    async (tail) => {
+      const { service, lexical, dense, embed } = retrievalHarness()
+      const question = 'Which approved contract applies?'
+      lexical.mockImplementation(async (_workspace, query) =>
+        (query === question ? [1, 2, 3, 4] : [3, 4, 1, 2]).map((id) => hit(id, 1)),
+      )
+      embed.mockImplementation(async ([query]) => [new Float32Array([query === question ? 1 : 2])])
+      dense.mockImplementation(async (_workspace, vector) =>
+        (vector[0] === 1 ? [2, 1, 3, 4] : [4, 3, 2, 1]).map((id) => hit(id, 0.5)),
+      )
+      const result = await service.search(1, `${question} ${tail}`, 4, FLAT)
+      expect(result.map((item) => item.chunk_id)).toEqual([1, 2, 3, 4])
+      expect(lexical.mock.calls.map((call) => call[1])).toEqual([question])
+      expect(embed.mock.calls.map((call) => call[0])).toEqual([[question]])
+      expect(dense).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it('does not promote unrelated titles that match only answer-format instructions', async () => {
     const { service, lexical, dense } = retrievalHarness()
     const relevant = hit(1, 5, { document_title: 'Project timeline' })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
@@ -70,6 +70,7 @@ const STAGE_LABEL_KEY: Record<StageName, string> = {
   rerank: 'chat.stageRerank',
   summarize: 'chat.stageSummarize',
   corpus: 'chat.stageCorpus',
+  evidence: 'chat.stageEvidence',
   prefill: 'chat.stagePrefill',
 }
 
@@ -99,6 +100,9 @@ function GroundingBadge({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const lastOnOpen = useRef(false)
+  const menuId = useId()
 
   // Distinct cited documents in first-cited order, keeping the first chunk per
   // document so the row can open a representative passage. Title falls back to
@@ -121,22 +125,22 @@ function GroundingBadge({
     return out
   }, [citations, documents, t])
 
-  // Close on outside click / Escape while the popover is open.
+  // Menu items use arrow navigation, leaving the trigger as the single Tab stop.
   useEffect(() => {
     if (!open) return
+    const buttons = wrapRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    buttons?.[lastOnOpen.current ? buttons.length - 1 : 0]?.focus()
     const onDown = (e: MouseEvent): void => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
-    }
     document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('mousedown', onDown)
   }, [open])
+
+  function closeMenu(): void {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
 
   const count = sources.length
   const cited = hasCitedSources(
@@ -144,13 +148,31 @@ function GroundingBadge({
     new Set(citations.map((citation) => `${citation.documentId}-${citation.chunkId}`)),
   )
   return (
-    <div className="chat__grounding-wrap" ref={wrapRef}>
+    <div
+      className="chat__grounding-wrap"
+      ref={wrapRef}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
+      }}
+    >
       <button
         type="button"
+        ref={triggerRef}
+        id={`${menuId}-trigger`}
         className="chat__grounding"
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => {
+          lastOnOpen.current = false
+          setOpen((v) => !v)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+          event.preventDefault()
+          lastOnOpen.current = event.key === 'ArrowUp'
+          setOpen(true)
+        }}
       >
         {t(
           cited
@@ -163,7 +185,41 @@ function GroundingBadge({
         <ChevronDown size={11} aria-hidden="true" />
       </button>
       {open && (
-        <div className="chat__sources-pop" role="menu">
+        <div
+          className="chat__sources-pop"
+          id={menuId}
+          role="menu"
+          aria-labelledby={`${menuId}-trigger`}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' || event.key === 'Tab') {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                event.stopPropagation()
+              }
+              // Tab continues from the trigger into the surrounding page.
+              closeMenu()
+              return
+            }
+            const buttons = Array.from(
+              event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+            )
+            const current = buttons.indexOf(document.activeElement as HTMLButtonElement)
+            const next =
+              event.key === 'ArrowDown'
+                ? (current + 1) % buttons.length
+                : event.key === 'ArrowUp'
+                  ? (current + buttons.length - 1) % buttons.length
+                  : event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? buttons.length - 1
+                      : null
+            if (next !== null) {
+              event.preventDefault()
+              buttons[next]?.focus()
+            }
+          }}
+        >
           <span className="chat__sources-pop-title">
             {t(cited ? 'chat.sourcesPopoverTitle' : 'chat.providedSourcesTitle')}
           </span>
@@ -173,10 +229,12 @@ function GroundingBadge({
               type="button"
               className="chat__sources-pop-item"
               role="menuitem"
+              tabIndex={-1}
               title={s.path ?? s.name}
               onClick={() => {
+                // The viewer may move focus; never override it after opening.
+                closeMenu()
                 onOpenSource({ documentId: s.documentId, chunkId: s.chunkId, messageText })
-                setOpen(false)
               }}
             >
               <span className="chat__sources-pop-index">{i + 1}</span>

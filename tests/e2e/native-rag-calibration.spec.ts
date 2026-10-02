@@ -7,11 +7,16 @@ import { promisify } from 'node:util'
 import { join, resolve } from 'node:path'
 import { freemem, totalmem } from 'node:os'
 import type { Api } from '../../src/preload'
-import type { StreamEvent } from '../../src/shared/documents'
 import { launchApp } from './helpers/launch'
 import { fingerprintCompiledBuild } from './helpers/buildFingerprint'
+import { inspectBuildProvenance } from './helpers/buildProvenance'
 import { registerAndUnlock, createWorkspace } from './helpers/seed'
-import { loadCalibrationSplit } from '../evals/native-calibration/fixtures'
+import { isCalibrationSplit, loadCalibrationSplit } from '../evals/native-calibration/fixtures'
+import {
+  collectCalibrationStream,
+  calibrationCollectionDecision,
+} from '../evals/native-calibration/streamCapture'
+import { describeEvidenceAssessment } from '../evals/native-calibration/report'
 
 const execFileAsync = promisify(execFile)
 const root = resolve('tests/evals/native-calibration')
@@ -57,8 +62,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
   test.skip(process.env['LOKLM_NATIVE_RAG'] !== '1', 'Explicit real-GPU calibration opt-in')
   test.setTimeout(60 * 60 * 1000)
   const split = process.env['LOKLM_CALIBRATION_SPLIT'] ?? 'dev'
-  if (split !== 'dev' && split !== 'heldout' && split !== 'conflict-regression')
-    throw new Error('Invalid split')
+  if (!isCalibrationSplit(split)) throw new Error('Invalid split')
   const runId = process.env['LOKLM_CALIBRATION_RUN'] ?? `${split}-${Date.now()}`
   if (!/^[a-zA-Z0-9_-]+$/.test(runId)) throw new Error('Invalid run id')
   const manifestPath = join(root, `${split}.json`)
@@ -72,6 +76,14 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     ? filter.map((id) => manifest.cases.find((entry) => entry.id === id)!)
     : manifest.cases
   if (!cases.length) throw new Error('No calibration cases selected')
+  const questionTimeoutMs = Number(process.env['LOKLM_CALIBRATION_QUESTION_TIMEOUT_MS'] ?? 180_000)
+  const continueErrors = process.env['LOKLM_CALIBRATION_CONTINUE_ERRORS'] === '1'
+  if (
+    !Number.isInteger(questionTimeoutMs) ||
+    questionTimeoutMs < 30_000 ||
+    questionTimeoutMs > 600_000
+  )
+    throw new Error('Calibration question timeout must be an integer from 30000 to 600000 ms')
   const repeats = Number(process.env['LOKLM_CALIBRATION_REPEATS'] ?? 1)
   if (!Number.isInteger(repeats) || repeats < 1 || repeats > 10)
     throw new Error('Calibration repeats must be an integer from 1 to 10')
@@ -91,16 +103,20 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     'src/main/services/llm/citationAliases.ts',
     'src/main/services/llm/LlamaService.ts',
     'src/main/services/providers/ollama/OllamaLlmProvider.ts',
+    'src/main/services/providers/ollama/OllamaClient.ts',
     'src/main/services/qa/QAService.ts',
     'src/main/services/qa/chatTurn.ts',
     'src/shared/documents.ts',
     'src/main/services/qa/contextBudget.ts',
+    'src/main/services/qa/evidenceAssessment.ts',
     'src/main/services/retrieval/RetrievalService.ts',
     'src/main/services/retrieval/rrf.ts',
     'src/main/services/retrieval/heuristics.ts',
     'src/main/services/retrieval/QueryEmbeddingCache.ts',
     'src/main/services/embeddings/EmbeddingService.ts',
     'src/main/services/workers/modelMemory.ts',
+    'src/main/services/workers/contextBudget.ts',
+    'src/main/services/workers/chatWrapper.ts',
     'src/main/services/workers/GpuWorkCoordinator.ts',
     'src/main/services/workers/ModelsWorkerClient.ts',
     'src/main/services/workers/modelsWorker.ts',
@@ -133,6 +149,12 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       selectedCases: cases.map((entry) => entry.id),
       repeats,
       warmCases,
+      questionTimeoutMs,
+      continueErrors,
+      // This isolated API-only harness has no user activity; prevent the
+      // ordinary 15-minute idle lock from cancelling long calibration runs.
+      autoLockMinutes: 0,
+      evidenceAssessment: process.env['LOKLM_EVIDENCE_ASSESSMENT'] === '1',
     },
     startedAt: new Date().toISOString(),
     gitCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
@@ -147,6 +169,9 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       )
       .digest('hex'),
     compiledBuildHashes,
+    buildProvenance: await inspectBuildProvenance(),
+    sourceHashesMeaning:
+      'Working-tree inputs observed at run start; compiled-to-source correspondence requires a matching build-time provenance manifest.',
     sourceHashes: Object.fromEntries(
       await Promise.all(sourcePaths.map(async (path) => [path, await hashFile(path)])),
     ),
@@ -155,6 +180,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     hardware: await gpuSample(),
     documents: [],
     queries: [],
+    continuedErrorCaseIds: [],
   }
   const flush = () => writeFile(join(output, 'raw.json'), JSON.stringify(raw, null, 2) + '\n')
   await flush()
@@ -196,6 +222,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       await api.settings.update({
         basic: { answerLanguage: 'auto' },
         advanced: { reranker: { enabled: false } },
+        security: { autoLockMinutes: 0 },
       })
     })
     const ready = () =>
@@ -257,115 +284,42 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
         const beforeInfo = await modelInfo(page)
         const logStart = logs.length
         console.log(`CALIBRATION question ${entry.id} repeat=${repetition}`)
-        const observation = await page.evaluate(
-          async ({ id, entry, repetition }) => {
-            const api = (globalThis as unknown as { api: Api }).api
-            const streamId = `calibration-${entry.id}-${repetition}`
-            const events: StreamEvent[] = []
-            const modelActivities: Array<{ elapsedMs: number; activity: unknown }> = []
-            let firstTokenAt: number | null = null
-            let firstVisibleTokenAt: number | null = null
-            const eventTimes: Array<{ type: string; elapsedMs: number }> = []
-            let timedOut = false
-            let terminalReceived = false
-            let resolveTerminal!: () => void
-            const terminal = new Promise<void>((resolve) => {
-              resolveTerminal = resolve
-            })
-            const started = performance.now()
-            const offActivity = api.models.onActivity((activity) => {
-              modelActivities.push({ elapsedMs: Math.round(performance.now() - started), activity })
-            })
-            const off = api.chat.onEvent(streamId, (event) => {
-              events.push(event)
-              eventTimes.push({
-                type: event.type,
-                elapsedMs: Math.round(performance.now() - started),
-              })
-              if (event.type === 'token' && firstTokenAt == null) firstTokenAt = performance.now()
-              if (event.type === 'token' && firstVisibleTokenAt == null && event.text.trim())
-                firstVisibleTokenAt = performance.now()
-              if (event.type === 'done' || event.type === 'error') {
-                terminalReceived = true
-                resolveTerminal()
-              }
-            })
-            const timer = setTimeout(() => {
-              timedOut = true
-              void api.chat.cancel(streamId)
-            }, 180_000)
-            try {
-              await api.chat.stream(streamId, id, entry.question, {
-                language: entry.language,
-                rerank: false,
-                multiQuery: false,
-                routing: false,
-                wholeDocFallback: false,
-              })
-              // The invoke response and stream events travel on separate IPC
-              // channels. Wait for the terminal event before grading or timing.
-              let terminalTimer: ReturnType<typeof setTimeout> | undefined
-              await Promise.race([
-                terminal,
-                new Promise<void>((resolve) => {
-                  terminalTimer = setTimeout(resolve, 5000)
-                }),
-              ])
-              if (terminalTimer) clearTimeout(terminalTimer)
-              const done = events.find((event) => event.type === 'done')
-              return {
-                caseId: entry.id,
-                question: entry.question,
-                language: entry.language,
-                repetition,
-                ttftMs: firstTokenAt == null ? null : Math.round(firstTokenAt - started),
-                firstVisibleTokenMs:
-                  firstVisibleTokenAt == null ? null : Math.round(firstVisibleTokenAt - started),
-                totalMs: Math.round(performance.now() - started),
-                modelActivities,
-                events,
-                eventTimes,
-                answer:
-                  done?.full_text ??
-                  events
-                    .filter((event) => event.type === 'token')
-                    .map((event) => event.text)
-                    .join(''),
-                citations: done?.citations ?? [],
-                timedOut,
-                terminalReceived,
-              }
-            } finally {
-              clearTimeout(timer)
-              off()
-              offActivity()
-            }
-          },
-          { id: workspaceId, entry, repetition },
-        )
+        const observation = await page.evaluate(collectCalibrationStream, {
+          id: workspaceId,
+          entry: { id: entry.id, question: entry.question, language: entry.language },
+          repetition,
+          timeoutMs: questionTimeoutMs,
+        })
         const afterInfo = await modelInfo(page)
+        const queryLogs = logs.slice(logStart).split(/\r?\n/)
+        const collectionDecision = calibrationCollectionDecision(observation, continueErrors)
         const query = {
           ...observation,
           beforeInfo,
           afterInfo,
-          logs: logs.slice(logStart).split(/\r?\n/),
+          logs: queryLogs,
+          evidenceAssessment: describeEvidenceAssessment(queryLogs, observation.events),
+          collectionDecision,
         }
         ;(raw.queries as unknown[]).push(query)
+        if (collectionDecision === 'continue-error')
+          (raw.continuedErrorCaseIds as string[]).push(`${entry.id}:${repetition}`)
         raw.gpuSamples = gpuSamples
         raw.peakGpuUsedMiB = Math.max(0, ...gpuSamples.map((sample) => sample.usedMiB))
         await flush()
         console.log(
           `CALIBRATION result ${entry.id}: ${JSON.stringify({ answer: observation.answer, ttftMs: observation.ttftMs, totalMs: observation.totalMs, timedOut: observation.timedOut })}`,
         )
-        if (
-          !observation.terminalReceived ||
-          observation.timedOut ||
-          observation.events.some((event) => event.type === 'error')
-        ) {
+        if (collectionDecision === 'stop') {
           throw new Error(`Calibration stopped on timeout/error for ${entry.id}; inspect raw.json`)
         }
       }
     }
+    raw.observationCollectionCompletedAt = new Date().toISOString()
+    if ((raw.continuedErrorCaseIds as string[]).length)
+      throw new Error(
+        `Calibration collected all selected observations but ${(raw.continuedErrorCaseIds as string[]).length} requests failed; inspect raw.json`,
+      )
     raw.completedAt = new Date().toISOString()
     await flush()
   } catch (error) {
@@ -378,6 +332,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     await launched.cleanup()
     const after = await fingerprintCompiledBuild()
     raw.compiledBuildHashesAfter = after
+    raw.buildProvenanceAfter = await inspectBuildProvenance()
     raw.compiledBuildUnchanged = JSON.stringify(after) === JSON.stringify(compiledBuildHashes)
     if (!raw.compiledBuildUnchanged) {
       raw.integrityError =

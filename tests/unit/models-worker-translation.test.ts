@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   gpuGrammar: vi.fn(),
   stopReason: 'eogToken',
   promptWait: null as Promise<void> | null,
+  responseText: 'translated',
   totalVramGB: 16,
   instructions: [] as string[],
   promptOptions: [] as Array<Record<string, unknown>>,
@@ -38,39 +39,54 @@ vi.mock('@main/services/embeddings/ResourcePlanner', () => ({
     planLlm = () => ({ contextSize: 8192, kvCacheType: 'f16', reason: 'test' })
   },
 }))
-vi.mock('node-llama-cpp', () => ({
-  getLlama: mocks.getLlama,
-  LlamaChatSession: class {
-    history: Array<{ type: string; text: string }>
-    dispose: () => void
-    constructor(options: {
-      systemPrompt: string
-      autoDisposeSequence: boolean
-      contextSequence: { dispose: () => void }
-    }) {
-      this.history = [{ type: 'system', text: options.systemPrompt }]
-      this.dispose = () => {
-        if (options.autoDisposeSequence) options.contextSequence.dispose()
+vi.mock('node-llama-cpp', async (importOriginal) => {
+  const { QwenChatWrapper } = await importOriginal<typeof import('node-llama-cpp')>()
+  return {
+    QwenChatWrapper,
+    resolveChatWrapper: () => new QwenChatWrapper({ variation: '3.5' }),
+    getLlama: mocks.getLlama,
+    LlamaChatSession: class {
+      chatWrapper: import('node-llama-cpp').ChatWrapper
+      model = { tokenizer: () => [1] }
+      history: Array<{ type: string; text: string }>
+      dispose: () => void
+      constructor(options: {
+        systemPrompt: string
+        autoDisposeSequence: boolean
+        contextSequence: { dispose: () => void }
+        chatWrapper: import('node-llama-cpp').ChatWrapper
+      }) {
+        this.chatWrapper = options.chatWrapper
+        this.history = [{ type: 'system', text: options.systemPrompt }]
+        this.dispose = () => {
+          if (options.autoDisposeSequence) options.contextSequence.dispose()
+        }
+        mocks.sessions.push(this)
       }
-      mocks.sessions.push(this)
-    }
-    getChatHistory() {
-      return this.history
-    }
-    setChatHistory(history: typeof this.history) {
-      this.history = history
-    }
-    resetChatHistory() {
-      this.history = [{ type: 'system', text: 'constructor prompt' }]
-    }
-    async promptWithMeta(_text: string, options: Record<string, unknown>) {
-      mocks.promptOptions.push(options)
-      mocks.instructions.push(this.history[0]!.text)
-      if (mocks.promptWait) await mocks.promptWait
-      return { responseText: 'translated', stopReason: mocks.stopReason }
-    }
-  },
-}))
+      getChatHistory() {
+        return this.history
+      }
+      setChatHistory(history: typeof this.history) {
+        this.history = history
+      }
+      resetChatHistory() {
+        this.history = [{ type: 'system', text: 'constructor prompt' }]
+      }
+      async promptWithMeta(_text: string, options: Record<string, unknown>) {
+        mocks.promptOptions.push(options)
+        mocks.instructions.push(this.history[0]!.text)
+        if (mocks.promptWait) await mocks.promptWait
+        return { responseText: mocks.responseText, stopReason: mocks.stopReason }
+      }
+      async prompt(text: string, options: Record<string, unknown>) {
+        const result = await this.promptWithMeta(text, options)
+        const onTextChunk = options.onTextChunk as ((text: string) => void) | undefined
+        onTextChunk?.(result.responseText)
+        return result.responseText
+      }
+    },
+  }
+})
 
 let receive: (request: unknown) => void
 let sequence = 0
@@ -113,7 +129,10 @@ beforeEach(async () => {
   mocks.lifecycle.length = 0
   mocks.stopReason = 'eogToken'
   mocks.promptWait = null
+  mocks.responseText = 'translated'
   mocks.totalVramGB = 16
+  mocks.gpuGrammar.mockReset().mockResolvedValue({ backend: 'gpu' })
+  mocks.cpuGrammar.mockReset()
   mocks.dispose.mockResolvedValue(undefined)
   mocks.getLlama.mockImplementation(async (options) => ({
     gpu: options.gpu === false ? false : 'vulkan',
@@ -166,6 +185,69 @@ afterEach(() => {
 })
 
 describe('translation in the native worker', () => {
+  it.each(['{"value":1}', 'First answer token'])(
+    'preserves the first structured or ordinary output: %s',
+    async (text) => {
+      mocks.responseText = text
+      await load()
+      const result = await request({
+        op: 'llm.generateRaw',
+        payload: {
+          streamId: 'leading-output',
+          prompt: 'Return the result',
+          maxTokens: 64,
+          plannedContextTokens: 4096,
+          noThink: true,
+          ...(text.startsWith('{') ? { jsonSchema: { type: 'object' } } : {}),
+        },
+      })
+      expect(result).toMatchObject({ ok: true, result: { raw: text } })
+      expect(mocks.promptOptions.at(-1)?.budgets).toEqual({ thoughtTokens: 0 })
+      for (const session of mocks.sessions)
+        expect(
+          (
+            session as unknown as {
+              chatWrapper: { settings: { segments: { thought: { openOnResponseStart: boolean } } } }
+            }
+          ).chatWrapper.settings.segments.thought.openOnResponseStart,
+        ).toBe(false)
+    },
+  )
+
+  it('preserves a normal chat first token with the same nonthinking wrapper', async () => {
+    mocks.responseText = 'First answer token'
+    await load()
+    expect(
+      await request({
+        op: 'llm.ask',
+        payload: {
+          streamId: 'chat-first',
+          prompt: 'Answer',
+          maxTokens: 64,
+          noThink: true,
+          plannedContextTokens: 4096,
+        },
+      }),
+    ).toMatchObject({ ok: true, result: { raw: 'First answer token' } })
+    expect(mocks.promptOptions.at(-1)?.budgets).toEqual({ thoughtTokens: 0 })
+  })
+
+  it('keeps explicit raw reasoning allowed instead of applying a hard zero budget', async () => {
+    await load()
+    expect(
+      await request({
+        op: 'llm.generateRaw',
+        payload: {
+          streamId: 'reasoning-allowed',
+          prompt: 'Consider the evidence',
+          maxTokens: 64,
+          noThink: false,
+        },
+      }),
+    ).toMatchObject({ ok: true })
+    expect(mocks.promptOptions.at(-1)?.budgets).toBeUndefined()
+  })
+
   it('aborts generation on shutdown but drains native work before disposing contexts', async () => {
     await load()
     let finish!: () => void
@@ -427,6 +509,70 @@ describe('translation in the native worker', () => {
     ).toBe(true)
     expect(mocks.gpuGrammar).toHaveBeenCalledOnce()
     expect(mocks.cpuGrammar).not.toHaveBeenCalled()
+  })
+  it('evicts the least recently used grammar while retaining recently reused schemas', async () => {
+    await load()
+    const generate = (index: number) =>
+      request({
+        op: 'llm.generateRaw',
+        payload: {
+          streamId: `schema-${index}`,
+          prompt: 'JSON',
+          jsonSchema: { type: 'string', enum: [`source-${index}`] },
+        },
+      })
+    for (let index = 0; index < 16; index++)
+      expect(await generate(index)).toMatchObject({ ok: true })
+    expect(mocks.gpuGrammar).toHaveBeenCalledTimes(16)
+    await generate(0) // Most recent; schema 1 is now oldest.
+    await generate(16)
+    await generate(0)
+    expect(mocks.gpuGrammar).toHaveBeenCalledTimes(17)
+    await generate(1)
+    expect(mocks.gpuGrammar).toHaveBeenCalledTimes(18)
+    expect(mocks.gpuGrammar.mock.calls.at(-1)?.[0]).toEqual({
+      type: 'string',
+      enum: ['source-1'],
+    })
+  })
+  it('serializes identical schema requests while their first grammar is still compiling', async () => {
+    await load()
+    let finish!: (grammar: unknown) => void
+    mocks.gpuGrammar.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const generate = (streamId: string) =>
+      request({
+        op: 'llm.generateRaw',
+        payload: { streamId, prompt: 'JSON', jsonSchema: { type: 'object' } },
+      })
+    const first = generate('first-schema-request')
+    await vi.waitFor(() => expect(mocks.gpuGrammar).toHaveBeenCalledOnce())
+    const second = generate('second-schema-request')
+    expect(mocks.promptOptions).toHaveLength(0)
+    finish({ backend: 'gpu' })
+    expect(await Promise.all([first, second])).toEqual([
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+    ])
+    expect(mocks.gpuGrammar).toHaveBeenCalledOnce()
+  })
+  it('does not retain a failed grammar compilation, allowing the next request to retry', async () => {
+    await load()
+    mocks.gpuGrammar.mockRejectedValueOnce(new Error('Compile failed'))
+    const generate = () =>
+      request({
+        op: 'llm.generateRaw',
+        payload: { streamId: 'retry-schema', prompt: 'JSON', jsonSchema: { type: 'object' } },
+      })
+    expect(await generate()).toMatchObject({ ok: true })
+    expect(mocks.promptOptions.at(-1)?.grammar).toBeUndefined()
+    expect(await generate()).toMatchObject({ ok: true })
+    expect(mocks.gpuGrammar).toHaveBeenCalledTimes(2)
+    expect(mocks.promptOptions.at(-1)?.grammar).toEqual({ backend: 'gpu' })
   })
   it('releases weights after context allocation fails, allowing a fresh retry', async () => {
     mocks.createContext.mockRejectedValue(new Error('No VRAM'))

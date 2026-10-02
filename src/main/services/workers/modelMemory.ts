@@ -2,8 +2,9 @@ import type { KvCacheType, LlmPlan, SystemResources } from '../embeddings/Resour
 
 export const MIN_CHAT_CONTEXT = 4096
 
-/** Check after the final GPU handoff and before native generation. The main
- * planner must repack instead of allowing a smaller window to drop sources. */
+/** Check after the final GPU handoff and before native generation. An explicit
+ * bounded-context contract requires a native token count, even when capacity
+ * grew: caller estimates can undercount wrappers, source text, or history. */
 export function assertPlannedContextFits(
   planned: number | undefined,
   actual: number,
@@ -13,24 +14,25 @@ export function assertPlannedContextFits(
   if (!Number.isFinite(planned) || planned <= 0 || !Number.isFinite(actual) || actual <= 0) {
     throw new Error('The model context size could not be verified. Please retry the question.')
   }
-  if (actual < planned) {
-    // A fallback provider may have a smaller context while the actual packed
-    // prompt still fits. Preserve that useful fallback, but only with a native
-    // token count including its actual wrapper and system instructions.
-    const margin = Math.max(64, Math.ceil(actual / 10))
-    if (
-      exactBudget &&
-      Number.isSafeInteger(exactBudget.promptTokens) &&
-      exactBudget.promptTokens >= 0 &&
-      Number.isSafeInteger(exactBudget.maxTokens) &&
-      exactBudget.maxTokens > 0 &&
-      exactBudget.promptTokens + exactBudget.maxTokens + margin <= actual
-    )
-      return
+  if (
+    !exactBudget ||
+    !Number.isSafeInteger(exactBudget.promptTokens) ||
+    exactBudget.promptTokens < 0 ||
+    !Number.isSafeInteger(exactBudget.maxTokens) ||
+    exactBudget.maxTokens <= 0
+  )
+    throw new Error('The model prompt size could not be verified. Please retry the question.')
+  // A smaller fallback can still serve a prompt that truly fits. Keep all source
+  // text and reserve the same native margin; never rely solely on planned size.
+  const margin = Math.max(64, Math.ceil(actual / 10))
+  if (exactBudget.promptTokens + exactBudget.maxTokens + margin <= actual) return
+  if (actual < planned)
     throw new Error(
       'The model context became smaller after sources were selected. Please retry the question so its sources can be repacked.',
     )
-  }
+  throw new Error(
+    'The selected sources and output allowance do not fit the model context. Please retry with a shorter question or fewer sources.',
+  )
 }
 
 /** Prefer native math cores, capped by available scheduling capacity. An explicit

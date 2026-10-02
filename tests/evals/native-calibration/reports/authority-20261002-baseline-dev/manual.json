@@ -1,0 +1,79 @@
+[
+  {
+    "caseId": "authority-dev-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly reports 980 versus 1040 admissions and the absence of final reconciliation approval; both exact sources support the unresolved conclusion."
+  },
+  {
+    "caseId": "authority-dev-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current 21-day rule, old 14-day rule, and all literal dates. The second sentence attaches [3:3], the old policy, to the new March 18 approval/supersession explanation. That new authority belongs to [4:4]. Wording also muddles approval and effective dates, so this is not a clean explanation despite the right central answer."
+  },
+  {
+    "caseId": "authority-dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct currently authorized 12 passengers excluding the driver. Correctly distinguishes the later 18-passenger proposal, its missing replacement certificate, and lack of service approval, with the corresponding two source IDs."
+  },
+  {
+    "caseId": "authority-dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Accurately distinguishes West 2027 (2400 EUR) from East 2028 (3500 EUR). Both values have exact citations. The subsequent coexistence explanation follows directly from those scoped facts; it does not invent a conflict."
+  },
+  {
+    "caseId": "authority-dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Direct source check confirms dates are not swapped: dispatch February 8 states 2750 g [10:10]; inspection February 9 states 2.75 kg [9:9]. Correct conversion and same cable/no-packaging scope."
+  },
+  {
+    "caseId": "authority-dev-06",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states the directory does not list the requested emergency telephone. Added email and reception address are both present in [11:11]; it does not invent a number."
+  },
+  {
+    "caseId": "authority-dev-07",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "TIMEOUT: cancelled at 180150 ms, outcome cancelled. The partial answer correctly computes fee(5)=7 for >=5 and =3 for >5, cites both exact branches, and recognizes neither is approved for production. It ends mid-conclusion plus interruption notice. Semantically useful partial text must not be counted as a completed successful case."
+  }
+]

@@ -264,20 +264,22 @@ describe('buildSystemPrompt', () => {
 
   it('enforces derivation + calculation discipline rules', () => {
     const en = buildSystemPrompt('en')
-    // Calc reasoning order + ban on self-correction phrases — the rules that
+    // Calc reasoning order + ban on private deliberation — the rules that
     // distinguish this prompt from the original short version.
     expect(en).toMatch(/SOURCE/)
     expect(en).toMatch(/DERIVATION/)
     expect(en).toMatch(/CALCULATIONS/)
-    expect(en).toMatch(/wait/)
-    expect(en).toMatch(/actually/)
+    expect(en).toContain('without private deliberation or self-corrections')
+    expect(en).toContain('A comparison of conflicting source statements is a valid final answer')
 
     const de = buildSystemPrompt('de')
     expect(de).toMatch(/QUELLE/)
     expect(de).toMatch(/ABLEITUNG/)
     expect(de).toMatch(/RECHENWEG/)
-    expect(de).toMatch(/Moment/)
-    expect(de).toMatch(/eigentlich/)
+    expect(de).toContain('ohne interne Überlegungen oder Selbstkorrekturen')
+    expect(de).toContain(
+      'Ein Vergleich widersprüchlicher Quellenangaben ist eine gültige finale Antwort',
+    )
   })
 
   it('bars completing a mentioned-but-undefined term from general knowledge', () => {

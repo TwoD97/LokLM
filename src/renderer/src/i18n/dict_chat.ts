@@ -55,7 +55,8 @@ export const chatDict: DomainDict = {
     'chat.stageRerank': 'Rerank',
     'chat.stageSummarize': 'Summarize',
     'chat.stageCorpus': 'Library lookup',
-    'chat.stagePrefill': 'Prefill',
+    'chat.stageEvidence': 'Comparing sources',
+    'chat.stagePrefill': 'Preparing answer',
     // Collapsible pipeline dropdown
     'chat.pipelineDone': 'Done · {ms}',
     'chat.pipelineIncomplete': 'Incomplete',
@@ -147,7 +148,8 @@ export const chatDict: DomainDict = {
     'chat.stageRerank': 'Reranken',
     'chat.stageSummarize': 'Zusammenfassen',
     'chat.stageCorpus': 'Bibliotheksabfrage',
-    'chat.stagePrefill': 'Vorbefüllung',
+    'chat.stageEvidence': 'Quellen vergleichen',
+    'chat.stagePrefill': 'Antwort vorbereiten',
     // Collapsible pipeline dropdown
     'chat.pipelineDone': 'Fertig · {ms}',
     'chat.pipelineIncomplete': 'Nicht abgeschlossen',

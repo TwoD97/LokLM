@@ -660,7 +660,15 @@ async function applySettings(s: UserSettings, assertCurrent = sessionGuard()): P
     )
   }
   getLlamaService().setSelectedProfile(effectiveProfile)
-  void getLlamaService().setLanguage(answerBaseline)
+  void getLlamaService()
+    .setLanguage(answerBaseline)
+    .catch(() => {
+      // A foreground answer retries and awaits synchronization. Do not publish
+      // model/source contents from a background settings failure into app logs.
+      console.warn(
+        '[settings] Could not synchronize the model response language; the next request will retry.',
+      )
+    })
   // (LLM context-size choice is a per-load setting — applied at next loadModel.)
   getLlamaService().setSelectedContext(s.advanced.llm.contextChoice)
   // LLM device placement (Auto/Dedicated/Integrated). Resolve it against the

@@ -2,3 +2,12 @@
 tests/evals/native-calibration/heldout.json text eol=lf
 tests/evals/native-calibration/fixtures/heldout/** text eol=lf
 tests/evals/native-calibration/fixtures/heldout/*.pdf -text
+
+# Native October 2 DEV inputs are retained verbatim for reproducible reports.
+tests/evals/native-calibration/authority-dev-20261002.json text eol=lf
+tests/evals/native-calibration/fixtures/authority-dev-20261002/** text eol=lf
+
+# Reserved October 2 corpus: preserve the original sealed bytes on checkout.
+tests/evals/native-calibration/authority-reserved-20261002.json text eol=lf
+tests/evals/native-calibration/authority-reserved-20261002.sha256.json text eol=lf
+tests/evals/native-calibration/fixtures/authority-reserved-20261002/** text eol=lf

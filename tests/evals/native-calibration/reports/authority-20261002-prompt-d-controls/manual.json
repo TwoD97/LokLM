@@ -1,0 +1,37 @@
+[
+  {
+    "caseId": "authority-dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current 21 days and prior 14 days with effective replacement on April1. The new rule and supersession cite4:4; the added historical14-day fact is jointly attributed to3:3/4:4 and supported by3:3. Wording is unnecessarily repetitive and one German heading is awkward, but material facts and citations are correct. Completed171121ms. Recorded before/after profile is FULL, unlike D guard LITE; both use the same4B and8K, but frozen D maps those profiles to thorough versus standard prompt depth. This is not a clean assessment-only A/B comparison."
+  },
+  {
+    "caseId": "authority-dev-07",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [
+      "The opening claims fee(5) yields7 in both branches, contrary to BranchB and the later correct B=3 explanation."
+    ],
+    "notes": "The opening explicitly claims both branches yield7. Later reasoning and final bullets correctly give A7/B3, but that does not erase the unsupported contradictory first answer. The requested deployment uncertainty is also omitted despite both supplied branches lacking production approval. Source references are correct for later code explanation; the opening false claim is not grounded. Completed130464ms, FULL profile before/after, q8_0 KV, clean terminal. This remains a failure, not a pass from correct final regex matches."
+  },
+  {
+    "caseId": "authority-dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct endpoint/v6/export and UTF-8 JSON, with exact source-language quotations attached to14:14 and15:15. Answer text is identical to supported D-guard08. Completed98167ms, FULL profile before/after and q4_0 KV. Profile differs from assessed run, so faster completion is descriptive, not isolated causal assessment effect."
+  }
+]

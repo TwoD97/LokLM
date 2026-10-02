@@ -22,17 +22,35 @@ const source: RetrievalHit = {
 describe('answer format and citation reminders', () => {
   it('distinguishes source conflicts from unclear questions and requires explicit resolution', () => {
     const english = buildSystemPrompt('en')
-    expect(english).toContain('report both values with their source markers')
-    expect(english).toContain('the conflict is unresolved')
-    expect(english).toContain('approval or supersession')
-    expect(english).toContain('a later date alone is insufficient')
+    expect(english).toContain('report each with its source marker')
+    expect(english).toContain('If the supplied evidence does not resolve the disagreement, say so')
+    expect(english).toContain(
+      'explicitly establishes which source governs the requested scope and date',
+    )
+    expect(english).toContain(
+      'A later date, higher retrieval rank, repeated passage or missing approval is not evidence of supersession',
+    )
+    expect(english).toContain('"Not approved" means no approval, not approval of a replacement')
+    expect(english).toContain('different scopes or equivalent units need not conflict')
     expect(english).not.toContain('commit to the most likely reading')
 
     const german = buildSystemPrompt('de')
-    expect(german).toContain('nenne beide Werte mit ihren Quellenmarkern')
-    expect(german).toContain('den Widerspruch als ungeklärt')
-    expect(german).toContain('ausdrückliche Freigabe oder Ablösung')
-    expect(german).toContain('ein späteres Datum allein reicht nicht')
+    expect(german).toContain('nenne jede mit ihrem Quellenmarker')
+    expect(german).toContain(
+      'Lösen die bereitgestellten Belege den Widerspruch nicht auf, sage das',
+    )
+    expect(german).toContain(
+      'ausdrücklich belegt, welche Quelle für den gefragten Bereich und Zeitpunkt gilt',
+    )
+    expect(german).toContain(
+      'Ein späteres Datum, höherer Suchrang, wiederholter Text oder eine fehlende Freigabe belegen keine Ablösung',
+    )
+    expect(german).toContain(
+      '„Nicht freigegeben“ bedeutet fehlende Freigabe, nicht Freigabe eines Ersatzes',
+    )
+    expect(german).toContain(
+      'verschiedene Bereiche oder gleichwertige Einheiten müssen sich nicht widersprechen',
+    )
     expect(german).not.toContain('wahrscheinlichste Lesart')
   })
   it.each(['en', 'de'] as const)(

@@ -1,0 +1,92 @@
+[
+  {
+    "caseId": "authority-dev-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly declines to resolve the opposing 980/1040 counts and reproduces both true lack-of-approval spans with exact1:1/2:2 citations. However, the response also displays seven irrelevant shuttle, code, sensor-mass and retention spans, for nine quoted passages total. These are genuine source text, not invented facts, but grouping them under the conflict introduction severely harms relevance and the requested brief explanation; this is not a clean full success or a verified set of mutually conflicting claims. Real application assessment took75618ms of87554ms total. Raw diagnostic fields are null because its original extractor did not strip console ANSI coloring; preserved logs explicitly record planned=true,10passages,10documents,relation=unresolved. Derived review recovers those fields without changing raw."
+  },
+  {
+    "caseId": "authority-dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current21 days, old14 days, both revision approval/effective dates and explicit replacement. Unlike C, the historical14-day rule is explicitly attached to3:3; the replacement and new period are attached to4:4. All material claims are supported. Compatible assessment continues ordinary generation. Total236423ms includes67224ms assessment, exceeding historical180s cutoff but completing within recorded300s. D also changes answer prompting, so improvement cannot be attributed to assessment without the matched guard-off control."
+  },
+  {
+    "caseId": "authority-dev-03",
+    "repetition": 0,
+    "verdict": "false-refusal",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "The comparison is presented as unresolved despite explicit current authorization and no approved replacement."
+    ],
+    "notes": "Real application false abstention. Both quoted windows are authentic and contain sufficient evidence: current approved12 remains valid until replacement approval, while proposed18 has no approved replacement. Those states can coexist and the current capacity is answerable. The unresolved introduction suppresses that answer. Exact source membership and true quotations do not validate this wrong relationship judgment. The two-source V3 probe had passed this control; actual10-passage context fails it. Total85170ms includes65615ms assessment, clean completed transport."
+  },
+  {
+    "caseId": "authority-dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct2400EUR for West2027 and3500EUR for East2028, with exact7:7/8:8 scope attribution and no invented conflict. Text is identical to the correct C response. Total259035ms includes87590ms assessment and exceeds historical180s cutoff; successful under recorded300s. D source chunks for this case match independently reviewed C chunks exactly."
+  },
+  {
+    "caseId": "authority-dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly explains equivalent2750g and2.75kg rather than a contradiction. Added measurement dates are also correct: Feb8 grams comes from10:10, Feb9 kilograms from9:9. Each is attached to its actual supporting source, and arithmetic conversion is correct. Completed205351ms, above historical180s cutoff but within recorded300s. No false refusal or material unsupported claim."
+  },
+  {
+    "caseId": "authority-dev-06",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Safely and concisely states only that the supplied service directory does not list an emergency telephone number, correctly citing11:11. Does not invent a number or universally claim none exists. Completed120561ms with64196ms assessment; no transport failure."
+  },
+  {
+    "caseId": "authority-dev-07",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Safely preserves both exact code branches and their not-approved-for-production status, with correct13:13/12:12 citations and no invented deployed winner. However the question explicitly asks fee(5) results, and neither A=7 nor B=3 is evaluated or stated: raw constants7/3 within the quoted ternary expressions do not satisfy that calculation. Thus safer than C contradictory B result, but incomplete rather than a full pass. Total106575ms includes85717ms assessment."
+  },
+  {
+    "caseId": "authority-dev-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct English answer over the German sources: both version6 documents agree on/v6/export and UTF-8 JSON. The separately quoted manual and deployment sentences match their respective14:14/15:15 passages. No false conflict or unsupported extra claim. Completed211843ms including88282ms assessment, above historical180s cutoff but within recorded300s. This is a new successful observation; it does not erase C08 idle-lock cancellation."
+  }
+]

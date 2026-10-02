@@ -1,11 +1,45 @@
 import { describe, expect, it } from 'vitest'
 import {
   describeTimings,
+  describeEvidenceAssessment,
   gradeNativeRun,
   type NativeCalibrationRun,
   type NativeQueryObservation,
 } from '../evals/native-calibration/report'
 import type { CalibrationManifest } from '../evals/native-calibration/schema'
+
+describe('native assessment log coverage', () => {
+  it('recovers colored multiline console fields without mutating original logs', () => {
+    const logs = [
+      '[qa] evidence coverage: {',
+      '  planned: \u001b[33mtrue\u001b[39m,',
+      '  passages: \u001b[33m10\u001b[39m, documents: \u001b[33m9\u001b[39m',
+      '}',
+      "[qa] evidence assessment: { relation: \u001b[32m'unresolved'\u001b[39m }",
+    ]
+    const original = [...logs]
+    expect(describeEvidenceAssessment(logs, [])).toMatchObject({
+      coverageLogged: true,
+      planned: true,
+      passages: 10,
+      documents: 9,
+      relation: 'unresolved',
+      stageStarted: false,
+      stageCompleted: false,
+      durationMs: null,
+    })
+    expect(logs).toEqual(original)
+    expect(
+      describeEvidenceAssessment(
+        [
+          '[qa] evidence coverage: { planned: \u001b[33mfalse\u001b[39m, passages: 1, documents: 1 }',
+        ],
+        [],
+      ),
+    ).toMatchObject({ planned: false, relation: null })
+    expect(describeEvidenceAssessment([], []).planned).toBeNull()
+  })
+})
 
 const manifest: CalibrationManifest = {
   schemaVersion: 1,
@@ -98,6 +132,51 @@ describe('native calibration grading safeguards', () => {
     expect(report.summary.manualVerdicts).toEqual({ unsupported: 1 })
   })
 
+  it('does not count citation-shaped code literals as claim citations', () => {
+    const report = gradeNativeRun(
+      observe({ answer: 'The fee is 72 euros. Example: `[doc:72, chunk:3]`.' }),
+      manifest,
+    )
+    expect(report.queries[0]?.inlineCitations).toEqual([])
+    expect(report.queries[0]?.reviewFlags).toContain('required-source-not-cited-inline')
+  })
+
+  it('requires both conflict sources to be cited even for a safe abstention', () => {
+    const conflict = structuredClone(manifest)
+    conflict.cases[0]!.expectedAbstention = true
+    conflict.cases[0]!.kind = 'conflicting-sources'
+    const report = gradeNativeRun(
+      observe({ answer: 'The conflicting fee records include 72 euros.' }),
+      conflict,
+    )
+    expect(report.queries[0]?.reviewFlags).toContain('required-source-not-cited-inline')
+    expect(report.queries[0]?.suppliedPassages).toEqual([
+      { sourceKey: 'fees', documentId: 72, chunkId: 3, text: 'The fee is 72 euros.' },
+    ])
+    expect(report.queries[0]?.manualReviewRequired).toBe(true)
+  })
+
+  it('cannot mechanically pass a cancelled answer or conflicting terminal channels', () => {
+    const report = gradeNativeRun(
+      observe({ terminalOutcome: 'cancelled', terminalMismatch: true }),
+      manifest,
+    )
+    expect(report.queries[0]?.reviewFlags).toEqual(
+      expect.arrayContaining(['cancelled-answer', 'terminal-channel-mismatch']),
+    )
+    expect(report.summary.mechanicalPasses).toBe(0)
+  })
+
+  it('keeps invocation rejection distinct from a pushed successful terminal', () => {
+    const report = gradeNativeRun(
+      observe({ invokeSettled: true, invokeError: 'Invocation failed' }),
+      manifest,
+    )
+    expect(report.queries[0]?.terminalOutcome).toBe('completed')
+    expect(report.queries[0]?.reviewFlags).toContain('invoke-error')
+    expect(report.summary.mechanicalPasses).toBe(0)
+  })
+
   it('does not certify abstention just because the model uses a refusal cue', () => {
     const missing = structuredClone(manifest)
     missing.cases[0]!.expectedAbstention = true
@@ -129,6 +208,32 @@ describe('native calibration grading safeguards', () => {
     expect(report.summary.ttft.p50Ms).toBeNull()
   })
 
+  it('keeps recorded profile and KV allocation differences visible without inferring answer depth', () => {
+    const report = gradeNativeRun(
+      observe({
+        beforeInfo: { llm: { profile: 'lite', lastLlmPlan: { kvCacheType: 'f16' } } },
+        afterInfo: {
+          llm: {
+            profile: 'full',
+            modelCapacity: { contextSize: 8192, gpuLayers: 14 },
+            lastLlmPlan: { kvCacheType: 'q8_0' },
+          },
+        },
+      }),
+      manifest,
+    )
+    expect(report.queries[0]?.allocationBefore).toMatchObject({
+      profile: 'lite',
+      kvCacheType: 'f16',
+    })
+    expect(report.queries[0]?.allocationAfter).toMatchObject({
+      profile: 'full',
+      kvCacheType: 'q8_0',
+      contextTokens: 8192,
+    })
+    expect(report.queries[0]?.allocationAfter).not.toHaveProperty('answerDepth')
+  })
+
   it('does not mix development and held-out manifests', () => {
     expect(() => gradeNativeRun({ ...observe(), split: 'heldout' }, manifest)).toThrow(
       'do not match',
@@ -140,6 +245,34 @@ describe('native calibration grading safeguards', () => {
     expect(report.summary.unobservedCaseIds).toEqual(['fee'])
     expect(describeTimings([null, 10, 100, 30])).toEqual({ n: 3, minMs: 10, p50Ms: 30, p95Ms: 100 })
     expect(describeTimings([10, 30])).toEqual({ n: 2, minMs: 10, p50Ms: 20, p95Ms: 30 })
+  })
+
+  it('distinguishes intentionally unrequested controls from requested but unobserved cases', () => {
+    const extended = structuredClone(manifest)
+    extended.cases.push({ ...extended.cases[0]!, id: 'other' })
+    const report = gradeNativeRun(
+      { ...observe(), configuration: { selectedCases: ['fee'] } },
+      extended,
+    )
+    expect(report.summary).toMatchObject({
+      manifestCases: 2,
+      expectedCases: 1,
+      requestedCaseIds: ['fee'],
+      unrequestedCaseIds: ['other'],
+      unobservedCaseIds: [],
+    })
+    expect(
+      gradeNativeRun(
+        { ...observe(), queries: [], configuration: { selectedCases: ['fee'] } },
+        extended,
+      ).summary.unobservedCaseIds,
+    ).toEqual(['fee'])
+    expect(() =>
+      gradeNativeRun({ ...observe(), configuration: { selectedCases: ['other'] } }, extended),
+    ).toThrow('not requested')
+    expect(() =>
+      gradeNativeRun({ ...observe(), configuration: { selectedCases: ['fee', 'fee'] } }, extended),
+    ).toThrow('Invalid requested')
   })
 
   it('flags an invoke that resolves before its terminal stream event is observed', () => {

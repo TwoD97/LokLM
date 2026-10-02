@@ -26,3 +26,11 @@ src/shared/passPhraseWords/
 tests/evals/native-calibration/heldout*.json
 tests/evals/native-calibration/fixtures/heldout/
 
+# Native DEV inputs have recorded byte hashes; do not reformat on commit.
+tests/evals/native-calibration/authority-dev-20261002.json
+tests/evals/native-calibration/fixtures/authority-dev-20261002/
+
+# Independently reserved October 2 inputs and their original SHA-256 seal.
+tests/evals/native-calibration/authority-reserved-20261002*.json
+tests/evals/native-calibration/fixtures/authority-reserved-20261002/
+

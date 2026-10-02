@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-02T07:50:40.878Z",
+  "purpose": "Reserved before candidate development; do not expose until frozen.",
+  "files": {
+    "authority-reserved-20261002.json": "94f2959293d2909916c40e83463199b68952a378bcbc93ed1e976bdb18049097",
+    "fixtures/authority-reserved-20261002/ares-01.md": "068ae46c124cb7a77db6048c2c5d1b59555815e17d11bcc07c5d5f45d4703118",
+    "fixtures/authority-reserved-20261002/ares-02.md": "a052e55f3ba8c2827808801b25816b75a2142f3aad3c3c4c308ce16c961e7567",
+    "fixtures/authority-reserved-20261002/ares-03.md": "7ca4412ba4a6bcd2de27e27140a19c12e3c77b60238573f32d012c5c573e301e",
+    "fixtures/authority-reserved-20261002/ares-04.md": "d8812b3da60f924088ff0f822c94c94a3fec31349bb72c468e8020ea2d0bc926",
+    "fixtures/authority-reserved-20261002/ares-05.md": "765ab2c23953255cb228622c4266a1000e331efb2b947a51c044d9ade8e8bc92",
+    "fixtures/authority-reserved-20261002/ares-06.md": "85530ab2afb96c17206d1ee51e1b0f462b8b2db0219d76b8eee078fe4ab4b16c",
+    "fixtures/authority-reserved-20261002/ares-07.md": "95935fb69cf4416d29cfab0027282deb95572a971dfed928db0088f27817e136",
+    "fixtures/authority-reserved-20261002/ares-08.md": "097b9994c5113e4f3e1025750ad341d00da3a12c5ee27d08dae5792b02261bf3",
+    "fixtures/authority-reserved-20261002/ares-09.md": "a7d7bea81328aa9fe0b02e695ee643499f9a361a60826dccaf12a245a1aba759",
+    "fixtures/authority-reserved-20261002/ares-10.md": "c03b642fa82b1f604a69a0d812a6e9ab192c0b745cee739d0cea62903319b116",
+    "fixtures/authority-reserved-20261002/ares-11.txt": "9e55c508c003b7d3cece457a624dcf78ce3644dd0f3ef27772b19ae0b5cbc9bc",
+    "fixtures/authority-reserved-20261002/ares-12.md": "151ee4dd68f653f3df4a1d7a1423c3ff57c8f29c91cfb2619e7cfdf1a8418eb9",
+    "fixtures/authority-reserved-20261002/ares-13.md": "cc57c053b16603c5a6e88c0e7295eb8479892f6f307082f5f88cd04d661bac34",
+    "fixtures/authority-reserved-20261002/ares-14.md": "6abde9eae2ec97f4f05c30ca231d31e37c120981089e154676ebc9380ebf8146",
+    "fixtures/authority-reserved-20261002/ares-15.md": "073b89c9071696ca68a7c2aac1d0d0d72abdc220a97b50a21b2f93dbf2b71433"
+  }
+}

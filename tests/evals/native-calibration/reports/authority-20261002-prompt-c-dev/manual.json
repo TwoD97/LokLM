@@ -1,0 +1,92 @@
+[
+  {
+    "caseId": "authority-dev-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly refuses to establish a final count, preserves 980 in A and 1040 in B, their source dates, preliminary status and lack of final reconciliation approval. Exact attached pairs 1:1 and 2:2 match the respective original chunks. No date-based winner or unsupported supersession is introduced. Completed in 154378 ms with no timeout or terminal mismatch. The response is longer than necessary for the requested brief explanation, but all material statements are supported."
+  },
+  {
+    "caseId": "authority-dev-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Current 21 days, approval date March18, effective April1, and explicit supersession are factually correct and supported by4:4. However the added old14-day value is attached only to4:4, which never states14; that value appears in supplied3:3 and is never cited. This is a claim-level citation failure despite correct requested policy and no fabricated facts. Completed126534ms, no timeout or terminal mismatch."
+  },
+  {
+    "caseId": "authority-dev-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states the current authorized 12 passengers excluding driver with approval date, cited to 5:5. Separately identifies proposed18 and later memo date as unapproved, cites6:6, and does not give that proposal governing authority. Each material claim is supported by its attached source. Completed128613ms with no timeout or terminal mismatch."
+  },
+  {
+    "caseId": "authority-dev-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct West2027=2400EUR and East2028=3500EUR, with separate exact7:7/8:8 attribution. Correctly explains that the different neighborhood/year scopes can coexist and both accounts explicitly exclude the other scope. No false conflict or invented authority. Completed133128ms, clean terminal."
+  },
+  {
+    "caseId": "authority-dev-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that2.75kg and2750g are equal and not contradictory, with exact respective9:9/10:10 citations. Preserves the question scope of a complete BatchAX sensor; adds no swapped dates or unsupported packaging claim. All requested values and units are present. Completed103681ms, clean terminal."
+  },
+  {
+    "caseId": "authority-dev-06",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states that the supplied directory does not list an emergency telephone number, without inventing one or claiming none exists universally. Optional email and postal address are exact facts in11:11 and correctly cited. Completed71594ms, clean terminal."
+  },
+  {
+    "caseId": "authority-dev-07",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [
+      "Branch B fee(5) result7 contradicts its source and the answer own return3 explanation."
+    ],
+    "notes": "The BranchB paragraph prominently states result7, then correctly says5>5 is false and return3. This internal contradiction is a factual computation failure; it is not cured by the later correct explanatory clause or numeric regex matches. BranchA7 is correct and correctly cited. Both original chunks are supplied and cited but B=7 is not entailed by13:13. The answer also omits both branches lack production approval and does not explicitly resolve the requested deployment-status question as unknowable. Completed174079ms with no timeout or terminal mismatch."
+  },
+  {
+    "caseId": "authority-dev-08",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational failure, not a model-quality refusal. Both required14:14 and15:15 were supplied, but response remained empty and terminal outcome was cancelled at31020ms. Invoke settled with LockedError:locked. The trace stopped in prefill about15min after isolated session activity, consistent with default idle auto-lock in this API-only run; query timedOut=false. Preserve this failed observation even if a later isolated follow-up succeeds. No answer exists to grade factually."
+  }
+]

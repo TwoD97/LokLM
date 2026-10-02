@@ -1,0 +1,24 @@
+# Assessed D: full authority DEV application review
+
+Keep the optional assessment **off by default**. All eight requests completed without a transport error, but independent assistant-agent review finds four supported answerable responses, one complete safe abstention, two partial responses and one false refusal. These are judgments against the actual supplied and cited passages, not human-expert review or self-grading by the local Qwen model.
+
+| Case                           | Independent result | Finding                                                                                                   |     Total | Assessment |
+| ------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------- | --------: | ---------: |
+| 01 competing counts            | Partial            | Correct 980/1040 and missing approval, but nine quoted passages include seven irrelevant excerpts         |  87.554 s |   75.618 s |
+| 02 approved retention revision | Supported          | Correct 21 days, old 14 days, approval/effective dates and source attribution                             | 236.423 s |   67.224 s |
+| 03 newer unapproved proposal   | False refusal      | Labels current approved 12 versus unapproved proposed 18 unresolved despite sufficient authority evidence |  85.170 s |   65.615 s |
+| 04 different scope and time    | Supported          | Correct answer, identical to C's response, with no invented contradiction                                 | 259.035 s |   87.590 s |
+| 05 equivalent units            | Supported          | Correct 2.75 kg = 2750 g and correct dates/citations                                                      | 205.351 s |   72.070 s |
+| 06 missing phone               | Safe abstention    | Concise supported statement that the directory does not list an emergency number                          | 120.561 s |   64.196 s |
+| 07 competing code              | Partial            | Both exact unapproved branches quoted, but `fee(5)` outputs are never evaluated                           | 106.575 s |   85.717 s |
+| 08 agreement                   | Supported          | Correct English endpoint/UTF-8 JSON answer over both German sources                                       | 211.843 s |   88.282 s |
+
+Among the five answerable cases, four pass and one falsely abstains. Among the three required-abstention cases, one is complete and two are partial. Authentic quotes and valid citation IDs do not make the wrong relationship judgment in case03 correct. Nor do literal constants inside code demonstrate that case07 answered the calculation. Case01 also demonstrates a relevance failure that the two-source utility probe could not expose.
+
+Actual assessment coverage was 8/8 planned, started and completed, with ten supplied passages from ten documents for every query. The preserved console logs report three `unresolved`, four `compatible` and one `insufficient` result. The original raw diagnostic extractor missed ANSI-colored values and stored null fields; corrected derived `review.json` recovers them from the unchanged logs. No raw observation was rewritten.
+
+Median total latency is **162.956 seconds**; median first visible token is **112.1975 seconds**. Median assessment duration alone is **73.844 seconds**, with a 64.196–88.282-second range. Four completed cases exceed the historical 180-second cutoff; all finish within this run's recorded 300-second limit. Cold startup (49.371 seconds) and fixture indexing (12.208 seconds) are recorded separately. Intercepted answers arrive together after the assessment; later answers incur normal generation too. Small-sample timings are descriptive and do not isolate causal speed effects across different runs or cache states.
+
+This run uses compiled D with assessment explicitly enabled, 8192 context, default resource settings, no reranker and isolated auto-lock disabled. Before/after provenance matches D. D also changes final-answer instructions, so its improved case02 attribution cannot be assigned to assessment without the same-build guard-off control. Original C's cancellation and incorrect code response remain in their own report. Raw, derived and per-case review artifacts are retained together.
+
+The subsequent D guard-off control exposed another comparison confound: it records a FULL profile before and after case02, while this entire run records LITE. Frozen D maps those profiles to different answer-depth instructions despite the same 4B model and actual 8K window; the mapping is inferred from the implementation, not a captured final system-prompt string. KV precision also varies between queries. Same compiled code therefore does not by itself establish a clean assessment-only timing or quality A/B.

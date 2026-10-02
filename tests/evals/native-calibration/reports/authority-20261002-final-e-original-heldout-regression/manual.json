@@ -1,0 +1,137 @@
+[
+  {
+    "caseId": "heldout-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 2024 recorded service-credit revenue73,410 GBP and exact supporting ledger table1:2. One short German sentence, no unsupported extra claim. Completed52626ms."
+  },
+  {
+    "caseId": "heldout-02",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The inspection count156 is correct, but the only citation2:4 contains plan approval and no inspection count. The actual count is in2:5, supplied at rank4; this is an exact-passage attribution failure despite a valid document ID and correct fact. One short English sentence. Completed47717ms."
+  },
+  {
+    "caseId": "heldout-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct requested ISO date2025-02-06 and exact approval passage2:4. No shipping-date or review-date substitution. One short English sentence. Completed52360ms."
+  },
+  {
+    "caseId": "heldout-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct Teral sample mass31.6kg, requested survey date2027-02-23 and exact supplied PDF table6:9. No confusion with Luvon26.9kg. One short English sentence. Completed61569ms."
+  },
+  {
+    "caseId": "heldout-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct individual counts18 and29, combined47, and survey date2027-02-23, all supported by exact supplied PDF table6:9. Unlike heldout-8k-final's older awkward response, the grammar now clearly distinguishes each individual count from the combined total. One German sentence. Completed72288ms."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct comparison78165-73410=4755GBP. Both exact input passages2:5 and1:2 are cited, unlike heldout-8k-final which cited the ledger introduction; optimization-20261001-heldout-regression had already corrected this citation. The two amounts and distinction between planned2025 and recorded2024 values are supported. One German sentence. Completed77408ms."
+  },
+  {
+    "caseId": "heldout-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct batch identifierORV-862, exact supplied draftA passage3:6, and no unsupported definitive shipment date. One short English sentence. Completed46017ms."
+  },
+  {
+    "caseId": "heldout-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct min(3*20,90)=60 seconds with exact supplied complete function5:8; no confusion with the90-second cap. One short German sentence. Independent second-agent review agrees. Completed55127ms."
+  },
+  {
+    "caseId": "heldout-09",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly says the supplied context does not identify the chief executive. No fabricated person or misleading replacement fact; no citation needed to justify the stated absence. All supplied sources checked. One short English sentence. Completed43219ms."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "2027-05-15 is the definitive dispatch deadline.",
+      "Documentation rules establish that draftB replaced draftA."
+    ],
+    "notes": "Critical authority failure persists. The answer definitively selects B May15 and invents documentation rules under which B replaced A May8. Actual4:7 explicitly contains neither approval nor replacement;3:6 likewise lacks approval/supersession. Both conflicting source passages were supplied. The sole citation4:7 supports only its proposed date, not finality or an authority rule. Mentioning both dates does not make this safe abstention. One German sentence, completed90929ms. Frozen candidate is not changed in response."
+  },
+  {
+    "caseId": "heldout-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct early return0 seconds for attempt-1 with exact supplied complete function5:8. Explanation correctly uses attempt<=0 rather than multiplication/cap. One English sentence. Completed55766ms."
+  },
+  {
+    "caseId": "heldout-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct lack of outdoor-temperature measurements, exact survey6:9 and verbatim source quote. No substitution of the11-degree cabinet setting. Factual safe abstention, but poor mixed-language German outside the quotation (da die Report explicitly states) is a visible language/clarity defect and not full language compliance. One sentence, completed63496ms."
+  }
+]

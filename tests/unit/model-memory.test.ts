@@ -26,10 +26,25 @@ const plan: LlmPlan = {
 
 describe('packed answer context guard', () => {
   it('rejects smaller native capacity before generation can shift away selected sources', () => {
-    expect(() => assertPlannedContextFits(8192, 4096)).toThrow(/smaller.*sources/)
+    expect(() =>
+      assertPlannedContextFits(8192, 4096, { promptTokens: 2663, maxTokens: 1024 }),
+    ).toThrow(/smaller.*sources/)
   })
   it.each([4096, 8192])('accepts the packed window when actual capacity is %s', (actual) => {
-    expect(() => assertPlannedContextFits(4096, actual)).not.toThrow()
+    expect(() =>
+      assertPlannedContextFits(4096, actual, { promptTokens: 500, maxTokens: 1024 }),
+    ).not.toThrow()
+  })
+  it.each([4096, 8192])('requires a measured prompt even when actual capacity is %s', (actual) => {
+    expect(() => assertPlannedContextFits(4096, actual)).toThrow(/prompt size.*verified/)
+  })
+  it.each([
+    { promptTokens: -1, maxTokens: 1024 },
+    { promptTokens: Number.NaN, maxTokens: 1024 },
+    { promptTokens: 100, maxTokens: 0 },
+    { promptTokens: 100, maxTokens: Number.POSITIVE_INFINITY },
+  ])('rejects invalid native measurements $promptTokens/$maxTokens', (budget) => {
+    expect(() => assertPlannedContextFits(4096, 4096, budget)).toThrow(/prompt size.*verified/)
   })
   it.each([0, Number.NaN, Number.POSITIVE_INFINITY])(
     'rejects unverifiable actual capacity %s',

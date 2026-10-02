@@ -38,7 +38,11 @@ import {
   type ChatModelOptions,
   type ChatModel,
 } from './modelMemory'
-import { assertPreparedPromptFits, prepareChatPromptBudget } from './contextBudget'
+import {
+  assertPreparedPromptFits,
+  fitsFreshPromptContext,
+  prepareChatPromptBudget,
+} from './contextBudget'
 import type {
   WorkerRequest,
   WorkerResponse,
@@ -52,12 +56,9 @@ import type {
   EmbedderLoadResult,
   RerankerLoadResult,
 } from './protocol'
-import {
-  fitsUtilityContext,
-  UTILITY_CONTEXT_MAX_TOKENS,
-  UTILITY_GEN_DEFAULT_RESERVE,
-} from './llmRouting'
+import { UTILITY_CONTEXT_MAX_TOKENS, UTILITY_GEN_DEFAULT_RESERVE } from './llmRouting'
 import { createBackendSerializer } from './backendSerializer'
+import { nonThinkingChatWrapper } from './chatWrapper'
 import { ModelResidency } from './ModelResidency'
 import { assessRerankerPolicy, describeRerankerDecision } from '../../../shared/modelCapabilities'
 import {
@@ -194,6 +195,7 @@ let rerankerContext: unknown = null
 // in via llm.load / llm.setLanguage. Stash the latest one so we can re-seed
 // the chat session on language changes without going back to main.
 let llmSystemPrompt = ''
+let llmInitialSystemPrompt = ''
 
 // Active AbortControllers keyed by streamId so an `llm.abort` request can cancel
 // the right in-flight `session.prompt`.
@@ -456,6 +458,7 @@ async function llmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
 async function performLlmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   await llmUnloadInternal()
   llmSystemPrompt = payload.systemPrompt
+  llmInitialSystemPrompt = payload.systemPrompt
   pushStatus('llm', {
     state: 'loading',
     modelPath: payload.modelPath,
@@ -553,12 +556,17 @@ async function performLlmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
   llmContext = context
   const modelOnGpu = model.gpuLayers > 0 && !latchedCpu
   const modelGpuLabel = modelOnGpu ? primaryGpuLabel : 'cpu'
+  const chatWrapper = nonThinkingChatWrapper(
+    lib.resolveChatWrapper(model as unknown as import('node-llama-cpp').LlamaModel),
+    lib.QwenChatWrapper,
+  )
 
   const session = new (lib as { LlamaChatSession: new (o: unknown) => unknown }).LlamaChatSession({
     contextSequence: context.getSequence(),
     // Release sequence checkpoints before their native context is destroyed.
     autoDisposeSequence: true,
     systemPrompt: llmSystemPrompt,
+    chatWrapper,
   })
 
   llmSession = session
@@ -597,6 +605,7 @@ async function performLlmLoad(payload: LlmLoadPayload): Promise<LlmLoadResult> {
         contextSequence: utilityContext.getSequence(),
         autoDisposeSequence: true,
         systemPrompt: llmSystemPrompt,
+        chatWrapper,
       })
     } catch (err) {
       log(
@@ -740,9 +749,12 @@ const REPEAT_PENALTY = {
   frequencyPenalty: 0.15,
 }
 
-// Grammar objects are expensive to build (GBNF compile) , the quiz pipeline
-// reuses the same two schemas across hundreds of calls. Cache by the schema's
-// JSON string so we compile each distinct schema once per worker lifetime.
+// Quiz schemas are reused, but evidence schemas vary with the supplied source
+// IDs. Bound retained JS/native grammar handles while keeping recent schemas.
+// Native operations share the FIFO, so compilation cannot race another lookup.
+// LlamaGrammar has no public dispose API: removing the last strong reference
+// lets its native ObjectWrap be collected; never dispose an in-use private handle.
+const GRAMMAR_CACHE_MAX_ENTRIES = 16
 const grammarCache = new Map<string, unknown>()
 
 /** Build (and cache) a node-llama-cpp grammar for a JSON schema. Returns null
@@ -756,10 +768,18 @@ async function grammarForSchema(schema: object): Promise<unknown> {
   if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
   const key = `${llmBackendKey}:${JSON.stringify(schema)}`
   const cached = grammarCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    grammarCache.delete(key)
+    grammarCache.set(key, cached)
+    return cached
+  }
   try {
     const grammar = await backend.createGrammarForJsonSchema(schema)
     grammarCache.set(key, grammar)
+    if (grammarCache.size > GRAMMAR_CACHE_MAX_ENTRIES) {
+      const oldest = grammarCache.keys().next().value
+      if (oldest !== undefined) grammarCache.delete(oldest)
+    }
     return grammar
   } catch (err) {
     log(
@@ -876,16 +896,14 @@ function routeToUtility(payload: LlmGenerateRawPayload): boolean {
   if (!llmUtilitySession || !llmUtilityContext) return false
   const ctxSize = llmUtilityContext.contextSize
   if (typeof ctxSize !== 'number' || ctxSize <= 0) return false
-  let promptTokens: number
-  try {
-    const model = llmModel as { tokenize?: (t: string) => unknown[] } | null
-    promptTokens = model?.tokenize
-      ? model.tokenize(payload.prompt).length
-      : Math.ceil(payload.prompt.length / 3.5)
-  } catch {
-    promptTokens = Math.ceil(payload.prompt.length / 3.5)
-  }
-  return fitsUtilityContext(promptTokens, payload.maxTokens, ctxSize)
+  return fitsFreshPromptContext({
+    session: llmUtilitySession as Parameters<typeof fitsFreshPromptContext>[0]['session'],
+    initialSystemPrompt: llmInitialSystemPrompt,
+    systemPrompt: payload.systemPrompt ?? llmSystemPrompt,
+    prompt: payload.prompt,
+    maxTokens: payload.maxTokens ?? UTILITY_GEN_DEFAULT_RESERVE,
+    actualContextTokens: ctxSize,
+  })
 }
 
 async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: string }> {
@@ -971,7 +989,7 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
     )
     const result = await session.promptWithMeta(payload.prompt, promptOpts)
     if (payload.requireComplete && result.stopReason === 'maxTokens') {
-      throw new Error('Translation reached the model output limit. Please retry with shorter text.')
+      throw new Error('Generation reached the model output limit. Please retry with shorter input.')
     }
     return { raw: result.responseText }
   } finally {

@@ -1,0 +1,97 @@
+[
+  {
+    "caseId": "authority-reserved-01",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "111 pumps definitively passed.",
+      "The two counts can be added into a complete combined count despite describing the identical serial-number cohort."
+    ],
+    "notes": "Critical unsupported aggregation. The two supplied reports concern exactly the same lotK9, serials4100-4159, same test date, and counts54 versus57; each explicitly lacks documented reconciliation. The model adds54+57=111 and calls this definitive, even using the identical cohort as its reason. The raw arithmetic is right but the operation is invalid:111 exceeds the60 unique serial numbers and neither source establishes disjoint groups. Exact1:1 and2:2 support their individual counts, not the invented total. This is not a near-pass merely because both inputs and markers appear. Completed134980ms, first visible45600ms."
+  },
+  {
+    "caseId": "authority-reserved-02",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current limit6, former4, adoptedApril7/effectiveApril15 replacement and scope. However the sentence asserting the amendment became effectiveApril15 and supersedes the old rule cites3:3, which only contains Edition3 effectiveFebruary1 and the4-tool limit. The actual amendment authority/date belongs to4:4. The following sentence correctly cites4:4 for binding status and unchanged power-tool booking, but does not retarget the preceding wrong citation. This is correct factual content/authority with a material exact-passage attribution defect, not false refusal or invented authority. Completed118116ms, first visible41193ms."
+  },
+  {
+    "caseId": "authority-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current84EUR and adoptionJanuary22/effectiveFebruary1, with exact5:5. Correct laterJune9 draft96EUR has not been voted on and is not binding, with exact6:6. English answer preserves the German source authority distinction rather than preferring a newer draft. Added dates are all supported. Independent second-agent review agrees. Completed118059ms, first visible46515ms."
+  },
+  {
+    "caseId": "authority-reserved-04",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "The winter and summer times are contradictory despite their nonoverlapping seasonal scope."
+    ],
+    "notes": "Correct January06:30 and July08:15 local times, correctly quoted November-March versus April-October scope and valid7:7/8:8 markers. However it explicitly says the schedules contradict because they describe the same plant and operation at different times, ignoring the very seasonal distinction it gives. Both sources explicitly exclude the other season. This is a false-conflict relationship decision and fails the requested consistency question; it is not a missing-source or malformed-ID problem. Completed116310ms, first visible45272ms."
+  },
+  {
+    "caseId": "authority-reserved-05",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "The two closing durations disagree even though90 seconds equals1.5 minutes for the identical interval and conditions."
+    ],
+    "notes": "Correctly copies1.5minutes from10:10 and90seconds from9:9, using their exact markers, but explicitly answers yes they disagree. These are equivalent units for the same valve, temperature, pressure and measured interval. The requested relationship judgment is false despite perfect value/source presence. No missing passage or malformed-ID issue. Completed76984ms, first visible40021ms."
+  },
+  {
+    "caseId": "authority-reserved-06",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly states the requested degree is unavailable. The added coordinator/email details and the quoted explicit absence of professional qualification/university degree are present in11:11 and cited correctly. No invented credential or conflation with reservation-desk role. Verbose and awkward German (including a coordinator typo) reduces clarity but the factual abstention is supported. Completed112826ms, first visible41851ms."
+  },
+  {
+    "caseId": "authority-reserved-07",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": ["CopyB clampSlots(9) returns10."],
+    "notes": "Correctly refuses to pick a deployed package because neither archive records deployment, and correctly computes CopyA=8. But it explicitly claims CopyB=10 despite quoting the real min(10,max(0,requested)) function and explaining the full requested value is allowed. For input9 the result is9, not the maximum10. Source12:12/13:13 and code text are authentic; the reported B result is not supported. The correct authority decision does not satisfy the explicitly requested per-copy calculations. Independent second-agent review agrees. Completed162607ms, first visible39907ms."
+  },
+  {
+    "caseId": "authority-reserved-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct daily02:10UTC and45-day retention agreement, exact14:14/15:15 attached to the relevant policy/audit descriptions. The extra statement that no deviations were found is explicitly supported by15:15. No local-time substitution or invented conflict. Verbose relative to the simple question but materially supported. Completed122310ms, first visible43324ms."
+  }
+]

@@ -19,6 +19,48 @@ export function countPreparedPromptTokens(session: PreparedSession, prompt: stri
     .contextText.tokenize(session.model.tokenizer).length
 }
 
+/** Check utility routing against its next reset history without touching either
+ * live session. The final prepared-session guard still verifies the selection. */
+export function fitsFreshPromptContext(options: {
+  session: PreparedSession
+  initialSystemPrompt: string
+  systemPrompt: string
+  prompt: string
+  maxTokens: number
+  actualContextTokens: number
+}): boolean {
+  try {
+    const wrapper = options.session.chatWrapper
+    const initial =
+      wrapper.settings.supportsSystemMessages === false
+        ? []
+        : wrapper.generateInitialChatHistory({ systemPrompt: options.initialSystemPrompt })
+    const history = options.systemPrompt
+      ? initial.map((entry, index) =>
+          index === 0 || entry.type === 'system'
+            ? { ...entry, type: 'system' as const, text: options.systemPrompt }
+            : entry,
+        )
+      : initial
+    const promptTokens = countPreparedPromptTokens(
+      {
+        getChatHistory: () => history,
+        chatWrapper: wrapper,
+        model: options.session.model,
+      },
+      options.prompt,
+    )
+    assertPlannedContextFits(options.actualContextTokens, options.actualContextTokens, {
+      promptTokens,
+      maxTokens: options.maxTokens,
+    })
+    return true
+  } catch {
+    // Never gamble on the smaller utility context when its wrapper is unknown.
+    return false
+  }
+}
+
 type PreparedPromptOptions = {
   session: PreparedSession
   plannedContextTokens?: number | undefined
@@ -48,17 +90,15 @@ export function prepareChatPromptBudget(options: PreparedPromptOptions): number 
 export function assertPreparedPromptFits(options: PreparedPromptOptions): void {
   options.signal?.throwIfAborted()
   let exactBudget: { promptTokens: number; maxTokens: number } | undefined
-  if (
-    options.plannedContextTokens != null &&
-    options.actualContextTokens < options.plannedContextTokens
-  ) {
+  if (options.plannedContextTokens != null) {
     try {
       exactBudget = {
         promptTokens: countPreparedPromptTokens(options.session, options.prompt),
         maxTokens: options.maxTokens,
       }
     } catch {
-      // If a wrapper cannot be measured, retain the safe changed-capacity error.
+      // A bounded request must fail closed if the actual prepared wrapper cannot
+      // be measured, including when the context size itself has not changed.
     }
   }
   options.signal?.throwIfAborted()

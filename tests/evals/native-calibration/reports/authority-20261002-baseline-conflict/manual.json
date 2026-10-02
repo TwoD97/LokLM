@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "conflict-regression-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Both unapproved deadlines are quoted accurately with their own source IDs. Correctly declines to establish a definitive deadline."
+  },
+  {
+    "caseId": "conflict-regression-02",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": ["Draft B replaces Draft A."],
+    "notes": "Both dates and IDs are present, but the final clause invents replacement authority. Draft B explicitly has no approval and does not replace A."
+  },
+  {
+    "caseId": "conflict-regression-03",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The central April 27 date is correct, but the answer says it was established by Revision 1 [3:3], which instead states April 20. The following supersession phrasing reverses/muddles the provenance. A correct chosen date does not establish correct attribution."
+  },
+  {
+    "caseId": "conflict-regression-04",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct April 27 final deadline and explicit replacement by Revision 2. The sole citation [4:4] supports that decision but does not contain the added old April 20 value; [3:3] is missing. Also fails requested ISO date format."
+  }
+]

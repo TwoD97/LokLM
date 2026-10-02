@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import type { Document } from '@shared/documents'
 import { MessageList } from './MessageList'
 
 const locale = vi.hoisted(() => ({ language: 'en' }))
@@ -34,6 +35,139 @@ describe('source navigation labels', () => {
       />,
     )
     expect(screen.getByRole('button', { name: label })).toBeVisible()
+  })
+})
+
+describe('source menu keyboard navigation', () => {
+  const content = 'Compare [doc:2, chunk:21] with [doc:1, chunk:11] and [doc:2, chunk:22].'
+  const documents: Document[] = [
+    {
+      id: 1,
+      workspaceId: 1,
+      title: 'Approval memo',
+      sourcePath: '/approval.md',
+      mimeType: 'text/markdown',
+      byteSize: 100,
+      status: 'ready',
+      chunkCount: 1,
+      tokenCount: 20,
+      addedAt: 1,
+      pinned: false,
+    },
+    {
+      id: 2,
+      workspaceId: 1,
+      title: 'Revised memo',
+      sourcePath: '/revised.md',
+      mimeType: 'text/markdown',
+      byteSize: 120,
+      status: 'ready',
+      chunkCount: 2,
+      tokenCount: 25,
+      addedAt: 1,
+      pinned: false,
+    },
+  ]
+
+  function setup(onCitationClick = vi.fn()) {
+    locale.language = 'en'
+    render(
+      <>
+        <button type="button">Before answer</button>
+        <MessageList
+          messages={[
+            {
+              id: 'answer',
+              role: 'assistant',
+              content,
+              streaming: false,
+              citations: [
+                { documentId: 2, chunkId: 21 },
+                { documentId: 1, chunkId: 11 },
+                { documentId: 2, chunkId: 22 },
+              ],
+            },
+          ]}
+          documents={documents}
+          keepPipelineVisible={false}
+          onCopy={vi.fn()}
+          onCitationClick={onCitationClick}
+        />
+        <button type="button">After answer</button>
+      </>,
+    )
+    return { trigger: screen.getByRole('button', { name: '2 cited sources' }), onCitationClick }
+  }
+
+  it('names the menu and supports arrow wrapping, Home/End, and Escape focus restoration', () => {
+    const { trigger } = setup()
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const menu = screen.getByRole('menu', { name: '2 cited sources' })
+    const items = within(menu).getAllByRole('menuitem')
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-controls', menu.id)
+    expect(items).toHaveLength(2)
+    expect(items[0]).toHaveTextContent('Revised memo')
+    expect(items[0]).toHaveFocus()
+    expect(items.every((item) => item.tabIndex === -1)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
+    expect(items[1]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(items[1]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' })
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('opens the last source with ArrowUp and gives the source viewer focus ownership on selection', () => {
+    const onCitationClick = vi.fn(() =>
+      screen.getByRole('button', { name: 'After answer' }).focus(),
+    )
+    const { trigger } = setup(onCitationClick)
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' })
+    const last = screen.getByRole('menuitem', { name: '2 Approval memo' })
+    expect(last).toHaveFocus()
+    fireEvent.click(last)
+    expect(onCitationClick).toHaveBeenCalledExactlyOnceWith({
+      documentId: 1,
+      chunkId: 11,
+      messageText: content,
+    })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'After answer' })).toHaveFocus()
+  })
+
+  it.each([false, true])(
+    'lets Tab leave the menu without trapping focus (shift=%s)',
+    (shiftKey) => {
+      const { trigger } = setup()
+      fireEvent.click(trigger)
+      const accepted = fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey })
+      expect(accepted).toBe(true) // Native Tab navigation must not be prevented.
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(trigger).toHaveFocus() // Browser navigation continues from this anchor.
+    },
+  )
+
+  it('dismisses on outside pointer or focus without returning focus to the source button', () => {
+    const { trigger } = setup()
+    const outside = screen.getByRole('button', { name: 'After answer' })
+    fireEvent.click(trigger)
+    act(() => outside.focus())
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(outside).toHaveFocus()
+    fireEvent.click(trigger)
+    fireEvent.mouseDown(outside)
+    act(() => outside.focus())
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(outside).toHaveFocus()
   })
 })
 

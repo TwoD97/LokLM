@@ -6,10 +6,20 @@ import type { CalibrationManifest, CalibrationSplit, LoadedCalibrationManifest }
 
 export const CALIBRATION_ROOT = dirname(fileURLToPath(import.meta.url))
 
+export function isCalibrationSplit(value: string): value is CalibrationSplit {
+  return [
+    'dev',
+    'heldout',
+    'conflict-regression',
+    'authority-dev-20261002',
+    'authority-reserved-20261002',
+  ].includes(value)
+}
+
 export async function loadCalibrationSplit(
   split: CalibrationSplit,
 ): Promise<LoadedCalibrationManifest> {
-  if (split !== 'dev' && split !== 'heldout' && split !== 'conflict-regression') {
+  if (!isCalibrationSplit(split)) {
     throw new Error('Invalid calibration split')
   }
   const raw = await readFile(resolve(CALIBRATION_ROOT, `${split}.json`), 'utf8')
@@ -25,11 +35,11 @@ export async function loadCalibrationSplit(
     }
     return { ...source, absolutePath }
   })
-  if (split === 'heldout') {
+  if (split === 'heldout' || split === 'authority-reserved-20261002') {
     const lock = JSON.parse(
-      await readFile(resolve(CALIBRATION_ROOT, 'heldout.sha256.json'), 'utf8'),
+      await readFile(resolve(CALIBRATION_ROOT, `${split}.sha256.json`), 'utf8'),
     ) as { schemaVersion: number; files: Record<string, string> }
-    const expected = ['heldout.json', ...manifest.sources.map((source) => source.file)]
+    const expected = [`${split}.json`, ...manifest.sources.map((source) => source.file)]
     if (
       lock.schemaVersion !== 1 ||
       Object.keys(lock.files).length !== expected.length ||

@@ -120,6 +120,12 @@ function isResponseDirective(text: string): boolean {
         ) ||
         /^(?:bitte\s+)?(?:verwende|nutze)\s+(?:ISO(?:[- ]8601)?[- ]?(?:Daten|Datumsangaben)|Stichpunkte|Klartext)$/iu.test(
           clause,
+        ) ||
+        /^(?:please\s+)?(?:(?:briefly|concisely)\s+)?(?:explain|summarize|summarise)\s+(?:the|your)\s+(?:evidence|reasoning|rationale)(?:\s+and\s+(?:(?:the|your)\s+)?(?:evidence|reasoning|rationale))?(?:\s+(?:briefly|concisely))?$/i.test(
+          clause,
+        ) ||
+        /^(?:bitte\s+)?(?:(?:kurz|knapp)\s+)?(?:erkläre|erläutere|erklären Sie|erläutern Sie)\s+(?:(?:kurz|knapp)\s+)?(?:die\s+(?:Belege|Begründung|Evidenz)|(?:deine|Ihre)\s+Begründung|den\s+Gedankengang)(?:\s+(?:kurz|knapp))?$/iu.test(
+          clause,
         ),
     )
   )

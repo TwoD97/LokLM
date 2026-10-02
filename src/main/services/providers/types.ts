@@ -19,13 +19,12 @@ export interface LlmProvider {
       abortSignal?: AbortSignal | undefined
       maxTokens?: number | undefined
       plannedContextTokens?: number | undefined
-      /** Optional node-llama-cpp GbnfJsonSchema. When supplied AND the engine
-       *  supports grammar (bundled), output is constrained to valid JSON.
-       *  Providers that can't honour it (Ollama) ignore it and fall back to
-       *  plain generation — semantic validation/retry remains the safety net. */
+      /** Optional node-llama-cpp GbnfJsonSchema. Bundled uses a grammar; Ollama
+       *  forwards it as the API format. Provider/model support can vary, and
+       *  callers must still validate structure, references and meaning. */
       jsonSchema?: object | undefined
-      /** Disable the model's reasoning segment. Bundled maps this to
-       *  budgets.thoughtTokens=0; providers that can't honour it ignore it. */
+      /** Disable the model's reasoning segment. Bundled uses a zero thought
+       *  budget; explicit values map to Ollama's model-dependent think option. */
       noThink?: boolean | undefined
       /** Per-call task instructions; does not change the chat's system prompt. */
       systemPrompt?: string | undefined

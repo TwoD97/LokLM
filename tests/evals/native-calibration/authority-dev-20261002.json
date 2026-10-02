@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "split": "authority-dev-20261002",
+  "sources": [
+    {
+      "key": "adev-ledger-a",
+      "file": "fixtures/authority-dev-20261002/adev-ledger-a.md",
+      "title": "Leto Museum admissions ledger A",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-ledger-b",
+      "file": "fixtures/authority-dev-20261002/adev-ledger-b.md",
+      "title": "Leto Museum admissions ledger B",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-retention-old",
+      "file": "fixtures/authority-dev-20261002/adev-retention-old.md",
+      "title": "Berun Labor Probenrichtlinie Revision 1",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-retention-approved",
+      "file": "fixtures/authority-dev-20261002/adev-retention-approved.md",
+      "title": "Berun Labor Probenrichtlinie Revision 2",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-shuttle-active",
+      "file": "fixtures/authority-dev-20261002/adev-shuttle-active.md",
+      "title": "Sevan shuttle approved capacity",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-shuttle-draft",
+      "file": "fixtures/authority-dev-20261002/adev-shuttle-draft.md",
+      "title": "Sevan shuttle capacity proposal",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-grant-west",
+      "file": "fixtures/authority-dev-20261002/adev-grant-west.md",
+      "title": "Tovin Zuschuss West 2027",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-grant-east",
+      "file": "fixtures/authority-dev-20261002/adev-grant-east.md",
+      "title": "Tovin Zuschuss Ost 2028",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-mass-kg",
+      "file": "fixtures/authority-dev-20261002/adev-mass-kg.md",
+      "title": "Alrik sensor mass inspection",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-mass-g",
+      "file": "fixtures/authority-dev-20261002/adev-mass-g.md",
+      "title": "Alrik sensor dispatch measurement",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-missing",
+      "file": "fixtures/authority-dev-20261002/adev-missing.txt",
+      "title": "Pelis archive service directory",
+      "format": "text"
+    },
+    {
+      "key": "adev-code-a",
+      "file": "fixtures/authority-dev-20261002/adev-code-a.md",
+      "title": "Sular Gebührenfunktion Branch A",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-code-b",
+      "file": "fixtures/authority-dev-20261002/adev-code-b.md",
+      "title": "Sular Gebührenfunktion Branch B",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-agreement-manual",
+      "file": "fixtures/authority-dev-20261002/adev-agreement-manual.md",
+      "title": "Nuvik Exporthandbuch",
+      "format": "markdown"
+    },
+    {
+      "key": "adev-agreement-release",
+      "file": "fixtures/authority-dev-20261002/adev-agreement-release.md",
+      "title": "Nuvik Bereitstellungsprotokoll",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "authority-dev-01",
+      "language": "en",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "question": "What final visitor-admission total is established for Leto Museum in June 2028? Briefly explain the evidence.",
+      "requiredSourceKeys": [
+        "adev-ledger-a",
+        "adev-ledger-b"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "No final total is established: the two preliminary ledgers report 980 and 1040 admissions for the same June 2028 period, and neither is approved or supersedes the other.",
+      "answerChecks": [
+        {
+          "label": "ledger A total",
+          "pattern": "\\b980\\b"
+        },
+        {
+          "label": "ledger B total",
+          "pattern": "\\b1[,. ]?040\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-02",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "question": "Welche Aufbewahrungsfrist gilt im Berun Labor am 2028-05-01 für abgeschlossene Routineanalysen, und warum gilt die andere Frist nicht mehr?",
+      "requiredSourceKeys": [
+        "adev-retention-old",
+        "adev-retention-approved"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Es gelten 21 Tage: Die genehmigte und seit 2028-04-01 wirksame Revision 2 ersetzt Revision 1 mit ihrer früheren Frist von 14 Tagen.",
+      "answerChecks": [
+        {
+          "label": "active retention",
+          "pattern": "\\b21\\s+Tage"
+        },
+        {
+          "label": "superseded retention",
+          "pattern": "\\b14\\s+Tage"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-03",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "newer-unapproved",
+      "question": "How many passengers is Sevan shuttle S7 currently authorized to carry, and does the later proposal change that authorization?",
+      "requiredSourceKeys": [
+        "adev-shuttle-active",
+        "adev-shuttle-draft"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "It remains authorized for 12 passengers; the later proposal for 18 passengers is not approved and does not replace the operating certificate.",
+      "answerChecks": [
+        {
+          "label": "authorized capacity",
+          "pattern": "\\b12\\b"
+        },
+        {
+          "label": "proposed capacity",
+          "pattern": "\\b18\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-04",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "different-scope-time",
+      "question": "Wie hoch waren die Tovin-Gartenzuschüsse für West 2027 und Ost 2028, und belegen die unterschiedlichen Beträge einen Widerspruch?",
+      "requiredSourceKeys": [
+        "adev-grant-west",
+        "adev-grant-east"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "West erhielt 2027 einen Zuschuss von 2400 EUR, Ost 2028 einen Zuschuss von 3500 EUR; verschiedene Stadtteile und Jahre begründen keinen Widerspruch.",
+      "answerChecks": [
+        {
+          "label": "West amount",
+          "pattern": "\\b2[., ]?400\\b"
+        },
+        {
+          "label": "East amount",
+          "pattern": "\\b3[., ]?500\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-05",
+      "language": "de",
+      "kind": "table-unit",
+      "challengeCategory": "equivalent-units",
+      "question": "Widersprechen sich die beiden Massenangaben für einen vollständigen Alrik-Sensor aus Charge AX? Nenne die Angaben mit Einheiten.",
+      "requiredSourceKeys": [
+        "adev-mass-kg",
+        "adev-mass-g"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Nein: 2,75 kg und 2750 g bezeichnen dieselbe Masse eines vollständigen Sensors einschließlich Kabel, jeweils ohne Verpackung.",
+      "answerChecks": [
+        {
+          "label": "kilograms",
+          "pattern": "\\b2[.,]75\\s*kg\\b"
+        },
+        {
+          "label": "grams",
+          "pattern": "\\b2[., ]?750\\s*g\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-06",
+      "language": "en",
+      "kind": "missing-fact",
+      "challengeCategory": "missing-evidence",
+      "question": "What emergency telephone number should a visitor use to contact Pelis Archive?",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "The supplied directory does not provide an emergency telephone number for Pelis Archive.",
+      "answerChecks": [],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-07",
+      "language": "de",
+      "kind": "code-semantics",
+      "challengeCategory": "unresolved-code",
+      "question": "Welchen verbindlichen Produktionswert liefert Sular fee(5), wenn man die beiden Branch-Reviews betrachtet? Nenne die dortigen Ergebnisse.",
+      "requiredSourceKeys": [
+        "adev-code-a",
+        "adev-code-b"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Ein verbindlicher Produktionswert ist nicht belegt: Branch A liefert 7, Branch B liefert 3, und keiner der beiden Branches hat eine Produktionsfreigabe.",
+      "answerChecks": [
+        {
+          "label": "branch A result",
+          "pattern": "\\b7\\b"
+        },
+        {
+          "label": "branch B result",
+          "pattern": "\\b3\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-dev-08",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "corroborating-agreement",
+      "question": "What export endpoint and response format do both Nuvik version 6 documents establish?",
+      "requiredSourceKeys": [
+        "adev-agreement-manual",
+        "adev-agreement-release"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Both establish /v6/export with UTF-8-encoded JSON responses.",
+      "answerChecks": [
+        {
+          "label": "endpoint",
+          "pattern": "/v6/export\\b"
+        },
+        {
+          "label": "encoding",
+          "pattern": "UTF[ -]?8"
+        },
+        {
+          "label": "format",
+          "pattern": "\\bJSON\\b"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}

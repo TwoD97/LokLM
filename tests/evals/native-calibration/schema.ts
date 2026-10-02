@@ -1,4 +1,19 @@
-export type CalibrationSplit = 'dev' | 'heldout' | 'conflict-regression'
+export type CalibrationSplit =
+  | 'dev'
+  | 'heldout'
+  | 'conflict-regression'
+  | 'authority-dev-20261002'
+  | 'authority-reserved-20261002'
+
+export type CalibrationChallengeCategory =
+  | 'unresolved-numeric'
+  | 'approved-supersession'
+  | 'newer-unapproved'
+  | 'different-scope-time'
+  | 'equivalent-units'
+  | 'missing-evidence'
+  | 'unresolved-code'
+  | 'corroborating-agreement'
 
 export type CalibrationKind =
   | 'exact-amount'
@@ -25,6 +40,7 @@ export interface CalibrationCase {
   question: string
   language: 'en' | 'de'
   kind: CalibrationKind
+  challengeCategory?: CalibrationChallengeCategory
   requiredSourceKeys: string[]
   /** The requested definitive fact is unavailable or unresolved. An explicit
    * conflict explanation is a correct abstention, not an empty answer. */

@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "conflict-regression-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly declines a definitive deadline and gives both ISO dates and their unapproved/no-supersession status. This run indexed A as document1/chunk2 and B as document2/chunk1; the answer cites those exact correct pairs. Completed terminal, no mismatch, no timeout."
+  },
+  {
+    "caseId": "conflict-regression-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Safely declines a final deadline because both drafts lack approval and cites both correct actual pairs [2:1] and [1:2]. Unlike the baseline, it does not invent supersession. However, both competing dates (March11 and March18) are omitted, so the required conflict explanation is incomplete and cannot be a strict full pass. Completed terminal, no mismatch, no timeout."
+  },
+  {
+    "caseId": "conflict-regression-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct final ISO date April27 and correct explanation that the old April20 deadline in Revision1 was superseded by Revision2. Joint citations [3:3] and [4:4] at the sentence end collectively support all of those claims; unlike the baseline, it does not claim the old revision established the new deadline. Completed terminal, no mismatch, no timeout."
+  },
+  {
+    "caseId": "conflict-regression-04",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct April27 final deadline and approved Revision2 explicitly replacing Revision1. The answer no longer adds the old April20 value, so source [4:4] alone supports every emitted material claim. It fails the requested ISO date format by writing '27. April 2028', hence strict-format partial rather than full compliance. Required-source coverage may flag the old revision, but source presence is not a substitute for claim-level entailment; no uncited old value appears here. Completed terminal, no mismatch, no timeout."
+  }
+]

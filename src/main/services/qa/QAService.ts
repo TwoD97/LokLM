@@ -19,6 +19,11 @@ import {
   type QueryRoute,
 } from './router'
 import { renderCorpusAnswer, CORPUS_LIST_MAX, type CorpusDoc } from './corpusAnswer'
+import {
+  planEvidenceAssessment,
+  parseEvidenceAssessment,
+  renderUnresolvedEvidence,
+} from './evidenceAssessment'
 
 // Breadth classifier + adaptiveTopK moved to ./router (the route layer reuses
 // their patterns); re-exported here so existing imports (queryBreadth.test.ts,
@@ -553,6 +558,67 @@ export class QAService {
       summaryOmitted: contextPlan.summaryOmitted,
     })
 
+    // Experimental, bounded comparison of the exact original passages that
+    // survived packing. A copied quote proves presence, not truth or authority.
+    // Only an unresolved comparison bypasses generation: a later generation
+    // must not silently choose one of the alternatives the assessment found.
+    // Summary/history evidence needs a separate coverage design, so this first
+    // experiment applies only to standalone questions over original excerpts.
+    if (process.env['LOKLM_EVIDENCE_ASSESSMENT'] === '1') {
+      const assessmentPlan =
+        summaryPreamble == null && contextPlan.history.length === 0
+          ? planEvidenceAssessment(query, fedHits, contextPlan.contextTokens)
+          : null
+      console.log('[qa] evidence coverage:', {
+        planned: assessmentPlan != null,
+        passages: fedHits.length,
+        documents: new Set(fedHits.map((hit) => hit.document_id)).size,
+      })
+      if (assessmentPlan) {
+        emitStage('evidence', 'start')
+        while (stageBuffer.length > 0) yield stageBuffer.shift()!
+        try {
+          const raw = await answeringLlm.generateRaw(assessmentPlan.prompt, {
+            systemPrompt: assessmentPlan.systemPrompt,
+            jsonSchema: assessmentPlan.jsonSchema,
+            maxTokens: assessmentPlan.maxTokens,
+            plannedContextTokens: contextPlan.contextTokens,
+            noThink: true,
+            temperature: 0,
+            requireComplete: true,
+            ...(abortSignal ? { abortSignal } : {}),
+          })
+          if (abortSignal?.aborted) return
+          const assessment = parseEvidenceAssessment(raw, fedHits)
+          if (!assessment) throw new Error('Incomplete source comparison')
+          console.log('[qa] evidence assessment:', { relation: assessment.relation })
+          emitStage('evidence', 'done')
+          while (stageBuffer.length > 0) yield stageBuffer.shift()!
+          if (abortSignal?.aborted) return
+          if (assessment.relation === 'unresolved') {
+            const comparison = renderUnresolvedEvidence(assessment, language)
+            if (!comparison) throw new Error('Missing source comparison')
+            yield { type: 'token', text: comparison, count: 0 }
+            if (abortSignal?.aborted) return
+            yield { type: 'done', full_text: comparison, citations }
+            return
+          }
+        } catch {
+          if (abortSignal?.aborted) return
+          // Do not print model output / private source text from parse errors.
+          // A failed comparison must not quietly become a confident answer.
+          yield {
+            type: 'error',
+            message:
+              language === 'de'
+                ? 'Der Quellenvergleich konnte nicht abgeschlossen werden. Bitte versuche es erneut oder grenze die Quellenauswahl ein.'
+                : 'The source comparison could not be completed. Please retry or narrow the source selection.',
+          }
+          return
+        }
+      }
+    }
+
     // Prefill = the gap between "prompt assembled" and "first token". On CPU
     // this is the dominant unobserved latency; emitting start now and done on
     // the first token gives the user something to watch.
@@ -622,6 +688,24 @@ export class QAService {
         yield { type: 'token', text: next.text, count: next.count }
       }
     } catch (err) {
+      // A provider can accept a final chunk and reject before the next queue
+      // drain. Preserve that partial answer as a failed turn, while cancellation
+      // (including vault locking) must never publish the queued private tail.
+      if (abortSignal?.aborted) return
+      if (!prefillClosed && queue.length > 0) {
+        emitStage('prefill', 'done')
+        prefillClosed = true
+        while (stageBuffer.length > 0) {
+          if (abortSignal?.aborted) return
+          yield stageBuffer.shift()!
+        }
+      }
+      while (queue.length > 0) {
+        if (abortSignal?.aborted) return
+        const next = queue.shift()!
+        yield { type: 'token', text: next.text, count: next.count }
+      }
+      if (abortSignal?.aborted) return
       yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
       return
     }

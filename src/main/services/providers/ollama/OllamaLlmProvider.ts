@@ -9,7 +9,7 @@ import {
   DEFAULT_CONTEXT_TOKENS,
   type ResponseLanguage,
 } from '../../llm/prompt'
-import type { OllamaClient } from './OllamaClient'
+import { OllamaError, type OllamaClient } from './OllamaClient'
 import {
   CitationAliasOutput,
   citationAliasesEnabled,
@@ -79,6 +79,7 @@ export class OllamaLlmProvider implements LlmProvider {
     })
 
     let acc = ''
+    let completed = false
     try {
       for await (const chunk of this.client.postNdjson<ChatChunk>(
         '/api/chat',
@@ -101,7 +102,8 @@ export class OllamaLlmProvider implements LlmProvider {
         },
         opts.abortSignal,
       )) {
-        if (chunk.error) throw new Error(chunk.error)
+        opts.abortSignal?.throwIfAborted()
+        if (chunk.error) throw new OllamaError('server', chunk.error)
         const piece = chunk.message?.content ?? ''
         if (piece) {
           acc += piece
@@ -110,9 +112,28 @@ export class OllamaLlmProvider implements LlmProvider {
           // same shape across providers.)
           citationOutput.feed(piece, 1)
         }
-        if (chunk.done) break
+        if (chunk.done) {
+          completed = true
+          break
+        }
       }
+      opts.abortSignal?.throwIfAborted()
+      if (!completed) throw new OllamaError('server', 'Ollama answer ended before completion.')
       return citationOutput.final(acc)
+    } catch (error) {
+      opts.abortSignal?.throwIfAborted()
+      if (
+        acc.length > 0 &&
+        error instanceof OllamaError &&
+        (error.kind === 'network' || error.kind === 'timeout' || error.kind === 'server')
+      ) {
+        // The registry may retry transient failures on the bundled model only
+        // before any response text was produced. Once a partial answer exists,
+        // fail this turn so its existing text is marked incomplete, not joined
+        // to a second model's answer. A plain Error is deliberately non-retryable.
+        throw new Error('Ollama stopped before completing the answer.', { cause: error })
+      }
+      throw error
     } finally {
       citationOutput.flush()
     }
@@ -123,41 +144,72 @@ export class OllamaLlmProvider implements LlmProvider {
     opts: {
       abortSignal?: AbortSignal | undefined
       maxTokens?: number | undefined
-      // Accepted for interface parity but IGNORED — Ollama's /api/generate has
-      // no GBNF grammar hook here. Callers rely on the semantic-validation +
-      // JSON-retry fallback path for unconstrained output.
+      // Ollama accepts a JSON schema via format. Callers must still validate
+      // source references and meaning: valid JSON does not establish truth.
       jsonSchema?: object | undefined
-      // Also accepted for parity but IGNORED — no reasoning-budget hook here.
+      // Only override the server/model default when explicitly requested.
       noThink?: boolean | undefined
       systemPrompt?: string | undefined
       temperature?: number | undefined
       requireComplete?: boolean | undefined
     },
   ): Promise<string> {
+    opts.abortSignal?.throwIfAborted()
     let acc = ''
+    let completed = false
     const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
     if (opts.systemPrompt != null) body.system = opts.systemPrompt
+    if (opts.jsonSchema != null) body.format = opts.jsonSchema
+    if (opts.noThink != null) body.think = !opts.noThink
     body.options = {
       num_ctx: this.contextWindowTokens(),
       ...(opts.maxTokens != null ? { num_predict: opts.maxTokens } : {}),
       ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
     }
-    for await (const chunk of this.client.postNdjson<{
-      response?: string
-      done?: boolean
-      done_reason?: string
-    }>('/api/generate', body, opts.abortSignal)) {
-      if (chunk.response) acc += chunk.response
-      if (chunk.done) {
-        if (opts.requireComplete && chunk.done_reason === 'length') {
-          throw new Error(
-            'Translation reached the model output limit. Please retry with shorter text.',
-          )
+    try {
+      for await (const chunk of this.client.postNdjson<{
+        response?: string
+        done?: boolean
+        done_reason?: string
+        error?: string
+      }>('/api/generate', body, opts.abortSignal)) {
+        opts.abortSignal?.throwIfAborted()
+        if (chunk.error) throw new OllamaError('server', chunk.error)
+        if (chunk.response) acc += chunk.response
+        if (chunk.done) {
+          completed = true
+          if (opts.requireComplete && chunk.done_reason === 'length') {
+            throw new Error(
+              'Generation reached the model output limit. Please retry with shorter input.',
+            )
+          }
+          break
         }
-        break
       }
+    } catch (error) {
+      opts.abortSignal?.throwIfAborted()
+      if (
+        error instanceof OllamaError &&
+        error.kind === 'client' &&
+        (error.status === 400 || error.status === 422) &&
+        (opts.jsonSchema != null || opts.noThink != null)
+      ) {
+        // Do not quietly retry with weaker constraints or classify an
+        // unsupported model option as a transient outage/bundled fallback.
+        throw new OllamaError(
+          'client',
+          `${error.message}. Check whether the selected Ollama model and server support the requested JSON schema and thinking options.`,
+          error.status,
+        )
+      }
+      throw error
     }
-    return acc.trim()
+    opts.abortSignal?.throwIfAborted()
+    if (!completed) throw new OllamaError('server', 'Ollama generation ended before completion.')
+    const result = acc.trim()
+    if (!result && (opts.requireComplete || opts.jsonSchema != null))
+      throw new OllamaError('server', 'Ollama generation returned no output.')
+    return result
   }
 
   async generateTitle(

@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "authority-dev-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current21-day retention as of2028-05-01. Old14 days and its approval/effective dates cite3:3; revision2 approval/effective replacement cite4:4. The opening21-day fact receives its supporting4:4 later in the same explanation, so placement could be more immediate, but the exact supporting passage and authority are correct. Actual emitted chunks3/4 checked. Completed178818ms, first visible47173ms. LITE before/after; q8_0 before restore and q4_0 after. E uses capacity-aware standard depth at8K. This single selected control is not a statistically established improvement or an isolated sampling-controlled A/B."
+  },
+  {
+    "caseId": "authority-dev-07",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Consistently calculates fee(5)=7 in BranchA and3 in BranchB, explicitly explains >= versus > and identifies12:12/13:13. Unlike C and D controls it does not first claim both return7. Correctly states both branches lack production approval, so no definitive deployed result is available. These approval facts are in both supplied review chunks. Actual emitted chunks12/13 checked. Completed127926ms, first visible39262ms. LITE before/after; q4_0 before and f16 after. Clear bounded success for this selected DEV observation; no claim about unseen code tasks."
+  }
+]

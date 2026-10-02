@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   assertPreparedPromptFits,
   countPreparedPromptTokens,
+  fitsFreshPromptContext,
   prepareChatPromptBudget,
 } from '@main/services/workers/contextBudget'
 
@@ -25,7 +26,7 @@ function fixture(tokens = 500) {
   return { history, tokenize, tokenizer, generate, options }
 }
 
-describe('native context shrink verification', () => {
+describe('native bounded-context verification', () => {
   it('allows a small fallback prompt using the selected native system prompt, wrapper and tokenizer', () => {
     const { options, history, generate, tokenize, tokenizer } = fixture()
     expect(() => assertPreparedPromptFits(options)).not.toThrow()
@@ -54,17 +55,56 @@ describe('native context shrink verification', () => {
     generate.mockImplementation(() => {
       throw new Error('Unsupported wrapper')
     })
-    expect(() => assertPreparedPromptFits(options)).toThrow(/smaller.*sources/)
+    expect(() => assertPreparedPromptFits(options)).toThrow(/prompt size.*verified/)
   })
 
-  it('does not tokenize on the unchanged-capacity path', () => {
+  it.each([8192, 16384])(
+    'measures the prepared prompt at unchanged or grown capacity %s',
+    (actual) => {
+      const { options, generate } = fixture()
+      expect(() =>
+        assertPreparedPromptFits({ ...options, actualContextTokens: actual }),
+      ).not.toThrow()
+      expect(generate).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it.each([4096, 8192])('rejects underestimated evidence at actual capacity %s', (actual) => {
+    const { options } = fixture(actual - 1024 - Math.ceil(actual / 10) + 1)
+    expect(() =>
+      assertPreparedPromptFits({
+        ...options,
+        plannedContextTokens: 4096,
+        actualContextTokens: actual,
+      }),
+    ).toThrow(/sources.*do not fit/)
+  })
+
+  it.each([4096, 8192])('fails closed for an unmeasurable wrapper at capacity %s', (actual) => {
     const { options, generate } = fixture()
-    expect(() => assertPreparedPromptFits({ ...options, actualContextTokens: 8192 })).not.toThrow()
+    generate.mockImplementation(() => {
+      throw new Error('Unsupported wrapper')
+    })
+    expect(() =>
+      assertPreparedPromptFits({
+        ...options,
+        plannedContextTokens: 4096,
+        actualContextTokens: actual,
+      }),
+    ).toThrow(/prompt size.*verified/)
+  })
+
+  it('preserves unbounded legacy utility behavior without invoking the tokenizer', () => {
+    const { options, generate } = fixture(20_000)
+    expect(() =>
+      assertPreparedPromptFits({ ...options, plannedContextTokens: undefined }),
+    ).not.toThrow()
     expect(generate).not.toHaveBeenCalled()
   })
 
-  it('honors cancellation before counting and if it arrives during the count', () => {
+  it.each([4096, 8192, 16384])('honors cancellation around counting at capacity %s', (actual) => {
     const { options, tokenize, generate } = fixture()
+    options.actualContextTokens = actual
     expect(() => assertPreparedPromptFits({ ...options, signal: AbortSignal.abort() })).toThrow(
       /abort/i,
     )
@@ -101,6 +141,77 @@ describe('native context shrink verification', () => {
     expect(() =>
       assertPreparedPromptFits({ ...options, actualContextTokens: 1024, maxTokens: 512 }),
     ).toThrow(/smaller/)
+  })
+})
+
+describe('utility routing with the actual next system prompt', () => {
+  function routingFixture(tokens: number) {
+    const base = fixture(tokens)
+    const initial = [{ type: 'system' as const, text: 'Load-time system' }]
+    const wrapper = {
+      settings: { supportsSystemMessages: true },
+      generateInitialChatHistory: vi.fn(() => initial),
+      generateContextState: base.generate,
+    }
+    const session = {
+      getChatHistory: vi.fn(() => [{ type: 'user', text: 'Existing private utility history' }]),
+      chatWrapper: wrapper,
+      model: { tokenizer: base.tokenizer },
+    }
+    const options = {
+      session: session as never,
+      initialSystemPrompt: 'Load-time system',
+      systemPrompt: 'Actual evidence assessment instructions',
+      prompt: 'Source passages',
+      maxTokens: 384,
+      actualContextTokens: 4096,
+    }
+    return { ...base, initial, session, wrapper, options }
+  }
+
+  it('counts the per-call system and wrapper without reading or mutating live history', () => {
+    const { options, session, initial, wrapper, generate } = routingFixture(500)
+    expect(fitsFreshPromptContext(options)).toBe(true)
+    expect(wrapper.generateInitialChatHistory).toHaveBeenCalledWith({
+      systemPrompt: 'Load-time system',
+    })
+    expect(generate).toHaveBeenCalledWith({
+      chatHistory: [
+        { type: 'system', text: options.systemPrompt },
+        { type: 'user', text: options.prompt },
+        { type: 'model', response: [] },
+      ],
+    })
+    expect(initial).toEqual([{ type: 'system', text: 'Load-time system' }])
+    expect(session.getChatHistory).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { tokens: 3302, fits: true },
+    { tokens: 3303, fits: false },
+  ])('checks exact utility capacity at $tokens prompt tokens', ({ tokens, fits }) => {
+    expect(fitsFreshPromptContext(routingFixture(tokens).options)).toBe(fits)
+  })
+
+  it('chooses the main context if the native utility wrapper cannot be measured', () => {
+    const { options, generate } = routingFixture(100)
+    generate.mockImplementation(() => {
+      throw new Error('Unsupported wrapper')
+    })
+    expect(fitsFreshPromptContext(options)).toBe(false)
+  })
+
+  it('matches native reset for wrappers without system-message support', () => {
+    const { options, wrapper, generate } = routingFixture(100)
+    wrapper.settings.supportsSystemMessages = false
+    expect(fitsFreshPromptContext(options)).toBe(true)
+    expect(wrapper.generateInitialChatHistory).not.toHaveBeenCalled()
+    expect(generate).toHaveBeenCalledWith({
+      chatHistory: [
+        { type: 'user', text: options.prompt },
+        { type: 'model', response: [] },
+      ],
+    })
   })
 })
 

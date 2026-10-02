@@ -1,6 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
+import { extractCitationMarkers } from '../../../src/shared/citationMarkers'
 import type { CalibrationManifest, CalibrationSplit } from './schema'
 
 type Citation = { doc_id: number; chunk_id: number; score?: number }
@@ -21,6 +23,13 @@ export interface NativeQueryObservation {
   afterInfo?: Info
   modelActivities?: Array<{ elapsedMs: number; activity: unknown }>
   timedOut: boolean
+  terminalReceived?: boolean
+  terminalOutcome?: 'completed' | 'cancelled' | 'error' | null
+  terminalMismatch?: boolean
+  invokeSettled?: boolean
+  invokeError?: string | null
+  terminalMs?: number | null
+  logs?: string[]
 }
 
 export interface NativeCalibrationRun {
@@ -50,6 +59,9 @@ export interface ManualReview {
     | 'unclear'
   citationSupport: 'supported' | 'unsupported' | 'missing' | 'not-applicable' | 'unclear'
   citationCompleteness?: 'complete' | 'partial' | 'none' | 'not-applicable'
+  /** Judge the actual supplied text, independently of source-document presence. */
+  contextSufficiency?: 'sufficient' | 'missing-evidence' | 'unresolved-conflict' | 'unclear'
+  decisionCorrectness?: 'correct' | 'incorrect' | 'unclear'
   unsupportedExtraClaims: string[]
   notes: string
 }
@@ -58,9 +70,9 @@ const markerPattern = /\[doc:\s*(\d+)\s*,\s*chunk:\s*(\d+)\s*\]/gu
 const key = (c: Citation): string => `${c.doc_id}:${c.chunk_id}`
 
 function citationsInAnswer(answer: string): Citation[] {
-  return Array.from(answer.matchAll(markerPattern), (m) => ({
-    doc_id: Number(m[1]),
-    chunk_id: Number(m[2]),
+  return extractCitationMarkers(answer).map((marker) => ({
+    doc_id: marker.documentId,
+    chunk_id: marker.chunkId,
   }))
 }
 
@@ -77,6 +89,8 @@ function allocation(info: Info | undefined) {
   const capacity = record(llm.modelCapacity)
   const plan = record(llm.lastLlmPlan)
   return {
+    profile: typeof llm.profile === 'string' ? llm.profile : null,
+    kvCacheType: typeof plan.kvCacheType === 'string' ? plan.kvCacheType : null,
     contextTokens: finite(capacity.contextSize) ?? finite(plan.contextSize),
     gpuLayers: finite(capacity.gpuLayers),
     totalModelLayers: finite(capacity.totalModelLayers),
@@ -97,6 +111,32 @@ export function describeTimings(values: Array<number | null>) {
   return { n: sorted.length, minMs: sorted[0] ?? null, p50Ms: median, p95Ms: at(0.95) }
 }
 
+/** Diagnostic coverage only: source counts and a model label do not certify correctness. */
+export function describeEvidenceAssessment(
+  logs: string[],
+  events: Array<{ type: string; [key: string]: unknown }>,
+) {
+  // Electron's console inspector colors booleans, numbers and quoted strings.
+  // Preserve raw logs in the run; normalize only this derived diagnostic view.
+  const text = stripVTControlCharacters(logs.join('\n'))
+  const coverage = /\[qa\] evidence coverage:\s*\{([^}]+)\}/u.exec(text)?.[1]
+  const planned = coverage?.match(/\bplanned:\s*(true|false)/u)?.[1]
+  const relation = /\[qa\] evidence assessment:\s*\{\s*relation:\s*['"]([^'"]+)['"]/u.exec(
+    text,
+  )?.[1]
+  const stages = events.filter((event) => event.type === 'stage' && event.stage === 'evidence')
+  return {
+    coverageLogged: coverage !== undefined,
+    planned: planned === undefined ? null : planned === 'true',
+    passages: coverage ? Number(/\bpassages:\s*(\d+)/u.exec(coverage)?.[1] ?? NaN) || null : null,
+    documents: coverage ? Number(/\bdocuments:\s*(\d+)/u.exec(coverage)?.[1] ?? NaN) || null : null,
+    relation: relation ?? null,
+    stageStarted: stages.some((event) => event.status === 'start'),
+    stageCompleted: stages.some((event) => event.status === 'done'),
+    durationMs: finite(stages.find((event) => event.status === 'done')?.durationMs),
+  }
+}
+
 /** Mechanical checks expose evidence for review; they never certify semantic grounding. */
 export function gradeNativeRun(
   run: NativeCalibrationRun,
@@ -106,9 +146,40 @@ export function gradeNativeRun(
   if (run.kind !== 'native-rag-calibration' || run.split !== manifest.split)
     throw new Error('Raw run and calibration manifest do not match.')
   const cases = new Map(manifest.cases.map((c) => [c.id, c]))
+  const configuredSelection = record(run.configuration).selectedCases
+  const requested = configuredSelection ?? manifest.cases.map((entry) => entry.id)
+  if (
+    !Array.isArray(requested) ||
+    requested.length === 0 ||
+    requested.some((id) => typeof id !== 'string' || !cases.has(id)) ||
+    new Set(requested).size !== requested.length
+  )
+    throw new Error('Invalid requested calibration cases.')
+  const requestedCaseIds = requested as string[]
+  if (run.queries.some((query) => !requestedCaseIds.includes(query.caseId)))
+    throw new Error('Observed query was not requested.')
   const documents = new Map(run.documents.map((d) => [d.sourceKey, d]))
   const importedPairs = new Set(
     run.documents.flatMap((d) => d.chunks.map((c) => `${d.id}:${c.id}`)),
+  )
+  const passages = new Map<
+    string,
+    { sourceKey: string; documentId: number; chunkId: number; text: string }
+  >(
+    run.documents.flatMap((document) =>
+      document.chunks.map(
+        (chunk) =>
+          [
+            `${document.id}:${chunk.id}`,
+            {
+              sourceKey: document.sourceKey,
+              documentId: document.id,
+              chunkId: chunk.id,
+              text: chunk.text,
+            },
+          ] as const,
+      ),
+    ),
   )
   const manualByQuery = new Map(manual.map((m) => [`${m.caseId}:${m.repetition}`, m]))
   if (manualByQuery.size !== manual.length) throw new Error('Duplicate manual review entries.')
@@ -149,6 +220,12 @@ export function gradeNativeRun(
     const programmaticRefusal = query.events.some((event) => event.type === 'refusal')
     const terminalEvent =
       query.events.find((event) => event.type === 'done' || event.type === 'error')?.type ?? null
+    const terminalOutcome =
+      query.terminalOutcome ??
+      (terminalEvent === 'error'
+        ? 'error'
+        : (query.events.find((event) => event.type === 'done')?.outcome ??
+          (terminalEvent ? 'completed' : null)))
     // A cue is only a review aid: a model can state "not specified" and still
     // invent another fact, or safely explain a conflict without a refusal cue.
     const abstentionCue =
@@ -160,6 +237,10 @@ export function gradeNativeRun(
     const reviewFlags: string[] = []
     if (query.timedOut) reviewFlags.push('timed-out')
     if (errors.length) reviewFlags.push('stream-error')
+    if (query.invokeError) reviewFlags.push('invoke-error')
+    if (query.invokeSettled === false) reviewFlags.push('invoke-did-not-settle')
+    if (query.terminalMismatch) reviewFlags.push('terminal-channel-mismatch')
+    if (terminalOutcome === 'cancelled') reviewFlags.push('cancelled-answer')
     if (!terminalEvent) reviewFlags.push('terminal-event-not-observed')
     if (!query.answer.trim()) reviewFlags.push('empty-answer')
     if (invalidInlineCitations.length) reviewFlags.push('citation-outside-supplied-evidence')
@@ -168,7 +249,7 @@ export function gradeNativeRun(
       reviewFlags.push('required-source-not-imported')
     if (sourceCoverage.some((source) => !source.supplied))
       reviewFlags.push('required-source-not-supplied')
-    if (!gold.expectedAbstention && sourceCoverage.some((source) => !source.citedInline))
+    if (sourceCoverage.some((source) => !source.citedInline))
       reviewFlags.push('required-source-not-cited-inline')
     if (factChecks.some((check) => !check.matched))
       reviewFlags.push('expected-fact-pattern-missing')
@@ -184,6 +265,7 @@ export function gradeNativeRun(
       caseId: query.caseId,
       repetition: query.repetition,
       kind: gold.kind,
+      challengeCategory: gold.challengeCategory ?? null,
       language: query.language,
       expectedAbstention: gold.expectedAbstention,
       referenceAnswer: gold.referenceAnswer,
@@ -192,17 +274,24 @@ export function gradeNativeRun(
       forbiddenMatches,
       sourceCoverage,
       suppliedCitations: fed,
+      evidenceAssessment: describeEvidenceAssessment(query.logs ?? [], query.events),
+      suppliedPassages: [...new Set(fed.map(key))].map(
+        (pair) => passages.get(pair) ?? { missingPair: pair },
+      ),
       inlineCitations,
       invalidInlineCitations,
       unknownFedCitations,
       programmaticRefusal,
       terminalEvent,
+      terminalOutcome,
+      invokeError: query.invokeError ?? null,
       abstentionCue,
       errors,
       timedOut: query.timedOut,
       ttftMs: finite(query.ttftMs),
       firstVisibleTokenMs: finite(query.firstVisibleTokenMs),
       totalMs: finite(query.totalMs),
+      terminalMs: finite(query.terminalMs),
       modelActivities: query.modelActivities ?? null,
       allocationBefore: before,
       allocationAfter: after,
@@ -227,7 +316,15 @@ export function gradeNativeRun(
     ],
     provenance: {
       gitCommit: run.gitCommit ?? null,
+      configuration: run.configuration ?? null,
       sourceHashes: run.sourceHashes ?? null,
+      sourceHashesMeaning:
+        run.sourceHashesMeaning ??
+        'Working-tree files observed at run start; correspondence to compiled output is not established without a matching build-time manifest.',
+      compiledBuildHashes: run.compiledBuildHashes ?? null,
+      compiledBuildHashesAfter: run.compiledBuildHashesAfter ?? null,
+      buildProvenance: run.buildProvenance ?? { status: 'unknown', reason: 'not-recorded' },
+      buildProvenanceAfter: run.buildProvenanceAfter ?? null,
       fixtureSha256: run.fixtureSha256 ?? null,
       documentHashes: run.documents.map((document) => ({
         sourceKey: document.sourceKey,
@@ -241,10 +338,15 @@ export function gradeNativeRun(
     },
     summary: {
       observedQueries: queries.length,
-      expectedCases: manifest.cases.length,
-      unobservedCaseIds: manifest.cases
-        .filter((c) => !queries.some((q) => q.caseId === c.id))
-        .map((c) => c.id),
+      manifestCases: manifest.cases.length,
+      expectedCases: requestedCaseIds.length,
+      requestedCaseIds,
+      unrequestedCaseIds: manifest.cases
+        .filter((entry) => !requestedCaseIds.includes(entry.id))
+        .map((entry) => entry.id),
+      unobservedCaseIds: requestedCaseIds.filter(
+        (id) => !queries.some((query) => query.caseId === id),
+      ),
       mechanicalPasses: queries.filter((q) => q.mechanicalChecksPassed).length,
       manuallyReviewed: queries.filter((q) => !q.manualReviewRequired).length,
       manualVerdicts: Object.fromEntries(

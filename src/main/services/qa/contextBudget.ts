@@ -41,7 +41,10 @@ export function planAnswerContext(input: ContextPlanInput) {
       ? Math.floor(input.contextTokens)
       : DEFAULT_CONTEXT_TOKENS
   const maxTokens = answerMaxTokens(contextTokens)
-  const inputLimit = contextTokens - maxTokens - CONTEXT_PACK_MARGIN_TOKENS
+  // Match the native guard's reserve as well as the minimum wrapper allowance.
+  // A fixed small margin can admit a packed prompt the native check must reject.
+  const contextMargin = Math.max(CONTEXT_PACK_MARGIN_TOKENS, Math.ceil(contextTokens / 10))
+  const inputLimit = contextTokens - maxTokens - contextMargin
   const systemTokens = estimateTokens(
     buildSystemPrompt(input.language, 'thorough', {
       codebase: input.codebase ?? false,

@@ -381,6 +381,7 @@ export type RefusalReason = 'no_hits' | 'below_threshold' | 'context_limit'
  *    - rerank         : cross-encoder pass over the candidate pool
  *    - summarize      : whole-doc summary fetch/generation (doc_summary route)
  *    - corpus         : documents-table count/list lookup (corpus route, no LLM)
+ *    - evidence       : compare source statements before composing an answer
  *    - prefill        : time between citations sent and first generated token
  */
 export type StageName =
@@ -391,6 +392,7 @@ export type StageName =
   | 'rerank'
   | 'summarize'
   | 'corpus'
+  | 'evidence'
   | 'prefill'
 
 export type StreamEvent =

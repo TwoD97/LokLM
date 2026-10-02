@@ -157,6 +157,33 @@ describe('applyLanguageMatchBoost', () => {
 })
 
 describe('splitQuestions (multi-question decomposition)', () => {
+  it.each([
+    'Briefly explain the evidence.',
+    'Please explain your reasoning briefly.',
+    'Summarize the evidence and reasoning.',
+    'Use ISO dates. Briefly explain the rationale.',
+    'Bitte erläutere die Belege kurz.',
+    'Erkläre die Begründung.',
+    'Bitte erläutern Sie Ihre Begründung kurz.',
+    'Bitte erkläre kurz die Belege.',
+    'Antworte knapp. Erkläre den Gedankengang kurz.',
+  ])('keeps a generic evidence/presentation tail out of retrieval: %s', (tail) => {
+    expect(splitQuestions(`Which policy applies? ${tail}`)).toEqual(['Which policy applies?'])
+    expect(splitQuestions(tail)).toEqual([tail])
+  })
+
+  it.each([
+    'Explain the evidence for a different contract.',
+    'What evidence supports the other contract?',
+    'Briefly explain the reasoning behind the other contract.',
+    'Explain the evidence. Explain the reasoning for another policy.',
+    'Erkläre die Belege für den anderen Vertrag.',
+    'Welche Belege stützen den anderen Vertrag?',
+    'Antworte knapp. Erläutere die Begründung für die andere Frist.',
+  ])('preserves a subject-bearing follow-up or mixed tail: %s', (tail) => {
+    expect(splitQuestions(`Which policy applies? ${tail}`)).toEqual(['Which policy applies?', tail])
+  })
+
   describe('splits genuinely compound messages', () => {
     const cases: Array<[string, string[]]> = [
       [

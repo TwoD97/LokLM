@@ -49,4 +49,13 @@ describe('answerDepthFor — model-aware lite depth', () => {
     // profile known but file not yet pinned → profile default (not the 2B demotion)
     expect(answerDepthFor('lite', null)).toBe('standard')
   })
+
+  it('caps Full document verbosity by actual capacity, not the Auto profile label', () => {
+    for (const context of [4096, 6144, 8192])
+      expect(answerDepthFor('full', `/models/${FILE_4B}`, context)).toBe('standard')
+    expect(answerDepthFor('full', `/models/${FILE_4B}`, 16384)).toBe('thorough')
+    expect(answerDepthFor('full', `/models/${FILE_4B}`, 0)).toBe('thorough')
+    expect(answerDepthFor('xl', '/models/Qwen3.5-9B-Q4_K_M.gguf', 4096)).toBe('thorough')
+    expect(answerDepthFor('lite', `/models/${FILE_2B}`, 8192)).toBe('concise')
+  })
 })

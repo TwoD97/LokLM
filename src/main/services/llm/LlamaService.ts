@@ -229,17 +229,23 @@ export function pickProfileGguf(
 /**
  * Answer-verbosity depth for a loaded (profile, model-file) pair. The lite
  * profile can resolve to the 4B (preferred → 'standard') OR the legacy 2B
- * fallback, which must stay 'concise' (it think-loops at 'standard'). Everything
- * else follows PROFILE_TO_DEPTH. Exported for unit tests.
+ * fallback, which stays 'concise'. Full uses standard depth when its actual
+ * context is no larger than Lite's 8K; wider/unknown windows and XL retain the
+ * profile default. Exported for unit tests.
  */
 export function answerDepthFor(
   profile: LlmProfileName | null,
   modelPath: string | null,
+  contextTokens?: number | null,
 ): AnswerDepth {
   if (!profile) return 'concise'
   if (profile === 'lite' && modelPath != null && LITE_FALLBACK_2B.test(modelPath)) {
     return 'concise'
   }
+  // Full and Lite share the 4B. A hardware-limited Full load must not request
+  // more verbose answers merely because free RAM changed its Auto label.
+  if (profile === 'full' && contextTokens != null && contextTokens > 0 && contextTokens <= 8192)
+    return 'standard'
   return PROFILE_TO_DEPTH[profile]
 }
 
@@ -356,6 +362,9 @@ export class LlamaService {
   // Path of the loaded GGUF. Lets answerDepth() tell the lite 4B (→ 'standard')
   // from the legacy 2B fallback (→ 'concise') — same profile, different depth.
   private activeModelPath: string | null = null
+  private syncedSystemPrompt: string | null = null
+  private promptSync: Promise<void> | null = null
+  private promptRevision = 0
   private lastResources: SystemResources | null = null
   private lastPlan: LlmPlan | null = null
   private modelCapacity: import('../../../shared/modelCapabilities').ModelCapacity | null = null
@@ -398,6 +407,8 @@ export class LlamaService {
   // ---- status / introspection ------------------------------------------------
 
   private acceptLoadResult(result: LlmLoadResult): void {
+    this.syncedSystemPrompt = null
+    this.promptRevision++
     this.lastPlan = result.plan
     this.lastResources = result.resources
     this.modelCapacity = result.modelCapacity ?? null
@@ -511,15 +522,12 @@ export class LlamaService {
     }
   }
 
-  /** Answer-verbosity depth for the loaded model's tier — Lite terse, Standard
-   *  full, Pro/XL thorough. Falls back to the terse default before a load lands
-   *  so the prompt never over-promises on an unknown model. */
+  /** Match document verbosity to the loaded profile's actual context capacity. */
   private answerDepth(): AnswerDepth {
-    return answerDepthFor(this.activeProfile, this.activeModelPath)
+    return answerDepthFor(this.activeProfile, this.activeModelPath, this.lastPlan?.contextSize)
   }
 
   async setLanguage(lang: ResponseLanguage): Promise<void> {
-    if (this.language === lang) return
     this.language = lang
     // Worker patches its session's system prompt without paying a reload.
     // Awaited so a per-turn switch (QAService , Auto mode) lands before the
@@ -532,7 +540,6 @@ export class LlamaService {
    *  document-library framing. Same per-turn contract as setLanguage — QAService
    *  awaits it before ask(), and the worker patches session state, no reload. */
   async setCodebaseMode(on: boolean): Promise<void> {
-    if (this.codebaseMode === on) return
     this.codebaseMode = on
     await this.pushSystemPrompt()
   }
@@ -547,16 +554,32 @@ export class LlamaService {
   }
 
   private async pushSystemPrompt(): Promise<void> {
-    if (this.client && this.isReady()) {
-      try {
-        await this.client.llmSetLanguage(
-          this.language,
-          buildSystemPrompt(this.language, this.effectiveDepth(), { codebase: this.codebaseMode }),
-        )
-      } catch {
-        /* worker status push already reflects reality */
-      }
+    if (!this.client || !this.isReady() || !this.activeModelPath) return
+    const epoch = this.sessionEpoch
+    if (this.promptSync) {
+      await this.promptSync
+      this.assertSession(epoch)
+      return this.pushSystemPrompt()
     }
+    const prompt = buildSystemPrompt(this.language, this.effectiveDepth(), {
+      codebase: this.codebaseMode,
+    })
+    if (prompt === this.syncedSystemPrompt) return
+    const revision = this.promptRevision
+    const sync = this.client
+      .llmSetLanguage(this.language, prompt)
+      .then(() => {
+        this.assertSession(epoch)
+        if (revision === this.promptRevision) this.syncedSystemPrompt = prompt
+      })
+      .finally(() => {
+        if (this.promptSync === sync) this.promptSync = null
+      })
+    this.promptSync = sync
+    await sync
+    // A load result can arrive while the previous acknowledgement is in flight.
+    // Its actual capacity, not the obsolete acknowledgement, owns the prompt.
+    if (revision !== this.promptRevision) await this.pushSystemPrompt()
   }
 
   getLanguage(): ResponseLanguage {
@@ -624,6 +647,9 @@ export class LlamaService {
     this.stopIdleTimer()
     this.activeProfile = null
     this.activeModelPath = null
+    this.syncedSystemPrompt = null
+    this.promptSync = null
+    this.promptRevision++
     this.lastPlan = null
     this.lastResources = null
     this.modelCapacity = null
@@ -661,6 +687,9 @@ export class LlamaService {
       // A ready model can be parked while embeddings own the GPU. Its previous
       // load plan is not a capacity guarantee: restore before packing sources.
       if (this.isReady() && this.client) await this.client.restoreChat(opts?.abortSignal)
+      this.assertSession(epoch)
+      opts?.abortSignal?.throwIfAborted()
+      await this.pushSystemPrompt()
       this.assertSession(epoch)
       opts?.abortSignal?.throwIfAborted()
       return this.contextWindowTokens()
@@ -806,6 +835,10 @@ export class LlamaService {
     // and so a later setLanguage rebuilds at the same depth ).
     this.activeProfile = profile?.name ?? null
     this.activeModelPath = modelPath
+    // Never build this model's initial prompt from a previous model's window.
+    this.lastPlan = null
+    this.syncedSystemPrompt = null
+    this.promptRevision++
     const envOverride = parsePositiveInt(process.env['LOKLM_LLM_CONTEXT_SIZE'])
     // Tier-aware context target (TIER_CONTEXT_TARGET): lite hard-caps at 8K
     // (iGPU — a giant KV cache + a packer-filled prompt means minutes of
@@ -842,6 +875,8 @@ export class LlamaService {
         `[llm] context plan (tier=${tier ?? 'none'}, target=${profileDefaultContext}): ${result.plan.reason}`,
       )
       this.acceptLoadResult(result)
+      await this.pushSystemPrompt()
+      this.assertSession(epoch)
     } catch (err) {
       this.assertSession(epoch)
       // Worker already pushed a failed status; record + bubble.
@@ -921,6 +956,12 @@ export class LlamaService {
     opts: AskOptions,
   ): Promise<string> {
     const client = this.client!
+    // Direct callers do not necessarily pass through QA's preparation step.
+    // Restore a parked chat before selecting its prompt and output budget.
+    if (this.status.resident === false)
+      await this.prepareContext(opts.abortSignal ? { abortSignal: opts.abortSignal } : {})
+    await this.pushSystemPrompt()
+    opts.abortSignal?.throwIfAborted()
     const ctxSize = this.lastPlan?.contextSize ?? 8192
     const maxTokens = Math.max(
       1,
@@ -1132,7 +1173,10 @@ export class LlamaService {
       if (opts.background) payload.background = true
       const { raw } = await client.llmGenerateRaw(payload)
       opts.abortSignal?.throwIfAborted()
-      return stripThink(raw).trim()
+      // Native responseText already excludes segmented reasoning. In structured
+      // output, literal tags can be quoted source data inside a JSON value;
+      // applying a text regex would silently alter that evidence (or the JSON).
+      return (opts.jsonSchema != null ? raw : stripThink(raw)).trim()
     } finally {
       this.activeRequests--
       this.touchUsage()

@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "split": "authority-reserved-20261002",
+  "sources": [
+    {
+      "key": "ares-01",
+      "file": "fixtures/authority-reserved-20261002/ares-01.md",
+      "title": "Kestel Pumpen: Prüfabschluss Nord",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-02",
+      "file": "fixtures/authority-reserved-20261002/ares-02.md",
+      "title": "Kestel Pumpen: Prüfabschluss Süd",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-03",
+      "file": "fixtures/authority-reserved-20261002/ares-03.md",
+      "title": "Aster Quay borrowing rules edition 3",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-04",
+      "file": "fixtures/authority-reserved-20261002/ares-04.md",
+      "title": "Aster Quay committee adopted amendment",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-05",
+      "file": "fixtures/authority-reserved-20261002/ares-05.md",
+      "title": "Farnau Beitragsordnung in Kraft",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-06",
+      "file": "fixtures/authority-reserved-20261002/ares-06.md",
+      "title": "Farnau Haushaltsentwurf",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-07",
+      "file": "fixtures/authority-reserved-20261002/ares-07.md",
+      "title": "Rusan heating plant winter schedule",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-08",
+      "file": "fixtures/authority-reserved-20261002/ares-08.md",
+      "title": "Rusan heating plant summer schedule",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-09",
+      "file": "fixtures/authority-reserved-20261002/ares-09.md",
+      "title": "Elwen valve acceptance sheet",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-10",
+      "file": "fixtures/authority-reserved-20261002/ares-10.md",
+      "title": "Elwen valve commissioning log",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-11",
+      "file": "fixtures/authority-reserved-20261002/ares-11.txt",
+      "title": "Odenwick volunteer rota contacts",
+      "format": "text"
+    },
+    {
+      "key": "ares-12",
+      "file": "fixtures/authority-reserved-20261002/ares-12.md",
+      "title": "Darsen decoder release package copy A",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-13",
+      "file": "fixtures/authority-reserved-20261002/ares-13.md",
+      "title": "Darsen decoder release package copy B",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-14",
+      "file": "fixtures/authority-reserved-20261002/ares-14.md",
+      "title": "Ivenpass Sicherungsrichtlinie",
+      "format": "markdown"
+    },
+    {
+      "key": "ares-15",
+      "file": "fixtures/authority-reserved-20261002/ares-15.md",
+      "title": "Ivenpass Betriebsprüfung",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "authority-reserved-01",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "question": "Wie viele Pumpen aus Kestel-Prüflos K9 haben die Prüfung definitiv bestanden? Erläutere kurz, was die beiden Abschlussberichte belegen.",
+      "requiredSourceKeys": [
+        "ares-01",
+        "ares-02"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Eine definitive gemeinsame Stückzahl ist nicht belegt: Der freigegebene Nord-Bericht nennt 54 und der ebenso freigegebene Süd-Bericht 57 bestandene Pumpen desselben Prüfloses, ohne dokumentierte Auflösung.",
+      "answerChecks": [
+        {
+          "label": "Nord count",
+          "pattern": "\\b54\\b"
+        },
+        {
+          "label": "Süd count",
+          "pattern": "\\b57\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-02",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "question": "On 2029-05-01, how many hand tools may an adult Aster Quay member borrow simultaneously, and why is the older limit no longer applicable?",
+      "requiredSourceKeys": [
+        "ares-03",
+        "ares-04"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The limit is 6 hand tools: the adopted amendment effective on 2029-04-15 replaces edition 3's former limit of 4.",
+      "answerChecks": [
+        {
+          "label": "active limit",
+          "pattern": "\\b6\\b"
+        },
+        {
+          "label": "replaced limit",
+          "pattern": "\\b4\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-03",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "newer-unapproved",
+      "question": "What annual fee currently applies to an ordinary adult Farnau music-club member, and what effect does the later budget draft have?",
+      "requiredSourceKeys": [
+        "ares-05",
+        "ares-06"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The current fee is 84 EUR; the later draft uses 96 EUR but has not been voted on and does not change the adopted fee rules.",
+      "answerChecks": [
+        {
+          "label": "active fee",
+          "pattern": "\\b84\\b"
+        },
+        {
+          "label": "draft fee",
+          "pattern": "\\b96\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-04",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "different-scope-time",
+      "question": "Wann beginnt der normale werktägliche Pumpentest der Rusan-Linie R2 im Januar und im Juli? Sind die beiden Zeitangaben widersprüchlich?",
+      "requiredSourceKeys": [
+        "ares-07",
+        "ares-08"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Im Januar beginnt er um 06:30, im Juli um 08:15 Ortszeit; die gültigen Winter- und Sommerpläne betreffen verschiedene Jahreszeiten und widersprechen sich nicht.",
+      "answerChecks": [
+        {
+          "label": "winter time",
+          "pattern": "\\b0?6[:.]30\\b"
+        },
+        {
+          "label": "summer time",
+          "pattern": "\\b0?8[:.]15\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-05",
+      "language": "en",
+      "kind": "table-unit",
+      "challengeCategory": "equivalent-units",
+      "question": "Do the acceptance sheet and commissioning log disagree about the closing duration of Elwen EV-8? State both measurements and their units.",
+      "requiredSourceKeys": [
+        "ares-09",
+        "ares-10"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "No: 90 seconds and 1.5 minutes are the same duration for the same closing cycle and test conditions.",
+      "answerChecks": [
+        {
+          "label": "seconds",
+          "pattern": "\\b90\\s*(?:seconds?|s)\\b"
+        },
+        {
+          "label": "minutes",
+          "pattern": "\\b1[.,]5\\s*(?:minutes?|min)\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-06",
+      "language": "de",
+      "kind": "missing-fact",
+      "challengeCategory": "missing-evidence",
+      "question": "Welchen Hochschulabschluss hat die Odenwick-Dienstplankoordinatorin Mira Leen?",
+      "requiredSourceKeys": [],
+      "expectedAbstention": true,
+      "referenceAnswer": "Der bereitgestellte Dienstplankontakt enthält keinen Hochschulabschluss von Mira Leen; daraus lässt sich kein Abschluss bestimmen.",
+      "answerChecks": [],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-07",
+      "language": "en",
+      "kind": "code-semantics",
+      "challengeCategory": "unresolved-code",
+      "question": "What result is established for deployed Darsen release 2.1.0 when clampSlots(9) runs? Explain what each archived package copy returns.",
+      "requiredSourceKeys": [
+        "ares-12",
+        "ares-13"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "The deployed result is not established: copy A returns 8 and copy B returns 9, and neither archive includes evidence choosing the deployed package.",
+      "answerChecks": [
+        {
+          "label": "copy A result",
+          "pattern": "\\b8\\b"
+        },
+        {
+          "label": "copy B result",
+          "pattern": "\\b9\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-reserved-08",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "corroborating-agreement",
+      "question": "Welche Uhrzeit mit Zeitzone und welche Aufbewahrungsdauer bestätigen beide Ivenpass-Dokumente für vollständige Sicherungen?",
+      "requiredSourceKeys": [
+        "ares-14",
+        "ares-15"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Beide bestätigen täglich 02:10 UTC und eine Aufbewahrung von 45 Tagen.",
+      "answerChecks": [
+        {
+          "label": "time and zone",
+          "pattern": "\\b0?2[:.]10\\s*UTC\\b"
+        },
+        {
+          "label": "retention",
+          "pattern": "\\b45\\s+Tage"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}
