@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DocumentService } from '@main/services/documents/DocumentService'
@@ -24,6 +25,7 @@ async function fixture() {
       title: `Source ${workspaceId}`,
       status: 'pending',
       contentHash: null as string | null,
+      byteSize: 0,
       sourceMtime: null as number | null,
       missingAt: null,
     }
@@ -119,6 +121,30 @@ async function fixture() {
 }
 
 describe('document mutation lifecycle', () => {
+  it('refreshes changed-length content even when a sync tool preserves the indexed mtime', async () => {
+    const f = await fixture()
+    await f.service.importFile({ workspaceId: 3, sourcePath: f.sourcePath })
+    await vi.waitFor(() => expect(f.service.isIndexing()).toBe(false))
+    const before = await stat(f.sourcePath)
+    await f.original.setSourceMetadata(1, {
+      sourceMtime: Math.round(before.mtimeMs),
+      byteSize: before.size,
+      contentHash: createHash('sha256').update('Original source').digest('hex'),
+    })
+    const replacement = 'Replacement source has substantially different content and length.'
+    await writeFile(f.sourcePath, replacement)
+    await utimes(f.sourcePath, before.atime, before.mtime)
+
+    expect(await f.service.refreshDocument(1)).toBe('reindexed')
+    await vi.waitFor(() => expect(f.service.isIndexing()).toBe(false))
+    expect(f.worker.parseAndChunk).toHaveBeenCalledTimes(2)
+    expect(await f.original.getDocument()).toEqual(
+      expect.objectContaining({
+        byteSize: Buffer.byteLength(replacement),
+        contentHash: createHash('sha256').update(replacement).digest('hex'),
+      }),
+    )
+  })
   it.each(['reindex', 'refresh', 'replace', 'delete'] as const)(
     'retires SQLite chunk IDs before vector cleanup during %s',
     async (action) => {

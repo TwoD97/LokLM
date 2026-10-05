@@ -17,7 +17,7 @@ const hit: RetrievalHit = {
   page_to: null,
 }
 
-function streamWith(ask: (options: AskOptions) => Promise<string>, signal: AbortSignal) {
+function streamWith(ask: (options: AskOptions) => Promise<string>, signal?: AbortSignal) {
   const qa = new QAService(
     { documentsFor: async () => ({ listPinned: async () => [] }) } as never,
     { search: async () => [hit] } as never,
@@ -38,6 +38,61 @@ beforeEach(() => vi.stubEnv('LOKLM_EVIDENCE_ASSESSMENT', '0'))
 afterEach(() => vi.unstubAllEnvs())
 
 describe('QA failure queue and durable partial answers', () => {
+  it('discards a successful provider tail when cancellation happens between chunks', async () => {
+    const controller = new AbortController()
+    const events: StreamEvent[] = []
+    for await (const event of streamWith(async (options) => {
+      await Promise.resolve()
+      options.onChunk?.('Already visible', 1)
+      options.onChunk?.('Must stay private', 1)
+      return 'Already visibleMust stay private'
+    }, controller.signal)) {
+      events.push(event)
+      if (event.type === 'token') controller.abort()
+    }
+    expect(events.filter((event) => event.type === 'token')).toEqual([
+      { type: 'token', text: 'Already visible', count: 1 },
+    ])
+    expect(events.some((event) => event.type === 'done' || event.type === 'error')).toBe(false)
+  })
+
+  it('cancels native work when the consumer closes the iterator without a caller signal', async () => {
+    let generationSignal: AbortSignal | undefined
+    let rejectGeneration: ((error: Error) => void) | undefined
+    let options: AskOptions | undefined
+    const stream = streamWith((opts) => {
+      options = opts
+      generationSignal = opts.abortSignal
+      opts.onChunk?.('First chunk', 1)
+      return new Promise((_resolve, reject) => {
+        rejectGeneration = reject
+      })
+    })
+    for await (const event of stream) {
+      if (event.type === 'token') break
+    }
+    // Closing a consumer must release its generation even without chat:cancel.
+    expect(generationSignal?.aborted).toBe(true)
+    // The producer can finish asynchronously after its consumer has gone away.
+    // Its failure must already be observed, and late callbacks are discarded.
+    options?.onChunk?.('Late private text', 1)
+    rejectGeneration?.(new Error('Producer stopped after consumer closed'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  it('observes a rejection before yielding a synchronously produced chunk', async () => {
+    const stream = streamWith(async (options) => {
+      options.onChunk?.('Immediate chunk', 1)
+      throw new Error('Immediate failure')
+    })
+    for await (const event of stream) {
+      if (event.type === 'token') break
+    }
+    // Vitest reports an unhandled rejection if QA only attaches its rejection
+    // handler after yielding a chunk and the consumer never resumes it.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
   it('preserves a tail received between queue drains, with exactly one failed terminal', async () => {
     const controller = new AbortController()
     const events: StreamEvent[] = []

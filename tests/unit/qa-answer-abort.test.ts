@@ -13,7 +13,7 @@ import type { AskOptions } from '@main/services/llm/LlamaService'
 // Without forwarding, cancel stops the UI stream while the worker keeps
 // generating to completion (wasted compute, model stays busy).
 describe('QAService.answer abort propagation', () => {
-  it('forwards the abort signal to the LLM ask() call', async () => {
+  it('propagates cancellation into the active LLM request', async () => {
     const hit = {
       chunk_id: 1,
       document_id: 1,
@@ -23,12 +23,17 @@ describe('QAService.answer abort propagation', () => {
     } as unknown as RetrievalHit
 
     let capturedOpts: AskOptions | undefined
+    const controller = new AbortController()
+    const reason = new DOMException('User stopped the answer', 'AbortError')
     const llm = {
       setLanguage: vi.fn().mockResolvedValue(undefined),
       contextWindowTokens: () => 0,
       ask: vi.fn(async (_q: string, _h: RetrievalHit[], opts: AskOptions) => {
         capturedOpts = opts
-        return 'answer'
+        expect(opts.abortSignal?.aborted).toBe(false)
+        controller.abort(reason)
+        opts.abortSignal?.throwIfAborted()
+        throw new Error('The generation should have been canceled')
       }),
     }
     const registry = { llm: () => llm } as unknown as ProviderRegistry
@@ -42,14 +47,15 @@ describe('QAService.answer abort propagation', () => {
     const summarization = { summarize: vi.fn() } as unknown as SummarizationService
 
     const qa = new QAService(db, retrieval, registry, summarization)
-    const controller = new AbortController()
 
     const events: StreamEvent[] = []
     for await (const ev of qa.answer(1, 'how?', { topK: 1 }, controller.signal)) {
       events.push(ev)
     }
 
-    expect(capturedOpts?.abortSignal).toBe(controller.signal)
+    expect(capturedOpts?.abortSignal?.aborted).toBe(true)
+    expect(capturedOpts?.abortSignal?.reason).toBe(reason)
+    expect(events.some((event) => event.type === 'done' || event.type === 'error')).toBe(false)
     expect(retrieval.search).toHaveBeenCalledWith(
       1,
       expect.any(String),

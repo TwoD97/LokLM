@@ -9,7 +9,7 @@ describe('OllamaRerankerProvider', () => {
         .fn()
         .mockImplementation((_p: string, body: { messages: { content: string }[] }) => {
           calls.push(body.messages[body.messages.length - 1]!.content)
-          return Promise.resolve({ message: { content: '0.7' } })
+          return Promise.resolve({ done: true, message: { content: '0.7' } })
         }),
     }
     const p = new OllamaRerankerProvider(client as never, 'qwen3:0.6b')
@@ -18,16 +18,61 @@ describe('OllamaRerankerProvider', () => {
     expect(calls).toHaveLength(3)
   })
 
-  it('clamps non-numeric or out-of-range responses to 0 or 1', async () => {
+  it.each(['high', '1.5', '-0.2', 'Passage 42 has relevance 0.9', '0.3 or 0.8', '', 'NaN'])(
+    'rejects an invalid score instead of changing retrieval ordering: %j',
+    async (content) => {
+      const client = { postJson: vi.fn().mockResolvedValue({ done: true, message: { content } }) }
+      const provider = new OllamaRerankerProvider(client as never, 'fixture')
+      await expect(provider.rerank('q', ['a', 'b'])).rejects.toThrow(/invalid score/)
+      expect(client.postJson).toHaveBeenCalledOnce()
+    },
+  )
+
+  it.each(['0', '1', ' 0.75\n', '.25', '7e-1'])(
+    'accepts a complete bounded numeric score: %j',
+    async (content) => {
+      const client = { postJson: vi.fn().mockResolvedValue({ done: true, message: { content } }) }
+      const provider = new OllamaRerankerProvider(client as never, 'fixture')
+      await expect(provider.rerank('q', ['a'])).resolves.toEqual([Number(content)])
+    },
+  )
+
+  it.each([
+    { error: 'model stopped with code 1', done: true },
+    { done: false, message: { content: '0.7' } },
+    { message: { content: '0.7' } },
+    { done: true, done_reason: 'length', message: { content: '0.7' } },
+  ])('rejects incomplete or error responses: %j', async (response) => {
+    const client = { postJson: vi.fn().mockResolvedValue(response) }
+    const provider = new OllamaRerankerProvider(client as never, 'fixture')
+    await expect(provider.rerank('q', ['a'])).rejects.toThrow(/incomplete score/)
+  })
+
+  it('does not send later passages after cancellation during the first response', async () => {
+    const controller = new AbortController()
     const client = {
-      postJson: vi
-        .fn()
-        .mockResolvedValueOnce({ message: { content: 'high' } })
-        .mockResolvedValueOnce({ message: { content: '1.5' } })
-        .mockResolvedValueOnce({ message: { content: '-0.2' } }),
+      postJson: vi.fn(async () => {
+        controller.abort()
+        return { done: true, message: { content: '0.7' } }
+      }),
     }
-    const p = new OllamaRerankerProvider(client as never, 'qwen3:0.6b')
-    const scores = await p.rerank('q', ['a', 'b', 'c'])
-    expect(scores).toEqual([0, 1, 0])
+    const provider = new OllamaRerankerProvider(client as never, 'fixture')
+    await expect(
+      provider.rerank('q', ['a', 'b'], { abortSignal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.postJson).toHaveBeenCalledExactlyOnceWith(
+      '/api/chat',
+      expect.any(Object),
+      controller.signal,
+    )
+  })
+
+  it('does not send a pre-cancelled request', async () => {
+    const client = { postJson: vi.fn() }
+    const provider = new OllamaRerankerProvider(client as never, 'fixture')
+    await expect(
+      provider.rerank('q', ['a'], { abortSignal: AbortSignal.abort() }),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.postJson).not.toHaveBeenCalled()
   })
 })

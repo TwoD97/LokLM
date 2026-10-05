@@ -845,17 +845,26 @@ export class RetrievalService {
     codebase: boolean,
     abortSignal?: AbortSignal,
   ): Promise<Float32Array | null> {
-    const compute = async (): Promise<Float32Array | null> => {
+    const compute = async (signal?: AbortSignal): Promise<Float32Array | null> => {
+      signal?.throwIfAborted()
       const vectors = embedder.embedQuery
-        ? await embedder.embedQuery([query], { codebase })
-        : await embedder.embed([query])
+        ? await embedder.embedQuery([query], {
+            codebase,
+            ...(signal ? { abortSignal: signal } : {}),
+          })
+        : signal
+          ? await embedder.embed([query], { abortSignal: signal })
+          : await embedder.embed([query])
+      signal?.throwIfAborted()
       return vectors[0] ?? null
     }
     const cache = this.queryEmbeddingCache
-    if (!cache) return compute()
+    if (!cache) return compute(abortSignal)
     cache.useProvider(embedder)
     const key = embedder.queryCacheKey?.(query, { codebase })
-    return key ? cache.get(key, compute, abortSignal) : compute()
+    // Shared query work owns its cancellation signal; one canceled search
+    // must not abort an embedding still needed by another search.
+    return key ? cache.get(key, compute, abortSignal) : compute(abortSignal)
   }
 
   private async maybeExpandQueries(
@@ -952,7 +961,9 @@ export class RetrievalService {
     // soft-fail to RRF order by catching and returning the input hits.
     let scores: number[]
     try {
-      scores = await reranker.rerank(query, docs)
+      scores = abortSignal
+        ? await reranker.rerank(query, docs, { abortSignal })
+        : await reranker.rerank(query, docs)
     } catch (err) {
       rethrowCancellation(err, abortSignal)
       console.warn('[retrieval] reranker failed, keeping RRF order:', err)

@@ -1,4 +1,4 @@
-import type { EmbedderProvider } from '../types'
+import type { EmbedderProvider, ProviderRequestOptions } from '../types'
 import type { OllamaClient } from './OllamaClient'
 import { validateEmbeddingBatch } from '../../embeddings/validateBatch'
 
@@ -13,12 +13,15 @@ export class OllamaEmbedderProvider implements EmbedderProvider {
     this.dim = knownDim
   }
 
-  async embed(texts: string[]): Promise<Float32Array[]> {
+  async embed(texts: string[], opts?: ProviderRequestOptions): Promise<Float32Array[]> {
+    opts?.abortSignal?.throwIfAborted()
     if (texts.length === 0) return []
-    const data = await this.client.postJson<{ embeddings?: number[][] }>('/api/embed', {
-      model: this.model,
-      input: texts,
-    })
+    const data = await this.client.postJson<{ embeddings?: number[][] }>(
+      '/api/embed',
+      { model: this.model, input: texts },
+      opts?.abortSignal,
+    )
+    opts?.abortSignal?.throwIfAborted()
     const vectors = data.embeddings ?? []
     const dimension = validateEmbeddingBatch(vectors, texts.length, this.dim ?? undefined)
     // Learn only from a wholly usable batch; a malformed first response must

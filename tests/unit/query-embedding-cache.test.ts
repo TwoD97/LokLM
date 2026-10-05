@@ -31,6 +31,8 @@ describe('bounded session query-vector cache', () => {
     await vi.waitFor(() => expect(compute).toHaveBeenCalledTimes(1))
     ctrl.abort()
     await canceledAssertion
+    expect(compute.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal)
+    expect(compute.mock.calls[0]?.[0].aborted).toBe(false)
     pending.resolve(new Float32Array([1, 2]))
     expect(await healthy).toEqual(new Float32Array([1, 2]))
     expect(cache.snapshot()).toMatchObject({ entries: 1, coalesced: 1 })
@@ -46,6 +48,7 @@ describe('bounded session query-vector cache', () => {
     await vi.waitFor(() => expect(compute).toHaveBeenCalled())
     ctrl.abort()
     await assertion
+    expect(compute.mock.calls[0]?.[0]?.aborted).toBe(true)
     pending.resolve(new Float32Array([1]))
     await Promise.resolve()
     await Promise.resolve()
@@ -108,7 +111,9 @@ describe('bounded session query-vector cache', () => {
     const occupied = deferred<Float32Array | null>()
     const overflow = deferred<Float32Array | null>()
     const first = cache.get('occupied', () => occupied.promise)
-    const compute = vi.fn(() => overflow.promise)
+    const compute = vi.fn<(signal?: AbortSignal) => Promise<Float32Array | null>>(
+      () => overflow.promise,
+    )
     const ctrl = new AbortController()
     const result = cache.get('overflow', compute, ctrl.signal)
     let canceled = false
@@ -120,6 +125,7 @@ describe('bounded session query-vector cache', () => {
     ctrl.abort()
     try {
       await vi.waitFor(() => expect(canceled).toBe(true), { timeout: 100 })
+      expect(compute.mock.calls[0]?.[0]?.aborted).toBe(true)
     } finally {
       overflow.resolve(new Float32Array([2]))
       occupied.resolve(new Float32Array([1]))

@@ -1096,9 +1096,10 @@ export class LlamaService {
         // Conversation history is embedded into the prompt body by buildPrompt,
         // so when the context overflows it's the one knob we can turn on retry.
         // Dropping it costs the model topical memory of prior turns , the live
-        // question + retrieved Context still answer most follow-ups.
+        // question + retrieved Context still answer most follow-ups. Once an
+        // answer is visible, fail the partial turn instead of appending a new one.
         const hasHistory = opts.conversationHistory && opts.conversationHistory.length > 0
-        if (!isOverflowError(err) || !hasHistory) throw err
+        if (!isOverflowError(err) || !hasHistory || accumulated.trim().length > 0) throw err
         console.warn('[llama] context overflowed, retrying without conversation history')
       }
       try {

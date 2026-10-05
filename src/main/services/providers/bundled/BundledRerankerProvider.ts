@@ -1,5 +1,5 @@
 import type { RerankerService } from '../../retrieval/RerankerService'
-import type { RerankerProvider } from '../types'
+import type { RerankerProvider, ProviderRequestOptions } from '../types'
 
 /**
  * Adapts the bundled BGE-reranker RerankerService to the RerankerProvider
@@ -16,8 +16,14 @@ import type { RerankerProvider } from '../types'
 export class BundledRerankerProvider implements RerankerProvider {
   constructor(private readonly inner: RerankerService) {}
 
-  async rerank(query: string, passages: string[]): Promise<number[]> {
+  async rerank(
+    query: string,
+    passages: string[],
+    opts?: ProviderRequestOptions,
+  ): Promise<number[]> {
+    opts?.abortSignal?.throwIfAborted()
     const scores = await this.inner.rank(query, passages)
+    opts?.abortSignal?.throwIfAborted()
     if (scores === null) {
       throw new Error('BundledRerankerProvider: rerank failed (model unavailable or scoring error)')
     }

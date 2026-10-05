@@ -2,6 +2,35 @@ import { describe, it, expect, vi } from 'vitest'
 import { OllamaEmbedderProvider } from '@main/services/providers/ollama/OllamaEmbedderProvider'
 
 describe('OllamaEmbedderProvider', () => {
+  it('propagates cancellation and does not learn a dimension from a late response', async () => {
+    const controller = new AbortController()
+    const client = {
+      postJson: vi.fn(async () => {
+        controller.abort()
+        return { embeddings: [[1, 2, 3]] }
+      }),
+    }
+    const provider = new OllamaEmbedderProvider(client as never, 'fixture')
+    await expect(
+      provider.embed(['text'], { abortSignal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.postJson).toHaveBeenCalledExactlyOnceWith(
+      '/api/embed',
+      { model: 'fixture', input: ['text'] },
+      controller.signal,
+    )
+    expect(() => provider.dimension()).toThrow(/not yet known/)
+  })
+
+  it('does not send an already-cancelled batch', async () => {
+    const client = { postJson: vi.fn() }
+    const provider = new OllamaEmbedderProvider(client as never, 'fixture')
+    await expect(
+      provider.embed(['text'], { abortSignal: AbortSignal.abort() }),
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.postJson).not.toHaveBeenCalled()
+  })
+
   it('embeds and returns Float32Array per input', async () => {
     const client = {
       postJson: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] }),

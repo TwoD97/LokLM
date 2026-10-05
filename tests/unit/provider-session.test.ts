@@ -7,6 +7,7 @@ import type {
 } from '@main/services/providers/types'
 import type { AskOptions } from '@main/services/llm/LlamaService'
 import type { IndexingLease } from '@shared/modelActivity'
+import { OllamaRerankerProvider } from '@main/services/providers/ollama/OllamaRerankerProvider'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -79,6 +80,97 @@ function setup() {
 }
 
 describe('provider registry session retirement', () => {
+  it('aborts the remote rerank request and never dispatches another passage after retirement', async () => {
+    const { registry, bundled, ollama } = setup()
+    const pending = deferred<{ done: boolean; message: { content: string } }>()
+    const client = {
+      postJson: vi.fn<
+        (path: string, body: unknown, signal?: AbortSignal) => typeof pending.promise
+      >(() => pending.promise),
+    }
+    registry.replaceOllama({
+      llm: ollama.llm,
+      embedder: ollama.embedder,
+      reranker: new OllamaRerankerProvider(client as never, 'fixture'),
+    })
+    registry.setRerankerSource('ollama')
+    const result = registry.reranker().rerank('old question', ['first', 'second'])
+    const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    const signal = client.postJson.mock.calls[0]![2] as AbortSignal
+    expect(signal.aborted).toBe(false)
+    registry.invalidateSession()
+    expect(signal.aborted).toBe(true)
+    // Even an adapter that ignores HTTP cancellation cannot send more text.
+    pending.resolve({ done: true, message: { content: '0.7' } })
+    await rejected
+    expect(client.postJson).toHaveBeenCalledOnce()
+    expect(bundled.reranker.rerank).not.toHaveBeenCalled()
+  })
+
+  it.each(['embed', 'embedQuery'] as const)(
+    'passes a retiring signal into remote %s',
+    async (method) => {
+      const { registry, ollama } = setup()
+      const pending = deferred<Float32Array[]>()
+      ollama.embedder.embed = vi.fn(() => pending.promise)
+      ollama.embedder.embedQuery = vi.fn(() => pending.promise)
+      registry.setEmbedderSource('ollama')
+      const provider = registry.embedder()
+      const result = provider[method]!(['private text'])
+      const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+      const call = vi.mocked(ollama.embedder[method]!).mock.calls[0]!
+      const signal = call[1]!.abortSignal!
+      registry.invalidateSession()
+      expect(signal.aborted).toBe(true)
+      pending.resolve([Float32Array.of(1)])
+      await rejected
+    },
+  )
+
+  it.each(['ask', 'generateRaw', 'generateTitle'] as const)(
+    'cancels in-flight %s on retirement without requiring an external signal',
+    async (method) => {
+      const { registry, ollama, bundled } = setup()
+      const pending = deferred<string>()
+      vi.mocked(ollama.llm[method]).mockReturnValue(pending.promise)
+      registry.setLlmSource('ollama')
+      const provider = registry.llm()
+      const result =
+        method === 'ask'
+          ? provider.ask('q', [], {})
+          : method === 'generateRaw'
+            ? provider.generateRaw('q', {})
+            : provider.generateTitle('q', 'a')
+      const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+      const args = vi.mocked(ollama.llm[method]).mock.calls[0]!
+      const options = args.at(-1) as { abortSignal: AbortSignal }
+      registry.invalidateSession()
+      expect(options.abortSignal.aborted).toBe(true)
+      pending.reject(Object.assign(new Error('offline'), { kind: 'network' }))
+      await rejected
+      expect(bundled.llm[method]).not.toHaveBeenCalled()
+    },
+  )
+
+  it('preserves a captured reranker through replacement and lets caller cancellation interrupt it', async () => {
+    const { registry, ollama } = setup()
+    registry.setRerankerSource('ollama')
+    const captured = registry.reranker()
+    const replacement = providers().reranker
+    registry.replaceOllama({ llm: ollama.llm, embedder: ollama.embedder, reranker: replacement })
+    const controller = new AbortController()
+    const pending = deferred<number[]>()
+    vi.mocked(ollama.reranker.rerank).mockReturnValue(pending.promise)
+    const result = captured.rerank('q', ['passage'], { abortSignal: controller.signal })
+    const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    const signal = vi.mocked(ollama.reranker.rerank).mock.calls[0]![2]!.abortSignal!
+    controller.abort()
+    expect(signal.aborted).toBe(true)
+    pending.resolve([0.5])
+    await rejected
+    expect(replacement.rerank).not.toHaveBeenCalled()
+    await expect(registry.reranker().rerank('next', ['passage'])).resolves.toEqual([0.9])
+  })
   it('uses the active capacity hook and rejects a capacity result from a retired session', async () => {
     const { registry, bundled } = setup()
     const pending = deferred<number>()
@@ -113,7 +205,11 @@ describe('provider registry session retirement', () => {
     expect(await fresh.reranker().rerank('new question', ['new passage'])).toEqual([0.9])
     pending.reject(Object.assign(new Error('Offline'), { kind: 'network' }))
     await rejected
-    expect(bundled.reranker.rerank).toHaveBeenCalledExactlyOnceWith('new question', ['new passage'])
+    expect(bundled.reranker.rerank).toHaveBeenCalledExactlyOnceWith(
+      'new question',
+      ['new passage'],
+      { abortSignal: expect.any(AbortSignal) },
+    )
   })
 
   it.each(['ask', 'generateRaw', 'generateTitle'] as const)(
@@ -197,7 +293,10 @@ describe('provider registry session retirement', () => {
     await expect(wrapped.embedQuery?.(['q'], { codebase: true })).resolves.toEqual([
       Float32Array.of(2),
     ])
-    expect(bundled.embedder.embedQuery).toHaveBeenCalledWith(['q'], { codebase: true })
+    expect(bundled.embedder.embedQuery).toHaveBeenCalledWith(['q'], {
+      codebase: true,
+      abortSignal: expect.any(AbortSignal),
+    })
     expect(wrapped.queryCacheKey?.('q')).toBe('revision:query')
     registry.setEmbedderSource('ollama')
     const remote = registry.embedder()

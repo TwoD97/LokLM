@@ -1,0 +1,155 @@
+{
+  "kind": "manual-matched-prompt-diagnostic",
+  "limitation": "All three questions and references were previously observed and are DEV regressions. Oracle pair selection uses gold source keys; it is not an implemented retriever. One observation per cell, fixed rotated order, one loaded E worker. No claim of fresh evaluation or general model improvement.",
+  "independentReview": "Both rag_research and organizer_store read all twelve actual visible answers and supplied passages and agreed on the reported semantic/citation distinctions.",
+  "observations": [
+    {
+      "caseId": "heldout-10",
+      "arm": "full-full",
+      "verdict": "fail",
+      "category": "unsupported_final_authority",
+      "note": "Invents documentation rules by which B replaces A and selects 2027-05-15. Neither supplied draft contains approval or supersession. Only B is cited despite also describing A.",
+      "answer": "Die endgültige Versandfrist für Orvo ist 2027-05-15, da der Entwurf B (Ausgabedatum: 2027-04-01) eine Frist von diesem Datum an trägt und laut Dokumentationsregeln den Entwurf A (Frist: 2027-05-08) ersetzt hat. [doc:4, chunk:7]",
+      "sourceIds": ["4:7", "3:6", "2:4", "2:5", "1:3", "1:2", "5:8", "6:9", "1:1"],
+      "firstVisibleTextMs": 26708,
+      "totalMs": 67202,
+      "transportError": null
+    },
+    {
+      "caseId": "heldout-10",
+      "arm": "compact-full",
+      "verdict": "partial",
+      "category": "missing_required_abstention",
+      "note": "Dates and their exact citations are correct, but the answer still calls B a definitive deadline and never states that finality is unresolved. No invented documentation-rule rationale this time; still not safe abstention.",
+      "answer": "Die endgültige Versandfrist für Orvo ist laut Entwurf B (2027-05-15) [doc:4, chunk:7] länger als die in Entwurf A genannte Frist (2027-05-08) [doc:3, chunk:6].",
+      "sourceIds": ["4:7", "3:6", "2:4", "2:5", "1:3", "1:2", "5:8", "6:9", "1:1"],
+      "firstVisibleTextMs": 14121,
+      "totalMs": 44512,
+      "transportError": null
+    },
+    {
+      "caseId": "heldout-10",
+      "arm": "full-pair",
+      "verdict": "fail",
+      "category": "unsupported_final_authority",
+      "note": "Selects the earlier deadline because B lacks a replacement note. Absence of supersession does not make the unapproved A draft binding. Both dates are real; the governing-authority rule is invented.",
+      "answer": "Laut Entwurf A gilt die Versandfrist vom 2027-05-08, während Entwurf B eine Frist vom 2027-05-15 festlegt; da Entwurf B keinen Vermerk enthält, dass er den vorherigen ersetzt, ist die gültige Frist der frühere Wert [doc:3, chunk:6] und [doc:4, chunk:7].",
+      "sourceIds": ["4:7", "3:6"],
+      "firstVisibleTextMs": 12852,
+      "totalMs": 51050,
+      "transportError": null
+    },
+    {
+      "caseId": "heldout-10",
+      "arm": "compact-pair",
+      "verdict": "pass",
+      "category": "safe_unresolved",
+      "note": "Reports both ISO dates with their exact passage markers and explicitly states that the contradictory values have no resolution. Final wording is a little meta, but it does not choose a governing draft.",
+      "answer": "Laut Entwurf A gilt die Versandfrist vom 2027-05-08 [doc:3, chunk:6], während Entwurf B eine Frist vom 2027-05-15 festlegt [doc:4, chunk:7]; da sich die Werte widersprechen und keine Auflösung vorliegt, sind beide Alternativen zu nennen.",
+      "sourceIds": ["4:7", "3:6"],
+      "firstVisibleTextMs": 9325,
+      "totalMs": 41998,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-05",
+      "arm": "compact-full",
+      "verdict": "fail",
+      "category": "false_conflict_equivalent_units",
+      "note": "Calls the same interval contradictory despite accurately quoting 1.5 minutes and 90 seconds with their correct passages.",
+      "answer": "Yes, the acceptance sheet and commissioning log disagree about the closing duration of Elwen EV-8.\n\n*   The **commissioning log** states the time from receipt of the close command to the fully closed position is **1.5 minutes**.\n    *   [doc:10, chunk:10]\n*   The **acceptance sheet** states the time from the close command to the fully closed position is **90 seconds**.\n    *   [doc:9, chunk:9]",
+      "sourceIds": ["12:12", "13:13", "11:11", "4:4", "10:10", "9:9", "3:3", "7:7", "8:8", "15:15"],
+      "firstVisibleTextMs": 10760,
+      "totalMs": 56315,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-05",
+      "arm": "full-pair",
+      "verdict": "fail",
+      "category": "false_conflict_equivalent_units",
+      "note": "Calls the same interval contradictory despite accurately quoting 1.5 minutes and 90 seconds with their correct passages.",
+      "answer": "Yes, the acceptance sheet and commissioning log disagree about the closing duration of Elwen EV-8. The commissioning log states the time from receipt of the close command to the fully closed position is 1.5 minutes [doc:10, chunk:10], while the acceptance sheet records this same interval as 90 seconds [doc:9, chunk:9].",
+      "sourceIds": ["10:10", "9:9"],
+      "firstVisibleTextMs": 8589,
+      "totalMs": 42110,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-05",
+      "arm": "compact-pair",
+      "verdict": "fail",
+      "category": "false_conflict_equivalent_units",
+      "note": "Calls the same interval contradictory despite accurately quoting 1.5 minutes and 90 seconds with their correct passages.",
+      "answer": "Yes, the acceptance sheet and commissioning log disagree about the closing duration of Elwen EV-8.\n\nThe commissioning log states the time is **1.5 minutes** [doc:10, chunk:10].\nThe acceptance sheet states the time is **90 seconds** [doc:9, chunk:9].",
+      "sourceIds": ["10:10", "9:9"],
+      "firstVisibleTextMs": 3395,
+      "totalMs": 31997,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-05",
+      "arm": "full-full",
+      "verdict": "fail",
+      "category": "false_conflict_equivalent_units",
+      "note": "Calls the same interval contradictory despite accurately quoting 1.5 minutes and 90 seconds with their correct passages.",
+      "answer": "Yes, the acceptance sheet and commissioning log disagree about the closing duration of Elwen EV-8. The commissioning log states the time from receipt of the close command to the fully closed position is 1.5 minutes [doc:10, chunk:10], while the acceptance sheet states this same duration is 90 seconds [doc:9, chunk:9].",
+      "sourceIds": ["12:12", "13:13", "11:11", "4:4", "10:10", "9:9", "3:3", "7:7", "8:8", "15:15"],
+      "firstVisibleTextMs": 16774,
+      "totalMs": 52992,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-03",
+      "arm": "full-pair",
+      "verdict": "partial",
+      "category": "correct_authority_incomplete_local_citation",
+      "note": "Correct current 84 EUR and nonbinding 96 EUR proposal. The second sentence also claims continuation until a new members resolution, but ends only with 6:6; that explicit continuation rule is in 5:5. Prior citation 5:5 supports the first fee sentence, not every later clause. No invented authority or false abstention.",
+      "answer": "The current annual fee for an ordinary adult Farnau music-club member is 84 EUR [doc:5, chunk:5]. The later budget draft (created on 2029-06-09) calculates a future contribution of 96 EUR but has not yet been voted upon; therefore, it does not constitute a binding contribution order and the existing rules remain in effect until a new resolution is adopted by the members' assembly [doc:6, chunk:6].",
+      "sourceIds": ["5:5", "6:6"],
+      "firstVisibleTextMs": 9771,
+      "totalMs": 55056,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-03",
+      "arm": "compact-pair",
+      "verdict": "pass",
+      "category": "supported_current_authority",
+      "note": "Correct current 84 EUR, adopted/effective dates and exact 5:5 citation; correct unvoted/nonbinding 96 EUR proposal with exact 6:6 citation.",
+      "answer": "The current annual fee for an ordinary adult Farnau music-club member is 84 EUR, as established by the Beitragsordnung adopted on 2029-01-22 and effective from 2029-02-01 [doc:5, chunk:5]. The later budget draft (Haushaltsentwurf) created on 2029-06-09 calculates a future contribution of 96 EUR but explicitly states that this increase has not yet been voted upon and therefore does not constitute a binding Beitragsordnung [doc:6, chunk:6].",
+      "sourceIds": ["5:5", "6:6"],
+      "firstVisibleTextMs": 4343,
+      "totalMs": 62154,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-03",
+      "arm": "full-full",
+      "verdict": "partial",
+      "category": "correct_authority_incomplete_local_citation",
+      "note": "Correct current 84 EUR and nonbinding 96 EUR proposal. Continuation until a new resolution is explicit only in 5:5 but its sentence ends with 6:6 alone. This is a local citation omission, not a wrong governing source or fabricated fact.",
+      "answer": "The current annual fee for an ordinary adult Farnau music-club member is 84 EUR [doc:5, chunk:5]. The later budget draft proposes a future annual contribution of 96 EUR but has not yet been voted on by the members' assembly; therefore, it does not constitute a binding Beitragsordnung and the current rate remains in effect until a new resolution is adopted [doc:6, chunk:6].",
+      "sourceIds": ["3:3", "5:5", "6:6", "4:4", "11:11", "7:7", "13:13", "12:12", "9:9", "8:8"],
+      "firstVisibleTextMs": 17203,
+      "totalMs": 62589,
+      "transportError": null
+    },
+    {
+      "caseId": "authority-reserved-03",
+      "arm": "compact-full",
+      "verdict": "pass",
+      "category": "supported_current_authority",
+      "note": "Correct current 84 EUR and not-yet-voted 96 EUR proposal. Separate source bullets clearly map the current fee to 5:5 and proposal/status to 6:6.",
+      "answer": "The current annual fee for an ordinary adult Farnau music-club member is 84 EUR. The later budget draft proposes a future annual contribution of 96 EUR, but this increase has not yet been voted on and therefore does not currently apply.\n\n*   Current fee: [doc:5, chunk:5]\n*   Budget draft proposal and status: [doc:6, chunk:6]",
+      "sourceIds": ["3:3", "5:5", "6:6", "4:4", "11:11", "7:7", "13:13", "12:12", "9:9", "8:8"],
+      "firstVisibleTextMs": 11366,
+      "totalMs": 49720,
+      "transportError": null
+    }
+  ],
+  "rawArtifact": {
+    "path": "out/optimization-20261005/matched-prompt-native/raw.json",
+    "sha256": "42348cc14696d47de02e76314ea472faac76df5fa5ba8441d59b2e93187619e2"
+  }
+}

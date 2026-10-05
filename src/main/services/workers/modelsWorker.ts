@@ -1223,11 +1223,12 @@ async function rerankerLoad(payload: RerankerLoadPayload): Promise<RerankerLoadR
 }
 
 async function rerankerUnloadInternal(): Promise<void> {
-  try {
-    if (rerankerContext && hasDispose(rerankerContext)) await rerankerContext.dispose()
-    if (rerankerModel && hasDispose(rerankerModel)) await rerankerModel.dispose()
-  } catch {
-    /* ignore */
+  for (const resource of [rerankerContext, rerankerModel]) {
+    try {
+      if (hasDispose(resource)) await resource.dispose()
+    } catch {
+      // A failed context cleanup must not skip releasing the model weights.
+    }
   }
   rerankerContext = null
   rerankerModel = null

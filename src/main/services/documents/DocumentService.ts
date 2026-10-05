@@ -519,7 +519,14 @@ export class DocumentService {
           await repo.clearMissing(documentId)
         }
         const mtime = Math.round(stat.mtimeMs)
-        if (doc.sourceMtime != null && doc.sourceMtime === mtime && doc.contentHash != null) {
+        // Copy/sync tools can preserve timestamps while replacing the content.
+        // A changed length must still reach the hash/size checks below.
+        if (
+          doc.sourceMtime != null &&
+          doc.sourceMtime === mtime &&
+          doc.byteSize === stat.size &&
+          doc.contentHash != null
+        ) {
           return 'unchanged'
         }
         // mtime differs (or we never recorded one) — confirm with the hash before

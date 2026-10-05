@@ -1,6 +1,7 @@
 /** Session-local cache of query vectors, never source hits or text.
- * Native embedding has no abort API, so cancellation detaches one consumer
- * without canceling another caller sharing the same in-flight vector. */
+ * Cancellation detaches one consumer without canceling another caller sharing
+ * the same in-flight vector. The last consumer cancels the provider operation;
+ * native providers still finish their current batch before releasing it. */
 export class QueryEmbeddingCache {
   private readonly entries = new Map<string, Float32Array>()
   private readonly pending = new Map<
@@ -8,6 +9,7 @@ export class QueryEmbeddingCache {
     {
       promise: Promise<Float32Array | null>
       consumers: Set<symbol>
+      controller: AbortController
     }
   >()
   private bytes = 0
@@ -46,7 +48,7 @@ export class QueryEmbeddingCache {
 
   async get(
     key: string,
-    compute: () => Promise<Float32Array | null>,
+    compute: (signal: AbortSignal) => Promise<Float32Array | null>,
     signal?: AbortSignal,
   ): Promise<Float32Array | null> {
     signal?.throwIfAborted()
@@ -67,12 +69,14 @@ export class QueryEmbeddingCache {
       const cacheable = this.pending.size < this.maxPending
       const epoch = this.epoch
       const consumers = new Set<symbol>()
+      const controller = new AbortController()
       // Defer compute until the first consumer has registered. This also turns
       // a synchronous provider failure into the same rejected-promise path.
       const entry = {
         consumers,
+        controller,
         promise: Promise.resolve()
-          .then(() => (consumers.size > 0 ? compute() : null))
+          .then(() => (consumers.size > 0 ? compute(controller.signal) : null))
           .then((vector) => {
             if (cacheable && epoch === this.epoch && consumers.size > 0 && vector)
               this.put(key, vector)
@@ -94,8 +98,10 @@ export class QueryEmbeddingCache {
       if (!signal) return
       onAbort = () => {
         pending.consumers.delete(consumer)
-        if (pending.consumers.size === 0 && this.pending.get(key) === pending)
-          this.pending.delete(key)
+        if (pending.consumers.size === 0) {
+          if (this.pending.get(key) === pending) this.pending.delete(key)
+          pending.controller.abort(signal.reason)
+        }
         reject(signal.reason)
       }
       signal.addEventListener('abort', onAbort, { once: true })

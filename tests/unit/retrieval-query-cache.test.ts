@@ -1,10 +1,41 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { FLAT, hit, retrievalHarness } from './fixtures/retrievalHarness'
+import { deferred, FLAT, hit, retrievalHarness } from './fixtures/retrievalHarness'
 
 vi.mock('@main/services/retrieval/trace', () => ({ retrievalTrace: () => {} }))
 afterEach(() => vi.unstubAllEnvs())
 
 describe('query cache in production retrieval', () => {
+  it('keeps a shared embedding alive until its final search is canceled', async () => {
+    vi.stubEnv('LOKLM_QUERY_EMBEDDING_CACHE', '1')
+    const { service, embed, embedder, dense } = retrievalHarness()
+    Object.assign(embedder, { queryCacheKey: (query: string) => query })
+    const pending = deferred<Float32Array[]>()
+    embed.mockReturnValue(pending.promise)
+    const first = new AbortController()
+    const second = new AbortController()
+    const firstResult = service.search(1, 'Shared query', 2, { ...FLAT, abortSignal: first.signal })
+    const secondResult = service.search(1, 'Shared query', 2, {
+      ...FLAT,
+      abortSignal: second.signal,
+    })
+    const firstStopped = expect(firstResult).rejects.toMatchObject({ name: 'AbortError' })
+    const secondStopped = expect(secondResult).rejects.toMatchObject({ name: 'AbortError' })
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledOnce())
+    const sharedSignal = embed.mock.calls[0]![1]?.abortSignal
+    expect(sharedSignal).toBeInstanceOf(AbortSignal)
+    first.abort()
+    await firstStopped
+    expect(sharedSignal?.aborted).toBe(false)
+    second.abort()
+    await secondStopped
+    expect(sharedSignal?.aborted).toBe(true)
+    // Native work can still finish its current batch; neither canceled search
+    // may use that result to query the vector store.
+    pending.resolve([new Float32Array([1, 0])])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(dense).not.toHaveBeenCalled()
+  })
+
   it.each([
     { raw: undefined, enabled: true },
     { raw: '', enabled: true },

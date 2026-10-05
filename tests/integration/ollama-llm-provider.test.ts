@@ -162,7 +162,7 @@ describe('OllamaLlmProvider', () => {
   })
 
   it('forwards the QA output reserve instead of relying on server defaults', async () => {
-    const client = mkClient([{ done: true }])
+    const client = mkClient([{ done: true, message: { content: 'Answer.' } }])
     const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
     await provider.ask('Question', [], { maxTokens: 512 })
     expect(client.postNdjson).toHaveBeenCalledWith(

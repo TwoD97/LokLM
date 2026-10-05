@@ -60,6 +60,7 @@ describe('retrieval request cancellation', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const result = service.search(1, 'Revenue outlook', 10, { ...FLAT, abortSignal: ctrl.signal })
     await vi.waitFor(() => expect(embed).toHaveBeenCalled())
+    expect(embed.mock.calls[0]![1]).toMatchObject({ abortSignal: ctrl.signal })
     ctrl.abort()
     pending.resolve([new Float32Array([1, 0])])
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
@@ -82,6 +83,7 @@ describe('retrieval request cancellation', () => {
       abortSignal: ctrl.signal,
     })
     await vi.waitFor(() => expect(rank).toHaveBeenCalled())
+    expect(rank.mock.calls[0]![2]).toMatchObject({ abortSignal: ctrl.signal })
     ctrl.abort()
     pending.reject(new Error('Native work ended'))
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })

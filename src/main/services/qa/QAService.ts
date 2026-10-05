@@ -629,8 +629,17 @@ export class QAService {
     // LlamaService.ask runs concurrently. We carry the native-chunk count so
     // the renderer's tokens/sec metric reflects the underlying llama.cpp
     // chunk rate, not the 125 Hz batched-push ceiling.
+    // The iterator owns the producer: a consumer can close it without firing
+    // chat:cancel (for example after its output channel disconnects).
+    const generationController = new AbortController()
+    const generationSignal = abortSignal
+      ? AbortSignal.any([abortSignal, generationController.signal])
+      : generationController.signal
+    let acceptingChunks = true
+    let generationFinished = false
     const queue: Array<{ text: string; count: number }> = []
     const collector = (text: string, count: number): void => {
+      if (!acceptingChunks || generationSignal.aborted) return
       queue.push({ text, count })
     }
 
@@ -648,7 +657,7 @@ export class QAService {
       // Forward the server-side cancel signal so chat:cancel tears down the
       // worker generation (the longest LLM call) — not just the contextualize
       // step. LlamaService.askWithModel wires this to llmAbort(streamId).
-      if (abortSignal) askOpts.abortSignal = abortSignal
+      askOpts.abortSignal = generationSignal
       // Bind the provider to this turn's language before streaming. Awaited so
       // the bundled worker's system prompt is in place before llmAsk (it holds
       // the prompt as session state). No-op when the language is unchanged.
@@ -656,24 +665,46 @@ export class QAService {
       // Same contract for the codebase prompt mode (CODE section) — no-op when
       // unchanged, unknown providers stay in document mode.
       await answeringLlm.setCodebaseMode?.(codebaseWorkspace)
-      if (abortSignal?.aborted) return
-      const askPromise = answeringLlm.ask(query, packedRagHits, askOpts)
+      if (generationSignal.aborted) return
+      // Observe failure before the first yield. A provider may emit a chunk
+      // synchronously and reject while the consumer is paused or already gone.
+      const askPromise = Promise.resolve()
+        .then(() => {
+          generationSignal.throwIfAborted()
+          return answeringLlm.ask(query, packedRagHits, askOpts)
+        })
+        .then(
+          (value) => {
+            generationFinished = true
+            return { ok: true as const, value }
+          },
+          (error: unknown) => {
+            generationFinished = true
+            return { ok: false as const, error }
+          },
+        )
       // drain the queue while ask is still running
       while (true) {
+        if (generationSignal.aborted) return
         if (queue.length > 0) {
           if (!prefillClosed) {
             emitStage('prefill', 'done')
             prefillClosed = true
-            while (stageBuffer.length > 0) yield stageBuffer.shift()!
+            while (stageBuffer.length > 0) {
+              if (generationSignal.aborted) return
+              yield stageBuffer.shift()!
+            }
           }
           while (queue.length > 0) {
+            if (generationSignal.aborted) return
             const next = queue.shift()!
             yield { type: 'token', text: next.text, count: next.count }
           }
         }
         const settled = await Promise.race([askPromise, sleep(15)])
         if (settled !== SLEEP_SENTINEL) {
-          collectedFull = settled as string
+          if (!settled.ok) throw settled.error
+          collectedFull = settled.value
           break
         }
       }
@@ -681,9 +712,13 @@ export class QAService {
       if (!prefillClosed && queue.length > 0) {
         emitStage('prefill', 'done')
         prefillClosed = true
-        while (stageBuffer.length > 0) yield stageBuffer.shift()!
+        while (stageBuffer.length > 0) {
+          if (generationSignal.aborted) return
+          yield stageBuffer.shift()!
+        }
       }
       while (queue.length > 0) {
+        if (generationSignal.aborted) return
         const next = queue.shift()!
         yield { type: 'token', text: next.text, count: next.count }
       }
@@ -708,8 +743,13 @@ export class QAService {
       if (abortSignal?.aborted) return
       yield { type: 'error', message: err instanceof Error ? err.message : String(err) }
       return
+    } finally {
+      acceptingChunks = false
+      queue.length = 0
+      if (!generationFinished) generationController.abort()
     }
 
+    if (generationSignal.aborted) return
     yield {
       type: 'done',
       full_text: collectedFull,

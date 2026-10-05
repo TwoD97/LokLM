@@ -1,7 +1,7 @@
 import type { EmbeddingService } from '../../embeddings/EmbeddingService'
 import { EMBEDDING_DIM } from '../../embeddings/EmbeddingService'
 import { CODE_EMBEDDER_IDENTITY, CODE_EMBEDDING_DIM } from '../../codebase/codeEmbedder'
-import type { EmbedderProvider } from '../types'
+import type { EmbedderProvider, ProviderRequestOptions } from '../types'
 import type { IndexingJob, IndexingLease } from '../../../../shared/modelActivity'
 import { validateEmbeddingBatch } from '../../embeddings/validateBatch'
 
@@ -29,8 +29,10 @@ export class BundledEmbedderProvider implements EmbedderProvider {
     return 4
   }
 
-  async embed(texts: string[]): Promise<Float32Array[]> {
+  async embed(texts: string[], opts?: ProviderRequestOptions): Promise<Float32Array[]> {
+    opts?.abortSignal?.throwIfAborted()
     const raw = await this.inner.embedPassages(texts)
+    opts?.abortSignal?.throwIfAborted()
     validateEmbeddingBatch(raw, texts.length, this.dimension())
     return raw.map((v, i) => {
       if (v === null) {
@@ -43,8 +45,13 @@ export class BundledEmbedderProvider implements EmbedderProvider {
   /** Query path (ADR-0006 fix #1): routes to EmbeddingService.embedQueries, which
    *  prepends the code model's Instruct/Query template (BGE-M3: none). Same
    *  null-means-unembeddable contract as embed(). */
-  async embedQuery(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]> {
+  async embedQuery(
+    texts: string[],
+    opts?: ProviderRequestOptions & { codebase?: boolean },
+  ): Promise<Float32Array[]> {
+    opts?.abortSignal?.throwIfAborted()
     const raw = await this.inner.embedQueries(texts, opts)
+    opts?.abortSignal?.throwIfAborted()
     validateEmbeddingBatch(raw, texts.length, this.dimension())
     return raw.map((v, i) => {
       if (v === null) {

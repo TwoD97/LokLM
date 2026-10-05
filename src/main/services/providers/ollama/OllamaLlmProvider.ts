@@ -119,6 +119,7 @@ export class OllamaLlmProvider implements LlmProvider {
       }
       opts.abortSignal?.throwIfAborted()
       if (!completed) throw new OllamaError('server', 'Ollama answer ended before completion.')
+      if (!acc.trim()) throw new OllamaError('server', 'Ollama returned no answer text.')
       return citationOutput.final(acc)
     } catch (error) {
       opts.abortSignal?.throwIfAborted()

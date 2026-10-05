@@ -35,6 +35,30 @@ function fixture(failure: Failure, partial: boolean) {
 }
 
 describe('Ollama chat completion and provider fallback', () => {
+  it('uses the existing fallback when Ollama reports completion without an answer', async () => {
+    const { registry, client, bundledAsk } = fixture('eof', false)
+    client.postNdjson.mockImplementation(async function* () {
+      yield { message: { content: '' }, done: true }
+    })
+    const emitted: string[] = []
+    await expect(
+      registry.llm().ask('Question', [], { onChunk: (text) => emitted.push(text) }),
+    ).resolves.toBe('Bundled answer.')
+    expect(emitted).toEqual(['Bundled answer.'])
+    expect(bundledAsk).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a whitespace-only completed answer rather than saving an empty success', async () => {
+    const { registry, client, bundledAsk } = fixture('eof', false)
+    client.postNdjson.mockImplementation(async function* () {
+      yield { message: { content: ' \n' }, done: true }
+    })
+    await expect(registry.llm().ask('Question', [], {})).rejects.toThrow(
+      /stopped before completing/,
+    )
+    expect(bundledAsk).not.toHaveBeenCalled()
+  })
+
   it.each<Failure>(['eof', 'error-record', 'network'])(
     'allows fallback for %s before any answer text',
     async (failure) => {

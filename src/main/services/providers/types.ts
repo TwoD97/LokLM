@@ -8,6 +8,10 @@ export interface ProviderStatus {
   identity: string // e.g. "bundled:qwen3-4b" | "ollama:qwen3:8b"
 }
 
+export interface ProviderRequestOptions {
+  abortSignal?: AbortSignal | undefined
+}
+
 export interface LlmProvider {
   ask(question: string, hits: RetrievalHit[], opts: AskOptions): Promise<string>
   /** Prepare chat only after retrieval has finished using the GPU. Returns the
@@ -68,13 +72,16 @@ export interface EmbedderProvider {
   /** Small local batches keep indexing progress and cancellation responsive. */
   preferredBatchSize?(): number
   /** Embed PASSAGES/documents (raw — no instruction). Used at ingest/backfill. */
-  embed(texts: string[]): Promise<Float32Array[]>
+  embed(texts: string[], opts?: ProviderRequestOptions): Promise<Float32Array[]>
   /** Embed QUERIES with the model-appropriate query-side instruction (ADR-0006
    *  fix #1 — Qwen3 gets the Instruct/Query template, code vs document by
    *  `opts.codebase`; BGE-M3 gets none). Optional: callers fall back to embed()
    *  when a provider/mock omits it, preserving the legacy "query embedded like a
    *  passage" behaviour. */
-  embedQuery?(texts: string[], opts?: { codebase?: boolean }): Promise<Float32Array[]>
+  embedQuery?(
+    texts: string[],
+    opts?: ProviderRequestOptions & { codebase?: boolean },
+  ): Promise<Float32Array[]>
   /** Optional opaque model-revision/task/query key for the opt-in session
    * query-vector cache. Providers without a reliable key bypass caching. */
   queryCacheKey?(query: string, opts?: { codebase?: boolean }): string | null
@@ -85,7 +92,7 @@ export interface EmbedderProvider {
 }
 
 export interface RerankerProvider {
-  rerank(query: string, passages: string[]): Promise<number[]>
+  rerank(query: string, passages: string[], opts?: ProviderRequestOptions): Promise<number[]>
   isReady(): boolean
   ensureReady(): Promise<void>
 }

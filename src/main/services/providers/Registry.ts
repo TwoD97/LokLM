@@ -4,6 +4,7 @@ import type {
   RerankerProvider,
   ProviderFallbackEvent,
   ProviderStatus,
+  ProviderRequestOptions,
 } from './types'
 import type { RetrievalHit, ModelStatus } from '../../../shared/documents'
 import type { AskOptions, ResponseLanguage } from '../llm/LlamaService'
@@ -76,6 +77,12 @@ class LlmFallbackState {
 /** A registry belongs to one unlocked vault session and can never be revived. */
 class ProviderSession {
   active = true
+  private readonly controller = new AbortController()
+
+  retire(): void {
+    this.active = false
+    this.controller.abort()
+  }
 
   assertActive(signal?: AbortSignal): void {
     if (!this.active || signal?.aborted) {
@@ -85,14 +92,17 @@ class ProviderSession {
     }
   }
 
-  async run<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  async run<T>(operation: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
     this.assertActive(signal)
+    const combined = signal
+      ? AbortSignal.any([signal, this.controller.signal])
+      : this.controller.signal
     try {
-      const result = await operation()
-      this.assertActive(signal)
+      const result = await operation(combined)
+      this.assertActive(combined)
       return result
     } catch (error) {
-      this.assertActive(signal)
+      this.assertActive(combined)
       throw error
     }
   }
@@ -113,7 +123,7 @@ export class ProviderRegistry {
   }
 
   invalidateSession(): void {
-    this.session.active = false
+    this.session.retire()
     this.llmFallback.reset(false, false)
   }
 
@@ -195,7 +205,8 @@ export class ProviderRegistry {
     if (existing) return existing
     const session = this.session
     const guarded: EmbedderProvider = {
-      embed: (texts) => session.run(() => provider.embed(texts)),
+      embed: (texts, opts) =>
+        session.run((abortSignal) => provider.embed(texts, { abortSignal }), opts?.abortSignal),
       ensureReady: () => session.run(() => provider.ensureReady()),
       isReady: () => session.active && provider.isReady(),
       dimension: () => {
@@ -208,7 +219,11 @@ export class ProviderRegistry {
       },
     }
     if (provider.embedQuery) {
-      guarded.embedQuery = (texts, opts) => session.run(() => provider.embedQuery!(texts, opts))
+      guarded.embedQuery = (texts, opts) =>
+        session.run(
+          (abortSignal) => provider.embedQuery!(texts, { ...opts, abortSignal }),
+          opts?.abortSignal,
+        )
     }
     if (provider.isResident) {
       guarded.isResident = () => session.active && provider.isResident!()
@@ -271,10 +286,10 @@ class RegistryLlmProvider implements LlmProvider {
   }
 
   prepareContext(opts?: { abortSignal?: AbortSignal }): Promise<number> {
-    return this.session.run(async () => {
+    return this.session.run(async (abortSignal) => {
       const provider = this.active()
       return provider.prepareContext
-        ? provider.prepareContext(opts)
+        ? provider.prepareContext({ abortSignal })
         : provider.contextWindowTokens()
     }, opts?.abortSignal)
   }
@@ -288,7 +303,10 @@ class RegistryLlmProvider implements LlmProvider {
         },
       }),
     }
-    return this.withFallback((provider) => provider.ask(q, hits, guardedOpts), opts.abortSignal)
+    return this.withFallback(
+      (provider, abortSignal) => provider.ask(q, hits, { ...guardedOpts, abortSignal }),
+      opts.abortSignal,
+    )
   }
 
   async generateRaw(
@@ -304,7 +322,10 @@ class RegistryLlmProvider implements LlmProvider {
       requireComplete?: boolean | undefined
     },
   ): Promise<string> {
-    return this.withFallback((provider) => provider.generateRaw(p, opts), opts.abortSignal)
+    return this.withFallback(
+      (provider, abortSignal) => provider.generateRaw(p, { ...opts, abortSignal }),
+      opts.abortSignal,
+    )
   }
 
   async generateTitle(
@@ -312,21 +333,24 @@ class RegistryLlmProvider implements LlmProvider {
     a: string,
     opts?: { abortSignal?: AbortSignal },
   ): Promise<string | null> {
-    return this.withFallback((provider) => provider.generateTitle(u, a, opts), opts?.abortSignal)
+    return this.withFallback(
+      (provider, abortSignal) => provider.generateTitle(u, a, { ...opts, abortSignal }),
+      opts?.abortSignal,
+    )
   }
 
   private withFallback<T>(
-    operation: (provider: LlmProvider) => Promise<T>,
+    operation: (provider: LlmProvider, signal: AbortSignal) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<T> {
-    return this.session.run(async () => {
+    return this.session.run(async (abortSignal) => {
       const active = this.active()
       const attempt =
         active === this.remote && this.source === 'ollama'
           ? this.fallback.begin(this.fallbackConfiguration)
           : null
       try {
-        const result = await operation(active)
+        const result = await operation(active, abortSignal)
         this.session.assertActive(signal)
         // Title providers may swallow connection errors into a null title;
         // that optional result does not establish that the remote recovered.
@@ -338,7 +362,7 @@ class RegistryLlmProvider implements LlmProvider {
         const reason = err instanceof Error ? err.message : String(err)
         if (this.fallback.settle(attempt, reason)) this.deps.onFallback?.({ kind: 'llm', reason })
         this.session.assertActive(signal)
-        return operation(this.bundled)
+        return operation(this.bundled, abortSignal)
       }
     }, signal)
   }
@@ -399,29 +423,35 @@ class RegistryLlmProvider implements LlmProvider {
 }
 
 class RegistryRerankerProvider implements RerankerProvider {
-  constructor(
-    private readonly source: ProviderSource,
-    private readonly deps: RegistryDeps,
-    private readonly session: ProviderSession,
-  ) {}
+  private readonly selected: RerankerProvider
+  private readonly bundled: RerankerProvider
 
-  private active(): RerankerProvider {
-    if (this.source === 'ollama' && this.deps.reranker.ollama) return this.deps.reranker.ollama
-    return this.deps.reranker.bundled
+  constructor(
+    source: ProviderSource,
+    deps: RegistryDeps,
+    private readonly session: ProviderSession,
+  ) {
+    this.bundled = deps.reranker.bundled
+    this.selected =
+      source === 'ollama' && deps.reranker.ollama ? deps.reranker.ollama : this.bundled
   }
 
-  async rerank(q: string, passages: string[]): Promise<number[]> {
-    return this.session.run(async () => {
+  private active(): RerankerProvider {
+    return this.selected
+  }
+
+  async rerank(q: string, passages: string[], opts?: ProviderRequestOptions): Promise<number[]> {
+    return this.session.run(async (abortSignal) => {
       const active = this.active()
       try {
-        return await active.rerank(q, passages)
+        return await active.rerank(q, passages, { abortSignal })
       } catch (err) {
-        this.session.assertActive()
-        if (active === this.deps.reranker.bundled || !isFallbackable(err)) throw err
+        this.session.assertActive(abortSignal)
+        if (active === this.bundled || !isFallbackable(err)) throw err
         // Silent — reranking failures are invisible to the user.
-        return this.deps.reranker.bundled.rerank(q, passages)
+        return this.bundled.rerank(q, passages, { abortSignal })
       }
-    })
+    }, opts?.abortSignal)
   }
 
   isReady(): boolean {

@@ -1,6 +1,6 @@
 import { readdir, stat } from 'node:fs/promises'
 import { watch, type FSWatcher } from 'node:fs'
-import { join, resolve, relative } from 'node:path'
+import { join, resolve, relative, isAbsolute, sep } from 'node:path'
 import type { WebContents } from 'electron'
 import type { AuthService } from '../auth/AuthService'
 import type { DocumentService } from './DocumentService'
@@ -75,10 +75,12 @@ export class FolderSyncService {
   private readonly watchers = new Map<number, FSWatcher[]>()
   // workspaceId -> pending debounce timer
   private readonly timers = new Map<number, NodeJS.Timeout>()
-  // workspaceId -> tail of the in-flight sync chain. A user clicking "Sync now"
-  // while the watcher debounce fires used to walk the same tree twice and
-  // race on importFile, creating duplicate doc rows for the same path. We
-  // serialize per-workspace via this promise chain instead.
+  // A stop/restart owns the watcher set even if an earlier start is still
+  // awaiting its folder snapshot.
+  private readonly pendingStarts = new Map<number, symbol>()
+  // Scans and root-list mutations share one workspace queue. Otherwise a scan
+  // can import new rows after removeFolder deleted that root's indexed copies,
+  // and concurrent add/remove read-modify-writes can lose each other's roots.
   private readonly syncTails = new Map<number, Promise<unknown>>()
   private senderFactory: (() => Sender | undefined) | null = null
 
@@ -111,6 +113,12 @@ export class FolderSyncService {
   }
 
   async addFolder(workspaceId: number, folderPath: string): Promise<string[]> {
+    return this.withWorkspaceOperation(workspaceId, () =>
+      this.addFolderInternal(workspaceId, folderPath),
+    )
+  }
+
+  private async addFolderInternal(workspaceId: number, folderPath: string): Promise<string[]> {
     const abs = resolve(folderPath)
     const folders = await this.getFolders(workspaceId)
     this.assertSession()
@@ -152,15 +160,15 @@ export class FolderSyncService {
   }
 
   async removeFolder(workspaceId: number, folderPath: string): Promise<string[]> {
+    return this.withWorkspaceOperation(workspaceId, () =>
+      this.removeFolderInternal(workspaceId, folderPath),
+    )
+  }
+
+  private async removeFolderInternal(workspaceId: number, folderPath: string): Promise<string[]> {
     const abs = resolve(folderPath)
     const folders = (await this.getFolders(workspaceId)).filter((p) => p !== abs)
     this.assertSession()
-    await this.database.workspaces().setSyncFolders(workspaceId, folders)
-    // ADR-0006: drop the folder's index-dir selection so a later re-add starts clean.
-    await this.database
-      .workspaces()
-      .clearIndexDirs(workspaceId, abs)
-      .catch(() => undefined)
     // Removing a folder also removes its indexed copies: docs whose source
     // lives under the removed root (and not under a folder that is still
     // synced) are deleted outright — chunks cascade, and the Lance vectors are
@@ -168,21 +176,24 @@ export class FolderSyncService {
     // stayed behind as permanent orphans: still searchable, their chunks and
     // embeddings parked in the workspace vault, and no later sync pass would
     // ever mark them missing (the marker scope is watched folders only).
-    try {
-      const docs = await this.database.documents().listDocumentsByWorkspace(workspaceId)
-      this.assertSession()
-      const doomed = docs.filter(
-        (d) => isUnderAny(d.sourcePath, [abs]) && !isUnderAny(d.sourcePath, folders),
+    // Keep the root connected until cleanup succeeds. A failure must reach the
+    // caller and leave a retryable root instead of silently orphaning its rows.
+    const docs = await this.database.documents().listDocumentsByWorkspace(workspaceId)
+    this.assertSession()
+    const doomed = docs.filter(
+      (d) => isUnderAny(d.sourcePath, [abs]) && !isUnderAny(d.sourcePath, folders),
+    )
+    if (doomed.length > 0) {
+      await this.documents.deleteDocuments(
+        doomed.map((d) => d.id),
+        workspaceId,
       )
-      if (doomed.length > 0) {
-        await this.documents.deleteDocuments(
-          doomed.map((d) => d.id),
-          workspaceId,
-        )
-      }
-    } catch (err) {
-      console.warn(`[folder-sync] document cleanup after removeFolder failed:`, err)
     }
+    this.assertSession()
+    // ADR-0006: drop the folder's index-dir selection so a later re-add starts clean.
+    await this.database.workspaces().clearIndexDirs(workspaceId, abs)
+    this.assertSession()
+    await this.database.workspaces().setSyncFolders(workspaceId, folders)
     this.restartWatchers(workspaceId, folders)
     return folders
   }
@@ -193,9 +204,18 @@ export class FolderSyncService {
    *  run in parallel — the DB-level unique index on (workspace_id,
    *  source_path) is the belt-and-suspenders against accidental duplicates. */
   async sync(workspaceId: number): Promise<SyncResult> {
+    return this.withWorkspaceOperation(workspaceId, () => this.syncInternal(workspaceId))
+  }
+
+  private withWorkspaceOperation<T>(workspaceId: number, operation: () => Promise<T>): Promise<T> {
     this.assertSession()
     const prev = this.syncTails.get(workspaceId) ?? Promise.resolve()
-    const run = prev.catch(() => undefined).then(() => this.syncInternal(workspaceId))
+    const run = prev
+      .catch(() => undefined)
+      .then(() => {
+        this.assertSession()
+        return operation()
+      })
     // The stored tail swallows rejections: a failed sync surfaces to the caller
     // via the returned `run`, but the tail kept in the map has no consumer, so an
     // unhandled error there would crash out as an unhandled rejection. The
@@ -384,17 +404,25 @@ export class FolderSyncService {
    *  whenever the folder list changes. */
   start(workspaceId: number): void {
     if (this.invalidated) return
+    const pending = Symbol()
+    this.pendingStarts.set(workspaceId, pending)
     // Fire-and-forget: getFolders hits requireDatabase(), which throws if a lock
     // races in between login and this call. .catch keeps that from becoming an
     // unhandled rejection (matches scheduleSync's fire-and-forget handling).
     void this.getFolders(workspaceId)
       .then((folders) => {
+        if (this.pendingStarts.get(workspaceId) !== pending) return
+        this.pendingStarts.delete(workspaceId)
         this.restartWatchers(workspaceId, folders)
       })
       .catch(() => undefined)
+      .finally(() => {
+        if (this.pendingStarts.get(workspaceId) === pending) this.pendingStarts.delete(workspaceId)
+      })
   }
 
   stop(workspaceId: number): void {
+    this.pendingStarts.delete(workspaceId)
     const list = this.watchers.get(workspaceId)
     if (list) {
       for (const w of list) {
@@ -412,6 +440,7 @@ export class FolderSyncService {
   }
 
   stopAll(): void {
+    this.pendingStarts.clear()
     for (const id of this.watchers.keys()) this.stop(id)
     for (const id of this.timers.keys()) this.stop(id)
   }
@@ -609,13 +638,11 @@ async function extendLayers(
 
 function isUnderAny(path: string, roots: string[]): boolean {
   const abs = resolve(path)
-  for (const root of roots) {
-    const r =
-      root.endsWith('/') || root.endsWith('\\')
-        ? root
-        : root + (process.platform === 'win32' ? '\\' : '/')
-    if (abs === root) return true
-    if (abs.toLowerCase().startsWith(r.toLowerCase())) return true
-  }
-  return false
+  return roots.some((root) => {
+    // Follow the platform's path rules: case-folding POSIX paths can delete
+    // a distinct sibling's indexed documents. Windows relative() handles case
+    // variants, while absolute results keep different drives outside the root.
+    const rel = relative(resolve(root), abs)
+    return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+  })
 }

@@ -74,6 +74,69 @@ describe('LlamaService.askWithModel noThink', () => {
   })
 })
 
+describe('LlamaService overflow retry output integrity', () => {
+  function streamingFixture(firstOutput: string) {
+    let statusListener!: (patch: Partial<ModelStatus>) => void
+    let onToken!: (text: string, count: number) => void
+    const ask = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        if (firstOutput) onToken(firstOutput, 1)
+        throw new Error('Failed to free up space for new tokens')
+      })
+      .mockImplementationOnce(async () => {
+        onToken('Replacement answer.', 1)
+        return { raw: 'Replacement answer.' }
+      })
+    const client = {
+      setStatusListener: (_kind: string, listener: typeof statusListener) => {
+        statusListener = listener
+      },
+      registerStream: (_id: string, listener: typeof onToken) => {
+        onToken = listener
+        return () => undefined
+      },
+      llmAsk: ask,
+      llmAbort: vi.fn(async () => undefined),
+    } as unknown as ModelsWorkerClient
+    const service = new LlamaService({ client })
+    statusListener({ state: 'ready' })
+    return { service, ask }
+  }
+
+  it('does not append a second answer after an overflow follows visible tokens', async () => {
+    const { service, ask } = streamingFixture('Partial first answer.')
+    const output: string[] = []
+    await expect(
+      service.ask('Question', [], {
+        conversationHistory: [{ role: 'user', content: 'Prior conversation detail' }],
+        onChunk: (text) => output.push(text),
+      }),
+    ).rejects.toThrow(/free up space/)
+    expect(ask).toHaveBeenCalledOnce()
+    // The legacy think filter may hold a short suffix until successful EOF.
+    // Preserve the already-visible prefix and never append the retry's answer.
+    expect(output.join('')).toMatch(/^Partial first/)
+    expect('Partial first answer.'.startsWith(output.join(''))).toBe(true)
+    expect(output.join('')).not.toContain('Replacement')
+  })
+
+  it('still retries without history when overflow happens before any answer', async () => {
+    const { service, ask } = streamingFixture('')
+    const output: string[] = []
+    await expect(
+      service.ask('Question', [], {
+        conversationHistory: [{ role: 'user', content: 'Prior conversation detail' }],
+        onChunk: (text) => output.push(text),
+      }),
+    ).resolves.toBe('Replacement answer.')
+    expect(ask).toHaveBeenCalledTimes(2)
+    expect(ask.mock.calls[0]![0].prompt).toContain('Prior conversation detail')
+    expect(ask.mock.calls[1]![0].prompt).not.toContain('Prior conversation detail')
+    expect(output.join('')).toBe('Replacement answer.')
+  })
+})
+
 // Recovery (ADR-0008 follow-up / 0.6.2): the lite 2B GGUF sometimes ignores
 // /no_think and emits a pure or UNCLOSED <think> block. The streaming ThinkFilter
 // swallows every chunk (renderer sees nothing) and stripThink — which only

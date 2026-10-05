@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   stopReason: 'eogToken',
   promptWait: null as Promise<void> | null,
   responseText: 'translated',
+  sessionFailure: null as Error | null,
   totalVramGB: 16,
   instructions: [] as string[],
   promptOptions: [] as Array<Record<string, unknown>>,
@@ -56,6 +57,7 @@ vi.mock('node-llama-cpp', async (importOriginal) => {
         contextSequence: { dispose: () => void }
         chatWrapper: import('node-llama-cpp').ChatWrapper
       }) {
+        if (mocks.sessionFailure) throw mocks.sessionFailure
         this.chatWrapper = options.chatWrapper
         this.history = [{ type: 'system', text: options.systemPrompt }]
         this.dispose = () => {
@@ -130,6 +132,7 @@ beforeEach(async () => {
   mocks.stopReason = 'eogToken'
   mocks.promptWait = null
   mocks.responseText = 'translated'
+  mocks.sessionFailure = null
   mocks.totalVramGB = 16
   mocks.gpuGrammar.mockReset().mockResolvedValue({ backend: 'gpu' })
   mocks.cpuGrammar.mockReset()
@@ -185,6 +188,39 @@ afterEach(() => {
 })
 
 describe('translation in the native worker', () => {
+  it('releases partial chat allocations after session construction fails and retries on demand', async () => {
+    mocks.sessionFailure = new Error('Unsupported chat template')
+    await expect(load()).resolves.toMatchObject({ ok: false, error: 'Unsupported chat template' })
+    expect(mocks.lifecycle).toContain('context 1')
+    expect(mocks.dispose).toHaveBeenCalledOnce()
+    expect(mocks.loadModel).toHaveBeenCalledOnce()
+    mocks.sessionFailure = null
+    await expect(
+      request({
+        op: 'llm.generateRaw',
+        payload: { streamId: 'retry-failed-load', prompt: 'Task', maxTokens: 64 },
+      }),
+    ).resolves.toMatchObject({ ok: true, result: { raw: 'translated' } })
+    expect(mocks.loadModel).toHaveBeenCalledTimes(2)
+  })
+
+  it('still disposes reranker weights when its context disposal fails', async () => {
+    const contextDispose = vi.fn().mockRejectedValue(new Error('Context disposal failed'))
+    mocks.rankingContext.mockResolvedValueOnce({ dispose: contextDispose })
+    await expect(
+      request({
+        op: 'reranker.load',
+        payload: { modelPath: 'reranker.gguf', weightsBytes: 1000, contextSize: 512 },
+      }),
+    ).resolves.toMatchObject({ ok: true })
+    await expect(request({ op: 'reranker.unload' })).resolves.toMatchObject({ ok: true })
+    expect(contextDispose).toHaveBeenCalledOnce()
+    expect(mocks.dispose).toHaveBeenCalledOnce()
+    await expect(
+      request({ op: 'reranker.rank', payload: { query: 'q', documents: ['passage'] } }),
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining('not configured') })
+  })
+
   it.each(['{"value":1}', 'First answer token'])(
     'preserves the first structured or ordinary output: %s',
     async (text) => {
