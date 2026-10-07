@@ -8,10 +8,26 @@ import {
   buildFaqSchema,
   buildArticleSchema,
   buildBlogSchema,
+  serializeSchema,
 } from './schema'
 
 const siteUrl = 'https://loklm.com'
 const siteName = 'LokLM'
+
+describe('inline JSON-LD serialization', () => {
+  it('preserves metadata exactly without allowing content to close the script element', () => {
+    const node = buildArticleSchema({
+      url: `${siteUrl}/blog/example`,
+      headline: 'Examples: </script><script>alert("x")</script>',
+      description: 'Größer < kleiner & quoted "text"',
+      lang: 'de',
+      datePublished: '2026-01-01',
+    })
+    const serialized = serializeSchema(node)
+    expect(serialized).not.toContain('<')
+    expect(JSON.parse(serialized)).toEqual(node)
+  })
+})
 
 describe('Organization node', () => {
   const org = buildOrganizationSchema({ siteUrl, siteName })

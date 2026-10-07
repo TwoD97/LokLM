@@ -21,9 +21,9 @@ test.describe('german landing page', () => {
 
   test('header nav offers features, download and github', async ({ page }) => {
     const nav = page.locator('header nav')
-    await expect(nav.locator('a[href="#features"]')).toBeVisible()
-    await expect(nav.locator('a[href="#download"]')).toBeVisible()
-    await expect(nav.locator('a[href="https://github.com/TwoD97/LokLM"]')).toBeVisible()
+    await expect(nav.locator('a[href="#features"]:visible')).toBeVisible()
+    await expect(nav.locator('a[href="#download"]:visible')).toBeVisible()
+    await expect(nav.locator('a[href="https://github.com/TwoD97/LokLM"]:visible')).toBeVisible()
   })
 
   test('canonical url is the bare origin', async ({ page }) => {
@@ -68,8 +68,8 @@ test.describe('english landing page', () => {
 
   test('nav link texts are translated', async ({ page }) => {
     const nav = page.locator('header nav')
-    await expect(nav.locator('a[href="#features"]')).toHaveText(/Features/)
-    await expect(nav.locator('a[href="#download"]')).toHaveText(/Download/)
+    await expect(nav.locator('a[href="#features"]:visible')).toHaveText(/Features/)
+    await expect(nav.locator('a[href="#download"]:visible')).toHaveText(/Download/)
   })
 
   test('canonical url is /en without a trailing slash (astro trailingSlash config)', async ({

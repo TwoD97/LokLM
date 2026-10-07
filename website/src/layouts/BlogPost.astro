@@ -94,6 +94,8 @@ const schemas = [
       <h1 class="post__title gradient-text">{title}</h1>
 
       <p class="post__meta mono">
+        <a href="https://github.com/TwoD97/LokLM" rel="author">{lang === 'de' ? 'LokLM-Projekt' : 'LokLM project'}</a>
+        <span aria-hidden="true">·</span>
         <time datetime={iso(pubDate)}>{fmtDate(pubDate)}</time>
         <span aria-hidden="true">·</span>
         <span>{t(lang, 'blog.readingTime').replace('{min}', String(minutes))}</span>
@@ -122,6 +124,12 @@ const schemas = [
 
       <div class="post__body"><slot /></div>
 
+      <p class="post__editorial">
+        {lang === 'de'
+          ? 'Dieser Beitrag wurde mit KI-Unterstützung erstellt oder überarbeitet. Die verlinkten Originalquellen bieten weitere Details und den jeweiligen Geltungsbereich.'
+          : 'This article was created or revised with AI assistance. The linked original sources provide further detail and the scope of their guidance.'}
+      </p>
+
       {(newer || older) && (
         <nav class="post__nav" aria-label={t(lang, 'blog.title')}>
           {older ? (
@@ -147,6 +155,8 @@ const schemas = [
 </Base>
 
 <style>
+  .post__editorial { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-border); color: var(--color-fg-2); font-size: 0.85rem; line-height: 1.65; }
+  .post__meta a { text-decoration: underline; text-underline-offset: 0.2em; }
   .post {
     padding: 4rem 0 7rem;
   }
@@ -242,6 +252,7 @@ const schemas = [
   }
   .post__body :global(a) {
     color: var(--color-accent-hover);
+    text-decoration: underline;
     text-underline-offset: 2px;
   }
   .post__body :global(blockquote) {
@@ -272,9 +283,15 @@ const schemas = [
     border: none;
     padding: 0;
   }
+  .post__body :global(.responsive-table) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    margin: 1.5rem 0;
+  }
   .post__body :global(table) {
     width: 100%;
-    margin: 1.5rem 0;
+    margin: 0;
     border-collapse: collapse;
     font-size: 0.9rem;
   }

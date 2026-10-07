@@ -48,6 +48,16 @@ describe('collection helpers', () => {
     expect(translationSlug(library, library[0], 'en')).toBe('welcome')
     expect(translationSlug(library, library[2], 'en')).toBeUndefined()
   })
+
+  it('never exposes a matching draft as a translation link', () => {
+    const draft = entry('en/not-published', 'welcome', '2026-05-01', [], true)
+    expect(translationSlug([library[0], draft], library[0], 'en')).toBeUndefined()
+  })
+
+  it('can find a published translation after a matching draft', () => {
+    const draft = entry('en/not-published', 'welcome', '2026-05-01', [], true)
+    expect(translationSlug([draft, ...library], library[0], 'en')).toBe('welcome')
+  })
 })
 
 describe('readingTimeMinutes', () => {

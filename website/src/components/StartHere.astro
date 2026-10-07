@@ -1,0 +1,58 @@
+---
+import { getLangFromUrl } from '~/i18n/utils'
+
+const lang = getLangFromUrl(Astro.url)
+const copy = lang === 'de' ? {
+  title: 'Ein guter Start mit deinen eigenen Unterlagen.',
+  lead: 'Nimm zuerst ein überschaubares Dokument, dessen Inhalt du kennst. So lernst du den Ablauf kennen und kannst die Antworten selbst beurteilen.',
+  guides: [
+    { href: '/blog/pdf-mit-ki-quellen-pruefen', title: 'Ein PDF befragen und die Quellen prüfen', body: 'Vom Import bis zur Originalstelle: eine Anleitung mit Beispielfragen und einer Vorlage für deine Quellenprüfung.', label: 'PDF-Anleitung lesen' },
+    { href: '/blog/lokale-ki-4gb-vram', title: 'Passt lokale KI auf deinen Rechner?', body: 'Was RAM, Grafikspeicher und Kontextlänge bedeuten – und was du bei einer GPU mit 4 GB erwarten solltest.', label: 'Hardware-Leitfaden lesen' },
+  ],
+  all: 'Alle Anleitungen und Hintergründe',
+  blog: '/blog',
+} : {
+  title: 'A useful first session with your own documents.',
+  lead: 'Start with a small document you already know. Learn the workflow and check the answers against something you can judge yourself.',
+  guides: [
+    { href: '/en/blog/pdf-ai-source-checking', title: 'Ask about a PDF and check the sources', body: 'From import to the original passage: a practical guide with example questions and a source-checking template.', label: 'Read the PDF guide' },
+    { href: '/en/blog/local-ai-4gb-vram', title: 'Will local AI fit your computer?', body: 'Understand RAM, graphics memory and context length, including what to expect from a GPU with 4 GB.', label: 'Read the hardware guide' },
+  ],
+  all: 'All guides and background articles',
+  blog: '/en/blog',
+}
+---
+
+<section class="start-here" id="guides" aria-labelledby="guides-title">
+  <div class="start-here__inner">
+    <div class="start-here__intro">
+      <h2 id="guides-title">{copy.title}</h2>
+      <p>{copy.lead}</p>
+      <a href={copy.blog}>{copy.all}</a>
+    </div>
+    <ul class="start-here__guides">
+      {copy.guides.map((guide) => (
+        <li>
+          <h3><a href={guide.href}>{guide.title}</a></h3>
+          <p>{guide.body}</p>
+          <a class="start-here__read" href={guide.href}>{guide.label}</a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .start-here { padding: 4rem 0; border-block: 1px solid var(--color-border); }
+  .start-here__inner { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; display: grid; gap: 2.5rem; }
+  .start-here__intro h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.2; font-weight: 650; letter-spacing: -0.025em; text-wrap: balance; }
+  .start-here p { margin: 1rem 0; line-height: 1.7; color: var(--color-fg-1); max-width: 62ch; }
+  .start-here a { color: var(--color-accent-hover); text-underline-offset: 0.25em; }
+  .start-here a:hover { text-decoration: underline; }
+  .start-here__intro > a, .start-here__read { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; font-size: 0.92rem; }
+  .start-here__guides { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.5rem; }
+  .start-here__guides li + li { border-top: 1px solid var(--color-border); padding-top: 1.5rem; }
+  .start-here h3 { font-size: 1.2rem; font-weight: 600; line-height: 1.4; }
+  .start-here h3 a { color: var(--color-fg-0); }
+  @media (min-width: 800px) { .start-here__inner { grid-template-columns: 1fr 1.1fr; gap: 5rem; } }
+</style>

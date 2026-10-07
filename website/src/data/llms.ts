@@ -19,20 +19,20 @@ export interface LlmsFullPost extends LlmsPost {
 }
 
 const SUMMARY =
-  'Local AI knowledge assistant with source citations — runs fully offline, encrypted on-device, no cloud APIs.'
+  'Local AI knowledge assistant with source citations and encrypted storage — works offline with bundled models; optional external Ollama requires explicit consent.'
 
 const OVERVIEW =
-  'LokLM is a free, open-source (MIT) desktop application that answers questions about your own documents — fully offline. The language model (a Qwen3.5 GGUF) runs locally through llama.cpp; retrieval combines BM25 keywords and dense vectors with reciprocal-rank fusion and optional reranking; all data is stored encrypted on-device. No cloud, no external AI APIs, no telemetry, no account. Clickable source citations let you inspect the referenced passage (PDF page or code line).'
+  'LokLM is a free, open-source (MIT) desktop application for questions about your own documents. With the bundled models, it works offline after model download: Qwen3.5 GGUF inference through llama.cpp, hybrid BM25 and dense-vector retrieval, reciprocal-rank fusion and optional reranking. The local vault is encrypted, with no telemetry or cloud account. Users can optionally select Ollama for individual AI functions; an external server requires explicit consent and receives the content it processes. Clickable citations open referenced passages (PDF page or code line) for checking, but do not guarantee that the source supports the answer.'
 
 const KEY_FACTS: string[] = [
   'License: MIT (open source), source available on GitHub.',
   'Platforms: Windows, macOS, and Linux desktop application (64-bit).',
-  'Privacy: fully offline; no telemetry; no account; documents never leave the device.',
-  'Security: AES-256-GCM encryption, Argon2id key derivation, per-workspace data keys; everything is encrypted at rest in the local app data folder, with an 18-word recovery phrase.',
-  'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (4B, ~3.6 GB, iGPU / 12 GB RAM), Standard (4B, ~4 GB), Pro (9B, ~7 GB); optional local Ollama backend; optional CUDA acceleration.',
-  'Retrieval: hybrid BM25 + dense embeddings (BGE-M3 for Lite, Qwen3-Embedding for Standard/Pro), RRF fusion, optional BGE Reranker v2-M3; Auto skips reranking on small GPUs. Clickable source citations open the referenced PDF page or code line.',
+  'Privacy: bundled models process document contents on-device; no telemetry or cloud account. Optional external Ollama sends content to the explicitly approved destination for the selected functions, including chat, embeddings, reranking and translation.',
+  'Security: encrypted vault and workspace databases, Argon2id key derivation, AES-256-GCM vault encryption, per-workspace keys and an 18-word recovery phrase. Vector storage is encrypted by default, with a local plaintext working directory while open; users can choose permanently unencrypted vectors for non-sensitive collections. Imported original files remain unchanged outside the vault.',
+  'Inference: Qwen3.5 GGUF models via llama.cpp; three editions at install — Lite (4B, ~3.6 GB, iGPU / 12 GB RAM), Standard (4B, ~4 GB), Pro (9B, ~7 GB). These are download sizes, not VRAM requirements. Bundled inference requires a supported GPU; CPU-only inference is disabled, but partial GPU/CPU offload is supported. Fit and speed depend on model, context and free memory. Small GPUs swap chat and embedding models as needed. Ollama is optional, locally or on an explicitly approved external server; CUDA acceleration is optional.',
+  'Retrieval: hybrid BM25 + dense embeddings (BGE-M3 for Lite, Qwen3-Embedding for Standard/Pro), RRF fusion, optional BGE Reranker v2-M3; Auto skips reranking on small GPUs. Clickable source citations open the referenced PDF page or code line. Citation membership is checked, not claim entailment; answers may be wrong or overlook conflicting sources.',
   'Formats: PDF (including scanned, via OCR), Word (DOCX), Markdown, text, HTML, JSON, and source code; folder sync for codebases.',
-  'Also: local document translation with the bundled language model, audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant) — all on-device.',
+  'Also: document translation with the selected language model, local audio transcription with speaker diarization (Whisper), and study/productivity tools (quizzes, summaries, writing assistant). These functions keep content on-device when using the bundled models; selected external Ollama functions send their input to the approved server.',
   'Best for: questions whose answer is in your own files. Not optimised for open-domain knowledge without context.',
   'Built by Denys Tudosa.',
 ]

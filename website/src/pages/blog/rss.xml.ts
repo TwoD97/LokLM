@@ -9,6 +9,7 @@ export const GET: APIRoute = async (context) => {
     title: 'LokLM Blog',
     description: 'Beiträge zu lokaler KI, Datenschutz und Retrieval.',
     site: context.site!.toString(),
+    trailingSlash: false,
     items: posts.map((p) => ({
       title: p.data.title,
       description: p.data.description,

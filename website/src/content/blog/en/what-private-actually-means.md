@@ -1,9 +1,10 @@
 ---
 title: 'What "private" actually means for an AI assistant'
-description: 'A checklist of five testable properties — how to measure whether an AI tool is genuinely private. With GDPR and EU AI Act references.'
+description: 'Five practical checks for AI data handling: processing location, storage, telemetry, auditability and sync. With LokLM provider and storage caveats.'
 lang: 'en'
 translationKey: 'private-definition'
 pubDate: 2026-05-28
+updatedDate: 2026-10-07
 tags: ['local-ai', 'gdpr', 'privacy']
 ---
 
@@ -13,63 +14,59 @@ Three claims, superficially interchangeable. Underneath, three entirely differen
 
 For anyone bringing AI tools into a law firm, a research group, or a consultancy, this vagueness is a real hazard. The failure mode is not vendor malice — it is a purchase in which "private" quietly meant one thing to the buyer and another to the seller, and the resulting system falls short of the buyer's confidentiality obligations.
 
-What follows is an attempt at precision: a definition built from five properties, each of which can be tested independently. Put any piece of software through the list, and you know exactly what you are holding.
+The following five checks help make the claim more concrete. They are a starting point for inspecting a deployment, not a complete security audit.
 
 ## Why the question is not legally trivial
 
-Search the General Data Protection Regulation for the word "private" and you find nothing. What the regulation knows is **personal data** (Art. 4(1) GDPR[^1]) and **processing** (Art. 4(2) GDPR). As soon as an AI system processes personal content — a client letter, an email thread, a contract draft — Arts. 5, 24, and 32 GDPR engage: a legal basis is required, technical and organizational measures are required, records of processing are required.
+When an AI tool processes personal data, its lawful basis, purpose, data minimisation and appropriate safeguards still need assessment. Local execution alone does not answer those questions. The [European Data Protection Board](https://www.edpb.europa.eu/sme/learn-the-basics/data-protection-basics_en) provides an accessible introduction.
 
-The EU AI Act adds a second layer; it has been in force since August 2024, with obligations arriving on a staggered timetable[^2]. For the typical end-user tool, the relevant piece is Art. 50 on transparency: people must be able to tell that they are dealing with an AI system, and which outputs it generated.
-
-Together, the two texts yield a sobering conclusion: printing "private" on a landing page establishes nothing about whether the underlying processing is **lawful**. "Private" carries no legal weight at all. It is marketing vocabulary — sometimes an accurate summary of a technical reality, sometimes a fog around one.
+AI Act duties also depend on role and use. [Article 50 and the Commission's explanation](https://digital-strategy.ec.europa.eu/en/policies/guidelines-ai-transparency-obligations) distinguish direct-interaction notices, technical marking and disclosure for certain publications. This does not create a blanket labelling duty for every internal note. A “private” marketing claim establishes neither AI Act nor GDPR compliance.
 
 ## The five properties
 
-Here are the five properties that have to hold together before "private" stops being an atmosphere and becomes a claim you can test.
+Check these aspects separately. Record the selected configuration and app version so that a result is not silently carried over to a different setup.
 
 ### 1. On-device inference
 
-**Answer generation happens on the end device itself.** Nothing goes out to a server, no API is called, no reverse tunnel is opened.
+**Establish where answer generation happens.** A local model can run inside the app or through an API served on the same device. An API call is not necessarily a remote call; its destination matters. Check embedding and reranking providers separately from the chat model.
 
-Testing it: run a network monitor, submit a question, and watch what leaves the machine. If the system is genuinely local, inference generates zero outbound traffic — a single update check at launch being the acceptable exception.
+Testing it: inspect the configured destinations, then observe traffic while importing, indexing and asking a question with non-sensitive sample material. Distinguish model downloads and update checks from content processing. One quiet test cannot prove that every workflow, error path or later update stays local.
 
-The distinction is anything but pedantic. "We encrypt what we send to our servers" and "we send nothing to our servers" sit in different legal worlds. The former is processing through a processor under Art. 28 GDPR — which drags in a data processing agreement, an entry in the records, and potentially a third-country transfer mechanism[^3]. The latter involves no third party at all.
+Encrypted transmission and entirely local processing create different data flows. Whether an external service is a processor depends on its actual role; processing on your behalf requires an Article 28 GDPR assessment. Include backups, remote access and optional services in that review. See [GDPR and cloud LLMs](/en/blog/gdpr-and-llm-data-export).
 
 ### 2. Local index, local storage
 
 Running AI over one's own documents — retrieval-augmented generation, RAG — produces **vector embeddings**: numerical encodings of the texts, used to locate similar passages. An embedding is a derivative of the document. It is anything but innocuous.
 
-So: **where do the embeddings end up?** A tool that advertises "local AI" while pushing embeddings to a cloud server has not eliminated the confidentiality problem — it has relocated it. Whoever possesses the embeddings can recover a great deal about the underlying text; the embedding-inversion literature leaves little doubt[^4].
+So: **where do the embeddings end up?** A tool may run chat locally while sending document text to an embedding service or storing vectors remotely. Do not assume that a numerical representation is harmless: research has demonstrated reconstruction of text from embeddings under studied conditions[^4]. That is a reason to protect derived data, not a claim that every embedding can always be reversed.
 
-Testing it: index a document, then look inside the application's data directory for a file-backed database (a SQLite file, a vector store). Finding one raises the follow-up: is it actually local? Both questions carry equal weight.
+Testing it: identify where originals, extracted text and indices are stored and which copies are encrypted. Check temporary working files and operating-system or folder backups too. A local database does not prove that another copy was never uploaded.
 
 ### 3. No telemetry
 
-Modern software phones home by default: small packets describing usage, crashes, and device characteristics flow automatically back to the vendor. It is widespread, frequently anonymized, and genuinely handy for debugging.
+Telemetry can report usage, crashes and device characteristics to a vendor. Its privacy implications depend on the actual contents, destinations and controls. A report containing a document path or excerpt needs different scrutiny from a simple aggregate counter. Inspect what is sent instead of assuming that the label “anonymous” settles the question.
 
-In a confidential setting, it is a liability. Telemetry anonymization is flimsier than its reputation — device fingerprints combined with usage patterns often suffice to re-identify someone. And the GDPR draws no line between "content" and "metadata": either can be personal data.
-
-Testing it: the network monitor again. A tool that claims full locality should stay silent on the wire over long working sessions. As a bonus check: do the settings expose a telemetry switch, and which way does it point out of the box?
+Testing it: inspect the documented telemetry and crash-reporting policy, settings and observed destinations. Check what reports contain, whether sending is optional and what the default is. Network silence during one session is limited evidence, not proof of absence.
 
 ### 4. Auditable code
 
 This property differs in kind from the previous three. Points 1 through 3 are observations of behaviour — and behaviour can flip with any update.
 
-Publicly available source code — open source — lets a motivated third party (or a hired security firm) check the behavioural claims against what the code actually does. Closed software leaves you with nothing but the brochure.
+Public source code lets reviewers inspect implementation claims. For the installed application, they also need to establish which source version and dependencies the binary contains. Independent audits and deployment tests can provide evidence for both open and closed software.
 
-Auditable does not mean audited. Open code is no security guarantee; what it provides is the possibility of verification. And that possibility is the only mechanism by which a confidentiality claim survives over time: not because someone promised, but because anyone can check.
+Auditable does not mean audited. Open code offers an inspection opportunity; it does not establish that someone has checked the relevant behaviour or found every defect.
 
 Testing it: hunt for a repository link on the vendor's site — for open-source projects, usually GitHub or GitLab. If no link turns up, open code probably does not exist.
 
 ### 5. No background synchronisation
 
-The last property is the easiest to miss. Plenty of nominally "local" software quietly syncs settings, chat histories, or templates against a cloud account run by the same vendor — sold as convenience. From the first sync onward, the system no longer satisfies property 1's sense of "local."
+Sync can send settings, chat histories or documents elsewhere even when model inference runs on the device. Check app sync and external services that back up the app's folders. Local inference and local-only storage are separate properties.
 
 Testing it: comb the settings for anything labelled account, sync, or cloud. Where such options exist, the default matters: a tool that syncs nothing until asked (opt-in) behaves fundamentally differently from one that syncs until stopped (opt-out).
 
-## Why the list is neither longer nor shorter
+## What these checks leave open
 
-The five properties are not arbitrary: they enumerate the routes by which data can escape a device or be reconstructed afterwards. Four egress routes exist — inference (1), persisted index data (2), telemetry (3), and sync (5). Property 4, auditability, is the structural backstop that keeps the other four verifiable as the software evolves.
+The list is not exhaustive. Exports, clipboard use, shared computers, backups, malicious software and access to an unlocked session can expose information too. The relevant risks depend on how and where the tool is used.
 
 Some criteria that other definitions include are left out here on purpose:
 
@@ -82,21 +79,23 @@ Some criteria that other definitions include are left out here on purpose:
 Evaluating a concrete AI tool takes six steps:
 
 1. Visit the vendor's site. Do "local" or "on-device" appear on the landing page — and if so, with specifics (which model, running where)?
-2. Watch the network monitor during a test query: does anything leave the LAN? (Update checks aside.)
-3. After indexing, open the application data directory: has a local file database appeared?
+2. Observe traffic across import, indexing and chat with sample material. Record any processing destination outside the device, including servers on the LAN.
+3. Locate originals, extracted text, indices and working copies; check encryption and backups.
 4. Go through the settings: is telemetry present, switchable, and what is the default?
 5. Find the repository link on the website — and check the date of the latest release.
 6. Look at cloud sync options: opt-in or opt-out?
 
-Steps 1, 2, and 6 fit into ten minutes. Steps 3, 4, and 5 demand a little more patience — and complete the picture.
+Keep the observations with the app version and settings. Repeat relevant checks when a provider, storage mode or version changes.
 
 ## How LokLM relates to the list
 
-LokLM is an [on-device application](/en/local-ai) for Windows and macOS. Inference runs locally via `llama.cpp`, the vector index is a SQLite file in the application data directory, and there is neither telemetry nor an account. The source code is public on GitHub[^5].
+LokLM is an [on-device application](/en/local-ai) for Windows, Linux and macOS. The bundled model path processes locally through `llama.cpp` after model downloads and does not require an external AI account. Unlocking the local vault is a separate authentication step. The source is public on GitHub[^5].
 
-As for point 5 — background sync — LokLM has nothing to test: no cloud component exists that anything could sync with.
+The current development code stores workspace records in encrypted SQLite and uses a separate vector store, rather than storing the vector index as a SQLite file. By default, vector data is encrypted at rest, with a **local plaintext working directory while the workspace is open**. An optional unencrypted vector-storage mode exists for non-sensitive collections. Imported original files remain in their original locations and are not encrypted by LokLM. Device protection and backup settings therefore still matter.
 
-That is the honest self-assessment. Other tools meet other subsets of the list, which is stated here as observation, not verdict. The point of the checklist is precisely that every reader can determine which subset their own use case demands.
+Optional Ollama providers can handle chat, embeddings or reranking. Selecting a server on another machine sends the corresponding inputs there; current development code requires explicit approval of that destination. The bundled path has no application telemetry, but model downloads and update checks are network activity. Inspect your actual settings and workflows instead of inferring all behaviour from the word “local.”
+
+These product details were checked against the development source on **7 October 2026**. Your installed release, including 0.7.0, may differ; this is not a claim that unreleased changes have already shipped. The [PDF source-checking guide](/en/blog/pdf-ai-source-checking) addresses the separate question of whether an answer is supported by its documents.
 
 ## Further in the cluster
 
@@ -104,15 +103,9 @@ For the legal thread: the next article in the series treats [GDPR obligations wh
 
 For the technical foundations beneath these properties: the [full architecture](/en/architecture) covers hybrid retrieval, the embedding model for German text, and the storage strategy.
 
-To try LokLM yourself: the [download](/en/#download) requires neither an account nor an email address.
+To try LokLM yourself: the [download](/en#download) requires neither an account nor an email address.
 
 ---
-
-[^1]: Regulation (EU) 2016/679 — General Data Protection Regulation. Consolidated text at EUR-Lex: https://eur-lex.europa.eu/eli/reg/2016/679/oj
-
-[^2]: Regulation (EU) 2024/1689 — Regulation on Artificial Intelligence (AI Act). https://eur-lex.europa.eu/eli/reg/2024/1689/oj
-
-[^3]: Overview of Standard Contractual Clauses (SCC) and third-country transfer rules at the European Data Protection Board: https://www.edpb.europa.eu/
 
 [^4]: For example, on embedding inversion: Morris et al., "Text Embeddings Reveal (Almost) As Much As Text", arXiv:2310.06816. https://arxiv.org/abs/2310.06816
 

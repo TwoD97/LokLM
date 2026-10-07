@@ -1,130 +1,49 @@
 ---
-title: 'DSGVO und LLM: Dokumente in ChatGPT einfügen ist ein Datenexport'
-description: 'Was rechtlich passiert, wenn Mandanten- oder Forschungsunterlagen in ein Cloud-LLM eingefügt werden — Drittlandtransfer (Art. 44–49 DSGVO), Rechtsgrundlage und Auftragsverarbeitung in einer praktischen Lesart.'
+title: 'DSGVO und Cloud-LLMs: Rollen, Datenflüsse und Übermittlungen'
+description: 'Was vor dem Upload von Dokumenten in ein Cloud-LLM zu prüfen ist: Rechtsgrundlage, Auftragsverarbeitung, Drittlandtransfers und die Grenzen lokaler Verarbeitung.'
 lang: 'de'
 translationKey: 'gdpr-llm-data-export'
 pubDate: 2026-05-28
+updatedDate: 2026-10-07
 tags: ['lokale-ki', 'dsgvo', 'datenschutz']
 ---
 
-Dass in diesem Text konkret von ChatGPT die Rede ist, hat einen einfachen Grund: Die Rechtsfragen lassen sich am besten dort erklären, wo sie tatsächlich entstehen — und in der Praxis landen vertrauliche Unterlagen eben im Eingabefeld des bekanntesten Werkzeugs. Inhaltlich trifft alles Folgende genauso auf Claude, Gemini, Copilot, Perplexity und jeden anderen Cloud-Dienst zu, dessen Server außerhalb der EU stehen. ChatGPT dient hier als Anschauungsbeispiel für ein Nutzungsmuster, nicht als Ziel eines Produktvergleichs. (Und vorweg: Dieser Beitrag ist keine Rechtsberatung.)
+Wer ein Dokument an ein Cloud-LLM sendet, macht dessen Inhalt außerhalb des eigenen Geräts verfügbar. Gerade bei Mandantenakten oder Forschungsdaten braucht das eine bewusste Prüfung. Daraus folgen aber **nicht automatisch** ein Drittlandtransfer oder eine Auftragsverarbeitung.
 
-Der Kern des Arguments passt in einen Satz: Wer eine Mandantenakte, einen Forschungsentwurf oder interne Geschäftsdokumente in ein solches Eingabefeld kopiert, führt keine harmlose _"Einfügen"_-Operation aus, sondern eine Datenübermittlung — mit allem, was die DSGVO daran knüpft.
+Dieser Überblick wurde am 7. Oktober 2026 geprüft. Er bietet allgemeine Informationen, keine rechtliche Bewertung einer bestimmten Organisation oder Dienstkonfiguration.
 
-## Was technisch passiert
+## Mit Daten und Zweck beginnen
 
-Zwischen dem Absenden einer Anfrage und dem Erscheinen der Antwort läuft folgende Kette ab:
+Welche personenbezogenen Daten sind betroffen, wozu ist die KI-Verarbeitung nötig und welche Rechtsgrundlage trägt sie? Einwilligung ist eine Möglichkeit, keine allgemeine Pflicht. Auch Vertragserfüllung oder berechtigte Interessen haben jeweils eigene Voraussetzungen. Für Gesundheitsdaten und andere besondere Datenkategorien ist zusätzlich eine Bedingung aus Art. 9 erforderlich. Ein Übermittlungsmechanismus ersetzt keine Rechtsgrundlage. Der [EDSA-Leitfaden zur rechtmäßigen Verarbeitung](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_de) erläutert die Unterschiede.
 
-1. Der eingefügte Text verlässt das Gerät des Nutzers.
-2. Er wandert per HTTPS zu einer Server-Infrastruktur von OpenAI, die in den USA betrieben wird[^1].
-3. Ein Sprachmodell auf diesen Servern verarbeitet die Eingabe.
-4. Das Ergebnis wird an den Nutzer zurückgeliefert.
-5. Je nach Tarif und Konto-Einstellungen bleiben Eingabe und Ausgabe eine Weile gespeichert.
+Vor der Einführung sollten der konkrete Dienst, empfangende Unternehmen, Zugriffsländer, Aufbewahrung, Trainingsnutzung und angebundene Werkzeuge dokumentiert werden. „ChatGPT“ oder „Cloud-KI“ allein beschreibt die Verarbeitung nicht hinreichend.
 
-Juristisch entscheidend ist Schritt 2. Sein Fachbegriff: **Drittlandtransfer**.
+Beispielsweise bieten geeignete ChatGPT-Enterprise- und Edu-Konfigurationen europäische Speicher- und Inferenzregionen. Das sind unterschiedliche Einstellungen mit Ausnahmen für Funktionen und Verarbeitungsschritte; sie halten nicht automatisch sämtliche Vorgänge in der gewählten Region. Maßgeblich ist die [aktuelle OpenAI-Dokumentation zur Datenresidenz](https://help.openai.com/en/articles/9903489-data-residency-and-inference-residency-for-chatgpt) für den jeweiligen Arbeitsbereich.
 
-## Drittlandtransfer nach Art. 44 DSGVO
+## Wann greift Artikel 28?
 
-Übermittlungen personenbezogener Daten in Staaten außerhalb des Europäischen Wirtschaftsraums behandelt die DSGVO in Artikel 44 ff. Solche Staaten nennt die Verordnung **Drittländer** — und dazu zählen die USA.
+Ein Auftragsverarbeiter verarbeitet personenbezogene Daten für einen Verantwortlichen. Verfolgt ein Dienst eigene Zwecke, kann er für diese Verarbeitung selbst Verantwortlicher sein. Entscheidend sind die tatsächlichen Tätigkeiten, nicht Verschlüsselung oder Vertragsbezeichnung allein. Bei Auftragsverarbeitung verlangt Art. 28 einen geeigneten Vertrag oder anderen zulässigen Rechtsakt. Siehe die [EDSA-Leitlinien zu Verantwortlichen und Auftragsverarbeitern](https://www.edpb.europa.eu/system/files/documents/2023-10/EDPB_guidelines_202007_controllerprocessor_final_en.pdf).
 
-Zulässig ist ein solcher Transfer nur dann, wenn mindestens einer der drei Mechanismen aus Kapitel V erfüllt ist (Art. 44 DSGVO):
+OpenAI veröffentlicht einen [Auftragsverarbeitungszusatz](https://openai.com/policies/data-processing-addendum/) für Verarbeitungen unter dem jeweiligen Geschäftsvertrag. Zu prüfen ist, ob dieser den tatsächlich verwendeten Dienst und Einsatzzweck abdeckt. Tarifname, Bezahlung oder eine deaktivierte Trainingsnutzung belegen für sich keine Rechtmäßigkeit.
 
-- **Angemessenheitsbeschluss** (Art. 45) — die EU-Kommission bescheinigt einem Drittland ein angemessenes Datenschutzniveau.
-- **Geeignete Garantien** (Art. 46) — etwa Standardvertragsklauseln (SCC), verbindliche interne Datenschutzvorschriften (BCR) oder anerkannte Verhaltenskodizes.
-- **Ausnahmen für besondere Fälle** (Art. 49) — z. B. ausdrückliche Einwilligung, Erforderlichkeit für einen Vertrag, lebenswichtige Interessen.
+## Wann liegt ein Drittlandtransfer vor?
 
-Greift keiner dieser Wege, ist die Übermittlung schlicht rechtswidrig. Daran ändern weder Transportverschlüsselung noch technische Schutzvorkehrungen noch vertragliche Zusagen des Anbieters etwas.
+Der EDSA nennt drei kumulative Voraussetzungen: Der Exporteur unterliegt für die Verarbeitung der DSGVO; er macht personenbezogene Daten einem anderen Verantwortlichen oder Auftragsverarbeiter verfügbar; und dieser Empfänger befindet sich in einem Drittland oder ist eine internationale Organisation. Verarbeitung außerhalb des Geräts allein erfüllt diesen Test nicht. Siehe [Leitlinien 05/2021](https://www.edpb.europa.eu/system/files/2023-02/edpb_guidelines_05-2021_interplay_between_the_application_of_art3-chapter_v_of_the_gdpr_v2_en_0.pdf).
 
-### Die aktuelle Lage USA: Data Privacy Framework
+Greift Kapitel V, sind Angemessenheit, geeignete Garantien wie Standardvertragsklauseln oder eine eng anwendbare Ausnahme zu prüfen. Verschlüsselung kann Teil der Schutzmaßnahmen sein, beantwortet aber nicht allein sämtliche Übermittlungsanforderungen. Der [EDSA-Leitfaden zu internationalen Übermittlungen](https://www.edpb.europa.eu/sme/be-compliant/international-data-transfers_en) erläutert die Wege.
 
-Seit Juli 2023 existiert mit dem **EU-US Data Privacy Framework**[^2] wieder ein Angemessenheitsbeschluss nach Art. 45 DSGVO — allerdings nur für US-Unternehmen, die sich unter dem Framework zertifizieren lassen. OpenAI findet sich in der öffentlichen Liste[^3].
+Die [aktuelle Angemessenheitsliste der Kommission](https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/adequacy-decisions_en) umfasst teilnehmende US-Unternehmen unter dem EU–US Data Privacy Framework. Aktive Teilnahme und Geltungsbereich des konkreten Empfängers sind zu prüfen; das ist keine pauschale Freigabe sämtlicher US-Dienste.
 
-Verlässlich ist diese Grundlage nur bedingt. Gegen das Framework laufen Beschwerden, unter anderem von NOYB; und die Geschichte mahnt zur Vorsicht: Beide Vorgänger-Konstruktionen — Safe Harbor (2015) und Privacy Shield (2020) — hat der EuGH für ungültig erklärt. Die Unsicherheit ist also kein Randphänomen, sondern Teil des Bauplans.
+## Verschwiegenheit und Risiko gesondert prüfen
 
-Solange der Beschluss Bestand hat, trägt Art. 45 DSGVO die Übermittlung an einen zertifizierten US-Empfänger. Kippt er — ein einziges EuGH-Urteil genügt dafür —, steht die Praxis von einem Tag auf den anderen ohne Rechtsgrundlage da und muss auf SCC samt ergänzender Maßnahmen und einem Transfer Impact Assessment (TIA) umsteigen.
+Berufsgeheimnisse erfordern eine eigene Prüfung. Sie verbieten nicht ausnahmslos jeden Cloud-Dienst: [§ 43e BRAO](https://www.gesetze-im-internet.de/brao/__43e.html) regelt für Rechtsanwälte unter anderem Auswahl, Verschwiegenheit und Zugriff bei Dienstleistern; [§ 203 StGB](https://www.gesetze-im-internet.de/stgb/__203.html) erfasst auch mitwirkende Personen. Ein DSGVO-Vertrag erledigt die berufsrechtlichen Fragen nicht.
 
-## Rechtsgrundlage nach Art. 6 DSGVO
+Eine Datenschutz-Folgenabschätzung ist erforderlich, wenn die Verarbeitung voraussichtlich hohe Risiken für die Rechte und Freiheiten von Menschen verursacht. Weder „nutzt KI“ noch „läuft lokal“ entscheidet darüber. Dazu bietet der [EDSA Hinweise zur Umsetzung](https://www.edpb.europa.eu/sme/be-compliant/be-compliant_en).
 
-Noch bevor der Drittlandtransfer geprüft wird, stellt sich eine grundlegendere Frage: Worauf stützt sich die Verarbeitung überhaupt? Art. 6 Abs. 1 DSGVO kennt genau sechs Kandidaten:
+## Was lokale Verarbeitung verändert
 
-- **a) Einwilligung** — freiwillig, informiert, jederzeit widerrufbar, von der betroffenen Person selbst.
-- **b) Vertragserfüllung** — die Verarbeitung muss zur Erfüllung eines Vertrags mit der betroffenen Person erforderlich sein.
-- **c) Rechtliche Verpflichtung** — eine gesetzliche Pflicht verlangt die Verarbeitung.
-- **d) Lebenswichtige Interessen** — Notfallsituationen.
-- **e) Öffentliches Interesse** — hoheitliche Aufgaben.
-- **f) Berechtigte Interessen** — eine Abwägung zwischen dem Interesse an der Verarbeitung und den Rechten der Betroffenen.
+Inferenz und Speicherung innerhalb der eigenen Organisation können die Übermittlung von Dokumentinhalten an einen externen KI-Anbieter vermeiden. Diese Grenze muss auch bei Backups, Fernwartung, optionalen Integrationen und Exporten geprüft werden.
 
-Geht es um ein Mandantendokument in ChatGPT, fallen c), d) und e) praktisch immer weg. Übrig bleiben a), b) und f) — und keiner der drei trägt bequem.
+Rechtmäßiger Zweck, geeignete Zugriffsrechte, Aufbewahrungsregeln und Betroffenenrechte bleiben relevant. Lokale Verarbeitung kann den Datenfluss vereinfachen; sie ist kein DSGVO-Zertifikat.
 
-**a) Einwilligung:** Der Mandant müsste ausdrücklich und im Wissen um die Umstände zustimmen, dass ein US-Unternehmen seine personenbezogenen Daten verarbeitet. Eine Standardklausel im Mandatsvertrag reicht dafür kaum aus — freiwillig und informiert ist eine Zustimmung nicht, wenn der Mandant den technischen Vorgang gar nicht kennt.
-
-**b) Vertragserfüllung:** Das Mandat verpflichtet zur Beratung — nicht dazu, sie mit einem bestimmten Werkzeug zu erbringen. Da die Leistung auch ohne Cloud-LLM erbracht werden kann, fehlt es regelmäßig an der _Erforderlichkeit_, die b) voraussetzt.
-
-**f) Berechtigte Interessen:** In der Praxis die meistgenannte Grundlage. Sie verlangt drei Prüfschritte: ein legitimes Interesse, dessen Erforderlichkeit, und eine Abwägung mit den Betroffenenrechten. Bei vertraulichen Mandanten- oder Patientendaten geht diese Abwägung typischerweise zugunsten der Betroffenen aus — wer eine Kanzlei beauftragt, darf berechtigterweise erwarten, dass die eigene Akte nicht bei einem US-Anbieter landet.
-
-## Verantwortlicher und Auftragsverarbeiter
-
-Darüber liegt eine zweite Ebene: die Rollenverteilung, die Art. 4 Nr. 7 und Nr. 8 DSGVO definieren.
-
-- **Verantwortlicher** (controller) — bestimmt Zwecke und Mittel der Verarbeitung. Im Kanzleikontext: der Anwalt oder die Kanzlei.
-- **Auftragsverarbeiter** (processor) — verarbeitet Daten im Auftrag des Verantwortlichen, ohne eigene Zweckentscheidung.
-
-Schickt ein Anwalt Mandantendaten an OpenAI, agiert OpenAI typischerweise als **Auftragsverarbeiter**. Damit greift Art. 28 DSGVO — und der verlangt einen **Vertrag zur Auftragsverarbeitung** (AVV) zwischen beiden, der mindestens die in Art. 28 Abs. 3 aufgezählten Punkte abdeckt.
-
-Solche AVV-Dokumente stellt OpenAI standardisiert bereit — aber nur für Business-Angebote wie Team, Enterprise und die API-Plattform[^4]. Die Free- und Plus-Tarife richten sich an Privatnutzer; ein AVV gehört dort in der Regel nicht dazu.
-
-**Was das konkret bedeutet:** Wer beruflich mit einem persönlichen ChatGPT-Plus-Konto (20 €/Monat) arbeitet und dort Mandantendokumente einfügt, hat üblicherweise **keinen AVV mit OpenAI** — und damit fehlt bereits eine zwingende Voraussetzung aus Art. 28 DSGVO. Diese Konstellation ist regelmäßig rechtswidrig, ganz gleich, ob der Drittlandtransfer für sich genommen abgesichert wäre.
-
-## Eine zusätzliche Schicht: Berufsgeheimnis
-
-Anwälte, Ärzte, Steuerberater und Psychotherapeuten unterliegen zusätzlich dem **Berufsgeheimnis** — einem eigenständigen Pflichtenkreis, der **neben** der DSGVO steht und nicht in ihr aufgeht. In Deutschland vor allem:
-
-- **§ 43a Abs. 2 BRAO** — die anwaltliche Verschwiegenheitspflicht.
-- **§ 203 StGB** — Strafbarkeit der Verletzung von Privatgeheimnissen, unter anderem durch Anwälte, Ärzte und Steuerberater.
-
-Der wesentliche Unterschied zur DSGVO: § 203 StGB ist **Strafrecht**. Ein Verstoß ist eine Straftat, keine bloße Ordnungswidrigkeit. Dafür ist der erfasste Personenkreis enger gezogen — und die Schwelle, ab der ein _"Offenbaren"_ vorliegt, niedriger.
-
-Schon die Weitergabe an einen Cloud-Dienst kann ein Offenbaren im Sinne von § 203 StGB darstellen — selbst dann, wenn ein AVV existiert und der Transfer formal auf sicheren Füßen steht. Zusätzlich müssten die Voraussetzungen für _"mitwirkende Personen"_ nach § 203 Abs. 4 StGB erfüllt sein: eine — üblicherweise schriftliche — Verpflichtung auf die Verschwiegenheit, die das US-Unternehmen auch anerkennen müsste.
-
-Ein etablierter Standard dafür existiert bislang nicht. Einzelne Bundesländer veröffentlichen Hinweise, manche Anwaltskammern raten für Mandantendaten ausdrücklich von Cloud-LLMs ab[^5]. Weil sich diese Lage laufend bewegt, lohnt vor der Einführung eines Werkzeugs ein Anruf bei der zuständigen Rechtsanwaltskammer.
-
-## Was eine Kanzlei (oder Beratungsstelle) prüfen muss
-
-Bevor ein Cloud-LLM berufliche Inhalte verarbeitet, sollten sechs Fragen beantwortet sein:
-
-1. **Rechtsgrundlage:** Auf welchen Buchstaben aus Art. 6 Abs. 1 DSGVO stützt sich die Verarbeitung — und ist diese Entscheidung dokumentiert?
-2. **AVV:** Existiert ein Auftragsverarbeitungsvertrag mit dem Anbieter, der den Anforderungen von Art. 28 Abs. 3 DSGVO genügt?
-3. **Drittlandtransfer-Mechanismus:** Trägt ein Angemessenheitsbeschluss (DPF) — und ist der konkrete Anbieter zertifiziert? Falls nicht: Gibt es SCCs und ein durchgeführtes Transfer Impact Assessment?
-4. **Berufsgeheimnis:** Ist die zuständige Berufskammer einbezogen worden? Sind mitwirkende Personen nach § 203 Abs. 4 StGB schriftlich verpflichtet?
-5. **Mandantenseite:** Sind die Mandanten transparent informiert (Art. 13/14 DSGVO) und haben sie eine Widerspruchsmöglichkeit?
-6. **Datenschutz-Folgenabschätzung (Art. 35):** Bei umfangreicher Verarbeitung sensibler Daten Pflicht — liegt sie vor?
-
-In der typischen Konstellation eines privaten ChatGPT-Plus-Abos bleiben mindestens vier dieser sechs Fragen unbeantwortet. Genau das macht sie rechtlich verwundbar.
-
-## Was sich bei lokaler Verarbeitung ändert
-
-Findet die Verarbeitung **komplett auf dem eigenen Gerät** statt — kein Byte des Textes erreicht einen fremden Server —, erledigen sich die Fragen 2 und 3 von selbst. Ohne externe Stelle, die im Auftrag verarbeitet, gibt es keinen Auftragsverarbeiter. Ohne Datenfluss über die EWR-Grenze gibt es keinen Drittlandtransfer.
-
-Die Fragen 1, 4, 5 und 6 dagegen bleiben. Lokalität schaltet die DSGVO nicht ab — sie verkleinert lediglich den Ausschnitt, der beantwortet werden muss.
-
-Darin liegt der eigentliche Unterschied zwischen Cloud-LLM und On-Device-Lösung: nicht in einem diffusen _"mehr"_ oder _"weniger"_ Datenschutz, sondern in einer **anderen Anzahl offener Prüfpunkte**.
-
-## Weiter im Cluster
-
-Den Auftakt der Reihe machte die Definition der [fünf Eigenschaften lokaler KI](/blog/was-privat-wirklich-heisst); danach folgte die [Einordnung lokaler KI im EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act). Mit diesem dritten Beitrag ist die rechtliche Vorrunde komplett.
-
-Alle drei Artikel sind auf der [Pillar-Seite zur lokalen KI](/lokale-ki) gebündelt. Wie die On-Device-Verarbeitung technisch aufgebaut ist, zeigt die [Architektur](/architektur)-Seite.
-
-LokLM selbst testen: [Download](/#download), ohne Konto, ohne E-Mail.
-
----
-
-[^1]: OpenAI Privacy Policy: https://openai.com/policies/privacy-policy/
-
-[^2]: Adequacy decision EU-US Data Privacy Framework, Beschluss (EU) 2023/1795 der Kommission: https://eur-lex.europa.eu/eli/dec_impl/2023/1795/oj
-
-[^3]: Data Privacy Framework Listing (öffentliches Verzeichnis der zertifizierten US-Unternehmen): https://www.dataprivacyframework.gov/list
-
-[^4]: OpenAI Data Processing Addendum: https://openai.com/policies/data-processing-addendum/
-
-[^5]: Beispielsweise die Hinweise der Bundesrechtsanwaltskammer zur Nutzung von KI-Anwendungen: https://www.brak.de/
+Unser [Leitfaden zu lokaler KI](/lokale-ki) und die [Architektur](/architektur) erläutern die technischen Entscheidungen. Der ergänzende Beitrag behandelt [lokale KI unter dem AI Act](/blog/on-device-ki-unter-dem-eu-ai-act).

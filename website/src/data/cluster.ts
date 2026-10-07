@@ -2,7 +2,7 @@
 // Localized DE slugs (not English mirrors) per the strategy spec.
 import type { Lang } from '../i18n/ui'
 
-export type PersonaKey = 'lawyer' | 'research' | 'consulting' | 'development'
+export type PersonaKey = 'lawyer' | 'research' | 'consulting' | 'development' | 'business'
 export type PillarKey = 'privacy' | 'architecture' | 'benchmarks'
 export type PersonaIcon = 'lawyer' | 'researcher' | 'consultant' | 'developer'
 
@@ -43,6 +43,12 @@ export const personas: Persona[] = [
     icon: 'developer',
     slug: { de: 'einsatz/entwicklung', en: 'use-cases/development' },
     pillars: ['architecture', 'benchmarks'],
+  },
+  {
+    key: 'business',
+    icon: 'consultant',
+    slug: { de: 'einsatz/unternehmen', en: 'use-cases/business' },
+    pillars: ['privacy', 'architecture'],
   },
 ]
 

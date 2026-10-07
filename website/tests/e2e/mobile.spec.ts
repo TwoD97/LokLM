@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test'
 
 // Executed with the Pixel 7 viewport (412×915) configured in playwright.config.
-// Below the sm: breakpoint (< 640 px) the nav links disappear on purpose — the
-// design ships no hamburger menu. These tests lock that decision in so a later
-// refactor cannot drop the mobile fallback unnoticed.
+// Below the sm breakpoint a native disclosure keeps navigation accessible
+// without JavaScript; locale controls remain immediately available.
 
 // WCAG 2.5.5 (AAA) minimum target size; Lighthouse audits the same 44px figure.
 const TOUCH_TARGET_PX = 44
@@ -17,17 +16,33 @@ test.describe('Pixel 7 layout', () => {
     expect(page.viewportSize()?.width).toBeLessThan(640)
   })
 
+  test('Android is not advertised as a supported desktop system', async ({ page }) => {
+    await expect(page.locator('[data-detected-badge]:visible')).toHaveCount(0)
+  })
+
   test('logo and language switch survive the breakpoint', async ({ page }) => {
     const header = page.locator('header')
     await expect(header.locator('a[href="/"]').first()).toBeVisible() // logo
     await expect(header.locator('a[href="/en"]')).toBeVisible() // EN switch
   })
 
-  test('nav links reserved for desktop are hidden', async ({ page }) => {
-    const header = page.locator('header')
-    await expect(header.locator('a[href="#features"]')).toBeHidden()
-    await expect(header.locator('a[href="#download"]')).toBeHidden()
-    await expect(header.locator('a[href="https://github.com/TwoD97/LokLM"]')).toBeHidden()
+  test('the mobile menu exposes navigation and closes with Escape', async ({ page }) => {
+    const menu = page.locator('[data-mobile-menu]')
+    await expect(menu.locator('a[href="/blog"]')).toBeHidden()
+    await menu.locator('summary').click()
+    await expect(menu.locator('a[href="#features"]')).toBeVisible()
+    await expect(menu.locator('a[href="#download"]')).toBeVisible()
+    await expect(menu.locator('a[href="/blog"]')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).not.toHaveAttribute('open')
+    await expect(menu.locator('summary')).toBeFocused()
+  })
+
+  test('the mobile menu reaches the blog', async ({ page }) => {
+    const menu = page.locator('[data-mobile-menu]')
+    await menu.locator('summary').click()
+    await menu.locator('a[href="/blog"]').click()
+    await expect(page).toHaveURL(/\/blog$/)
   })
 
   test('hero headline and both CTAs are visible in the stacked layout', async ({ page }) => {

@@ -9,6 +9,7 @@ import FeatureDeepDives from '~/components/FeatureDeepDives.astro'
 import Features from '~/components/Features.astro'
 import Architecture from '~/components/Architecture.astro'
 import UseCases from '~/components/UseCases.astro'
+import StartHere from '~/components/StartHere.astro'
 import Download from '~/components/Download.astro'
 import FAQ from '~/components/FAQ.astro'
 import { t } from '~/i18n/ui'
@@ -21,8 +22,8 @@ const faqSchema = buildFaqSchema(
 ---
 
 <Base
-  title="LokLM — Local AI knowledge assistant with source verification"
-  description="LokLM answers questions about your own documents — fully offline, with clickable citations and local encryption."
+  title="LokLM — Local AI for PDFs and your own documents"
+  description="Ask questions about PDFs, Word files and notes with local AI. LokLM offers clickable citations, encrypted workspaces and offline use with local models."
   schemas={[faqSchema]}
 >
   <main>
@@ -35,6 +36,7 @@ const faqSchema = buildFaqSchema(
     <Features />
     <Architecture />
     <UseCases />
+    <StartHere />
     <Download />
     <FAQ />
   </main>

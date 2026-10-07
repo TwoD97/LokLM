@@ -4,6 +4,7 @@ import { getLangFromUrl } from '~/i18n/utils'
 import { t, type UIKey } from '~/i18n/ui'
 import { getPersona, personaUrl, pillarUrl, type PersonaKey } from '~/data/cluster'
 import { buildWebPageSchema, buildBreadcrumbSchema, buildFaqSchema } from '~/lib/schema'
+import { workflows } from '~/data/workflows'
 
 interface Props {
   persona: PersonaKey
@@ -11,6 +12,10 @@ interface Props {
 const { persona } = Astro.props
 const lang = getLangFromUrl(Astro.url)
 const p = getPersona(persona)
+const workflow = workflows[lang][persona]
+const workflowLabels = lang === 'de'
+  ? { title: 'Ein erster Arbeitsablauf', documents: 'Unterlagen auswählen', question: 'Eine konkrete Frage stellen', check: 'Antwort am Original prüfen', guide: 'Ausführliche Anleitung zur Quellenprüfung', href: '/blog/pdf-mit-ki-quellen-pruefen' }
+  : { title: 'A first workflow to try', documents: 'Choose the documents', question: 'Ask a specific question', check: 'Check the answer against the original', guide: 'Read the full source-checking guide', href: '/en/blog/pdf-ai-source-checking' }
 
 const titleKey = `persona.${persona}.title` as UIKey
 const leadKey = `persona.${persona}.lead` as UIKey
@@ -23,7 +28,7 @@ const relatedPillars = p.pillars.map((k) => ({
 
 // hreflang translation pair for this exact page
 const alternates = { de: personaUrl(persona, 'de'), en: personaUrl(persona, 'en') }
-const downloadHref = lang === 'de' ? '/#download' : '/en/#download'
+const downloadHref = lang === 'de' ? '/#download' : '/en#download'
 
 const siteUrl = Astro.site!.toString().replace(/\/$/, '')
 const pageUrl = `${siteUrl}${personaUrl(persona, lang)}`
@@ -54,6 +59,16 @@ const schemas = [
       <h1 class="cluster__title gradient-text">{t(lang, titleKey)}</h1>
       <p class="cluster__lead">{t(lang, leadKey)}</p>
 
+      <section class="workflow" aria-labelledby="workflow-title">
+        <h2 id="workflow-title">{workflowLabels.title}</h2>
+        <ol>
+          <li><h3>{workflowLabels.documents}</h3><p>{workflow.documents}</p></li>
+          <li><h3>{workflowLabels.question}</h3><blockquote>{workflow.question}</blockquote></li>
+          <li><h3>{workflowLabels.check}</h3><p>{workflow.check}</p></li>
+        </ol>
+        <a href={workflowLabels.href}>{workflowLabels.guide}</a>
+      </section>
+
       <nav class="cluster__links" aria-label={t(lang, 'cluster.relatedPillars')}>
         <span class="cluster__links-label">{t(lang, 'cluster.relatedPillars')}</span>
         <ul>
@@ -82,6 +97,15 @@ const schemas = [
 </Base>
 
 <style>
+  .workflow { margin-top: 2.5rem; }
+  .workflow h2 { font-size: 1.4rem; font-weight: 600; }
+  .workflow ol { padding-left: 1.4rem; margin: 1.2rem 0; display: grid; gap: 1.4rem; }
+  .workflow li { padding-left: 0.4rem; }
+  .workflow li::marker { color: var(--color-accent-hover); font-weight: 600; }
+  .workflow h3 { font-weight: 600; margin-bottom: 0.45rem; }
+  .workflow p, .workflow blockquote { color: var(--color-fg-1); line-height: 1.7; }
+  .workflow blockquote { padding: 0.8rem 1rem; border-left: 2px solid var(--color-accent); background: var(--color-bg-elev); }
+  .workflow > a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-accent-hover); text-decoration: underline; text-underline-offset: 0.2em; }
   .cluster {
     padding: 6rem 0 8rem;
   }
@@ -91,6 +115,8 @@ const schemas = [
     padding: 0 1.5rem;
   }
   .cluster__title {
+    overflow-wrap: anywhere;
+    hyphens: auto;
     margin-top: 0.5rem;
     font-size: 2.5rem;
     font-weight: 700;

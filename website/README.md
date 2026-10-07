@@ -1,6 +1,6 @@
 # LokLM Website
 
-Verteilungs-Homepage für LokLM. Astro 5 + Tailwind 4, rein statischer
+Verteilungs-Homepage für LokLM. Astro 7 + Tailwind 4, rein statischer
 Build. Eigener pnpm-Workspace — läuft komplett getrennt von der
 Electron-App.
 
@@ -15,23 +15,23 @@ pnpm dev                   # http://localhost:4321
 
 ## Scripts
 
-| Script                 | Zweck                                                                  |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `pnpm dev`             | Astro-Dev-Server mit HMR                                               |
-| `pnpm build`           | Production-Build → `dist/`                                             |
-| `pnpm preview`         | Den `dist/`-Stand lokal servieren                                      |
-| `pnpm check`           | Astro- und TypeScript-Check                                            |
-| `pnpm test`            | Vitest-Unit-Suite (i18n-Parität, Releases, Schema, GitHub, Blog)       |
-| `pnpm test:watch`      | Vitest im Watch-Modus                                                  |
-| `pnpm test:coverage`   | Coverage-Report (v8; Schwellen 80 % / 70 % in `vitest.config`)         |
-| `pnpm test:e2e`        | Playwright-E2E (Home, Lang-Switch, Download, Anchors, a11y, Visual)    |
-| `pnpm test:e2e:headed` | E2E mit sichtbarem Browser                                             |
-| `pnpm lighthouse`      | Lighthouse-Report (Preview muss laufen; Ausgabe in `.lighthouse/`)     |
-| `pnpm ci`              | Komplette Pipeline lokal: check → coverage → build → e2e               |
+| Script                 | Zweck                                                               |
+| ---------------------- | ------------------------------------------------------------------- |
+| `pnpm dev`             | Astro-Dev-Server mit HMR                                            |
+| `pnpm build`           | Production-Build → `dist/`                                          |
+| `pnpm preview`         | Den `dist/`-Stand lokal servieren                                   |
+| `pnpm check`           | Astro- und TypeScript-Check                                         |
+| `pnpm test`            | Vitest-Unit-Suite (i18n-Parität, Releases, Schema, GitHub, Blog)    |
+| `pnpm test:watch`      | Vitest im Watch-Modus                                               |
+| `pnpm test:coverage`   | Coverage-Report (v8; Schwellen 80 % / 70 % in `vitest.config`)      |
+| `pnpm test:e2e`        | Playwright-E2E (Home, Lang-Switch, Download, Anchors, a11y, Visual) |
+| `pnpm test:e2e:headed` | E2E mit sichtbarem Browser                                          |
+| `pnpm lighthouse`      | Lighthouse-Report (Preview muss laufen; Ausgabe in `.lighthouse/`)  |
+| `pnpm ci`              | Komplette Pipeline lokal: check → coverage → build → e2e            |
 
 ## Test-Ebenen
 
-| Ebene  | Pfad                          | Deckt ab                                                                         |
+| Ebene  | Pfad                          | Deckt ab                                                                          |
 | ------ | ----------------------------- | --------------------------------------------------------------------------------- |
 | Unit   | `src/**/*.test.ts`            | `lib/github`, `lib/schema`, `i18n/ui`, `i18n/utils`, `data/releases`, `data/blog` |
 | Public | `tests/public-assets.test.ts` | Brand-Assets, Screenshots, robots.txt vorhanden und keine 1×1-Stubs               |
@@ -55,9 +55,10 @@ wird wiederverwendet.
 | Best Practices | 100   |
 | SEO            | 100   |
 
-Die verbleibenden A11y-Punkte (Kontrast der dekorativen
-`aria-hidden`-Ziffern in `how__num`, Touch-Target-Größe der kleinen
-Nav-Pills) sind bewusste Design-Entscheidungen — hier ist kein Fix offen.
+Dies ist eine historische Messung, kein aktuelles Qualitätsversprechen.
+Die Browser-Prüfungen umfassen inzwischen auch mobile Navigation,
+Tastaturzugang, sprachübergreifende Artikel und Quellen-Leitfäden.
+Automatisierte Prüfungen ersetzen keine vollständige manuelle Barrierefreiheitsprüfung.
 
 ## Struktur
 
@@ -104,12 +105,12 @@ normal.
 
 Repo-Settings → Secrets and variables → Actions.
 
-| Name                        | Inhalt                                                   |
-| --------------------------- | -------------------------------------------------------- |
-| `HETZNER_HOST`              | Hostname/IP (z. B. `loklm.example`)                      |
-| `HETZNER_USER`              | SSH-User (z. B. `deploy`)                                |
-| `HETZNER_PATH`              | Webroot (z. B. `/var/www/loklm`)                         |
-| `HETZNER_SSH_KEY`           | Private Key, kompletter PEM inkl. BEGIN/END              |
+| Name                        | Inhalt                                                    |
+| --------------------------- | --------------------------------------------------------- |
+| `HETZNER_HOST`              | Hostname/IP (z. B. `loklm.example`)                       |
+| `HETZNER_USER`              | SSH-User (z. B. `deploy`)                                 |
+| `HETZNER_PATH`              | Webroot (z. B. `/var/www/loklm`)                          |
+| `HETZNER_SSH_KEY`           | Private Key, kompletter PEM inkl. BEGIN/END               |
 | `PUBLIC_INSTALLER_BASE_URL` | z. B. `https://downloads.loklm.example` (ohne trailing /) |
 
 ### SSH-Key
@@ -172,8 +173,68 @@ server {
 ## i18n
 
 Astros eingebautes i18n: `de` ist Default ohne Präfix (`/`), `en` liegt
-unter `/en/`. `LangSwitch` wechselt zwischen den Sprachvarianten einer
-Route — neue Routen dort nachziehen.
+unter `/en`. Seiten-Metadaten und `LangSwitch` nutzen dieselben tatsächlich
+veröffentlichten Sprachpaare. Ohne veröffentlichte Übersetzung wird kein
+Homepage-Link als Übersetzung ausgegeben. Persona-Routen stehen in
+`src/data/cluster.ts`; Blog-Paare teilen einen `translationKey`.
+
+## Produkt- und Inhaltsstrategie (7. Oktober 2026)
+
+Die Website spricht Selbstständige, Forschende/Studierende und Mitarbeitende
+kleiner Unternehmen an. Gemeinsam ist die Arbeit mit eigenen Dokumenten auf
+einem persönlichen Rechner. Gemeinsame Echtzeitbearbeitung, zentrale
+Rollenverwaltung oder ein synchronisierter Team-Vault werden nicht versprochen.
+
+Die Recherche offizieller Produktdokumentation zeigt: Lokale Dokumenten-Chats
+sind bereits Teil der Kategorie. [LM Studio](https://lmstudio.ai/docs/app/offline)
+beschreibt Offline-Chat und lokale Dokumentensuche nach dem Modell-Download;
+[GPT4All LocalDocs](https://docs.gpt4all.io/gpt4all_desktop/localdocs.html)
+beschreibt Sammlungen, Indexierungsfortschritt und Quellen;
+[AnythingLLM Desktop Assistant](https://docs.anythingllm.com/desktop-assistant/introduction)
+beschreibt einen kontextbezogenen Desktop-Assistenten. Diese Dokumentation
+belegt Funktionen, keinen Leistungsvergleich mit LokLM.
+
+Unsere daraus abgeleitete Positionierung: ein übersichtlicher persönlicher
+Dokumenten-Arbeitsbereich mit verständlichen Hardware-Voraussetzungen,
+sichtbaren Datenzielen und einer gut erreichbaren Originalquelle. Die
+Anwendungsseiten erklären konkrete Abläufe für unterschiedliche Berufe;
+der Unternehmens-Einstieg benennt die Grenze zur Team-Plattform.
+
+Zwei neue Themenpaare beantworten praktische Fragen auf Deutsch und Englisch:
+
+- PDFs mit KI befragen, Texte/OCR prüfen, Quellen und widersprüchliche Fassungen
+  kontrollieren; mit wiederverwendbarer Vorlage für eine Quellen-Notiz.
+- Lokale KI mit 4 GB Grafikspeicher: Downloadgröße, RAM, VRAM, Kontext,
+  Modellwechsel und ein eigenes Messprotokoll für den ersten Dokumentensatz.
+
+Suchabsichten wie „PDF KI Quellen prüfen“ oder „local AI 4 GB VRAM“ sind
+Hypothesen aus diesen Aufgaben, keine gemessenen Suchvolumina. Es gibt keine
+Ranking- oder Traffic-Prognose. Die Inhalte folgen Googles
+[Leitlinie für hilfreiche Inhalte](https://developers.google.com/search/docs/fundamentals/creating-helpful-content):
+konkrete Aufgaben, eigene Beispiele, nachvollziehbare Quellen und ehrliche
+Grenzen. Bestehende Datenschutz-, Quellen- und Rechtsartikel wurden sachlich
+korrigiert; ihre URLs und ursprünglichen Veröffentlichungsdaten bleiben erhalten.
+Substantielle Änderungen tragen ein echtes Änderungsdatum. KI-Unterstützung
+und die Herausgeberschaft des Projekts sind sichtbar.
+
+Technisch prüfen die erzeugten Seiten selbstreferenzierende Canonicals,
+gegenseitige Sprachverweise, vollständige Sitemap-Abdeckung, RSS-URLs und
+interne Links einschließlich Sprungmarken. JSON-LD muss zur jeweiligen Seite
+passen; valide Markup-Ausgabe ist kein Anspruch auf ein Rich Result.
+
+Nach der Veröffentlichung: Die Sitemap `https://loklm.com/sitemap-index.xml`
+in einer verifizierten Search-Console-Property einreichen, ausgewählte neue
+URLs prüfen und Indexierung, Suchanfragen, Impressionen und Klicks beobachten.
+Das benötigt Zugriff des Website-Betreibers. Eine erfolgreiche Bereitstellung
+oder ein grüner Test weist keine Google-Indexierung nach. Es wurde kein
+Besucher-Tracking ergänzt.
+
+Die App-Produktprioritäten bleiben: verlässlicher Modell-Download und
+Wiederholung nach Fehlern, verständliche GPU-/Indexierungszustände sowie
+korrekte Quellen- und Versionsprüfung. Überzeugend formulierte Antworten auf
+widersprüchliche Quellen sind weiterhin eine bekannte RAG-Grenze. Die Website
+verspricht deshalb Quellenverweise zum Gegenprüfen statt automatische
+Quellenverifikation; ein Website-Release ist keine Freigabe dieses RAG-Gates.
 
 ## Offene Punkte
 
