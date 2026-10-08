@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual South2:2 and North1:1 match the selected19-day and14-day sentences for identical NP-6/S8 scope. The compact framed comparison limits uncertainty to supplied passages, without a winner, invented priority, approval denial or global absence claim. Both alternatives have correct local canonical references; no heading/date or irrelevant appendix is selected. The requested one-short-sentence display is satisfied consistently with the original compact-comparison criterion. English source wording is a presentation tradeoff. App128960 ms/native117958 ms; independently within180 seconds under the new prospective300-second collection cap."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Base3:3 establishes retained7 tablets, approved amendment4:4 establishes5 projectors effective before asked2038-04-08, and5:5 explicitly establishes circulation2038-04-02, council nonapproval and no authority to change limits. All current values, date and no-change decision are supported. The original key's explicit nonapproval explanation is present. All three canonical references attach the coherent two-sentence record; no false base value, chronology, source attribution or added condition. Two sentences are permitted. App169497 ms/native151863 ms;10.503 seconds below180."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Planned2037 main-campus29835 CHF from7:7 minus recorded2036 main-campus27460 CHF from6:6 equals2375 CHF. Both actual supplied inputs have local canonical references on the one short sentence; planned/recorded status and years are retained, without reserve, Annex or target-attainment invention. The original question does not require repeating both numerical inputs. App144655 ms/native127520 ms; independently within180 seconds under the prospective300-second collection cap."
+  }
+]

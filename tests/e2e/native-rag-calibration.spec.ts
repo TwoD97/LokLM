@@ -1,13 +1,19 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, writeFile, stat } from 'node:fs/promises'
+import { mkdir, writeFile, stat, link, rm } from 'node:fs/promises'
 import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join, resolve } from 'node:path'
 import { freemem, totalmem } from 'node:os'
 import type { Api } from '../../src/preload'
 import { launchApp } from './helpers/launch'
+import {
+  installCalibrationWorkerCapture,
+  armCalibrationWorkerCapture,
+  settleCalibrationWorkerCapture,
+  disposeCalibrationWorkerCapture,
+} from './helpers/syntheticCapture'
 import { fingerprintCompiledBuild } from './helpers/buildFingerprint'
 import { inspectBuildProvenance } from './helpers/buildProvenance'
 import { registerAndUnlock, createWorkspace } from './helpers/seed'
@@ -16,7 +22,15 @@ import {
   collectCalibrationStream,
   calibrationCollectionDecision,
 } from '../evals/native-calibration/streamCapture'
-import { describeEvidenceAssessment } from '../evals/native-calibration/report'
+import {
+  describeEvidenceAssessment,
+  describeCheckedAnswer,
+} from '../evals/native-calibration/report'
+import { describeBoundedThoughts } from '../evals/native-calibration/boundedThoughts'
+
+// Calibration authenticates a disposable vault. Retain only the explicit
+// synthetic report/log artifacts, never browser authentication captures.
+test.use({ trace: 'off', screenshot: 'off', video: 'off' })
 
 const execFileAsync = promisify(execFile)
 const root = resolve('tests/evals/native-calibration')
@@ -77,7 +91,12 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     : manifest.cases
   if (!cases.length) throw new Error('No calibration cases selected')
   const questionTimeoutMs = Number(process.env['LOKLM_CALIBRATION_QUESTION_TIMEOUT_MS'] ?? 180_000)
+  const wholeDocFallback = process.env['LOKLM_CALIBRATION_WHOLE_DOC_FALLBACK'] === '1'
   const continueErrors = process.env['LOKLM_CALIBRATION_CONTINUE_ERRORS'] === '1'
+  const captureSyntheticEvidence = process.env['LOKLM_CALIBRATION_CAPTURE_EVIDENCE'] === '1'
+  const modelVariant = process.env['LOKLM_CALIBRATION_MODEL'] ?? 'default'
+  if (!['default', '2b-only-fixture'].includes(modelVariant))
+    throw new Error('Unknown calibration model variant')
   if (
     !Number.isInteger(questionTimeoutMs) ||
     questionTimeoutMs < 30_000 ||
@@ -96,6 +115,15 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
   process.env['LOKLM_RETRIEVAL_TRACE'] = '1'
   process.env['LOKLM_RETRIEVAL_TRACE_DIR'] = output
   const sourcePaths = [
+    'tests/e2e/native-rag-calibration.spec.ts',
+    'tests/e2e/helpers/launch.ts',
+    'tests/e2e/helpers/close.ts',
+    'tests/evals/native-calibration/report.ts',
+    'tests/evals/native-calibration/boundedThoughts.ts',
+    'tests/evals/native-calibration/streamCapture.ts',
+    'tests/evals/native-calibration/fixtures.ts',
+    'tests/evals/native-calibration/syntheticWorkerCapture.ts',
+    'tests/e2e/helpers/syntheticCapture.ts',
     'src/main/index.ts',
     'src/preload/index.ts',
     'src/shared/citationMarkers.ts',
@@ -109,6 +137,20 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     'src/shared/documents.ts',
     'src/main/services/qa/contextBudget.ts',
     'src/main/services/qa/evidenceAssessment.ts',
+    'src/main/services/qa/checkedAnswer.ts',
+    'src/main/services/qa/comparisonAnswer.ts',
+    'src/main/services/qa/conflictSummary.ts',
+    'src/main/services/qa/answerFormat.ts',
+    'src/main/services/qa/sourceUnits.ts',
+    'src/main/services/qa/sourceQuote.ts',
+    'src/main/services/qa/sourceQuoteResolver.ts',
+    'src/main/services/qa/visibleAnswer.ts',
+    'src/main/services/qa/sourceQuantities.ts',
+    'src/main/services/qa/sourceCalculations.ts',
+    'src/shared/sourceLinkedAnswer.ts',
+    'src/shared/sourceQuoteMarkdown.ts',
+    'src/shared/citationMarkers.ts',
+    'src/shared/citationContext.ts',
     'src/main/services/retrieval/RetrievalService.ts',
     'src/main/services/retrieval/rrf.ts',
     'src/main/services/retrieval/heuristics.ts',
@@ -120,14 +162,24 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     'src/main/services/workers/GpuWorkCoordinator.ts',
     'src/main/services/workers/ModelsWorkerClient.ts',
     'src/main/services/workers/modelsWorker.ts',
+    'src/main/services/workers/boundedThoughts.ts',
+    'src/main/services/workers/compactJsonGrammar.ts',
     'out/main/index.js',
     'out/main/modelsWorker.js',
     'out/preload/index.cjs',
   ]
+  const modelFiles = [
+    modelVariant === '2b-only-fixture' ? 'Qwen3.5-2B-Q4_K_M.gguf' : 'Qwen3.5-4B-Q4_K_M.gguf',
+    'Qwen3-Embedding-0.6B-Q8_0.gguf',
+  ]
   const models = await Promise.all(
-    ['models/Qwen3.5-4B-Q4_K_M.gguf', 'models/Qwen3-Embedding-0.6B-Q8_0.gguf'].map(
-      async (path) => ({ path, sha256: await hashFile(path), bytes: (await stat(path)).size }),
-    ),
+    modelFiles
+      .map((file) => `models/${file}`)
+      .map(async (path) => ({
+        path,
+        sha256: await hashFile(path),
+        bytes: (await stat(path)).size,
+      })),
   )
   const compiledBuildHashes = await fingerprintCompiledBuild()
   const raw: Record<string, unknown> = {
@@ -136,6 +188,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     split,
     requestedContext: Number(process.env['LOKLM_LLM_CONTEXT_SIZE'] ?? 0),
     configuration: {
+      modelVariant,
       queryEmbeddingCache: process.env['LOKLM_QUERY_EMBEDDING_CACHE'] !== '0',
       vramPaddingMiB: process.env['LOKLM_VRAM_PADDING_MIB'] ?? 'default',
       inferenceThreads: process.env['LOKLM_INFERENCE_THREADS'] ?? 'default',
@@ -145,7 +198,7 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       rerank: false,
       multiQuery: false,
       routing: false,
-      wholeDocFallback: false,
+      wholeDocFallback,
       selectedCases: cases.map((entry) => entry.id),
       repeats,
       warmCases,
@@ -155,6 +208,8 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       // ordinary 15-minute idle lock from cancelling long calibration runs.
       autoLockMinutes: 0,
       evidenceAssessment: process.env['LOKLM_EVIDENCE_ASSESSMENT'] === '1',
+      answerPolicy:
+        'Production default; actual per-query checked path/schema/sampler recorded from content-free runtime diagnostics',
     },
     startedAt: new Date().toISOString(),
     gitCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
@@ -183,7 +238,14 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     continuedErrorCaseIds: [],
   }
   const flush = () => writeFile(join(output, 'raw.json'), JSON.stringify(raw, null, 2) + '\n')
+  raw.syntheticEvidenceCaptureEnabled = captureSyntheticEvidence
   await flush()
+  const provenance = raw.buildProvenance as { status: string; currentSourcesMatchBuild?: boolean }
+  if (provenance.status !== 'matched' || provenance.currentSourcesMatchBuild !== true) {
+    raw.failure = 'Build provenance does not match current inputs. Run the provenance build first.'
+    await flush()
+    throw new Error(String(raw.failure))
+  }
   const gpuSamples: Awaited<ReturnType<typeof gpuSample>>[] = []
   let sampling = false
   const sampler = setInterval(() => {
@@ -197,10 +259,23 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       })
   }, 1500)
   const startupAt = Date.now()
-  const launched = await launchApp().catch(async (error: unknown) => {
+  // A separate working directory exposes only the two selected GGUF
+  // files to the unmodified app's discovery logic. This diagnoses an existing
+  // 2B-only install; it is not evidence that the current default selects 2B.
+  const workingDirectory =
+    modelVariant === '2b-only-fixture' ? resolve(output, 'model-fixture') : undefined
+  const launched = await (async () => {
+    if (workingDirectory) {
+      await mkdir(join(workingDirectory, 'models'), { recursive: true })
+      for (const file of modelFiles)
+        await link(resolve('models', file), join(workingDirectory, 'models', file))
+    }
+    return launchApp(workingDirectory ? { workingDirectory } : {})
+  })().catch(async (error: unknown) => {
     clearInterval(sampler)
     raw.failure = error instanceof Error ? error.message : String(error)
     await flush()
+    if (workingDirectory) await rm(workingDirectory, { recursive: true, force: true })
     throw error
   })
   const { page, app } = launched
@@ -214,7 +289,13 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
   }
   app.process().stdout?.on('data', recordLog)
   app.process().stderr?.on('data', recordLog)
+  const failures: unknown[] = []
   try {
+    if (captureSyntheticEvidence)
+      raw.syntheticObserverInstalled = await installCalibrationWorkerCapture(
+        app,
+        launched.userDataDir,
+      )
     await registerAndUnlock(page, 'RAG calibration')
     const workspaceId = await createWorkspace(page, `Calibration ${split}`)
     await page.evaluate(async () => {
@@ -236,6 +317,9 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     await expect.poll(ready, { timeout: 180_000 }).toBe(true)
     raw.startupMs = Date.now() - startupAt
     raw.readyInfo = await modelInfo(page)
+    expect((raw.readyInfo as Awaited<ReturnType<typeof modelInfo>>).llm.modelName).toBe(
+      modelFiles[0],
+    )
     console.log(`CALIBRATION ready ${JSON.stringify(raw.readyInfo)}`)
     const indexingAt = Date.now()
     const docs: Array<Record<string, unknown>> = []
@@ -282,6 +366,12 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       for (const entry of cases) {
         if (repetition > 0 && warmCases && !warmCases.includes(entry.id)) continue
         const beforeInfo = await modelInfo(page)
+        const captureAdmission = captureSyntheticEvidence
+          ? await armCalibrationWorkerCapture(app, `${entry.id}.${repetition}`).catch(() => ({
+              armed: false,
+              reason: 'observer-admission-error',
+            }))
+          : null
         const logStart = logs.length
         console.log(`CALIBRATION question ${entry.id} repeat=${repetition}`)
         const observation = await page.evaluate(collectCalibrationStream, {
@@ -289,8 +379,16 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
           entry: { id: entry.id, question: entry.question, language: entry.language },
           repetition,
           timeoutMs: questionTimeoutMs,
+          wholeDocFallback,
         })
         const afterInfo = await modelInfo(page)
+        const syntheticEvidence = captureSyntheticEvidence
+          ? await settleCalibrationWorkerCapture(app).catch(() => ({
+              status: null,
+              rows: [],
+              error: 'observer-settlement-error',
+            }))
+          : null
         const queryLogs = logs.slice(logStart).split(/\r?\n/)
         const collectionDecision = calibrationCollectionDecision(observation, continueErrors)
         const query = {
@@ -299,6 +397,9 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
           afterInfo,
           logs: queryLogs,
           evidenceAssessment: describeEvidenceAssessment(queryLogs, observation.events),
+          checkedAnswer: describeCheckedAnswer(queryLogs, observation.events),
+          boundedThoughts: describeBoundedThoughts(queryLogs),
+          ...(captureSyntheticEvidence ? { syntheticEvidence, captureAdmission } : {}),
           collectionDecision,
         }
         ;(raw.queries as unknown[]).push(query)
@@ -324,12 +425,30 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
     await flush()
   } catch (error) {
     raw.failure = error instanceof Error ? error.message : String(error)
-    await flush()
-    throw error
-  } finally {
-    clearInterval(sampler)
-    await writeFile(join(output, 'app.log'), logs)
+    failures.push(error)
+  }
+  clearInterval(sampler)
+  if (captureSyntheticEvidence)
+    raw.syntheticObserverFinal = await disposeCalibrationWorkerCapture(app).catch(() => ({
+      error: 'observer-cleanup-error',
+    }))
+  let closed = false
+  try {
     await launched.cleanup()
+    raw.closure = launched.lastClosure
+    closed = true
+  } catch (error) {
+    raw.cleanupFailure = error instanceof Error ? error.message : String(error)
+    failures.push(error)
+  }
+  try {
+    await writeFile(join(output, 'app.log'), logs)
+  } catch (error) {
+    failures.push(error)
+  }
+  try {
+    // Preserve a fixture still owned by an app whose exit was not confirmed.
+    if (closed && workingDirectory) await rm(workingDirectory, { recursive: true, force: true })
     const after = await fingerprintCompiledBuild()
     raw.compiledBuildHashesAfter = after
     raw.buildProvenanceAfter = await inspectBuildProvenance()
@@ -338,9 +457,13 @@ test('calibrate local RAG against frozen synthetic source documents', async () =
       raw.integrityError =
         'Compiled application files changed during calibration; results are not from a frozen build.'
     }
-    await flush()
     expect(after, 'Compiled application must remain frozen throughout calibration').toEqual(
       compiledBuildHashes,
     )
+  } catch (error) {
+    failures.push(error)
   }
+  await flush().catch((error: unknown) => failures.push(error))
+  if (failures.length === 1) throw failures[0]
+  if (failures.length > 1) throw new AggregateError(failures, 'Calibration and cleanup failures')
 })

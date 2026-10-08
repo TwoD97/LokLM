@@ -1,0 +1,175 @@
+{
+  "kind": "safe-delayed-grammar-diagnostic-observations",
+  "status": "known DEV, not production or unseen validation",
+  "privacy": "Fixed allowlist of scalar metadata and successfully parsed visible answers only. No hidden text/tokens, check text, chat history, raw model envelope, rejected prose, prompt or source body is copied here.",
+  "inputPlan": {
+    "path": "out/optimization-20261005/ad-diagnostic-inputs.json",
+    "sha256": "d16a55dbbe8c396bb8079e195f159bf73c48d6448488ab942d49b81484621f59"
+  },
+  "runs": [
+    {
+      "kind": "ad-delayed-grammar-diagnostic",
+      "startedAt": "2026-10-05T23:36:09.586Z",
+      "completedAt": null,
+      "planSha256": "d16a55dbbe8c396bb8079e195f159bf73c48d6448488ab942d49b81484621f59",
+      "runnerSha256": "a4f521282fddf139f21318575d3600980b7096364733d73a08589372e7f26447",
+      "transitionHelperSha256": "bcaa7a58c778b5f98dd1d341de22e77ca3bb7efd80a43c1874ef21efa9b4bc10",
+      "manifestSha256": "a153fccc912c4ce974aa80d588a04cd3c8359c29940098418d1b44b51fd11af3",
+      "requestedCells": ["ab-fresh-01", "ab-fresh-02"],
+      "loadMs": null,
+      "fingerprintsUnchangedAfter": true,
+      "label": "AD setup failure",
+      "originalRawPath": "out/optimization-20261005/ad-delayed-grammar-native-20261005-2336/raw.json",
+      "originalRawSha256": "5043959df56fe32d2ce69ea1e984d724fbe2d43a0bf12ef8ce55568583ccbbff",
+      "configuration": {
+        "contextSize": 8192,
+        "gpuLayers": 14,
+        "threads": 6,
+        "batchSize": 254,
+        "vramPaddingBytes": 1073741824,
+        "kv": "q8_0",
+        "thoughtTokens": 64,
+        "maxTokens": 2176,
+        "temperature": 0,
+        "repeatPenalty": false,
+        "perCallTimeoutMs": 180000,
+        "abortGraceMs": 15000
+      },
+      "model": {
+        "path": "models/Qwen3.5-4B-Q4_K_M.gguf",
+        "bytes": 2740937888,
+        "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+      },
+      "actual": null,
+      "error": {
+        "phase": "wrapper_boundary",
+        "name": "Error"
+      },
+      "cells": []
+    },
+    {
+      "kind": "ad-delayed-grammar-diagnostic",
+      "startedAt": "2026-10-05T23:39:32.204Z",
+      "completedAt": "2026-10-05T23:43:53.752Z",
+      "planSha256": "d16a55dbbe8c396bb8079e195f159bf73c48d6448488ab942d49b81484621f59",
+      "runnerSha256": "2e1db8599946f5c1f08ba83253078722ef340e8c6f45c3589db6d5f60c33ed0b",
+      "transitionHelperSha256": "ed5c9d7bd93ebc462e714ec7a70a39452b199d109c788e67f064f267941a9872",
+      "manifestSha256": "a153fccc912c4ce974aa80d588a04cd3c8359c29940098418d1b44b51fd11af3",
+      "requestedCells": ["ab-fresh-01", "ab-fresh-02"],
+      "loadMs": 14993,
+      "fingerprintsUnchangedAfter": true,
+      "label": "AD2 corrected setup diagnostic",
+      "originalRawPath": "out/optimization-20261005/ad2-delayed-grammar-native-20261005-2341/raw.json",
+      "originalRawSha256": "76978191d7f57adf6e33ddfd54bba2429b8c044d763176e27d4b9597170b39e5",
+      "configuration": {
+        "contextSize": 8192,
+        "gpuLayers": 14,
+        "threads": 6,
+        "batchSize": 254,
+        "vramPaddingBytes": 1073741824,
+        "kv": "q8_0",
+        "thoughtTokens": 64,
+        "maxTokens": 2176,
+        "temperature": 0,
+        "repeatPenalty": false,
+        "perCallTimeoutMs": 180000,
+        "abortGraceMs": 15000
+      },
+      "model": {
+        "path": "models/Qwen3.5-4B-Q4_K_M.gguf",
+        "bytes": 2740937888,
+        "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+      },
+      "actual": {
+        "gpu": "vulkan",
+        "layers": 14,
+        "context": 8192,
+        "batchSize": 254,
+        "kvKey": 8,
+        "kvValue": 8,
+        "threads": 6,
+        "maxThreads": 6,
+        "paddingBytes": 1073741824,
+        "wrapper": "Qwen3.5/auto",
+        "thoughtClosingTokenCount": 1,
+        "thoughtClosingKind": "userDefined",
+        "forcedClosingTokenCount": 2
+      },
+      "error": null,
+      "cells": [
+        {
+          "id": "ab-fresh-01",
+          "startedAt": "2026-10-05T23:39:51.276Z",
+          "completedAt": "2026-10-05T23:41:23.440Z",
+          "promptSha256": "269266b05ed48a8184f78d38924f22b59300c922c76b92b1bcd171debe1595a8",
+          "systemPromptSha256": "5cd235c49f8b361c04f870e20499900842c8d3ee6c34f9670083d1397491033c",
+          "schemaSha256": "d54cdb0af0be0982338bc616396356933c17c451848fea6cf4b75fd3af5616d8",
+          "grammarMs": 4,
+          "exactPromptTokens": 2224,
+          "stopReason": "stopGenerationTrigger",
+          "rejection": null,
+          "nativeMs": 92120,
+          "cancelled": false,
+          "validated": {
+            "mode": "comparison",
+            "outcome": "unresolved",
+            "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “\\# Nuvrek Filterintervall — Notiz Süd\n” [doc:2, chunk:2]; “Ausgestellt am 2044\\-08\\-06 für NP\\-6\\-Pumpenfilter der Kampagne S8\\.” [doc:2, chunk:2]."
+          },
+          "telemetry": {
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 86,
+            "sampledTokens": 150,
+            "combinedTokens": 152,
+            "firstVisibleMs": 50959,
+            "lastVisibleMs": 92118,
+            "responseChars": 186,
+            "thoughtTermination": "budget",
+            "grammarActivatedMs": 49611
+          },
+          "tokens": {
+            "usedInputTokens": 2225,
+            "usedOutputTokens": 150
+          }
+        },
+        {
+          "id": "ab-fresh-02",
+          "startedAt": "2026-10-05T23:41:23.441Z",
+          "completedAt": "2026-10-05T23:43:53.751Z",
+          "promptSha256": "5c0f5b86e43211323f9b6b0d65962811d94e0dde53cf2b678e4cd103c08ef997",
+          "systemPromptSha256": "73141483b209ceec39cdc0b7241045082f16b04466d6d158907408bc4366c5e2",
+          "schemaSha256": "0a43e0520364f6dafade94f97692717c77afbf289ef62ccda7da9d64bd01e3be",
+          "grammarMs": 2,
+          "exactPromptTokens": 2184,
+          "stopReason": "stopGenerationTrigger",
+          "rejection": null,
+          "nativeMs": 150274,
+          "cancelled": false,
+          "validated": {
+            "mode": "answered",
+            "outcome": null,
+            "answer": "For one registered Belvorn team meeting on 2038-04-08, staff may lend a maximum of 5 portable projectors and 7 tablets. The later tablet working paper (2038-04-02) suggests increasing the tablet limit to 9, but it has not been approved by the facilities council and does not authorize staff to change the current loan limits. [doc:3, chunk:3] [doc:4, chunk:4]"
+          },
+          "telemetry": {
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 202,
+            "sampledTokens": 266,
+            "combinedTokens": 268,
+            "firstVisibleMs": 49307,
+            "lastVisibleMs": 150272,
+            "responseChars": 602,
+            "thoughtTermination": "budget",
+            "grammarActivatedMs": 48050
+          },
+          "tokens": {
+            "usedInputTokens": 2185,
+            "usedOutputTokens": 266
+          }
+        }
+      ]
+    }
+  ]
+}

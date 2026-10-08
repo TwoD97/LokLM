@@ -1,0 +1,876 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-ar-completion300-reasoning",
+  "classification": "Known DEV AR/v19 correctness collection under a new prospective 300-second protocol. Five original reasoning cases, unchanged strict criteria; no fresh claim or replacement of AQ180 results.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-reasoning/raw.json",
+    "sha256": "b93d0a448dee676d998e1b6459f0bf655ddc9b86c0bb0ab77767e91510fc7720",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ar-completion300-reasoning-execution-declaration.json",
+    "sha256": "5df24c431f52575f3450573bdee20cbe2686bec3a838313169161f2d048b191d",
+    "frozenAt": "2026-10-06T05:34:00.151Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ar-completion300-reasoning-postverify.json",
+    "sha256": "ff4a9952230404f290589314ad6dd44c603b60a372a34baaff12d4227f4c864c",
+    "verifiedAt": "2026-10-06T05:48:27.921Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 0,
+    "safeToContinue": false,
+    "cleanupVerified": true,
+    "requestCompleted": true,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": [
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12"
+  ],
+  "attemptedCases": [
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12"
+  ],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 5,
+    "attempted": 5,
+    "completedAnswers": 5,
+    "strictPasses": 5,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "completedWithin180Seconds": 5,
+    "parserRejections": 0
+  },
+  "startedAt": "2026-10-06T05:34:21.135Z",
+  "collectionCompletedAt": "2026-10-06T05:47:52.452Z",
+  "closureVerifiedAt": "2026-10-06T05:48:27.921Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "c056b78e381e9694911d15c36f3579953776e09798b2b3cba5b0e3a6b821d604",
+    "fixtureLockSha256": "0b828e0eb1427fc4e0f1abc63c9fb87b9d9399e7a29cba0f1695bc4280b0b6cd",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 18,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "The prospective 300-second app cap includes retrieval/preparation; native timing is a subset. Observed within180 is reported separately and does not change the old AQ180 gate. Constrained-response tokens include private check and JSON syntax, not only displayed prose. External-line-break scalars identify no location/cause.",
+  "queries": [
+    {
+      "caseId": "reasoning-reserved-02",
+      "finalAnswer": "Am 2031-06-01 dürfen Mitglieder in Velsun Werkzeughaus höchstens 4 Bohrmaschinen und 5 Sägen gleichzeitig leihen. [doc:3, chunk:3] [doc:4, chunk:4]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "4:4",
+        "12:12",
+        "9:9",
+        "11:11",
+        "10:10",
+        "13:14",
+        "16:17",
+        "15:16",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": ["3:3", "4:4"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 147960,
+        "firstVisibleTokenMs": 147960,
+        "terminalMs": 147962,
+        "totalMs": 147962,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 137382,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 137244,
+            "grammarMs": 5,
+            "promptFitMs": 20,
+            "nativeMs": 137218,
+            "firstTextMs": 77239,
+            "lastTextMs": 137215,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 345,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1984,
+            "usedOutputTokens": 257,
+            "boundedThoughts": {
+              "promptTokens": 1983,
+              "prefillBatches": 8,
+              "prefillTokens": 1982,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 129,
+              "combinedTokens": 259,
+              "firstVisibleMs": 77239,
+              "lastVisibleMs": 137215,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 113,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "reasoning-reserved-05",
+      "finalAnswer": "The current annual contribution for an ordinary adult Tebrin member is 72 EUR. The later proposal (81 EUR) does not change it because the member assembly has not voted on it. [doc:9, chunk:9] [doc:10, chunk:10]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "9:9",
+        "10:10",
+        "14:13",
+        "18:19",
+        "15:16",
+        "3:3",
+        "4:4",
+        "11:11",
+        "12:12"
+      ],
+      "finalCitationIds": ["9:9", "10:10"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 146453,
+        "firstVisibleTokenMs": 146453,
+        "terminalMs": 146454,
+        "totalMs": 146454,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 129131,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 128990,
+            "grammarMs": 4,
+            "promptFitMs": 20,
+            "nativeMs": 128966,
+            "firstTextMs": 71918,
+            "lastTextMs": 128964,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 403,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1618,
+            "usedOutputTokens": 258,
+            "boundedThoughts": {
+              "promptTokens": 1617,
+              "prefillBatches": 7,
+              "prefillTokens": 1616,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 130,
+              "combinedTokens": 260,
+              "firstVisibleMs": 71918,
+              "lastVisibleMs": 128964,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 113,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 174,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "reasoning-reserved-06",
+      "finalAnswer": "Die beiden Ostel-Bestandsangaben widersprechen sich nicht. Der morgendliche Bestand betrug 12 Ersatzsensoren um 08:00 UTC am 2031-10-06. Der abendliche Bestand betrug 17 Ersatzsensoren um 18:00 UTC am 2031-10-06. [doc:11, chunk:11] [doc:12, chunk:12]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "11:11",
+        "12:12",
+        "17:18",
+        "16:17",
+        "7:7",
+        "8:8",
+        "13:15",
+        "6:6",
+        "5:5",
+        "2:2",
+        "13:14"
+      ],
+      "finalCitationIds": ["11:11", "12:12"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 173770,
+        "firstVisibleTokenMs": 173770,
+        "terminalMs": 173770,
+        "totalMs": 173770,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 156013,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 155882,
+            "grammarMs": 4,
+            "promptFitMs": 21,
+            "nativeMs": 155857,
+            "firstTextMs": 76904,
+            "lastTextMs": 155855,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 450,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2000,
+            "usedOutputTokens": 300,
+            "boundedThoughts": {
+              "promptTokens": 1999,
+              "prefillBatches": 8,
+              "prefillTokens": 1998,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 172,
+              "combinedTokens": 302,
+              "firstVisibleMs": 76904,
+              "lastVisibleMs": 155855,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 212,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "reasoning-reserved-11",
+      "finalAnswer": "Die durchschnittliche Wasserverbrauchsrate in Ivaren Durchlauf A betrug 6 Liter pro Minute. [doc:13, chunk:15]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "13:14",
+        "18:19",
+        "5:5",
+        "6:6",
+        "7:7",
+        "8:8",
+        "3:3",
+        "4:4",
+        "16:17",
+        "17:18",
+        "13:15"
+      ],
+      "finalCitationIds": ["13:15"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 143979,
+        "firstVisibleTokenMs": 143979,
+        "terminalMs": 143979,
+        "totalMs": 143979,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 126510,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 126375,
+            "grammarMs": 3,
+            "promptFitMs": 22,
+            "nativeMs": 126350,
+            "firstTextMs": 77594,
+            "lastTextMs": 126348,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 315,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2038,
+            "usedOutputTokens": 237,
+            "boundedThoughts": {
+              "promptTokens": 2037,
+              "prefillBatches": 9,
+              "prefillTokens": 2036,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 109,
+              "combinedTokens": 239,
+              "firstVisibleMs": 77594,
+              "lastVisibleMs": 126348,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 115,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 91,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "reasoning-reserved-12",
+      "finalAnswer": "The Ivaren record does not provide electrically measured power consumption for run B. It only lists water consumption (24 litres) and duration (4 minutes). [doc:13, chunk:15]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "13:14",
+        "6:6",
+        "5:5",
+        "2:2",
+        "18:19",
+        "1:1",
+        "14:13",
+        "15:16",
+        "8:8",
+        "7:7",
+        "13:15"
+      ],
+      "finalCitationIds": ["13:15"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 143307,
+        "firstVisibleTokenMs": 143307,
+        "terminalMs": 143307,
+        "totalMs": 143307,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 126482,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 126349,
+            "grammarMs": 5,
+            "promptFitMs": 21,
+            "nativeMs": 126323,
+            "firstTextMs": 75637,
+            "lastTextMs": 126321,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 384,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2011,
+            "usedOutputTokens": 239,
+            "boundedThoughts": {
+              "promptTokens": 2010,
+              "prefillBatches": 8,
+              "prefillTokens": 2009,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 111,
+              "combinedTokens": 241,
+              "firstVisibleMs": 75637,
+              "lastVisibleMs": 126321,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 155,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    }
+  ],
+  "scope": {
+    "originalCriteriaUnchanged": true,
+    "newProspective300SecondProtocol": true,
+    "originalAQ180AggregateUnchanged": true,
+    "noFreshClaim": true,
+    "futureFreshFactsAuthored": false,
+    "laterGroupsRequireSeparateGrant": true
+  },
+  "captureStatus": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "residualCaptureCount": 0
+  }
+}

@@ -1,29 +1,35 @@
 ---
 import { getLangFromUrl } from '~/i18n/utils'
-import { languages, type Lang } from '~/i18n/ui'
+import { languages, t, type Lang } from '~/i18n/ui'
+import type { Alternates } from '~/lib/alternates'
+
+interface Props { alternates?: Alternates }
+const { alternates } = Astro.props
 
 const lang = getLangFromUrl(Astro.url)
 
 // astro is configured with trailingSlash: 'never' , link to canonical /en
 // (no slash) so we never trigger an astro-preview 301/404.
-const targetHref: Record<Lang, string> = {
-  de: '/',
-  en: '/en',
-}
+const targetHref: Partial<Record<Lang, string>> = alternates
+  ? { de: new URL(alternates.de).pathname, en: new URL(alternates.en).pathname }
+  : { [lang]: Astro.url.pathname }
 ---
 
-<div class="flex items-center gap-1 text-sm">
+<div class="flex items-center gap-1 text-sm" role="group" aria-label={t(lang, 'nav.language')}>
   {
-    (Object.keys(languages) as Lang[]).map((code) => (
+    (Object.keys(languages) as Lang[]).filter((code) => targetHref[code]).map((code) => (
       <a
         href={targetHref[code]}
         class:list={[
-          'px-2 py-1 rounded-md transition-colors mono uppercase tracking-wider text-xs',
+          'min-h-11 min-w-11 inline-flex items-center justify-center rounded-md transition-colors mono uppercase tracking-wider text-xs',
           code === lang
             ? 'text-fg-0 bg-white/5'
             : 'text-fg-2 hover:text-fg-0 hover:bg-white/5',
         ]}
         aria-current={code === lang ? 'page' : undefined}
+        aria-label={languages[code]}
+        lang={code}
+        hreflang={code}
       >
         {code}
       </a>

@@ -1,12 +1,17 @@
 import { defineConfig } from 'astro/config'
 import sitemap from '@astrojs/sitemap'
 import tailwindcss from '@tailwindcss/vite'
+import { satteri } from '@astrojs/markdown-satteri'
+import { responsiveTables } from './src/lib/responsiveTables'
 
 export default defineConfig({
   site: 'https://loklm.com',
   trailingSlash: 'never',
   // Keep spaces between inline elements when upgrading the Astro compiler.
   compressHTML: true,
+  markdown: {
+    processor: satteri({ hastPlugins: [responsiveTables] }),
+  },
   build: {
     assets: 'assets',
     inlineStylesheets: 'always',

@@ -43,6 +43,7 @@ export async function collectCalibrationStream(
     timeoutMs?: number
     terminalGraceMs?: number
     cancellationGraceMs?: number
+    wholeDocFallback?: boolean
   },
   injectedApi?: CaptureApi,
 ) {
@@ -108,7 +109,7 @@ export async function collectCalibrationStream(
           rerank: false,
           multiQuery: false,
           routing: false,
-          wholeDocFallback: false,
+          wholeDocFallback: input.wholeDocFallback === true,
         }),
       )
       .then(

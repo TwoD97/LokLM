@@ -16,6 +16,8 @@ import { rm, readdir, rename } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyMacApp } from './verify-mac-architecture.mjs'
+import { verifyMacArchives } from './release-artifacts.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -55,29 +57,42 @@ async function main() {
   }
 
   const wizardDir = join(ROOT, 'installer-wizard', 'src-tauri')
+  // A universal download wizard must never bake a placeholder for one arch.
+  await verifyMacArchives(join(ROOT, 'release'))
 
   const env = { ...process.env }
   const cargoBin = cargoBinDir()
   if (cargoBin) env.PATH = `${cargoBin}${delimiter}${env.PATH || ''}`
 
-  // 1) Build the Tauri wizard for the host arch. We need the .app
+  // 1) The one public DMG must start on both Intel and Apple Silicon.
   //    bundle but NOT the dmg ( our own create-dmg step below does that ).
   //    --bundles app tells tauri-cli to skip every other bundler target
   //    listed in tauri.conf.json ( nsis on win is irrelevant on mac ,
   //    dmg would otherwise run bundle_dmg.sh which has been crashing on
   //    macos-latest with "hdiutil: create failed - Resource busy" ).
   //    --verbose surfaces any bundle-step failures in CI logs.
-  console.log('cargo tauri build --bundles app --verbose ...')
-  await runInherit('cargo', ['tauri', 'build', '--bundles', 'app', '--verbose'], {
-    cwd: wizardDir,
-    env,
-  })
+  console.log('cargo tauri build --target universal-apple-darwin --bundles app --verbose ...')
+  await runInherit(
+    'cargo',
+    ['tauri', 'build', '--target', 'universal-apple-darwin', '--bundles', 'app', '--verbose'],
+    {
+      cwd: wizardDir,
+      env,
+    },
+  )
 
   // Tauri uses productName from tauri.conf.json verbatim. After the v0.3.0
   // IDT-bypass rename it's just "LokLM" — bundle is "LokLM.app". If tauri
   // produces it elsewhere ( name mismatch , version mismatch , etc. ) the
   // fallback search picks any .app in the macos bundle dir.
-  const macosBundleDir = join(wizardDir, 'target', 'release', 'bundle', 'macos')
+  const macosBundleDir = join(
+    wizardDir,
+    'target',
+    'universal-apple-darwin',
+    'release',
+    'bundle',
+    'macos',
+  )
   let built = join(macosBundleDir, 'LokLM.app')
   if (!existsSync(built)) {
     if (existsSync(macosBundleDir)) {
@@ -93,6 +108,8 @@ async function main() {
       )
     }
   }
+
+  await verifyMacApp(built, 'universal', { wizard: true })
 
   // 2) Pack into a DMG via create-dmg ( npm ).
   //    --no-code-sign : GitHub-hosted macos runners have no Developer ID
@@ -111,9 +128,13 @@ async function main() {
   // license.rtf in the project root and accidentally embeds an SLA.  An
   // embedded SLA from the old hdiutil udifrez path shows "could not load" on
   // macOS 15.  All paths passed to create-dmg are absolute so changing cwd is safe.
-  await runInherit('npx', ['create-dmg', built, releaseDir, '--overwrite', '--no-code-sign'], {
-    cwd: tmpdir(),
-  })
+  await runInherit(
+    'npx',
+    ['--yes', 'create-dmg@8.1.0', built, releaseDir, '--overwrite', '--no-code-sign'],
+    {
+      cwd: tmpdir(),
+    },
+  )
 
   // 3) create-dmg names its output "<AppName> <version>.dmg" by default
   //    ( e.g. "LokLM 0.3.0.dmg" ). Rename to the stable LokLM-mac.dmg so

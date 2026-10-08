@@ -1,0 +1,94 @@
+[
+  {
+    "caseId": "BE01",
+    "diagnostic": "known-development-answer-audit",
+    "expectedDecision": "reject",
+    "observedDecision": "accept",
+    "exactVerdict": {
+      "support": "supported",
+      "coverage": "complete",
+      "citations": "supported",
+      "issue": "none"
+    },
+    "binaryDecisionCorrect": false,
+    "falseAcceptance": true,
+    "falseRejection": false,
+    "targetedDefectDetection": false,
+    "auditMs": 56554,
+    "nativeMs": 56372,
+    "historicalGenerationMs": 135732,
+    "projectedGenerationPlusAuditMs": 192286,
+    "projectionIsMeasuredFullProductTurn": false,
+    "counterpartAuthoredNotGenerated": false,
+    "notes": "False acceptance: original unchanged key explicitly forbids asserting neither note has approval; the absence of a signature or priority statement supports documentary absence only."
+  },
+  {
+    "caseId": "BE02",
+    "diagnostic": "known-development-answer-audit",
+    "expectedDecision": "accept",
+    "observedDecision": "accept",
+    "exactVerdict": {
+      "support": "supported",
+      "coverage": "complete",
+      "citations": "supported",
+      "issue": "none"
+    },
+    "binaryDecisionCorrect": true,
+    "falseAcceptance": false,
+    "falseRejection": false,
+    "targetedDefectDetection": null,
+    "auditMs": 57077,
+    "nativeMs": 56809,
+    "historicalGenerationMs": 135732,
+    "projectedGenerationPlusAuditMs": 192809,
+    "projectionIsMeasuredFullProductTurn": false,
+    "counterpartAuthoredNotGenerated": true,
+    "notes": "Correct acceptance of the pre-authored, supported counterpart under the original strict and product criteria."
+  },
+  {
+    "caseId": "BE03",
+    "diagnostic": "known-development-answer-audit",
+    "expectedDecision": "reject",
+    "observedDecision": "reject",
+    "exactVerdict": {
+      "support": "unsupported",
+      "coverage": "incomplete",
+      "citations": "unsupported",
+      "issue": "missing_part"
+    },
+    "binaryDecisionCorrect": true,
+    "falseAcceptance": false,
+    "falseRejection": false,
+    "targetedDefectDetection": true,
+    "auditMs": 62938,
+    "nativeMs": 62571,
+    "historicalGenerationMs": 188115,
+    "projectedGenerationPlusAuditMs": 251053,
+    "projectionIsMeasuredFullProductTurn": false,
+    "counterpartAuthoredNotGenerated": false,
+    "notes": "Correct rejection and target-coverage detection: requested Kupfer/Silber attribution and missing documentary approval/priority explanation are omitted. Other unsupported facets are not independently explained by the enum-only verdict."
+  },
+  {
+    "caseId": "BE04",
+    "diagnostic": "known-development-answer-audit",
+    "expectedDecision": "accept",
+    "observedDecision": "accept",
+    "exactVerdict": {
+      "support": "supported",
+      "coverage": "complete",
+      "citations": "supported",
+      "issue": "none"
+    },
+    "binaryDecisionCorrect": true,
+    "falseAcceptance": false,
+    "falseRejection": false,
+    "targetedDefectDetection": null,
+    "auditMs": 62176,
+    "nativeMs": 61998,
+    "historicalGenerationMs": 188115,
+    "projectedGenerationPlusAuditMs": 250291,
+    "projectionIsMeasuredFullProductTurn": false,
+    "counterpartAuthoredNotGenerated": true,
+    "notes": "Correct acceptance of the pre-authored, supported counterpart under the original strict and product criteria."
+  }
+]

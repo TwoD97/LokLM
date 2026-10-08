@@ -68,11 +68,7 @@ function primaryAsset(card: PlatformCard): ReleaseAsset | undefined {
   return card.assets.find((a) => a.available)
 }
 
-// Checksum block at the bottom of the card. Windows is the canonical
-// "primary" asset for the headline numbers — falls back gracefully if
-// it isn't available.
-const windowsCard = cards.find((c) => c.platform === 'windows')
-const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
+const hardwareHref = lang === 'de' ? '/blog/lokale-ki-4gb-vram' : '/en/blog/local-ai-4gb-vram'
 ---
 
 <section id="download" class="relative py-20 sm:py-28">
@@ -85,6 +81,11 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
       </p>
     </div>
 
+    <aside class="download-fit" aria-labelledby="download-fit-title">
+      <h3 id="download-fit-title"><a href={hardwareHref}>{t(lang, 'download.hardware')}</a></h3>
+      <p>{t(lang, 'download.hardware.note')}</p>
+    </aside>
+
     <div
       class="mt-12 glass rounded-[14px] p-8 sm:p-10 relative overflow-hidden"
       data-download-card
@@ -95,7 +96,7 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
       >
       </div>
 
-      <div class="relative grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      <div class="relative grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
         <div>
           <p class="mono text-[0.7rem] uppercase tracking-wider text-[color:var(--color-fg-3)] mb-1">
             {t(lang, 'download.version')}
@@ -108,14 +109,6 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
           </p>
           <p class="text-xl font-semibold mono">{currentRelease.releasedAt}</p>
         </div>
-        <div>
-          <p class="mono text-[0.7rem] uppercase tracking-wider text-[color:var(--color-fg-3)] mb-1">
-            {t(lang, 'download.size')}
-          </p>
-          <p class="text-xl font-semibold mono">
-            {primaryAvailable ? formatSize(primaryAvailable.sizeBytes) : '—'}
-          </p>
-        </div>
       </div>
 
       <div class="relative grid grid-cols-1 sm:grid-cols-3 gap-3" data-platform-grid>
@@ -127,7 +120,7 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
             return (
               <div
                 class:list={[
-                  'relative rounded-[10px] p-4 transition-all',
+                  'relative rounded-[10px] p-4 transition-colors',
                   isAvailable
                     ? 'bg-white/[0.03] border border-[color:var(--color-border)] hover:border-[color:var(--color-accent)]/40'
                     : 'bg-white/[0.015] border border-dashed border-white/[0.08] opacity-60',
@@ -172,6 +165,7 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
                 <div class="flex flex-col gap-2">
                   {card.assets.map((asset) =>
                     asset.available ? (
+                      <div data-asset-file={asset.file}>
                       <a
                         href={downloadUrl(asset)}
                         class="btn-primary w-full text-sm py-3"
@@ -195,6 +189,14 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
                         </svg>
                         {t(lang, buttonKey(card.platform, asset.variant))}
                       </a>
+                      {asset.sha256 && (
+                        <details class="download-checksum">
+                          <summary>{t(lang, 'download.verify')}</summary>
+                          <p>{asset.file} ({formatSize(asset.sizeBytes)})</p>
+                          <code data-checksum>{asset.sha256}</code>
+                        </details>
+                      )}
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -228,18 +230,6 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
         <span>{t(lang, 'download.notice')}</span>
       </p>
 
-      {
-        primaryAvailable && primaryAvailable.sha256 && (
-          <div class="relative mt-6 pt-6 border-t border-white/5">
-            <p class="mono text-[0.7rem] uppercase tracking-wider text-[color:var(--color-fg-3)] mb-2">
-              {t(lang, 'download.checksum')} — {primaryAvailable.file}
-            </p>
-            <code class="mono text-xs text-[color:var(--color-fg-1)] break-all block bg-[rgba(255,255,255,0.03)] border border-[color:var(--color-border)] rounded-md p-3">
-              {primaryAvailable.sha256}
-            </code>
-          </div>
-        )
-      }
     </div>
 
     <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
@@ -265,6 +255,17 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
   </div>
 </section>
 
+<style>
+  .download-fit { margin-top: 2rem; padding-left: 1.2rem; border-left: 3px solid var(--color-accent); }
+  .download-fit h3 { font-weight: 600; }
+  .download-fit a { color: var(--color-accent-hover); text-decoration: underline; text-underline-offset: 0.2em; }
+  .download-fit p { margin-top: 0.5rem; color: var(--color-fg-1); line-height: 1.65; }
+  .download-checksum { margin-top: 0.25rem; font-size: 0.8rem; color: var(--color-fg-1); }
+  .download-checksum summary { padding-block: 0.7rem; cursor: pointer; min-height: 44px; }
+  .download-checksum p { overflow-wrap: anywhere; margin-bottom: 0.5rem; }
+  .download-checksum code { display: block; overflow-wrap: anywhere; padding: 0.65rem; background: var(--color-bg-0); border-radius: 5px; }
+</style>
+
 <script>
   // os detection läuft client-side , markiert die passende card , wenn js aus
   // ist bleibt alles normal sichtbar.
@@ -273,8 +274,13 @@ const primaryAvailable = windowsCard ? primaryAsset(windowsCard) : undefined
 
     // userAgentData wenn da , sonst userAgent string parsen.
     // navigator.platform ist deprecated.
-    const uaData = (navigator as Navigator & { userAgentData?: { platform: string } })
+    const uaData = (navigator as Navigator & { userAgentData?: { platform: string; mobile?: boolean } })
       .userAgentData
+    const userAgent = navigator.userAgent.toLowerCase()
+    // Mobile browsers often contain "Mac OS X" or "Linux". These are not
+    // supported desktop platforms, including iPad's desktop-style UA.
+    if (uaData?.mobile || /android|iphone|ipad|ipod/.test(userAgent) ||
+      (userAgent.includes('macintosh') && navigator.maxTouchPoints > 1)) return null
     const platformHint = (uaData?.platform ?? navigator.userAgent).toLowerCase()
 
     if (platformHint.includes('win')) return 'windows'

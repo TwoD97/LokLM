@@ -11,13 +11,21 @@ const { runProvenanceBuild } = createRequire(import.meta.url)('../bench/build-pr
 let root: string
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'loklm-provenance-test-'))
-  for (const dir of ['src', 'patches', 'out/main', 'out/preload', 'out/renderer'])
+  for (const dir of [
+    'src',
+    'patches',
+    'installer-wizard',
+    'out/main',
+    'out/preload',
+    'out/renderer',
+  ])
     await mkdir(join(root, dir), { recursive: true })
   for (const [path, text] of Object.entries({
     'src/app.ts': 'export const value = 1',
     'package.json': '{}',
     'pnpm-lock.yaml': 'lockfileVersion: 9',
     'patches/dep.patch': 'patch v1',
+    'installer-wizard/model-manifest.json': '{"tiers":{}}',
     'out/main/index.js': 'main v1',
     'out/preload/index.cjs': 'preload v1',
     'out/renderer/index.html': '<main>hello</main>',
@@ -69,6 +77,15 @@ describe('optional native build provenance', () => {
       status: 'unknown',
       reason: 'compiled-output-mismatch',
       changedCompiledPaths: ['out/renderer/style.css'],
+    })
+  })
+  it('detects an unbuilt edit to the installer catalog imported by the desktop', async () => {
+    await runProvenanceBuild(root, async () => undefined)
+    await writeFile(join(root, 'installer-wizard/model-manifest.json'), '{"tiers":{"lite":{}}}')
+    expect(await inspectBuildProvenance(root)).toMatchObject({
+      status: 'matched',
+      currentSourcesMatchBuild: false,
+      changedCurrentSourcePaths: ['installer-wizard/model-manifest.json'],
     })
   })
   it('fails explicit build recording if an input changes during compilation', async () => {

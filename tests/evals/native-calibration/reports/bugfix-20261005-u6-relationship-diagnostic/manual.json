@@ -1,0 +1,99 @@
+{
+  "kind": "relationship-classifier-diagnostic-review",
+  "requested": 6,
+  "observed": 6,
+  "uniqueQuestions": 3,
+  "finalAnswerEvaluation": false,
+  "rows": [
+    {
+      "id": "reasoning-reserved-06/selected",
+      "result": {
+        "parsed": true,
+        "outcome": "compatible",
+        "sources": ["11:11", "12:12"]
+      },
+      "nativeMs": 30399,
+      "inputTokens": 343,
+      "outputTokens": 56,
+      "parseComplete": true,
+      "judgment": "Correct outcome and relevant source selection",
+      "outcomeCorrect": true,
+      "sourceSelectionRelevant": true
+    },
+    {
+      "id": "reasoning-reserved-06/full-fed",
+      "result": {
+        "parsed": true,
+        "outcome": "insufficient",
+        "sources": ["11:11", "12:12"]
+      },
+      "nativeMs": 39710,
+      "inputTokens": 1148,
+      "outputTokens": 57,
+      "parseComplete": true,
+      "judgment": "Incorrect insufficient outcome despite complete different-time evidence",
+      "outcomeCorrect": false,
+      "sourceSelectionRelevant": true
+    },
+    {
+      "id": "reasoning-reserved-10/selected",
+      "result": {
+        "parsed": true,
+        "outcome": "insufficient",
+        "sources": ["18:19"]
+      },
+      "nativeMs": 26882,
+      "inputTokens": 261,
+      "outputTokens": 45,
+      "parseComplete": true,
+      "judgment": "Correct outcome and relevant source selection",
+      "outcomeCorrect": true,
+      "sourceSelectionRelevant": true
+    },
+    {
+      "id": "reasoning-reserved-10/full-fed",
+      "result": {
+        "parsed": true,
+        "outcome": "insufficient",
+        "sources": ["18:19", "6:6", "1:1", "2:2"]
+      },
+      "nativeMs": 46261,
+      "inputTokens": 1091,
+      "outputTokens": 77,
+      "parseComplete": true,
+      "judgment": "Correct missing-fact outcome but unnecessary unrelated source selection",
+      "outcomeCorrect": true,
+      "sourceSelectionRelevant": false
+    },
+    {
+      "id": "reasoning-reserved-12/selected",
+      "result": {
+        "parsed": true,
+        "outcome": "insufficient",
+        "sources": ["13:15"]
+      },
+      "nativeMs": 30728,
+      "inputTokens": 276,
+      "outputTokens": 45,
+      "parseComplete": true,
+      "judgment": "Correct outcome and relevant source selection",
+      "outcomeCorrect": true,
+      "sourceSelectionRelevant": true
+    },
+    {
+      "id": "reasoning-reserved-12/full-fed",
+      "result": {
+        "parsed": true,
+        "outcome": "insufficient",
+        "sources": ["13:14", "13:15"]
+      },
+      "nativeMs": 36434,
+      "inputTokens": 1101,
+      "outputTokens": 57,
+      "parseComplete": true,
+      "judgment": "Correct missing-fact outcome; same-record header unnecessary",
+      "outcomeCorrect": true,
+      "sourceSelectionRelevant": true
+    }
+  ]
+}

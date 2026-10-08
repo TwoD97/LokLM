@@ -81,6 +81,12 @@ export const libraryDict: DomainDict = {
     'library.loading': 'Loading…',
     'library.noChunks': 'No chunks available — index the document.',
     'library.previewDoc': 'Document preview',
+    'library.pdfNotice.changed':
+      'The PDF has changed since indexing. Showing the available indexed text.',
+    'library.pdfNotice.unavailable':
+      'The original PDF is unavailable. Showing the available indexed text.',
+    'library.pdfNotice.unverified':
+      'The PDF version could not be verified. Showing the available indexed text.',
     'library.chunkLanguageTitle': 'Chunk language: {language}',
     // MissingDocsBanner
     'library.missingOne': '1 file no longer found',
@@ -260,6 +266,12 @@ export const libraryDict: DomainDict = {
     'library.loading': 'Lade…',
     'library.noChunks': 'Keine Chunks vorhanden — Dokument indexieren.',
     'library.previewDoc': 'Dokumentvorschau',
+    'library.pdfNotice.changed':
+      'Die PDF wurde seit der Indexierung geändert. Angezeigt wird der verfügbare indexierte Text.',
+    'library.pdfNotice.unavailable':
+      'Die ursprüngliche PDF ist nicht verfügbar. Angezeigt wird der verfügbare indexierte Text.',
+    'library.pdfNotice.unverified':
+      'Die PDF-Version konnte nicht geprüft werden. Angezeigt wird der verfügbare indexierte Text.',
     'library.chunkLanguageTitle': 'Chunk-Sprache: {language}',
     // MissingDocsBanner
     'library.missingOne': '1 Datei nicht mehr gefunden',

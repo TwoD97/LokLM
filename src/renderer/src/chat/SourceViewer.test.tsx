@@ -1,7 +1,47 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { Api } from '@preload/index'
+import type { ChunkSource, DocumentBytesResult, DocumentChunk } from '@shared/documents'
 import { SourceViewer } from './SourceViewer'
+
+const { renderPdf } = vi.hoisted(() => ({ renderPdf: vi.fn() }))
+vi.mock('./MultiPagePdfPreview', () => ({
+  MultiPagePdfPreview: (props: unknown) => {
+    renderPdf(props)
+    return <div data-testid="verified-pdf" />
+  },
+}))
+
+const pdfSource: ChunkSource = {
+  documentId: 5,
+  title: 'Evidence.pdf',
+  mimeType: 'application/pdf',
+  sourcePath: '/x/Evidence.pdf',
+  contentHash: 'a'.repeat(64),
+  headingPath: null,
+  chunkPageFrom: 2,
+  chunkPageTo: 2,
+}
+function indexedChunk(id = 42, text = 'Original indexed evidence'): DocumentChunk {
+  return {
+    id,
+    documentId: 5,
+    ordinal: 1,
+    text,
+    tokenCount: 3,
+    pageFrom: 2,
+    pageTo: 2,
+    headingPath: null,
+    language: 'en',
+  }
+}
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
 
 function setApi(impl: Partial<Api['documents']>): void {
   Object.assign(window.api.documents, impl)
@@ -9,9 +49,11 @@ function setApi(impl: Partial<Api['documents']>): void {
 
 describe('SourceViewer', () => {
   beforeEach(() => {
+    renderPdf.mockClear()
     setApi({
       listChunksForDocument: () => Promise.resolve([]),
       getSourceForChunk: () => Promise.resolve(null),
+      readDocumentBytes: () => Promise.resolve({ status: 'unavailable' }),
     })
     // jsdom doesn't implement scrollIntoView; the modal calls it on mount.
     Element.prototype.scrollIntoView = vi.fn()
@@ -21,6 +63,106 @@ describe('SourceViewer', () => {
     // Delete (not reassign to undefined) so checks for the method behave as
     // they would in fresh jsdom.
     delete (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView
+  })
+
+  it('passes only hash-verified bytes to PDF.js, without fetching unused text', async () => {
+    const bytes = new Uint8Array([1, 2, 3])
+    const read = vi.fn().mockResolvedValue({ status: 'verified', bytes })
+    const list = vi.fn().mockResolvedValue([indexedChunk()])
+    setApi({
+      getSourceForChunk: async () => pdfSource,
+      readDocumentBytes: read,
+      listChunksForDocument: list,
+    })
+    render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+    await screen.findByTestId('verified-pdf')
+    expect(read).toHaveBeenCalledWith(5, pdfSource.contentHash)
+    expect(renderPdf.mock.calls[0]![0]).toMatchObject({ bytes, targetPage: 2 })
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it.each(['changed', 'unavailable', 'unverified'] as const)(
+    'shows original indexed text with a notice when PDF bytes are %s',
+    async (status) => {
+      setApi({
+        getSourceForChunk: async () => pdfSource,
+        readDocumentBytes: async () => ({ status }),
+        listChunksForDocument: async () => [indexedChunk()],
+      })
+      render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+      await screen.findByText('Original indexed evidence')
+      expect(screen.getByRole('status')).toHaveTextContent(/indexed text/i)
+      expect(screen.queryByTestId('verified-pdf')).not.toBeInTheDocument()
+      expect(renderPdf).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not substitute newly indexed chunks if refresh removed the cited passage', async () => {
+    setApi({
+      getSourceForChunk: async () => pdfSource,
+      readDocumentBytes: async () => ({ status: 'changed' }),
+      listChunksForDocument: async () => [indexedChunk(43, 'Unrelated replacement content')],
+    })
+    render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+    expect(await screen.findByRole('status')).toHaveTextContent(/passage is no longer available/i)
+    expect(screen.queryByText('Unrelated replacement content')).not.toBeInTheDocument()
+    expect(renderPdf).not.toHaveBeenCalled()
+  })
+
+  it('explains when the cited passage was already removed before opening', async () => {
+    const read = vi.fn()
+    const list = vi.fn()
+    setApi({
+      getSourceForChunk: async () => null,
+      readDocumentBytes: read,
+      listChunksForDocument: list,
+    })
+    render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+    expect(await screen.findByRole('status')).toHaveTextContent(/passage is no longer available/i)
+    expect(read).not.toHaveBeenCalled()
+    expect(list).not.toHaveBeenCalled()
+    expect(renderPdf).not.toHaveBeenCalled()
+  })
+
+  it('discards a late PDF byte result after navigating to a different citation', async () => {
+    const pending = deferred<DocumentBytesResult>()
+    const read = vi.fn().mockReturnValue(pending.promise)
+    setApi({
+      getSourceForChunk: async (id) =>
+        id === 42
+          ? pdfSource
+          : {
+              ...pdfSource,
+              documentId: 6,
+              sourcePath: '/x/current.txt',
+              mimeType: 'text/plain',
+            },
+      readDocumentBytes: read,
+      listChunksForDocument: async () => [indexedChunk(60, 'Current citation evidence')],
+    })
+    const view = render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+    await waitFor(() => expect(read).toHaveBeenCalledOnce())
+    view.rerender(<SourceViewer chunkId={60} onClose={() => undefined} />)
+    await screen.findByText('Current citation evidence')
+    await act(async () => pending.resolve({ status: 'verified', bytes: new Uint8Array([1]) }))
+    expect(screen.getByText('Current citation evidence')).toBeInTheDocument()
+    expect(renderPdf).not.toHaveBeenCalled()
+  })
+
+  it('discards a late indexed fallback after closing', async () => {
+    const pending = deferred<DocumentChunk[]>()
+    const list = vi.fn().mockReturnValue(pending.promise)
+    setApi({
+      getSourceForChunk: async () => pdfSource,
+      readDocumentBytes: async () => ({ status: 'changed' }),
+      listChunksForDocument: list,
+    })
+    const view = render(<SourceViewer chunkId={42} onClose={() => undefined} />)
+    await waitFor(() => expect(list).toHaveBeenCalledOnce())
+    view.unmount()
+    await act(async () => pending.resolve([indexedChunk()]))
+    expect(screen.queryByText('Original indexed evidence')).not.toBeInTheDocument()
+    expect(renderPdf).not.toHaveBeenCalled()
   })
 
   it('renders all chunks of the document and accents the cited one', async () => {

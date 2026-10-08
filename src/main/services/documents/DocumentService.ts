@@ -803,9 +803,6 @@ export class DocumentService {
     // inside guarantees the catch arm at the bottom flips status='failed' so
     // the row reflects what actually happened.
     try {
-      indexingLease = await this.registry
-        ?.embedder()
-        .beginIndexing?.({ workspaceId: doc.workspaceId, title: doc.title })
       checkCancelled()
       // Pin to the document's OWN workspace, not the active one. Folder-sync
       // indexes documents across every workspace at login regardless of which is
@@ -922,8 +919,18 @@ export class DocumentService {
       send('embedding', 3, undefined, `embedding 0/${out.length}`, undefined, 0, out.length)
       let vectors: Array<Float32Array | null> | null = null
       let activeIdentity: string | null = null
-      if (this.registry) {
+      if (this.registry && out.length > 0) {
         const embedder = this.registry.embedder()
+        // Parsing, OCR and chunking use the documents worker, not the model
+        // GPU. Reserve it only once real embedding work exists so a slow or
+        // failed parse cannot park chat or warm an unused embedding model.
+        // Keep this lease through every batch and its related persistence.
+        checkCancelled()
+        indexingLease = await embedder.beginIndexing?.({
+          workspaceId: doc.workspaceId,
+          title: doc.title,
+        })
+        checkCancelled()
         indexingLease?.update(0, out.length)
         checkCancelled()
         await embedder.ensureReady()

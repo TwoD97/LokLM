@@ -15,13 +15,23 @@
  *    listener; the IPC bridge forwards them to the renderer.
  */
 
-import { createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  type Stats,
+} from 'node:fs'
 import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 
-import { getManifestEntry } from './manifest'
-import { getDownloadTargetDir } from './paths'
+import { getDownloadManifestEntry } from './installedManifest'
+import { clearModelInvalid, markModelInvalid, sameModelFile } from './modelValidation'
+import { getDownloadTargetDir, resolveModelFile } from './paths'
 
 /**
  * The subset of ModelManifestEntry the downloader actually needs. Callers
@@ -99,14 +109,23 @@ export class ModelDownloader {
    * user-initiated abort; in that case the promise resolves quietly.
    */
   async download(id: string): Promise<void> {
-    const entry = getManifestEntry(id)
+    const entry = getDownloadManifestEntry(id)
     if (!entry) throw new Error(`Unknown model id: ${id}`)
-    return this.downloadEntry(entry)
+    // Repair the file the loader actually finds. Writing a separate userData
+    // copy would leave a corrupt higher-priority wizard file shadowing it.
+    return this.downloadTo(
+      entry,
+      () => resolveModelFile(entry.filename) ?? join(getDownloadTargetDir(), entry.filename),
+    )
   }
 
   /** Same contract as download() , but for files that don't live in the
    *  first-launch manifest. Progress events carry `entry.id` as usual. */
   async downloadEntry(entry: DownloadableFile): Promise<void> {
+    return this.downloadTo(entry, () => join(getDownloadTargetDir(), entry.filename))
+  }
+
+  private async downloadTo(entry: DownloadableFile, resolveTarget: () => string): Promise<void> {
     const id = entry.id
     if (this.active.has(id)) {
       // Already running — silent no-op so the renderer can call download()
@@ -117,14 +136,14 @@ export class ModelDownloader {
     const ctrl = new AbortController()
     this.active.set(id, ctrl)
 
-    const dir = getDownloadTargetDir()
-    const target = join(dir, entry.filename)
-    // dirname , not dir: nested filenames ("translator/<model>/model.bin")
-    // need their parents created too.
-    mkdirSync(dirname(target), { recursive: true })
-    const partial = `${target}.partial`
-
+    let partial: string | undefined
     try {
+      const target = resolveTarget()
+      partial = `${target}.partial`
+      // Setup can fail too (permissions, missing volume, or a file in the
+      // directory path). It must release the active entry and report an error
+      // just like a failed transfer, otherwise every retry silently no-ops.
+      mkdirSync(dirname(target), { recursive: true })
       await this.runOnce(entry, target, partial, ctrl.signal)
     } catch (err) {
       if (ctrl.signal.aborted) {
@@ -132,7 +151,7 @@ export class ModelDownloader {
         this.emit({
           id,
           phase: 'cancelled',
-          bytesReceived: existsSync(partial) ? statSync(partial).size : 0,
+          bytesReceived: this.partialSize(partial),
           totalBytes: entry.sizeBytes,
           bytesPerSec: null,
           message: null,
@@ -143,7 +162,7 @@ export class ModelDownloader {
       this.emit({
         id,
         phase: 'error',
-        bytesReceived: existsSync(partial) ? statSync(partial).size : 0,
+        bytesReceived: this.partialSize(partial),
         totalBytes: entry.sizeBytes,
         bytesPerSec: null,
         message: msg,
@@ -160,12 +179,34 @@ export class ModelDownloader {
     partial: string,
     signal: AbortSignal,
   ): Promise<void> {
-    // If the target already exists and looks complete, fast-path to a verify
-    // pass so a stale `.partial` from a previous half-done run doesn't get
-    // re-downloaded over a perfectly good file.
+    // Reuse a complete file only after its pinned digest passes. Size alone
+    // cannot distinguish a healthy model from same-size corruption.
+    let original: Stats | undefined
     if (existsSync(target)) {
-      const size = statSync(target).size
-      if (this.sizeOk(size, entry.sizeBytes)) {
+      original = statSync(target)
+      if (!original.isFile())
+        throw new Error(`Model path is not a regular file: ${target}. Move it before retrying.`)
+      const size = original.size
+      let verified = this.sizeOk(size, entry.sizeBytes)
+      if (verified && entry.sha256) {
+        this.emit({
+          id: entry.id,
+          phase: 'verifying',
+          bytesReceived: size,
+          totalBytes: entry.sizeBytes,
+          bytesPerSec: null,
+          message: null,
+        })
+        signal.throwIfAborted()
+        const hash = createHash('sha256')
+        for await (const chunk of createReadStream(target, { signal })) hash.update(chunk)
+        signal.throwIfAborted()
+        verified = hash.digest('hex') === entry.sha256.toLowerCase()
+      }
+      if (verified) {
+        if (!sameModelFile(original, statSync(target)))
+          throw new Error(`Model file changed during verification: ${target}. Retry the download.`)
+        clearModelInvalid(target)
         this.emit({
           id: entry.id,
           phase: 'complete',
@@ -176,8 +217,12 @@ export class ModelDownloader {
         })
         return
       }
-      // Target exists but wrong size — wipe it.
-      unlinkSync(target)
+      // Keep original bytes until a verified replacement can be installed.
+      // Record the failed validation so size-only availability cannot label
+      // known corruption ready after a failed or cancelled repair.
+      if (!sameModelFile(original, statSync(target)))
+        throw new Error(`Model file changed during verification: ${target}. Retry the download.`)
+      markModelInvalid(target, entry, original)
     }
 
     let resumeAt = 0
@@ -309,7 +354,9 @@ export class ModelDownloader {
       }
     }
 
-    // Verify phase.
+    // A cancel arriving with the final chunk or verification progress event
+    // must still prevent the partial file from being published as complete.
+    signal.throwIfAborted()
     this.emit({
       id: entry.id,
       phase: 'verifying',
@@ -318,6 +365,7 @@ export class ModelDownloader {
       bytesPerSec: null,
       message: null,
     })
+    signal.throwIfAborted()
     if (hash && entry.sha256) {
       const actual = hash.digest('hex').toLowerCase()
       if (actual !== entry.sha256.toLowerCase()) {
@@ -344,9 +392,14 @@ export class ModelDownloader {
       }
     }
 
-    // Atomic rename — only after verification passes.
-    if (existsSync(target)) unlinkSync(target)
+    // Do not overwrite a manual replacement made while the transfer ran.
+    if (existsSync(target) && (!original || !sameModelFile(original, statSync(target)))) {
+      throw new Error(`Model file changed during download: ${target}. Retry to verify it.`)
+    }
+    // Same-directory rename replaces atomically. Never unlink the original
+    // first: a denied rename must leave its bytes intact and report an error.
     renameSync(partial, target)
+    clearModelInvalid(target)
 
     this.emit({
       id: entry.id,
@@ -362,6 +415,16 @@ export class ModelDownloader {
     if (expected <= 0) return actual > 0
     const ratio = Math.abs(actual - expected) / expected
     return ratio <= SIZE_TOLERANCE
+  }
+
+  private partialSize(path: string | undefined): number {
+    try {
+      return path ? statSync(path).size : 0
+    } catch {
+      // An inaccessible or vanished partial must not hide the original error
+      // or suppress its terminal progress event.
+      return 0
+    }
   }
 
   private emit(ev: DownloadEvent): void {

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "originalSeal": "ar-fresh-validation-20261006.seal.json",
+  "originalSealSha256": "41bf31d79018deb712434e0d8c7535991cab305de7a98732a9d32bdc201dec18",
+  "files": {
+    "ar-fresh-validation-20261006.json": "fcefb3a200d1e823f9cf4f9e20a7dec128d4e1c45595a2c565378602e266720b",
+    "fixtures/ar-fresh-validation-20261006/arf-01.md": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119",
+    "fixtures/ar-fresh-validation-20261006/arf-02.md": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7",
+    "fixtures/ar-fresh-validation-20261006/arf-03.md": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19",
+    "fixtures/ar-fresh-validation-20261006/arf-04.md": "ef5170d23db6eed8a3f7b82225d8b435081175d1b98c5256b2f842c12cca63cd",
+    "fixtures/ar-fresh-validation-20261006/arf-05.md": "928a362cdf542680ed0fb5fdec7ce357dec94d26cd6fdddb841e69f955f63706",
+    "fixtures/ar-fresh-validation-20261006/arf-06.md": "e4e13b48d31653fb0501dc24ae7a88d835adcd36dcec7befe27eb32eacbd834f",
+    "fixtures/ar-fresh-validation-20261006/arf-07.md": "085e4ace2674da4e515c5c5d06160da10dd4b90981804e9429611dbde015cce4",
+    "fixtures/ar-fresh-validation-20261006/arf-08.md": "d0bd072410fe1b1eed169fd74e26895b7f0d2c7e0fdb1a6434f28cefe72f8d72",
+    "fixtures/ar-fresh-validation-20261006/arf-09.md": "4d285317243f92d4fc8f539ba3bd6238a7f5ea0caf37c94be55d2952946365b3",
+    "fixtures/ar-fresh-validation-20261006/arf-10.md": "2a5d6abad1fdfc567d694808a8b57ad44f1d07837c96749688ffb3aa0bcd5139",
+    "fixtures/ar-fresh-validation-20261006/arf-11.md": "f02a6015121b730b554b7790a74307c1f1033bba610a971845ca63745778e05d",
+    "fixtures/ar-fresh-validation-20261006/arf-12.md": "6ad5ca2b5da4c86d280bae1edba2a2cf565e6eedff1804f114f48b53b220dbc0",
+    "fixtures/ar-fresh-validation-20261006/arf-13.md": "abb3aa0370b49be53b335df933a71721dfcd0cc0cfa85a772a95c4675802add9",
+    "fixtures/ar-fresh-validation-20261006/arf-14.md": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513",
+    "fixtures/ar-fresh-validation-20261006/arf-15.md": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db",
+    "fixtures/ar-fresh-validation-20261006/arf-16.md": "2988214627a83cafa89189741c4d71e976a85d6cdabb631b2b7cc43f1a44e3d1",
+    "fixtures/ar-fresh-validation-20261006/arf-17.md": "359bf6eb74fd971a7795e04a10e4892d8b21f7f50d54f8523c1c3878a54f9d59",
+    "fixtures/ar-fresh-validation-20261006/arf-18.md": "1dde5ec75baf6b8a07266de72e3c115ed63647ced11d00a9d942f54b0a841644",
+    "fixtures/ar-fresh-validation-20261006/arf-19.md": "5f8873cf7b3c23c39eb4a4e0a874759b142486e6ba5301b5f89de2620d1475ac",
+    "fixtures/ar-fresh-validation-20261006/arf-20.md": "47ef98c4fbfdf6e030194f91d4085d74a5315804532046e27523060b3e4d9b45"
+  }
+}

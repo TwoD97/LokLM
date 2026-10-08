@@ -8,6 +8,41 @@ vi.mock('../settings/useSettings', () => ({
   useSettings: () => ({ settings: { basic: { language: locale.language } } }),
 }))
 
+describe('generation metrics', () => {
+  function renderMetrics(tokenCount: number, tokensPerSec: number | null) {
+    locale.language = 'en'
+    return render(
+      <MessageList
+        messages={[
+          {
+            id: 'answer',
+            role: 'assistant',
+            content: 'The recorded amount is 42.',
+            streaming: false,
+            metrics: { ttftMs: 1200, tokenCount, tokensPerSec },
+          },
+        ]}
+        documents={[]}
+        keepPipelineVisible={false}
+        onCopy={vi.fn()}
+        onCitationClick={vi.fn()}
+      />,
+    )
+  }
+
+  it('keeps first-visible latency without presenting an unavailable count as zero tokens', () => {
+    const view = renderMetrics(0, null)
+    expect(view.container.querySelector('.chat__metrics')).toHaveTextContent(/^TTFT 1\.20 s$/)
+  })
+
+  it('retains measured positive token counts and throughput', () => {
+    const view = renderMetrics(42, 12.5)
+    expect(view.container.querySelector('.chat__metrics')).toHaveTextContent(
+      'TTFT 1.20 s · 12.5 tok/s · 42 tok',
+    )
+  })
+})
+
 describe('source navigation labels', () => {
   it.each([
     ['en', 'No inline marker.', 'Provided sources · 1'],
@@ -107,16 +142,16 @@ describe('source menu keyboard navigation', () => {
     const items = within(menu).getAllByRole('menuitem')
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger).toHaveAttribute('aria-controls', menu.id)
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(3)
     expect(items[0]).toHaveTextContent('Revised memo')
     expect(items[0]).toHaveFocus()
     expect(items.every((item) => item.tabIndex === -1)).toBe(true)
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' })
-    expect(items[1]).toHaveFocus()
+    expect(items[2]).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
     expect(items[0]).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'End' })
-    expect(items[1]).toHaveFocus()
+    expect(items[2]).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'Home' })
     expect(items[0]).toHaveFocus()
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
@@ -132,12 +167,12 @@ describe('source menu keyboard navigation', () => {
     const { trigger } = setup(onCitationClick)
     trigger.focus()
     fireEvent.keyDown(trigger, { key: 'ArrowUp' })
-    const last = screen.getByRole('menuitem', { name: '2 Approval memo' })
+    const last = screen.getByRole('menuitem', { name: '3 Revised memo' })
     expect(last).toHaveFocus()
     fireEvent.click(last)
     expect(onCitationClick).toHaveBeenCalledExactlyOnceWith({
-      documentId: 1,
-      chunkId: 11,
+      documentId: 2,
+      chunkId: 22,
       messageText: content,
     })
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -222,5 +257,94 @@ describe('finished preparation status', () => {
     expect(view.container.querySelector('.chat__pipeline-check')).not.toBeNull()
     expect(view.container.querySelector('.chat__pipeline-summary')).toHaveTextContent('Done')
     expect(screen.queryByText('Incomplete')).toBeNull()
+  })
+})
+
+describe('source menu passage identity', () => {
+  const documents = [
+    { id: 1, title: 'Approval memo', sourcePath: '/approval.md' },
+    { id: 2, title: 'Revised memo', sourcePath: '/revised.md' },
+    { id: 3, title: 'Unused memo', sourcePath: '/unused.md' },
+  ] as Document[]
+  // Intentionally different from mention order; no UI number may come from it.
+  const citations = [
+    { documentId: 2, chunkId: 21 },
+    { documentId: 1, chunkId: 12 },
+    { documentId: 1, chunkId: 11 },
+    { documentId: 3, chunkId: 31 },
+  ]
+
+  function setup(content: string) {
+    locale.language = 'en'
+    const onCitationClick = vi.fn()
+    const view = render(
+      <MessageList
+        messages={[{ id: 'answer', role: 'assistant', content, streaming: false, citations }]}
+        documents={documents}
+        keepPipelineVisible={false}
+        onCopy={vi.fn()}
+        onCitationClick={onCitationClick}
+      />,
+    )
+    return { ...view, onCitationClick }
+  }
+
+  it('uses the same passage for inline and menu numbers, including a second passage in one document', () => {
+    const content =
+      'First [doc:1, chunk:11], second [doc:1, chunk:12], other [doc:2, chunk:21], first again [doc:1, chunk:11].'
+    const { container, onCitationClick } = setup(content)
+    const chips = Array.from(container.querySelectorAll<HTMLAnchorElement>('.citation-chip'))
+    expect(chips.map((chip) => chip.textContent)).toEqual(['1', '2', '3', '1'])
+    const targets = [
+      { documentId: 1, chunkId: 11 },
+      { documentId: 1, chunkId: 12 },
+      { documentId: 2, chunkId: 21 },
+    ]
+    const names = ['1 Approval memo', '2 Approval memo', '3 Revised memo']
+    for (const [index, target] of targets.entries()) {
+      fireEvent.click(chips[index]!)
+      expect(onCitationClick).toHaveBeenLastCalledWith({ ...target, messageText: content })
+      fireEvent.click(screen.getByRole('button', { name: '2 cited sources' }))
+      const menu = screen.getByRole('menu')
+      const rows = within(menu).getAllByRole('menuitem')
+      expect(rows).toHaveLength(names.length)
+      rows.forEach((row, rowIndex) => expect(row).toHaveAccessibleName(names[rowIndex]!))
+      fireEvent.click(within(menu).getByRole('menuitem', { name: names[index]! }))
+      expect(onCitationClick).toHaveBeenLastCalledWith({ ...target, messageText: content })
+    }
+    expect(onCitationClick).toHaveBeenCalledTimes(6)
+  })
+
+  it('does not let literal or unknown markers consume a menu number or add a source', () => {
+    const content =
+      'Literal `[doc:3, chunk:31]`; unknown [doc:99, chunk:99]; actual [doc:1, chunk:12].'
+    const { container, onCitationClick } = setup(content)
+    expect(container.querySelectorAll('.citation-chip')).toHaveLength(1)
+    expect(container.querySelector('.citation-chip')).toHaveTextContent('1')
+    fireEvent.click(screen.getByRole('button', { name: '1 cited source' }))
+    expect(screen.getAllByRole('menuitem')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('menuitem', { name: '1 Approval memo' }))
+    expect(onCitationClick).toHaveBeenCalledExactlyOnceWith({
+      documentId: 1,
+      chunkId: 12,
+      messageText: content,
+    })
+  })
+
+  it('keeps provided-source grouping and representative passage access when no active citation exists', () => {
+    const content = 'No citation; the example `[doc:1, chunk:11]` remains literal.'
+    const { container, onCitationClick } = setup(content)
+    expect(container.querySelectorAll('.citation-chip')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Provided sources · 3' }))
+    const rows = screen.getAllByRole('menuitem')
+    expect(rows).toHaveLength(3)
+    const names = ['1 Revised memo', '2 Approval memo', '3 Unused memo']
+    rows.forEach((row, index) => expect(row).toHaveAccessibleName(names[index]!))
+    fireEvent.click(screen.getByRole('menuitem', { name: '2 Approval memo' }))
+    expect(onCitationClick).toHaveBeenCalledExactlyOnceWith({
+      documentId: 1,
+      chunkId: 12,
+      messageText: content,
+    })
   })
 })

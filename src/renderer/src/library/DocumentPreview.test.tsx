@@ -1,7 +1,16 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Document } from '@shared/documents'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Document, DocumentBytesResult } from '@shared/documents'
 import { DocumentPreview } from './DocumentPreview'
+
+const { renderPdf } = vi.hoisted(() => ({ renderPdf: vi.fn() }))
+vi.mock('../chat/MultiPagePdfPreview', () => ({
+  MultiPagePdfPreview: (props: unknown) => {
+    renderPdf(props)
+    return <div data-testid="verified-pdf" />
+  },
+}))
+beforeEach(() => renderPdf.mockClear())
 
 afterEach(() => vi.restoreAllMocks())
 const doc = (id: number, status: Document['status'] = 'pending'): Document => ({
@@ -24,6 +33,82 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
+
+const pdfDoc = (id = 1): Document => ({
+  ...doc(id, 'ready'),
+  sourcePath: `/sources/evidence-${id}.pdf`,
+  mimeType: 'application/pdf',
+  contentHash: 'a'.repeat(64),
+})
+
+describe('library PDF preview', () => {
+  it('reads hash-verified bytes before opening the PDF worker', async () => {
+    const bytes = new Uint8Array([1, 2, 3])
+    const read = vi
+      .spyOn(window.api.documents, 'readDocumentBytes')
+      .mockResolvedValue({ status: 'verified', bytes })
+    const chunks = vi.spyOn(window.api.documents, 'listChunksForDocument')
+    render(<DocumentPreview doc={pdfDoc()} onClose={vi.fn()} />)
+    await screen.findByTestId('verified-pdf')
+    expect(read).toHaveBeenCalledExactlyOnceWith(1, 'a'.repeat(64))
+    expect(renderPdf.mock.calls[0]![0]).toMatchObject({ bytes, targetPage: 1 })
+    expect(chunks).not.toHaveBeenCalled()
+  })
+
+  it.each(['changed', 'unavailable', 'unverified'] as const)(
+    'shows indexed text and an explanation when the PDF is %s',
+    async (status) => {
+      vi.spyOn(window.api.documents, 'readDocumentBytes').mockResolvedValue({ status })
+      vi.spyOn(window.api.documents, 'listChunksForDocument').mockResolvedValue([
+        {
+          id: 11,
+          documentId: 1,
+          ordinal: 0,
+          text: 'Stored original PDF text',
+          tokenCount: 5,
+          pageFrom: 1,
+          pageTo: 1,
+          headingPath: null,
+          language: 'en',
+        },
+      ])
+      render(<DocumentPreview doc={pdfDoc()} onClose={vi.fn()} />)
+      await screen.findByText('Stored original PDF text')
+      expect(screen.getByRole('status')).toHaveTextContent(/indexed text/i)
+      expect(renderPdf).not.toHaveBeenCalled()
+    },
+  )
+
+  it('discards stale bytes after changing document or indexed version', async () => {
+    const prior = deferred<DocumentBytesResult>()
+    const bytes = new Uint8Array([2])
+    const read = vi
+      .spyOn(window.api.documents, 'readDocumentBytes')
+      .mockReturnValueOnce(prior.promise)
+      .mockResolvedValue({ status: 'verified', bytes })
+    const view = render(<DocumentPreview doc={pdfDoc()} onClose={vi.fn()} />)
+    await waitFor(() => expect(read).toHaveBeenCalledOnce())
+    view.rerender(
+      <DocumentPreview doc={{ ...pdfDoc(), contentHash: 'b'.repeat(64) }} onClose={vi.fn()} />,
+    )
+    await screen.findByTestId('verified-pdf')
+    expect(read).toHaveBeenLastCalledWith(1, 'b'.repeat(64))
+    await act(async () => prior.resolve({ status: 'verified', bytes: new Uint8Array([1]) }))
+    expect(renderPdf.mock.calls.at(-1)![0]).toMatchObject({ bytes })
+    expect(renderPdf.mock.calls.every(([props]) => props.bytes === bytes)).toBe(true)
+  })
+
+  it('does not open a PDF or fetch a fallback after the reader closes', async () => {
+    const pending = deferred<DocumentBytesResult>()
+    vi.spyOn(window.api.documents, 'readDocumentBytes').mockReturnValue(pending.promise)
+    const chunks = vi.spyOn(window.api.documents, 'listChunksForDocument')
+    const view = render(<DocumentPreview doc={pdfDoc()} onClose={vi.fn()} />)
+    view.unmount()
+    await act(async () => pending.resolve({ status: 'changed' }))
+    expect(renderPdf).not.toHaveBeenCalled()
+    expect(chunks).not.toHaveBeenCalled()
+  })
+})
 
 describe('generated document preview', () => {
   it.each(['pending', 'ready'] as const)(

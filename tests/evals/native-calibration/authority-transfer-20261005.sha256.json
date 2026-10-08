@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "originalSeal": "authority-transfer-20261005.seal.json",
+  "originalSealSha256": "f991fa11cfcea10a1bac631f4d474371ec2261b87e3db1c4750a23acd4708cb8",
+  "files": {
+    "authority-transfer-20261005.json": "4b6ba07fdea36ed1d92e20128f54324533e0417f356c87135b70a33dedbc737d",
+    "fixtures/at-base-event.md": "c10fb55e618f8df5373b90b544b1f3b16811f4462dc81edc986c82939fe41eaf",
+    "fixtures/at-event-change.md": "b271797eb72bf427c4a08c0d767856a5a28614d469bbf764c6d65346d4081068",
+    "fixtures/at-standard-process.md": "74d97a3e206d7902b3a19458883fcaa73ff78650a9b548e66c34e5f2bbde551d",
+    "fixtures/at-process-change.md": "4148fc2e34e53661332d16bcc900957f90769bf8a32c4217f5a737f4de123bcb",
+    "fixtures/at-deposit-rule.md": "a15d261288136fe0b4eca7e02ccd49496a855f059868227660dfac45e47e059c",
+    "fixtures/at-deposit-paper.md": "7f8ed77d10d541b8ccedacd65c58a04100d089bc54ac6cc78165b59e68b73998",
+    "fixtures/at-clamp-first.md": "9caea97e965dacab6696c0fa2580fcfa5aeddf972102030b29c979b78f035385",
+    "fixtures/at-clamp-second.md": "ef859e419a9c323e0527007b858716fb30a6979aec93d0f685cd3159733aceaa",
+    "fixtures/at-rehearsal-only.md": "7490f4b03ecb765aa31a54b10e74b3d8bfa3f13cc6ebefccbbf94ca560b1958d",
+    "fixtures/at-urgent-only.md": "95301a496f1da323921eb65441dae4b3778c92158f80c53ce70f8aec725a14b6",
+    "fixtures/at-locker-only.md": "4f3bfd5eb19d8f1718cd8d5fd778b1adc1b5733dc785782863ea1a10e5ccb38c",
+    "fixtures/at-other-clamp.md": "f6ebf45b6939e754aed8904efb8bba55572e9a9f3f6713737fc5006e2d2439ca"
+  }
+}

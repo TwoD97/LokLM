@@ -1,786 +1,329 @@
 name: Release installer
 
-# baut den installer für eine version , lädt installer + payload + cuda
-# archives nach minio ( s3.ltwodl.com/loklm-installers ) , patcht
-# releases.ts + re-deployt die website mit aktualisiertem manifest.
-#
-# v0.3.0+ : installer ist tier-aware ( lite / standard / pro ). Wizard
-# probt hardware beim install , user wählt edition , Phase-2-downloader
-# holt das passende model-bundle aus huggingface.co/buckets/LokLM/...
-# direkt in <install-dir>/models/. App's first-launch-downloader bleibt
-# als v0.2.6-fallback erhalten ( triggert nur ohne tier-marker ).
-#
-# v0.3.1+ : win + linux RE-EMBED the electron payload into the installer
-# ( wizard + win-unpacked/linux-unpacked via NSIS / makeself ). A tiny
-# download-stub that fetched + executed the payload from the CDN tripped
-# Defender's Wacatac.B!ml ML heuristic ; a fat , signed installer has a far
-# better reputation. mac STAYS on the download model ( Gatekeeper , not
-# Defender ; bundling would break the single-DMG multi-arch story ).
-# Artefakt-grössen :
-#   win   : ~375 MB    ( wizard 3 MB + embedded electron payload ~370 MB )
-#   linux : ~375 MB    ( makeself self-extractor , payload embedded )
-#   mac   : ~10 MB     ( wizard-only DMG ; payload fetched from minio )
-# Optional CUDA addon + GGUF models are still fetched by the wizard at
-# install time on every platform :
-#   lite ~1.6 GB , standard ~3.4 GB , pro ~6.3 GB
-#
-# Public URL pattern ( wizard fetches payload + cuda from here at install ) :
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-x64.exe
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-Setup-linux-x64.run
-#   https://s3.ltwodl.com/loklm-installers/v<V>/LokLM-mac.dmg
-#
-# Per-platform releases ( v0.4.0+ ) :
-#   - tag push baut immer alle drei platforms.
-#   - workflow_dispatch nimmt zusätzlich `platforms` ( kommaliste aus
-#     windows,linux,macos — default all ) für single-platform hotfixes.
-#   - bump-and-redeploy läuft sobald MINDESTENS EIN build durchkam ;
-#     fehlgeschlagene platforms werden via bump-release.mjs --unavailable
-#     auf available:false geflippt ( website blendet den button aus ) statt
-#     das ganze release zu blocken. Re-release später per dispatch.
-#   - ACHTUNG : downloadUrl() baut /v<version>/<file> aus der EINEN
-#     globalen currentRelease.version für ALLE platforms. Ein partial
-#     release muss deshalb die live-version aus releases.ts wiederverwenden
-#     ( overwrite-in-place im selben v<V>/ minio-ordner ) — der guard im
-#     bump-job erzwingt das. Für einen versionierten hotfix : branch vom
-#     release-tag , fix cherry-picken , dispatch auf dem branch mit der
-#     live-version.
+# Full, immutable releases only. Builders have no object-store credentials.
+# Failed uploads remain unadvertised; a partially uploaded version is not reused.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version ohne v-prefix , z.b. 0.1.0'
+        description: 'Stable X.Y.Z, equal to package.json; all platforms are required'
         required: true
         type: string
-      platforms:
-        description: 'Kommaliste aus windows,linux,macos — oder all. Partial releases müssen die live-version aus releases.ts wiederverwenden ( /v<version>/-URL-pfad ist global ).'
-        required: false
-        default: 'all'
-        type: string
 
-# nur eine release-pipeline pro version gleichzeitig.
 concurrency:
-  group: release-installer-${{ github.event.inputs.version || github.ref }}
+  group: release-installer
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-windows:
-    name: Build .exe + upload to minio
-    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
-    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'windows')
-    runs-on: windows-latest
+  preflight:
+    runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      sha256: ${{ steps.hash.outputs.sha256 }}
-      size: ${{ steps.hash.outputs.size }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install verified MinIO client
-        uses: ./.github/actions/setup-mc
-
-      - name: Resolve version (tag oder dispatch-input)
-        id: resolve
-        shell: bash
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            V="${{ github.event.inputs.version }}"
-          else
-            V="${GITHUB_REF#refs/tags/v}"
-          fi
-          if [ -z "$V" ]; then
-            echo "could not resolve version"; exit 1
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          PKG_V=$(node -p "require('./package.json').version")
-          if [ "$V" != "$PKG_V" ]; then
-            echo "::warning::workflow version $V != package.json $PKG_V , artefakt wird $V haben"
-          fi
-
-      - uses: pnpm/action-setup@v4
-
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'pnpm'
+      - name: Validate version, wizard version and public base
+        id: release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+        run: node scripts/release-preflight.mjs
+      - name: Require reviewed commit on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+  checks:
+    needs: preflight
+    uses: ./.github/workflows/checks.yml
 
-      - name: Install Rust toolchain ( msvc )
-        # Tauri wizard ( installer-wizard/src-tauri ) needs cargo to build
-        # the native loklm-installer.exe. windows-latest already ships
-        # Visual Studio 2022 with the C++ workload + Windows SDK , so the
-        # MSVC linker resolves without extra installs.
-        uses: dtolnay/rust-toolchain@stable
+  build-windows:
+    needs: [preflight, checks]
+    runs-on: windows-latest
+    timeout-minutes: 75
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          toolchain: stable
+          node-version: 24
+          cache: pnpm
+      - run: node scripts/release-preflight.mjs
+      - run: pnpm install --frozen-lockfile
+      # A release cannot ignore a failed native build as developer postinstall can.
+      - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
+      - uses: dtolnay/rust-toolchain@stable
+        with:
           targets: x86_64-pc-windows-msvc
-
-      - name: Cache cargo registry + tauri target
-        # Caches ~/.cargo/registry + installer-wizard/src-tauri/target so
-        # repeat CI runs skip the ~5 min first-time tauri compile and
-        # finish the wizard build in ~30s.
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: installer-wizard/src-tauri
-          cache-on-failure: true
-
-      - name: Install tauri-cli
-        # `cargo install` only recompiles if the version target differs from
-        # the cached binary , so this is a no-op on warm cache runs.
-        run: cargo install tauri-cli --version "^2.0" --locked
-
-      - name: Install NSIS ( makensis )
-        # scripts/build-installer-stub.mjs looks for makensis via PATH ,
-        # electron-builder's cache , then the system install paths.
-        # windows-latest doesn't have NSIS by default and we don't trigger
-        # any electron-builder NSIS-target build anymore , so the cache is
-        # empty. Chocolatey is preinstalled on windows-latest and puts
-        # makensis.exe at C:\Program Files (x86)\NSIS\ which findMakensis
-        # already checks.
-        shell: pwsh
-        run: choco install nsis -y --no-progress
-
-      - name: Build payload + wizard + bundle ( pnpm package:win )
-        # Four-stage pipeline ( v0.3.1+ embedded-payload model ) :
-        #   package:win:payload  → release/win-unpacked/  (electron-vite + electron-builder ; cuda stripped)
-        #   package:win:archive  → release/payload-win-x64.tar.zst + cuda-win-x64.tar.zst
-        #                          + sha256 sidecars + installer-wizard/payload-manifest.json regen
-        #                          ( payload archive is still produced/uploaded as a fallback +
-        #                            for the manifest's free-space estimate ; cuda is fetched live )
-        #   package:win:wizard   → installer-wizard/src-tauri/target/release/loklm.exe
-        #                          ( cargo tauri build ; bakes the manifest baseUrl + hashes via include_str! )
-        #   package:win:stub     → release/LokLM-x64.exe
-        #                          ( NSIS embeds wizard + LICENSE + win-unpacked ; the wizard installs
-        #                            from the bundled payload via ..\win-unpacked , skipping the download.
-        #                            cuda is still fetched from minio if the user opts in )
-        # GGUFs continue to be fetched at install time by the wizard's
-        # download_all() , unchanged from v0.2.x.
-        env:
-          # Bake the production CDN URL into the wizard's payload-manifest.json
-          # ( write-payload-manifest.mjs picks this up before cargo tauri build
-          # snapshots it via include_str! ). Without this the wizard would
-          # default to https://cdn.loklm.ai/v<V>/ which may or may not be the
-          # actual public URL.
-          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
-        run: pnpm package:win
-
-      - name: Detect code-signing config
-        # Secrets can't be read directly in `if:` , so probe them here and
-        # expose a plain boolean output the sign step gates on. When no cert
-        # is configured this is a no-op + warning ( the release still ships ,
-        # just UNSIGNED — which is what trips Defender's Wacatac.B!ml ML
-        # heuristic on the fresh , low-reputation download-stub ).
-        id: signcfg
-        shell: bash
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          if [ -n "${WIN_CSC_LINK:-}" ] && [ -n "${WIN_CSC_KEY_PASSWORD:-}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD not set — shipping an UNSIGNED installer. Defender will likely flag it ( Trojan:Win32/Wacatac.B!ml , an ML false positive on unsigned download stubs ). Add an Authenticode cert ( base64 .pfx in WIN_CSC_LINK + password in WIN_CSC_KEY_PASSWORD ) to sign."
-          fi
-
-      - name: Authenticode-sign the installer ( LokLM-x64.exe )
-        # Signs the user-facing stub BEFORE the sha256 is computed/published so
-        # the hash matches the signed bytes. NOTE : this signs only the outer
-        # stub , not the inner wizard ( loklm.exe ) that NSIS extracts to %TEMP%
-        # and runs. To also sign the wizard , split the build above into
-        # package:win:payload / :archive / :wizard , sign loklm.exe here , then
-        # run :stub — the wizard must be signed before NSIS wraps it.
-        if: steps.signcfg.outputs.enabled == 'true'
+      - run: cargo install tauri-cli --version '^2.0' --locked
+      - run: choco install nsis -y --no-progress
+      - name: Test native Windows installer recovery and extraction
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked
+      - run: pnpm package:win:payload
+      - name: Sign app with existing configured certificate, when available
         shell: pwsh
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          # WIN_CSC_LINK is the base64 of the .pfx ; materialise it to disk.
-          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
-          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIN_CSC_LINK))
-          # signtool ships with the Windows SDK on windows-latest but isn't on
-          # PATH ; pick the newest x64 build.
-          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $signtool) { throw 'signtool.exe not found in the Windows SDK' }
-          & $signtool sign /fd SHA256 /f $pfx /p $env:WIN_CSC_KEY_PASSWORD `
-            /tr http://timestamp.digicert.com /td SHA256 /d 'LokLM' `
-            'release\LokLM-x64.exe'
-          if ($LASTEXITCODE -ne 0) { throw "signtool sign failed ( exit $LASTEXITCODE )" }
-          & $signtool verify /pa 'release\LokLM-x64.exe'
-          if ($LASTEXITCODE -ne 0) { throw "signtool verify failed ( exit $LASTEXITCODE )" }
-          Remove-Item $pfx -Force
-
-      - name: Compute sha256 + size
-        id: hash
-        shell: bash
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          EXE="release/LokLM-x64.exe"
-
-          # scripts/build-installer-stub.mjs writes exactly this filename ;
-          # bail early if it's missing because something earlier broke.
-          if [ ! -f "$EXE" ]; then
-            echo "expected $EXE missing"
-            ls -la release/ || true
-            exit 1
-          fi
-
-          SHA=$(sha256sum "$EXE" | awk '{print $1}')
-          SIZE=$(stat -c%s "$EXE")
-          echo "$SHA  $(basename "$EXE")" > "${EXE}.sha256"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "built $EXE , size=$SIZE sha256=$SHA"
-
-      - name: Upload installer + payload + cuda archives to minio
-        shell: bash
+        run: ./scripts/sign-release-windows.ps1 -Path release/win-unpacked/LokLM.exe
+      - name: Packaged persistence, restart and shutdown smoke
         env:
-          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
-          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          DEST="s3target/loklm-installers/v${V}/"
-          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          # User-facing installer + sha256. Payload archive is the v0.3.1+
-          # CDN fallback ( embedded in the .exe primarily ) ; cuda addon is
-          # still fetched from PUBLIC_INSTALLER_BASE_URL at install time.
-          for f in \
-            release/LokLM-x64.exe \
-            release/LokLM-x64.exe.sha256 \
-            release/payload-win-x64.tar.zst \
-            release/payload-win-x64.tar.zst.sha256 \
-            release/cuda-win-x64.tar.zst \
-            release/cuda-win-x64.tar.zst.sha256
-          do
-            mc cp "$f" "$DEST"
-          done
-          mc ls "$DEST"
-
-      - name: Verify uploaded archives match baked manifest
-        # Gate : re-fetch the just-uploaded payload + cuda from the PUBLIC URL
-        # and compare sha256 against the hashes write-payload-manifest.mjs baked
-        # into the wizard this run ( include_str! ). A drift here ( stale or
-        # overwrite-in-place upload ) would otherwise ship an installer that
-        # aborts every payload/cuda download with "sha256 mismatch". Pure node ,
-        # no deps , reads installer-wizard/payload-manifest.json .
-        shell: bash
-        run: node scripts/verify-manifests.mjs payload win-x64
+          LOKLM_PACKAGED_EXE: ${{ github.workspace }}/release/win-unpacked/LokLM.exe
+        run: pnpm exec playwright test --config tests/e2e/playwright.config.ts tests/e2e/packaged-windows.spec.ts --retries=0 --reporter=list
+      - run: pnpm package:win:archive
+      - run: Copy-Item installer-wizard/payload-manifest.json release/manifest-windows.json
+      - run: pnpm package:win:wizard
+      - name: Sign wizard before embedding
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: ./scripts/sign-release-windows.ps1 -Path installer-wizard/src-tauri/target/release/loklm.exe
+      - run: pnpm package:win:stub
+      - name: Sign outer installer before hashing
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: ./scripts/sign-release-windows.ps1 -Path release/LokLM-x64.exe
+      - run: node scripts/release-artifacts.mjs stamp windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: |
+            release/LokLM-x64.exe*
+            release/payload-win-x64.tar.zst*
+            release/cuda-win-x64.tar.zst*
+            release/manifest-windows.json
 
   build-linux:
-    name: Build .run + .deb installers + upload to minio
-    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
-    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'linux')
-    # Ubuntu 22.04 ( glibc 2.35 ) is the baseline. The runner's glibc
-    # becomes the floor for the bundled binary , so 24.04 ( glibc 2.39 )
-    # would lock out 22.04 users at install time.
+    needs: [preflight, checks]
+    # Preserve the glibc floor for Ubuntu22.04.
     runs-on: ubuntu-22.04
-    outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      sha256_run: ${{ steps.hash.outputs.sha256_run }}
-      size_run: ${{ steps.hash.outputs.size_run }}
-      sha256_deb: ${{ steps.hash.outputs.sha256_deb }}
-      size_deb: ${{ steps.hash.outputs.size_deb }}
+    timeout-minutes: 75
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install verified MinIO client
-        uses: ./.github/actions/setup-mc
-
-      - name: Resolve version (tag oder dispatch-input)
-        id: resolve
-        shell: bash
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            V="${{ github.event.inputs.version }}"
-          else
-            V="${GITHUB_REF#refs/tags/v}"
-          fi
-          if [ -z "$V" ]; then
-            echo "could not resolve version"; exit 1
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Tauri's system deps + makeself + fakeroot
-        # Tauri 2.x on Linux links against webkit2gtk-4.1 ( required ) and
-        # libayatana-appindicator3-1 ( for tray icons , not used by the
-        # wizard but Tauri's build script checks for it ). librsvg2-dev
-        # is needed for SVG-based icon rendering at build time.
-        # makeself is the self-extractor we wrap wizard + payload into.
-        # fakeroot is required by tauri-cli's deb bundler.
-        run: |
+          cache: pnpm
+      - run: node scripts/release-preflight.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
+      - run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            makeself \
-            fakeroot
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf makeself fakeroot xvfb libnss3 libasound2 libgbm1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           targets: x86_64-unknown-linux-gnu
-
-      - name: Cache cargo registry + tauri target
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: installer-wizard/src-tauri
-          cache-on-failure: true
-          # MUST mirror runs-on : the cache carries compiled binaries
-          # ( ~/.cargo/bin/cargo-tauri , target/ build scripts ) whose glibc
-          # floor is the image they were built on. The default key has no
-          # image version , so the old ubuntu-latest ( 24.04 ) cache was
-          # restored onto 22.04 and cargo-tauri died with
-          # `GLIBC_2.39 not found` ( v0.4.0 release run ).
           key: ubuntu-22.04
-
-      - name: Install tauri-cli
-        # `cargo install` skips when a binary with the target version is
-        # already in ~/.cargo/bin — but a cache-restored binary from a
-        # different runner image can be ABI-incompatible while still
-        # version-matching. Probe that it actually executes ; force the
-        # reinstall when it doesn't.
-        run: |
+      - run: |
           if cargo tauri --version; then
-            cargo install tauri-cli --version "^2.0" --locked
+            cargo install tauri-cli --version '^2.0' --locked
           else
-            cargo install tauri-cli --version "^2.0" --locked --force
+            cargo install tauri-cli --version '^2.0' --locked --force
           fi
-
-      - name: Build payload + wizard + bundle ( pnpm package:linux )
-        # Five-stage pipeline ( v0.3.1+ embedded-payload model ; mirrors Windows ) :
-        #   package:linux:payload  → release/linux-unpacked/  (electron-builder --linux dir ; cuda stripped)
-        #   package:linux:archive  → release/payload-linux-x64.tar.zst + cuda-linux-x64.tar.zst
-        #                            + sha256 sidecars + installer-wizard/payload-manifest.json regen
-        #                            ( payload archive still produced/uploaded as a fallback )
-        #   package:linux:wizard   → installer-wizard/src-tauri/target/release/loklm
-        #                            + target/release/bundle/deb/*.deb
-        #                            ( cargo tauri build --bundles deb ; bakes manifest baseUrl + hashes )
-        #   package:linux:stub     → release/LokLM-Setup-linux-x64.run
-        #                            ( makeself embeds wizard + LICENSE + linux-unpacked ; the wizard
-        #                              installs from the bundled payload via ../linux-unpacked.
-        #                              cuda is still fetched from minio if the user opts in )
-        #   package:linux:deb      → release/LokLM-Setup-linux-x64.deb
-        #                            ( copies tauri's deb to the stable public filename )
+      - name: Test native Linux installer recovery and extraction
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked
+      - name: Test GLib iterator backport with optimizations enabled
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked --release --test glib_variant_iter
+      - run: pnpm package:linux
+      - name: Packaged Linux persistence, restart and shutdown smoke
         env:
-          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
-        run: pnpm package:linux
-
-      - name: Compute sha256 + size ( .run + .deb )
-        id: hash
-        shell: bash
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          RUN="release/LokLM-Setup-linux-x64.run"
-          DEB="release/LokLM-Setup-linux-x64.deb"
-          for f in "$RUN" "$DEB"; do
-            if [ ! -f "$f" ]; then
-              echo "expected artefact missing: $f"; ls -la release/; exit 1
-            fi
-          done
-          SHA_RUN=$(sha256sum "$RUN" | awk '{print $1}')
-          SIZE_RUN=$(stat -c%s "$RUN")
-          echo "$SHA_RUN  $(basename "$RUN")" > "${RUN}.sha256"
-          SHA_DEB=$(sha256sum "$DEB" | awk '{print $1}')
-          SIZE_DEB=$(stat -c%s "$DEB")
-          echo "$SHA_DEB  $(basename "$DEB")" > "${DEB}.sha256"
-          {
-            echo "sha256_run=$SHA_RUN"
-            echo "size_run=$SIZE_RUN"
-            echo "sha256_deb=$SHA_DEB"
-            echo "size_deb=$SIZE_DEB"
-          } >> "$GITHUB_OUTPUT"
-          echo "built $RUN , size=$SIZE_RUN sha256=$SHA_RUN"
-          echo "built $DEB , size=$SIZE_DEB sha256=$SHA_DEB"
-
-      - name: Upload installer + payload + cuda archives to minio
+          LOKLM_PACKAGED_EXE: ${{ github.workspace }}/release/linux-unpacked/loklm
+        run: xvfb-run -a pnpm exec playwright test --config tests/e2e/playwright.config.ts tests/e2e/packaged-windows.spec.ts --retries=0 --reporter=list
+      - run: cp installer-wizard/payload-manifest.json release/manifest-linux.json
+      - name: Validate Debian package version
         env:
-          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
-          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          DEST="s3target/loklm-installers/v${V}/"
-          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          # User-facing installers ( .run for makeself / generic distros ;
-          # .deb for Ubuntu/Debian ) + sha256 sidecars. Payload archive is
-          # the v0.3.1+ CDN fallback ( embedded in the .run primarily ) ;
-          # cuda addon is still fetched from PUBLIC_INSTALLER_BASE_URL at
-          # install time.
-          for f in \
-            release/LokLM-Setup-linux-x64.run \
-            release/LokLM-Setup-linux-x64.run.sha256 \
-            release/LokLM-Setup-linux-x64.deb \
-            release/LokLM-Setup-linux-x64.deb.sha256 \
-            release/payload-linux-x64.tar.zst \
-            release/payload-linux-x64.tar.zst.sha256 \
-            release/cuda-linux-x64.tar.zst \
-            release/cuda-linux-x64.tar.zst.sha256
-          do
-            mc cp "$f" "$DEST"
-          done
-          mc ls "$DEST"
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: test "$(dpkg-deb --field release/LokLM-Setup-linux-x64.deb Version)" = "$RELEASE_VERSION"
+      - run: node scripts/release-artifacts.mjs stamp linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: |
+            release/LokLM-Setup-linux-x64.run*
+            release/LokLM-Setup-linux-x64.deb*
+            release/payload-linux-x64.tar.zst*
+            release/cuda-linux-x64.tar.zst*
+            release/manifest-linux.json
 
-      - name: Verify uploaded archives match baked manifest
-        # See the Windows job for rationale. Gates the linux payload + cuda.
-        run: node scripts/verify-manifests.mjs payload linux-x64
+  build-mac-payload:
+    needs: [preflight, checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
+      - name: Test real framework symlink preservation on the native filesystem
+        run: pnpm exec vitest run --project scripts tests/unit/scripts/build-payload-archive.test.mjs tests/unit/scripts/release-safety.test.mjs
+      - run: pnpm tessdata
+      - run: pnpm build
+      # Refuses cross-building; verifies executable and native-addon architectures.
+      - run: node scripts/build-mac-payloads.mjs ${{ matrix.arch }}
+      - name: Packaged native Mac persistence, restart and shutdown smoke
+        env:
+          LOKLM_PACKAGED_EXE: ${{ github.workspace }}/release/mac-${{ matrix.arch }}/LokLM.app/Contents/MacOS/LokLM
+        run: pnpm exec playwright test --config tests/e2e/playwright.config.ts tests/e2e/packaged-windows.spec.ts --retries=0 --reporter=list
+      - run: node scripts/build-payload-archive.mjs mac-${{ matrix.arch }}
+      - name: Verify delivered archive preserves bundle signatures and architecture
+        run: node scripts/verify-mac-payload-archive.mjs ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-mac-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: release/payload-mac-${{ matrix.arch }}.tar.zst*
 
   build-macos:
-    name: Build .dmg + upload to minio
-    # Tag push baut immer ; dispatch nur wenn platforms den token enthält.
-    if: github.event_name == 'push' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'macos')
-    runs-on: macos-latest
-    outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      sha256: ${{ steps.hash.outputs.sha256 }}
-      size: ${{ steps.hash.outputs.size }}
+    needs: [preflight, build-mac-payload]
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install verified MinIO client
-        uses: ./.github/actions/setup-mc
-
-      - name: Resolve version (tag oder dispatch-input)
-        id: resolve
-        shell: bash
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            V="${{ github.event.inputs.version }}"
-          else
-            V="${GITHUB_REF#refs/tags/v}"
-          fi
-          if [ -z "$V" ]; then
-            echo "could not resolve version"; exit 1
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-
-      - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Rust toolchain
-        # v0.3.0+ : Mac now has a Tauri wizard like Win + Linux. macos-latest
-        # ships Xcode + the system linker , so no extra prep needed beyond
-        # the rust toolchain itself.
-        uses: dtolnay/rust-toolchain@stable
+      - run: node scripts/release-preflight.mjs
+      - uses: actions/download-artifact@v4
         with:
-          toolchain: stable
+          pattern: release-mac-*
+          path: release
+          merge-multiple: true
+      - run: node scripts/write-payload-manifest.mjs
+      - run: cp installer-wizard/payload-manifest.json release/manifest-macos.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Cache cargo registry + tauri target
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: installer-wizard/src-tauri
-          cache-on-failure: true
+          key: macos-universal
+      - run: cargo install tauri-cli --version '^2.0' --locked
+      # Developer ID signing/notarization is not configured by this workflow.
+      - name: Test native Mac installer recovery and extraction
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked
+      - run: node scripts/build-installer-dmg.mjs
+      - run: node scripts/release-artifacts.mjs stamp macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: |
+            release/LokLM-mac.dmg*
+            release/manifest-macos.json
 
-      - name: Install tauri-cli
-        run: cargo install tauri-cli --version "^2.0" --locked
-
-      - name: Build payload + wizard + dmg ( pnpm package:mac )
-        # Three-stage pipeline ( v0.3.0+ download-stub model ) :
-        #   package:mac:payload  → release/mac/LokLM.app  (electron-builder --mac dir)
-        #   package:mac:archive  → release/payload-mac-{arm64,x64}.tar.zst + sha256 sidecars
-        #                          + installer-wizard/payload-manifest.json regen
-        #   package:mac:dmg      → release/LokLM-mac.dmg
-        #                          ( cargo tauri build -> create-dmg around the wizard .app ;
-        #                            the real LokLM.app is fetched from minio at install time )
-        # `identity: null` in build.mac disables auto-detected codesigning ;
-        # users see Gatekeeper warning on first launch ( right-click → Open ).
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          LOKLM_PAYLOAD_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}/v${{ steps.resolve.outputs.version }}
-        run: pnpm package:mac
-
-      - name: Compute sha256 + size
-        id: hash
-        shell: bash
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          DMG="release/LokLM-mac.dmg"
-          if [ ! -f "$DMG" ]; then
-            echo "expected artefact missing: $DMG"; ls -la release/; exit 1
-          fi
-          SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
-          SIZE=$(stat -f%z "$DMG")
-          echo "$SHA  $(basename "$DMG")" > "${DMG}.sha256"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "built $DMG , size=$SIZE sha256=$SHA"
-
-      - name: Upload installer + payload archives to minio
-        env:
-          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
-          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          DEST="s3target/loklm-installers/v${V}/"
-          mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-          # User-facing .dmg + sha256 , plus the payload archives the
-          # wizard fetches at install ( both mac-arm64 and mac-x64 since
-          # the wizard's payload-manifest knows both ). No cuda branch on mac.
-          for f in \
-            release/LokLM-mac.dmg \
-            release/LokLM-mac.dmg.sha256 \
-            release/payload-mac-arm64.tar.zst \
-            release/payload-mac-arm64.tar.zst.sha256 \
-            release/payload-mac-x64.tar.zst \
-            release/payload-mac-x64.tar.zst.sha256
-          do
-            mc cp "$f" "$DEST"
-          done
-          mc ls "$DEST"
-
-      - name: Verify uploaded archives match baked manifest
-        # See the Windows job for rationale. Both mac arch payloads ( no cuda ).
-        run: node scripts/verify-manifests.mjs payload mac-arm64 mac-x64
-
-  bump-and-redeploy:
-    name: Bump manifest + redeploy website
-    needs: [build-windows, build-linux, build-macos]
-    # Läuft sobald mindestens EIN platform-build durchkam ( und der run
-    # nicht cancelled wurde ). Fehlgeschlagene platforms blocken das
-    # release nicht mehr — sie werden unten auf available:false geflippt
-    # und später per dispatch ( platforms=<platform> ) nachgeliefert.
-    if: ${{ !cancelled() && (needs.build-windows.result == 'success' || needs.build-linux.result == 'success' || needs.build-macos.result == 'success') }}
+  publish:
+    needs: [preflight, checks, build-windows, build-linux, build-mac-payload, build-macos]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve version (tag oder dispatch-input)
-        # Eigene resolution statt needs.build-windows.outputs.version —
-        # bei einem partial release ohne windows wäre der output leer.
-        id: resolve
-        shell: bash
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            V="${{ github.event.inputs.version }}"
-          else
-            V="${GITHUB_REF#refs/tags/v}"
-          fi
-          if [ -z "$V" ]; then
-            echo "could not resolve version"; exit 1
-          fi
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-
-      - name: Guard partial release ( version muss live-manifest matchen )
-        # downloadUrl() baut /v<version>/<file> aus der EINEN globalen
-        # currentRelease.version für ALLE platforms. Würde ein partial
-        # release die version moven , zeigten die nicht neu gebauten
-        # platforms auf einen v<neu>/-ordner in dem ihre files fehlen →
-        # tote download-links. Partial = overwrite-in-place der live-
-        # version ; nur ein full release ( alle drei jobs gelaufen , egal
-        # ob einzelne failed ) darf die version bewegen.
-        if: ${{ contains(needs.*.result, 'skipped') }}
-        shell: bash
-        run: |
-          V="${{ steps.resolve.outputs.version }}"
-          CUR=$(sed -n "s/^[[:space:]]*version: '\([^']*\)',$/\1/p" website/src/data/releases.ts | head -1)
-          if [ "$V" != "$CUR" ]; then
-            echo "::error::partial release mit version v${V} , aber live-manifest ist v${CUR}. Partial releases müssen die live-version wiederverwenden ( sonst brechen die download-URLs der übrigen platforms ). Für einen versionierten hotfix : alle platforms releasen."
-            exit 1
-          fi
-          echo "partial release ok , overwrite-in-place für v${V}"
-
-      - uses: pnpm/action-setup@v4
-
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: 'pnpm'
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            website/pnpm-lock.yaml
-
-      - name: Verify model URLs reachable ( catches a missing / wrong model upload )
-        # models/ is populated by hand and isn't versioned ; a missed upload
-        # ( e.g. the Qwen3-Embedding GGUF , which 404'd on every install ) is
-        # invisible until a user hits it. This gate fails the release when any
-        # model on OUR S3 host is unreachable or size-mismatched. Upstream hosts
-        # ( HuggingFace , GitHub releases ) are warn-only so a transient blip
-        # there can't block the release. Pure node , no deps.
-        run: node scripts/verify-manifests.mjs models
-
-      - name: Patch releases.ts (windows)
-        if: needs.build-windows.result == 'success'
-        run: |
-          node scripts/bump-release.mjs \
-            "${{ steps.resolve.outputs.version }}" \
-            windows \
-            "${{ needs.build-windows.outputs.sha256 }}" \
-            "${{ needs.build-windows.outputs.size }}"
-
-      - name: Patch releases.ts (linux .run)
-        if: needs.build-linux.result == 'success'
-        run: |
-          node scripts/bump-release.mjs \
-            "${{ steps.resolve.outputs.version }}" \
-            linux \
-            "${{ needs.build-linux.outputs.sha256_run }}" \
-            "${{ needs.build-linux.outputs.size_run }}" \
-            LokLM-Setup-linux-x64.run
-
-      - name: Patch releases.ts (linux .deb)
-        if: needs.build-linux.result == 'success'
-        run: |
-          node scripts/bump-release.mjs \
-            "${{ steps.resolve.outputs.version }}" \
-            linux \
-            "${{ needs.build-linux.outputs.sha256_deb }}" \
-            "${{ needs.build-linux.outputs.size_deb }}" \
-            LokLM-Setup-linux-x64.deb
-
-      - name: Mark windows unavailable ( build failed )
-        if: needs.build-windows.result == 'failure'
-        run: |
-          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" windows --unavailable
-
-      - name: Mark linux unavailable ( build failed )
-        if: needs.build-linux.result == 'failure'
-        run: |
-          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.run
-          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" linux --unavailable LokLM-Setup-linux-x64.deb
-
-      - name: Patch releases.ts (macos)
-        if: needs.build-macos.result == 'success'
-        run: |
-          node scripts/bump-release.mjs \
-            "${{ steps.resolve.outputs.version }}" \
-            macos \
-            "${{ needs.build-macos.outputs.sha256 }}" \
-            "${{ needs.build-macos.outputs.size }}"
-
-      - name: Mark macos unavailable ( build failed )
-        if: needs.build-macos.result == 'failure'
-        run: |
-          node scripts/bump-release.mjs "${{ steps.resolve.outputs.version }}" macos --unavailable
-
-      - name: Install website deps
-        working-directory: website
-        run: pnpm install --ignore-workspace --frozen-lockfile
-
-      - name: Build website
-        working-directory: website
-        env:
-          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
-        run: pnpm build
-
-      - name: Set up SSH
-        env:
-          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
-          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$HETZNER_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$HETZNER_HOST" >> ~/.ssh/known_hosts
-
-      - name: Rsync dist to Hetzner
-        env:
-          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
-          HETZNER_USER: ${{ secrets.HETZNER_USER }}
-          HETZNER_PATH: ${{ secrets.HETZNER_PATH }}
-        run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            website/dist/ \
-            "${HETZNER_USER}@${HETZNER_HOST}:${HETZNER_PATH}/"
-
-      - name: Commit manifest bump
-        # main ist PR-only ( ruleset main-pr-required ) und der GITHUB_TOKEN
-        # kann nicht bypassen — GitHub lässt die Actions-app auf user-owned
-        # repos nicht als bypass-actor zu ( API 422 , v0.4.0 mac-hotfix-run
-        # scheiterte mit GH013 ). Deploy keys stehen auf der bypass-liste ,
-        # also pusht dieser step über ssh mit dem write-deploy-key aus
-        # MANIFEST_DEPLOY_KEY ( "release workflow manifest bump" in den
-        # repo deploy keys ).
+      - run: node scripts/release-preflight.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+      - name: Verify complete artifact set against exact baked manifests
+        run: node scripts/release-artifacts.mjs verify
+      - name: Confirm publication can advance the exact reviewed main
         env:
           MANIFEST_DEPLOY_KEY: ${{ secrets.MANIFEST_DEPLOY_KEY }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet website/src/data/releases.ts; then
-            echo "manifest unverändert , skip commit"
-            exit 0
-          fi
-          if [ -z "$MANIFEST_DEPLOY_KEY" ]; then
-            echo "::error::MANIFEST_DEPLOY_KEY secret fehlt — der manifest-commit kann das PR-only main nicht erreichen."
-            exit 1
-          fi
-          # Commit-message listet nur die platforms die wirklich gebaut
-          # wurden ( partial releases / failure-toleranz ).
-          LIST=""
-          if [ "${{ needs.build-windows.result }}" = "success" ]; then LIST="windows"; fi
-          if [ "${{ needs.build-linux.result }}" = "success" ]; then LIST="${LIST:+$LIST + }linux"; fi
-          if [ "${{ needs.build-macos.result }}" = "success" ]; then LIST="${LIST:+$LIST + }macos"; fi
-          git add website/src/data/releases.ts
-          git commit -m "release , v${{ steps.resolve.outputs.version }} , ${LIST} assets"
-          mkdir -p ~/.ssh
-          printf '%s\n' "$MANIFEST_DEPLOY_KEY" > ~/.ssh/manifest_key
-          chmod 600 ~/.ssh/manifest_key
-          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/manifest_key -o StrictHostKeyChecking=yes" \
-            git push git@github.com:${{ github.repository }}.git HEAD:main
-
-      - name: Clean up SSH key
-        if: always()
-        run: rm -f ~/.ssh/deploy_key ~/.ssh/manifest_key
-
-      - name: Record install URLs in run summary
+          test -n "$MANIFEST_DEPLOY_KEY"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+      - name: Required model endpoints must be reachable on every host
+        run: node scripts/verify-manifests.mjs models --strict
+      - uses: ./.github/actions/setup-mc
+      - name: Configure object storage
         env:
-          PUBLIC_INSTALLER_BASE_URL: ${{ secrets.PUBLIC_INSTALLER_BASE_URL }}
+          MINIO_ENDPOINT: ${{ secrets.MINIO_ENDPOINT }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: mc alias set s3target "https://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null
+      - name: Publish into a new version prefix; never overwrite
+        run: node scripts/release-artifacts.mjs publish
+      - name: Verify every public installer/archive byte before advertising
+        run: node scripts/verify-release-downloads.mjs
+      - name: Patch complete website manifest from verified artifacts
+        run: node scripts/update-release-manifest.mjs
+      - name: Commit manifest before website deployment
+        # Existing deploy key is the authorized main bypass. Its push triggers
+        # the normal website workflow, including that workflow's checks.
+        env:
+          MANIFEST_DEPLOY_KEY: ${{ secrets.MANIFEST_DEPLOY_KEY }}
         run: |
-          V="${{ steps.resolve.outputs.version }}"
-          {
-            echo "## Release v${V} — install URLs"
-            echo ""
-            echo "**Base:** \`${PUBLIC_INSTALLER_BASE_URL}/v${V}/\`"
-            echo ""
-            if [ "${{ needs.build-windows.result }}" = "success" ]; then
-              echo "- Windows:    ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-x64.exe"
-            else
-              echo "- Windows:    ( ${{ needs.build-windows.result }} )"
-            fi
-            if [ "${{ needs.build-linux.result }}" = "success" ]; then
-              echo "- Linux .run: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.run"
-              echo "- Linux .deb: ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-Setup-linux-x64.deb"
-            else
-              echo "- Linux:      ( ${{ needs.build-linux.result }} )"
-            fi
-            if [ "${{ needs.build-macos.result }}" = "success" ]; then
-              echo "- macOS:      ${PUBLIC_INSTALLER_BASE_URL}/v${V}/LokLM-mac.dmg"
-            else
-              echo "- macOS:      ( ${{ needs.build-macos.result }} )"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          key="$RUNNER_TEMP/manifest-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$MANIFEST_DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add website/src/data/releases.ts
+          git commit -m "release: v${RELEASE_VERSION} desktop assets"
+          GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            git push git@github.com:${{ github.repository }}.git HEAD:main
+      - name: Record release status
+        run: |
+          echo "All platform artifacts for v${RELEASE_VERSION} verified and manifest committed." >> "$GITHUB_STEP_SUMMARY"
+          echo 'Website deployment runs separately; verify completion before announcing availability.' >> "$GITHUB_STEP_SUMMARY"

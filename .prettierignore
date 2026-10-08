@@ -14,6 +14,9 @@ public/
 drizzle/
 pnpm-lock.yaml
 
+# Preserve the checksum-verified upstream crate and its documented two-line fix.
+installer-wizard/src-tauri/vendor/glib/
+
 # Project source documents are kept verbatim
 docs/work/
 docs/specs/database-drizzle.md
@@ -23,6 +26,7 @@ docs/specs/2026-05-13-drizzle-switch-design.md
 src/shared/passPhraseWords/
 
 # Frozen evaluation inputs are byte-hashed; formatting changes invalidate them.
+tests/evals/native-calibration/reports/
 tests/evals/native-calibration/heldout*.json
 tests/evals/native-calibration/fixtures/heldout/
 
@@ -34,3 +38,23 @@ tests/evals/native-calibration/fixtures/authority-dev-20261002/
 tests/evals/native-calibration/authority-reserved-20261002*.json
 tests/evals/native-calibration/fixtures/authority-reserved-20261002/
 
+# Preserve the exact October 5 presealed evaluation inputs.
+tests/evals/native-calibration/reasoning-reserved-20261005.json
+tests/evals/native-calibration/reasoning-reserved-20261005.sha256.json
+tests/evals/native-calibration/fixtures/r26-*.md
+
+# Four fresh authority-transfer cases: preserve original sealed corpus/key bytes.
+tests/evals/native-calibration/authority-transfer-20261005*.json
+tests/evals/native-calibration/fixtures/at-*.md
+
+# Frozen S follow-on corpus, original seal and grading protocol.
+tests/evals/native-calibration/s-fresh-validation-20261005.*
+tests/evals/native-calibration/fixtures/s-fresh-validation-20261005/
+
+# Post-AB-freeze validation corpus and key are byte-sealed.
+tests/evals/native-calibration/ab-fresh-validation-20261006.*
+tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/
+
+# Prospective AR validation: protect the eventual sealed payload before authorship.
+tests/evals/native-calibration/ar-fresh-validation-20261006.*
+tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/

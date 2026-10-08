@@ -2,6 +2,13 @@
 // kept as pure builders so the layout has no untestable inline logic and
 // regressions on SEO-relevant fields are caught by unit tests.
 
+// JSON is embedded in an HTML script raw-text element. Escaping '<' prevents
+// even literal '</script>' in editorial metadata from ending that element;
+// JSON.parse still restores the original text exactly.
+export function serializeSchema(schema: object): string {
+  return JSON.stringify(schema).replace(/</g, '\\u003c')
+}
+
 export interface OrganizationSchemaInput {
   siteUrl: string
   siteName: string
@@ -130,8 +137,17 @@ export interface ArticleSchemaInput {
 }
 
 export function buildArticleSchema(input: ArticleSchemaInput) {
-  const { url, headline, description, lang, datePublished, dateModified, siteUrl, image, keywords } =
-    input
+  const {
+    url,
+    headline,
+    description,
+    lang,
+    datePublished,
+    dateModified,
+    siteUrl,
+    image,
+    keywords,
+  } = input
 
   const publisher = siteUrl
     ? {
@@ -142,7 +158,9 @@ export function buildArticleSchema(input: ArticleSchemaInput) {
       }
     : { '@type': 'Organization', name: 'LokLM' }
 
-  const author = siteUrl ? { '@id': `${siteUrl}#organization` } : { '@type': 'Organization', name: 'LokLM' }
+  const author = siteUrl
+    ? { '@id': `${siteUrl}#organization` }
+    : { '@type': 'Organization', name: 'LokLM' }
 
   return {
     '@context': 'https://schema.org',

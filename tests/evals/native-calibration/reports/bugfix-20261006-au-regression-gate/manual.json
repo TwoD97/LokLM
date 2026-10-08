@@ -1,0 +1,23 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "pass",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "evidence-scoped-unresolved",
+    "formatRequirementSatisfied": true,
+    "responseLanguageContractSatisfied": false,
+    "productAcceptance": false,
+    "requestedLanguage": "de",
+    "observedLanguage": "German fixed lead; English synthesized summary",
+    "presentationDefects": [
+      "Synthesized body is English although the request and production language instruction require German."
+    ],
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Original-key strict PASS: both actual supplied notes support North14/South19 days for identical NP-6/S8, with both canonical references attached to one short coherent comparison sentence. The fixed lead limits uncertainty to supplied excerpts; no winner, joint applicability, global absence, approval denial or replacement is asserted. There are no U-labels or unrelated appendices. Separate response-language contract FAIL: unlike retained exact source quotations, this body is synthesized English under a German request. This is a product-acceptance blocker, not a retroactively added original-key criterion. Later12 remain unattempted; no retry or follow-on is authorized."
+  }
+]

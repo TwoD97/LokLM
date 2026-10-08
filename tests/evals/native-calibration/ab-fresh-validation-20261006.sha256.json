@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "originalSeal": "ab-fresh-validation-20261006.seal.json",
+  "originalSealSha256": "4db317746b07e5ae82ab230559240a5e7ad12da8c474a0f5e5ada85af23e6447",
+  "files": {
+    "ab-fresh-validation-20261006.json": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d",
+    "fixtures/ab-fresh-validation-20261006/abf-actual.md": "9a24f4a1816a45aea4f4b8712f91ca0d0089d8b9c7cb70d6317d19653147f295",
+    "fixtures/ab-fresh-validation-20261006/abf-amend.md": "e9b077f6c52bd33441fa521736f25c6b507519c3497751eaccc69a4da8f24a5c",
+    "fixtures/ab-fresh-validation-20261006/abf-annex.md": "0875d9e2a735741e016d4456f92e7611cd5b019a5cf17582f92673929362c74b",
+    "fixtures/ab-fresh-validation-20261006/abf-base.md": "8c16dc698b3b4622763798f85ed460067ee1fb4bd6a8f78530a479c4a3fb6a7b",
+    "fixtures/ab-fresh-validation-20261006/abf-north.md": "3d1801139319c13120f7442eb01b3f87ac82876fea370d3af87e43df8e5f00f6",
+    "fixtures/ab-fresh-validation-20261006/abf-plan.md": "9b7ff2e6b012a9b185d1746244ebb3b7bb42f8c742800894765ced5cb58faf2f",
+    "fixtures/ab-fresh-validation-20261006/abf-proposal.md": "d7b8f095ca749bc043a47be69f717fb19943839902e2d194bb3be19eee4a6bed",
+    "fixtures/ab-fresh-validation-20261006/abf-south.md": "ad3f4acd8a783d33457c48d8a31e1039a09d01c62e5f2873ce45adab8c6a6706"
+  }
+}

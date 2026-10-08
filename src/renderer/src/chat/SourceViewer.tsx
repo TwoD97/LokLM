@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { MarkdownView } from '../markdown/MarkdownView'
-import type { ChunkSource, DocumentChunk } from '@shared/documents'
+import type { ChunkSource, DocumentBytesResult, DocumentChunk } from '@shared/documents'
 import { extractCitationSnippets } from '@shared/citationContext'
 import { applyHighlights, findFuzzyHighlights } from '@shared/fuzzyHighlight'
 import { MultiPagePdfPreview } from './MultiPagePdfPreview'
@@ -32,6 +32,7 @@ type Props = {
 
 type BodyMode = 'pdf' | 'markdown' | 'text' | 'code'
 type LoadStatus = 'loading' | 'ready' | 'error'
+type SourceNotice = Exclude<DocumentBytesResult['status'], 'verified'> | 'citationRemoved'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -125,26 +126,44 @@ export function SourceViewer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [chunks, setChunks] = useState<DocumentChunk[]>([])
   const [source, setSource] = useState<ChunkSource | null>(null)
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
+  const [sourceNotice, setSourceNotice] = useState<SourceNotice | null>(null)
 
-  // PDF previews render off source.chunkPageFrom alone , skip the full-document
-  // chunks fetch for them (avoids shipping MBs of unused chunk text over IPC).
-  // Non-PDF docs need the chunk list to render the body around the cited
-  // chunk, so we fetch sequentially once the documentId is known.
+  // Verified PDFs avoid the full-document chunks fetch. If the external file
+  // changed or disappeared, show the stored indexed text, never the new bytes.
   useEffect(() => {
     let cancelled = false
     setStatus('loading')
     setErrorMessage(null)
     setSource(null)
     setChunks([])
+    setPdfBytes(null)
+    setSourceNotice(null)
     void (async () => {
       try {
         const src = await window.api.documents.getSourceForChunk(chunkId)
         if (cancelled) return
         setSource(src)
-        if (src && classifySource(src) !== 'pdf') {
+        if (!src) setSourceNotice('citationRemoved')
+        let verifiedPdf = false
+        if (src && classifySource(src) === 'pdf' && src.chunkPageFrom != null) {
+          const result = await window.api.documents.readDocumentBytes(
+            src.documentId,
+            src.contentHash ?? null,
+          )
+          if (cancelled) return
+          if (result.status === 'verified') {
+            setPdfBytes(result.bytes)
+            verifiedPdf = true
+          } else setSourceNotice(result.status)
+        }
+        if (src && !verifiedPdf) {
           const all = await window.api.documents.listChunksForDocument(src.documentId)
           if (cancelled) return
-          setChunks(all)
+          // A refresh may delete the cited chunk between the metadata and
+          // text reads. Do not substitute a newer document's chunks for it.
+          if (all.some((chunk) => chunk.id === chunkId)) setChunks(all)
+          else setSourceNotice('citationRemoved')
         }
         if (!cancelled) setStatus('ready')
       } catch (err: unknown) {
@@ -188,7 +207,7 @@ export function SourceViewer({
 
   const bodyMode = useMemo(() => classifySource(source), [source])
   const codeLang = useMemo(() => langFromPath(source?.sourcePath), [source])
-  const showPdf = bodyMode === 'pdf' && source != null && source.chunkPageFrom != null
+  const showPdf = pdfBytes != null && source != null && source.chunkPageFrom != null
 
   // Highlight cycling: each click on the "N highlights" pill scrolls the next
   // visually-distinct mark group into view. Groups are derived at click time
@@ -350,11 +369,17 @@ export function SourceViewer({
           </button>
         </header>
         <div className="source-viewer__body">
+          {status === 'ready' && sourceNotice && (
+            <p className="source-viewer__empty" role="status">
+              {t(`chat.sourceNotice.${sourceNotice}`)}
+            </p>
+          )}
           <BodyContents
             status={status}
             errorMessage={errorMessage}
             showPdf={showPdf}
             source={source}
+            pdfBytes={pdfBytes}
             chunks={chunks}
             chunkId={chunkId}
             snippets={snippets}
@@ -372,6 +397,7 @@ function BodyContents({
   errorMessage,
   showPdf,
   source,
+  pdfBytes,
   chunks,
   chunkId,
   snippets,
@@ -382,6 +408,7 @@ function BodyContents({
   errorMessage: string | null
   showPdf: boolean
   source: ChunkSource | null
+  pdfBytes: Uint8Array | null
   chunks: DocumentChunk[]
   chunkId: number
   snippets: string[]
@@ -395,10 +422,10 @@ function BodyContents({
   if (status === 'loading') {
     return <div className="source-viewer__empty">{t('common.loading')}</div>
   }
-  if (showPdf && source && source.chunkPageFrom != null) {
+  if (showPdf && pdfBytes && source && source.chunkPageFrom != null) {
     return (
       <MultiPagePdfPreview
-        documentId={source.documentId}
+        bytes={pdfBytes}
         targetPage={source.chunkPageFrom}
         snippets={snippets}
         citedPageFrom={source.chunkPageFrom}

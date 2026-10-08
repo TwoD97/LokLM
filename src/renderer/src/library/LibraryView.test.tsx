@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { Api } from '@preload/index'
 import type { LibrarySearchHit } from '@shared/documents'
@@ -30,6 +30,12 @@ function hit(overrides: Partial<LibrarySearchHit> = {}): LibrarySearchHit {
 }
 
 describe('LibraryView search integration', () => {
+  beforeAll(async () => {
+    // Module transformation is fixture setup, not the click-to-reader workflow.
+    // Keep the real lazy boundary and the existing test deadline below.
+    await import('../chat/SourceViewer')
+  })
+
   beforeEach(() => {
     setApi({
       list: () => Promise.resolve([]),
@@ -124,8 +130,7 @@ describe('LibraryView search integration', () => {
     })
     const row = await screen.findByRole('button', { name: /Found\.pdf/ })
     fireEvent.click(row)
-    // Lazy reader loading includes module transformation in Vitest; wait for
-    // that boundary explicitly rather than imposing a 1 s machine-speed gate.
+    // Resolve the real lazy reader boundary before checking its API request.
     await act(async () => {
       await vi.dynamicImportSettled()
     })

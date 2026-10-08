@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { closeOwnedApplication, type ConfirmedAppClosure } from './close'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -14,12 +15,16 @@ export interface LaunchedApp {
   app: ElectronApplication
   page: Page
   userDataDir: string
+  /** Confirms main-process exit only; this is not a utility-process inventory. */
+  readonly lastClosure: ConfirmedAppClosure | null
   /** Restart the same isolated profile and vault without inheriting host paths. */
   restart(): Promise<void>
   cleanup(): Promise<void>
 }
 
 export interface LaunchOptions {
+  /** Explicit fixture directory for model-selection calibration; never a user profile. */
+  workingDirectory?: string
   /** Keep background tests off the desktop; opt in for interactive debugging. */
   visible?: boolean
   /** Extra Electron argv flags (after the main entry). The screenshot harness
@@ -51,11 +56,21 @@ export async function launchApp(opts: LaunchOptions = {}): Promise<LaunchedApp> 
     ),
   )
 
+  let activeApp: ElectronApplication | null = null
+  let lastClosure: ConfirmedAppClosure | null = null
+  const closeCurrent = async (): Promise<void> => {
+    if (!activeApp) return
+    lastClosure = await closeOwnedApplication(activeApp)
+    activeApp = null
+  }
+
   const start = async (): Promise<{ app: ElectronApplication; page: Page }> => {
     const app = await electron.launch({
       args: [mainEntry, `--user-data-dir=${userDataDir}`, ...(opts.extraArgs ?? [])],
       env,
+      ...(opts.workingDirectory ? { cwd: opts.workingDirectory } : {}),
     })
+    activeApp = app
     try {
       const page = await app.firstWindow()
       await app.evaluate(({ BrowserWindow }, visible) => {
@@ -80,7 +95,14 @@ export async function launchApp(opts: LaunchOptions = {}): Promise<LaunchedApp> 
       }
       return { app, page }
     } catch (error) {
-      await app.close().catch(() => undefined)
+      try {
+        await closeCurrent()
+      } catch (closeError) {
+        throw new AggregateError(
+          [error, closeError],
+          'Application startup failed and process cleanup was not confirmed; profile preserved.',
+        )
+      }
       throw error
     }
   }
@@ -88,20 +110,23 @@ export async function launchApp(opts: LaunchOptions = {}): Promise<LaunchedApp> 
   try {
     running = await start()
   } catch (error) {
-    await rm(userDataDir, { recursive: true, force: true })
+    if (!activeApp) await rm(userDataDir, { recursive: true, force: true })
     throw error
   }
   const launched: LaunchedApp = {
     ...running,
     userDataDir,
+    get lastClosure() {
+      return lastClosure
+    },
     restart: async () => {
-      await running.app.close()
+      await closeCurrent()
       running = await start()
       launched.app = running.app
       launched.page = running.page
     },
     cleanup: async () => {
-      await running.app.close().catch(() => undefined)
+      await closeCurrent()
       await rm(userDataDir, { recursive: true, force: true })
     },
   }

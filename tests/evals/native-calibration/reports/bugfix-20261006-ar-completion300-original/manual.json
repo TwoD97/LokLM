@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied draft B 4:7 and draft A 3:6 match the selected 2027-05-15 and 2027-05-08 deadline sentences. Both concern Orvo's single shipment in the same dispatch cycle; both have the same issue date and no approval-signature/replacement documentation. The compact framed lead limits uncertainty to the supplied excerpts. It neither selects a winner nor asserts nonapproval, replacement or absence of any applicable deadline. Each value has its own correct canonical reference; ISO dates render correctly and no retention appendix appears. The one-short-sentence presentation is satisfied under the unchanged compact-comparison interpretation. English original source wording is a presentation tradeoff. App 141325 ms/native 130821 ms; separately within 180 seconds under the new 300-second cap."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied plan table 2:5 gives 78165 GBP for planned 2025 receipts; recorded table 1:2 gives 73410 GBP, with supplied document context establishing 2024. Subtraction yields 4755 GBP. The single short German sentence preserves planned/actual status and both years, excludes reserve balances, makes no target-attainment claim and attaches both actual table references locally. Repeating input amounts is not required. App 168172 ms/native 150789 ms; separately within 180 seconds by 11.828 seconds under the prospective 300-second cap."
+  }
+]

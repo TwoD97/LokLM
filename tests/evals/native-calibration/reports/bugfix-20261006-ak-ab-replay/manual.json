@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "incomplete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS for missing North 14-day alternative/reference and excessive heading/date units. This is NOT a binding-winner assertion: the evidence-scoped lead explicitly says no definitive answer follows, and the South interval is quoted as that note's value. Every displayed South unit is faithful to actual 2:2, but actual 1:1 was also supplied and is entirely absent from the answer. Both values and short format were required. App 97946 ms; native 87241 ms."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "partial",
+    "citationCompleteness": "incomplete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS for incomplete claim attribution. Current 5 projectors and 7 tablets are correct and locally supported by actual 4:4 and 3:3. The working paper does not change them, but that proposition requires supplied 5:5, which is not cited; base/amendment alone do not establish that later paper's status/effect. The original rubric also requires explicit nonapproval, which the final does not state. Do not attribute an invented nonapproval sentence to this answer or treat correct identities 3:3/4:4 as support for the uncited proposal clause. App 119735 ms; native 102390 ms."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS: planned main-campus 2037 receipts 29835 CHF minus recorded 2036 receipts 27460 CHF equals 2375 CHF. Correct actual/planned years and local 6:6/7:7 refs, one short sentence, no reserve or Annex inclusion. Repeating both inputs is not required by the question. App 116722 ms; native 99615 ms."
+  }
+]

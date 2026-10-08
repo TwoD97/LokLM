@@ -215,16 +215,16 @@ describe('dynamicScoreCutCount (fix #3)', () => {
 
   it('cuts at a big relative score drop', () => {
     // 3 strong then a cliff → keep 3 (clamped within [2, maxK])
-    expect(dynamicScoreCutCount(s(5, 4.8, 4.5, 0.2, 0.1), 2, 10)).toBe(3)
+    expect(dynamicScoreCutCount(s(5, 4.8, 4.5, 0.2, 0.1), 2, 10, 'nonnegative')).toBe(3)
   })
 
   it('keeps up to maxK when scores stay flat', () => {
-    expect(dynamicScoreCutCount(s(2, 2, 2, 2, 2, 2), 2, 4)).toBe(4)
+    expect(dynamicScoreCutCount(s(2, 2, 2, 2, 2, 2), 2, 4, 'nonnegative')).toBe(4)
   })
 
   it('never returns fewer than minK or more than available', () => {
-    expect(dynamicScoreCutCount(s(9, 0.01), 2, 10)).toBe(2) // cliff at 2 but minK floor
-    expect(dynamicScoreCutCount(s(1), 2, 10)).toBe(1) // only one hit
+    expect(dynamicScoreCutCount(s(9, 0.01), 2, 10, 'nonnegative')).toBe(2) // cliff at 2 but minK floor
+    expect(dynamicScoreCutCount(s(1), 2, 10, 'nonnegative')).toBe(1) // only one hit
   })
 })
 

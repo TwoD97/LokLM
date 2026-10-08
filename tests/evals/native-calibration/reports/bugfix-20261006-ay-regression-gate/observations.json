@@ -1,0 +1,210 @@
+{
+  "kind": "safe-known-dev-timeout-recovery-observations",
+  "classification": "AY known AB01 gate timed out without an accepted final; original harness teardown is incomplete, followed by separately verified recovery. Twelve later cases remain unattempted.",
+  "runId": "bugfix-20261006-ay-regression-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ay-regression-gate/raw.json",
+    "sha256": "08dcb0062d5d87f8bf862f481b4b751f2f085a5e8f0b26be8c5f5056f387abf9",
+    "availability": "Local ignored artifact; opaque hash only. No raw body, rejected envelope, private check or hidden thought was read for this report."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ay-regression-gate-execution-declaration.json",
+    "sha256": "8708330d3c9e6c162c1d3425b49236d6bd9482dab2cfc29ea3a6f68477e0ba9f",
+    "frozenAt": "2026-10-06T11:18:18.612Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/ay-regression-protocol.json",
+    "sha256": "387b722f351caa16801737a999e3a2e107780e33d3cd6ec4071bb090315136b6"
+  },
+  "recovery": {
+    "path": "out/optimization-20261005/ay-regression-gate-recovery-postverify.json",
+    "sha256": "9b00576163f6d4ba608913ad2cc57890966a70e1ea66206f4ea67b758204ceae",
+    "recoveredAt": "2026-10-06T11:37:44.684Z",
+    "status": "timeout-with-incomplete-original-harness-teardown",
+    "runnerExitCode": null,
+    "runnerExitCodeRecovered": false,
+    "appLogPresent": false,
+    "originalBuildProvenanceAfterPresent": false,
+    "originalObserverFinalPresent": false,
+    "originalCleanupVerified": false,
+    "currentPinsMatchedAtRecovery": true,
+    "changedPathsAtRecovery": [],
+    "freshBuildVerificationAtRecovery": {
+      "status": "matched",
+      "currentSourcesMatchBuild": true,
+      "changedCurrentSourcePaths": []
+    },
+    "freshBuildProvenanceSha256": "35e9409a4a2acaadbbbe6c1f0fa519141f09e6ea593eee545d38256c044f75da",
+    "sourceCount": 423,
+    "compiledCount": 112,
+    "captureVerifiedAtRecovery": true,
+    "processClosureVerifiedAtRecovery": true,
+    "remainingNativeProcessesAtRecovery": 0,
+    "remainingPlaywrightRunnersAtRecovery": 0,
+    "stoppedProcessesDuringRecovery": 0,
+    "recoveryLaunchedInference": false,
+    "recoveryRetriedCases": false,
+    "requestCompleted": false,
+    "safeToContinue": false
+  },
+  "provenanceScope": "The source/build match and clean process/capture closure describe the separately recorded recovery only. They do not establish original runner exit, observer disposal or original clean teardown, and do not describe later workspace changes.",
+  "declaredConfiguration": {
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "isolatedProfile": true,
+    "goldSourceSelection": false,
+    "questionMutation": false,
+    "attemptsPerCase": 1,
+    "autoLockMinutes": 0,
+    "evaluationSideOutputRepair": false,
+    "productionCleanup": "Declared AR redundant-label cleanup remains enabled; no evaluation-side repair.",
+    "questionTimeoutMs": 300000,
+    "performanceThresholdMs": 180000,
+    "repeats": 1,
+    "retries": 0,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "cleanup": "Separately verified at recovery; no owned capture content read."
+  },
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "semanticNonpasses": 0,
+    "parserNonpasses": 0,
+    "timeouts": 1,
+    "unobservedInGate": 0,
+    "normalNativeCompletions": 0,
+    "terminalWithin180": 0,
+    "successfulAnswersWithin180": 0,
+    "successfulAnswersWithin300": 0,
+    "strictAndWithin180": 0,
+    "retries": 0
+  },
+  "candidateCoverage": {
+    "requested": 13,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "timeouts": 1,
+    "unattempted": 12,
+    "unattemptedCaseIds": [
+      "ar-fresh-01",
+      "ar-fresh-02",
+      "ar-fresh-07",
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "followOnAuthorized": false
+  },
+  "strictPass": false,
+  "semanticGrade": null,
+  "responseLanguageContractPass": null,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "originalObserverFinal": null,
+  "originalTreatmentFinalization": null,
+  "declaredSourceCorpusDocuments": 8,
+  "actualFedSourceCoverageReviewedForThisReport": false,
+  "sourceCoverageScope": "Eight original documents were declared eligible and the frozen input pins matched at recovery. This metadata-only report does not independently inspect actual source contents or certify the actual fed passage set.",
+  "privacy": "Only the recovered fixed diagnostic metadata, declarations and opaque raw hash are used. No private check, hidden thought, discarded generation envelope, rejected text, unrestricted log, error notice or source contents are copied. finalAnswer is null.",
+  "limitations": [
+    "Known development regression, not fresh generalization.",
+    "A timeout is an operational nonpass, not a semantic verdict or parser rejection.",
+    "The 431 constrained tokens are envelope-generation counters, not displayed answer tokens.",
+    "The counters do not identify the selected branch, source choice, facts or whether the policy caused output expansion.",
+    "Compiler time of 130 ms does not explain the 289139 ms native generation duration.",
+    "Recovery closure cannot reconstruct missing original teardown or a missing runner exit code.",
+    "All previous failures, original questions, source seals and grading criteria remain unchanged."
+  ],
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "repetition": 0,
+      "requestedLanguage": "de",
+      "finalAnswer": null,
+      "acceptedFinalAvailable": false,
+      "semanticGrade": null,
+      "citationSupport": null,
+      "citationCompleteness": null,
+      "formatRequirementSatisfied": null,
+      "responseLanguageContractSatisfied": null,
+      "productAcceptance": false,
+      "parserRejection": null,
+      "checkedResultCount": 0,
+      "collection": {
+        "totalMs": 300166,
+        "terminalReceived": true,
+        "terminalOutcome": "cancelled",
+        "timedOut": true,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "terminalMismatch": false,
+        "collectionDecision": "stop"
+      },
+      "elapsedTerminalWithin180": false,
+      "successfulAnswerWithin180": false,
+      "successfulAnswerWithin300": false,
+      "schemaVersions": ["typed-comparison-v24"],
+      "excerptPolicy": {
+        "requested": ["source-excerpts"],
+        "captured": ["source-excerpts"],
+        "applied": ["source-excerpts"],
+        "valid": true
+      },
+      "comparisonRejectionDetails": { "details": [], "malformedLogs": 0, "dropped": 0 },
+      "captureStatuses": ["worker-error"],
+      "metrics": [
+        {
+          "nativeMs": 289139,
+          "grammarMs": 130,
+          "promptFitMs": 25,
+          "responseChars": 0,
+          "completionReason": null,
+          "cancelled": true,
+          "usedInputTokens": 1871,
+          "usedOutputTokens": 560,
+          "boundedThoughts": {
+            "promptTokens": 1870,
+            "prefillBatches": 8,
+            "prefillTokens": 1869,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 431,
+            "combinedTokens": 561,
+            "firstVisibleMs": 77593,
+            "lastVisibleMs": 288641,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "gpuBackend": "vulkan"
+      }
+    }
+  ]
+}

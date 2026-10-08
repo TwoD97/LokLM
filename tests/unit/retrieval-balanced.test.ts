@@ -40,30 +40,34 @@ describe('production hybrid candidate selection', () => {
     const { service, lexical, embed } = retrievalHarness()
     await service.search(1, 'When was the plan approved? Answer in one short sentence.', 3, FLAT)
     expect(lexical).toHaveBeenCalledTimes(1)
-    expect(lexical.mock.calls[0]![1]).toBe('When was the plan approved?')
+    expect(lexical.mock.calls[0]![1]).toBe('When plan approved')
     expect(embed).toHaveBeenCalledTimes(1)
     expect(embed.mock.calls[0]![0]).toEqual(['When was the plan approved?'])
   })
 
-  it.each(['Briefly explain the evidence.', 'Bitte erkläre kurz die Belege.'])(
-    'does not let a generic evidence instruction cast independent RRF votes: %s',
-    async (tail) => {
-      const { service, lexical, dense, embed } = retrievalHarness()
-      const question = 'Which approved contract applies?'
-      lexical.mockImplementation(async (_workspace, query) =>
-        (query === question ? [1, 2, 3, 4] : [3, 4, 1, 2]).map((id) => hit(id, 1)),
-      )
-      embed.mockImplementation(async ([query]) => [new Float32Array([query === question ? 1 : 2])])
-      dense.mockImplementation(async (_workspace, vector) =>
-        (vector[0] === 1 ? [2, 1, 3, 4] : [4, 3, 2, 1]).map((id) => hit(id, 0.5)),
-      )
-      const result = await service.search(1, `${question} ${tail}`, 4, FLAT)
-      expect(result.map((item) => item.chunk_id)).toEqual([1, 2, 3, 4])
-      expect(lexical.mock.calls.map((call) => call[1])).toEqual([question])
-      expect(embed.mock.calls.map((call) => call[0])).toEqual([[question]])
-      expect(dense).toHaveBeenCalledTimes(1)
-    },
-  )
+  it.each([
+    'Briefly explain the evidence.',
+    'Bitte erkläre kurz die Belege.',
+    'Belege beide Grenzen.',
+    'Please support all claims with evidence.',
+    'Cite each value with sources.',
+  ])('does not let a generic evidence instruction cast independent RRF votes: %s', async (tail) => {
+    const { service, lexical, dense, embed } = retrievalHarness()
+    const question = 'Which approved contract applies?'
+    const lexicalQuestion = 'Which approved contract applies'
+    lexical.mockImplementation(async (_workspace, query) =>
+      (query === lexicalQuestion ? [1, 2, 3, 4] : [3, 4, 1, 2]).map((id) => hit(id, 1)),
+    )
+    embed.mockImplementation(async ([query]) => [new Float32Array([query === question ? 1 : 2])])
+    dense.mockImplementation(async (_workspace, vector) =>
+      (vector[0] === 1 ? [2, 1, 3, 4] : [4, 3, 2, 1]).map((id) => hit(id, 0.5)),
+    )
+    const result = await service.search(1, `${question} ${tail}`, 4, FLAT)
+    expect(result.map((item) => item.chunk_id)).toEqual([1, 2, 3, 4])
+    expect(lexical.mock.calls.map((call) => call[1])).toEqual([lexicalQuestion])
+    expect(embed.mock.calls.map((call) => call[0])).toEqual([[question]])
+    expect(dense).toHaveBeenCalledTimes(1)
+  })
 
   it('does not promote unrelated titles that match only answer-format instructions', async () => {
     const { service, lexical, dense } = retrievalHarness()
@@ -94,6 +98,22 @@ describe('production hybrid candidate selection', () => {
     expect(result.map((item) => item.chunk_id)).toEqual([1, 101, 2, 102, 3, 103, 4, 104, 5, 105])
     expect(lexical.mock.calls[0]![2]).toBe(20)
     expect(rank).not.toHaveBeenCalled()
+  })
+
+  it('keeps date digits in search without promoting incidental filename numbers', async () => {
+    const { service, lexical, dense, embed } = retrievalHarness()
+    const relevant = hit(4, 5, { document_title: 'record-04.md' })
+    const distractor = hit(1, 1, { document_title: 'record-01.md' })
+    lexical.mockResolvedValue([relevant, distractor])
+    dense.mockResolvedValue([
+      { ...relevant, score: 0.9 },
+      { ...distractor, score: 0.3 },
+    ])
+    const query = 'Which license applies on 2034-06-01?'
+    const result = await service.search(1, query, 2, { ...FLAT, titleBoostFactor: 1.25 })
+    expect(result.map((item) => item.chunk_id)).toEqual([4, 1])
+    expect(lexical.mock.calls.map((call) => call[1])).toEqual(['Which license applies 2034 06 01'])
+    expect(embed.mock.calls.map((call) => call[0])).toEqual([[query]])
   })
 
   it('retains cross-variant consensus regardless of question order', async () => {

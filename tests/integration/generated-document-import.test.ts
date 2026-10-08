@@ -81,7 +81,7 @@ describe('durable generated document sources', () => {
   it('keeps the only source after cancellation and can reindex after reopening the workspace', async () => {
     const prepared = deferred<{ update: () => void; release: () => void }>()
     const lease = { update: vi.fn(), release: vi.fn() }
-    const embedder = { beginIndexing: () => prepared.promise }
+    const embedder = { beginIndexing: vi.fn(() => prepared.promise) }
     const { service } = fixture({ embedder: () => embedder })
     const text = 'Durable transcript: calibrated parcel 17.'
     const doc = await service.importGeneratedText({
@@ -91,6 +91,10 @@ describe('durable generated document sources', () => {
       mimeType: 'text/plain',
     })
     expect(await db.getGeneratedText(doc.id)).toBe(text)
+    // Cancellation here exercises a pending GPU lease, not the earlier parse
+    // stage. Parsing now completes before indexing asks for that lease.
+    await vi.waitFor(() => expect(embedder.beginIndexing).toHaveBeenCalledOnce())
+    expect(lease.release).not.toHaveBeenCalled()
     expect(await service.cancelWorkspaceIndexing(3)).toBe(1)
     prepared.resolve(lease)
     await vi.waitFor(() => expect(service.isIndexing()).toBe(false))

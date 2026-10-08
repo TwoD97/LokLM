@@ -1,0 +1,11 @@
+# J continuation 1: stopped on case 02
+
+This separately declared continuation requested only cases 02–12, which were unattempted after [the initial run](../bugfix-20261005-j-known-reasoning/REVIEW.md). **Only case 02 was attempted; it timed out at 180.174 seconds without a completed answer. Cases 03–12 are unobserved in this continuation.** Neither failed case was retried. A second declaration covers only those still-unattempted cases; run boundaries and requested denominators remain separate.
+
+The identical frozen J build, all 18 source documents, default small-document expansion, 180-second deadline, and zero retries were retained. Declaration: `out/optimization-20261005/j-continuation-1-declaration.json`. Manifest SHA-256 `618e1d3d26385d521731759fe28b664d8c8fb8ece233c8de4a7d1f4a67b2c045`; worker SHA-256 `aefe7e00ece302e082ef1758574fc707ffbfb7be5f42a42a86227189700d1d37`. Compiled bytes remained unchanged through exit.
+
+Case 02 restored **8192 context, f16 KV, 14 GPU layers**. Both relevant 3:3/4:4 passages were among the 11 supplied passages. The prompt estimate was 2669 tokens and the output allowance 2176 tokens; temperature was 0 and repetition penalty disabled. Retrieval took 0.174 seconds. The raw-call finally diagnostic reported 169.429 seconds, cancelled=true. No native completion stopReason/responseChars, successful parsed outcome, or parser rejection was logged. This is an operational failure; no answer content exists to grade. The query used the same KV precision as the successful earlier I02 observation, but the runs are not a controlled causal isolation of schema, resource state or output behavior.
+
+Startup took 42.466 seconds and indexing 11.192 seconds. The owned process exited 1 and cleaned up before continuation 2. The initial two J observations are both operational failures; they do not prove that every J case cannot complete.
+
+[manual.json](manual.json) is the tracked manual review. Local generated `raw.json` and `review.json` preserve machine evidence and auxiliary grading; raw SHA-256 `f0d9e9c296893f7efa4c465cf0369ea7a2907d2e61d0d696f44ca44413201cb2`. [Continuation 2](../bugfix-20261005-j-known-reasoning-continuation-2/REVIEW.md) is declared in `out/optimization-20261005/j-continuation-2-declaration.json`. These are known DEV cases, not a new blind evaluation.

@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01/thought0",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS. Safe unresolved lead and authentic South19-day quotation do not satisfy the explicit request for both intervals: North14 and its1:1 citation are omitted, although both original complete notes were supplied. Four South units add irrelevant heading/date material to a short-answer request. Same visible answer as AE0, not a new semantic success. Native98357ms,0 thought tokens,164 constrained-response tokens."
+  },
+  {
+    "caseId": "ab-fresh-02/thought0",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS for missing amendment attribution. Current5 projectors/7 tablets and proposed9 with explicit council nonapproval/no effect are factually correct. Final refs are only3:3 and5:5; neither establishes5 projectors. Approved/effective amendment4:4 is actually supplied but omitted from the citations. The base gives2, and the proposal concerns tablets. No invented factual claim, but valid remaining source IDs do not support the full answer. Native111135ms,0 thought tokens,218 constrained-response tokens."
+  },
+  {
+    "caseId": "ab-fresh-01/thought64",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Exact South19days and North14days are each locally cited2:2/1:1 for the same NP-6/S8 scope, with a fixed lead limiting uncertainty to the supplied excerpts. No invented authority, chronology, replacement or denial that an interval exists. The compact framed sentence satisfies the short format under unchanged criteria; original English quotation is a presentation tradeoff only. Same visible answer as AE64. Native120994ms,64 thought tokens with forced closer2,151 constrained-response tokens."
+  }
+]

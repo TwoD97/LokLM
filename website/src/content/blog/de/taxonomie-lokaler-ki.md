@@ -4,6 +4,7 @@ description: 'Was alles "lokal" sein kann an einer KI — drei Etappen einer Pip
 lang: 'de'
 translationKey: 'local-ai-taxonomy'
 pubDate: 2026-05-28
+updatedDate: 2026-10-07
 tags: ['lokale-ki', 'architektur', 'datenschutz']
 ---
 
@@ -25,7 +26,7 @@ Eine Ausnahme gibt es: Fine-Tuning lässt sich lokal durchführen (LoRA, QLoRA[^
 
 Sollen eigene Dokumente durchsuchbar werden, braucht es einen Index. Dafür werden die Texte in Chunks zerteilt; ein Embedding-Modell übersetzt jeden Chunk in einen numerischen Vektor, und diese Vektoren wandern in eine Datenbank. Kommt später eine Frage, wird auch sie zu einem Vektor — und der Index liefert die ähnlichsten Chunks zurück.
 
-Diese Etappe **kann** auf dem Gerät laufen — oder in der Cloud. Das ist eine Architektur-Entscheidung des jeweiligen Herstellers, und sie bestimmt unmittelbar, wo die Embeddings der Anwender-Dokumente liegen.
+Prüfe Embedding-Berechnung und Indexspeicherung getrennt. Ein Werkzeug kann Text an einen entfernten Embedding-Anbieter senden und die resultierenden Vektoren lokal speichern. Umgekehrt lassen sich lokal erzeugte Vektoren auf einen entfernten Speicher hochladen. Der Speicherort des Index zeigt allein nicht, wo seine Inhalte verarbeitet wurden.
 
 ### 3. Inferenz
 
@@ -35,43 +36,47 @@ Was die meisten für "die KI" halten, ist genau dieser Schritt: Aus Frage plus K
 
 Drei Etappen mal zwei mögliche Orte (lokal/entfernt) ergäben rechnerisch acht Kombinationen. In der Praxis begegnet man fünf Konstellationen — wobei A und B im Lokalitäts-Profil identisch sind und sich nur architektonisch unterscheiden:
 
-| #   | Training              | Retrieval/Index | Inferenz  | Beispiel-Typ                                                                                             |
-| --- | --------------------- | --------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| A   | entfernt              | entfernt        | entfernt  | Klassisches Cloud-LLM (Web-Chat-Werkzeuge) — die häufigste Konstellation                                 |
-| B   | entfernt              | entfernt        | entfernt  | ↳ Variante von A: Cloud-RAG mit Drittanbieter-Vector-DB — für den Endanwender identisch                  |
-| C   | entfernt              | **lokal**       | entfernt  | "Hybrid": Index lokal, Inferenz Cloud — selten, weil die Daten zur Inferenz trotzdem das Gerät verlassen |
-| D   | entfernt              | **lokal**       | **lokal** | On-Device RAG mit Open-Weight-Modell — z. B. LokLM                                                       |
-| E   | **lokal** (Fine-Tune) | **lokal**       | **lokal** | Spezialisiertes lokales System — eher Forschung/Enterprise                                               |
+| #   | Training              | Retrieval/Index | Inferenz  | Beispiel-Typ                                                                             |
+| --- | --------------------- | --------------- | --------- | ---------------------------------------------------------------------------------------- |
+| A   | entfernt              | entfernt        | entfernt  | Klassisches Cloud-LLM (Web-Chat-Werkzeuge) — die häufigste Konstellation                 |
+| B   | entfernt              | entfernt        | entfernt  | ↳ Variante von A: Cloud-RAG mit Drittanbieter-Vector-DB — für den Endanwender identisch  |
+| C   | entfernt              | **lokal**       | entfernt  | Lokaler Index mit entfernter Antwortgenerierung; ausgewählte Stellen verlassen das Gerät |
+| D   | entfernt              | **lokal**       | **lokal** | On-Device RAG mit heruntergeladenem Modell — z. B. der gebündelte Modellpfad von LokLM   |
+| E   | **lokal** (Fine-Tune) | **lokal**       | **lokal** | Spezialisiertes lokales System — eher Forschung/Enterprise                               |
 
-Besonders lehrreich ist Konstellation C: Der lokale Index bringt keinerlei Privacy-Gewinn, wenn Anfrage und gefundene Chunks für die Inferenz doch an eine Cloud-API geschickt werden — die Daten verlassen das Gerät ja trotzdem. _"Lokal"_ an einer Stelle der Pipeline macht die Pipeline nicht als Ganzes lokal.
+In Konstellation C kann die vollständige Sammlung auf dem Gerät bleiben, während ausgewählte Textstellen und die Frage an ein entferntes Modell gehen. Das ist eine kleinere Übertragung als der Upload der gesamten Sammlung; die ausgewählten Inhalte können dennoch vertraulich sein. _"Lokal"_ an einer Stelle macht die Verarbeitung nicht als Ganzes lokal.
 
 ## Warum die Unterscheidung Privacy-Folgen hat
 
 Jede Etappe beantwortet ihre eigene Version der Frage: **Wo fallen die Daten dieses Nutzers an?**
 
-- **Training**: Hier geht es nicht um die Daten des Endanwenders, sondern um das Trainingsmaterial. Solange der Anwender nichts zum Training beisteuert, spielt die Trainings-Lokalität für seine Privacy eine Nebenrolle. Kritisch wird es erst, wenn ein Anbieter Nutzer-Eingaben in künftige Trainingsläufe einspeist — viele Cloud-AGB sehen genau das vor, häufig mit Opt-out-Regelung.
-- **Retrieval/Index**: Hier liegen die eigentlichen Anwender-Daten — als Embeddings plus Original-Chunks. Ein Cloud-Index bedeutet: Die Dokumente des Anwenders liegen in der Cloud, selbst wenn dort nie "echte" Inferenz stattfindet.
+- **Training**: Der Download eines vortrainierten Modells sendet deine Dokumente nicht von selbst in dessen Training. Prüfe bei gehosteten Diensten die Regeln für das konkrete Produkt und Konto. Trainingsnutzung, Übertragung und Speicherung sind getrennte Fragen.
+- **Retrieval/Index**: Indizes können Vektoren, Textstellen und Metadaten enthalten. Prüfe, was davon entfernt gespeichert wird, statt jedem Index vollständige Originaldokumente oder harmlos gewordene Vektoren zu unterstellen.
 - **Inferenz**: Hier wird jede einzelne Anfrage verarbeitet. Läuft die Inferenz remote, erreicht **jede Anfrage** einen fremden Server — mitsamt den Chunks, die ein etwaiges lokales Retrieval ausgewählt hat.
 
-Die [DSGVO-Pflichten](/blog/dsgvo-und-llm-datenexport), die ein früherer Artikel der Reihe behandelt hat, setzen an allen drei Stellen verschieden an: Ein Drittlandtransfer entsteht in Etappe 2 oder 3, sobald Daten die EU-Grenze in Richtung Drittland überschreiten; auch Auftragsverarbeitung ist je Etappe getrennt zu beurteilen.
+Prüfe Ziele und beteiligte Rollen für jeden Schritt. Der [Beitrag zu DSGVO und Cloud-LLMs](/blog/dsgvo-und-llm-datenexport) erklärt, warum entfernte Verarbeitung, Auftragsverarbeitung und Drittlandtransfer getrennt zu beurteilen sind.
 
 ## Wo LokLM sich auf den Achsen positioniert
 
-LokLM fällt in Konstellation D: Das Training geschieht extern — das fertige Modell wird heruntergeladen —, Retrieval und Inferenz laufen lokal. Der Index ist eine SQLite-Datei im Anwendungs-Datenverzeichnis, die Inferenz übernimmt `llama.cpp`. Einen Server, der Anfragen von Anwendern entgegennimmt, gibt es schlicht nicht.
+Der gebündelte Modellpfad von LokLM fällt in Konstellation D: Extern trainierte Modelle werden heruntergeladen; die Dokumentenverarbeitung läuft danach lokal, die Modellinferenz nutzt `llama.cpp`. Arbeitsbereichsdaten nutzen SQLite, der Vektorindex hat einen separaten Speicher. Die [Datenschutz-Checkliste](/blog/was-privat-wirklich-heisst) behandelt Verschlüsselung, Arbeitskopien im Klartext und unveränderte Originaldateien.
+
+Optionale Ollama-Anbieter können den Verarbeitungsort für Chat, Embeddings oder Reranking ändern. Ein Server auf einem anderen Rechner erhält Eingaben für die gewählten Funktionen; der aktuelle Entwicklungsstand verlangt die ausdrückliche Freigabe dieses Ziels. Eine lokale Benutzeroberfläche belegt deshalb nicht allein den Verarbeitungsort.
+
+Diese Angaben entsprechen dem am **7. Oktober 2026** geprüften Entwicklungsstand. Kontrolliere deine installierte Version und Konfiguration; nicht jede aktuelle Änderung ist damit als bereits in 0.7.0 enthalten beschrieben.
 
 Lokales Fine-Tuning gehört nicht zum Funktionsumfang von LokLM. Wer ein Modell auf eigene Texte spezialisieren will, greift zu eigenständigen Werkzeugen (Unsloth, axolotl, transformers-trainer) — das entspricht Konstellation E und liegt außerhalb dessen, was LokLM abdeckt.
 
 ## Was diese Taxonomie nicht klärt
 
-Eine Taxonomie sortiert — sie urteilt nicht. Sie beantwortet nicht, **welche Konstellation zu welchem Zweck passt**. Konstellation A (alles in der Cloud) hat handfeste Vorteile: leistungsfähigere Modelle, null Einrichtungsaufwand, stets aktuell. Wer ausschließlich mit unkritischen Inhalten arbeitet — Blog-Texte, Coding-Hilfe, Alltagsfragen —, riskiert in A wenig.
+Eine Taxonomie bestimmt nicht, **welche Konfiguration zu deiner Arbeit passt**. Vergleiche den konkreten Dienst oder das Modell, verfügbare Hardware, Datenziele, Kosten und Antwortqualität. Weder „Cloud“ noch „lokal“ belegen diese Eigenschaften allein.
 
-Interessant wird Konstellation D, sobald sensible Inhalte im Spiel sind: Mandantenakten, Forschungsdrafts, Geschäftsunterlagen, medizinische Notizen. Dann verschiebt die Lokalität von Retrieval und Inferenz die rechtliche Pflichtenlage spürbar — die früheren Artikel der Reihe zeigen, wie.
+Dokumentenverarbeitung auf dem Gerät vermeidet die Übertragung dieser Eingaben an einen Modellserver anderswo. Zugriff auf das Gerät, Backups, Aufbewahrung und angemessene Nutzung bleiben zu prüfen. Lokalität bescheinigt weder Rechtskonformität noch richtige Antworten.
 
 ## Weiter im Cluster
 
-Mit dieser Taxonomie endet die konzeptionelle Vorrunde der Privacy-Säule. Vorausgegangen sind: [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport), [Quellenverweise als Datenschutz-Merkmal](/blog/quellenverweise-als-datenschutz).
+Verwandte Grundlagen: [Definition von "privat"](/blog/was-privat-wirklich-heisst), [EU AI Act](/blog/on-device-ki-unter-dem-eu-ai-act), [DSGVO und LLM](/blog/dsgvo-und-llm-datenexport) und [Quellenverweise richtig einordnen](/blog/quellenverweise-als-datenschutz).
 
-Die kommenden Beiträge werden konkret: Sie zeigen Workflows, mit denen eine [Anwaltskanzlei](/einsatz/anwalt) oder eine [Forschungsgruppe](/einsatz/forschung) lokale KI im Alltag einsetzt.
+Für praktische Prüfungen nutze den [Ablauf zur PDF-Quellenprüfung](/blog/pdf-mit-ki-quellen-pruefen) und den [Leitfaden für kleine GPUs](/blog/lokale-ki-4gb-vram). Der [Anwendungsfall Forschung](/einsatz/forschung) zeigt eine weitere Möglichkeit, die eigene Dokumentenarbeit zu organisieren.
 
 Die Pillar-Seiten: [Lokale KI](/lokale-ki) und [Architektur](/architektur). LokLM zum Testen: [Download](/#download).
 

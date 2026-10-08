@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS, independently reviewed from validated final answer only. Unresolved lead is safely source-scoped, but the answer repeats AC selection of South heading/issue date only, omits requested 14-day and 19-day alternatives and lacks North attribution. Both relevant complete 1:1/2:2 passages were preserved among all eight actual-fed inputs. Literal copied units are supported; completeness and answer-bearing relevance fail. 92120 ms native;64 thought tokens, forced closer2,86 visible tokens. This already-revealed case is known DEV."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS for missing proposal-source attribution. Current 5 projectors and 7 tablets are correct and locally supported by 3:3/4:4; this corrects AC visible value error in this observation. The same record describes proposal date April2, proposed9 tablets, explicit nonapproval and lack of authority, facts found only in actual input5:5; final answer cites only3:3/4:4. All three required passages were supplied. No factual extra is invented, but valid remaining IDs do not support the proposal clauses. 150274 ms native;64 thought tokens, forced closer2,202 visible tokens. Not a successful production replacement or unseen test."
+  }
+]

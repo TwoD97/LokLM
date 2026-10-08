@@ -1,0 +1,257 @@
+{
+  "kind": "safe-lean-delayed-grammar-diagnostic-observations",
+  "status": "Known DEV direct replay; not production or unseen validation.",
+  "privacy": "Fixed allowlist of successfully parsed final answers, source identities/offsets and scalar metadata only. No private check, thought text/token arrays, chat history, rejected answer/prose, prompt, source bodies or raw model response envelope is copied.",
+  "originalRaw": {
+    "path": "out/optimization-20261005/ae-lean-delayed-grammar-native-20261005-2353/raw.json",
+    "sha256": "43a4eb354f0aae2560dc65e3800f32991c4dd0f7efd1ecdcdee3c77c55ffa2b5",
+    "availability": "Local ignored generated artifact; this allowlisted observation file is intended for version control."
+  },
+  "inputPlan": {
+    "path": "out/optimization-20261005/ae-diagnostic-inputs.json",
+    "sha256": "aca66bd57f583ed86ecc48dda42087e485926b885bce8385d6238d241d959dc7",
+    "pairedInputsEqual": true
+  },
+  "startedAt": "2026-10-05T23:53:24.535Z",
+  "completedAt": "2026-10-06T00:00:52.367Z",
+  "requestedCells": [
+    "ab-fresh-01/thought64",
+    "ab-fresh-02/thought64",
+    "ab-fresh-01/thought0",
+    "ab-fresh-02/thought0"
+  ],
+  "runnerSha256": "654035252b21c97d9a732bfa73ee4a7092e05186677b7dcd2258787b49b17ea5",
+  "transitionHelperSha256": "1a9597137e19f78e8ec857674cf5278a6b7b36c32aefd90047d8d464aadd60ec",
+  "manifestSha256": "a153fccc912c4ce974aa80d588a04cd3c8359c29940098418d1b44b51fd11af3",
+  "loadMs": 15222,
+  "fingerprintsUnchangedAfter": true,
+  "configuration": {
+    "contextSize": 8192,
+    "gpuLayers": 14,
+    "threads": 6,
+    "batchSize": 254,
+    "vramPaddingBytes": 1073741824,
+    "kv": "q8_0",
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "perCallTimeoutMs": 180000,
+    "abortGraceMs": 15000
+  },
+  "model": {
+    "bytes": 2740937888,
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+  },
+  "actual": {
+    "gpu": "vulkan",
+    "layers": 14,
+    "context": 8192,
+    "batchSize": 254,
+    "kvKey": 8,
+    "kvValue": 8,
+    "threads": 6,
+    "maxThreads": 6,
+    "paddingBytes": 1073741824,
+    "wrapper": "Qwen3.5/per-cell-auto-or-discourage",
+    "thoughtClosingTokenCount": 1,
+    "thoughtClosingKind": "userDefined",
+    "forcedClosingTokenCount": 2
+  },
+  "timingInterpretation": "Native timings include native prefill and decoding, exclude reset/grammar/tokenization setup. visibleTokens counts the constrained structured response including private check, not user-visible final-answer tokens. firstVisibleMs is a grammar-phase callback time, not UI time or exact prefill.",
+  "cells": [
+    {
+      "id": "ab-fresh-01/thought64",
+      "caseId": "ab-fresh-01",
+      "thoughtBudget": 64,
+      "wrapperThoughts": "auto",
+      "startedAt": "2026-10-05T23:53:43.662Z",
+      "completedAt": "2026-10-05T23:55:36.737Z",
+      "promptSha256": "269266b05ed48a8184f78d38924f22b59300c922c76b92b1bcd171debe1595a8",
+      "systemPromptSha256": "0c26b1aa8bf719c34b31901d67cad3d734dc05b72aee573e2a709d5a8d7c863b",
+      "schemaSha256": "d54cdb0af0be0982338bc616396356933c17c451848fea6cf4b75fd3af5616d8",
+      "grammarMs": 5,
+      "exactPromptTokens": 1517,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "nativeMs": 113044,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "telemetry": {
+        "thoughtTokens": 64,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 147,
+        "sampledTokens": 211,
+        "combinedTokens": 213,
+        "firstVisibleMs": 41830,
+        "lastVisibleMs": 113041,
+        "responseChars": 299,
+        "thoughtTermination": "budget",
+        "grammarActivatedMs": 40552
+      },
+      "tokens": {
+        "usedInputTokens": 1518,
+        "usedOutputTokens": 211
+      },
+      "validated": {
+        "mode": "comparison",
+        "outcome": "unresolved",
+        "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days\\.” [doc:1, chunk:1].",
+        "spans": [
+          {
+            "source": "2:2",
+            "start": 103,
+            "end": 191
+          },
+          {
+            "source": "1:1",
+            "start": 95,
+            "end": 170
+          }
+        ],
+        "finalCitationIds": ["2:2", "1:1"]
+      }
+    },
+    {
+      "id": "ab-fresh-02/thought64",
+      "caseId": "ab-fresh-02",
+      "thoughtBudget": 64,
+      "wrapperThoughts": "auto",
+      "startedAt": "2026-10-05T23:55:36.738Z",
+      "completedAt": "2026-10-05T23:57:37.922Z",
+      "promptSha256": "5c0f5b86e43211323f9b6b0d65962811d94e0dde53cf2b678e4cd103c08ef997",
+      "systemPromptSha256": "1a6a96d6e315fd61a636d0da20b9f2e0b2cb732c16777c4702288f26727b45d9",
+      "schemaSha256": "0a43e0520364f6dafade94f97692717c77afbf289ef62ccda7da9d64bd01e3be",
+      "grammarMs": 2,
+      "exactPromptTokens": 1365,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": "answer",
+      "nativeMs": 121161,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "telemetry": {
+        "thoughtTokens": 64,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 178,
+        "sampledTokens": 242,
+        "combinedTokens": 244,
+        "firstVisibleMs": 40707,
+        "lastVisibleMs": 121159,
+        "responseChars": 430,
+        "thoughtTermination": "budget",
+        "grammarActivatedMs": 39459
+      },
+      "tokens": {
+        "usedInputTokens": 1366,
+        "usedOutputTokens": 242
+      },
+      "validated": null
+    },
+    {
+      "id": "ab-fresh-01/thought0",
+      "caseId": "ab-fresh-01",
+      "thoughtBudget": 0,
+      "wrapperThoughts": "discourage",
+      "startedAt": "2026-10-05T23:57:37.923Z",
+      "completedAt": "2026-10-05T23:59:11.847Z",
+      "promptSha256": "269266b05ed48a8184f78d38924f22b59300c922c76b92b1bcd171debe1595a8",
+      "systemPromptSha256": "0c26b1aa8bf719c34b31901d67cad3d734dc05b72aee573e2a709d5a8d7c863b",
+      "schemaSha256": "d54cdb0af0be0982338bc616396356933c17c451848fea6cf4b75fd3af5616d8",
+      "grammarMs": 2,
+      "exactPromptTokens": 1519,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "nativeMs": 93903,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "telemetry": {
+        "thoughtTokens": 0,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 0,
+        "visibleTokens": 168,
+        "sampledTokens": 168,
+        "combinedTokens": 168,
+        "firstVisibleMs": 13184,
+        "lastVisibleMs": 93902,
+        "responseChars": 330,
+        "thoughtTermination": "disabled",
+        "grammarActivatedMs": 1
+      },
+      "tokens": {
+        "usedInputTokens": 1518,
+        "usedOutputTokens": 168
+      },
+      "validated": {
+        "mode": "comparison",
+        "outcome": "unresolved",
+        "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “\\# Nuvrek Filterintervall — Notiz Süd\n” [doc:2, chunk:2]; “Ausgestellt am 2044\\-08\\-06 für NP\\-6\\-Pumpenfilter der Kampagne S8\\.” [doc:2, chunk:2]; “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “Diese Notiz enthält weder eine Freigabeunterschrift noch einen Vermerk über einen Vorrang gegenüber der Notiz Nord\\.” [doc:2, chunk:2].",
+        "spans": [
+          {
+            "source": "2:2",
+            "start": 0,
+            "end": 37
+          },
+          {
+            "source": "2:2",
+            "start": 38,
+            "end": 102
+          },
+          {
+            "source": "2:2",
+            "start": 103,
+            "end": 191
+          },
+          {
+            "source": "2:2",
+            "start": 192,
+            "end": 307
+          }
+        ],
+        "finalCitationIds": ["2:2"]
+      }
+    },
+    {
+      "id": "ab-fresh-02/thought0",
+      "caseId": "ab-fresh-02",
+      "thoughtBudget": 0,
+      "wrapperThoughts": "discourage",
+      "startedAt": "2026-10-05T23:59:11.848Z",
+      "completedAt": "2026-10-06T00:00:52.366Z",
+      "promptSha256": "5c0f5b86e43211323f9b6b0d65962811d94e0dde53cf2b678e4cd103c08ef997",
+      "systemPromptSha256": "1a6a96d6e315fd61a636d0da20b9f2e0b2cb732c16777c4702288f26727b45d9",
+      "schemaSha256": "0a43e0520364f6dafade94f97692717c77afbf289ef62ccda7da9d64bd01e3be",
+      "grammarMs": 2,
+      "exactPromptTokens": 1367,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "nativeMs": 100498,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "telemetry": {
+        "thoughtTokens": 0,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 0,
+        "visibleTokens": 193,
+        "sampledTokens": 193,
+        "combinedTokens": 193,
+        "firstVisibleMs": 12139,
+        "lastVisibleMs": 100495,
+        "responseChars": 569,
+        "thoughtTermination": "disabled",
+        "grammarActivatedMs": 1
+      },
+      "tokens": {
+        "usedInputTokens": 1366,
+        "usedOutputTokens": 193
+      },
+      "validated": {
+        "mode": "answered",
+        "outcome": null,
+        "answer": "Staff may lend 5 portable projectors and 7 tablets. The tablet working paper does not change these limits as it was not approved. [doc:3, chunk:3] [doc:4, chunk:4]\n\nThe tablet limit remains 7 because the working paper suggesting 9 was not approved by the facilities council. [doc:3, chunk:3] [doc:4, chunk:4]",
+        "spans": [],
+        "finalCitationIds": ["3:3", "4:4"]
+      }
+    }
+  ]
+}

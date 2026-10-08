@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "decisionCorrectness": "incorrect",
+    "contextSufficiency": "sufficient",
+    "unsupportedExtraClaims": ["The current drill limit on 2031-06-01 is three."],
+    "notes": "The final answer gives current three drills rather than the approved four effective2031-05-15; five saws is correct. Both quotes and program-derived citations point accurately to base rule3:3, but supplied amendment4:4 is ignored. Exact quote membership does not establish applicability for2031-06-01. This separate one-case evidence-first plus clarification diagnostic is a semantic failure despite successful generation/parser acceptance. No hidden check or raw envelope was retained/read."
+  }
+]

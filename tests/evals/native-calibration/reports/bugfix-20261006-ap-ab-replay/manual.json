@@ -1,0 +1,41 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "requestedValuesCorrect": true,
+    "strictFormatSatisfied": false,
+    "notes": "Strict format/relevance partial. Both actual source intervals are present and correct: South 19 days at 2:2 and North 14 days at 1:1 for the same NP-6/S8 scope. The evidence-scoped unresolved lead does not choose a winner or assert external nonapproval. All quoted text is original and correctly cited. However, the final includes four units, adding an unnecessary South issue-date sentence and a literal North heading/newline to the two required values; this fails the original one-short-sentence/no-irrelevant-appendix requirement. Main semantics and local attribution pass separately. App 102427 ms/native 91763 ms."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "requestedValuesCorrect": null,
+    "failureCategory": "completed-non-answer",
+    "notes": "Strict substantive nonpass. The completed final is only an ellipsis plus canonical references 3:3, 5:5 and 4:4. It provides no projector/tablet limits, applicability/change decision or explicit nonapproval explanation. All required originals were actually supplied and the IDs are valid, but links without an answer do not satisfy any requested part. This is a parser-accepted completed quality failure, not timeout, parser rejection, false numerical claim or a recoverable hidden answer. No discarded content is inferred. App 109181 ms/native 92018 ms."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "requestedValuesCorrect": true,
+    "strictFormatSatisfied": true,
+    "notes": "Strict PASS. Actual supplied plan 7:7 gives 29835 CHF planned 2037 main-campus receipts, actual 6:6 gives 27460 CHF recorded 2036 receipts; difference 2375 CHF is correct. The one short sentence preserves actual/planned status and years, locally cites both inputs, excludes reserve and Annex and adds no unsupported claim. It need not repeat both input numbers. App 122706 ms/native 105800 ms."
+  }
+]

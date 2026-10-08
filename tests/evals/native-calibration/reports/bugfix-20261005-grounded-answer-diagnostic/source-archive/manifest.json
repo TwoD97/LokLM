@@ -1,0 +1,54 @@
+{
+  "purpose": "Byte-identical pre-relocation sources plus an exactly hash-verified reconstruction of the original frozen C parser. Native replay uses serialized prompts, not the parser.",
+  "archive": "c-prototype-relocation.zip",
+  "archiveSha256": "5b106a9b7f3a2d5f8f68641ca492e568cea3083cfc52af46cd023a43c11650cf",
+  "frozenCPlan": {
+    "path": "out/optimization-20261005/grounded-answer-C-plan.json",
+    "sha256": "0f299bf58f2e54003e674edf09ec20098c8afa40ed14ee18fb5c4059b69fba28"
+  },
+  "entries": [
+    {
+      "path": "src/main/services/qa/groundedAnswer.ts",
+      "bytes": 9504,
+      "sha256": "cc7ca1e7c497b446b173da832aa3b8c7d3c367b505b66e560e235634daf4e7d3",
+      "frozenCPlanSha256": "3fb773f172d2467cf0bb2c44472af0c9321e4bb86137cd01172cd5c73028128f",
+      "matchesFrozenCPlan": false
+    },
+    {
+      "path": "src/main/services/qa/groundedAnswerPlan.ts",
+      "bytes": 7490,
+      "sha256": "187b8e667c27536f7e1fb2e194b7e489ea3b3dfc212792fbc06123952aec3c50",
+      "frozenCPlanSha256": "187b8e667c27536f7e1fb2e194b7e489ea3b3dfc212792fbc06123952aec3c50",
+      "matchesFrozenCPlan": true
+    },
+    {
+      "path": "src/main/services/qa/sourceQuote.ts",
+      "bytes": 3102,
+      "sha256": "a9ea2b880119982bba6174a52bad0515324e1ac354244a346113214dc38fe7a8",
+      "frozenCPlanSha256": null,
+      "matchesFrozenCPlan": null
+    },
+    {
+      "path": "tests/evals/native-calibration/groundedDiagnostic20261005.ts",
+      "bytes": 3256,
+      "sha256": "f428ab1c303286392934352578001314c277cc8625111cec92f84a6d5387f7fa",
+      "frozenCPlanSha256": "f428ab1c303286392934352578001314c277cc8625111cec92f84a6d5387f7fa",
+      "matchesFrozenCPlan": true
+    },
+    {
+      "path": "tests/bench/grounded-answer-20261005.cjs",
+      "bytes": 12711,
+      "sha256": "ada379d7bfd3de1e4335230d58e3c9d7c5b034d0fb5f2ace18cce75529e3a844",
+      "frozenCPlanSha256": "ada379d7bfd3de1e4335230d58e3c9d7c5b034d0fb5f2ace18cce75529e3a844",
+      "matchesFrozenCPlan": true
+    }
+  ],
+  "frozenParserReconstruction": {
+    "archivePath": "frozen-C/src/main/services/qa/groundedAnswer.ts",
+    "originalPath": "src/main/services/qa/groundedAnswer.ts",
+    "bytes": 9309,
+    "sha256": "3fb773f172d2467cf0bb2c44472af0c9321e4bb86137cd01172cd5c73028128f",
+    "matchesFrozenCPlan": true,
+    "method": "Reversed only the two post-C typeof guards and the explicit source object copy; exact bytes accepted only after SHA-256 matched frozen C."
+  }
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "With normal whole-document expansion enabled, actual supplied context now includes both approval header 13:14 and measurement table 13:15. The final answer gives run-B water consumption 24 litres with 13:15 and approval date 2031-06-11 with 13:14, repeating both in explicitly mapped citation bullets. No unrelated duration material or unsupported extras. This is a separate known-case configuration diagnostic after the original no-expansion failure, not a replacement or fresh evaluation. Independently cross-reviewed."
+  }
+]

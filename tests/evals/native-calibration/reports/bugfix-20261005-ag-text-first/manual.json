@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "ab-fresh-02/thought64",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS for this one known DEV observation. Exact actual sources establish current5 projectors via approved/effective amendment4:4, retained7 tablets via base3:3 and unchanged-clause rule4:4, and proposed9 with explicit nonapproval/no authority in5:5. The final answer preserves the asked April8 date, quantities, proposal status and no-effect conclusion, with all three canonical refs attached to the coherent two-sentence record. No short-sentence constraint was requested for this case. Native177330ms leaves2670ms under the diagnostic180000ms bound; not an end-to-end app timing or general quality guarantee. No prior rejected AF/AE content is inferred."
+  }
+]

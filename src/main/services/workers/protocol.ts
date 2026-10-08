@@ -105,12 +105,17 @@ export interface LlmGenerateRawPayload {
   maxTokens?: number
   plannedContextTokens?: number
   /** Optional node-llama-cpp GbnfJsonSchema. The worker builds (and caches) a
-   *  grammar from it and constrains generation to valid JSON. On any grammar
-   *  build failure the worker logs a warn and generates without it. */
+   *  grammar from it and constrains generation to valid JSON. Unavailable or
+   *  failed grammar compilation rejects the request before generation. */
   jsonSchema?: object
   /** Disable the model's reasoning segment (budgets.thoughtTokens = 0). Used by
    *  structured/utility generations (quiz) where thinking only adds latency. */
   noThink?: boolean
+  /** Optional maximum for the explicit Qwen3.5 adapter. Unknown wrappers keep
+   * the normal zero-thought path; identified adapter failures reject the call. */
+  maxBoundedThoughtTokens?: 64 | 128 | 192
+  /** Explicit per-call opt-out; omission retains existing utility sampling. */
+  repeatPenalty?: false
 }
 
 export interface EmbedderLoadPayload {

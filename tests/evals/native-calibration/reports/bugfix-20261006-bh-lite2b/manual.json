@@ -1,0 +1,28 @@
+[
+  {
+    "runId": "BH01",
+    "caseId": "ab-fresh-01",
+    "attempted": 1,
+    "retries": 0,
+    "acceptedFinal": false,
+    "answer": null,
+    "strictPass": false,
+    "productAcceptancePass": false,
+    "semanticPass": null,
+    "citationSupportPass": null,
+    "citationCoveragePass": null,
+    "languagePass": null,
+    "briefSingleSentencePass": null,
+    "fixedParserDiagnostics": {
+      "accepted": false,
+      "reasons": ["answer"],
+      "ordinaryDetails": [],
+      "comparisonDetails": ["summary_display"]
+    },
+    "directDiagnosticMs": 14885,
+    "direct180SecondTargetPass": true,
+    "coldArmMs": 30492,
+    "measuredFullApplicationTurn": false,
+    "notes": "Normal native generation completed, but the unchanged parser admitted no final answer. The fixed summary_display category does not reveal the rejected body or identify its exact defect. All semantic, citation, language and format grades are unassessable; the original strict/product gate is a nonpass."
+  }
+]

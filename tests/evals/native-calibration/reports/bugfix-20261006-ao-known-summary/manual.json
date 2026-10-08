@@ -1,0 +1,121 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual4:7 and3:6 match both selected ISO deadline sentences:2027-05-15 and2027-05-08 for the same Orvo shipment. Compact framed uncertainty is limited to supplied excerpts, without winner, chronology, nonapproval denial, replacement event or global absence assertion. Both local references and one-short-sentence format satisfied, no retention appendix. App130811ms/native120125ms."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Planned2025 service-credit78165GBP minus actual2024 revenue73410GBP equals4755GBP. Both actual value-bearing tables2:5/1:2 cited locally, years/status retained, reserve excluded, one short German sentence. No requirement to repeat input numbers, no claimed achieved target. App163067ms/native145502ms."
+  },
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied 3:3 establishes effective 2031-01-10 baseline 3 drills and 5 saws; approved 4:4 changes only drills to 4 from 2031-05-15. All current, historical and effective-date clauses are supported, including current 4/5 on 2031-06-01. Both local references attach the coherent rule-composition paragraph. No extra unsupported authority claim; no one-sentence requirement. App 179767 ms, native 169229 ms; only 233 ms below the app deadline."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied 9:9 supports current 72 EUR and effective 2031-03-01. Actual 10:10 explicitly supports proposed 81 EUR, assembly not yet voted, and no change to the current rule. Both references locally cover the coherent answer. The vote fact is explicit rather than inferred from silence. App 153077 ms, native 135947 ms."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied 11:11 and 12:12 establish same cabinet/date, 12 sensors at 08:00 UTC before activity versus 17 at 18:00 UTC after activity. The final correctly says these observations do not contradict each other and supplies both requested counts/times, with both local references. No invented different location or unrelated material. App 174563 ms, native 157191 ms; 5437 ms below the app deadline."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "unclear",
+    "operationalOutcome": "timeout",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational nonpass at 180234 ms. One cancelled terminal contains only the fixed interruption notice; no validated answer exists. Both required 16:17 and 17:18 were actually supplied. Native callback counters show progress but do not reveal a completed sum, source choice or scope judgment. No semantic or citation verdict is inferred. Remaining reasoning 11/12 and queued transfer 01/04 were not attempted."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "unclear",
+    "observationStatus": "unobserved",
+    "semanticJudgment": null,
+    "notes": "Not attempted on AO after reasoning09 triggered the declared timeout stop. No inherited pass/fail or semantic inference from earlier candidates.",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "unclear",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": []
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "unclear",
+    "observationStatus": "unobserved",
+    "semanticJudgment": null,
+    "notes": "Not attempted on AO after reasoning09 triggered the declared timeout stop. No inherited pass/fail or semantic inference from earlier candidates.",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "unclear",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": []
+  },
+  {
+    "caseId": "authority-transfer-01",
+    "repetition": 0,
+    "verdict": "unclear",
+    "observationStatus": "unobserved",
+    "semanticJudgment": null,
+    "notes": "Not attempted on AO after reasoning09 triggered the declared timeout stop. No inherited pass/fail or semantic inference from earlier candidates.",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "unclear",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": []
+  },
+  {
+    "caseId": "authority-transfer-04",
+    "repetition": 0,
+    "verdict": "unclear",
+    "observationStatus": "unobserved",
+    "semanticJudgment": null,
+    "notes": "Not attempted on AO after reasoning09 triggered the declared timeout stop. No inherited pass/fail or semantic inference from earlier candidates.",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "unclear",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": []
+  }
+]

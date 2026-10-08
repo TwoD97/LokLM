@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict known-case pass independently cross-reviewed. One coherent ordinary paragraph gives current4drills/5saws on2031-06-01, original3drills, approval2031-05-02, effective2031-05-15 and unchanged5saw limit. Actual supplied3:3+4:4 locally support every claim. Completed once138471ms without fallback/retry, typed-comparison-v7 answered. Actual8K/q8_0/14layers. Membership alone is not semantic verification; this observation is one knownDEV gate, not general reliability evidence."
+  }
+]

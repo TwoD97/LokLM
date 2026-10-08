@@ -1,0 +1,22 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictPass": true,
+    "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “abf\\-south\\.md”: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage”; “abf\\-north\\.md”: “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days”. [doc:2, chunk:2] [doc:1, chunk:1]",
+    "acceptedFinalAvailable": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "original-required-notes-reviewed",
+    "decisionCorrectness": "correct",
+    "requestedFactsAndDecisionCorrect": true,
+    "formatRequirementSatisfied": true,
+    "responseLanguageContractSatisfied": true,
+    "productAcceptance": true,
+    "unsupportedExtraClaims": [],
+    "missingRequiredFacts": [],
+    "missingRequiredCitations": [],
+    "notes": "Strict PASS under the unchanged original key. The exact final quotes South 19 days and North 14 days, both for NP-6 campaign S8. Their 2:2 and 1:1 references match the observed citation-stage fixture identities; the original key permits this shared local pair on the single comparison sentence. Both quotations match their original value-bearing fixtures. The German lead scopes uncertainty to supplied evidence and selects no binding winner; no global absence, approval event, different scope, chronology, supersession or arithmetic is invented. One brief 316-codepoint sentence passes the requested format. German framing with unchanged German/English literal source quotations satisfies the existing product-language contract. This is one known development case, not fresh or thirteen-case validation. No private check, hidden thought or rejected body was inspected."
+  }
+]

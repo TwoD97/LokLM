@@ -262,6 +262,12 @@ export async function allocateChat(options: {
 }> {
   const target = Math.max(MIN_CHAT_CONTEXT, options.plan.contextSize)
   const types = [...new Set<KvCacheType>([options.plan.kvCacheType, 'q8_0', 'q4_0', 'f16'])]
+  const contextAttempts = types.map((type) => ({ type, exactTarget: false }))
+  // The coarse RAM/profile estimate can recommend q4 even when native q8 fits
+  // the same allocation. Try q8 without sacrificing the requested window; on
+  // memory/compatibility rejection retain the complete original fallback order.
+  if (options.plan.kvCacheType === 'q4_0')
+    contextAttempts.unshift({ type: 'q8_0', exactTarget: true })
   const reuse = options.layerPlanReuse
   const rememberedLayers = reuse?.cache.get(reuse.key)
   const minimumHintContext = reuse?.cache.minimumContext(reuse.key)
@@ -284,7 +290,7 @@ export async function allocateChat(options: {
     const usingHint = attempt === -1
     let model: ChatModel | null = null
     let rejectedHint = false
-    let hintCleanupFailed = false
+    let contextCleanupFailed = false
     try {
       model = await options.loadModel({
         modelPath: options.modelPath,
@@ -301,22 +307,34 @@ export async function allocateChat(options: {
           'Not enough GPU memory for this model. Choose a smaller model or close other GPU applications.',
         )
       let memoryFailure = false
-      for (const type of types) {
+      for (const { type, exactTarget } of contextAttempts) {
         const kvEnum = type === 'f16' ? null : type === 'q8_0' ? 'Q8_0' : 'Q4_0'
         try {
           const context = await model.createContext({
-            contextSize: { min: MIN_CHAT_CONTEXT, max: target },
+            contextSize: { min: exactTarget ? target : MIN_CHAT_CONTEXT, max: target },
             flashAttention: true,
             batchSize: options.batchSize,
             ...(kvEnum
               ? { experimentalKvCacheKeyType: kvEnum, experimentalKvCacheValueType: kvEnum }
               : {}),
           })
+          if (exactTarget && context.contextSize !== target) {
+            try {
+              await context.dispose()
+            } catch (error) {
+              contextCleanupFailed = true
+              throw error
+            }
+            options.log(
+              'Exact-target q8 context did not preserve the requested window; using bounded fallback',
+            )
+            continue
+          }
           if (usingHint && minimumHintContext != null && context.contextSize < minimumHintContext) {
             try {
               await context.dispose()
             } catch (error) {
-              hintCleanupFailed = true
+              contextCleanupFailed = true
               throw error
             }
             rejectedHint = true
@@ -335,11 +353,11 @@ export async function allocateChat(options: {
           }
         } catch (error) {
           lastError = error
-          if (rejectedHint || hintCleanupFailed) throw error
+          if (rejectedHint || contextCleanupFailed) throw error
           memoryFailure ||= isMemoryError(error)
           if (!isMemoryError(error) && !isContextCompatibilityError(error)) throw error
           options.log(
-            `Context ${type}, ${MIN_CHAT_CONTEXT}-${target} tokens rejected: ${String(error)}`,
+            `Context ${type}, ${exactTarget ? target : MIN_CHAT_CONTEXT}-${target} tokens rejected: ${String(error)}`,
           )
         }
       }
@@ -356,14 +374,20 @@ export async function allocateChat(options: {
         // Never overlap a fallback allocation with a failed disposal. Ordinary
         // corrupt-model / driver errors remain fail-fast rather than retried.
         if (model) await model.dispose()
-        if (hintCleanupFailed) throw error
+        if (contextCleanupFailed) throw error
         if (!rejectedHint && !isMemoryError(error) && !isContextCompatibilityError(error))
           throw error
         options.log(`GPU layer plan cache fallback: ${String(error)}; retrying automatic fit`)
         layers = { fitContext: { contextSize: target } }
         continue
       }
-      if (!isMemoryError(error) || !model || model.gpuLayers <= 1 || attempt === 3) {
+      if (
+        contextCleanupFailed ||
+        !isMemoryError(error) ||
+        !model ||
+        model.gpuLayers <= 1 ||
+        attempt === 3
+      ) {
         if (model) await model.dispose().catch(() => undefined)
         throw error
       }

@@ -11,6 +11,7 @@ import {
   applyRecencyBoost,
   applyLanguageMatchBoost,
   splitQuestions,
+  documentLexicalQuery,
   extractCodeIdentifiers,
   extractRawIdentifiers,
   expandBm25Query,
@@ -135,9 +136,9 @@ export interface RetrievalOptions {
   decomposeQuestions?: boolean
   /** Score-gap dynamic-K (ADR-0006 fix #3). When true, the final slate is trimmed
    *  at the first big relative drop in rerank/RRF score (clamped to [2, topK])
-   *  instead of always returning a fixed topK. A precision knob — recall-neutral
-   *  in the retrieval eval — so it's OFF by default and meant to be A/B-ed on the
-   *  answer-quality eval before any default flip. */
+   *  instead of always returning a fixed topK. Scores are nonnegative ranking
+   *  weights, not raw logits. A cut excludes its suffix from primary selection.
+   *  OFF by default: score gaps do not establish relevance or preserve recall. */
   dynamicK?: boolean
   /** Drop reranked chunks scoring below this floor before diversification +
    *  the topK slice, so a fixed topK can't pad the fed set with sub-relevant
@@ -641,16 +642,23 @@ export class RetrievalService {
     // even when the user's query was clearly about a different (smaller)
     // doc in the workspace.
     // Fix #3 (opt-in, default off): score-gap dynamic-K trims the slate when the
-    // reranker/RRF scores fall off a cliff. A precision knob (recall-neutral in
-    // the eval), gated so it can be A/B-ed on the answer-quality eval before any
-    // default flip. minK clamps to topK so a tiny topK is never grown.
+    // nonnegative adjusted reranker/RRF weights fall off a cliff. Keep it
+    // opt-in: rank gaps are not calibrated relevance and can reduce recall.
+    // minK clamps to topK so a tiny topK is never grown.
     const effectiveTopK = opts.dynamicK
-      ? dynamicScoreCutCount(postRank, Math.min(2, topK), topK)
+      ? dynamicScoreCutCount(postRank, Math.min(2, topK), topK, 'nonnegative')
       : topK
+    // Restrict eligibility only for a real adaptive cut. Reducing the count
+    // alone lets diversity or code-share pull a weaker suffix hit back ahead
+    // of a stronger same-document hit. No cliff retains the wider fixed-K pool.
+    const selectionPool =
+      opts.dynamicK && effectiveTopK < Math.min(topK, postRank.length)
+        ? postRank.slice(0, effectiveTopK)
+        : postRank
     const diversified =
       opts.documentDiversity === false
-        ? postRank.slice(0, effectiveTopK)
-        : diversifyByDocument(postRank, effectiveTopK)
+        ? selectionPool.slice(0, effectiveTopK)
+        : diversifyByDocument(selectionPool, effectiveTopK)
     // Code-aware (ADR-0006, fix #2): guarantee code chunks a share of the final
     // top-K on code-INTENT queries OR in ANY codebase workspace — so a prose
     // question like "how does the auth class work" (which names no identifier)
@@ -660,7 +668,7 @@ export class RetrievalService {
       codeWorkspace || extractCodeIdentifiers(trimmed).length > 0
         ? ensureCodeShare(
             diversified,
-            postRank,
+            selectionPool,
             effectiveTopK,
             Math.max(1, Math.ceil(effectiveTopK * DEFAULT_CODE_MIN_FRACTION)),
           )
@@ -789,10 +797,10 @@ export class RetrievalService {
   ): Promise<[SearchHit[], SearchHit[]]> {
     abortSignal?.throwIfAborted()
     // R3: the lexical arm gets the German→english bridge + identifier subtokens
-    // appended (codebase workspaces only). The dense arm keeps the raw query —
-    // the multilingual embedder handles semantics; the expansion exists because
-    // FTS5 can't. Additive OR-terms, so recall can only grow.
-    const lexicalQ = codeWorkspace ? expandBm25Query(q) : q
+    // appended (codebase workspaces only). Ordinary document queries remove
+    // function-word-only BM25 votes; explicit literals retain existing behavior.
+    // The dense arm keeps the raw query in both modes.
+    const lexicalQ = codeWorkspace ? expandBm25Query(q) : documentLexicalQuery(q)
     const bm25Promise = wsdb
       ? wsdb.searchChunks(lexicalQ, candidateK, searchOpts)
       : this.db.documents().searchChunks(workspaceId, lexicalQ, candidateK, searchOpts)

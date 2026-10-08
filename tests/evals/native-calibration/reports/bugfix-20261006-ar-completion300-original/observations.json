@@ -1,0 +1,380 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-ar-completion300-original",
+  "classification": "Known DEV AR/v19 correctness collection under a new prospective 300-second protocol. Two original heldout cases, unchanged strict criteria; no fresh claim or replacement of AQ180 results.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-original/raw.json",
+    "sha256": "d59392d9088dfbfa79133f29364ebda37812a7603894c30cac6d70d11528cf4e",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ar-completion300-original-execution-declaration.json",
+    "sha256": "d8aaebbb42e39762087a6bf7a592643257462bf987b0e9943fc1fabc97311b7c",
+    "frozenAt": "2026-10-06T05:25:39.418Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ar-completion300-original-postverify.json",
+    "sha256": "f97a91070f85ad27f5b465f96efddf35c9904381a38b39b0499cea2690fb7eae",
+    "verifiedAt": "2026-10-06T05:32:19.364Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 0,
+    "safeToContinue": false,
+    "cleanupVerified": true,
+    "requestCompleted": true,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": ["heldout-10", "heldout-06"],
+  "attemptedCases": ["heldout-10", "heldout-06"],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 2,
+    "attempted": 2,
+    "completedAnswers": 2,
+    "strictPasses": 2,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "completedWithin180Seconds": 2,
+    "parserRejections": 0
+  },
+  "startedAt": "2026-10-06T05:26:00.236Z",
+  "collectionCompletedAt": "2026-10-06T05:32:02.395Z",
+  "closureVerifiedAt": "2026-10-06T05:32:19.364Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "3e6ed6bfa07894504f41b5c4dea15bb07223658c27e01b1e61a6d395c533bbb1",
+    "fixtureLockSha256": "f25a70de7be8ffe38bca0606aabe5b467cb84c14367a1e10c8cabca74d56c642",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 6,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "The prospective 300-second app cap includes retrieval/preparation; native timing is a subset. Observed within180 is reported separately and does not change the old AQ180 gate. Constrained-response tokens include private check and JSON syntax, not only displayed prose. External-line-break scalars identify no location/cause.",
+  "queries": [
+    {
+      "caseId": "heldout-10",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Als Versandfrist ist 2027\\-05\\-15 eingetragen\\.” [doc:4, chunk:7]; “The dispatch deadline for that batch is 2027\\-05\\-08\\.” [doc:3, chunk:6].",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": ["4:7", "3:6", "1:3", "1:2", "5:8", "2:4", "6:9", "2:5", "1:1"],
+      "finalCitationIds": ["4:7", "3:6"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 141323,
+        "firstVisibleTokenMs": 141323,
+        "terminalMs": 141324,
+        "totalMs": 141325,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 130993,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 40,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 130850,
+            "grammarMs": 7,
+            "promptFitMs": 21,
+            "nativeMs": 130821,
+            "firstTextMs": 81384,
+            "lastTextMs": 130819,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 228,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2045,
+            "usedOutputTokens": 236,
+            "boundedThoughts": {
+              "promptTokens": 2044,
+              "prefillBatches": 9,
+              "prefillTokens": 2043,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 108,
+              "combinedTokens": 238,
+              "firstVisibleMs": 81384,
+              "lastVisibleMs": 130819,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 0,
+          "inspectedChars": 0,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "heldout-06",
+      "finalAnswer": "Die geplanten Erlöse für 2025 übersteigen die tatsächlichen Erlöse von 2024 um 4755 GBP. [doc:2, chunk:5] [doc:1, chunk:2]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": ["1:1", "2:5", "2:4", "6:9", "1:2", "1:3", "3:6", "4:7", "5:8"],
+      "finalCitationIds": ["2:5", "1:2"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 168172,
+        "firstVisibleTokenMs": 168172,
+        "terminalMs": 168172,
+        "totalMs": 168172,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 150955,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 40,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 150820,
+            "grammarMs": 4,
+            "promptFitMs": 27,
+            "nativeMs": 150789,
+            "firstTextMs": 86454,
+            "lastTextMs": 150787,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 322,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2058,
+            "usedOutputTokens": 269,
+            "boundedThoughts": {
+              "promptTokens": 2057,
+              "prefillBatches": 9,
+              "prefillTokens": 2056,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 141,
+              "combinedTokens": 271,
+              "firstVisibleMs": 86454,
+              "lastVisibleMs": 150787,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 88,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    }
+  ],
+  "scope": {
+    "originalCriteriaUnchanged": true,
+    "newProspective300SecondProtocol": true,
+    "originalAQ180AggregateUnchanged": true,
+    "noFreshClaim": true,
+    "futureFreshFactsAuthored": false,
+    "laterGroupsRequireSeparateGrant": true
+  },
+  "captureStatus": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "residualCaptureCount": 0
+  }
+}

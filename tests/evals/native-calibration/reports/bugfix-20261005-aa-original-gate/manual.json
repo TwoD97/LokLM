@@ -1,0 +1,27 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "Draft B superseded draft A.",
+      "2027-05-15 is the governing final deadline."
+    ],
+    "notes": "Critical false-authority failure independently confirmed. Both actual supplied drafts 3:6 and 4:7 have the same issue date and contain no approval signature or documentary supersession statement. The answer nevertheless selects May 15 and invents replacement of A by B, while explicitly acknowledging absent proof. Valid dates, canonical source IDs and single-sentence form do not support those claims. This recreates the material original failure and is worse than Z's precision partial. One completed 159571 ms call, no retry; actual 8192 / q8_0 / 14 GPU layers. Original06 already began automatically within the declared two-case gate; all later groups held."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: planned 78165 GBP for 2025 minus recorded 73410 GBP for 2024 is 4755 GBP; exact actual table sources2:5/1:2 support every number, year/status and result. One concise German sentence with local canonical references and no extra assumption. Arithmetic success does not offset the critical conflict failure in first case10. One completed 132236 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

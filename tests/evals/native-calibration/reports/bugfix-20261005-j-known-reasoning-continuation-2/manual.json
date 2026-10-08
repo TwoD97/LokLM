@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Both supplied paragraphs concern the same tank, time and scope. The rendered comparison includes each original quantity plus exact program conversions to 2750 L, with 6:6 and 5:5 respectively. The compatible conclusion, requested common units and canonical source mapping are supported. Verbose quote-first display is a presentation tradeoff. One completed answer in 102.489 seconds; actual 8K/f16/14 layers, native stopGenerationTrigger, responseChars 420."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The exact 8:8/7:7 paragraphs preserve identical test conditions and absence of documentary priority/correction. The visible arithmetic appendix correctly gives 150 s and 135 s from 2,25 minutes, each locally cited. The unresolved outcome has both requested values and does not invent a governing source. One completed answer in 143.239 seconds; actual 8K/f16/14 layers, native stopGenerationTrigger, responseChars 598."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The ordinary answer correctly gives current 72 EUR, the 2031-02-03 approval and 2031-03-01 effective date from 9:9, plus later proposed 81 EUR, no assembly vote and explicit nonrevocation from 10:10. Both canonical citations are appended to the same answer record, with no unsupported future-rule clause or false refusal. One completed answer in 161.432 seconds; actual 8K/f16/14 layers, native stopGenerationTrigger, responseChars 824."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The fixed deadline expired at 180.325 seconds with only a cancelled terminal/interruption note. Both required inventory passages 11:11/12:12 were supplied. Actual restored capacity was 8K/q8_0/14 layers. Native finally elapsed159.883s cancelled=true, with no completed stopReason/responseChars, parsed result or parser rejection. No semantic compatibility judgment is inferred. This continuation requested03–12 and stopped after06;07–12 remain unobserved. Parent requested a hold before any additional continuation/control, so no administrative cancellations or further calls were introduced."
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "strictContentPass": false,
+    "citationSupport": "partial",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unsupported-joint-applicability",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": ["Both conflicting same-scope intervals apply."],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict NONPASS: unsupported joint applicability. Both 14-day North and 19-day South values and their mappings are correct, both actual passages 1:1/2:2 are locally cited, and one short sentence is used. However, the answer says gelten beide Intervalle in response to which binding interval applies. Neither passage establishes that both incompatible same-scope intervals govern. The South note lacking priority confirmation does not repair that assertion or clearly state the supplied evidence cannot establish a governing choice. This is not an invented single winner, chronology or citation-ID error. Valid values and references do not support the added applicability claim."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual 3:3/4:4/5:5 support current 5 projectors and retained 7 tablets on the asked date. The later paper circulation date April 2 and explicit lack of facilities-council approval are supported; the final states the paper does not change the limits and gives the original key-required nonapproval reason. All three locally attached references cover the coherent paragraph. No authority, value or extra-date error; no one-sentence requirement applies. App180305ms is 305ms above180, separate from correctness."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual 6:6/7:7 support recorded2036 receipts27460CHF and planned2037 receipts29835CHF; subtraction yields2375CHF. The short single sentence retains recorded versus planned status and correct years with both local input references. It excludes the reserve and Annex. The original question asks the difference, not explicit repetition of both numerical inputs; no additional format or workings requirement is introduced."
+  }
+]

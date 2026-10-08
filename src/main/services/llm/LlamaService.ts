@@ -1126,6 +1126,9 @@ export class LlamaService {
       plannedContextTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
+      maxBoundedThoughtTokens?: 64 | 128 | 192 | undefined
+      /** Explicit per-call opt-out; omission preserves the provider default. */
+      repeatPenalty?: false | undefined
       systemPrompt?: string | undefined
       temperature?: number | undefined
       requireComplete?: boolean | undefined
@@ -1133,6 +1136,13 @@ export class LlamaService {
     } = {},
   ): Promise<string> {
     opts.abortSignal?.throwIfAborted()
+    if (
+      opts.maxBoundedThoughtTokens !== undefined &&
+      opts.maxBoundedThoughtTokens !== 64 &&
+      opts.maxBoundedThoughtTokens !== 128 &&
+      opts.maxBoundedThoughtTokens !== 192
+    )
+      throw new RangeError('Unsupported bounded reasoning limit')
     this.touchUsage()
     if (!this.isReady() || !this.client) {
       throw new Error('Model is not loaded.')
@@ -1155,6 +1165,8 @@ export class LlamaService {
         plannedContextTokens?: number
         jsonSchema?: object
         noThink?: boolean
+        maxBoundedThoughtTokens?: 64 | 128 | 192
+        repeatPenalty?: false
         systemPrompt?: string
         temperature?: number
         requireComplete?: boolean
@@ -1168,6 +1180,9 @@ export class LlamaService {
         payload.plannedContextTokens = opts.plannedContextTokens
       if (opts.jsonSchema != null) payload.jsonSchema = opts.jsonSchema
       if (opts.noThink != null) payload.noThink = opts.noThink
+      if (opts.maxBoundedThoughtTokens !== undefined)
+        payload.maxBoundedThoughtTokens = opts.maxBoundedThoughtTokens
+      if (opts.repeatPenalty === false) payload.repeatPenalty = false
       if (opts.systemPrompt != null) payload.systemPrompt = opts.systemPrompt
       if (opts.temperature != null) payload.temperature = opts.temperature
       if (opts.requireComplete) payload.requireComplete = true

@@ -1,0 +1,44 @@
+[
+  {
+    "caseId": "ar-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "exactRuntimeRequirementMet": true,
+    "notes": "Strict content/citation/format PASS. Actual 1:1/2:2 support 1180 pixels for Kupfer and 1260 for Silber, with missing documentary signature/priority. The final is one concise 34-word sentence excluding markers, gives both mappings and explains that neither note establishes priority; it asserts neither a winner nor universal nonapproval. Both canonical refs attach the coherent sentence. Minor German noun/verb agreement is a presentation defect without changed meaning. App 181940 ms exceeds 180 but fits declared 300 seconds. Q8/8K/14 matches this case runtime requirement."
+  },
+  {
+    "caseId": "ar-fresh-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "exactRuntimeRequirementMet": true,
+    "notes": "Strict content/citation/format PASS. Actual supplied 3:3 contains Cedar 610 Hz and Birch 650 Hz for the identical OC-9/L3/21C/date scope and no established priority. The 28-word final gives both entries and explicitly says the paired record does not establish priority, with one local canonical ref. In context, entries apply to the test scope does not select a governing winner or claim both conflicting tones simultaneously govern. One short sentence satisfies the original format; no extra correction/signature narration is required. App 172323 ms, Q8/8K/14. This new observation does not identify the discarded AR duplicated syntax or prove which implementation change caused success."
+  },
+  {
+    "caseId": "ar-fresh-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "exactRuntimeRequirementMet": false,
+    "notes": "Strict content/citation/format PASS, with separate runtime-protocol FAILURE. The lead correctly says compatible. Actual 15:15 and 14:14 are displayed exactly: same T5 cabinet/date, 9 vouchers at 16:10 UTC after distribution/returns and 23 at 07:40 UTC before distribution. These passages give the requested values/times and documented reason the snapshots do not contradict. Both local citations are correct; no unrelated location or specific transaction count is invented. Full-source display is permitted because no one-sentence limit was requested. App 127055 ms. Actual F16/8K/14 violates declared Q8/8K/14; semantic support does not turn treatmentVerified=false into a pass, and precision differences confound causal quality/latency comparisons."
+  }
+]

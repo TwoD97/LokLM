@@ -1,0 +1,153 @@
+{
+  "kind": "safe-known-replay-combined-summary",
+  "candidate": "AO",
+  "buildManifestSha256": "564eb3cd028a8f4f7c51ce4f3f6cf7f08ea88de96af16fd5bd05819b9a3ff7c5",
+  "classification": "Incomplete known DEV collection; not a fresh validation or completed acceptance gate.",
+  "requestedCaseOrder": [
+    "heldout-10",
+    "heldout-06",
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-09",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12",
+    "authority-transfer-01",
+    "authority-transfer-04"
+  ],
+  "counts": {
+    "requested": 10,
+    "attempted": 6,
+    "completedFinals": 5,
+    "strictPasses": 5,
+    "semanticPartialsOrFailuresAmongCompletedFinals": 0,
+    "operationalTimeouts": 1,
+    "unobserved": 4
+  },
+  "groups": [
+    {
+      "name": "original",
+      "requested": 2,
+      "attempted": 2,
+      "completedFinals": 2,
+      "strictPasses": 2,
+      "timeouts": 0,
+      "unobserved": 0,
+      "report": "tests/evals/native-calibration/reports/bugfix-20261006-ao-original-replay/REVIEW.md",
+      "rawSha256": "53141ebfcbb8d9816d45ff884929d35936d467131a385846d3702c4481ebcb71",
+      "postverifySha256": "7d60acf411a9fa5c597c9bcd35acee9169d1cb4be672440bbb0a9fa9c144fd8d"
+    },
+    {
+      "name": "reasoning",
+      "requested": 6,
+      "attempted": 4,
+      "completedFinals": 3,
+      "strictPasses": 3,
+      "timeouts": 1,
+      "unobserved": 2,
+      "report": "tests/evals/native-calibration/reports/bugfix-20261006-ao-reasoning-replay/REVIEW.md",
+      "rawSha256": "0be61b6dc75f0aa127cd072690e62c25afb8774700cf4ab7cd9d886cc64ab8d1",
+      "postverifySha256": "06e2e5ea83a91909433b6ab75b830f21eb5f70a6cde46bf9591963d2c160a359"
+    },
+    {
+      "name": "transfer",
+      "requested": 2,
+      "attempted": 0,
+      "completedFinals": 0,
+      "strictPasses": 0,
+      "timeouts": 0,
+      "unobserved": 2,
+      "report": null,
+      "rawSha256": null,
+      "postverifySha256": null
+    }
+  ],
+  "separateCarriedEvidence": {
+    "candidate": "AN",
+    "buildManifestSha256": "570cba0cae53bf5cbf3ae110c5891fba6830dc4aa8536862da551d81d12aa7c4",
+    "report": "tests/evals/native-calibration/reports/bugfix-20261006-an-ab-replay/REVIEW.md",
+    "rawSha256": "e49e0c1671443482fd761e53444a0b4f2819cad332c74f455df962e46b324eb9",
+    "requested": 3,
+    "attempted": 3,
+    "completedFinals": 3,
+    "strictPasses": 3,
+    "formattingExternalLineBreaks": [0, 1, 0],
+    "limitation": "Same v16 prompt/schema/128 semantic contract; AO changed the first-stop-trigger helper afterward. These are not three additional AO observations and the AN external-line-break discrepancy is preserved."
+  },
+  "caseOutcomes": [
+    {
+      "caseId": "heldout-10",
+      "status": "strict-pass",
+      "appMs": 130811,
+      "nativeMs": 120125
+    },
+    {
+      "caseId": "heldout-06",
+      "status": "strict-pass",
+      "appMs": 163067,
+      "nativeMs": 145502
+    },
+    {
+      "caseId": "reasoning-reserved-02",
+      "status": "strict-pass",
+      "appMs": 179767,
+      "nativeMs": 169229
+    },
+    {
+      "caseId": "reasoning-reserved-05",
+      "status": "strict-pass",
+      "appMs": 153077,
+      "nativeMs": 135947
+    },
+    {
+      "caseId": "reasoning-reserved-06",
+      "status": "strict-pass",
+      "appMs": 174563,
+      "nativeMs": 157191
+    },
+    {
+      "caseId": "reasoning-reserved-09",
+      "status": "operational-timeout",
+      "appMs": 180234,
+      "nativeMs": 162169
+    },
+    {
+      "caseId": "reasoning-reserved-11",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "reasoning-reserved-12",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "authority-transfer-01",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "authority-transfer-04",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    }
+  ],
+  "runtimeConfiguration": {
+    "questionTimeoutMs": 180000,
+    "attemptsPerCase": 1,
+    "retries": 0,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "goldSourceSelection": false,
+    "outputRepair": false
+  },
+  "freshAuthorshipAuthorized": false,
+  "freshCasesAuthored": false,
+  "privacy": "Contains case status, timing and hashes only; exact validated answers are in linked allowlisted group observations. No private check/thought/raw envelope/history/machine-absolute paths."
+}

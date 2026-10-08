@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "authority-transfer-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Requested-result, authority and citation pass independently confirmed. Supplied 1:1 establishes 2 mixers / 8 microphones; approved amendment 2:2 raises only mixers to 6, effective May 20 after May 9 approval. Every June 10 applicability claim is supported. Redundant raw (doc:1:1) / (doc:2:2) labels are a real presentation/output-contract defect; correct canonical citations follow. This is not an invented locator or factual failure. One completed 152019 ms call, actual 8192 / q8_0 / 14 GPU layers."
+  },
+  {
+    "caseId": "authority-transfer-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent strict pass. Supplied 3:3 / 4:4 establish the current 12 working days on 2042-08-20 and future 9 only from 2042-09-01. Every requested value, effective date and authority distinction is locally cited. Minor Arbeittagen typo does not alter meaning. One completed 122210 ms call, actual 8192 / q8_0 / 14 GPU layers."
+  },
+  {
+    "caseId": "authority-transfer-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent strict pass. Current 28 EUR deposit, proposed 41 EUR, lack of approving vote and continuation of the existing rule until an approved change takes effect are supported by actual 5:5 / 6:6. Both canonical references attach the coherent explanation. The phrase takes place is awkward but does not alter the authority relationship. One completed 148840 ms call, actual 8192 / q8_0 / 14 GPU layers."
+  },
+  {
+    "caseId": "authority-transfer-04",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Only relevant original7:7/8:8 are displayed: same FV-8 series, date and temperature, conflicting420/460 N with explicit lack of documentary precedence/correction. Source-scoped unresolved lead is appropriate and preserves both alternatives without selecting a winner. Complete canonical source attribution; no unrelated FV-6 distractor. One completed 98661 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

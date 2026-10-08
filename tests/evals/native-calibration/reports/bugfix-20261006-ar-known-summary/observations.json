@@ -1,0 +1,1024 @@
+{
+  "kind": "safe-known-candidate-correctness-aggregate",
+  "candidate": "AR/v19",
+  "classification": "Thirteen already-known DEV cases on one frozen production build, collected in separate groups under300-second calibration windows. Not fresh validation; preserves prior AQ180 failure.",
+  "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+  "counts": {
+    "requested": 13,
+    "attempted": 13,
+    "validatedFinals": 13,
+    "strictContentCitationFormatPasses": 13,
+    "completedWithin300Seconds": 13,
+    "completedWithin180Seconds": 12,
+    "completedAbove180Seconds": 1,
+    "semanticPartialsOrFailures": 0,
+    "parserRejections": 0,
+    "timeouts": 0,
+    "unobserved": 0
+  },
+  "requestedCaseIds": [
+    "reasoning-reserved-09",
+    "ab-fresh-01",
+    "ab-fresh-02",
+    "ab-fresh-03",
+    "heldout-10",
+    "heldout-06",
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12",
+    "authority-transfer-01",
+    "authority-transfer-04"
+  ],
+  "groups": [
+    {
+      "runId": "bugfix-20261006-ar-reasoning09-completion300",
+      "sourceCorpusDocuments": 18,
+      "configuration": {
+        "wholeDocFallback": true,
+        "questionTimeoutMs": 300000,
+        "repeats": 1,
+        "rerank": false,
+        "multiQuery": false,
+        "routing": false,
+        "continueErrors": true
+      },
+      "raw": {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-reasoning09-completion300/raw.json",
+        "sha256": "64976c8da066814f7e1154565549bb6a8eca77cb6509452d11758a353d803970",
+        "availability": "Local generated artifact; safe observations preserved here for version control."
+      },
+      "declaration": {
+        "path": "out/optimization-20261005/ar-reasoning09-completion300-execution-declaration.json",
+        "sha256": "6a3c92aad21964bc77261939851f522745617f9189b7b515d2b18d2f5a939c06",
+        "frozenAt": "2026-10-06T05:01:14.971Z"
+      },
+      "postverify": {
+        "path": "out/optimization-20261005/ar-reasoning09-completion300-postverify.json",
+        "sha256": "8bc05001ef9761a116acf0849ce914977d599ac33dee459b6f3c8fc064117dc0",
+        "verifiedAt": "2026-10-06T05:06:05.924Z",
+        "status": "matched",
+        "currentSourcesMatchBuild": true,
+        "sourceCount": 421,
+        "compiledCount": 112,
+        "runnerExitCode": 0,
+        "safeToContinue": false,
+        "cleanupVerified": true,
+        "requestCompleted": true,
+        "remainingOwnedNativeProcessCount": 0,
+        "remainingPlaywrightRunnerCount": 0
+      },
+      "reviewArtifacts": {
+        "REVIEW.md": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-reasoning09-completion300/REVIEW.md",
+          "sha256": "429b71012416e48046a7505c675479e71e2bc589c5cb2c5931eb00e4e695e1a2"
+        },
+        "manual.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-reasoning09-completion300/manual.json",
+          "sha256": "1d3d814f528612f91543acb26932407c66f55045664023f49c953ae363b23c9c"
+        },
+        "observations.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-reasoning09-completion300/observations.json",
+          "sha256": "5d044d7caae13e2145c6ec3a73bd63de891b528a4044136a743bee6d82696af0"
+        }
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-ab",
+      "sourceCorpusDocuments": 8,
+      "configuration": {
+        "wholeDocFallback": true,
+        "questionTimeoutMs": 300000,
+        "repeats": 1,
+        "rerank": false,
+        "multiQuery": false,
+        "routing": false,
+        "continueErrors": false
+      },
+      "raw": {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-ab/raw.json",
+        "sha256": "1b0ceed5c991a19d274977bbce37d6463696fcf1c3f842a521bde7c4185c7e7f",
+        "availability": "Local generated artifact; safe observations preserved here for version control."
+      },
+      "declaration": {
+        "path": "out/optimization-20261005/ar-completion300-ab-execution-declaration.json",
+        "sha256": "e5d0efd468efe30ebb17499273fa38c3f32ee4688955542b1da776a157b1e589",
+        "frozenAt": "2026-10-06T05:12:08.988Z"
+      },
+      "postverify": {
+        "path": "out/optimization-20261005/ar-completion300-ab-postverify.json",
+        "sha256": "2b75b37c1c62b21b262f082aefd6d23dae82e0a9ffa73b7036d49392cd0c7077",
+        "verifiedAt": "2026-10-06T05:23:55.943Z",
+        "status": "matched",
+        "currentSourcesMatchBuild": true,
+        "sourceCount": 421,
+        "compiledCount": 112,
+        "runnerExitCode": 0,
+        "safeToContinue": false,
+        "cleanupVerified": true,
+        "requestCompleted": true,
+        "remainingOwnedNativeProcessCount": 0,
+        "remainingPlaywrightRunnerCount": 0
+      },
+      "reviewArtifacts": {
+        "REVIEW.md": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-ab/REVIEW.md",
+          "sha256": "243eb91856bcbb095fa69c041f188f7faf1fd4ea309efb7590eb33e5e37777a7"
+        },
+        "manual.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-ab/manual.json",
+          "sha256": "a3d1d7856ef61b0ebd904e50ad3133e2f4ca610dff66b5340f8f3b1f17d6b5c1"
+        },
+        "observations.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-ab/observations.json",
+          "sha256": "036f9805e414abfce1fa5ba80143f6096a23d0b438990bf9287b6f36f0bd4f1d"
+        }
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-original",
+      "sourceCorpusDocuments": 6,
+      "configuration": {
+        "wholeDocFallback": true,
+        "questionTimeoutMs": 300000,
+        "repeats": 1,
+        "rerank": false,
+        "multiQuery": false,
+        "routing": false,
+        "continueErrors": false
+      },
+      "raw": {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-original/raw.json",
+        "sha256": "d59392d9088dfbfa79133f29364ebda37812a7603894c30cac6d70d11528cf4e",
+        "availability": "Local generated artifact; safe observations preserved here for version control."
+      },
+      "declaration": {
+        "path": "out/optimization-20261005/ar-completion300-original-execution-declaration.json",
+        "sha256": "d8aaebbb42e39762087a6bf7a592643257462bf987b0e9943fc1fabc97311b7c",
+        "frozenAt": "2026-10-06T05:25:39.418Z"
+      },
+      "postverify": {
+        "path": "out/optimization-20261005/ar-completion300-original-postverify.json",
+        "sha256": "f97a91070f85ad27f5b465f96efddf35c9904381a38b39b0499cea2690fb7eae",
+        "verifiedAt": "2026-10-06T05:32:19.364Z",
+        "status": "matched",
+        "currentSourcesMatchBuild": true,
+        "sourceCount": 421,
+        "compiledCount": 112,
+        "runnerExitCode": 0,
+        "safeToContinue": false,
+        "cleanupVerified": true,
+        "requestCompleted": true,
+        "remainingOwnedNativeProcessCount": 0,
+        "remainingPlaywrightRunnerCount": 0
+      },
+      "reviewArtifacts": {
+        "REVIEW.md": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-original/REVIEW.md",
+          "sha256": "81192d4e28186c1647ed29692ef73262d4ff79a644d060af83ae1d3061bb05a4"
+        },
+        "manual.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-original/manual.json",
+          "sha256": "b599e3b1ffc712d5e984afeb2fc139b29c6a3d2ca78a95330fc8165a772ff9f5"
+        },
+        "observations.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-original/observations.json",
+          "sha256": "896600479137ed5fbe4db243540d13ba6b26214b49ebbe8597d86b11c524fa09"
+        }
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "sourceCorpusDocuments": 18,
+      "configuration": {
+        "wholeDocFallback": true,
+        "questionTimeoutMs": 300000,
+        "repeats": 1,
+        "rerank": false,
+        "multiQuery": false,
+        "routing": false,
+        "continueErrors": false
+      },
+      "raw": {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-reasoning/raw.json",
+        "sha256": "b93d0a448dee676d998e1b6459f0bf655ddc9b86c0bb0ab77767e91510fc7720",
+        "availability": "Local generated artifact; safe observations preserved here for version control."
+      },
+      "declaration": {
+        "path": "out/optimization-20261005/ar-completion300-reasoning-execution-declaration.json",
+        "sha256": "5df24c431f52575f3450573bdee20cbe2686bec3a838313169161f2d048b191d",
+        "frozenAt": "2026-10-06T05:34:00.151Z"
+      },
+      "postverify": {
+        "path": "out/optimization-20261005/ar-completion300-reasoning-postverify.json",
+        "sha256": "ff4a9952230404f290589314ad6dd44c603b60a372a34baaff12d4227f4c864c",
+        "verifiedAt": "2026-10-06T05:48:27.921Z",
+        "status": "matched",
+        "currentSourcesMatchBuild": true,
+        "sourceCount": 421,
+        "compiledCount": 112,
+        "runnerExitCode": 0,
+        "safeToContinue": false,
+        "cleanupVerified": true,
+        "requestCompleted": true,
+        "remainingOwnedNativeProcessCount": 0,
+        "remainingPlaywrightRunnerCount": 0
+      },
+      "reviewArtifacts": {
+        "REVIEW.md": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-reasoning/REVIEW.md",
+          "sha256": "a3fc5a45a379d763d0a552132c1ab99565d05f7ad0cbfd0e4087a35ae58a2595"
+        },
+        "manual.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-reasoning/manual.json",
+          "sha256": "c7d5277e80e3159e94948f4d6727a79aa9fc2ca57ccbd47f3708ce595e528161"
+        },
+        "observations.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-reasoning/observations.json",
+          "sha256": "bd57d79e098be4c21d20b558d4e1a75b0ac054e87709127df437ed239dc15e6d"
+        }
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-transfer",
+      "sourceCorpusDocuments": 12,
+      "configuration": {
+        "wholeDocFallback": true,
+        "questionTimeoutMs": 300000,
+        "repeats": 1,
+        "rerank": false,
+        "multiQuery": false,
+        "routing": false,
+        "continueErrors": false
+      },
+      "raw": {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-transfer/raw.json",
+        "sha256": "695c8fc7f958bba4b0f93b565cbe9498f6bf77f68b0fbce314a37f6221ad18a9",
+        "availability": "Local generated artifact; safe observations preserved here for version control."
+      },
+      "declaration": {
+        "path": "out/optimization-20261005/ar-completion300-transfer-execution-declaration.json",
+        "sha256": "ccd13e9f64bae4a148669a850c28a9b93060b1179a292219cb6ae7ca9f3bf52d",
+        "frozenAt": "2026-10-06T05:52:20.665Z"
+      },
+      "postverify": {
+        "path": "out/optimization-20261005/ar-completion300-transfer-postverify.json",
+        "sha256": "defd35f0d382432801edaa25261cbbaf4e943873c1ffcae9f10f163eb88bb2f2",
+        "verifiedAt": "2026-10-06T05:59:20.324Z",
+        "status": "matched",
+        "currentSourcesMatchBuild": true,
+        "sourceCount": 421,
+        "compiledCount": 112,
+        "runnerExitCode": 0,
+        "safeToContinue": false,
+        "cleanupVerified": true,
+        "requestCompleted": true,
+        "remainingOwnedNativeProcessCount": 0,
+        "remainingPlaywrightRunnerCount": 0
+      },
+      "reviewArtifacts": {
+        "REVIEW.md": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-transfer/REVIEW.md",
+          "sha256": "255746b08a88dbf88adea8d759631c987dd045098472f35aee22b75615835d95"
+        },
+        "manual.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-transfer/manual.json",
+          "sha256": "95975b390addc0e6a746bb4f7536e62ffdfd5a19015145c172b114e09fcb80fb"
+        },
+        "observations.json": {
+          "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-transfer/observations.json",
+          "sha256": "6cacdd57d60dc799d926dbceab7c8fcb86926ee6f4cc9a79cbd9736fc56c10ae"
+        }
+      }
+    }
+  ],
+  "queries": [
+    {
+      "runId": "bugfix-20261006-ar-reasoning09-completion300",
+      "caseId": "reasoning-reserved-09",
+      "strictVerdict": "supported",
+      "finalAnswer": "Laut dem Bericht für den Sektor West bestanden 31 Geräte die Endprüfung. Laut dem Bericht für den Sektor Ost bestanden 34 Geräte die Endprüfung. Da die Berichte explizit unterschiedliche Seriennummernbereiche abdecken (West: 700-739, Ost: 740-779), können die Werte addiert werden. Insgesamt bestanden 65 Geräte die Prüfung. [doc:16, chunk:17] [doc:17, chunk:18]",
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "16:17",
+        "13:14",
+        "17:18",
+        "11:11",
+        "12:12",
+        "4:4",
+        "7:7",
+        "8:8",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": ["16:17", "17:18"],
+      "totalMs": 184894,
+      "nativeMs": 174196,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": false,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 174361,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-ab",
+      "caseId": "ab-fresh-01",
+      "strictVerdict": "supported",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days\\.” [doc:1, chunk:1].",
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "finalCitationIds": ["2:2", "1:1"],
+      "totalMs": 128960,
+      "nativeMs": 117958,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 118123,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 31,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-ab",
+      "caseId": "ab-fresh-02",
+      "strictVerdict": "supported",
+      "finalAnswer": "For one registered Belvorn team meeting on 2038-04-08, staff may lend a maximum of 5 portable projectors and 7 tablets. The later tablet working paper (circulated 2038-04-02) does not change these limits as it was not approved by the facilities council. [doc:3, chunk:3] [doc:4, chunk:4] [doc:5, chunk:5]",
+      "actualFedSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "finalCitationIds": ["3:3", "4:4", "5:5"],
+      "totalMs": 169497,
+      "nativeMs": 151863,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 152035,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-ab",
+      "caseId": "ab-fresh-03",
+      "strictVerdict": "supported",
+      "finalAnswer": "The planned net licensing receipts for 2037 exceed the recorded net licensing receipts for 2036 by 2375 CHF. [doc:6, chunk:6] [doc:7, chunk:7]",
+      "actualFedSourceIdsInOrder": ["6:6", "7:7", "8:8", "4:4", "5:5", "3:3", "1:1"],
+      "finalCitationIds": ["6:6", "7:7"],
+      "totalMs": 144655,
+      "nativeMs": 127520,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 127679,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-original",
+      "caseId": "heldout-10",
+      "strictVerdict": "supported",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Als Versandfrist ist 2027\\-05\\-15 eingetragen\\.” [doc:4, chunk:7]; “The dispatch deadline for that batch is 2027\\-05\\-08\\.” [doc:3, chunk:6].",
+      "actualFedSourceIdsInOrder": ["4:7", "3:6", "1:3", "1:2", "5:8", "2:4", "6:9", "2:5", "1:1"],
+      "finalCitationIds": ["4:7", "3:6"],
+      "totalMs": 141325,
+      "nativeMs": 130821,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 130993,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 40,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-original",
+      "caseId": "heldout-06",
+      "strictVerdict": "supported",
+      "finalAnswer": "Die geplanten Erlöse für 2025 übersteigen die tatsächlichen Erlöse von 2024 um 4755 GBP. [doc:2, chunk:5] [doc:1, chunk:2]",
+      "actualFedSourceIdsInOrder": ["1:1", "2:5", "2:4", "6:9", "1:2", "1:3", "3:6", "4:7", "5:8"],
+      "finalCitationIds": ["2:5", "1:2"],
+      "totalMs": 168172,
+      "nativeMs": 150789,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 150955,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 40,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "caseId": "reasoning-reserved-02",
+      "strictVerdict": "supported",
+      "finalAnswer": "Am 2031-06-01 dürfen Mitglieder in Velsun Werkzeughaus höchstens 4 Bohrmaschinen und 5 Sägen gleichzeitig leihen. [doc:3, chunk:3] [doc:4, chunk:4]",
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "4:4",
+        "12:12",
+        "9:9",
+        "11:11",
+        "10:10",
+        "13:14",
+        "16:17",
+        "15:16",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": ["3:3", "4:4"],
+      "totalMs": 147962,
+      "nativeMs": 137218,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 137382,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "caseId": "reasoning-reserved-05",
+      "strictVerdict": "supported",
+      "finalAnswer": "The current annual contribution for an ordinary adult Tebrin member is 72 EUR. The later proposal (81 EUR) does not change it because the member assembly has not voted on it. [doc:9, chunk:9] [doc:10, chunk:10]",
+      "actualFedSourceIdsInOrder": [
+        "9:9",
+        "10:10",
+        "14:13",
+        "18:19",
+        "15:16",
+        "3:3",
+        "4:4",
+        "11:11",
+        "12:12"
+      ],
+      "finalCitationIds": ["9:9", "10:10"],
+      "totalMs": 146454,
+      "nativeMs": 128966,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 129131,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "caseId": "reasoning-reserved-06",
+      "strictVerdict": "supported",
+      "finalAnswer": "Die beiden Ostel-Bestandsangaben widersprechen sich nicht. Der morgendliche Bestand betrug 12 Ersatzsensoren um 08:00 UTC am 2031-10-06. Der abendliche Bestand betrug 17 Ersatzsensoren um 18:00 UTC am 2031-10-06. [doc:11, chunk:11] [doc:12, chunk:12]",
+      "actualFedSourceIdsInOrder": [
+        "11:11",
+        "12:12",
+        "17:18",
+        "16:17",
+        "7:7",
+        "8:8",
+        "13:15",
+        "6:6",
+        "5:5",
+        "2:2",
+        "13:14"
+      ],
+      "finalCitationIds": ["11:11", "12:12"],
+      "totalMs": 173770,
+      "nativeMs": 155857,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 156013,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "caseId": "reasoning-reserved-11",
+      "strictVerdict": "supported",
+      "finalAnswer": "Die durchschnittliche Wasserverbrauchsrate in Ivaren Durchlauf A betrug 6 Liter pro Minute. [doc:13, chunk:15]",
+      "actualFedSourceIdsInOrder": [
+        "13:14",
+        "18:19",
+        "5:5",
+        "6:6",
+        "7:7",
+        "8:8",
+        "3:3",
+        "4:4",
+        "16:17",
+        "17:18",
+        "13:15"
+      ],
+      "finalCitationIds": ["13:15"],
+      "totalMs": 143979,
+      "nativeMs": 126350,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 126510,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-reasoning",
+      "caseId": "reasoning-reserved-12",
+      "strictVerdict": "supported",
+      "finalAnswer": "The Ivaren record does not provide electrically measured power consumption for run B. It only lists water consumption (24 litres) and duration (4 minutes). [doc:13, chunk:15]",
+      "actualFedSourceIdsInOrder": [
+        "13:14",
+        "6:6",
+        "5:5",
+        "2:2",
+        "18:19",
+        "1:1",
+        "14:13",
+        "15:16",
+        "8:8",
+        "7:7",
+        "13:15"
+      ],
+      "finalCitationIds": ["13:15"],
+      "totalMs": 143307,
+      "nativeMs": 126323,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 126482,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-transfer",
+      "caseId": "authority-transfer-01",
+      "strictVerdict": "supported",
+      "finalAnswer": "Portable mixers: 6. Wireless microphones: 8. [doc:1, chunk:1] [doc:2, chunk:2]",
+      "actualFedSourceIdsInOrder": [
+        "1:1",
+        "2:2",
+        "9:9",
+        "5:5",
+        "6:6",
+        "4:4",
+        "8:8",
+        "3:3",
+        "7:7",
+        "11:11"
+      ],
+      "finalCitationIds": ["1:1", "2:2"],
+      "totalMs": 142333,
+      "nativeMs": 131039,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 131200,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    },
+    {
+      "runId": "bugfix-20261006-ar-completion300-transfer",
+      "caseId": "authority-transfer-04",
+      "strictVerdict": "supported",
+      "finalAnswer": "Aus den bereitgestellten Textstellen kann ich keine eindeutige Antwort ableiten. Die angeführten Quellenaussagen sind:\n\n> \\# Farnel\\: Protokoll Kupfer\n> \n> Prüfobjekt FV\\-8, Baureihe K, Prüfung am 2042\\-11\\-07 bei 25 Grad Celsius\\.\n> Für FV\\-8 wird eine zulässige Einspannkraft von höchstens 420 N angegeben\\.\n> Das Protokoll ist fachlich gegengezeichnet\\. Es nennt weder eine Korrektur des Parallelprotokolls noch eine Regel für den Vorrang einer Fassung\\.\n\n [doc:7, chunk:7]\n\n> \\# Farnel\\: Protokoll Zinn\n> \n> Prüfobjekt FV\\-8, Baureihe K, Prüfung am 2042\\-11\\-07 bei 25 Grad Celsius\\.\n> Für FV\\-8 wird eine zulässige Einspannkraft von höchstens 460 N angegeben\\.\n> Das Protokoll ist fachlich gegengezeichnet\\. Ein Vorrang oder eine Ablösung des Parallelprotokolls wird nicht festgelegt\\.\n\n [doc:8, chunk:8]",
+      "actualFedSourceIdsInOrder": [
+        "12:12",
+        "7:7",
+        "8:8",
+        "11:11",
+        "4:4",
+        "1:1",
+        "6:6",
+        "2:2",
+        "5:5",
+        "3:3"
+      ],
+      "finalCitationIds": ["7:7", "8:8"],
+      "totalMs": 132361,
+      "nativeMs": 114932,
+      "completedWithin300Seconds": true,
+      "completedWithin180Seconds": true,
+      "timedOut": false,
+      "validatedFinal": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 115118,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      }
+    }
+  ],
+  "limitations": [
+    "All cases were already known DEV; no independent generalization claim.",
+    "Isolated09 preceded the prospectively approved remaining12 protocol and was not repeated; new group profiles and request positions differ from AQ.",
+    "Isolated09 used continueErrors=true; subsequent four group declarations used false. No case error occurred in AR.",
+    "All original criteria remained unchanged, including AB02 explicit nonapproval explanation and short-sentence requirements where requested.",
+    "App timing includes retrieval/loading/handoff; no subtraction converts184894ms into a180-second pass.",
+    "AQ180 aggregate remains13requested/5attempted/4strictcompleted/1timeout/8unobserved, and its separate300-second parser rejection remains unchanged.",
+    "Source-label shape counts do not establish exact discarded AQ syntax or uniquely causal repair."
+  ],
+  "privacy": "Exact validated final answers, actual source IDs/order and fixed allowlisted metadata only. No private checks, hidden thoughts/token arrays, raw generation envelopes, rejected prose, histories or machine-absolute paths."
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "split": "ar-fresh-validation-20261006",
+  "createdAt": "2026-10-06T06:34:23.605794+00:00",
+  "authoredAt": "2026-10-06T06:28:26.020920+00:00",
+  "candidateSourceFreeze": "2026-10-06T06:23:52.683Z",
+  "preAuthorshipFreezeSha256": "e6fec777d7cfe7aed3f7e6e6da761b417ffe0a3397c6179399c55c2585e85512",
+  "preAuthorshipVerificationSha256": "bd36b3a689a65eb3ab0b22a1c91c5a39b006e44138b7a8b712c7eac89c307907",
+  "protocolSha256": "76456106b149f79160098079f162bac0974ffb8afe99ea4dfbad58536349c4ff",
+  "rootAuthorshipGrant": "Explicit root grant accepted the named pre-authorship freeze and protocol before any fact/question/source/key authoring; native execution remains separately gated.",
+  "purpose": "Eight new internally authored cases after the complete candidate/model/harness/protocol freeze, all twenty shared documents eligible, no model trial. Production contributors blind until every attempt is collected and collection closes.",
+  "files": {
+    "ar-fresh-validation-20261006.grading.json": "e8c3a1cfdd83b04cf63c96602f303711d1b621efc648a2146b577b6095752d7a",
+    "ar-fresh-validation-20261006.json": "fcefb3a200d1e823f9cf4f9e20a7dec128d4e1c45595a2c565378602e266720b",
+    "ar-fresh-validation-20261006.protocol.json": "76456106b149f79160098079f162bac0974ffb8afe99ea4dfbad58536349c4ff",
+    "fixtures/ar-fresh-validation-20261006/arf-01.md": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119",
+    "fixtures/ar-fresh-validation-20261006/arf-02.md": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7",
+    "fixtures/ar-fresh-validation-20261006/arf-03.md": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19",
+    "fixtures/ar-fresh-validation-20261006/arf-04.md": "ef5170d23db6eed8a3f7b82225d8b435081175d1b98c5256b2f842c12cca63cd",
+    "fixtures/ar-fresh-validation-20261006/arf-05.md": "928a362cdf542680ed0fb5fdec7ce357dec94d26cd6fdddb841e69f955f63706",
+    "fixtures/ar-fresh-validation-20261006/arf-06.md": "e4e13b48d31653fb0501dc24ae7a88d835adcd36dcec7befe27eb32eacbd834f",
+    "fixtures/ar-fresh-validation-20261006/arf-07.md": "085e4ace2674da4e515c5c5d06160da10dd4b90981804e9429611dbde015cce4",
+    "fixtures/ar-fresh-validation-20261006/arf-08.md": "d0bd072410fe1b1eed169fd74e26895b7f0d2c7e0fdb1a6434f28cefe72f8d72",
+    "fixtures/ar-fresh-validation-20261006/arf-09.md": "4d285317243f92d4fc8f539ba3bd6238a7f5ea0caf37c94be55d2952946365b3",
+    "fixtures/ar-fresh-validation-20261006/arf-10.md": "2a5d6abad1fdfc567d694808a8b57ad44f1d07837c96749688ffb3aa0bcd5139",
+    "fixtures/ar-fresh-validation-20261006/arf-11.md": "f02a6015121b730b554b7790a74307c1f1033bba610a971845ca63745778e05d",
+    "fixtures/ar-fresh-validation-20261006/arf-12.md": "6ad5ca2b5da4c86d280bae1edba2a2cf565e6eedff1804f114f48b53b220dbc0",
+    "fixtures/ar-fresh-validation-20261006/arf-13.md": "abb3aa0370b49be53b335df933a71721dfcd0cc0cfa85a772a95c4675802add9",
+    "fixtures/ar-fresh-validation-20261006/arf-14.md": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513",
+    "fixtures/ar-fresh-validation-20261006/arf-15.md": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db",
+    "fixtures/ar-fresh-validation-20261006/arf-16.md": "2988214627a83cafa89189741c4d71e976a85d6cdabb631b2b7cc43f1a44e3d1",
+    "fixtures/ar-fresh-validation-20261006/arf-17.md": "359bf6eb74fd971a7795e04a10e4892d8b21f7f50d54f8523c1c3878a54f9d59",
+    "fixtures/ar-fresh-validation-20261006/arf-18.md": "1dde5ec75baf6b8a07266de72e3c115ed63647ced11d00a9d942f54b0a841644",
+    "fixtures/ar-fresh-validation-20261006/arf-19.md": "5f8873cf7b3c23c39eb4a4e0a874759b142486e6ba5301b5f89de2620d1475ac",
+    "fixtures/ar-fresh-validation-20261006/arf-20.md": "47ef98c4fbfdf6e030194f91d4085d74a5315804532046e27523060b3e4d9b45"
+  },
+  "caseIds": [
+    "ar-fresh-01",
+    "ar-fresh-02",
+    "ar-fresh-03",
+    "ar-fresh-04",
+    "ar-fresh-05",
+    "ar-fresh-06",
+    "ar-fresh-07",
+    "ar-fresh-08"
+  ],
+  "sourceCount": 20,
+  "caseCount": 8,
+  "sourceUtf8Bytes": 6462,
+  "sourceByteRange": [
+    304,
+    363
+  ],
+  "questionCodepointRange": [
+    179,
+    204
+  ],
+  "questionUtf8Max": 204,
+  "languageCounts": {
+    "de": 4,
+    "en": 4
+  },
+  "genuineDistractors": 4,
+  "staticPlannerAdmission": {
+    "path": "out/optimization-20261005/ar-fresh-validation-planner-admission.json",
+    "sha256": "6171f3fcb565fba5292756ed366e284239326b1a84448f6dbb8f0b6385788067",
+    "allTwentyRetainedForAllEight": true,
+    "contextTokens": 8192,
+    "maxTokens": 2176,
+    "modelCalls": 0
+  },
+  "interpretation": "Static full-corpus admission does not override runtime retrieval or guarantee all sources are actually fed. Correctness and clean completion within180s are separate from the prospective300s collection cap.",
+  "independence": "Internal eval contributor familiar with prior DEV work, not an independent researcher-blind benchmark.",
+  "modelIdentity": [
+    {
+      "basename": "Qwen3.5-4B-Q4_K_M.gguf",
+      "bytes": 2740937888,
+      "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+    },
+    {
+      "basename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "bytes": 639150592,
+      "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439"
+    }
+  ]
+}

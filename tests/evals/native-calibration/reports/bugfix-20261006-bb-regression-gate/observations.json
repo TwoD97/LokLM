@@ -1,0 +1,329 @@
+{
+  "kind": "safe-known-dev-semantic-nonpass-observations",
+  "classification": "BB v27 AB01 produced an accepted final but omitted a required alternative and its citation. Clean operational completion is preserved separately from strict semantic nonpass; twelve later cases remain unattempted.",
+  "runId": "bugfix-20261006-bb-regression-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-bb-regression-gate/raw.json",
+    "sha256": "9d7c1fa2f73aa315a8993b6305956fba734b0b0a8075a2599ac857cfc74a085e",
+    "availability": "Local ignored artifact; opaque hash only."
+  },
+  "acceptedFinalExtraction": {
+    "path": "out/optimization-20261005/bb-gate-accepted-final.json",
+    "sha256": "34170fd1887afec06c2d5d6163bb4b68f79a1c9836fa36b25747fb55145b3f53",
+    "scope": "Exact validated final only, extracted after whole clean closure. No private or rejected contents."
+  },
+  "fedSourceMetadata": {
+    "path": "out/optimization-20261005/bb-gate-fed-source-metadata.json",
+    "sha256": "c9dba08c8f48baef25dff406fe1cedbe810c05d332e97dda9b62b6b127988bce",
+    "mappings": [
+      { "documentId": 2, "chunkId": 2, "sourceKey": "abf-south", "fromCitationEvent": true },
+      { "documentId": 1, "chunkId": 1, "sourceKey": "abf-north", "fromCitationEvent": true },
+      { "documentId": 4, "chunkId": 4, "sourceKey": "abf-amend", "fromCitationEvent": true },
+      { "documentId": 5, "chunkId": 5, "sourceKey": "abf-proposal", "fromCitationEvent": true },
+      { "documentId": 3, "chunkId": 3, "sourceKey": "abf-base", "fromCitationEvent": true },
+      { "documentId": 8, "chunkId": 8, "sourceKey": "abf-annex", "fromCitationEvent": true },
+      { "documentId": 7, "chunkId": 7, "sourceKey": "abf-plan", "fromCitationEvent": true },
+      { "documentId": 6, "chunkId": 6, "sourceKey": "abf-actual", "fromCitationEvent": true }
+    ],
+    "actualCitationEventCount": 8,
+    "contentsIncluded": false
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/bb-regression-gate-execution-declaration.json",
+    "sha256": "7e63d69a55050027c65e79d881f4886cbc588a0944b5b6aafbc36503ebff50ed",
+    "frozenAt": "2026-10-06T16:05:15.555Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/bb-regression-protocol.json",
+    "sha256": "453762bb6db7c87b978be47c803ac74ecf27b105085b571232b9e692e8223916"
+  },
+  "candidate": {
+    "path": "out/optimization-20261005/bb-candidate-pins.json",
+    "sha256": "1584c90758fa1c79367656f8d73a9f06fd804be5df6ba0d0fa05ec83187e143a"
+  },
+  "originalCriteria": {
+    "manifest": {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.json",
+      "sha256": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d"
+    },
+    "grading": {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    },
+    "questionSha256": "5bf8ece95d128e0d7ae229ccc4ab51bb0f3c288f00c01fdcc4570390a5c19713",
+    "requiredFixturePins": [
+      {
+        "key": "abf-north",
+        "path": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-north.md",
+        "sha256": "3d1801139319c13120f7442eb01b3f87ac82876fea370d3af87e43df8e5f00f6"
+      },
+      {
+        "key": "abf-south",
+        "path": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-south.md",
+        "sha256": "ad3f4acd8a783d33457c48d8a31e1039a09d01c62e5f2873ce45adab8c6a6706"
+      }
+    ],
+    "unchanged": true
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/bb-regression-gate-postverify.json",
+    "sha256": "10b6cc9a1adb9d691ac4e5703b7ad13cd73d7245f5088456c06a8a6b61e93998",
+    "verifiedAt": "2026-10-06T16:08:56.424Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 0,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": true,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 423,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0,
+    "runnerExecutionPin": {
+      "path": "out/optimization-20261005/bb-regression-gate-runner-result.json",
+      "sha256": "917d81f728e7492e94d3db51b4e5b0d5a4628128e074c6c4f6dbcae634b626c4"
+    },
+    "launchPin": {
+      "path": "out/optimization-20261005/bb-regression-gate-launch.json",
+      "sha256": "460ad2afbd8896de1e4f908e2894707e71aab23999bd1476ef9fee66dd38d2c3"
+    },
+    "runnerStartPin": {
+      "path": "out/optimization-20261005/bb-regression-gate-runner-start.json",
+      "sha256": "9627601b7323f31507da8728ae675b1ef4d86507ecefd9bd3a1bce85df06d65c"
+    },
+    "launchReceiptPin": {
+      "path": "out/optimization-20261005/bb-regression-gate-launch-receipt.json",
+      "sha256": "1c2e13244f98612f88a3db2759d14effc4c4d1ac80b72cb02dcfa6ab151fa8e7"
+    },
+    "capturePin": {
+      "path": "out/optimization-20261005/bb-regression-gate-capture-cleanup.json",
+      "sha256": "b01e446fb33ebd0d6fa7fe16581fa0437dac3b598543f82f1ac4ed9384e21d9b"
+    }
+  },
+  "wrapperResult": {
+    "path": "out/optimization-20261005/bb-regression-gate-wrapper-result.json",
+    "sha256": "3d40a9736a4f32fc64d717794d67f0f4076e195f590690b7b3cf9734914935ee",
+    "runnerExitCode": 0,
+    "captureCleanupExitCode": 0,
+    "postverifyExitCode": 0,
+    "wrapperFailure": false
+  },
+  "provenanceScope": "Source/build equality describes recorded clean closure only, not later workspace changes. Earlier outcomes remain separate and immutable.",
+  "declaredConfiguration": {
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "isolatedProfile": true,
+    "goldSourceSelection": false,
+    "questionMutation": false,
+    "attemptsPerCase": 1,
+    "autoLockMinutes": 0,
+    "evaluationSideOutputRepair": false,
+    "productionCleanup": "Declared AR redundant-label cleanup remains enabled; no evaluation-side repair.",
+    "questionTimeoutMs": 300000,
+    "performanceThresholdMs": 180000,
+    "runsPerCase": 1,
+    "retries": 0,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "continueErrors": false
+  },
+  "capture": { "trace": "off", "screenshot": "off", "video": "off", "contentsRead": false },
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "validatedFinals": 1,
+    "strictPasses": 0,
+    "semanticNonpasses": 1,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "unobservedInGate": 0,
+    "normalNativeCompletions": 1,
+    "validatedFinalWithin180": 1,
+    "strictAndWithin180": 0,
+    "retries": 0
+  },
+  "candidateCoverage": {
+    "requested": 13,
+    "attempted": 1,
+    "validatedFinals": 1,
+    "strictPasses": 0,
+    "semanticNonpasses": 1,
+    "unattempted": 12,
+    "unattemptedCaseIds": [
+      "ar-fresh-01",
+      "ar-fresh-02",
+      "ar-fresh-07",
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "followOnAuthorized": false
+  },
+  "strictPass": false,
+  "semanticGrade": "incomplete",
+  "responseLanguageContractPass": true,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "buildManifestSha256": "07422e4bbaf11a28749f31cf14507e8c3bc26beb6cafaa8be0b2751a8b46f1f5",
+  "declaredSourceCorpusDocuments": 8,
+  "actualFedSourceIdentityCoverageReviewedForThisReport": true,
+  "fullActualFedPassageContentsInspected": false,
+  "sourceCoverageScope": "The unchanged question/key and original North/South fixtures were independently reviewed. Safe citation-stage metadata records all eight source identities, including North1:1 and South2:2. Identity membership is observed rather than inferred from eligibility; metadata alone does not establish every fed passage content. The accepted North quotation matches its identified original fixture, while the displayed answer entirely omits the required South alternative.",
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "threadSettings": [{ "backend": "vulkan", "maxThreads": 6, "policy": "hardware-aware default" }],
+  "paddingSettings": [{ "backend": "vulkan", "bytes": 1073741824, "policy": "default" }],
+  "privacy": "Only safe closure/declaration/protocol/durable metadata, the validated-final-only extraction, fixed citation-stage identity metadata and original public synthetic question/key/fixtures were parsed. Raw bytes were hashed without decoding. No rejected envelope, private check, hidden thought, unrestricted log or error notice was read or copied.",
+  "limitations": [
+    "Known development regression, not fresh validation.",
+    "A validated bounded final, correct included quotation and proper uncertainty do not establish requested completeness.",
+    "Operational completion and the within180s observation are not strict semantic or product acceptance.",
+    "F16 was observed for BB; no causal latency comparison with earlier Q8 or other runs is made.",
+    "All original criteria, source seals, prior failures, the 160-codepoint per-fragment cap and 512-codepoint final bound remain unchanged.",
+    "Equal per-record budgets may exclude otherwise-fitting uneven selections; budget correctness does not establish semantic alternatives or complete evidence coverage.",
+    "No retry, clipping, repaired final, stronger factual assertion or follow-on authorization is introduced."
+  ],
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "repetition": 0,
+      "verdict": "incomplete",
+      "strictPass": false,
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “abf\\-north\\.md”: “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days”. [doc:1, chunk:1]",
+      "acceptedFinalAvailable": true,
+      "citationSupport": "supported-for-included-north-quotation",
+      "citationCompleteness": "incomplete",
+      "contextSufficiency": "original-required-notes-reviewed",
+      "decisionCorrectness": "documentary-uncertainty-correct-but-required-comparison-incomplete",
+      "requestedFactsAndDecisionCorrect": false,
+      "formatRequirementSatisfied": true,
+      "responseLanguageContractSatisfied": true,
+      "productAcceptance": false,
+      "unsupportedExtraClaims": [],
+      "missingRequiredFacts": ["South: 19 days for the identical NP-6 campaign S8"],
+      "missingRequiredCitations": ["The South value-bearing note"],
+      "notes": "Strict NONPASS under the unchanged original key. The accepted final quotes North 14 days for NP-6 campaign S8 and cites doc:1/chunk:1, but omits South 19 days and doc:2/chunk:2. Safe citation-stage metadata maps these two references to the corresponding original fixture identities; both were present among eight observed source events. The included quotation matches the original North fixture. The documentary uncertainty does not choose a winner or invent global absence, different scope or chronology. One short sentence passes; the German fixed lead plus an unchanged literal English source quotation meets the existing response-language contract. Safe incompleteness is not a full pass. No private check, hidden thought or rejected body was inspected.",
+      "question": "Welches verbindliche Wartungsintervall gilt laut den Notizen Nord und Süd für Nuvreks NP-6-Filter der Kampagne S8? Nenne beide angegebenen Intervalle. Antworte in einem kurzen Satz.",
+      "originalRequiredFacts": {
+        "abf-north": ["14 days for NP-6 campaign S8"],
+        "abf-south": ["19 days for the identical NP-6 campaign S8"]
+      },
+      "answerCodepoints": 188,
+      "collection": {
+        "terminalMs": 139407,
+        "totalMs": 139408,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalOutcome": "completed",
+        "terminalMismatch": false,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "collectionDecision": "complete"
+      },
+      "validatedFinalWithin180": true,
+      "strictAndWithin180": false,
+      "preservedWithin180": true,
+      "comparisonRejectionDetails": { "details": [], "malformedLogs": 0, "dropped": 0 },
+      "excerptPolicyAbsent": {
+        "requestedAbsent": true,
+        "capturedAbsent": true,
+        "appliedAbsent": true,
+        "valid": true
+      },
+      "schemaVersions": ["typed-comparison-v27"],
+      "checkedMaxTokens": [2176],
+      "checkedModes": [{ "mode": "excerpts", "unitCount": 0, "fallbackNone": true }],
+      "checkedResults": [
+        { "schema": "typed-comparison-v27", "mode": "comparison", "outcome": "unresolved" }
+      ],
+      "boundedStatuses": [{ "status": "active", "maxThoughtTokens": 128 }],
+      "compactStarts": 1,
+      "defaultStarts": 0,
+      "grammarFallback": false,
+      "captures": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeys": 0,
+          "checkType": "string",
+          "checkCodepoints": 60,
+          "sourceLabelShapes": {
+            "valid": true,
+            "counts": {
+              "exact_colon_pair": 0,
+              "spaced_colon_pair": 0,
+              "comma_chunk_pair": 0,
+              "grouped_complete_pairs": 0,
+              "no_closing_parenthesis": 0,
+              "line_break": 0,
+              "invalid_id": 0,
+              "other_syntax": 0
+            },
+            "candidates": 0,
+            "inspectedBlocks": 0,
+            "inspectedChars": 0,
+            "capped": false
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "nativeMs": 128310,
+          "grammarMs": 41,
+          "promptFitMs": 27,
+          "responseChars": 312,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2506,
+          "usedOutputTokens": 237,
+          "boundedThoughts": {
+            "promptTokens": 2505,
+            "prefillBatches": 10,
+            "prefillTokens": 2504,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 109,
+            "combinedTokens": 239,
+            "firstVisibleMs": 79078,
+            "lastVisibleMs": 128308,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      }
+    }
+  ]
+}

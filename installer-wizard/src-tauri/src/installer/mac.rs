@@ -4,7 +4,7 @@
 //   /Applications/LokLM.app                                      ← payload
 //   ~/Library/Application Support/LokLM/                         ← models , tier-marker
 //   ~/Library/LaunchAgents/com.loklm.desktop.plist               ← autostart ( opt-in )
-//   /Applications/LokLM.app/Contents/Resources/uninstall.sh      ← user-runnable removal
+//   ~/Library/Application Support/LokLM/uninstall.sh            ← user-runnable removal
 //
 // Why the install dir is /Applications/LokLM.app and not under ~/Library :
 //   Mac users expect double-clickable .app bundles in /Applications ;
@@ -188,7 +188,7 @@ fn write_launch_agent(app_bin_path: &Path) -> std::io::Result<()> {
 </plist>
 "#,
         BUNDLE_ID,
-        app_bin_path.display(),
+        xml_escape(&app_bin_path.to_string_lossy()),
     );
     std::fs::write(launch_agent_path(), plist)
 }
@@ -202,7 +202,16 @@ fn remove_launch_agent() {
 // ----------------------------------------------------------------
 
 fn write_uninstaller(install_dir: &Path) -> std::io::Result<PathBuf> {
-    let res = install_dir.join("Contents").join("Resources");
+    // Never modify the signed application bundle after release verification.
+    write_uninstaller_at(install_dir, &launch_agent_path(), &app_support_dir())
+}
+
+fn write_uninstaller_at(
+    install_dir: &Path,
+    launch_agent: &Path,
+    app_support: &Path,
+) -> std::io::Result<PathBuf> {
+    let res = app_support;
     std::fs::create_dir_all(&res)?;
     let script_path = res.join("uninstall.sh");
     let script = format!(
@@ -210,12 +219,12 @@ fn write_uninstaller(install_dir: &Path) -> std::io::Result<PathBuf> {
          # LokLM uninstaller — removes /Applications/LokLM.app , the LaunchAgent ,\n\
          # and ~/Library/Application Support/LokLM ( models + tier marker ).\n\
          set -e\n\
-         rm -rf '{install}'\n\
-         rm -f '{launch_agent}'\n\
-         rm -rf '{app_support}'\n",
-        install = install_dir.display(),
-        launch_agent = launch_agent_path().display(),
-        app_support = app_support_dir().display(),
+         rm -rf -- {install}\n\
+         rm -f -- {launch_agent}\n\
+         rm -rf -- {app_support}\n",
+        install = shell_quote_path(install_dir),
+        launch_agent = shell_quote_path(launch_agent),
+        app_support = shell_quote_path(app_support),
     );
     std::fs::write(&script_path, script)?;
     use std::os::unix::fs::PermissionsExt;
@@ -223,6 +232,29 @@ fn write_uninstaller(install_dir: &Path) -> std::io::Result<PathBuf> {
     perms.set_mode(0o755);
     std::fs::set_permissions(&script_path, perms)?;
     Ok(script_path)
+}
+
+fn shell_quote_path(path: &Path) -> String {
+    format!("'{}'", path.to_string_lossy().replace('\'', "'\"'\"'"))
+}
+
+fn xml_escape(value: &str) -> String {
+    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+        .replace('"', "&quot;").replace('\'', "&apos;")
+}
+
+fn verify_bundle(path: &Path) -> std::io::Result<()> {
+    let result = Command::new("/usr/bin/codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(path)
+        .output()?;
+    if !result.status.success() {
+        return Err(std::io::Error::other(format!(
+            "Application signature verification failed: {}",
+            String::from_utf8_lossy(&result.stderr).trim(),
+        )));
+    }
+    Ok(())
 }
 
 // ----------------------------------------------------------------
@@ -244,20 +276,6 @@ fn apply_options(options: &InstallOptions, app_bin_path: &Path) -> std::io::Resu
         remove_launch_agent();
     }
     Ok(())
-}
-
-// ----------------------------------------------------------------
-// Stop running app
-// ----------------------------------------------------------------
-
-fn stop_running_app() {
-    // pkill -f matches the full command line ; the .app launcher and any
-    // electron child processes all contain "LokLM.app" in their argv[0].
-    // Best-effort ; non-zero exit means nothing was running , which is fine.
-    let _ = Command::new("/usr/bin/pkill")
-        .args(["-f", APP_BUNDLE])
-        .status();
-    std::thread::sleep(std::time::Duration::from_millis(500));
 }
 
 // ----------------------------------------------------------------
@@ -321,31 +339,6 @@ where
     )
     .await?;
 
-    // The archive builder historically packed every file with mode 0o644,
-    // stripping the execute bit from all binaries.  Use `find` to locate
-    // every MacOS/ directory inside the bundle so that the main binary AND
-    // all Electron helper executables (Contents/Frameworks/*/Contents/MacOS/)
-    // get +x — otherwise the browser process CHECKs when posix_spawnp fails
-    // with EACCES trying to launch the GPU / Renderer helpers.
-    let bundle_staging = staging.join(APP_BUNDLE);
-    if bundle_staging.exists() {
-        let _ = Command::new("/usr/bin/find")
-            .args([
-                bundle_staging.to_str().unwrap_or_default(),
-                "-name",
-                "MacOS",
-                "-type",
-                "d",
-                "-exec",
-                "/bin/chmod",
-                "-R",
-                "+x",
-                "{}",
-                ";",
-            ])
-            .output();
-    }
-
     // No CUDA branch on mac : payload-manifest.json deliberately omits the
     // `cuda` key for mac-arm64 and mac-x64 ( see payload_manifest.rs ) ,
     // and the renderer hides the checkbox. If options.download_cuda
@@ -373,53 +366,19 @@ where
     }
 
     progress(ProgressEvent { step: "preparing-folder".into(), percent: 30 });
-    stop_running_app();
-    if install_dir.exists() {
-        std::fs::remove_dir_all(&install_dir)
-            .map_err(|e| format!("rm old install : {}", e))?;
-    }
-    if let Some(parent) = install_dir.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir install parent : {}", e))?;
-    }
-
+    super::ensure_application_closed(&app_bin_path)?;
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
-    ditto(&source, &install_dir).map_err(|e| e.to_string())?;
-
-    // Ad-hoc sign with explicit JIT entitlement so V8 can map executable pages.
-    // Signing WITHOUT --entitlements would strip allow-jit; signing WITH it
-    // adds the entitlement even if the CI build was completely unsigned.
-    // Non-fatal: if codesign fails we fall through and hope the build already
-    // carried the entitlement.
-    let ent_path = staging.join("loklm-entitlements.plist");
-    let _ = std::fs::write(
-        &ent_path,
-        r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.security.cs.allow-jit</key><true/>
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
-    <key>com.apple.security.cs.disable-library-validation</key><true/>
-</dict>
-</plist>"#,
-    );
-    let _ = Command::new("/usr/bin/codesign")
-        .args([
-            "--force",
-            "--deep",
-            "--sign",
-            "-",
-            "--entitlements",
-            ent_path.to_str().unwrap_or_default(),
-            install_dir.to_str().unwrap_or_default(),
-        ])
-        .output();
-    let _ = std::fs::remove_file(&ent_path);
-
-    // Strip quarantine xattr so Gatekeeper doesn't block the app.
-    let _ = Command::new("/usr/bin/xattr")
-        .args(["-d", "com.apple.quarantine", &install_dir.display().to_string()])
-        .output();
+    let mut update = super::transaction::PayloadUpdate::prepare(
+        &install_dir, Path::new("Contents/MacOS").join(APP_BIN).as_path(), false,
+        |staged| {
+            ditto(&source, staged)?;
+            verify_bundle(staged)
+        },
+    ).map_err(|e| format!("Preparing application update: {e}"))?;
+    // Signing and entitlements belong to the verified release artifact. Keep
+    // its publisher signature and macOS quarantine/security decisions intact.
+    super::ensure_application_closed(&app_bin_path)?;
+    update.activate().map_err(|e| format!("Replacing application payload: {e}"))?;
 
     progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &app_bin_path).map_err(|e| e.to_string())?;
@@ -449,6 +408,8 @@ where
     progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
     super::write_tier_marker(&app_support, options, version, &downloaded)
         .map_err(|e| format!("tier-marker write failed : {}", e))?;
+
+    update.commit().map_err(|e| format!("Committing application update: {e}"))?;
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 
@@ -495,5 +456,44 @@ pub fn launch(app_exe_path: &str) -> Result<(), String> {
             stderr.trim(),
             stdout.trim()
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uninstaller_lives_outside_signed_bundle_and_preserves_resources() {
+        let temp = tempfile::tempdir().unwrap();
+        let app = temp.path().join("LokLM.app");
+        let resources = app.join("Contents/Resources");
+        std::fs::create_dir_all(&resources).unwrap();
+        std::fs::write(resources.join("signed-resource"), b"unchanged").unwrap();
+        let support = temp.path().join("Application Support/LokLM");
+        let script = write_uninstaller_at(&app, &temp.path().join("agent.plist"), &support).unwrap();
+        assert_eq!(script, support.join("uninstall.sh"));
+        assert!(!resources.join("uninstall.sh").exists());
+        assert_eq!(std::fs::read(resources.join("signed-resource")).unwrap(), b"unchanged");
+    }
+
+    #[test]
+    fn shell_paths_remain_single_literals_with_quotes_and_substitution_characters() {
+        let temp = tempfile::tempdir().unwrap();
+        let input = "/Users/O'Brien/$(touch injected)/LokLM.app";
+        let output = Command::new("/bin/sh")
+            .current_dir(temp.path())
+            .arg("-c")
+            .arg(format!("printf '%s' {}", shell_quote_path(Path::new(input))))
+            .output().unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8(output.stdout).unwrap(), input);
+        assert!(!temp.path().join("injected").exists());
+    }
+
+    #[test]
+    fn launch_agent_path_is_xml_text() {
+        assert_eq!(xml_escape("/A&B/<private>/O'Brien/\"LokLM\""),
+            "/A&amp;B/&lt;private&gt;/O&apos;Brien/&quot;LokLM&quot;");
     }
 }

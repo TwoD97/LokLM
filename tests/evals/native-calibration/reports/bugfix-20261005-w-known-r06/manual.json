@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The requested comparison, 12 at 08:00 UTC / 17 at 18:00 UTC, observation date and exact 11:11 / 12:12 citations are correct and complete. No invented different-place rationale remains. However, two additional selected passages (17:18 and 16:17) concern unrelated Rilven inspection counts and serial ranges. Their quoted text and source attachment are genuine, but they do not support the requested Ostel comparison. Record this as a relevance/display partial, distinct from false factual claims or a missing requested answer. One completed 111255 ms call, no retry or fallback; all follow-ups held pending review. Actual allocation 8K/q4_0/14 layers."
+  }
+]

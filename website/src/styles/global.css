@@ -62,6 +62,12 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
+
+  h1,
+  h2,
+  h3 {
+    overflow-wrap: anywhere;
+  }
 }
 
 @layer components {
@@ -81,7 +87,6 @@
     border-radius: 50%;
     filter: blur(110px);
     opacity: 0.35;
-    will-change: transform;
     mix-blend-mode: screen;
   }
 
@@ -89,14 +94,12 @@
     top: -14vmax;
     left: -12vmax;
     background: radial-gradient(circle at 30% 30%, #3b82f6, transparent 65%);
-    animation: blob-drift-a 22s ease-in-out infinite;
   }
 
   .bgfx__blob--2 {
     top: -8vmax;
     right: -16vmax;
     background: radial-gradient(circle at 60% 40%, #7c3aed, transparent 65%);
-    animation: blob-drift-b 28s ease-in-out infinite;
   }
 
   .bgfx__grain {
@@ -128,7 +131,7 @@
     font-size: 0.95rem;
     border-radius: var(--radius);
     background: linear-gradient(180deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
-    color: #fff;
+    color: var(--color-bg-0);
     border: 1px solid transparent;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.18),
@@ -228,32 +231,6 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-  }
-}
-
-@keyframes blob-drift-a {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(8vmax, 6vmax) scale(1.1);
-  }
-  66% {
-    transform: translate(-4vmax, 12vmax) scale(0.95);
-  }
-}
-
-@keyframes blob-drift-b {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  40% {
-    transform: translate(-10vmax, 8vmax) scale(1.15);
-  }
-  75% {
-    transform: translate(-3vmax, -4vmax) scale(0.9);
   }
 }
 

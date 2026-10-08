@@ -1,0 +1,15 @@
+# L evidence-only diagnostic: invented serialization in the quote
+
+One separately authorized direct SDK replay completed and reproduced `quote_missing`. It used L's recorded eleven supplied passages in their exact order, the reconstructed production prompt/system/schema, 2176 output tokens, temperature 0, disabled repetition penalty, no thinking budget, and a 180-second generation deadline. The reconstructed prompt estimate was exactly L's 2675. The observed L allocation was held at Vulkan, 8192 context, f16 KV, 14 GPU layers, six threads, batch 254 and 1 GiB padding.
+
+**The sole attempted evidence string mixes invented JSON metadata/serialization with real source prose.** It starts with `{"doc": 4, "chunk": 4}": "`, continues with the two amendment sentences beginning “Ab diesem Tag steigt ausschließlich …”, and ends with extra quote/comma syntax. The actual prompt uses canonical `[doc:X, chunk:Y]` headers, so this is not a copied context-wrapper format. The meaningful sentences occur in 4:4, but the complete attempted string does not occur in any supplied passage. The diagnostic classifies it as `notfound`, and the unchanged production parser correctly rejects it. No prefix/suffix was stripped and no source was substituted.
+
+Furthermore, that sole amendment passage does not state the unchanged saw limit of five; the number is in supplied base-rule passage 3:3. Finding the real amendment prose would therefore not establish complete support for the two requested numeric limits. There is no validated final answer to grade, and the rejected ordinary answer prose was not retained/read.
+
+The native call ended with `stopGenerationTrigger` after 134.282 seconds and 246 output tokens; consumed input was 2459 tokens, matching the original L observation's input/output token counts. The public-wrapper preflight count was 2460: preflight tokenization and token-meter consumption are distinct measurements. This replay omitted app retrieval and model handoff, so it is a separately declared diagnostic, not an exact end-to-end timing reproduction or replacement of L's failure.
+
+The capture retains only attempted evidence strings, per-evidence classification, fixed parser reason, validated final answer if any, and content-free metrics. It never stores or exposes the generated check, raw envelope, hidden reasoning or rejected answer prose. Four lightweight capture tests cover all seven classification categories and reject raw/check leakage. Production code and the frozen L artifacts were not modified. The owned process exited 0, source/build fingerprints remained unchanged, and GPU was released before the next diagnostic.
+
+Local generated artifacts: `out/optimization-20261005/l-evidence-replay-plan.json`, `l-evidence-native/raw.json`, and their source-only runner/capture helpers. The next M experiment is separately declared as evidence-before-text plus a source-prose clarification, not a pure ordering experiment or an established fix.
+
+Replay raw SHA-256: `ccff4c0f21f5febc3c23ee16c140760b7ceaec75f8bdd3c4c20c4c34754183f3`.

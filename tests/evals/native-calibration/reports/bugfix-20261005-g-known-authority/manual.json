@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "authority-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current fee 84 EUR with actual passage 5:5. Proposed increase to 96 EUR, unvoted status and absence of a binding order are locally attached to actual 6:6. The rule/draft distinction and no-effect conclusion are supported. No false refusal, incorrect source, invented authority or uncited future-governance clause. This deliberately selected known positive control follows the precision change; it is not fresh evaluation."
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Completeness/routing partial: displays correct full original base and amendment with exact 3:3 / 4:4 citations, but answers compatible instead of stating the requested current 4-drill / 5-saw limits as of 2031-06-01. Correct dates and provisions in quotations do not replace the requested composition of the applicable rule. No false authority or incorrect citation."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: explicitly maps West 31 (serials 700–739) and East 34 (740–779), establishes disjoint scopes, and adds them to 65. Exact 16:17 / 17:18 citations attach the coherent calculation record. Complete requested sum and explanation, no invented overlap/scope."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: run A uses 18 litres over 3 minutes; explicitly computes 6 litres/minute with exact supplied table 13:15. Complete requested result and inputs, no unsupported extra facts."
+  }
+]

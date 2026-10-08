@@ -175,9 +175,9 @@ function isValidTier(v: unknown): v is Tier {
  * a dev run can emulate any install tier without a wizard marker. Falls back to
  * the install marker's tier, then null (plain dev/test, pre-v0.3.0 installs).
  *
- * Deliberately does NOT synthesize a full TierMarker: model availability and
- * the legacy-models sweep stay keyed on readTierMarker() so a dev run never
- * trips the "wizard-managed install" code paths (empty model list, sweeps).
+ * Deliberately does NOT synthesize a full TierMarker: installed-bundle model
+ * availability stays keyed on readTierMarker(), keeping the development
+ * model catalog independent of this runtime override.
  */
 export function getEffectiveTier(): Tier | null {
   const env = process.env['LOKLM_TIER']

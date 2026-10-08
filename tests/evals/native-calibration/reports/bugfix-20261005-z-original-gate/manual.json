@@ -1,0 +1,27 @@
+[
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: planned 78165 GBP for 2025 minus recorded 73410 GBP for 2024 equals 4755 GBP. Exact actual table sources2:5/1:2 locally support every input, year/status and result; one concise German sentence. No reserve inclusion, attained-target assumption or extraneous metadata. Visible answer matches the independently supported Y06 answer. One completed 124950 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "B neither approved exceeds the source statement that this draft contains no approval signature.",
+      "No final deadline applies exceeds what the supplied draft excerpts establish."
+    ],
+    "notes": "Independent strict precision partial, consistent with F/G grading. Correct ISO dates, exact3:6/4:7 local citations and one concise German sentence. However, B weder freigegeben asserts nonapproval where the source only lacks an approval signature; gilt keine endgueltige Frist states that no final deadline applies rather than that supplied excerpts cannot establish one. No invented winner, but documentary uncertainty is overclaimed. Controls/fresh held. One completed 144123 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

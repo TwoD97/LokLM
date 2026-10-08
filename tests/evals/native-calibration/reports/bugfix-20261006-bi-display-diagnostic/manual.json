@@ -1,0 +1,39 @@
+[
+  {
+    "runId": "BI01",
+    "caseId": "ab-fresh-01",
+    "attempted": 1,
+    "retries": 0,
+    "acceptedFinal": false,
+    "answer": null,
+    "strictPass": false,
+    "productAcceptancePass": false,
+    "semanticPass": null,
+    "citationSupportPass": null,
+    "citationCoveragePass": null,
+    "languagePass": null,
+    "briefSingleSentencePass": null,
+    "fixedParserDiagnostics": {
+      "accepted": false,
+      "reasons": ["answer"],
+      "ordinaryDetails": [],
+      "comparisonDetails": ["summary_display"],
+      "summaryDisplayDiagnostic": {
+        "status": "classified",
+        "eligible": false,
+        "codes": ["interior_period"],
+        "utf16Length": 232,
+        "codePointLength": 232,
+        "displayCodePointLength": 231,
+        "maximum": 368,
+        "countsClipped": false,
+        "terminalPeriod": true,
+        "unadmittedPeriodsAllInPublicWhitelist": false
+      }
+    },
+    "directDiagnosticMs": 14834,
+    "direct180SecondTargetPass": true,
+    "priorBhResultReplaced": false,
+    "notes": "No accepted final. Fixed observability identifies an unadmitted interior period in this BI output only. Whitelist coverage=false does not prove a genuine sentence break or rule out other abbreviation forms; no rejected words, punctuation positions or bodies were retained. BH cause remains unknown."
+  }
+]

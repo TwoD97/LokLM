@@ -1,0 +1,205 @@
+{
+  "kind": "safe-generated-prose-admission-observation",
+  "classification": "Single v30 diagnostic structurally accepted; strict/product semantic NONPASS",
+  "runDate": "2026-10-06",
+  "reviewedDate": "2026-10-07",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/safe-observations.json",
+      "sha256": "999465a1e3563668567dae1aa631360dc675d1db9684d1b5757a5aab196ef64f"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/independent-safe-grade.json",
+      "sha256": "1b01eb41334c3de6883f2c414d234761e72e2e3ac72944be7dab255cbad571f4"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/postverify.json",
+      "sha256": "60e13f6dfdfc19b4917caa99a7f820e7a77603fb3251deb7b23fb717d50bff8f"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/durable-closure.json",
+      "sha256": "839ce839aa432a6ba07d9cc3dfced832cd380411978847638d69e3a973b75528"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/cleanup.json",
+      "sha256": "70a71216c51eee8e0c52770410d4b7bb37cde7b9436a438d4054b139f5eff637"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/preparation.json",
+      "sha256": "64091104b5ea71089a4a0190f9f6d534fcee92e76317cc3046d8923d1d23def6"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/independent-preparation-review.json",
+      "sha256": "4cf29eff5378cfde4bb9f8f6f844fefc1b82901d85fe98b8d1ad5b200cb67fbe"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/screening-declaration.json",
+      "sha256": "4d836ee50c3e2d6a69ae898d4bfe214f31b3b1c3f99c981689c892723c53df86"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/adapter-proof.json",
+      "sha256": "c7c10833b4d8b99152b2e98904a246c3aaf7e71c6655f90ba215dd9adbae3b63"
+    },
+    {
+      "path": "out/optimization-20261005/bk-generated-prose/plans.json",
+      "sha256": "61d64180fd5e7041d4c6bbf817f6299966be63a3dfd866dee149f57838f6e826"
+    },
+    {
+      "path": "out/optimization-20261005/bj-safe-report-verification.json",
+      "sha256": "1ae81b3ca318738ffa0beb6f283283b2e0904c52182064656d80e3d839385c75"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    }
+  ],
+  "planned": 1,
+  "attempted": 1,
+  "retries": 0,
+  "acceptedFinals": 1,
+  "strictPasses": 0,
+  "originalOtherCasesUnattempted": 12,
+  "freshSetOpened": false,
+  "model": {
+    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
+    "bytes": 1280835840,
+    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+  },
+  "buildSha256": "ab6efeb7356791c56abd36ae6e49b403d2752500e68314d6c55da3ed37e78b78",
+  "schemaVersion": "typed-comparison-v30",
+  "request": {
+    "originalCase": "ab-fresh-01",
+    "originalCriteriaUnchanged": true,
+    "fullSourceCount": 8,
+    "sourceOrderUnchanged": true,
+    "exactBfBjPromptSystemSchemaAndOptionsIdentity": true,
+    "historicalBdWireIdentityProven": false,
+    "maxTokens": 2176,
+    "noThink": true,
+    "maxBoundedThoughtTokensFieldPresent": false,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "requireComplete": true,
+    "plannedContextTokens": 8192,
+    "productionAdmissionChangedDuringRun": false,
+    "productionWorkerUnmodified": true,
+    "collectionCapMs": 300000,
+    "directDiagnosticTargetMs": 180000
+  },
+  "validation": {
+    "accepted": true,
+    "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: Das verbindliche Wartungsintervall für die NP-6-Filter der Kampagne S8 beträgt laut Notizen Nord und Süd je 14 bzw. 19 Tage, wobei die Notizen Nord und Süd keine Freigabeunterschrift oder Vorrang gegenüber der anderen Notiz belegen. [doc:2, chunk:2] [doc:1, chunk:1]",
+    "mode": "comparison",
+    "outcome": "unresolved"
+  },
+  "subgrades": {
+    "structurallyAccepted": true,
+    "strictPass": false,
+    "productPass": false,
+    "semanticPass": false,
+    "bothRequiredValuesPass": true,
+    "valueAttributionPass": true,
+    "np6CampaignS8ScopePass": true,
+    "citationIdentityPass": true,
+    "localCitationCoveragePass": true,
+    "allCitedClaimsSupportedPass": false,
+    "documentaryAbsenceScopePass": true,
+    "bindingApplicabilityPass": false,
+    "germanPass": true,
+    "briefSingleSentencePass": true
+  },
+  "decisiveFinding": {
+    "claim": "Das verbindliche Wartungsintervall für die NP-6-Filter der Kampagne S8 beträgt laut Notizen Nord und Süd je 14 bzw. 19 Tage",
+    "failure": "The answer characterizes the reported intervals as binding. Neither supplied note establishes binding applicability. Attribution to the notes, the uncertainty lead and the subsequent documentary qualification do not substantiate that status.",
+    "unchangedKeyBasis": "Strictly grade every visible claim and semantic relation; the supplied notes do not establish a binding winner, and choosing either interval as binding is invalid."
+  },
+  "runtime": {
+    "backend": "vulkan",
+    "threads": 6,
+    "reserveBytes": 1073741824,
+    "kvType": "f16",
+    "contextTokens": 8192,
+    "gpuLayers": 25,
+    "totalModelLayers": 25,
+    "schemaMode": "summary"
+  },
+  "allocatorEvents": [
+    { "code": "layer_cache_miss" },
+    {
+      "code": "allocation_ready",
+      "contextTokens": 8192,
+      "kvType": "f16",
+      "gpuLayers": 25,
+      "reducedOffload": false
+    }
+  ],
+  "metrics": {
+    "elapsedMs": 16469,
+    "nativeMs": 16444,
+    "grammarMs": 6,
+    "promptFitMs": 19,
+    "usedInputTokens": 1740,
+    "usedOutputTokens": 228,
+    "firstTextMs": 5142,
+    "lastTextMs": 16112,
+    "firstNonWhitespaceTextMs": 5142,
+    "lastNonWhitespaceTextMs": 16112,
+    "responseChars": 589,
+    "responseChunks": 227,
+    "cancelled": false,
+    "completionReason": "stopGenerationTrigger",
+    "route": "main",
+    "boundedStageReported": false
+  },
+  "nativeStart": {
+    "maxTokens": 2176,
+    "noThink": true,
+    "boundedReasoning": "not_requested",
+    "jsonWhitespace": "default"
+  },
+  "routeObservability": {
+    "actualThoughtTokenCountMeasured": false,
+    "exactPreparedWrapperCountExported": false,
+    "boundedStageReported": false,
+    "ordinaryMainRouteObserved": true,
+    "obsoleteV29DisplayObserverApplied": false
+  },
+  "timings": {
+    "loadMs": 14889,
+    "nativeMs": 16444,
+    "callMs": 16470,
+    "callAndParserMs": 16478,
+    "coldArmMs": 31821,
+    "coldGroupWallMs": 32055,
+    "throughDurableClosureMs": 37811,
+    "direct180SecondTargetPass": true,
+    "fullApplicationTurnMeasured": false
+  },
+  "closure": {
+    "verifiedPins": 629,
+    "nodeExit": 0,
+    "electronExit": 0,
+    "postverifyExit": 0,
+    "workerExit": 0,
+    "pendingRequests": 0,
+    "forcedStops": 0,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "profileRemoved": true
+  },
+  "captureEnabled": false,
+  "defaultSettingsChanged": false,
+  "priorBhBiBjNonpassesPreserved": true,
+  "successorParserAppliedRetrospectively": false,
+  "priorOutputIdentityClaimed": false,
+  "rawOrRejectedOrPrivateTextIncluded": false,
+  "limitations": [
+    "Exact BF/BJ request identity does not establish identical generated output or historical BD outbound-wire identity.",
+    "This is a new v30 run; prior BH/BI/BJ failures are not reparsed or replaced.",
+    "Structural display admission does not prove source entailment, completeness, language or universally correct sentence boundaries.",
+    "Both reported values are cited correctly, but their characterization as binding is unsupported.",
+    "The ordinary route differs from the bounded route; this is not a pure cap ablation or a cause-of-failure proof.",
+    "Absent bounded-stage telemetry does not independently measure actual thought tokens; the exact prepared-wrapper count is not exported.",
+    "Direct/cold diagnostic timings are not full application latency, broad RAG quality evidence or grounds for a default change."
+  ]
+}

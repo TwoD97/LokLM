@@ -1,0 +1,109 @@
+{
+  "kind": "safe-text-first-diagnostic-observations",
+  "status": "Known DEV single-cell direct replay; not production or unseen validation.",
+  "privacy": "Fixed allowlist of successfully validated final answer, source identities and content-free counters/hashes. No private check, thought text/token arrays, chat history, rejected prose, prompt/source bodies or raw response envelope is copied.",
+  "originalRaw": {
+    "path": "out/optimization-20261005/ag-text-first-native-20261006-0025/raw.json",
+    "sha256": "c1092c4be665bfd3c9c2e9d7b8e749dec0503ee613ab81996ba75406bd0da0da",
+    "availability": "Local ignored generated artifact; this bounded observation preserves the final evidence for version control."
+  },
+  "inputPlan": {
+    "path": "out/optimization-20261005/ag-diagnostic-inputs.json",
+    "sha256": "1cb42eabccbaeec71501da91d102241e9bebc3ed349e180f0ed6521ea2f14820",
+    "sameQuestionEvidenceAndSourceOrderAsAeVerified": true
+  },
+  "executionDeclaration": {
+    "path": "out/optimization-20261005/ag-execution-declaration.json",
+    "sha256": "0003bc28e70e3c441578175331f295c67cb38ea42e780177395eb4152e644c54"
+  },
+  "preExecutionReview": {
+    "path": "out/optimization-20261005/ag-text-first-review.md",
+    "sha256": "3bcda35118a58c6c4788fe523bbd984d39494aa45dde89267437c24791251329"
+  },
+  "startedAt": "2026-10-06T00:25:21.762Z",
+  "completedAt": "2026-10-06T00:28:38.492Z",
+  "requestedCells": ["ab-fresh-02/thought64"],
+  "runnerSha256": "75464ea0e5aa32704c979b534351638cc4966bad4aa8b2122c35ede9ea8cfcb2",
+  "transitionHelperSha256": "1a9597137e19f78e8ec857674cf5278a6b7b36c32aefd90047d8d464aadd60ec",
+  "manifestSha256": "1a10b34abc5e3c1f9ad44bfc5a280d97bca500b71a4c565c2f3d99378fe60089",
+  "loadMs": 15347,
+  "fingerprintsUnchangedAfter": true,
+  "configuration": {
+    "contextSize": 8192,
+    "gpuLayers": 14,
+    "threads": 6,
+    "batchSize": 254,
+    "vramPaddingBytes": 1073741824,
+    "kv": "q8_0",
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "perCallTimeoutMs": 180000,
+    "abortGraceMs": 15000
+  },
+  "model": {
+    "bytes": 2740937888,
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+  },
+  "actual": {
+    "gpu": "vulkan",
+    "layers": 14,
+    "context": 8192,
+    "batchSize": 254,
+    "kvKey": 8,
+    "kvValue": 8,
+    "threads": 6,
+    "maxThreads": 6,
+    "paddingBytes": 1073741824,
+    "wrapper": "Qwen3.5/per-cell-auto-or-discourage",
+    "thoughtClosingTokenCount": 1,
+    "thoughtClosingKind": "userDefined",
+    "forcedClosingTokenCount": 2
+  },
+  "timingInterpretation": "Native time includes prefill and both decoding phases, excludes reset/grammar/tokenization setup and is not an app end-to-end deadline. visibleTokens counts the constrained structured response including private check, not final displayed-answer tokens.",
+  "cells": [
+    {
+      "id": "ab-fresh-02/thought64",
+      "caseId": "ab-fresh-02",
+      "thoughtBudget": 64,
+      "wrapperThoughts": "auto",
+      "startedAt": "2026-10-06T00:25:41.125Z",
+      "completedAt": "2026-10-06T00:28:38.491Z",
+      "promptSha256": "cca2a64b923f87fcf6890fa3a703d486b6d4c57324a9da4680b4ef89117c4382",
+      "systemPromptSha256": "e27b04eb7cc8d90a6714c4184fc7cb125ee8c8dc1fd40e3f9a116c2bb90a9b23",
+      "schemaSha256": "5a64aba784f6d2f7e676dd3b0509b06a2ccdf27be48f28586d9f7c14ba19ef0c",
+      "grammarMs": 4,
+      "exactPromptTokens": 1377,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "rejectionDetail": null,
+      "nativeMs": 177330,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "validated": {
+        "mode": "answered",
+        "outcome": null,
+        "answer": "For one registered Belvorn team meeting on 2038-04-08, staff may lend a maximum of 5 portable projectors and 7 tablets. The tablet working paper suggests 9 tablets but has not been approved, so the current limit of 7 remains in effect. [doc:3, chunk:3] [doc:4, chunk:4] [doc:5, chunk:5]",
+        "spans": [],
+        "finalCitationIds": ["3:3", "4:4", "5:5"]
+      },
+      "tokens": {
+        "usedInputTokens": 1378,
+        "usedOutputTokens": 360
+      },
+      "telemetry": {
+        "thoughtTokens": 64,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 296,
+        "sampledTokens": 360,
+        "combinedTokens": 362,
+        "firstVisibleMs": 40676,
+        "lastVisibleMs": 177324,
+        "responseChars": 613,
+        "thoughtTermination": "budget",
+        "grammarActivatedMs": 39480
+      }
+    }
+  ]
+}

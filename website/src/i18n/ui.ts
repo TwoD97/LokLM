@@ -10,6 +10,9 @@ export const defaultLang: Lang = 'de'
 export const ui = {
   de: {
     'nav.features': 'Funktionen',
+    'nav.menu': 'Menü',
+    'nav.label': 'Hauptnavigation',
+    'nav.language': 'Sprache',
     'nav.download': 'Download',
     'nav.blog': 'Blog',
     'nav.github': 'GitHub',
@@ -80,6 +83,10 @@ export const ui = {
       'Erzeuge Quizze und Zusammenfassungen aus deinen Dokumenten und nutze den Schreibassistenten — mit den mitgelieferten Modellen lokal.',
 
     'download.title': 'Download',
+    'download.verify': 'Prüfsumme anzeigen',
+    'download.hardware': 'Hardware vor dem Download prüfen',
+    'download.hardware.note':
+      'Die lokalen KI-Modelle benötigen eine unterstützte GPU. 4 GB Grafikspeicher erlauben nicht jedes Modell und jede Kontextlänge. Prüfe zuerst die Anforderungen und plane Zeit für den Modell-Download ein.',
     'download.subtitle':
       'Aktuelle Version. Verifiziere die SHA-256-Prüfsumme vor der Installation.',
     'download.version': 'Version',
@@ -89,8 +96,8 @@ export const ui = {
     'download.button.windows': 'Für Windows herunterladen',
     'download.button.macos': 'Für macOS herunterladen',
     'download.button.linux': 'Für Linux herunterladen',
-    'download.button.linux.run': '.run ( universell , chmod +x )',
-    'download.button.linux.deb': '.deb ( Ubuntu / Debian )',
+    'download.button.linux.run': 'Linux (.run)',
+    'download.button.linux.deb': 'Ubuntu / Debian (.deb)',
     'download.detected': 'Erkannt für dein System',
     'download.comingSoon': 'Bald verfügbar',
     'download.otherPlatforms': 'Weitere Plattformen',
@@ -182,21 +189,24 @@ export const ui = {
     'security.callout.telemetry': 'Keine Telemetrie, kein Account',
 
     'usecase.eyebrow': 'Wofür',
-    'usecase.title': 'Wo LokLM gut ist.',
+    'usecase.title': 'Deine Unterlagen. Dein Arbeitsalltag.',
     'usecase.subtitle':
-      'Vier Beispiele aus der Praxis. Honest framing: das hier ist die Stärke — nicht offene Wissensfragen ohne Kontext.',
+      'Arbeite mit den Unterlagen, die du bereits hast. Diese Beispielfragen zeigen einen möglichen Einstieg; prüfe Antworten immer an den Originalstellen.',
+    'usecase.business.label': 'Kleine Unternehmen',
+    'usecase.business.question': 'Welche Schritte nennt unser Handbuch für eine Rücksendung?',
+    'usecase.business.outcome': 'Den Ablauf im aktuellen Handbuch nachlesen',
     'usecase.lawyer.label': 'Anwalt',
     'usecase.lawyer.question': 'Wo steht die Cap-Rate-Klausel im Mietvertrag?',
-    'usecase.lawyer.outcome': 'Belegt in §4.2 von Mietvertrag.pdf',
-    'usecase.researcher.label': 'Forscher',
+    'usecase.lawyer.outcome': 'Die Klausel im Originalvertrag prüfen',
+    'usecase.researcher.label': 'Forschung & Studium',
     'usecase.researcher.question': 'Fasse die Methodik dieser drei Paper zusammen.',
-    'usecase.researcher.outcome': 'Mit Seitenangaben je Paper',
-    'usecase.consultant.label': 'Berater',
+    'usecase.researcher.outcome': 'Die Methodik in jedem Paper nachlesen',
+    'usecase.consultant.label': 'Beratung & Selbstständige',
     'usecase.consultant.question': 'Was hat der Kunde im Q3-Review zugesagt?',
-    'usecase.consultant.outcome': 'Zitiert aus review.docx:12',
+    'usecase.consultant.outcome': 'Zusagen mit dem freigegebenen Protokoll abgleichen',
     'usecase.developer.label': 'Entwickler',
     'usecase.developer.question': 'Wie ist die Auth-Middleware in diesem Repo konfiguriert?',
-    'usecase.developer.outcome': 'Belegt in src/main/auth.ts:88',
+    'usecase.developer.outcome': 'Die Erklärung an Datei und Aufrufern prüfen',
 
     'faq.eyebrow': 'FAQ',
     'faq.title': 'Häufige Fragen.',
@@ -297,16 +307,16 @@ export const ui = {
     'pillar.benchmarks.lead':
       'Zahlen statt Versprechen: reproduzierbare Messungen, wie gut Retrieval und Embeddings auf deutschen Fachtexten wirklich treffen — mit Methode und Rohdaten zum Nachrechnen. Ehrlich, auch wo es noch hakt.',
     // --- SEO cluster: personas ---
-    'persona.lawyer.title': 'Für Anwält:innen',
+    'persona.lawyer.title': 'Verträge und Akten mit lokaler KI durchsuchen',
     'persona.lawyer.lead':
       'Verträge und Schriftsätze mit den mitgelieferten Modellen offline durchsuchen. Quellenverweise öffnen Fundstellen wie „§4.2 in Mietvertrag.pdf“ zum Gegenprüfen; sie garantieren keine korrekte Antwort.',
-    'persona.research.title': 'Für Forschung',
+    'persona.research.title': 'Lokale KI für Forschung und Studium',
     'persona.research.lead':
       'Importiere deine PDFs und stelle Methodik- und Inhaltsfragen über den ganzen Stapel — mit Quellenverweisen zum Prüfen. Mit den mitgelieferten Modellen bleibt dein unveröffentlichter Entwurf auf dem Gerät.',
-    'persona.consulting.title': 'Für Beratung',
+    'persona.consulting.title': 'Lokale KI für Beratung und Projektunterlagen',
     'persona.consulting.lead':
       'Mandantenunterlagen, Angebote und Protokolle mit den mitgelieferten Modellen lokal befragen. Quellenverweise helfen dir, Antworten direkt im Dokument zu prüfen.',
-    'persona.development.title': 'Für Entwicklung',
+    'persona.development.title': 'Code und Dokumentation mit lokaler KI befragen',
     'persona.development.lead':
       'Lass die mitgelieferten Modelle deinen eigenen Code und deine Doku lokal durchsuchen. Quellenverweise führen zu Datei und Stelle, damit du Aussagen im Code prüfen kannst.',
     // --- SEO cluster: persona FAQs ---
@@ -344,12 +354,27 @@ export const ui = {
     'persona.development.faq.q3': 'Welche Formate kann ich einlesen?',
     'persona.development.faq.a3': 'Quellcode, Markdown, Text und PDF.',
     // --- SEO cluster: shared link labels ---
+    'persona.business.title': 'Lokale KI für Unternehmensdokumente',
+    'persona.business.lead':
+      'Handbücher, Prozessbeschreibungen und Projektunterlagen auf dem eigenen Rechner befragen. LokLM ist ein persönlicher Desktop-Arbeitsbereich für Mitarbeitende – kein gemeinsam verwaltetes Team-Wiki.',
+    'persona.business.faq.q1': 'Können mehrere Personen denselben Arbeitsbereich bearbeiten?',
+    'persona.business.faq.a1':
+      'LokLM ist eine lokale Desktop-Anwendung. Gemeinsame Echtzeitbearbeitung, zentrale Rollenverwaltung und ein synchronisierter Team-Vault werden hier nicht angeboten. Nutze getrennte Installationen und die freigegebenen Originaldateien deiner Organisation.',
+    'persona.business.faq.q2': 'Wie starte ich mit einem internen Handbuch?',
+    'persona.business.faq.a2':
+      'Importiere zunächst eine freigegebene, aktuelle Fassung in einen eigenen Arbeitsbereich. Warte auf die Indexierung, stelle eine konkrete Frage und öffne die genannte Quelle. Prüfe besonders Versionsdatum und Geltungsbereich.',
+    'persona.business.faq.q3': 'Ersetzt eine KI-Antwort unsere verbindliche Prozessbeschreibung?',
+    'persona.business.faq.a3':
+      'Nein. Maßgeblich bleibt das freigegebene Originaldokument. Das Modell kann Quellen falsch zuordnen oder Widersprüche übersehen; kontrolliere den Ablauf vor der Anwendung.',
     'cluster.relatedPillars': 'Mehr erfahren',
     'cluster.relatedPersonas': 'Anwendungsfälle',
     'cluster.readArchitecture': 'Vollständige Architektur lesen',
   },
   en: {
     'nav.features': 'Features',
+    'nav.menu': 'Menu',
+    'nav.label': 'Main navigation',
+    'nav.language': 'Language',
     'nav.download': 'Download',
     'nav.blog': 'Blog',
     'nav.github': 'GitHub',
@@ -428,8 +453,8 @@ export const ui = {
     'download.button.windows': 'Download for Windows',
     'download.button.macos': 'Download for macOS',
     'download.button.linux': 'Download for Linux',
-    'download.button.linux.run': '.run ( universal , chmod +x )',
-    'download.button.linux.deb': '.deb ( Ubuntu / Debian )',
+    'download.button.linux.run': 'Linux (.run)',
+    'download.button.linux.deb': 'Ubuntu / Debian (.deb)',
     'download.detected': 'Detected for your system',
     'download.comingSoon': 'Coming soon',
     'download.otherPlatforms': 'Other platforms',
@@ -520,21 +545,24 @@ export const ui = {
     'security.callout.telemetry': 'No telemetry, no account',
 
     'usecase.eyebrow': 'Built for',
-    'usecase.title': 'What LokLM is good at.',
+    'usecase.title': 'Your documents. Your everyday work.',
     'usecase.subtitle':
-      'Four real examples. Honest framing: this is its strength — not open knowledge questions without context.',
+      'Work with the documents you already have. These example questions suggest a starting point; always check answers against the original passages.',
+    'usecase.business.label': 'Small businesses',
+    'usecase.business.question': 'What steps does our handbook give for handling a return?',
+    'usecase.business.outcome': 'Check the process in the current handbook',
     'usecase.lawyer.label': 'Lawyer',
     'usecase.lawyer.question': 'Where is the cap rate clause in the lease?',
-    'usecase.lawyer.outcome': 'Cited at §4.2 of Lease.pdf',
-    'usecase.researcher.label': 'Researcher',
+    'usecase.lawyer.outcome': 'Check the clause in the original contract',
+    'usecase.researcher.label': 'Research & study',
     'usecase.researcher.question': 'Summarise the methodology across these three papers.',
-    'usecase.researcher.outcome': 'With page references for each',
-    'usecase.consultant.label': 'Consultant',
+    'usecase.researcher.outcome': 'Read the methods in each original paper',
+    'usecase.consultant.label': 'Consulting & independent work',
     'usecase.consultant.question': 'What did the client commit to in the Q3 review?',
-    'usecase.consultant.outcome': 'Quoted from review.docx:12',
+    'usecase.consultant.outcome': 'Compare commitments with the approved notes',
     'usecase.developer.label': 'Developer',
     'usecase.developer.question': 'How is the auth middleware configured in this codebase?',
-    'usecase.developer.outcome': 'Cited at src/main/auth.ts:88',
+    'usecase.developer.outcome': 'Check the explanation against files and callers',
 
     'faq.eyebrow': 'FAQ',
     'faq.title': 'Common questions.',
@@ -634,16 +662,16 @@ export const ui = {
     'pillar.benchmarks.lead':
       'Numbers, not promises: reproducible measurements of how well retrieval and embeddings actually perform on German technical text — with the method and raw data to check for yourself. Honest, including where it still falls short.',
     // --- SEO cluster: personas ---
-    'persona.lawyer.title': 'For Lawyers',
+    'persona.lawyer.title': 'Search contracts and case files with local AI',
     'persona.lawyer.lead':
       'Search contracts and briefs offline with the bundled models. Citations open passages such as “§4.2 in Lease.pdf” for you to check; they do not guarantee a correct answer.',
-    'persona.research.title': 'For Research',
+    'persona.research.title': 'Local AI for research and study',
     'persona.research.lead':
       'Import your PDFs and ask methodology and content questions across the whole stack — with source references to check. With the bundled models, your unpublished draft stays on your device.',
-    'persona.consulting.title': 'For Consulting',
+    'persona.consulting.title': 'Local AI for consulting and project documents',
     'persona.consulting.lead':
       'Query client documents, proposals and notes locally with the bundled models. Citations help you check answers directly against the documents.',
-    'persona.development.title': 'For Development',
+    'persona.development.title': 'Ask local AI about your code and documentation',
     'persona.development.lead':
       'Use the bundled models to search your code and docs locally. Citations point to files and locations so you can check claims against the code.',
     // --- SEO cluster: persona FAQs ---
@@ -681,6 +709,22 @@ export const ui = {
     'persona.development.faq.q3': 'Which formats can I import?',
     'persona.development.faq.a3': 'Source code, Markdown, text and PDF.',
     // --- SEO cluster: shared link labels ---
+    'download.verify': 'Show checksum',
+    'download.hardware': 'Check your hardware before downloading',
+    'download.hardware.note':
+      'The local AI models need a supported GPU. A GPU with 4 GB cannot fit every model and context length. Check the requirements first and allow time for the model download.',
+    'persona.business.title': 'Local AI for business documents',
+    'persona.business.lead':
+      'Ask about handbooks, procedures and project documents on your own computer. LokLM is a personal desktop workspace for staff, rather than a centrally managed team wiki.',
+    'persona.business.faq.q1': 'Can several people edit the same workspace?',
+    'persona.business.faq.a1':
+      'LokLM is a local desktop application. It does not offer shared live editing, centralized roles or a synchronized team vault. Use separate installations and the original documents approved by your organization.',
+    'persona.business.faq.q2': 'How do I start with an internal handbook?',
+    'persona.business.faq.a2':
+      'Import an approved, current version into its own workspace. Wait for indexing, ask a specific question and open the cited source. Check the version date and the scope of the procedure.',
+    'persona.business.faq.q3': 'Does an AI answer replace our approved procedure?',
+    'persona.business.faq.a3':
+      'No. The approved original document remains authoritative. The model can misattribute sources or miss contradictions; check the process before acting on it.',
     'cluster.relatedPillars': 'Learn more',
     'cluster.relatedPersonas': 'Use cases',
     'cluster.readArchitecture': 'Read the full architecture',

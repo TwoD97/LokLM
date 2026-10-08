@@ -9,7 +9,7 @@ import {
 } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/types/src/display/api'
+import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist/types/src/display/api'
 import { findFuzzyHighlights } from '@shared/fuzzyHighlight'
 import { useT } from '../i18n'
 
@@ -19,6 +19,13 @@ import { useT } from '../i18n'
  *  fires the callback once and auto-unobserves. */
 type VisibilityRegister = (el: Element, onVisible: () => void) => () => void
 const VisibilityContext = createContext<VisibilityRegister | null>(null)
+const EMPTY_SNIPPETS: string[] = []
+
+type RenderedPage = {
+  page: PDFPageProxy
+  viewport: ReturnType<PDFPageProxy['getViewport']>
+  textTasks: Set<Promise<void>>
+}
 
 function createVisibilityRegistry(): { register: VisibilityRegister; dispose: () => void } {
   const callbacks = new Map<Element, () => void>()
@@ -57,7 +64,8 @@ function createVisibilityRegistry(): { register: VisibilityRegister; dispose: ()
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 type Props = {
-  documentId: number
+  /** Bytes verified against the indexed source hash by the source reader. */
+  bytes: Uint8Array
   /** 1-based page number the modal opens focused on. The page gets a visible
    *  accent border and is scrolled into view on mount. */
   targetPage: number
@@ -73,7 +81,7 @@ type Props = {
 }
 
 export function MultiPagePdfPreview({
-  documentId,
+  bytes,
   targetPage,
   snippets,
   citedPageFrom,
@@ -95,12 +103,14 @@ export function MultiPagePdfPreview({
     setAspectRatio(null)
     void (async () => {
       try {
-        const bytes = await window.api.documents.readDocumentBytes(documentId)
+        // Let an abandoned StrictMode effect clean up before starting a worker.
+        await Promise.resolve()
         if (cancelled) return
-        if (!bytes) throw new Error('Document bytes unavailable')
         // The preview owns its worker and decrypted bytes. Document IDs are
         // local to each workspace, so a renderer-wide ID cache is unsafe.
-        task = pdfjsLib.getDocument({ data: bytes })
+        // PDF.js transfers its buffer to the worker; preserve the owner's copy
+        // so a remount or StrictMode replay cannot reuse a detached buffer.
+        task = pdfjsLib.getDocument({ data: bytes.slice() })
         const doc = await task.promise
         if (cancelled) return
         const probe = await doc.getPage(1)
@@ -120,7 +130,7 @@ export function MultiPagePdfPreview({
       cancelled = true
       void task?.destroy().catch(() => undefined)
     }
-  }, [documentId])
+  }, [bytes])
 
   // One IntersectionObserver shared by every page of this preview. Created
   // per-mount and created lazily when a page registers. This also avoids
@@ -130,7 +140,7 @@ export function MultiPagePdfPreview({
 
   const pageCount = pdf?.numPages ?? 0
   const safeTarget = Math.min(Math.max(1, targetPage), Math.max(1, pageCount))
-  const highlightSnippets = snippets ?? []
+  const highlightSnippets = snippets ?? EMPTY_SNIPPETS
   const rangeFrom = citedPageFrom ?? safeTarget
   const rangeTo = citedPageTo ?? rangeFrom
 
@@ -153,7 +163,7 @@ export function MultiPagePdfPreview({
                 pageNumber={pageNumber}
                 aspectRatio={aspectRatio}
                 isTarget={pageNumber === safeTarget}
-                snippets={inCitedRange ? highlightSnippets : []}
+                snippets={inCitedRange ? highlightSnippets : EMPTY_SNIPPETS}
               />
             )
           })}
@@ -182,7 +192,9 @@ function PdfPage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const textLayerRef = useRef<HTMLDivElement | null>(null)
   const [shouldRender, setShouldRender] = useState(isTarget)
-  const [rendered, setRendered] = useState(false)
+  const [renderedPage, setRenderedPage] = useState<RenderedPage | null>(null)
+  const rasterSettled = useRef<Promise<void>>(Promise.resolve())
+  const rendered = renderedPage !== null
 
   // Scroll the cited page into view as soon as its placeholder is mounted.
   // Layout effect so the modal doesn't show a flash of the first page first.
@@ -206,21 +218,25 @@ function PdfPage({
     return register(el, () => setShouldRender(true))
   }, [shouldRender, register])
 
-  // Render the actual canvas (and , when this page is in the cited range , the
-  // text-layer overlay that hosts the snippet highlights) once shouldRender
-  // flips on.
+  // Rasterization belongs to the page, not to its highlights. A parent render
+  // or a different answer's snippets must not start another task on its canvas.
   useEffect(() => {
-    if (!shouldRender || rendered) return
+    if (!shouldRender) return
     let cancelled = false
     let activePage: PDFPageProxy | null = null
-    void (async () => {
+    let renderTask: RenderTask | null = null
+    const textTasks = new Set<Promise<void>>()
+    const previousRaster = rasterSettled.current
+    setRenderedPage(null)
+    const completion = (async () => {
       try {
+        // Cancellation relinquishes the canvas, and its promise confirms that
+        // the previous task has settled before this effect can reuse it.
+        await previousRaster
+        if (cancelled) return
         const page = await pdf.getPage(pageNumber)
-        if (cancelled) {
-          page.cleanup()
-          return
-        }
         activePage = page
+        if (cancelled) return
         const canvas = canvasRef.current
         const wrap = wrapRef.current
         if (!canvas || !wrap) return
@@ -239,33 +255,79 @@ function PdfPage({
 
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Canvas 2D context unavailable')
-        await page.render({ canvasContext: ctx, viewport: renderViewport, canvas }).promise
-        if (cancelled) return
-
-        // Text-layer overlay — only paint it when we have snippets to mark.
-        // Skipping the work on uncited pages keeps the modal light.
-        const textLayerEl = textLayerRef.current
-        if (textLayerEl && snippets.length > 0) {
-          await renderTextLayerWithHighlights({
-            page,
-            container: textLayerEl,
-            viewport: cssViewport,
-            snippets,
-          })
-          if (cancelled) return
+        renderTask = page.render({ canvasContext: ctx, viewport: renderViewport, canvas })
+        try {
+          await renderTask.promise
+        } finally {
+          renderTask = null
         }
-
-        setRendered(true)
+        if (cancelled) return
+        setRenderedPage({ page, viewport: cssViewport, textTasks })
       } catch {
         // Swallow render errors per-page — a broken page shouldn't break the
         // whole modal. The placeholder stays visible.
       }
     })()
+    rasterSettled.current = completion
     return () => {
       cancelled = true
-      activePage?.cleanup()
+      renderTask?.cancel()
+      // A text layer can still be settling after its own effect cleanup.
+      // Release page resources only after both kinds of owned work finish.
+      void completion
+        .then(async () => {
+          await Promise.allSettled(textTasks)
+          activePage?.cleanup()
+        })
+        .catch(() => undefined)
     }
-  }, [shouldRender, rendered, pdf, pageNumber, snippets])
+  }, [shouldRender, pdf, pageNumber])
+
+  // Highlights can change independently of a finished canvas. Cancel the old
+  // text task and clear its marks before starting the current answer's layer.
+  useEffect(() => {
+    const host = textLayerRef.current
+    if (!host || !renderedPage) return
+    const { page, viewport, textTasks } = renderedPage
+    if (snippets.length === 0) {
+      if (textTasks.size === 0) page.cleanup()
+      return
+    }
+    // PDF.js may deliver an already-queued read after cancel(). Give each task
+    // its own node so any such late writes stay detached from the current layer.
+    // Keep the original textLayer class/positioning on that actual PDF.js node.
+    const container = document.createElement('div')
+    container.className = 'pdf-doc__text-layer textLayer'
+    host.append(container)
+    let cancelled = false
+    let textLayer: pdfjsLib.TextLayer | null = null
+    const completion = (async () => {
+      try {
+        container.style.setProperty('--total-scale-factor', String(viewport.scale))
+        container.style.width = `${Math.floor(viewport.width)}px`
+        container.style.height = `${Math.floor(viewport.height)}px`
+        textLayer = new pdfjsLib.TextLayer({
+          textContentSource: page.streamTextContent(),
+          container,
+          viewport,
+        })
+        await textLayer.render()
+        if (!cancelled) highlightTextLayer(textLayer, snippets)
+      } catch {
+        // A cancelled or unavailable text layer must not hide the PDF canvas.
+      }
+    })()
+    textTasks.add(completion)
+    void completion.then(() => {
+      textTasks.delete(completion)
+      if (textTasks.size === 0) page.cleanup()
+    })
+    return () => {
+      cancelled = true
+      textLayer?.cancel()
+      container.remove()
+    }
+  }, [renderedPage, snippets])
 
   return (
     <div
@@ -278,7 +340,7 @@ function PdfPage({
     >
       <div className="pdf-doc__page-label">{t('chat.pageLabel', { n: pageNumber })}</div>
       <canvas ref={canvasRef} className={`pdf-doc__page-canvas${rendered ? '' : ' is-hidden'}`} />
-      <div ref={textLayerRef} className="pdf-doc__text-layer textLayer" aria-hidden="true" />
+      <div ref={textLayerRef} className="pdf-doc__text-layer-host" aria-hidden="true" />
       {!rendered && shouldRender && (
         <div className="pdf-doc__page-loading">{t('chat.rendering')}</div>
       )}
@@ -287,37 +349,14 @@ function PdfPage({
 }
 
 /**
- * Renders the PDF.js text layer into `container` and marks the text divs whose
+ * Marks the already-rendered PDF.js text divs whose
  * normalised content fuzzy-matches any of the supplied `snippets`. A whole
  * textDiv is marked even if only part of its run overlaps a highlight range —
  * PDF text items are already short fragments (often a single line or word),
  * so the visual result stays close to a per-phrase highlight without the cost
  * of splitting divs along character offsets.
  */
-async function renderTextLayerWithHighlights({
-  page,
-  container,
-  viewport,
-  snippets,
-}: {
-  page: PDFPageProxy
-  container: HTMLDivElement
-  viewport: ReturnType<PDFPageProxy['getViewport']>
-  snippets: string[]
-}): Promise<void> {
-  container.replaceChildren()
-  // PDF.js positions each span via CSS variables driven by this one.
-  container.style.setProperty('--total-scale-factor', String(viewport.scale))
-  container.style.width = `${Math.floor(viewport.width)}px`
-  container.style.height = `${Math.floor(viewport.height)}px`
-
-  const textLayer = new pdfjsLib.TextLayer({
-    textContentSource: page.streamTextContent(),
-    container,
-    viewport,
-  })
-  await textLayer.render()
-
+function highlightTextLayer(textLayer: pdfjsLib.TextLayer, snippets: string[]): void {
   const items = textLayer.textContentItemsStr
   const divs = textLayer.textDivs
   if (items.length === 0 || divs.length === 0) return

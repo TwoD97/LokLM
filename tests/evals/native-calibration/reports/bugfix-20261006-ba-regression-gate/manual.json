@@ -1,0 +1,20 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "unclear",
+    "strictPass": false,
+    "operationalOutcome": "parser-rejection-after-normal-generation-stop",
+    "rejectionDetail": "render_bound",
+    "sharedRendererDetail": "render_bounds",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "not-reviewed-in-fixed-metadata-report",
+    "decisionCorrectness": "unassessable-no-validated-final",
+    "formatRequirementSatisfied": null,
+    "responseLanguageContractSatisfied": null,
+    "productAcceptance": false,
+    "unsupportedExtraClaims": [],
+    "notes": "One actual question ended in a final-render bound rejection at 172154 ms after normal native stop at 161526 ms, without timeout. No accepted final exists, so semantic/citation/format/language grades remain unassessable. The fixed render_bound/render_bounds codes do not disclose selected text, exact overage or which output component consumed the bound. The terminal error occurred before 180 s but is not an answer-performance pass. Actual runner 1, cleanup 0, normal wrapper return and matching treatment/defaults/provenance/process closure are preserved separately. Twelve later cases remain unattempted; no retry, truncation, reconstructed answer or weaker grading."
+  }
+]

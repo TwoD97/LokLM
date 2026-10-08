@@ -1,0 +1,187 @@
+{
+  "kind": "safe-fixed-summary-display-observability",
+  "classification": "Separate diagnostic parser NONPASS; no BH rescue",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/safe-observations.json",
+      "sha256": "b5e331c61f819fb0c6f83929c5f531a156e207e628fd17cd284a12504f68a65d"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/postverify.json",
+      "sha256": "a805200a7a832cb993e0ef8c22675d892bc7cff0934d0b6fa1779e7bf34aa381"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/durable-closure.json",
+      "sha256": "c1e5254730ab7c2d6967490a69924a45957df6fa660bcb0bf616f1bc6060c6fb"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/cleanup.json",
+      "sha256": "e3ec1dfdf87a66e23abcaedaf7eaf220340b117891cb61c7c7be02abf01fdb0a"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/preparation.json",
+      "sha256": "e559de013f15d191d3924b0ad3fa437645e885095f7da50768f659e2f3d88335"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/independent-preparation-review.json",
+      "sha256": "0b8a6f45c2d64bfae2767e19ecc8d1bdfe92bc89f5589684057685589ac15955"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/classifier-preflight.json",
+      "sha256": "2ee8cbeafa18d969f0fb9fbfe8e8a9864506748731d043d239d683c6eb6d32c6"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/screening-declaration.json",
+      "sha256": "9da2fd7504cb9cd8c8b468d1001b600247285da8afec05c03abf4901bbfdcb5a"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/adapter-proof.json",
+      "sha256": "3938ef123bb2f66cfe5c2b3ad00841006b7cc033fc8cc5f5c13aa8ef9c45661b"
+    },
+    {
+      "path": "out/optimization-20261005/bh-safe-report-verification.json",
+      "sha256": "841d327358bdfa7dc38a0de03bd351e4847ec5a0ae411f23461d91bb7093a33b"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    },
+    {
+      "path": "out/optimization-20261005/bi-display-diagnostic/independent-fixed-metadata-grade.json",
+      "sha256": "32ef0919c016b21a29a62ed8fbc530b1ec4ad49b022c051f5f9deed0bb551725"
+    }
+  ],
+  "planned": 1,
+  "attempted": 1,
+  "retries": 0,
+  "acceptedFinals": 0,
+  "strictPasses": 0,
+  "originalOtherCasesUnattempted": 12,
+  "freshSetOpened": false,
+  "model": {
+    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
+    "bytes": 1280835840,
+    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+  },
+  "buildSha256": "47c6ced99837fcb52787f43d5f0fd799ecf2926ae9f7f4fedc741bc1ceea4e2f",
+  "request": {
+    "originalCase": "ab-fresh-01",
+    "originalCriteriaUnchanged": true,
+    "fullSourceCount": 8,
+    "sourceOrderUnchanged": true,
+    "exactBfPromptSystemSchemaIdentity": true,
+    "historicalBdWireIdentityProven": false,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "productionAdmissionChanged": false,
+    "productionWorkerUnmodified": true,
+    "collectionCapMs": 300000,
+    "directDiagnosticTargetMs": 180000
+  },
+  "validation": {
+    "accepted": false,
+    "reasons": ["answer"],
+    "ordinaryDetails": [],
+    "comparisonDetails": ["summary_display"],
+    "summaryDisplayDiagnostic": {
+      "status": "classified",
+      "eligible": false,
+      "codes": ["interior_period"],
+      "utf16Length": 232,
+      "codePointLength": 232,
+      "displayCodePointLength": 231,
+      "maximum": 368,
+      "countsClipped": false,
+      "terminalPeriod": true,
+      "unadmittedPeriodsAllInPublicWhitelist": false
+    }
+  },
+  "runtime": {
+    "backend": "vulkan",
+    "threads": 6,
+    "reserveBytes": 1073741824,
+    "kvType": "f16",
+    "contextTokens": 8192,
+    "gpuLayers": 25,
+    "totalModelLayers": 25,
+    "schemaMode": "summary"
+  },
+  "allocatorEvents": [
+    {
+      "code": "layer_cache_miss"
+    },
+    {
+      "code": "allocation_ready",
+      "contextTokens": 8192,
+      "kvType": "f16",
+      "gpuLayers": 25,
+      "reducedOffload": false
+    }
+  ],
+  "metrics": {
+    "elapsedMs": 14679,
+    "nativeMs": 14652,
+    "grammarMs": 7,
+    "promptFitMs": 20,
+    "usedInputTokens": 1740,
+    "usedOutputTokens": 268,
+    "cancelled": false,
+    "completionReason": "stopGenerationTrigger",
+    "route": "main",
+    "boundedThoughts": {
+      "promptTokens": 1739,
+      "thoughtTokens": 128,
+      "thoughtClosingTokens": 0,
+      "forcedClosingTokens": 2,
+      "visibleTokens": 140,
+      "combinedTokens": 270,
+      "firstVisibleMs": 8870,
+      "lastVisibleMs": 14649,
+      "thoughtTermination": "budget"
+    }
+  },
+  "nativeStart": {
+    "maxTokens": 2176,
+    "noThink": false,
+    "boundedReasoning": "active",
+    "jsonWhitespace": "compact"
+  },
+  "timings": {
+    "loadMs": 15052,
+    "nativeMs": 14652,
+    "callMs": 14830,
+    "callAndParserMs": 14834,
+    "coldArmMs": 30332,
+    "coldGroupWallMs": 30546,
+    "throughDurableClosureMs": 36530,
+    "fullApplicationTurnMeasured": false
+  },
+  "closure": {
+    "nodeExit": 0,
+    "postverifyExit": 0,
+    "workerExit": 0,
+    "pendingRequests": 0,
+    "verifiedPins": 611,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "forcedStops": 0,
+    "profilesRemoved": true,
+    "captureEnabled": false
+  },
+  "diagnosticMeaning": {
+    "onlyFixedCodesAndCappedCounts": true,
+    "observedTerminalDotIsNotSuccessfulNormalization": true,
+    "publicWhitelistFalseIsAmbiguous": true,
+    "knownBhCause": false,
+    "rawTextOrSubstringRetained": false,
+    "priorBhNonpassPreserved": true
+  },
+  "limitations": [
+    "The interior_period category identifies a structural predicate, not its wording, position, semantic role or exact sentence count.",
+    "False public abbreviation coverage means not every rejected dot is covered by the declared small lexical list; it does not prove a genuine sentence break.",
+    "Matching BH runtime/counts do not establish identical discarded outputs or reveal the cause of BH.",
+    "No semantic grade, repair, model-default adoption or later-case acceptance follows."
+  ]
+}

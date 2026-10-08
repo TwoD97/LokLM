@@ -1,0 +1,588 @@
+{
+  "kind": "safe-actual-app-postfreeze-fresh-observations",
+  "runId": "bugfix-20261006-ar-fresh-validation",
+  "classification": "Prospectively sealed internal AR/v19 fresh transfer validation; now revealed and known DEV. Original criteria and first-attempt failures preserved.",
+  "privacy": "Validated displayed finals/fixed rejection notice, safe source IDs/order and named scalar metadata only. No hidden thoughts, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation/raw.json",
+    "sha256": "c19ecc3ec7223fe2ad007d2556f896aa660ed7d4240c7028cbf4e213032255de",
+    "availability": "Local ignored generated artifact; exact validated finals and safe metadata are retained here."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ar-fresh-validation-execution-declaration.json",
+    "sha256": "ae7e90edbb6001e5f1520446dd6a24041dfee178c13ac8a8898fdb5bb9691e57",
+    "frozenAt": "2026-10-06T06:39:43.926Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ar-fresh-validation-postverify.json",
+    "sha256": "f192465751df7c64f0dcd0a2a8a26295b8a888fb43c479b8c5fd854a136142e5",
+    "verifiedAt": "2026-10-06T06:46:25.876Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 1,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": false,
+    "safeToContinue": false,
+    "remainingOwnedNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0
+  },
+  "provenanceScope": "All matched-source/build statements refer only to the recorded collection closure. Production may have changed afterward; no claim about current workspace equality.",
+  "requestedCases": [
+    "ar-fresh-01",
+    "ar-fresh-02",
+    "ar-fresh-03",
+    "ar-fresh-04",
+    "ar-fresh-05",
+    "ar-fresh-06",
+    "ar-fresh-07",
+    "ar-fresh-08"
+  ],
+  "attemptedCases": ["ar-fresh-01", "ar-fresh-02"],
+  "unobservedCases": [
+    "ar-fresh-03",
+    "ar-fresh-04",
+    "ar-fresh-05",
+    "ar-fresh-06",
+    "ar-fresh-07",
+    "ar-fresh-08"
+  ],
+  "originalEvaluationDenominator": 8,
+  "startedAt": "2026-10-06T06:40:15.620Z",
+  "collectionCompletedAt": null,
+  "closureVerifiedAt": "2026-10-06T06:46:25.876Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "sourceCorpusDocuments": 20,
+  "sourceCatalog": [
+    {
+      "sourceKey": "arf-source-01",
+      "sourceId": "1:1",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-01.md",
+      "sourceSha256": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119",
+      "actualChunkTextSha256": "e777b43a591a464c46038e3b20f46329e51aa9016322a5d68125bcc201626c93"
+    },
+    {
+      "sourceKey": "arf-source-02",
+      "sourceId": "2:2",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-02.md",
+      "sourceSha256": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7",
+      "actualChunkTextSha256": "e7bd61da3e090ffeeb84cb2f2a55e34d1b4b6e218940783b74d468a702840693"
+    },
+    {
+      "sourceKey": "arf-source-03",
+      "sourceId": "3:3",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-03.md",
+      "sourceSha256": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19",
+      "actualChunkTextSha256": "7eb041cd7cb79aea1a8c0f62f45fc348fb6f62d62b2ebf30416af89cbbb56603"
+    },
+    {
+      "sourceKey": "arf-source-04",
+      "sourceId": "4:4",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-04.md",
+      "sourceSha256": "ef5170d23db6eed8a3f7b82225d8b435081175d1b98c5256b2f842c12cca63cd",
+      "actualChunkTextSha256": "4906a7e2b5adbf3ecb2d18150787e0be5d66b2b8a3a96384970441d89eff436d"
+    },
+    {
+      "sourceKey": "arf-source-05",
+      "sourceId": "5:5",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-05.md",
+      "sourceSha256": "928a362cdf542680ed0fb5fdec7ce357dec94d26cd6fdddb841e69f955f63706",
+      "actualChunkTextSha256": "0332d46e978688eaf2b464519235861b3c4660fbb2333dbd728ff3e616996ed3"
+    },
+    {
+      "sourceKey": "arf-source-06",
+      "sourceId": "6:6",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-06.md",
+      "sourceSha256": "e4e13b48d31653fb0501dc24ae7a88d835adcd36dcec7befe27eb32eacbd834f",
+      "actualChunkTextSha256": "c485b8e653cee13c7b14cbb8d605702f64901ef5e3e02b13da33e176b9ff8606"
+    },
+    {
+      "sourceKey": "arf-source-07",
+      "sourceId": "7:7",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-07.md",
+      "sourceSha256": "085e4ace2674da4e515c5c5d06160da10dd4b90981804e9429611dbde015cce4",
+      "actualChunkTextSha256": "d0cf754d250358af354f28dfa35f8b461f4e94a1e9dce60c4bdcf3f22bcd3902"
+    },
+    {
+      "sourceKey": "arf-source-08",
+      "sourceId": "8:8",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-08.md",
+      "sourceSha256": "d0bd072410fe1b1eed169fd74e26895b7f0d2c7e0fdb1a6434f28cefe72f8d72",
+      "actualChunkTextSha256": "01f7b550227509ab9349ad1faa3db60cb6affea8f73356fc4ac0679ee05e1c64"
+    },
+    {
+      "sourceKey": "arf-source-09",
+      "sourceId": "9:9",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-09.md",
+      "sourceSha256": "4d285317243f92d4fc8f539ba3bd6238a7f5ea0caf37c94be55d2952946365b3",
+      "actualChunkTextSha256": "8e8bf1bd5a87d914f897f6077c5c721aeba50726aa061bf08d36cf1b65b00611"
+    },
+    {
+      "sourceKey": "arf-source-10",
+      "sourceId": "10:10",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-10.md",
+      "sourceSha256": "2a5d6abad1fdfc567d694808a8b57ad44f1d07837c96749688ffb3aa0bcd5139",
+      "actualChunkTextSha256": "420e2720f0c5fa3ea8a11003148a833798cd48093243894be6346fa5a060f677"
+    },
+    {
+      "sourceKey": "arf-source-11",
+      "sourceId": "11:11",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-11.md",
+      "sourceSha256": "f02a6015121b730b554b7790a74307c1f1033bba610a971845ca63745778e05d",
+      "actualChunkTextSha256": "1257a19d5f6a901313cc2d7b3dac2a0ab2b09ac31d29b965d8f246c722121a10"
+    },
+    {
+      "sourceKey": "arf-source-12",
+      "sourceId": "12:12",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-12.md",
+      "sourceSha256": "6ad5ca2b5da4c86d280bae1edba2a2cf565e6eedff1804f114f48b53b220dbc0",
+      "actualChunkTextSha256": "61f417c9530c794c6a396b04fc6ad9dd080d21dffba0ddddd1c59ba621666f31"
+    },
+    {
+      "sourceKey": "arf-source-13",
+      "sourceId": "13:13",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-13.md",
+      "sourceSha256": "abb3aa0370b49be53b335df933a71721dfcd0cc0cfa85a772a95c4675802add9",
+      "actualChunkTextSha256": "edff2c979d17e8712c0454b0717f06927d423b87a640fb64db12a22fb3eb5aac"
+    },
+    {
+      "sourceKey": "arf-source-14",
+      "sourceId": "14:14",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-14.md",
+      "sourceSha256": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513",
+      "actualChunkTextSha256": "935d18bb4d0de6ef5766ac75458d77b4d2348f3418f8d4304e402e4f487c8ef7"
+    },
+    {
+      "sourceKey": "arf-source-15",
+      "sourceId": "15:15",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-15.md",
+      "sourceSha256": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db",
+      "actualChunkTextSha256": "f87cd400e89a2fe1ceb3fcaedd3ce2c736c2501f0f01f47b5ebf14be6396edaa"
+    },
+    {
+      "sourceKey": "arf-source-16",
+      "sourceId": "16:16",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-16.md",
+      "sourceSha256": "2988214627a83cafa89189741c4d71e976a85d6cdabb631b2b7cc43f1a44e3d1",
+      "actualChunkTextSha256": "d2041fdf6b5479838d27f25a6c36183b2e82e4307f5770759d79f60741767ae5"
+    },
+    {
+      "sourceKey": "arf-source-17",
+      "sourceId": "17:17",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-17.md",
+      "sourceSha256": "359bf6eb74fd971a7795e04a10e4892d8b21f7f50d54f8523c1c3878a54f9d59",
+      "actualChunkTextSha256": "bcd627ff00e2af9accd3c59c139298f9ca48b531011868e627fd181135816dc9"
+    },
+    {
+      "sourceKey": "arf-source-18",
+      "sourceId": "18:18",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-18.md",
+      "sourceSha256": "1dde5ec75baf6b8a07266de72e3c115ed63647ced11d00a9d942f54b0a841644",
+      "actualChunkTextSha256": "a688b4273c81a1c9ee03bca1c4b44b219c65b65851150efb2c0d90d5f4334fad"
+    },
+    {
+      "sourceKey": "arf-source-19",
+      "sourceId": "19:19",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-19.md",
+      "sourceSha256": "5f8873cf7b3c23c39eb4a4e0a874759b142486e6ba5301b5f89de2620d1475ac",
+      "actualChunkTextSha256": "53471767b32fadb9f788eff520cbdccbb98973342319f6df24ba92cdfcf2cf44"
+    },
+    {
+      "sourceKey": "arf-source-20",
+      "sourceId": "20:20",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-20.md",
+      "sourceSha256": "47ef98c4fbfdf6e030194f91d4085d74a5315804532046e27523060b3e4d9b45",
+      "actualChunkTextSha256": "4ca34a8102329dbd0249a149dfbb540f1a2c317023933fef86d5c6b4665aac3e"
+    }
+  ],
+  "provenance": {
+    "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchangedAtCollection": true,
+    "sourcesMatchedBuildAtClosure": true,
+    "fixtureManifestSha256": "fcefb3a200d1e823f9cf4f9e20a7dec128d4e1c45595a2c565378602e266720b",
+    "fixtureLockSha256": "88aa04def102331c801a974ec674b3a38fdce91d7f1832ba4c6f6d46b1fd9e7f",
+    "originalSealSha256": "41bf31d79018deb712434e0d8c7535991cab305de7a98732a9d32bdc201dec18",
+    "gradingKeySha256": "e8c3a1cfdd83b04cf63c96602f303711d1b621efc648a2146b577b6095752d7a",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "300s is the prospective end-to-end calibration cap, not a new production deadline. Within180 requires clean terminal plus settled invocation; native elapsed is a subset. Constrained token counts include private check and JSON syntax, not only displayed prose.",
+  "queries": [
+    {
+      "caseId": "ar-fresh-01",
+      "runId": "bugfix-20261006-ar-fresh-validation",
+      "question": "Welche Bildschirmexportbreite ist für Quenoras QX-Ausgabe R7 verbindlich? Nenne beide Werte aus Kupfer und Silber und begründe, ob die Vermerke einen Vorrang belegen. Antworte in einem kurzen Satz.",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Für den Bildschirmexport ist eine Breite von 1180 Pixeln vermerkt\\.” [doc:1, chunk:1]; “Für den Bildschirmexport ist eine Breite von 1260 Pixeln vermerkt\\.” [doc:2, chunk:2]; “Dieses Exemplar enthält keine Freigabeunterschrift und nennt keinen Vorrang gegenüber dem Vermerk Silber\\.” [doc:1, chunk:1]; “Eine Freigabeunterschrift oder eine Regel zum Vorrang gegenüber Kupfer ist in diesem Exemplar nicht enthalten\\.” [doc:2, chunk:2].",
+      "fixedTerminalStatus": null,
+      "actualFedSourceIdsInOrder": [
+        "1:1",
+        "2:2",
+        "17:17",
+        "4:4",
+        "14:14",
+        "15:15",
+        "3:3",
+        "13:13",
+        "16:16",
+        "19:19"
+      ],
+      "finalCitationIds": ["1:1", "2:2"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 138971,
+        "firstVisibleTokenMs": 138971,
+        "terminalMs": 138972,
+        "totalMs": 138972,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictPass": false,
+      "strictVerdict": "partial",
+      "requiredSourceIds": ["1:1", "2:2"],
+      "allRequiredPassagesActuallyFed": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 128383,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 44,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "fixedRejectionDetails": [],
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 128244,
+            "grammarMs": 5,
+            "promptFitMs": 25,
+            "nativeMs": 128214,
+            "firstTextMs": 77820,
+            "lastTextMs": 128210,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 240,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2131,
+            "usedOutputTokens": 237,
+            "boundedThoughts": {
+              "promptTokens": 2130,
+              "prefillBatches": 9,
+              "prefillTokens": 2129,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 109,
+              "combinedTokens": 239,
+              "firstVisibleMs": 77820,
+              "lastVisibleMs": 128210,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 0,
+          "inspectedChars": 0,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true,
+      "within300Seconds": true,
+      "formatObservation": {
+        "whitespaceWordsExcludingCitationMarkers": 61,
+        "completeQuotedSentenceUnits": 4,
+        "oneOuterSemicolonFrame": true,
+        "noNewHardWordThreshold": true
+      }
+    },
+    {
+      "caseId": "ar-fresh-02",
+      "runId": "bugfix-20261006-ar-fresh-validation",
+      "question": "Which calibration tone governs Ostrel OC-9 cycle L3 at 21 C on 2052-07-14? Give both entries and explain whether the paired record establishes priority. Answer in one short sentence.",
+      "finalAnswer": null,
+      "fixedTerminalStatus": "Parser rejected: source_duplicate; no validated final answer.",
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "9:9",
+        "16:16",
+        "18:18",
+        "14:14",
+        "11:11",
+        "12:12",
+        "17:17",
+        "4:4",
+        "13:13"
+      ],
+      "finalCitationIds": [],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": null,
+        "firstVisibleTokenMs": null,
+        "terminalMs": 159837,
+        "totalMs": 159837,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "error",
+        "invokeSettled": true,
+        "collectionDecision": "stop"
+      },
+      "strictPass": false,
+      "strictVerdict": "unclear",
+      "requiredSourceIds": ["3:3"],
+      "allRequiredPassagesActuallyFed": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": false,
+        "durationMs": null,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 45,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": []
+      },
+      "fixedRejectionDetails": ["source_duplicate"],
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 142586,
+            "grammarMs": 5,
+            "promptFitMs": 26,
+            "nativeMs": 142555,
+            "firstTextMs": 78598,
+            "lastTextMs": 142554,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 421,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2095,
+            "usedOutputTokens": 267,
+            "boundedThoughts": {
+              "promptTokens": 2094,
+              "prefillBatches": 9,
+              "prefillTokens": 2093,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 139,
+              "combinedTokens": 269,
+              "firstVisibleMs": 78598,
+              "lastVisibleMs": 142554,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 187,
+          "capped": false
+        }
+      ],
+      "within180Seconds": false,
+      "within300Seconds": false
+    }
+  ],
+  "counts": {
+    "requested": 8,
+    "attempted": 2,
+    "validatedFinals": 1,
+    "strictPasses": 0,
+    "formatPartials": 1,
+    "falseRefusals": 0,
+    "parserNonpasses": 1,
+    "timeouts": 0,
+    "unobserved": 6,
+    "cleanCompletedWithin300": 1,
+    "cleanCompletedWithin180": 1,
+    "strictPassesWithin180": 0,
+    "completedAbove180": 0,
+    "automatedRetries": 0
+  },
+  "scope": {
+    "originalCriteriaUnchanged": true,
+    "allTwentyDocumentsEligible": true,
+    "noGoldSourceFilter": true,
+    "noOutputRepair": true,
+    "priorAQFailuresUnchanged": true,
+    "sourceClaimsReferToHistoricalClosure": true,
+    "contentsReleasedOnlyAfterAllEightAttemptsClosed": true
+  },
+  "captureStatus": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "residualCaptureCount": 0
+  }
+}

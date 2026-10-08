@@ -43,4 +43,12 @@ test.describe('locale switching', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await expect(page.locator('h1')).toContainText('Privacy')
   })
+
+  test('switching language preserves the legal page', async ({ page }) => {
+    await page.goto('/privacy')
+    await page.locator('header a[hreflang="en"]').click()
+    await expect(page).toHaveURL(/\/en\/privacy$/)
+    await page.locator('header a[hreflang="de"]').click()
+    await expect(page).toHaveURL(/\/privacy$/)
+  })
 })

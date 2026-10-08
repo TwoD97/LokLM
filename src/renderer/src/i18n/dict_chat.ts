@@ -86,6 +86,14 @@ export const chatDict: DomainDict = {
     'chat.closeEsc': 'Close (Esc)',
     'chat.documentPreview': 'Document preview',
     'chat.noChunks': 'No chunks available for this document.',
+    'chat.sourceNotice.changed':
+      'The PDF has changed since indexing. Showing the indexed text used by this citation.',
+    'chat.sourceNotice.unavailable':
+      'The original PDF is unavailable. Showing the indexed text used by this citation.',
+    'chat.sourceNotice.unverified':
+      'The PDF version could not be verified. Showing the indexed text used by this citation.',
+    'chat.sourceNotice.citationRemoved':
+      'This cited passage is no longer available. The document may have been refreshed or removed.',
     // MultiPagePdfPreview
     'chat.pdfPreviewFailed': 'PDF preview failed: {message}',
     'chat.loadingPdf': 'Loading PDF…',
@@ -179,6 +187,14 @@ export const chatDict: DomainDict = {
     'chat.closeEsc': 'Schließen (Esc)',
     'chat.documentPreview': 'Dokumentvorschau',
     'chat.noChunks': 'Keine Chunks für dieses Dokument vorhanden.',
+    'chat.sourceNotice.changed':
+      'Die PDF wurde seit der Indexierung geändert. Angezeigt wird der indexierte Text dieses Quellenverweises.',
+    'chat.sourceNotice.unavailable':
+      'Die ursprüngliche PDF ist nicht verfügbar. Angezeigt wird der indexierte Text dieses Quellenverweises.',
+    'chat.sourceNotice.unverified':
+      'Die PDF-Version konnte nicht geprüft werden. Angezeigt wird der indexierte Text dieses Quellenverweises.',
+    'chat.sourceNotice.citationRemoved':
+      'Diese zitierte Textstelle ist nicht mehr verfügbar. Das Dokument wurde möglicherweise aktualisiert oder entfernt.',
     // MultiPagePdfPreview
     'chat.pdfPreviewFailed': 'PDF-Vorschau fehlgeschlagen: {message}',
     'chat.loadingPdf': 'PDF wird geladen…',

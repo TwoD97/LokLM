@@ -626,8 +626,11 @@ export class WorkspaceDb {
       chunkHits: number
       firstChunkId: number | null
     }> = []
+    // rows() eagerly materializes SQLite BLOBs. Lexical/count lookups never
+    // consume summary vectors, so keep them out of the returned row payload.
     for (const row of this.rows(
-      `SELECT id, title, lower(title) AS lt, lower(COALESCE(summary, '')) AS ls, summary_embedding,
+      `SELECT id, title, lower(title) AS lt, lower(COALESCE(summary, '')) AS ls,
+              ${useEmb ? 'summary_embedding' : 'NULL AS summary_embedding'},
               (SELECT id FROM chunks WHERE document_id = documents.id ORDER BY ordinal LIMIT 1) AS first_chunk_id
          FROM documents WHERE status = 'ready'`,
     )) {

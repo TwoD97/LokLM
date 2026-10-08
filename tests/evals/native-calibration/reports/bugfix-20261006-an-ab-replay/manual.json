@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS: exactSouth19 andNorth14 days for the same NP-6/S8 scope, each with correctlocal2:2/1:1 reference, compact framed sentence and evidence-scoped uncertainty. No binding winner, invented chronology/nonapproval/replacement/global absence, irrelevant heading/date unit or omitted requested value. App122543ms/native111683ms; completed once."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS under the unchanged original key. Current5 projectors comes from approved/effective amendment4:4; retained7 tablets frombase3:3; proposal5:5 explicitly lacks approval/authority. The final gives5/7, correctly says the working paper does not change the limits, and now explicitly states that it was not approved. All3:3/4:4/5:5 references attach the coherent paragraph. No extra unsupported claim or one-sentence requirement for this question. Separate runtime formatting caveat: valid envelope externalLineBreaks1 despite compact start; no location/cause or discarded-content inference. App153520ms/native135790ms."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS: planned2037 main-campus29835CHF minus recorded2036 main-campus27460CHF equals2375CHF. Correct years/status, local6:6/7:7refs, one short sentence; no reserve/Annex inclusion or unsupported claim. Repeating input amounts is not required. App153604ms/native136002ms; completed once."
+  }
+]

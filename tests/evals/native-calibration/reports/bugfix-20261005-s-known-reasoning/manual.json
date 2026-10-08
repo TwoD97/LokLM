@@ -1,0 +1,134 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: unresolved answer is explicitly scoped to supplied excerpts. Complete exact1:1/2:2 retain2031-04-09/2031-04-12 alternatives, identical issue date/cohort and no documentary approval/replacement statements; no categorical external event denial. Canonical local references and requested ISO dates present. Full-passage length is a brevity tradeoff. Completed86354ms, actual8K/q4_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: one coherent ordinary paragraph gives current4drills/5saws, original3drills, base2031-01-05, amendment approval2031-05-02/effective2031-05-15 and unchanged5saws. Actual supplied3:3/4:4 jointly support all clauses with correct local canonical references. No fabricated locators or extras. Completed160843ms, actual8K/q4_0/14layers,246outputtokens."
+  },
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: compatible outcome, both whole actual6:6/5:5 readings retain same tank/date/time/scope; explicit program-derived2750litres=2750L and2.75cubicmetres=2750L meet the requested litres comparison with each source locally cited. No authority or scope invention. Full-passage verbosity remains. Completed88407ms, actual8K/q8_0/14layers,105outputtokens."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: unresolved governing answer is scoped to supplied excerpts; exact8:8/7:7 retain same event/date/temperature,150seconds versus2.25minutes, and both documentary no-priority clauses. Program-derived2.25minutes=135s and150seconds=150s provide requested comparison in seconds, each locally cited. No invented winner or different conditions. Completed101983ms, actual8K/q8_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: current72EUR, adopted2031-02-03/effective2031-03-01, proposed81EUR, no assembly vote and explicit non-revocation all match actual supplied9:9/10:10. Both canonical sources attach the coherent paragraph including authority conclusion; no unsupported negative inferred from mere absence. Completed145659ms, actual8K/q8_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [],
+    "notes": "False-refusal/completeness failure: comparison/insufficient lead says supplied excerpts cannot answer, despite complete actual11:11/12:12 explicitly providing12at08:00UTC before deliveries/withdrawals and17at18:00UTC after them. Full exact values, times and local citations are present, but requested compatibility judgment is missing/wrongly declined. Valid source display does not prove the model outcome. Completed101323ms, actual8K/q4_0/14layers. No prompt/source changes or retry."
+  },
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: requested runB24litres and approval2031-06-11 ISO date match the actual supplied13:15 table and13:14 header. Both canonical refs locally support the coherent two-sentence paragraph. No fabricated offsets, extra sources, false volume absence or unsupported provenance. Completed106596ms, actual8K/q8_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: ordinary paragraph computes north6 and south7 for requested=8 with correct nested expressions, states deployment/precedence is undocumented in the archive copies, and attaches both exact14:13/15:16 references locally to the complete calculation+deployment record. No invented deployed winner, incorrect expression or prior missing-calculation-marker defect. Completed142226ms, actual8K/q4_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass:31west/34east, exact disjoint serial ranges700–739/740–779 and65total are supported by actual16:17/17:18. One coherent source-linked paragraph includes both operands and scope justification, so requested sum and permission to add are answered without double-counting. No source overlap invention. Completed148605ms, actual8K/q4_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: insufficient outcome is warranted because actual18:19 explicitly supplies only8litres/minute and no duration or total. Full original excerpt and exact local marker preserve the rate/volume distinction; no guessed discharged litres, global document absence or ungrounded reason. Completed85760ms, actual8K/q8_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass:18litres over3minutes gives6litres/minute, correctly tied to runA and actual supplied13:15 table. Exact local marker supports operands and division in one coherent record; no header-as-measurement error or invented provenance. Completed123431ms, actual8K/q4_0/14layers."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict safe-abstention pass: actual supplied13:15 explicitly says the table contains no electrical measurements. Missing-evidence wording is scoped to excerpts and no power consumption is fabricated. Correct exact citation; whole-table escaped display and source-derived water/time conversions are accurate but unnecessary presentation, not proof of electrical power. Completed89899ms, actual8K/q4_0/14layers."
+  }
+]

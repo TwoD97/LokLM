@@ -1,0 +1,146 @@
+{
+  "kind": "safe-known-dev-orchestration-failure-observations",
+  "classification": "One consumed original AZ launcher attempt failed before the harness, model inference or any QA question. No RAG result exists.",
+  "runId": "bugfix-20261006-az-regression-gate",
+  "closure": {
+    "path": "out/optimization-20261005/az-regression-gate-orchestration-closure.json",
+    "sha256": "6b3be166aa3af40b7d88e660f9a835e4897fbae51f3fe200ab200791cc7e5c6e",
+    "kind": "az-consumed-launch-orchestration-failure",
+    "closedAt": "2026-10-06T15:02:49.831Z",
+    "runId": "bugfix-20261006-az-regression-gate",
+    "status": "failed-before-harness",
+    "originalRequestedCount": 13,
+    "launchCount": 1,
+    "qaAttempted": 0,
+    "acceptedFinalCount": 0,
+    "strictPassCount": 0,
+    "unattemptedCount": 13,
+    "modelInferenceStarted": false,
+    "runnerExitCode": null,
+    "wrapperExitCode": null,
+    "actualExitCodeRecovered": false,
+    "rootCause": "Detached Windows PowerShell 5.1 inherits PowerShell 7 module search paths through Start-Process; Get-FileHash is unavailable before the exclusive child-start record and before Playwright launch. A separate harmless hidden-shell probe reproduced missing Get-FileHash; direct native-shell invocation found it.",
+    "missing": {
+      "raw": true,
+      "appLog": true,
+      "runnerStart": true,
+      "runnerResult": true,
+      "wrapperResult": true,
+      "playwrightLog": true
+    },
+    "artifactPins": [
+      {
+        "path": "out/optimization-20261005/az-candidate-pins.json",
+        "sha256": "df9aafed8c15b7986f7de7434b7cdee73baccb1a8f625aab16185c7982088252"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-protocol.json",
+        "sha256": "86245811e39fc9c81de954b720b978729527e61fa9bf235cab32de2ce9f0c72d"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-execution-declaration.json",
+        "sha256": "30f2c5902e6d413a67cc8a40fef63e97cc3dd987aebd8e92efafc337e0355a40"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-launch.json",
+        "sha256": "71591d3f8d9edc1a31b95cda379970aef2f7f46e66bebc3f099c43d28209cae0"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-launch-receipt.json",
+        "sha256": "0255b14e7354b114ef0d8fe7c347b4c3bfc1ed783eee0462e7eb575687493fb5"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-wrapper.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-wrapper.stderr.log",
+        "sha256": "e3d2d2608441de84034fd634931f204a5c047743a0a6bae5e539865f54e9dd43"
+      },
+      {
+        "path": "out/optimization-20261005/az-regression-gate-capture-cleanup.json",
+        "sha256": "c8e4234b3115c5805f16819301e41991d4e9efcf135faa298ab7f44e8da2797b"
+      },
+      {
+        "path": "out/optimization-20261005/az-detached-shell-health.ps1",
+        "sha256": "5136a9e359b1c7262d988474fb3b552290dc695bce7ebe321ea9c821e5e2e7be"
+      },
+      {
+        "path": "out/optimization-20261005/az-detached-shell-health.stdout.log",
+        "sha256": "b517c2600d3399d53c44de522eeb50f94e186fa078719e6f9d7f62c3f03b5795"
+      },
+      {
+        "path": "out/optimization-20261005/az-detached-shell-health.stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "out/optimization-20261005/recover-az-launch.mjs",
+        "sha256": "d0caabbabb10e160f61d917c6679680e9d2ba5ca74dc1730a6b6c826a98d153c"
+      }
+    ],
+    "currentPinsMatched": true,
+    "changedPaths": [],
+    "build": {
+      "status": "matched",
+      "currentSourcesMatchBuild": true,
+      "sha256": "949deaa776207a9433487d9949064e2d21cb83dd4079822b41111680902541b1"
+    },
+    "captureVerified": true,
+    "captureFiles": 0,
+    "processClosureVerified": true,
+    "remainingProcesses": { "runners": [], "ownedWrapper": [], "native": [] },
+    "retries": 0,
+    "recoveryStartedInference": false,
+    "originalLaunchNotRetried": true,
+    "semanticGrade": null,
+    "requestCompleted": false,
+    "safeToContinue": false,
+    "contentsInspected": "Wrapper command failure and harmless shell-probe metadata only. No app/source/check/thought/final/rejected output exists or was inspected."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/az-regression-gate-execution-declaration.json",
+    "sha256": "30f2c5902e6d413a67cc8a40fef63e97cc3dd987aebd8e92efafc337e0355a40",
+    "frozenAt": "2026-10-06T15:00:34.881Z"
+  },
+  "counts": {
+    "declaredCandidateCases": 13,
+    "gateScheduledCases": 1,
+    "launcherAttempts": 1,
+    "qaAttempted": 0,
+    "modelInferences": 0,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "semanticNonpasses": 0,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "unattempted": 13,
+    "retries": 0
+  },
+  "scheduledGateCaseIds": ["ab-fresh-01"],
+  "unattemptedCaseIds": [
+    "ab-fresh-01",
+    "ar-fresh-01",
+    "ar-fresh-02",
+    "ar-fresh-07",
+    "ar-fresh-03",
+    "ar-fresh-04",
+    "ar-fresh-05",
+    "ar-fresh-06",
+    "ar-fresh-08",
+    "ab-fresh-02",
+    "ab-fresh-03",
+    "heldout-10",
+    "heldout-06"
+  ],
+  "finalAnswer": null,
+  "acceptedFinalAvailable": false,
+  "semanticGrade": null,
+  "citationGrade": null,
+  "formatRequirementSatisfied": null,
+  "responseLanguageContractSatisfied": null,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "queries": [],
+  "scope": "Closure equality describes the recorded recovery time only, not a later workspace. No QA duration, allocation, generation policy observation, checked result, source coverage or semantic conclusion is inferred from a failed launcher.",
+  "privacy": "Only the fixed orchestration closure, declaration and protocol metadata were parsed. Wrapper/probe log files were hashed as opaque bytes; this reporting step did not read their text. Raw, source, private check, hidden thought and rejected/accepted answer contents were not read."
+}

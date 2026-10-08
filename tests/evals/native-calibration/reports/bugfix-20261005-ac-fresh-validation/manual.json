@@ -1,0 +1,38 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "STRICT NONPASS for requested completeness/relevance, independently graded by root and organizer_store before the author/evaluator judgment. Correct evidence-scoped unresolved outcome does not repair the omission of both required 14-day and 19-day alternatives. It selects only the South heading and issue-date unit, both literal original text, and cites only 2:2. North 1:1 and South 2:2 were the first two actual supplied passages and contain both values and documentary authority limits. CitationSupport supported refers only to the copied units, not successful task evidence; North attribution is missing. No fabricated winner, but not a complete safe answer. 81108 ms; concise mode, 31 units."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "Current tablet limit is 9.",
+      "The base rule sets or retains 9 tablets."
+    ],
+    "notes": "CRITICAL STRICT FAILURE, independently graded by root and organizer_store before the author/evaluator judgment. Actual 3:3 explicitly sets 7 tablets; approved/effective amendment 4:4 changes only projectors to 5 and retains other provisions; later 5:5 merely proposes 9 and explicitly lacks approval/authority. All three were actually supplied. The answer correctly gives 5 projectors and the March 1 effective date, and acknowledges the proposal is unapproved, but nevertheless asserts current 9 tablets and falsely attributes 9 to the base rule. All three canonical IDs are locally present (citationCompleteness complete is marker coverage only), but they do not support the false current/base value. 144441 ms; full mode ordinary answer."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "STRICT PASS independently graded by root and organizer_store before the author/evaluator judgment. Actual supplied 6:6 recorded 27460 CHF in 2036 and 7:7 planned 29835 CHF for 2037 support the correct 2375 CHF difference. Both status/year inputs are retained with their local table-free original-source citations in one short sentence. No reserve, Annex value or achieved-target claim. 113488 ms; actual route full mode ordinary answer, not concise."
+  }
+]

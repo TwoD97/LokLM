@@ -1,0 +1,15 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "decisionCorrectness": "incorrect",
+    "contextSufficiency": "sufficient",
+    "unsupportedExtraClaims": [
+      "The proposed answer applies the base three-drill limit to the requested 2031-06-01 date despite the supplied approved four-drill amendment effective2031-05-15."
+    ],
+    "notes": "No accepted final answer: strict parser rejects envelope. Synthetic-only allowlisted capture reveals flat root resolution/blocks, no check/result wrapper, scalar evidence strings instead of arrays. Explicit UNVALIDATED text gives three drills/five saws; both evidence strings exactly match base3:3, but current drill answer ignores actual supplied approved4:4. Structural and semantic failures are separate; no repair or answer promotion. One separately declared same-input diagnostic repeat of N, not a replacement/retry score. Native101133ms/eogToken,180s limit, no cancellation; process exited0, unchanged fingerprints and GPU released. Hidden thought/check/raw envelope/history never read or retained."
+  }
+]

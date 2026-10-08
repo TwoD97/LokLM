@@ -8,9 +8,9 @@
 // ever becomes a problem , swap to the `zstd` system cli via execFile and
 // pipe stdin -> stdout.
 
-import { readdir, stat, readFile, writeFile } from 'node:fs/promises'
+import { readdir, lstat, readlink, realpath, readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { join, relative, resolve, dirname } from 'node:path'
+import { join, relative, resolve, dirname, isAbsolute, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as tar from 'tar-stream'
 import * as zstd from '@mongodb-js/zstd'
@@ -33,22 +33,64 @@ const PLATFORM_DEFAULTS = {
   'mac-x64': { sourceDir: 'release/mac-x64/LokLM.app', tarRoot: 'LokLM.app' },
 }
 
+export function portableArchivePath(value, platform = process.platform) {
+  // Backslashes on POSIX are literal filename characters, not separators.
+  // Match the installer's portable extraction policy without renaming files.
+  if (value.includes(':') || (platform !== 'win32' && value.includes('\\'))) {
+    throw new Error('Nonportable payload path')
+  }
+  return platform === 'win32' ? value.replace(/\\/g, '/') : value
+}
+
 async function walk(dir, baseDir, entries = []) {
   for (const name of await readdir(dir)) {
     const full = join(dir, name)
-    const st = await stat(full)
-    const rel = relative(baseDir, full).replace(/\\/g, '/')
-    if (st.isDirectory()) {
+    const st = await lstat(full)
+    const rel = portableArchivePath(relative(baseDir, full))
+    if (st.isSymbolicLink()) {
+      const linkname = portableArchivePath(await readlink(full))
+      // Electron frameworks rely on relative internal links. Following them
+      // changes a signed bundle and duplicates its contents. Reject absolute,
+      // escaping, dangling and cyclic links instead of copying outside data.
+      if (isAbsolute(linkname) || win32.isAbsolute(linkname))
+        throw new Error(`Absolute payload link: ${rel}`)
+      const target = relative(baseDir, await realpath(full))
+      const lexical = relative(baseDir, resolve(dirname(full), linkname))
+      for (const path of [target, lexical]) {
+        if (
+          path === '..' ||
+          path.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
+          isAbsolute(path)
+        ) {
+          throw new Error(`Payload link escapes source: ${rel}`)
+        }
+      }
+      entries.push({
+        full,
+        rel,
+        size: 0,
+        mtime: st.mtime,
+        mode: st.mode,
+        type: 'symlink',
+        linkname,
+      })
+    } else if (st.isDirectory()) {
+      entries.push({ full, rel, size: 0, mtime: st.mtime, mode: st.mode, type: 'directory' })
       await walk(full, baseDir, entries)
     } else if (st.isFile()) {
-      entries.push({ full, rel, size: st.size, mtime: st.mtime, mode: st.mode })
+      entries.push({ full, rel, size: st.size, mtime: st.mtime, mode: st.mode, type: 'file' })
+    } else {
+      throw new Error(`Unsupported payload entry: ${rel}`)
     }
   }
   return entries
 }
 
 export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
-  const src = resolve(sourceDir)
+  if (!/^[A-Za-z0-9_.-]+$/.test(tarRoot) || tarRoot === '.' || tarRoot === '..') {
+    throw new Error('Invalid payload archive root')
+  }
+  const src = await realpath(resolve(sourceDir))
   const out = resolve(outFile)
   const entries = await walk(src, src)
   entries.sort((a, b) => a.rel.localeCompare(b.rel))
@@ -61,7 +103,7 @@ export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
   })
 
   for (const e of entries) {
-    const buf = await readFile(e.full)
+    const buf = e.type === 'file' ? await readFile(e.full) : undefined
     const name = `${tarRoot}/${e.rel}`
     pack.entry(
       {
@@ -69,7 +111,8 @@ export async function buildPayloadArchive({ sourceDir, tarRoot, outFile }) {
         size: e.size,
         mode: e.mode & 0o777,
         mtime: e.mtime,
-        type: 'file',
+        type: e.type,
+        linkname: e.linkname,
       },
       buf,
     )

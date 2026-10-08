@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Separate one-case timing diagnostic, not replacement of J02 or a new quality evaluation. The unchanged full source corpus supplied 3:3/4:4, but the 180-second deadline expired at180.280s with only a cancelled terminal/interruption note. Actual8K/f16/14layers. Content-free telemetry shows native text callbacks from22.413s through165.729s,738characters,320chunks,2473input/329outputtokens,5msgrammar and27msfit. Native execution169.692s was still producing text; completionReasonnull. No partial JSON, internal check or hidden reasoning was retained/read, so no semantic answer judgment is inferred. Owned process exited1; compiled bytes remained unchanged; no further calls launched."
+  }
+]

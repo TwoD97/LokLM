@@ -2,11 +2,12 @@ name: Checks
 
 # Application checks also run on main; the website deploy does not cover them.
 on:
+  workflow_call:
   push:
   pull_request:
 
 concurrency:
-  group: checks-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createServer, type Server } from 'node:http'
 import { createHash } from 'node:crypto'
+import * as fs from 'node:fs'
 import {
   existsSync,
   mkdirSync,
@@ -29,6 +30,18 @@ import { join } from 'node:path'
 import { ModelDownloader, type DownloadEvent } from '../../src/main/services/models/ModelDownloader'
 import * as paths from '../../src/main/services/models/paths'
 import * as manifest from '../../src/main/services/models/manifest'
+import { checkOne } from '../../src/main/services/models/availability'
+import * as installedManifest from '../../src/main/services/models/installedManifest'
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    createReadStream: vi.fn(actual.createReadStream),
+    renameSync: vi.fn(actual.renameSync),
+    writeFileSync: vi.fn(actual.writeFileSync),
+  }
+})
 
 const PAYLOAD = Buffer.alloc(64 * 1024)
 for (let i = 0; i < PAYLOAD.length; i++) PAYLOAD[i] = i & 0xff
@@ -39,11 +52,24 @@ let baseUrl: string
 let tmpDir: string
 
 beforeEach(async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
+  vi.mocked(fs.createReadStream).mockReset().mockImplementation(actual.createReadStream)
+  vi.mocked(fs.renameSync).mockReset().mockImplementation(actual.renameSync)
+  vi.mocked(fs.writeFileSync).mockReset().mockImplementation(actual.writeFileSync)
   tmpDir = mkdtempSync(join(tmpdir(), 'loklm-dl-'))
   // Stub the download target so the downloader writes into a throwaway dir.
   vi.spyOn(paths, 'getDownloadTargetDir').mockReturnValue(tmpDir)
+  vi.spyOn(paths, 'resolveModelFile').mockImplementation((filename) => {
+    const candidate = join(tmpDir, filename)
+    return existsSync(candidate) ? candidate : null
+  })
 
   server = createServer((req, res) => {
+    if (req.url === '/unavailable') {
+      res.writeHead(503)
+      res.end()
+      return
+    }
     const range = req.headers['range'] as string | undefined
     const hadRange = Boolean(range)
     const m = range ? /^bytes=(\d+)-/.exec(range) : null
@@ -125,6 +151,309 @@ async function collect(dl: ModelDownloader, work: () => Promise<void>): Promise<
 }
 
 describe('ModelDownloader', () => {
+  it.each(['directory creation', 'target lookup'] as const)(
+    'reports a %s failure and lets the same downloader retry',
+    async (failure) => {
+      const obstruction = join(tmpDir, 'blocked')
+      if (failure === 'directory creation') {
+        writeFileSync(obstruction, 'not a directory')
+        vi.mocked(paths.getDownloadTargetDir).mockReturnValue(join(obstruction, 'models'))
+      } else {
+        vi.mocked(paths.getDownloadTargetDir).mockImplementationOnce(() => {
+          throw new Error('Download location unavailable')
+        })
+      }
+      await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+        const dl = new ModelDownloader()
+        const events: DownloadEvent[] = []
+        dl.onProgress((event) => events.push(event))
+        await expect(dl.download('fixture')).rejects.toThrow()
+        expect(dl.isActive('fixture')).toBe(false)
+        expect(dl.hasAnyActive()).toBe(false)
+        expect(events).toEqual([
+          expect.objectContaining({ phase: 'error', id: 'fixture', bytesReceived: 0 }),
+        ])
+        vi.mocked(paths.getDownloadTargetDir).mockReturnValue(tmpDir)
+        await dl.download('fixture')
+        expect(readFileSync(join(tmpDir, 'fixture.bin')).equals(PAYLOAD)).toBe(true)
+        expect(events.at(-1)?.phase).toBe('complete')
+        expect(dl.hasAnyActive()).toBe(false)
+      })
+    },
+  )
+
+  it('verifies an existing pinned file without fetching it again', async () => {
+    writeFileSync(join(tmpDir, 'fixture.bin'), PAYLOAD)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA.toUpperCase() }, async () => {
+      const dl = new ModelDownloader()
+      const events = await collect(dl, () => dl.download('fixture'))
+      expect(events.map((event) => event.phase)).toEqual(['verifying', 'complete'])
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(readFileSync(join(tmpDir, 'fixture.bin')).equals(PAYLOAD)).toBe(true)
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('repairs a same-size corrupt pinned file instead of reporting it complete', async () => {
+    writeFileSync(join(tmpDir, 'fixture.bin'), Buffer.alloc(PAYLOAD.length, 17))
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events = await collect(dl, () => dl.download('fixture'))
+      expect(readFileSync(join(tmpDir, 'fixture.bin')).equals(PAYLOAD)).toBe(true)
+      expect(fetchSpy).toHaveBeenCalledOnce()
+      expect(events[0]?.phase).toBe('verifying')
+      expect(events.filter((event) => event.phase === 'complete')).toHaveLength(1)
+      expect(events.at(-1)?.phase).toBe('complete')
+      expect(existsSync(join(tmpDir, 'fixture.bin.partial'))).toBe(false)
+    })
+  })
+
+  it('preserves an existing file when verification cannot read it and retries safely', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    writeFileSync(target, PAYLOAD)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    vi.mocked(fs.createReadStream).mockImplementationOnce(() => {
+      throw new Error('EACCES: model file temporarily unavailable')
+    })
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      dl.onProgress((event) => events.push(event))
+      await expect(dl.download('fixture')).rejects.toThrow(/EACCES/)
+      expect(events.map((event) => event.phase)).toEqual(['verifying', 'error'])
+      expect(readFileSync(target).equals(PAYLOAD)).toBe(true)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(dl.hasAnyActive()).toBe(false)
+      await dl.download('fixture')
+      expect(events.at(-1)?.phase).toBe('complete')
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  it('retains the size-only fast path for an existing unpinned file', async () => {
+    writeFileSync(join(tmpDir, 'fixture.bin'), PAYLOAD)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, {}, async () => {
+      const dl = new ModelDownloader()
+      const events = await collect(dl, () => dl.download('fixture'))
+      expect(events.map((event) => event.phase)).toEqual(['complete'])
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  it('cancels verification without deleting the existing file and can retry', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    writeFileSync(target, PAYLOAD)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      const off = dl.onProgress((event) => {
+        events.push(event)
+        if (event.phase === 'verifying') dl.cancel(event.id)
+      })
+      await dl.download('fixture')
+      expect(events.map((event) => event.phase)).toEqual(['verifying', 'cancelled'])
+      expect(readFileSync(target).equals(PAYLOAD)).toBe(true)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(dl.hasAnyActive()).toBe(false)
+      off()
+      expect((await collect(dl, () => dl.download('fixture'))).at(-1)?.phase).toBe('complete')
+    })
+  })
+
+  it('never publishes a repair whose replacement also fails verification', async () => {
+    writeFileSync(join(tmpDir, 'fixture.bin'), Buffer.alloc(PAYLOAD.length, 17))
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: 'a'.repeat(64) }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      dl.onProgress((event) => events.push(event))
+      await expect(dl.download('fixture')).rejects.toThrow(/SHA256 mismatch/)
+      expect(events.some((event) => event.phase === 'complete')).toBe(false)
+      expect(events.at(-1)?.phase).toBe('error')
+      expect(readFileSync(join(tmpDir, 'fixture.bin'))).toEqual(Buffer.alloc(PAYLOAD.length, 17))
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(false)
+      expect(existsSync(join(tmpDir, 'fixture.bin.partial'))).toBe(false)
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('repairs the existing wizard file without creating a shadowed userData copy', async () => {
+    const wizard = join(tmpDir, 'wizard')
+    mkdirSync(wizard)
+    const target = join(wizard, 'fixture.bin')
+    const original = Buffer.alloc(PAYLOAD.length, 17)
+    writeFileSync(target, original)
+    vi.mocked(paths.resolveModelFile).mockReturnValue(target)
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const entry = manifest.getManifestEntry('fixture')!
+      // Tier-only IDs must use the same catalog for status and downloads.
+      vi.spyOn(installedManifest, 'getDownloadManifestEntry').mockReturnValue({
+        ...entry,
+        id: 'tier-only',
+      })
+      const dl = new ModelDownloader()
+      const observedOriginals: Buffer[] = []
+      dl.onProgress((event) => {
+        if (event.phase === 'downloading') observedOriginals.push(readFileSync(target))
+      })
+      await dl.download('tier-only')
+      expect(observedOriginals.length).toBeGreaterThan(0)
+      expect(observedOriginals.every((bytes) => bytes.equals(original))).toBe(true)
+      expect(readFileSync(target)).toEqual(PAYLOAD)
+      expect(existsSync(join(tmpDir, 'fixture.bin'))).toBe(false)
+      expect(checkOne(entry).present).toBe(true)
+      expect(existsSync(`${target}.loklm-invalid.json`)).toBe(false)
+    })
+  })
+
+  it('preserves a corrupt original on cancellation and permits a verified retry', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    const original = Buffer.alloc(PAYLOAD.length, 17)
+    writeFileSync(target, original)
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      const off = dl.onProgress((event) => {
+        events.push(event)
+        if (event.phase === 'downloading') dl.cancel(event.id)
+      })
+      await dl.download('fixture')
+      expect(events.at(-1)?.phase).toBe('cancelled')
+      expect(events.some((event) => event.phase === 'complete')).toBe(false)
+      expect(readFileSync(target)).toEqual(original)
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(false)
+      expect(dl.hasAnyActive()).toBe(false)
+      off()
+      await dl.download('fixture')
+      expect(readFileSync(target)).toEqual(PAYLOAD)
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(true)
+    })
+  })
+
+  it('leaves original bytes intact if verified replacement cannot be installed', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    const original = Buffer.alloc(PAYLOAD.length, 17)
+    writeFileSync(target, original)
+    const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
+    vi.mocked(fs.renameSync).mockImplementation((source, destination) => {
+      if (source === `${target}.partial`) throw new Error('EACCES: cannot replace model')
+      actual.renameSync(source, destination)
+    })
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      dl.onProgress((event) => events.push(event))
+      await expect(dl.download('fixture')).rejects.toThrow(/EACCES/)
+      expect(readFileSync(target)).toEqual(original)
+      expect(readFileSync(`${target}.partial`)).toEqual(PAYLOAD)
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(false)
+      expect(events.at(-1)?.phase).toBe('error')
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('does not overwrite a file the user replaces during a repair', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    const manual = Buffer.from('manually replaced model')
+    writeFileSync(target, Buffer.alloc(PAYLOAD.length, 17))
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      dl.onProgress((event) => {
+        if (event.phase === 'downloading') writeFileSync(target, manual)
+      })
+      await expect(dl.download('fixture')).rejects.toThrow(/changed during download/)
+      expect(readFileSync(target)).toEqual(manual)
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('reports an unwritable repair directory without deleting the original or starting a fetch', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    const original = Buffer.alloc(PAYLOAD.length, 17)
+    writeFileSync(target, original)
+    const actual = await vi.importActual<typeof import('node:fs')>('node:fs')
+    vi.mocked(fs.writeFileSync).mockImplementation((path, data, options) => {
+      if (String(path).includes('.loklm-invalid.json.'))
+        throw new Error('EACCES: read-only location')
+      actual.writeFileSync(path, data, options)
+    })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      await expect(dl.download('fixture')).rejects.toThrow(/directory write permissions/)
+      expect(readFileSync(target)).toEqual(original)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(false)
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('does not treat a directory with a model filename as an installed model', async () => {
+    mkdirSync(join(tmpDir, 'fixture.bin'))
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sizeBytes: 0 }, async () => {
+      const dl = new ModelDownloader()
+      await expect(dl.download('fixture')).rejects.toThrow(/not a regular file/)
+      expect(statSync(join(tmpDir, 'fixture.bin')).isDirectory()).toBe(true)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('retains original bytes and failed validation when the repair server is unavailable', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    const original = Buffer.alloc(PAYLOAD.length, 17)
+    writeFileSync(target, original)
+    await withFixtureManifest(`${baseUrl}/unavailable`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      await expect(dl.download('fixture')).rejects.toThrow(/HTTP 503/)
+      expect(readFileSync(target)).toEqual(original)
+      expect(checkOne(manifest.getManifestEntry('fixture')!).present).toBe(false)
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('does not report completion if stale invalid status cannot be cleared', async () => {
+    const target = join(tmpDir, 'fixture.bin')
+    writeFileSync(target, PAYLOAD)
+    mkdirSync(`${target}.loklm-invalid.json`)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      dl.onProgress((event) => events.push(event))
+      await expect(dl.download('fixture')).rejects.toThrow(/Cannot clear model repair status/)
+      expect(events.at(-1)?.phase).toBe('error')
+      expect(events.some((event) => event.phase === 'complete')).toBe(false)
+      expect(readFileSync(target)).toEqual(PAYLOAD)
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(dl.hasAnyActive()).toBe(false)
+    })
+  })
+
+  it('cancels a downloaded file during verification before publishing it', async () => {
+    await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
+      const dl = new ModelDownloader()
+      const events: DownloadEvent[] = []
+      const off = dl.onProgress((event) => {
+        events.push(event)
+        if (event.phase === 'verifying') dl.cancel(event.id)
+      })
+      await dl.download('fixture')
+      expect(events.at(-1)?.phase).toBe('cancelled')
+      expect(events.some((event) => event.phase === 'complete')).toBe(false)
+      expect(existsSync(join(tmpDir, 'fixture.bin'))).toBe(false)
+      expect(readFileSync(join(tmpDir, 'fixture.bin.partial')).equals(PAYLOAD)).toBe(true)
+      expect(dl.hasAnyActive()).toBe(false)
+      off()
+      await dl.download('fixture')
+      expect(readFileSync(join(tmpDir, 'fixture.bin')).equals(PAYLOAD)).toBe(true)
+    })
+  })
+
   it('writes the payload, verifies SHA256, and reports complete', async () => {
     await withFixtureManifest(`${baseUrl}/ok`, { sha256: PAYLOAD_SHA }, async () => {
       const dl = new ModelDownloader()

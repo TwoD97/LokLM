@@ -1,0 +1,142 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "Neither replaces the other is stronger than no documented replacement or replacement statement in the sources."
+    ],
+    "notes": "Correct no-definitive-deadline outcome and ISO alternatives: amber 2031-04-09 at 1:1, slate 2031-04-12 at 2:2. Both exact passages were supplied. Review-copy status is explicit, but categorical non-replacement remains unsupported by absent replacement documentation. No invented winning date or chronology. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "No further changes exist is stronger than no further changes being supplied in the context."
+    ],
+    "notes": "Correct primary limits: 4 drills and 5 saws on 2031-06-01. The drill amendment and adoption/effective dates correctly cite 4:4. The saw value 5 appears only in supplied 3:3, but the answer cites 4:4, which merely leaves saw rules unchanged. Final categorical absence of later changes adds an unsupported completeness claim. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct no-conflict conclusion: supplied 5:5 has 2.75 cubic metres, while 6:6 has 2750 litres. The standard conversion gives the same volume for the same tank/time/scope. Correct date/time and both source markers are included. Volume lies outside the deterministic helper dimensions, so this observation exercises model derivation. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly distinguishes unequal durations: A gives 2.25 minutes = 135 seconds with 7:7; B gives 150 seconds with 8:8. Both address the same run and conditions. The conclusion is scoped to neither protocol specifying correction or priority. No winning value is invented, and all requested alternatives appear. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "All factual and authority conclusions are correct: current 72 EUR, proposed 81 EUR, no member vote, and no override of the valid order. Dates and source bullets correctly map to 9:9 and 10:10. Consistent with prior D03 grading, the opening authority/effect paragraph lacks local markers and the nonoverride conclusion lacks its own citation. Placement incompleteness, not a wrong-source or reasoning error. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "unsupported",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The opening says different measured quantities at the same times; the sources describe the same sensor inventory at different times."
+    ],
+    "notes": "The no-conflict outcome and requested inventory facts are correct: 12 sensors at 08:00 UTC with 11:11, 17 sensors at 18:00 UTC with 12:12, on 2031-10-06. The opening rationale reverses the actual scope/time relationship and contradicts those times. This is a factual reasoning failure, not merely awkward German. Both passages were supplied. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "false-refusal",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [],
+    "notes": "The answer omits run-B water volume, which is 24 litres in indexed table 13:15. That table was not among the ten actual fed passages; only header 13:14 was supplied. Approval date 2031-06-11 at 13:14 is correct. Additional Leran duration facts are sourced but irrelevant. The core volume failure is retrieval/packing loss in this explicitly wholeDocFallback:false run, not failure to read a supplied table or a demonstrated default-app retrieval regression. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-08",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly evaluates requested=8 as north 6 and south 7, using requested-1 inside the supplied nested min/max expressions. Each result is repeated with its exact marker 14:13/15:16. Deployment is scoped as not documented/not established for either copy and cites both. Every requested fact appears; no invented deployed winner. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly sums 31 west plus 34 east to 65 devices. Each input is locally attributed to actual 16:17/17:18. The immediately following same-paragraph comparison identifies disjoint serial ranges 700-739 and 740-779, allowing addition without duplicate populations. No false conflict or invented overlap. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly declines to infer total litres from a rate of 8 litres/minute without duration. Actual supplied 18:19 explicitly omits both cycle duration and total volume. The answer cites it and scopes absence to supplied documents. No invented total or arbitrary duration. The extra prose label doc:18 is presentation-only. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct 18 litres / 3 minutes = 6 litres/minute for run A, with exact actual table 13:15 rather than approval header 13:14. Both inputs and the derivation appear in the visible answer; the cited passage contains them. Independently reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The record does not distinguish runs A and B is false of the indexed record: its omitted table 13:15 explicitly lists both runs."
+    ],
+    "notes": "Correctly does not invent electrical power consumption. The context contains approval header 13:14 but not table 13:15. The extra assertion that the document does not distinguish A/B overgeneralizes from the excerpt: the indexed table explicitly distinguishes both runs. Approval date is correct but unnecessary. Table omission occurs under wholeDocFallback:false, not yet a reproduced default retrieval bug. Independently reviewed."
+  }
+]

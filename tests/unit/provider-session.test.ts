@@ -80,6 +80,22 @@ function setup() {
 }
 
 describe('provider registry session retirement', () => {
+  it('preserves the repetition opt-out when a remote raw request falls back to bundled', async () => {
+    const { registry, bundled, ollama } = setup()
+    registry.setLlmSource('ollama')
+    vi.mocked(ollama.llm.generateRaw).mockRejectedValueOnce(
+      Object.assign(new Error('Offline'), { kind: 'network' }),
+    )
+    await expect(
+      registry.llm().generateRaw('Copy the value', { repeatPenalty: false }),
+    ).resolves.toBe('raw')
+    for (const provider of [ollama.llm, bundled.llm])
+      expect(provider.generateRaw).toHaveBeenCalledWith(
+        'Copy the value',
+        expect.objectContaining({ repeatPenalty: false, abortSignal: expect.any(AbortSignal) }),
+      )
+  })
+
   it('aborts the remote rerank request and never dispatches another passage after retirement', async () => {
     const { registry, bundled, ollama } = setup()
     const pending = deferred<{ done: boolean; message: { content: string } }>()

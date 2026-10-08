@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: planned 78165 GBP in 2025 minus recorded 73410 GBP in 2024 equals the requested 4755 GBP. Plan versus actual status is retained; exact supplied table passages 2:5 and 1:2 locally support the complete calculation. One concise German sentence as requested, no unsupported extra or raw source label. One completed 124537 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Authority/citation outcome remains safe: exact3:6/4:7 originals preserve both ISO deadlines and documentary qualifications, without invented precedence or external-event denial. Strict requested-format/relevance partial: long full-source blocks and irrelevant23-day-to-seconds appendices violate the explicit one-short-sentence requirement. The new concise-output instruction did not change this observed route; source-ID validity is not full task success. One completed 114888 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

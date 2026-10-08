@@ -1,0 +1,37 @@
+[
+  {
+    "caseId": "heldout-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: correct156 planned inspections in2025, exact supplied table2:5 rather than approval header2:4, one short English sentence, no unsupported extra. All requested content and format satisfied. One completed 84306 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "false-refusal",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [
+      "The explicit insufficient-evidence lead is false for the requested subtraction: actual supplied table values 78165 GBP and 73410 GBP determine 4755 GBP."
+    ],
+    "notes": "Material completeness/routing regression. Exact table excerpts 1:2 and 2:5 and their canonical references are real and correct, but the answer omits the requested 4755 GBP difference and falsely refuses despite sufficient supplied evidence. It also violates the requested one-short-sentence format. Source presence and valid references do not make this a successful answer. One completed 105657 ms call, actual 8192 / q8_0 / 14 GPU layers; no retry."
+  },
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Main authority/citation outcome passes: exact original3:6/4:7 preserve both ISO deadlines and missing documentary approval/supersession; no invented winner or categorical assertion that an external approval/replacement never occurred. Strict requested-format/relevance partial: a long full-excerpt display plus irrelevant23-day-to-seconds appendices violates the requested one short sentence. This does not demonstrate the full original task is fixed. One completed 105144 ms call; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

@@ -34,6 +34,11 @@ describe('App (smoke)', () => {
       locked: false,
     })
     render(<App />)
+    // This checks independence from model warmup, not Vitest's lazy-module
+    // transformation speed when the full suite runs in parallel.
+    await act(async () => {
+      await vi.dynamicImportSettled()
+    })
     expect(await screen.findByRole('heading', { name: 'Notes', level: 1 })).toBeVisible()
     expect(screen.queryByText('Preparing your AI tools')).toBeNull()
   })

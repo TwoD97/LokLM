@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "split": "ar-fresh-validation-20261006",
+  "policy": "Original sealed strict criteria: all explicitly requested parts and format, every factual extra, correct local citation support and explanation. Valid schema, quote, IDs or regex alone do not prove a pass. No new requirements from outputs. Grade correctness separately from300s completion and180s performance.",
+  "cases": [
+    {
+      "caseId": "ar-fresh-01",
+      "required": {
+        "arf-source-01": [
+          "Kupfer: 1180 pixels for full-image QX R7 export, excluding frame."
+        ],
+        "arf-source-02": [
+          "Silber: 1260 pixels for the identical full-image scope."
+        ]
+      },
+      "decision": "Both alternatives and their mapping must be present. State that supplied documentary evidence establishes no binding priority, and explain missing documentary precedence/approval. Do not turn absence of a signature into proof no approval or binding width exists elsewhere.",
+      "invalid": [
+        "Choosing1180 or1260 as binding",
+        "Only one value or unrelated header/date unit",
+        "Global nonapproval/no applicable width claim",
+        "Using thumbnail R8/320",
+        "More than one short sentence or unrelated appendix"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": true,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-02",
+      "required": {
+        "arf-source-03": [
+          "Cedar 610 Hz and Birch 650 Hz in the same record for OC-9/L3/21 C/date; neither has priority or correction status."
+        ]
+      },
+      "decision": "A single supplied passage contains both alternatives. Include both with one correct local citation and explain that identical conditions/date plus no priority/correction rule do not establish a winner.",
+      "invalid": [
+        "Choosing610 or650 as governing",
+        "Omitting either entry",
+        "Invented priority from entry order/signature",
+        "Averaging/addition",
+        "More than one short sentence or unrelated appendix"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": true,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-03",
+      "required": {
+        "arf-source-04": [
+          "Base processing period 13 working days continues."
+        ],
+        "arf-source-05": [
+          "Approved quota change to 39 images/month is effective by the asked date; other provisions remain."
+        ],
+        "arf-source-06": [
+          "Later 10-working-day proposal explicitly unapproved; no authority to change the current period."
+        ]
+      },
+      "decision": "Current quota39 and period13 are answerable. Explicitly explain effective approved quota change and explicit nonapproval of later period proposal. The question requests both authority reasons; no extra date wording or obsolete quota is mandatory.",
+      "invalid": [
+        "Using obsolete27 as current quota",
+        "Using unapproved10 as current period",
+        "False unresolved refusal",
+        "Authority reason omitted",
+        "Citing amendment alone for numeric13"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": false,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-04",
+      "required": {
+        "arf-source-07": [
+          "Existing current fee 15 CHF."
+        ],
+        "arf-source-08": [
+          "Approved future fee 18 CHF; approval does not activate it."
+        ],
+        "arf-source-09": [
+          "Activation 2055-10-07 is later than asked date, with 15 CHF expressly retained until then."
+        ]
+      },
+      "decision": "Current15, future18, activation2055-10-07 and approval-versus-effectiveness reason are requested. Approved-but-future is not unapproved. Do not require the unasked storage duration.",
+      "invalid": [
+        "Charging18 on asked September date",
+        "Calling approved future rule unapproved",
+        "Wrong activation/approval conflation",
+        "Missing requested future amount/date or reason"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": false,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-05",
+      "required": {
+        "arf-source-10": [
+          "Actual completed 2053 west-block planting 1386 trees."
+        ],
+        "arf-source-11": [
+          "Planned 2054 west-block planting 1648 trees."
+        ]
+      },
+      "decision": "1648 minus1386 equals262 trees. State both inputs and preserve planned versus completed scope/years. Exclude unplanted nursery seedlings and east block. Planned amount need not be achieved for the requested comparison.",
+      "invalid": [
+        "Using east1972 or nursery174/208",
+        "Treating planned1648 as completed",
+        "Wrong262 subtraction",
+        "Refusal solely due to different years/status",
+        "More than one short sentence"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": true,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-06",
+      "required": {
+        "arf-source-12": [
+          "A: 0.84 kg equals 840 g for entire dry sample excluding glass at specified time."
+        ],
+        "arf-source-13": [
+          "B: 840 g for identical complete dry sample, excluding glass, same time."
+        ]
+      },
+      "decision": "Both reported masses normalize to840g; no contradiction because units differ but complete dry-content scope/time agree. Explicitly report both normalized values and relevant scope explanation.",
+      "invalid": [
+        "Unequal masses from unit notation",
+        "Using gross1120g",
+        "Ignoring excluded glass or treating sample as partial",
+        "Missing requested normalization"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": false,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-07",
+      "required": {
+        "arf-source-14": [
+          "23 unused vouchers at 07:40 UTC in T5 before distribution."
+        ],
+        "arf-source-15": [
+          "9 at 16:10 UTC in the same T5 after distribution/returns."
+        ]
+      },
+      "decision": "Compatible snapshots, not same-time contradiction. Include23/07:40UTC and9/16:10UTC plus same-cabinet and before/after documented activity explanation. Do not infer exact transactions or different locations.",
+      "invalid": [
+        "Contradiction solely from23versus9",
+        "Invented different cabinet/location",
+        "Claiming specific net transactions not documented",
+        "Missing counts/times or requested explanation"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": false,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    },
+    {
+      "caseId": "ar-fresh-08",
+      "required": {
+        "arf-source-16": [
+          "Width absent; only height given, so rectangular area is not derivable from excerpt."
+        ]
+      },
+      "decision": "Do not invent an area or assume a square. Explain that width is missing from the supplied survey so area is underdetermined. No global claim that width was never measured is supported.",
+      "invalid": [
+        "Invented area or inferred square width",
+        "Global absence beyond excerpt",
+        "False numeric calculation from height alone",
+        "More than one short sentence"
+      ],
+      "citation": "Every requested fact, input and authority/scope reason must be locally supported by actually supplied passages; a shared pair/group on one coherent answer record is sufficient. No requirement to repeat all question context if unambiguous.",
+      "format": {
+        "oneShortSentence": true,
+        "originalQuestionIsAuthoritative": true
+      },
+      "questionKeyAlignment": "Every required reason and explicit numerical input is requested by the question; no additional authority/date narration is required beyond it."
+    }
+  ],
+  "authorship": {
+    "author": "rag_research, internal eval-infrastructure contributor",
+    "productionEdited": false,
+    "authoredAt": "2026-10-06T06:28:26.020920+00:00",
+    "preAuthorshipFreeze": "2026-10-06T06:23:52.683Z",
+    "preAuthorshipFreezeSha256": "e6fec777d7cfe7aed3f7e6e6da761b417ffe0a3397c6179399c55c2585e85512",
+    "productionAuthorsBlindUntilAllEightAttemptsClose": true,
+    "limitations": "Author knows prior DEV failures and edits evaluation infrastructure; this is a small internal post-freeze transfer validation, not an independent researcher-blind benchmark."
+  },
+  "distractorSourceKeys": [
+    "arf-source-17",
+    "arf-source-18",
+    "arf-source-19",
+    "arf-source-20"
+  ],
+  "privateArithmeticChecks": [
+    {
+      "expression": "1648-1386",
+      "value": 262
+    },
+    {
+      "expression": "0.84*1000",
+      "value": 840
+    }
+  ],
+  "immutability": "No model trials, output-based regeneration, question repair, grading relaxation or production advice after seeing these new facts."
+}

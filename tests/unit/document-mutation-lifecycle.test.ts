@@ -386,7 +386,8 @@ describe('document mutation lifecycle', () => {
     expect(f.original.persistChunks).not.toHaveBeenCalled()
     expect(f.other.persistChunks).not.toHaveBeenCalled()
     expect(send).toHaveBeenCalledTimes(eventCount)
-    expect(f.lease.release).toHaveBeenCalledOnce()
+    expect(f.embedder.beginIndexing).not.toHaveBeenCalled()
+    expect(f.lease.release).not.toHaveBeenCalled()
     await expect(
       f.service.importFile({ workspaceId: 3, sourcePath: f.sourcePath }),
     ).rejects.toThrow('session is closed')

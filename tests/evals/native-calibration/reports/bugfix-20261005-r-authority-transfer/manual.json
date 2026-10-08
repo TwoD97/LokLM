@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "authority-transfer-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correct current6 portable mixers and8 wireless microphones for the requested public event. Actual supplied1:1 establishes original2/8 and2:2 increases only mixers to6 from2042-05-20. Final coherent paragraph has both canonical markers, supporting all date/base/change/unchanged claims. Derived increase4 is correct. Bare (1:1)/(2:2) labels and lengthy arithmetic are presentation issues, not false facts. Completed once159428ms; actual8K/q8_0/14layers, native148949ms/270outputtokens. No retry or tuning."
+  },
+  {
+    "caseId": "authority-transfer-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independently confirmed:12 workdays apply on2042-08-20; already approved9-workday change takes effect only2042-09-01, with old rule retained before then. Actual supplied3:3+4:4 support all claims in the single cited paragraph. No approval/effect-date confusion or urgent-case scope error. Arbeittagen typo is presentation-only. Completed once168957ms, actual8K/q8_0/14layers; native151616ms/272outputtokens."
+  },
+  {
+    "caseId": "authority-transfer-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independently confirmed: current refundable28EUR access-badge deposit for adult plot holder;41EUR working-paper proposal cannot be applied because its source explicitly says no approving vote occurred and no cashier authority. Actual supplied5:5+6:6 support all claims in the cited paragraph. No automatic later-document supersession or locker-deposit scope error. Completed once151424ms, actual8K/q8_0/14layers; native134440ms/243outputtokens."
+  },
+  {
+    "caseId": "authority-transfer-04",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Unusable answer: quote_missing error after145863ms, not a timeout. Both actual required7:7/8:8 supplied. Observer captured comparison-shaped result with two invented quotation strings: serialized sources/text wrapper plus ellipsis joining420/460 statements, and noncontiguous repeated/reordered date/temperature words plus a real no-precedence tail. Both fail exact/whitespace-only source containment despite staying within200-codepoint bound. No raw/check/rejected final semantics retained; no source repair. Independent reviewer agrees operational failure, no successful required comparison. Actual8K/f16/14layers; native128678ms/238outputtokens. All four first observations collected; no retry or continuation."
+  }
+]

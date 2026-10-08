@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-// Sweeps every indexable page in both locales with axe-core and fails the
+// Sweeps representative page templates in both locales with axe-core and fails the
 // suite as soon as a WCAG 2.1 AA rule reports a 'serious' or 'critical' hit.
 
 async function auditPage(page: Page) {
@@ -25,6 +25,10 @@ const targets: Array<{ url: string; label: string }> = [
   { url: '/en/imprint', label: 'imprint (en)' },
   { url: '/privacy', label: 'privacy (de)' },
   { url: '/en/privacy', label: 'privacy (en)' },
+  { url: '/einsatz/unternehmen', label: 'business workflow (de)' },
+  { url: '/en/use-cases/business', label: 'business workflow (en)' },
+  { url: '/blog/pdf-mit-ki-quellen-pruefen', label: 'PDF guide (de)' },
+  { url: '/en/blog/pdf-ai-source-checking', label: 'PDF guide (en)' },
 ]
 
 for (const { url, label } of targets) {

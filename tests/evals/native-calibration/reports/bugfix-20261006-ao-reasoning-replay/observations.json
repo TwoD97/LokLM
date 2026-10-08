@@ -1,0 +1,627 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-ao-reasoning-replay",
+  "classification": "Known DEV AO app replay. This group is separate from prior AN AB3 and from other AO groups; no fresh validation claim.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ao-reasoning-replay/raw.json",
+    "sha256": "0be61b6dc75f0aa127cd072690e62c25afb8774700cf4ab7cd9d886cc64ab8d1",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ao-reasoning-replay-execution-declaration.json",
+    "sha256": "9523294d368a2e587ea5e3ac4cf5bd69b9992a51c132925602288f19bc266255",
+    "frozenAt": "2026-10-06T03:12:01.840Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ao-reasoning-replay-postverify.json",
+    "sha256": "06e2e5ea83a91909433b6ab75b830f21eb5f70a6cde46bf9591963d2c160a359",
+    "verifiedAt": "2026-10-06T03:25:17.545Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 419,
+    "compiledCount": 112,
+    "runnerExitCode": 1,
+    "safeToContinue": false,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": [
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-09",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12"
+  ],
+  "attemptedCases": [
+    "reasoning-reserved-02",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-09"
+  ],
+  "unobservedCases": ["reasoning-reserved-11", "reasoning-reserved-12"],
+  "counts": {
+    "requested": 6,
+    "attempted": 4,
+    "completedAnswers": 3,
+    "strictPasses": 3,
+    "operationalTimeouts": 1,
+    "unobserved": 2
+  },
+  "startedAt": "2026-10-06T03:12:24.651Z",
+  "collectionCompletedAt": null,
+  "closureVerifiedAt": "2026-10-06T03:25:17.545Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 180000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": true
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "564eb3cd028a8f4f7c51ce4f3f6cf7f08ea88de96af16fd5bd05819b9a3ff7c5",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "c056b78e381e9694911d15c36f3579953776e09798b2b3cba5b0e3a6b821d604",
+    "fixtureLockSha256": "0b828e0eb1427fc4e0f1abc63c9fb87b9d9399e7a29cba0f1695bc4280b0b6cd",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 18,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "App180s includes retrieval/preparation; native timing is a subset. Constrained-response tokens include private check and JSON syntax, not only displayed prose. External-line-break scalars identify no location/cause.",
+  "queries": [
+    {
+      "caseId": "reasoning-reserved-02",
+      "finalAnswer": "Am 2031-06-01 dürfen Mitglieder in Velsun Werkzeughaus maximal 4 Bohrmaschinen und 5 Sägen gleichzeitig leihen. Die Grundordnung (wirksam ab 2031-01-10) erlaubt 3 Bohrmaschinen und 5 Sägen. Der beschlossene Änderungsvermerk (wirksam ab 2031-05-15) erhöht die Bohrmaschinen-Grenze auf 4, während die Sägen-Grenze unverändert bleibt. [doc:3, chunk:3] [doc:4, chunk:4]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "4:4",
+        "12:12",
+        "9:9",
+        "11:11",
+        "10:10",
+        "13:14",
+        "16:17",
+        "15:16",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": ["3:3", "4:4"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 179766,
+        "firstVisibleTokenMs": 179766,
+        "terminalMs": 179766,
+        "totalMs": 179767,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 169389,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 169257,
+            "grammarMs": 5,
+            "promptFitMs": 22,
+            "nativeMs": 169229,
+            "firstTextMs": 75586,
+            "lastTextMs": 169227,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 564,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1955,
+            "usedOutputTokens": 333,
+            "boundedThoughts": {
+              "promptTokens": 1954,
+              "prefillBatches": 8,
+              "prefillTokens": 1953,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 205,
+              "combinedTokens": 335,
+              "firstVisibleMs": 75586,
+              "lastVisibleMs": 169227,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ]
+    },
+    {
+      "caseId": "reasoning-reserved-05",
+      "finalAnswer": "The current annual contribution for an ordinary adult Tebrin member is 72 EUR, effective from 2031-03-01. The later proposal suggesting 81 EUR has not been voted on by the member assembly and does not change the current contribution. [doc:9, chunk:9] [doc:10, chunk:10]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "9:9",
+        "10:10",
+        "14:13",
+        "18:19",
+        "15:16",
+        "3:3",
+        "4:4",
+        "11:11",
+        "12:12"
+      ],
+      "finalCitationIds": ["9:9", "10:10"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 153076,
+        "firstVisibleTokenMs": 153076,
+        "terminalMs": 153076,
+        "totalMs": 153077,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 136103,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 135969,
+            "grammarMs": 4,
+            "promptFitMs": 18,
+            "nativeMs": 135947,
+            "firstTextMs": 70653,
+            "lastTextMs": 135944,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 469,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1589,
+            "usedOutputTokens": 275,
+            "boundedThoughts": {
+              "promptTokens": 1588,
+              "prefillBatches": 7,
+              "prefillTokens": 1587,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 147,
+              "combinedTokens": 277,
+              "firstVisibleMs": 70653,
+              "lastVisibleMs": 135944,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ]
+    },
+    {
+      "caseId": "reasoning-reserved-06",
+      "finalAnswer": "Die beiden Ostel-Bestandsangaben widersprechen sich nicht. Der morgendliche Bestand am 2031-10-06 um 08:00 UTC betrug 12 Ersatzsensoren. Der abendliche Bestand am 2031-10-06 um 18:00 UTC betrug 17 Ersatzsensoren. [doc:11, chunk:11] [doc:12, chunk:12]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "11:11",
+        "12:12",
+        "17:18",
+        "16:17",
+        "7:7",
+        "8:8",
+        "13:15",
+        "6:6",
+        "5:5",
+        "2:2",
+        "13:14"
+      ],
+      "finalCitationIds": ["11:11", "12:12"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 174563,
+        "firstVisibleTokenMs": 174563,
+        "terminalMs": 174563,
+        "totalMs": 174563,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 157347,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 157215,
+            "grammarMs": 4,
+            "promptFitMs": 20,
+            "nativeMs": 157191,
+            "firstTextMs": 78241,
+            "lastTextMs": 157189,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 450,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1971,
+            "usedOutputTokens": 300,
+            "boundedThoughts": {
+              "promptTokens": 1970,
+              "prefillBatches": 8,
+              "prefillTokens": 1969,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 172,
+              "combinedTokens": 302,
+              "firstVisibleMs": 78241,
+              "lastVisibleMs": 157189,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ]
+    },
+    {
+      "caseId": "reasoning-reserved-09",
+      "finalAnswer": null,
+      "terminalNotice": "_[Antwort wurde unterbrochen.]_",
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "16:17",
+        "13:14",
+        "17:18",
+        "11:11",
+        "12:12",
+        "4:4",
+        "7:7",
+        "8:8",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": [],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": null,
+        "firstVisibleTokenMs": null,
+        "terminalMs": 180234,
+        "totalMs": 180234,
+        "timedOut": true,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "cancelled",
+        "invokeSettled": true,
+        "collectionDecision": "stop"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": false,
+        "durationMs": null,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": []
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 162194,
+            "grammarMs": 4,
+            "promptFitMs": 21,
+            "nativeMs": 162169,
+            "firstTextMs": null,
+            "lastTextMs": null,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 0,
+            "responseChunks": 0,
+            "completionReason": null,
+            "cancelled": true,
+            "usedInputTokens": 1983,
+            "usedOutputTokens": 320,
+            "boundedThoughts": {
+              "promptTokens": 1982,
+              "prefillBatches": 8,
+              "prefillTokens": 1981,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 191,
+              "combinedTokens": 321,
+              "firstVisibleMs": 75848,
+              "lastVisibleMs": 161723,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "worker-error",
+          "observerMs": 0,
+          "envelopeRetained": false
+        }
+      ]
+    }
+  ],
+  "captureCorrection": {
+    "path": "out/optimization-20261005/ao-reasoning-capture-correction.json",
+    "sha256": "c4cbf663804a19e0be8ff787baa4c22eb4eddbef18d72a6b13cd8bd3ee85823b",
+    "recordedAt": "2026-10-06T03:25:45.7128963Z",
+    "generatedArtifact": "error-context.md",
+    "bytes": 7549,
+    "artifactSha256": "e2d9fcc13e5f2b68b92c5ab33331ec527fe76aa11ee6a002909ea3f000f748b9",
+    "contentsRead": false,
+    "removed": true,
+    "scope": "Only the owned ignored error-context.md generated on failure despite trace/screenshot/video disabled. Raw observations, logs, declaration and postverify retained. No retroactive claim that no artifact was generated."
+  }
+}

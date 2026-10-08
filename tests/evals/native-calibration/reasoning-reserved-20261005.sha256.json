@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-05T10:48:49.763Z",
+  "purpose": "New source-disjoint reserved regression; answers not disclosed to production owner before freeze.",
+  "files": {
+    "reasoning-reserved-20261005.json": "c056b78e381e9694911d15c36f3579953776e09798b2b3cba5b0e3a6b821d604",
+    "fixtures/r26-01.md": "cf9ef1a38260af794eaba6877c0c79d6b2f86335d2f51f5d1bd6a071974e3e1a",
+    "fixtures/r26-02.md": "528a7a5e00025460be19f04e0b364a98fd58e0dbf2216b73f14aa119694b2497",
+    "fixtures/r26-03.md": "7aa293e7ddf6687999252e1313325a4a6ff1ffc15fb2e14ad0d3cb78e785b554",
+    "fixtures/r26-04.md": "966aacbded96bc4b8f3765b7d4f8b92222075572a4e1797108e02aaadecd4055",
+    "fixtures/r26-05.md": "9f3c7e0da99e50a71cfa3f9eba59a782a12adbf5bb7886b00569c8e2f431e733",
+    "fixtures/r26-06.md": "6956f7314edfd1875d9738ae56904b8c121072a04a26d3d29372da13f2b2a1be",
+    "fixtures/r26-07.md": "33b221a25869887d11a8615a42e3dcf9746b88018a71074dce61133012cf811d",
+    "fixtures/r26-08.md": "e46f90ac55e032d12e952444116fbfcf07b0addc8c151f925a5b17ed7a2bc3cb",
+    "fixtures/r26-09.md": "faca3452d8abbcffb383c7ead7c8829f870a4e4ccf2b5fae54db16ec9aebe390",
+    "fixtures/r26-10.md": "7f6f1a63efe4f946fc03990d96c82c547f9ee5d908d3d6b9523437686f4482fd",
+    "fixtures/r26-11.md": "536977417a322e5538ee59905cea151dbccb01ac2a1b64bf703e7c65cfe00d1e",
+    "fixtures/r26-12.md": "626217df9da5408742a94fafb716ba09dd0818804dbfc7ce0d9b550a8d501fd0",
+    "fixtures/r26-13.md": "b2daa47c6fe312bfb24e4409548559aef836a99928031de97c28d5f1d176fff5",
+    "fixtures/r26-14.md": "fd93c825c98766479f54ee8907b96ed4a55ef3bfe1bc1962412e9dd3ec2198f1",
+    "fixtures/r26-15.md": "07f1952d65fec9767cb77d506b614fea10db3faff4b0cbfa7892a2cee942678c",
+    "fixtures/r26-16.md": "2058927b8c11f48baabc16f64c615d2515cb7a6dadbd9a37c8c26a23b236ac9c",
+    "fixtures/r26-17.md": "dcf7aee80b05a8cb4f4587c041940ca47fb9e2d7df652723632b1e6ee1007ef1",
+    "fixtures/r26-18.md": "ca08005b19dd0bd822d0c2048dd207be3bde00e71379a5b7173467aa46898e64"
+  }
+}

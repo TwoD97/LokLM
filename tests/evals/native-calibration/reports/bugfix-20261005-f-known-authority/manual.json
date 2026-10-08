@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "authority-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Current adult annual fee 84 EUR is cited locally to actual passage 5:5. The later 96 EUR proposal, absence of a vote and nonbinding status are correctly attached to 6:6. No false absence or false supersession. The no-effect conclusion is supported by the current rule and the explicitly unadopted draft. Independently cross-reviewed."
+  },
+  {
+    "caseId": "authority-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly says the supplied measurements agree. Preserves commissioning log 1.5 minutes with 10:10 and acceptance sheet 90 seconds with 9:9, and correctly converts 1.5 minutes to 90 seconds. The actual sources concern the same valve, interval and conditions. No invented scope difference. Final sentence is repetitive but accurate. Independently cross-reviewed."
+  },
+  {
+    "caseId": "authority-reserved-07",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly withholds a definitive deployed result because neither supplied archive has a deployment receipt selecting a copy. Calculates A=8 and B=9 for input 9, with the complete nested min/max expressions and separate local 12:12/13:13 citations. No invented deployed winner or mistaken cap-as-return-value. Independently cross-reviewed."
+  },
+  {
+    "caseId": "authority-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Correctly withholds a definitive count. Attributes Nord=54 to 1:1 and Sued=57 to 2:2 for the same K9 lot; says consolidation is not documented and the parallel counts cannot simply be added. Actual passages both cover serials 4100-4159. No invented partial-cohort scope, minimum-as-final rule, sum or priority."
+  }
+]

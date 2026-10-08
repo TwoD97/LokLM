@@ -1,0 +1,557 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "independent rag_verifier",
+  "runId": "production-20261008-v32-brief-ar",
+  "verdict": "NONPASS",
+  "allCriteriaPassCount": 0,
+  "observedCaseCount": 8,
+  "admittedCompletedAnswerCount": 6,
+  "requestErrorCount": 2,
+  "rubricUnchanged": true,
+  "newNumericThresholdApplied": false,
+  "dimensionMeaning": "Overall requires semantic completeness/correctness, support of material claims by attached citations, requested format and an admitted answer. Correct quoted facts/citations do not substitute for a missing requested conclusion. Error cases are not semantically graded.",
+  "buildEvidence": {
+    "before": {
+      "status": "matched",
+      "currentSourcesMatchBuild": true
+    },
+    "after": {
+      "status": "matched",
+      "currentSourcesMatchBuild": true
+    },
+    "compiledBuildUnchanged": true,
+    "closure": {
+      "mainProcessId": 74492,
+      "exitCode": 0,
+      "signalCode": null
+    },
+    "sourceHashesAtBuildCanonicalJsonSha256": "d8bdf023546735b47af56d8e49564a55f12a750f9d0f7a9ed1c907beec70d8e5"
+  },
+  "cases": [
+    {
+      "caseId": "ar-fresh-01",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NOT_EVALUATED",
+      "citationVerdict": "NOT_EVALUATED",
+      "formatVerdict": "NOT_EVALUATED",
+      "reasons": [
+        "Request ended with an error and no admitted completed answer. Counts as an overall failure; error/rejected content was not inspected or semantically graded."
+      ],
+      "question": "Welche Bildschirmexportbreite ist für Quenoras QX-Ausgabe R7 verbindlich? Nenne beide Werte aus Kupfer und Silber und begründe, ob die Vermerke einen Vorrang belegen. Antworte in einem kurzen Satz.",
+      "admittedVisibleAnswer": null,
+      "citations": [],
+      "answerUtf8Sha256": null,
+      "unchangedCaseRubricCanonicalJsonSha256": "9d08ce5e93fd9ec6f04b195937827f63f56244db4ff590ce25ca90ea58ccb78b",
+      "terminal": {
+        "outcome": "error",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 39307
+      },
+      "admitted": false
+    },
+    {
+      "caseId": "ar-fresh-02",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NOT_EVALUATED",
+      "citationVerdict": "NOT_EVALUATED",
+      "formatVerdict": "NOT_EVALUATED",
+      "reasons": [
+        "Request ended with an error and no admitted completed answer. Counts as an overall failure; error/rejected content was not inspected or semantically graded."
+      ],
+      "question": "Which calibration tone governs Ostrel OC-9 cycle L3 at 21 C on 2052-07-14? Give both entries and explain whether the paired record establishes priority. Answer in one short sentence.",
+      "admittedVisibleAnswer": null,
+      "citations": [],
+      "answerUtf8Sha256": null,
+      "unchangedCaseRubricCanonicalJsonSha256": "67040dbc11a6ba8e7f38fc2c6b309224f3f13719e8b6f32c8aee9c06745fdf0e",
+      "terminal": {
+        "outcome": "error",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 38622
+      },
+      "admitted": false
+    },
+    {
+      "caseId": "ar-fresh-03",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NONPASS",
+      "citationVerdict": "NONPASS",
+      "formatVerdict": "PASS",
+      "reasons": [
+        "False unresolved response omits the answerable current quota of 39 and period of 13 working days, and both requested authority reasons.",
+        "Quotes unrelated export, storage-fee and orchard passages (documents 17, 2, 7, 11) rather than the actual rule, approved quota amendment and explicitly unapproved period proposal (documents 4, 5, 6).",
+        "No single-sentence constraint applies; verbosity is not used as an additional format failure."
+      ],
+      "question": "Welche Monatsquote und Bearbeitungsfrist gelten für ein Lomera-Konto am 2054-05-02? Begründe, warum die Quotenänderung gilt und der spätere Fristenentwurf die Frist ändert oder nicht ändert.",
+      "admittedVisibleAnswer": "Aus den bereitgestellten Textstellen kann ich keine eindeutige Antwort ableiten. Die angeführten Quellenaussagen sind:\n\n> \\# Quenora separate thumbnail export\n> \n> The signed note dated 2051\\-02\\-19 sets a width of 320 pixels for QX thumbnail previews in edition R8\\. It concerns small previews, not the full\\-width R7 screen export\\. Its signature does not approve or replace either R7 export note, and it does not describe their intended full\\-image width\\.\n\n [doc:17, chunk:17]\n\n> \\# Quenora Exportvermerk Silber\n> \n> Stand 2051\\-02\\-17, Bildreihe QX, Ausgabe R7\\. Für den Bildschirmexport ist eine Breite von 1260 Pixeln vermerkt\\. Gemeint ist die gesamte Bildbreite ohne Rahmen\\. Eine Freigabeunterschrift oder eine Regel zum Vorrang gegenüber Kupfer ist in diesem Exemplar nicht enthalten\\.\n\n [doc:2, chunk:2]\n\n> \\# Ishven storage booking current fee\n> \n> The trustees approved this rule on 2055\\-05\\-06, effective immediately\\. A standard exhibit\\-storage booking costs 15 CHF and may last at most six days\\. The fee remains payable until a duly approved replacement becomes effective; a later approval date alone does not activate a future fee\\.\n\n [doc:7, chunk:7]\n\n> \\# Vornika west orchard planting plan\n> \n> The approved planning sheet for 2054 covers the west block only\\.\n> \n> \\| Measure \\| Trees \\|\n> \\| \\-\\-\\- \\| \\-\\-\\-\\: \\|\n> \\| Planned planting in west block \\| 1648 \\|\n> \n> This is a target for new planting during 2054, not a record of trees already planted\\. Nursery reserves and the separate east\\-block plan are excluded\\.\n\n [doc:11, chunk:11]",
+      "citations": [
+        {
+          "documentId": 17,
+          "chunkId": 17,
+          "sourceKey": "arf-source-17"
+        },
+        {
+          "documentId": 2,
+          "chunkId": 2,
+          "sourceKey": "arf-source-02"
+        },
+        {
+          "documentId": 7,
+          "chunkId": 7,
+          "sourceKey": "arf-source-07"
+        },
+        {
+          "documentId": 11,
+          "chunkId": 11,
+          "sourceKey": "arf-source-11"
+        }
+      ],
+      "answerUtf8Sha256": "c4e428d18c726e59299997d9046012fa4e74f86137c0bdac1272e6844a645a09",
+      "unchangedCaseRubricCanonicalJsonSha256": "930b1b3c95eb7928b3c164ad1dae9c06c9c950b198bf2fbbe133a733ad2a8252",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 36217
+      },
+      "admitted": true
+    },
+    {
+      "caseId": "ar-fresh-04",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NONPASS",
+      "citationVerdict": "NONPASS",
+      "formatVerdict": "PASS",
+      "reasons": [
+        "Correctly states current 15 CHF, approved future 18 CHF and activation 2055-10-07; correctly distinguishes approval from effectiveness in multiple later clauses.",
+        "However, its explicit explanation says approval alone does not make the fee current because the six-day storage limit is unchanged. That causal connection is unsupported: unchanged storage duration is not the stated reason the future fee has not activated.",
+        "The attached actual sources 7, 8, 9 support the amounts, date and unchanged duration separately, but not that causal inference. The original requirement demands local support for the authority reason; correct later activation wording does not erase the extra unsupported explanation.",
+        "The response is repetitive, but no short-sentence requirement applies; repetition alone is not grounds for this failure."
+      ],
+      "question": "For an Ishven standard storage booking on 2055-09-21, which fee applies, and what approved fee applies from which later date? Explain why approval alone does not make the later fee current.",
+      "admittedVisibleAnswer": "For an Ishven standard storage booking on 2055-09-21, the fee that applies is the existing 15 CHF fee. The approved fee of 18 CHF applies from the activation date of 2055-10-07. Approval alone does not make the later fee current because the six-day storage limit is unchanged, but the fee only activates from the activation date in the meeting minutes. Staff must use the activation date, not the approval date, when deciding which fee applies to a booking. The trustees approved the replacement standard booking fee of 18 CHF on 2055-08-13, but it applies only from the activation date in the meeting minutes. The six-day storage limit is unchanged. This notice records an approved future fee and does not authorize collection before that date. The resolution dated 2055-08-13 sets 2055-10-07 as the activation date for the approved 18 CHF standard exhibit-storage fee. Until then the existing 15 CHF fee remains in force. [doc:7, chunk:7] [doc:8, chunk:8] [doc:9, chunk:9]",
+      "citations": [
+        {
+          "documentId": 7,
+          "chunkId": 7,
+          "sourceKey": "arf-source-07"
+        },
+        {
+          "documentId": 8,
+          "chunkId": 8,
+          "sourceKey": "arf-source-08"
+        },
+        {
+          "documentId": 9,
+          "chunkId": 9,
+          "sourceKey": "arf-source-09"
+        }
+      ],
+      "answerUtf8Sha256": "58dd834a19edbd03252f154678c9248163197f49496b9a2f5e3b8f4357469b8a",
+      "unchangedCaseRubricCanonicalJsonSha256": "913509b0e1b0c7c1b0e840a7232a14ca04cd18cd5173dce363f19582b28fa24b",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 40039
+      },
+      "admitted": true
+    },
+    {
+      "caseId": "ar-fresh-05",
+      "verdict": "NONPASS",
+      "semanticVerdict": "PASS",
+      "citationVerdict": "PASS",
+      "formatVerdict": "NONPASS",
+      "reasons": [
+        "Correctly gives planned 2054 west-block 1648 trees and completed 2053 west-block 1386 trees, with difference 262, and excludes nursery/east-block contamination.",
+        "Both actual input sources 11/10 are attached and support the calculation.",
+        "Uses two sentences despite the explicit one-short-sentence instruction; no new word-count cutoff is applied."
+      ],
+      "question": "How much does Vornika west block's planned 2054 planting exceed its completed 2053 planting? Give both tree-count inputs and the difference, preserving actual versus planned status, in one short sentence.",
+      "admittedVisibleAnswer": "The approved planning sheet for 2054 covers the west block only with 1648 planned trees, while the final field register for 2053 records completed planting in the west block only with 1386 trees. The difference between these two figures is 262 trees. [doc:11, chunk:11] [doc:10, chunk:10]",
+      "citations": [
+        {
+          "documentId": 11,
+          "chunkId": 11,
+          "sourceKey": "arf-source-11"
+        },
+        {
+          "documentId": 10,
+          "chunkId": 10,
+          "sourceKey": "arf-source-10"
+        }
+      ],
+      "answerUtf8Sha256": "091ea06197218d13ec6fac929d02eb7c0316148d082575af378efe990e2b50e0",
+      "unchangedCaseRubricCanonicalJsonSha256": "511d373d865cf2741dbeecb36713b32c4ff8d299504700f8d1b67153633531a1",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 32930
+      },
+      "admitted": true
+    },
+    {
+      "caseId": "ar-fresh-06",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NONPASS",
+      "citationVerdict": "PASS",
+      "formatVerdict": "PASS",
+      "reasons": [
+        "Correctly normalizes both reported masses to 840 g and states agreement, with correct sources 13/12.",
+        "Omits the explicitly requested sample-scope explanation: both measurements cover the same entire dry sample, with glass excluded. Repeating that the numbers agree does not supply that requested reason.",
+        "The stated numeric claims are locally supported; the omitted scope explanation is recorded as semantic incompleteness, not a fabricated citation error."
+      ],
+      "question": "Widersprechen sich Waage A und B zur Trockenmasse der Pelvian-Charge PZ-2 am 2056-06-18 um 11:20 UTC? Nenne beide Werte in Gramm und begründe den Vergleich anhand des erfassten Probenumfangs.",
+      "admittedVisibleAnswer": "Die Waage A und Waage B stimmen überein. Die Trockenmasse beträgt 840 g für beide. Die Werte sind identisch. [doc:13, chunk:13] [doc:12, chunk:12]",
+      "citations": [
+        {
+          "documentId": 13,
+          "chunkId": 13,
+          "sourceKey": "arf-source-13"
+        },
+        {
+          "documentId": 12,
+          "chunkId": 12,
+          "sourceKey": "arf-source-12"
+        }
+      ],
+      "answerUtf8Sha256": "8e0cfcb0a16c889ee27ed6068c73519069aa029938d95bb1e356d3cf9c9b42da",
+      "unchangedCaseRubricCanonicalJsonSha256": "62f5f6e4cf93e00d35535627f3af61db3fd5d092275c70d41884475e4598de27",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 31713
+      },
+      "admitted": true
+    },
+    {
+      "caseId": "ar-fresh-07",
+      "verdict": "NONPASS",
+      "semanticVerdict": "NONPASS",
+      "citationVerdict": "PASS",
+      "formatVerdict": "PASS",
+      "reasons": [
+        "The quoted passages correctly contain 23 vouchers at 07:40 UTC and 9 at 16:10 UTC, the same cabinet T5 and before/after distribution context, with correct local citations 15/14.",
+        "Nevertheless, the answer opens with an inability to derive a clear answer and never supplies the supported conclusion that the snapshots are compatible rather than a same-time contradiction. This is a false unresolved determination.",
+        "The actual quoted factual records and their citations are correct; citation traceability does not repair the missing/wrong comparison conclusion."
+      ],
+      "question": "Widersprechen sich Talveras Früh- und Spätzählung am 2057-09-22? Nenne beide Gutscheinbestände samt UTC-Zeiten und begründe den Vergleich anhand des Schranks und der dokumentierten Ausgabephase.",
+      "admittedVisibleAnswer": "Aus den bereitgestellten Textstellen kann ich keine eindeutige Antwort ableiten. Die angeführten Quellenaussagen sind:\n\n> \\# Talvera Gutscheinschrank Spätzählung\n> \n> Am 2057\\-09\\-22 um 16\\:10 UTC lagen im selben Schrank T5 des Talvera\\-Büros 9 unbenutzte Besuchsgutscheine\\. Diese Zählung erfolgte nach der Ausgabe und Rücknahme von Gutscheinen\\. Es ist ein späterer Bestandsstand desselben Schranks, keine zweite Zählung zum frühen Zeitpunkt\\.\n\n [doc:15, chunk:15]\n\n> \\# Talvera Gutscheinschrank Frühzählung\n> \n> Am 2057\\-09\\-22 um 07\\:40 UTC lagen im Schrank T5 des Talvera\\-Büros 23 unbenutzte Besuchsgutscheine\\. Gezählt wurde vor Beginn der Ausgabe\\. Die Zahl beschreibt nur diesen Zeitpunkt und diesen Schrank; das Protokoll behauptet keinen über den Tag unveränderten Bestand\\.\n\n [doc:14, chunk:14]",
+      "citations": [
+        {
+          "documentId": 15,
+          "chunkId": 15,
+          "sourceKey": "arf-source-15"
+        },
+        {
+          "documentId": 14,
+          "chunkId": 14,
+          "sourceKey": "arf-source-14"
+        }
+      ],
+      "answerUtf8Sha256": "bf193ce7ede77336caaca28c2a188d8db43c15ee82a55ec1dde3dc25787b9570",
+      "unchangedCaseRubricCanonicalJsonSha256": "25f4f4f9c676be1fb973a680368e69b666152620a36b24155fdd83c976ae89bb",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 30706
+      },
+      "admitted": true
+    },
+    {
+      "caseId": "ar-fresh-08",
+      "verdict": "NONPASS",
+      "semanticVerdict": "PASS",
+      "citationVerdict": "PASS",
+      "formatVerdict": "NONPASS",
+      "reasons": [
+        "Correctly identifies that the supplied excerpt lacks width, with no invented area, square assumption or global absence claim; source 16 supports this.",
+        "Uses three sentences instead of the requested one short sentence. The decimal point in 2.4 is not counted as a sentence boundary."
+      ],
+      "question": "What is the rectangular front-face area of Braviel panel BR-4 according to the survey, or which missing measurement prevents calculating it? Explain briefly in one short sentence.",
+      "admittedVisibleAnswer": "The survey dated 2058-11-03 describes the flat rectangular front face of panel BR-4. Its height is 2.4 m. The excerpt does not record the width or the front-face area. [doc:16, chunk:16]",
+      "citations": [
+        {
+          "documentId": 16,
+          "chunkId": 16,
+          "sourceKey": "arf-source-16"
+        }
+      ],
+      "answerUtf8Sha256": "6892045fc2dcb4132e2a78b030c963b72d8cbeb4568ae9051023182541936a92",
+      "unchangedCaseRubricCanonicalJsonSha256": "698ffec9fea37f46981be30e3f300861ea7ef4ffeec4473c6e3905461410abae",
+      "terminal": {
+        "outcome": "completed",
+        "timedOut": false,
+        "terminalMismatch": false,
+        "totalMs": 33035
+      },
+      "admitted": true
+    }
+  ],
+  "pins": {
+    "rawReport": {
+      "path": "tests/evals/native-calibration/reports/production-20261008-v32-brief-ar/raw.json",
+      "sha256": "47a0ba2c620681ab6a3905d564e69ddac6417227d28e3c16e2478e7d8447ddfb"
+    },
+    "gradingKey": {
+      "path": "tests/evals/native-calibration/ar-fresh-validation-20261006.grading.json",
+      "sha256": "e8c3a1cfdd83b04cf63c96602f303711d1b621efc648a2146b577b6095752d7a"
+    },
+    "sourceTextProjectionSha256": "16363c396d152185d52e21973d05b72f0f0cb491d0c41c1995071c98ab4d4981",
+    "sourceTextProjectionSerialization": "JSON.stringify of report.documents in recorded order projected as {sourceKey,documentId:id,chunks:[{chunkId:id,text}]}, exact decoded text encoded UTF-8.",
+    "allIndexedOriginalSourceInputs": [
+      {
+        "sourceKey": "arf-source-01",
+        "documentId": 1,
+        "originalFileSha256ReportedByHarness": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119",
+        "chunks": [
+          {
+            "chunkId": 1,
+            "textSha256": "e777b43a591a464c46038e3b20f46329e51aa9016322a5d68125bcc201626c93",
+            "textUtf8Bytes": 305
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-02",
+        "documentId": 2,
+        "originalFileSha256ReportedByHarness": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7",
+        "chunks": [
+          {
+            "chunkId": 2,
+            "textSha256": "e7bd61da3e090ffeeb84cb2f2a55e34d1b4b6e218940783b74d468a702840693",
+            "textUtf8Bytes": 303
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-03",
+        "documentId": 3,
+        "originalFileSha256ReportedByHarness": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19",
+        "chunks": [
+          {
+            "chunkId": 3,
+            "textSha256": "7eb041cd7cb79aea1a8c0f62f45fc348fb6f62d62b2ebf30416af89cbbb56603",
+            "textUtf8Bytes": 332
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-04",
+        "documentId": 4,
+        "originalFileSha256ReportedByHarness": "ef5170d23db6eed8a3f7b82225d8b435081175d1b98c5256b2f842c12cca63cd",
+        "chunks": [
+          {
+            "chunkId": 4,
+            "textSha256": "4906a7e2b5adbf3ecb2d18150787e0be5d66b2b8a3a96384970441d89eff436d",
+            "textUtf8Bytes": 306
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-05",
+        "documentId": 5,
+        "originalFileSha256ReportedByHarness": "928a362cdf542680ed0fb5fdec7ce357dec94d26cd6fdddb841e69f955f63706",
+        "chunks": [
+          {
+            "chunkId": 5,
+            "textSha256": "0332d46e978688eaf2b464519235861b3c4660fbb2333dbd728ff3e616996ed3",
+            "textUtf8Bytes": 313
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-06",
+        "documentId": 6,
+        "originalFileSha256ReportedByHarness": "e4e13b48d31653fb0501dc24ae7a88d835adcd36dcec7befe27eb32eacbd834f",
+        "chunks": [
+          {
+            "chunkId": 6,
+            "textSha256": "c485b8e653cee13c7b14cbb8d605702f64901ef5e3e02b13da33e176b9ff8606",
+            "textUtf8Bytes": 331
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-07",
+        "documentId": 7,
+        "originalFileSha256ReportedByHarness": "085e4ace2674da4e515c5c5d06160da10dd4b90981804e9429611dbde015cce4",
+        "chunks": [
+          {
+            "chunkId": 7,
+            "textSha256": "d0cf754d250358af354f28dfa35f8b461f4e94a1e9dce60c4bdcf3f22bcd3902",
+            "textUtf8Bytes": 323
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-08",
+        "documentId": 8,
+        "originalFileSha256ReportedByHarness": "d0bd072410fe1b1eed169fd74e26895b7f0d2c7e0fdb1a6434f28cefe72f8d72",
+        "chunks": [
+          {
+            "chunkId": 8,
+            "textSha256": "01f7b550227509ab9349ad1faa3db60cb6affea8f73356fc4ac0679ee05e1c64",
+            "textUtf8Bytes": 324
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-09",
+        "documentId": 9,
+        "originalFileSha256ReportedByHarness": "4d285317243f92d4fc8f539ba3bd6238a7f5ea0caf37c94be55d2952946365b3",
+        "chunks": [
+          {
+            "chunkId": 9,
+            "textSha256": "8e8bf1bd5a87d914f897f6077c5c721aeba50726aa061bf08d36cf1b65b00611",
+            "textUtf8Bytes": 324
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-10",
+        "documentId": 10,
+        "originalFileSha256ReportedByHarness": "2a5d6abad1fdfc567d694808a8b57ad44f1d07837c96749688ffb3aa0bcd5139",
+        "chunks": [
+          {
+            "chunkId": 10,
+            "textSha256": "420e2720f0c5fa3ea8a11003148a833798cd48093243894be6346fa5a060f677",
+            "textUtf8Bytes": 362
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-11",
+        "documentId": 11,
+        "originalFileSha256ReportedByHarness": "f02a6015121b730b554b7790a74307c1f1033bba610a971845ca63745778e05d",
+        "chunks": [
+          {
+            "chunkId": 11,
+            "textSha256": "1257a19d5f6a901313cc2d7b3dac2a0ab2b09ac31d29b965d8f246c722121a10",
+            "textUtf8Bytes": 331
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-12",
+        "documentId": 12,
+        "originalFileSha256ReportedByHarness": "6ad5ca2b5da4c86d280bae1edba2a2cf565e6eedff1804f114f48b53b220dbc0",
+        "chunks": [
+          {
+            "chunkId": 12,
+            "textSha256": "61f417c9530c794c6a396b04fc6ad9dd080d21dffba0ddddd1c59ba621666f31",
+            "textUtf8Bytes": 311
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-13",
+        "documentId": 13,
+        "originalFileSha256ReportedByHarness": "abb3aa0370b49be53b335df933a71721dfcd0cc0cfa85a772a95c4675802add9",
+        "chunks": [
+          {
+            "chunkId": 13,
+            "textSha256": "edff2c979d17e8712c0454b0717f06927d423b87a640fb64db12a22fb3eb5aac",
+            "textUtf8Bytes": 320
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-14",
+        "documentId": 14,
+        "originalFileSha256ReportedByHarness": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513",
+        "chunks": [
+          {
+            "chunkId": 14,
+            "textSha256": "935d18bb4d0de6ef5766ac75458d77b4d2348f3418f8d4304e402e4f487c8ef7",
+            "textUtf8Bytes": 309
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-15",
+        "documentId": 15,
+        "originalFileSha256ReportedByHarness": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db",
+        "chunks": [
+          {
+            "chunkId": 15,
+            "textSha256": "f87cd400e89a2fe1ceb3fcaedd3ce2c736c2501f0f01f47b5ebf14be6396edaa",
+            "textUtf8Bytes": 319
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-16",
+        "documentId": 16,
+        "originalFileSha256ReportedByHarness": "2988214627a83cafa89189741c4d71e976a85d6cdabb631b2b7cc43f1a44e3d1",
+        "chunks": [
+          {
+            "chunkId": 16,
+            "textSha256": "d2041fdf6b5479838d27f25a6c36183b2e82e4307f5770759d79f60741767ae5",
+            "textUtf8Bytes": 320
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-17",
+        "documentId": 17,
+        "originalFileSha256ReportedByHarness": "359bf6eb74fd971a7795e04a10e4892d8b21f7f50d54f8523c1c3878a54f9d59",
+        "chunks": [
+          {
+            "chunkId": 17,
+            "textSha256": "bcd627ff00e2af9accd3c59c139298f9ca48b531011868e627fd181135816dc9",
+            "textUtf8Bytes": 325
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-18",
+        "documentId": 18,
+        "originalFileSha256ReportedByHarness": "1dde5ec75baf6b8a07266de72e3c115ed63647ced11d00a9d942f54b0a841644",
+        "chunks": [
+          {
+            "chunkId": 18,
+            "textSha256": "a688b4273c81a1c9ee03bca1c4b44b219c65b65851150efb2c0d90d5f4334fad",
+            "textUtf8Bytes": 335
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-19",
+        "documentId": 19,
+        "originalFileSha256ReportedByHarness": "5f8873cf7b3c23c39eb4a4e0a874759b142486e6ba5301b5f89de2620d1475ac",
+        "chunks": [
+          {
+            "chunkId": 19,
+            "textSha256": "53471767b32fadb9f788eff520cbdccbb98973342319f6df24ba92cdfcf2cf44",
+            "textUtf8Bytes": 327
+          }
+        ]
+      },
+      {
+        "sourceKey": "arf-source-20",
+        "documentId": 20,
+        "originalFileSha256ReportedByHarness": "47ef98c4fbfdf6e030194f91d4085d74a5315804532046e27523060b3e4d9b45",
+        "chunks": [
+          {
+            "chunkId": 20,
+            "textSha256": "4ca34a8102329dbd0249a149dfbb540f1a2c317023933fef86d5c6b4665aac3e",
+            "textUtf8Bytes": 322
+          }
+        ]
+      }
+    ]
+  },
+  "reviewLimits": [
+    "Only admitted visible answers, original source inputs, existing selected AR grading entries and fixed terminal/build/closure metadata were inspected.",
+    "Error cases retain no answer or rejected-content payload in this grade. No private thoughts, rejected JSON or unrelated sealed grading material were inspected.",
+    "Corpus pins do not establish that every passage survived packing; the full generation prompt was not inspected.",
+    "Eight selected known-development cases were observed, not ten. This report does not infer outcomes for unselected cases or general/fresh-case RAG quality.",
+    "Matched source/build provenance and clean closure establish candidate identity and completed observation, not semantic success. No causal runtime diagnosis is claimed."
+  ]
+}

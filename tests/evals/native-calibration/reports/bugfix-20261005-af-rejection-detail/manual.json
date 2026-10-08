@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "ab-fresh-02/thought64",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS: one declared diagnostic call reached a normal grammar stop, then the fixed parser/rendering callback reported broad answer rejection and detail source_label. No validated final answer was retained. The offending label, its location and discarded prose are unknown; no semantic/citation judgment about that prose is justified. All original eight input passages, question, lean system, schema and decoder are unchanged from AE64/case02. AF ran alone in a fresh context, whereas AE used this case second after clearHistory; neither matching counters nor recurring rejection proves identical discarded content. Native122196ms,64 thought tokens,178 constrained-response tokens,430 response characters; no retry or repair."
+  }
+]

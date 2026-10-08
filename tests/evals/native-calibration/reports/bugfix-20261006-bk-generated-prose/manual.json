@@ -1,0 +1,51 @@
+[
+  {
+    "runId": "BK01",
+    "caseId": "ab-fresh-01",
+    "runDate": "2026-10-06",
+    "reviewedDate": "2026-10-07",
+    "attempted": 1,
+    "retries": 0,
+    "acceptedFinal": true,
+    "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: Das verbindliche Wartungsintervall für die NP-6-Filter der Kampagne S8 beträgt laut Notizen Nord und Süd je 14 bzw. 19 Tage, wobei die Notizen Nord und Süd keine Freigabeunterschrift oder Vorrang gegenüber der anderen Notiz belegen. [doc:2, chunk:2] [doc:1, chunk:1]",
+    "answerCodePoints": 341,
+    "answerSha256": "c878b2ddd7772d1c0f152614177103b38b1f6235af2c0a2e246503c4dbd243cc",
+    "strictPass": false,
+    "productAcceptancePass": false,
+    "semanticPass": false,
+    "citationSupportPass": false,
+    "citationCoveragePass": true,
+    "languagePass": true,
+    "briefSingleSentencePass": true,
+    "subgrades": {
+      "structurallyAccepted": true,
+      "strictPass": false,
+      "productPass": false,
+      "semanticPass": false,
+      "bothRequiredValuesPass": true,
+      "valueAttributionPass": true,
+      "np6CampaignS8ScopePass": true,
+      "citationIdentityPass": true,
+      "localCitationCoveragePass": true,
+      "allCitedClaimsSupportedPass": false,
+      "documentaryAbsenceScopePass": true,
+      "bindingApplicabilityPass": false,
+      "germanPass": true,
+      "briefSingleSentencePass": true
+    },
+    "decisiveFinding": {
+      "claim": "Das verbindliche Wartungsintervall für die NP-6-Filter der Kampagne S8 beträgt laut Notizen Nord und Süd je 14 bzw. 19 Tage",
+      "failure": "The answer characterizes the reported intervals as binding. Neither supplied note establishes binding applicability. Attribution to the notes, the uncertainty lead and the subsequent documentary qualification do not substantiate that status.",
+      "unchangedKeyBasis": "Strictly grade every visible claim and semantic relation; the supplied notes do not establish a binding winner, and choosing either interval as binding is invalid."
+    },
+    "supportedDetails": [
+      "Nord 14 days and Süd 19 days are both present with the correct NP-6/S8 scope and respective attribution.",
+      "The shared local citation pair identifies both actual value-bearing notes; citation order need not match the clause order.",
+      "The statement about what the notes do not document stays documentary. This is not graded as a global assertion that approval never occurred or no priority exists.",
+      "The German answer is one brief comparison sentence, with bzw. functioning as an abbreviation rather than an extra sentence."
+    ],
+    "directDiagnosticMs": 16478,
+    "direct180SecondTargetPass": true,
+    "notes": "Unsupported binding applicability remains despite correct reported values and documentary uncertainty. The documentary qualifier is not treated as a global absence-of-approval claim. Structural acceptance is separate from semantic acceptance."
+  }
+]

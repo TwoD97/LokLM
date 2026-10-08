@@ -1,0 +1,26 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The categorical assertion that draft B did not replace draft A is stronger than the sources' absence of any documented supersession statement."
+    ],
+    "notes": "Correctly withholds a definitive deadline and gives A=2027-05-08 and B=2027-05-15, with the exact actual supplied passages 3:6 and 4:7. Neither source establishes approval or a replacement. The unsupported categorical no-replacement claim prevents an all-claims-grounded pass, despite the correct uncertainty decision and dates. The German wording 'ist feststeht' is also malformed. Independently cross-reviewed by organizer_store."
+  },
+  {
+    "caseId": "heldout-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "156 planned inspections for Veldrin Yard in 2025 is explicitly present in the actual supplied table passage 2:5, which the answer cites. One short English sentence, with no unsupported additions. Independently cross-reviewed by organizer_store."
+  }
+]

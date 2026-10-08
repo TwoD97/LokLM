@@ -1,18 +1,16 @@
-// Builds the LokLM.app payload for both mac archs ( arm64 + x64 ).
+// Builds one native-architecture LokLM.app payload. Release CI combines archives
+// from separate Intel/Apple Silicon runners; host-built native addons cannot be
+// reused for the other architecture when electron-builder npmRebuild is disabled.
 //
-// Two sequential single-arch invocations rather than one multi-arch
-// `electron-builder --mac dir --arm64 --x64`. Reason : the multi-arch
-// form was empirically putting the first-built arch at release/mac/
-// ( unsuffixed ) and the second at release/mac-<arch>/ ( suffixed ) ,
-// with no documented ordering guarantee. Single-arch invocations
-// consistently output to release/mac-<arch>/ ( verified on macos-latest
-// 2026-05-27 ).
+// Explicit single-architecture output avoids electron-builder's ambiguous
+// unsuffixed directory when multiple architectures are requested together.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyMacApp } from './verify-mac-architecture.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -54,8 +52,30 @@ async function buildArch(arch) {
 }
 
 async function main() {
-  await buildArch('arm64')
-  await buildArch('x64')
+  const arch = process.argv[2] || process.arch
+  if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(arch) || arch !== process.arch) {
+    throw new Error('Build each Mac payload on a native runner of the requested architecture')
+  }
+  await buildArch(arch)
+  const app = join(ROOT, 'release', `mac-${arch}`, 'LokLM.app')
+  await verifyMacApp(app, arch)
+  // Preserve the existing unsigned/ad-hoc distribution posture, but perform
+  // this at build time. Installers must not replace publisher signatures or
+  // remove quarantine. Developer ID signing/notarization remains a separate gate.
+  execFileSync(
+    'codesign',
+    [
+      '--force',
+      '--deep',
+      '--sign',
+      '-',
+      '--entitlements',
+      join(ROOT, 'resources', 'entitlements.mac.plist'),
+      app,
+    ],
+    { stdio: 'inherit' },
+  )
+  execFileSync('codesign', ['--verify', '--deep', '--strict', app], { stdio: 'inherit' })
 }
 
 main().catch((err) => {

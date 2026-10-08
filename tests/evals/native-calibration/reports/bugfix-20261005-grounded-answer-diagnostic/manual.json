@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-05T12:08:09.289Z",
+  "status": "Diagnostic arms complete; production candidate F pending real-QA validation",
+  "limitations": [
+    "Previously observed DEV only; all original recorded packed context retained.",
+    "Independent manual semantic review is separate from structural parser acceptance.",
+    "Concurrent short CPU checks overlapped B; timings are descriptive, not clean matched latency estimates."
+  ],
+  "runs": {
+    "A": {
+      "rawPath": "out/optimization-20261005/reasoning-answer-A-native/raw.json",
+      "rawSha256": "dff23630cab7283657b8353b317d6e27c3a20b90c837a0ab8d86124cdd521f9e",
+      "observations": 6,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 45943,
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": null,
+          "totalMs": 60700,
+          "error": null,
+          "notes": "Safely distinguishes both unapproved deadlines, exact3:6/4:7 alternatives, no invented winner."
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": null,
+          "totalMs": 28322,
+          "error": null,
+          "notes": "Correct156 with exact values-table2:5, not introduction2:4."
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "partial",
+          "semantic": "pass",
+          "exactCitationSupport": "partial",
+          "originalPrototypeAccepted": null,
+          "totalMs": 98504,
+          "error": null,
+          "notes": "Correct current84EUR versus unapproved96 proposal; governing continuation rule appears only5:5 but is not locally attached to that claim."
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": null,
+          "totalMs": 72656,
+          "error": null,
+          "notes": "Opening says sources disagree although later calculation correctly establishes1.5minutes=90seconds. Contradictory answer."
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": null,
+          "totalMs": 80544,
+          "error": null,
+          "notes": "Correctly withholds deployed winner, but B=10 is wrong for clampSlots(9), whose actual result is9. A=8 is correct."
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": null,
+          "totalMs": 93826,
+          "error": null,
+          "notes": "Opening claims definitive54 despite conflicting54/57 for same cohort; later uncertainty does not retract it."
+        }
+      ]
+    },
+    "B": {
+      "rawPath": "out/optimization-20261005/reasoning-answer-B-native/raw.json",
+      "rawSha256": "15bf417d3b0c3222a787eef8cd6100408f6702399c4fb756a588fc86541b06a1",
+      "observations": 6,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 35848,
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "fail",
+          "semantic": "pass",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": false,
+          "totalMs": 102572,
+          "error": null,
+          "notes": "Safe lack-of-authority decision, but both alternatives attached only4:7; no-approval claim uncited. Empty evidence invalidates referenced source IDs."
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "fail",
+          "semantic": "pass",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": false,
+          "totalMs": 153695,
+          "error": null,
+          "notes": "Final156/2:5 fact is correct, but evidence empty; unbounded comparison exceeds original600char limit and includes false language obstacle before correcting itself."
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": false,
+          "totalMs": 118446,
+          "error": null,
+          "notes": "False refusal: approved policy5:5 establishes current84EUR, yet answer claims no current fee is established. Empty evidence also invalid."
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "none",
+          "originalPrototypeAccepted": true,
+          "totalMs": 60203,
+          "error": null,
+          "notes": "Original parser accepts missing+empty evidence+empty sources; semantic false absence: both90seconds and1.5minutes are provided and compatible."
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "fail",
+          "semantic": "partial",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": false,
+          "totalMs": 141431,
+          "error": null,
+          "notes": "Correctly withholds deployment choice but never computes requested A8/B9; generic min descriptions omit lower bound, both-release claim cites only12:12, no-deployment claim uncited. Empty evidence invalid."
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "fail",
+          "semantic": "pass",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": false,
+          "totalMs": 97695,
+          "error": null,
+          "notes": "Correct unresolved same-cohort54/57 decision with both source IDs; empty evidence means those source IDs were not selected under original parser."
+        }
+      ]
+    },
+    "C": {
+      "rawPath": "out/optimization-20261005/grounded-answer-C-native/raw.json",
+      "rawSha256": "d62c6b667ddfba4822f6667765176a35d5af5b48765018792bf37a56cd9a7943",
+      "requested": 6,
+      "observations": 5,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 38299,
+      "frozenParserSha256": "3fb773f172d2467cf0bb2c44472af0c9321e4bb86137cd01172cd5c73028128f",
+      "frozenMechanicalPath": "out/optimization-20261005/grounded-answer-C-native/mechanical-frozen-parser.json",
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "frozenParserAccepted": true,
+          "totalMs": 158165,
+          "error": null,
+          "notes": "Passes exact frozen parser. Both unapproved deadline alternatives and exact3:6/4:7 markers; no governing winner invented. Quoted spans omit approval qualifiers that remain present in full cited passages."
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "frozenParserAccepted": true,
+          "totalMs": 122117,
+          "error": null,
+          "notes": "Correct156 planned2025 and exact2:5 table citation. Also selects accurate but unnecessary2024 completed129 evidence; it is not attached to final claim."
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "fail",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "frozenParserAccepted": false,
+          "totalMs": 148968,
+          "error": null,
+          "notes": "Final84current/96unapproved claims are supported and correctly mapped. Frozen parser rejects only newline-to-space change in197-character6:6 quotation; no semantic fabrication."
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "fail",
+          "semantic": "partial",
+          "exactCitationSupport": "fail",
+          "frozenParserAccepted": false,
+          "totalMs": 113176,
+          "error": null,
+          "notes": "Correct equivalence/no-conflict judgment and exact9:9/10:10 quotes, but final claim names unrelated/unselected4:4. Also omits requested original1.5minutes from visible final answer. No silent source replacement."
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "fail",
+          "semantic": "unobserved",
+          "exactCitationSupport": "unobserved",
+          "frozenParserAccepted": false,
+          "totalMs": 180010,
+          "error": "llm.generateRaw did not settle within 180000 ms",
+          "notes": "Native timeout at180000ms; no raw answer or semantic verdict. Owned worker killed as frozen runner specifies."
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "unobserved",
+          "semantic": "unobserved",
+          "exactCitationSupport": "unobserved",
+          "frozenParserAccepted": null,
+          "totalMs": null,
+          "error": null,
+          "notes": "Not called after preceding code timeout terminated run. No retry, no pass/fail semantic judgment."
+        }
+      ]
+    },
+    "D": {
+      "rawPath": "out/optimization-20261005/annotated-answer-D-native/raw.json",
+      "rawSha256": "6ce3a941fe112471a318601bd7daf1aedbe35bb9daefa671852ecf7045d449c4",
+      "requested": 6,
+      "observations": 6,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 33619,
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "totalMs": 54945,
+          "firstVisibleTextMs": 15651,
+          "error": null,
+          "notes": "Both unapproved deadline alternatives, explicit no finality and exact3:6/4:7 markers."
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "totalMs": 31809,
+          "firstVisibleTextMs": 15429,
+          "error": null,
+          "notes": "Correct planned156 with exact table2:5 marker."
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "partial",
+          "semantic": "pass",
+          "exactCitationSupport": "partial",
+          "totalMs": 72268,
+          "firstVisibleTextMs": 18178,
+          "error": null,
+          "notes": "Correct84current/96unapproved with labeled fee5:5/status6:6 quote bullets. Opening authority/no-replacement reasoning lacks local linkage to both sources; no false content."
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "pass",
+          "totalMs": 79660,
+          "firstVisibleTextMs": 10920,
+          "error": null,
+          "notes": "Correct90seconds=1.5minutes conversion yet opens disagreement and invents separate applicability from commissioning/acceptance labels. Actual EV8 interval/scope are the same."
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "totalMs": 92716,
+          "firstVisibleTextMs": 12212,
+          "error": null,
+          "notes": "Correct A8/B9 code evaluation with exact12:12/13:13 markers; no deployment winner invented."
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "pass",
+          "totalMs": 126881,
+          "firstVisibleTextMs": 22331,
+          "error": null,
+          "notes": "Invents minimum-count precedence: definitive54/lower count chosen to avoid duplicate counting despite no source giving that authority. Same-cohort54/57 conflict is unresolved."
+        }
+      ]
+    },
+    "E": {
+      "rawPath": "out/optimization-20261005/ordered-answer-E-native/raw.json",
+      "rawSha256": "2018aa4b8d6c9ed32cdce825b07eb9263cbc9944245229ade821019b900c5cd5",
+      "configurationValid": false,
+      "configurationFailure": "Native grammar parser rejected answer.maxLength2000 expansion; compiled worker fell back to unconstrained generation.",
+      "stopAction": "Parent requested termination after discovery. Only the verified owned model utility was stopped; runner recorded the interrupted third call and cleaned its isolated profile.",
+      "requested": 6,
+      "observations": 3,
+      "completedAnswers": 2,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 33525,
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Safe no-final deadline decision and correct alternatives/citations, but unsupported earlier-draft chronology: both records have the same issue date.",
+          "totalMs": 88520,
+          "error": null
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Correct156 planned2025, exact2:5 citation.",
+          "totalMs": 53460,
+          "error": null
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Interrupted by operator after invalid configuration discovery; no raw answer.",
+          "totalMs": 59320,
+          "error": "Worker exited 4294967295"
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Unobserved after intentional stop.",
+          "totalMs": null,
+          "error": null
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Unobserved after intentional stop.",
+          "totalMs": null,
+          "error": null
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "not-scored-configuration-invalid",
+          "semanticObservation": "Unobserved after intentional stop.",
+          "totalMs": null,
+          "error": null
+        }
+      ]
+    },
+    "E2": {
+      "rawPath": "out/optimization-20261005/ordered-answer-E2-native/raw.json",
+      "rawSha256": "c4b30a25f45f8199bbbc8b12821521bceec5f7e7d914eaf9abb6b1fdbd92f217",
+      "configurationValid": true,
+      "grammarSmokePath": "out/optimization-20261005/ordered-E2-exact-grammar-smoke.json",
+      "requested": 6,
+      "observations": 6,
+      "compiledBuildUnchanged": true,
+      "actualPlan": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "f16",
+        "reason": "8192-token context, f16 KV, 14 GPU layers"
+      },
+      "loadMs": 33350,
+      "cases": [
+        {
+          "caseId": "heldout-10",
+          "strict": "partial",
+          "semantic": "partial",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": true,
+          "totalMs": 93991,
+          "error": null,
+          "notes": "Correct no-finality and alternatives/citations, but visibly calls B later and A earlier despite equal issue dates and no documented chronology."
+        },
+        {
+          "caseId": "heldout-02",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": true,
+          "totalMs": 58410,
+          "error": null,
+          "notes": "Correct156 planned2025 with exact2:5 table citation."
+        },
+        {
+          "caseId": "authority-reserved-03",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": true,
+          "totalMs": 93529,
+          "error": null,
+          "notes": "Correct84 current and96 unapproved; explicitly maps current fee/change-vote rule to5:5 and draft/nonapproval to6:6."
+        },
+        {
+          "caseId": "authority-reserved-05",
+          "strict": "pass",
+          "semantic": "pass",
+          "exactCitationSupport": "pass",
+          "originalPrototypeAccepted": true,
+          "totalMs": 78767,
+          "error": null,
+          "notes": "Correct no-disagreement conclusion with original1.5minutes10:10 and90seconds9:9; both original measurements visible and conversion accurate."
+        },
+        {
+          "caseId": "authority-reserved-07",
+          "strict": "partial",
+          "semantic": "pass",
+          "exactCitationSupport": "partial",
+          "originalPrototypeAccepted": true,
+          "totalMs": 77940,
+          "error": null,
+          "notes": "Correct A8/B9 and no deployment winner. Both12:12/13:13 markers attach deployment uncertainty sentence; following calculated-value sentence lacks individual markers."
+        },
+        {
+          "caseId": "authority-reserved-01",
+          "strict": "fail",
+          "semantic": "fail",
+          "exactCitationSupport": "fail",
+          "originalPrototypeAccepted": true,
+          "totalMs": 115410,
+          "error": null,
+          "notes": "Safely withholds total but invents that each report covers only part of sameK9lot. Both original reports cover identical4100–4159 range. Cites unrelated code13:13 for generic draft/date authority rule. Correct54/57 markers do not repair these false claims."
+        }
+      ]
+    }
+  }
+}

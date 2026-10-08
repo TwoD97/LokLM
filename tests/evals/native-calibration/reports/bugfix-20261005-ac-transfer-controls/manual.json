@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "authority-transfer-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Actual 1:1/2:2 support baseline 2 mixers, current 6 effective May 20, retained 8 microphones, and applicability to the June 10 public event. \"Amended on May 20\" naturally describes when the limit changed, not a separate issue/approval-date assertion, consistent with AC02 treatment. Both canonical refs locally support the coherent paragraph. No redundant raw source labels or invented condition. 131539 ms."
+  },
+  {
+    "caseId": "authority-transfer-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Actual supplied 7:7/8:8 exactly match both complete excerpts: same FV-8/K/date/25 degrees Celsius, alternatives 420 N and 460 N, both countersigned and no documented priority/correction. The evidence-scoped unresolved lead is supported, without an invented winner or denial of an external event. Both alternatives and the documentary limitation are present with their own correct local citations. No unrelated source. 105832 ms."
+  }
+]

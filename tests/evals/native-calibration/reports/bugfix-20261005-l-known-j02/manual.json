@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The first bounded v5 gate failed closed in144.406s, not a timeout. Native generation completed with stopGenerationTrigger,604characters and246outputtokens; parser rejected quote_missing and emitted only a friendly error/failure note. Both required3:3/4:4 passages were supplied among11fed passages. No raw generated check or partial JSON was retained/read; the precise quotation mismatch and the proposed answer's semantic correctness therefore remain unknown. Actual8K/f16/14layers. This is0/1 usable completed answers; no continuation, retry or broader quality claim."
+  }
+]

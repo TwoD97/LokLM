@@ -1,0 +1,819 @@
+{
+  "kind": "safe-known-dev-ar-gate-mixed-results",
+  "classification": "BC original AR01/02 are strict semantic incompleteness nonpasses; AR07 passes. The three-question group completed cleanly. With prior AB01, BC has2 strict passes from4 attempted and9 unattempted; no later group is authorized by this report.",
+  "runId": "bugfix-20261006-bc-regression-ar-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-bc-regression-ar-gate/raw.json",
+    "sha256": "543cd31173ecc2750ff5711962958624f7e7803d023f9d0cb5959567a1822abd",
+    "availability": "Local ignored artifact; opaque hash only."
+  },
+  "acceptedFinalExtraction": {
+    "path": "out/optimization-20261005/bc-ar-gate-accepted-finals.json",
+    "sha256": "1e7c30f794da2145a596289ffd3bad7235709d8715da29cacf0763648088d8bd",
+    "scope": "Exact accepted finals only after whole clean group closure."
+  },
+  "fedSourceMetadata": {
+    "path": "out/optimization-20261005/bc-ar-gate-fed-source-metadata.json",
+    "sha256": "4c29000ef79fda0b5798742b5d415f691a4ce818682fab19d24da49eb53b8ba4",
+    "queries": [
+      {
+        "caseId": "ar-fresh-01",
+        "mappings": [
+          {
+            "documentId": 1,
+            "chunkId": 1,
+            "sourceKey": "arf-source-01",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 2,
+            "chunkId": 2,
+            "sourceKey": "arf-source-02",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 17,
+            "chunkId": 17,
+            "sourceKey": "arf-source-17",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 4,
+            "chunkId": 4,
+            "sourceKey": "arf-source-04",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 14,
+            "chunkId": 14,
+            "sourceKey": "arf-source-14",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 15,
+            "chunkId": 15,
+            "sourceKey": "arf-source-15",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 3,
+            "chunkId": 3,
+            "sourceKey": "arf-source-03",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 13,
+            "chunkId": 13,
+            "sourceKey": "arf-source-13",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 16,
+            "chunkId": 16,
+            "sourceKey": "arf-source-16",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 19,
+            "chunkId": 19,
+            "sourceKey": "arf-source-19",
+            "fromCitationEvent": true
+          }
+        ]
+      },
+      {
+        "caseId": "ar-fresh-02",
+        "mappings": [
+          {
+            "documentId": 3,
+            "chunkId": 3,
+            "sourceKey": "arf-source-03",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 9,
+            "chunkId": 9,
+            "sourceKey": "arf-source-09",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 16,
+            "chunkId": 16,
+            "sourceKey": "arf-source-16",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 18,
+            "chunkId": 18,
+            "sourceKey": "arf-source-18",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 14,
+            "chunkId": 14,
+            "sourceKey": "arf-source-14",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 11,
+            "chunkId": 11,
+            "sourceKey": "arf-source-11",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 12,
+            "chunkId": 12,
+            "sourceKey": "arf-source-12",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 17,
+            "chunkId": 17,
+            "sourceKey": "arf-source-17",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 4,
+            "chunkId": 4,
+            "sourceKey": "arf-source-04",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 13,
+            "chunkId": 13,
+            "sourceKey": "arf-source-13",
+            "fromCitationEvent": true
+          }
+        ]
+      },
+      {
+        "caseId": "ar-fresh-07",
+        "mappings": [
+          {
+            "documentId": 15,
+            "chunkId": 15,
+            "sourceKey": "arf-source-15",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 14,
+            "chunkId": 14,
+            "sourceKey": "arf-source-14",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 4,
+            "chunkId": 4,
+            "sourceKey": "arf-source-04",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 13,
+            "chunkId": 13,
+            "sourceKey": "arf-source-13",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 12,
+            "chunkId": 12,
+            "sourceKey": "arf-source-12",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 20,
+            "chunkId": 20,
+            "sourceKey": "arf-source-20",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 17,
+            "chunkId": 17,
+            "sourceKey": "arf-source-17",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 5,
+            "chunkId": 5,
+            "sourceKey": "arf-source-05",
+            "fromCitationEvent": true
+          },
+          {
+            "documentId": 9,
+            "chunkId": 9,
+            "sourceKey": "arf-source-09",
+            "fromCitationEvent": true
+          },
+          { "documentId": 2, "chunkId": 2, "sourceKey": "arf-source-02", "fromCitationEvent": true }
+        ]
+      }
+    ],
+    "actualCitationEventsPerQuery": 10,
+    "contentsIncluded": false
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/bc-regression-ar-gate-execution-declaration.json",
+    "sha256": "c688edac8e34a977e993e51cb4af16d9d67e439276a77277b9cb67c6cba95ea6",
+    "frozenAt": "2026-10-06T16:34:31.660Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/bc-regression-protocol.json",
+    "sha256": "8db66aaed455f765ef55c350352f8fffceb38634c58c4d4e4228778351e6191b"
+  },
+  "candidate": {
+    "path": "out/optimization-20261005/bc-candidate-pins.json",
+    "sha256": "916dd9dd2f43289706c83fc0b3fcea51f5c9fab2f2a03b4e1d53b3c4fd8a65c8"
+  },
+  "originalCriteria": {
+    "manifest": {
+      "path": "tests/evals/native-calibration/ar-fresh-validation-20261006.json",
+      "sha256": "fcefb3a200d1e823f9cf4f9e20a7dec128d4e1c45595a2c565378602e266720b"
+    },
+    "grading": {
+      "path": "tests/evals/native-calibration/ar-fresh-validation-20261006.grading.json",
+      "sha256": "e8c3a1cfdd83b04cf63c96602f303711d1b621efc648a2146b577b6095752d7a"
+    },
+    "seal": {
+      "path": "tests/evals/native-calibration/ar-fresh-validation-20261006.seal.json",
+      "sha256": "41bf31d79018deb712434e0d8c7535991cab305de7a98732a9d32bdc201dec18"
+    },
+    "questionSha256": {
+      "ar-fresh-01": "9c442360294b49ff61ca553093698e153012aa52174ce8a1f256956d169f482e",
+      "ar-fresh-02": "a7fcda37cd1ebfe03a6f19d92436368135f2e64aa1f251e1ddc845c261ea869d",
+      "ar-fresh-07": "47a5384f45c2068c24176a4754e82b5b948c3a75f98984730cf622f7e590c1b8"
+    },
+    "requiredFixturePins": [
+      {
+        "path": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-01.md",
+        "sha256": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119"
+      },
+      {
+        "path": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-02.md",
+        "sha256": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7"
+      },
+      {
+        "path": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-03.md",
+        "sha256": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19"
+      },
+      {
+        "path": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-14.md",
+        "sha256": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513"
+      },
+      {
+        "path": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-15.md",
+        "sha256": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db"
+      }
+    ],
+    "unchanged": true
+  },
+  "priorFirstGate": {
+    "proof": {
+      "path": "out/optimization-20261005/bc-gate-safe-report-verification.json",
+      "sha256": "b50aba92431d84741f8d8ffbd7f82086f09ac4b414ffe56c987f39661202530b"
+    },
+    "immutableArtifacts": [
+      {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-bc-regression-gate/REVIEW.md",
+        "sha256": "fa97761a71b2ad9fcf06c6d02801e7132bbadbff7903c9fba4c3602223330689"
+      },
+      {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-bc-regression-gate/manual.json",
+        "sha256": "2c75b0bcb975cd4d15c72ffa4723a89e3f3ef1c2b1d01217cd89b2e5d1d345cb"
+      },
+      {
+        "path": "tests/evals/native-calibration/reports/bugfix-20261006-bc-regression-gate/observations.json",
+        "sha256": "ab283829f1e9d4d763596571a253060ec34d9aaed515f48c4389dbbfbd5822a4"
+      }
+    ],
+    "strictPasses": 1,
+    "attempted": 1
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/bc-regression-ar-gate-postverify.json",
+    "sha256": "0c213ad9496ca62d6d0fed9fdbc2d4a39eddcc53ccda5fc13b132d743533a520",
+    "verifiedAt": "2026-10-06T16:44:30.205Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 0,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": true,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 423,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0,
+    "runnerExecutionPin": {
+      "path": "out/optimization-20261005/bc-regression-ar-gate-runner-result.json",
+      "sha256": "bec6c4ea6c5e5d7be8e822ca675e6e430b24719b1f9f0471790c5b9e68617770"
+    },
+    "launchPin": {
+      "path": "out/optimization-20261005/bc-regression-ar-gate-launch.json",
+      "sha256": "a10c06a8b6171d188bb30a160a9d712e6f49e1c92ea5adce457e89a60918c06a"
+    },
+    "runnerStartPin": {
+      "path": "out/optimization-20261005/bc-regression-ar-gate-runner-start.json",
+      "sha256": "2859d6bbe7d9c2905dc88554db5e01d7143c6401a34dde9d16f23bd059f58bb1"
+    },
+    "launchReceiptPin": {
+      "path": "out/optimization-20261005/bc-regression-ar-gate-launch-receipt.json",
+      "sha256": "f539c690559ada5793f690034e9e9868869f0a5c462aa3747a6abcbc1c94459d"
+    },
+    "capturePin": {
+      "path": "out/optimization-20261005/bc-regression-ar-gate-capture-cleanup.json",
+      "sha256": "030c84ff5f9b1c60758044c2e955e0d38fc801800226fc309d0752f77e9c7893"
+    }
+  },
+  "wrapperResult": {
+    "path": "out/optimization-20261005/bc-regression-ar-gate-wrapper-result.json",
+    "sha256": "de070152406e4e3828df9766e50e033e90a7f5a7292e4dc581aa413d74806245",
+    "runnerExitCode": 0,
+    "captureCleanupExitCode": 0,
+    "postverifyExitCode": 0,
+    "wrapperFailure": false
+  },
+  "declaredConfiguration": {
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "isolatedProfile": true,
+    "goldSourceSelection": false,
+    "questionMutation": false,
+    "attemptsPerCase": 1,
+    "autoLockMinutes": 0,
+    "evaluationSideOutputRepair": false,
+    "productionCleanup": "Declared AR redundant-label cleanup remains enabled; no evaluation-side repair.",
+    "questionTimeoutMs": 300000,
+    "performanceThresholdMs": 180000,
+    "runsPerCase": 1,
+    "retries": 0,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "continueErrors": false
+  },
+  "capture": { "trace": "off", "screenshot": "off", "video": "off", "contentsRead": false },
+  "counts": {
+    "requested": 3,
+    "attempted": 3,
+    "validatedFinals": 3,
+    "strictPasses": 1,
+    "semanticNonpasses": 2,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "retries": 0,
+    "normalNativeCompletions": 3,
+    "validatedFinalsWithin180": 1,
+    "strictAndWithin180": 1
+  },
+  "cumulativeCandidateCoverage": {
+    "originalPlanCases": 13,
+    "attempted": 4,
+    "validatedFinals": 4,
+    "strictPasses": 2,
+    "semanticNonpasses": 2,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "strictAndWithin180": 2,
+    "unattempted": 9,
+    "unattemptedCaseIds": [
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "attemptedCaseIds": ["ab-fresh-01", "ar-fresh-01", "ar-fresh-02", "ar-fresh-07"],
+    "caseGrades": [
+      {
+        "caseId": "ab-fresh-01",
+        "strictPass": true,
+        "productAcceptance": true,
+        "within180": true,
+        "report": "../bugfix-20261006-bc-regression-gate/REVIEW.md"
+      },
+      {
+        "caseId": "ar-fresh-01",
+        "strictPass": false,
+        "productAcceptance": false,
+        "within180": false
+      },
+      {
+        "caseId": "ar-fresh-02",
+        "strictPass": false,
+        "productAcceptance": false,
+        "within180": false
+      },
+      { "caseId": "ar-fresh-07", "strictPass": true, "productAcceptance": true, "within180": true }
+    ],
+    "allPlanCasesPassed": false,
+    "laterGroupsAuthorizedByThisReport": false
+  },
+  "strictPass": false,
+  "productAcceptance": false,
+  "authorizesFollowOnExecution": false,
+  "buildManifestSha256": "654e1a39943a5c5373feedef8bbcab0cd80c97a144ae4156c830b6f7e6fa7b5a",
+  "declaredSourceCorpusDocuments": 20,
+  "sourceCoverageScope": "All twenty original documents were eligible; observed citation-stage metadata has ten source identities per question, including every required identity. It does not establish all actual passage contents. Original required fixtures and accepted quotations were reviewed; no claim that all twenty were fed is made.",
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "threadSettings": [{ "backend": "vulkan", "maxThreads": 6, "policy": "hardware-aware default" }],
+  "paddingSettings": [{ "backend": "vulkan", "bytes": 1073741824, "policy": "default" }],
+  "privacy": "Only safe closure/declaration/protocol/durable metadata, accepted-final extraction, fixed source identity metadata and original public synthetic question/key/fixtures were parsed. Raw bytes were hashed without decoding. No private check, hidden thought, rejected envelope, partial final or unrestricted log was inspected.",
+  "limitations": [
+    "Known development cases; no fresh generalization or complete calibration claim.",
+    "An exact quoted value and citation do not establish the requested authority/priority explanation or visible attribution.",
+    "Two structurally distinct records can split context from values rather than express different semantic alternatives.",
+    "AR07 uses the unchanged full-source route and has no one-sentence requirement; its795-codepoint display is not a concise-bound violation.",
+    "Collection below300seconds and native time below180seconds do not replace the separate app total-time180-second criterion.",
+    "Operational0 exits and clean teardown do not override semantic nonpasses.",
+    "No retry, truncation, source-specific answer repair, weaker key or follow-on execution is introduced."
+  ],
+  "queries": [
+    {
+      "caseId": "ar-fresh-01",
+      "repetition": 0,
+      "verdict": "incomplete",
+      "strictPass": false,
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “arf\\-01\\.md”: “Für den Bildschirmexport ist eine Breite von 1180 Pixeln vermerkt”; “arf\\-02\\.md”: “Für den Bildschirmexport ist eine Breite von 1260 Pixeln vermerkt”. [doc:1, chunk:1] [doc:2, chunk:2]",
+      "acceptedFinalAvailable": true,
+      "citationSupport": "supported",
+      "citationCompleteness": "complete-for-visible-facts",
+      "citationAssessmentScope": "Attached quotations are faithful and refer to the correct observed source identities. Requested explanation completeness is graded separately.",
+      "contextSufficiency": "original-required-fixtures-and-observed-identities-reviewed",
+      "decisionCorrectness": "uncertainty-correct-but-requested-explanation-incomplete",
+      "requestedFactsAndDecisionCorrect": false,
+      "formatRequirementSatisfied": true,
+      "responseLanguageContractSatisfied": true,
+      "productAcceptance": false,
+      "unsupportedExtraClaims": [],
+      "missingRequiredParts": [
+        "Visible Kupfer/Silber mapping",
+        "Missing documentary approval/priority explanation"
+      ],
+      "notes": "Strict NONPASS. Both width quotations are faithful and locally cited to observed1:1/2:2, but the answer omits the explicitly requested explanation that the supplied records document no approval/priority rule. Generic evidence-scoped uncertainty does not state that reason. Opaque arf-01.md/arf-02.md captions also fail to visibly identify the requested Kupfer/Silber mapping. It chooses no winner and makes no false global nonapproval claim. German framing and one short sentence pass, but correct included facts/citations do not repair missing attribution and explanation. App188115ms also exceeds the separate180-second threshold.",
+      "question": "Welche Bildschirmexportbreite ist für Quenoras QX-Ausgabe R7 verbindlich? Nenne beide Werte aus Kupfer und Silber und begründe, ob die Vermerke einen Vorrang belegen. Antworte in einem kurzen Satz.",
+      "originalRequiredFacts": {
+        "arf-source-01": ["Kupfer: 1180 pixels for full-image QX R7 export, excluding frame."],
+        "arf-source-02": ["Silber: 1260 pixels for the identical full-image scope."]
+      },
+      "answerCodepoints": 276,
+      "outcome": "unresolved",
+      "collection": {
+        "terminalMs": 188115,
+        "totalMs": 188115,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalOutcome": "completed",
+        "terminalMismatch": false,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "collectionDecision": "complete"
+      },
+      "validatedFinalWithin180": false,
+      "strictAndWithin180": false,
+      "comparisonRejectionDetails": { "details": [], "malformedLogs": 0, "dropped": 0 },
+      "excerptPolicyAbsent": {
+        "requestedAbsent": true,
+        "capturedAbsent": true,
+        "appliedAbsent": true,
+        "valid": true
+      },
+      "schemaVersions": ["typed-comparison-v28"],
+      "checkedMaxTokens": [2176],
+      "checkedModes": [{ "mode": "excerpts", "unitCount": 0, "fallbackNone": true }],
+      "checkedResults": [
+        { "schema": "typed-comparison-v28", "mode": "comparison", "outcome": "unresolved" }
+      ],
+      "boundedStatuses": [{ "status": "active", "maxThoughtTokens": 128 }],
+      "compactStarts": 1,
+      "defaultStarts": 0,
+      "grammarFallback": false,
+      "captures": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeys": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "sourceLabelShapes": {
+            "valid": true,
+            "counts": {
+              "exact_colon_pair": 0,
+              "spaced_colon_pair": 0,
+              "comma_chunk_pair": 0,
+              "grouped_complete_pairs": 0,
+              "no_closing_parenthesis": 0,
+              "line_break": 0,
+              "invalid_id": 0,
+              "other_syntax": 0
+            },
+            "candidates": 0,
+            "inspectedBlocks": 0,
+            "inspectedChars": 0,
+            "capped": false
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "nativeMs": 177332,
+          "grammarMs": 28,
+          "promptFitMs": 33,
+          "responseChars": 489,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 3022,
+          "usedOutputTokens": 306,
+          "boundedThoughts": {
+            "promptTokens": 3021,
+            "prefillBatches": 12,
+            "prefillTokens": 3020,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 178,
+            "combinedTokens": 308,
+            "firstVisibleMs": 88901,
+            "lastVisibleMs": 177328,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "q8_0",
+        "reason": "8192-token context, q8_0 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      }
+    },
+    {
+      "caseId": "ar-fresh-02",
+      "repetition": 0,
+      "verdict": "incomplete",
+      "strictPass": false,
+      "finalAnswer": "The supplied excerpts do not establish a definitive answer: “arf\\-03\\.md”: “Both entries concern bench OC\\-9, test cycle L3, at 21 C on 2052\\-07\\-14”; “arf\\-03\\.md”: “Entry Cedar specifies a 610 Hz calibration tone”, “Entry Birch specifies a 650 Hz calibration tone”. [doc:3, chunk:3]",
+      "acceptedFinalAvailable": true,
+      "citationSupport": "supported",
+      "citationCompleteness": "complete-for-visible-facts",
+      "citationAssessmentScope": "Attached quotations are faithful and refer to the correct observed source identities. Requested explanation completeness is graded separately.",
+      "contextSufficiency": "original-required-fixtures-and-observed-identities-reviewed",
+      "decisionCorrectness": "uncertainty-correct-but-requested-explanation-incomplete",
+      "requestedFactsAndDecisionCorrect": false,
+      "formatRequirementSatisfied": true,
+      "responseLanguageContractSatisfied": true,
+      "productAcceptance": false,
+      "unsupportedExtraClaims": [],
+      "missingRequiredParts": ["No-priority/no-correction explanation"],
+      "notes": "Strict NONPASS. Cedar610Hz and Birch650Hz, shared OC-9/L3/21C/date conditions and local3:3 reference match the original paired record. The requested explanation that neither entry has priority or correction status is absent. Generic uncertainty is insufficient. The two displayed records are shared conditions and a combined-values record; distinct record shape therefore does not prove distinct semantic alternatives. English and one short sentence pass; no winner, average, chronology or signature priority is invented. App193470ms exceeds the separate180-second threshold.",
+      "question": "Which calibration tone governs Ostrel OC-9 cycle L3 at 21 C on 2052-07-14? Give both entries and explain whether the paired record establishes priority. Answer in one short sentence.",
+      "originalRequiredFacts": {
+        "arf-source-03": [
+          "Cedar 610 Hz and Birch 650 Hz in the same record for OC-9/L3/21 C/date; neither has priority or correction status."
+        ]
+      },
+      "answerCodepoints": 284,
+      "outcome": "unresolved",
+      "collection": {
+        "terminalMs": 193470,
+        "totalMs": 193470,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalOutcome": "completed",
+        "terminalMismatch": false,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "collectionDecision": "complete"
+      },
+      "validatedFinalWithin180": false,
+      "strictAndWithin180": false,
+      "comparisonRejectionDetails": { "details": [], "malformedLogs": 0, "dropped": 0 },
+      "excerptPolicyAbsent": {
+        "requestedAbsent": true,
+        "capturedAbsent": true,
+        "appliedAbsent": true,
+        "valid": true
+      },
+      "schemaVersions": ["typed-comparison-v28"],
+      "checkedMaxTokens": [2176],
+      "checkedModes": [{ "mode": "excerpts", "unitCount": 0, "fallbackNone": true }],
+      "checkedResults": [
+        { "schema": "typed-comparison-v28", "mode": "comparison", "outcome": "unresolved" }
+      ],
+      "boundedStatuses": [{ "status": "active", "maxThoughtTokens": 128 }],
+      "compactStarts": 1,
+      "defaultStarts": 0,
+      "grammarFallback": false,
+      "captures": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeys": 0,
+          "checkType": "string",
+          "checkCodepoints": 96,
+          "sourceLabelShapes": {
+            "valid": true,
+            "counts": {
+              "exact_colon_pair": 0,
+              "spaced_colon_pair": 0,
+              "comma_chunk_pair": 0,
+              "grouped_complete_pairs": 0,
+              "no_closing_parenthesis": 0,
+              "line_break": 0,
+              "invalid_id": 0,
+              "other_syntax": 0
+            },
+            "candidates": 0,
+            "inspectedBlocks": 0,
+            "inspectedChars": 0,
+            "capped": false
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "nativeMs": 176023,
+          "grammarMs": 29,
+          "promptFitMs": 31,
+          "responseChars": 504,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2783,
+          "usedOutputTokens": 307,
+          "boundedThoughts": {
+            "promptTokens": 2782,
+            "prefillBatches": 11,
+            "prefillTokens": 2781,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 179,
+            "combinedTokens": 309,
+            "firstVisibleMs": 89159,
+            "lastVisibleMs": 176021,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "q8_0",
+        "reason": "8192-token context, q8_0 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      }
+    },
+    {
+      "caseId": "ar-fresh-07",
+      "repetition": 0,
+      "verdict": "supported",
+      "strictPass": true,
+      "finalAnswer": "Die bereitgestellten Textstellen lassen sich miteinander vereinbaren. Die angeführten Quellenaussagen sind:\n\n> \\# Talvera Gutscheinschrank Frühzählung\n> \n> Am 2057\\-09\\-22 um 07\\:40 UTC lagen im Schrank T5 des Talvera\\-Büros 23 unbenutzte Besuchsgutscheine\\. Gezählt wurde vor Beginn der Ausgabe\\. Die Zahl beschreibt nur diesen Zeitpunkt und diesen Schrank; das Protokoll behauptet keinen über den Tag unveränderten Bestand\\.\n\n [doc:14, chunk:14]\n\n> \\# Talvera Gutscheinschrank Spätzählung\n> \n> Am 2057\\-09\\-22 um 16\\:10 UTC lagen im selben Schrank T5 des Talvera\\-Büros 9 unbenutzte Besuchsgutscheine\\. Diese Zählung erfolgte nach der Ausgabe und Rücknahme von Gutscheinen\\. Es ist ein späterer Bestandsstand desselben Schranks, keine zweite Zählung zum frühen Zeitpunkt\\.\n\n [doc:15, chunk:15]",
+      "acceptedFinalAvailable": true,
+      "citationSupport": "supported",
+      "citationCompleteness": "complete-for-visible-facts",
+      "citationAssessmentScope": "Attached quotations are faithful and refer to the correct observed source identities. Requested explanation completeness is graded separately.",
+      "contextSufficiency": "original-required-fixtures-and-observed-identities-reviewed",
+      "decisionCorrectness": "correct",
+      "requestedFactsAndDecisionCorrect": true,
+      "formatRequirementSatisfied": true,
+      "responseLanguageContractSatisfied": true,
+      "productAcceptance": true,
+      "unsupportedExtraClaims": [],
+      "missingRequiredParts": [],
+      "notes": "Strict PASS. The compatible lead and complete quoted passages give23 unused vouchers at07:40UTC before distribution and9 at16:10UTC after distribution/returns in the same T5 cabinet, each attached to its correct14:14/15:15 citation. Different documented times and activity phases explain compatibility without inventing exact distributions, returns, net transactions or another location. German passes. The question has no one-sentence restriction, so the795-codepoint full-source display is not governed by the concise512 bound. App134732ms is within180 seconds.",
+      "question": "Widersprechen sich Talveras Früh- und Spätzählung am 2057-09-22? Nenne beide Gutscheinbestände samt UTC-Zeiten und begründe den Vergleich anhand des Schranks und der dokumentierten Ausgabephase.",
+      "originalRequiredFacts": {
+        "arf-source-14": ["23 unused vouchers at 07:40 UTC in T5 before distribution."],
+        "arf-source-15": ["9 at 16:10 UTC in the same T5 after distribution/returns."]
+      },
+      "answerCodepoints": 795,
+      "outcome": "compatible",
+      "collection": {
+        "terminalMs": 134732,
+        "totalMs": 134732,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalOutcome": "completed",
+        "terminalMismatch": false,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "collectionDecision": "complete"
+      },
+      "validatedFinalWithin180": true,
+      "strictAndWithin180": true,
+      "comparisonRejectionDetails": { "details": [], "malformedLogs": 0, "dropped": 0 },
+      "excerptPolicyAbsent": {
+        "requestedAbsent": true,
+        "capturedAbsent": true,
+        "appliedAbsent": true,
+        "valid": true
+      },
+      "schemaVersions": ["typed-comparison-v28"],
+      "checkedMaxTokens": [2176],
+      "checkedModes": [{ "mode": "full", "unitCount": 0, "fallbackNone": true }],
+      "checkedResults": [
+        { "schema": "typed-comparison-v28", "mode": "comparison", "outcome": "compatible" }
+      ],
+      "boundedStatuses": [{ "status": "active", "maxThoughtTokens": 128 }],
+      "compactStarts": 1,
+      "defaultStarts": 0,
+      "grammarFallback": false,
+      "captures": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeys": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "sourceLabelShapes": {
+            "valid": true,
+            "counts": {
+              "exact_colon_pair": 0,
+              "spaced_colon_pair": 0,
+              "comma_chunk_pair": 0,
+              "grouped_complete_pairs": 0,
+              "no_closing_parenthesis": 0,
+              "line_break": 0,
+              "invalid_id": 0,
+              "other_syntax": 0
+            },
+            "candidates": 0,
+            "inspectedBlocks": 0,
+            "inspectedChars": 0,
+            "capped": false
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "nativeMs": 117342,
+          "grammarMs": 3,
+          "promptFitMs": 24,
+          "responseChars": 232,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2038,
+          "usedOutputTokens": 212,
+          "boundedThoughts": {
+            "promptTokens": 2037,
+            "prefillBatches": 9,
+            "prefillTokens": 2036,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 84,
+            "combinedTokens": 214,
+            "firstVisibleMs": 78587,
+            "lastVisibleMs": 117340,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "q8_0",
+        "reason": "8192-token context, q8_0 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      }
+    }
+  ]
+}

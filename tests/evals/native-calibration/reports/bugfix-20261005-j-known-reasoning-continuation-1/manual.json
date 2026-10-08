@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The fixed 180-second deadline expired at 180.174 seconds. Both required 3:3/4:4 passages were supplied; actual restored context was 8192/f16/14 GPU layers. The only terminal was cancelled and contained the interruption note. There was no native completed stopReason/responseChars, parsed result, or parser rejection diagnostic, so no semantic or citation judgment is possible. This continuation requested 02–12 but stopped after 02; 03–12 remain unobserved in this run. No retry of failed case 01 or 02 occurred."
+  }
+]

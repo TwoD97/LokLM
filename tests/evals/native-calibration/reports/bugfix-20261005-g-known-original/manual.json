@@ -1,0 +1,15 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The characterization 'ohne Freigabe gekennzeichnet' implies an explicit no-approval designation; the sources establish draft status and absence of an approval signature, not an explicit denial of approval."
+    ],
+    "notes": "Correctly withholds a definitive shipping deadline. Gives A=2027-05-08 with actual passage 3:6 and B=2027-05-15 with 4:7. No invented document chronology, binding winner or categorical replacement history. One German sentence with correct ISO dates. Independent review identified the remaining approval-precision overstatement, so the initial provisional pass was corrected to partial rather than relaxing all-claims grounding. This is a deliberately selected known regression after F, not fresh evidence of general reliability."
+  }
+]

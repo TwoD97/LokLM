@@ -27,3 +27,26 @@ index a76da01781e2f0bd99480bcbb35c18f75bfcd9d9..127196757b8d07a5fdbd9cba98f968d3
 diff --git a/templates/README.md b/templates/README.md
 deleted file mode 100644
 index c47d3c3ae991accbfae308db67101ef5bc66c4c2..0000000000000000000000000000000000000000
+diff --git a/dist/gguf/insights/GgufInsights.js b/dist/gguf/insights/GgufInsights.js
+--- a/dist/gguf/insights/GgufInsights.js
++++ b/dist/gguf/insights/GgufInsights.js
+@@ -727,8 +727,17 @@
+         const nEmbdHeadVSwa = this._ggufFileInfo.architectureMetadata.attention?.value_length_swa;
+         const sharedKvLayers = this._ggufFileInfo.architectureMetadata.attention?.shared_kv_layers;
+         const slidingWindowPattern = this._ggufFileInfo.architectureMetadata.attention?.sliding_window_pattern;
+-        const keyTypeSize = this._llama._bindings.getTypeSizeForGgmlType(kvCacheKeyType) ?? this._llama._consts.ggmlTypeF16Size;
+-        const valueTypeSize = this._llama._bindings.getTypeSizeForGgmlType(kvCacheValueType) ?? this._llama._consts.ggmlTypeF16Size;
++        // GGML type sizes are bytes per block, while KV counts below are scalar elements.
++        const getCacheElementSize = (type) => {
++            const typeSize = this._llama._bindings.getTypeSizeForGgmlType(type);
++            const blockSize = this._llama._bindings.getBlockSizeForGgmlType(type);
++            if (!Number.isSafeInteger(typeSize) || typeSize <= 0 ||
++                !Number.isSafeInteger(blockSize) || blockSize <= 0)
++                throw new Error("Invalid KV cache type or block size");
++            return typeSize / blockSize;
++        };
++        const keyTypeSize = getCacheElementSize(kvCacheKeyType);
++        const valueTypeSize = getCacheElementSize(kvCacheValueType);
+         const nHeadKvValues = nHeadKv;
+         let maxLayerValueEmbedding = 0;
+         if (!flashAttention && nHeadKvValues instanceof Array) {

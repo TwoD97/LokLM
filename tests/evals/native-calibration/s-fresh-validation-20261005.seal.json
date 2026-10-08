@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "kind": "sealed-s-fresh-validation",
+  "createdAt": "2026-10-05T18:59:55.425Z",
+  "author": "/root/organizer_store",
+  "candidate": "S",
+  "buildManifestSha256": "8bf154b72b78cea6ca9b936c8279efbb37bb304674b691d7dbd51e7e8d0457c1",
+  "status": "Authored after S freeze; not registered or run; content disclosed only after this seal.",
+  "cases": 3,
+  "sourceDocuments": 8,
+  "distractorDocuments": 3,
+  "files": {
+    "s-fresh-validation-20261005.json": "a2cc7b901ef2d2a1d5be89005002559c7243437b2695b6c6b45679939020847d",
+    "fixtures/s-fresh-validation-20261005/sorter-log.txt": "920917c32b36cd72c760c3edda65b09a6ab8315a801e79960fdec828d7fcdc4b",
+    "fixtures/s-fresh-validation-20261005/shuttle-minutes.md": "0abc7c21697dc25d00eb9b6b17c3396481d0ce64d12d2018603c421077079647",
+    "fixtures/s-fresh-validation-20261005/shuttle-seconds.md": "619094806582be3ccbe737d53db53614ce42a0f3f1d92271f902154152da0ae0",
+    "fixtures/s-fresh-validation-20261005/loan-base.md": "4dfb267a74f7f1bce8e5da7b2989e89b7efd5e09a537a45027eb58bb41d9fcf9",
+    "fixtures/s-fresh-validation-20261005/loan-change.md": "9880af11d8d6b5f6592dc9f6e004cc8b8f8a54d7eb8c252093183c139d573c9a",
+    "fixtures/s-fresh-validation-20261005/other-sorter.txt": "2140ab76a6cff05bf3cf08cfd1fa56401513c6014c2df8d25ac5d953f7eb16c8",
+    "fixtures/s-fresh-validation-20261005/return-trip.md": "8ce16c9832aa72390f45ac58d0826cd4be45239d394aeaac58126f14450d17ba",
+    "fixtures/s-fresh-validation-20261005/demonstration.md": "ef59304493999f253bf5bf12d94a9a07f00161d3836a64da1d07f9c7a41eae56",
+    "GRADING.md": "340594144a900b85752209242f6e82855a04419c03ab4613bd9fd4fb3f3da761",
+    "s-fresh-validation-20261005.sha256.json": "fe1708e4335edea31f1dac6560f82c8b6a8c33d757039d71bc856c7ffd7c94ed"
+  }
+}

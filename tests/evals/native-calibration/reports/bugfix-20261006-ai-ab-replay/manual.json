@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS against original criteria and actual supplied1:1/2:2. The compact framed answer quotes exact South19days and North14days with their respective local refs. Fixed lead limits the conclusion to supplied evidence, with no winner, approval denial, supersession/chronology or global absence assertion. Both required alternatives and short format are satisfied; original English quote is a presentation tradeoff. Actual typed-comparison-v12 concise31-unit route, active64-token bounded adapter, q8_0/8192/14layers. App126420ms, native115686ms."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational NONPASS: app deadline fired at180000ms; settled cancelled terminal at180364ms displays only the fixed interruption notice. No validated final or semantic/citation verdict is available. All three required base/amendment/proposal passages were supplied among eight; no retrieval omission explains missing final. Worker active64/main, native163185ms, internal271 constrained tokens before cancellation; do not infer discarded content or correctness. CONTINUE_ERRORS does not override native-timeout stop. Original group requested3, attempted2;ab-fresh-03 was unobserved, not a failed/successful answer."
+  }
+]

@@ -1,0 +1,105 @@
+{
+  "kind": "safe-rejection-detail-diagnostic-observations",
+  "status": "Known DEV single-cell diagnostic; not production acceptance or unseen validation.",
+  "privacy": "Fixed allowlist of rejection enums, hashes, source identities and content-free counters. No final answer was validated; no discarded answer, exact offending label, private check, thought text/token arrays, history, prompt/source bodies or raw response envelope is included.",
+  "originalRaw": {
+    "path": "out/optimization-20261005/af-rejection-detail-native-20261006-0012/raw.json",
+    "sha256": "db96a3bbe5e456a785bb8cfe138a3968370603c957eb8a5caeb96347bb5cb1fc",
+    "availability": "Local ignored generated artifact; this bounded observation preserves the retained diagnostic evidence for version control."
+  },
+  "inputPlan": {
+    "path": "out/optimization-20261005/af-diagnostic-inputs.json",
+    "sha256": "fb7ca49cc6e2766cacf26e06ae967ad5de168bb2aaf29e9e5b3532e87c30d87e",
+    "exactParentCellEqualityVerified": true,
+    "parentPlanSha256": "aca66bd57f583ed86ecc48dda42087e485926b885bce8385d6238d241d959dc7"
+  },
+  "executionDeclaration": {
+    "path": "out/optimization-20261005/af-execution-declaration.json",
+    "sha256": "c0b0285c89c5765f6c9724d6fe149a92937fc4d383936ef6e583c299be27ba73"
+  },
+  "limitationAddendum": {
+    "path": "out/optimization-20261005/af-execution-limitations.json",
+    "sha256": "e94fc999b828ec6ce2808aa53bfe103de6719bdb0051013d2bfbd7b6470a4a33",
+    "contextOrder": "AF is first and only cell in a fresh context; AE was second after clearHistory in the same model/context. This is a new observation, not proof of identical discarded output."
+  },
+  "startedAt": "2026-10-06T00:11:52.974Z",
+  "completedAt": "2026-10-06T00:14:14.468Z",
+  "requestedCells": ["ab-fresh-02/thought64"],
+  "runnerSha256": "4b0baa6321c739b0046c7d300f9983f88985c7ef823afce891e58f1c41c913bf",
+  "transitionHelperSha256": "1a9597137e19f78e8ec857674cf5278a6b7b36c32aefd90047d8d464aadd60ec",
+  "manifestSha256": "1a10b34abc5e3c1f9ad44bfc5a280d97bca500b71a4c565c2f3d99378fe60089",
+  "loadMs": 15379,
+  "fingerprintsUnchangedAfter": true,
+  "configuration": {
+    "contextSize": 8192,
+    "gpuLayers": 14,
+    "threads": 6,
+    "batchSize": 254,
+    "vramPaddingBytes": 1073741824,
+    "kv": "q8_0",
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "perCallTimeoutMs": 180000,
+    "abortGraceMs": 15000
+  },
+  "model": {
+    "bytes": 2740937888,
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+  },
+  "actual": {
+    "gpu": "vulkan",
+    "layers": 14,
+    "context": 8192,
+    "batchSize": 254,
+    "kvKey": 8,
+    "kvValue": 8,
+    "threads": 6,
+    "maxThreads": 6,
+    "paddingBytes": 1073741824,
+    "wrapper": "Qwen3.5/per-cell-auto-or-discourage",
+    "thoughtClosingTokenCount": 1,
+    "thoughtClosingKind": "userDefined",
+    "forcedClosingTokenCount": 2
+  },
+  "timingInterpretation": "Native time includes prefill and both decoding phases, but excludes reset/grammar/tokenization setup. visibleTokens includes the constrained structured response and private check, not final displayed prose. Callback times do not measure UI streaming or exact prefill.",
+  "cells": [
+    {
+      "id": "ab-fresh-02/thought64",
+      "caseId": "ab-fresh-02",
+      "thoughtBudget": 64,
+      "wrapperThoughts": "auto",
+      "startedAt": "2026-10-06T00:12:12.232Z",
+      "completedAt": "2026-10-06T00:14:14.467Z",
+      "promptSha256": "5c0f5b86e43211323f9b6b0d65962811d94e0dde53cf2b678e4cd103c08ef997",
+      "systemPromptSha256": "1a6a96d6e315fd61a636d0da20b9f2e0b2cb732c16777c4702288f26727b45d9",
+      "schemaSha256": "0a43e0520364f6dafade94f97692717c77afbf289ef62ccda7da9d64bd01e3be",
+      "grammarMs": 4,
+      "exactPromptTokens": 1365,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": "answer",
+      "rejectionDetail": "source_label",
+      "nativeMs": 122196,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "validated": null,
+      "tokens": {
+        "usedInputTokens": 1366,
+        "usedOutputTokens": 242
+      },
+      "telemetry": {
+        "thoughtTokens": 64,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 178,
+        "sampledTokens": 242,
+        "combinedTokens": 244,
+        "firstVisibleMs": 40388,
+        "lastVisibleMs": 122192,
+        "responseChars": 430,
+        "thoughtTermination": "budget",
+        "grammarActivatedMs": 39121
+      }
+    }
+  ]
+}

@@ -19,8 +19,8 @@ export function bumpDepthForCode(depth: AnswerDepth): AnswerDepth {
 }
 
 export const REFUSAL_TEXT: Record<ResponseLanguage, string> = {
-  de: 'Diese Information findet sich nicht in den bereitgestellten Dokumenten.',
-  en: 'This information is not in the provided documents.',
+  de: 'Mir liegen nicht genügend Informationen vor, um diese Frage zu beantworten.',
+  en: 'I don’t have enough information to answer this question.',
 }
 
 // Appended to a truncated answer when the streaming loop detector trips.
@@ -334,6 +334,12 @@ export function buildPrompt(
   /** Per-ask aliases replace header metadata only. The planner may omit this
    * and conservatively estimate the longer canonical header representation. */
   citationAliases?: CitationAliases | null,
+  /** Structured answers and comparisons select supplied passage IDs. */
+  citationOutput:
+    | 'markers'
+    | 'structured-sources'
+    | 'structured-units'
+    | 'structured-summary' = 'markers',
 ): string {
   const sections: string[] = []
 
@@ -371,9 +377,21 @@ export function buildPrompt(
   // the same instructions even when estimating longer canonical headers.
   if ([...hits, ...(pinnedHits ?? [])].some((hit) => hit.text.trim().length > 0)) {
     sections.push(
-      responseLang === 'de'
-        ? 'Antwortvorgabe: Beachte das gewünschte Antwortformat. Belege Tatsachenbehauptungen mit dem exakten Quellenmarker der passenden Passage im bereitgestellten Context. Fehlt die gesuchte Information, sage das, ohne einen Quellenmarker zu erfinden.'
-        : "Answer instructions: Follow the requested answer format. Cite factual claims with the supporting passage's exact source marker from the supplied Context. If the requested fact is missing, say so without inventing a citation.",
+      citationOutput === 'structured-summary'
+        ? responseLang === 'de'
+          ? 'Antwortvorgabe: Prüfe jeden erfragten Teil, besonders Zuordnung, Geltungsbereich und verlangte Begründung. Bei ungeklärtem Widerspruch wähle summary.scope, summary.alternatives und summary.grounds mit outcome unresolved. Für eine vollständig durch die einzige Anfangsüberschrift bezeichnete Alternative wähle label:{kind:"heading"}; für einzelne Einträge innerhalb einer Passage wähle label als exakten Originalnamen. Alle text-, value- und label-Zeichenfolgen bleiben exakte Originalfragmente, keine Übersetzungen oder eigenen Behauptungen. Nenne alle verlangten Alternativen mit vollständigen Bezeichnungen, Werten und nötigen Einschränkungen. Belege jeden dokumentarischen Grund mit den nötigen Originalstellen; fehlender Nachweis bedeutet nicht, dass etwas nie geschah. Das Programm formuliert auf Deutsch die Zuordnung und offene Entscheidung und ergänzt Quellenverweise. Für belegte direkte Antworten und vereinbare Beobachtungen verwende answered mit text vor sources.'
+          : 'Answer instructions: Check every requested part, especially attribution, scope and requested explanation. For an unresolved conflict select summary.scope, summary.alternatives and summary.grounds with outcome unresolved. For an alternative fully identified by the single leading heading select label:{kind:"heading"}; for named entries within a passage select label as the exact original name. Every text, value and label string remains an exact original fragment, not a translation or generated assertion. Include every requested alternative with complete names, values and necessary qualifications. Support each documentary reason with the necessary original excerpts; missing evidence does not mean something never happened. The program supplies English reporting language, the unresolved decision and citations. Use answered with text before sources for supported direct answers and compatible observations.'
+        : citationOutput === 'structured-units'
+          ? responseLang === 'de'
+            ? 'Antwortvorgabe: Beachte das gewünschte Antwortformat. Schreibe zuerst den Text jedes Antwortabschnitts und wähle danach alle stützenden Passagen-IDs in sources; wähle für einen knappen Vergleich die benötigten vollständigen Originaleinheiten anhand ihrer U-IDs in units. Das Programm zeigt diese Einheiten und erzeugt die Quellenverweise; schreibe keine Marker in den Antworttext.'
+            : "Answer instructions: Follow the requested answer format. Write each answer record's text first, then select all supporting passage IDs in sources; for a concise comparison select the needed complete original units by their U IDs in units. The program displays these units and creates citation links; do not write markers in answer text."
+          : citationOutput === 'structured-sources'
+            ? responseLang === 'de'
+              ? 'Antwortvorgabe: Beachte das gewünschte Antwortformat. Schreibe zuerst den Text jedes Antwortabschnitts und wähle danach alle stützenden bereitgestellten Passagen-IDs in sources; wähle auch im Vergleichsmodus nur Passagen-IDs. Das Programm zeigt Vergleichspassagen vollständig und erzeugt die Quellenverweise; schreibe keine Marker in den Antworttext. Fehlt die gesuchte Information, sage das.'
+              : "Answer instructions: Follow the requested answer format. Write each answer record's text first, then select all supporting supplied passage IDs in sources; select only passage IDs for comparison mode too. The program displays comparison passages in full and creates citation links; do not write markers in answer text. If the requested fact is missing, say so."
+            : responseLang === 'de'
+              ? 'Antwortvorgabe: Beachte das gewünschte Antwortformat. Belege Tatsachenbehauptungen mit dem exakten Quellenmarker der passenden Passage im bereitgestellten Context. Fehlt die gesuchte Information, sage das, ohne einen Quellenmarker zu erfinden.'
+              : "Answer instructions: Follow the requested answer format. Cite factual claims with the supporting passage's exact source marker from the supplied Context. If the requested fact is missing, say so without inventing a citation.",
     )
   }
   return sections.join('\n\n')

@@ -1,0 +1,19 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "unclear",
+    "strictPass": false,
+    "operationalOutcome": "parser-rejection-after-normal-generation-stop",
+    "rejectionDetail": "label_missing",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "not-reviewed-in-fixed-metadata-report",
+    "decisionCorrectness": "unassessable-no-validated-final",
+    "formatRequirementSatisfied": null,
+    "responseLanguageContractSatisfied": null,
+    "productAcceptance": false,
+    "unsupportedExtraClaims": [],
+    "notes": "One actual question ended in a source-label parser rejection at 189590 ms after normal native stop at 177603 ms, without timeout. The fixed label_missing code does not expose the rejected label or establish translation, paraphrase, punctuation or another exact cause. No accepted final exists, so semantic/citation/format/language grades remain unassessable. Real runner exit1, cleanup0, normal wrapper return and matching treatment/defaults/provenance/process closure are preserved separately. Twelve later cases remain unattempted; no retry or weaker grading."
+  }
+]

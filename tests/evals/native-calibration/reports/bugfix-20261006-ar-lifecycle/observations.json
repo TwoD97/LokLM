@@ -1,0 +1,87 @@
+{
+  "kind": "safe-current-ar128-lifecycle-observations",
+  "candidate": "AR/v19",
+  "attempts": 1,
+  "retries": 0,
+  "startedAt": "2026-10-06T06:27:18.787Z",
+  "completedAt": "2026-10-06T06:32:29.092Z",
+  "elapsedMs": 310305,
+  "testLimitMs": 660000,
+  "reuseLimitMs": 180000,
+  "pass": true,
+  "currentEvidence": true,
+  "answerQualityClaim": false,
+  "observedRuntime": {
+    "contextTokens": 8192,
+    "kvCacheType": "q8_0",
+    "gpuLayers": 14,
+    "inferenceThreads": 6,
+    "vramPaddingBytes": 1073741824,
+    "completedPartialPrefillBatchTokens": 254,
+    "adaptiveAllocation": true
+  },
+  "stop": {
+    "observationElapsedMs": 2977,
+    "nativeMs": 2593,
+    "promptTokens": 3022,
+    "prefillPrefixTokens": 3021,
+    "prefillTokens": 254,
+    "prefillBatches": 1,
+    "thoughtTokens": 0,
+    "visibleTokens": 0,
+    "combinedTokens": 0
+  },
+  "reuseAfterCancel": {
+    "nativeMs": 97842,
+    "thoughtTokens": 128,
+    "forcedClosingTokens": 2,
+    "visibleTokens": 89,
+    "combinedTokens": 219,
+    "sameWorkerAsserted": true,
+    "canonicalCitationAsserted": true,
+    "withinReuseLimitAsserted": true
+  },
+  "lock": {
+    "observedElapsedMs": 2229,
+    "privateTerminalSuppressed": true,
+    "workerRetirementAsserted": true,
+    "userOnlyPersistenceAsserted": true
+  },
+  "reuseAfterUnlock": {
+    "nativeMs": 100654,
+    "thoughtTokens": 128,
+    "forcedClosingTokens": 2,
+    "visibleTokens": 89,
+    "combinedTokens": 219,
+    "newWorkerAsserted": true,
+    "canonicalCitationAsserted": true,
+    "withinReuseLimitAsserted": true
+  },
+  "closure": {
+    "exitCode": 0,
+    "sourcePinsMatched": true,
+    "cleanupVerified": true,
+    "captureFilesRemoved": 0,
+    "remainingNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0
+  },
+  "hashes": {
+    "declaration": "94d21fcef027427f396019045819c5e12cc2f79973d5e4c35f2e656b8ab85ffb",
+    "build": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "result": "b33b552619aa273e7ab5fd13f059ba56e52118ada497b9a657fb4bb938d76ff4",
+    "postverify": "1b675c93d935aab2426103dd5c9ccef7d8359af67e07a6a5cca5a8d0a2b09622",
+    "appLog": "e02e6aa1cd5a9cd607d6261e490ad069196f493c2a40f8c420465168cc0f59cb",
+    "runnerLog": "54c8ab359b2339bf09968b8168224ba60d6b9fed73590526cb8f62757e5e7757",
+    "captureCleanup": "b9e46487d2f714db6d88463cd9cf9f81fae9c86482617eed701905f4f68243ff"
+  },
+  "privacy": {
+    "thoughtOrCheckText": false,
+    "rawEnvelope": false,
+    "machineAbsolutePaths": false
+  },
+  "limitations": [
+    "Current synthetic lifecycle sequence only.",
+    "Historical AI64 and automated checks are separate carried evidence.",
+    "No fresh native inference, quality score or universal latency guarantee."
+  ]
+}

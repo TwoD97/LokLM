@@ -1,0 +1,25 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "strictContentPass": false,
+    "citationSupport": "partial",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "evidence-scoped-unresolved-with-priority-overclaim",
+    "formatRequirementSatisfied": false,
+    "responseLanguageContractSatisfied": true,
+    "productAcceptance": false,
+    "requestedLanguage": "de",
+    "observedLanguage": "German fixed lead and German synthesized summary",
+    "presentationDefects": [
+      "Two complete sentences instead of the original requested one short sentence."
+    ],
+    "unsupportedExtraClaims": [
+      "Neither note has priority over the other; the excerpts only say that a priority statement is absent."
+    ],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PARTIAL/nonpass. North14/South19 and the actual attached1:1/2:2 references are correct, and the fixed lead preserves evidence-scoped uncertainty rather than choosing a winner or asserting no binding value exists. The full display contains a sentence ending after Sued19Tage and a second sentence beginning Keine der Notizen, contrary to the unchanged original format criterion. Absence of approval signatures is explicitly supported; the additional assertion that neither note has priority is stronger than the documented absence of a priority statement. Generated German language passes the prospective product language contract; no internal unit labels appear. Language success and runtime success do not rescue the format/precision nonpass. No later12 case or retry is authorized."
+  }
+]

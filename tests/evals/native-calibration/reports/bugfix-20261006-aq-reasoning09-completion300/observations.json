@@ -1,0 +1,240 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-aq-reasoning09-completion300",
+  "classification": "Known DEV diagnostic-only isolated reasoning09 repeat with300-second calibration window; not eligible for originalAQ180 acceptance.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-aq-reasoning09-completion300/raw.json",
+    "sha256": "1fb3ea26c2d42fe3a979c456b4afb460ce49eb4b80f584f2dc001586fb46ba6d",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/aq-reasoning09-completion300-execution-declaration.json",
+    "sha256": "66608f74d207ae49d7fc93f972676ded1b23bd3d786ec4d760a4a87a981a8edc",
+    "frozenAt": "2026-10-06T04:38:58.036Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/aq-reasoning09-completion300-postverify.json",
+    "sha256": "774babd8951fcb540e2169172be68c18d2f2f793833942b8ee3ad151040335f9",
+    "verifiedAt": "2026-10-06T04:44:08.378Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 1,
+    "safeToContinue": false,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0,
+    "operationallyClosed": false,
+    "flagInterpretation": "False records the exit1/request failure predicate, while provenance and process/observer cleanup were verified. It does not mean an owned process remains running."
+  },
+  "requestedCases": ["reasoning-reserved-09"],
+  "attemptedCases": ["reasoning-reserved-09"],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "completedAnswers": 0,
+    "strictPasses": 0,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "normalNativeCompletions": 1,
+    "parserRejections": 1
+  },
+  "startedAt": "2026-10-06T04:39:26.615Z",
+  "collectionCompletedAt": null,
+  "closureVerifiedAt": "2026-10-06T04:44:08.378Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": true
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "4ffd56cb9b2717bd3c576a7520e36c8ee9e40b2d5990289bdb92096a6b43f63b",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "c056b78e381e9694911d15c36f3579953776e09798b2b3cba5b0e3a6b821d604",
+    "fixtureLockSha256": "0b828e0eb1427fc4e0f1abc63c9fb87b9d9399e7a29cba0f1695bc4280b0b6cd",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 18,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "This separate300-second end-to-end calibration attempt includes retrieval/preparation; native time is a subset. First-query execution differs from original09 following02. Constrained-response counters include private check and JSON syntax; no exact rejected content can be inferred.",
+  "queries": [
+    {
+      "caseId": "reasoning-reserved-09",
+      "finalAnswer": null,
+      "terminalNotice": "_[Die Antwort konnte nicht abgeschlossen werden.]_",
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "16:17",
+        "13:14",
+        "17:18",
+        "11:11",
+        "12:12",
+        "4:4",
+        "7:7",
+        "8:8",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": [],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": null,
+        "firstVisibleTokenMs": null,
+        "terminalMs": 183788,
+        "totalMs": 183788,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "error",
+        "invokeSettled": true,
+        "collectionDecision": "continue-error"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": false,
+        "durationMs": null,
+        "calls": [
+          {
+            "schema": "typed-comparison-v18",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": []
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 173114,
+            "grammarMs": 5,
+            "promptFitMs": 20,
+            "nativeMs": 173088,
+            "firstTextMs": 77051,
+            "lastTextMs": 173085,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 597,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2012,
+            "usedOutputTokens": 331,
+            "boundedThoughts": {
+              "promptTokens": 2011,
+              "prefillBatches": 8,
+              "prefillTokens": 2010,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 203,
+              "combinedTokens": 333,
+              "firstVisibleMs": 77051,
+              "lastVisibleMs": 173085,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "fixedRejection": {
+        "broad": "answer",
+        "detail": "source_label_malformed"
+      }
+    }
+  ],
+  "diagnosticScope": {
+    "eligibleForAQ180Pass": false,
+    "originalAQ180AggregateUnchanged": true,
+    "originalQuestionUnchanged": true,
+    "actualFedSourceOrderAndTextEqualOriginalAQ09": true,
+    "productionAnswerDeadlineChanged": false,
+    "firstQueryPreparationConfound": true,
+    "followOnGroupsAuthorized": false,
+    "freshAuthorshipAuthorized": false
+  },
+  "captureCorrection": {
+    "path": "out/optimization-20261005/aq-reasoning09-completion300-capture-correction.json",
+    "sha256": "f96ad0f54b24c1c3b5d3b6fb297df737ce17564746759723bcdd03f87d9db963",
+    "correctedAt": "2026-10-06T04:44:24.8738133Z",
+    "removedFiles": [
+      {
+        "artifact": "error-context.md",
+        "bytes": 7300,
+        "sha256": "92fe38b112e931ee422a01e4d13517dfb55abfa44b23512f3e89967c29312e56",
+        "contentsRead": false
+      }
+    ],
+    "residualCaptureCount": 0,
+    "note": "Only exact owned capture removed after containment/hash checks; no contents read. Original AQ180 capture metadata unchanged."
+  }
+}

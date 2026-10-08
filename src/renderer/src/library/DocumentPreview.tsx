@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { MarkdownView } from '../markdown/MarkdownView'
-import type { Document, DocumentChunk } from '@shared/documents'
+import type { Document, DocumentBytesResult, DocumentChunk } from '@shared/documents'
 import { isGeneratedDocumentSource } from '@shared/documentSource'
 import { MultiPagePdfPreview } from '../chat/MultiPagePdfPreview'
 import { useT } from '../i18n'
@@ -28,14 +28,19 @@ function classifyDoc(doc: Document): BodyMode {
 /** Library-side document reader. Reuses the same `.source-viewer__*` chrome
  *  the chat citation modal uses (defined in chat.css) but skips the
  *  fuzzy-highlight machinery — the library has no message context to
- *  ground a citation in. PDF goes straight to MultiPagePdfPreview at page 1 ;
- *  non-PDFs load the chunk list and render the doc in reading order. */
+ *  ground a citation in. Verified PDFs open at page 1; other previews use
+ *  stored text, including the fallback when external PDF bytes have changed. */
 export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
   const t = useT()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [chunks, setChunks] = useState<DocumentChunk[]>([])
   const [generatedText, setGeneratedText] = useState<string | null>(null)
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
+  const [pdfNotice, setPdfNotice] = useState<Exclude<
+    DocumentBytesResult['status'],
+    'verified'
+  > | null>(null)
   const generated = isGeneratedDocumentSource(doc.sourcePath)
   const bodyMode = classifyDoc(doc)
   const modalRef = useRef<HTMLElement>(null)
@@ -47,13 +52,23 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
     setErrorMessage(null)
     setChunks([])
     setGeneratedText(null)
-    if (bodyMode === 'pdf') {
-      // MultiPagePdfPreview owns its own load lifecycle ; nothing to fetch here.
-      setStatus('ready')
-      return
-    }
+    setPdfBytes(null)
+    setPdfNotice(null)
     void (async () => {
       try {
+        if (bodyMode === 'pdf') {
+          const result = await window.api.documents.readDocumentBytes(
+            doc.id,
+            doc.contentHash ?? null,
+          )
+          if (cancelled) return
+          if (result.status === 'verified') {
+            setPdfBytes(result.bytes)
+            setStatus('ready')
+            return
+          }
+          setPdfNotice(result.status)
+        }
         if (generated) {
           const text = await window.api.documents.readGeneratedText(doc.id)
           if (cancelled) return
@@ -74,7 +89,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [doc.id, bodyMode, generated])
+  }, [doc.id, doc.workspaceId, doc.sourcePath, doc.contentHash, bodyMode, generated])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -84,7 +99,7 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const showPdf = bodyMode === 'pdf'
+  const showPdf = pdfBytes !== null
   const renderMarkdown = bodyMode === 'markdown'
 
   return (
@@ -132,8 +147,13 @@ export function DocumentPreview({ doc, onClose }: Props): JSX.Element {
               {t('library.loading')}
             </div>
           )}
-          {status === 'ready' && showPdf && (
-            <MultiPagePdfPreview documentId={doc.id} targetPage={1} />
+          {status === 'ready' && pdfNotice && (
+            <p className="source-viewer__empty" role="status">
+              {t(`library.pdfNotice.${pdfNotice}`)}
+            </p>
+          )}
+          {status === 'ready' && pdfBytes && (
+            <MultiPagePdfPreview bytes={pdfBytes} targetPage={1} />
           )}
           {status === 'ready' && !showPdf && generatedText === null && chunks.length === 0 && (
             <div className="source-viewer__empty">{t('library.noChunks')}</div>

@@ -1,0 +1,192 @@
+{
+  "kind": "safe-direct-native-diagnostic-observations",
+  "runId": "bugfix-20261006-al-bounded128",
+  "classification": "Known DEV, evaluation-only copied adapter with128 thought cap; production remains64. Not actual-app deadline proof or fresh validation.",
+  "privacy": "Only validated final answer, fixed parser rejection codes, source IDs/order, hashes and content-free counters. No discarded answer, exact rejected label, hidden thoughts/token arrays, check text, raw model envelope, history or unrestricted logs.",
+  "originalRaw": {
+    "path": "out/optimization-20261005/al-bounded128-native-20261006/raw.json",
+    "sha256": "583574b55f9c4f42fbedae38b725d80379611b805cb349fab8072a4f303e5167",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "inputPlan": {
+    "path": "out/optimization-20261005/al-diagnostic-inputs.json",
+    "sha256": "3f45c0c1eacd25e0f7c70a0033c8449afd936635806c8ea32c6d481d6d8308a8"
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/al-execution-declaration.json",
+    "sha256": "c59b92d56f8830993f30f4a7c89a2c12ce5df92d99c74661f64236ea73e67309",
+    "frozenAt": "2026-10-06T02:17:28.211Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/al-postverify.json",
+    "sha256": "99c8139c91074aa81eb2ead402e5cde7596a20f33810bf982ff9817b817b1363",
+    "verifiedAt": "2026-10-06T02:23:17.9770004Z",
+    "status": "matched",
+    "runnerExitCode": 1,
+    "cleanup": "disposed",
+    "productionThoughtCapUnchanged": 64,
+    "remainingOwnedNativeProcessCount": 0
+  },
+  "buildManifestSha256": "c10051ebfd1d15adfd6a8d0467c6abcf17227d07c52694d842f2df4a960f8669",
+  "diagnosticFileHashes": {
+    "out/optimization-20261005/al-boundedThoughts.ts": "ae1cd546cbe481237c068e72b6ee914394ae0033ec8445e64292a09a48616df2",
+    "out/optimization-20261005/al-bounded128-runner.mjs": "b6aec30b1a86e55aaff373d29bf09b467c16ba3b36182b500f4636fd3713b352",
+    "out/optimization-20261005/al-source-transform.mjs": "144c32ee0b9c95a572fc4d32031dc3a294cdc44334777ff72f098c0e9d351c3d",
+    "out/optimization-20261005/al-bounded-thoughts.test.ts": "5f27a7027207b724ebc36598588736280dd8b1f36caeb5d1827ed9d100f491b0",
+    "out/optimization-20261005/al-vitest.config.mjs": "a377bbcd89c94a48936df25d61c3b5fe0cf6206894b17f94a6d6857ab8ab1992",
+    "out/optimization-20261005/al-helper-delta.patch": "7e866df2df6d9e0485694a90db660710333f4a90147a62078881a111d4b0f135",
+    "out/optimization-20261005/prepare-al-diagnostic.ts": "b99837b03a5b462e4b6d582c9d1eba87f2fdc1f006487cbd8a8d20edfd589adb",
+    "out/optimization-20261005/prepare-al-declaration.mjs": "be7ba73516204588ad4e2204c06feaf925c890d467d27389ffe185a862b8e0ca",
+    "src/main/services/workers/boundedThoughts.ts": "f08f9c0f5168bda68ee5041b39358b1dd37a7f6d75f5c63614a62e93c22377f3",
+    "src/main/services/workers/compactJsonGrammar.ts": "40cd7dd54870a22dbd4a74c687da05a99f0b26e11fc3d8ee0076a3864982c458"
+  },
+  "counts": {
+    "requested": 2,
+    "attempted": 2,
+    "nativeCompletions": 2,
+    "validatedAnswers": 1,
+    "strictPasses": 1,
+    "parserNonpasses": 1,
+    "timeouts": 0,
+    "unobserved": 0
+  },
+  "requestedCells": ["ab-fresh-01/thought128", "ab-fresh-02/thought128"],
+  "unobservedCells": [],
+  "startedAt": "2026-10-06T02:17:43.999Z",
+  "completedAt": "2026-10-06T02:22:22.943Z",
+  "configuration": {
+    "contextSize": 8192,
+    "gpuLayers": 14,
+    "threads": 6,
+    "batchSize": 254,
+    "vramPaddingBytes": 1073741824,
+    "kv": "q8_0",
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "perCallTimeoutMs": 180000,
+    "abortGraceMs": 15000
+  },
+  "actual": {
+    "gpu": "vulkan",
+    "layers": 14,
+    "context": 8192,
+    "batchSize": 254,
+    "kvKey": 8,
+    "kvValue": 8,
+    "threads": 6,
+    "maxThreads": 6,
+    "paddingBytes": 1073741824,
+    "wrapper": "Qwen3.5/auto",
+    "thoughtCap": 128,
+    "jsonWhitespace": "compact"
+  },
+  "model": {
+    "path": "models/Qwen3.5-4B-Q4_K_M.gguf",
+    "bytes": 2740937888,
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+  },
+  "modelLoadMs": 15694,
+  "cleanup": "disposed",
+  "fingerprintsUnchangedAfter": true,
+  "deadlineInterpretation": "Native180s includes sequence clear, chunked prefill, thought/final sampling and helper cleanup; model load, grammar/tokenization and app retrieval/handoffs are outside it. Adding a prior approximate app cost is not a measured app result. The15s grace is cancellation acknowledgement only.",
+  "cells": [
+    {
+      "id": "ab-fresh-01/thought128",
+      "caseId": "ab-fresh-01",
+      "startedAt": "2026-10-06T02:18:04.047Z",
+      "completedAt": "2026-10-06T02:19:58.642Z",
+      "thoughtBudget": 128,
+      "promptSha256": "4f217fb79a7fc2e1f5a4b7e69d4617a5d6d83940a0a7ed83bfbfa48f6525d39f",
+      "systemPromptSha256": "5e7b7bef715966d90a2265da8f429d39d5e88c95617f22426e3f90e884bf5415",
+      "schemaSha256": "0d0d205ba050ebae5f1f21c090406e360a69409fb45a4c4930f06b14478d7c4b",
+      "grammarMs": 7,
+      "grammarSha256": "5c1b964f152be4fd3b8a741fe02905c6c637f57834dfc9a94b651b5819bc3d56",
+      "jsonWhitespace": "compact",
+      "exactPromptTokens": 1532,
+      "matchesAkPromptTokens": true,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "rejectionDetail": null,
+      "nativeMs": 114560,
+      "cancelled": false,
+      "unsafeNativeState": false,
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days\\.” [doc:1, chunk:1].",
+      "validatedResult": {
+        "mode": "comparison",
+        "outcome": "unresolved"
+      },
+      "envelope": {
+        "parsed": true,
+        "externalLineBreaks": 0,
+        "checkType": "string",
+        "checkCodepoints": 120
+      },
+      "telemetry": {
+        "promptTokens": 1532,
+        "prefillBatches": 7,
+        "prefillTokens": 1531,
+        "thoughtTokens": 128,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 89,
+        "combinedTokens": 219,
+        "firstVisibleMs": 75621,
+        "lastVisibleMs": 114555,
+        "thoughtTermination": "budget"
+      },
+      "tokens": {
+        "usedInputTokens": 1533,
+        "usedOutputTokens": 217
+      }
+    },
+    {
+      "id": "ab-fresh-02/thought128",
+      "caseId": "ab-fresh-02",
+      "startedAt": "2026-10-06T02:19:58.643Z",
+      "completedAt": "2026-10-06T02:22:22.942Z",
+      "thoughtBudget": 128,
+      "promptSha256": "cca2a64b923f87fcf6890fa3a703d486b6d4c57324a9da4680b4ef89117c4382",
+      "systemPromptSha256": "e27b04eb7cc8d90a6714c4184fc7cb125ee8c8dc1fd40e3f9a116c2bb90a9b23",
+      "schemaSha256": "5a64aba784f6d2f7e676dd3b0509b06a2ccdf27be48f28586d9f7c14ba19ef0c",
+      "grammarMs": 4,
+      "grammarSha256": "b0440370a5cbe79533656ea0067a47aaf54b757f48cb6026608448071d2bf821",
+      "jsonWhitespace": "compact",
+      "exactPromptTokens": 1377,
+      "matchesAkPromptTokens": true,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": "answer",
+      "rejectionDetail": "source_label",
+      "nativeMs": 144275,
+      "cancelled": false,
+      "unsafeNativeState": false,
+      "actualFedSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "finalAnswer": null,
+      "validatedResult": null,
+      "envelope": {
+        "parsed": true,
+        "externalLineBreaks": 0,
+        "checkType": "string",
+        "checkCodepoints": 120
+      },
+      "telemetry": {
+        "promptTokens": 1377,
+        "prefillBatches": 6,
+        "prefillTokens": 1376,
+        "thoughtTokens": 128,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 165,
+        "combinedTokens": 295,
+        "firstVisibleMs": 70190,
+        "lastVisibleMs": 144271,
+        "thoughtTermination": "budget"
+      },
+      "tokens": {
+        "usedInputTokens": 1378,
+        "usedOutputTokens": 293
+      }
+    }
+  ]
+}

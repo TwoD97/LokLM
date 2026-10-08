@@ -79,6 +79,15 @@ tempfile = "3"
 # Reexpose macros + multi-thread runtime for #[tokio::test] in the dev tests.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "io-util"] }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+# Exercise the actual GTK3 transitive GLib iterator backport in optimized tests.
+glib = "0.18.5"
+
+[patch.crates-io]
+# GTK3/Tauri still requires 0.18; upstream's two-line VariantStrIter UB fix.
+# Original version/license retained; see vendor/README.md for provenance.
+glib = { path = "vendor/glib" }
+
 [profile.release]
 opt-level = "z"
 lto = true

@@ -1,0 +1,537 @@
+{
+  "kind": "safe-known-dev-parser-nonpass-observations",
+  "classification": "AX observability-only v24 diagnostic replay of known AW AB01 nonpass; no accepted final, twelve later cases held. AW failure remains unchanged.",
+  "runId": "bugfix-20261006-ax-regression-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ax-regression-gate/raw.json",
+    "sha256": "f40d73c3b1ef447da742efb8a9b4d20132e6642d18b2202d96490c5cd6adbd5a",
+    "availability": "Local ignored artifact; safe fixed metadata preserved here. The error notice is not a final answer."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ax-regression-gate-execution-declaration.json",
+    "sha256": "11d0ac47bd1cb84329d4c922afb2f6d02c31e9915bfc0c1fc3fc49eb8d52fff2",
+    "frozenAt": "2026-10-06T10:43:01.605Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/ax-regression-protocol.json",
+    "sha256": "8386a616a3a5609052a64b3c8669bed57acf337fc88cff53f2696dc9d69803a7"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ax-regression-gate-postverify.json",
+    "sha256": "91eb9be57c5967495d0a70cf2f15f28ea037b8add8e223435b8ce34e1487600c",
+    "verifiedAt": "2026-10-06T10:47:10.882Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 1,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": false,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 422,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingOwnedNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0
+  },
+  "provenanceScope": "Source/build equality describes recorded closure only; later workspace changes do not revise it.",
+  "startedAt": "2026-10-06T10:43:27.524Z",
+  "closureVerifiedAt": "2026-10-06T10:47:10.882Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "semanticNonpasses": 0,
+    "parserNonpasses": 1,
+    "timeouts": 0,
+    "unobservedInGate": 0,
+    "normalNativeCompletions": 1,
+    "terminalWithin180": 1,
+    "successfulAnswersWithin180": 0,
+    "successfulAnswersWithin300": 0,
+    "strictAndWithin180": 0,
+    "retries": 0
+  },
+  "candidateCoverage": {
+    "requested": 13,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "parserNonpasses": 1,
+    "strictPasses": 0,
+    "unattempted": 12,
+    "unattemptedCaseIds": [
+      "ar-fresh-01",
+      "ar-fresh-02",
+      "ar-fresh-07",
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "followOnAuthorized": false
+  },
+  "strictPass": false,
+  "semanticGrade": null,
+  "responseLanguageContractPass": null,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "provenance": {
+    "buildManifestSha256": "9a6d2a4c629debd84f7a69ad3c4ab6492e0283f3ca453ae1372164ec541604ee",
+    "workerSha256": "adbd08ac174a40be21c1d9cdfc95e6a721eb2d875b4f587068a1f20a89e33250",
+    "compiledBuildUnchangedAtCollection": true,
+    "fixtureManifestSha256": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d",
+    "fixtureLockSha256": "90f1316c9e7642b124603432d11b49214a7411ec62b000e6409c325067b63ff8",
+    "originalSealSha256": "4db317746b07e5ae82ab230559240a5e7ad12da8c474a0f5e5ada85af23e6447",
+    "gradingKeySha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+  },
+  "sourceCorpusDocuments": 8,
+  "sourceCatalog": [
+    {
+      "sourceKey": "abf-north",
+      "sourceId": "1:1",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-north.md",
+      "sourceSha256": "3d1801139319c13120f7442eb01b3f87ac82876fea370d3af87e43df8e5f00f6",
+      "actualChunkTextSha256": "b5ff755554825f9b6f5da3e5d20e0759831b3c8184cbec118ea18011a2808c17"
+    },
+    {
+      "sourceKey": "abf-south",
+      "sourceId": "2:2",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-south.md",
+      "sourceSha256": "ad3f4acd8a783d33457c48d8a31e1039a09d01c62e5f2873ce45adab8c6a6706",
+      "actualChunkTextSha256": "c18f9c151939b4f5a5f2e58ee3650f1cd56ab9b82812c0a5aaa2850257b050e3"
+    },
+    {
+      "sourceKey": "abf-base",
+      "sourceId": "3:3",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-base.md",
+      "sourceSha256": "8c16dc698b3b4622763798f85ed460067ee1fb4bd6a8f78530a479c4a3fb6a7b",
+      "actualChunkTextSha256": "435b9ef4042b361a0943311a3488d6d2b2b1d7d8f2148167bb0b7ad75763dc64"
+    },
+    {
+      "sourceKey": "abf-amend",
+      "sourceId": "4:4",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-amend.md",
+      "sourceSha256": "e9b077f6c52bd33441fa521736f25c6b507519c3497751eaccc69a4da8f24a5c",
+      "actualChunkTextSha256": "bb318d1d6578b4c841675d65c75853c4d0a115d11ec1f6d3a5f22df9f48bd0b1"
+    },
+    {
+      "sourceKey": "abf-proposal",
+      "sourceId": "5:5",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-proposal.md",
+      "sourceSha256": "d7b8f095ca749bc043a47be69f717fb19943839902e2d194bb3be19eee4a6bed",
+      "actualChunkTextSha256": "0cbbe1b5d8636e81f731d98c610d50c2fce3d9cb7bf6f847f71091736f0a5c6a"
+    },
+    {
+      "sourceKey": "abf-actual",
+      "sourceId": "6:6",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-actual.md",
+      "sourceSha256": "9a24f4a1816a45aea4f4b8712f91ca0d0089d8b9c7cb70d6317d19653147f295",
+      "actualChunkTextSha256": "a1a3bc1d352583050f816ac7023ad739817291b92d7bda644da887c88f8f2bc2"
+    },
+    {
+      "sourceKey": "abf-plan",
+      "sourceId": "7:7",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-plan.md",
+      "sourceSha256": "9b7ff2e6b012a9b185d1746244ebb3b7bb42f8c742800894765ced5cb58faf2f",
+      "actualChunkTextSha256": "33ad4a073366d0db5f19c7446a6e8a8b5ef7faccb20f82cef6bee347cf18c529"
+    },
+    {
+      "sourceKey": "abf-annex",
+      "sourceId": "8:8",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-annex.md",
+      "sourceSha256": "0875d9e2a735741e016d4456f92e7611cd5b019a5cf17582f92673929362c74b",
+      "actualChunkTextSha256": "daab23a059832e5a1bfe1c3f6176ef5f0e21096419e1a821b13063a646a7eff7"
+    }
+  ],
+  "historicalReportPins": [
+    {
+      "path": "out/optimization-20261005/as-regression-gate-postverify.json",
+      "sha256": "9593330dcbe907f722fc41d6c9379fbb618d9a9aa24625991c524342d5eca78c"
+    },
+    {
+      "path": "out/optimization-20261005/as-adaptive-regression-remaining-postverify.json",
+      "sha256": "83553c061643c887aac4a7bb902a5f83831079aee3b8d00359e6445a9f579d20"
+    },
+    {
+      "path": "out/optimization-20261005/as-adaptive-regression-ab-postverify.json",
+      "sha256": "c37b64030423c13b4cf4e6742bb3919602f69f3d4c44504775fde5d6aff2efed"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-adaptive-regression-ab/REVIEW.md",
+      "sha256": "531a298b76e078a0950a219cf34963323a7937239d7ff32b9d4556fa762d3c5e"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-adaptive-regression-ab/manual.json",
+      "sha256": "c99ca1e6ed53be4f1896395a42de5a3af6baec4b44e0ee0067d8a6ddf2799c3b"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-adaptive-regression-ab/observations.json",
+      "sha256": "739d880736428a1477f8e109fdae1f2b033b2de9cd339001108473805c96e085"
+    },
+    {
+      "path": "out/optimization-20261005/as-adaptive-ab-content-review-template.json",
+      "sha256": "5cb88895b5ab1169b68d08f8c0ba429c76e52253a88c4d714c0ea2ca812c9e9d"
+    },
+    {
+      "path": "out/optimization-20261005/at-regression-gate-postverify.json",
+      "sha256": "e91460e65e5b134ed5cbe3106f10f9c19dc6a4565e2bf7cd7a8626d5d4272f45"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/REVIEW.md",
+      "sha256": "6e0155f8d1844804ab141103b0cb7dbcc8bda4ad1a9b98dc077558fd0eebfb72"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/manual.json",
+      "sha256": "dfe1a880ea32dedffde0f34b3593a14fca943c4e3eca3513f9638399a4346d36"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/observations.json",
+      "sha256": "8298a1d8ebf4b04903f6960ef003f64a84ebcbc8b9aa767b81ea32b82f81af6f"
+    },
+    {
+      "path": "out/optimization-20261005/at-gate-content-review-template.json",
+      "sha256": "a828cbbb2dfc8493a133b07814614631a6747e5eea44dacba406539b72c7dd3b"
+    },
+    {
+      "path": "out/optimization-20261005/au-regression-gate-postverify.json",
+      "sha256": "5bcf2d9839121eb676de486b9511acf5bd0d3c5fe14d72c666c629f1efb8e9e7"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-au-regression-gate/REVIEW.md",
+      "sha256": "ccc1eb31edbcc46ae61b1dd9d979c8e60f266ffbae4e92b4b8b050ea1700a2a0"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-au-regression-gate/manual.json",
+      "sha256": "9c63add5c8c4497158e9cdecdc2f428c2c1bedd8658b92c1a0e98b7fc093cdf7"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-au-regression-gate/observations.json",
+      "sha256": "2598f4466315dd2aad9ab545efbfc8a93070643e81a0b0cde3d1d48be287a40b"
+    },
+    {
+      "path": "out/optimization-20261005/au-gate-content-review-template.json",
+      "sha256": "20aa85c63e26309cc840118b1d461cf2e6dd8019ced57801f55972bc7c51dbf7"
+    },
+    {
+      "path": "out/optimization-20261005/av-regression-gate-postverify.json",
+      "sha256": "d593255df5509a82441d2f19448238b73ca10597f21b428fccbe6cbd4b294276"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-av-regression-gate/REVIEW.md",
+      "sha256": "fbdb8fc051edada72093d2c43540a0ffdb809c4aa925581e64c03cc48bcbd835"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-av-regression-gate/manual.json",
+      "sha256": "5d7b50fa22f63c4b2c3c242181d01e1b88ce4fd9a1601e382bd9ebb6ee9f285c"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-av-regression-gate/observations.json",
+      "sha256": "cc6bb26cba7569facfe1f28ccbde51e478b7594eb6c7cfdc4acd7b5ca8de3658"
+    },
+    {
+      "path": "out/optimization-20261005/av-gate-content-review-template.json",
+      "sha256": "5a5b81c0b29e10b24871b04087acf748c9b36f3e3c6cdf32376881c0713cd3fd"
+    },
+    {
+      "path": "out/optimization-20261005/aw-candidate-pins.json",
+      "sha256": "ac398c9db9b6de30a5082f94fe85dd6093872e0188422806c9a5e4f9c27b1ec1"
+    },
+    {
+      "path": "out/optimization-20261005/aw-regression-gate-execution-declaration.json",
+      "sha256": "f7376a9b922a8c75a4b9661787877e404cb477ab7a5d9591e093a918eef99379"
+    },
+    {
+      "path": "out/optimization-20261005/aw-regression-gate-postverify.json",
+      "sha256": "4de3ff3f015e61b29ed5bd15e434721f91ab816ea5e6a8f152419adebf8ce7f8"
+    },
+    {
+      "path": "out/optimization-20261005/aw-regression-gate-capture-cleanup.json",
+      "sha256": "992b72eea4f4efebcefdcb868ba67d0f9c478d564dbac523b92c8275dd60c0a5"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-aw-regression-gate/raw.json",
+      "sha256": "2aa9c479e8c3a7c806678d80ecd86ccfb12f41330f89b35c3c777cc2acf32d03"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-aw-regression-gate/REVIEW.md",
+      "sha256": "02aa163c99b76e0bbdcf7c9ffcc60195047db4adae897d425295b22e01a4a9b5"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-aw-regression-gate/manual.json",
+      "sha256": "7b5d367103c62c3b921e1bc647f7332b0a4529f793dc147194173cdd4df61da9"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-aw-regression-gate/observations.json",
+      "sha256": "1cc3d7a3a18924194fbaa8ca282f3dcddf71a821a1b2a25a65bcbd538077e96d"
+    },
+    {
+      "path": "out/optimization-20261005/aw-gate-content-review-template.json",
+      "sha256": "ae8d8926134375610c2b9fccd0807a6500b955292fb4c814355b308e837e2cd4"
+    }
+  ],
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "privacy": "No private check, hidden thought, discarded generation envelope, rejected text, history, unrestricted log/error or personal path. finalAnswer is null because no answer passed the parser.",
+  "limitations": [
+    "Known DEV regression, not fresh generalization.",
+    "The fixed excerpt_display code identifies display eligibility only, not the rejected text or precise punctuation/layout subcondition.",
+    "Normal native generation and compact JSON do not imply successful validation or semantic correctness.",
+    "Exact fragment membership would not prove relevance, qualifiers, completeness or authority.",
+    "A terminal error before180 seconds is not a successful within180 answer.",
+    "All earlier criteria, failures and source seals remain unchanged."
+  ],
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "question": "Welches verbindliche Wartungsintervall gilt laut den Notizen Nord und Süd für Nuvreks NP-6-Filter der Kampagne S8? Nenne beide angegebenen Intervalle. Antworte in einem kurzen Satz.",
+      "requestedLanguage": "de",
+      "finalAnswer": null,
+      "acceptedFinalAvailable": false,
+      "semanticGrade": null,
+      "responseLanguageContractSatisfied": null,
+      "productAcceptance": false,
+      "parserRejection": {
+        "broad": "source",
+        "detail": "excerpt_display",
+        "exactCauseKnown": false
+      },
+      "comparisonRejectionDetails": {
+        "details": ["excerpt_display"],
+        "malformedLogs": 0,
+        "dropped": 0
+      },
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "requiredSourceIds": ["1:1", "2:2"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceContentMatchesOriginal": true,
+      "sourceTextNormalization": "One blank line added after heading; original body lines preserved.",
+      "collection": {
+        "repetition": 0,
+        "ttftMs": null,
+        "firstVisibleTokenMs": null,
+        "terminalMs": 154695,
+        "totalMs": 154695,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "error",
+        "timedOut": false,
+        "invokeSettled": true,
+        "collectionDecision": "stop"
+      },
+      "elapsedTerminalWithin180": true,
+      "successfulAnswerWithin180": false,
+      "generationContract": {
+        "checkedCallLogged": true,
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": false,
+        "durationMs": null,
+        "calls": [
+          {
+            "schema": "typed-comparison-v24",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "excerpts",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": []
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 144033,
+            "grammarMs": 5,
+            "promptFitMs": 24,
+            "nativeMs": 144003,
+            "firstTextMs": 72816,
+            "lastTextMs": 144001,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 498,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1871,
+            "usedOutputTokens": 295,
+            "boundedThoughts": {
+              "promptTokens": 1870,
+              "prefillBatches": 8,
+              "prefillTokens": 1869,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 167,
+              "combinedTokens": 297,
+              "firstVisibleMs": 72816,
+              "lastVisibleMs": 144001,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "f16",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKnownKeys": ["check", "result"],
+          "rootUnknownKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 60,
+          "resultKnownFields": ["resolution", "outcome", "evidence"],
+          "resultUnknownKeyCount": 0,
+          "resultFieldTypes": {
+            "resolution": "string",
+            "outcome": "string",
+            "evidence": "array"
+          },
+          "observerMs": 1
+        }
+      ],
+      "excerptRecordShapes": [
+        {
+          "index": 0,
+          "recordType": "object",
+          "knownFields": ["source", "label", "excerpts"],
+          "unknownFieldCount": 0,
+          "fieldTypes": {
+            "source": "string",
+            "label": "string",
+            "excerpts": "array"
+          },
+          "label": {
+            "type": "string",
+            "codepoints": 34
+          },
+          "excerpts": {
+            "type": "array",
+            "length": 1,
+            "inspected": 1,
+            "entries": [
+              {
+                "type": "string",
+                "codepoints": 88
+              }
+            ]
+          }
+        },
+        {
+          "index": 1,
+          "recordType": "object",
+          "knownFields": ["source", "label", "excerpts"],
+          "unknownFieldCount": 0,
+          "fieldTypes": {
+            "source": "string",
+            "label": "string",
+            "excerpts": "array"
+          },
+          "label": {
+            "type": "string",
+            "codepoints": 35
+          },
+          "excerpts": {
+            "type": "array",
+            "length": 1,
+            "inspected": 1,
+            "entries": [
+              {
+                "type": "string",
+                "codepoints": 75
+              }
+            ]
+          }
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 0,
+          "inspectedChars": 0,
+          "capped": false
+        }
+      ],
+      "sourceLabelShapeMeaning": "This scanner inspects ordinary or historical summary prose only, not literal excerpts. Zero counts do not certify rejected excerpt content."
+    }
+  ]
+}

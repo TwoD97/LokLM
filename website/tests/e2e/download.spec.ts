@@ -48,11 +48,18 @@ test.describe('download area', () => {
     expect(await link.getAttribute('href')).toMatch(/LokLM-mac\.dmg$/)
   })
 
-  test('a full sha256 is printed for the primary asset', async ({ page }) => {
-    const code = page.locator('#download code.mono')
-    await expect(code).toBeVisible()
-    const digest = (await code.textContent())?.trim() ?? ''
-    expect(digest).toMatch(/^[a-f0-9]{64}$/i)
+  test('each installer exposes its own filename and full checksum', async ({ page }) => {
+    const assets = page.locator('#download [data-asset-file]')
+    await expect(assets).toHaveCount(4)
+    for (const asset of await assets.all()) {
+      await asset.locator('summary').click()
+      const code = asset.locator('[data-checksum]')
+      await expect(code).toBeVisible()
+      expect((await code.textContent())?.trim()).toMatch(/^[a-f0-9]{64}$/i)
+      await expect(asset.locator('details p')).toContainText(
+        (await asset.getAttribute('data-asset-file'))!,
+      )
+    }
   })
 
   test('the card states version number and release date', async ({ page }) => {

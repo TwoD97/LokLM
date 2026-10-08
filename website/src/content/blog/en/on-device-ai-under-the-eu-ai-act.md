@@ -1,110 +1,61 @@
 ---
 title: 'On-device AI under the EU AI Act'
-description: 'Where locally running AI systems sit in the EU AI Act — a reading of Articles 6, 50, and 95. With role logic and practice notes for DACH law firms and research groups.'
+description: 'How the EU AI Act applies to local AI: provider and deployer roles, use-case risk, transparency, AI literacy and the limits of open-source exceptions.'
 lang: 'en'
 translationKey: 'eu-ai-act-on-device'
 pubDate: 2026-05-28
+updatedDate: 2026-10-07
 tags: ['local-ai', 'eu-ai-act', 'gdpr']
 ---
 
-_This article is not legal advice._
+Running a model on your own computer changes its data flows. It does not create a general exemption from the EU AI Act. For a professional rollout, the useful starting points are your role, the system’s intended purpose and what happens to its outputs.
 
-Since 1 August 2024, the EU AI Act (Regulation 2024/1689[^1]) has been in force, with its duties phasing in over time: certain prohibitions since February 2025, obligations for general-purpose AI models since August 2025, and the bulk of the high-risk regime from August 2026. The regulation was drafted with big AI systems in mind — a provider hosts them, a deployer uses them, notified bodies certify them.
+This overview was reviewed on 7 October 2026 and is not an individual legal assessment. Application dates and transition rules differ across obligations and have changed since the Act was adopted. Use the Commission’s [current implementation timeline and links to the amending legislation](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai) when planning a deployment.
 
-Which leaves anyone running a model on their own laptop with a fair question: does any of this reach me? Am I a provider here? A deployer? Do I owe a transparency notice to an audience of one — myself?
+## Identify your role
 
-Three provisions carry the answer, and this article takes them in turn: **Article 6** (high-risk classification), **Article 50** (transparency obligations), and **Article 95** (codes of practice). Not everything applies to everyone; the useful skill is telling which obligations genuinely attach and which do not.
+An organisation using a vendor’s AI application for work will generally be a **deployer**. A **provider** develops a system, or has it developed, and markets it or puts it into service under its own name. Building or distributing a branded integration can therefore change the assessment; simply hosting a chatbot does not settle the role. These definitions come from [Article 3](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-3).
 
-## The role logic of the AI Act
+Natural persons using AI for purely personal, non-professional activity are outside the deployer obligations under [Article 2(10)](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-2). That exception does not cover a firm merely because its software runs on laptops.
 
-Everything in the AI Act hangs on role assignment. Art. 3 nos. 3–7 distinguish four roles, and the assignment determines the obligations.
+## Assess the use case, not the profession
 
-- **Provider**: whoever — natural or legal person — develops an AI system or commissions its development, and places it on the EU market or puts it into service under their own name or trade mark.
-- **Deployer**: whoever uses an AI system under their own authority, unless the use is personal and non-professional.
-- **Importer**: the EU-side representative for providers established outside the Union.
-- **Distributor**: whoever makes the system available on the market without being provider or importer.
+Local document search and screening job applicants serve different purposes. The Commission’s [risk overview](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai) identifies employment, certain public services and judicial uses among the areas requiring high-risk assessment. Neither “law firm” nor “public authority” determines the classification of every tool it uses.
 
-Applied to an on-device tool like LokLM, the mapping is straightforward. The software vendor holds the provider role. A law firm, a research group, or a tax consultancy that installs and uses the software is a deployer — because the use is professional.
+For rollout, document the intended use and assess the applicable Article 6 conditions and exceptions. Do not infer low risk from local hosting, or claim high-risk compliance from a product description.
 
-A private person running LokLM at home over their own texts benefits from the carve-out for purely personal, non-professional activity: they are not a deployer under the Act and carry no deployer duties.
+## Article 50 separates several duties
 
-## Article 6: high-risk classification
+For text assistants, three distinctions matter:
 
-Whether a system counts as **high-risk** is settled by Article 6, and there are two ways in:
+- **Direct interaction:** providers must inform people that they are interacting with AI unless this is obvious in context. The exception is not simply “the tool is internal”. See the Commission’s [Article 50 FAQ](https://digital-strategy.ec.europa.eu/en/faqs/transparency-obligations-under-article-50-ai-act).
+- **Technical marking:** Article 50(2) addresses providers of synthetic-content systems, including text. It requires machine-readable marking and detectability, subject to its technical conditions and editing exceptions. Local execution alone is no exemption. See [Article 50](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-50).
+- **Publication:** Article 50(4) also covers text published to inform the public on matters of public interest, not only deepfakes. The text-disclosure exception requires human review or editorial control **and** a person holding editorial responsibility. It is not an automatic labelling rule for every internal draft. See [Article 50(4)](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-50).
 
-- **Path 1 (Art. 6(1)):** the system serves as a safety component of a product regulated by one of the EU harmonisation acts in Annex I — medical devices, machinery, toys, and so on. A local RAG tool for text documents does not plausibly enter through this door.
-- **Path 2 (Art. 6(2) in conjunction with Annex III):** the system is deployed in one of Annex III's listed fields. Annex III enumerates eight of them — among others the administration of justice (letter h), law enforcement, migration and border control, and critical infrastructure.
+The Commission’s [transparency guidelines](https://digital-strategy.ec.europa.eu/en/policies/guidelines-ai-transparency-obligations) explain scope and exceptions. They are implementation guidance; the linked legislation remains the legal basis. For dates, the [Commission FAQ](https://digital-strategy.ec.europa.eu/en/faqs/transparency-obligations-under-article-50-ai-act) distinguishes general application from the limited Article 50(2) transition for older systems.
 
-Annex III no. 8 letter (a) covers systems "intended to assist a judicial authority in researching and interpreting facts and the law and in applying the law to a concrete set of facts." Note the subject: a judicial authority. A law firm is private professional practice, not a judicial authority, so letter (a) will generally not capture a firm's use.
+## Local teams still need AI literacy
 
-**Practical consequence:** in most configurations, a firm searching its own documents with a local AI tool is not operating a high-risk system under Annex III. The calculus flips inside a law enforcement agency or a migration authority — there the high-risk duties of Arts. 8 ff. do engage.
+[Article 4](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-4) requires providers and deployers to take measures supporting AI literacy, considering staff knowledge and the context of use. It does not require guaranteeing a specific competence level for every individual.
 
-One caveat: this is purely a classification result. GDPR duties, professional-conduct rules, and confidentiality obligations are untouched by it — they operate in parallel, on their own terms.
+For a document assistant, practical training can cover incomplete retrieval, incorrect answers, misleading citations and when to check an original document. Assigning a reviewer is more useful than treating a fluent answer as an approved conclusion.
 
-## Article 50: transparency obligations
+## Open source and voluntary codes are not blanket exemptions
 
-For end users, the provision that matters most in practice is Article 50, because its duties can apply whether or not anything is classified high-risk.
+[Article 2(12)](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-2) concerns free and open-source **AI systems**. Its exemption does not extend to systems falling under high-risk rules, Article 5 or Article 50. Rules for general-purpose AI model providers are a separate question.
 
-Three of its obligations deserve a check when local AI is involved:
+[Article 95](https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-95) encourages voluntary codes of conduct. The [GPAI Code of Practice](https://digital-strategy.ec.europa.eu/en/policies/ai-code-practice) is a separate compliance tool for model providers under Article 56. Voluntary participation does not make underlying legal duties optional.
 
-### 50(1): direct interaction with people
+## A practical rollout record
 
-> "Providers shall ensure that AI systems intended to interact directly with natural persons are designed and developed in such a way that the natural persons concerned are informed that they are interacting with an AI system."
+For a team introducing LokLM, keep a short record of:
 
-The addressee here is the **provider**, not the person at the keyboard. Someone using local AI purely for their own work — with no third party on the other end — is simply not who this provision speaks to. But someone who wires local AI into a chatbot on their own website, where it talks to clients or customers, has become the provider of that system in the regulation's sense and owes the disclosure.
+1. Intended tasks, users and decisions the tool may support.
+2. Role and risk assessment, with the applicable implementation dates.
+3. Staff instruction, source-checking and output-review responsibilities.
+4. Any public-facing interaction or publication that needs a transparency assessment.
+5. Data access, backups, retention and optional external services.
 
-### 50(2): synthetic content
+GDPR and professional confidentiality remain separate requirements. Local processing can reduce external disclosure; it does not automatically satisfy either regime. Our [GDPR and cloud-LLM article](/en/blog/gdpr-and-llm-data-export) explains those distinctions.
 
-> "Providers of AI systems, including general-purpose AI systems, generating synthetic audio, image, video, or text content, shall ensure that the outputs of the AI system are marked in a machine-readable format and detectable as artificially generated or manipulated."
-
-The provision aims at watermarking and provenance signals for generated media. Whether the output of a local tool that summarises documents or answers questions over a user's own files counts as "synthetic text content" here is genuinely unresolved. Recitals 132–135 suggest the drafters had deepfakes and consumer-facing generation in view. As of 2026, no settled enforcement practice exists on the point.
-
-### 50(4): deepfakes and politically relevant content
-
-> "Deployers of an AI system that generates or manipulates image, audio, or video content constituting a deepfake shall disclose that the content has been artificially generated or manipulated."
-
-For a local text tool that produces neither images nor audio, this one stays out of frame.
-
-## Article 95: codes of practice
-
-Article 95 asks the Commission and the AI Board to encourage the development of **codes of practice** — voluntary commitments that systems below the high-risk threshold can sign up to, covering topics like environmental footprint, data ethics, or accessibility.
-
-The key word is voluntary. Where Arts. 6 and 50 impose duties, Article 95 offers an option. A vendor of local AI software may adopt such a code as a trust signal — or decline, with no legal consequence.
-
-Article 95 gains practical weight for local AI once the first general-purpose AI code of practice lands (the Commission circulated a draft in early 2025[^2]). Open-source vendors can treat it as a barometer of which voluntary commitments are hardening into industry norms — and align by choice, not by mandate.
-
-## Where the AI Act is silent
-
-Three matters the AI Act leaves untouched — whether by design or oversight — that stay central to local AI in practice:
-
-1. **Data protection.** The AI Act supplements the GDPR; it does not supersede it. Whoever processes personal data still owes everything in Arts. 5, 24, 32 GDPR[^3], AI Act or no AI Act. Local processing shifts the GDPR analysis only at one spot: nothing travels to a cloud provider, so Arts. 44 ff. GDPR stay dormant. The rest of the regulation applies unchanged.
-2. **Professional confidentiality.** Lawyers (§ 43a BRAO in Germany), physicians (§ 203 StGB), tax advisors, and comparable professions carry secrecy duties that exist independently of both GDPR and AI Act. In these settings, locally running AI is frequently the only defensible option — a cloud transmission would carry the data outside the protected circle of confidentiality.
-3. **Open-source exception.** Art. 2(12) AI Act exempts open-source AI models, provided they are not placed on the market or put into service as part of a high-risk or prohibited system. For open-source tools this raises the regulatory threshold considerably; Recitals 102–104 spell out the details.
-
-## A practical case: a law firm rolls out LokLM
-
-Take a mid-sized firm that wants to search its client documents locally and installs LokLM across its workstations. Run the AI Act over that scenario:
-
-- **Role:** the firm acts as deployer; LokLM's vendor acts as provider.
-- **High risk (Art. 6):** Annex III letter h speaks of judicial authorities, and private legal practice is not one. No high-risk classification.
-- **Transparency (Art. 50):** the interaction stays inside the firm. Clients need not be told that AI assists with research behind the scenes — provided the firm does not pass AI outputs to clients as AI-generated. A firm that sends a client an AI-drafted letter without lawyer review has a professional-conduct problem in any event, AI Act or not.
-- **Confidentiality (§ 43a BRAO):** processing on-premises keeps the circle of confidentiality closed; a cloud transmission would open it.
-- **GDPR:** where the processing is extensive or particularly risky, the firm must run a data protection impact assessment (Art. 35 GDPR) — which is entirely feasible for local processing too.
-
-The takeaway: in the standard configuration, nothing in the AI Act stands between a law firm and a local AI solution, and no AI-Act-specific extra duties attach. The genuinely hard questions live elsewhere — in professional law and in the GDPR, both of which run their own course in parallel.
-
-## Further in the cluster
-
-This article belongs to the local-AI series that opened with the [definition of "private"](/en/blog/what-private-actually-means). The next instalment takes up in depth what this one only brushed: the GDPR consequences of feeding documents into cloud LLMs.
-
-All articles in the series are collected on the [local-AI pillar page](/en/local-ai); the technical foundations live on the [architecture page](/en/architecture).
-
-To try LokLM: [download](/en/#download), no account, no email required.
-
----
-
-[^1]: Regulation (EU) 2024/1689 — Regulation on Artificial Intelligence (AI Act). Full text at EUR-Lex: https://eur-lex.europa.eu/eli/reg/2024/1689/oj
-
-[^2]: Current status of the European Commission's General-Purpose AI Code of Practice: https://digital-strategy.ec.europa.eu/en/policies/ai-code-practice
-
-[^3]: Regulation (EU) 2016/679 — General Data Protection Regulation. Consolidated text: https://eur-lex.europa.eu/eli/reg/2016/679/oj
+Use the [architecture](/en/architecture) and [local-AI guide](/en/local-ai) to assess LokLM’s technical boundary. This article does not certify a particular deployment as legally compliant.

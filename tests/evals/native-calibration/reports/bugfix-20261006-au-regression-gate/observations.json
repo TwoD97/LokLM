@@ -1,0 +1,425 @@
+{
+  "kind": "safe-known-dev-prospective-adaptive-observations",
+  "classification": "AU/v22 first known DEV gate AB01, under the prospective adaptive allocation contract. Historical AR fresh5/8 and AS exact-Q8 gate failure remain unchanged.",
+  "runId": "bugfix-20261006-au-regression-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-au-regression-gate/raw.json",
+    "sha256": "80a3a986cce5463be2f4fddb6fb188bc29e87959e1555553765d121099a11b41",
+    "availability": "Local ignored artifact; exact validated finals and safe scalar metadata retained here."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/au-regression-gate-execution-declaration.json",
+    "sha256": "5981fa55a380d30f1290118a81e24414489210c08576bce352c4d3752d86f724",
+    "frozenAt": "2026-10-06T09:17:32.026Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/au-regression-protocol.json",
+    "sha256": "2988cc06ad44424b04b2b0de1ec58023e3d645807482bc6f404dcb11a187c268"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/au-regression-gate-postverify.json",
+    "sha256": "5bcf2d9839121eb676de486b9511acf5bd0d3c5fe14d72c666c629f1efb8e9e7",
+    "verifiedAt": "2026-10-06T09:21:11.895Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 0,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": true,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingOwnedNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0
+  },
+  "provenanceScope": "Matched source/build equality applies at recorded closure only.",
+  "startedAt": "2026-10-06T09:17:54.839Z",
+  "collectionCompletedAt": "2026-10-06T09:20:57.637Z",
+  "requestedCases": ["ab-fresh-01"],
+  "observedCases": ["ab-fresh-01"],
+  "unobservedCases": [],
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "validatedFinals": 1,
+    "strictContentPasses": 1,
+    "semanticPartials": 0,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "unobservedInGate": 0,
+    "cleanCompletedWithin300": 1,
+    "cleanCompletedWithin180": 1,
+    "strictAndWithin180": 1,
+    "completedAbove180": 0,
+    "adaptiveRuntimeCasesPassed": 1,
+    "responseLanguageFailures": 1,
+    "productAccepted": 0,
+    "retries": 0
+  },
+  "contentCriteriaPass": true,
+  "responseLanguageContractPass": false,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "prospectiveAdaptiveRuntimeProtocolPass": true,
+  "historicalExactQ8GateTreatmentVerified": false,
+  "treatmentChecks": [
+    {
+      "caseId": "ab-fresh-01",
+      "schema22": true,
+      "modeMetadata": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": true,
+      "totalMs": 130714
+    }
+  ],
+  "provenance": {
+    "buildManifestSha256": "115693c7b5afbb5655a1fb7cf40a56a750c28a2bc20fe853327b9810aa4d4665",
+    "workerSha256": "bc973872048d463f49f0f9217417050ab360130e6f858c17bb38e7670f4f476c",
+    "compiledBuildUnchangedAtCollection": true,
+    "sourcesMatchedBuildAtClosure": true,
+    "fixtureManifestSha256": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d",
+    "fixtureLockSha256": "90f1316c9e7642b124603432d11b49214a7411ec62b000e6409c325067b63ff8",
+    "originalSealSha256": "4db317746b07e5ae82ab230559240a5e7ad12da8c474a0f5e5ada85af23e6447",
+    "gradingKeySha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+  },
+  "sourceCorpusDocuments": 8,
+  "sourceCatalog": [
+    {
+      "sourceKey": "abf-north",
+      "sourceId": "1:1",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-north.md",
+      "sourceSha256": "3d1801139319c13120f7442eb01b3f87ac82876fea370d3af87e43df8e5f00f6",
+      "actualChunkTextSha256": "b5ff755554825f9b6f5da3e5d20e0759831b3c8184cbec118ea18011a2808c17"
+    },
+    {
+      "sourceKey": "abf-south",
+      "sourceId": "2:2",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-south.md",
+      "sourceSha256": "ad3f4acd8a783d33457c48d8a31e1039a09d01c62e5f2873ce45adab8c6a6706",
+      "actualChunkTextSha256": "c18f9c151939b4f5a5f2e58ee3650f1cd56ab9b82812c0a5aaa2850257b050e3"
+    },
+    {
+      "sourceKey": "abf-base",
+      "sourceId": "3:3",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-base.md",
+      "sourceSha256": "8c16dc698b3b4622763798f85ed460067ee1fb4bd6a8f78530a479c4a3fb6a7b",
+      "actualChunkTextSha256": "435b9ef4042b361a0943311a3488d6d2b2b1d7d8f2148167bb0b7ad75763dc64"
+    },
+    {
+      "sourceKey": "abf-amend",
+      "sourceId": "4:4",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-amend.md",
+      "sourceSha256": "e9b077f6c52bd33441fa521736f25c6b507519c3497751eaccc69a4da8f24a5c",
+      "actualChunkTextSha256": "bb318d1d6578b4c841675d65c75853c4d0a115d11ec1f6d3a5f22df9f48bd0b1"
+    },
+    {
+      "sourceKey": "abf-proposal",
+      "sourceId": "5:5",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-proposal.md",
+      "sourceSha256": "d7b8f095ca749bc043a47be69f717fb19943839902e2d194bb3be19eee4a6bed",
+      "actualChunkTextSha256": "0cbbe1b5d8636e81f731d98c610d50c2fce3d9cb7bf6f847f71091736f0a5c6a"
+    },
+    {
+      "sourceKey": "abf-actual",
+      "sourceId": "6:6",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-actual.md",
+      "sourceSha256": "9a24f4a1816a45aea4f4b8712f91ca0d0089d8b9c7cb70d6317d19653147f295",
+      "actualChunkTextSha256": "a1a3bc1d352583050f816ac7023ad739817291b92d7bda644da887c88f8f2bc2"
+    },
+    {
+      "sourceKey": "abf-plan",
+      "sourceId": "7:7",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-plan.md",
+      "sourceSha256": "9b7ff2e6b012a9b185d1746244ebb3b7bb42f8c742800894765ced5cb58faf2f",
+      "actualChunkTextSha256": "33ad4a073366d0db5f19c7446a6e8a8b5ef7faccb20f82cef6bee347cf18c529"
+    },
+    {
+      "sourceKey": "abf-annex",
+      "sourceId": "8:8",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/abf-annex.md",
+      "sourceSha256": "0875d9e2a735741e016d4456f92e7611cd5b019a5cf17582f92673929362c74b",
+      "actualChunkTextSha256": "daab23a059832e5a1bfe1c3f6176ef5f0e21096419e1a821b13063a646a7eff7"
+    }
+  ],
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "privacy": "Only validated finals, original questions/source identities and allowlisted fixed scalar metrics. No hidden thought/private check content, raw envelopes, rejected prose, histories, unrestricted logs or personal paths.",
+  "limitations": [
+    "Known DEV regression collection, not fresh generalization evidence.",
+    "Adaptive treatment was declared prospectively. It does not retroactively repair the former exact-Q8 gate failure.",
+    "Correctness, within300 completion, within180 performance and runtime compliance are separate.",
+    "New process/order and Q8/F16 allocations confound causal timing or quality explanations.",
+    "All twelve later declared known cases remain unattempted/held after this separate response-language product-acceptance failure; no retry is authorized."
+  ],
+  "historicalReportPins": [
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/REVIEW.md",
+      "sha256": "86946060e337250024f9ed500f82d0b0e0a0f32d46d3f70d71f61706f488b992"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/manual.json",
+      "sha256": "2452f405fc17d9b8f1bf2d3c823d8afd4cf88dbd9d0c4e1f1dc0cb422b6ceb62"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/observations.json",
+      "sha256": "17684243258b7024a9809b3c4a17452bb8fcc259eb6f0af5203184b1fdb1ccf3"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/REVIEW.md",
+      "sha256": "2b9d3ca7fdcb60293144d31bbe79a68ef5fe693bc2099b790f9a2ddabe4fd93e"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/manual.json",
+      "sha256": "96d450725102915620e13286d7571fd1adb4241dcd40d5aa6544545bbba080e1"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/observations.json",
+      "sha256": "5c17bb24c025412528882a586ac0e491e03c8786e305a908b8086d49f02be28f"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/REVIEW.md",
+      "sha256": "6e0155f8d1844804ab141103b0cb7dbcc8bda4ad1a9b98dc077558fd0eebfb72"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/manual.json",
+      "sha256": "dfe1a880ea32dedffde0f34b3593a14fca943c4e3eca3513f9638399a4346d36"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-at-regression-gate/observations.json",
+      "sha256": "8298a1d8ebf4b04903f6960ef003f64a84ebcbc8b9aa767b81ea32b82f81af6f"
+    }
+  ],
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "question": "Welches verbindliche Wartungsintervall gilt laut den Notizen Nord und Süd für Nuvreks NP-6-Filter der Kampagne S8? Nenne beide angegebenen Intervalle. Antworte in einem kurzen Satz.",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: North note specifies 14 days, South note specifies 19 days for NP-6 filters in campaign S8. [doc:1, chunk:1] [doc:2, chunk:2]",
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "requiredSourceIds": ["1:1", "2:2"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceContentMatchesOriginal": true,
+      "sourceTextNormalization": "Parser inserts one blank line after the heading; all source body bytes match.",
+      "finalCitationIds": ["1:1", "2:2"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 130714,
+        "firstVisibleTokenMs": 130714,
+        "terminalMs": 130714,
+        "totalMs": 130714,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "responseLanguageContractSatisfied": false,
+      "requestedLanguage": "de",
+      "observedLanguage": "German fixed lead; English synthesized summary",
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": true,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 120386,
+        "calls": [
+          {
+            "schema": "typed-comparison-v22",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "summary",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v22",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 120248,
+            "grammarMs": 8,
+            "promptFitMs": 21,
+            "nativeMs": 120218,
+            "firstTextMs": 73567,
+            "lastTextMs": 120215,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 346,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1721,
+            "usedOutputTokens": 228,
+            "boundedThoughts": {
+              "promptTokens": 1720,
+              "prefillBatches": 7,
+              "prefillTokens": 1719,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 100,
+              "combinedTokens": 230,
+              "firstVisibleMs": 73567,
+              "lastVisibleMs": 120215,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 119,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 91,
+          "capped": false
+        }
+      ],
+      "summaryStructure": {
+        "type": "object",
+        "knownFields": ["text", "sources"],
+        "unknownKeyCount": 0,
+        "fieldTypes": {
+          "text": "string",
+          "sources": "array"
+        }
+      },
+      "displayKind": "Synthesized summary with program-supplied evidence-scoped lead; not an exact quotation or source span."
+    }
+  ],
+  "candidateCoverage": {
+    "requested": 13,
+    "attempted": 1,
+    "completed": 1,
+    "strictOriginalKeyPasses": 1,
+    "responseLanguageFailures": 1,
+    "unattempted": 12,
+    "unattemptedCaseIds": [
+      "ar-fresh-01",
+      "ar-fresh-02",
+      "ar-fresh-07",
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "followOnAuthorized": false
+  }
+}

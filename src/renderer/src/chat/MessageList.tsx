@@ -9,7 +9,7 @@ import {
   RefreshCcw,
 } from 'lucide-react'
 import type { Document, StageName } from '@shared/documents'
-import { hasCitedSources } from '@shared/citationMarkers'
+import { transformCitationMarkers } from '@shared/citationMarkers'
 import { MessageBubble } from './MessageBubble'
 import { TranslationPanel } from './TranslationPanel'
 import { useT, type TFn } from '../i18n'
@@ -80,7 +80,13 @@ function fmtMs(ms: number | undefined): string {
   return `${ms} ms`
 }
 
-type SourceDoc = { documentId: number; chunkId: number; name: string; path: string | null }
+type SourceDoc = {
+  documentId: number
+  chunkId: number
+  index: number
+  name: string
+  path: string | null
+}
 
 // Source navigation, not a factual-verification badge. A valid passage ID does
 // not establish that its text supports the model's claim. Count distinct
@@ -104,26 +110,35 @@ function GroundingBadge({
   const lastOnOpen = useRef(false)
   const menuId = useId()
 
-  // Distinct cited documents in first-cited order, keeping the first chunk per
-  // document so the row can open a representative passage. Title falls back to
-  // "Document #id" if the doc was removed from the workspace after this turn was
-  // persisted.
-  const sources = useMemo<SourceDoc[]>(() => {
-    const seen = new Set<number>()
-    const out: SourceDoc[] = []
-    for (const c of citations) {
-      if (seen.has(c.documentId)) continue
-      seen.add(c.documentId)
-      const doc = documents.find((d) => d.id === c.documentId)
-      out.push({
-        documentId: c.documentId,
-        chunkId: c.chunkId,
-        name: doc?.title ?? t('chat.documentFallback', { id: c.documentId }),
+  // Active citation rows share the exact passage identity and numbering used
+  // by inline chips. Keep every cited passage even when several belong to one
+  // document. Without active citations, preserve one provided row per document.
+  const { sources, cited } = useMemo(() => {
+    const allowed = new Set(citations.map((c) => `${c.documentId}-${c.chunkId}`))
+    const markers = transformCitationMarkers(messageText, allowed).markers
+    const cited = markers.length > 0
+    const seenDocuments = new Set<number>()
+    const selected = cited
+      ? markers
+      : citations
+          .filter((citation) => {
+            if (seenDocuments.has(citation.documentId)) return false
+            seenDocuments.add(citation.documentId)
+            return true
+          })
+          .map((citation, index) => ({ ...citation, index: index + 1 }))
+    const sources: SourceDoc[] = selected.map((citation) => {
+      const doc = documents.find((d) => d.id === citation.documentId)
+      return {
+        documentId: citation.documentId,
+        chunkId: citation.chunkId,
+        index: citation.index,
+        name: doc?.title ?? t('chat.documentFallback', { id: citation.documentId }),
         path: doc?.sourcePath ?? null,
-      })
-    }
-    return out
-  }, [citations, documents, t])
+      }
+    })
+    return { sources, cited }
+  }, [citations, documents, messageText, t])
 
   // Menu items use arrow navigation, leaving the trigger as the single Tab stop.
   useEffect(() => {
@@ -142,11 +157,7 @@ function GroundingBadge({
     triggerRef.current?.focus()
   }
 
-  const count = sources.length
-  const cited = hasCitedSources(
-    messageText,
-    new Set(citations.map((citation) => `${citation.documentId}-${citation.chunkId}`)),
-  )
+  const count = new Set(sources.map((source) => source.documentId)).size
   return (
     <div
       className="chat__grounding-wrap"
@@ -223,9 +234,9 @@ function GroundingBadge({
           <span className="chat__sources-pop-title">
             {t(cited ? 'chat.sourcesPopoverTitle' : 'chat.providedSourcesTitle')}
           </span>
-          {sources.map((s, i) => (
+          {sources.map((s) => (
             <button
-              key={s.documentId}
+              key={`${s.documentId}-${s.chunkId}`}
               type="button"
               className="chat__sources-pop-item"
               role="menuitem"
@@ -237,7 +248,7 @@ function GroundingBadge({
                 onOpenSource({ documentId: s.documentId, chunkId: s.chunkId, messageText })
               }}
             >
-              <span className="chat__sources-pop-index">{i + 1}</span>
+              <span className="chat__sources-pop-index">{s.index}</span>
               <FileText size={14} aria-hidden="true" className="chat__sources-pop-icon" />
               <span className="chat__sources-pop-name">{s.name}</span>
             </button>
@@ -510,7 +521,8 @@ export function MessageList({
                   {t('chat.metricsTtft', { s: (m.metrics.ttftMs / 1000).toFixed(2) })}
                   {m.metrics.tokensPerSec != null &&
                     t('chat.metricsTokensPerSec', { rate: m.metrics.tokensPerSec.toFixed(1) })}
-                  {t('chat.metricsTokens', { count: m.metrics.tokenCount })}
+                  {m.metrics.tokenCount > 0 &&
+                    t('chat.metricsTokens', { count: m.metrics.tokenCount })}
                 </div>
               )}
             </div>

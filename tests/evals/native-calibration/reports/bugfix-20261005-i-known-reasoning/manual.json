@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Unresolved comparison displays two exact enclosing source paragraphs with equal issue dates, same 120-record scope, both requested ISO deadlines and the original release/replacement qualifications. Correct 1:1/2:2 markers; program wording is excerpt-scoped and adds no categorical replacement-event assertion. The paragraphs are longer than a concise prose answer, a brevity/display tradeoff rather than a missing fact."
+  },
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer correctly gives current 4 drills and 5 saws, approval 2031-05-02 and applicability from 2031-05-15. It cites 4:4 canonically for the drill change, but saw attribution uses noncanonical grouped syntax '[doc:4, chunk:4; doc:3, chunk:3]'. The authoritative terminal citation list contains only 4:4; required original-limit passage 3:3 is not parsed or navigable. Facts/applicability are complete; citation formatting and durable source coverage remain partial. Raw answer is retained without marker repair."
+  },
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Compatible comparison preserves matching tank, time and scope in exact enclosing paragraphs from 6:6/5:5. The program-owned arithmetic appendix explicitly gives both 2750 litres = 2750 L and 2.75 cubic metres = 2750 L, satisfying the requested common-unit comparison. Correct source identities and no invented scope. Longer quote-first display is a usability tradeoff."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The fixed 180-second deadline expired at 180.056 seconds. The native call was cancelled cleanly and an authoritative cancelled terminal retained only the interruption note; no answer, checked outcome or parse-rejection reason is available. Both required duration passages 7:7 and 8:8 were supplied. No semantic or conversion verdict can be inferred. This timeout stopped the run; cases 05–12 remain unobserved and are not silently counted as successful or incorrect model answers."
+  }
+]

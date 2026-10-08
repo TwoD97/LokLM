@@ -1,0 +1,254 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-ar-reasoning09-completion300",
+  "classification": "Known DEV AR/v19 isolated reasoning09 candidate observation with a 300-second calibration window; not eligible for original AQ180 acceptance.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-reasoning09-completion300/raw.json",
+    "sha256": "64976c8da066814f7e1154565549bb6a8eca77cb6509452d11758a353d803970",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ar-reasoning09-completion300-execution-declaration.json",
+    "sha256": "6a3c92aad21964bc77261939851f522745617f9189b7b515d2b18d2f5a939c06",
+    "frozenAt": "2026-10-06T05:01:14.971Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ar-reasoning09-completion300-postverify.json",
+    "sha256": "8bc05001ef9761a116acf0849ce914977d599ac33dee459b6f3c8fc064117dc0",
+    "verifiedAt": "2026-10-06T05:06:05.924Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 0,
+    "safeToContinue": false,
+    "cleanupVerified": true,
+    "requestCompleted": true,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": ["reasoning-reserved-09"],
+  "attemptedCases": ["reasoning-reserved-09"],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "completedAnswers": 1,
+    "strictPasses": 1,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "normalNativeCompletions": 1,
+    "parserRejections": 0,
+    "exceeds180Seconds": 1
+  },
+  "startedAt": "2026-10-06T05:01:43.276Z",
+  "collectionCompletedAt": "2026-10-06T05:05:43.562Z",
+  "closureVerifiedAt": "2026-10-06T05:06:05.924Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": true
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "c056b78e381e9694911d15c36f3579953776e09798b2b3cba5b0e3a6b821d604",
+    "fixtureLockSha256": "0b828e0eb1427fc4e0f1abc63c9fb87b9d9399e7a29cba0f1695bc4280b0b6cd",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 18,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "App timing includes retrieval/preparation; native timing is a subset. This isolated first-query attempt differs from original AQ09 following02. Constrained-response tokens include private check and JSON syntax, not only displayed prose. Structural counts identify no exact syntax or causal label.",
+  "queries": [
+    {
+      "caseId": "reasoning-reserved-09",
+      "finalAnswer": "Laut dem Bericht für den Sektor West bestanden 31 Geräte die Endprüfung. Laut dem Bericht für den Sektor Ost bestanden 34 Geräte die Endprüfung. Da die Berichte explizit unterschiedliche Seriennummernbereiche abdecken (West: 700-739, Ost: 740-779), können die Werte addiert werden. Insgesamt bestanden 65 Geräte die Prüfung. [doc:16, chunk:17] [doc:17, chunk:18]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "3:3",
+        "16:17",
+        "13:14",
+        "17:18",
+        "11:11",
+        "12:12",
+        "4:4",
+        "7:7",
+        "8:8",
+        "14:13",
+        "13:15"
+      ],
+      "finalCitationIds": ["16:17", "17:18"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 184893,
+        "firstVisibleTokenMs": 184893,
+        "terminalMs": 184894,
+        "totalMs": 184894,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 174361,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 174224,
+            "grammarMs": 5,
+            "promptFitMs": 22,
+            "nativeMs": 174196,
+            "firstTextMs": 76441,
+            "lastTextMs": 174195,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 597,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2012,
+            "usedOutputTokens": 331,
+            "boundedThoughts": {
+              "promptTokens": 2011,
+              "prefillBatches": 8,
+              "prefillTokens": 2010,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 203,
+              "combinedTokens": 333,
+              "firstVisibleMs": 76441,
+              "lastVisibleMs": 174195,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 2,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 2,
+          "inspectedBlocks": 1,
+          "inspectedChars": 362,
+          "capped": false
+        }
+      ]
+    }
+  ],
+  "diagnosticScope": {
+    "eligibleForAQ180Pass": false,
+    "originalAQ180AggregateUnchanged": true,
+    "priorAQCompletion300Unchanged": true,
+    "originalQuestionUnchanged": true,
+    "actualFedSourceOrderAndTextEqualAQCompletion300": true,
+    "productionAnswerDeadlineChanged": false,
+    "firstQueryPreparationConfound": true,
+    "followOnGroupsAuthorized": false,
+    "freshAuthorshipAuthorized": false
+  },
+  "shapeInterpretation": "Fixed syntax counts only, with no label strings, IDs or offsets retained in this diagnostic field. Counts do not establish exact causal cleanup or the syntax of discarded AQ content.",
+  "captureStatus": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "residualCaptureCount": 0
+  }
+}

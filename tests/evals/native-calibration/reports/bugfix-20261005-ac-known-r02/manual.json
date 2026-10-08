@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store and root. Actual supplied 3:3/4:4 establish current 4 drills and retained 5 saws at June 1, including baseline 3 and the May 15 effective increase. The parenthetical describes when the increase takes effect, not a new claim about issue/approval date. Both canonical citations attach the coherent answer record. No false refusal, unrelated source, or unsupported extra condition. Actual query context 8192/q8_0/14 layers, 131048 ms. This grouped prompt/allocation candidate does not isolate either causal effect."
+  }
+]

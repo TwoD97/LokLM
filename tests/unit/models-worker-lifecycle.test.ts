@@ -135,6 +135,74 @@ describe('model worker lifecycle admission', () => {
     expect(child.kill).toHaveBeenCalledOnce()
   })
 
+  it('waits for the owned process exit after Chromium termination fallback, not just kill acceptance', async () => {
+    vi.useFakeTimers()
+    const { child } = childFixture(true, false)
+    child.kill = vi.fn(() => {
+      // Chromium schedules its fallback after 2 s; delivery of Electron's exit
+      // event can follow that. Returning true does not confirm process exit.
+      setTimeout(() => child.emit('exit', 0), 2_500)
+      return true
+    })
+    const client = new ModelsWorkerClient()
+    const initial = client.embedderEmbed(['batch'])
+    await vi.advanceTimersByTimeAsync(0)
+    await initial
+    const settled = vi.fn()
+    const stopping = client.shutdown().then(
+      () => settled('exited'),
+      (error: unknown) => settled(error),
+    )
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(child.kill).toHaveBeenCalledOnce()
+    expect(settled).not.toHaveBeenCalled()
+    await expect(client.embedderEmbed(['late'])).rejects.toThrow('shutting down')
+    await vi.advanceTimersByTimeAsync(1_500)
+    await stopping
+    expect(settled).toHaveBeenCalledExactlyOnceWith('exited')
+    expect(child.listenerCount('exit')).toBe(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each([2_500, 7_500])(
+    'terminates a late-spawning owned worker at %i ms without sending stale shutdown IPC',
+    async (spawnAt) => {
+      vi.useFakeTimers()
+      const { child, sent } = childFixture(false, false)
+      let spawned = false
+      child.kill = vi.fn(() => {
+        if (!spawned) return false
+        queueMicrotask(() => child.emit('exit', 0))
+        return true
+      })
+      const client = new ModelsWorkerClient()
+      const batch = client.embedderEmbed(['never admitted'])
+      const rejected = expect(batch).rejects.toThrow(/shutting down|exited/)
+      const settled = vi.fn()
+      const stopping = client.shutdown().then(
+        () => settled('exited'),
+        (error: unknown) => settled(error),
+      )
+      await vi.advanceTimersByTimeAsync(spawnAt)
+      expect(child.kill).toHaveBeenCalledOnce()
+      if (spawnAt > 7_000) {
+        expect(settled).toHaveBeenCalledExactlyOnceWith(expect.any(Error))
+      } else {
+        expect(settled).not.toHaveBeenCalled()
+      }
+      spawned = true
+      child.emit('spawn')
+      await vi.advanceTimersByTimeAsync(0)
+      await Promise.all([stopping, rejected])
+      expect(child.kill).toHaveBeenCalledTimes(2)
+      expect(sent).toEqual([])
+      expect(child.listenerCount('exit')).toBe(1)
+      expect(vi.getTimerCount()).toBe(0)
+      await expect(client.embedderEmbed(['new work'])).rejects.toThrow('shutting down')
+      expect(mocks.fork).toHaveBeenCalledOnce()
+    },
+  )
+
   it('changes the device during spawn without keeping the old device worker', async () => {
     const first = childFixture(false)
     const second = childFixture()
@@ -287,25 +355,33 @@ describe('model session privacy boundary', () => {
     await client.shutdown()
   })
 
-  it('preserves an unconfirmed termination failure across repeated reset hooks', async () => {
-    vi.useFakeTimers()
-    const fixture = childFixture(true, false)
-    fixture.child.kill = vi.fn(() => false)
-    const client = new ModelsWorkerClient()
-    const initial = client.embedderEmbed(['batch'])
-    await vi.advanceTimersByTimeAsync(0)
-    await initial
-    const resetting = client.resetSession()
-    const rejected = expect(resetting).rejects.toThrow(/exit|stop|terminate/i)
-    await vi.advanceTimersByTimeAsync(3_000)
-    await rejected
-    await expect(client.resetSession()).rejects.toThrow(/exit|stop|terminate/i)
-    expect(() => client.resumeSession()).toThrow('cleanup is not complete')
-    await expect(client.embedderEmbed(['must not run'])).rejects.toThrow('session is closed')
-    fixture.child.emit('exit', 0)
-    await client.resetSession()
-    client.resumeSession()
-    expect(mocks.fork).toHaveBeenCalledOnce()
-    await client.shutdown()
-  })
+  it.each(['refused', 'threw'] as const)(
+    'preserves an unconfirmed termination failure across repeated reset hooks when kill %s',
+    async (failure) => {
+      vi.useFakeTimers()
+      const fixture = childFixture(true, false)
+      fixture.child.kill = vi.fn(() => {
+        if (failure === 'threw') throw new Error('native termination rejected')
+        return false
+      })
+      const client = new ModelsWorkerClient()
+      const initial = client.embedderEmbed(['batch'])
+      await vi.advanceTimersByTimeAsync(0)
+      await initial
+      const resetting = client.resetSession()
+      const rejected = expect(resetting).rejects.toThrow(/exit|stop|terminate/i)
+      await vi.advanceTimersByTimeAsync(7_000)
+      await rejected
+      expect(fixture.child.listenerCount('exit')).toBe(1)
+      expect(vi.getTimerCount()).toBe(0)
+      await expect(client.resetSession()).rejects.toThrow(/exit|stop|terminate/i)
+      expect(() => client.resumeSession()).toThrow('cleanup is not complete')
+      await expect(client.embedderEmbed(['must not run'])).rejects.toThrow('session is closed')
+      fixture.child.emit('exit', 0)
+      await client.resetSession()
+      client.resumeSession()
+      expect(mocks.fork).toHaveBeenCalledOnce()
+      await client.shutdown()
+    },
+  )
 })

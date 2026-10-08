@@ -1,0 +1,57 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied 3:3 establishes the retained 5-saw limit; approved amendment 4:4 changes only drills to 4 effective 2031-05-15, before asked 2031-06-01. The final supplies both current limits and the requested date, with both canonical references local to the single coherent record. The original question asks for limits and evidence, not an extra authority explanation; do not import the separate AB02 key. No obsolete value, false refusal or unsupported clause. App 147962 ms/native 137218 ms; separately within 180 seconds."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual 9:9 establishes the current 72 EUR annual contribution for ordinary adult members. Actual 10:10 explicitly states the proposed 81 EUR, assembly not yet voting and no revocation of the governing order. The final correctly states current amount, proposal amount, no-change decision and explicit source-backed reason, with both references attached to the coherent paragraph. The negative vote fact is explicit, not inferred from absent documentation. Two sentences are permitted. App 146454 ms/native 128966 ms; separately within 180 seconds."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual 11:11 and 12:12 describe the same cabinet on 2031-10-06, with 12 replacement sensors at 08:00 UTC before daily movements and 17 at 18:00 UTC after them. The final correctly says the observations do not contradict and supplies both requested counts/times plus the supported date. It invents no different location, measurement type or governing authority. Both canonical references attach the complete coherent paragraph. The question does not require repeating the before/after prose; the distinct observation times and requested relationship are explicit. App 173770 ms/native 155857 ms; 6.230 seconds below 180."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied table 13:15 gives run A 18 litres over 3 minutes, supporting the stated 6 litres per minute. The canonical reference points to the value-bearing table, not only header 13:14. The original question asks for the rate and unit, not displayed workings. No wrong run, inferred extra measurement or unsupported claim. App 143979 ms/native 126350 ms; separately within 180 seconds."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS for the requested missing-fact answer. Actual table 13:15 explicitly states that no electrical measurements are given, and run B lists 24 litres and 4 minutes. Both actual document chunks, header 13:14 and table 13:15, were supplied. The final correctly reports the absence of electrically measured power in this record and distinguishes its water/time measurements; it invents no wattage or conversion from them. The local 13:15 reference supports every displayed claim. The statement concerns the supplied record, not a universal absence of measurements elsewhere. Two sentences are permitted. App 143307 ms/native 126323 ms; separately within 180 seconds."
+  }
+]

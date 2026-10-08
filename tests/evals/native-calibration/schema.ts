@@ -4,6 +4,11 @@ export type CalibrationSplit =
   | 'conflict-regression'
   | 'authority-dev-20261002'
   | 'authority-reserved-20261002'
+  | 'reasoning-reserved-20261005'
+  | 'authority-transfer-20261005'
+  | 's-fresh-validation-20261005'
+  | 'ab-fresh-validation-20261006'
+  | 'ar-fresh-validation-20261006'
 
 export type CalibrationChallengeCategory =
   | 'unresolved-numeric'

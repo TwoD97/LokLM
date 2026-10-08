@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "split": "ar-fresh-validation-20261006",
+  "sources": [
+    {
+      "key": "arf-source-01",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-01.md",
+      "title": "Quenora Exportvermerk Kupfer",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-02",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-02.md",
+      "title": "Quenora Exportvermerk Silber",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-03",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-03.md",
+      "title": "Ostrel acoustic bench paired settings",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-04",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-04.md",
+      "title": "Lomera Bildarchiv Grundordnung",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-05",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-05.md",
+      "title": "Lomera Bildarchiv genehmigte Quotenänderung",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-06",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-06.md",
+      "title": "Lomera Bildarchiv Fristenentwurf",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-07",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-07.md",
+      "title": "Ishven storage booking current fee",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-08",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-08.md",
+      "title": "Ishven approved storage fee replacement",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-09",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-09.md",
+      "title": "Ishven meeting minutes activation date",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-10",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-10.md",
+      "title": "Vornika west orchard completed planting",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-11",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-11.md",
+      "title": "Vornika west orchard planting plan",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-12",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-12.md",
+      "title": "Pelvian Trockenmasse Waage A",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-13",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-13.md",
+      "title": "Pelvian Trockenmasse Waage B",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-14",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-14.md",
+      "title": "Talvera Gutscheinschrank Frühzählung",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-15",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-15.md",
+      "title": "Talvera Gutscheinschrank Spätzählung",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-16",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-16.md",
+      "title": "Braviel rectangular display panel survey",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-17",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-17.md",
+      "title": "Quenora separate thumbnail export",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-18",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-18.md",
+      "title": "Vornika east orchard planting plan",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-19",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-19.md",
+      "title": "Pelvian Bruttomasse Transportbehälter",
+      "format": "markdown"
+    },
+    {
+      "key": "arf-source-20",
+      "file": "fixtures/ar-fresh-validation-20261006/arf-20.md",
+      "title": "Ulrava library ventilation log",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "ar-fresh-01",
+      "question": "Welche Bildschirmexportbreite ist für Quenoras QX-Ausgabe R7 verbindlich? Nenne beide Werte aus Kupfer und Silber und begründe, ob die Vermerke einen Vorrang belegen. Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "arf-source-01",
+        "arf-source-02"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Ein verbindlicher Vorrang ist aus den Vermerken nicht belegt: Kupfer nennt 1180 Pixel, Silber 1260 Pixel, ohne dokumentierte Freigabe oder Vorrangregel.",
+      "answerChecks": [
+        {
+          "label": "Kupfer value",
+          "pattern": "\\b1180\\b"
+        },
+        {
+          "label": "Silber value",
+          "pattern": "\\b1260\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-02",
+      "question": "Which calibration tone governs Ostrel OC-9 cycle L3 at 21 C on 2052-07-14? Give both entries and explain whether the paired record establishes priority. Answer in one short sentence.",
+      "language": "en",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "arf-source-03"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "The paired record establishes no priority: Cedar specifies 610 Hz and Birch 650 Hz for the same test, with neither identified as a correction.",
+      "answerChecks": [
+        {
+          "label": "Cedar value",
+          "pattern": "\\b610\\b"
+        },
+        {
+          "label": "Birch value",
+          "pattern": "\\b650\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-03",
+      "question": "Welche Monatsquote und Bearbeitungsfrist gelten für ein Lomera-Konto am 2054-05-02? Begründe, warum die Quotenänderung gilt und der spätere Fristenentwurf die Frist ändert oder nicht ändert.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "arf-source-04",
+        "arf-source-05",
+        "arf-source-06"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Es gelten 39 Bilder monatlich und weiterhin 13 Arbeitstage. Die genehmigte Quotenänderung ist seit 2054-03-04 wirksam und lässt die Grundfrist bestehen; der spätere Vorschlag für 10 Arbeitstage wurde ausdrücklich nicht genehmigt und ändert sie daher nicht.",
+      "answerChecks": [
+        {
+          "label": "monthly quota",
+          "pattern": "\\b39\\b"
+        },
+        {
+          "label": "working-day period",
+          "pattern": "\\b13\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-04",
+      "question": "For an Ishven standard storage booking on 2055-09-21, which fee applies, and what approved fee applies from which later date? Explain why approval alone does not make the later fee current.",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "arf-source-07",
+        "arf-source-08",
+        "arf-source-09"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The current fee is 15 CHF; the approved 18 CHF fee starts on 2055-10-07. Approval on 2055-08-13 did not activate it early, and the minutes keep the existing fee in force until the stated date.",
+      "answerChecks": [
+        {
+          "label": "current fee",
+          "pattern": "\\b15\\b"
+        },
+        {
+          "label": "future fee",
+          "pattern": "\\b18\\b"
+        },
+        {
+          "label": "activation date",
+          "pattern": "2055-10-07"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-05",
+      "question": "How much does Vornika west block's planned 2054 planting exceed its completed 2053 planting? Give both tree-count inputs and the difference, preserving actual versus planned status, in one short sentence.",
+      "language": "en",
+      "kind": "table-arithmetic",
+      "challengeCategory": "different-scope-time",
+      "requiredSourceKeys": [
+        "arf-source-10",
+        "arf-source-11"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The planned 2054 planting of 1648 trees exceeds the completed 2053 planting of 1386 trees in Vornika west block by 262 trees.",
+      "answerChecks": [
+        {
+          "label": "actual input",
+          "pattern": "\\b1386\\b"
+        },
+        {
+          "label": "planned input",
+          "pattern": "\\b1648\\b"
+        },
+        {
+          "label": "difference",
+          "pattern": "\\b262\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-06",
+      "question": "Widersprechen sich Waage A und B zur Trockenmasse der Pelvian-Charge PZ-2 am 2056-06-18 um 11:20 UTC? Nenne beide Werte in Gramm und begründe den Vergleich anhand des erfassten Probenumfangs.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "equivalent-units",
+      "requiredSourceKeys": [
+        "arf-source-12",
+        "arf-source-13"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Die Werte stimmen überein: 0,84 kg bei Waage A sind 840 g und Waage B nennt ebenfalls 840 g, jeweils für den gesamten getrockneten Inhalt ohne Glasbehälter zum selben Zeitpunkt.",
+      "answerChecks": [
+        {
+          "label": "grams",
+          "pattern": "\\b840\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-07",
+      "question": "Widersprechen sich Talveras Früh- und Spätzählung am 2057-09-22? Nenne beide Gutscheinbestände samt UTC-Zeiten und begründe den Vergleich anhand des Schranks und der dokumentierten Ausgabephase.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "different-scope-time",
+      "requiredSourceKeys": [
+        "arf-source-14",
+        "arf-source-15"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Die Zählungen widersprechen sich nicht: Im selben Schrank T5 lagen um 07:40 UTC vor der Ausgabe 23 Gutscheine und um 16:10 UTC nach Ausgabe und Rücknahme 9 Gutscheine; es sind verschiedene Zeitstände.",
+      "answerChecks": [
+        {
+          "label": "early count",
+          "pattern": "\\b23\\b"
+        },
+        {
+          "label": "late count",
+          "pattern": "\\b9\\b"
+        },
+        {
+          "label": "early time",
+          "pattern": "07:40"
+        },
+        {
+          "label": "late time",
+          "pattern": "16:10"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ar-fresh-08",
+      "question": "What is the rectangular front-face area of Braviel panel BR-4 according to the survey, or which missing measurement prevents calculating it? Explain briefly in one short sentence.",
+      "language": "en",
+      "kind": "missing-fact",
+      "challengeCategory": "missing-evidence",
+      "requiredSourceKeys": [
+        "arf-source-16"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "The excerpt gives a height of 2.4 m but no width, so the rectangular front-face area cannot be calculated from this survey.",
+      "answerChecks": [
+        {
+          "label": "missing measurement",
+          "pattern": "\\bwidth\\b"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}

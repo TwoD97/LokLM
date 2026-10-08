@@ -11,6 +11,25 @@ function mkClient(stream: object[]): { postNdjson: ReturnType<typeof vi.fn> } {
 }
 
 describe('OllamaLlmProvider', () => {
+  it('maps explicit repetition opt-out to neutral Ollama penalties without changing defaults', async () => {
+    const client = mkClient([{ response: '{"value":90}', done: true }])
+    const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+    await provider.generateRaw('Copy', { repeatPenalty: false, temperature: 0, maxTokens: 128 })
+    expect(client.postNdjson.mock.calls[0]![1]).toMatchObject({
+      options: {
+        repeat_penalty: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+        temperature: 0,
+        num_predict: 128,
+      },
+    })
+    await provider.generateRaw('Default', {})
+    const options = client.postNdjson.mock.calls[1]![1].options as Record<string, unknown>
+    for (const field of ['repeat_penalty', 'frequency_penalty', 'presence_penalty'])
+      expect(options).not.toHaveProperty(field)
+  })
+
   it('forwards raw JSON schema and explicit thinking controls without changing task options', async () => {
     const schema = {
       type: 'object',

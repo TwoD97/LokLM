@@ -1,0 +1,90 @@
+[
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer correctly gives current 72 EUR and proposed 81 EUR, with explicit no assembly vote and non-revocation stated in the supplied 9:9/10:10. Both markers attach to the answer paragraph. No invented authority or unsupported absence claim."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Compatible comparison preserves exact 12 sensors at 08:00 and 17 at 18:00, plus morning-before/evening-after transaction scope. Correct 11:11/12:12 markers; no unsupported same-time explanation. German framing and original English quotations are a display tradeoff. At 177.303 seconds the completed answer is close to the fixed 180-second limit."
+  },
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer gives 24 litres for run B and ISO approval date 2031-06-11. The table 13:15 and header 13:14 are both actually supplied and separately mapped to source-present quoted values. No invented offset-style locators remain. Complete factual and navigable citation answer."
+  },
+  {
+    "caseId": "reasoning-reserved-08",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer correctly computes north 6 and south 7 and states only that deployment is not documented, with exact source-present deployment qualifications. However, 14:13/15:16 markers attach specifically to the later quoted deployment-absence clauses; the preceding computed-results sentence has no own source mapping. This is local computation-attribution incompleteness under the same strict criterion used for E2 code07, not a wrong arithmetic/deployment claim. Independently cross-reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer gives 65 = 31 + 34 and explicitly justifies addition using disjoint serial ranges 700–739 and 740–779. Each count and range is restated with its exact 16:17/17:18 source marker, making the derivation traceable. This satisfies the calculation and scope request without a new arithmetic interpreter."
+  },
+  {
+    "caseId": "reasoning-reserved-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Insufficient comparison quotes the actual 18:19 rate and explicit missing duration/total. The framing remains scoped to supplied excerpts rather than asserting whole-document or world-level absence. No volume is fabricated; complete response to the missing-total request."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answer gives the requested average 6 litres per minute from 18 litres / 3 minutes with exact table marker 13:15 adjacent to the input/derivation explanation. Complete calculation and local attribution; no unsupported extras."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Insufficient comparison displays the actual 13:15 table and its explicit statement that it contains no electrical measurements. Framing stays excerpt-scoped, and no power value or whole-document absence claim is invented. Original Markdown table characters are escaped as literal source text; this is a presentation tradeoff, not changed evidence."
+  }
+]

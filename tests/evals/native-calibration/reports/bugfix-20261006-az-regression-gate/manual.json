@@ -1,0 +1,22 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": null,
+    "attempted": false,
+    "verdict": "unclear",
+    "strictPass": false,
+    "operationalOutcome": "orchestration-failure-before-harness",
+    "parserRejection": null,
+    "timedOut": false,
+    "finalAnswer": null,
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "not-applicable",
+    "decisionCorrectness": "unassessable-not-attempted",
+    "formatRequirementSatisfied": null,
+    "responseLanguageContractSatisfied": null,
+    "productAcceptance": false,
+    "unsupportedExtraClaims": [],
+    "notes": "Scheduled AB01 was not attempted. The detached shell could not resolve Get-FileHash before the exclusive child-start record and Playwright launch. This is an orchestration failure, not a timeout, parser failure or incorrect model answer. Actual wrapper and runner exits remain unknown/null. The original launch is consumed and not retried; all thirteen questions remain unattempted."
+  }
+]

@@ -1,0 +1,744 @@
+{
+  "kind": "safe-partial-four-arm-sampler-diagnostic-observations",
+  "classification": "Known-development sampler screen INCOMPLETE / NONPASS",
+  "originalCriteriaUnchanged": true,
+  "originalCaseId": "ab-fresh-01",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bg-sampler/partial-validated-finals.json",
+      "sha256": "3c9de3624fcc94c3aee2cd65ca32487cde600ff48d2b58c5da2f03b8852a3ba1"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/operational-failure-closure.json",
+      "sha256": "30212e8d31725441dcb19c3291982af13b659900e6cc32ca4f8d2046dfb39075"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/durable-closure.json",
+      "sha256": "aa0bcd298c214496f851d9b4b3dbcafbda0752ae020e847c360ca93bca6cee6a"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/wrapper-result.json",
+      "sha256": "f33c5f76eaad710d9ace66fe131b3b6c89643e39ba92b82f58fa21309ac2116b"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/cleanup.json",
+      "sha256": "3cc8b4ef133ed7610e4d8979758a8f36599c9e27ba260109b88be5884cd88f6d"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/preparation-v2.json",
+      "sha256": "b1cf3b15926cdd1a81b0c8af81d33979522469a823821eb20d1045ebfb4cd481"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/independent-preparation-review.json",
+      "sha256": "1a4df4a083585b30d05f1ec9dbe10127dd734b8a3618a34015c907a37aa0f0f1"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/root-grant.json",
+      "sha256": "a713ea8b50c8b683549a0ab3f3d31248bfba73657230a4df78fd799cca11621d"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/screening-declaration.json",
+      "sha256": "09b5359e6a879aa109ad0c22a727a5e8091927bf9938f20a223de6a03f20a3e8"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/screening-launch.json",
+      "sha256": "23139079fdc01816851639467cbb4faabcb3526f7d3bb2aad9e75ecd8b25203a"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/plans.json",
+      "sha256": "5859287b4e8fe2622a336d10cf1cb7aad931bb26068fd6b8210576f930cc4965"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/adapter-proof-v2.json",
+      "sha256": "012660ef3a43647fb674c94de9d3549ffc8ac52a8b3704ddab2389fc602a9e96"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/shadow-worker-proof.json",
+      "sha256": "9b9e0774338a36be2eb44e2c9d7535cd434b5effdd42bcbfaa03842e552cdf19"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/initial-preparation/superseded.json",
+      "sha256": "f9ee6cb5cf8d25c8dc5fd860a003584926140be196f1b82d838dcef8919dea64"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.seal.json",
+      "sha256": "4db317746b07e5ae82ab230559240a5e7ad12da8c474a0f5e5ada85af23e6447"
+    },
+    {
+      "path": "out/optimization-20261005/post-freeze-ac13-app-replay-plan.json",
+      "sha256": "f6a1dc689ee075f62b1f86f846f89564bd3c2fe377ddc6073179ab5d0fb40e7f"
+    },
+    {
+      "path": "out/optimization-20261005/bg-sampler/independent-partial-grading.json",
+      "sha256": "a4545b13bae43fd11d51dcdfd9962cd895b99b6535eb79c01b25e766a3e1e5d6"
+    }
+  ],
+  "counts": {
+    "plannedArms": 4,
+    "plannedGreedyArms": 1,
+    "plannedSampledArms": 3,
+    "attemptedArms": 3,
+    "attemptedGreedyArms": 1,
+    "attemptedSampledArms": 2,
+    "unattemptedArms": 1,
+    "parserNonpasses": 2,
+    "acceptedFinals": 1,
+    "semanticProductNonpasses": 1,
+    "strictPasses": 0,
+    "retries": 0
+  },
+  "design": {
+    "questionCount": 1,
+    "fixedOrder": ["BG01", "BG02", "BG03", "BG04"],
+    "seeds": [null, 42, 314159, 271828],
+    "runsPerArm": 1,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "collectionCapMs": 300000,
+    "directDiagnosticTargetMs": 180000,
+    "fullProductLatencyMeasured": false,
+    "completeSourceCount": 8,
+    "freshWorkerModelContextPerArm": true,
+    "observedAllocationEqualityRequired": true,
+    "requestHashes": {
+      "prompt": "4906c48c3507cb28538995127b51fc5598e183df331fdceba09f33c233145ec0",
+      "systemPrompt": "166d0bbc4de84375fc82b9b65909b8bb5f6cfe1178882adb7b3816d0d4133f2d",
+      "jsonSchema": "152c400280f4722ec8d29ccb1337770019faf5d239be91f3ea2667ae3e0665d2"
+    },
+    "exactBfFrozenRequestAndParserIdentity": true,
+    "historicalBdWireIdentityProven": false,
+    "identityLimitation": "BF reconstructed the original BD request from recorded complete packed passages/metadata and frozen prompt code; original outbound wire bytes were not retained. BG uses the exact frozen BF request/adapter. Historical BD is context, not the experimental control.",
+    "newProductionDefault": false
+  },
+  "sampler": {
+    "greedy": "Both stages forwarded the original temperature0 evaluate options unchanged; repeat penalty absent. Existing SDK topP.95/topK40/minP0 defaults and time-derived seed remain unused for greedy sampling.",
+    "sampledBothStages": {
+      "temperature": 1,
+      "topP": 0.95,
+      "topK": 20,
+      "minP": 0,
+      "presencePenalty": 1.5,
+      "repetitionPenalty": 1,
+      "frequencyPenalty": 0,
+      "maxPunishTokens": 2176
+    },
+    "seedPolicy": "The same fixed arm seed resets at each phase because the SDK creates a fresh sampler for every evaluate call. No continuous-RNG or serving-framework parity claim.",
+    "historyPolicy": "Naturally yielded completion tokens across phases, including natural thought closing or final EOG when yielded; excludes prompt/prefill, manually forced closing tokens and bridge commits. Actual completed arms hit the128 thought cap, then injected2 forced closing tokens excluded from penalty history.",
+    "wipeClaim": "Facade-owned history buffer/reference state cleared on exit. Ephemeral JavaScript/SDK/native copies are not proven cryptographically erased.",
+    "implementation": "Ignored OUT shadow worker reversibly changes only shared import location plus one bounded-call facade wrapper; original production engine/loading/FIFO/cancel/drain/clear/retirement retained. No SDK prototype or production mutation during run.",
+    "profileDescription": "Qwen-recommended sampler values under this bounded adapter; not serving-framework parity."
+  },
+  "runtime": {
+    "completedArms": {
+      "backend": "vulkan",
+      "threads": 6,
+      "reserveBytes": 1073741824,
+      "kvType": "f16",
+      "contextTokens": 8192,
+      "gpuLayers": 14,
+      "totalModelLayers": 33,
+      "schemaMode": "summary"
+    },
+    "unattemptedBg04": {
+      "backend": "vulkan",
+      "threads": 6,
+      "reserveBytes": 1073741824,
+      "kvType": "q8_0",
+      "contextTokens": 8192,
+      "gpuLayers": 14,
+      "totalModelLayers": 33,
+      "schemaMode": "summary"
+    },
+    "mismatch": "KV f16 versus q8_0 only; guard stopped BG04 before inference.",
+    "allocatorAttemptReasonsAvailable": false,
+    "allocatorLimitation": "not retained by the fixed safe receiver; only observed allocation metadata available"
+  },
+  "timings": {
+    "coldGroupWallMs": 562069,
+    "coldGroupIncludesAbortedFourthLoadAndClosure": true,
+    "rows": [
+      {
+        "id": "BG01",
+        "loadMs": 35193,
+        "nativeMs": 136979,
+        "callMs": 137179,
+        "callAndParserMs": 137181,
+        "coldArmMs": 173105,
+        "direct180SecondTargetPass": true
+      },
+      {
+        "id": "BG02",
+        "loadMs": 35002,
+        "nativeMs": 152143,
+        "callMs": 152343,
+        "callAndParserMs": 152345,
+        "coldArmMs": 188070,
+        "direct180SecondTargetPass": true
+      },
+      {
+        "id": "BG03",
+        "loadMs": 34764,
+        "nativeMs": 118515,
+        "callMs": 118715,
+        "callAndParserMs": 118720,
+        "coldArmMs": 154271,
+        "direct180SecondTargetPass": true
+      },
+      {
+        "id": "BG04",
+        "loadMs": 34891,
+        "nativeMs": null,
+        "callMs": null,
+        "callAndParserMs": null,
+        "coldArmMs": 35382,
+        "direct180SecondTargetPass": null
+      }
+    ]
+  },
+  "safeRuntimeEvidence": [
+    {
+      "id": "BG01",
+      "attempted": 1,
+      "metrics": {
+        "elapsedMs": 137012,
+        "nativeMs": 136979,
+        "grammarMs": 9,
+        "promptFitMs": 23,
+        "usedInputTokens": 1740,
+        "usedOutputTokens": 264,
+        "cancelled": false,
+        "completionReason": "stopGenerationTrigger",
+        "route": "main",
+        "boundedThoughts": {
+          "promptTokens": 1739,
+          "thoughtTokens": 128,
+          "thoughtClosingTokens": 0,
+          "forcedClosingTokens": 2,
+          "visibleTokens": 136,
+          "combinedTokens": 266,
+          "firstVisibleMs": 74100,
+          "lastVisibleMs": 136974,
+          "thoughtTermination": "budget"
+        }
+      },
+      "nativeStart": {
+        "maxTokens": 2176,
+        "noThink": false,
+        "boundedReasoning": "active",
+        "jsonWhitespace": "compact"
+      },
+      "samplerReceipts": [
+        {
+          "type": "phase_start",
+          "armId": "BG01",
+          "phase": "thought",
+          "seed": null,
+          "seedPolicy": "omitted_sdk_default_unused_by_greedy",
+          "historyAtStart": 0,
+          "historyAtEnd": 0,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 0,
+            "topP": null,
+            "topK": null,
+            "minP": null,
+            "seed": null,
+            "repeatPenaltyPresent": false,
+            "optionsForwardedUnchanged": true,
+            "sdkDefaults": {
+              "topP": 0.95,
+              "topK": 40,
+              "minP": 0,
+              "seed": "time_default_unused_greedy"
+            }
+          }
+        },
+        {
+          "type": "phase_start",
+          "armId": "BG01",
+          "phase": "final",
+          "seed": null,
+          "seedPolicy": "omitted_sdk_default_unused_by_greedy",
+          "historyAtStart": 128,
+          "historyAtEnd": 128,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 0,
+            "topP": null,
+            "topK": null,
+            "minP": null,
+            "seed": null,
+            "repeatPenaltyPresent": false,
+            "optionsForwardedUnchanged": true,
+            "sdkDefaults": {
+              "topP": 0.95,
+              "topK": 40,
+              "minP": 0,
+              "seed": "time_default_unused_greedy"
+            }
+          }
+        },
+        {
+          "type": "scope_closed",
+          "completed": true,
+          "armId": "BG01",
+          "phaseCount": 2,
+          "clearCalls": 2,
+          "clearFailures": 0,
+          "historyCount": 0,
+          "wiped": true,
+          "phases": [
+            {
+              "phase": "thought",
+              "seed": null,
+              "seedPolicy": "omitted_sdk_default_unused_by_greedy",
+              "historyAtStart": 0,
+              "historyAtEnd": 128,
+              "historyReads": 0,
+              "nextCalls": 128,
+              "yieldedTokens": 128,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": null,
+              "historyReadMax": null,
+              "applied": {
+                "temperature": 0,
+                "topP": null,
+                "topK": null,
+                "minP": null,
+                "seed": null,
+                "repeatPenaltyPresent": false,
+                "optionsForwardedUnchanged": true,
+                "sdkDefaults": {
+                  "topP": 0.95,
+                  "topK": 40,
+                  "minP": 0,
+                  "seed": "time_default_unused_greedy"
+                }
+              }
+            },
+            {
+              "phase": "final",
+              "seed": null,
+              "seedPolicy": "omitted_sdk_default_unused_by_greedy",
+              "historyAtStart": 128,
+              "historyAtEnd": 264,
+              "historyReads": 0,
+              "nextCalls": 136,
+              "yieldedTokens": 136,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": null,
+              "historyReadMax": null,
+              "applied": {
+                "temperature": 0,
+                "topP": null,
+                "topK": null,
+                "minP": null,
+                "seed": null,
+                "repeatPenaltyPresent": false,
+                "optionsForwardedUnchanged": true,
+                "sdkDefaults": {
+                  "topP": 0.95,
+                  "topK": 40,
+                  "minP": 0,
+                  "seed": "time_default_unused_greedy"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "BG02",
+      "attempted": 1,
+      "metrics": {
+        "elapsedMs": 152175,
+        "nativeMs": 152143,
+        "grammarMs": 9,
+        "promptFitMs": 22,
+        "usedInputTokens": 1740,
+        "usedOutputTokens": 285,
+        "cancelled": false,
+        "completionReason": "stopGenerationTrigger",
+        "route": "main",
+        "boundedThoughts": {
+          "promptTokens": 1739,
+          "thoughtTokens": 128,
+          "thoughtClosingTokens": 0,
+          "forcedClosingTokens": 2,
+          "visibleTokens": 157,
+          "combinedTokens": 287,
+          "firstVisibleMs": 76891,
+          "lastVisibleMs": 152140,
+          "thoughtTermination": "budget"
+        }
+      },
+      "nativeStart": {
+        "maxTokens": 2176,
+        "noThink": false,
+        "boundedReasoning": "active",
+        "jsonWhitespace": "compact"
+      },
+      "samplerReceipts": [
+        {
+          "type": "phase_start",
+          "armId": "BG02",
+          "phase": "thought",
+          "seed": 42,
+          "seedPolicy": "same_explicit_seed_restarts_each_phase",
+          "historyAtStart": 0,
+          "historyAtEnd": 0,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 1,
+            "topP": 0.95,
+            "topK": 20,
+            "minP": 0,
+            "seed": 42,
+            "repeatPenaltyPresent": true,
+            "repetitionPenalty": 1,
+            "frequencyPenalty": 0,
+            "presencePenalty": 1.5,
+            "maxPunishTokens": 2176,
+            "optionsForwardedUnchanged": false
+          }
+        },
+        {
+          "type": "phase_start",
+          "armId": "BG02",
+          "phase": "final",
+          "seed": 42,
+          "seedPolicy": "same_explicit_seed_restarts_each_phase",
+          "historyAtStart": 128,
+          "historyAtEnd": 128,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 1,
+            "topP": 0.95,
+            "topK": 20,
+            "minP": 0,
+            "seed": 42,
+            "repeatPenaltyPresent": true,
+            "repetitionPenalty": 1,
+            "frequencyPenalty": 0,
+            "presencePenalty": 1.5,
+            "maxPunishTokens": 2176,
+            "optionsForwardedUnchanged": false
+          }
+        },
+        {
+          "type": "scope_closed",
+          "completed": true,
+          "armId": "BG02",
+          "phaseCount": 2,
+          "clearCalls": 2,
+          "clearFailures": 0,
+          "historyCount": 0,
+          "wiped": true,
+          "phases": [
+            {
+              "phase": "thought",
+              "seed": 42,
+              "seedPolicy": "same_explicit_seed_restarts_each_phase",
+              "historyAtStart": 0,
+              "historyAtEnd": 128,
+              "historyReads": 128,
+              "nextCalls": 128,
+              "yieldedTokens": 128,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": 0,
+              "historyReadMax": 127,
+              "applied": {
+                "temperature": 1,
+                "topP": 0.95,
+                "topK": 20,
+                "minP": 0,
+                "seed": 42,
+                "repeatPenaltyPresent": true,
+                "repetitionPenalty": 1,
+                "frequencyPenalty": 0,
+                "presencePenalty": 1.5,
+                "maxPunishTokens": 2176,
+                "optionsForwardedUnchanged": false
+              }
+            },
+            {
+              "phase": "final",
+              "seed": 42,
+              "seedPolicy": "same_explicit_seed_restarts_each_phase",
+              "historyAtStart": 128,
+              "historyAtEnd": 285,
+              "historyReads": 157,
+              "nextCalls": 157,
+              "yieldedTokens": 157,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": 128,
+              "historyReadMax": 284,
+              "applied": {
+                "temperature": 1,
+                "topP": 0.95,
+                "topK": 20,
+                "minP": 0,
+                "seed": 42,
+                "repeatPenaltyPresent": true,
+                "repetitionPenalty": 1,
+                "frequencyPenalty": 0,
+                "presencePenalty": 1.5,
+                "maxPunishTokens": 2176,
+                "optionsForwardedUnchanged": false
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "BG03",
+      "attempted": 1,
+      "metrics": {
+        "elapsedMs": 118544,
+        "nativeMs": 118515,
+        "grammarMs": 8,
+        "promptFitMs": 19,
+        "usedInputTokens": 1740,
+        "usedOutputTokens": 221,
+        "cancelled": false,
+        "completionReason": "stopGenerationTrigger",
+        "route": "main",
+        "boundedThoughts": {
+          "promptTokens": 1739,
+          "thoughtTokens": 128,
+          "thoughtClosingTokens": 0,
+          "forcedClosingTokens": 2,
+          "visibleTokens": 93,
+          "combinedTokens": 223,
+          "firstVisibleMs": 75691,
+          "lastVisibleMs": 118512,
+          "thoughtTermination": "budget"
+        }
+      },
+      "nativeStart": {
+        "maxTokens": 2176,
+        "noThink": false,
+        "boundedReasoning": "active",
+        "jsonWhitespace": "compact"
+      },
+      "samplerReceipts": [
+        {
+          "type": "phase_start",
+          "armId": "BG03",
+          "phase": "thought",
+          "seed": 314159,
+          "seedPolicy": "same_explicit_seed_restarts_each_phase",
+          "historyAtStart": 0,
+          "historyAtEnd": 0,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 1,
+            "topP": 0.95,
+            "topK": 20,
+            "minP": 0,
+            "seed": 314159,
+            "repeatPenaltyPresent": true,
+            "repetitionPenalty": 1,
+            "frequencyPenalty": 0,
+            "presencePenalty": 1.5,
+            "maxPunishTokens": 2176,
+            "optionsForwardedUnchanged": false
+          }
+        },
+        {
+          "type": "phase_start",
+          "armId": "BG03",
+          "phase": "final",
+          "seed": 314159,
+          "seedPolicy": "same_explicit_seed_restarts_each_phase",
+          "historyAtStart": 128,
+          "historyAtEnd": 128,
+          "historyReads": 0,
+          "nextCalls": 0,
+          "yieldedTokens": 0,
+          "returnCalls": 0,
+          "returnFailures": 0,
+          "throwCalls": 0,
+          "throwFailures": 0,
+          "historyReadMin": null,
+          "historyReadMax": null,
+          "applied": {
+            "temperature": 1,
+            "topP": 0.95,
+            "topK": 20,
+            "minP": 0,
+            "seed": 314159,
+            "repeatPenaltyPresent": true,
+            "repetitionPenalty": 1,
+            "frequencyPenalty": 0,
+            "presencePenalty": 1.5,
+            "maxPunishTokens": 2176,
+            "optionsForwardedUnchanged": false
+          }
+        },
+        {
+          "type": "scope_closed",
+          "completed": true,
+          "armId": "BG03",
+          "phaseCount": 2,
+          "clearCalls": 2,
+          "clearFailures": 0,
+          "historyCount": 0,
+          "wiped": true,
+          "phases": [
+            {
+              "phase": "thought",
+              "seed": 314159,
+              "seedPolicy": "same_explicit_seed_restarts_each_phase",
+              "historyAtStart": 0,
+              "historyAtEnd": 128,
+              "historyReads": 128,
+              "nextCalls": 128,
+              "yieldedTokens": 128,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": 0,
+              "historyReadMax": 127,
+              "applied": {
+                "temperature": 1,
+                "topP": 0.95,
+                "topK": 20,
+                "minP": 0,
+                "seed": 314159,
+                "repeatPenaltyPresent": true,
+                "repetitionPenalty": 1,
+                "frequencyPenalty": 0,
+                "presencePenalty": 1.5,
+                "maxPunishTokens": 2176,
+                "optionsForwardedUnchanged": false
+              }
+            },
+            {
+              "phase": "final",
+              "seed": 314159,
+              "seedPolicy": "same_explicit_seed_restarts_each_phase",
+              "historyAtStart": 128,
+              "historyAtEnd": 221,
+              "historyReads": 93,
+              "nextCalls": 93,
+              "yieldedTokens": 93,
+              "returnCalls": 1,
+              "returnFailures": 0,
+              "throwCalls": 0,
+              "throwFailures": 0,
+              "historyReadMin": 128,
+              "historyReadMax": 220,
+              "applied": {
+                "temperature": 1,
+                "topP": 0.95,
+                "topK": 20,
+                "minP": 0,
+                "seed": 314159,
+                "repeatPenaltyPresent": true,
+                "repetitionPenalty": 1,
+                "frequencyPenalty": 0,
+                "presencePenalty": 1.5,
+                "maxPunishTokens": 2176,
+                "optionsForwardedUnchanged": false
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "BG04",
+      "attempted": 0,
+      "metrics": null,
+      "nativeStart": null,
+      "samplerReceipts": null
+    }
+  ],
+  "closure": {
+    "cleanupVerified": true,
+    "screenOperationalPass": false,
+    "actualNodeExit": 1,
+    "originalPostverifyExit": 1,
+    "originalPostverifyArtifactPresent": false,
+    "originalPostverifyLimitation": "Original verifier requires group-result.json, which is intentionally absent after operational failure; its nonzero result remains preserved.",
+    "verifiedPinsAtClosure": 620,
+    "workerExits": [0, 0, 0, 0],
+    "actualElectronExits": [0, 0, 0, 1],
+    "pendingRequests": [0, 0, 0, 0],
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "forcedStops": 0,
+    "profilesRemoved": true,
+    "captureEnabled": false,
+    "sourcePinMeaning": "Historical pins were matched at this run closure. Root normalized SDK patch line endings only afterward with unchanged normalized pnpm hash; this report does not claim the historical build/source pins match the later workspace."
+  },
+  "privacy": {
+    "wholeGroupClosureBeforeAcceptedFinalInspection": true,
+    "rejectedThoughtOrCheckBodiesRetained": false,
+    "remainingFreshValidationOpened": false
+  },
+  "decision": "No default adoption, retry, replacement seed or later case is justified by this incomplete nonpass diagnostic.",
+  "remainingOriginalCasesUnattempted": 12,
+  "originalOtherCasesRun": false,
+  "replacementSeeds": 0
+}

@@ -1,0 +1,281 @@
+{
+  "kind": "safe-actual-app-final-observations",
+  "runId": "bugfix-20261005-ac-fresh-validation",
+  "split": "ab-fresh-validation-20261006",
+  "status": "Original previously unrun AC collection; subsequent reuse is known DEV.",
+  "privacy": "Fixed allowlist of final displayed answers, numeric source identities/order, scalar counters and provenance hashes only. No private check, thought text/tokens, chat history, raw model response envelope, prompt, source body, authentication data, profile or log path is copied.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261005-ac-fresh-validation/raw.json",
+    "sha256": "ae6c73730ec920e2f04e7707af7d11f39ef4ec27020c36d1263fc3ebf1617c05",
+    "availability": "Local generated artifact; observations.json preserves the allowlisted evidence in the repository."
+  },
+  "requestedCases": ["ab-fresh-01", "ab-fresh-02", "ab-fresh-03"],
+  "observedCases": 3,
+  "startedAt": "2026-10-05T23:13:08.103Z",
+  "observationCollectionCompletedAt": "2026-10-05T23:19:38.688Z",
+  "completedAt": "2026-10-05T23:19:38.688Z",
+  "requestedContext": 8192,
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 180000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "answerPolicy": "Production default; actual per-query checked path/schema/sampler recorded from content-free runtime diagnostics"
+  },
+  "provenance": {
+    "buildManifestSha256": "a153fccc912c4ce974aa80d588a04cd3c8359c29940098418d1b44b51fd11af3",
+    "workerSha256": "6f2c6abf27484f50fe3afa1d6af5330f278cfe276b8a7420daf2ad4ef02ede5d",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d",
+    "originalSealSha256": "4db317746b07e5ae82ab230559240a5e7ad12da8c474a0f5e5ada85af23e6447",
+    "fixtureLockSha256": "90f1316c9e7642b124603432d11b49214a7411ec62b000e6409c325067b63ff8"
+  },
+  "timingInterpretation": "Native text callback timestamps measure constrained response generation, not first user-visible answer time or exact prefill. usedOutputTokens and response counters include the structured generation envelope, not just final displayed prose.",
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “\\# Nuvrek Filterintervall — Notiz Süd\n” [doc:2, chunk:2]; “Ausgestellt am 2044\\-08\\-06 für NP\\-6\\-Pumpenfilter der Kampagne S8\\.” [doc:2, chunk:2].",
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "finalCitationIds": ["2:2"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 81107,
+        "firstVisibleTokenMs": 81107,
+        "terminalMs": 81108,
+        "totalMs": 81108,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true
+      },
+      "generationContract": {
+        "calls": [
+          {
+            "schema": "typed-comparison-v11",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 31,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v11",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ],
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 70581
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "nativeMetrics": [
+        {
+          "task": "utility",
+          "route": "main",
+          "elapsedMs": 70576,
+          "grammarMs": 3,
+          "promptFitMs": 28,
+          "nativeMs": 70544,
+          "firstTextMs": 20271,
+          "lastTextMs": 69359,
+          "firstNonWhitespaceTextMs": 20271,
+          "lastNonWhitespaceTextMs": 69359,
+          "responseChars": 230,
+          "responseChunks": 103,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2229,
+          "usedOutputTokens": 104
+        }
+      ],
+      "observerStatus": {
+        "workers": 1,
+        "observerErrors": 0,
+        "dropped": 0,
+        "pending": 0,
+        "armed": false,
+        "disposed": false
+      }
+    },
+    {
+      "caseId": "ab-fresh-02",
+      "finalAnswer": "On 2038-04-08, staff may lend a maximum of 5 portable projectors and 9 tablets for one registered Belvorn team meeting. The tablet working paper (circulated 2038-04-02) suggests increasing the tablet limit to 9, but since the facilities council has not approved this suggestion, the limit remains at 9 tablets as per the base rule. The projector limit was increased to 5 by an amendment effective 2038-03-01. [doc:3, chunk:3] [doc:4, chunk:4] [doc:5, chunk:5]",
+      "actualFedSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "finalCitationIds": ["3:3", "4:4", "5:5"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 144440,
+        "firstVisibleTokenMs": 144440,
+        "terminalMs": 144440,
+        "totalMs": 144441,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true
+      },
+      "generationContract": {
+        "calls": [
+          {
+            "schema": "typed-comparison-v11",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v11",
+            "mode": "answered",
+            "outcome": null
+          }
+        ],
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 127451
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "nativeMetrics": [
+        {
+          "task": "utility",
+          "route": "main",
+          "elapsedMs": 127446,
+          "grammarMs": 2,
+          "promptFitMs": 30,
+          "nativeMs": 127413,
+          "firstTextMs": 20281,
+          "lastTextMs": 124979,
+          "firstNonWhitespaceTextMs": 20281,
+          "lastNonWhitespaceTextMs": 124979,
+          "responseChars": 693,
+          "responseChunks": 229,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2189,
+          "usedOutputTokens": 232
+        }
+      ],
+      "observerStatus": {
+        "workers": 1,
+        "observerErrors": 0,
+        "dropped": 0,
+        "pending": 0,
+        "armed": false,
+        "disposed": false
+      }
+    },
+    {
+      "caseId": "ab-fresh-03",
+      "finalAnswer": "The planned 2037 receipts of 29835 CHF exceed the recorded 2036 receipts of 27460 CHF by 2375 CHF. [doc:6, chunk:6] [doc:7, chunk:7]",
+      "actualFedSourceIdsInOrder": ["6:6", "7:7", "8:8", "4:4", "5:5", "3:3", "1:1"],
+      "finalCitationIds": ["6:6", "7:7"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 113488,
+        "firstVisibleTokenMs": 113488,
+        "terminalMs": 113488,
+        "totalMs": 113488,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true
+      },
+      "generationContract": {
+        "calls": [
+          {
+            "schema": "typed-comparison-v11",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v11",
+            "mode": "answered",
+            "outcome": null
+          }
+        ],
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 96359
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "nativeMetrics": [
+        {
+          "task": "utility",
+          "route": "main",
+          "elapsedMs": 96357,
+          "grammarMs": 2,
+          "promptFitMs": 29,
+          "nativeMs": 96326,
+          "firstTextMs": 18055,
+          "lastTextMs": 93940,
+          "firstNonWhitespaceTextMs": 18055,
+          "lastNonWhitespaceTextMs": 93940,
+          "responseChars": 377,
+          "responseChunks": 162,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 2030,
+          "usedOutputTokens": 165
+        }
+      ],
+      "observerStatus": {
+        "workers": 1,
+        "observerErrors": 0,
+        "dropped": 0,
+        "pending": 0,
+        "armed": false,
+        "disposed": false
+      }
+    }
+  ]
+}

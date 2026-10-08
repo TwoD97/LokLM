@@ -31,7 +31,10 @@ export function translationSlug(
   otherLang: 'de' | 'en',
 ): string | undefined {
   const match = all.find(
-    (p) => p.data.lang === otherLang && p.data.translationKey === post.data.translationKey,
+    (p) =>
+      !p.data.draft &&
+      p.data.lang === otherLang &&
+      p.data.translationKey === post.data.translationKey,
   )
   return match ? slugOf(match) : undefined
 }

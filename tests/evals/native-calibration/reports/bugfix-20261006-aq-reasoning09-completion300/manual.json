@@ -1,0 +1,16 @@
+[
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "unclear",
+    "operationalOutcome": "parser-rejection-after-normal-generation-stop",
+    "rejection": "answer",
+    "rejectionDetail": "source_label_malformed",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "One diagnostic-only isolated repeat with a 300-second calibration window. Native generation stopped normally, but strict parsing rejected with fixed broad answer/detail source_label_malformed; no validated final exists. Both required 16:17/17:18 were supplied. The exact malformed syntax, rejected facts, calculation and source choices are unknown and not inferred. App 183788 ms/native 173088 ms; no timeout, request error. First-query preparation differs from original 09 after 02. This does not replace the original 180-second timeout or change its aggregate."
+  }
+]

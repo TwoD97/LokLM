@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "authority-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The unresolved comparison preserves both exact 54/57 counts, identical K9 cohort and serial range, same inspection date, and the source-scoped absence of documented consolidation. Correct 1:1/2:2 markers. No invented sum, minimum or partial-population distinction. Quoting both full paragraphs is longer than a brief prose explanation, but supplies all necessary scope and qualifications. Independently cross-reviewed."
+  },
+  {
+    "caseId": "authority-reserved-07",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Both required code passages 12:12 and 13:13 were actually supplied, but the fixed 180-second deadline expired at 180.396 seconds. The app returned one cancelled terminal with only an interruption note. No checked result or parse-rejection reason is available, so no semantic calculation/deployment conclusion is inferred. No retry or output repair; retained as a separate operational nonpass."
+  }
+]

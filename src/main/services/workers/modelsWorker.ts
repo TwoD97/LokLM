@@ -59,6 +59,14 @@ import type {
 import { UTILITY_CONTEXT_MAX_TOKENS, UTILITY_GEN_DEFAULT_RESERVE } from './llmRouting'
 import { createBackendSerializer } from './backendSerializer'
 import { nonThinkingChatWrapper } from './chatWrapper'
+import { compactJsonGrammarOptions } from './compactJsonGrammar'
+import {
+  boundedThoughtTelemetry,
+  generateWithBoundedThoughts,
+  planBoundedThoughts,
+  supportsBoundedThoughts,
+  type BoundedThoughtPlan,
+} from './boundedThoughts'
 import { ModelResidency } from './ModelResidency'
 import { assessRerankerPolicy, describeRerankerDecision } from '../../../shared/modelCapabilities'
 import {
@@ -757,16 +765,17 @@ const REPEAT_PENALTY = {
 const GRAMMAR_CACHE_MAX_ENTRIES = 16
 const grammarCache = new Map<string, unknown>()
 
-/** Build (and cache) a node-llama-cpp grammar for a JSON schema. Returns null
- *  when the backend doesn't expose createGrammarForJsonSchema or the build
- *  throws — the caller then generates without a grammar. */
-async function grammarForSchema(schema: object): Promise<unknown> {
+/** Explicit structured output must compile before generation. A missing or
+ * failed grammar rejects this request; it must never become unrestricted text. */
+async function grammarForSchema(schema: object, compactWhitespace = false): Promise<unknown> {
   // Native grammar handles must belong to the model's GPU backend.
   const backend = backends.get(llmBackendKey) as {
     createGrammarForJsonSchema?: (s: object) => Promise<unknown>
+    createGrammar?: (options: import('node-llama-cpp').LlamaGrammarOptions) => Promise<unknown>
   } | null
-  if (!backend || typeof backend.createGrammarForJsonSchema !== 'function') return null
-  const key = `${llmBackendKey}:${JSON.stringify(schema)}`
+  if (!backend || typeof backend.createGrammarForJsonSchema !== 'function')
+    throw new Error('Structured output is unavailable on this model backend.')
+  const key = `${llmBackendKey}:${compactWhitespace ? 'compact' : 'default'}:${JSON.stringify(schema)}`
   const cached = grammarCache.get(key)
   if (cached) {
     grammarCache.delete(key)
@@ -774,7 +783,16 @@ async function grammarForSchema(schema: object): Promise<unknown> {
     return cached
   }
   try {
-    const grammar = await backend.createGrammarForJsonSchema(schema)
+    let grammar = await backend.createGrammarForJsonSchema(schema)
+    if (grammar === null || typeof grammar !== 'object')
+      throw new Error('The backend did not return a grammar.')
+    if (compactWhitespace) {
+      if (typeof backend.createGrammar !== 'function')
+        throw new Error('Compact structured output grammar is unavailable.')
+      grammar = await backend.createGrammar(compactJsonGrammarOptions(grammar))
+      if (grammar === null || typeof grammar !== 'object')
+        throw new Error('The backend did not return a compact grammar.')
+    }
     grammarCache.set(key, grammar)
     if (grammarCache.size > GRAMMAR_CACHE_MAX_ENTRIES) {
       const oldest = grammarCache.keys().next().value
@@ -782,11 +800,9 @@ async function grammarForSchema(schema: object): Promise<unknown> {
     }
     return grammar
   } catch (err) {
-    log(
-      'warn',
-      `grammar build failed, generating without it: ${err instanceof Error ? err.message : String(err)}`,
-    )
-    return null
+    // Native errors can include schema values. Keep private source-derived
+    // content out of persistent logs and the user-facing failure message.
+    throw new Error('Structured output grammar could not be compiled.', { cause: err })
   }
 }
 
@@ -908,16 +924,40 @@ function routeToUtility(payload: LlmGenerateRawPayload): boolean {
 
 async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: string }> {
   if (!llmSession) throw new Error('Model is not loaded.')
+  const boundedRequested = payload.maxBoundedThoughtTokens !== undefined
+  if (
+    boundedRequested &&
+    payload.maxBoundedThoughtTokens !== 64 &&
+    payload.maxBoundedThoughtTokens !== 128 &&
+    payload.maxBoundedThoughtTokens !== 192
+  )
+    throw new Error('Unsupported bounded thought request.')
+  const boundedSdk = boundedRequested ? await import('node-llama-cpp') : undefined
+  const boundedWrapper = boundedSdk?.resolveChatWrapper(
+    llmModel as import('node-llama-cpp').LlamaModel,
+  )
+  const boundedSupported = Boolean(
+    boundedSdk && boundedWrapper && supportsBoundedThoughts(boundedWrapper, boundedSdk),
+  )
+  if (boundedRequested && !boundedSupported)
+    log(
+      'info',
+      'llm.boundedThoughts: ' +
+        JSON.stringify({ status: 'unsupported_wrapper', maxThoughtTokens: 0 }),
+    )
   // Small generations go to the utility context so the main chat sequence
   // keeps its KV prefix; oversized ones (large quiz prompts pack toward the
   // main window) fall back to the main session with history save/restore.
-  const useUtility = routeToUtility(payload)
+  // The guarded adapter initially uses the existing main sequence only: no
+  // second context allocation or discourage-wrapper utility-budget estimate.
+  const useUtility = !boundedSupported && routeToUtility(payload)
   const session = (useUtility ? llmUtilitySession : llmSession) as {
     promptWithMeta: (
       text: string,
       options: {
         signal?: AbortSignal
-        repeatPenalty?: typeof REPEAT_PENALTY
+        onTextChunk?: (text: string) => void
+        repeatPenalty?: false | typeof REPEAT_PENALTY
         maxTokens?: number
         grammar?: unknown
         budgets?: { thoughtTokens: number }
@@ -926,10 +966,26 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
     getChatHistory?: () => unknown[]
     setChatHistory?: (history: unknown[]) => void
     resetChatHistory?: () => void
+    sequence?: import('node-llama-cpp').LlamaContextSequence
   }
   const ctrl = new AbortController()
   const startedAt = Date.now()
   const label = payload.background ? 'title' : 'utility'
+  const tracing = process.env['LOKLM_RETRIEVAL_TRACE'] === '1'
+  let meter: NonNullable<typeof session.sequence>['tokenMeter'] | undefined
+  let tokenStart: { usedInputTokens: number; usedOutputTokens: number } | undefined
+  let nativeStartedAt: number | null = null
+  let grammarMs = 0
+  let promptFitMs: number | null = null
+  let firstTextMs: number | null = null
+  let lastTextMs: number | null = null
+  let firstNonWhitespaceTextMs: number | null = null
+  let lastNonWhitespaceTextMs: number | null = null
+  let responseChars = 0
+  let responseChunks = 0
+  let completionReason: string | null = null
+  let boundedPlan: BoundedThoughtPlan | undefined
+  const boundedMetrics = boundedThoughtTelemetry()
   activeAborts.set(payload.streamId, ctrl)
   if (abortedBeforeStart.delete(payload.streamId)) ctrl.abort()
   // History save/restore only matters on the main session — the utility
@@ -951,56 +1007,220 @@ async function llmGenerateRaw(payload: LlmGenerateRawPayload): Promise<{ raw: st
     if (systemPrompt) patchSessionSystemPrompt(session, systemPrompt)
     const promptOpts: {
       signal: AbortSignal
-      repeatPenalty: typeof REPEAT_PENALTY
+      repeatPenalty: false | typeof REPEAT_PENALTY
       maxTokens?: number
       grammar?: unknown
       budgets?: { thoughtTokens: number }
       temperature?: number
+      onTextChunk?: (text: string) => void
     } = {
       signal: ctrl.signal,
-      repeatPenalty: REPEAT_PENALTY,
+      repeatPenalty: payload.repeatPenalty === false ? false : REPEAT_PENALTY,
       // Utility calls must always terminate, even if a caller omits a budget.
       maxTokens: payload.maxTokens ?? UTILITY_GEN_DEFAULT_RESERVE,
     }
+    if (tracing)
+      promptOpts.onTextChunk = (text: string) => {
+        // Counts/timestamps only: never retain or log generated text, including
+        // partial JSON that may contain private excerpts or internal checks.
+        responseChunks++
+        responseChars += text.length
+        if (!text.length) return
+        const elapsedMs = Date.now() - nativeStartedAt!
+        firstTextMs ??= elapsedMs
+        lastTextMs = elapsedMs
+        if (text.trim()) {
+          firstNonWhitespaceTextMs ??= elapsedMs
+          lastNonWhitespaceTextMs = elapsedMs
+        }
+      }
     if (payload.temperature != null) promptOpts.temperature = payload.temperature
     // Utilities return their result directly unless reasoning was requested.
     // The segment budget enforces this even when the GGUF ignores /no_think.
-    if (payload.noThink !== false) promptOpts.budgets = { thoughtTokens: 0 }
-    // Grammar guarantees JSON *syntax* only; the main side still runs semantic
-    // validation + JSON-retry. A grammar build failure must never crash the
-    // worker — grammarForSchema returns null and we generate unconstrained.
+    if (boundedRequested || payload.noThink !== false) promptOpts.budgets = { thoughtTokens: 0 }
+    // Grammar guarantees JSON *syntax* only; callers still validate the result.
+    // Compilation failure rejects this request before any generation begins.
     if (payload.jsonSchema) {
-      const grammar = await grammarForSchema(payload.jsonSchema)
-      if (grammar) promptOpts.grammar = grammar
+      const grammarStartedAt = tracing ? Date.now() : 0
+      try {
+        promptOpts.grammar = await grammarForSchema(payload.jsonSchema, boundedSupported)
+      } finally {
+        if (tracing) grammarMs = Date.now() - grammarStartedAt
+      }
     }
-    assertPreparedPromptFits({
-      session: session as unknown as Parameters<typeof assertPreparedPromptFits>[0]['session'],
-      plannedContextTokens: payload.plannedContextTokens,
-      actualContextTokens:
-        ((useUtility ? llmUtilityContext : llmContext) as { contextSize?: number } | null)
-          ?.contextSize ?? 0,
-      prompt: payload.prompt,
-      maxTokens: promptOpts.maxTokens!,
-      signal: ctrl.signal,
-    })
+    const fitStartedAt = tracing ? Date.now() : 0
+    try {
+      if (boundedSupported) {
+        try {
+          ctrl.signal.throwIfAborted()
+          if (
+            !payload.jsonSchema ||
+            payload.repeatPenalty !== false ||
+            (payload.temperature ?? 0) !== 0
+          )
+            throw new Error(
+              'Bounded structured answers require the declared deterministic sampler.',
+            )
+          const grammar = promptOpts.grammar as import('node-llama-cpp').LlamaGrammar
+          if (
+            grammar.stopGenerationTriggers.length !== 1 ||
+            grammar.stopGenerationTriggers[0]?.toString() !== '\n\n\n\n'
+          )
+            throw new Error('Structured output has an unsupported termination boundary.')
+          boundedPlan = planBoundedThoughts({
+            model: llmModel as import('node-llama-cpp').LlamaModel,
+            context: llmContext as import('node-llama-cpp').LlamaContext,
+            detectedWrapper: boundedWrapper!,
+            sdk: boundedSdk!,
+            prompt: payload.prompt,
+            systemPrompt,
+            maxTokens: promptOpts.maxTokens!,
+            maxThoughtTokens: payload.maxBoundedThoughtTokens!,
+          })
+          ctrl.signal.throwIfAborted()
+        } catch (error) {
+          log(
+            'info',
+            'llm.boundedThoughts: ' +
+              JSON.stringify({ status: 'setup_failed', maxThoughtTokens: 0 }),
+          )
+          throw error
+        }
+      } else
+        assertPreparedPromptFits({
+          session: session as unknown as Parameters<typeof assertPreparedPromptFits>[0]['session'],
+          plannedContextTokens: payload.plannedContextTokens,
+          actualContextTokens:
+            ((useUtility ? llmUtilityContext : llmContext) as { contextSize?: number } | null)
+              ?.contextSize ?? 0,
+          prompt: payload.prompt,
+          maxTokens: promptOpts.maxTokens!,
+          signal: ctrl.signal,
+        })
+    } finally {
+      if (tracing) promptFitMs = Date.now() - fitStartedAt
+    }
     log(
       'info',
-      `llm.generateRaw start: task=${label} maxTokens=${promptOpts.maxTokens} noThink=${payload.noThink !== false}`,
+      `llm.generateRaw start: task=${label} maxTokens=${promptOpts.maxTokens} noThink=${boundedPlan ? false : boundedRequested || payload.noThink !== false} boundedReasoning=${boundedPlan ? 'active' : boundedRequested ? 'unsupported' : 'not_requested'} jsonWhitespace=${boundedPlan ? 'compact' : 'default'}`,
     )
-    const result = await session.promptWithMeta(payload.prompt, promptOpts)
+    if (tracing) {
+      try {
+        meter = session.sequence?.tokenMeter
+        tokenStart = meter?.getState()
+      } catch {
+        // Diagnostics must never change the native request outcome.
+      }
+    }
+    if (tracing) nativeStartedAt = Date.now()
+    let result: { responseText: string; stopReason: string }
+    if (boundedPlan) {
+      if (!session.sequence) throw new Error('The bounded thought sequence is unavailable.')
+      log(
+        'info',
+        'llm.boundedThoughts: ' +
+          JSON.stringify({ status: 'active', maxThoughtTokens: boundedPlan.maxThoughtTokens }),
+      )
+      result = await generateWithBoundedThoughts({
+        sequence: session.sequence,
+        plan: boundedPlan,
+        signal: ctrl.signal,
+        telemetry: boundedMetrics,
+        createGrammarState: () =>
+          new boundedSdk!.LlamaGrammarEvaluationState({
+            model: boundedPlan!.model,
+            grammar: promptOpts.grammar as import('node-llama-cpp').LlamaGrammar,
+          }),
+        onUnsafeState: retireUnsafeWorker,
+      })
+      firstTextMs = boundedMetrics.firstVisibleMs
+      lastTextMs = boundedMetrics.lastVisibleMs
+      responseChars = result.responseText.length
+    } else result = await session.promptWithMeta(payload.prompt, promptOpts)
+    ctrl.signal.throwIfAborted()
+    // Record completion separately from the finally/cleanup event. Never log
+    // generated text, source content or an unrecognized provider reason.
+    const stopReason = [
+      'abort',
+      'maxTokens',
+      'eogToken',
+      'stopGenerationTrigger',
+      'functionCalls',
+      'customStopTrigger',
+    ].includes(result.stopReason)
+      ? result.stopReason
+      : 'unknown'
+    completionReason = stopReason
+    log(
+      'info',
+      `llm.generateRaw completed: task=${label} stopReason=${stopReason} responseChars=${result.responseText.length}`,
+    )
     if (payload.requireComplete && result.stopReason === 'maxTokens') {
       throw new Error('Generation reached the model output limit. Please retry with shorter input.')
     }
     return { raw: result.responseText }
   } finally {
+    if (tracing) {
+      try {
+        let tokenCounts: { usedInputTokens?: number; usedOutputTokens?: number } = {}
+        try {
+          if (meter && tokenStart) {
+            const delta = meter.diff(tokenStart)
+            // Explicit numeric fields only; a diagnostic binding failure or
+            // unexpected result cannot expose text or replace the real error.
+            if (
+              Number.isFinite(delta.usedInputTokens) &&
+              delta.usedInputTokens >= 0 &&
+              Number.isFinite(delta.usedOutputTokens) &&
+              delta.usedOutputTokens >= 0
+            )
+              tokenCounts = {
+                usedInputTokens: delta.usedInputTokens,
+                usedOutputTokens: delta.usedOutputTokens,
+              }
+          }
+        } catch {
+          // Best effort even after a native abort/disposal.
+        }
+        log(
+          'info',
+          `llm.generateRaw metrics: ${JSON.stringify({
+            task: label,
+            route: useUtility ? 'utility' : 'main',
+            elapsedMs: Date.now() - startedAt,
+            grammarMs,
+            promptFitMs,
+            nativeMs: nativeStartedAt === null ? null : Date.now() - nativeStartedAt,
+            firstTextMs,
+            lastTextMs,
+            firstNonWhitespaceTextMs,
+            lastNonWhitespaceTextMs,
+            responseChars,
+            responseChunks,
+            completionReason,
+            cancelled: ctrl.signal.aborted,
+            ...tokenCounts,
+            ...(boundedPlan ? { boundedThoughts: boundedMetrics } : {}),
+          })}`,
+        )
+      } catch {
+        // Metrics/log transport failures must not mask success or failure.
+      }
+    }
     log(
       'info',
       `llm.generateRaw finished: task=${label} elapsedMs=${Date.now() - startedAt} cancelled=${ctrl.signal.aborted}`,
     )
     activeAborts.delete(payload.streamId)
-    if (!useUtility && saved && session.setChatHistory) {
+    if (workerRetirementRequired) {
+      // A failed native clear is not repaired by JS history restoration. The
+      // dispatcher closes admission and exits this owned process after reply.
+    } else if (!useUtility && saved && session.setChatHistory) {
       try {
         session.setChatHistory(saved)
+        // setLanguage can update the live prompt while native generation owns
+        // the FIFO. Preserve that update when restoring the prior conversation.
+        patchSessionSystemPrompt(session, llmSystemPrompt)
       } catch {
         session.resetChatHistory?.()
         patchSessionSystemPrompt(session, llmSystemPrompt)
@@ -1333,6 +1553,23 @@ async function ensureResident(task: ModelTask, force = false): Promise<unknown> 
 // ---- request dispatch -----------------------------------------------------
 
 let workerClosing = false
+let workerRetirementRequired = false
+let retirementExitScheduled = false
+
+function retireUnsafeWorker(): void {
+  workerClosing = true
+  workerRetirementRequired = true
+  for (const controller of activeAborts.values()) controller.abort()
+  try {
+    pushStatus('llm', {
+      state: 'failed',
+      resident: false,
+      message: 'The model worker must restart after a native cleanup failure.',
+    })
+  } catch {
+    /* fixed failure response and process exit remain required */
+  }
+}
 
 process.parentPort.on('message', (raw: WorkerRequest) => {
   // Some Electron versions wrap utility-process messages in { data: ... }; the
@@ -1351,8 +1588,17 @@ process.parentPort.on('message', (raw: WorkerRequest) => {
     return handle(msg)
   })
     .catch((err) => {
-      if ('id' in msg) fail(msg.id, err)
-      else log('error', err instanceof Error ? err.message : String(err))
+      try {
+        if ('id' in msg) fail(msg.id, err)
+        else log('error', err instanceof Error ? err.message : String(err))
+      } finally {
+        if (workerRetirementRequired && !retirementExitScheduled) {
+          retirementExitScheduled = true
+          // No native dispose/reuse on questionable state. Admission was
+          // closed synchronously before releasing the operation's FIFO slot.
+          setImmediate(() => process.exit(1))
+        }
+      }
     })
     .finally(() => {
       if (msg.op === 'llm.ask' || msg.op === 'llm.generateRaw')
@@ -1467,6 +1713,9 @@ async function handle(msg: WorkerRequest): Promise<void> {
         // buffers to leave the FIFO before freeing them. Queued work is rejected
         // by the admission check above. Main enforces a bounded process timeout.
         await runSerialized('llm.unload', async () => {
+          // A concurrent failed drain can retire the worker while shutdown
+          // waits for FIFO ownership. Do not dispose uncertain native state.
+          if (workerRetirementRequired) return
           await llmUnloadInternal()
           await embedderUnloadInternal()
           await rerankerUnloadInternal()
@@ -1475,7 +1724,7 @@ async function handle(msg: WorkerRequest): Promise<void> {
         // Always exit , a hanging dispose used to leave the worker process
         // alive past main's `before-quit` (the orphan-on-Windows scenario
         // the memory note flags).
-        process.exit(0)
+        process.exit(workerRetirementRequired ? 1 : 0)
       }
       return
     }

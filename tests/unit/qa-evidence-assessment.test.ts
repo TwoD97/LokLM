@@ -118,7 +118,7 @@ describe('QA source comparison boundary', () => {
     await vi.waitFor(() => expect(f.llm.generateRaw).toHaveBeenCalledOnce())
     expect(f.llm.generateRaw).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ abortSignal: ctrl.signal }),
+      expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
     )
     ctrl.abort()
     pending.resolve('assessment')

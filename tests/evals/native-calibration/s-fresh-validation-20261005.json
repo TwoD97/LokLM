@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "split": "s-fresh-validation-20261005",
+  "sources": [
+    {
+      "key": "sf-sorter-log",
+      "title": "Calvenor Sammelprotokoll Sortierstation",
+      "format": "text",
+      "file": "fixtures/s-fresh-validation-20261005/sorter-log.txt"
+    },
+    {
+      "key": "sf-shuttle-minutes",
+      "title": "Pelvorn Aster shuttle interval minutes",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/shuttle-minutes.md"
+    },
+    {
+      "key": "sf-shuttle-seconds",
+      "title": "Pelvorn Aster shuttle interval seconds",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/shuttle-seconds.md"
+    },
+    {
+      "key": "sf-loan-base",
+      "title": "Havorin Grundordnung Leuchttischausleihe",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/loan-base.md"
+    },
+    {
+      "key": "sf-loan-change",
+      "title": "Havorin beschlossene Anzahländerung",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/loan-change.md"
+    },
+    {
+      "key": "sf-other-sorter",
+      "title": "Calvenor Nebenstation Papierfach",
+      "format": "text",
+      "file": "fixtures/s-fresh-validation-20261005/other-sorter.txt"
+    },
+    {
+      "key": "sf-return-trip",
+      "title": "Pelvorn Aster shuttle return run",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/return-trip.md"
+    },
+    {
+      "key": "sf-demonstration",
+      "title": "Havorin interne Leuchttischvorführung",
+      "format": "markdown",
+      "file": "fixtures/s-fresh-validation-20261005/demonstration.md"
+    }
+  ],
+  "cases": [
+    {
+      "id": "s-fresh-01",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "question": "Welche endgültige Höchstbelegung des Papierfachs der Calvenor PS-6 ergibt sich aus dem Sammelprotokoll? Stelle beide Einträge gegenüber und begründe, ob eine eindeutige Grenze feststeht.",
+      "requiredSourceKeys": [
+        "sf-sorter-log"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Das Sammelprotokoll nennt für dasselbe Papierfach und denselben Betriebszustand 46 Blatt im Eintrag Birke und 58 Blatt im Eintrag Erle. Beide sind gegengezeichnet, aber weder eine Korrektur noch eine Rangfolge oder eine gemeinsame endgültige Grenze ist festgelegt. Deshalb lässt sich aus diesem Protokoll keine eindeutige endgültige Höchstbelegung bestimmen.",
+      "answerChecks": [
+        {
+          "label": "Birke count",
+          "pattern": "\\b46\\s+Blatt\\b"
+        },
+        {
+          "label": "Erle count",
+          "pattern": "\\b58\\s+Blatt\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "s-fresh-02",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "equivalent-units",
+      "question": "Do the two Pelvorn Aster logs disagree about the outbound AS-2 travel time on 2044-03-18? Express both reported durations in seconds and explain the comparison.",
+      "requiredSourceKeys": [
+        "sf-shuttle-minutes",
+        "sf-shuttle-seconds"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The logs agree: 1.75 minutes equals 105 seconds, and the seconds-format log also gives 105 seconds. Both measure the same outbound AS-2 run from West Gate to East Gate, excluding loading and unloading, so the different units do not create a conflict.",
+      "answerChecks": [
+        {
+          "label": "Minutes input",
+          "pattern": "\\b1[.,]75\\s*(?:minutes?|min)\\b"
+        },
+        {
+          "label": "Normalized seconds",
+          "pattern": "\\b105\\s*(?:seconds?|s)\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "s-fresh-03",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "question": "Am 2044-08-04 will ein Havorin-Vereinsmitglied Leuchttische ausleihen. Wie viele dürfen gleichzeitig ausgeliehen werden, und welche Einweisungsbedingung gilt weiterhin? Begründe beides anhand der geltenden Regelung.",
+      "requiredSourceKeys": [
+        "sf-loan-base",
+        "sf-loan-change"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Am 2044-08-04 darf ein Mitglied höchstens 5 Leuchttische gleichzeitig ausleihen. Der beschlossene Änderungsvermerk gilt seit 2044-08-01 und erhöht ausschließlich die Anzahl von 2 auf 5. Die Voraussetzung einer gültigen Geräte-Einweisung des ausleihenden Mitglieds aus der Grundordnung bleibt bestehen, weil alle übrigen Voraussetzungen unverändert bleiben.",
+      "answerChecks": [
+        {
+          "label": "Current maximum",
+          "pattern": "\\b5\\s+Leuchttische\\b"
+        },
+        {
+          "label": "Retained induction condition",
+          "pattern": "g[üu]ltig\\w*\\s+Ger[äa]te[- ]Einweisung"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}

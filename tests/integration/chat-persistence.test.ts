@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AuthService } from '@main/services/auth/AuthService'
 import { WorkspaceService } from '@main/services/documents/WorkspaceService'
+import { REFUSAL_TEXT } from '@main/services/llm/prompt'
 
 // Exercises the ConversationsRepo through AuthService.requireDatabase() —
 // same shape the `chat:stream` IPC handler uses to persist user + assistant
@@ -75,17 +76,13 @@ describe('chat persistence (integration)', () => {
 
     // simulate the refusal flow: user message + assistant refusal text + no citations
     await conversations.appendMessage(conv.id, 'user', 'unrelated topic')
-    await conversations.appendMessage(
-      conv.id,
-      'assistant',
-      'This information is not in the provided documents.',
-    )
+    await conversations.appendMessage(conv.id, 'assistant', REFUSAL_TEXT.en)
     // no persistCitations call
 
     const out = (await conversations.getWithMessages(conv.id))!
     expect(out).not.toBeNull()
     expect(out.messages).toHaveLength(2)
-    expect(out.messages[1]!.content).toMatch(/not in/i)
+    expect(out.messages[1]!.content).toBe(REFUSAL_TEXT.en)
     expect(out.messages[1]!.citations).toEqual([])
   }, 30_000)
 

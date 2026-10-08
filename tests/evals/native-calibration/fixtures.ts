@@ -13,6 +13,11 @@ export function isCalibrationSplit(value: string): value is CalibrationSplit {
     'conflict-regression',
     'authority-dev-20261002',
     'authority-reserved-20261002',
+    'reasoning-reserved-20261005',
+    'authority-transfer-20261005',
+    's-fresh-validation-20261005',
+    'ab-fresh-validation-20261006',
+    'ar-fresh-validation-20261006',
   ].includes(value)
 }
 
@@ -35,7 +40,15 @@ export async function loadCalibrationSplit(
     }
     return { ...source, absolutePath }
   })
-  if (split === 'heldout' || split === 'authority-reserved-20261002') {
+  if (
+    split === 'heldout' ||
+    split === 'authority-reserved-20261002' ||
+    split === 'reasoning-reserved-20261005' ||
+    split === 'authority-transfer-20261005' ||
+    split === 's-fresh-validation-20261005' ||
+    split === 'ab-fresh-validation-20261006' ||
+    split === 'ar-fresh-validation-20261006'
+  ) {
     const lock = JSON.parse(
       await readFile(resolve(CALIBRATION_ROOT, `${split}.sha256.json`), 'utf8'),
     ) as { schemaVersion: number; files: Record<string, string> }

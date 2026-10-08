@@ -27,7 +27,7 @@
     "package:linux:deb": "node scripts/build-installer-deb-linux.mjs",
     "package:mac": "pnpm package:mac:payload && pnpm package:mac:archive && pnpm package:mac:dmg",
     "package:mac:payload": "node scripts/download-tessdata.mjs && electron-vite build && node scripts/build-mac-payloads.mjs",
-    "package:mac:archive": "node scripts/build-payload-archive.mjs mac-arm64 && node scripts/build-payload-archive.mjs mac-x64 && node scripts/write-payload-manifest.mjs",
+    "package:mac:archive": "node scripts/build-mac-archives.mjs",
     "package:mac:dmg": "node scripts/build-installer-dmg.mjs",
     "start": "electron-vite preview",
     "test": "node scripts/test-runtime.mjs run",
@@ -140,7 +140,7 @@
     "electron-log": "^5.4.4",
     "highlight.js": "^11.11.1",
     "ignore": "^7.0.5",
-    "katex": "^0.16.47",
+    "katex": "0.18.2",
     "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.21.1",
@@ -259,12 +259,20 @@
     ],
     "overrides": {
       "esbuild": "0.25.12",
+      "katex": "0.18.2",
+      "node-llama-cpp>simple-git": "4.0.2",
+      "@simple-git/argv-parser": "2.0.1",
+      "source-map-js": "1.2.2",
       "tmp": ">=0.2.6",
       "vite": "^6"
     },
     "patchedDependencies": {
+      "http-cache-semantics@4.2.0": "patches/http-cache-semantics@4.2.0.patch",
       "better-sqlite3-multiple-ciphers@12.10.0": "patches/better-sqlite3-multiple-ciphers@12.10.0.patch",
-      "node-llama-cpp": "patches/node-llama-cpp.patch"
+      "node-llama-cpp": "patches/node-llama-cpp.patch",
+      "@simple-git/argv-parser@2.0.1": "patches/@simple-git__argv-parser@2.0.1.patch",
+      "sprintf-js@1.0.3": "patches/sprintf-js@1.0.3.patch",
+      "sprintf-js@1.1.3": "patches/sprintf-js@1.1.3.patch"
     }
   }
 }

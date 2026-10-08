@@ -1,0 +1,12 @@
+# I: predeclared known authority controls
+
+**One strict pass and one timeout out of two requested controls.** Both were actually attempted once with the full 15-document authority corpus. No gold-source filtering, retry or repaired output was used. These are known DEV cases, not a fresh evaluation.
+
+The frozen production build and settings are those of the [initial I run](../bugfix-20261005-i-known-reasoning/REVIEW.md): manifest `8560aaf88f2d61989252ba25d8c672e59607032f65706b31dd5c86404a9a65e7`, worker `8f3527f6b3707783d90a6a27e7f80948e713410b9774036a9de96d94541fe85c`, schema `typed-comparison-v3`, normal document expansion, 8192 context and 2176 output budget, temperature 0, repetition penalty disabled, 180-second deadline. Compiled bytes remained unchanged.
+
+- **Authority 01: safe-abstention pass, 158.360 seconds.** Exact 54/57 counts, identical K9 serial-range scope and the missing-consolidation qualifications are shown from 1:1 and 2:2. There is no invented sum, minimum or partial-cohort distinction. Two full source paragraphs are verbose for a brief answer. The actual restore used q8_0 KV and 14 GPU layers.
+- **Authority 07: operational timeout, 180.396 seconds.** Both required code passages 12:12 and 13:13 were supplied. The actual restore used f16 KV and 14 layers. The native call was cancelled at the deadline and the only visible answer was the interruption note. No completed parsed outcome or stage-specific parse rejection was available; calculation and deployment correctness are unknown. It is not a semantic code failure or success.
+
+The app returned one completed terminal for 01 and one cancelled terminal for 07. No grammar fallback or hidden retry was observed. The harness exited 1 under its timeout policy. Automatic KV changes and variable resource conditions prevent attributing latency to one prompt or schema change. Startup was 48.322 seconds and indexing 11.211 seconds; the run started at 2026-10-05T14:32:41.925Z.
+
+[manual.json](manual.json) contains independent manual review. `raw.json` and `review.json` are local generated artifacts; raw SHA-256 is `8a2c3528f66e3701316b865de42587782047a3c4f10bf9de05d6285d5e14c1de`. The controls do not replace the earlier H code nonpass or the initial I04 timeout. The separately authorized [continuation](../bugfix-20261005-i-known-reasoning-continuation/REVIEW.md) runs only the eight previously unattempted I challenge questions under the same frozen build.

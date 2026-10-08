@@ -1,0 +1,25 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual 3:3 establishes the retained 5-saw limit; approved amendment 4:4 changes drills to 4 effective 2031-05-15 before the asked 2031-06-01. The final correctly gives both current limits with both local references, adding no unsupported clause. The original question asks for limits and evidence, not an additional explanation of authority; do not import the separate AB02 rubric requirement. App 146812 ms/native 136086 ms."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "unclear",
+    "operationalOutcome": "timeout",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational nonpass at app 180088 ms, cancelled terminal and settled invoke. Actual required 16:17/17:18 were both supplied. Only the fixed interruption notice exists; no validated final answer or semantic/citation verdict. Content-free counters show constrained-response tokens through native 162265 ms before cancellation at 162729 ms, but reveal neither incomplete output nor cause. Preserve the original deadline failure without retry/repair. Eight later planned AQ cases are unobserved."
+  }
+]

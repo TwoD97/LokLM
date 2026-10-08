@@ -1,0 +1,28 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "unsupported-authority-claim",
+    "strictPass": false,
+    "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: Nord: 14 Tage, Süd: 19 Tage, beide ohne Freigabe oder Vorrang, daher unentschieden. [doc:1, chunk:1] [doc:2, chunk:2]",
+    "acceptedFinalAvailable": true,
+    "citationSupport": "supported-values-but-unsupported-approval-priority-clause",
+    "citationCompleteness": "both-required-notes-cited",
+    "contextSufficiency": "original-required-notes-reviewed",
+    "decisionCorrectness": "unresolved-decision-but-unsupported-authority-premise",
+    "requestedFactsAndDecisionCorrect": false,
+    "requestedValuesAndAttributionCorrect": true,
+    "noBindingWinnerSelected": true,
+    "documentaryScopeRequirementSatisfied": false,
+    "formatRequirementSatisfied": true,
+    "responseLanguageContractSatisfied": true,
+    "productAcceptance": false,
+    "validatedFinalWithin180": true,
+    "strictAndWithin180": false,
+    "unsupportedExtraClaims": ["beide ohne Freigabe oder Vorrang"],
+    "missingRequiredFacts": [],
+    "missingRequiredCitations": [],
+    "originalExplicitRejection": "Asserting no approval ever occurred, neither note has approval, or no binding interval exists anywhere; absence is documentary only",
+    "notes": "Strict NONPASS under the unchanged sealed key. Nord 14 Tage and Süd 19 Tage are correctly mapped and both local citations match the value-bearing original notes. The question already supplies NP-6/campaign S8; the concise answer changes no scope. However, beide ohne Freigabe oder Vorrang asserts absence of approval or priority itself. The notes state only that they contain no approval signature and no statement establishing priority over the other note. Missing documentary evidence does not establish absent approval or priority. The fixed uncertainty lead cannot license that separately unsupported status claim. German language and one brief sentence pass; the final arrives under180s. No private check, hidden thought or rejected body was read."
+  }
+]

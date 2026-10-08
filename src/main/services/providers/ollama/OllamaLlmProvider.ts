@@ -150,6 +150,8 @@ export class OllamaLlmProvider implements LlmProvider {
       jsonSchema?: object | undefined
       // Only override the server/model default when explicitly requested.
       noThink?: boolean | undefined
+      /** Explicit per-call opt-out; omission preserves the provider default. */
+      repeatPenalty?: false | undefined
       systemPrompt?: string | undefined
       temperature?: number | undefined
       requireComplete?: boolean | undefined
@@ -166,6 +168,9 @@ export class OllamaLlmProvider implements LlmProvider {
       num_ctx: this.contextWindowTokens(),
       ...(opts.maxTokens != null ? { num_predict: opts.maxTokens } : {}),
       ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
+      ...(opts.repeatPenalty === false
+        ? { repeat_penalty: 1, frequency_penalty: 0, presence_penalty: 0 }
+        : {}),
     }
     try {
       for await (const chunk of this.client.postNdjson<{

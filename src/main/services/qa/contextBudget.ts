@@ -1,5 +1,10 @@
 import type { RetrievalHit } from '../../../shared/documents'
 import {
+  buildCheckedContextBundle,
+  buildCheckedPrompt,
+  buildCheckedSystemPrompt,
+} from './checkedAnswer'
+import {
   answerMaxTokens,
   buildPrompt,
   buildSummaryPreamble,
@@ -30,28 +35,44 @@ export interface ContextPlanInput {
   hits: RetrievalHit[]
   pinnedGroups?: RetrievalHit[][]
   summary?: { title: string; summary: string } | null
+  /** Standalone original-source answers compare before emitting visible text. */
+  answerMode?: 'checked'
 }
 
 /** One allocation for the exact passages/history later handed to inference.
  *  Token counts remain estimates; reserve the longest supported system prompt
  *  and explicit model framing slack rather than assuming the concise prompt. */
 export function planAnswerContext(input: ContextPlanInput) {
+  const checked = input.answerMode === 'checked'
+  if (checked && (input.history?.length || input.summary || input.codebase))
+    throw new Error('Checked answers require standalone original-source context')
   const contextTokens =
     Number.isFinite(input.contextTokens) && input.contextTokens > 0
       ? Math.floor(input.contextTokens)
       : DEFAULT_CONTEXT_TOKENS
-  const maxTokens = answerMaxTokens(contextTokens)
+  // Preserve the normal answer allowance, with a separate bounded comparison
+  // and JSON framing reserve. The same total is passed to native generation.
+  const maxTokens = answerMaxTokens(contextTokens) + (checked ? 128 : 0)
   // Match the native guard's reserve as well as the minimum wrapper allowance.
   // A fixed small margin can admit a packed prompt the native check must reject.
   const contextMargin = Math.max(CONTEXT_PACK_MARGIN_TOKENS, Math.ceil(contextTokens / 10))
   const inputLimit = contextTokens - maxTokens - contextMargin
-  const systemTokens = estimateTokens(
-    buildSystemPrompt(input.language, 'thorough', {
-      codebase: input.codebase ?? false,
-    }),
-  )
-  const fixedTokens =
-    systemTokens + estimateTokens(buildPrompt(input.question, [], [], input.language))
+  const systemPrompt = checked
+    ? buildCheckedSystemPrompt(input.language)
+    : buildSystemPrompt(input.language, 'thorough', {
+        codebase: input.codebase ?? false,
+      })
+  const systemTokens = estimateTokens(systemPrompt)
+  const renderPrompt = (
+    hits: RetrievalHit[],
+    history: HistoryMessage[] = [],
+    pinnedHits: RetrievalHit[] = [],
+    contextPreamble?: string,
+  ): string =>
+    checked
+      ? buildCheckedPrompt(input.question, hits, input.language, pinnedHits)
+      : buildPrompt(input.question, hits, history, input.language, pinnedHits, contextPreamble)
+  const fixedTokens = systemTokens + estimateTokens(renderPrompt([]))
   let summary = input.summary ?? null
   // A cached overview is optional. If it would consume most of the remaining
   // window, fall back to original source excerpts rather than slice its claims.
@@ -81,9 +102,7 @@ export function planAnswerContext(input: ContextPlanInput) {
     ),
   )
   // Account for all rendered framing, plus a separate pinned section header.
-  const baseTokens =
-    systemTokens +
-    estimateTokens(buildPrompt(input.question, [], history, input.language, [], preamble(true)))
+  const baseTokens = systemTokens + estimateTokens(renderPrompt([], history, [], preamble(true)))
   const evidenceBudget = Math.max(0, inputLimit - baseTokens - 32)
   const groups = (input.pinnedGroups ?? []).filter((group) => group.length > 0)
   const pinnedBudget =
@@ -109,25 +128,35 @@ export function planAnswerContext(input: ContextPlanInput) {
     Math.max(0, evidenceBudget - usedPinned),
     input.language,
   )
-  const renderedCost = (): number =>
-    systemTokens +
-    estimateTokens(
-      buildPrompt(
-        input.question,
-        hits,
-        history,
-        input.language,
-        pinnedHits,
-        preamble(hits.length + pinnedHits.length > 0),
-      ),
-    )
+  // Catalog admission and labels can change when packing drops a passage. Keep
+  // each candidate's prompt, system instruction and immutable parser together;
+  // the final verified bundle is the one handed to inference, without rebuilding.
+  const renderCandidate = () => {
+    if (checked) {
+      const bundle = buildCheckedContextBundle(input.question, hits, input.language, pinnedHits)
+      return {
+        checkedBundle: bundle,
+        promptTokens: estimateTokens(bundle.systemPrompt) + estimateTokens(bundle.prompt),
+      }
+    }
+    return {
+      checkedBundle: undefined,
+      promptTokens:
+        systemTokens +
+        estimateTokens(
+          renderPrompt(hits, history, pinnedHits, preamble(hits.length + pinnedHits.length > 0)),
+        ),
+    }
+  }
+  let rendered = renderCandidate()
   // Verify the complete rendered prompt after selection, not only chunk sums.
   // Expansion hits are last, so they are the first removed if framing differs.
-  while (renderedCost() > inputLimit && (hits.length || pinnedHits.length)) {
+  while (rendered.promptTokens > inputLimit && (hits.length || pinnedHits.length)) {
     if (hits.length) hits = hits.slice(0, -1)
     else pinnedHits = pinnedHits.slice(0, -1)
+    rendered = renderCandidate()
   }
-  const promptTokens = renderedCost()
+  const promptTokens = rendered.promptTokens
   return {
     contextTokens,
     maxTokens,
@@ -138,5 +167,6 @@ export function planAnswerContext(input: ContextPlanInput) {
     promptTokens,
     fits: promptTokens <= inputLimit,
     summaryOmitted: !!input.summary && !summary,
+    ...(rendered.checkedBundle ?? {}),
   }
 }

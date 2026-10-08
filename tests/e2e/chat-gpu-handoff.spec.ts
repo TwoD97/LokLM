@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { writeFile } from 'node:fs/promises'
+import { copyFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Api } from '../../src/preload'
 import type { StreamEvent } from '../../src/shared/documents'
@@ -178,7 +178,7 @@ test('chat loads on demand after indexing and indexing preempts automatic titles
       expect(
         first.activities.some((event) => event.phase === 'switching' && event.target === 'llm'),
       ).toBe(true)
-    await expect.poll(() => logs).toContain('llm.ask done:')
+    await expect.poll(() => logs).toContain('[qa] checked result:')
 
     await page.evaluate((id) => {
       const state = globalThis as unknown as { api: Api; titleFinished?: boolean }
@@ -228,17 +228,18 @@ test('chat loads on demand after indexing and indexing preempts automatic titles
 
     // Lock during a real native request. It must retire private generation and
     // release model residency before another login can start fresh work.
-    const asksBeforeLock = (logs.match(/llm\.ask start:/g) ?? []).length
+    const logsBeforeLock = logs.length
     await page.evaluate(
       ({ workspaceId, conversationId }) => {
         const state = globalThis as unknown as {
           api: Api
           lockedStreamEvents: StreamEvent[]
           lockedStreamFinished: boolean
+          lockedStreamOff?: () => void
         }
         state.lockedStreamEvents = []
         state.lockedStreamFinished = false
-        const off = state.api.chat.onEvent('native-lock', (event) =>
+        state.lockedStreamOff = state.api.chat.onEvent('native-lock', (event) =>
           state.lockedStreamEvents.push(event),
         )
         void state.api.chat
@@ -257,15 +258,27 @@ test('chat loads on demand after indexing and indexing preempts automatic titles
           .catch(() => undefined)
           .finally(() => {
             state.lockedStreamFinished = true
-            // The terminal event and invoke response use separate IPC channels.
-            setTimeout(off, 1000)
+            // Keep the independent pushed-terminal listener through successful
+            // reuse. Invoke settlement does not imply its event has arrived.
           })
       },
       { workspaceId, conversationId: conversation.id },
     )
     await expect
-      .poll(() => (logs.match(/llm\.ask start:/g) ?? []).length, { timeout: 120_000 })
-      .toBeGreaterThan(asksBeforeLock)
+      .poll(
+        () => {
+          // This API caller deliberately has no opts.history. Persisted prior
+          // messages alone do not change the standalone checked-answer route.
+          const current = logs.slice(logsBeforeLock)
+          const checked = current.lastIndexOf('[qa] checked answer:')
+          return (
+            checked >= 0 &&
+            current.indexOf('llm.generateRaw start: task=utility', checked) > checked
+          )
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(true)
     await page.evaluate(() => (globalThis as unknown as { api: Api }).api.auth.lock())
     await expect
       .poll(() =>
@@ -279,7 +292,7 @@ test('chat loads on demand after indexing and indexing preempts automatic titles
         page.evaluate(() =>
           (
             globalThis as unknown as { lockedStreamEvents: StreamEvent[] }
-          ).lockedStreamEvents.filter((event) => event.type === 'done'),
+          ).lockedStreamEvents.filter((event) => event.type === 'done' || event.type === 'error'),
         ),
       )
       .toEqual([{ type: 'done', full_text: '', citations: [], outcome: 'cancelled' }])
@@ -315,8 +328,22 @@ test('chat loads on demand after indexing and indexing preempts automatic titles
       ),
     ).toBe(true)
     expect((logs.match(/modelsWorker ready/g) ?? []).length).toBeGreaterThan(workersBeforeUnlock)
+    const lockedEventsAfterReuse = await page.evaluate(
+      () => (globalThis as unknown as { lockedStreamEvents: StreamEvent[] }).lockedStreamEvents,
+    )
+    expect(lockedEventsAfterReuse.filter((event) => event.type === 'token')).toEqual([])
+    expect(
+      lockedEventsAfterReuse.filter((event) => event.type === 'done' || event.type === 'error'),
+    ).toEqual([{ type: 'done', full_text: '', citations: [], outcome: 'cancelled' }])
     await page.screenshot({ path: test.info().outputPath('chat-handoff-complete.png') })
   } finally {
+    await page
+      .evaluate(() => {
+        const state = globalThis as unknown as { lockedStreamOff?: () => void }
+        state.lockedStreamOff?.()
+        delete state.lockedStreamOff
+      })
+      .catch(() => undefined)
     await launched.cleanup()
   }
 })
@@ -325,8 +352,12 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
   test.skip(process.env['LOKLM_NATIVE_CHAT'] !== '1', 'Requires installed models and a free GPU')
   test.setTimeout(480_000)
   const launched = await launchApp({ contentSize: { width: 1280, height: 900 } })
-  const { page, userDataDir } = launched
+  const { page, app, userDataDir } = launched
   const rendererErrors: string[] = []
+  let logs = ''
+  app.process().stdout?.on('data', (data) => {
+    logs += String(data)
+  })
   page.on('pageerror', (error) => rendererErrors.push(error.message))
   try {
     await registerAndUnlock(page, 'Synthetic UI chat')
@@ -352,15 +383,18 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
         { timeout: 120_000, intervals: [1000, 2000] },
       )
       .toBe('ready')
-    const conversation = await page.evaluate(async (workspaceId) => {
+    const { conversation, stoppedConversation } = await page.evaluate(async (workspaceId) => {
       const api = (globalThis as unknown as { api: Api }).api
       await api.settings.update({
         basic: { language: 'en', answerLanguage: 'en', startView: 'chat' },
       })
       await api.workspaces.setDefault(workspaceId)
-      // Only the empty conversation is seeded. Send and Regenerate must go
+      // Only empty conversations are seeded. Send, Stop and Regenerate must go
       // through the actual composer and the production streaming lifecycle.
-      return api.conversations.create(workspaceId, 'UI history')
+      return {
+        conversation: await api.conversations.create(workspaceId, 'UI history'),
+        stoppedConversation: await api.conversations.create(workspaceId, 'UI Stop'),
+      }
     }, workspaceId)
     await page.reload()
     await expect
@@ -379,12 +413,101 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
       timeout: 120_000,
     })
     await nav.getByRole('button', { name: 'Chat', exact: true }).click()
+    const composer = page.locator('textarea[name="chat-message"]')
+    await page
+      .locator('.chat-history')
+      .getByRole('button', { name: /^UI Stop/ })
+      .click()
+    await expect(page.getByRole('heading', { name: 'UI Stop', exact: true })).toBeVisible()
+    // Observe the exact push channel generated by the real composer. Forward
+    // every event unchanged; retain this channel through later reuse to catch
+    // duplicate terminals or late answer text from the stopped generation.
+    await app.evaluate(({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0]!.webContents
+      const original = contents.send.bind(contents)
+      const capture = {
+        channel: null as string | null,
+        events: [] as StreamEvent[],
+        restore: () => {
+          contents.send = original
+        },
+      }
+      ;(globalThis as unknown as { uiStopCapture: typeof capture }).uiStopCapture = capture
+      contents.send = (channel: string, ...args: unknown[]) => {
+        if (
+          channel.startsWith('chat:stream-event:') &&
+          (capture.channel === null || capture.channel === channel)
+        ) {
+          capture.channel = channel
+          capture.events.push(args[0] as StreamEvent)
+        }
+        original(channel, ...args)
+      }
+    })
+    const stopEvents = () =>
+      app.evaluate(
+        () =>
+          (globalThis as unknown as { uiStopCapture: { events: StreamEvent[] } }).uiStopCapture
+            .events,
+      )
+    const stopQuestion = 'What are the Riverside Library Monday opening and closing times?'
+    await composer.fill(stopQuestion)
+    const logsBeforeStop = logs.length
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await expect
+      .poll(
+        () => {
+          const current = logs.slice(logsBeforeStop)
+          const checked = current.lastIndexOf('[qa] checked answer:')
+          return (
+            checked >= 0 &&
+            current.indexOf('llm.generateRaw start: task=utility', checked) > checked
+          )
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(true)
+    expect((await stopEvents()).filter((event) => event.type === 'token')).toEqual([])
+    const stopStarted = Date.now()
+    await page.getByRole('button', { name: 'Cancel streaming', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect
+      .poll(async () =>
+        (await stopEvents()).filter((event) => event.type === 'done' || event.type === 'error'),
+      )
+      .toHaveLength(1)
+    const checkedStopMs = Date.now() - stopStarted
+    const stoppedTerminal = (await stopEvents()).find((event) => event.type === 'done')!
+    expect(stoppedTerminal).toMatchObject({
+      type: 'done',
+      outcome: 'cancelled',
+      full_text: '_[Answer interrupted.]_',
+    })
+    const readStopped = () =>
+      page.evaluate(
+        (id) => (globalThis as unknown as { api: Api }).api.conversations.getWithMessages(id),
+        stoppedConversation.id,
+      )
+    const stoppedSaved = await readStopped()
+    expect(stoppedSaved.messages.map((message) => [message.role, message.content])).toEqual([
+      ['user', stopQuestion],
+      ['assistant', '_[Answer interrupted.]_'],
+    ])
+    expect(
+      stoppedSaved.messages[1]!.citations.map(
+        (citation) => `${citation.documentId}:${citation.chunkId}`,
+      ),
+    ).toEqual(
+      stoppedTerminal.citations.map((citation) => `${citation.doc_id}:${citation.chunk_id}`),
+    )
+
     const historyButton = page.locator('.chat-history').getByRole('button', { name: /^UI history/ })
     await historyButton.click()
     await expect(page.getByRole('heading', { name: 'UI history', exact: true })).toBeVisible()
     const question =
       'What time does Riverside Library open on Monday? Answer in one short sentence with a source citation.'
-    const composer = page.locator('textarea[name="chat-message"]')
     await composer.fill(question)
     const started = Date.now()
     await page.getByRole('button', { name: 'Send message', exact: true }).click()
@@ -474,15 +597,19 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
     // lazy PDF.js chunk/worker and canvas lifecycle on the shipped renderer.
     await nav.getByRole('button', { name: 'Library', exact: true }).click()
     await expect(page.locator('.library')).toBeVisible()
+    // Own the mutable source inside this disposable profile. Never overwrite
+    // either checked-in fixture when simulating a changed original document.
+    const pdfSource = join(userDataDir, 'mica-field-survey.pdf')
+    await copyFile(
+      join(process.cwd(), 'tests/evals/native-calibration/fixtures/dev/mica-field-survey.pdf'),
+      pdfSource,
+    )
     const pdfDocument = await page.evaluate(
       ({ workspaceId, source }) =>
         (globalThis as unknown as { api: Api }).api.documents.import(workspaceId, source),
       {
         workspaceId,
-        source: join(
-          process.cwd(),
-          'tests/evals/native-calibration/fixtures/dev/mica-field-survey.pdf',
-        ),
+        source: pdfSource,
       },
     )
     await expect
@@ -502,6 +629,13 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
         { timeout: 90_000, intervals: [1000, 2000] },
       )
       .toBe(true)
+    const indexedPdfTexts = await page.evaluate(async (documentId) => {
+      const chunks = await (
+        globalThis as unknown as { api: Api }
+      ).api.documents.listChunksForDocument(documentId)
+      return chunks.map((chunk) => chunk.text)
+    }, pdfDocument.id)
+    expect(indexedPdfTexts.join('\n')).toContain('Mica Harbor field survey')
     const pdfRow = page.getByRole('row').filter({ hasText: pdfDocument.title })
     for (let pass = 0; pass < 2; pass++) {
       await pdfRow.dblclick()
@@ -551,6 +685,41 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
       await page.keyboard.press('Escape')
       await expect(pdfReader).toHaveCount(0)
     }
+    // A different valid PDF at the same external path must not be presented as
+    // the indexed evidence. Keep the stored original text available instead.
+    await copyFile(
+      join(
+        process.cwd(),
+        'tests/evals/native-calibration/fixtures/heldout/veldrin-field-survey.pdf',
+      ),
+      pdfSource,
+    )
+    await pdfRow.dblclick()
+    const changedPdfReader = page.getByRole('dialog', {
+      name: `Preview: ${pdfDocument.title}`,
+      exact: true,
+    })
+    await expect(changedPdfReader).toBeVisible()
+    await expect(changedPdfReader.getByRole('status')).toHaveText(
+      'The PDF has changed since indexing. Showing the available indexed text.',
+    )
+    await expect(changedPdfReader.locator('.pdf-doc')).toHaveCount(0)
+    await expect(changedPdfReader.locator('canvas')).toHaveCount(0)
+    expect(await changedPdfReader.locator('.source-viewer__chunk-pre').allTextContents()).toEqual(
+      indexedPdfTexts,
+    )
+    await expect(changedPdfReader.locator('.source-viewer__body')).not.toContainText(
+      'Veldrin Yard field survey',
+    )
+    await page.keyboard.press('Escape')
+    await expect(changedPdfReader).toHaveCount(0)
+    // Successful later UI work must not let the stopped request publish a late
+    // checked answer or overwrite its durable interruption record.
+    expect((await readStopped()).messages).toEqual(stoppedSaved.messages)
+    expect((await stopEvents()).filter((event) => event.type === 'token')).toEqual([])
+    expect(
+      (await stopEvents()).filter((event) => event.type === 'done' || event.type === 'error'),
+    ).toEqual([stoppedTerminal])
     expect(rendererErrors).toEqual([])
     // Persist explicitly: list-only Playwright reports do not retain body-only
     // attachments after a passing test, unlike path attachments.
@@ -560,6 +729,9 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
       JSON.stringify(
         {
           kind: 'native-chat-ui-workflow',
+          checkedStopMs,
+          checkedStopTerminalCount: 1,
+          checkedStopPersistedNoteOnly: true,
           firstFinishedMs,
           regenerateMs,
           sourceNavigation,
@@ -568,6 +740,7 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
           sourceDocumentId: document.id,
           persistedPairCount: replacement.messages.length,
           pdfCanvasOpenClosePasses: 2,
+          changedPdfIndexedTextFallback: true,
         },
         null,
         2,
@@ -578,6 +751,13 @@ test('chat UI sends, opens a source and atomically regenerates saved history', a
       contentType: 'application/json',
     })
   } finally {
+    await app
+      .evaluate(() => {
+        const state = globalThis as unknown as { uiStopCapture?: { restore(): void } }
+        state.uiStopCapture?.restore()
+        delete state.uiStopCapture
+      })
+      .catch(() => undefined)
     await launched.cleanup()
   }
 })

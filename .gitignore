@@ -185,6 +185,9 @@ tests/evals/code/report/
 # Native calibration traces stay available locally; keep compact human reviews.
 tests/evals/native-calibration/reports/*/raw.json
 tests/evals/native-calibration/reports/*/*review.json
+tests/evals/native-calibration/reports/*/review-clarified.json
+tests/evals/native-calibration/reports/*/retrieval-comparison.json
+tests/evals/native-calibration/reports/*/metrics.json
 tests/evals/native-calibration/reports/*/*.log
 tests/evals/native-calibration/reports/*/*samples.jsonl
 

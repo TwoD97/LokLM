@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 1,
+  "split": "reasoning-reserved-20261005",
+  "sources": [
+    {
+      "key": "r26-01",
+      "file": "fixtures/r26-01.md",
+      "title": "Neral archive export draft amber",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-02",
+      "file": "fixtures/r26-02.md",
+      "title": "Neral archive export draft slate",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-03",
+      "file": "fixtures/r26-03.md",
+      "title": "Velsun Werkzeughaus Grundordnung",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-04",
+      "file": "fixtures/r26-04.md",
+      "title": "Velsun beschlossener Änderungsvermerk",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-05",
+      "file": "fixtures/r26-05.md",
+      "title": "Edrin reservoir gauge reading A",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-06",
+      "file": "fixtures/r26-06.md",
+      "title": "Edrin reservoir gauge reading B",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-07",
+      "file": "fixtures/r26-07.md",
+      "title": "Leran Prüfstand Zeitprotokoll A",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-08",
+      "file": "fixtures/r26-08.md",
+      "title": "Leran Prüfstand Zeitprotokoll B",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-09",
+      "file": "fixtures/r26-09.md",
+      "title": "Tebrin Kulturhaus gültige Beitragsordnung",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-10",
+      "file": "fixtures/r26-10.md",
+      "title": "Tebrin Haushaltsvorschlag",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-11",
+      "file": "fixtures/r26-11.md",
+      "title": "Ostel repair centre morning stock",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-12",
+      "file": "fixtures/r26-12.md",
+      "title": "Ostel repair centre evening stock",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-13",
+      "file": "fixtures/r26-13.md",
+      "title": "Ivaren Laufversuch Prüfblatt",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-14",
+      "file": "fixtures/r26-14.md",
+      "title": "Sovan controller archived copy north",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-15",
+      "file": "fixtures/r26-15.md",
+      "title": "Sovan controller archived copy south",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-16",
+      "file": "fixtures/r26-16.md",
+      "title": "Rilven Prüfhalle Sektor West",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-17",
+      "file": "fixtures/r26-17.md",
+      "title": "Rilven Prüfhalle Sektor Ost",
+      "format": "markdown"
+    },
+    {
+      "key": "r26-18",
+      "file": "fixtures/r26-18.md",
+      "title": "Pemnor station discharge log",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "reasoning-reserved-01",
+      "question": "Which definitive export deadline applies to Neral batch NB-4? Give ISO dates and explain briefly.",
+      "language": "en",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "r26-01",
+        "r26-02"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "No definitive deadline is established: the unapproved drafts give 2031-04-09 and 2031-04-12 with no documented supersession.",
+      "answerChecks": [
+        {
+          "label": "draft amber date",
+          "pattern": "2031-04-09"
+        },
+        {
+          "label": "draft slate date",
+          "pattern": "2031-04-12"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-02",
+      "question": "Wie viele Bohrmaschinen und Sägen dürfen Mitglieder in Velsun am 2031-06-01 gleichzeitig leihen? Belege beide Grenzen.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "r26-03",
+        "r26-04"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Ab 2031-05-15 sind 4 Bohrmaschinen erlaubt; für Sägen gilt die unveränderte Grenze von 5 aus der Grundordnung.",
+      "answerChecks": [
+        {
+          "label": "drills",
+          "pattern": "\\b4\\b"
+        },
+        {
+          "label": "saws",
+          "pattern": "\\b5\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-03",
+      "question": "Do the two Edrin gauge records disagree about the water volume? State the comparison in litres.",
+      "language": "en",
+      "kind": "table-unit",
+      "challengeCategory": "equivalent-units",
+      "requiredSourceKeys": [
+        "r26-05",
+        "r26-06"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "They agree: 2.75 cubic metres equals 2750 litres for the same tank, time and scope.",
+      "answerChecks": [
+        {
+          "label": "volume",
+          "pattern": "2[,. ]?750"
+        },
+        {
+          "label": "litres",
+          "pattern": "lit(?:re|er)s?"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-04",
+      "question": "Stimmen die beiden Leraner Zeitprotokolle überein? Nenne beide Dauern in Sekunden und ob ein Protokoll verbindlich vorgeht.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "r26-07",
+        "r26-08"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Sie widersprechen sich: 2,25 Minuten sind 135 Sekunden, gegenüber 150 Sekunden; ein verbindlicher Vorrang ist nicht dokumentiert.",
+      "answerChecks": [
+        {
+          "label": "converted duration",
+          "pattern": "\\b135\\b"
+        },
+        {
+          "label": "other duration",
+          "pattern": "\\b150\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-05",
+      "question": "What annual contribution currently applies to an ordinary adult Tebrin member, and does the later proposal change it?",
+      "language": "en",
+      "kind": "cross-language",
+      "challengeCategory": "newer-unapproved",
+      "requiredSourceKeys": [
+        "r26-09",
+        "r26-10"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The current contribution is72EUR; the later81EUR proposal was not voted on and does not change the existing order.",
+      "answerChecks": [
+        {
+          "label": "current contribution",
+          "pattern": "\\b72\\b"
+        },
+        {
+          "label": "currency",
+          "pattern": "EUR|euro"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-06",
+      "question": "Widersprechen sich die beiden Ostel-Bestandsangaben? Nenne die Bestände mit den zugehörigen Uhrzeiten.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "different-scope-time",
+      "requiredSourceKeys": [
+        "r26-11",
+        "r26-12"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Nein:12Sensoren gelten für08:00UTC,17Sensoren für18:00UTC; es sind verschiedene Zeitpunkte vor bzw.nach den Tagesbewegungen.",
+      "answerChecks": [
+        {
+          "label": "morning count",
+          "pattern": "\\b12\\b"
+        },
+        {
+          "label": "evening count",
+          "pattern": "\\b17\\b"
+        },
+        {
+          "label": "morning time",
+          "pattern": "0?8:00"
+        },
+        {
+          "label": "evening time",
+          "pattern": "18:00"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-07",
+      "question": "Wie viel Wasser wurde bei Ivaren in Durchlauf B verbraucht und wann wurde das Prüfblatt freigegeben? Verwende ein ISO-Datum.",
+      "language": "de",
+      "kind": "table-unit",
+      "requiredSourceKeys": [
+        "r26-13"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "DurchlaufBverbrauchte24Liter(Messwertpassage);dasPrüfblattwurdeam2031-06-11freigegeben(Einleitungspassage). BeideunterschiedlichenPassagenmüssenpassendzitiertwerden.",
+      "answerChecks": [
+        {
+          "label": "water",
+          "pattern": "\\b24\\b"
+        },
+        {
+          "label": "approval date",
+          "pattern": "2031-06-11"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-08",
+      "question": "For requested=8, what does allowedSlots return in each Sovan archive copy, and which copy is documented as deployed?",
+      "language": "en",
+      "kind": "code-semantics",
+      "challengeCategory": "unresolved-code",
+      "requiredSourceKeys": [
+        "r26-14",
+        "r26-15"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "The north copy returns6andthe south copy7;neithercopyhasdeployment evidence,sono deployed versioncanbeestablished.",
+      "answerChecks": [
+        {
+          "label": "north result",
+          "pattern": "\\b6\\b"
+        },
+        {
+          "label": "south result",
+          "pattern": "\\b7\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-09",
+      "question": "Wie viele Geräte bestanden laut beiden Rilvener Sektorberichten insgesamt die Endprüfung? Erkläre knapp, ob sie addiert werden dürfen.",
+      "language": "de",
+      "kind": "table-arithmetic",
+      "challengeCategory": "different-scope-time",
+      "requiredSourceKeys": [
+        "r26-16",
+        "r26-17"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "31+34=65Geräte;dieSeriennummernbereiche700–739und740–779sindausdrücklichdisjunkt,sodassdieseverwendetenBestandszahlensummiertwerdendürfen.",
+      "answerChecks": [
+        {
+          "label": "total",
+          "pattern": "\\b65\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-10",
+      "question": "How many litres were discharged in Pemnor cycle PM-3?",
+      "language": "en",
+      "kind": "missing-fact",
+      "challengeCategory": "missing-evidence",
+      "requiredSourceKeys": [
+        "r26-18"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Thetotalvolumecannotbedetermined:onlyaflowrateof8litresperminuteisprovided,andcycledurationisabsent.",
+      "answerChecks": [],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-11",
+      "question": "Wie hoch war die durchschnittliche Wasserverbrauchsrate in Ivaren Durchlauf A, in Litern pro Minute?",
+      "language": "de",
+      "kind": "table-arithmetic",
+      "requiredSourceKeys": [
+        "r26-13"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "18Liter/3Minuten=6LiterproMinute,mitZitatderMesswerttabelle,nichtnurdesFreigabekopfs.",
+      "answerChecks": [
+        {
+          "label": "rate",
+          "pattern": "\\b6\\b"
+        },
+        {
+          "label": "unit",
+          "pattern": "Liter|l"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "reasoning-reserved-12",
+      "question": "What electrically measured power consumption does the Ivaren record give for run B?",
+      "language": "en",
+      "kind": "missing-fact",
+      "challengeCategory": "missing-evidence",
+      "requiredSourceKeys": [
+        "r26-13"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "The recorddoesnotprovideanelectricalpowermeasurement;watervolumeanddurationdonotdetermineit.",
+      "answerChecks": [],
+      "allowPartial": false
+    }
+  ]
+}

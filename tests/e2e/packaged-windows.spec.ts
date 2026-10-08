@@ -10,12 +10,11 @@ import type { Api } from '../../src/preload'
 // test needs no models, downloads, real account or main-process test backdoors.
 test.use({ trace: 'off', screenshot: 'off', video: 'off' })
 
-test('packaged Windows app preserves encrypted organizer and generated sources across restart', async () => {
+// Keep the established filename for existing local commands; release CI runs
+// this same packaged-app contract on Windows, Linux and both native Mac archs.
+test('packaged app preserves encrypted organizer and generated sources across restart', async () => {
   const configuredExe = process.env['LOKLM_PACKAGED_EXE']
-  test.skip(
-    process.platform !== 'win32' || !configuredExe,
-    'Set LOKLM_PACKAGED_EXE to the packaged LokLM.exe',
-  )
+  test.skip(!configuredExe, 'Set LOKLM_PACKAGED_EXE to the packaged app executable')
   test.setTimeout(240_000)
   const executable = resolve(configuredExe!)
   await access(executable)
@@ -46,8 +45,13 @@ test('packaged Windows app preserves encrypted organizer and generated sources a
     await expect
       .poll(
         async () => {
-          if (processHandle?.exitCode != null)
-            throw new Error(`Packaged app exited: ${processHandle.exitCode}`)
+          if (
+            processHandle &&
+            (processHandle.exitCode !== null || processHandle.signalCode !== null)
+          )
+            throw new Error(
+              `Packaged app exited: ${processHandle.exitCode}/${processHandle.signalCode}`,
+            )
           try {
             port =
               (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split(/\r?\n/)[0] ?? ''
@@ -69,12 +73,20 @@ test('packaged Windows app preserves encrypted organizer and generated sources a
   }
   const stop = async () => {
     const child = processHandle
-    if (child?.pid != null && child.exitCode === null) {
+    if (child?.pid != null && child.exitCode === null && child.signalCode === null) {
       const exited = once(child, 'exit')
-      await page
-        ?.evaluate(() => (globalThis as unknown as { api: Api }).api.window.close())
-        .catch(() => undefined)
-      await Promise.race([
+      if (process.platform === 'darwin') {
+        // Closing the last window intentionally keeps a Mac app running.
+        // Electron's Browser.close CDP handler calls Browser::Quit, preserving
+        // before-quit/drain without enabling Node inspection or adding IPC.
+        const session = await browser?.newBrowserCDPSession()
+        void session?.send('Browser.close').catch(() => undefined)
+      } else {
+        await page
+          ?.evaluate(() => (globalThis as unknown as { api: Api }).api.window.close())
+          .catch(() => undefined)
+      }
+      const [code, signal] = await Promise.race([
         exited,
         new Promise<never>((_resolve, reject) => {
           const timer = setTimeout(
@@ -85,6 +97,13 @@ test('packaged Windows app preserves encrypted organizer and generated sources a
           void exited.finally(() => clearTimeout(timer))
         }),
       ])
+      expect(code).toBe(0)
+      expect(signal).toBeNull()
+    } else if (child?.pid != null) {
+      // A crash before stop() is still a failing shutdown, not a successful
+      // no-op. signalCode also distinguishes an already-fired signal exit.
+      expect(child.exitCode).toBe(0)
+      expect(child.signalCode).toBeNull()
     }
     await browser?.close().catch(() => undefined)
     browser = undefined
@@ -179,6 +198,8 @@ test('packaged Windows app preserves encrypted organizer and generated sources a
     await test.info().attach('packaged-smoke.json', {
       body: JSON.stringify({
         executable,
+        platform: process.platform,
+        architecture: process.arch,
         persistedNotes: 1,
         persistedTasks: 1,
         generatedSourceRestored: true,
@@ -191,7 +212,11 @@ test('packaged Windows app preserves encrypted organizer and generated sources a
       await stop()
     } finally {
       // Only terminate the exact child this test started if graceful close failed.
-      if (processHandle?.pid != null && processHandle.exitCode === null) {
+      if (
+        processHandle?.pid != null &&
+        processHandle.exitCode === null &&
+        processHandle.signalCode === null
+      ) {
         const exited = once(processHandle, 'exit')
         processHandle.kill()
         await exited

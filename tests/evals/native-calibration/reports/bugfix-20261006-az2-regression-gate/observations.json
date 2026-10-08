@@ -1,0 +1,280 @@
+{
+  "kind": "safe-known-dev-parser-nonpass-observations",
+  "classification": "AZ2 first actual v25 AB01 question produced a source-label parser rejection after normal native generation. It has no accepted final; twelve later cases remain held. Original AZ launcher failure stays separate.",
+  "runId": "bugfix-20261006-az2-regression-gate",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-az2-regression-gate/raw.json",
+    "sha256": "60a2f250204aba7cdee7f965d7a5b20c2b140c1e675d94ef78f665112de274ea",
+    "availability": "Local ignored artifact; opaque hash only. The error notice is not a final answer."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/az2-regression-gate-execution-declaration.json",
+    "sha256": "2f19d8115a29811ebaae51cd60d43e6a94184a97fe2f304014004e21e1be47ed",
+    "frozenAt": "2026-10-06T15:07:42.112Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/az2-regression-protocol.json",
+    "sha256": "a39d70b9a49c6ab9d7206292fc1c0fcab33e4fe620f3007da822db066675bbd7"
+  },
+  "candidate": {
+    "path": "out/optimization-20261005/az2-candidate-pins.json",
+    "sha256": "3cee0508b7ffffa54a01f379bde5e495ac7959a48a2ac53a18b5589ea8f5e258"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/az2-regression-gate-postverify.json",
+    "sha256": "6c653a736ed31b5961751eefe57c451bf0534d0071cfc67ad8d8c8406cabddaf",
+    "verifiedAt": "2026-10-06T15:12:27.045Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 1,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": false,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 422,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0,
+    "runnerExecutionPin": {
+      "path": "out/optimization-20261005/az2-regression-gate-runner-result.json",
+      "sha256": "781cb878da4903b3a0247394a558ceb3fc11b7e2dcde18d0ea031eb4cf40085b"
+    },
+    "launchPin": {
+      "path": "out/optimization-20261005/az2-regression-gate-launch.json",
+      "sha256": "63eb62463a9fce532965bccffce055b3fd47f9436b325f570af6bc2ebf4952b8"
+    },
+    "runnerStartPin": {
+      "path": "out/optimization-20261005/az2-regression-gate-runner-start.json",
+      "sha256": "18d841a819a1b6267d27ea16d4660c2f9fd90067d4dda95686ab7c005478a807"
+    },
+    "launchReceiptPin": {
+      "path": "out/optimization-20261005/az2-regression-gate-launch-receipt.json",
+      "sha256": "b4e24a6eaef5580f502a6f5e4e2405f9a85f0b01514f8799f8b35ae4d6aaf421"
+    },
+    "capturePin": {
+      "path": "out/optimization-20261005/az2-regression-gate-capture-cleanup.json",
+      "sha256": "0eccbb512ac57fc5224fa49f95fb1dfff26edc9071b92d9aaff024f406897001"
+    }
+  },
+  "wrapperResult": {
+    "path": "out/optimization-20261005/az2-regression-gate-wrapper-result.json",
+    "sha256": "121393ad8d705012e7318e0b379631a4e52c9c44eec77ca1948606081905093e",
+    "runnerExitCode": 1,
+    "captureCleanupExitCode": 0,
+    "postverifyExitCode": 1,
+    "wrapperFailure": false
+  },
+  "provenanceScope": "Source/build equality describes the recorded clean closure only. Later source edits do not change this historical finding. The original AZ pre-harness failure remains separate and is not overwritten.",
+  "declaredConfiguration": {
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "isolatedProfile": true,
+    "goldSourceSelection": false,
+    "questionMutation": false,
+    "attemptsPerCase": 1,
+    "autoLockMinutes": 0,
+    "evaluationSideOutputRepair": false,
+    "productionCleanup": "Declared AR redundant-label cleanup remains enabled; no evaluation-side repair.",
+    "questionTimeoutMs": 300000,
+    "performanceThresholdMs": 180000,
+    "runsPerCase": 1,
+    "retries": 0,
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "continueErrors": false
+  },
+  "capture": { "trace": "off", "screenshot": "off", "video": "off", "contentsRead": false },
+  "counts": {
+    "requested": 1,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "semanticNonpasses": 0,
+    "parserNonpasses": 1,
+    "timeouts": 0,
+    "unobservedInGate": 0,
+    "normalNativeCompletions": 1,
+    "terminalWithin180": 0,
+    "successfulAnswersWithin180": 0,
+    "successfulAnswersWithin300": 0,
+    "strictAndWithin180": 0,
+    "retries": 0
+  },
+  "candidateCoverage": {
+    "requested": 13,
+    "attempted": 1,
+    "validatedFinals": 0,
+    "strictPasses": 0,
+    "parserNonpasses": 1,
+    "unattempted": 12,
+    "unattemptedCaseIds": [
+      "ar-fresh-01",
+      "ar-fresh-02",
+      "ar-fresh-07",
+      "ar-fresh-03",
+      "ar-fresh-04",
+      "ar-fresh-05",
+      "ar-fresh-06",
+      "ar-fresh-08",
+      "ab-fresh-02",
+      "ab-fresh-03",
+      "heldout-10",
+      "heldout-06"
+    ],
+    "followOnAuthorized": false
+  },
+  "strictPass": false,
+  "semanticGrade": null,
+  "responseLanguageContractPass": null,
+  "productAcceptance": false,
+  "followOnAuthorized": false,
+  "buildManifestSha256": "949deaa776207a9433487d9949064e2d21cb83dd4079822b41111680902541b1",
+  "declaredSourceCorpusDocuments": 8,
+  "actualFedSourceCoverageReviewedForThisReport": false,
+  "sourceCoverageScope": "Eight original documents remained declared eligible and frozen input pins matched at closure. This fixed-metadata report does not independently inspect source contents or certify the actual fed passage set.",
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "threadSettings": [{ "backend": "vulkan", "maxThreads": 6, "policy": "hardware-aware default" }],
+  "paddingSettings": [{ "backend": "vulkan", "bytes": 1073741824, "policy": "default" }],
+  "privacy": "Only safe postverification, declaration, protocol and durable runner metadata were parsed. Raw bytes were hashed without decoding. No private check, hidden thought, rejected envelope, rejected prose, unrestricted log, source text or error notice was read or copied.",
+  "limitations": [
+    "Known development regression, not fresh validation.",
+    "label_missing identifies failure to match the generated label as a source fragment; it does not reveal the label, selected source or whether translation, paraphrase or another cause explains it.",
+    "No semantic, citation-support, short-format or response-language verdict exists without an accepted final.",
+    "Source-label rejection occurs before all excerpts can be assessed; this result does not establish that terminal-period handling solved every excerpt issue.",
+    "Constrained envelope tokens are not displayed answer tokens.",
+    "Normal generation, valid JSON, supplied source IDs and clean cleanup do not establish answer success.",
+    "All original criteria, source seals and previous failures remain unchanged."
+  ],
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "repetition": 0,
+      "requestedLanguage": "de",
+      "finalAnswer": null,
+      "acceptedFinalAvailable": false,
+      "semanticGrade": null,
+      "citationSupport": null,
+      "citationCompleteness": null,
+      "formatRequirementSatisfied": null,
+      "responseLanguageContractSatisfied": null,
+      "productAcceptance": false,
+      "parserRejection": {
+        "detail": "label_missing",
+        "exactRejectedLabelKnown": false,
+        "causeOfMismatchKnown": false
+      },
+      "collection": {
+        "terminalMs": 189590,
+        "totalMs": 189590,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalOutcome": "error",
+        "terminalMismatch": false,
+        "invokeSettled": true,
+        "invokeErrorPresent": false,
+        "cancellationErrorPresent": false,
+        "collectionDecision": "stop"
+      },
+      "elapsedTerminalWithin180": false,
+      "successfulAnswerWithin180": false,
+      "successfulAnswerWithin300": false,
+      "comparisonRejectionDetails": {
+        "details": ["label_missing"],
+        "malformedLogs": 0,
+        "dropped": 0
+      },
+      "excerptPolicyAbsent": {
+        "requestedAbsent": true,
+        "capturedAbsent": true,
+        "appliedAbsent": true,
+        "valid": true
+      },
+      "schemaVersions": ["typed-comparison-v25"],
+      "checkedMaxTokens": [2176],
+      "checkedModes": [{ "mode": "excerpts", "unitCount": 0, "fallbackNone": true }],
+      "checkedResults": [],
+      "boundedStatuses": [{ "status": "active", "maxThoughtTokens": 128 }],
+      "compactStarts": 1,
+      "defaultStarts": 0,
+      "grammarFallback": false,
+      "captures": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeys": 0,
+          "checkType": "string",
+          "checkCodepoints": 60,
+          "sourceLabelShapes": {
+            "valid": true,
+            "counts": {
+              "exact_colon_pair": 0,
+              "spaced_colon_pair": 0,
+              "comma_chunk_pair": 0,
+              "grouped_complete_pairs": 0,
+              "no_closing_parenthesis": 0,
+              "line_break": 0,
+              "invalid_id": 0,
+              "other_syntax": 0
+            },
+            "candidates": 0,
+            "inspectedBlocks": 0,
+            "inspectedChars": 0,
+            "capped": false
+          }
+        }
+      ],
+      "sourceLabelShapeMeaning": "This scanner covers ordinary or historical summary prose, not literal labels or excerpts. Zero counts do not certify rejected label content.",
+      "metrics": [
+        {
+          "nativeMs": 177603,
+          "grammarMs": 8,
+          "promptFitMs": 24,
+          "responseChars": 507,
+          "completionReason": "stopGenerationTrigger",
+          "cancelled": false,
+          "usedInputTokens": 1871,
+          "usedOutputTokens": 299,
+          "boundedThoughts": {
+            "promptTokens": 1870,
+            "prefillBatches": 8,
+            "prefillTokens": 1869,
+            "thoughtTokens": 128,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 171,
+            "combinedTokens": 301,
+            "firstVisibleMs": 88306,
+            "lastVisibleMs": 177600,
+            "thoughtTermination": "budget"
+          }
+        }
+      ],
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "fitsInVram": false,
+        "estimatedFreeVramGBAfterLoad": 0,
+        "kvCacheType": "q8_0",
+        "reason": "8192-token context, q8_0 KV, 14 GPU layers",
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      }
+    }
+  ]
+}

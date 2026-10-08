@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "decisionCorrectness": "unclear",
+    "contextSufficiency": "sufficient",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational failure: one request timed out at180179ms, with cancelled terminal and interruption notice only. No completed answer or parser result, so no semantic/citation verdict. Both actual required passages are supplied at ranks1/2 after corrected retrieval, versus1/4 in L. V5 instructions/schema and generation defaults unchanged; actual P restored8K/q8_0/14layers differs from L f16. Native169698ms,822chars/311outputtokens before cancellation; no raw/check/partial answer retained. No retry or replay; owned process exited1, GPU released, compiled/source parity unchanged."
+  }
+]

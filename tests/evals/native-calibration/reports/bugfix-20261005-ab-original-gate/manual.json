@@ -1,0 +1,24 @@
+[
+  {
+    "caseId": "heldout-10",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Both date-bearing original sentences are reproduced exactly with their respective 3:6/4:7 references; rendered ISO dates retain literal punctuation. The program-owned German lead scopes uncertainty to supplied passages and does not invent a governing winner, nonapproval event, replacement, or global absence of an applicable deadline. One compact framed sentence contains both alternatives; the English verbatim source unit is a presentation tradeoff, not an unsupported claim. No unrelated retention appendix. Actual concise catalog40 units, comparison/unresolved, 8K/q4_0/14 layers,112816ms. Schema/ID membership alone is not the basis of this semantic grade."
+  },
+  {
+    "caseId": "heldout-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. The exact supplied2:5/1:2 tables support78165 plannedGBP minus73410 recordedGBP, correctly4755GBP; the displayed periods use ordinary German thousands notation. Planned/actual status is retained; reserves are not added and no target attainment is asserted. Both input citations attach the sole short German sentence. Repeating the question years is not required. Concise catalog40 units with ordinary answered output,8K/q4_0/14 layers,116088ms."
+  }
+]

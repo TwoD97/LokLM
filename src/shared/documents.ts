@@ -617,6 +617,9 @@ export interface ChunkSource {
   /** Absolute path on disk — only displayed, never used to load bytes
    *  (renderer must go through documents.readDocumentBytes for that). */
   sourcePath: string
+  /** Hash of the indexed source version. Citation previews must not silently
+   * display newer external bytes after refresh/reindex. */
+  contentHash?: string | null
   /** Heading breadcrumb for the specific chunk this was fetched for. Null for
    *  PDFs and chunks indexed before markdown-aware chunking landed. */
   headingPath: string[] | null
@@ -626,3 +629,7 @@ export interface ChunkSource {
   chunkPageFrom: number | null
   chunkPageTo: number | null
 }
+
+export type DocumentBytesResult =
+  | { status: 'verified'; bytes: Uint8Array }
+  | { status: 'changed' | 'unavailable' | 'unverified' }

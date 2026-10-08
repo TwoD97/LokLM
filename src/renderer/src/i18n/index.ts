@@ -6,6 +6,7 @@
 // and falls back to EN ( then to the raw key ) for any missing string , so a
 // half-translated build degrades to English rather than blank.
 
+import { useCallback } from 'react'
 import { useSettings } from '../settings/useSettings'
 import type { Locale } from './types'
 import { authDict } from './dict_auth'
@@ -78,8 +79,11 @@ export type TFn = (key: string, vars?: Record<string, string | number>) => strin
 export function useT(): TFn {
   const { settings } = useSettings()
   const locale: Locale = settings?.basic.language === 'de' ? 'de' : 'en'
-  return (key, vars) => {
-    const hit = DICT[locale][key] ?? DICT.en[key] ?? key
-    return interpolate(hit, vars)
-  }
+  return useCallback<TFn>(
+    (key, vars) => {
+      const hit = DICT[locale][key] ?? DICT.en[key] ?? key
+      return interpolate(hit, vars)
+    },
+    [locale],
+  )
 }

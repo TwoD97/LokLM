@@ -39,6 +39,23 @@ function fixture(run: (emit: (event: StreamEvent) => void) => Promise<Terminal |
 afterEach(() => vi.useRealTimers())
 
 describe('native calibration authoritative stream capture', () => {
+  it.each([undefined, false, true])(
+    'forwards document expansion only when explicitly enabled (%s)',
+    async (wholeDocFallback) => {
+      const { api } = fixture(async () => done)
+      await collectCalibrationStream(
+        { ...input, ...(wholeDocFallback === undefined ? {} : { wholeDocFallback }) },
+        api,
+      )
+      expect(api.chat.stream).toHaveBeenCalledWith(
+        'calibration-test-0',
+        1,
+        'A question?',
+        expect.objectContaining({ wholeDocFallback: wholeDocFallback === true }),
+      )
+    },
+  )
+
   it('uses an invoke-only terminal immediately and replaces accumulated tokens', async () => {
     const { api, offEvents, offActivity } = fixture(async (emit) => {
       emit({ type: 'token', text: 'Provisional text.' })

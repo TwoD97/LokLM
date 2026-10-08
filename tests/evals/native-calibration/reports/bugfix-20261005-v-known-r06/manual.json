@@ -1,0 +1,15 @@
+[
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The two stock records concern different places (\"unterschiedlichen Orten\")."
+    ],
+    "notes": "Correct no-conflict outcome, 12 at 08:00 UTC / 17 at 18:00 UTC on 2031-10-06, and exact local 11:11 / 12:12 citations. However, the opening invents different locations; both sources describe the sealed cabinet at the same Ostel repair centre. Strict all-claims grounding therefore fails. Actual lexical noise removal changes fused/retrieval-final ranks 9/10 to 1/2; actual prompt-fed positions change 8/9 to 1/2 after packing, with identical dense arms and scores. Retrieval improvement is not a clean final-answer pass. One completed 166479 ms call; no retry. All V follow-up queues unlaunched."
+  }
+]

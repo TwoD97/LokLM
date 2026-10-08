@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "false-refusal",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent organizer_store review agrees false refusal. Actual supplied base3:3 and approved amendment4:4 establish current4 drills and unchanged5 saws for the asked date; the amendment approval/effective dates precede that date. The full exact quotations and correct source IDs preserve facts but the explicit unresolved lead falsely withholds a determinate answer and does not synthesize the requested limits. No retrieval omission: required sources are the first two actual fed passages. Exact runtime result is comparison/unresolved (not insufficient); full mode with0 concise units and no fallback. One completed103512ms call,8K/q4_0/14 layers."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent strict pass. Actual9:9 supports current72 EUR and effective2031-03-01;10:10 supports proposal date2031-09-18, proposed81 EUR, explicit absence of an assembly vote and non-revocation. The coherent paragraph attaches both correct source references. The no-vote/no-effect statement is expressly supported, not inferred from missing documentation. All requested authority distinctions are supplied; no one-sentence requirement applies. Completed once133472ms."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent strict pass. Exact supplied 11:11/12:12 and final display establish the same cabinet/date,12 sensors at08:00 UTC before deliveries/withdrawals and17 at18:00 after. Compatibility is warranted for observations at different times. All requested counts/times and qualifiers are present with correct local references; no invented different location or unrelated source. Completed once125922ms."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Operational failure, not a semantic pass or inferred arithmetic failure. Timed out at180147ms with one cancelled terminal and interruption notice; no completed substantive answer. Both required actual passages16:17/17:18 were supplied. Native metrics record2822 input/237 output tokens,162374ms native,first text37652ms,last161889ms,response554 characters,cancelled true and no completion reason. No hidden check or raw response envelope inspected. The harness stopped naturally; requested11/12 were never attempted."
+  }
+]

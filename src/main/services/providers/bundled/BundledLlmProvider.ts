@@ -34,6 +34,9 @@ export class BundledLlmProvider implements LlmProvider {
       plannedContextTokens?: number | undefined
       jsonSchema?: object | undefined
       noThink?: boolean | undefined
+      maxBoundedThoughtTokens?: 64 | 128 | 192 | undefined
+      /** Explicit per-call opt-out; omission preserves the provider default. */
+      repeatPenalty?: false | undefined
       systemPrompt?: string | undefined
       temperature?: number | undefined
       requireComplete?: boolean | undefined

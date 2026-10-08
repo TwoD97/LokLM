@@ -1,0 +1,457 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-an-ab-replay",
+  "classification": "Known DEV actual-app replay; all three original-rubric semantic/completeness/citation/format passes. Separate zero-external-JSON-line-break predicate fails for one valid envelope. Not fresh validation.",
+  "privacy": "Explicitly allowlisted final displayed answers, source identities/order and fixed content-free runtime metadata only. No hidden thoughts/token arrays, private check, raw structured generation envelope, rejected prose, chat history, source bodies, authentication/profile paths or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-an-ab-replay/raw.json",
+    "sha256": "e49e0c1671443482fd761e53444a0b4f2819cad332c74f455df962e46b324eb9",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/an-ab-replay-execution-declaration.json",
+    "sha256": "b952abca1623ea8a7066460d7dea54aba527adef5e67054fa392c5c90f129140",
+    "frozenAt": "2026-10-06T02:48:01.913Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/an-ab-replay-postverify.json",
+    "sha256": "add50290e3b96ab5c0ea631226f5f6873fd78bd17acde49cfc3656a637ac2af5",
+    "verifiedAt": "2026-10-06T02:56:58.517Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 419,
+    "compiledCount": 112,
+    "runnerExitCode": 0,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": ["ab-fresh-01", "ab-fresh-02", "ab-fresh-03"],
+  "attemptedCases": ["ab-fresh-01", "ab-fresh-02", "ab-fresh-03"],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 3,
+    "attempted": 3,
+    "completedAnswers": 3,
+    "requestedDecisionsAndValuesCorrect": 3,
+    "citationSupportComplete": 3,
+    "strictPasses": 3,
+    "semanticPartials": 0,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "zeroExternalLineBreakEnvelopes": 2,
+    "nonzeroExternalLineBreakEnvelopes": 1
+  },
+  "startedAt": "2026-10-06T02:48:30.418Z",
+  "collectionCompletedAt": "2026-10-06T02:56:33.700Z",
+  "closureVerifiedAt": "2026-10-06T02:56:58.517Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 180000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": true
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "570cba0cae53bf5cbf3ae110c5891fba6830dc4aa8536862da551d81d12aa7c4",
+    "workerSha256": "c2b3c41142a9523a108f9467981215cb3e5fbd0049468755c583edeae7798645",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "ed528d83dabef454480e1a4714e9890cdbb175be7cde7c42162889850ab8e95d",
+    "fixtureLockSha256": "90f1316c9e7642b124603432d11b49214a7411ec62b000e6409c325067b63ff8",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "App deadline includes retrieval and preparation; native timing is a subset. visibleTokens includes constrained JSON syntax and the private check, not displayed prose. Thought/check contents were not inspected. Compactness counts only external JSON line breaks after successful parsing, not escaped newlines inside strings.",
+  "queries": [
+    {
+      "caseId": "ab-fresh-01",
+      "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days\\.” [doc:1, chunk:1].",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "finalCitationIds": ["2:2", "1:1"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 122540,
+        "firstVisibleTokenMs": 122540,
+        "terminalMs": 122542,
+        "totalMs": 122543,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 111856,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "concise",
+            "conciseUnitCount": 31,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 111708,
+            "grammarMs": 6,
+            "promptFitMs": 19,
+            "nativeMs": 111683,
+            "firstTextMs": 73489,
+            "lastTextMs": 111680,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 227,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1619,
+            "usedOutputTokens": 213,
+            "boundedThoughts": {
+              "promptTokens": 1618,
+              "prefillBatches": 7,
+              "prefillTokens": 1617,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 85,
+              "combinedTokens": 215,
+              "firstVisibleMs": 73489,
+              "lastVisibleMs": 111680,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ]
+    },
+    {
+      "caseId": "ab-fresh-02",
+      "finalAnswer": "For one registered Belvorn team meeting on 2038-04-08, staff may lend 5 portable projectors and 7 tablets. The later tablet working paper does not change those limits as it was not approved. [doc:3, chunk:3] [doc:4, chunk:4] [doc:5, chunk:5]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "finalCitationIds": ["3:3", "4:4", "5:5"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 153519,
+        "firstVisibleTokenMs": 153519,
+        "terminalMs": 153519,
+        "totalMs": 153520,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 135955,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 135815,
+            "grammarMs": 3,
+            "promptFitMs": 22,
+            "nativeMs": 135790,
+            "firstTextMs": 70150,
+            "lastTextMs": 135789,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 432,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1454,
+            "usedOutputTokens": 276,
+            "boundedThoughts": {
+              "promptTokens": 1453,
+              "prefillBatches": 6,
+              "prefillTokens": 1452,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 148,
+              "combinedTokens": 278,
+              "firstVisibleMs": 70150,
+              "lastVisibleMs": 135789,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 1,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ]
+    },
+    {
+      "caseId": "ab-fresh-03",
+      "finalAnswer": "The planned net licensing receipts for 2037 exceed the recorded net licensing receipts for 2036 by 2375 CHF. [doc:6, chunk:6] [doc:7, chunk:7]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": ["6:6", "7:7", "8:8", "4:4", "5:5", "3:3", "1:1"],
+      "finalCitationIds": ["6:6", "7:7"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 153604,
+        "firstVisibleTokenMs": 153604,
+        "terminalMs": 153604,
+        "totalMs": 153604,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 136151,
+        "calls": [
+          {
+            "schema": "typed-comparison-v16",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v16",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 136023,
+            "grammarMs": 4,
+            "promptFitMs": 17,
+            "nativeMs": 136002,
+            "firstTextMs": 77367,
+            "lastTextMs": 136000,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 342,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1295,
+            "usedOutputTokens": 259,
+            "boundedThoughts": {
+              "promptTokens": 1294,
+              "prefillBatches": 6,
+              "prefillTokens": 1293,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 131,
+              "combinedTokens": 261,
+              "firstVisibleMs": 77367,
+              "lastVisibleMs": 136000,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ]
+    }
+  ],
+  "originalRubric": {
+    "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+    "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079",
+    "criteriaChanged": false,
+    "interpretation": "The same explicit-nonapproval requirement used for AK/AM remains binding. AN02 now states that reason and cites all three supporting passages; no grading criterion changed."
+  },
+  "formattingLimitation": "All three worker start markers say compact. Successfully parsed envelope externalLineBreaks counts are0/1/0; the strict zero-external-line-break predicate is false forAB02. Only the scalar is retained; line-break location and cause are unknown and must not be inferred."
+}

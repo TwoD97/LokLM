@@ -1,0 +1,72 @@
+[
+  {
+    "caseId": "ar-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual fed 4:4/5:5/6:6 establish current 39 images per month and retained 13 working days on the asked date. The answer gives both source-stated authority reasons: amendment approved February 12 and effective March 4, and the later April 16 period proposal explicitly not approved. All additional dates and continued base-period applicability are supported. Three local references cover one coherent paragraph. No one-sentence limit was requested."
+  },
+  {
+    "caseId": "ar-fresh-04",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual fed 7:7/8:8/9:9 support current 15 CHF, approved future 18 CHF from 2055-10-07, and the requested distinction between approval and activation. The final explains continued current-fee effectiveness and source-stated staff use of activation date. Both amounts, date and every extra condition are supported by the three locally attached references. It does not call the approved future rule unapproved; the unasked six-day limit need not be repeated."
+  },
+  {
+    "caseId": "ar-fresh-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual fed 10:10/11:11 support 1386 completed trees in 2053 and 1648 planned trees in 2054 for the asked west block. The difference is 262. Both inputs, years and actual/planned status appear in one short sentence, with both correct local references. No reserve or east-block count is included. Repeating the unambiguous question location is not an additional key requirement."
+  },
+  {
+    "caseId": "ar-fresh-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual fed 12:12/13:13 support A 0.84 kg = 840 g and B 840 g for the same entire dried sample content at the stated time. The answer explicitly gives both normalized values, correct compatibility and the matching complete dry-content scope. This scope excludes a gross-container or partial-sample interpretation; it does not add glass mass. The original question/key require the relevant scope explanation, not a verbatim recital of every source qualifier. Both references locally support all clauses; no one-sentence limit applies."
+  },
+  {
+    "caseId": "ar-fresh-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "strictContentPass": true,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "formatRequirementSatisfied": true,
+    "unsupportedExtraClaims": [],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PASS. Actual fed 16:16 supports height 2.4 m and absence of width/front-face area in the supplied survey. The answer names the missing width as preventing the requested rectangular-area calculation, in one short sentence with the correct local citation. It neither assumes a square nor asserts that width was never measured elsewhere."
+  }
+]

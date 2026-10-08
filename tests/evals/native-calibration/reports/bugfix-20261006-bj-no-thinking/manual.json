@@ -1,0 +1,39 @@
+[
+  {
+    "runId": "BJ01",
+    "caseId": "ab-fresh-01",
+    "attempted": 1,
+    "retries": 0,
+    "acceptedFinal": false,
+    "answer": null,
+    "strictPass": false,
+    "productAcceptancePass": false,
+    "semanticPass": null,
+    "citationSupportPass": null,
+    "citationCoveragePass": null,
+    "languagePass": null,
+    "briefSingleSentencePass": null,
+    "fixedParserDiagnostics": {
+      "accepted": false,
+      "reasons": ["answer"],
+      "ordinaryDetails": [],
+      "comparisonDetails": ["summary_display"],
+      "summaryDisplayDiagnostic": {
+        "status": "classified",
+        "eligible": false,
+        "codes": ["interior_period"],
+        "utf16Length": 232,
+        "codePointLength": 232,
+        "displayCodePointLength": 231,
+        "maximum": 368,
+        "countsClipped": false,
+        "terminalPeriod": true,
+        "unadmittedPeriodsAllInPublicWhitelist": true
+      }
+    },
+    "directDiagnosticMs": 16887,
+    "direct180SecondTargetPass": true,
+    "priorBhBiResultsReplaced": false,
+    "notes": "The executed v29 parser admitted no answer. Whitelist coverage is lexical evidence only; no rejected words, dot positions or bodies were retained. No retrospective regrade under a successor parser."
+  }
+]

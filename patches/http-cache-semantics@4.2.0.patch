@@ -1,0 +1,89 @@
+diff --git a/index.js b/index.js
+--- a/index.js
++++ b/index.js
+@@ -394,8 +394,9 @@
+     evaluateRequest(req) {
+         this._assertRequestHasHeaders(req);
+ 
+-        // In all circumstances, a cache MUST NOT ignore the must-revalidate directive
+-        if (this._rescc['must-revalidate']) {
++        // LokLM GHSA-ch52-4w7c-c8xp patch: client freshness preferences and
++        // stale extensions cannot override response reuse prohibitions.
++        if (this._requiresRevalidation() || this._rescc['must-revalidate']) {
+             return this._evaluateRequestMissResult(req);
+         }
+ 
+@@ -588,6 +589,26 @@
+     }
+ 
+     /**
++     * Restrictions that require origin validation, not ordinary expiration.
++     * Computed from existing fields so version-1 serialized policies retain
++     * the protection without changing the cache serialization format.
++     * @returns {boolean} Whether this response cannot be reused unvalidated.
++     */
++    _requiresRevalidation() {
++        return !!(
++            !this.storable() ||
++            this._rescc['no-cache'] ||
++            this._resHeaders.vary === '*' ||
++            (this._isShared && (
++                this._rescc['proxy-revalidate'] ||
++                (this._resHeaders['set-cookie'] &&
++                    !this._rescc.public &&
++                    !this._rescc.immutable)
++            ))
++        );
++    }
++
++    /**
+      * Possibly outdated value of applicable max-age (or heuristic equivalent) in seconds.
+      * This counts since response's `Date`.
+      *
+@@ -597,29 +618,11 @@
+      * @returns {number} The max-age value in seconds.
+      */
+     maxAge() {
+-        if (!this.storable() || this._rescc['no-cache']) {
++        if (this._requiresRevalidation()) {
+             return 0;
+         }
+ 
+-        // Shared responses with cookies are cacheable according to the RFC, but IMHO it'd be unwise to do so by default
+-        // so this implementation requires explicit opt-in via public header
+-        if (
+-            this._isShared &&
+-            (this._resHeaders['set-cookie'] &&
+-                !this._rescc.public &&
+-                !this._rescc.immutable)
+-        ) {
+-            return 0;
+-        }
+-
+-        if (this._resHeaders.vary === '*') {
+-            return 0;
+-        }
+-
+         if (this._isShared) {
+-            if (this._rescc['proxy-revalidate']) {
+-                return 0;
+-            }
+             // if a response includes the s-maxage directive, a shared cache recipient MUST ignore the Expires field.
+             if (this._rescc['s-maxage']) {
+                 return toNumberOrZero(this._rescc['s-maxage']);
+@@ -683,6 +686,7 @@
+      * @returns {boolean} `true` if `stale-if-error` condition allows use of a stale response.
+      */
+     _useStaleIfError() {
++        if (this._requiresRevalidation() || this._rescc['must-revalidate']) return false;
+         return this.maxAge() + toNumberOrZero(this._rescc['stale-if-error']) > this.age();
+     }
+ 
+@@ -690,6 +694,7 @@
+      * @returns {boolean} `true` if `stale-while-revalidate` is currently allowed.
+      */
+     useStaleWhileRevalidate() {
++        if (this._requiresRevalidation() || this._rescc['must-revalidate']) return false;
+         const swr = toNumberOrZero(this._rescc['stale-while-revalidate']);
+         return swr > 0 && this.maxAge() + swr > this.age();
+     }

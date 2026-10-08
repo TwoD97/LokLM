@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "authority-reserved-07",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The predeclared literal-code positive control failed operationally: one checked raw call ended with a normalized answer error and no successful checked-result metadata. The worker exit timing is logged in finally, so it does not prove generation succeeded; failure in generation, completion validation or parsing remains indistinguishable in this trace. Visible output is only the failure note. Actual required code passages 12:12 and 13:13 were supplied. No valid calculation, deployment decision or citation assessment can be inferred. No timeout, grammar fallback, retry or model-output repair. Retained as zero strict passes out of one requested control."
+  }
+]

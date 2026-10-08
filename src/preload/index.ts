@@ -63,6 +63,7 @@ import type {
   DeleteConversationTurnInput,
   ChunkSource,
   DocumentChunk,
+  DocumentBytesResult,
   ModelsStatus,
   LibrarySearchHit,
   LibrarySearchOptions,
@@ -341,8 +342,11 @@ const api = {
       opts?: LibrarySearchOptions,
     ): Promise<LibrarySearchHit[]> =>
       ipcRenderer.invoke('documents:searchLibrary', workspaceId, query, opts ?? {}),
-    readDocumentBytes: (documentId: number): Promise<Uint8Array | null> =>
-      ipcRenderer.invoke('documents:readDocumentBytes', documentId),
+    readDocumentBytes: (
+      documentId: number,
+      expectedHash?: string | null,
+    ): Promise<DocumentBytesResult> =>
+      ipcRenderer.invoke('documents:readDocumentBytes', documentId, expectedHash),
     /** Original text of a generated document, stored inside the encrypted workspace. */
     readGeneratedText: (documentId: number): Promise<string | null> =>
       ipcRenderer.invoke('documents:readGeneratedText', documentId),

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict semantic/completeness/citation/format PASS against the unchanged original criteria. Actual supplied 16:17 states west31 and exclusive serials700–739;17:18 states east34 and exclusive serials740–779, with reciprocal exclusions. The final correctly explains disjoint scope, permits addition and gives65. Both canonical references support the coherent calculation paragraph; every added claim is supported. Four short sentences are permitted by the question's brief explanation request; no one-sentence rule applies. App184894 ms/native174196 ms: this separate300-second diagnostic exceeds180 by4894 ms and does not replace either AQ failure. Fixed current-run shape counts contain two comma_chunk_pair candidates; exact pre-cleanup labels, causal normalization and discarded AQ content are not inferred."
+  }
+]

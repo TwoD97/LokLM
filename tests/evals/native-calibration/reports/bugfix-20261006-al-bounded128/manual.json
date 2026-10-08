@@ -1,0 +1,26 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "cellId": "ab-fresh-01/thought128",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS against original criteria. Both exact value-bearing units provide South19 days2:2 and North14 days1:1 for the same NP-6/S8 scope. The compact framed sentence limits uncertainty to supplied evidence and invents no winner, nonapproval, replacement or global absence. Both values and local references are present; no irrelevant heading/date unit. Native114560ms is not app timing."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "cellId": "ab-fresh-02/thought128",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Parser NONPASS, not a semantic verdict: native144275ms completed with normal stopGenerationTrigger and parseable compact JSON, but production validation rejected answer/source_label. No validated final or discarded contents were retained. Do not infer the precise bad label, intended5/7/9 values, citation selection or authority reasoning. All eight original supplied passages, including3:3/5:5/4:4, were retained unchanged. No timeout/retry/repair."
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "decisionCorrectness": "unclear",
+    "contextSufficiency": "sufficient",
+    "unsupportedExtraClaims": [],
+    "notes": "Valid JSON failed the unchanged v5 structured contract; no validated final answer or evidence strings retained. The actual supplied context includes both base rule 3:3 and approved amendment 4:4; there is no observed retrieval omission. No check, raw envelope, rejected answer prose, hidden thought text or segment token values were retained/read; precise envelope defect and semantic answer remain unknown. Public metadata counted 64 thought tokens; natural eogToken completion in 100002ms. No timeout or retry. Grouped treatment: M evidence-first instructions with /no_think removed, auto thoughts64, native grammar omitted, strict production post-parser retained. Known DEV direct replay, not a fresh case, production fallback, or end-to-end latency measurement. Production source/build unchanged; owned process exited and GPU released."
+  }
+]

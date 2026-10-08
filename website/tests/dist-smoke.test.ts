@@ -39,11 +39,20 @@ describe.skipIf(!hasBuild)('core pages', () => {
     }
   })
 
-  it('each core page inlines the Organization and SoftwareApplication JSON-LD', () => {
+  it('each core page identifies its publisher; only homepages describe the software', () => {
     for (const page of corePages) {
       const html = readDist(page)
       expect(html, `${page} missing Organization`).toContain('"@type":"Organization"')
-      expect(html, `${page} missing SoftwareApplication`).toContain('"@type":"SoftwareApplication"')
+      if (page === 'index.html' || page === 'en/index.html') {
+        expect(html, `${page} missing SoftwareApplication`).toContain(
+          '"@type":"SoftwareApplication"',
+        )
+      } else {
+        expect(html, `${page} mislabels legal copy as software`).not.toContain(
+          '"@type":"SoftwareApplication"',
+        )
+        expect(html, `${page} mislabels legal copy as the site`).not.toContain('"@type":"WebSite"')
+      }
     }
   })
 

@@ -1,0 +1,179 @@
+{
+  "kind": "safe-known-replay-combined-summary",
+  "candidate": "AQ",
+  "buildManifestSha256": "4ffd56cb9b2717bd3c576a7520e36c8ee9e40b2d5990289bdb92096a6b43f63b",
+  "classification": "Incomplete original13 known DEV calibration at180s; not a fresh or completed acceptance run.",
+  "requestedCaseOrder": [
+    "ab-fresh-01",
+    "ab-fresh-02",
+    "ab-fresh-03",
+    "reasoning-reserved-02",
+    "reasoning-reserved-09",
+    "heldout-10",
+    "heldout-06",
+    "reasoning-reserved-05",
+    "reasoning-reserved-06",
+    "reasoning-reserved-11",
+    "reasoning-reserved-12",
+    "authority-transfer-01",
+    "authority-transfer-04"
+  ],
+  "counts": {
+    "requested": 13,
+    "attempted": 5,
+    "completedFinals": 4,
+    "strictPasses": 4,
+    "semanticPartialsOrFailuresAmongCompletedFinals": 0,
+    "operationalTimeouts": 1,
+    "unobserved": 8
+  },
+  "groups": [
+    {
+      "name": "ab",
+      "requested": 3,
+      "attempted": 3,
+      "completedFinals": 3,
+      "strictPasses": 3,
+      "timeouts": 0,
+      "unobserved": 0,
+      "report": "tests/evals/native-calibration/reports/bugfix-20261006-aq-ab-replay/REVIEW.md",
+      "rawSha256": "9dd3c8d5099f3cf5175a0cb53f9a52f4f2c7d4fdf7cd8b382b2d9306ff57e4ae",
+      "postverifySha256": "822a4d8af15803491fa1c641dece421def4685d8a3ed2a42fc9cb6e107aaf2a5"
+    },
+    {
+      "name": "reasoning-gate",
+      "requested": 2,
+      "attempted": 2,
+      "completedFinals": 1,
+      "strictPasses": 1,
+      "timeouts": 1,
+      "unobserved": 0,
+      "report": "tests/evals/native-calibration/reports/bugfix-20261006-aq-reasoning-gate-replay/REVIEW.md",
+      "rawSha256": "837d79ec261ac80ab508916936577c4af0caf1334bcbe377248d330489bfe75d",
+      "postverifySha256": "83b6acda53321ce720113523a76dff3d3e5ecf6c5251f32739494b6f628805b1"
+    },
+    {
+      "name": "original",
+      "requested": 2,
+      "attempted": 0,
+      "completedFinals": 0,
+      "strictPasses": 0,
+      "timeouts": 0,
+      "unobserved": 2
+    },
+    {
+      "name": "reasoning",
+      "requested": 4,
+      "attempted": 0,
+      "completedFinals": 0,
+      "strictPasses": 0,
+      "timeouts": 0,
+      "unobserved": 4
+    },
+    {
+      "name": "transfer",
+      "requested": 2,
+      "attempted": 0,
+      "completedFinals": 0,
+      "strictPasses": 0,
+      "timeouts": 0,
+      "unobserved": 2
+    }
+  ],
+  "caseOutcomes": [
+    {
+      "caseId": "ab-fresh-01",
+      "status": "strict-pass",
+      "appMs": 128960,
+      "nativeMs": 118214
+    },
+    {
+      "caseId": "ab-fresh-02",
+      "status": "strict-pass",
+      "appMs": 169308,
+      "nativeMs": 151487
+    },
+    {
+      "caseId": "ab-fresh-03",
+      "status": "strict-pass",
+      "appMs": 141847,
+      "nativeMs": 124876
+    },
+    {
+      "caseId": "reasoning-reserved-02",
+      "status": "strict-pass",
+      "appMs": 146812,
+      "nativeMs": 136086
+    },
+    {
+      "caseId": "reasoning-reserved-09",
+      "status": "operational-timeout",
+      "appMs": 180088,
+      "nativeMs": 162729
+    },
+    {
+      "caseId": "heldout-10",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "heldout-06",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "reasoning-reserved-05",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "reasoning-reserved-06",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "reasoning-reserved-11",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "reasoning-reserved-12",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "authority-transfer-01",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    },
+    {
+      "caseId": "authority-transfer-04",
+      "status": "unobserved",
+      "appMs": null,
+      "nativeMs": null
+    }
+  ],
+  "configuration": {
+    "calibrationQuestionTimeoutMs": 180000,
+    "isProductionAnswerDeadline": false,
+    "attemptsPerCase": 1,
+    "retries": 0,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "wholeDocFallback": true,
+    "goldSourceSelection": false,
+    "outputRepair": false
+  },
+  "completionDiagnosticPolicy": "Any separately declared longer-window repeat is diagnostic only and cannot replace this timeout, complete this original180s denominator, or authorize the eight later cases/fresh authorship.",
+  "freshAuthorshipAuthorized": false,
+  "freshCasesAuthored": false,
+  "privacy": "Status/timing/hash summary only; exact validated finals and fixed terminal notices remain in linked allowlisted observations. No private thoughts/check/raw envelope/history/machine-absolute paths."
+}

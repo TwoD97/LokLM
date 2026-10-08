@@ -93,7 +93,7 @@ describe('quality-qualified hints across native session reset', () => {
       }),
     )
     expect(loaded.createContext).toHaveBeenCalledWith(
-      expect.objectContaining({ contextSize: { min: 4096, max: 8192 } }),
+      expect.objectContaining({ contextSize: { min: 8192, max: 8192 } }),
     )
   })
 
@@ -121,12 +121,16 @@ describe('quality-qualified hints across native session reset', () => {
     const cache = new GpuLayerPlanCache()
     seedGpuLayerPlanHints(cache, [fullHint])
     const reduced = model(14)
-    vi.mocked(reduced.createContext).mockResolvedValue({
-      contextSize: 4096,
-      getSequence: () => ({}),
-      dispose: async () => {
-        events.push('context disposed')
-      },
+    vi.mocked(reduced.createContext).mockImplementation(async (options) => {
+      if ((options.contextSize as { min: number }).min === 8192)
+        throw new Error('Insufficient VRAM for the exact target')
+      return {
+        contextSize: 4096,
+        getSequence: () => ({}),
+        dispose: async () => {
+          events.push('context disposed')
+        },
+      }
     })
     vi.mocked(reduced.dispose).mockImplementation(async () => {
       events.push('weights disposed')
@@ -201,17 +205,17 @@ describe('guarded GPU layer-plan reuse', () => {
       onLoadProgress: opts.onLoadProgress,
     })
     expect(second.createContext).toHaveBeenCalledWith({
-      contextSize: { min: 4096, max: 8192 },
+      contextSize: { min: 8192, max: 8192 },
       flashAttention: true,
       batchSize: 254,
-      experimentalKvCacheKeyType: 'Q4_0',
-      experimentalKvCacheValueType: 'Q4_0',
+      experimentalKvCacheKeyType: 'Q8_0',
+      experimentalKvCacheValueType: 'Q8_0',
     })
     expect(opts.log).toHaveBeenCalledWith(expect.stringContaining('cache miss'))
     expect(opts.log).toHaveBeenCalledWith(expect.stringContaining('cache hit'))
   })
 
-  it('reuses the same native weight fit while honoring each fresh context KV preference', async () => {
+  it('reuses the same native weight fit while natively probing q8 before a coarse q4 preference', async () => {
     const cache = new GpuLayerPlanCache()
     const opts = options(cache)
     const models = [model(), model(), model()]
@@ -222,7 +226,7 @@ describe('guarded GPU layer-plan reuse', () => {
       .mockResolvedValueOnce(models[2])
     for (const kvCacheType of ['f16', 'q4_0', 'q8_0'] as const) {
       const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType }, loadModel })
-      expect(result.plan.kvCacheType).toBe(kvCacheType)
+      expect(result.plan.kvCacheType).toBe(kvCacheType === 'q4_0' ? 'q8_0' : kvCacheType)
     }
     expect(loadModel.mock.calls.map(([call]) => call.gpuLayers)).toEqual([
       { fitContext: { contextSize: 8192 } },
@@ -240,8 +244,9 @@ describe('guarded GPU layer-plan reuse', () => {
     })
     expect(models[1]!.createContext).toHaveBeenCalledWith(
       expect.objectContaining({
-        experimentalKvCacheKeyType: 'Q4_0',
-        experimentalKvCacheValueType: 'Q4_0',
+        contextSize: { min: 8192, max: 8192 },
+        experimentalKvCacheKeyType: 'Q8_0',
+        experimentalKvCacheValueType: 'Q8_0',
       }),
     )
     expect(models[2]!.createContext).toHaveBeenCalledWith(
@@ -265,7 +270,7 @@ describe('guarded GPU layer-plan reuse', () => {
       return { contextSize: 8192, getSequence: () => ({}), dispose: async () => {} }
     })
     const loadModel = vi.fn().mockResolvedValueOnce(old).mockResolvedValueOnce(current)
-    await allocateChat({ ...opts, loadModel }) // First allocation uses q4_0.
+    await allocateChat({ ...opts, loadModel }) // Coarse q4 preference permits a full-target q8 probe.
     const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType: 'f16' }, loadModel })
     expect(contextTypes).toEqual(['F16', 'Q8_0'])
     expect(result.plan.kvCacheType).toBe('q8_0')
@@ -299,7 +304,7 @@ describe('guarded GPU layer-plan reuse', () => {
         order.push('fallback')
         return replacement
       })
-    await allocateChat({ ...opts, loadModel }) // q4_0 succeeds before memory pressure.
+    await allocateChat({ ...opts, loadModel }) // Full-target q8 succeeds before memory pressure.
     const result = await allocateChat({ ...opts, plan: { ...plan, kvCacheType: 'f16' }, loadModel })
     expect(contextTypes).toEqual(['F16', 'Q8_0', 'Q4_0'])
     expect(order).toEqual(['disposed', 'fallback'])

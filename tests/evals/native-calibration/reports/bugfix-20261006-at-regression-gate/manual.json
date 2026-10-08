@@ -1,0 +1,19 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "strictContentPass": false,
+    "citationSupport": "partial",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "documentary-absence-overclaim",
+    "formatRequirementSatisfied": true,
+    "presentationDefects": ["Visible internal unit-style labels U7/U3/U4/U8."],
+    "unsupportedExtraClaims": [
+      "There is no binding value; supplied notes instead fail to establish which value governs."
+    ],
+    "prospectiveAdaptiveRuntimeRequirementMet": true,
+    "notes": "Strict PARTIAL/nonpass. Actual supplied North1:1 and South2:2 support14/19days, the mapping, and missing documented approval/priority. Both correct canonical references attach a single short sentence. The former claim that both intervals apply is absent. However, gibt es keinen verbindlichen Wert asserts absence of a binding value, stronger than these excerpts not establishing which governs. Laut den Notizen identifies the evidence but the notes do not state that stronger absence conclusion. No single winner, chronology or replacement is invented. U7/U3/U4/U8 labels are a separate output/display defect; no exact discarded content or label-role inference is made. Runtime and148934ms clean completion satisfy this declared adaptive300s gate and separate180s threshold."
+  }
+]

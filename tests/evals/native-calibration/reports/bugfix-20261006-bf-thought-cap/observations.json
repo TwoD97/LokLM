@@ -1,0 +1,224 @@
+{
+  "kind": "safe-matched-thought-cap-diagnostic-observations",
+  "classification": "Known-development matched diagnostic NONPASS",
+  "originalCriteriaUnchanged": true,
+  "originalCaseId": "ab-fresh-01",
+  "originalInvalidCriterion": "Asserting no approval ever occurred, neither note has approval, or no binding interval exists anywhere; absence is documentary only",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/validated-finals.json",
+      "sha256": "df4d143b1bac1e866e57132945ac875dd2798c3563d10f9d449c329faeebbed7"
+    },
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/postverify.json",
+      "sha256": "0c40a32eeafc44829a7dc7004e6f3e0f58dfc7e0d265541c70b941775af639da"
+    },
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/durable-closure.json",
+      "sha256": "28aab9518c7a1b9ffce6a05b6570e6d67eb354b0025e5179ac8f85268bef51ac"
+    },
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/preparation.json",
+      "sha256": "786c3b39a9712482e15516a424e0be6a10fdc9613be98da17fe4ba3d7d45ae08"
+    },
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/independent-preparation-review.json",
+      "sha256": "36aeb8611945f85d622f7cdc2d390de0934ccea43df12bd37d2d40084830012d"
+    },
+    {
+      "path": "out/optimization-20261005/bf-thought-cap/plans.json",
+      "sha256": "5859287b4e8fe2622a336d10cf1cb7aad931bb26068fd6b8210576f930cc4965"
+    },
+    {
+      "path": "out/optimization-20261005/be-audit/recorded-catalogs.json",
+      "sha256": "bc838172140113ba122f223cd157aebb35db43888251c70fa88c77ef2050beb9"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    }
+  ],
+  "design": {
+    "questionCount": 1,
+    "arms": [
+      { "id": "BF01", "maxThoughtTokens": 128 },
+      { "id": "BF02", "maxThoughtTokens": 192 }
+    ],
+    "fixedOrder": true,
+    "runsPerArm": 1,
+    "retries": 0,
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "freshWorkerModelContextPerArm": true,
+    "runtimeEqualityRequiredBeforeSecondInference": true,
+    "completeSuppliedSourceCount": 8,
+    "withinPairRequestIdentity": true,
+    "historicalWireIdentityProven": false,
+    "buildManifestSha256": "11ae4e4a89c085a40c1ca69ada0b0151bca1dc757998d6668deca3b15720639f",
+    "collectionCapMs": 300000,
+    "directDiagnosticThresholdMs": 180000,
+    "measuredFullProductTurn": false,
+    "provenance": "Reconstructed from the closed recorded BD catalog and frozen production contract. Both arms have identical prompt, system, schema, source text/order and options except the thought cap. Original historical outbound wire bytes were not retained."
+  },
+  "closure": {
+    "actualNodeExitCode": 0,
+    "actualElectronExitCodes": [0, 0],
+    "actualWorkerExitCodes": [0, 0],
+    "actualPostverifyExitCode": 0,
+    "verifiedPins": 595,
+    "failures": [],
+    "pendingRequests": 0,
+    "forcedStops": 0,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "ownedProfilesRemoved": true,
+    "declarationSha256": "595b5647091a60c79faa8f2d560d653589ba57cd20a873602513bd4faf6680d2",
+    "launchSha256": "8e8f8ce3d00af3b6f489fe581f5dcc40edfab5216490e155ea950b78cd0bd59d"
+  },
+  "result": {
+    "attemptedArms": 2,
+    "distinctQuestionsAttempted": 1,
+    "acceptedFinals": 1,
+    "strictPasses": 0,
+    "parserNonpasses": 1,
+    "semanticNonpassesAmongAcceptedFinals": 1,
+    "originalOtherCasesUnattempted": 12,
+    "laterKnownARArmsGranted": false,
+    "freshSetOpened": false,
+    "defaultChanged": false,
+    "candidatePass": false,
+    "productionAcceptancePass": false
+  },
+  "arms": [
+    {
+      "id": "BF01",
+      "thoughtCap": 128,
+      "accepted": false,
+      "answer": null,
+      "rejectionReasons": ["answer"],
+      "mode": null,
+      "outcome": null,
+      "loadMs": 34847,
+      "nativeMs": 135588,
+      "callMs": 135789,
+      "totalMs": 135791,
+      "coldArmMs": 171403,
+      "runtime": {
+        "backend": "vulkan",
+        "threads": 6,
+        "reserveBytes": 1073741824,
+        "kvType": "f16",
+        "contextTokens": 8192,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "schemaMode": "summary"
+      },
+      "metrics": {
+        "elapsedMs": 135616,
+        "nativeMs": 135588,
+        "grammarMs": 8,
+        "promptFitMs": 19,
+        "usedInputTokens": 1740,
+        "usedOutputTokens": 264,
+        "cancelled": false,
+        "completionReason": "stopGenerationTrigger",
+        "route": "main",
+        "boundedThoughts": {
+          "promptTokens": 1739,
+          "thoughtTokens": 128,
+          "thoughtClosingTokens": 0,
+          "forcedClosingTokens": 2,
+          "visibleTokens": 136,
+          "combinedTokens": 266,
+          "firstVisibleMs": 74481,
+          "lastVisibleMs": 135586,
+          "thoughtTermination": "budget"
+        }
+      },
+      "nativeStart": {
+        "maxTokens": 2176,
+        "noThink": false,
+        "boundedReasoning": "active",
+        "jsonWhitespace": "compact"
+      }
+    },
+    {
+      "id": "BF02",
+      "thoughtCap": 192,
+      "accepted": true,
+      "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: Laut Notizen Nord (14 Tage) und Süd (19 Tage) gibt es keine verbindliche Freigabe oder Vorrang, daher ist das Intervall unklar. [doc:1, chunk:1] [doc:2, chunk:2]",
+      "rejectionReasons": [],
+      "mode": "comparison",
+      "outcome": "unresolved",
+      "loadMs": 34964,
+      "nativeMs": 161280,
+      "callMs": 161485,
+      "totalMs": 161491,
+      "coldArmMs": 197170,
+      "runtime": {
+        "backend": "vulkan",
+        "threads": 6,
+        "reserveBytes": 1073741824,
+        "kvType": "f16",
+        "contextTokens": 8192,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "schemaMode": "summary"
+      },
+      "metrics": {
+        "elapsedMs": 161312,
+        "nativeMs": 161280,
+        "grammarMs": 9,
+        "promptFitMs": 22,
+        "usedInputTokens": 1740,
+        "usedOutputTokens": 317,
+        "cancelled": false,
+        "completionReason": "stopGenerationTrigger",
+        "route": "main",
+        "boundedThoughts": {
+          "promptTokens": 1739,
+          "thoughtTokens": 192,
+          "thoughtClosingTokens": 0,
+          "forcedClosingTokens": 2,
+          "visibleTokens": 125,
+          "combinedTokens": 319,
+          "firstVisibleMs": 103893,
+          "lastVisibleMs": 161278,
+          "thoughtTermination": "budget"
+        }
+      },
+      "nativeStart": {
+        "maxTokens": 2176,
+        "noThink": false,
+        "boundedReasoning": "active",
+        "jsonWhitespace": "compact"
+      }
+    }
+  ],
+  "latency": {
+    "pairColdWallMs": 369000,
+    "directCandidateMinusControlMs": 25700,
+    "coldCandidateMinusControlMs": 25767,
+    "direct180SecondTargetPasses": [true, true],
+    "coldArm180SecondComparisons": [true, false],
+    "coldComparisonIsFullProductMeasurement": false
+  },
+  "privacy": {
+    "privateChecksRead": false,
+    "thoughtTextRead": false,
+    "rejectedOutputRead": false,
+    "sourceTextCopied": false,
+    "acceptedFinalCopiedExactly": true,
+    "freshSetOpened": false
+  },
+  "limitations": [
+    "One fixed-order pair on one known development question does not estimate generalization or sampling variance.",
+    "The 128-token parser nonpass and 192-token semantic nonpass are different outcomes; neither is a strict pass.",
+    "Both arms reached their thought caps and used two forced closing tokens. Saturation does not establish the cause of either failure.",
+    "Higher thought allowance did not repair the known documentary-scope error in this pair; it does not prove that every larger allowance would fail.",
+    "Direct diagnostic time excludes model load; cold arm and whole-pair wall times are reported separately. None is a measured application QA turn.",
+    "No source filtering, key changes, retries, additional known cases, fresh validation or production default change follow from this result."
+  ],
+  "currentSourceEqualityReasserted": false
+}

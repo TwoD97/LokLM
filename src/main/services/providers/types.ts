@@ -30,6 +30,12 @@ export interface LlmProvider {
       /** Disable the model's reasoning segment. Bundled uses a zero thought
        *  budget; explicit values map to Ollama's model-dependent think option. */
       noThink?: boolean | undefined
+      /** Bundled adapters may use up to the selected private reasoning limit within
+       * maxTokens before the answer grammar. Unsupported adapters retain the
+       * zero-thought path; a supported adapter's failure never falls back. */
+      maxBoundedThoughtTokens?: 64 | 128 | 192 | undefined
+      /** Explicit per-call opt-out; omission preserves the provider default. */
+      repeatPenalty?: false | undefined
       /** Per-call task instructions; does not change the chat's system prompt. */
       systemPrompt?: string | undefined
       temperature?: number | undefined

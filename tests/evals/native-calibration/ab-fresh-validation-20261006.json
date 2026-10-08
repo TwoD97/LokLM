@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "split": "ab-fresh-validation-20261006",
+  "sources": [
+    {
+      "key": "abf-north",
+      "title": "Nuvrek pump filter interval note North",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-north.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-south",
+      "title": "Nuvrek Pumpenfilter Intervallnotiz Süd",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-south.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-base",
+      "title": "Belvorn approved meeting equipment rule",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-base.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-amend",
+      "title": "Belvorn approved projector amendment",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-amend.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-proposal",
+      "title": "Belvorn tablet working paper",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-proposal.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-actual",
+      "title": "Torvane main campus recorded licensing receipts",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-actual.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-plan",
+      "title": "Torvane main campus licensing plan",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-plan.md",
+      "format": "markdown"
+    },
+    {
+      "key": "abf-annex",
+      "title": "Torvane Annex licensing plan",
+      "file": "fixtures/ab-fresh-validation-20261006/abf-annex.md",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "ab-fresh-01",
+      "question": "Welches verbindliche Wartungsintervall gilt laut den Notizen Nord und Süd für Nuvreks NP-6-Filter der Kampagne S8? Nenne beide angegebenen Intervalle. Antworte in einem kurzen Satz.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "abf-north",
+        "abf-south"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Aus den Notizen lässt sich kein verbindliches Intervall feststellen: Nord nennt 14 Tage und Süd 19 Tage, ohne dokumentierte Freigabe oder Vorrangregel.",
+      "answerChecks": [
+        {
+          "label": "North interval",
+          "pattern": "\\b14\\b"
+        },
+        {
+          "label": "South interval",
+          "pattern": "\\b19\\b"
+        },
+        {
+          "label": "days",
+          "pattern": "Tag"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ab-fresh-02",
+      "question": "For one registered Belvorn team meeting on 2038-04-08, how many portable projectors and tablets may staff lend, and does the later tablet working paper change those limits?",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "abf-base",
+        "abf-amend",
+        "abf-proposal"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Staff may lend 5 portable projectors and 7 tablets. The approved projector amendment is effective by 2038-04-08 and leaves the tablet limit unchanged; the later proposal for 9 tablets is explicitly unapproved and authorizes no change.",
+      "answerChecks": [
+        {
+          "label": "projectors",
+          "pattern": "\\b(?:5|five)\\b"
+        },
+        {
+          "label": "tablets",
+          "pattern": "\\b(?:7|seven)\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "ab-fresh-03",
+      "question": "By how much do Torvane main campus's planned net licensing receipts for 2037 exceed its recorded net licensing receipts for 2036? Answer in one short sentence.",
+      "language": "en",
+      "kind": "table-arithmetic",
+      "requiredSourceKeys": [
+        "abf-actual",
+        "abf-plan"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The planned 2037 net licensing receipts of 29835 CHF exceed the recorded 2036 amount of 27460 CHF by 2375 CHF.",
+      "answerChecks": [
+        {
+          "label": "difference",
+          "pattern": "\\b2[,.\\s]?375\\b"
+        },
+        {
+          "label": "currency",
+          "pattern": "CHF|Swiss francs"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}

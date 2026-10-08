@@ -1,0 +1,20 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "unclear",
+    "strictPass": false,
+    "operationalOutcome": "timeout-with-incomplete-original-harness-teardown",
+    "rejection": null,
+    "rejectionDetail": null,
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "not-reviewed-in-metadata-only-recovery",
+    "decisionCorrectness": "unassessable-no-validated-final",
+    "formatRequirementSatisfied": null,
+    "responseLanguageContractSatisfied": null,
+    "productAcceptance": false,
+    "unsupportedExtraClaims": [],
+    "notes": "The request timed out at 300166 ms; cancellation settled without an invoke/cancellation error and no accepted final exists. Native time was 289139 ms with 431 constrained envelope tokens. Requested, captured and applied source-excerpts policy are all observed. No semantic, source-selection or exact failure cause is inferred. The original exit code, app log, final observer and after-build record are missing. Separate recovery verified pinned files and process/capture closure without inference or retries; it does not retroactively establish original clean teardown. All twelve later cases remain unattempted."
+  }
+]

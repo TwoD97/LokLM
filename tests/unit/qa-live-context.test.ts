@@ -101,7 +101,7 @@ describe('QA uses the answering context after retrieval residency changes', () =
     const ctrl = new AbortController()
     const running = f.collect(ctrl.signal)
     await vi.waitFor(() => expect(f.llm.prepareContext).toHaveBeenCalledOnce())
-    expect(f.llm.prepareContext).toHaveBeenCalledWith({ abortSignal: ctrl.signal })
+    expect(f.llm.prepareContext).toHaveBeenCalledWith({ abortSignal: expect.any(AbortSignal) })
     ctrl.abort()
     prepared.resolve(4096)
     expect(await running).toEqual([])

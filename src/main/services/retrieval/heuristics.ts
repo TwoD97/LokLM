@@ -90,6 +90,23 @@ export function nonStopwordTokens(text: string): string[] {
     .filter((t) => t.length > 0 && !TITLE_STOPWORDS.has(t))
 }
 
+/** Document BM25 must not cast relevance votes from function words alone.
+ * Reuse the title/query stopword vocabulary, but preserve all Unicode letters
+ * and numbers as WorkspaceDb's FTS query tokenizer does. The semantic arm still
+ * receives the original query. Explicit literals and queries without any useful
+ * remaining FTS term retain their existing search behavior. */
+export function documentLexicalQuery(query: string): string {
+  // Be conservative around literal searches, including unmatched delimiters:
+  // removing words from a requested phrase or code sample changes its meaning.
+  if (/["'`“”„‟‘’«»‹›]/u.test(query) || query.includes('~~~')) return query
+  const tokens = query.match(/[\p{L}\p{N}]+/gu) ?? []
+  const meaningful = tokens.filter((token) => !TITLE_STOPWORDS.has(token.toLowerCase()))
+  // FTS currently ignores one-character terms. Preserve its original fallback
+  // when filtering leaves only those terms, punctuation, or no terms at all.
+  if (!meaningful.some((token) => token.length > 1)) return query
+  return meaningful.join(' ')
+}
+
 // Decomposition bounds (ADR-0003 multi-question handling). Beyond MAX it's
 // likely pasted content, not a genuine multi-question chat turn — decomposing
 // would just multiply retrieval passes, so we treat it as one query. MIN_CHARS
@@ -119,6 +136,12 @@ function isResponseDirective(text: string): boolean {
           clause,
         ) ||
         /^(?:bitte\s+)?(?:verwende|nutze)\s+(?:ISO(?:[- ]8601)?[- ]?(?:Daten|Datumsangaben)|Stichpunkte|Klartext)$/iu.test(
+          clause,
+        ) ||
+        /^(?:please\s+)?(?:cite|support|substantiate)\s+(?:both|all|each|every)\s+(?:claims?|statements?|values?|limits?|results?|figures?|facts?)(?:\s+with\s+(?:sources|citations|evidence))?$/i.test(
+          clause,
+        ) ||
+        /^(?:bitte\s+)?(?:belege|belegen Sie|zitiere|zitieren Sie)\s+(?:beide|alle|jede|jeden|jedes)\s+(?:Angaben?|Aussagen?|Werte?|Grenzen?|Ergebnis(?:se)?)(?:\s+mit\s+(?:Quellen|Belegen|Quellenangaben))?$/iu.test(
           clause,
         ) ||
         /^(?:please\s+)?(?:(?:briefly|concisely)\s+)?(?:explain|summarize|summarise)\s+(?:the|your)\s+(?:evidence|reasoning|rationale)(?:\s+and\s+(?:(?:the|your)\s+)?(?:evidence|reasoning|rationale))?(?:\s+(?:briefly|concisely))?$/i.test(
@@ -165,7 +188,10 @@ export function splitQuestions(query: string): string[] {
 
 export function applyTitleBoost(hits: SearchHit[], query: string, factor: number): SearchHit[] {
   if (factor === 1.0 || factor <= 0) return hits
-  const qTokens = new Set(nonStopwordTokens(query))
+  // An ISO date or count must not promote an unrelated numbered filename.
+  // Keep numbers in the shared tokenizer and lexical/dense retrieval; only
+  // this optional title preference requires a textual or mixed identifier.
+  const qTokens = new Set(nonStopwordTokens(query).filter((token) => !/^\d+$/.test(token)))
   if (qTokens.size === 0) return hits
   return hits.map((h) => {
     const titleTokens = nonStopwordTokens(h.document_title)
@@ -825,30 +851,39 @@ export function applyTrackPreference(
 }
 
 /**
- * Score-gap dynamic-K (ADR-0006 fix #3). Returns how many of the score-sorted
- * `sorted` hits to keep: walk down from `minK`, stop at the first big relative
- * drop (a hit whose sigmoid-normalised score falls below `tau` of the previous),
- * clamped to [minK, maxK]. Sigmoid-normalising makes the ratio well-defined for
- * cross-encoder logits (which can be negative). A precision knob, not a recall
- * one — opt-in, so it can be A/B-ed against fixed-K on the answer-quality eval.
+ * Score-gap dynamic-K for explicitly nonnegative ranking weights. RRF scores
+ * and our providers' normalized relevance scores are not raw logits; applying
+ * sigmoid again hides their relative gaps. Multiplicative boosts may put the
+ * weights above one. A ratio is scale-invariant, not calibrated relevance.
+ *
+ * Input must be best-first. Invalid/negative/unsorted weights or an invalid
+ * threshold disable this optional cut instead of guessing a score domain.
+ * A real cut applies to the eligible prefix, before diversity/code selection.
  */
 export function dynamicScoreCutCount(
-  sorted: SearchHit[],
+  sorted: readonly SearchHit[],
   minK: number,
   maxK: number,
+  scoreDomain: 'nonnegative',
   tau = 0.6,
 ): number {
+  if (!Number.isSafeInteger(minK) || minK < 0 || !Number.isSafeInteger(maxK) || maxK < 0)
+    throw new RangeError('Dynamic-K bounds must be nonnegative safe integers')
   const n = Math.min(maxK, sorted.length)
-  if (n <= minK) return n
-  const norm = (s: number): number => 1 / (1 + Math.exp(-s))
-  let k = minK
-  for (let i = minK; i < n; i++) {
-    const prev = norm(sorted[i - 1]!.score)
-    const cur = norm(sorted[i]!.score)
-    if (prev > 0 && cur < prev * tau) break
-    k = i + 1
+  const minimum = Math.min(minK, n)
+  if (n <= minimum) return n
+  if (scoreDomain !== 'nonnegative' || !Number.isFinite(tau) || tau <= 0 || tau > 1) return n
+  for (let i = 0; i < sorted.length; i++) {
+    const score = sorted[i]?.score
+    if (!Number.isFinite(score) || score! < 0 || (i > 0 && score! > sorted[i - 1]!.score)) return n
   }
-  return Math.max(minK, Math.min(k, n))
+  for (let i = Math.max(1, minimum); i < n; i++) {
+    const previous = sorted[i - 1]!.score
+    const current = sorted[i]!.score
+    // Zero ties carry no evidence of a cliff; a positive-to-zero drop does.
+    if (previous > 0 && current / previous < tau) return i
+  }
+  return n
 }
 
 /**

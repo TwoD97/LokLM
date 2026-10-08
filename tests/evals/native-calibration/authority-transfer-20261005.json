@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "split": "authority-transfer-20261005",
+  "sources": [
+    {
+      "key": "at-base-event",
+      "title": "Oryth event equipment reservation policy",
+      "file": "fixtures/at-base-event.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-event-change",
+      "title": "Oryth approved mixer amendment",
+      "file": "fixtures/at-event-change.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-standard-process",
+      "title": "Darsen Standardanträge Bearbeitungsordnung",
+      "file": "fixtures/at-standard-process.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-process-change",
+      "title": "Darsen beschlossene künftige Friständerung",
+      "file": "fixtures/at-process-change.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-deposit-rule",
+      "title": "Mirthen approved plot access badge deposit",
+      "file": "fixtures/at-deposit-rule.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-deposit-paper",
+      "title": "Mirthen autumn working paper on badge deposits",
+      "file": "fixtures/at-deposit-paper.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-clamp-first",
+      "title": "Farnel Spannvorrichtung Protokoll Kupfer",
+      "file": "fixtures/at-clamp-first.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-clamp-second",
+      "title": "Farnel Spannvorrichtung Protokoll Zinn",
+      "file": "fixtures/at-clamp-second.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-rehearsal-only",
+      "title": "Oryth rehearsal room equipment allocation",
+      "file": "fixtures/at-rehearsal-only.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-urgent-only",
+      "title": "Darsen Dringlichkeitsverfahren",
+      "file": "fixtures/at-urgent-only.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-locker-only",
+      "title": "Mirthen visitor locker keys",
+      "file": "fixtures/at-locker-only.md",
+      "format": "markdown"
+    },
+    {
+      "key": "at-other-clamp",
+      "title": "Farnel previous clamp fixture",
+      "file": "fixtures/at-other-clamp.md",
+      "format": "markdown"
+    }
+  ],
+  "cases": [
+    {
+      "id": "authority-transfer-01",
+      "question": "For an Oryth registered crew booking a public event on 2042-06-10, what are the separate maximum numbers of portable mixers and wireless microphones?",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "at-base-event",
+        "at-event-change"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "The limits are 6 portable mixers and 8 wireless microphones per public event. The approved amendment has been effective since 2042-05-20 and changes only mixers; the unchanged microphone limit comes from the base event policy. Cite the amendment for 6 and the base policy for 8.",
+      "answerChecks": [
+        {
+          "label": "mixer maximum",
+          "pattern": "\\b(?:6|six)\\b"
+        },
+        {
+          "label": "microphone maximum",
+          "pattern": "\\b(?:8|eight)\\b"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-transfer-02",
+      "question": "Welche verbindliche Bearbeitungsfrist gilt am 2042-08-20 für einen vollständigen Standardantrag in Darsen, und ab welchem Datum gilt die bereits beschlossene neue Frist? Nenne auch deren Dauer.",
+      "language": "de",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "approved-supersession",
+      "requiredSourceKeys": [
+        "at-standard-process",
+        "at-process-change"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Am 2042-08-20 gelten weiterhin 12 Arbeitstage. Die beschlossene neue Frist von 9 Arbeitstagen wird erst am 2042-09-01 wirksam. Die Grundordnung belegt die bisherige Frist, die Änderung belegt die künftige Frist und deren Beginn. Der Beschluss vom 2042-07-01 setzt die neue Frist nicht vorzeitig in Kraft.",
+      "answerChecks": [
+        {
+          "label": "current duration",
+          "pattern": "\\b(?:12|zwölf)\\b"
+        },
+        {
+          "label": "future duration",
+          "pattern": "\\b(?:9|neun)\\b"
+        },
+        {
+          "label": "effective date",
+          "pattern": "2042-09-01|1\\.?\\s*September\\s*2042|01\\.09\\.2042"
+        },
+        {
+          "label": "workdays",
+          "pattern": "Arbeitstag"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-transfer-03",
+      "question": "As of 2042-10-20, what deposit should a Mirthen cashier collect from an adult plot holder for one access badge, and can the figure in the autumn working paper already be used?",
+      "language": "en",
+      "kind": "multi-document-comparison",
+      "challengeCategory": "newer-unapproved",
+      "requiredSourceKeys": [
+        "at-deposit-rule",
+        "at-deposit-paper"
+      ],
+      "expectedAbstention": false,
+      "referenceAnswer": "Collect 28 EUR. The working paper proposes 41 EUR but has not been approved and does not authorize a change, so its later circulation date does not replace the governing rule. Cite the rule for the current deposit and the working paper for the proposed amount and lack of approval.",
+      "answerChecks": [
+        {
+          "label": "governing deposit",
+          "pattern": "\\b(?:28|twenty[- ]eight)\\b"
+        },
+        {
+          "label": "proposed deposit",
+          "pattern": "\\b(?:41|forty[- ]one)\\b"
+        },
+        {
+          "label": "currency",
+          "pattern": "EUR|euro"
+        }
+      ],
+      "allowPartial": false
+    },
+    {
+      "id": "authority-transfer-04",
+      "question": "Welche Einspannkraft ist für Farnel FV-8 aus Baureihe K nach den vorliegenden Prüfprotokollen verbindlich zulässig? Stelle die Angaben der beiden Fassungen gegenüber und begründe, ob eine endgültige Grenze feststeht.",
+      "language": "de",
+      "kind": "conflicting-sources",
+      "challengeCategory": "unresolved-numeric",
+      "requiredSourceKeys": [
+        "at-clamp-first",
+        "at-clamp-second"
+      ],
+      "expectedAbstention": true,
+      "referenceAnswer": "Eine endgültige verbindliche Grenze ist aus den vorliegenden Auszügen nicht bestimmbar. Kupfer nennt höchstens 420 N, Zinn höchstens 460 N für dasselbe Prüfobjekt, dieselbe Baureihe und dieselben Prüfbedingungen. Ein Vorrang oder eine Korrektur ist nicht dokumentiert. Beide Werte müssen ihrer eigenen Quelle zugeordnet werden; weder Addition noch Mittelwert noch eine willkürlich gewählte Fassung ist eine belegte verbindliche Grenze.",
+      "answerChecks": [
+        {
+          "label": "Kupfer force",
+          "pattern": "\\b420\\b"
+        },
+        {
+          "label": "Zinn force",
+          "pattern": "\\b460\\b"
+        },
+        {
+          "label": "force unit",
+          "pattern": "\\bN\\b|Newton"
+        }
+      ],
+      "allowPartial": false
+    }
+  ]
+}

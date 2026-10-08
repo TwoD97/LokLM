@@ -1,0 +1,112 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed. Source-scoped unresolved lead and only full relevant 2:2 / 1:1 passages: 2031-04-12 / 2031-04-09 deadlines, equal issue date and same NB-4 population, review-only status and no documented approval/replacement. No invented precedence, chronology or assertion that an external replacement event never occurred. Exact local citations, both requested alternatives complete. One completed 86379 ms call, no retry; actual 8K/q8_0/14 layers."
+  },
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: compatible relationship with only relevant full 6:6 / 5:5 originals, same ER-6 tank/time/whole-tank scope. Both 2750 litres and 2.75 cubic metres remain visible, with correct source-linked normalization to 2750 L each. Requested comparison and converted values are complete; no invented conflict or authority. One completed 95934 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: only exact 7:7 / 8:8 originals, same LP-7 event/date/temperature/interval. Correct unresolved lead, full documentary no-priority/correction qualifications, and requested source-linked seconds conversions: 2.25 minutes =135 s versus150 s. No invented winner or omitted alternative. One completed 104394 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: current 72 EUR annual contribution for an ordinary adult member, effective 2031-03-01, correctly distinguished from 81 EUR proposal dated 2031-09-18. The source explicitly states no assembly vote and no revocation of the governing order. Exact 9:9 / 10:10 support every clause in one coherent ordinary answer record; no invented authority or unrelated detail. One completed 136247 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: 24 litres for run B cites actual supplied table 13:15, and ISO approval date 2031-06-11 cites the supplied header 13:14 in a separate record. Both requested facts are complete and locally attributed. No invented offsets, header-for-value citation or irrelevant appendix; minor German agreement wording only. One completed 131340 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-08",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: requested=8 produces north 6 and south 7, and neither archive copy is documented as deployed. Exact supplied 14:13 / 15:16 citations attach the whole concise calculation and uncertainty record. No invented deployment, code result, scope or detached calculation attribution. All requested parts complete. One completed 98763 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: West 31 (serials 700–739) plus East 34 (740–779) equals 65. Distinct non-overlapping ranges justify addition; stated shared completion date 2031-12-02 is also supplied. Exact 16:17 / 17:18 citations support the coherent calculation paragraph. Complete requested total and scope explanation; no invented population overlap. One completed 147574 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: selected only relevant supplied 18:19, preserving 8 litres/minute as a rate and the explicit absence of cycle duration or total discharged volume. Insufficient-evidence lead is scoped to supplied excerpts and does not infer whole-document absence. No invented total volume or irrelevant source. One completed 95094 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass: concise requested average rate of 6 litres/minute for Ivaren run A, with exact actual supplied table 13:15 supporting 18 litres over 3 minutes. The question asks only the rate, so no explicit working or repetition of inputs is required. No invented offset, unrelated source or unsupported extra. One completed 115505 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass under the established S/I criterion: only relevant actual supplied table 13:15, which explicitly lists no electrical measurements. Source-scoped insufficient lead correctly declines to invent electrical power and does not overgeneralize to the whole document. The automatic water/time conversions are accurate but unnecessary display overhead, not unrelated model-selected sources or unsupported facts. One completed 99179 ms call, no retry; actual 8192-token context, q8_0 KV, 14 GPU layers."
+  }
+]

@@ -2,6 +2,10 @@
 import LangSwitch from './LangSwitch.astro'
 import { getLangFromUrl, localisedPath } from '~/i18n/utils'
 import { t } from '~/i18n/ui'
+import type { Alternates } from '~/lib/alternates'
+
+interface Props { alternates?: Alternates }
+const { alternates } = Astro.props
 
 const lang = getLangFromUrl(Astro.url)
 const homeHref = lang === 'de' ? '/' : '/en'
@@ -16,7 +20,7 @@ const downloadHref = isHome ? '#download' : `${homeHref}#download`
 ---
 
 <header class="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-bg-0)]/70 backdrop-blur-xl">
-  <nav class="mx-auto max-w-6xl px-6 h-14 flex items-center justify-between">
+  <nav aria-label={t(lang, 'nav.label')} class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
     <a href={homeHref} class="flex items-center gap-2.5 group">
       <img
         src="/brand/mark-on-dark.svg"
@@ -44,9 +48,43 @@ const downloadHref = isHome ? '#download' : `${homeHref}#download`
       <a href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank" class="hidden sm:inline-block px-3 py-1.5 rounded-md text-[color:var(--color-fg-2)] hover:text-[color:var(--color-fg-0)] hover:bg-white/5 transition-colors">
         {t(lang, 'nav.github')}
       </a>
+      <details class="mobile-menu sm:hidden" data-mobile-menu>
+        <summary>{t(lang, 'nav.menu')}</summary>
+        <div class="mobile-menu__links">
+          <a href={featuresHref}>{t(lang, 'nav.features')}</a>
+          <a href={downloadHref}>{t(lang, 'nav.download')}</a>
+          <a href={blogHref}>{t(lang, 'nav.blog')}</a>
+          <a href="https://github.com/TwoD97/LokLM" rel="noopener" target="_blank">{t(lang, 'nav.github')}</a>
+        </div>
+      </details>
       <div class="ml-2 pl-2 border-l border-[color:var(--color-border)]">
-        <LangSwitch />
+        <LangSwitch alternates={alternates} />
       </div>
     </div>
   </nav>
 </header>
+
+<style>
+  .mobile-menu { position: relative; }
+  .mobile-menu summary { min-height: 44px; display: flex; align-items: center; padding: 0 0.7rem; cursor: pointer; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-fg-0); }
+  .mobile-menu summary::-webkit-details-marker { display: none; }
+  .mobile-menu summary::after { content: '+'; margin-left: 0.6rem; }
+  .mobile-menu[open] summary::after { content: '−'; }
+  .mobile-menu__links { position: absolute; top: calc(100% + 0.6rem); right: 0; min-width: 12rem; padding: 0.4rem; background: var(--color-bg-1); border: 1px solid var(--color-border-strong); border-radius: 10px; box-shadow: 0 10px 30px #0005; }
+  .mobile-menu__links a { display: flex; align-items: center; min-height: 44px; padding: 0.6rem 0.8rem; border-radius: 5px; }
+  .mobile-menu__links a:hover { background: var(--color-bg-2); }
+</style>
+
+<script>
+  const menu = document.querySelector<HTMLDetailsElement>('[data-mobile-menu]')
+  menu?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && menu.open) {
+      menu.open = false
+      menu.querySelector('summary')?.focus()
+    }
+  })
+  document.addEventListener('click', (event) => {
+    if (!menu?.open || !(event.target instanceof Node)) return
+    if (!menu.contains(event.target) || (event.target instanceof Element && event.target.closest('a'))) menu.open = false
+  })
+</script>

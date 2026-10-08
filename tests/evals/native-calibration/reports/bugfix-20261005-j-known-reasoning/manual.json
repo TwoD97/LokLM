@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "none",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The fixed 180-second deadline expired at 180.736 seconds. Both required 1:1/2:2 passages were supplied; actual restore was 8192/q8_0/14 layers. The app emitted one cancelled terminal containing only the interruption note. No native completed stopReason/responseChars or parsed result was logged, so no semantic authority outcome is inferred. The initial run stopped after this one attempt; 02–12 remain unobserved in its original requested12 record. A separately declared continuation covers only those unattempted cases, with no retry01."
+  }
+]

@@ -1,3 +1,20 @@
+# pnpm hashes this local security patch; preserve it across Windows checkouts.
+patches/http-cache-semantics@4.2.0.patch text eol=lf
+patches/@simple-git__argv-parser@2.0.1.patch text eol=lf
+patches/node-llama-cpp.patch text eol=lf
+patches/sprintf-js@1.0.3.patch text eol=lf
+patches/sprintf-js@1.1.3.patch text eol=lf
+website/patches/http-cache-semantics@4.2.0.patch text eol=lf
+
+# Preserve upstream crate bytes and the exact documented two-line backport.
+installer-wizard/src-tauri/vendor/glib/** -text
+
+# Preserve published diagnostic report hashes across Windows checkouts.
+tests/evals/native-calibration/reports/** -text
+tests/evals/native-calibration/reports/bugfix-*/REVIEW.md text eol=lf
+tests/evals/native-calibration/reports/bugfix-*/ANSWER-COPY-ERRATUM.md text eol=lf
+tests/evals/native-calibration/reports/bugfix-20261005-grounded-answer-diagnostic/source-archive/c-prototype-relocation.zip -text
+
 # Frozen evaluation inputs are hashed as bytes on every platform.
 tests/evals/native-calibration/heldout.json text eol=lf
 tests/evals/native-calibration/fixtures/heldout/** text eol=lf
@@ -11,3 +28,24 @@ tests/evals/native-calibration/fixtures/authority-dev-20261002/** text eol=lf
 tests/evals/native-calibration/authority-reserved-20261002.json text eol=lf
 tests/evals/native-calibration/authority-reserved-20261002.sha256.json text eol=lf
 tests/evals/native-calibration/fixtures/authority-reserved-20261002/** text eol=lf
+
+# October 5 presealed challenge: preserve original bytes across checkouts.
+tests/evals/native-calibration/reasoning-reserved-20261005.json text eol=lf
+tests/evals/native-calibration/reasoning-reserved-20261005.sha256.json text eol=lf
+tests/evals/native-calibration/fixtures/r26-*.md text eol=lf
+
+# Fresh authority transfer: corpus, grading key, and original seal stay byte-stable.
+tests/evals/native-calibration/authority-transfer-20261005*.json text eol=lf
+tests/evals/native-calibration/fixtures/at-*.md text eol=lf
+
+# Fresh validation authored after S freeze: preserve original sealed bytes.
+tests/evals/native-calibration/s-fresh-validation-20261005.* text eol=lf
+tests/evals/native-calibration/fixtures/s-fresh-validation-20261005/** text eol=lf
+
+# New cases authored after AB freeze; preserve their original sealed bytes.
+tests/evals/native-calibration/ab-fresh-validation-20261006.* text eol=lf
+tests/evals/native-calibration/fixtures/ab-fresh-validation-20261006/** text eol=lf
+
+# Prospective AR validation: register byte protection before any authored payload.
+tests/evals/native-calibration/ar-fresh-validation-20261006.* text eol=lf
+tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/** text eol=lf

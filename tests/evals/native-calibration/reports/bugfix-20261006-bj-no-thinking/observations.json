@@ -1,0 +1,193 @@
+{
+  "kind": "safe-ordinary-no-thinking-route-observation",
+  "classification": "Single diagnostic parser NONPASS under executed v29 admission",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/safe-observations.json",
+      "sha256": "b10872ef386c39e02b70dcb0c6e6a058ce1779232a18bfe2ad07c230c5ccf57c"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/postverify.json",
+      "sha256": "7f1ec0191a3377261b0a3c19e866e73920631c7fbca8d2fe75e5c81aead6d505"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/durable-closure.json",
+      "sha256": "ca083cc0fc71b284d902a4dc4f9c5b3bd2f69c7c7cecef3be9384bb1a08e093e"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/cleanup.json",
+      "sha256": "8a168aa4c427b9c4f24e08cbc3ff6c22c05767b9e33d40e3e067f51497960b48"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/preparation.json",
+      "sha256": "0b5f0b0486bd2064fc0d960ef8ed91c9e3a4a8c8b7ed5af986290dd55d59e04d"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/independent-preparation-review.json",
+      "sha256": "bdf7aef460cc9dd782f32c4e400808802c9bf409fbcc4ab6c127e5be7d1d48d9"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/screening-declaration.json",
+      "sha256": "509cc559d5a43a33b6d42d30253198a217d606c0b146526215228d439da31011"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/adapter-proof.json",
+      "sha256": "d094a8533cc4c2b47343a20f987eedd7078161a153458da782c4550b5c874ca9"
+    },
+    {
+      "path": "out/optimization-20261005/bj-no-thinking/independent-fixed-metadata-grade.json",
+      "sha256": "a45a27bd46471120100f06288d366c73eec7608e671441a16298d98033c8eb12"
+    },
+    {
+      "path": "out/optimization-20261005/bi-safe-report-verification.json",
+      "sha256": "54897e7a1c588823003f3817640da0a59d5dbf932a56a44edd44f1b89a72206a"
+    },
+    {
+      "path": "out/optimization-20261005/bh-safe-report-verification.json",
+      "sha256": "841d327358bdfa7dc38a0de03bd351e4847ec5a0ae411f23461d91bb7093a33b"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    }
+  ],
+  "planned": 1,
+  "attempted": 1,
+  "retries": 0,
+  "acceptedFinals": 0,
+  "strictPasses": 0,
+  "originalOtherCasesUnattempted": 12,
+  "freshSetOpened": false,
+  "model": {
+    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
+    "bytes": 1280835840,
+    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+  },
+  "buildSha256": "47c6ced99837fcb52787f43d5f0fd799ecf2926ae9f7f4fedc741bc1ceea4e2f",
+  "request": {
+    "originalCase": "ab-fresh-01",
+    "originalCriteriaUnchanged": true,
+    "fullSourceCount": 8,
+    "sourceOrderUnchanged": true,
+    "exactBfPromptSystemSchemaIdentity": true,
+    "historicalBdWireIdentityProven": false,
+    "maxTokens": 2176,
+    "noThink": true,
+    "maxBoundedThoughtTokensFieldPresent": false,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "requireComplete": true,
+    "parserVersion": 29,
+    "productionAdmissionChangedDuringRun": false,
+    "productionWorkerUnmodified": true,
+    "collectionCapMs": 300000,
+    "directDiagnosticTargetMs": 180000
+  },
+  "validation": {
+    "accepted": false,
+    "reasons": ["answer"],
+    "ordinaryDetails": [],
+    "comparisonDetails": ["summary_display"],
+    "summaryDisplayDiagnostic": {
+      "status": "classified",
+      "eligible": false,
+      "codes": ["interior_period"],
+      "utf16Length": 232,
+      "codePointLength": 232,
+      "displayCodePointLength": 231,
+      "maximum": 368,
+      "countsClipped": false,
+      "terminalPeriod": true,
+      "unadmittedPeriodsAllInPublicWhitelist": true
+    }
+  },
+  "runtime": {
+    "backend": "vulkan",
+    "threads": 6,
+    "reserveBytes": 1073741824,
+    "kvType": "f16",
+    "contextTokens": 8192,
+    "gpuLayers": 25,
+    "totalModelLayers": 25,
+    "schemaMode": "summary"
+  },
+  "allocatorEvents": [
+    {
+      "code": "layer_cache_miss"
+    },
+    {
+      "code": "allocation_ready",
+      "contextTokens": 8192,
+      "kvType": "f16",
+      "gpuLayers": 25,
+      "reducedOffload": false
+    }
+  ],
+  "metrics": {
+    "elapsedMs": 16880,
+    "nativeMs": 16854,
+    "grammarMs": 4,
+    "promptFitMs": 21,
+    "usedInputTokens": 1740,
+    "usedOutputTokens": 228,
+    "firstTextMs": 5149,
+    "lastTextMs": 16508,
+    "firstNonWhitespaceTextMs": 5149,
+    "lastNonWhitespaceTextMs": 16508,
+    "responseChars": 589,
+    "responseChunks": 227,
+    "cancelled": false,
+    "completionReason": "stopGenerationTrigger",
+    "route": "main",
+    "boundedStageReported": false
+  },
+  "nativeStart": {
+    "maxTokens": 2176,
+    "noThink": true,
+    "boundedReasoning": "not_requested",
+    "jsonWhitespace": "default"
+  },
+  "routeObservability": {
+    "actualThoughtTokenCountMeasured": false,
+    "exactPreparedWrapperCountExported": false,
+    "boundedStageReported": false,
+    "ordinaryMainRouteObserved": true
+  },
+  "timings": {
+    "loadMs": 15662,
+    "nativeMs": 16854,
+    "callMs": 16880,
+    "callAndParserMs": 16887,
+    "coldArmMs": 33047,
+    "coldGroupWallMs": 33285,
+    "throughDurableClosureMs": 39675,
+    "fullApplicationTurnMeasured": false
+  },
+  "closure": {
+    "nodeExit": 0,
+    "postverifyExit": 0,
+    "workerExit": 0,
+    "pendingRequests": 0,
+    "verifiedPins": 619,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "forcedStops": 0,
+    "profilesRemoved": true,
+    "captureEnabled": false
+  },
+  "diagnosticMeaning": {
+    "onlyFixedCodesAndCappedCounts": true,
+    "observedTerminalDotIsNotSuccessfulNormalization": true,
+    "publicWhitelistCoverageIsLexicalOnly": true,
+    "rawTextOrSubstringRetained": false,
+    "priorBhBiNonpassesPreserved": true,
+    "successorParserAppliedRetrospectively": false
+  },
+  "limitations": [
+    "Ordinary session, discourage wrapper and default JSON whitespace differ from the bounded route; this is not a pure thought-cap ablation or causal attribution.",
+    "Absent bounded-stage telemetry does not independently prove zero actual thought tokens.",
+    "The exact prepared-wrapper fit guard ran, but its numeric count is not exported; native input-token delta is recorded separately.",
+    "Whitelist coverage identifies no abbreviation, wording, position, semantic correctness or historical BH/BI cause.",
+    "No semantic grade, model-default adoption or later-case acceptance follows."
+  ]
+}

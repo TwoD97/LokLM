@@ -38,7 +38,8 @@ async function hashes(root, paths) {
 }
 
 async function collectBuildInputs(root = process.cwd()) {
-  const paths = []
+  // The desktop repair catalog imports this installer manifest into its bundle.
+  const paths = ['installer-wizard/model-manifest.json']
   for (const relative of inputRoots) await walk(root, relative, paths, relative !== 'src')
   for (const entry of await readdir(root, { withFileTypes: true }))
     if (entry.isFile() && configName.test(entry.name)) paths.push(entry.name)

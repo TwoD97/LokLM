@@ -1,0 +1,57 @@
+[
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Actual supplied 9:9/10:10 support current 72 EUR/effective March 1, later September 18 proposal 81 EUR, explicitly not yet voted and no current effect. Both canonical references attach the coherent paragraph. The negative vote fact is explicit, not inferred from missing documentation. No unsupported added condition or requested format violation. 121071 ms."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Only the two actual 11:11/12:12 inventory originals are displayed, preserving same cabinet/date, 12 at 08:00 before activity versus 17 at 18:00 after. Compatible relation is correct and all requested counts/times are present. No invented location, false refusal, or unrelated source. Original English quotations with German lead are a presentation tradeoff under unchanged criteria. 103264 ms."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent factual/completeness/citation pass by organizer_store. Actual 16:17/17:18 support 31 west and 34 east, exclusive serial ranges 700-739 and 740-779, and total 65. Both local references cover the coherent calculation. German wording defect: \"decken sich die Mengen ohne Ueberschneidung\" is an ill-chosen collocation; the same sentence explicitly states exclusive membership/no overlap, so in context it does not assert identical cohorts. Record this clarity defect separately, not an invented scope or arithmetic claim. Completed 145023 ms; prior AB timeout remains a separate nonpass."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict pass independently confirmed by organizer_store. Actual supplied 13:15 table gives run A 18 litres over 3 minutes, correctly 6 L/min. The local table citation supports all input/result claims and the displayed calculation. No substitution of run B or added measurement. Two sentences are permitted because this question imposes no one-sentence requirement. 129003 ms."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Independent factual/completeness/citation pass by organizer_store. Actual 13:15 explicitly reports no electrical measurements. Correct excerpt-scoped insufficient lead, exact original table and citations, no invented wattage or whole-document absence claim. All four appended water/time conversions are true but irrelevant to the electrical question; preserve this display-overhead limitation consistently with prior S/I/X12 criteria. Completed 93140 ms."
+  }
+]

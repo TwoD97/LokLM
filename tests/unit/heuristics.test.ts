@@ -46,6 +46,29 @@ describe('applyTitleBoost', () => {
     const out = applyTitleBoost(hits, 'föhrenwald notizen', 1.3)
     expect(out[0]!.score).toBeCloseTo(1.3)
   })
+
+  it.each(['record-01.md', 'record-06.md', '2034-notes.md'])(
+    'does not boost a title from an isolated ISO-date number: %s',
+    (title) => {
+      const input = baseHit({ document_title: title })
+      const out = applyTitleBoost([input], 'Which license applies on 2034-06-01?', 1.25)
+      expect(out[0]!.score).toBe(1)
+      expect(input.score).toBe(1)
+    },
+  )
+
+  it('does not add a title preference to a numeric-only query', () => {
+    const hits = [baseHit({ document_title: '2034-06-01.pdf' })]
+    expect(applyTitleBoost(hits, '2034-06-01', 1.25)).toEqual(hits)
+  })
+
+  it.each([
+    ['License 2034-06-01.pdf', 'Which license applies on 2034-06-01?'],
+    ['RFC 9110.md', 'What does RFC 9110 specify?'],
+    ['RFC9110.md', 'Explain RFC9110'],
+  ])('preserves meaningful title matches with one multiplier: %s', (title, query) => {
+    expect(applyTitleBoost([baseHit({ document_title: title })], query, 1.25)[0]!.score).toBe(1.25)
+  })
 })
 
 describe('applyShortChunkPenalty', () => {
@@ -167,6 +190,18 @@ describe('splitQuestions (multi-question decomposition)', () => {
     'Bitte erläutern Sie Ihre Begründung kurz.',
     'Bitte erkläre kurz die Belege.',
     'Antworte knapp. Erkläre den Gedankengang kurz.',
+    'Belege beide Grenzen.',
+    'Bitte belege alle Angaben mit Quellen.',
+    'Belegen Sie jede Aussage mit Quellenangaben.',
+    'Belege jeden Wert.',
+    'Belege jedes Ergebnis.',
+    'Zitiere alle Ergebnisse.',
+    'Cite both limits.',
+    'Please support all claims with evidence.',
+    'Cite each value with sources.',
+    'Support every result with citations.',
+    'Answer briefly. Cite all statements.',
+    'Antworte knapp. Belege beide Aussagen.',
   ])('keeps a generic evidence/presentation tail out of retrieval: %s', (tail) => {
     expect(splitQuestions(`Which policy applies? ${tail}`)).toEqual(['Which policy applies?'])
     expect(splitQuestions(tail)).toEqual([tail])
@@ -180,6 +215,14 @@ describe('splitQuestions (multi-question decomposition)', () => {
     'Erkläre die Belege für den anderen Vertrag.',
     'Welche Belege stützen den anderen Vertrag?',
     'Antworte knapp. Erläutere die Begründung für die andere Frist.',
+    'Belege beide Grenzen der neuen Richtlinie.',
+    'Belege alle Aussagen mit dem Jahresbericht.',
+    'Zitiere die Angaben aus Vertrag B.',
+    'Cite both limits in the revised permit.',
+    'Support each claim using the inspection report.',
+    'Cite all claims from the minority report.',
+    'What sources support both limits?',
+    'Cite both limits. Explain the evidence for a different contract.',
   ])('preserves a subject-bearing follow-up or mixed tail: %s', (tail) => {
     expect(splitQuestions(`Which policy applies? ${tail}`)).toEqual(['Which policy applies?', tail])
   })
@@ -251,6 +294,9 @@ describe('splitQuestions (multi-question decomposition)', () => {
   it('removes response formatting from genuine compound retrieval questions', () => {
     expect(
       splitQuestions('What revenue was recorded? Which plan was approved? Use ISO dates.'),
+    ).toEqual(['What revenue was recorded?', 'Which plan was approved?'])
+    expect(
+      splitQuestions('What revenue was recorded? Which plan was approved? Cite both results.'),
     ).toEqual(['What revenue was recorded?', 'Which plan was approved?'])
   })
 

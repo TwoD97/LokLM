@@ -299,7 +299,7 @@ export const settingsDict: DomainDict = {
     // AboutTab
     'settings.about.licenseMit': 'LokLM is released under the MIT License',
     'settings.about.tagline':
-      'Local-first knowledge assistant with source verification. Built with the open-source components listed below.',
+      'Local-first knowledge assistant with source citations. Built with the open-source components listed below.',
     'settings.about.npmHeading': 'Bundled software components (Apache-2.0)',
     'settings.about.npmSub':
       'The following npm packages are shipped with LokLM under the Apache License 2.0.',
@@ -624,7 +624,7 @@ export const settingsDict: DomainDict = {
     // AboutTab
     'settings.about.licenseMit': 'LokLM steht unter der MIT-Lizenz',
     'settings.about.tagline':
-      'Local-First-Wissensassistent mit Quellenverifikation. Gebaut mit den unten gelisteten Open-Source-Komponenten.',
+      'Local-First-Wissensassistent mit Quellenverweisen. Gebaut mit den unten gelisteten Open-Source-Komponenten.',
     'settings.about.npmHeading': 'Gebündelte Software-Komponenten (Apache-2.0)',
     'settings.about.npmSub':
       'Die folgenden npm-Pakete werden mit LokLM unter der Apache License 2.0 ausgeliefert.',

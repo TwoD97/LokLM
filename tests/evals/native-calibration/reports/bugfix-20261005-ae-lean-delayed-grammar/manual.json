@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "ab-fresh-01/thought64",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. The validated final answer gives South19days and North14days for the same NP-6/S8 scope, with exact local2:2/1:1 citations. Its fixed lead limits uncertainty to the supplied excerpts; no winner, approval denial, chronology or replacement claim is invented. It is one compact framed sentence containing two exact source units; retained English wording is a presentation tradeoff, not a changed criterion. All eight actual AC input passages retained. Native113044ms;64 thought tokens forced closed,147 constrained-response tokens."
+  },
+  {
+    "caseId": "ab-fresh-02/thought64",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS: native sampling completed but the unchanged production parser returned rejection category answer; no validated final answer was produced. This retained category does not identify the exact underlying condition. No rejected prose, private check or raw envelope was read; do not infer semantic/citation intent. All required3:3/4:4/5:5 supplied. Native121161ms,64 thought tokens forced closed,178 constrained-response tokens; no retry."
+  },
+  {
+    "caseId": "ab-fresh-01/thought0",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS. Safe source-scoped unresolved lead and authentic South quotations include19days but omit North14days and its citation despite both complete notes being supplied. Four South units also include an irrelevant heading and issue date, exceeding the requested compact answer. Literal source fidelity does not satisfy completeness/relevance. Native93903ms,0 thought tokens,168 constrained-response tokens."
+  },
+  {
+    "caseId": "ab-fresh-02/thought0",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS for missing proposal attribution. Current5projectors/7tablets and proposed9/noapproval/noeffect are factually correct. Both rendered blocks cite only3:3/4:4; the later paper proposed9 and explicit facilities-council nonapproval are supported only by supplied5:5, which is never cited. Repeating the correct current value does not repair the local proposal-source omission. Native100498ms,0 thought tokens,193 constrained-response tokens."
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "citationSupport": "unclear",
+    "citationCompleteness": "none",
+    "decisionCorrectness": "unclear",
+    "contextSufficiency": "sufficient",
+    "unsupportedExtraClaims": [],
+    "notes": "No completed visible answer: quote_missing after125344ms, not a timeout. The synthetic observer captured an invented evidence sentence formed from the base3-drill wording with value4 substituted; this literal sentence does not exist in any supplied passage. The second5-saw quote resolves uniquely to3:3. No rejected answer/check/raw envelope retained, so no final semantic verdict; do not repair or retarget. Both required sources supplied at ranks1/2. Actual8K/q8_0/14layers; observer1ms/0errors/dropped/pending. One observation, no retry, fresh4 unrun; owned process exited1 and GPU released."
+  }
+]

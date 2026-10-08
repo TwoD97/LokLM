@@ -87,11 +87,11 @@ describe('localized RSS and Markdown feeds', () => {
     expect(response.headers.get('content-type')).toContain('xml')
     expect(xml).not.toContain('PRIVATE')
     if (lang === 'de') {
-      expect(xml).toContain('https://preview.example/blog/older')
+      expect(xml).toContain('<link>https://preview.example/blog/older</link>')
       expect(xml.indexOf('Neuer Beitrag')).toBeLessThan(xml.indexOf('Älterer Beitrag'))
       expect(xml).not.toContain('New English post')
     } else {
-      expect(xml).toContain('https://preview.example/en/blog/newer')
+      expect(xml).toContain('<link>https://preview.example/en/blog/newer</link>')
       expect(xml).not.toContain('Älterer Beitrag')
     }
   })

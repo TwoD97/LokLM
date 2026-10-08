@@ -1,0 +1,33 @@
+[
+  {
+    "caseId": "ar-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "strictPass": false,
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "requestedFactsAndDecisionCorrect": true,
+    "formatRequirementSatisfied": false,
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PARTIAL for the explicit short-sentence format. The 61-word outer frame (citation markers excluded) contains four full quoted sentence units. Both 1180/1260-pixel alternatives, source mapping and documentary lack of established priority are correct and locally cited 1:1/2:2. The lead is evidence-scoped, not a winner, global nonapproval or claim that no binding width exists. The original question requests one short sentence; four full-sentence quotation units and repeated qualification do not satisfy brevity, even though joined into one semicolon frame. This is not a factual/citation failure or a newly imposed numerical word cap."
+  },
+  {
+    "caseId": "ar-fresh-02",
+    "repetition": 0,
+    "verdict": "unclear",
+    "strictPass": false,
+    "citationSupport": "not-applicable",
+    "citationCompleteness": "not-applicable",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "requestedFactsAndDecisionCorrect": null,
+    "formatRequirementSatisfied": null,
+    "unsupportedExtraClaims": [],
+    "notes": "Operational nonpass: completed constrained generation was rejected with fixed detail source_duplicate; no validated final is available. Actual supplied 3:3 contains both alternatives and the absence-of-priority statement. No discarded facts, selected IDs, exact duplicated syntax, intended decision or semantic quality is inferred. The initial run stops here and its failure remains part of denominator 8; this case is never retried.",
+    "operationalOutcome": "parser-rejection",
+    "rejectionDetail": "source_duplicate",
+    "semanticGradeAvailable": false
+  }
+]

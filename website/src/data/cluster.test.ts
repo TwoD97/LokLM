@@ -2,8 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { personas, pillars, personaUrl, pillarUrl } from './cluster'
 
 describe('SEO cluster data', () => {
-  it('defines the four personas, each with a DE and an EN slug', () => {
-    expect(personas.map((p) => p.key)).toEqual(['lawyer', 'research', 'consulting', 'development'])
+  it('defines the audience pages, each with a DE and an EN slug', () => {
+    expect(personas.map((p) => p.key)).toEqual([
+      'lawyer',
+      'research',
+      'consulting',
+      'development',
+      'business',
+    ])
     for (const persona of personas) {
       expect(persona.slug.de).toMatch(/^einsatz\//)
       expect(persona.slug.en).toMatch(/^use-cases\//)

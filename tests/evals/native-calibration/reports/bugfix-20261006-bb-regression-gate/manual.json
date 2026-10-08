@@ -1,0 +1,22 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "incomplete",
+    "strictPass": false,
+    "finalAnswer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “abf\\-north\\.md”: “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days”. [doc:1, chunk:1]",
+    "acceptedFinalAvailable": true,
+    "citationSupport": "supported-for-included-north-quotation",
+    "citationCompleteness": "incomplete",
+    "contextSufficiency": "original-required-notes-reviewed",
+    "decisionCorrectness": "documentary-uncertainty-correct-but-required-comparison-incomplete",
+    "requestedFactsAndDecisionCorrect": false,
+    "formatRequirementSatisfied": true,
+    "responseLanguageContractSatisfied": true,
+    "productAcceptance": false,
+    "unsupportedExtraClaims": [],
+    "missingRequiredFacts": ["South: 19 days for the identical NP-6 campaign S8"],
+    "missingRequiredCitations": ["The South value-bearing note"],
+    "notes": "Strict NONPASS under the unchanged original key. The accepted final quotes North 14 days for NP-6 campaign S8 and cites doc:1/chunk:1, but omits South 19 days and doc:2/chunk:2. Safe citation-stage metadata maps these two references to the corresponding original fixture identities; both were present among eight observed source events. The included quotation matches the original North fixture. The documentary uncertainty does not choose a winner or invent global absence, different scope or chronology. One short sentence passes; the German fixed lead plus an unchanged literal English source quotation meets the existing response-language contract. Safe incompleteness is not a full pass. No private check, hidden thought or rejected body was inspected."
+  }
+]

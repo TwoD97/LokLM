@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "incomplete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict NONPASS. The evidence-scoped unresolved lead and displayed South text are supported, including 19 days, but the required North 14-day alternative and its 1:1 reference are absent despite actual supply. All four selected units are from South 2:2; heading and issue date add irrelevant material and fail the requested short format. Exact source fidelity and a safe conclusion do not satisfy completeness. App 115958 ms; native 105319 ms; no timeout."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "incorrect",
+    "citationSupport": "partial",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": ["The current tablet loan limit is 9."],
+    "notes": "Critical factual FAIL. Base 3:3 sets 7 tablets; approved/effective amendment 4:4 changes only projectors to 5 and retains other provisions. Proposal 5:5 suggests 9 but explicitly lacks approval/authority. The answer gives current 9 while correctly stating the proposal is not approved and does not change the limits. All three IDs are locally attached, so identity/coverage pass separately; no attached source supports current 9. Current projectors 5 and explicit nonapproval are correct. App 163417 ms; native 145699 ms; no timeout."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Actual supplied 6:6 records main-campus 2036 net receipts 27460 CHF; 7:7 plans 2037 receipts 29835 CHF. Their difference is 2375 CHF. The answer preserves actual/planned status and years, excludes the reserve and Annex, cites both inputs locally and uses one short sentence. Explicitly repeating both input numbers is not an extra requirement. App 136972 ms; native 119725 ms; no timeout."
+  }
+]

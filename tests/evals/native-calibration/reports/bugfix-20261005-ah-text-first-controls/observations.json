@@ -1,0 +1,224 @@
+{
+  "kind": "safe-text-first-control-observations",
+  "status": "Known DEV controls using frozen out-only AG prototype; not production or unseen validation.",
+  "privacy": "Fixed allowlist of validated final answers, source identities and scalar metadata. No private check, thought text/token arrays, chat history, rejected prose, prompt/source bodies or raw model envelope.",
+  "originalRaw": {
+    "path": "out/optimization-20261005/ah-text-first-native-20261006-0031/raw.json",
+    "sha256": "16441d20169b21a7feb89e5c7fe48d29c765690b0291e00a4666679a757b27ed",
+    "availability": "Local ignored generated artifact; this allowlisted observation preserves the retained answers in version control."
+  },
+  "inputPlan": {
+    "path": "out/optimization-20261005/ah-diagnostic-inputs.json",
+    "sha256": "cc8243eb022f8a583872dcbab224f5ff7e364b1ac334ca274785d98bb6d464b4",
+    "sameOriginalQuestionEvidenceAndOrderVerified": true
+  },
+  "executionDeclaration": {
+    "path": "out/optimization-20261005/ah-execution-declaration.json",
+    "sha256": "07675ebf411e020c6e7db704ceb55b0961592dc4c5614b33b409bf769b5ff593",
+    "declaredFileHashesVerified": 9
+  },
+  "startedAt": "2026-10-06T00:31:18.320Z",
+  "completedAt": "2026-10-06T00:37:08.339Z",
+  "requestedCells": ["ab-fresh-01/thought0", "ab-fresh-02/thought0", "ab-fresh-01/thought64"],
+  "runnerSha256": "6375e32b24692898aa01916010a5cfa60addf34cf6a8cfa03654179fd3379ac7",
+  "transitionHelperSha256": "1a9597137e19f78e8ec857674cf5278a6b7b36c32aefd90047d8d464aadd60ec",
+  "manifestSha256": "1a10b34abc5e3c1f9ad44bfc5a280d97bca500b71a4c565c2f3d99378fe60089",
+  "loadMs": 15372,
+  "fingerprintsUnchangedAfter": true,
+  "configuration": {
+    "contextSize": 8192,
+    "gpuLayers": 14,
+    "threads": 6,
+    "batchSize": 254,
+    "vramPaddingBytes": 1073741824,
+    "kv": "q8_0",
+    "maxTokens": 2176,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "perCallTimeoutMs": 180000,
+    "abortGraceMs": 15000
+  },
+  "model": {
+    "bytes": 2740937888,
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+  },
+  "actual": {
+    "gpu": "vulkan",
+    "layers": 14,
+    "context": 8192,
+    "batchSize": 254,
+    "kvKey": 8,
+    "kvValue": 8,
+    "threads": 6,
+    "maxThreads": 6,
+    "paddingBytes": 1073741824,
+    "wrapper": "Qwen3.5/per-cell-auto-or-discourage",
+    "thoughtClosingTokenCount": 1,
+    "thoughtClosingKind": "userDefined",
+    "forcedClosingTokenCount": 2
+  },
+  "timingInterpretation": "Native time includes prefill and both decoding phases, excludes per-cell reset/grammar/tokenization setup and app retrieval. visibleTokens counts the constrained envelope including private check, not final displayed answer. Callback timing is not UI time or exact prefill.",
+  "cells": [
+    {
+      "id": "ab-fresh-01/thought0",
+      "caseId": "ab-fresh-01",
+      "thoughtBudget": 0,
+      "wrapperThoughts": "discourage",
+      "startedAt": "2026-10-06T00:31:37.766Z",
+      "completedAt": "2026-10-06T00:33:16.163Z",
+      "promptSha256": "4f217fb79a7fc2e1f5a4b7e69d4617a5d6d83940a0a7ed83bfbfa48f6525d39f",
+      "systemPromptSha256": "5e7b7bef715966d90a2265da8f429d39d5e88c95617f22426e3f90e884bf5415",
+      "schemaSha256": "0d0d205ba050ebae5f1f21c090406e360a69409fb45a4c4930f06b14478d7c4b",
+      "grammarMs": 7,
+      "exactPromptTokens": 1534,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "rejectionDetail": null,
+      "nativeMs": 98357,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "validated": {
+        "mode": "comparison",
+        "outcome": "unresolved",
+        "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “\\# Nuvrek Filterintervall — Notiz Süd\n” [doc:2, chunk:2]; “Ausgestellt am 2044\\-08\\-06 für NP\\-6\\-Pumpenfilter der Kampagne S8\\.” [doc:2, chunk:2]; “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “Diese Notiz enthält weder eine Freigabeunterschrift noch einen Vermerk über einen Vorrang gegenüber der Notiz Nord\\.” [doc:2, chunk:2].",
+        "spans": [
+          {
+            "source": "2:2",
+            "start": 0,
+            "end": 37
+          },
+          {
+            "source": "2:2",
+            "start": 38,
+            "end": 102
+          },
+          {
+            "source": "2:2",
+            "start": 103,
+            "end": 191
+          },
+          {
+            "source": "2:2",
+            "start": 192,
+            "end": 307
+          }
+        ],
+        "finalCitationIds": ["2:2"]
+      },
+      "tokens": {
+        "usedInputTokens": 1533,
+        "usedOutputTokens": 164
+      },
+      "telemetry": {
+        "thoughtTokens": 0,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 0,
+        "visibleTokens": 164,
+        "sampledTokens": 164,
+        "combinedTokens": 164,
+        "firstVisibleMs": 18309,
+        "lastVisibleMs": 98353,
+        "responseChars": 332,
+        "thoughtTermination": "disabled",
+        "grammarActivatedMs": 1
+      }
+    },
+    {
+      "id": "ab-fresh-02/thought0",
+      "caseId": "ab-fresh-02",
+      "thoughtBudget": 0,
+      "wrapperThoughts": "discourage",
+      "startedAt": "2026-10-06T00:33:16.165Z",
+      "completedAt": "2026-10-06T00:35:07.320Z",
+      "promptSha256": "cca2a64b923f87fcf6890fa3a703d486b6d4c57324a9da4680b4ef89117c4382",
+      "systemPromptSha256": "e27b04eb7cc8d90a6714c4184fc7cb125ee8c8dc1fd40e3f9a116c2bb90a9b23",
+      "schemaSha256": "5a64aba784f6d2f7e676dd3b0509b06a2ccdf27be48f28586d9f7c14ba19ef0c",
+      "grammarMs": 2,
+      "exactPromptTokens": 1379,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "rejectionDetail": null,
+      "nativeMs": 111135,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["3:3", "5:5", "4:4", "6:6", "1:1", "2:2", "7:7", "8:8"],
+      "validated": {
+        "mode": "answered",
+        "outcome": null,
+        "answer": "For one registered Belvorn team meeting on 2038-04-08, staff may lend a maximum of 5 portable projectors and 7 tablets. The later tablet working paper suggesting 9 tablets does not change these limits because it has not been approved by the facilities council. [doc:3, chunk:3] [doc:5, chunk:5]",
+        "spans": [],
+        "finalCitationIds": ["3:3", "5:5"]
+      },
+      "tokens": {
+        "usedInputTokens": 1378,
+        "usedOutputTokens": 218
+      },
+      "telemetry": {
+        "thoughtTokens": 0,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 0,
+        "visibleTokens": 218,
+        "sampledTokens": 218,
+        "combinedTokens": 218,
+        "firstVisibleMs": 12296,
+        "lastVisibleMs": 111133,
+        "responseChars": 597,
+        "thoughtTermination": "disabled",
+        "grammarActivatedMs": 1
+      }
+    },
+    {
+      "id": "ab-fresh-01/thought64",
+      "caseId": "ab-fresh-01",
+      "thoughtBudget": 64,
+      "wrapperThoughts": "auto",
+      "startedAt": "2026-10-06T00:35:07.321Z",
+      "completedAt": "2026-10-06T00:37:08.338Z",
+      "promptSha256": "4f217fb79a7fc2e1f5a4b7e69d4617a5d6d83940a0a7ed83bfbfa48f6525d39f",
+      "systemPromptSha256": "5e7b7bef715966d90a2265da8f429d39d5e88c95617f22426e3f90e884bf5415",
+      "schemaSha256": "0d0d205ba050ebae5f1f21c090406e360a69409fb45a4c4930f06b14478d7c4b",
+      "grammarMs": 3,
+      "exactPromptTokens": 1532,
+      "stopReason": "stopGenerationTrigger",
+      "rejection": null,
+      "rejectionDetail": null,
+      "nativeMs": 120994,
+      "cancelled": false,
+      "inputSourceIdsInOrder": ["2:2", "1:1", "4:4", "5:5", "3:3", "8:8", "7:7", "6:6"],
+      "validated": {
+        "mode": "comparison",
+        "outcome": "unresolved",
+        "answer": "Aus den bereitgestellten Textstellen geht keine eindeutige Antwort hervor: “Das hier genannte Wartungsintervall für die NP\\-6\\-Filter der Kampagne S8 beträgt 19 Tage\\.” [doc:2, chunk:2]; “The service interval stated for the NP\\-6 filters in campaign S8 is 14 days\\.” [doc:1, chunk:1].",
+        "spans": [
+          {
+            "source": "2:2",
+            "start": 103,
+            "end": 191
+          },
+          {
+            "source": "1:1",
+            "start": 95,
+            "end": 170
+          }
+        ],
+        "finalCitationIds": ["2:2", "1:1"]
+      },
+      "tokens": {
+        "usedInputTokens": 1533,
+        "usedOutputTokens": 215
+      },
+      "telemetry": {
+        "thoughtTokens": 64,
+        "thoughtClosingTokens": 0,
+        "forcedClosingTokens": 2,
+        "visibleTokens": 151,
+        "sampledTokens": 215,
+        "combinedTokens": 217,
+        "firstVisibleMs": 44115,
+        "lastVisibleMs": 120993,
+        "responseChars": 299,
+        "thoughtTermination": "budget",
+        "grammarActivatedMs": 42877
+      }
+    }
+  ]
+}

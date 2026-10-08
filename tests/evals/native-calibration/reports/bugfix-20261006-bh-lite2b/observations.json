@@ -1,0 +1,180 @@
+{
+  "kind": "safe-single-lite2b-characterization-observations",
+  "classification": "Original AB01 parser NONPASS; successful resource characterization only",
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/bh-lite2b/validated-final.json",
+      "sha256": "872f85779708b0c590d31055a7fbcb2cc821d1ba920d038286e768f49fa0e811"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/independent-grading.json",
+      "sha256": "fc1f923b8643b9896be99661bdd1a57e6810bd6451069d12e39164395c87391a"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/postverify.json",
+      "sha256": "55097478c8b2bb477692e84c3acb81a7faa1004c49df2c83ad8ae9268c538dad"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/durable-closure.json",
+      "sha256": "16f8ade94518d802e35016050d49d5f54b2fd08378f7e1c416cbee43a482fd70"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/cleanup.json",
+      "sha256": "aca89201c5142adfc0aa6d61f2a80cd5942921697cb503b3a07102507f450c7e"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/preparation.json",
+      "sha256": "c3bef962c03bd4a5dc46001fe5c72d4fdbd4d692acada8e7803071795934a722"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/independent-preparation-review.json",
+      "sha256": "ee5139f1adf4f724ab9739f5e94cdcbb0833303a8fc1a9823b2fd2d19d9247cd"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/screening-declaration.json",
+      "sha256": "5feab5a25bd8193c35c333e1c2ce843a98e304af2a041b9109fc6c29ae971d23"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/root-grant.json",
+      "sha256": "bb60eaebea39f2674d9ded95419a044355a2af5894186e870c7a297b5c8bc9f4"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/plans.json",
+      "sha256": "6e4a3ece199dd51b04a81f3f9753d1a985ef06f6a6681367621ce6002a451d85"
+    },
+    {
+      "path": "out/optimization-20261005/bh-lite2b/adapter-proof.json",
+      "sha256": "71aebca1e98757443fb3a1e874736a39e57290993a2f080124827a1ec5a07bf6"
+    },
+    {
+      "path": "out/optimization-20261005/lite-model-download.json",
+      "sha256": "06c36a69611ec07bff3054323569e52e08ac67339951b94486681ee27516bdcc"
+    },
+    {
+      "path": "tests/evals/native-calibration/ab-fresh-validation-20261006.grading.json",
+      "sha256": "1f58336d4e09cd0c17d05419bfed55fe96271d69cbc4f4814da5ba3b903f4079"
+    }
+  ],
+  "planned": 1,
+  "attempted": 1,
+  "acceptedFinals": 0,
+  "strictPasses": 0,
+  "retries": 0,
+  "originalOtherCasesUnattempted": 12,
+  "freshSetOpened": false,
+  "model": {
+    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
+    "bytes": 1280835840,
+    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223"
+  },
+  "modelRepository": "unsloth/Qwen3.5-2B-GGUF",
+  "modelRevision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+  "buildSha256": "47c6ced99837fcb52787f43d5f0fd799ecf2926ae9f7f4fedc741bc1ceea4e2f",
+  "request": {
+    "originalCase": "ab-fresh-01",
+    "originalCriteriaUnchanged": true,
+    "fullSourceCount": 8,
+    "sourceOrderUnchanged": true,
+    "exactBfPromptSystemSchemaIdentity": true,
+    "currentCitationFixedParser": true,
+    "historicalBdWireIdentityProven": false,
+    "requestHashes": {
+      "prompt": "4906c48c3507cb28538995127b51fc5598e183df331fdceba09f33c233145ec0",
+      "systemPrompt": "166d0bbc4de84375fc82b9b65909b8bb5f6cfe1178882adb7b3816d0d4133f2d",
+      "jsonSchema": "152c400280f4722ec8d29ccb1337770019faf5d239be91f3ea2667ae3e0665d2"
+    },
+    "maxTokens": 2176,
+    "maxThoughtTokens": 128,
+    "temperature": 0,
+    "repeatPenalty": false,
+    "productionWorkerUnmodified": true,
+    "samplerFacade": false,
+    "collectionCapMs": 300000,
+    "directDiagnosticTargetMs": 180000
+  },
+  "runtime": {
+    "backend": "vulkan",
+    "threads": 6,
+    "reserveBytes": 1073741824,
+    "kvType": "f16",
+    "contextTokens": 8192,
+    "gpuLayers": 25,
+    "totalModelLayers": 25,
+    "schemaMode": "summary"
+  },
+  "allocatorEvents": [
+    {
+      "code": "layer_cache_miss"
+    },
+    {
+      "code": "allocation_ready",
+      "contextTokens": 8192,
+      "kvType": "f16",
+      "gpuLayers": 25,
+      "reducedOffload": false
+    }
+  ],
+  "metrics": {
+    "elapsedMs": 14727,
+    "nativeMs": 14699,
+    "grammarMs": 7,
+    "promptFitMs": 20,
+    "usedInputTokens": 1740,
+    "usedOutputTokens": 268,
+    "cancelled": false,
+    "completionReason": "stopGenerationTrigger",
+    "route": "main",
+    "boundedThoughts": {
+      "promptTokens": 1739,
+      "thoughtTokens": 128,
+      "thoughtClosingTokens": 0,
+      "forcedClosingTokens": 2,
+      "visibleTokens": 140,
+      "combinedTokens": 270,
+      "firstVisibleMs": 8838,
+      "lastVisibleMs": 14698,
+      "thoughtTermination": "budget"
+    }
+  },
+  "nativeStart": {
+    "maxTokens": 2176,
+    "noThink": false,
+    "boundedReasoning": "active",
+    "jsonWhitespace": "compact"
+  },
+  "validation": {
+    "accepted": false,
+    "reasons": ["answer"],
+    "ordinaryDetails": [],
+    "comparisonDetails": ["summary_display"]
+  },
+  "timings": {
+    "loadMs": 15161,
+    "nativeMs": 14699,
+    "callMs": 14883,
+    "callAndParserMs": 14885,
+    "coldArmMs": 30492,
+    "coldGroupWallMs": 30706,
+    "throughDurableClosureMs": 36651,
+    "fullApplicationTurnMeasured": false
+  },
+  "closure": {
+    "nodeExit": 0,
+    "postverifyExit": 0,
+    "workerExit": 0,
+    "pendingRequests": 0,
+    "verifiedPins": 601,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "forcedStops": 0,
+    "profilesRemoved": true,
+    "captureEnabled": false
+  },
+  "limitations": [
+    "No accepted final; semantic/citation/language/format grades remain null. summary_display is an aggregate structural category, not proof of its exact underlying predicate.",
+    "Model and actual allocation differ from4B; no matched causal speed or quality claim.",
+    "Exact frozen BF request identity is proven; the earlier historicalBD wire request was reconstructed, not captured.",
+    "No model default changed, no further cases authorized, no retry/rescue score.",
+    "No rejected envelope, private check, thought text or sealed fresh set was retained or inspected."
+  ]
+}

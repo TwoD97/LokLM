@@ -1,0 +1,1220 @@
+{
+  "kind": "safe-known-dev-prospective-adaptive-observations",
+  "classification": "AS/v20 known DEV remaining AR cases03/04/05/06/08 under a new prospective adaptive allocation contract. Historical AR fresh5/8 and AS exact-Q8 gate failure remain unchanged.",
+  "runId": "bugfix-20261006-as-adaptive-regression-remaining",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-adaptive-regression-remaining/raw.json",
+    "sha256": "cf28bd50eac7932bdaa50002314efee4955551619cda4196c678a795bb199d46",
+    "availability": "Local ignored artifact; exact validated finals and safe scalar metadata retained here."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/as-adaptive-regression-remaining-execution-declaration.json",
+    "sha256": "f876fa2182d3f87414407300f29b1ec5a986a62acd6fae727ed9be2b8406b85c",
+    "frozenAt": "2026-10-06T07:58:01.323Z"
+  },
+  "protocol": {
+    "path": "out/optimization-20261005/as-adaptive-regression-protocol.json",
+    "sha256": "3a01179bcc07c4dfb98caf91f8c969bd0a7ce8d33bd1945e61e5d8f67f5e3106"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/as-adaptive-regression-remaining-postverify.json",
+    "sha256": "83553c061643c887aac4a7bb902a5f83831079aee3b8d00359e6445a9f579d20",
+    "verifiedAt": "2026-10-06T08:14:24.964Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "runnerExitCode": 0,
+    "cleanupVerified": true,
+    "captureVerified": true,
+    "requestCompleted": true,
+    "treatmentVerified": true,
+    "workerDefaultsVerified": true,
+    "safeToContinue": false,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "changedPaths": [],
+    "remainingOwnedNativeProcesses": 0,
+    "remainingPlaywrightRunners": 0
+  },
+  "provenanceScope": "Matched source/build equality applies at recorded closure only.",
+  "startedAt": "2026-10-06T07:58:34.052Z",
+  "collectionCompletedAt": "2026-10-06T08:14:06.974Z",
+  "requestedCases": ["ar-fresh-03", "ar-fresh-04", "ar-fresh-05", "ar-fresh-06", "ar-fresh-08"],
+  "observedCases": ["ar-fresh-03", "ar-fresh-04", "ar-fresh-05", "ar-fresh-06", "ar-fresh-08"],
+  "unobservedCases": [],
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "counts": {
+    "requested": 5,
+    "attempted": 5,
+    "validatedFinals": 5,
+    "strictContentPasses": 5,
+    "parserNonpasses": 0,
+    "timeouts": 0,
+    "unobserved": 0,
+    "cleanCompletedWithin300": 5,
+    "cleanCompletedWithin180": 3,
+    "strictAndWithin180": 3,
+    "completedAbove180": 2,
+    "adaptiveRuntimeCasesPassed": 5,
+    "retries": 0
+  },
+  "contentCriteriaPass": true,
+  "prospectiveAdaptiveRuntimeProtocolPass": true,
+  "historicalExactQ8GateTreatmentVerified": false,
+  "treatmentChecks": [
+    {
+      "caseId": "ar-fresh-03",
+      "schema20": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": false,
+      "totalMs": 220217
+    },
+    {
+      "caseId": "ar-fresh-04",
+      "schema20": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": false,
+      "totalMs": 188542
+    },
+    {
+      "caseId": "ar-fresh-05",
+      "schema20": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": true,
+      "totalMs": 152334
+    },
+    {
+      "caseId": "ar-fresh-06",
+      "schema20": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": true,
+      "totalMs": 178920
+    },
+    {
+      "caseId": "ar-fresh-08",
+      "schema20": true,
+      "runtime": true,
+      "combinedAllowance": true,
+      "bounded128": true,
+      "compact": true,
+      "envelope": true,
+      "shapes": true,
+      "noFallback": true,
+      "within180s": true,
+      "totalMs": 133739
+    }
+  ],
+  "provenance": {
+    "buildManifestSha256": "98ed3e0ec91bb9d5a8a05eff13c943fd6d2eea03334d6d8992bb66fed6c99075",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchangedAtCollection": true,
+    "sourcesMatchedBuildAtClosure": true,
+    "fixtureManifestSha256": "fcefb3a200d1e823f9cf4f9e20a7dec128d4e1c45595a2c565378602e266720b",
+    "fixtureLockSha256": "88aa04def102331c801a974ec674b3a38fdce91d7f1832ba4c6f6d46b1fd9e7f",
+    "originalSealSha256": "41bf31d79018deb712434e0d8c7535991cab305de7a98732a9d32bdc201dec18",
+    "gradingKeySha256": "e8c3a1cfdd83b04cf63c96602f303711d1b621efc648a2146b577b6095752d7a"
+  },
+  "sourceCorpusDocuments": 20,
+  "sourceCatalog": [
+    {
+      "sourceKey": "arf-source-01",
+      "sourceId": "1:1",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-01.md",
+      "sourceSha256": "ff4e480625699d525c7f4d5f755704248c2c501060391975bd94773587d61119",
+      "actualChunkTextSha256": "e777b43a591a464c46038e3b20f46329e51aa9016322a5d68125bcc201626c93"
+    },
+    {
+      "sourceKey": "arf-source-02",
+      "sourceId": "2:2",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-02.md",
+      "sourceSha256": "373e7673087b60f0b0e338fc5ff2949f66ab5585b7a79d71efc86f5133742bd7",
+      "actualChunkTextSha256": "e7bd61da3e090ffeeb84cb2f2a55e34d1b4b6e218940783b74d468a702840693"
+    },
+    {
+      "sourceKey": "arf-source-03",
+      "sourceId": "3:3",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-03.md",
+      "sourceSha256": "573c5315c6dde9c651ebc7a412431e8ab4629fb17e4bb25fb53660d33e100d19",
+      "actualChunkTextSha256": "7eb041cd7cb79aea1a8c0f62f45fc348fb6f62d62b2ebf30416af89cbbb56603"
+    },
+    {
+      "sourceKey": "arf-source-04",
+      "sourceId": "4:4",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-04.md",
+      "sourceSha256": "ef5170d23db6eed8a3f7b82225d8b435081175d1b98c5256b2f842c12cca63cd",
+      "actualChunkTextSha256": "4906a7e2b5adbf3ecb2d18150787e0be5d66b2b8a3a96384970441d89eff436d"
+    },
+    {
+      "sourceKey": "arf-source-05",
+      "sourceId": "5:5",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-05.md",
+      "sourceSha256": "928a362cdf542680ed0fb5fdec7ce357dec94d26cd6fdddb841e69f955f63706",
+      "actualChunkTextSha256": "0332d46e978688eaf2b464519235861b3c4660fbb2333dbd728ff3e616996ed3"
+    },
+    {
+      "sourceKey": "arf-source-06",
+      "sourceId": "6:6",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-06.md",
+      "sourceSha256": "e4e13b48d31653fb0501dc24ae7a88d835adcd36dcec7befe27eb32eacbd834f",
+      "actualChunkTextSha256": "c485b8e653cee13c7b14cbb8d605702f64901ef5e3e02b13da33e176b9ff8606"
+    },
+    {
+      "sourceKey": "arf-source-07",
+      "sourceId": "7:7",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-07.md",
+      "sourceSha256": "085e4ace2674da4e515c5c5d06160da10dd4b90981804e9429611dbde015cce4",
+      "actualChunkTextSha256": "d0cf754d250358af354f28dfa35f8b461f4e94a1e9dce60c4bdcf3f22bcd3902"
+    },
+    {
+      "sourceKey": "arf-source-08",
+      "sourceId": "8:8",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-08.md",
+      "sourceSha256": "d0bd072410fe1b1eed169fd74e26895b7f0d2c7e0fdb1a6434f28cefe72f8d72",
+      "actualChunkTextSha256": "01f7b550227509ab9349ad1faa3db60cb6affea8f73356fc4ac0679ee05e1c64"
+    },
+    {
+      "sourceKey": "arf-source-09",
+      "sourceId": "9:9",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-09.md",
+      "sourceSha256": "4d285317243f92d4fc8f539ba3bd6238a7f5ea0caf37c94be55d2952946365b3",
+      "actualChunkTextSha256": "8e8bf1bd5a87d914f897f6077c5c721aeba50726aa061bf08d36cf1b65b00611"
+    },
+    {
+      "sourceKey": "arf-source-10",
+      "sourceId": "10:10",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-10.md",
+      "sourceSha256": "2a5d6abad1fdfc567d694808a8b57ad44f1d07837c96749688ffb3aa0bcd5139",
+      "actualChunkTextSha256": "420e2720f0c5fa3ea8a11003148a833798cd48093243894be6346fa5a060f677"
+    },
+    {
+      "sourceKey": "arf-source-11",
+      "sourceId": "11:11",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-11.md",
+      "sourceSha256": "f02a6015121b730b554b7790a74307c1f1033bba610a971845ca63745778e05d",
+      "actualChunkTextSha256": "1257a19d5f6a901313cc2d7b3dac2a0ab2b09ac31d29b965d8f246c722121a10"
+    },
+    {
+      "sourceKey": "arf-source-12",
+      "sourceId": "12:12",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-12.md",
+      "sourceSha256": "6ad5ca2b5da4c86d280bae1edba2a2cf565e6eedff1804f114f48b53b220dbc0",
+      "actualChunkTextSha256": "61f417c9530c794c6a396b04fc6ad9dd080d21dffba0ddddd1c59ba621666f31"
+    },
+    {
+      "sourceKey": "arf-source-13",
+      "sourceId": "13:13",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-13.md",
+      "sourceSha256": "abb3aa0370b49be53b335df933a71721dfcd0cc0cfa85a772a95c4675802add9",
+      "actualChunkTextSha256": "edff2c979d17e8712c0454b0717f06927d423b87a640fb64db12a22fb3eb5aac"
+    },
+    {
+      "sourceKey": "arf-source-14",
+      "sourceId": "14:14",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-14.md",
+      "sourceSha256": "c18a2d5701404c67fd95ee4a87cab28256796295ab2ec98e0fb7a6ff8fc70513",
+      "actualChunkTextSha256": "935d18bb4d0de6ef5766ac75458d77b4d2348f3418f8d4304e402e4f487c8ef7"
+    },
+    {
+      "sourceKey": "arf-source-15",
+      "sourceId": "15:15",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-15.md",
+      "sourceSha256": "4100c39af07bbd40ef506daff78fb8894c1c09a447fa7e2e56b3cd8d886828db",
+      "actualChunkTextSha256": "f87cd400e89a2fe1ceb3fcaedd3ce2c736c2501f0f01f47b5ebf14be6396edaa"
+    },
+    {
+      "sourceKey": "arf-source-16",
+      "sourceId": "16:16",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-16.md",
+      "sourceSha256": "2988214627a83cafa89189741c4d71e976a85d6cdabb631b2b7cc43f1a44e3d1",
+      "actualChunkTextSha256": "d2041fdf6b5479838d27f25a6c36183b2e82e4307f5770759d79f60741767ae5"
+    },
+    {
+      "sourceKey": "arf-source-17",
+      "sourceId": "17:17",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-17.md",
+      "sourceSha256": "359bf6eb74fd971a7795e04a10e4892d8b21f7f50d54f8523c1c3878a54f9d59",
+      "actualChunkTextSha256": "bcd627ff00e2af9accd3c59c139298f9ca48b531011868e627fd181135816dc9"
+    },
+    {
+      "sourceKey": "arf-source-18",
+      "sourceId": "18:18",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-18.md",
+      "sourceSha256": "1dde5ec75baf6b8a07266de72e3c115ed63647ced11d00a9d942f54b0a841644",
+      "actualChunkTextSha256": "a688b4273c81a1c9ee03bca1c4b44b219c65b65851150efb2c0d90d5f4334fad"
+    },
+    {
+      "sourceKey": "arf-source-19",
+      "sourceId": "19:19",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-19.md",
+      "sourceSha256": "5f8873cf7b3c23c39eb4a4e0a874759b142486e6ba5301b5f89de2620d1475ac",
+      "actualChunkTextSha256": "53471767b32fadb9f788eff520cbdccbb98973342319f6df24ba92cdfcf2cf44"
+    },
+    {
+      "sourceKey": "arf-source-20",
+      "sourceId": "20:20",
+      "fixturePath": "tests/evals/native-calibration/fixtures/ar-fresh-validation-20261006/arf-20.md",
+      "sourceSha256": "47ef98c4fbfdf6e030194f91d4085d74a5315804532046e27523060b3e4d9b45",
+      "actualChunkTextSha256": "4ca34a8102329dbd0249a149dfbb540f1a2c317023933fef86d5c6b4665aac3e"
+    }
+  ],
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "privacy": "Only validated finals, original questions/source identities and allowlisted fixed scalar metrics. No hidden thought/private check content, raw envelopes, rejected prose, histories, unrestricted logs or personal paths.",
+  "limitations": [
+    "Known DEV regression collection, not fresh generalization evidence.",
+    "Adaptive treatment was declared prospectively. It does not retroactively repair the former exact-Q8 gate failure.",
+    "Correctness, within300 completion, within180 performance and runtime compliance are separate.",
+    "New process/order and Q8/F16 allocations confound causal timing or quality explanations.",
+    "AB/original groups require separate root grants."
+  ],
+  "historicalReportPins": [
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/REVIEW.md",
+      "sha256": "86946060e337250024f9ed500f82d0b0e0a0f32d46d3f70d71f61706f488b992"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/manual.json",
+      "sha256": "2452f405fc17d9b8f1bf2d3c823d8afd4cf88dbd9d0c4e1f1dc0cb422b6ceb62"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-fresh-validation-summary/observations.json",
+      "sha256": "17684243258b7024a9809b3c4a17452bb8fcc259eb6f0af5203184b1fdb1ccf3"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/REVIEW.md",
+      "sha256": "2b9d3ca7fdcb60293144d31bbe79a68ef5fe693bc2099b790f9a2ddabe4fd93e"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/manual.json",
+      "sha256": "96d450725102915620e13286d7571fd1adb4241dcd40d5aa6544545bbba080e1"
+    },
+    {
+      "path": "tests/evals/native-calibration/reports/bugfix-20261006-as-regression-gate/observations.json",
+      "sha256": "5c17bb24c025412528882a586ac0e491e03c8786e305a908b8086d49f02be28f"
+    }
+  ],
+  "queries": [
+    {
+      "caseId": "ar-fresh-03",
+      "question": "Welche Monatsquote und Bearbeitungsfrist gelten für ein Lomera-Konto am 2054-05-02? Begründe, warum die Quotenänderung gilt und der spätere Fristenentwurf die Frist ändert oder nicht ändert.",
+      "finalAnswer": "Am 2054-05-02 gilt für ein Lomera-Konto eine Monatsquote von 39 Bildern und eine Bearbeitungsfrist von 13 Arbeitstagen. Die Quotenänderung gilt, da sie am 2054-02-12 genehmigt wurde und ab 2054-03-04 wirksam ist, was vor dem 2054-05-02 liegt. Der spätere Fristenentwurf vom 2054-04-16 ändert die Frist nicht, da der Beirat diesen Vorschlag ausdrücklich nicht genehmigt hat und die bestehende Grundordnung weiterhin wirksam bleibt. [doc:5, chunk:5] [doc:4, chunk:4] [doc:6, chunk:6]",
+      "actualFedSourceIdsInOrder": [
+        "5:5",
+        "4:4",
+        "6:6",
+        "17:17",
+        "2:2",
+        "7:7",
+        "1:1",
+        "18:18",
+        "11:11",
+        "14:14"
+      ],
+      "requiredSourceIds": ["4:4", "5:5", "6:6"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceTextsMatchOriginal": true,
+      "finalCitationIds": ["5:5", "4:4", "6:6"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 220217,
+        "firstVisibleTokenMs": 220217,
+        "terminalMs": 220217,
+        "totalMs": 220217,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": false,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 209087,
+        "calls": [
+          {
+            "schema": "typed-comparison-v20",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v20",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 208941,
+            "grammarMs": 5,
+            "promptFitMs": 23,
+            "nativeMs": 208913,
+            "firstTextMs": 79824,
+            "lastTextMs": 208911,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 671,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1860,
+            "usedOutputTokens": 384,
+            "boundedThoughts": {
+              "promptTokens": 1859,
+              "prefillBatches": 8,
+              "prefillTokens": 1858,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 256,
+              "combinedTokens": 386,
+              "firstVisibleMs": 79824,
+              "lastVisibleMs": 208911,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 1
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 430,
+          "capped": false
+        }
+      ]
+    },
+    {
+      "caseId": "ar-fresh-04",
+      "question": "For an Ishven standard storage booking on 2055-09-21, which fee applies, and what approved fee applies from which later date? Explain why approval alone does not make the later fee current.",
+      "finalAnswer": "For an Ishven standard storage booking on 2055-09-21, the 15 CHF fee applies. The approved 18 CHF fee applies from 2055-10-07. Approval alone does not make the later fee current because the fee remains payable until a duly approved replacement becomes effective, and staff must use the activation date, not the approval date, when deciding which fee applies. [doc:7, chunk:7] [doc:8, chunk:8] [doc:9, chunk:9]",
+      "actualFedSourceIdsInOrder": [
+        "7:7",
+        "8:8",
+        "9:9",
+        "20:20",
+        "18:18",
+        "11:11",
+        "17:17",
+        "4:4",
+        "14:14",
+        "3:3"
+      ],
+      "requiredSourceIds": ["7:7", "8:8", "9:9"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceTextsMatchOriginal": true,
+      "finalCitationIds": ["7:7", "8:8", "9:9"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 188542,
+        "firstVisibleTokenMs": 188542,
+        "terminalMs": 188542,
+        "totalMs": 188542,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": false,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 171097,
+        "calls": [
+          {
+            "schema": "typed-comparison-v20",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v20",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 170961,
+            "grammarMs": 3,
+            "promptFitMs": 24,
+            "nativeMs": 170934,
+            "firstTextMs": 77544,
+            "lastTextMs": 170932,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 599,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1826,
+            "usedOutputTokens": 325,
+            "boundedThoughts": {
+              "promptTokens": 1825,
+              "prefillBatches": 8,
+              "prefillTokens": 1824,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 197,
+              "combinedTokens": 327,
+              "firstVisibleMs": 77544,
+              "lastVisibleMs": 170932,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 358,
+          "capped": false
+        }
+      ]
+    },
+    {
+      "caseId": "ar-fresh-05",
+      "question": "How much does Vornika west block's planned 2054 planting exceed its completed 2053 planting? Give both tree-count inputs and the difference, preserving actual versus planned status, in one short sentence.",
+      "finalAnswer": "The planned 2054 planting of 1648 trees exceeds the completed 2053 planting of 1386 trees by 262 trees. [doc:11, chunk:11] [doc:10, chunk:10]",
+      "actualFedSourceIdsInOrder": [
+        "11:11",
+        "10:10",
+        "18:18",
+        "17:17",
+        "5:5",
+        "3:3",
+        "4:4",
+        "8:8",
+        "6:6",
+        "16:16"
+      ],
+      "requiredSourceIds": ["10:10", "11:11"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceTextsMatchOriginal": true,
+      "finalCitationIds": ["11:11", "10:10"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 152334,
+        "firstVisibleTokenMs": 152334,
+        "terminalMs": 152334,
+        "totalMs": 152334,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": true,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 134979,
+        "calls": [
+          {
+            "schema": "typed-comparison-v20",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v20",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 134848,
+            "grammarMs": 3,
+            "promptFitMs": 24,
+            "nativeMs": 134821,
+            "firstTextMs": 73189,
+            "lastTextMs": 134819,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 337,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1869,
+            "usedOutputTokens": 267,
+            "boundedThoughts": {
+              "promptTokens": 1868,
+              "prefillBatches": 8,
+              "prefillTokens": 1867,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 139,
+              "combinedTokens": 269,
+              "firstVisibleMs": 73189,
+              "lastVisibleMs": 134819,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "f16",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 116,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 103,
+          "capped": false
+        }
+      ]
+    },
+    {
+      "caseId": "ar-fresh-06",
+      "question": "Widersprechen sich Waage A und B zur Trockenmasse der Pelvian-Charge PZ-2 am 2056-06-18 um 11:20 UTC? Nenne beide Werte in Gramm und begründe den Vergleich anhand des erfassten Probenumfangs.",
+      "finalAnswer": "Waage A und Waage B widersprechen sich nicht. Beide Werte betragen 840 g. Waage A protokollierte 0,84 kg (840 g) und Waage B 840 g. Beide Messungen beziehen sich auf denselben gesamten getrockneten Probeninhalt der Charge PZ-2 am 2056-06-18 um 11:20 UTC. [doc:12, chunk:12] [doc:13, chunk:13]",
+      "actualFedSourceIdsInOrder": [
+        "13:13",
+        "12:12",
+        "19:19",
+        "4:4",
+        "15:15",
+        "14:14",
+        "16:16",
+        "9:9",
+        "8:8",
+        "7:7"
+      ],
+      "requiredSourceIds": ["12:12", "13:13"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceTextsMatchOriginal": true,
+      "finalCitationIds": ["12:12", "13:13"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 178920,
+        "firstVisibleTokenMs": 178920,
+        "terminalMs": 178920,
+        "totalMs": 178920,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": true,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 161234,
+        "calls": [
+          {
+            "schema": "typed-comparison-v20",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v20",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 161097,
+            "grammarMs": 4,
+            "promptFitMs": 23,
+            "nativeMs": 161070,
+            "firstTextMs": 77551,
+            "lastTextMs": 161068,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 485,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 2015,
+            "usedOutputTokens": 315,
+            "boundedThoughts": {
+              "promptTokens": 2014,
+              "prefillBatches": 8,
+              "prefillTokens": 2013,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 187,
+              "combinedTokens": 317,
+              "firstVisibleMs": 77551,
+              "lastVisibleMs": 161068,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "f16",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 113,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 254,
+          "capped": false
+        }
+      ]
+    },
+    {
+      "caseId": "ar-fresh-08",
+      "question": "What is the rectangular front-face area of Braviel panel BR-4 according to the survey, or which missing measurement prevents calculating it? Explain briefly in one short sentence.",
+      "finalAnswer": "The survey records a height of 2.4 m but does not record the width or front-face area, preventing calculation. [doc:16, chunk:16]",
+      "actualFedSourceIdsInOrder": [
+        "16:16",
+        "9:9",
+        "18:18",
+        "2:2",
+        "20:20",
+        "17:17",
+        "1:1",
+        "3:3",
+        "19:19",
+        "13:13"
+      ],
+      "requiredSourceIds": ["16:16"],
+      "allRequiredPassagesActuallyFed": true,
+      "requiredSourceTextsMatchOriginal": true,
+      "finalCitationIds": ["16:16"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 133739,
+        "firstVisibleTokenMs": 133739,
+        "terminalMs": 133739,
+        "totalMs": 133739,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "strictContentPass": true,
+      "prospectiveAdaptiveRuntimeRequirementMet": true,
+      "within180Seconds": true,
+      "within300Seconds": true,
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 116733,
+        "calls": [
+          {
+            "schema": "typed-comparison-v20",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v20",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 116596,
+            "grammarMs": 4,
+            "promptFitMs": 25,
+            "nativeMs": 116566,
+            "firstTextMs": 73973,
+            "lastTextMs": 116564,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 317,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1944,
+            "usedOutputTokens": 226,
+            "boundedThoughts": {
+              "promptTokens": 1943,
+              "prefillBatches": 8,
+              "prefillTokens": 1942,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 98,
+              "combinedTokens": 228,
+              "firstVisibleMs": 73973,
+              "lastVisibleMs": 116564,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "f16",
+        "fitsInVram": false,
+        "gpuLayers": 14,
+        "totalModelLayers": 33,
+        "gpuBackend": "vulkan",
+        "paddingSnapshots": [1073741824, 1073741824]
+      },
+      "threadSettings": [
+        {
+          "backend": "vulkan",
+          "maxThreads": 6,
+          "policy": "hardware-aware default"
+        }
+      ],
+      "paddingSettings": [
+        {
+          "backend": "vulkan",
+          "bytes": 1073741824,
+          "policy": "default"
+        }
+      ],
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 98,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 110,
+          "capped": false
+        }
+      ]
+    }
+  ]
+}

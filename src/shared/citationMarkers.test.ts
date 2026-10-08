@@ -169,6 +169,28 @@ describe('citation markers in Markdown literals', () => {
   const marker = '[doc:1, chunk:1]'
   const allowed = new Set(['1-1', '2-2'])
   it.each([
+    '1. First sentence.\n\n    Continued claim [doc:1, chunk:1]',
+    '- First sentence.\n\n    Continued claim [doc:1, chunk:1]',
+    '1. Parent.\n   - Nested.\n\n     Continued claim [doc:1, chunk:1]',
+    '> 1. First sentence.\n>\n>     Continued claim [doc:1, chunk:1]',
+    '1. First sentence.\n\n\tContinued claim [doc:1, chunk:1]',
+  ])('recognizes prose citations inside continued list paragraphs: %s', (text) => {
+    expect(extractCitationMarkers(text)).toEqual([{ documentId: 1, chunkId: 1 }])
+    expect(transformCitationMarkers(text, allowed).text).toContain('[1](#cite-1-1)')
+  })
+
+  it.each([
+    '- Item.\n\n      [doc:1, chunk:1]',
+    '1. Item.\n\n       [doc:1, chunk:1]',
+    '1. Parent.\n   - Nested.\n\n         [doc:1, chunk:1]',
+    '-     [doc:1, chunk:1]',
+    '- Item.\n\n  ```text\n  [doc:1, chunk:1]\n  ```',
+    '- Item.\n\nOutside the list.\n\n    [doc:1, chunk:1]',
+  ])('preserves genuine code within or after a list: %s', (text) => {
+    expect(extractCitationMarkers(text)).toEqual([])
+    expect(transformCitationMarkers(text, allowed).text).toBe(text)
+  })
+  it.each([
     `\`${marker}\``,
     `\`\`literal \` ${marker}\`\``,
     `\`\`\`text\n${marker}\n\`\`\``,

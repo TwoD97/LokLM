@@ -1,0 +1,136 @@
+[
+  {
+    "caseId": "reasoning-reserved-01",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The unresolved comparison shows both exact ISO deadline statements and both exact release/replacement qualifications, correctly attributed to 1:1 and 2:2. Program-owned uncertainty wording stays scoped to the supplied excerpts; it does not turn missing replacement documentation into a claim that replacement never occurred. Four quote blocks are verbose for the requested brief explanation. Escaped Markdown date punctuation renders normally. Independently cross-reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Selected quotes correctly preserve original 3 drills/5 saws in 3:3 and drill-only amendment 3 to 4 plus unchanged saws in 4:4. However, the quote begins 'Ab diesem Tag' without its effective-date antecedent (2031-05-15), although the question asks applicability on 2031-06-01. There is no explicit synthesized current 4-drill/5-saw answer. Exact quotation/citation is improved over G's wrong saw passage, but the displayed evidence and answer completeness remain partial. Independently cross-reviewed."
+  },
+  {
+    "caseId": "reasoning-reserved-03",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The compatible decision and exact 2750-litre/2.75-cubic-metre quotations are correct, with 6:6 and 5:5. However, the question explicitly asks for the comparison in litres; the answer never converts 2.75 cubic metres to 2750 litres. This is quote-only answer incompleteness, not a false relation or incorrect arithmetic. The supported quantity helper does not handle volume, so no program conversion is appended."
+  },
+  {
+    "caseId": "reasoning-reserved-04",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The unresolved classification, exact 150-second and 2,25-minute statements, and both documentary no-priority qualifications are correct (8:8/7:7). However, the question asks both durations in seconds: only '150 Sekunden = 150 s' is appended, while 2,25 minutes is never converted to 135 seconds. The conservative arithmetic helper intentionally declines comma decimals. Selecting quote-only comparison therefore leaves a required ordinary derivation unanswered. No incorrect arithmetic or invented authority. Completed at 173.295 seconds, close to the fixed 180-second timeout."
+  },
+  {
+    "caseId": "reasoning-reserved-05",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answered branch states current annual contribution 72 EUR and proposed 81 EUR, with no change because the assembly has not voted and the discussion paper does not revoke the valid order. These qualifications are explicit in the actual supplied 9:9 and 10:10, both cited at the end of the compact answer paragraph. No invented authority or excerpt-only limitation."
+  },
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Compatible outcome displays exact 12 sensors at 08:00 UTC and 17 sensors at 18:00 UTC on the same date, with correct 11:11/12:12 markers. The relevant differing times are preserved; G's unsupported same-time/different-quantity explanation is absent. German framing with verbatim English quotations retains original source language as designed."
+  },
+  {
+    "caseId": "reasoning-reserved-07",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [
+      "The answer appends @119:128 and @0:10 as source-anchor-style annotations, but they do not identify the quoted source slices."
+    ],
+    "notes": "Default expansion supplies the required 13:15 table and 13:14 approval header. The ordinary answer correctly gives 24 litres and ISO approval date 2031-06-11, with exact passage markers and source-present quoted strings. However, it leaks unsupported offset-style annotations next to those citations. Main factual/citation requirements pass; strict presentation/provenance is partial because those invented positions are not actual source offsets."
+  },
+  {
+    "caseId": "reasoning-reserved-08",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The unresolved comparison quotes only the two correct deployment/precedence limitations from 14:13 and 15:16. It omits both explicitly requested allowedSlots results (north 6, south 7) and even the function definitions. The deterministic code helper deliberately does not parse this nonliteral-call question wording; selecting comparison rather than ordinary answered therefore loses the required calculation. Correct deployment uncertainty is not a complete answer."
+  },
+  {
+    "caseId": "reasoning-reserved-09",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "unclear",
+    "unsupportedExtraClaims": [],
+    "notes": "The established comparison displays exact 31 and 34 counts with correct 16:17/17:18 markers. It omits both the requested total 65 and the supplied disjoint serial ranges that justify addition. No unsupported sum is invented, but simply displaying the input counts is not the requested arithmetic and scope explanation. This is an ordinary derived-answer workflow incorrectly reduced to selected quotations."
+  },
+  {
+    "caseId": "reasoning-reserved-10",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The insufficient comparison retains the exact 8-litres-per-minute flow rate and the source's explicit statement that duration and total discharged volume are absent, with 18:19. Program wording is scoped to the supplied excerpts and distinguishes that from the rest of the document. No guessed volume or unsupported process claim. Complete response to the missing-total question."
+  },
+  {
+    "caseId": "reasoning-reserved-11",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Ordinary answered branch gives 18 litres / 3 minutes = 6 litres per minute, with the actual 13:15 measurement table. Inputs, requested derived rate and local source attribution are complete. No arithmetic or scope invention."
+  },
+  {
+    "caseId": "reasoning-reserved-12",
+    "repetition": 0,
+    "verdict": "safe-abstention",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "missing-evidence",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "The insufficient branch quotes the actual 13:15 table's explicit statement that it reports no electrical measurements. Program wording is scoped to supplied excerpts; G's incorrect whole-record claim that runs A/B are not distinguished is absent. No invented power value. The English framing retains the original German source quotation."
+  }
+]

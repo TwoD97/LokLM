@@ -14,6 +14,7 @@ import { resolveDataDir } from './services/storage/dataDir'
 import { inactivityMsFromMinutes } from './services/auth/inactivity'
 import { WorkspaceService } from './services/documents/WorkspaceService'
 import { DocumentService } from './services/documents/DocumentService'
+import { readIndexedPdf } from './services/documents/readIndexedPdf'
 import { exportDocument } from './services/documents/exportDocument'
 import { FolderSyncService } from './services/documents/FolderSyncService'
 import { ImportError } from './services/documents/types'
@@ -51,10 +52,7 @@ import type {
   TranscriptionEvent,
   WhisperModelStatus,
 } from '../shared/transcription'
-import {
-  checkAll as checkModelsAvailability,
-  sweepLegacyUserDataModels,
-} from './services/models/availability'
+import { checkAll as checkModelsAvailability } from './services/models/availability'
 import { ProviderRegistry } from './services/providers/Registry'
 import { BundledLlmProvider } from './services/providers/bundled/BundledLlmProvider'
 import { BundledEmbedderProvider } from './services/providers/bundled/BundledEmbedderProvider'
@@ -1655,6 +1653,7 @@ function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
       title: ctx.document.title,
       mimeType: ctx.document.mimeType,
       sourcePath: ctx.document.sourcePath,
+      contentHash: ctx.document.contentHash,
       headingPath: ctx.headingPath,
       chunkPageFrom: ctx.pageFrom,
       chunkPageTo: ctx.pageTo,
@@ -1695,19 +1694,23 @@ function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
     },
   )
 
-  // Returns raw bytes for a PDF document so the renderer can display the page
-  // via pdfjs. We gate this on mime-type/extension so it can't be used to
-  // exfiltrate arbitrary files; the caller must know a valid document id.
-  ipcMain.handle('documents:readDocumentBytes', async (e, documentId: number) =>
-    withSessionRequest('read', e.sender, async (request) => {
-      const doc = await getAuth().requireDatabase().documents().getDocument(documentId)
-      if (!doc) return null
-      const isPdf = doc.mimeType === 'application/pdf' || /\.pdf$/i.test(doc.sourcePath)
-      if (!isPdf) return null
-      const { readFile } = await import('node:fs/promises')
-      const buf = await readFile(doc.sourcePath, { signal: request.controller.signal })
-      return new Uint8Array(buf)
-    }),
+  // Return only the indexed PDF version. A changed external file must never
+  // masquerade as the evidence behind a persisted citation.
+  ipcMain.handle(
+    'documents:readDocumentBytes',
+    async (e, documentId: number, expectedHash?: string | null) =>
+      withSessionRequest('read', e.sender, async (request) => {
+        const database = getAuth().requireDatabase()
+        const doc = await database.documents().getDocument(documentId)
+        const result = await readIndexedPdf(doc, expectedHash, request.controller.signal)
+        if (result.status !== 'verified' || !doc) return result
+        const repo = await database.documentsFor(doc.workspaceId)
+        const current = await repo.getDocument(documentId)
+        if (!current) return { status: 'unavailable' as const }
+        if (current.contentHash !== doc.contentHash || current.sourcePath !== doc.sourcePath)
+          return { status: 'changed' as const }
+        return result
+      }),
   )
 
   ipcMain.handle('documents:readGeneratedText', (e, documentId: number) =>
@@ -2749,15 +2752,6 @@ if (!app.requestSingleInstanceLock()) {
         `[tier] installer-recorded : ${tierMarker.tier} ` +
           `(installer ${tierMarker.installerVersion} , ${tierMarker.installedAt})`,
       )
-      // One-time migration cleanup : drop the orphaned v0.2.6 userData/models
-      // GGUFs now that the wizard owns models in the install dir.
-      const swept = sweepLegacyUserDataModels()
-      if (swept.removed > 0) {
-        console.log(
-          `[tier] swept ${swept.removed} legacy userData GGUF(s) , ` +
-            `freed ${(swept.freedBytes / 1024 / 1024 / 1024).toFixed(1)} GB`,
-        )
-      }
     } else {
       console.log('[tier] no marker (pre-v0.3.0 install or dev) , using legacy settings path')
     }

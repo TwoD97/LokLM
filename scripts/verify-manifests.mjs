@@ -51,10 +51,13 @@ export function isFatalHost(url, s3Host = S3_HOST) {
 
 // Decide the verdict for a reachability/size probe. `totalSize` is the
 // server-reported byte count ( null when the server didn't expose one ).
-export function verdictForProbe({ status, totalSize, expectedSize }) {
+export function verdictForProbe({ status, totalSize, expectedSize, strict = false }) {
   if (status === null) return { ok: false, reason: 'unreachable' }
   if (status === 404) return { ok: false, reason: 'HTTP 404 — object missing' }
   if (status >= 400) return { ok: false, reason: `HTTP ${status}` }
+  if (strict && (status !== 200 || !Number.isSafeInteger(totalSize) || totalSize <= 0)) {
+    return { ok: false, reason: 'missing successful response with reliable content size' }
+  }
   if (typeof expectedSize === 'number' && expectedSize > 0 && typeof totalSize === 'number') {
     if (totalSize !== expectedSize) {
       return { ok: false, reason: `size ${totalSize} != manifest ${expectedSize}` }
@@ -67,17 +70,30 @@ export function verdictForProbe({ status, totalSize, expectedSize }) {
 
 // Reachability + total size. HEAD first ; fall back to a 1-byte ranged GET
 // when the server hides Content-Length on HEAD ( some CDN edges do ).
-async function probe(url) {
+export async function probe(url, fetcher = fetch) {
   try {
-    const head = await fetch(url, { method: 'HEAD', redirect: 'follow' })
+    const head = await fetcher(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(30_000),
+    })
     const cl = head.headers.get('content-length')
     if (head.status < 400 && cl != null) {
       return { status: head.status, totalSize: Number(cl) }
     }
-    if (head.status >= 400) {
+    if (head.status >= 400 || cl == null) {
       // Some stores answer HEAD with 405 but GET fine — retry with a ranged GET.
-      const g = await fetch(url, { headers: { Range: 'bytes=0-0' }, redirect: 'follow' })
-      return { status: g.status === 206 ? 200 : g.status, totalSize: totalFromContentRange(g) }
+      const g = await fetcher(url, {
+        headers: { Range: 'bytes=0-0' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30_000),
+      })
+      const result = {
+        status: g.status === 206 ? 200 : g.status,
+        totalSize: totalFromContentRange(g),
+      }
+      await g.body?.cancel()
+      return result
     }
     return { status: head.status, totalSize: cl == null ? null : Number(cl) }
   } catch {
@@ -96,7 +112,7 @@ function totalFromContentRange(res) {
 }
 
 async function sha256(url) {
-  const res = await fetch(url, { redirect: 'follow' })
+  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15 * 60_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const hash = createHash('sha256')
   for await (const chunk of Readable.fromWeb(res.body)) hash.update(chunk)
@@ -113,10 +129,10 @@ function record(name, url, ok, reason, fatal) {
   if (!ok) console.log(`         ${url}`)
 }
 
-async function checkEntry({ name, url, sha256: expSha, expectedSize, deep }) {
-  const fatal = isFatalHost(url)
+async function checkEntry({ name, url, sha256: expSha, expectedSize, deep, strict = false }) {
+  const fatal = strict || isFatalHost(url)
   const { status, totalSize } = await probe(url)
-  const v = verdictForProbe({ status, totalSize, expectedSize })
+  const v = verdictForProbe({ status, totalSize, expectedSize, strict })
   if (!v.ok) return record(name, url, false, v.reason, fatal)
 
   const pinned = expSha && expSha !== ZERO_SHA
@@ -125,17 +141,29 @@ async function checkEntry({ name, url, sha256: expSha, expectedSize, deep }) {
     try {
       const actual = await sha256(url)
       if (actual.toLowerCase() !== expSha.toLowerCase()) {
-        return record(name, url, false, `sha256 ${actual.slice(0, 12)}… != manifest ${expSha.slice(0, 12)}…`, fatal)
+        return record(
+          name,
+          url,
+          false,
+          `sha256 ${actual.slice(0, 12)}… != manifest ${expSha.slice(0, 12)}…`,
+          fatal,
+        )
       }
       return record(name, url, true, 'ok ( sha verified )', fatal)
     } catch (e) {
       return record(name, url, false, `sha fetch failed : ${e.message}`, fatal)
     }
   }
-  record(name, url, true, pinned ? 'ok ( size only — sha skipped, use --deep )' : 'ok ( size only )', fatal)
+  record(
+    name,
+    url,
+    true,
+    pinned ? 'ok ( size only — sha skipped, use --deep )' : 'ok ( size only )',
+    fatal,
+  )
 }
 
-async function checkModels(deep) {
+async function checkModels(deep, strict) {
   const m = JSON.parse(await readFile(join(WIZ, 'model-manifest.json'), 'utf8'))
   const entries = [...(m.common ?? [])]
   for (const bundle of Object.values(m.tiers ?? {})) entries.push(...(bundle.models ?? []))
@@ -144,7 +172,14 @@ async function checkModels(deep) {
   for (const e of entries) {
     if (seen.has(e.url)) continue
     seen.add(e.url)
-    await checkEntry({ name: e.id, url: e.url, sha256: e.sha256, expectedSize: e.sizeBytes, deep })
+    await checkEntry({
+      name: e.id,
+      url: e.url,
+      sha256: e.sha256,
+      expectedSize: e.sizeBytes,
+      deep,
+      strict,
+    })
   }
 }
 
@@ -161,7 +196,9 @@ async function checkPayload(platforms) {
       const a = block[kind]
       if (!a) continue
       if (a.sha256 === ZERO_SHA || a.sizeBytes === 0) {
-        console.log(`  [SKIP] ${plat}/${kind} — zero placeholder ( archive not built on this runner )`)
+        console.log(
+          `  [SKIP] ${plat}/${kind} — zero placeholder ( archive not built on this runner )`,
+        )
         continue
       }
       await checkEntry({
@@ -178,6 +215,7 @@ async function checkPayload(platforms) {
 async function main() {
   const argv = process.argv.slice(2)
   const deep = argv.includes('--deep')
+  const strict = argv.includes('--strict')
   const positional = argv.filter((a) => !a.startsWith('--'))
   const mode = positional[0] || 'all'
 
@@ -186,7 +224,7 @@ async function main() {
     if (!plats.length) throw new Error('payload mode needs at least one platform, e.g. win-x64')
     await checkPayload(plats)
   } else if (mode === 'models') {
-    await checkModels(deep)
+    await checkModels(deep, strict)
   } else if (mode === 'all') {
     const m = JSON.parse(await readFile(join(WIZ, 'payload-manifest.json'), 'utf8'))
     const plats = Object.keys(m.platforms ?? {}).filter((p) => {
@@ -194,7 +232,7 @@ async function main() {
       return b.payload?.sha256 !== ZERO_SHA && b.payload?.sizeBytes > 0
     })
     await checkPayload(plats)
-    await checkModels(deep)
+    await checkModels(deep, strict)
   } else {
     throw new Error(`unknown mode '${mode}' ( expected payload | models | all )`)
   }
@@ -208,12 +246,15 @@ async function main() {
     console.log('::warning::' + warns.map((w) => `${w.name} (${w.reason})`).join(' ; '))
   }
   if (fails.length) {
-    console.error('::error::manifest verification failed for : ' + fails.map((f) => f.name).join(' , '))
+    console.error(
+      '::error::manifest verification failed for : ' + fails.map((f) => f.name).join(' , '),
+    )
     process.exit(1)
   }
 }
 
-const invoked = process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
+const invoked =
+  process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
 if (invoked || process.argv[1]?.endsWith('verify-manifests.mjs')) {
   main().catch((err) => {
     console.error(err.stack || err.message)

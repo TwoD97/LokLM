@@ -137,6 +137,268 @@ export function describeEvidenceAssessment(
   }
 }
 
+/** Runtime treatment evidence only; neither a successful check nor this log
+ * establishes semantic correctness. The log contains no source/model text. */
+export function describeCheckedAnswer(
+  logs: string[],
+  events: Array<{ type: string; [key: string]: unknown }>,
+) {
+  const text = stripVTControlCharacters(logs.join('\n'))
+  const calls: Array<{
+    schema: string
+    contextTokens: number
+    maxTokens: number
+    temperature: number
+    repeatPenalty: false
+    comparisonMode?: 'full' | 'concise' | 'summary' | 'excerpts'
+    jsonStringPolicy?: 'source-excerpts'
+    conciseUnitCount?: number
+    conciseFallbackReason?: 'source_bounds' | 'unit_bounds' | 'segmentation' | null
+  }> = []
+  let malformedLogs = 0
+  for (const match of text.matchAll(/\[qa\] checked answer:\s*(\{[^\r\n]*\})/gu)) {
+    try {
+      const value = JSON.parse(match[1]!) as Record<string, unknown>
+      if (
+        (value.schema !== 'checked-answer-v1' &&
+          value.schema !== 'typed-comparison-v2' &&
+          value.schema !== 'typed-comparison-v3' &&
+          value.schema !== 'typed-comparison-v4' &&
+          value.schema !== 'typed-comparison-v5' &&
+          value.schema !== 'typed-comparison-v6' &&
+          value.schema !== 'typed-comparison-v7' &&
+          value.schema !== 'typed-comparison-v8' &&
+          value.schema !== 'typed-comparison-v9' &&
+          value.schema !== 'typed-comparison-v10' &&
+          value.schema !== 'typed-comparison-v11' &&
+          value.schema !== 'typed-comparison-v12' &&
+          value.schema !== 'typed-comparison-v13' &&
+          value.schema !== 'typed-comparison-v14' &&
+          value.schema !== 'typed-comparison-v15' &&
+          value.schema !== 'typed-comparison-v16' &&
+          value.schema !== 'typed-comparison-v17' &&
+          value.schema !== 'typed-comparison-v18' &&
+          value.schema !== 'typed-comparison-v19' &&
+          value.schema !== 'typed-comparison-v20' &&
+          value.schema !== 'typed-comparison-v21' &&
+          value.schema !== 'typed-comparison-v22' &&
+          value.schema !== 'typed-comparison-v23' &&
+          value.schema !== 'typed-comparison-v24' &&
+          value.schema !== 'typed-comparison-v25' &&
+          value.schema !== 'typed-comparison-v26' &&
+          value.schema !== 'typed-comparison-v27' &&
+          value.schema !== 'typed-comparison-v28' &&
+          value.schema !== 'typed-comparison-v29' &&
+          value.schema !== 'typed-comparison-v30' &&
+          value.schema !== 'typed-comparison-v31' &&
+          value.schema !== 'typed-comparison-v32') ||
+        typeof value.contextTokens !== 'number' ||
+        !Number.isInteger(value.contextTokens) ||
+        value.contextTokens <= 0 ||
+        typeof value.maxTokens !== 'number' ||
+        !Number.isInteger(value.maxTokens) ||
+        value.maxTokens <= 0 ||
+        value.temperature !== 0 ||
+        value.repeatPenalty !== false
+      ) {
+        malformedLogs++
+        continue
+      }
+      const summaryContract =
+        value.schema === 'typed-comparison-v22' ||
+        value.schema === 'typed-comparison-v23' ||
+        value.schema === 'typed-comparison-v29' ||
+        value.schema === 'typed-comparison-v30' ||
+        value.schema === 'typed-comparison-v31' ||
+        value.schema === 'typed-comparison-v32'
+      const excerptsContract =
+        value.schema === 'typed-comparison-v24' ||
+        value.schema === 'typed-comparison-v25' ||
+        value.schema === 'typed-comparison-v26' ||
+        value.schema === 'typed-comparison-v27' ||
+        value.schema === 'typed-comparison-v28'
+      const hasMode =
+        summaryContract ||
+        excerptsContract ||
+        value.schema === 'typed-comparison-v11' ||
+        value.schema === 'typed-comparison-v12' ||
+        value.schema === 'typed-comparison-v13' ||
+        value.schema === 'typed-comparison-v14' ||
+        value.schema === 'typed-comparison-v15' ||
+        value.schema === 'typed-comparison-v16' ||
+        value.schema === 'typed-comparison-v17' ||
+        value.schema === 'typed-comparison-v18' ||
+        value.schema === 'typed-comparison-v19' ||
+        value.schema === 'typed-comparison-v20' ||
+        value.schema === 'typed-comparison-v21' ||
+        ['comparisonMode', 'conciseUnitCount', 'conciseFallbackReason'].some((key) =>
+          Object.hasOwn(value, key),
+        )
+      if (
+        hasMode &&
+        (summaryContract || excerptsContract
+          ? (value.comparisonMode !== 'full' &&
+              value.comparisonMode !== (excerptsContract ? 'excerpts' : 'summary')) ||
+            value.conciseUnitCount !== 0 ||
+            value.conciseFallbackReason !== null
+          : (value.comparisonMode !== 'full' && value.comparisonMode !== 'concise') ||
+            typeof value.conciseUnitCount !== 'number' ||
+            !Number.isInteger(value.conciseUnitCount) ||
+            value.conciseUnitCount < 0 ||
+            value.conciseUnitCount > 256 ||
+            (value.comparisonMode === 'full' && value.conciseUnitCount !== 0) ||
+            (value.comparisonMode === 'concise' &&
+              (value.conciseUnitCount < 1 || value.conciseFallbackReason !== null)) ||
+            (value.conciseFallbackReason !== null &&
+              value.conciseFallbackReason !== 'source_bounds' &&
+              value.conciseFallbackReason !== 'unit_bounds' &&
+              value.conciseFallbackReason !== 'segmentation'))
+      ) {
+        malformedLogs++
+        continue
+      }
+      const hasStringPolicy = Object.hasOwn(value, 'jsonStringPolicy')
+      if (
+        hasStringPolicy &&
+        (value.schema !== 'typed-comparison-v24' ||
+          value.comparisonMode !== 'excerpts' ||
+          value.jsonStringPolicy !== 'source-excerpts')
+      ) {
+        malformedLogs++
+        continue
+      }
+      calls.push({
+        schema: value.schema,
+        contextTokens: value.contextTokens,
+        maxTokens: value.maxTokens,
+        temperature: value.temperature,
+        repeatPenalty: value.repeatPenalty,
+        ...(hasStringPolicy ? { jsonStringPolicy: 'source-excerpts' as const } : {}),
+        ...(hasMode
+          ? {
+              comparisonMode: value.comparisonMode as 'full' | 'concise' | 'summary' | 'excerpts',
+              conciseUnitCount: value.conciseUnitCount as number,
+              conciseFallbackReason: value.conciseFallbackReason as
+                | 'source_bounds'
+                | 'unit_bounds'
+                | 'segmentation'
+                | null,
+            }
+          : {}),
+      })
+    } catch {
+      malformedLogs++
+    }
+  }
+  const results: Array<{
+    schema:
+      | 'typed-comparison-v2'
+      | 'typed-comparison-v3'
+      | 'typed-comparison-v4'
+      | 'typed-comparison-v5'
+      | 'typed-comparison-v6'
+      | 'typed-comparison-v7'
+      | 'typed-comparison-v8'
+      | 'typed-comparison-v9'
+      | 'typed-comparison-v10'
+      | 'typed-comparison-v11'
+      | 'typed-comparison-v12'
+      | 'typed-comparison-v13'
+      | 'typed-comparison-v14'
+      | 'typed-comparison-v15'
+      | 'typed-comparison-v16'
+      | 'typed-comparison-v17'
+      | 'typed-comparison-v18'
+      | 'typed-comparison-v19'
+      | 'typed-comparison-v20'
+      | 'typed-comparison-v21'
+      | 'typed-comparison-v22'
+      | 'typed-comparison-v23'
+      | 'typed-comparison-v24'
+      | 'typed-comparison-v25'
+      | 'typed-comparison-v26'
+      | 'typed-comparison-v27'
+      | 'typed-comparison-v28'
+      | 'typed-comparison-v29'
+      | 'typed-comparison-v30'
+      | 'typed-comparison-v31'
+      | 'typed-comparison-v32'
+    mode: 'answered' | 'comparison'
+    outcome: 'compatible' | 'established' | 'unresolved' | 'insufficient' | null
+  }> = []
+  let malformedResults = 0
+  for (const match of text.matchAll(/\[qa\] checked result:\s*(\{[^\r\n]*\})/gu)) {
+    try {
+      const value = JSON.parse(match[1]!) as Record<string, unknown>
+      const outcome = value.outcome
+      if (
+        (value.schema !== 'typed-comparison-v2' &&
+          value.schema !== 'typed-comparison-v3' &&
+          value.schema !== 'typed-comparison-v4' &&
+          value.schema !== 'typed-comparison-v5' &&
+          value.schema !== 'typed-comparison-v6' &&
+          value.schema !== 'typed-comparison-v7' &&
+          value.schema !== 'typed-comparison-v8' &&
+          value.schema !== 'typed-comparison-v9' &&
+          value.schema !== 'typed-comparison-v10' &&
+          value.schema !== 'typed-comparison-v11' &&
+          value.schema !== 'typed-comparison-v12' &&
+          value.schema !== 'typed-comparison-v13' &&
+          value.schema !== 'typed-comparison-v14' &&
+          value.schema !== 'typed-comparison-v15' &&
+          value.schema !== 'typed-comparison-v16' &&
+          value.schema !== 'typed-comparison-v17' &&
+          value.schema !== 'typed-comparison-v18' &&
+          value.schema !== 'typed-comparison-v19' &&
+          value.schema !== 'typed-comparison-v20' &&
+          value.schema !== 'typed-comparison-v21' &&
+          value.schema !== 'typed-comparison-v22' &&
+          value.schema !== 'typed-comparison-v23' &&
+          value.schema !== 'typed-comparison-v24' &&
+          value.schema !== 'typed-comparison-v25' &&
+          value.schema !== 'typed-comparison-v26' &&
+          value.schema !== 'typed-comparison-v27' &&
+          value.schema !== 'typed-comparison-v28' &&
+          value.schema !== 'typed-comparison-v29' &&
+          value.schema !== 'typed-comparison-v30' &&
+          value.schema !== 'typed-comparison-v31' &&
+          value.schema !== 'typed-comparison-v32') ||
+        !(
+          (value.mode === 'answered' && outcome === null) ||
+          (value.mode === 'comparison' &&
+            (outcome === 'compatible' ||
+              (value.schema === 'typed-comparison-v2' && outcome === 'established') ||
+              outcome === 'unresolved' ||
+              outcome === 'insufficient'))
+        )
+      ) {
+        malformedResults++
+        continue
+      }
+      results.push({
+        schema: value.schema,
+        mode: value.mode as 'answered' | 'comparison',
+        outcome: outcome as (typeof results)[number]['outcome'],
+      })
+    } catch {
+      malformedResults++
+    }
+  }
+  const stages = events.filter((event) => event.type === 'stage' && event.stage === 'evidence')
+  return {
+    checkedCallLogged: calls.length > 0,
+    calls,
+    malformedLogs,
+    results,
+    malformedResults,
+    rawGenerationStarts: (text.match(/llm\.generateRaw start:/gu) ?? []).length,
+    grammarFallbackLogged: /grammar build failed|generating without it/iu.test(text),
+    stageStarted: stages.some((event) => event.status === 'start'),
+    stageCompleted: stages.some((event) => event.status === 'done'),
+    durationMs: finite(stages.find((event) => event.status === 'done')?.durationMs),
+  }
+}
+
 /** Mechanical checks expose evidence for review; they never certify semantic grounding. */
 export function gradeNativeRun(
   run: NativeCalibrationRun,
@@ -229,7 +491,7 @@ export function gradeNativeRun(
     // A cue is only a review aid: a model can state "not specified" and still
     // invent another fact, or safely explain a conflict without a refusal cue.
     const abstentionCue =
-      /\b(not (?:provided|specified|stated|available|mentioned)|cannot (?:determine|answer|confirm)|insufficient|conflicting|contradictory|nicht (?:angegeben|genannt|enthalten|verfügbar|belegt)|keine (?:Angabe|Information)|widersprüchlich|widersprechen)\b/iu.test(
+      /\b(not (?:provided|specified|stated|available|mentioned)|cannot (?:determine|answer|confirm)|insufficient|conflicting|contradictory|nicht (?:angegeben|genannt|enthalten|verfÃ¼gbar|belegt)|keine (?:Angabe|Information)|widersprÃ¼chlich|widersprechen)\b/iu.test(
         answerWithoutMarkers,
       )
     const before = allocation(query.beforeInfo)
@@ -275,6 +537,7 @@ export function gradeNativeRun(
       sourceCoverage,
       suppliedCitations: fed,
       evidenceAssessment: describeEvidenceAssessment(query.logs ?? [], query.events),
+      checkedAnswer: describeCheckedAnswer(query.logs ?? [], query.events),
       suppliedPassages: [...new Set(fed.map(key))].map(
         (pair) => passages.get(pair) ?? { missingPair: pair },
       ),
@@ -312,7 +575,7 @@ export function gradeNativeRun(
       'Supplied citation membership validates provenance only; semantic support requires manual review of source text.',
       'Timing includes the measured request path and model handoffs; later requests are not assumed fully warm.',
       'p50 uses the conventional median (mean of the two central values for even samples); p95 uses nearest rank. Both are descriptive only for small samples.',
-      'Requested context is reported separately from each query’s recorded allocation.',
+      'Requested context is reported separately from each queryâ€™s recorded allocation.',
     ],
     provenance: {
       gitCommit: run.gitCommit ?? null,

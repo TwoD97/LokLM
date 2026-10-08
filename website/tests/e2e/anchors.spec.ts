@@ -3,14 +3,14 @@ import { test, expect } from '@playwright/test'
 test.describe('in-page anchors', () => {
   test('header link #features lands on the features section', async ({ page }) => {
     await page.goto('/')
-    await page.locator('header').locator('a[href="#features"]').click()
+    await page.locator('header').locator('a[href="#features"]:visible').click()
     await expect(page).toHaveURL(/#features$/)
     await expect(page.locator('#features')).toBeInViewport({ ratio: 0.1 })
   })
 
   test('header link #download lands on the download section', async ({ page }) => {
     await page.goto('/')
-    await page.locator('header').locator('a[href="#download"]').click()
+    await page.locator('header').locator('a[href="#download"]:visible').click()
     await expect(page).toHaveURL(/#download$/)
     await expect(page.locator('#download')).toBeInViewport({ ratio: 0.1 })
   })

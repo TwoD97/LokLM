@@ -1,0 +1,35 @@
+[
+  {
+    "caseId": "ab-fresh-01",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "unresolved-conflict",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS. Both exact South19-day and North14-day units for the same NP-6/S8 scope appear with respective local2:2/1:1 references. The compact framed sentence limits uncertainty to supplied evidence, without a winner, nonapproval denial, supersession or global absence claim. No irrelevant heading/date unit. Original English quote is an unchanged presentation tradeoff. App122345ms/native110557ms, completed once."
+  },
+  {
+    "caseId": "ab-fresh-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Narrow strict missing-explanation PARTIAL under the original rubric: explicit proposal nonapproval is required and is not stated. All requested values and the change decision are correct:5 projectors and7 tablets; the working paper does not change them. All three actual supporting3:3/4:4/5:5 references attach locally, so the earlier AK citation gap is fixed. There is no factual, citation or authority-overclaim error. Retain the original explicit-nonapproval requirement consistently with AK rather than silently relaxing it now. Two sentences are allowed. App156692ms/native138313ms, completed once."
+  },
+  {
+    "caseId": "ab-fresh-03",
+    "repetition": 0,
+    "verdict": "supported",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Strict PASS: planned2037 main-campus29835CHF minus recorded2036 main-campus27460CHF equals2375CHF. Correct actual/planned years, local6:6/7:7 refs, one short sentence, no reserve or Annex addition. Repeating input amounts is not required by the question. App145278ms/native126685ms, completed once."
+  }
+]

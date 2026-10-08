@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-02",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "unsupported",
+    "citationCompleteness": "partial",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "correct",
+    "unsupportedExtraClaims": [],
+    "notes": "Separately declared 300-second timing diagnostic completed at188.484s, so it still exceeds the original180-second target and never replaces J/K timeouts. The final values4drills/5saws and effective2031-05-15 are correct. However, the first source-linked block attaches unrelated Neral1:1 and amendment4:4; those do not establish saw limit5. Base rule3:3 contains5 and is correctly cited with4:4 only on the second block. All required passages were supplied. This is a real paragraph-source selection failure despite valid canonical membership, not a numeric or authority error; later correct citations do not make the unrelated1:1 support valid. Actual8K/f16/14layers, stopGenerationTrigger,344outputtokens/770responsecharacters. No hidden check or partialJSON was retained/read."
+  }
+]

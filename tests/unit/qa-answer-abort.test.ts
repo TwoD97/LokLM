@@ -60,7 +60,10 @@ describe('QAService.answer abort propagation', () => {
       1,
       expect.any(String),
       1,
-      expect.objectContaining({ abortSignal: controller.signal }),
+      expect.objectContaining({ abortSignal: expect.any(AbortSignal) }),
     )
+    const searchSignal = vi.mocked(retrieval.search).mock.calls[0]![3]!.abortSignal
+    expect(searchSignal?.aborted).toBe(true)
+    expect(searchSignal?.reason).toBe(reason)
   })
 })

@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "split": "ab-fresh-validation-20261006",
+  "policy": "Strictly grade every visible claim, requested value, semantic relation, scope and actual cited passage. Valid IDs, reference-answer regex matches or copied text alone do not prove correctness. Cases01/03 explicitly require one short sentence. Do not credit safe but incomplete answers as full passes. Never change the key from model outputs.",
+  "cases": [
+    {
+      "caseId": "ab-fresh-01",
+      "required": {
+        "abf-north": [
+          "14 days for NP-6 campaign S8"
+        ],
+        "abf-south": [
+          "19 days for the identical NP-6 campaign S8"
+        ]
+      },
+      "decision": "The supplied notes do not establish a binding winner. Both values and their mapping are required. Same issue date supplies no chronology preference.",
+      "invalid": [
+        "Choosing either interval as binding",
+        "Asserting no approval ever occurred, neither note has approval, or no binding interval exists anywhere; absence is documentary only",
+        "Invented supersession, later chronology, different scope, averaging or addition",
+        "More than one short sentence or irrelevant appendix"
+      ],
+      "citation": "Cite both actual value-bearing notes locally. A shared canonical pair on the single comparison sentence suffices."
+    },
+    {
+      "caseId": "ab-fresh-02",
+      "required": {
+        "abf-amend": [
+          "5 projectors applies by the asked date; approval and effective dates are distinct"
+        ],
+        "abf-base": [
+          "7 tablets continues unchanged"
+        ],
+        "abf-proposal": [
+          "Explicitly not approved; no authority to change limits"
+        ]
+      },
+      "decision": "Answerable current limits are5 and7. Later proposal does not displace the approved rule. It is legitimate to mention the proposed9 when correctly qualified.",
+      "invalid": [
+        "Obsolete2 projector current answer",
+        "Current9 tablets",
+        "False uncertainty despite explicit approvals/effectiveness",
+        "Claiming the amendment alone states the numeric7 or attaching7 only to amendment"
+      ],
+      "citation": "Every amount and authority clause must be supported by the actual attached source(s); all three sources needed for complete requested answer."
+    },
+    {
+      "caseId": "ab-fresh-03",
+      "required": {
+        "abf-plan": [
+          "Planned2037 main campus29835CHF"
+        ],
+        "abf-actual": [
+          "Recorded2036 main campus27460CHF"
+        ]
+      },
+      "decision": "29835−27460=2375CHF. Comparing the requested actual/planned periods is allowed; it does not assert the target was attained.",
+      "invalid": [
+        "Adding reserve3100",
+        "Using Annex34160",
+        "Calling planned receipts already recorded/achieved",
+        "False refusal because periods or actual/planned status differ",
+        "Multiple sentences or irrelevant appendix"
+      ],
+      "citation": "Cite both inputs on the calculation; shared pair on the single sentence suffices."
+    }
+  ],
+  "authorship": {
+    "author": "rag_research eval-infrastructure contributor",
+    "productionEdited": false,
+    "postProductionFreeze": "2026-10-05T22:12:33.572Z",
+    "productionAuthorsBlindUntilNativeCollectionComplete": true,
+    "limitations": "Author reviewed prior known failures and edits eval infrastructure; this is a small post-freeze authored transfer set, not an independent researcher-blind benchmark."
+  }
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "reasoning-reserved-06",
+    "repetition": 0,
+    "verdict": "partial",
+    "citationSupport": "supported",
+    "citationCompleteness": "complete",
+    "contextSufficiency": "sufficient",
+    "decisionCorrectness": "incorrect",
+    "unsupportedExtraClaims": [],
+    "notes": "Semantic gate nonpass: exact same visible answer asS06. Comparison/insufficient wrongly refuses the requested relation although actual supplied11:11/12:12 explicitly provide12at08:00UTC before deliveries/withdrawals and17at18:00UTC afterward. Counts/times/complete original passages/citations correct, but compatible different-time relation not answered. Clean completed terminal is not a quality pass. One call88990ms,actual8K/q4_0/14layers; no retry or continuation; later T known/fresh queues held."
+  }
+]

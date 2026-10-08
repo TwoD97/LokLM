@@ -1,0 +1,105 @@
+{
+  "purpose": "Manual semantic and citation key; lexical regex checks alone cannot pass a case.",
+  "cases": [
+    {
+      "id": "authority-transfer-01",
+      "requiredClaims": [
+        {
+          "claim": "6 portable mixers per registered public event",
+          "sources": [
+            "at-event-change"
+          ]
+        },
+        {
+          "claim": "8 wireless microphones per registered public event",
+          "sources": [
+            "at-base-event"
+          ]
+        }
+      ],
+      "reject": [
+        "2 mixers as current",
+        "9 mixers or 10 microphones from rehearsal policy",
+        "both limits changed",
+        "treating current approved amendment as unresolved"
+      ]
+    },
+    {
+      "id": "authority-transfer-02",
+      "requiredClaims": [
+        {
+          "claim": "12 Arbeitstage am angefragten Stichtag",
+          "sources": [
+            "at-standard-process"
+          ]
+        },
+        {
+          "claim": "9 Arbeitstage erst ab 2042-09-01",
+          "sources": [
+            "at-process-change"
+          ]
+        }
+      ],
+      "reject": [
+        "9 Arbeitstage schon am Stichtag",
+        "Wirksamkeit bereits am Beschlusstag",
+        "3 Arbeitstage aus Dringlichkeitsverfahren",
+        "Änderung sei unbeschlossen"
+      ]
+    },
+    {
+      "id": "authority-transfer-03",
+      "requiredClaims": [
+        {
+          "claim": "Current badge deposit 28 EUR",
+          "sources": [
+            "at-deposit-rule"
+          ]
+        },
+        {
+          "claim": "41 EUR proposal not yet approved or authorized",
+          "sources": [
+            "at-deposit-paper"
+          ]
+        }
+      ],
+      "reject": [
+        "41 EUR payable now",
+        "15 EUR locker deposit",
+        "later paper automatically supersedes rule",
+        "current deposit indeterminate"
+      ]
+    },
+    {
+      "id": "authority-transfer-04",
+      "requiredClaims": [
+        {
+          "claim": "Kupfer: 420 N",
+          "sources": [
+            "at-clamp-first"
+          ]
+        },
+        {
+          "claim": "Zinn: 460 N",
+          "sources": [
+            "at-clamp-second"
+          ]
+        },
+        {
+          "claim": "No documented precedence resolves the same-scope difference in supplied excerpts",
+          "sources": [
+            "at-clamp-first",
+            "at-clamp-second"
+          ]
+        }
+      ],
+      "reject": [
+        "one definitive chosen limit",
+        "440 N average or 880 N sum as allowed force",
+        "390 N from FV-6",
+        "different conditions explain the discrepancy",
+        "whole-document or real-world absence asserted beyond the supplied evidence"
+      ]
+    }
+  ]
+}

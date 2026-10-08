@@ -1,0 +1,383 @@
+{
+  "kind": "safe-answer-audit-screening-observations",
+  "classification": "Known-development verifier diagnostic NONPASS, not a new RAG answer-quality score.",
+  "originalCriteriaUnchanged": true,
+  "artifacts": [
+    {
+      "path": "out/optimization-20261005/be-audit/orchestration-failure-closure.json",
+      "sha256": "607abc9d61b45284625d576019ba94be3f127fb703eecf92246ced9e79df0172"
+    },
+    {
+      "path": "out/optimization-20261005/be2-audit/accepted-audit-observations.json",
+      "sha256": "511f8c8456d81f4b4f837461d39b3c76265a84c54a84ff9eee6919324055d2b1"
+    },
+    {
+      "path": "out/optimization-20261005/be2-audit/postverify.json",
+      "sha256": "fda50959f0bae1ccf638d4129cebf4295c9024a145125c224e4a01b043a21c44"
+    },
+    {
+      "path": "out/optimization-20261005/be2-audit/durable-closure.json",
+      "sha256": "8f0cb6fb1d54888d532dae7f369e373fc1315ed4febe6f251e85a02d885e5696"
+    },
+    {
+      "path": "out/optimization-20261005/be2-audit/independent-grading.json",
+      "sha256": "7fa6e25b68fdb94440be61770e6bb4c1420ac60618899fdd73a1d71dc1f4f519"
+    },
+    {
+      "path": "out/optimization-20261005/be-answer-audit-grading.json",
+      "sha256": "b65a24a58f4f7d9e08a86b8568c3e402de579da0192b95476057c1fce86415d0"
+    },
+    {
+      "path": "out/optimization-20261005/be-answer-audit-inputs.json",
+      "sha256": "c0b248943bcc16a41184e402c7ead56494218f381ce0c776a7cfd498dea3ca02"
+    },
+    {
+      "path": "out/optimization-20261005/be-answer-audit-seal.json",
+      "sha256": "4a3551733f12e16efc153cc000d896711d06d53b465d39378dcd403e530c157f"
+    },
+    {
+      "path": "out/optimization-20261005/be-audit/module-freeze.json",
+      "sha256": "ab93693bda421545c027964d7f007b5c76d29e46b4e702fa0a1979421274f0a8"
+    },
+    {
+      "path": "out/optimization-20261005/be-audit/recorded-catalog-provenance.json",
+      "sha256": "817807ebeb05406a889eff970df5a2d525e3c826c86fad2a80f503456a0e1114"
+    }
+  ],
+  "originalBE": {
+    "outcome": "orchestration_nonpass",
+    "actualNodeExitCode": 1,
+    "actualElectronExitCode": 4294967295,
+    "actualPostverifyExitCode": 1,
+    "auditAttempts": 0,
+    "acceptedAuditVerdicts": 0,
+    "modelLoadMarkers": 0,
+    "unattempted": 8,
+    "explicitOwnedStop": true,
+    "sourceBuildPinsMatched": 555,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "ownedProfileRemoved": true,
+    "retries": 0,
+    "cause": "Electron default-app dynamically imports the CommonJS entry; require.main did not equal module, so the original entry took its export-only test branch before model/audit setup."
+  },
+  "BE2": {
+    "declarationSha256": "0465b0059083169d106ce25a5ccfce92fee4298c78a68cef54a06a2cad2c79b9",
+    "launchSha256": "986735ab3855d0b149ac2bb310eab0c85a207145fdd536198ed6f3aaa0899251",
+    "postverifySha256": "fda50959f0bae1ccf638d4129cebf4295c9024a145125c224e4a01b043a21c44",
+    "durableClosureSha256": "8f0cb6fb1d54888d532dae7f369e373fc1315ed4febe6f251e85a02d885e5696",
+    "runnerExitCode": 0,
+    "electronExitCode": 0,
+    "workerExitCode": 0,
+    "postverifyExitCode": 0,
+    "verifiedPins": 578,
+    "failures": [],
+    "attempted": 4,
+    "completed": 4,
+    "unattempted": ["BE05", "BE06", "BE07", "BE08"],
+    "correctBinaryDecisions": 3,
+    "confusion": {
+      "expectedReject": 2,
+      "correctRejections": 1,
+      "falseAcceptances": 1,
+      "expectedAccept": 2,
+      "correctAcceptances": 2,
+      "falseRejections": 0
+    },
+    "operationalFailures": 0,
+    "parserFailures": 0,
+    "abstentions": 0,
+    "screenPass": false,
+    "productionReadinessPass": false,
+    "remainingGroupAuthorized": false,
+    "runtime": {
+      "backend": "vulkan",
+      "threads": 6,
+      "reserveBytes": 1073741824,
+      "kvType": "f16",
+      "contextTokens": 8192,
+      "gpuLayers": 14,
+      "totalModelLayers": 33
+    },
+    "loadMs": 35365,
+    "totalAuditMs": 238745,
+    "pendingRequests": 0,
+    "forcedStops": 0,
+    "remainingOwned": 0,
+    "remainingNative": 0,
+    "ownedProfileRemoved": true,
+    "captureEnabled": false,
+    "observations": [
+      {
+        "id": "BE01",
+        "auditMs": 56554,
+        "verdict": {
+          "support": "supported",
+          "coverage": "complete",
+          "citations": "supported",
+          "issue": "none"
+        },
+        "decision": "accept",
+        "metrics": {
+          "elapsedMs": 56392,
+          "grammarMs": 3,
+          "promptFitMs": 17,
+          "nativeMs": 56372,
+          "usedInputTokens": 1453,
+          "usedOutputTokens": 95,
+          "firstTextMs": 42810,
+          "lastTextMs": 56369,
+          "responseChars": 93,
+          "responseChunks": 0,
+          "cancelled": false,
+          "completionReason": "stopGenerationTrigger",
+          "route": "main",
+          "boundedThoughts": {
+            "promptTokens": 1452,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97,
+            "firstVisibleMs": 42810,
+            "lastVisibleMs": 56369,
+            "thoughtTermination": "budget"
+          }
+        },
+        "budget": {
+          "ok": true,
+          "context": {
+            "wrappedInputTokens": 1452,
+            "contextTokens": 8192,
+            "marginTokens": 820,
+            "requiredTokens": 2592
+          },
+          "output": {
+            "promptTokens": 1452,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97
+          }
+        }
+      },
+      {
+        "id": "BE02",
+        "auditMs": 57077,
+        "verdict": {
+          "support": "supported",
+          "coverage": "complete",
+          "citations": "supported",
+          "issue": "none"
+        },
+        "decision": "accept",
+        "metrics": {
+          "elapsedMs": 56828,
+          "grammarMs": 0,
+          "promptFitMs": 19,
+          "nativeMs": 56809,
+          "usedInputTokens": 1460,
+          "usedOutputTokens": 95,
+          "firstTextMs": 41981,
+          "lastTextMs": 56808,
+          "responseChars": 93,
+          "responseChunks": 0,
+          "cancelled": false,
+          "completionReason": "stopGenerationTrigger",
+          "route": "main",
+          "boundedThoughts": {
+            "promptTokens": 1459,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97,
+            "firstVisibleMs": 41981,
+            "lastVisibleMs": 56808,
+            "thoughtTermination": "budget"
+          }
+        },
+        "budget": {
+          "ok": true,
+          "context": {
+            "wrappedInputTokens": 1459,
+            "contextTokens": 8192,
+            "marginTokens": 820,
+            "requiredTokens": 2599
+          },
+          "output": {
+            "promptTokens": 1459,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97
+          }
+        }
+      },
+      {
+        "id": "BE03",
+        "auditMs": 62938,
+        "verdict": {
+          "support": "unsupported",
+          "coverage": "incomplete",
+          "citations": "unsupported",
+          "issue": "missing_part"
+        },
+        "decision": "reject",
+        "metrics": {
+          "elapsedMs": 62598,
+          "grammarMs": 0,
+          "promptFitMs": 27,
+          "nativeMs": 62571,
+          "usedInputTokens": 1869,
+          "usedOutputTokens": 97,
+          "firstTextMs": 46738,
+          "lastTextMs": 62570,
+          "responseChars": 107,
+          "responseChunks": 0,
+          "cancelled": false,
+          "completionReason": "stopGenerationTrigger",
+          "route": "main",
+          "boundedThoughts": {
+            "promptTokens": 1868,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 33,
+            "combinedTokens": 99,
+            "firstVisibleMs": 46738,
+            "lastVisibleMs": 62570,
+            "thoughtTermination": "budget"
+          }
+        },
+        "budget": {
+          "ok": true,
+          "context": {
+            "wrappedInputTokens": 1868,
+            "contextTokens": 8192,
+            "marginTokens": 820,
+            "requiredTokens": 3008
+          },
+          "output": {
+            "promptTokens": 1868,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 33,
+            "combinedTokens": 99
+          }
+        }
+      },
+      {
+        "id": "BE04",
+        "auditMs": 62176,
+        "verdict": {
+          "support": "supported",
+          "coverage": "complete",
+          "citations": "supported",
+          "issue": "none"
+        },
+        "decision": "accept",
+        "metrics": {
+          "elapsedMs": 62021,
+          "grammarMs": 0,
+          "promptFitMs": 23,
+          "nativeMs": 61998,
+          "usedInputTokens": 1880,
+          "usedOutputTokens": 95,
+          "firstTextMs": 47368,
+          "lastTextMs": 61996,
+          "responseChars": 93,
+          "responseChunks": 0,
+          "cancelled": false,
+          "completionReason": "stopGenerationTrigger",
+          "route": "main",
+          "boundedThoughts": {
+            "promptTokens": 1879,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97,
+            "firstVisibleMs": 47368,
+            "lastVisibleMs": 61996,
+            "thoughtTermination": "budget"
+          }
+        },
+        "budget": {
+          "ok": true,
+          "context": {
+            "wrappedInputTokens": 1879,
+            "contextTokens": 8192,
+            "marginTokens": 820,
+            "requiredTokens": 3019
+          },
+          "output": {
+            "promptTokens": 1879,
+            "thoughtTokens": 64,
+            "thoughtClosingTokens": 0,
+            "forcedClosingTokens": 2,
+            "visibleTokens": 31,
+            "combinedTokens": 97
+          }
+        }
+      }
+    ]
+  },
+  "design": {
+    "frozenItems": 8,
+    "executedFirstGroup": ["BE01", "BE02", "BE03", "BE04"],
+    "held": ["BE05", "BE06", "BE07", "BE08"],
+    "badOriginals": "Four byte-exact accepted finals from prior public synthetic development evaluations.",
+    "counterparts": "Four minimally edited supported counterparts authored before the frozen diagnostic execution; not generated improvements.",
+    "sourceCatalog": "Complete recorded indexed chunks reconstructed from citation-stage identities and pinned whole-hit packing code, not direct outbound worker prompt bytes.",
+    "keyIsolation": "Module frozen before grading seal; runner passes only original question, requested language, candidate answer, complete supplied sources and cited IDs. No expected labels, reference answer, required sources or pair role reach classifier.",
+    "generation": {
+      "maxTokens": 320,
+      "maxBoundedThoughtTokens": 64,
+      "temperature": 0,
+      "repeatPenalty": false,
+      "noThink": true,
+      "requireComplete": true,
+      "runsPerItem": 1,
+      "retries": 0,
+      "collectionCapMs": 300000,
+      "productThresholdMs": 180000
+    },
+    "response": "Fixed enum support/coverage/citations/issue only, strict parser; no rewrite or free-text reasoning persisted."
+  },
+  "latency": {
+    "minimumAuditMs": 56554,
+    "maximumAuditMs": 62938,
+    "modelLoadReportedSeparately": true,
+    "projectedTotalsMs": [
+      { "id": "BE01", "ms": 192286, "counterpartAuthoredNotGenerated": false },
+      { "id": "BE02", "ms": 192809, "counterpartAuthoredNotGenerated": true },
+      { "id": "BE03", "ms": 251053, "counterpartAuthoredNotGenerated": false },
+      { "id": "BE04", "ms": 250291, "counterpartAuthoredNotGenerated": true }
+    ],
+    "allProjectedTotalsOver180Seconds": true,
+    "measuredFullProductTurn": false
+  },
+  "privacy": {
+    "privateChecksRead": false,
+    "thoughtTextRead": false,
+    "rejectedOutputRead": false,
+    "sourceTextCopied": false,
+    "candidateAnswerTextCopied": false,
+    "freshSetOpened": false,
+    "rawAuditOutputPersisted": false
+  },
+  "limitations": [
+    "The four known-DEV cases are not a generalization or semantic-safety proof.",
+    "A fixed enum and valid canonical citation IDs cannot prove entailment.",
+    "BE03 reports support/citations unsupported as well as incomplete coverage; the sealed key establishes omitted requested content, while included literal values and their citations were correct. The enum alone does not reveal the reasoning for those extra negative facets.",
+    "All four audits hit the64-token thought cap with2 forced closing tokens; saturation does not establish the cause of correct or incorrect decisions.",
+    "Generation-plus-audit figures add historical generation and current audit measurements; they are projections, and counterparts were authored rather than generated.",
+    "No new answer rewrites, retries, source filtering, production integrations or default changes are authorized by these observations.",
+    "Only clean-closed enum telemetry and sealed keys were read; no private check/thought/rejected body or fresh set was inspected."
+  ],
+  "currentSourceEqualityReasserted": false
+}

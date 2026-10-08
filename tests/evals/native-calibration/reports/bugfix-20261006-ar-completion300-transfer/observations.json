@@ -1,0 +1,402 @@
+{
+  "kind": "safe-actual-app-known-replay-observations",
+  "runId": "bugfix-20261006-ar-completion300-transfer",
+  "classification": "Known DEV AR/v19 correctness collection under a new prospective 300-second protocol. Two original authority transfer cases, unchanged strict criteria; no fresh claim or replacement of AQ180 results.",
+  "privacy": "Named allowlist of retained displayed finals/fixed terminal notices, source identities/order and safe scalar diagnostics. No hidden thoughts/token arrays, private check text, rejected prose, raw generation envelope, histories or unrestricted logs.",
+  "originalRaw": {
+    "path": "tests/evals/native-calibration/reports/bugfix-20261006-ar-completion300-transfer/raw.json",
+    "sha256": "695c8fc7f958bba4b0f93b565cbe9498f6bf77f68b0fbce314a37f6221ad18a9",
+    "availability": "Local generated artifact; safe observations preserved here for version control."
+  },
+  "declaration": {
+    "path": "out/optimization-20261005/ar-completion300-transfer-execution-declaration.json",
+    "sha256": "ccd13e9f64bae4a148669a850c28a9b93060b1179a292219cb6ae7ca9f3bf52d",
+    "frozenAt": "2026-10-06T05:52:20.665Z"
+  },
+  "postverify": {
+    "path": "out/optimization-20261005/ar-completion300-transfer-postverify.json",
+    "sha256": "defd35f0d382432801edaa25261cbbaf4e943873c1ffcae9f10f163eb88bb2f2",
+    "verifiedAt": "2026-10-06T05:59:20.324Z",
+    "status": "matched",
+    "currentSourcesMatchBuild": true,
+    "sourceCount": 421,
+    "compiledCount": 112,
+    "runnerExitCode": 0,
+    "safeToContinue": false,
+    "cleanupVerified": true,
+    "requestCompleted": true,
+    "remainingOwnedNativeProcessCount": 0,
+    "remainingPlaywrightRunnerCount": 0
+  },
+  "requestedCases": ["authority-transfer-01", "authority-transfer-04"],
+  "attemptedCases": ["authority-transfer-01", "authority-transfer-04"],
+  "unobservedCases": [],
+  "counts": {
+    "requested": 2,
+    "attempted": 2,
+    "completedAnswers": 2,
+    "strictPasses": 2,
+    "operationalTimeouts": 0,
+    "unobserved": 0,
+    "completedWithin180Seconds": 2,
+    "parserRejections": 0
+  },
+  "startedAt": "2026-10-06T05:52:45.219Z",
+  "collectionCompletedAt": "2026-10-06T05:58:13.229Z",
+  "closureVerifiedAt": "2026-10-06T05:59:20.324Z",
+  "configuration": {
+    "wholeDocFallback": true,
+    "questionTimeoutMs": 300000,
+    "repeats": 1,
+    "rerank": false,
+    "multiQuery": false,
+    "routing": false,
+    "continueErrors": false
+  },
+  "capture": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off"
+  },
+  "provenance": {
+    "buildManifestSha256": "c238f16db7574e4638d435a4d7191d47abba20c5670fd54bb1de29f2c255b0ea",
+    "workerSha256": "2b5751b66659b31cc6307e52bd3764d92d681e44b6f8154956b0c4890ea0eb35",
+    "compiledBuildUnchanged": true,
+    "currentSourcesMatchBuildAfter": true,
+    "fixtureManifestSha256": "4b6ba07fdea36ed1d92e20128f54324533e0417f356c87135b70a33dedbc737d",
+    "fixtureLockSha256": "0339c091f4fc3e72a1732eea7fbb5ec7a9736c347fc8359419e6918bd191e0ad",
+    "harnessSha256": "05c96a790584a3cdc5badbc77c947a893527df5d8130b805a8ab765b89f25a03"
+  },
+  "sourceCorpusDocuments": 12,
+  "observerFinal": {
+    "workers": 1,
+    "observerErrors": 0,
+    "dropped": 0,
+    "pending": 0,
+    "armed": false,
+    "disposed": true
+  },
+  "timingInterpretation": "The prospective 300-second app cap includes retrieval/preparation; native timing is a subset. Observed within180 is reported separately and does not change the old AQ180 gate. Constrained-response tokens include private check and JSON syntax, not only displayed prose. External-line-break scalars identify no location/cause.",
+  "queries": [
+    {
+      "caseId": "authority-transfer-01",
+      "finalAnswer": "Portable mixers: 6. Wireless microphones: 8. [doc:1, chunk:1] [doc:2, chunk:2]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "1:1",
+        "2:2",
+        "9:9",
+        "5:5",
+        "6:6",
+        "4:4",
+        "8:8",
+        "3:3",
+        "7:7",
+        "11:11"
+      ],
+      "finalCitationIds": ["1:1", "2:2"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 142333,
+        "firstVisibleTokenMs": 142333,
+        "terminalMs": 142333,
+        "totalMs": 142333,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 131200,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "answered",
+            "outcome": null
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 131065,
+            "grammarMs": 4,
+            "promptFitMs": 20,
+            "nativeMs": 131039,
+            "firstTextMs": 74240,
+            "lastTextMs": 131038,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 278,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1746,
+            "usedOutputTokens": 253,
+            "boundedThoughts": {
+              "promptTokens": 1745,
+              "prefillBatches": 7,
+              "prefillTokens": 1744,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 125,
+              "combinedTokens": 255,
+              "firstVisibleMs": 74240,
+              "lastVisibleMs": 131038,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 2
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 1,
+          "inspectedChars": 44,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    },
+    {
+      "caseId": "authority-transfer-04",
+      "finalAnswer": "Aus den bereitgestellten Textstellen kann ich keine eindeutige Antwort ableiten. Die angeführten Quellenaussagen sind:\n\n> \\# Farnel\\: Protokoll Kupfer\n> \n> Prüfobjekt FV\\-8, Baureihe K, Prüfung am 2042\\-11\\-07 bei 25 Grad Celsius\\.\n> Für FV\\-8 wird eine zulässige Einspannkraft von höchstens 420 N angegeben\\.\n> Das Protokoll ist fachlich gegengezeichnet\\. Es nennt weder eine Korrektur des Parallelprotokolls noch eine Regel für den Vorrang einer Fassung\\.\n\n [doc:7, chunk:7]\n\n> \\# Farnel\\: Protokoll Zinn\n> \n> Prüfobjekt FV\\-8, Baureihe K, Prüfung am 2042\\-11\\-07 bei 25 Grad Celsius\\.\n> Für FV\\-8 wird eine zulässige Einspannkraft von höchstens 460 N angegeben\\.\n> Das Protokoll ist fachlich gegengezeichnet\\. Ein Vorrang oder eine Ablösung des Parallelprotokolls wird nicht festgelegt\\.\n\n [doc:8, chunk:8]",
+      "terminalNotice": null,
+      "actualFedSourceIdsInOrder": [
+        "12:12",
+        "7:7",
+        "8:8",
+        "11:11",
+        "4:4",
+        "1:1",
+        "6:6",
+        "2:2",
+        "5:5",
+        "3:3"
+      ],
+      "finalCitationIds": ["7:7", "8:8"],
+      "collection": {
+        "repetition": 0,
+        "ttftMs": 132360,
+        "firstVisibleTokenMs": 132360,
+        "terminalMs": 132360,
+        "totalMs": 132361,
+        "timedOut": false,
+        "terminalReceived": true,
+        "terminalOrigin": "event",
+        "terminalMismatch": false,
+        "terminalOutcome": "completed",
+        "invokeSettled": true,
+        "collectionDecision": "complete"
+      },
+      "generationContract": {
+        "malformedLogs": 0,
+        "malformedResults": 0,
+        "rawGenerationStarts": 1,
+        "grammarFallbackLogged": false,
+        "stageStarted": true,
+        "stageCompleted": true,
+        "durationMs": 115118,
+        "calls": [
+          {
+            "schema": "typed-comparison-v19",
+            "contextTokens": 8192,
+            "maxTokens": 2176,
+            "temperature": 0,
+            "repeatPenalty": false,
+            "comparisonMode": "full",
+            "conciseUnitCount": 0,
+            "conciseFallbackReason": null
+          }
+        ],
+        "results": [
+          {
+            "schema": "typed-comparison-v19",
+            "mode": "comparison",
+            "outcome": "unresolved"
+          }
+        ]
+      },
+      "boundedThoughts": {
+        "activeLogged": true,
+        "unsupportedWrapperLogged": false,
+        "setupFailedLogged": false,
+        "malformedStatusLogs": 0,
+        "malformedMetricsLogs": 0,
+        "statuses": [
+          {
+            "status": "active",
+            "maxThoughtTokens": 128
+          }
+        ],
+        "metrics": [
+          {
+            "task": "utility",
+            "route": "main",
+            "elapsedMs": 114968,
+            "grammarMs": 6,
+            "promptFitMs": 28,
+            "nativeMs": 114932,
+            "firstTextMs": 75421,
+            "lastTextMs": 114929,
+            "firstNonWhitespaceTextMs": null,
+            "lastNonWhitespaceTextMs": null,
+            "responseChars": 231,
+            "responseChunks": 0,
+            "completionReason": "stopGenerationTrigger",
+            "cancelled": false,
+            "usedInputTokens": 1814,
+            "usedOutputTokens": 215,
+            "boundedThoughts": {
+              "promptTokens": 1813,
+              "prefillBatches": 8,
+              "prefillTokens": 1812,
+              "thoughtTokens": 128,
+              "thoughtClosingTokens": 0,
+              "forcedClosingTokens": 2,
+              "visibleTokens": 87,
+              "combinedTokens": 217,
+              "firstVisibleMs": 75421,
+              "lastVisibleMs": 114929,
+              "thoughtTermination": "budget"
+            }
+          }
+        ]
+      },
+      "actualPostRetrievalAllocation": {
+        "contextSize": 8192,
+        "kvCacheType": "q8_0",
+        "fitsInVram": false,
+        "gpuLayers": 14
+      },
+      "workerStartModes": [
+        {
+          "task": "utility",
+          "maxTokens": 2176,
+          "noThink": false,
+          "boundedReasoning": "active",
+          "jsonWhitespace": "compact"
+        }
+      ],
+      "syntheticFormatting": [
+        {
+          "status": "completed",
+          "envelopeParsed": true,
+          "inputBoundExceeded": false,
+          "externalLineBreaks": 0,
+          "rootKeys": ["check", "result"],
+          "unknownRootKeyCount": 0,
+          "checkType": "string",
+          "checkCodepoints": 120,
+          "observerMs": 0
+        }
+      ],
+      "sourceLabelShapeObservations": [
+        {
+          "counts": {
+            "exact_colon_pair": 0,
+            "spaced_colon_pair": 0,
+            "comma_chunk_pair": 0,
+            "grouped_complete_pairs": 0,
+            "no_closing_parenthesis": 0,
+            "line_break": 0,
+            "invalid_id": 0,
+            "other_syntax": 0
+          },
+          "candidates": 0,
+          "inspectedBlocks": 0,
+          "inspectedChars": 0,
+          "capped": false
+        }
+      ],
+      "within180Seconds": true
+    }
+  ],
+  "scope": {
+    "originalCriteriaUnchanged": true,
+    "newProspective300SecondProtocol": true,
+    "originalAQ180AggregateUnchanged": true,
+    "noFreshClaim": true,
+    "futureFreshFactsAuthored": false,
+    "laterGroupsRequireSeparateGrant": true
+  },
+  "captureStatus": {
+    "trace": "off",
+    "screenshot": "off",
+    "video": "off",
+    "residualCaptureCount": 0
+  }
+}

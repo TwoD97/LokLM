@@ -1,0 +1,22 @@
+# N: native thoughts completed, structured contract rejected
+
+**The one requested diagnostic completed generation but produced no usable answer.** The visible response was valid JSON, but the unchanged production v5 parser rejected it with the fixed reason `envelope`. No validated final answer or attempted evidence strings were retained. This is a structural failure, with no factual or citation verdict available. The sanitizer's `nonstring` entry is a missing/invalid expected evidence-array sentinel, not a quotation to interpret.
+
+N was an out-only replay of M's eleven actual supplied passages, order, question, schema contract and evidence-first instructions. It removed the single `/no_think` directive, used the public Qwen 3.5 `thoughts: "auto"` wrapper with a 64-token thought budget, and **omitted native JSON grammar**. The same strict v5 parser processed only the complete visible `responseText`. No repair, ungrammared production fallback, second call or source change was made. This is a grouped reasoning-mode, directive-removal and constraint-mode diagnostic, not an isolated reasoning-only comparison or a product recommendation.
+
+The native grammar omission was necessary for this diagnostic. In the installed SDK, `LlamaChat.js:1966–1969` supplies the same grammar evaluation state irrespective of the thought segment; closing a budgeted segment does not reset that state. Combining an automatically opened thought segment with the object grammar can therefore consume the JSON prefix inside the hidden segment. The originally proposed grammar-on N was held before preparation or inference. Only the revised, explicitly approved grammar-off N was run.
+
+Privacy was checked against the installed public implementation. `LlamaChatSession.js:306–309` constructs `responseText` from string response items, excluding segmented responses. Its type declarations also document that `onTextChunk` excludes thought segments. The runner counted only `segmentType` and `tokens.length` from the public segmented callback; it never read or stored the segment text or token values. No check, raw response envelope, rejected answer prose, response history or hidden reasoning was retained/read. Consequently, the precise envelope defect and any semantic content cannot be diagnosed from these artifacts, and are not inferred here.
+
+The plan was frozen at 2026-10-05T17:01:38.351Z; the call began in the owned process at 17:01:52.640Z. Allocation was verified as Vulkan, 8192 context, f16 KV, fourteen GPU layers, six threads, batch 254 and a 1 GiB reserve. Temperature 0, repetition penalty disabled, 2176 total output tokens and the 180-second generation deadline were unchanged. The body hash and schema-contract hash match M; only its system directive was removed. Reconstructed prompt estimate was 2721 (M: 2723); exact wrapper preflight was 2481 tokens.
+
+Generation completed naturally with `eogToken` in 100.002 seconds. Public counters recorded 64 thought tokens across 66 thought callbacks, 394 visible-response characters across 112 text callbacks, 2484 input tokens and 176 total output tokens. First visible-response callback was at 51.787 seconds; the last was at 99.526 seconds. These callback timings are not an exact prefill/thought timing decomposition, and the 66 callback count is not 66 thought tokens. Load time was 14.965 seconds. There was no timeout or cancellation.
+
+The owned session exited 0, all source/build fingerprints remained unchanged, and the GPU was released immediately. Process success is not answer success: **0/1 requested cases produced a parser-accepted answer**. This remains a known DEV direct SDK diagnostic without retrieval/model handoff; it does not replace M's applicability failure, L's quote rejection, or any J/K regression outcome. No general model-quality or latency gain is demonstrated.
+
+Local generated artifacts, retained without modifying M/L, are `out/optimization-20261005/n-native-thoughts-plan.json`, `n-native-thoughts-replay.mjs`, `prepare-n-native-thoughts.ts`, and `n-native-thoughts-native/raw.json`. The raw file contains only the permitted sanitized metadata/evidence capture, despite its historical filename.
+
+- Production L manifest SHA-256: `bf6cd36b9af2b617a9a7b71991532045e79d52b20bfc37602f645ffb3ff51533`.
+- Frozen N plan SHA-256: `adea0246f0eaad8307dcbe89128adb8122de9d35e5314e9446af807100cf53fb`.
+- Runner SHA-256: `0e044a6b799f5651ce227e01072a5ad3a79c5bc330b984917544251904a005a2`.
+- Sanitized raw SHA-256: `cd4b69d7fc5de98eb7db79d3ea138331207238a4edc31caeb8b45569de3a0ba4`.

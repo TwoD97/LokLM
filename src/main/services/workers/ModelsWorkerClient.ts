@@ -607,50 +607,62 @@ export class ModelsWorkerClient {
   private async stopChild(): Promise<void> {
     const previous = this.child
     if (!previous) return
+    const spawning = this.spawnPromise
     let didExit = false
-    const exited = new Promise<void>((resolve) =>
-      previous.once('exit', () => {
+    let onExit: () => void
+    const exited = new Promise<void>((resolve) => {
+      onExit = () => {
         didExit = true
         resolve()
-      }),
-    )
-    let timer: ReturnType<typeof setTimeout> | undefined
-    // Wait for native work to drain and dispose after its shutdown ack. A hung
-    // native call cannot block app quit forever; force termination after 2 s.
-    try {
-      await Promise.race([
-        (async () => {
-          try {
-            if (this.spawnPromise) await this.spawnPromise
-            if (this.child === previous) await this.postRequest<void>(previous, 'shutdown')
-          } catch {
-            /* An early exit or broken IPC still proceeds to process cleanup. */
-          }
-          await exited
-        })(),
-        new Promise<void>((resolve) => {
-          timer = setTimeout(resolve, 2000)
-        }),
-      ])
-    } finally {
-      if (timer) clearTimeout(timer)
-    }
-    if (!didExit) {
+      }
+      previous.once('exit', onExit)
+    })
+    let terminating = false
+    const terminate = (): void => {
+      if (didExit || this.child !== previous) return
       try {
         previous.kill()
       } catch {
-        /* Report a process that fails to exit below, without respawning on it. */
+        /* Only the exit event confirms cleanup, including when kill throws. */
       }
+    }
+    // Retain ownership of an in-progress spawn even if this bounded stop fails.
+    // kill() before Electron assigns a pid returns false; a late spawn must then
+    // be terminated, not receive a stale graceful request that can hang again.
+    void (async () => {
+      try {
+        if (spawning) await spawning
+        if (this.child !== previous) return
+        if (terminating) terminate()
+        else await this.postRequest<void>(previous, 'shutdown')
+      } catch {
+        /* An early exit or broken IPC still proceeds to process cleanup. */
+      }
+    })()
+    const waitForExit = async (milliseconds: number): Promise<void> => {
+      let timer: ReturnType<typeof setTimeout> | undefined
       try {
         await Promise.race([
           exited,
-          new Promise<never>((_resolve, reject) => {
-            timer = setTimeout(() => reject(new Error('Models worker did not exit.')), 1000)
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, milliseconds)
           }),
         ])
       } finally {
         if (timer) clearTimeout(timer)
       }
+    }
+    try {
+      await waitForExit(2_000)
+      if (didExit) return
+      terminating = true
+      terminate()
+      // Electron 42's Chromium termination fallback itself waits 2 s. Allow
+      // that plus exit-event delivery; kill acceptance alone is not success.
+      await waitForExit(5_000)
+      if (!didExit) throw new Error('Models worker did not exit.')
+    } finally {
+      previous.removeListener('exit', onExit!)
     }
   }
 }

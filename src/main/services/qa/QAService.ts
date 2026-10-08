@@ -8,6 +8,8 @@ import type { SummarizationService } from '../summarize/SummarizationService'
 import type { RetrievalHit, StreamEvent, AnswerOptions, StageName } from '../../../shared/documents'
 import { DEFAULT_CONTEXT_TOKENS, REFUSAL_TEXT } from '../llm/prompt'
 import { planAnswerContext } from './contextBudget'
+import { checkedAnswerCharLimit } from './checkedAnswer'
+import { COMPARISON_ANSWER_VERSION } from './comparisonAnswer'
 export { pinnedBudgetTokens, PINNED_BUDGET_MAX_TOKENS } from './contextBudget'
 import { SUMMARY_MAX_TOKENS, SUMMARY_PROMPT_RESERVE_TOKENS } from '../summarize/prompt'
 import { detectResponseLanguage } from '../documents/languageDetector'
@@ -77,7 +79,7 @@ export class QAService {
     private readonly isCodebaseWorkspace?: (workspaceId: number) => Promise<boolean>,
   ) {}
 
-  async *answer(
+  answer(
     workspaceId: number,
     query: string,
     opts: AnswerOptions = {},
@@ -87,7 +89,35 @@ export class QAService {
      *  Not part of AnswerOptions because that type round-trips through
      *  IPC and AbortSignal isn't structured-cloneable. */
     abortSignal?: AbortSignal,
-  ): AsyncIterable<StreamEvent> {
+  ): AsyncIterableIterator<StreamEvent> {
+    // AsyncGenerator.return()/throw() otherwise queue behind a pending next().
+    // Abort outside the generator so a blocked retrieval/prefill/raw request
+    // receives cancellation immediately, before its await can reach finally.
+    const owner = new AbortController()
+    const signal = abortSignal ? AbortSignal.any([abortSignal, owner.signal]) : owner.signal
+    const inner = this.answerInternal(workspaceId, query, opts, signal)
+    return {
+      [Symbol.asyncIterator]() {
+        return this
+      },
+      next: () => inner.next(),
+      return: () => {
+        owner.abort()
+        return inner.return()
+      },
+      throw: (error?: unknown) => {
+        owner.abort(error)
+        return inner.throw(error)
+      },
+    }
+  }
+
+  private async *answerInternal(
+    workspaceId: number,
+    query: string,
+    opts: AnswerOptions,
+    abortSignal: AbortSignal,
+  ): AsyncGenerator<StreamEvent, void, unknown> {
     if (abortSignal?.aborted) return
     // Pinned docs are workspace-scoped "force into context" — fetched up-front
     // so the refusal path can skip "no hits" when pinned content alone could
@@ -482,6 +512,16 @@ export class QAService {
       }
       if (abortSignal?.aborted) return
     }
+    // The first checked-answer path covers standalone native document QA.
+    // Preserve richer history, summary and codebase prompt contracts, remote
+    // providers, and the explicit legacy comparison diagnostic.
+    const checkedAnswer =
+      process.env['LOKLM_EVIDENCE_ASSESSMENT'] !== '1' &&
+      route.kind === 'retrieval' &&
+      !opts.history?.length &&
+      summaryInfo == null &&
+      !codebaseWorkspace &&
+      answeringLlm.getStatus?.().identity.startsWith('bundled:') === true
     const contextPlan = planAnswerContext({
       contextTokens,
       question: query,
@@ -491,6 +531,7 @@ export class QAService {
       hits,
       pinnedGroups,
       summary: summaryInfo,
+      ...(checkedAnswer ? { answerMode: 'checked' as const } : {}),
     })
     if (!contextPlan.fits) {
       yield {
@@ -557,6 +598,89 @@ export class QAService {
       historyTurns: contextPlan.history.length,
       summaryOmitted: contextPlan.summaryOmitted,
     })
+
+    if (checkedAnswer) {
+      emitStage('evidence', 'start')
+      while (stageBuffer.length > 0) yield stageBuffer.shift()!
+      try {
+        if (abortSignal.aborted) return
+        if (!contextPlan.prompt || !contextPlan.systemPrompt)
+          throw new Error('Missing checked answer plan')
+        const comparisonPlan = contextPlan.comparisonPlan
+        if (!comparisonPlan) throw new Error('Unsupported checked source set')
+        // Keep per-turn provider language/mode aligned for later title work;
+        // the checked call itself receives the fully budgeted task prompt.
+        await answeringLlm.setLanguage(language)
+        await answeringLlm.setCodebaseMode?.(false)
+        if (abortSignal.aborted) return
+        console.log(
+          '[qa] checked answer: ' +
+            JSON.stringify({
+              schema: COMPARISON_ANSWER_VERSION,
+              contextTokens: contextPlan.contextTokens,
+              maxTokens: contextPlan.maxTokens,
+              temperature: 0,
+              repeatPenalty: false,
+              comparisonMode: comparisonPlan.comparisonMode,
+              conciseUnitCount: comparisonPlan.conciseUnitCount,
+              conciseFallbackReason: comparisonPlan.conciseFallbackReason ?? null,
+            }),
+        )
+        const raw = await answeringLlm.generateRaw(contextPlan.prompt, {
+          systemPrompt: contextPlan.systemPrompt,
+          jsonSchema: comparisonPlan.jsonSchema,
+          maxTokens: contextPlan.maxTokens,
+          plannedContextTokens: contextPlan.contextTokens,
+          noThink: true,
+          maxBoundedThoughtTokens: 128,
+          temperature: 0,
+          repeatPenalty: false,
+          requireComplete: true,
+          abortSignal,
+        })
+        if (abortSignal.aborted) return
+        const parsed = comparisonPlan.parse(
+          raw,
+          language,
+          checkedAnswerCharLimit(contextPlan.maxTokens),
+          (reason) => console.log('[qa] checked rejection: ' + reason),
+          (reason) => console.log('[qa] checked rejection detail: ' + reason),
+          (reason) => console.log('[qa] checked comparison rejection detail: ' + reason),
+        )
+        if (!parsed) throw new Error('Incomplete checked answer')
+        const answer = parsed.answer
+        console.log(
+          '[qa] checked result: ' +
+            JSON.stringify({
+              schema: COMPARISON_ANSWER_VERSION,
+              mode: parsed.mode,
+              outcome: parsed.outcome ?? null,
+            }),
+        )
+        emitStage('evidence', 'done')
+        while (stageBuffer.length > 0) {
+          if (abortSignal.aborted) return
+          yield stageBuffer.shift()!
+        }
+        if (abortSignal.aborted) return
+        // Publish only the fully parsed answer; raw envelopes and rejected
+        // content never become streamed tokens or persisted messages.
+        yield { type: 'token', text: answer, count: 0 }
+        if (abortSignal.aborted) return
+        yield { type: 'done', full_text: answer, citations }
+      } catch {
+        if (abortSignal.aborted) return
+        // No fallback to unvalidated prose and no private raw text in errors.
+        yield {
+          type: 'error',
+          message:
+            language === 'de'
+              ? 'Die Antwort konnte nicht vollständig erstellt werden. Bitte versuche es erneut oder grenze die Quellenauswahl ein.'
+              : 'The answer could not be completed. Please retry or narrow the source selection.',
+        }
+      }
+      return
+    }
 
     // Experimental, bounded comparison of the exact original passages that
     // survived packing. A copied quote proves presence, not truth or authority.
