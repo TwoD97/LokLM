@@ -1,3 +1,6 @@
 
 # Keep the reviewed upstream GLib crate bytes unchanged.
 installer-wizard/src-tauri/vendor/glib/** -text
+
+# pnpm hashes patch files by their exact bytes.
+website/patches/*.patch text eol=lf

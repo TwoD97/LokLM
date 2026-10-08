@@ -7,6 +7,12 @@ settings:
 overrides:
   devalue@<5.9.2: ^5.9.2
   yaml@>=2 <2.8.3: ^2.8.3
+  source-map-js: 1.2.2
+
+patchedDependencies:
+  http-cache-semantics@4.2.0:
+    hash: 4675c070d49376f1f712ad7f38a6facafa89fb70cff2f33a064035a44e3f9b5c
+    path: patches/http-cache-semantics@4.2.0.patch
 
 importers:
 
@@ -2077,8 +2083,8 @@ packages:
     resolution: {integrity: sha512-hpd+HLON7HdZXqYchMM/+LaTTbdK0AU3NngIJ4KVyWbY9bfQqdL9cD+4yf6dUoU2Ap4VsU0JkQi6FxAI1B2mXQ==}
     engines: {node: '>= 18'}
 
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
   space-separated-tokens@2.0.2:
@@ -3315,7 +3321,7 @@ snapshots:
       jiti: 2.7.0
       lightningcss: 1.32.0
       magic-string: 0.30.21
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
       tailwindcss: 4.3.0
 
   '@tailwindcss/oxide-android-arm64@4.3.0':
@@ -3604,7 +3610,7 @@ snapshots:
       get-tsconfig: 5.0.0-beta.4
       github-slugger: 2.0.0
       html-escaper: 3.0.3
-      http-cache-semantics: 4.2.0
+      http-cache-semantics: 4.2.0(patch_hash=4675c070d49376f1f712ad7f38a6facafa89fb70cff2f33a064035a44e3f9b5c)
       js-yaml: 4.3.2
       jsonc-parser: 3.3.1
       magic-string: 1.4.2
@@ -3775,12 +3781,12 @@ snapshots:
   css-tree@2.2.1:
     dependencies:
       mdn-data: 2.0.28
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   css-tree@3.2.1:
     dependencies:
       mdn-data: 2.27.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   css-what@7.0.0: {}
 
@@ -4014,7 +4020,7 @@ snapshots:
 
   html-void-elements@3.0.0: {}
 
-  http-cache-semantics@4.2.0: {}
+  http-cache-semantics@4.2.0(patch_hash=4675c070d49376f1f712ad7f38a6facafa89fb70cff2f33a064035a44e3f9b5c): {}
 
   http-link-header@1.1.3: {}
 
@@ -4246,7 +4252,7 @@ snapshots:
     dependencies:
       '@babel/parser': 7.29.3
       '@babel/types': 7.29.0
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   make-dir@4.0.0:
     dependencies:
@@ -4387,7 +4393,7 @@ snapshots:
     dependencies:
       nanoid: 3.3.19
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   prettier@3.8.3: {}
 
@@ -4557,7 +4563,7 @@ snapshots:
 
   smol-toml@1.9.0: {}
 
-  source-map-js@1.2.1: {}
+  source-map-js@1.2.2: {}
 
   space-separated-tokens@2.0.2: {}
 

@@ -38,7 +38,11 @@
   "pnpm": {
     "overrides": {
       "devalue@<5.9.2": "^5.9.2",
-      "yaml@>=2 <2.8.3": "^2.8.3"
+      "yaml@>=2 <2.8.3": "^2.8.3",
+      "source-map-js": "1.2.2"
+    },
+    "patchedDependencies": {
+      "http-cache-semantics@4.2.0": "patches/http-cache-semantics@4.2.0.patch"
     }
   }
 }
