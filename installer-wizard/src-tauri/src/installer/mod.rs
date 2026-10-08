@@ -17,8 +17,30 @@ pub mod download;
 pub mod hardware;
 pub mod models;
 pub mod payload_manifest;
+pub mod transaction;
 pub use hardware::{HardwareProfile, Tier};
 pub use models::{cleanup_partials, download_all};
+
+/// Never terminate unrelated development instances or discard unsaved app work.
+/// The user closes this exact installed executable before its payload is swapped.
+pub fn ensure_application_closed(executable: &std::path::Path) -> Result<(), String> {
+    let expected = match std::fs::canonicalize(executable) {
+        Ok(path) => path,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(format!("Cannot inspect the installed application: {error}")),
+    };
+    let system = sysinfo::System::new_all();
+    let running = system.processes().iter().any(|(pid, process)| {
+        pid.as_u32() != std::process::id()
+            && process.exe().and_then(|path| std::fs::canonicalize(path).ok())
+                .is_some_and(|path| path == expected)
+    });
+    if running {
+        Err("Please close the installed LokLM application, then retry. Your files and the previous installation have been kept.".into())
+    } else {
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

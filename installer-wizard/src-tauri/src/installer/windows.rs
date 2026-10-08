@@ -452,43 +452,6 @@ fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
 }
 
 // ----------------------------------------------------------------
-// Stop a running LokLM before overwriting its files
-// ----------------------------------------------------------------
-
-// Force-terminate any running LokLM.exe ( the app being updated ) plus its
-// electron child processes ( /T kills the tree ) so robocopy can overwrite
-// the locked payload. Synchronous + best-effort : taskkill exits non-zero
-// when no process matches , which we ignore. The short sleep gives Windows
-// a beat to release the file handles before robocopy starts.
-//
-// CRITICAL : this wizard's own binary is loklm.exe ( Cargo.toml [[bin]] ) and
-// taskkill /IM matches image names CASE-INSENSITIVELY , so a bare
-// `/IM LokLM.exe` also matches THIS process — the wizard would taskkill
-// itself and the window would just vanish mid-install ( right after the
-// download phase , at preparing-folder ). On a fresh install nothing else is
-// named LokLM.exe , so the self-kill happens every time. We exclude our own
-// PID via a filter so we only ever kill a *previous* LokLM.exe ( re-install
-// case ) , never the running wizard. The real app's processes carry
-// different PIDs , so they're still terminated as intended.
-fn stop_running_app() {
-    let taskkill = std::env::var("SystemRoot")
-        .map(|sr| PathBuf::from(sr).join("System32").join("taskkill.exe"))
-        .unwrap_or_else(|_| PathBuf::from("taskkill.exe"));
-    let self_pid = std::process::id();
-    let _ = cmd_path(taskkill)
-        .args([
-            "/F",
-            "/T",
-            "/IM",
-            APP_EXE,
-            "/FI",
-            &format!("PID ne {}", self_pid),
-        ])
-        .status();
-    std::thread::sleep(std::time::Duration::from_millis(700));
-}
-
-// ----------------------------------------------------------------
 // Public API : install , get_state , get_license , launch
 // ----------------------------------------------------------------
 
@@ -628,15 +591,14 @@ where
     }
 
     progress(ProgressEvent { step: "preparing-folder".into(), percent: 30 });
-    // Re-install over a running app : LokLM.exe + its DLLs are locked , so
-    // robocopy can't overwrite them and grinds through its retry budget
-    // ( looks frozen on "copying files" ). Stop the app first. Best-effort —
-    // taskkill returns non-zero when nothing's running , which is fine.
-    stop_running_app();
-    std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
-
+    super::ensure_application_closed(&app_exe_path)?;
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
-    robocopy_dir(&source, &install_dir).map_err(|e| e.to_string())?;
+    let mut update = super::transaction::PayloadUpdate::prepare(
+        &install_dir, Path::new(APP_EXE), true,
+        |staged| robocopy_dir(&source, staged),
+    ).map_err(|e| format!("Preparing application update: {e}"))?;
+    super::ensure_application_closed(&app_exe_path)?;
+    update.activate().map_err(|e| format!("Replacing application payload: {e}"))?;
 
     progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &app_exe_path).map_err(|e| e.to_string())?;
@@ -670,6 +632,8 @@ where
     progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
     super::write_tier_marker(&install_dir, options, version, &downloaded)
         .map_err(|e| format!("tier-marker write failed : {}", e))?;
+
+    update.commit().map_err(|e| format!("Committing application update: {e}"))?;
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 

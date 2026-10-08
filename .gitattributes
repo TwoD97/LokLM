@@ -1,0 +1,3 @@
+
+# Keep the reviewed upstream GLib crate bytes unchanged.
+installer-wizard/src-tauri/vendor/glib/** -text

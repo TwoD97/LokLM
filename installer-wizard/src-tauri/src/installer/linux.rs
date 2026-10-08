@@ -323,26 +323,8 @@ fn apply_options(options: &InstallOptions, install_dir: &Path) -> std::io::Resul
 // ----------------------------------------------------------------
 
 fn copy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
-    // Wipe stale payload files from any previous install , but PRESERVE the
-    // models/ dir ( multi-GB GGUFs the previous install downloaded ) and the
-    // loklm-tier.json marker. A blind remove_dir_all(dest) would nuke the
-    // models , then download_all re-fetches them for nothing — and the
-    // existing_complete() skip never gets a chance to fire.
-    if dest.exists() {
-        for entry in std::fs::read_dir(dest)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            if name == "models" || name == "loklm-tier.json" {
-                continue;
-            }
-            let path = entry.path();
-            if path.is_dir() {
-                std::fs::remove_dir_all(&path)?;
-            } else {
-                std::fs::remove_file(&path)?;
-            }
-        }
-    }
+    // The caller owns a fresh sibling staging directory. Never purge a live
+    // install here: PayloadUpdate handles replacement and model preservation.
     std::fs::create_dir_all(dest)?;
     // `cp -r source/. dest/` copies *contents* into dest ; without the
     // trailing /. it would create dest/source/.
@@ -496,10 +478,14 @@ where
     }
 
     progress(ProgressEvent { step: "preparing-folder".into(), percent: 30 });
-    std::fs::create_dir_all(&install_dir).map_err(|e| format!("mkdir failed : {}", e))?;
-
+    super::ensure_application_closed(&app_exe_path)?;
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
-    copy_dir(&source, &install_dir).map_err(|e| e.to_string())?;
+    let mut update = super::transaction::PayloadUpdate::prepare(
+        &install_dir, Path::new(APP_BIN), true,
+        |staged| copy_dir(&source, staged),
+    ).map_err(|e| format!("Preparing application update: {e}"))?;
+    super::ensure_application_closed(&app_exe_path)?;
+    update.activate().map_err(|e| format!("Replacing application payload: {e}"))?;
 
     progress(ProgressEvent { step: "applying-options".into(), percent: 55 });
     apply_options(options, &install_dir).map_err(|e| e.to_string())?;
@@ -525,6 +511,8 @@ where
     progress(ProgressEvent { step: "writing-tier-marker".into(), percent: 97 });
     super::write_tier_marker(&install_dir, options, version, &downloaded)
         .map_err(|e| format!("tier-marker write failed : {}", e))?;
+
+    update.commit().map_err(|e| format!("Committing application update: {e}"))?;
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 

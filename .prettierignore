@@ -17,3 +17,6 @@ docs/specs/2026-05-13-drizzle-switch-design.md
 # Pre-existing wordlist data (2048 entries each) — not formatting candidates
 src/shared/passPhraseWords/
 
+
+# Preserve the reviewed upstream crate distribution.
+installer-wizard/src-tauri/vendor/glib/

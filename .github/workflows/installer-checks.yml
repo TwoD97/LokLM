@@ -1,0 +1,49 @@
+name: Installer checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'installer-wizard/**'
+      - '.github/workflows/installer-checks.yml'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'installer-wizard/**'
+      - '.github/workflows/installer-checks.yml'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native installer (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux WebView dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libxdo-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: installer-wizard/src-tauri
+          key: ${{ matrix.os }}
+      - name: Test native extraction, update recovery and installer behavior
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked
+      - name: Verify GLib iterator backport with release optimizations
+        if: runner.os == 'Linux'
+        run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked --release --test glib_variant_iter
