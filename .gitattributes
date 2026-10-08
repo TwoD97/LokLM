@@ -5,6 +5,7 @@ patches/node-llama-cpp.patch text eol=lf
 patches/sprintf-js@1.0.3.patch text eol=lf
 patches/sprintf-js@1.1.3.patch text eol=lf
 website/patches/http-cache-semantics@4.2.0.patch text eol=lf
+website/patches/*.patch text eol=lf
 
 # Preserve upstream crate bytes and the exact documented two-line backport.
 installer-wizard/src-tauri/vendor/glib/** -text
