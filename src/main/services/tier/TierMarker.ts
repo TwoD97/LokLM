@@ -10,7 +10,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 import { createRequire } from 'node:module'
 import type { GpuDevice, GpuKind } from '../../../shared/documents'
 
@@ -87,7 +87,8 @@ export function getMarkerCandidateDirs(
   execPath: string,
   userDataDir: string | null,
 ): string[] {
-  const dirs = [dirname(execPath)]
+  const path = platform === 'win32' ? win32 : posix
+  const dirs = [path.dirname(execPath)]
   if (platform === 'darwin' && userDataDir) dirs.push(userDataDir)
   return dirs
 }

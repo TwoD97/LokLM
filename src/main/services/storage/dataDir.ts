@@ -17,7 +17,7 @@
 // testable without an electron runtime — same shape as TierMarker.
 
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 
 export const VAULT_FILENAME = 'loklm.vault'
 
@@ -60,8 +60,8 @@ export const defaultProbes: DataDirProbes = {
 
 /** The directory directly containing the running executable (the install dir on
  *  packaged Windows/Linux). */
-export function installDir(execPath: string): string {
-  return dirname(execPath)
+export function installDir(execPath: string, platform: NodeJS.Platform = process.platform): string {
+  return (platform === 'win32' ? win32 : posix).dirname(execPath)
 }
 
 /**
@@ -80,6 +80,7 @@ export function resolveDataDir(env: DataDirEnv, probes: DataDirProbes = defaultP
   if (probes.vaultExists(env.userDataDir)) return env.userDataDir
 
   // Fresh install → next to the executable, when that location is writable.
-  const portable = join(installDir(env.execPath), 'data')
+  const path = env.platform === 'win32' ? win32 : posix
+  const portable = path.join(installDir(env.execPath, env.platform), 'data')
   return probes.isWritableDir(portable) ? portable : env.userDataDir
 }

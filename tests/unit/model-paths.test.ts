@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { join } from 'node:path'
 import { getWizardModelsDir } from '../../src/main/services/models/paths'
 
 describe('getWizardModelsDir', () => {
@@ -10,12 +9,12 @@ describe('getWizardModelsDir', () => {
         'C:\\Users\\x\\AppData\\Local\\Programs\\LokLM\\LokLM.exe',
         'C:\\Users\\x\\AppData\\Roaming\\LokLM',
       ),
-    ).toBe(join('C:\\Users\\x\\AppData\\Local\\Programs\\LokLM', 'models'))
+    ).toBe('C:\\Users\\x\\AppData\\Local\\Programs\\LokLM\\models')
   })
 
   it('linux: wizard installs models next to the executable', () => {
     expect(getWizardModelsDir('linux', '/opt/loklm/loklm', '/home/x/.config/LokLM')).toBe(
-      join('/opt/loklm', 'models'),
+      '/opt/loklm/models',
     )
   })
 
@@ -26,12 +25,18 @@ describe('getWizardModelsDir', () => {
         '/Applications/LokLM.app/Contents/MacOS/LokLM',
         '/Users/x/Library/Application Support/LokLM',
       ),
-    ).toBe(join('/Users/x/Library/Application Support/LokLM', 'models'))
+    ).toBe('/Users/x/Library/Application Support/LokLM/models')
   })
 
   it('darwin without a userData dir falls back to the exec-sibling layout', () => {
     expect(getWizardModelsDir('darwin', '/Applications/LokLM.app/Contents/MacOS/LokLM', null)).toBe(
-      join('/Applications/LokLM.app/Contents/MacOS', 'models'),
+      '/Applications/LokLM.app/Contents/MacOS/models',
+    )
+  })
+
+  it('windows: preserves a UNC install root', () => {
+    expect(getWizardModelsDir('win32', '\\\\server\\share\\LokLM\\LokLM.exe', null)).toBe(
+      '\\\\server\\share\\LokLM\\models',
     )
   })
 })

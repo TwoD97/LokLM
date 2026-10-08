@@ -54,6 +54,12 @@ describe('getMarkerCandidateDirs', () => {
     ).toEqual(['C:\\Users\\x\\AppData\\Local\\Programs\\LokLM'])
   })
 
+  it('windows: preserves a UNC install root', () => {
+    expect(getMarkerCandidateDirs('win32', '\\\\server\\share\\LokLM\\LokLM.exe', null)).toEqual([
+      '\\\\server\\share\\LokLM',
+    ])
+  })
+
   it('linux: marker sits next to the executable only', () => {
     expect(getMarkerCandidateDirs('linux', '/opt/loklm/loklm', '/home/x/.config/LokLM')).toEqual([
       '/opt/loklm',

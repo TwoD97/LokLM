@@ -1,5 +1,4 @@
-import { describe, it, expect } from 'vitest'
-import { join } from 'node:path'
+import { describe, it, expect, vi } from 'vitest'
 import { resolveDataDir, type DataDirEnv, type DataDirProbes } from '@main/services/storage/dataDir'
 
 // Portable-data policy (2026-06-27): vault + workspaces live next to the
@@ -39,7 +38,7 @@ describe('resolveDataDir', () => {
   })
 
   it('fresh packaged Windows install → data next to the executable', () => {
-    expect(resolveDataDir(env(), probes())).toBe(join('D:\\Apps\\LokLM', 'data'))
+    expect(resolveDataDir(env(), probes())).toBe('D:\\Apps\\LokLM\\data')
   })
 
   it('dev (not packaged) → userData, never the repo/node_modules electron', () => {
@@ -64,6 +63,18 @@ describe('resolveDataDir', () => {
   })
 
   it('an empty/whitespace override does not win', () => {
-    expect(resolveDataDir(env({ override: '   ' }), probes())).toBe(join('D:\\Apps\\LokLM', 'data'))
+    expect(resolveDataDir(env({ override: '   ' }), probes())).toBe('D:\\Apps\\LokLM\\data')
   })
+
+  it.each([
+    ['win32', '\\\\server\\share\\LokLM\\LokLM.exe', '\\\\server\\share\\LokLM\\data'],
+    ['linux', '/opt/loklm/loklm', '/opt/loklm/data'],
+  ] as const)(
+    'uses %s path rules for the portable directory and writability probe',
+    (platform, execPath, expected) => {
+      const isWritableDir = vi.fn(() => true)
+      expect(resolveDataDir(env({ platform, execPath }), probes({ isWritableDir }))).toBe(expected)
+      expect(isWritableDir).toHaveBeenCalledExactlyOnceWith(expected)
+    },
+  )
 })

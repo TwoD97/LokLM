@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, posix, win32 } from 'node:path'
 import { createRequire } from 'node:module'
 
 /**
@@ -67,8 +67,9 @@ export function getWizardModelsDir(
   execPath: string,
   userDataDir: string | null,
 ): string {
-  if (platform === 'darwin' && userDataDir) return join(userDataDir, 'models')
-  return join(dirname(execPath), 'models')
+  const path = platform === 'win32' ? win32 : posix
+  if (platform === 'darwin' && userDataDir) return path.join(userDataDir, 'models')
+  return path.join(path.dirname(execPath), 'models')
 }
 
 /** getWizardModelsDir bound to the running process. userData is only
