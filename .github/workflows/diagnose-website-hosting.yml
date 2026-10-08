@@ -1,0 +1,76 @@
+name: Diagnose website hosting
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-website-hosting
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Read-only public listener and redirect configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect only public proxy metadata over SSH
+        env:
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$RUNNER_TEMP/hosting-ssh"
+          trap 'rm -f "$RUNNER_TEMP/hosting-ssh/key" "$RUNNER_TEMP/hosting-ssh/known_hosts"' EXIT
+          printf '%s\n' "$HETZNER_SSH_KEY" > "$RUNNER_TEMP/hosting-ssh/key"
+          chmod 600 "$RUNNER_TEMP/hosting-ssh/key"
+          ssh-keyscan -H "$HETZNER_HOST" > "$RUNNER_TEMP/hosting-ssh/known_hosts" 2>/dev/null
+          ssh -i "$RUNNER_TEMP/hosting-ssh/key" -o BatchMode=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/hosting-ssh/known_hosts" \
+            "${HETZNER_USER}@${HETZNER_HOST}" 'python3 -' <<'PY'
+          import json, re, shutil, subprocess
+
+          def run(args):
+              try:
+                  r = subprocess.run(args, capture_output=True, text=True, timeout=20)
+                  return r.returncode, r.stdout
+              except (OSError, subprocess.TimeoutExpired):
+                  return -1, ''
+
+          code, text = run(['ss', '-ltnp'])
+          print(json.dumps({'kind': 'listeners', 'status': code, 'lines': [line for line in text.splitlines() if re.search(r':(?:80|443|10443)\s', line)]}))
+          docker = ['docker']
+          code, text = run(docker + ['ps', '--format', '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}'])
+          if code != 0:
+              docker = ['sudo', '-n', 'docker']
+              code, text = run(docker + ['ps', '--format', '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}'])
+          print(json.dumps({'kind': 'dockerAccess', 'status': code, 'sudo': len(docker) > 1}))
+          containers = []
+          for line in text.splitlines():
+              if re.search(r'traefik|nginx|caddy|(?:80|443|10443)->', line, re.I):
+                  fields = line.split('\t')
+                  if len(fields) == 4 and re.fullmatch('[a-f0-9]+', fields[0]):
+                      containers.append(fields)
+                      print(json.dumps({'kind': 'publicProxyContainer', 'id': fields[0], 'name': fields[1], 'image': fields[2], 'ports': fields[3]}))
+          for cid, name, image, ports in containers:
+              # Render only explicit public-routing fields. Never emit Env,
+              # credentials, complete labels/arguments, or certificate contents.
+              if 'traefik' in image.lower() or 'traefik' in name.lower():
+                  for prefix in ('--entrypoints.', '--entryPoints.', '--providers.file.', '--configFile='):
+                      n = len(prefix)
+                      fmt = '{{range .Config.Cmd}}{{if ge (len .) ' + str(n) + '}}{{if eq (slice . 0 ' + str(n) + ') "' + prefix + '"}}{{println .}}{{end}}{{end}}{{end}}'
+                      c, value = run(docker + ['inspect', '--format', fmt, cid])
+                      print(json.dumps({'kind': 'proxyPublicArguments', 'container': name, 'status': c, 'lines': value.splitlines()}))
+                  c, value = run(docker + ['inspect', '--format', '{{range .Mounts}}{{println .Source " -> " .Destination}}{{end}}', cid])
+                  print(json.dumps({'kind': 'proxyMountPaths', 'container': name, 'status': c, 'lines': value.splitlines()}))
+              for label in ('com.docker.compose.project.working_dir', 'com.docker.compose.project.config_files'):
+                  c, value = run(docker + ['inspect', '--format', '{{index .Config.Labels "' + label + '"}}', cid])
+                  print(json.dumps({'kind': 'composeLocation', 'container': name, 'label': label, 'status': c, 'value': value.strip()}))
+          for unit in ('nginx', 'caddy', 'traefik'):
+              c, value = run(['systemctl', 'is-active', unit])
+              print(json.dumps({'kind': 'systemService', 'unit': unit, 'status': c, 'state': value.strip()}))
+          PY
