@@ -62,6 +62,19 @@ jobs:
           for path in ('/etc/traefik/traefik.yml', '/etc/traefik/traefik.yaml', '/etc/traefik/traefik.toml', '/etc/nginx/conf.d/loklm.conf', '/etc/nginx/sites-enabled/loklm.com', '/etc/caddy/Caddyfile'):
               p = pathlib.Path(path)
               print(json.dumps({'kind': 'proxyConfigAccess', 'path': path, 'exists': p.is_file(), 'readable': os.access(path, os.R_OK)}))
+          # Discover only conventional proxy/compose filenames; do not read
+          # credentials, environment files, certificate stores or home trees.
+          for base in ('/opt', '/srv', '/data/coolify/proxy'):
+              for directory, dirs, files in os.walk(base):
+                  depth = len(pathlib.Path(directory).relative_to(base).parts)
+                  dirs[:] = [] if depth >= 3 else [d for d in dirs if not d.startswith('.') and d not in ('node_modules', 'certs', 'certificates', 'secrets', 'backups', 'data', 'logs')]
+                  for filename in files:
+                      if filename not in ('traefik.yml', 'traefik.yaml', 'traefik.toml', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'):
+                          continue
+                      path = pathlib.Path(directory, filename)
+                      print(json.dumps({'kind': 'proxyCandidatePath', 'path': str(path), 'readable': os.access(path, os.R_OK), 'writable': os.access(path, os.W_OK)}))
+          c, value = run(['sudo', '-n', '-l'])
+          print(json.dumps({'kind': 'noninteractiveSudoList', 'status': c, 'maintenanceAllowed': any(re.search(r'\b(?:docker|systemctl|traefik|nginx)\b', line) for line in value.splitlines())}))
           for family in ('-4', '-6'):
               c, value = run(['curl', family, '--silent', '--show-error', '--max-time', '12', '--max-redirs', '0', '--dump-header', '-', '--output', '/dev/null', 'https://loklm.com/sitemap-index.xml'])
               print(json.dumps({'kind': 'originPublicTlsProbe', 'family': family, 'status': c, 'headers': [line for line in value.splitlines() if line.lower().startswith(('http/', 'location:', 'content-type:', 'content-length:'))]}))
