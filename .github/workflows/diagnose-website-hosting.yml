@@ -32,7 +32,7 @@ jobs:
           ssh -i "$RUNNER_TEMP/hosting-ssh/key" -o BatchMode=yes -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/hosting-ssh/known_hosts" \
             "${HETZNER_USER}@${HETZNER_HOST}" 'python3 -' <<'PY'
-          import json, re, shutil, subprocess
+          import json, os, pathlib, re, shutil, subprocess
 
           def run(args):
               try:
@@ -43,6 +43,28 @@ jobs:
 
           code, text = run(['ss', '-ltnp'])
           print(json.dumps({'kind': 'listeners', 'status': code, 'lines': [line for line in text.splitlines() if re.search(r':(?:80|443|10443)\s', line)]}))
+          print(json.dumps({'kind': 'proxyTools', 'present': [name for name in ('docker', 'podman', 'traefik', 'nginx', 'caddy') if shutil.which(name)]}))
+          code, text = run(['ps', '-eo', 'pid=,comm='])
+          for line in text.splitlines():
+              parts = line.split()
+              if len(parts) != 2 or parts[1] not in ('traefik', 'nginx', 'caddy', 'docker-proxy', 'rootlesskit', 'conmon'):
+                  continue
+              pid, name = parts
+              print(json.dumps({'kind': 'proxyProcess', 'pid': int(pid), 'name': name}))
+              if name != 'traefik':
+                  continue
+              try:
+                  args = pathlib.Path('/proc', pid, 'cmdline').read_bytes().decode().split('\0')
+                  selected = [arg for arg in args if arg.lower().startswith(('--entrypoints.', '--providers.file.', '--configfile='))]
+                  print(json.dumps({'kind': 'processPublicArguments', 'pid': int(pid), 'arguments': selected}))
+              except (OSError, UnicodeError):
+                  print(json.dumps({'kind': 'processPublicArguments', 'pid': int(pid), 'readable': False}))
+          for path in ('/etc/traefik/traefik.yml', '/etc/traefik/traefik.yaml', '/etc/traefik/traefik.toml', '/etc/nginx/conf.d/loklm.conf', '/etc/nginx/sites-enabled/loklm.com', '/etc/caddy/Caddyfile'):
+              p = pathlib.Path(path)
+              print(json.dumps({'kind': 'proxyConfigAccess', 'path': path, 'exists': p.is_file(), 'readable': os.access(path, os.R_OK)}))
+          for family in ('-4', '-6'):
+              c, value = run(['curl', family, '--silent', '--show-error', '--max-time', '12', '--max-redirs', '0', '--dump-header', '-', '--output', '/dev/null', 'https://loklm.com/sitemap-index.xml'])
+              print(json.dumps({'kind': 'originPublicTlsProbe', 'family': family, 'status': c, 'headers': [line for line in value.splitlines() if line.lower().startswith(('http/', 'location:', 'content-type:', 'content-length:'))]}))
           docker = ['docker']
           code, text = run(docker + ['ps', '--format', '{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Ports}}'])
           if code != 0:
