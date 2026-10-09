@@ -71,8 +71,13 @@ export async function verifyMacApp(app, arch, { wizard = false, run = execFileSy
       throw new Error('Packaged SQLite binding missing')
     paths.push(...active)
   }
-  for (const path of paths)
-    requireMacArchitectures(run('lipo', ['-archs', path], { encoding: 'utf8' }), required)
+  for (const path of paths) {
+    try {
+      requireMacArchitectures(run('lipo', ['-archs', path], { encoding: 'utf8' }), required)
+    } catch (error) {
+      throw new Error(`Invalid packaged Mac binary ${path}: ${error.message}`, { cause: error })
+    }
+  }
   console.log(`Verified ${paths.length} Mach-O binaries for ${arch}`)
 }
 

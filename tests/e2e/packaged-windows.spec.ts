@@ -25,8 +25,32 @@ test('packaged app preserves encrypted organizer and generated sources across re
   let processHandle: ChildProcess | undefined
   let browser: Browser | undefined
   let page: Page | undefined
+  let shutdownFailed = false
+  let testFailed = false
+  let testFailure: unknown
+  const diagnostics: {
+    launch: number
+    quitObserved: boolean
+    cdpError: string | null
+    stdout: string
+    stderr: string
+  }[] = []
+  const logTailLimit = 8_192
+  const safeLog = (text: string) =>
+    text
+      .replaceAll(password, '[redacted]')
+      .replace(/^.*(?:recovery[ -]?phrase|mnemonic|password).*$/gim, '[sensitive log line omitted]')
 
   const start = async () => {
+    shutdownFailed = false
+    const diagnostic = {
+      launch: diagnostics.length + 1,
+      quitObserved: false,
+      cdpError: null as string | null,
+      stdout: '',
+      stderr: '',
+    }
+    diagnostics.push(diagnostic)
     await rm(join(profile, 'DevToolsActivePort'), { force: true })
     const env = Object.fromEntries(
       Object.entries({ ...process.env, LOKLM_DATA_DIR: join(profile, 'vault') }).filter(
@@ -38,8 +62,16 @@ test('packaged app preserves encrypted organizer and generated sources across re
     processHandle = spawn(executable, [`--user-data-dir=${profile}`, '--remote-debugging-port=0'], {
       env,
       windowsHide: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
+    // Only this test's fresh synthetic profile is captured, and only bounded
+    // tails are published on failure. No renderer return values are recorded.
+    for (const stream of ['stdout', 'stderr'] as const) {
+      processHandle[stream]?.setEncoding('utf8')
+      processHandle[stream]?.on('data', (chunk: string) => {
+        diagnostic[stream] = (diagnostic[stream] + chunk).slice(-logTailLimit)
+      })
+    }
     processHandle.on('error', (error) => failures.push(error.message))
     let port = ''
     await expect
@@ -69,45 +101,80 @@ test('packaged app preserves encrypted organizer and generated sources across re
     page.on('pageerror', (error) => failures.push(error.message))
     await page.waitForFunction(() => !!(globalThis as unknown as { api?: Api }).api)
     expect(page.url()).toMatch(/app\.asar\/out\/renderer\/index\.html/)
+    await page.exposeFunction('__loklmPackagedQuitObserved', () => {
+      diagnostic.quitObserved = true
+    })
+    await page.evaluate(() => {
+      const scope = globalThis as unknown as {
+        api: Api
+        __loklmPackagedQuitObserved: () => Promise<void>
+      }
+      scope.api.window.onQuitting(() => {
+        // A fast successful exit can tear down this renderer before its receipt
+        // reaches the test. The actual process exit remains authoritative.
+        void scope.__loklmPackagedQuitObserved().catch(() => undefined)
+      })
+    })
     await page.evaluate(() => (globalThis as unknown as { api: Api }).api.window.minimize())
   }
   const stop = async () => {
-    const child = processHandle
-    if (child?.pid != null && child.exitCode === null && child.signalCode === null) {
-      const exited = once(child, 'exit')
-      if (process.platform === 'darwin') {
-        // Closing the last window intentionally keeps a Mac app running.
-        // Electron's Browser.close CDP handler calls Browser::Quit, preserving
-        // before-quit/drain without enabling Node inspection or adding IPC.
-        const session = await browser?.newBrowserCDPSession()
-        void session?.send('Browser.close').catch(() => undefined)
-      } else {
-        await page
-          ?.evaluate(() => (globalThis as unknown as { api: Api }).api.window.close())
-          .catch(() => undefined)
+    try {
+      const child = processHandle
+      if (child?.pid != null && child.exitCode === null && child.signalCode === null) {
+        const exited = once(child, 'exit')
+        if (process.platform === 'darwin') {
+          // Closing the last window intentionally keeps a Mac app running.
+          // Electron's Browser.close CDP handler calls Browser::Quit, preserving
+          // before-quit/drain without enabling Node inspection or adding IPC.
+          const session = await browser?.newBrowserCDPSession()
+          if (!session) throw new Error('No browser session is available for the quit request')
+          const diagnostic = diagnostics.at(-1)!
+          // Electron deliberately never replies to Browser.close. A rejected
+          // request must be retained for diagnosis, but a transport disconnect
+          // during successful shutdown is not itself a failure.
+          void session.send('Browser.close').catch((error: unknown) => {
+            diagnostic.cdpError = safeLog(String(error)).slice(-2_048)
+          })
+        } else {
+          await page
+            ?.evaluate(() => (globalThis as unknown as { api: Api }).api.window.close())
+            .catch(() => undefined)
+        }
+        const [code, signal] = await Promise.race([
+          exited,
+          new Promise<never>((_resolve, reject) => {
+            const timer = setTimeout(
+              () => reject(new Error('Packaged app did not finish its shutdown drain')),
+              45_000,
+            )
+            timer.unref()
+            void exited.then(
+              () => clearTimeout(timer),
+              () => clearTimeout(timer),
+            )
+          }),
+        ])
+        expect(code).toBe(0)
+        expect(signal).toBeNull()
+      } else if (child?.pid != null) {
+        // A crash before stop() is still a failing shutdown, not a successful
+        // no-op. signalCode also distinguishes an already-fired signal exit.
+        expect(child.exitCode).toBe(0)
+        expect(child.signalCode).toBeNull()
       }
-      const [code, signal] = await Promise.race([
-        exited,
-        new Promise<never>((_resolve, reject) => {
-          const timer = setTimeout(
-            () => reject(new Error('Packaged app did not finish its shutdown drain')),
-            45_000,
-          )
-          timer.unref()
-          void exited.finally(() => clearTimeout(timer))
-        }),
-      ])
-      expect(code).toBe(0)
-      expect(signal).toBeNull()
-    } else if (child?.pid != null) {
-      // A crash before stop() is still a failing shutdown, not a successful
-      // no-op. signalCode also distinguishes an already-fired signal exit.
-      expect(child.exitCode).toBe(0)
-      expect(child.signalCode).toBeNull()
+      await browser?.close().catch(() => undefined)
+      browser = undefined
+      processHandle = undefined
+    } catch (error) {
+      shutdownFailed = true
+      const diagnostic = diagnostics.at(-1)
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}; ` +
+          `quit request observed=${diagnostic?.quitObserved ?? false}; ` +
+          `CDP error=${diagnostic?.cdpError ?? 'none observed'}`,
+        { cause: error },
+      )
     }
-    await browser?.close().catch(() => undefined)
-    browser = undefined
-    processHandle = undefined
   }
 
   try {
@@ -207,21 +274,50 @@ test('packaged app preserves encrypted organizer and generated sources across re
       }),
       contentType: 'application/json',
     })
+  } catch (error) {
+    testFailed = true
+    testFailure = error
   } finally {
     try {
-      await stop()
+      // A failed stop has already consumed its deadline. Preserve that failure
+      // and proceed to owned-process cleanup instead of repeating the wait.
+      if (!shutdownFailed) await stop()
+    } catch (error) {
+      if (!testFailed) testFailure = error
+      testFailed = true
     } finally {
-      // Only terminate the exact child this test started if graceful close failed.
-      if (
-        processHandle?.pid != null &&
-        processHandle.exitCode === null &&
-        processHandle.signalCode === null
-      ) {
-        const exited = once(processHandle, 'exit')
-        processHandle.kill()
-        await exited
+      try {
+        if (testFailed || shutdownFailed) {
+          const report = JSON.stringify(
+            diagnostics.map((diagnostic) => ({
+              ...diagnostic,
+              stdout: safeLog(diagnostic.stdout),
+              stderr: safeLog(diagnostic.stderr),
+            })),
+            null,
+            2,
+          )
+          console.error(`Packaged app failure diagnostics:\n${report}`)
+          await test.info().attach('packaged-failure-diagnostics.json', {
+            body: report,
+            contentType: 'application/json',
+          })
+        }
+      } finally {
+        // Only terminate the exact child this test started if graceful close failed.
+        if (
+          processHandle?.pid != null &&
+          processHandle.exitCode === null &&
+          processHandle.signalCode === null
+        ) {
+          const exited = once(processHandle, 'exit')
+          processHandle.kill()
+          await exited
+        }
+        await browser?.close().catch(() => undefined)
+        await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
       }
-      await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
     }
   }
+  if (testFailed) throw testFailure
 })

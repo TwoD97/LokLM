@@ -210,7 +210,9 @@ describe('native Mac payload and universal wizard verification', () => {
       run.mockImplementation((_command, args) =>
         args[1] === selected ? (arch === 'arm64' ? 'x86_64' : 'arm64') : expectedArch,
       )
-      await expect(verifyMacApp(dir, arch, { run })).rejects.toThrow(/architectures/)
+      await expect(verifyMacApp(dir, arch, { run })).rejects.toThrow(
+        `Invalid packaged Mac binary ${selected}: Mach-O architectures`,
+      )
     },
   )
 

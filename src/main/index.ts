@@ -2873,9 +2873,12 @@ app.on('before-quit', (event) => {
   }
   void (async () => {
     try {
+      console.info('[app] shutdown: draining private writes and workers')
       await drainPrivateWrites()
+      console.info('[app] shutdown: draining indexing')
       await drainIndexingForQuit()
     } finally {
+      console.info('[app] shutdown: locking vault')
       await auth.lock()
     }
   })()
@@ -2883,6 +2886,7 @@ app.on('before-quit', (event) => {
       console.error('[app] shutdown cleanup failed:', error)
     })
     .finally(() => {
+      console.info('[app] shutdown: cleanup settled, exiting')
       didFinalPersist = true
       app.quit()
     })
