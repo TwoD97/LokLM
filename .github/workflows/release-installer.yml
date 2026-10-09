@@ -195,6 +195,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
+      - name: Load the native transcription addon on this Mac architecture
+        run: |
+          node -e "const addon = require('@kutalia/whisper-node-addon'); if (typeof addon.transcribe !== 'function') throw new Error('Native transcription export missing'); console.log('Native transcription addon loaded on ' + process.platform + '/' + process.arch)"
       - name: Test real framework symlink preservation on the native filesystem
         run: pnpm exec vitest run --project scripts tests/unit/scripts/build-payload-archive.test.mjs tests/unit/scripts/release-safety.test.mjs
       - run: pnpm tessdata

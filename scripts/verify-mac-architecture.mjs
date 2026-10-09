@@ -24,6 +24,20 @@ async function addons(dir) {
 
 export function isActiveMacAddon(path, arch) {
   const segments = path.replace(/\\/g, '/').split('/')
+  const whisper = segments.lastIndexOf('@kutalia')
+  if (
+    whisper !== -1 &&
+    segments[whisper + 1] === 'whisper-node-addon' &&
+    segments[whisper + 2] === 'dist'
+  ) {
+    // Whisper 1.1.0 bundles these platform directories instead of prebuilds/.
+    // Keep the selected Mac binary subject to lipo, and fail closed for any
+    // unrecognized layout rather than ignoring arbitrary files under dist/.
+    const tuple = segments[whisper + 3]
+    if (tuple === 'linux-x64' || tuple === 'win32-x64') return false
+    if (tuple === 'mac-arm64' || tuple === 'mac-x64')
+      return arch === 'universal' || tuple === `mac-${arch}`
+  }
   const prebuild = segments.lastIndexOf('prebuilds')
   if (prebuild === -1) return true
   // node-gyp-build/prebuildify select this platform+architecture directory.

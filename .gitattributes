@@ -1,4 +1,5 @@
 # pnpm hashes this local security patch; preserve it across Windows checkouts.
+patches/@kutalia__whisper-node-addon@1.1.0.patch text eol=lf
 patches/http-cache-semantics@4.2.0.patch text eol=lf
 patches/@simple-git__argv-parser@2.0.1.patch text eol=lf
 patches/node-llama-cpp.patch text eol=lf

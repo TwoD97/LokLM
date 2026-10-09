@@ -1,0 +1,12 @@
+diff --git a/dist/js/index.js b/dist/js/index.js
+--- a/dist/js/index.js
++++ b/dist/js/index.js
+@@ -14,7 +14,7 @@
+ const path_1 = require("path");
+ const util_1 = require("util");
+ const PLATFORM_MAPPING = {
+-    darwin: 'darwin',
++    darwin: 'mac',
+     win32: 'win32',
+     linux: 'linux'
+ };

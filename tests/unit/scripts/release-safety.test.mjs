@@ -166,6 +166,54 @@ describe('complete immutable release artifacts', () => {
 })
 
 describe('native Mac payload and universal wizard verification', () => {
+  it.each(['arm64', 'x64'])(
+    'selects only %s Whisper assets from its known multi-platform dist layout',
+    (arch) => {
+      const root = '/app/node_modules/@kutalia/whisper-node-addon/dist'
+      expect(isActiveMacAddon(`${root}/linux-x64/whisper.node`, arch)).toBe(false)
+      expect(isActiveMacAddon(`${root}/win32-x64/whisper.node`, arch)).toBe(false)
+      expect(isActiveMacAddon(`${root}/mac-${arch}/whisper.node`, arch)).toBe(true)
+      expect(
+        isActiveMacAddon(`${root}/mac-${arch === 'arm64' ? 'x64' : 'arm64'}/whisper.node`, arch),
+      ).toBe(false)
+      expect(isActiveMacAddon(`${root}/unknown/whisper.node`, arch)).toBe(true)
+      expect(isActiveMacAddon('/app/node_modules/other/dist/linux-x64/addon.node', arch)).toBe(true)
+    },
+  )
+
+  it.each(['arm64', 'x64'])(
+    'inspects the active %s Whisper binary and SQLite but not inactive foreign assets',
+    async (arch) => {
+      const dir = await temp()
+      const unpacked = join(dir, 'Contents', 'Resources', 'app.asar.unpacked')
+      const whisper = join(unpacked, 'node_modules', '@kutalia', 'whisper-node-addon', 'dist')
+      for (const tuple of ['linux-x64', 'win32-x64', 'mac-arm64', 'mac-x64']) {
+        await mkdir(join(whisper, tuple), { recursive: true })
+        await writeFile(join(whisper, tuple, 'whisper.node'), 'fixture')
+      }
+      await writeFile(join(unpacked, 'better_sqlite3.node'), 'fixture')
+      const selected = join(whisper, `mac-${arch}`, 'whisper.node')
+      const expectedArch = arch === 'x64' ? 'x86_64' : 'arm64'
+      const run = vi.fn((_command, args) => {
+        if (args[1].startsWith(whisper) && args[1] !== selected)
+          throw new Error('Foreign asset cannot be inspected with lipo')
+        return expectedArch
+      })
+      await expect(verifyMacApp(dir, arch, { run })).resolves.toBeUndefined()
+      expect(run.mock.calls.map((call) => call[1][1]).sort()).toEqual(
+        [
+          join(dir, 'Contents', 'MacOS', 'LokLM'),
+          join(unpacked, 'better_sqlite3.node'),
+          selected,
+        ].sort(),
+      )
+      run.mockImplementation((_command, args) =>
+        args[1] === selected ? (arch === 'arm64' ? 'x86_64' : 'arm64') : expectedArch,
+      )
+      await expect(verifyMacApp(dir, arch, { run })).rejects.toThrow(/architectures/)
+    },
+  )
+
   it('distinguishes selected bindings from inactive multi-platform prebuilds', () => {
     expect(isActiveMacAddon('/app/argon2/prebuilds/darwin-arm64/argon2.node', 'arm64')).toBe(true)
     expect(isActiveMacAddon('/app/argon2/prebuilds/darwin-x64/argon2.node', 'arm64')).toBe(false)

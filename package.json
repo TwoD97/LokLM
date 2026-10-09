@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverweisen",
   "private": true,
   "type": "module",
@@ -267,6 +267,7 @@
       "vite": "^6"
     },
     "patchedDependencies": {
+      "@kutalia/whisper-node-addon@1.1.0": "patches/@kutalia__whisper-node-addon@1.1.0.patch",
       "http-cache-semantics@4.2.0": "patches/http-cache-semantics@4.2.0.patch",
       "better-sqlite3-multiple-ciphers@12.10.0": "patches/better-sqlite3-multiple-ciphers@12.10.0.patch",
       "node-llama-cpp": "patches/node-llama-cpp.patch",
