@@ -1,9 +1,12 @@
 import { test, expect, chromium, type Browser, type Page } from '@playwright/test'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import type { Api } from '../../src/preload'
+
+const execFileAsync = promisify(execFile)
 
 // The release binary disables Node inspection and ELECTRON_RUN_AS_NODE. Attach
 // to Chromium only, leaving the shipped fuses and sandbox unchanged. This smoke
@@ -30,10 +33,19 @@ test('packaged app preserves encrypted organizer and generated sources across re
   let testFailure: unknown
   const diagnostics: {
     launch: number
+    startedAt: number
+    elapsedMs: number | null
+    pid: number | null
+    exitCode: number | null
+    signalCode: NodeJS.Signals | null
+    spawnError: string | null
+    startupComplete: boolean
     quitObserved: boolean
     cdpError: string | null
     stdout: string
     stderr: string
+    sampleStatus: 'not-requested' | 'completed' | 'timeout' | 'output-limit' | 'failed'
+    sampleFrames: string
   }[] = []
   const logTailLimit = 8_192
   const safeLog = (text: string) =>
@@ -43,12 +55,21 @@ test('packaged app preserves encrypted organizer and generated sources across re
 
   const start = async () => {
     shutdownFailed = false
-    const diagnostic = {
+    const diagnostic: (typeof diagnostics)[number] = {
       launch: diagnostics.length + 1,
+      startedAt: Date.now(),
+      elapsedMs: null,
+      pid: null,
+      exitCode: null,
+      signalCode: null,
+      spawnError: null,
+      startupComplete: false,
       quitObserved: false,
-      cdpError: null as string | null,
+      cdpError: null,
       stdout: '',
       stderr: '',
+      sampleStatus: 'not-requested',
+      sampleFrames: '',
     }
     diagnostics.push(diagnostic)
     await rm(join(profile, 'DevToolsActivePort'), { force: true })
@@ -64,6 +85,12 @@ test('packaged app preserves encrypted organizer and generated sources across re
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+    diagnostic.pid = processHandle.pid ?? null
+    processHandle.on('exit', (code, signal) => {
+      diagnostic.exitCode = code
+      diagnostic.signalCode = signal
+      diagnostic.elapsedMs = Date.now() - diagnostic.startedAt
+    })
     // Only this test's fresh synthetic profile is captured, and only bounded
     // tails are published on failure. No renderer return values are recorded.
     for (const stream of ['stdout', 'stderr'] as const) {
@@ -72,7 +99,10 @@ test('packaged app preserves encrypted organizer and generated sources across re
         diagnostic[stream] = (diagnostic[stream] + chunk).slice(-logTailLimit)
       })
     }
-    processHandle.on('error', (error) => failures.push(error.message))
+    processHandle.on('error', (error) => {
+      diagnostic.spawnError = safeLog(error.message).slice(-2_048)
+      failures.push(error.message)
+    })
     let port = ''
     await expect
       .poll(
@@ -116,6 +146,7 @@ test('packaged app preserves encrypted organizer and generated sources across re
       })
     })
     await page.evaluate(() => (globalThis as unknown as { api: Api }).api.window.minimize())
+    diagnostic.startupComplete = true
   }
   const stop = async () => {
     try {
@@ -288,9 +319,60 @@ test('packaged app preserves encrypted organizer and generated sources across re
     } finally {
       try {
         if (testFailed || shutdownFailed) {
+          const diagnostic = diagnostics.at(-1)
+          const child = processHandle
+          if (
+            process.platform === 'darwin' &&
+            diagnostic &&
+            !diagnostic.startupComplete &&
+            child?.pid != null &&
+            child.exitCode === null &&
+            child.signalCode === null
+          ) {
+            // Sample only this freshly spawned, pre-authentication child before
+            // cleanup. Never enumerate unrelated processes or capture memory.
+            // Keep call frames only, excluding process headers and binary paths.
+            let sampleOutput = ''
+            try {
+              const sample = await execFileAsync(
+                '/usr/bin/sample',
+                [String(child.pid), '2', '10', '-file', '/dev/stdout'],
+                {
+                  encoding: 'utf8',
+                  timeout: 8_000,
+                  maxBuffer: 65_536,
+                },
+              )
+              diagnostic.sampleStatus = 'completed'
+              sampleOutput = sample.stdout
+            } catch (error) {
+              const failure = error as NodeJS.ErrnoException & {
+                killed?: boolean
+                stdout?: string
+              }
+              diagnostic.sampleStatus =
+                failure.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+                  ? 'output-limit'
+                  : failure.killed
+                    ? 'timeout'
+                    : 'failed'
+              sampleOutput = typeof failure.stdout === 'string' ? failure.stdout : ''
+            }
+            const frames = sampleOutput.slice(0, 65_536).split('Call graph:')[1]
+            diagnostic.sampleFrames = frames
+              ? safeLog(
+                  frames.split(
+                    /\n(?:Total number in stack|Sort by top of stack|Binary Images):?/,
+                  )[0]!,
+                )
+                  .trim()
+                  .slice(0, 65_536)
+              : ''
+          }
           const report = JSON.stringify(
             diagnostics.map((diagnostic) => ({
               ...diagnostic,
+              elapsedMs: diagnostic.elapsedMs ?? Date.now() - diagnostic.startedAt,
               stdout: safeLog(diagnostic.stdout),
               stderr: safeLog(diagnostic.stderr),
             })),

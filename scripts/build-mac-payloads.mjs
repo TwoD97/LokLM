@@ -61,6 +61,10 @@ async function main() {
     cwd: ROOT,
     stdio: 'inherit',
   })
+  execFileSync(process.execPath, [join(ROOT, 'scripts', 'build-lancedb-native.mjs')], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  })
   await buildArch(arch)
   const app = join(ROOT, 'release', `mac-${arch}`, 'LokLM.app')
   await verifyMacApp(app, arch)

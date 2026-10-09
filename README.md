@@ -58,6 +58,20 @@ installieren:
 sudo apt-get install build-essential cmake git python3 libvulkan-dev binutils
 ```
 
+Auf Intel-Macs benötigt die Vektordatenbank zusätzlich Rust **1.94.0** und
+Protobuf (`protoc`). Vor `pnpm install`:
+
+```bash
+rustup toolchain install 1.94.0 --profile minimal
+brew install protobuf
+```
+
+Da LanceDB 0.30.0 keinen fertigen Intel-Mac-Build liefert, wird dessen native
+Bibliothek aus dem zur JavaScript-Version gehörenden Commit gebaut. Dieser erste
+Build kann längere Zeit dauern; geprüfte Ergebnisse werden unter
+`out/native-lancedb` wiederverwendet. Fertige App-Downloads benötigen diese
+Build-Werkzeuge nicht.
+
 Der erste Build lädt festgelegte Quellversionen und kompiliert die Bibliothek
 einschließlich der benötigten Shader-Werkzeuge. Weitere Aufrufe prüfen und
 verwenden den vorhandenen Build. Fertige Linux-Downloads benötigen den

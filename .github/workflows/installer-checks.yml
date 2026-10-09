@@ -13,6 +13,8 @@ on:
       - 'scripts/build-whisper-native.mjs'
       - 'scripts/verify-whisper-native.mjs'
       - 'scripts/verify-whisper-linux.mjs'
+      - 'scripts/*lancedb*.mjs'
+      - 'tests/unit/scripts/*lancedb*'
       - 'scripts/*mac*.mjs'
       - 'scripts/build-installer-stub-linux.mjs'
       - 'tests/unit/scripts/build-installer-stub-linux.test.mjs'
@@ -30,6 +32,8 @@ on:
       - 'scripts/build-whisper-native.mjs'
       - 'scripts/verify-whisper-native.mjs'
       - 'scripts/verify-whisper-linux.mjs'
+      - 'scripts/*lancedb*.mjs'
+      - 'tests/unit/scripts/*lancedb*'
       - 'scripts/*mac*.mjs'
       - 'scripts/build-installer-stub-linux.mjs'
       - 'tests/unit/scripts/build-installer-stub-linux.test.mjs'
@@ -71,6 +75,8 @@ jobs:
       # whose prebuilt binary requires a newer glibc/libstdc++ than our floor.
       - name: Load the native transcription addon on the supported Linux floor
         run: node scripts/verify-whisper-linux.mjs
+      - name: Verify native vector storage and persistence
+        run: node scripts/verify-lancedb-native.mjs
       - name: Verify temporary installer extraction and cleanup
         run: |
           command -v makeself
@@ -87,7 +93,7 @@ jobs:
           - arch: x64
             runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -102,12 +108,30 @@ jobs:
           node -e "if (process.platform !== 'darwin' || process.arch !== process.env.EXPECTED_ARCH) throw new Error('Native Mac runner architecture mismatch')"
           xcrun --find clang
           cmake --version
+      - uses: dtolnay/rust-toolchain@1.94.0
+        if: matrix.arch == 'x64'
+        with:
+          targets: x86_64-apple-darwin
+      - name: Install Intel vector database build prerequisite
+        if: matrix.arch == 'x64'
+        run: brew install protobuf
+      - name: Cache the pinned Intel vector database build
+        if: matrix.arch == 'x64'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            out/native-lancedb
+          key: lancedb-mac-x64-v1-${{ hashFiles('scripts/*lancedb*.mjs', 'pnpm-lock.yaml') }}
       # Exercise the normal developer installation, including its fail-closed
       # Mac source build. A release-only repair would leave development broken.
       - name: Install dependencies and build the native Mac binding
         run: pnpm install --frozen-lockfile
       - name: Verify selected architecture, linkage and relocated package import
         run: node scripts/verify-whisper-native.mjs
+      - name: Verify native vector storage and persistence
+        run: node scripts/verify-lancedb-native.mjs
       - name: Build native packaged Mac app
         run: |
           pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers

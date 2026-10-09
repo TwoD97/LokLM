@@ -62,6 +62,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # A release cannot ignore a failed native build as developer postinstall can.
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
+      - name: Verify native vector storage and persistence
+        run: node scripts/verify-lancedb-native.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
@@ -136,6 +138,8 @@ jobs:
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
       - name: Verify native Linux transcription and relocation
         run: node scripts/verify-whisper-linux.mjs
+      - name: Verify native vector storage and persistence
+        run: node scripts/verify-lancedb-native.mjs
       - name: Verify temporary installer extraction and cleanup
         run: |
           command -v makeself
@@ -196,7 +200,7 @@ jobs:
           - arch: x64
             runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -204,10 +208,28 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - uses: dtolnay/rust-toolchain@1.94.0
+        if: matrix.arch == 'x64'
+        with:
+          targets: x86_64-apple-darwin
+      - name: Install Intel vector database build prerequisite
+        if: matrix.arch == 'x64'
+        run: brew install protobuf
+      - name: Cache the pinned Intel vector database build
+        if: matrix.arch == 'x64'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            out/native-lancedb
+          key: lancedb-mac-x64-v1-${{ hashFiles('scripts/*lancedb*.mjs', 'pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
       - name: Load the native transcription addon on this Mac architecture
         run: node scripts/verify-whisper-native.mjs
+      - name: Verify native vector storage and persistence
+        run: node scripts/verify-lancedb-native.mjs
       - name: Test real framework symlink preservation on the native filesystem
         run: pnpm exec vitest run --project scripts tests/unit/scripts/build-payload-archive.test.mjs tests/unit/scripts/release-safety.test.mjs
       - run: pnpm tessdata
