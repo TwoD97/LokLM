@@ -1,6 +1,6 @@
 {
   "name": "loklm",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "LokLM — Lokaler KI-Wissensassistent mit Quellenverweisen",
   "private": true,
   "type": "module",
