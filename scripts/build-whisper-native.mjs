@@ -375,6 +375,10 @@ export function shadercCmakeArguments(source, build) {
     '-DSHADERC_SKIP_TESTS=ON',
     '-DSHADERC_SKIP_EXAMPLES=ON',
     '-DSHADERC_SKIP_INSTALL=ON',
+    // Pinned shaderc sets glslang's install option to a configure-time truthy
+    // generator expression. Suppress all install/export rules for this temporary
+    // compiler project; its executable is consumed directly from the build tree.
+    '-DCMAKE_SKIP_INSTALL_RULES=ON',
     '-DSHADERC_SKIP_COPYRIGHT_CHECK=ON',
     '-DSHADERC_ENABLE_WERROR_COMPILE=OFF',
     '-DSHADERC_ENABLE_WGSL_OUTPUT=OFF',

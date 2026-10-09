@@ -110,6 +110,7 @@ describe('Whisper native build input boundaries', () => {
       'SHADERC_SKIP_TESTS',
       'SHADERC_SKIP_EXAMPLES',
       'SHADERC_SKIP_INSTALL',
+      'CMAKE_SKIP_INSTALL_RULES',
       'SPIRV_SKIP_TESTS',
       'SPIRV_SKIP_EXECUTABLES',
     ])
