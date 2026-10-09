@@ -56,6 +56,11 @@ async function main() {
   if (process.platform !== 'darwin' || !['arm64', 'x64'].includes(arch) || arch !== process.arch) {
     throw new Error('Build each Mac payload on a native runner of the requested architecture')
   }
+  // Also cover packaging after an install that explicitly skipped lifecycle scripts.
+  execFileSync(process.execPath, [join(ROOT, 'scripts', 'build-whisper-mac.mjs')], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  })
   await buildArch(arch)
   const app = join(ROOT, 'release', `mac-${arch}`, 'LokLM.app')
   await verifyMacApp(app, arch)

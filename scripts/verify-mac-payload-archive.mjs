@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as zstd from '@mongodb-js/zstd'
 import { verifyMacApp } from './verify-mac-architecture.mjs'
+import { verifyWhisperNative } from './verify-whisper-native.mjs'
 
 const arch = process.argv[2]
 if (process.platform !== 'darwin' || arch !== process.arch)
@@ -19,6 +20,17 @@ try {
   const app = join(scratch, 'LokLM.app')
   await verifyMacApp(app, arch)
   execFileSync('codesign', ['--verify', '--deep', '--strict', app], { stdio: 'inherit' })
+  await verifyWhisperNative(
+    join(
+      app,
+      'Contents',
+      'Resources',
+      'app.asar.unpacked',
+      'node_modules',
+      '@kutalia',
+      'whisper-node-addon',
+    ),
+  )
   console.log(`Delivered Mac ${arch} bundle signature and native architecture verified`)
 } finally {
   await rm(scratch, { recursive: true, force: true })

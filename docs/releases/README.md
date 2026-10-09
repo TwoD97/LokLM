@@ -1,6 +1,6 @@
 # Desktop release procedure
 
-Use a new stable patch version for reliability/security fixes; use a minor version for a new product capability. The current reliability work is intended for **0.7.1** after its application, dependency, native RAG and installer gates pass. Updating the website alone does not update desktop installations.
+Use a new stable patch version for reliability/security fixes; use a minor version for a new product capability. Complete the application, dependency, native RAG and installer gates; explicitly record validation results, remaining limitations and any approved exceptions in the release notes. Updating the website alone does not update desktop installations.
 
 1. Finish review and the required application/native validation. Update root `package.json` to the agreed version and commit the reviewed sources to `main`. Tauri reads this same package version; do not independently bump its Cargo package metadata.
 2. Push `vX.Y.Z` for that exact main commit, or dispatch **Release installer** on it with matching `X.Y.Z`. The workflow validates the version and runs the reusable application/website checks before any packaging.
@@ -27,5 +27,7 @@ Mac payloads currently receive an ad-hoc signature with the existing Electron JI
 ## Local Mac packaging
 
 `build-mac-payloads.mjs` builds only its host architecture. To aggregate a universal download wizard locally, collect both `payload-mac-arm64.tar.zst` and `payload-mac-x64.tar.zst` plus their SHA256 sidecars from native builds into `release/`. The archive/DMG steps verify both archives first. Do not cross-build by reusing the other architecture's `node_modules`; the release workflow provides separate runners for this purpose.
+
+Mac dependency installation also rebuilds Whisper from pinned sources. The upstream 1.1.0 package contains ARM64 binaries in both Mac directories and absolute build-machine library search paths. The repair requires Xcode command-line tools, CMake and Git; it must succeed before packaging. Native CI checks the addon on both architectures, including loading an isolated copy outside the build directory. Release verification repeats the check on the extracted delivery archive. These load checks do not establish end-to-end transcription quality.
 
 Current runner labels are documented by [GitHub](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Tauri documents [package-derived version configuration](https://v2.tauri.app/reference/config/#version) and [the universal Apple target](https://v2.tauri.app/distribute/app-store/).

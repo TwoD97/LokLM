@@ -8,12 +8,22 @@ on:
       - 'installer-wizard/**'
       - '.github/workflows/installer-checks.yml'
       - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'patches/**'
+      - 'scripts/build-whisper-mac.mjs'
+      - 'scripts/verify-whisper-native.mjs'
+      - 'tests/unit/scripts/*whisper*'
       - 'LICENSE'
   pull_request:
     paths:
       - 'installer-wizard/**'
       - '.github/workflows/installer-checks.yml'
       - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'patches/**'
+      - 'scripts/build-whisper-mac.mjs'
+      - 'scripts/verify-whisper-native.mjs'
+      - 'tests/unit/scripts/*whisper*'
       - 'LICENSE'
 
 permissions:
@@ -24,6 +34,66 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  transcription-linux:
+    name: Native transcription (Ubuntu 22.04 x64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install the Vulkan runtime loader
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1
+      - name: Record and enforce the supported native runtime
+        run: |
+          getconf GNU_LIBC_VERSION
+          node -e "if (process.platform !== 'linux' || process.arch !== 'x64') throw new Error('Native Linux runner architecture mismatch')"
+      - name: Install normal application dependencies
+        run: pnpm install --frozen-lockfile
+      # Do not let the newer Ubuntu application-check runner hide a dependency
+      # whose prebuilt binary requires a newer glibc/libstdc++ than our floor.
+      - name: Load the native transcription addon on the supported Linux floor
+        run: |
+          env -u LD_LIBRARY_PATH -u LD_PRELOAD -u NODE_PATH -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE node -e "const addon = require('@kutalia/whisper-node-addon'); if (typeof addon.transcribe !== 'function') throw new Error('Native transcription export missing'); console.log('Native transcription addon loaded on ' + process.platform + '/' + process.arch)"
+
+  transcription-mac:
+    name: Native transcription (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Require native architecture and build tools
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          node -e "if (process.platform !== 'darwin' || process.arch !== process.env.EXPECTED_ARCH) throw new Error('Native Mac runner architecture mismatch')"
+          xcrun --find clang
+          cmake --version
+      # Exercise the normal developer installation, including its fail-closed
+      # Mac source build. A release-only repair would leave development broken.
+      - name: Install dependencies and build the native Mac binding
+        run: pnpm install --frozen-lockfile
+      - name: Verify selected architecture, linkage and relocated package import
+        run: node scripts/verify-whisper-native.mjs
+
   native:
     name: Native installer (${{ matrix.os }})
     strategy:

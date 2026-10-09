@@ -75,7 +75,7 @@
     "doc": "typedoc",
     "doc:watch": "typedoc --watch",
     "prepare": "husky",
-    "postinstall": "node node_modules/electron/install.js && (electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers || echo \"electron-rebuild skipped/failed (native module may be locked by a running app)\")",
+    "postinstall": "node scripts/build-whisper-mac.mjs && node node_modules/electron/install.js && (electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers || echo \"electron-rebuild skipped/failed (native module may be locked by a running app)\")",
     "models": "node scripts/download-models.mjs",
     "models:embedder": "node scripts/download-models.mjs embedder",
     "models:lite": "node scripts/download-models.mjs lite",
