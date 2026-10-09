@@ -57,7 +57,7 @@ async function main() {
     throw new Error('Build each Mac payload on a native runner of the requested architecture')
   }
   // Also cover packaging after an install that explicitly skipped lifecycle scripts.
-  execFileSync(process.execPath, [join(ROOT, 'scripts', 'build-whisper-mac.mjs')], {
+  execFileSync(process.execPath, [join(ROOT, 'scripts', 'build-whisper-native.mjs')], {
     cwd: ROOT,
     stdio: 'inherit',
   })

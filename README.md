@@ -50,6 +50,21 @@ die Inhalte auf dem Gerät.
 - **pnpm** 10 (festgenagelt via `packageManager` in `package.json`)
 - Entwicklung läuft auf Windows, Linux und macOS
 
+Für die native Transkriptionsbibliothek werden unter macOS Xcode Command Line
+Tools, CMake und Git benötigt. Unter Ubuntu vor `pnpm install` die Build-Werkzeuge
+installieren:
+
+```bash
+sudo apt-get install build-essential cmake git python3 libvulkan-dev binutils
+```
+
+Der erste Build lädt festgelegte Quellversionen und kompiliert die Bibliothek
+einschließlich der benötigten Shader-Werkzeuge. Weitere Aufrufe prüfen und
+verwenden den vorhandenen Build. Fertige Linux-Downloads benötigen den
+Vulkan-Loader (`libvulkan1`) und einen passenden GPU-Treiber; das Debian-Paket
+fordert den Loader als Abhängigkeit an. Für den `.run`-Installer muss er bereits
+installiert sein.
+
 ## Quickstart
 
 ```bash
@@ -115,7 +130,7 @@ node-llama-cpp (Qwen3.5 GGUF, BGE-M3-Embeddings, BGE-Reranker).
 
 ## Status
 
-In aktiver Entwicklung; Version **v0.7.0** (Windows, Linux, macOS).
+In aktiver Entwicklung; Version **v0.7.3** (Windows, Linux, macOS).
 Änderungen: [Release Notes](docs/releases/v0.7.0.md).
 
 **Query-Routing (ADR-0003):** Chat-Anfragen werden regex-first auf drei Routen

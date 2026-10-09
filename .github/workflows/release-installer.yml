@@ -128,11 +128,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: node scripts/release-preflight.mjs
+      - name: Install native build tools and Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf makeself fakeroot xvfb libnss3 libasound2 libgbm1
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf makeself fakeroot xvfb libnss3 libasound2 libgbm1
+      - name: Verify native Linux transcription and relocation
+        run: node scripts/verify-whisper-linux.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
@@ -151,15 +154,19 @@ jobs:
       - name: Test GLib iterator backport with optimizations enabled
         run: cargo test --manifest-path installer-wizard/src-tauri/Cargo.toml --locked --release --test glib_variant_iter
       - run: pnpm package:linux
+      - name: Verify delivered Linux transcription package
+        run: node scripts/verify-whisper-linux.mjs --package-root release/linux-unpacked/resources/app.asar.unpacked/node_modules/@kutalia/whisper-node-addon
       - name: Packaged Linux persistence, restart and shutdown smoke
         env:
           LOKLM_PACKAGED_EXE: ${{ github.workspace }}/release/linux-unpacked/loklm
         run: xvfb-run -a pnpm exec playwright test --config tests/e2e/playwright.config.ts tests/e2e/packaged-windows.spec.ts --retries=0 --reporter=list
       - run: cp installer-wizard/payload-manifest.json release/manifest-linux.json
-      - name: Validate Debian package version
+      - name: Validate Debian package version and runtime dependencies
         env:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
-        run: test "$(dpkg-deb --field release/LokLM-Setup-linux-x64.deb Version)" = "$RELEASE_VERSION"
+        run: |
+          test "$(dpkg-deb --field release/LokLM-Setup-linux-x64.deb Version)" = "$RELEASE_VERSION"
+          node -e "const {execFileSync} = require('node:child_process'); const deps = execFileSync('dpkg-deb', ['--field', 'release/LokLM-Setup-linux-x64.deb', 'Depends'], {encoding:'utf8'}).split(',').map(value => value.trim().split(/[ (]/)[0]); for (const name of ['libvulkan1', 'libwebkit2gtk-4.1-0']) if (!deps.includes(name)) throw new Error('Missing Debian dependency: ' + name)"
       - run: node scripts/release-artifacts.mjs stamp linux
       - uses: actions/upload-artifact@v4
         with:

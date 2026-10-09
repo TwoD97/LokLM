@@ -54,6 +54,7 @@
     "copyright": "© Projektgruppe LokLM ( MIT )",
     "linux": {
       "deb": {
+        "depends": ["libvulkan1"],
         "section": "utils",
         "priority": "optional"
       }

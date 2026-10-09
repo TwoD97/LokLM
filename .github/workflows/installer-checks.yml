@@ -10,8 +10,9 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'patches/**'
-      - 'scripts/build-whisper-mac.mjs'
+      - 'scripts/build-whisper-native.mjs'
       - 'scripts/verify-whisper-native.mjs'
+      - 'scripts/verify-whisper-linux.mjs'
       - 'tests/unit/scripts/*whisper*'
       - 'LICENSE'
   pull_request:
@@ -21,8 +22,9 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'patches/**'
-      - 'scripts/build-whisper-mac.mjs'
+      - 'scripts/build-whisper-native.mjs'
       - 'scripts/verify-whisper-native.mjs'
+      - 'scripts/verify-whisper-linux.mjs'
       - 'tests/unit/scripts/*whisper*'
       - 'LICENSE'
 
@@ -37,7 +39,7 @@ jobs:
   transcription-linux:
     name: Native transcription (Ubuntu 22.04 x64)
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -45,10 +47,10 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Install the Vulkan runtime loader
+      - name: Install native transcription build tools and Vulkan loader
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvulkan1
+          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils
       - name: Record and enforce the supported native runtime
         run: |
           getconf GNU_LIBC_VERSION
@@ -58,8 +60,7 @@ jobs:
       # Do not let the newer Ubuntu application-check runner hide a dependency
       # whose prebuilt binary requires a newer glibc/libstdc++ than our floor.
       - name: Load the native transcription addon on the supported Linux floor
-        run: |
-          env -u LD_LIBRARY_PATH -u LD_PRELOAD -u NODE_PATH -u NODE_OPTIONS -u ELECTRON_RUN_AS_NODE node -e "const addon = require('@kutalia/whisper-node-addon'); if (typeof addon.transcribe !== 'function') throw new Error('Native transcription export missing'); console.log('Native transcription addon loaded on ' + process.platform + '/' + process.arch)"
+        run: node scripts/verify-whisper-linux.mjs
 
   transcription-mac:
     name: Native transcription (${{ matrix.arch }})
