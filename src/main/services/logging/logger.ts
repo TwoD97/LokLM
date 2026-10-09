@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { promises as fs } from 'node:fs'
+import { promises as fs, writeSync } from 'node:fs'
 import { join } from 'node:path'
 import log from 'electron-log/main'
 
@@ -8,6 +8,26 @@ const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
 const FILE_LEVEL = 'warn' as const
 
 let initialised = false
+
+const SHUTDOWN_STAGES = Object.freeze({
+  'private-writes': 'private-writes',
+  indexing: 'indexing',
+  'vault-lock': 'vault-lock',
+  exit: 'exit',
+} as const)
+
+/** Fixed, content-free lifecycle receipts remain available when packaged
+ * console logging is disabled. Never accepts a path, error or vault content. */
+export function logShutdownStage(stage: keyof typeof SHUTDOWN_STAGES): void {
+  if (typeof stage !== 'string' || !Object.hasOwn(SHUTDOWN_STAGES, stage)) return
+  try {
+    // One tiny write, with no pending callback/promise to extend shutdown.
+    // A detached app may have no stderr; diagnostics must not block cleanup.
+    writeSync(2, `[app] shutdown stage=${SHUTDOWN_STAGES[stage]} at=${Date.now()}\n`)
+  } catch {
+    // Closed/missing stderr is normal for some desktop launchers.
+  }
+}
 
 export function initLogger(): void {
   if (initialised) return

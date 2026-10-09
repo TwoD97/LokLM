@@ -78,7 +78,7 @@ import {
   isOllamaConnectorEnabled,
   isCodebaseIndexingEnabled,
 } from './services/tier/TierMarker'
-import { initLogger, getLogDir } from './services/logging/logger'
+import { initLogger, getLogDir, logShutdownStage } from './services/logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -2873,12 +2873,12 @@ app.on('before-quit', (event) => {
   }
   void (async () => {
     try {
-      console.info('[app] shutdown: draining private writes and workers')
+      logShutdownStage('private-writes')
       await drainPrivateWrites()
-      console.info('[app] shutdown: draining indexing')
+      logShutdownStage('indexing')
       await drainIndexingForQuit()
     } finally {
-      console.info('[app] shutdown: locking vault')
+      logShutdownStage('vault-lock')
       await auth.lock()
     }
   })()
@@ -2886,8 +2886,11 @@ app.on('before-quit', (event) => {
       console.error('[app] shutdown cleanup failed:', error)
     })
     .finally(() => {
-      console.info('[app] shutdown: cleanup settled, exiting')
+      logShutdownStage('exit')
       didFinalPersist = true
-      app.quit()
+      // Electron runs microtasks inside its native before-quit callback. An
+      // already-locked vault can drain there; retrying quit in the same turn
+      // would let the original cancelled quit overwrite the new quit state.
+      setImmediate(() => app.quit())
     })
 })

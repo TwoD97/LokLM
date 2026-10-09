@@ -136,6 +136,10 @@ jobs:
       - run: pnpm exec electron-rebuild -f -o argon2,better-sqlite3-multiple-ciphers
       - name: Verify native Linux transcription and relocation
         run: node scripts/verify-whisper-linux.mjs
+      - name: Verify temporary installer extraction and cleanup
+        run: |
+          command -v makeself
+          pnpm exec vitest run --project scripts tests/unit/scripts/build-installer-stub-linux.test.mjs
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu

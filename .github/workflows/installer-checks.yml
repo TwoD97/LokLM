@@ -14,6 +14,8 @@ on:
       - 'scripts/verify-whisper-native.mjs'
       - 'scripts/verify-whisper-linux.mjs'
       - 'scripts/*mac*.mjs'
+      - 'scripts/build-installer-stub-linux.mjs'
+      - 'tests/unit/scripts/build-installer-stub-linux.test.mjs'
       - 'tests/e2e/packaged-windows.spec.ts'
       - 'src/main/index.ts'
       - 'tests/unit/scripts/*whisper*'
@@ -29,6 +31,8 @@ on:
       - 'scripts/verify-whisper-native.mjs'
       - 'scripts/verify-whisper-linux.mjs'
       - 'scripts/*mac*.mjs'
+      - 'scripts/build-installer-stub-linux.mjs'
+      - 'tests/unit/scripts/build-installer-stub-linux.test.mjs'
       - 'tests/e2e/packaged-windows.spec.ts'
       - 'src/main/index.ts'
       - 'tests/unit/scripts/*whisper*'
@@ -56,7 +60,7 @@ jobs:
       - name: Install native transcription build tools and Vulkan loader
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils
+          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils makeself
       - name: Record and enforce the supported native runtime
         run: |
           getconf GNU_LIBC_VERSION
@@ -67,6 +71,10 @@ jobs:
       # whose prebuilt binary requires a newer glibc/libstdc++ than our floor.
       - name: Load the native transcription addon on the supported Linux floor
         run: node scripts/verify-whisper-linux.mjs
+      - name: Verify temporary installer extraction and cleanup
+        run: |
+          command -v makeself
+          pnpm exec vitest run --project scripts tests/unit/scripts/build-installer-stub-linux.test.mjs
 
   transcription-mac:
     name: Native transcription (${{ matrix.arch }})

@@ -24,12 +24,21 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, writeFile, cp, chmod, rm } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const execFileAsync = promisify(execFile)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
+
+export const installerEntryScript =
+  '#!/usr/bin/env bash\nset -e\nexec "$(dirname "$0")/installer/loklm"\n'
+
+export function makeselfArguments(stage, outputFile) {
+  // Default temporary extraction keeps the payload out of the caller's working
+  // directory and removes it when the wizard exits, including a nonzero exit.
+  return ['--gzip', '--nox11', '--quiet', stage, outputFile, 'LokLM Installer', './run-install.sh']
+}
 
 async function findMakeself() {
   try {
@@ -92,8 +101,7 @@ async function main() {
   // Entry script invoked by makeself after extraction. The wizard exec
   // takes over the process — we exec ( not spawn ) so the makeself
   // wrapper's exit code propagates from the wizard.
-  const runScript = '#!/usr/bin/env bash\nset -e\nexec "$(dirname "$0")/installer/loklm"\n'
-  await writeFile(join(stage, 'run-install.sh'), runScript)
+  await writeFile(join(stage, 'run-install.sh'), installerEntryScript)
   await chmod(join(stage, 'run-install.sh'), 0o755)
 
   const makeself = await findMakeself()
@@ -105,26 +113,12 @@ async function main() {
   // makeself flags :
   //   --gzip      : zlib stream ( fast on Linux , 30-50% ratio for our
   //                  payload — same as our NSIS zlib for Windows )
-  //   --notemp    : extract to a per-run tmpdir managed by makeself
   //   --nox11     : don't auto-spawn an xterm for output ; the wizard
   //                  takes over the UI itself
   //   --quiet     : suppress the "Verifying integrity" banner — the
   //                  Tauri wizard's boot-splash provides the feedback
   await new Promise((resolve, reject) => {
-    const child = spawn(
-      makeself,
-      [
-        '--gzip',
-        '--notemp',
-        '--nox11',
-        '--quiet',
-        stage,
-        outputFile,
-        'LokLM Installer',
-        './run-install.sh',
-      ],
-      { stdio: 'inherit' },
-    )
+    const child = spawn(makeself, makeselfArguments(stage, outputFile), { stdio: 'inherit' })
     child.on('error', reject)
     child.on('exit', (code) =>
       code === 0 ? resolve() : reject(new Error(`makeself exited with ${code}`)),
@@ -138,7 +132,9 @@ async function main() {
   console.log(`built ${outputFile} ( ${(size / 1024 / 1024).toFixed(1)} MB )`)
 }
 
-main().catch((err) => {
-  console.error(err.stack || err.message)
-  process.exit(1)
-})
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err.stack || err.message)
+    process.exit(1)
+  })
+}

@@ -167,6 +167,72 @@ describe('complete immutable release artifacts', () => {
 
 describe('native Mac payload and universal wizard verification', () => {
   it.each(['arm64', 'x64'])(
+    'selects only the known %s node-llama-cpp prebuilt package layout',
+    (arch) => {
+      const root = '/app/node_modules/@node-llama-cpp'
+      for (const [name, selected] of [
+        ['mac-arm64-metal', arch === 'arm64'],
+        ['mac-x64', arch === 'x64'],
+      ]) {
+        const path = `${root}/${name}/bins/${name}/llama-addon.node`
+        expect(isActiveMacAddon(path, arch)).toBe(selected)
+        expect(isActiveMacAddon(path.replaceAll('/', '\\'), arch)).toBe(selected)
+        expect(isActiveMacAddon(path, 'universal')).toBe(true)
+        expect(isActiveMacAddon(`${root}/${name}/unknown/llama-addon.node`, arch)).toBe(true)
+        expect(isActiveMacAddon(`${root}/${name}/bins/${name}/other.node`, arch)).toBe(true)
+      }
+      expect(isActiveMacAddon(`${root}/mac-x64/bins/mac-arm64-metal/llama-addon.node`, arch)).toBe(
+        true,
+      )
+      expect(isActiveMacAddon(`${root}/unknown/prebuilds/linux-x64/addon.node`, arch)).toBe(true)
+      expect(
+        isActiveMacAddon('/app/node-llama-cpp/bins/mac-arm64-metal/llama-addon.node', arch),
+      ).toBe(true)
+    },
+  )
+
+  it.each(['arm64', 'x64'])(
+    'checks the active %s llama binding and still rejects a wrong-architecture active binary',
+    async (arch) => {
+      const dir = await temp()
+      const unpacked = join(dir, 'Contents', 'Resources', 'app.asar.unpacked')
+      const paths = new Map()
+      for (const name of ['mac-arm64-metal', 'mac-x64']) {
+        const folder = join(unpacked, 'node_modules', '@node-llama-cpp', name, 'bins', name)
+        await mkdir(folder, { recursive: true })
+        const path = join(folder, 'llama-addon.node')
+        await writeFile(path, 'fixture')
+        paths.set(name, path)
+      }
+      const sqlite = join(unpacked, 'better_sqlite3.node')
+      await writeFile(sqlite, 'fixture')
+      const selected = paths.get(arch === 'arm64' ? 'mac-arm64-metal' : 'mac-x64')
+      const expectedArch = arch === 'x64' ? 'x86_64' : 'arm64'
+      const run = vi.fn((_command, args) => {
+        if ([...paths.values()].includes(args[1]) && args[1] !== selected)
+          throw new Error('Inactive binding must not be inspected')
+        return expectedArch
+      })
+      await expect(verifyMacApp(dir, arch, { run })).resolves.toBeUndefined()
+      expect(run.mock.calls.map((call) => call[1][1]).sort()).toEqual(
+        [join(dir, 'Contents', 'MacOS', 'LokLM'), sqlite, selected].sort(),
+      )
+      run.mockImplementation((_command, args) =>
+        args[1] === selected ? (arch === 'arm64' ? 'x86_64' : 'arm64') : expectedArch,
+      )
+      await expect(verifyMacApp(dir, arch, { run })).rejects.toThrow(
+        `Invalid packaged Mac binary ${selected}: Mach-O architectures`,
+      )
+      run.mockImplementation((_command, args) =>
+        args[1] === selected ? expectedArch : 'arm64 x86_64',
+      )
+      await expect(verifyMacApp(dir, 'universal', { run })).rejects.toThrow(
+        `Invalid packaged Mac binary ${selected}: Mach-O architectures`,
+      )
+    },
+  )
+
+  it.each(['arm64', 'x64'])(
     'selects only %s Whisper assets from its known multi-platform dist layout',
     (arch) => {
       const root = '/app/node_modules/@kutalia/whisper-node-addon/dist'

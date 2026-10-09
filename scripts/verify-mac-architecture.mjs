@@ -24,6 +24,23 @@ async function addons(dir) {
 
 export function isActiveMacAddon(path, arch) {
   const segments = path.replace(/\\/g, '/').split('/')
+  const llama = segments.lastIndexOf('@node-llama-cpp')
+  if (llama !== -1 && segments[llama - 1] === 'node_modules') {
+    // SDK 3.21.1 selects these packages and bins by process.arch. Its ARM
+    // package also permits x64 hosts, so both may be installed on Intel Macs.
+    // Only exempt the exact inactive prebuilt layout; unknown files stay checked.
+    const name = segments[llama + 1]
+    if (
+      (name === 'mac-arm64-metal' || name === 'mac-x64') &&
+      segments[llama + 2] === 'bins' &&
+      segments[llama + 3] === name &&
+      segments[llama + 4] === 'llama-addon.node' &&
+      segments.length === llama + 5
+    ) {
+      return arch === 'universal' || name === (arch === 'arm64' ? 'mac-arm64-metal' : 'mac-x64')
+    }
+    return true
+  }
   const whisper = segments.lastIndexOf('@kutalia')
   if (
     whisper !== -1 &&

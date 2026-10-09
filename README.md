@@ -130,7 +130,7 @@ node-llama-cpp (Qwen3.5 GGUF, BGE-M3-Embeddings, BGE-Reranker).
 
 ## Status
 
-In aktiver Entwicklung; Version **v0.7.3** (Windows, Linux, macOS).
+In aktiver Entwicklung; Version **v0.7.4** (Windows, Linux, macOS).
 Änderungen: [Release Notes](docs/releases/v0.7.0.md).
 
 **Query-Routing (ADR-0003):** Chat-Anfragen werden regex-first auf drei Routen
