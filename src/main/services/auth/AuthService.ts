@@ -892,13 +892,24 @@ export class AuthService {
     if (!this.dek || this.sessionClosing) throw new LockedError()
     this.touch()
     if (!this.workspaceStore) {
+      const sessionDek = this.dek
       this.workspaceStore = new WorkspaceStore({
         baseDir: join(this.dataDir, 'workspaces'),
         masterDek: this.dek,
         manifest: this.manifest,
-        persistManifest: async () => {
-          await this.persistSnapshot()
-        },
+        persistManifest: (candidate) =>
+          this.queueVaultSnapshot(async () => {
+            // Workspace teardown may persist while closing, but this store may
+            // never write into a later login's session. Capture KV/header only
+            // when this queued mutation owns the vault snapshot.
+            this.assertVaultSession(sessionDek)
+            await this.writeVault(
+              this.liveHeader!,
+              this.encryptBody(sessionDek, this.globalKv, candidate),
+            )
+            this.assertVaultSession(sessionDek)
+            this.manifest = candidate
+          }),
       })
     }
     return this.workspaceStore

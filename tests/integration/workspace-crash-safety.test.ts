@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
+import { BLOCK_PLAINTEXT_BYTES } from '../../src/main/services/storage/blockCipher'
 import {
   EncryptedWorkspaceDir,
   WorkspaceCorruptError,
@@ -24,6 +25,7 @@ describe('EncryptedWorkspaceDir crash safety', () => {
     key = wdek()
   })
   afterEach(async () => {
+    vi.restoreAllMocks()
     await fs.rm(baseDir, { recursive: true, force: true })
   })
 
@@ -105,6 +107,82 @@ describe('EncryptedWorkspaceDir crash safety', () => {
     expect(dir.recovered).toBe(true)
     await dir.close()
     expect(new WorkspaceCorruptError('x')).toBeInstanceOf(Error)
+  })
+
+  it.each(['block size', 'zero length', 'unsafe length', 'trailing bytes'])(
+    'quarantines invalid %s framing before reading data',
+    async (fault) => {
+      await seedAndPersist({ f: 'data' })
+      const target = join(baseDir, 'enc', 'f')
+      let bytes = await fs.readFile(target)
+      if (fault === 'block size') bytes.writeUInt32BE(0xffffffff, 8)
+      else if (fault === 'zero length') bytes.writeBigUInt64BE(0n, 12)
+      else if (fault === 'unsafe length') bytes.writeBigUInt64BE(2n ** 63n, 12)
+      else bytes = Buffer.concat([bytes, Buffer.from('unexpected')])
+      await fs.writeFile(target, bytes)
+      const dir = new EncryptedWorkspaceDir(baseDir, key)
+      const work = await dir.open()
+      expect(dir.recovered).toBe(true)
+      expect(await fs.readdir(work)).toEqual([])
+      expect((await fs.readdir(baseDir)).some((name) => name.startsWith('enc.corrupt-'))).toBe(true)
+      await dir.close()
+    },
+  )
+
+  it('round-trips several blocks when filesystem reads and writes complete in pieces', async () => {
+    const open = fs.open.bind(fs)
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await open(...args)
+      const read = handle.read.bind(handle)
+      const write = handle.write.bind(handle)
+      handle.read = ((buffer: Buffer, offset: number, length: number, position: number) =>
+        read(buffer, offset, Math.min(length, 4093), position)) as typeof handle.read
+      handle.write = ((buffer: Buffer, offset: number, length: number, position: number) =>
+        write(buffer, offset, Math.min(length, 2039), position)) as typeof handle.write
+      return handle
+    })
+    const contents = 'abcdefgh'.repeat(BLOCK_PLAINTEXT_BYTES / 2)
+    await seedAndPersist({ f: contents, empty: '' })
+    const dir = new EncryptedWorkspaceDir(baseDir, key)
+    const work = await dir.open()
+    expect(dir.recovered).toBe(false)
+    expect(await fs.readFile(join(work, 'f'), 'utf8')).toBe(contents)
+    expect(await fs.readFile(join(work, 'empty'), 'utf8')).toBe('')
+    await dir.close()
+  })
+
+  it('keeps the previous encrypted file when the source shrinks during persistence', async () => {
+    await seedAndPersist({ f: 'previous data' })
+    const dir = new EncryptedWorkspaceDir(baseDir, key)
+    const work = await dir.open()
+    const path = join(work, 'f')
+    const previous = await fs.readFile(join(baseDir, 'enc', 'f'))
+    await fs.writeFile(path, 'replacement data')
+    const open = fs.open.bind(fs)
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await open(...args)
+      if (args[0] === path && args[1] === 'r') {
+        const stat = handle.stat.bind(handle)
+        handle.stat = (async () => {
+          const info = await stat()
+          // Truncate after the writer captured the original size.
+          await fs.truncate(path, 0)
+          return info
+        }) as typeof handle.stat
+        const read = handle.read.bind(handle)
+        let reads = 0
+        handle.read = ((...readArgs: [Buffer, number, number, number]) => {
+          // A broken implementation must fail this test instead of spinning
+          // indefinitely and filling the disk with empty encrypted frames.
+          if (++reads > 1) throw new Error('Continued reading past EOF')
+          return read(...readArgs)
+        }) as typeof handle.read
+      }
+      return handle
+    })
+    await expect(dir.persist()).rejects.toThrow('changed during encryption')
+    expect(await fs.readFile(join(baseDir, 'enc', 'f'))).toEqual(previous)
+    await dir.close({ discard: true })
   })
 })
 

@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join, relative, dirname, sep } from 'node:path'
+import { readUpTo, writeAll } from './fileIo'
 import {
   encryptBlock,
   decryptBlock,
@@ -13,7 +14,7 @@ import {
 // encrypting *inside* the engine we encrypt the workspace's files **at rest** and
 // materialise a plaintext working copy only while the workspace is open:
 //
-//   <root>/workspaces/ws-<id>/
+//   <root>/workspaces/<manifest entry.dir>/
 //     enc/            ← at-rest: every file as a stream of AES-256-GCM blocks
 //     work/           ← runtime: plaintext, 0700, wiped on close
 //
@@ -117,7 +118,7 @@ async function encryptFileTo(
       FILE_MAGIC.copy(header, 0)
       header.writeUInt32BE(BLOCK_PLAINTEXT_BYTES, FILE_MAGIC.length)
       header.writeBigUInt64BE(BigInt(size), FILE_MAGIC.length + 4)
-      await dst.write(header, 0, header.length, 0)
+      await writeAll(dst, header, 0)
 
       const buf = Buffer.alloc(BLOCK_PLAINTEXT_BYTES)
       let offset = 0
@@ -125,11 +126,13 @@ async function encryptFileTo(
       let dstPos = header.length
       while (offset < size) {
         const want = Math.min(BLOCK_PLAINTEXT_BYTES, size - offset)
-        const { bytesRead } = await src.read(buf, 0, want, offset)
-        const frame = encryptBlock(wdek, relId, blockIndex, buf.subarray(0, bytesRead))
-        await dst.write(frame, 0, frame.length, dstPos)
+        const plaintext = buf.subarray(0, want)
+        if ((await readUpTo(src, plaintext, offset)) !== want)
+          throw new Error(`Workspace file changed during encryption: ${relId}`)
+        const frame = encryptBlock(wdek, relId, blockIndex, plaintext)
+        await writeAll(dst, frame, dstPos)
         dstPos += frame.length
-        offset += bytesRead
+        offset += want
         blockIndex += 1
       }
       // Durability fence: the tmp's bytes hit disk BEFORE the rename, so the
@@ -156,7 +159,7 @@ async function decryptFileTo(
   const src = await fs.open(srcAbs, 'r')
   try {
     const header = Buffer.alloc(FILE_HEADER_BYTES)
-    const { bytesRead } = await src.read(header, 0, FILE_HEADER_BYTES, 0)
+    const bytesRead = await readUpTo(src, header, 0)
     if (
       bytesRead < FILE_HEADER_BYTES ||
       !header.subarray(0, FILE_MAGIC.length).equals(FILE_MAGIC)
@@ -165,6 +168,18 @@ async function decryptFileTo(
     }
     const blockSize = header.readUInt32BE(FILE_MAGIC.length)
     const originalSize = Number(header.readBigUInt64BE(FILE_MAGIC.length + 4))
+    // Validate untrusted framing before allocating a block or entering the
+    // loop. Corrupt headers must recover as corruption, not allocate gigabytes.
+    const expectedSize =
+      FILE_HEADER_BYTES + originalSize + Math.ceil(originalSize / blockSize) * BLOCK_OVERHEAD_BYTES
+    if (
+      blockSize !== BLOCK_PLAINTEXT_BYTES ||
+      !Number.isSafeInteger(originalSize) ||
+      !Number.isSafeInteger(expectedSize) ||
+      (await src.stat()).size !== expectedSize
+    ) {
+      throw new WorkspaceCorruptError(`invalid workspace file framing: ${relId}`)
+    }
     await fs.mkdir(dirname(dstAbs), { recursive: true })
     const dst = await fs.open(dstAbs, 'w', 0o600)
     try {
@@ -176,8 +191,7 @@ async function decryptFileTo(
         const ptLen = Math.min(blockSize, remaining)
         const frameLen = BLOCK_OVERHEAD_BYTES + ptLen
         const frame = Buffer.alloc(frameLen)
-        const read = await src.read(frame, 0, frameLen, srcPos)
-        if (read.bytesRead < frameLen) {
+        if ((await readUpTo(src, frame, srcPos)) < frameLen) {
           throw new WorkspaceCorruptError(`truncated workspace file: ${relId}`)
         }
         let pt: Buffer
@@ -186,7 +200,7 @@ async function decryptFileTo(
         } catch {
           throw new WorkspaceCorruptError(`block ${relId}#${blockIndex} failed to decrypt`)
         }
-        await dst.write(pt, 0, pt.length, dstPos)
+        await writeAll(dst, pt, dstPos)
         srcPos += frameLen
         dstPos += pt.length
         remaining -= ptLen

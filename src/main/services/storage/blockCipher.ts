@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
-import { promises as fs } from 'node:fs'
+import { constants, promises as fs } from 'node:fs'
+import { readUpTo, writeAll } from './fileIo'
 
 // Block-level AES-256-GCM for the per-workspace vector store (ADR-0005).
 //
@@ -117,7 +118,9 @@ export class EncryptedBlockFile {
   /** Opens (creating if absent) an encrypted block file. `fileId` must be
    *  stable for the life of the file — it is bound into every block's AAD. */
   static async open(path: string, key: Buffer, fileId: string): Promise<EncryptedBlockFile> {
-    const handle = await fs.open(path, 'a+', 0o600)
+    // O_APPEND ignores positional writes on Linux, turning a block replacement
+    // into a trailing duplicate. Create without truncating existing contents.
+    const handle = await fs.open(path, constants.O_CREAT | constants.O_RDWR, 0o600)
     return new EncryptedBlockFile(handle, key, fileId)
   }
 
@@ -125,7 +128,7 @@ export class EncryptedBlockFile {
   async readBlock(index: number): Promise<Buffer | null> {
     const start = index * FULL_BLOCK_DISK_BYTES
     const frame = Buffer.alloc(FULL_BLOCK_DISK_BYTES)
-    const { bytesRead } = await this.handle.read(frame, 0, FULL_BLOCK_DISK_BYTES, start)
+    const bytesRead = await readUpTo(this.handle, frame, start)
     if (bytesRead === 0) return null
     return decryptBlock(this.key, this.fileId, index, frame.subarray(0, bytesRead))
   }
@@ -136,8 +139,18 @@ export class EncryptedBlockFile {
     if (plaintext.length > BLOCK_PLAINTEXT_BYTES) {
       throw new Error(`block plaintext ${plaintext.length} > ${BLOCK_PLAINTEXT_BYTES}`)
     }
+    const start = index * FULL_BLOCK_DISK_BYTES
+    const { size } = await this.handle.stat()
+    if (plaintext.length < BLOCK_PLAINTEXT_BYTES && size > start + FULL_BLOCK_DISK_BYTES) {
+      throw new Error('Only the final encrypted block may be shorter than a full block.')
+    }
     const frame = encryptBlock(this.key, this.fileId, index, plaintext)
-    await this.handle.write(frame, 0, frame.length, index * FULL_BLOCK_DISK_BYTES)
+    await writeAll(this.handle, frame, start)
+    // A smaller replacement of the final block must not leave old ciphertext
+    // behind: readers authenticate the entire final frame through EOF.
+    if (size > start + frame.length && size <= start + FULL_BLOCK_DISK_BYTES) {
+      await this.handle.truncate(start + frame.length)
+    }
   }
 
   async sync(): Promise<void> {
