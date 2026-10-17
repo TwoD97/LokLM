@@ -20,7 +20,7 @@
 //                                        exact-byte from a known upload
 
 use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderValue, RANGE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_RANGE, RANGE, USER_AGENT};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokio::fs::{rename, File, OpenOptions};
@@ -77,6 +77,41 @@ fn partial_path(dest: &Path) -> PathBuf {
     PathBuf::from(s)
 }
 
+// RFC 9110 section 14.4: never combine an invalid or mismatched byte range
+// with a stored prefix. This downloader publishes only complete files, so an
+// unknown total or a response ending before EOF cannot establish success.
+fn resumed_total(response: &reqwest::Response, offset: u64) -> Result<u64, String> {
+    let invalid = || "Invalid Content-Range for resumed download".to_string();
+    let value = response
+        .headers()
+        .get(CONTENT_RANGE)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(invalid)?;
+    let (unit, range) = value.split_once(' ').ok_or_else(invalid)?;
+    if !unit.eq_ignore_ascii_case("bytes") {
+        return Err(invalid());
+    }
+    let (bounds, total) = range.split_once('/').ok_or_else(invalid)?;
+    let (start, end) = bounds.split_once('-').ok_or_else(invalid)?;
+    let number = |value: &str| -> Result<u64, String> {
+        if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+            return Err(invalid());
+        }
+        value.parse().map_err(|_| invalid())
+    };
+    let (start, end, total) = (number(start)?, number(end)?, number(total)?);
+    if start != offset || end < start || end.checked_add(1) != Some(total) {
+        return Err(invalid());
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length != total - start)
+    {
+        return Err("Content-Length does not match resumed byte range".into());
+    }
+    Ok(total)
+}
+
 pub async fn download_with_resume<F>(
     client: &reqwest::Client,
     spec: DownloadSpec<'_>,
@@ -98,32 +133,51 @@ where
             request = request.header(RANGE, v);
         }
     }
-    let resp = request
+    let mut resp = request
         .send()
         .await
         .map_err(|e| format!("GET {} : {}", spec.url, e))?;
+    let mut resume_offset = existing;
+    if resp.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE && existing > 0 {
+        // A completed or stale partial must not trap all outer retries in 416.
+        // Restart once without Range; keep the old partial until a valid full
+        // response arrives. A 416 alone is never proof of file integrity.
+        drop(resp);
+        resp = client
+            .get(spec.url)
+            .send()
+            .await
+            .map_err(|e| format!("Restart GET {} : {}", spec.url, e))?;
+        resume_offset = 0;
+    }
     let status = resp.status();
-    if !status.is_success() {
+    if status != reqwest::StatusCode::OK && status != reqwest::StatusCode::PARTIAL_CONTENT {
         return Err(format!("HTTP {} for {}", status.as_u16(), spec.url));
     }
     let server_honoured_range = status.as_u16() == 206;
-    let starting_offset = if server_honoured_range { existing } else { 0 };
+    let starting_offset = if server_honoured_range {
+        resume_offset
+    } else {
+        0
+    };
+    let exact_total = if server_honoured_range {
+        Some(resumed_total(&resp, starting_offset)?)
+    } else {
+        resp.content_length()
+    };
 
     // If the server ignored Range ( returned 200 with full body ) we have
     // to start fresh — truncate the partial.
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
-        .truncate(!server_honoured_range)
-        .append(server_honoured_range)
+        .truncate(starting_offset == 0)
+        .append(starting_offset > 0)
         .open(&partial)
         .await
         .map_err(|e| format!("open {} : {}", partial.display(), e))?;
 
-    let content_length = resp.content_length();
-    let total_hint = content_length
-        .map(|n| n.saturating_add(starting_offset))
-        .or(spec.expected_size);
+    let total_hint = exact_total.or(spec.expected_size);
 
     // Pre-hash the bytes we already have on disk so the final digest
     // covers the whole file , not just the resumed tail.
@@ -150,21 +204,34 @@ where
     let mut stream = resp.bytes_stream();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| format!("stream : {}", e))?;
+        let next = written
+            .checked_add(chunk.len() as u64)
+            .ok_or("Download length overflow")?;
+        if exact_total.is_some_and(|total| next > total) {
+            return Err("Download body exceeds the declared byte range".into());
+        }
         file.write_all(&chunk)
             .await
             .map_err(|e| format!("write : {}", e))?;
         hasher.update(&chunk);
-        written = written.saturating_add(chunk.len() as u64);
+        written = next;
         progress(written, total_hint.unwrap_or(written));
     }
     file.flush().await.map_err(|e| e.to_string())?;
     drop(file);
 
+    if exact_total.is_some_and(|total| written != total) {
+        return Err("Download body ended before the declared byte range was complete".into());
+    }
+
     let actual = hex::encode(hasher.finalize());
     if let Some(expected) = spec.expected_sha256 {
         if !expected.eq_ignore_ascii_case(&actual) {
             let _ = tokio::fs::remove_file(&partial).await;
-            return Err(format!("sha256 mismatch : expected {} , got {}", expected, actual));
+            return Err(format!(
+                "sha256 mismatch : expected {} , got {}",
+                expected, actual
+            ));
         }
     }
 
@@ -186,11 +253,200 @@ where
 mod tests {
     use super::*;
     use tempfile::tempdir;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn sha(bytes: &[u8]) -> String {
         hex::encode(Sha256::digest(bytes))
+    }
+
+    #[tokio::test]
+    async fn malformed_or_incomplete_ranges_never_modify_the_partial() {
+        for range in [
+            None,
+            Some("bytes 0-25/26"),
+            Some("bytes 10-20/26"),
+            Some("bytes 10-25/*"),
+            Some("bytes 10-26/26"),
+            Some("bytes 10-9/26"),
+            Some("items 10-25/26"),
+            Some("bytes +10-25/26"),
+            Some("bytes 10-18446744073709551615/26"),
+        ] {
+            let server = MockServer::start().await;
+            let mut response = ResponseTemplate::new(206).set_body_bytes(vec![b'x'; 16]);
+            if let Some(range) = range {
+                response = response.insert_header("content-range", range);
+            }
+            Mock::given(method("GET"))
+                .respond_with(response)
+                .mount(&server)
+                .await;
+            let dir = tempdir().unwrap();
+            let dest = dir.path().join("model.gguf");
+            std::fs::write(partial_path(&dest), b"0123456789").unwrap();
+            let error = download_with_resume(
+                &build_client(),
+                DownloadSpec {
+                    url: &server.uri(),
+                    dest: &dest,
+                    expected_sha256: None,
+                    expected_size: None,
+                },
+                |_, _| {},
+            )
+            .await
+            .unwrap_err();
+            assert!(error.contains("Content-Range"), "{range:?}: {error}");
+            assert!(!dest.exists());
+            assert_eq!(std::fs::read(partial_path(&dest)).unwrap(), b"0123456789");
+        }
+    }
+
+    #[tokio::test]
+    async fn range_body_length_mismatch_never_modifies_the_partial() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(206)
+                    .set_body_bytes(b"short".to_vec())
+                    .insert_header("content-range", "bytes 10-25/26"),
+            )
+            .mount(&server)
+            .await;
+        let dir = tempdir().unwrap();
+        let dest = dir.path().join("model.gguf");
+        std::fs::write(partial_path(&dest), b"0123456789").unwrap();
+        let error = download_with_resume(
+            &build_client(),
+            DownloadSpec {
+                url: &server.uri(),
+                dest: &dest,
+                expected_sha256: None,
+                expected_size: None,
+            },
+            |_, _| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(error.contains("Content-Length"), "{error}");
+        assert!(!dest.exists());
+        assert_eq!(std::fs::read(partial_path(&dest)).unwrap(), b"0123456789");
+    }
+
+    #[tokio::test]
+    async fn ignored_range_restarts_instead_of_appending() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(header("range", "bytes=3-"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"complete".to_vec()))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let dir = tempdir().unwrap();
+        let dest = dir.path().join("model.gguf");
+        std::fs::write(partial_path(&dest), b"old").unwrap();
+        let outcome = download_with_resume(
+            &build_client(),
+            DownloadSpec {
+                url: &server.uri(),
+                dest: &dest,
+                expected_sha256: Some(&sha(b"complete")),
+                expected_size: None,
+            },
+            |_, _| {},
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome.bytes_written, 8);
+        assert_eq!(std::fs::read(&dest).unwrap(), b"complete");
+    }
+
+    #[tokio::test]
+    async fn unsatisfiable_range_restarts_once_without_range() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(header("range", "bytes=3-"))
+            .respond_with(ResponseTemplate::new(416).insert_header("content-range", "bytes */3"))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(|request: &wiremock::Request| !request.headers.contains_key("range"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"new".to_vec()))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let dir = tempdir().unwrap();
+        let dest = dir.path().join("model.gguf");
+        std::fs::write(partial_path(&dest), b"old").unwrap();
+        let outcome = download_with_resume(
+            &build_client(),
+            DownloadSpec {
+                url: &server.uri(),
+                dest: &dest,
+                expected_sha256: Some(&sha(b"new")),
+                expected_size: None,
+            },
+            |_, _| {},
+        )
+        .await
+        .unwrap();
+        assert_eq!(outcome.bytes_written, 3);
+        assert_eq!(std::fs::read(&dest).unwrap(), b"new");
+    }
+
+    #[tokio::test]
+    async fn repeated_416_is_bounded_and_preserves_partial() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(416))
+            .expect(2)
+            .mount(&server)
+            .await;
+        let dir = tempdir().unwrap();
+        let dest = dir.path().join("model.gguf");
+        std::fs::write(partial_path(&dest), b"old").unwrap();
+        let error = download_with_resume(
+            &build_client(),
+            DownloadSpec {
+                url: &server.uri(),
+                dest: &dest,
+                expected_sha256: None,
+                expected_size: None,
+            },
+            |_, _| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(error.contains("416"), "{error}");
+        assert!(!dest.exists());
+        assert_eq!(std::fs::read(partial_path(&dest)).unwrap(), b"old");
+    }
+
+    #[tokio::test]
+    async fn no_content_response_cannot_publish_an_empty_model() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&server)
+            .await;
+        let dir = tempdir().unwrap();
+        let dest = dir.path().join("model.gguf");
+        let error = download_with_resume(
+            &build_client(),
+            DownloadSpec {
+                url: &server.uri(),
+                dest: &dest,
+                expected_sha256: None,
+                expected_size: None,
+            },
+            |_, _| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(error.contains("204"), "{error}");
+        assert!(!dest.exists());
     }
 
     #[tokio::test]

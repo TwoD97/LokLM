@@ -9,7 +9,10 @@ const CUDA_PACKAGES: &str = "resources/app.asar.unpacked/node_modules/@node-llam
 const CUDA_VARIANTS: [&str; 2] = ["win-x64-cuda", "win-x64-cuda-ext"];
 
 fn context(action: &str, path: &Path, error: io::Error) -> io::Error {
-    io::Error::new(error.kind(), format!("{action} '{}': {error}", path.display()))
+    io::Error::new(
+        error.kind(),
+        format!("{action} '{}': {error}", path.display()),
+    )
 }
 
 fn metadata(path: &Path) -> io::Result<fs::Metadata> {
@@ -88,7 +91,10 @@ fn copy_tree(source: &Path, destination: &Path, payload_root: bool) -> io::Resul
             match metadata(&to) {
                 Ok(meta) if meta.is_file() => {}
                 Ok(_) => {
-                    return Err(io::Error::other(format!("Expected a file: '{}'", to.display())));
+                    return Err(io::Error::other(format!(
+                        "Expected a file: '{}'",
+                        to.display()
+                    )));
                 }
                 Err(e) if e.kind() == io::ErrorKind::NotFound => {}
                 Err(e) => return Err(e),
@@ -96,7 +102,11 @@ fn copy_tree(source: &Path, destination: &Path, payload_root: bool) -> io::Resul
             fs::copy(&from, &to).map_err(|e| {
                 io::Error::new(
                     e.kind(),
-                    format!("Cannot copy '{}' to '{}': {e}", from.display(), to.display()),
+                    format!(
+                        "Cannot copy '{}' to '{}': {e}",
+                        from.display(),
+                        to.display()
+                    ),
                 )
             })?;
         } else {
@@ -215,8 +225,13 @@ mod tests {
         );
         for variant in CUDA_VARIANTS {
             assert_eq!(
-                fs::read(target.join(CUDA_PACKAGES).join(variant).join("bins/llama.dll"))
-                    .unwrap(),
+                fs::read(
+                    target
+                        .join(CUDA_PACKAGES)
+                        .join(variant)
+                        .join("bins/llama.dll")
+                )
+                .unwrap(),
                 b"CUDA"
             );
         }
