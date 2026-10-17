@@ -6,9 +6,9 @@ import type {
   RerankerProvider,
 } from '@main/services/providers/types'
 
-function mkLlm(opts: { ask?: (q: string) => Promise<string>; ready?: boolean } = {}): LlmProvider {
+function mkLlm(opts: { ask?: LlmProvider['ask']; ready?: boolean } = {}): LlmProvider {
   return {
-    ask: vi.fn().mockImplementation((q: string) => (opts.ask ?? (async () => 'ok'))(q)),
+    ask: vi.fn().mockImplementation(opts.ask ?? (async () => 'ok')),
     generateRaw: vi.fn(),
     generateTitle: vi.fn(),
     contextWindowTokens: () => 0,
@@ -84,6 +84,90 @@ describe('ProviderRegistry — LLM fallback', () => {
     })
     reg.setLlmSource('ollama')
     await expect(reg.llm().ask('q', [], {})).rejects.toThrow()
+  })
+
+  it.each(['network', 'timeout', 'server'])(
+    'preserves a partial answer when a %s error follows published text',
+    async (kind) => {
+      const failure = Object.assign(new Error('stream interrupted'), { kind })
+      const bundled = mkLlm({ ask: async () => 'unrelated fallback answer' })
+      const ollama = mkLlm({
+        ask: async (_q, _hits, opts) => {
+          opts.onChunk?.('The original answer', 4)
+          throw failure
+        },
+      })
+      const onFallback = vi.fn()
+      const onLlmStatusChanged = vi.fn()
+      const reg = new ProviderRegistry({
+        llm: { bundled, ollama },
+        embedder: { bundled: mkEmbedder(), ollama: null },
+        reranker: { bundled: mkReranker(), ollama: null },
+        onFallback,
+        onLlmStatusChanged,
+      })
+      reg.setLlmSource('ollama')
+      const onChunk = vi.fn()
+      const llm = reg.llm()
+      await expect(llm.ask('q', [], { onChunk })).rejects.toBe(failure)
+      expect(onChunk).toHaveBeenCalledExactlyOnceWith('The original answer', 4)
+      expect(bundled.ask).not.toHaveBeenCalled()
+      expect(onFallback).not.toHaveBeenCalled()
+      expect(onLlmStatusChanged).not.toHaveBeenCalled()
+      expect(reg.getLlmFallback()).toEqual({ active: false, reason: null })
+
+      // Publication belongs to this turn; a later turn can still recover.
+      vi.mocked(ollama.ask).mockRejectedValueOnce(failure)
+      await expect(llm.ask('next question', [], { onChunk })).resolves.toBe(
+        'unrelated fallback answer',
+      )
+      expect(bundled.ask).toHaveBeenCalledOnce()
+      expect(onFallback).toHaveBeenCalledOnce()
+    },
+  )
+
+  it('can fall back after an empty chunk and continue streaming', async () => {
+    const bundled = mkLlm({
+      ask: async (_q, _hits, opts) => {
+        opts.onChunk?.('fallback answer', 2)
+        return 'fallback answer'
+      },
+    })
+    const ollama = mkLlm({
+      ask: async (_q, _hits, opts) => {
+        opts.onChunk?.('', 0)
+        throw Object.assign(new Error('unavailable'), { kind: 'server' })
+      },
+    })
+    const reg = new ProviderRegistry({
+      llm: { bundled, ollama },
+      embedder: { bundled: mkEmbedder(), ollama: null },
+      reranker: { bundled: mkReranker(), ollama: null },
+    })
+    reg.setLlmSource('ollama')
+    const onChunk = vi.fn()
+    expect(await reg.llm().ask('q', [], { onChunk })).toBe('fallback answer')
+    expect(onChunk.mock.calls).toEqual([
+      ['', 0],
+      ['fallback answer', 2],
+    ])
+  })
+
+  it('can replace an internal partial answer when there is no streaming callback', async () => {
+    const bundled = mkLlm({ ask: async () => 'complete fallback' })
+    const ollama = mkLlm({
+      ask: async (_q, _hits, opts) => {
+        opts.onChunk?.('not published', 1)
+        throw Object.assign(new Error('disconnected'), { kind: 'network' })
+      },
+    })
+    const reg = new ProviderRegistry({
+      llm: { bundled, ollama },
+      embedder: { bundled: mkEmbedder(), ollama: null },
+      reranker: { bundled: mkReranker(), ollama: null },
+    })
+    reg.setLlmSource('ollama')
+    expect(await reg.llm().ask('q', [], {})).toBe('complete fallback')
   })
 
   it('reranker fallback is silent (no event)', async () => {
