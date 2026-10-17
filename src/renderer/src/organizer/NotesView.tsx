@@ -105,8 +105,8 @@ export function NotesView({
                 onClick={() => choose(note)}
                 disabled={action.busy}
               >
-                <strong>{note.title}</strong>
-                <span>{previews.get(note.id) || t('organizer.emptyNote')}</span>
+                <strong>{note.title}</strong>{' '}
+                <span>{previews.get(note.id) || t('organizer.emptyNote')}</span>{' '}
                 <time dateTime={note.updatedAt}>{dateFormat.format(new Date(note.updatedAt))}</time>
               </button>
             ))

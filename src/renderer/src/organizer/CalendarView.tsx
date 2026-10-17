@@ -394,9 +394,8 @@ export function CalendarView({
                       {event.startTime
                         ? `${event.startTime}${event.endTime ? `–${event.endTime}` : ''}`
                         : t('organizer.allDay')}
-                    </span>
-                    <strong>{event.title}</strong>
-                    {event.details && <p>{event.details}</p>}
+                    </span>{' '}
+                    <strong>{event.title}</strong> {event.details && <p>{event.details}</p>}
                   </button>
                   <button
                     className="organizer__icon organizer__delete"

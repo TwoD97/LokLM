@@ -430,6 +430,7 @@ const stub: Api = {
     onEvent: () => () => undefined,
   },
   transcription: {
+    discardStage: () => Promise.resolve(),
     stageBegin: () => Promise.resolve('aud-1'),
     stageChunk: () => Promise.resolve(),
     stageCommit: (audioId: string, durationSec: number) =>

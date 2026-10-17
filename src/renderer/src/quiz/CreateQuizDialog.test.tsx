@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CreateQuizDialog } from './CreateQuizDialog'
 import { defaultQuizName } from './quizPresentation'
 import type { Document } from '@shared/documents'
@@ -55,6 +55,34 @@ describe('CreateQuizDialog', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Quiz Name' } })
     // Still disabled — no doc picked.
     expect(generate.disabled).toBe(true)
+  })
+
+  it('locks the submitted draft and ignores completion after leaving the workspace', async () => {
+    let resolve!: (deck: QuizDeck) => void
+    vi.spyOn(window.api.quiz, 'createDeck').mockReturnValue(
+      new Promise((done) => {
+        resolve = done
+      }),
+    )
+    const onCreated = vi.fn()
+    const onCancel = vi.fn()
+    const { unmount } = render(
+      <CreateQuizDialog
+        workspaceId={1}
+        documents={[makeDoc(1)]}
+        onCancel={onCancel}
+        onCreated={onCreated}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Doc 1'))
+    fireEvent.click(screen.getByText('Generate'))
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    expect(screen.getByRole('radio')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    unmount()
+    await act(async () => resolve(makeDeck('Doc 1')))
+    expect(onCreated).not.toHaveBeenCalled()
+    expect(onCancel).not.toHaveBeenCalled()
   })
 
   it('disables Generate when the name is cleared', () => {

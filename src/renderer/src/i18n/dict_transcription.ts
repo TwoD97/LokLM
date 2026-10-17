@@ -20,6 +20,10 @@ export const transcriptionDict: DomainDict = {
     'tx.recDenied': 'Microphone blocked. Allow mic access in your OS privacy settings, then retry.',
     'tx.recNoDevice': 'No microphone found.',
     'tx.recUnavailable': 'Microphone capture is unavailable in this build.',
+    'tx.recPreparing': 'Opening microphone…',
+    'tx.recFailed': 'Recording failed. Check your microphone and try again.',
+    'tx.cancelled': 'Cancelled',
+    'tx.stopping': 'Stopping after the current operation…',
     'tx.language': 'Audio language',
     'tx.languageHint':
       'The language spoken in the audio. Auto-detect usually works; force it for short or mixed-language clips.',
@@ -69,6 +73,10 @@ export const transcriptionDict: DomainDict = {
       'Mikrofon blockiert. Mikrofonzugriff in den System-Datenschutzeinstellungen erlauben und erneut versuchen.',
     'tx.recNoDevice': 'Kein Mikrofon gefunden.',
     'tx.recUnavailable': 'Mikrofonaufnahme ist in diesem Build nicht verfügbar.',
+    'tx.recPreparing': 'Mikrofon wird geöffnet…',
+    'tx.recFailed': 'Aufnahme fehlgeschlagen. Prüfe dein Mikrofon und versuche es erneut.',
+    'tx.cancelled': 'Abgebrochen',
+    'tx.stopping': 'Wird nach dem aktuellen Vorgang angehalten…',
     'tx.language': 'Audiosprache',
     'tx.languageHint':
       'Die im Audio gesprochene Sprache. Auto-Erkennung reicht meist; bei kurzen oder gemischtsprachigen Clips erzwingen.',

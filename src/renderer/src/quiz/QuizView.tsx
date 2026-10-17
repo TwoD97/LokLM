@@ -46,6 +46,8 @@ export function QuizView({
   const [deleteDeck, setDeleteDeck] = useState<QuizDeckSummary | null>(null)
   const [pendingDecks, setPendingDecks] = useState<Set<number>>(new Set())
   const pendingRef = useRef(new Set<number>())
+  const alive = useRef(true)
+  const refreshRequest = useRef(0)
   const [screen, setScreen] = useState<Screen>({ kind: 'list' })
   const [decks, setDecks] = useState<QuizDeckSummary[]>([])
   // streamId → off() handle, kept in state so we can clean up on unmount and
@@ -70,17 +72,20 @@ export function QuizView({
   const { begin: beginGeneration } = useGeneration()
 
   const refresh = useCallback(async () => {
+    if (!alive.current) return
+    const request = ++refreshRequest.current
     try {
       const list = await window.api.quiz.listDecks(workspaceId)
-      setDecks(list)
+      if (alive.current && request === refreshRequest.current) setDecks(list)
     } catch (err) {
-      setError(String(err))
+      if (alive.current && request === refreshRequest.current) setError(String(err))
     } finally {
-      setLoading(false)
+      if (alive.current && request === refreshRequest.current) setLoading(false)
     }
   }, [workspaceId])
 
   useEffect(() => {
+    alive.current = true
     void refresh()
   }, [refresh])
 
@@ -108,6 +113,10 @@ export function QuizView({
     // the linter happy about reading a ref in a cleanup closure.
     const endGenJobs = endGenRef.current
     return () => {
+      alive.current = false
+      // Invalidate pending reads with the current generation, not a captured DOM ref.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      refreshRequest.current++
       for (const off of streamHandlesRef.current.values()) off()
       // Clear any open Activity-indicator jobs so a workspace-switch remount
       // doesn't leave a stale "Building quiz" entry behind.
@@ -118,7 +127,7 @@ export function QuizView({
 
   const startGeneration = useCallback(
     (deckId: number) => {
-      if (endGenRef.current.has(deckId)) return
+      if (!alive.current || endGenRef.current.has(deckId)) return
       setError(null)
       const streamId = crypto.randomUUID()
       endGenRef.current.set(deckId, beginGeneration('quiz'))
@@ -130,6 +139,7 @@ export function QuizView({
         endGenRef.current.delete(deckId)
         streamHandlesRef.current.get(deckId)?.()
         streamHandlesRef.current.delete(deckId)
+        if (!alive.current) return
         setStreamHandles((prev) => {
           const next = new Map(prev)
           next.delete(deckId)
@@ -148,6 +158,7 @@ export function QuizView({
         void refresh()
       }
       const off = window.api.quiz.onGenerateEvent(streamId, (ev) => {
+        if (!alive.current) return
         if (ev.type === 'done' || ev.type === 'error') {
           finish()
         } else {
@@ -161,7 +172,7 @@ export function QuizView({
       setStreamHandles((prev) => new Map(prev).set(deckId, off))
       setStreamIds((prev) => new Map(prev).set(deckId, streamId))
       void window.api.quiz.generate(streamId, deckId).catch((err: unknown) => {
-        setError(String(err))
+        if (alive.current) setError(String(err))
         finish()
       })
     },
@@ -189,10 +200,10 @@ export function QuizView({
       await action()
       await refresh()
     } catch (err) {
-      setError(String(err))
+      if (alive.current) setError(String(err))
     } finally {
       pendingRef.current.delete(deckId)
-      setPendingDecks(new Set(pendingRef.current))
+      if (alive.current) setPendingDecks(new Set(pendingRef.current))
     }
   }
 

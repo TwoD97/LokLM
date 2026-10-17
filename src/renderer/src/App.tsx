@@ -46,7 +46,7 @@ function pickPhaseFromStatus(status: AuthStatus, current: Phase): Phase {
   }
   // registered & locked , stay on reset if the user is in the middle of it ,
   // otherwise show login.
-  if (current.kind === 'reset' || current.kind === 'reveal') return current
+  if (current.kind === 'reset') return current
   return { kind: 'login' }
 }
 

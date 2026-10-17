@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { WriteResult } from '@shared/writing'
 import { WritingView } from './WritingView'
 
+const { endJob, beginJob } = vi.hoisted(() => {
+  const endJob = vi.fn()
+  return { endJob, beginJob: vi.fn(() => endJob) }
+})
+vi.mock('../generation/GenerationContext', () => ({
+  useGeneration: () => ({ begin: beginJob }),
+}))
+beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.restoreAllMocks())
 
 describe('Writing workflow', () => {
@@ -38,5 +46,39 @@ describe('Writing workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rewrite' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('model failed')
     expect(screen.getByText('Kept result')).toBeVisible()
+  })
+
+  it('keeps activity until a rewrite settles after unmount', async () => {
+    let finish!: (value: WriteResult) => void
+    vi.spyOn(window.api.writing, 'improve').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const view = render(<WritingView />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Original' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rewrite' }))
+    expect(beginJob).toHaveBeenCalledWith('writing')
+    expect(endJob).not.toHaveBeenCalled()
+    view.unmount()
+    expect(endJob).not.toHaveBeenCalled()
+    await act(async () => finish({ text: 'Late text', mode: 'improve', detected: 'en' }))
+    expect(endJob).toHaveBeenCalledOnce()
+  })
+
+  it('supports arrow and boundary keys in the mode tabs with one tab stop', () => {
+    render(<WritingView />)
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.filter((tab) => tab.tabIndex === 0)).toHaveLength(1)
+    tabs[0]!.focus()
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' })
+    expect(tabs[1]).toHaveFocus()
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', tabs[1]!.id)
+    fireEvent.keyDown(tabs[1]!, { key: 'End' })
+    expect(tabs.at(-1)).toHaveFocus()
+    fireEvent.keyDown(tabs.at(-1)!, { key: 'Home' })
+    expect(tabs[0]).toHaveFocus()
   })
 })

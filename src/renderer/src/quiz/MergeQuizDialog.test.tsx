@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MergeQuizDialog } from './MergeQuizDialog'
 import type { QuizDeck, QuizDeckSummary } from '@shared/quiz'
 
@@ -73,6 +73,36 @@ describe('MergeQuizDialog', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /^A\b/ }))
     fireEvent.click(screen.getByRole('checkbox', { name: /^B\b/ }))
     expect(screen.getByText('13 questions total')).toBeInTheDocument()
+  })
+
+  it('locks pending merge inputs and ignores a late completion after navigation', async () => {
+    let resolve!: (deck: QuizDeck) => void
+    vi.spyOn(window.api.quiz, 'mergeDecks').mockReturnValue(
+      new Promise((done) => {
+        resolve = done
+      }),
+    )
+    const onMerged = vi.fn()
+    const { unmount } = render(
+      <MergeQuizDialog
+        workspaceId={1}
+        decks={[makeDeck(1, 'A'), makeDeck(2, 'B')]}
+        onCancel={() => undefined}
+        onMerged={onMerged}
+      />,
+    )
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Combined' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /^A\b/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /^B\b/ }))
+    fireEvent.click(screen.getByText('Merge'))
+    expect(screen.getByRole('textbox')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(
+      screen.getAllByRole('checkbox').every((control) => (control as HTMLInputElement).disabled),
+    ).toBe(true)
+    unmount()
+    await act(async () => resolve(makeMerged('Combined')))
+    expect(onMerged).not.toHaveBeenCalled()
   })
 
   it('merges with the chosen name, deck ids and shuffle flag', async () => {

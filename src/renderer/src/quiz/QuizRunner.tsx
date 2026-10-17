@@ -72,12 +72,21 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
   const t = useT()
   const [state, setState] = useState<RunnerState>({ kind: 'loading' })
   const [source, setSource] = useState<{ chunkId: number; explanation: string } | null>(null)
+  const [finishError, setFinishError] = useState(false)
+  const [finishRetry, setFinishRetry] = useState(0)
+  const finishedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
+    setState({ kind: 'loading' })
+    setSource(null)
+    setFinishError(false)
+    setFinishRetry(0)
+    finishedRef.current = false
     const run = async (): Promise<void> => {
       try {
         const data = await window.api.quiz.getDeck(deckId)
+        if (cancelled) return
         const attempt = await window.api.quiz.startAttempt(deckId)
         if (cancelled) return
         const order = shuffle(data.questions, attempt.id)
@@ -165,12 +174,13 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
   }, [])
 
   // Auto-finish when cursor reaches order.length.
-  const finishedRef = useRef(false)
   useEffect(() => {
     if (state.kind !== 'running') return
+    if (state.data.deck.id !== deckId) return
     if (state.cursor < state.order.length) return
     if (finishedRef.current) return
     finishedRef.current = true
+    let cancelled = false
     const submit = async (): Promise<void> => {
       // Map each question's display-coord selection back to the original
       // option index via its perm so the backend can score against the
@@ -183,24 +193,48 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
         const originalIdx = displayIdx < 0 ? 0 : (perm[displayIdx] ?? 0)
         return { questionId: q.id, selectedIndex: originalIdx }
       })
-      const attempt = await window.api.quiz.finishAttempt(state.attempt.id, payload)
-      setState({ kind: 'finished', attempt, data: state.data, order: state.order })
+      try {
+        // A previous request may have committed before its reply was lost.
+        // Reconcile the same attempt before an explicit retry writes again.
+        const saved =
+          finishRetry > 0
+            ? (await window.api.quiz.listAttempts(deckId)).find(
+                (attempt) => attempt.id === state.attempt.id && attempt.finishedAt != null,
+              )
+            : undefined
+        if (cancelled) return
+        const attempt = saved ?? (await window.api.quiz.finishAttempt(state.attempt.id, payload))
+        if (!cancelled)
+          setState({ kind: 'finished', attempt, data: state.data, order: state.order })
+      } catch {
+        if (!cancelled) setFinishError(true)
+      }
     }
     void submit()
-  }, [state])
+    return () => {
+      cancelled = true
+    }
+  }, [state, finishRetry, deckId])
 
   // Enter advances after reveal.
   useEffect(() => {
-    if (!active || state.kind !== 'running' || !state.revealed) return
+    if (!active || source || state.kind !== 'running' || !state.revealed) return
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Enter') {
+      const target = e.target instanceof Element ? e.target : null
+      if (
+        target?.closest(
+          'button, a, input, textarea, select, [contenteditable], [role="dialog"], dialog',
+        )
+      )
+        return
+      if (e.key === 'Enter' && !e.defaultPrevented && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault()
         advance()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [active, state, advance])
+  }, [active, state, source, advance])
 
   const onCite = useCallback(
     ({ chunkId, explanation }: { chunkId: number; explanation: string }) => {
@@ -212,14 +246,19 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
   if (state.kind === 'loading') {
     return (
       <section className="quiz-runner">
-        <p>{t('common.loading')}</p>
+        <p role="status">{t('common.loading')}</p>
+        <button type="button" className="quiz-btn" onClick={onClose}>
+          {t('common.back')}
+        </button>
       </section>
     )
   }
   if (state.kind === 'error') {
     return (
       <section className="quiz-runner">
-        <p className="quiz-create__error">{state.message}</p>
+        <p className="quiz-create__error" role="alert">
+          {state.message}
+        </p>
         <button type="button" className="quiz-btn" onClick={onClose}>
           {t('common.back')}
         </button>
@@ -246,7 +285,31 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
   if (state.cursor >= state.order.length) {
     return (
       <section className="quiz-runner">
-        <p className="quiz-runner__progress">{t('quiz.runner.scoring')}</p>
+        {finishError ? (
+          <>
+            <p className="quiz-create__error" role="alert">
+              {t('quiz.runner.scoreFailed')}
+            </p>
+            <button
+              type="button"
+              className="quiz-btn quiz-btn--primary"
+              onClick={() => {
+                setFinishError(false)
+                finishedRef.current = false
+                setFinishRetry((value) => value + 1)
+              }}
+            >
+              {t('common.retry')}
+            </button>
+            <button type="button" className="quiz-btn" onClick={onClose}>
+              {t('common.back')}
+            </button>
+          </>
+        ) : (
+          <p className="quiz-runner__progress" role="status">
+            {t('quiz.runner.scoring')}
+          </p>
+        )}
       </section>
     )
   }
@@ -298,7 +361,7 @@ export function QuizRunner({ deckId, onClose, active = true }: Props): JSX.Eleme
           question={displayQuestion}
           selectedIndex={state.selectedByQuestionId.get(question.id) ?? null}
           revealed={state.revealed}
-          active={active}
+          active={active && source == null}
           onSelect={onSelect}
           onCite={onCite}
         />

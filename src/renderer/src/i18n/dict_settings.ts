@@ -6,6 +6,7 @@ export const settingsDict: DomainDict = {
   en: {
     // SettingsModal — tabs
     'settings.loading': 'Loading…',
+    'settings.loadFailed': 'Settings could not be loaded. Please try again.',
     'settings.tab.profile': 'Profile',
     'settings.tab.basic': 'Basic',
     'settings.tab.advanced': 'Advanced',
@@ -321,6 +322,8 @@ export const settingsDict: DomainDict = {
   de: {
     // SettingsModal — tabs
     'settings.loading': 'Wird geladen…',
+    'settings.loadFailed':
+      'Die Einstellungen konnten nicht geladen werden. Bitte versuche es erneut.',
     'settings.tab.profile': 'Profil',
     'settings.tab.basic': 'Allgemein',
     'settings.tab.advanced': 'Erweitert',

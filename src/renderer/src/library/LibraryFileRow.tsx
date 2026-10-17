@@ -38,7 +38,14 @@ function LibraryFileRowImpl({ doc, progress, reembedding, ...actions }: Props): 
         {doc.pinned && (
           <Pin size={12} aria-label={t('library.pinned')} className="library__row-pinned-icon" />
         )}
-        <span className="library__tree-title-text">{doc.title}</span>
+        <button
+          type="button"
+          className="library__document-link library__tree-title-text"
+          onClick={() => actions.onRead(doc)}
+          title={doc.title}
+        >
+          {doc.title}
+        </button>
         {doc.language && <LanguageBadge language={doc.language} t={t} />}
       </span>
       <StatusBadge status={status} />

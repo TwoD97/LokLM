@@ -35,15 +35,24 @@ export function QuestionCard({
   useEffect(() => {
     if (revealed || !active) return
     const handler = (e: KeyboardEvent): void => {
+      const target = e.target instanceof Element ? e.target : null
+      if (
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.metaKey ||
+        target?.closest('input, textarea, select, [contenteditable], [role="dialog"], dialog')
+      )
+        return
       const idx = ['1', '2', '3', '4'].indexOf(e.key)
-      if (idx >= 0) {
+      if (idx >= 0 && idx < question.options.length) {
         onSelect(idx)
         e.preventDefault()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [revealed, active, onSelect])
+  }, [revealed, active, onSelect, question.options.length])
 
   return (
     <article className="quiz-card-q">

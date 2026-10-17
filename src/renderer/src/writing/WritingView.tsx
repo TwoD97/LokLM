@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ArrowRight, Copy, Check } from 'lucide-react'
 import { WRITING_MODES, type WriteResult, type WritingMode } from '@shared/writing'
 import { useGeneration } from '../generation/GenerationContext'
@@ -34,6 +34,16 @@ export function WritingView(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const pending = useRef(false)
+  const alive = useRef(true)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const modeId = useId()
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    }
+  }, [])
 
   const clearResult = (): void => {
     setResult(null)
@@ -51,14 +61,16 @@ export function WritingView(): JSX.Element {
     const endGeneration = beginGeneration('writing')
     try {
       const r = await window.api.writing.improve(source, mode)
+      if (!alive.current) return
       setResult(r)
       setElapsed((performance.now() - t0) / 1000)
     } catch (err) {
-      setError(writeErrorText(t, err instanceof Error ? err.message : String(err)))
+      if (alive.current)
+        setError(writeErrorText(t, err instanceof Error ? err.message : String(err)))
     } finally {
       endGeneration()
       pending.current = false
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
   }
 
@@ -66,10 +78,12 @@ export function WritingView(): JSX.Element {
     if (!result) return
     try {
       await navigator.clipboard.writeText(result.text)
+      if (!alive.current) return
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 1500)
     } catch {
-      setError(t('writing.copyFailed'))
+      if (alive.current) setError(t('writing.copyFailed'))
     }
   }
 
@@ -86,12 +100,33 @@ export function WritingView(): JSX.Element {
             <button
               key={m}
               role="tab"
+              id={`${modeId}-${m}`}
+              aria-controls={`${modeId}-panel`}
               aria-selected={mode === m}
+              tabIndex={mode === m ? 0 : -1}
               disabled={busy}
               className={`writing-view__mode ${mode === m ? 'writing-view__mode--active' : ''}`}
               onClick={() => {
                 if (mode !== m) clearResult()
                 setMode(m)
+              }}
+              onKeyDown={(event) => {
+                const index = WRITING_MODES.indexOf(m)
+                const next =
+                  event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? WRITING_MODES.length - 1
+                      : event.key === 'ArrowRight'
+                        ? (index + 1) % WRITING_MODES.length
+                        : event.key === 'ArrowLeft'
+                          ? (index + WRITING_MODES.length - 1) % WRITING_MODES.length
+                          : null
+                if (next === null || busy) return
+                event.preventDefault()
+                clearResult()
+                setMode(WRITING_MODES[next]!)
+                document.getElementById(`${modeId}-${WRITING_MODES[next]}`)?.focus()
               }}
             >
               {t(`writing.mode.${m}`)}
@@ -119,7 +154,12 @@ export function WritingView(): JSX.Element {
         </p>
       )}
 
-      <div className="writing-view__workbench">
+      <div
+        className="writing-view__workbench"
+        role="tabpanel"
+        id={`${modeId}-panel`}
+        aria-labelledby={`${modeId}-${mode}`}
+      >
         <div className="writing-view__pane">
           <div className="writing-view__pane-head">
             <span className="writing-view__pane-label">{t('writing.sourceLabel')}</span>

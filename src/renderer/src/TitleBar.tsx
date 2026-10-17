@@ -12,11 +12,22 @@ export function TitleBar({ onOpenSettings, unlocked = false }: TitleBarProps = {
   const t = useT()
   const [maximized, setMaximized] = useState(false)
   useEffect(() => {
+    let mounted = true
+    let receivedUpdate = false
+    const off = window.api.window.onMaximizedChange((value) => {
+      receivedUpdate = true
+      if (mounted) setMaximized(value)
+    })
     void window.api.window
       .isMaximized()
-      .then(setMaximized)
+      .then((value) => {
+        if (mounted && !receivedUpdate) setMaximized(value)
+      })
       .catch(() => undefined)
-    return window.api.window.onMaximizedChange(setMaximized)
+    return () => {
+      mounted = false
+      off()
+    }
   }, [])
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Document } from '@shared/documents'
 import type { CreateQuizInput, QuizDeck, QuizEstimate } from '@shared/quiz'
 import { useT } from '../i18n'
@@ -28,6 +28,14 @@ export function CreateQuizDialog({
   const [language, setLanguage] = useState<'auto' | 'de' | 'en'>('auto')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const alive = useRef(true)
+  const pending = useRef(false)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
   // No question-count picker: the model decides how many questions each
   // section needs during generation. The preview shows the section count plus
   // an estimated question total, computed from chunk stats in the main process
@@ -35,8 +43,8 @@ export function CreateQuizDialog({
   const [estimate, setEstimate] = useState<QuizEstimate | null>(null)
 
   useEffect(() => {
+    setEstimate(null)
     if (selectedDocId === null) {
-      setEstimate(null)
       return
     }
     let stale = false
@@ -68,10 +76,12 @@ export function CreateQuizDialog({
     if (doc) setName(defaultQuizName(doc.title))
   }, [selectedDocId, nameEdited, readyDocs])
 
-  const canSubmit = !submitting && name.trim().length > 0 && selectedDocId !== null
+  const canSubmit =
+    !submitting && name.trim().length > 0 && readyDocs.some((doc) => doc.id === selectedDocId)
 
   const submit = async (): Promise<void> => {
-    if (!canSubmit || selectedDocId === null) return
+    if (!canSubmit || selectedDocId === null || pending.current) return
+    pending.current = true
     setSubmitting(true)
     setError(null)
     try {
@@ -82,10 +92,14 @@ export function CreateQuizDialog({
         language,
       }
       const deck = await window.api.quiz.createDeck(input)
-      onCreated(deck)
+      if (alive.current) onCreated(deck)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      setSubmitting(false)
+      if (alive.current) {
+        setError(err instanceof Error ? err.message : String(err))
+        setSubmitting(false)
+      }
+    } finally {
+      pending.current = false
     }
   }
 
@@ -93,7 +107,7 @@ export function CreateQuizDialog({
     <section className="quiz-create">
       <header className="quiz-create__header">
         <h2>{t('quiz.create.heading')}</h2>
-        <button type="button" className="quiz-btn" onClick={onCancel}>
+        <button type="button" className="quiz-btn" onClick={onCancel} disabled={submitting}>
           {t('common.cancel')}
         </button>
       </header>
@@ -102,6 +116,7 @@ export function CreateQuizDialog({
         <input
           className="quiz-field__input"
           value={name}
+          disabled={submitting}
           onChange={(e) => {
             setName(e.target.value)
             setNameEdited(true)
@@ -124,6 +139,7 @@ export function CreateQuizDialog({
                     type="radio"
                     name="quiz-document"
                     checked={selectedDocId === doc.id}
+                    disabled={submitting}
                     onChange={() => setSelectedDocId(doc.id)}
                   />
                   <span className="quiz-create__doc-title">{doc.title}</span>
@@ -154,6 +170,8 @@ export function CreateQuizDialog({
             <button
               key={l}
               type="button"
+              disabled={submitting}
+              aria-pressed={language === l}
               className={`quiz-segmented__btn ${language === l ? 'quiz-segmented__btn--active' : ''}`}
               onClick={() => setLanguage(l)}
             >
@@ -167,7 +185,11 @@ export function CreateQuizDialog({
         </div>
       </div>
 
-      {error && <p className="quiz-create__error">{error}</p>}
+      {error && (
+        <p className="quiz-create__error" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="quiz-create__footer">
         <button

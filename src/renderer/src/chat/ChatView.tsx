@@ -112,6 +112,10 @@ export function ChatView({
   const regeneratePending = useRef(false)
   const deletePending = useRef(false)
   const navigation = useRef(0)
+  const listRequest = useRef(0)
+  const mounted = useRef(true)
+  const currentWorkspace = useRef(workspaceId)
+  currentWorkspace.current = workspaceId
   // Includes a selection whose database read has not completed yet. The
   // displayed ID alone cannot tell a terminal refresh from reopening a chat
   // the user is currently leaving.
@@ -133,15 +137,17 @@ export function ChatView({
   // is undefined while settings hydrate from disk on first launch.
   const keepPipelineVisible = settings?.basic.showPipelineSteps ?? false
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      listRequest.current++
       // Pending preflight reads must never start a new generation after this
       // workspace view has been removed (for example, while switching vaults).
       navigation.current++
       pendingSendCancelled.current = true
-    },
-    [],
-  )
+    }
+  }, [])
 
   // Closures captured by the stream listener see a stale `currentConversationId`
   // — we use a ref so the listener can compare against the live value and drop
@@ -178,17 +184,25 @@ export function ChatView({
   }, [messages])
 
   const refresh = useCallback(async () => {
+    if (!mounted.current || currentWorkspace.current !== workspaceId) return
+    const request = ++listRequest.current
+    const ownsRequest = () =>
+      mounted.current && currentWorkspace.current === workspaceId && request === listRequest.current
     try {
       const list = await window.api.conversations.list(workspaceId)
-      setConversations(list)
+      if (ownsRequest()) setConversations(list)
     } catch (err) {
-      setError(String(err))
+      if (ownsRequest()) setError(String(err))
     }
   }, [workspaceId])
 
   useEffect(() => {
     navigation.current++
     setMessages([])
+    setConversations([])
+    setConfirmDelete(null)
+    setSourceViewer(null)
+    setError(null)
     void refresh()
     // Kick the reranker load up-front so the first chat:stream call doesn't
     // pay the GGUF load time on top of retrieval + generation latency. Fire
@@ -615,8 +629,10 @@ export function ChatView({
     async (id: number) => {
       if (deletePending.current) return
       deletePending.current = true
+      const ownsView = () => mounted.current && currentWorkspace.current === workspaceId
       try {
         await window.api.conversations.delete(id)
+        if (!ownsView()) return
         if (currentIdRef.current === id) {
           navigation.current++
           navigationTarget.current = null
@@ -626,13 +642,13 @@ export function ChatView({
         }
         void refresh()
       } catch (err) {
-        setError(String(err))
+        if (ownsView()) setError(String(err))
       } finally {
         deletePending.current = false
-        setConfirmDelete(null)
+        if (ownsView()) setConfirmDelete(null)
       }
     },
-    [refresh, onConversationChange],
+    [workspaceId, refresh, onConversationChange],
   )
 
   const currentTitle =

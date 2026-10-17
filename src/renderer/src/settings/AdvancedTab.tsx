@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useSettings } from './useSettings'
+import { SettingsLoadState } from './SettingsLoadState'
 import { LlmSection } from './sections/LlmSection'
 import { EmbedderSection } from './sections/EmbedderSection'
 import { RerankerSection } from './sections/RerankerSection'
@@ -64,7 +65,7 @@ export function AdvancedTab(): JSX.Element {
     })
   }, [])
 
-  if (!settings) return <div>{t('settings.loading')}</div>
+  if (!settings) return <SettingsLoadState />
 
   const subtabs = SUBTABS.filter((st) => st.id !== 'ollama' || ollamaUnlocked)
 
@@ -176,8 +177,15 @@ export function AdvancedTab(): JSX.Element {
             {t(resetting ? 'prefs.saving' : 'settings.advanced.resetConfirm')}
           </button>
         )}
-        <span className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}>
-          <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
+        <span
+          role="status"
+          className={`settings-saved-flash ${savedFlash ? 'settings-saved-flash--on' : ''}`}
+        >
+          {savedFlash && (
+            <>
+              <Check size={14} aria-hidden="true" /> {t('settings.basic.saved')}
+            </>
+          )}
         </span>
       </div>
       {resetFailed && (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { isModuleVisible, type AppView } from '@shared/settings'
 import { useSettings } from './useSettings'
+import { SettingsLoadState } from './SettingsLoadState'
 import { useT } from '../i18n'
 import { MODULE_OPTIONS } from './moduleOptions'
 
@@ -10,7 +11,7 @@ export function ModulesTab(): JSX.Element {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
-  if (!settings) return <p>{t('settings.loading')}</p>
+  if (!settings) return <SettingsLoadState />
   const save = async (patch: unknown): Promise<void> => {
     setSaving(true)
     setFailed(false)

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { QuizDeckSummary } from '@shared/quiz'
 import { QuizView } from './QuizView'
 
@@ -27,6 +27,24 @@ afterEach(() => {
 })
 
 describe('Quiz workflow', () => {
+  it('does not launch regeneration after its workspace view is unmounted', async () => {
+    vi.spyOn(window.api.quiz, 'listDecks').mockResolvedValue([deck])
+    let resolve!: () => void
+    vi.spyOn(window.api.quiz, 'regenerateDeck').mockReturnValue(
+      new Promise((done) => {
+        resolve = done
+      }),
+    )
+    const generate = vi.spyOn(window.api.quiz, 'generate')
+    const { unmount } = render(<QuizView workspaceId={1} workspaceName="Research" documents={[]} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    unmount()
+    await act(async () => resolve())
+    expect(generate).not.toHaveBeenCalled()
+    expect(job.begin).not.toHaveBeenCalled()
+    expect(window.api.quiz.listDecks).toHaveBeenCalledOnce()
+  })
+
   it('cleans up activity and event subscriptions when generation IPC rejects', async () => {
     job.begin.mockReturnValue(job.end)
     vi.spyOn(window.api.quiz, 'listDecks').mockResolvedValue([deck])

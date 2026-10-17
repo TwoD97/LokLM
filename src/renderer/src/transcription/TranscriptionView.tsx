@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { useTranscription } from './useTranscription'
+import { useRecorder } from './useRecorder'
 import { SpeakerLabels } from './SpeakerLabels'
 import { TranscriptList } from './TranscriptList'
 import { toTxt, toSrt, toVtt } from '@shared/subtitles'
@@ -39,7 +40,7 @@ export function TranscriptionView({
   active: boolean
 }): JSX.Element {
   const t = useT()
-  const { state, queue, transcribe, transcribeMany, cancel, reset } = useTranscription()
+  const { state, queue, cancelling, transcribe, transcribeMany, cancel, reset } = useTranscription()
   const [language, setLanguage] = useState<TranscriptionOptions['language']>('auto')
   const [diarize, setDiarize] = useState(false)
   const [speakers, setSpeakers] = useState('')
@@ -103,18 +104,10 @@ export function TranscriptionView({
     [onFiles],
   )
 
-  const { recording, seconds, recordError, toggleRecord } = useRecorder((blob) => onFile(blob))
-
-  // This view is kept mounted (merely hidden) when the user switches tabs, so
-  // the useRecorder unmount cleanup that releases the microphone no longer fires
-  // on a tab switch. Stop an in-progress recording when the tab is hidden, so
-  // the OS mic isn't held — with its in-use indicator left on — behind a hidden
-  // tab. Stopping flushes the audio captured so far into transcription, whose
-  // result then persists for when the user returns. `toggleRecord` is a no-op
-  // unless currently recording, so the guard keeps it from starting one.
-  useEffect(() => {
-    if (!active && recording) toggleRecord()
-  }, [active, recording, toggleRecord])
+  const { recording, preparing, seconds, recordError, toggleRecord } = useRecorder(
+    (blob) => onFile(blob),
+    active,
+  )
 
   const distinctSpeakers = useMemo(
     () => [...new Set(state.segments.map((s) => s.speaker).filter(Boolean))] as string[],
@@ -181,7 +174,13 @@ export function TranscriptionView({
       )}
 
       {queue.length > 0 && (
-        <TranscriptList rows={queue} workspaceId={workspaceId} onClear={reset} />
+        <TranscriptList
+          rows={queue}
+          workspaceId={workspaceId}
+          onClear={reset}
+          onCancel={cancel}
+          cancelling={cancelling}
+        />
       )}
 
       {state.phase === 'idle' && queue.length === 0 && (
@@ -224,15 +223,21 @@ export function TranscriptionView({
             <button
               className={`transcription__record ${recording ? 'is-recording' : ''}`}
               onClick={toggleRecord}
+              disabled={preparing}
             >
               {recording && <span className="transcription__rec-dot" aria-hidden="true" />}
-              {recording ? t('tx.recording', { secs: seconds }) : t('tx.record')}
+              {preparing
+                ? t('tx.recPreparing')
+                : recording
+                  ? t('tx.recording', { secs: seconds })
+                  : t('tx.record')}
             </button>
             {recordError && <span className="transcription__rec-error">{t(recordError)}</span>}
           </div>
 
           <button
             type="button"
+            disabled={recording || preparing}
             className={`transcription__drop ${over ? 'transcription__drop--over' : ''}`}
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => {
@@ -260,15 +265,24 @@ export function TranscriptionView({
       )}
 
       {state.phase === 'decoding' && (
-        <div className="transcription__status" role="status">
-          {t('tx.decoding')}
+        <div className="transcription__progress">
+          <p className="transcription__status" role="status">
+            {t(cancelling ? 'tx.stopping' : 'tx.decoding')}
+          </p>
+          <button className="transcription__btn" onClick={cancel} disabled={cancelling}>
+            {t('tx.cancel')}
+          </button>
         </div>
       )}
 
       {state.phase === 'transcribing' && (
         <div className="transcription__progress">
-          <div className="transcription__status">
-            {state.progress?.stage === 'diarize' ? t('tx.diarizing') : t('tx.transcribing')}
+          <div className="transcription__status" role="status">
+            {cancelling
+              ? t('tx.stopping')
+              : state.progress?.stage === 'diarize'
+                ? t('tx.diarizing')
+                : t('tx.transcribing')}
             {state.progress && (
               <progress
                 className="transcription__bar"
@@ -278,7 +292,7 @@ export function TranscriptionView({
               />
             )}
           </div>
-          <button className="transcription__btn" onClick={cancel}>
+          <button className="transcription__btn" onClick={cancel} disabled={cancelling}>
             {t('tx.cancel')}
           </button>
           {state.error && (
@@ -350,15 +364,15 @@ export function TranscriptionView({
         </div>
       )}
 
-      {state.phase === 'error' && (
-        <div className="transcription__error" role="alert">
+      {(state.phase === 'error' || state.phase === 'cancelled') && (
+        <div className="transcription__error" role={state.phase === 'error' ? 'alert' : 'status'}>
           <span>{state.error?.startsWith('tx.') ? t(state.error) : state.error}</span>
           <button className="transcription__btn" onClick={reset}>
             {t('tx.again')}
           </button>
         </div>
       )}
-      {state.phase === 'error' && state.segments.length > 0 && (
+      {(state.phase === 'error' || state.phase === 'cancelled') && state.segments.length > 0 && (
         <div className="transcription__result">
           <p>{t('tx.partial')}</p>
           <button className="transcription__btn" onClick={() => void onCopy()}>
@@ -382,112 +396,4 @@ function TranscriptBody({ segments }: { segments: TranscriptSegment[] }): JSX.El
       ))}
     </div>
   )
-}
-
-/** Minimal MediaRecorder wrapper: toggle start/stop, surface elapsed seconds,
- *  hand the recorded blob to onClip when stopped. */
-function useRecorder(onClip: (blob: File) => void): {
-  recording: boolean
-  seconds: number
-  recordError: string | null
-  toggleRecord: () => void
-} {
-  const [recording, setRecording] = useState(false)
-  const [seconds, setSeconds] = useState(0)
-  const [recordError, setRecordError] = useState<string | null>(null)
-  const recRef = useRef<MediaRecorder | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const stopTimer = (): void => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-  }
-
-  // Unmounting mid-recording must release the OS mic device, or it stays held
-  // until the app restarts. Stop the recorder + every track on cleanup.
-  useEffect(
-    () => () => {
-      stopTimer()
-      try {
-        recRef.current?.stop()
-      } catch {
-        /* already stopped */
-      }
-      for (const tr of streamRef.current?.getTracks() ?? []) tr.stop()
-    },
-    [],
-  )
-
-  const toggleRecord = useCallback(() => {
-    if (recording) {
-      recRef.current?.stop()
-      return
-    }
-    setRecordError(null)
-    // getUserMedia can be missing (no secure context / odd Electron build) or
-    // throw synchronously — both would bypass a plain .catch and leave the user
-    // with no feedback. Guard every step and surface the exact error.
-    const md = navigator.mediaDevices
-    if (!md || typeof md.getUserMedia !== 'function') {
-      console.error('[record] navigator.mediaDevices.getUserMedia unavailable', md)
-      setRecordError('tx.recUnavailable')
-      return
-    }
-    let pending: Promise<MediaStream>
-    try {
-      pending = md.getUserMedia({ audio: true })
-    } catch (err) {
-      console.error('[record] getUserMedia threw synchronously', err)
-      setRecordError(`Mic error: ${err instanceof Error ? err.name : String(err)}`)
-      return
-    }
-    void pending
-      .then((stream) => {
-        streamRef.current = stream
-        let rec: MediaRecorder
-        try {
-          rec = new MediaRecorder(stream)
-        } catch (err) {
-          for (const tr of stream.getTracks()) tr.stop()
-          streamRef.current = null
-
-          console.error('[record] MediaRecorder construction failed', err)
-          setRecordError(`Recorder error: ${err instanceof Error ? err.name : String(err)}`)
-          return
-        }
-        chunksRef.current = []
-        rec.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data)
-        }
-        rec.onstop = () => {
-          stopTimer()
-          setRecording(false)
-          for (const tr of stream.getTracks()) tr.stop()
-          streamRef.current = null
-          const blob = new File(chunksRef.current, 'recording.webm', { type: 'audio/webm' })
-          onClip(blob)
-        }
-        recRef.current = rec
-        rec.start()
-        setRecording(true)
-        setSeconds(0)
-        timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000)
-      })
-      .catch((err: unknown) => {
-        console.error('[record] getUserMedia rejected', err)
-        setRecording(false)
-        const name = err instanceof Error ? err.name : ''
-        setRecordError(
-          name === 'NotFoundError'
-            ? 'tx.recNoDevice'
-            : name === 'NotAllowedError'
-              ? 'tx.recDenied'
-              : `Mic error: ${name || String(err)}`,
-        )
-      })
-  }, [recording, onClip])
-
-  return { recording, seconds, recordError, toggleRecord }
 }

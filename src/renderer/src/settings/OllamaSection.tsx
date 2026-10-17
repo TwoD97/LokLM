@@ -42,13 +42,22 @@ export function OllamaSection({ settings, update }: Props): JSX.Element {
   const [bearerTokenDraft, setBearerTokenDraft] = useState(
     settings.advanced.ollama.bearerToken ?? '',
   )
+  const previousBaseUrl = useRef(settings.advanced.ollama.baseUrl)
+  const previousBearerToken = useRef(settings.advanced.ollama.bearerToken ?? '')
   // Re-sync local drafts when settings change underneath us (e.g. another
   // tab edited them, or DEFAULTS got applied).
   useEffect(() => {
-    setBaseUrlDraft(settings.advanced.ollama.baseUrl)
+    const previous = previousBaseUrl.current
+    previousBaseUrl.current = settings.advanced.ollama.baseUrl
+    // A slow save must not replace text entered after that save was sent.
+    setBaseUrlDraft((draft) => (draft === previous ? settings.advanced.ollama.baseUrl : draft))
   }, [settings.advanced.ollama.baseUrl])
   useEffect(() => {
-    setBearerTokenDraft(settings.advanced.ollama.bearerToken ?? '')
+    const previous = previousBearerToken.current
+    previousBearerToken.current = settings.advanced.ollama.bearerToken ?? ''
+    setBearerTokenDraft((draft) =>
+      draft === previous ? (settings.advanced.ollama.bearerToken ?? '') : draft,
+    )
   }, [settings.advanced.ollama.bearerToken])
   // Master-switch gate: opens the ReindexGateModal when the user flips ALL
   // three sources at once. The embedder leg of the flip is the part that
@@ -451,13 +460,32 @@ function ChipPicker({
         </div>
       ) : (
         <div className="settings-chip-group" role="radiogroup" aria-label={groupLabel}>
-          {models.map((m) => (
+          {models.map((m, index) => (
             <button
               key={m}
               role="radio"
               aria-checked={m === value}
+              tabIndex={m === value || (!models.includes(value ?? '') && index === 0) ? 0 : -1}
               className={`settings-chip ${m === value ? 'settings-chip--active' : ''}`}
               onClick={() => onChange(m === value ? null : m)}
+              onKeyDown={(event) => {
+                const next =
+                  event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? models.length - 1
+                      : ['ArrowRight', 'ArrowDown'].includes(event.key)
+                        ? (index + 1) % models.length
+                        : ['ArrowLeft', 'ArrowUp'].includes(event.key)
+                          ? (index + models.length - 1) % models.length
+                          : null
+                if (next === null) return
+                event.preventDefault()
+                onChange(models[next]!)
+                event.currentTarget.parentElement
+                  ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+                  [next]?.focus()
+              }}
               title={
                 m === value
                   ? t('settings.ollama.clickToClear')

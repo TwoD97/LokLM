@@ -240,6 +240,7 @@ function GroundingBadge({
               type="button"
               className="chat__sources-pop-item"
               role="menuitem"
+              aria-label={`${s.index} ${s.name}`}
               tabIndex={-1}
               title={s.path ?? s.name}
               onClick={() => {

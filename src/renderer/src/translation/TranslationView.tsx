@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Copy, Check, Save } from 'lucide-react'
 import type { Document, Workspace } from '@shared/documents'
 import type { TranslateResult, TranslationLanguage, TranslatorStatus } from '@shared/translation'
@@ -32,6 +32,16 @@ export function TranslationView(): JSX.Element {
   const [stopped, setStopped] = useState(false)
   const pending = useRef(false)
   const savePending = useRef(false)
+  const alive = useRef(true)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tabId = useId()
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    }
+  }, [])
 
   const [source, setSource] = useState('')
   const [target, setTarget] = useState<string>(uiLang)
@@ -54,18 +64,20 @@ export function TranslationView(): JSX.Element {
 
   useEffect(() => {
     let mounted = true
+    let received = false
     setStatusError(null)
     void window.api.translation
       .status()
-      .then((s) => mounted && setStatus(s))
+      .then((s) => mounted && !received && setStatus(s))
       .catch((err: unknown) => {
-        if (mounted) setStatusError(String(err))
+        if (mounted && !received) setStatusError(String(err))
       })
     void window.api.translation
       .languages()
       .then((l) => mounted && setLanguages(l))
       .catch(() => undefined)
     const offStatus = window.api.translation.onStatus((s) => {
+      received = true
       setStatus(s)
       setStatusError(null)
     })
@@ -133,13 +145,16 @@ export function TranslationView(): JSX.Element {
     setLoadingDoc(true)
     try {
       const { title, text } = await window.api.translation.documentText(id)
+      if (!alive.current) return
       setDocTitle(title)
       setSource(text)
     } catch (err) {
-      setDocId(null)
-      setError(err instanceof Error ? err.message : String(err))
+      if (alive.current) {
+        setDocId(null)
+        setError(err instanceof Error ? err.message : String(err))
+      }
     } finally {
-      setLoadingDoc(false)
+      if (alive.current) setLoadingDoc(false)
     }
   }
 
@@ -155,15 +170,18 @@ export function TranslationView(): JSX.Element {
     const endGeneration = beginGeneration('translation')
     try {
       const translated = await runTranslation(source, target)
+      if (!alive.current) return
       setResult(translated)
       setStopped(translated === null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if (alive.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
       endGeneration()
       pending.current = false
-      setStopping(false)
-      setBusy(false)
+      if (alive.current) {
+        setStopping(false)
+        setBusy(false)
+      }
     }
   }
 
@@ -179,12 +197,12 @@ export function TranslationView(): JSX.Element {
         result.text,
         target,
       )
-      setSavedTitle(doc.title)
+      if (alive.current) setSavedTitle(doc.title)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if (alive.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
       savePending.current = false
-      setSaving(false)
+      if (alive.current) setSaving(false)
     }
   }
 
@@ -192,10 +210,12 @@ export function TranslationView(): JSX.Element {
     if (!result) return
     try {
       await navigator.clipboard.writeText(result.text)
+      if (!alive.current) return
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 1500)
     } catch {
-      setError(t('translation.copyFailed'))
+      if (alive.current) setError(t('translation.copyFailed'))
     }
   }
 
@@ -266,9 +286,32 @@ export function TranslationView(): JSX.Element {
             className="translation-view__tabs"
             role="tablist"
             aria-label={t('translation.sourceLabel')}
+            onKeyDown={(event) => {
+              if (
+                busy ||
+                loadingDoc ||
+                saving ||
+                !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+              )
+                return
+              event.preventDefault()
+              const next =
+                event.key === 'Home'
+                  ? 'text'
+                  : event.key === 'End'
+                    ? 'document'
+                    : sourceMode === 'text'
+                      ? 'document'
+                      : 'text'
+              setSourceMode(next)
+              document.getElementById(`${tabId}-${next}`)?.focus()
+            }}
           >
             <button
               role="tab"
+              id={`${tabId}-text`}
+              aria-controls={`${tabId}-panel`}
+              tabIndex={sourceMode === 'text' ? 0 : -1}
               aria-selected={sourceMode === 'text'}
               disabled={busy || loadingDoc || saving}
               className={`translation-view__tab ${sourceMode === 'text' ? 'translation-view__tab--active' : ''}`}
@@ -278,6 +321,9 @@ export function TranslationView(): JSX.Element {
             </button>
             <button
               role="tab"
+              id={`${tabId}-document`}
+              aria-controls={`${tabId}-panel`}
+              tabIndex={sourceMode === 'document' ? 0 : -1}
               aria-selected={sourceMode === 'document'}
               disabled={busy || loadingDoc || saving}
               className={`translation-view__tab ${sourceMode === 'document' ? 'translation-view__tab--active' : ''}`}
@@ -395,7 +441,12 @@ export function TranslationView(): JSX.Element {
             )}
           </div>
 
-          <div className="translation-view__workbench">
+          <div
+            className="translation-view__workbench"
+            role="tabpanel"
+            id={`${tabId}-panel`}
+            aria-labelledby={`${tabId}-${sourceMode}`}
+          >
             <div className="translation-view__pane">
               <div className="translation-view__pane-head">
                 <span className="translation-view__pane-label">{t('translation.sourceLabel')}</span>

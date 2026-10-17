@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MergeQuizInput, QuizDeck, QuizDeckSummary } from '@shared/quiz'
 import { useT } from '../i18n'
 
@@ -20,6 +20,14 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
   const [shuffle, setShuffle] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const alive = useRef(true)
+  const pending = useRef(false)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
 
   const toggleDeck = (id: number): void => {
     setSelected((prev) => {
@@ -41,7 +49,8 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
   const canSubmit = !submitting && name.trim().length > 0 && selected.size >= 2
 
   const submit = async (): Promise<void> => {
-    if (!canSubmit) return
+    if (!canSubmit || pending.current) return
+    pending.current = true
     setSubmitting(true)
     setError(null)
     try {
@@ -52,10 +61,14 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
         shuffle,
       }
       const deck = await window.api.quiz.mergeDecks(input)
-      onMerged(deck)
+      if (alive.current) onMerged(deck)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      setSubmitting(false)
+      if (alive.current) {
+        setError(err instanceof Error ? err.message : String(err))
+        setSubmitting(false)
+      }
+    } finally {
+      pending.current = false
     }
   }
 
@@ -63,7 +76,7 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
     <section className="quiz-create">
       <header className="quiz-create__header">
         <h2>{t('quiz.merge.heading')}</h2>
-        <button type="button" className="quiz-btn" onClick={onCancel}>
+        <button type="button" className="quiz-btn" onClick={onCancel} disabled={submitting}>
           {t('common.cancel')}
         </button>
       </header>
@@ -73,6 +86,7 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
         <input
           className="quiz-field__input"
           value={name}
+          disabled={submitting}
           onChange={(e) => setName(e.target.value)}
           maxLength={128}
           placeholder={t('quiz.merge.namePlaceholder')}
@@ -91,9 +105,10 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
                   <input
                     type="checkbox"
                     checked={selected.has(deck.id)}
+                    disabled={submitting}
                     onChange={() => toggleDeck(deck.id)}
                   />
-                  <span className="quiz-create__doc-title">{deck.name}</span>
+                  <span className="quiz-create__doc-title">{deck.name}</span>{' '}
                   <span className="quiz-create__doc-meta">
                     {t('quiz.list.questions', { count: deck.questionCount })}
                   </span>
@@ -110,11 +125,20 @@ export function MergeQuizDialog({ workspaceId, decks, onCancel, onMerged }: Prop
       </div>
 
       <label className="quiz-create__doc-row quiz-merge__shuffle">
-        <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={shuffle}
+          disabled={submitting}
+          onChange={(e) => setShuffle(e.target.checked)}
+        />
         <span className="quiz-create__doc-title">{t('quiz.merge.shuffle')}</span>
       </label>
 
-      {error && <p className="quiz-create__error">{error}</p>}
+      {error && (
+        <p className="quiz-create__error" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="quiz-create__footer">
         <button

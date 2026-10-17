@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Cpu } from 'lucide-react'
 import type { RerankerInfo, SystemInfo } from '@shared/documents'
 import { RERANKER_AUTO_MIN_VRAM_GIB } from '@shared/modelCapabilities'
 import { useSettings } from './useSettings'
+import { SettingsLoadState } from './SettingsLoadState'
 import { useT } from '../i18n'
 
 export function SystemTab({ onOpenAdvanced }: { onOpenAdvanced?: () => void }): JSX.Element {
@@ -54,7 +55,7 @@ export function SystemTab({ onOpenAdvanced }: { onOpenAdvanced?: () => void }): 
       refreshId.current++
     }
   }, [refresh])
-  if (!settings) return <p>{t('settings.loading')}</p>
+  if (!settings) return <SettingsLoadState />
   const decision = reranker?.policyDecision
   const resources = info?.resources as { totalVramGB?: number; hasGpu?: boolean } | null
   const vram = info?.modelCapacity?.totalVramGB ?? decision?.totalVramGB ?? resources?.totalVramGB
