@@ -5,6 +5,7 @@ import type {
   SkillTool,
 } from '../../../shared/connections'
 import { McpClient, type McpDependencies } from './McpClient'
+import { NativeConnectorClient } from './NativeConnectorClient'
 import {
   CONNECTIONS_KEY,
   LIMITS,
@@ -25,7 +26,7 @@ interface Runtime {
   status: McpConnectionSummary['status']
   error?: string
   tools: SkillTool[]
-  client?: McpClient
+  client?: Pick<McpClient, 'initialize' | 'request' | 'close'>
   connecting?: Promise<void>
 }
 
@@ -207,14 +208,18 @@ export class ConnectionsService {
     ])
     const nonce = randomUUID()
     try {
-      const client = new McpClient(config, this.deps, () => {
-        if (runtime.status === 'disconnected') return
-        runtime.status = 'error'
-        runtime.error = 'MCP connection closed or its tools changed. Reconnect before using it.'
-        runtime.tools = []
-        runtime.controller.abort()
-        this.trackClose(runtime.client?.close() ?? Promise.resolve())
-      })
+      const client =
+        config.transport === 'fastmail' || config.transport === 'couchdb'
+          ? new NativeConnectorClient(config, this.deps)
+          : new McpClient(config, this.deps, () => {
+              if (runtime.status === 'disconnected') return
+              runtime.status = 'error'
+              runtime.error =
+                'MCP connection closed or its tools changed. Reconnect before using it.'
+              runtime.tools = []
+              runtime.controller.abort()
+              this.trackClose(runtime.client?.close() ?? Promise.resolve())
+            })
       runtime.client = client
       await client.initialize(signal)
       const discovered: SkillTool[] = []
@@ -254,7 +259,10 @@ export class ConnectionsService {
             name: tool.name,
             description: redact(String(tool.description ?? ''), config),
             inputSchema: schema,
-            source: 'mcp',
+            source:
+              config.transport === 'fastmail' || config.transport === 'couchdb'
+                ? 'connection'
+                : 'mcp',
             connectionId: config.id,
             effect: 'external',
           })

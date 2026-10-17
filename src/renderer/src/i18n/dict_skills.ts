@@ -2,6 +2,20 @@ import type { Locale } from './types'
 
 export const skillsDict: Record<Locale, Record<string, string>> = {
   en: {
+    'connections.fastmail': 'Fastmail',
+    'connections.couchdb': 'Obsidian / CouchDB',
+    'connections.databaseUrl': 'CouchDB database URL',
+    'connections.fastmailSetup':
+      'Connect directly with a personal Fastmail API token. Mail search and reading use mail access; drafts and sending also need submission access. Every email action is reviewed in Assistant chat. Calendars are not included in this connector.',
+    'connections.couchdbSetup':
+      'Read and edit existing Obsidian Self-hosted LiveSync text notes. Edits require review and reject changed revisions. Enter the full database URL and, for encrypted vaults, the separate LiveSync encryption passphrase. Decryption happens locally. Text notes are supported; binary attachments and unsupported formats report an error. Connecting checks database access; the passphrase is checked when reading encrypted data.',
+    'connections.fastmailTokens': 'Create a Fastmail API token',
+    'connections.API_TOKEN': 'Fastmail API token',
+    'connections.COUCHDB_USERNAME': 'CouchDB username',
+    'connections.COUCHDB_PASSWORD': 'CouchDB password',
+    'connections.LIVESYNC_PASSPHRASE': 'LiveSync encryption passphrase',
+    'connections.nativeSecretsHint':
+      'Leave a field blank to keep its saved value. Credentials are encrypted in your LokLM vault. Remove this connection to erase its credentials.',
     'skills.mode': 'Chat mode',
     'skills.documents': 'Documents',
     'skills.assistant': 'Assistant',
@@ -21,7 +35,7 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
     'skills.assistantHint':
       'Use personal notes, tasks and calendar. Review changes and every connected-service call before running them.',
     'skills.connectionsHint':
-      'For email or external calendars, configure an MCP server in Settings → Connections, then use Assistant mode.',
+      'Connect Fastmail, Obsidian or an MCP service in Settings → Connections, then use Assistant mode.',
     'skills.arguments': 'Requested details',
     'skills.apply': 'Apply change',
     'skills.run': 'Run connected tool',
@@ -40,19 +54,19 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
     'skills.open.tasks': 'Open task',
     'skills.open.events': 'Open event',
     'connections.title': 'Connections',
-    'connections.hint': 'Connect MCP servers for email, calendars and other services.',
+    'connections.hint': 'Connect Fastmail, Obsidian and other services.',
     'connections.privacy':
       'Server credentials are stored in your encrypted vault and are never shown again here. A local server runs the command you configure; use a server you trust. Connected-tool calls require review in Assistant chat.',
     'connections.loading': 'Loading connections…',
     'connections.refresh': 'Refresh connections',
     'connections.empty':
-      'No servers configured. Add a mail or calendar MCP server using its setup instructions.',
-    'connections.new': 'Add server',
+      'No connections yet. Choose Fastmail, Obsidian / CouchDB, or add an MCP server.',
+    'connections.new': 'Add connection',
     'connections.googlePreset': 'Gmail + Google Calendar',
     'connections.googleSetup':
       'This editable preset uses uvx. Follow the server’s Google OAuth setup and enter GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET in the environment variables below. Connecting may download the server and require browser authorization.',
     'connections.setupGuide': 'Server setup guide',
-    'connections.edit': 'Edit server',
+    'connections.edit': 'Edit connection',
     'connections.name': 'Name',
     'connections.transport': 'Connection type',
     'connections.stdio': 'Local command (stdio)',
@@ -66,7 +80,7 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
       'Leave blank to keep saved credentials; enter {} to clear them. New values are hidden and cleared after saving.',
     'connections.secretKeys': 'Saved credential keys: {keys}',
     'connections.enabled': 'Available in Assistant',
-    'connections.save': 'Save server',
+    'connections.save': 'Save connection',
     'connections.connect': 'Connect',
     'connections.disconnect': 'Disconnect',
     'connections.remove': 'Remove',
@@ -87,6 +101,20 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
     'connections.builtIn': 'Built in',
   },
   de: {
+    'connections.fastmail': 'Fastmail',
+    'connections.couchdb': 'Obsidian / CouchDB',
+    'connections.databaseUrl': 'CouchDB-Datenbank-URL',
+    'connections.fastmailSetup':
+      'Direkt mit einem persönlichen Fastmail-API-Token verbinden. Suchen und Lesen benötigen E-Mail-Zugriff; Entwürfe und Versand zusätzlich die Versandberechtigung. Jede E-Mail-Aktion wird im Assistenten geprüft. Kalender sind in dieser Verbindung nicht enthalten.',
+    'connections.couchdbSetup':
+      'Bestehende Obsidian-Self-hosted-LiveSync-Textnotizen lesen und bearbeiten. Änderungen erfordern Prüfung und werden bei veralteten Revisionen abgelehnt. Gib die vollständige Datenbank-URL und bei verschlüsselten Tresoren die separate LiveSync-Passphrase ein. Die Entschlüsselung erfolgt lokal. Textnotizen werden unterstützt; Binäranhänge und unbekannte Formate melden einen Fehler. Verbinden prüft den Datenbankzugriff; die Passphrase wird beim Lesen verschlüsselter Daten geprüft.',
+    'connections.fastmailTokens': 'Fastmail-API-Token erstellen',
+    'connections.API_TOKEN': 'Fastmail-API-Token',
+    'connections.COUCHDB_USERNAME': 'CouchDB-Benutzername',
+    'connections.COUCHDB_PASSWORD': 'CouchDB-Passwort',
+    'connections.LIVESYNC_PASSPHRASE': 'LiveSync-Verschlüsselungspassphrase',
+    'connections.nativeSecretsHint':
+      'Ein leeres Feld behält den gespeicherten Wert. Zugangsdaten liegen verschlüsselt im LokLM-Tresor. Entferne die Verbindung, um ihre Zugangsdaten zu löschen.',
     'skills.mode': 'Chatmodus',
     'skills.documents': 'Dokumente',
     'skills.assistant': 'Assistent',
@@ -106,7 +134,7 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
     'skills.assistantHint':
       'Nutze persönliche Notizen, Aufgaben und Kalender. Prüfe Änderungen und jeden Aufruf verbundener Dienste vor der Ausführung.',
     'skills.connectionsHint':
-      'Für E-Mail oder externe Kalender einen MCP-Server unter Einstellungen → Verbindungen einrichten und dann den Assistenten verwenden.',
+      'Fastmail, Obsidian oder einen MCP-Dienst unter Einstellungen → Verbindungen einrichten und dann den Assistenten verwenden.',
     'skills.arguments': 'Angefragte Details',
     'skills.apply': 'Änderung anwenden',
     'skills.run': 'Verbundenes Werkzeug ausführen',
@@ -125,19 +153,19 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
     'skills.open.tasks': 'Aufgabe öffnen',
     'skills.open.events': 'Termin öffnen',
     'connections.title': 'Verbindungen',
-    'connections.hint': 'Verbinde MCP-Server für E-Mail, Kalender und andere Dienste.',
+    'connections.hint': 'Verbinde Fastmail, Obsidian und andere Dienste.',
     'connections.privacy':
       'Zugangsdaten liegen in deinem verschlüsselten Tresor und werden hier nicht erneut angezeigt. Ein lokaler Server führt den konfigurierten Befehl aus; verwende einen vertrauenswürdigen Server. Aufrufe verbundener Werkzeuge werden im Assistenten vorab geprüft.',
     'connections.loading': 'Verbindungen werden geladen…',
     'connections.refresh': 'Verbindungen aktualisieren',
     'connections.empty':
-      'Keine Server eingerichtet. Füge einen E-Mail- oder Kalender-MCP-Server nach dessen Anleitung hinzu.',
-    'connections.new': 'Server hinzufügen',
+      'Noch keine Verbindungen. Wähle Fastmail, Obsidian / CouchDB oder füge einen MCP-Server hinzu.',
+    'connections.new': 'Verbindung hinzufügen',
     'connections.googlePreset': 'Gmail + Google Kalender',
     'connections.googleSetup':
       'Diese bearbeitbare Vorlage verwendet uvx. Folge der Google-OAuth-Anleitung des Servers und trage GOOGLE_OAUTH_CLIENT_ID und GOOGLE_OAUTH_CLIENT_SECRET unten als Umgebungsvariablen ein. Beim Verbinden wird der Server eventuell heruntergeladen und eine Anmeldung im Browser benötigt.',
     'connections.setupGuide': 'Anleitung zur Servereinrichtung',
-    'connections.edit': 'Server bearbeiten',
+    'connections.edit': 'Verbindung bearbeiten',
     'connections.name': 'Name',
     'connections.transport': 'Verbindungsart',
     'connections.stdio': 'Lokaler Befehl (stdio)',
@@ -151,7 +179,7 @@ export const skillsDict: Record<Locale, Record<string, string>> = {
       'Leer lassen, um gespeicherte Zugangsdaten zu behalten; {} löscht sie. Neue Werte sind verborgen und werden nach dem Speichern geleert.',
     'connections.secretKeys': 'Gespeicherte Zugangsdaten-Schlüssel: {keys}',
     'connections.enabled': 'Im Assistenten verfügbar',
-    'connections.save': 'Server speichern',
+    'connections.save': 'Verbindung speichern',
     'connections.connect': 'Verbinden',
     'connections.disconnect': 'Trennen',
     'connections.remove': 'Entfernen',

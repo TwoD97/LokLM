@@ -23,6 +23,90 @@ async function loaded() {
 }
 
 describe('MCP connection settings', () => {
+  it('saves Fastmail credentials through a dedicated password field without connecting', async () => {
+    const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
+    const connect = vi.spyOn(window.api.connections, 'connect')
+    await loaded()
+    fireEvent.click(screen.getByRole('button', { name: 'Fastmail', exact: true }))
+    const token = screen.getByLabelText('Fastmail API token')
+    expect(token).toHaveAttribute('type', 'password')
+    expect(screen.queryByLabelText('Command')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Create a Fastmail API token' })).toHaveAttribute(
+      'href',
+      'https://app.fastmail.com/settings/security/tokens',
+    )
+    fireEvent.change(token, { target: { value: 'my-private-token' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await screen.findByText('Connection saved.')
+    expect(save).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ transport: 'fastmail', env: { API_TOKEN: 'my-private-token' } }),
+    )
+    expect(save.mock.calls[0]![0]).not.toHaveProperty('headers')
+    expect(connect).not.toHaveBeenCalled()
+    expect(screen.queryByDisplayValue('my-private-token')).toBeNull()
+  })
+
+  it('saves CouchDB and LiveSync credentials separately, with an explicit database URL', async () => {
+    const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
+    await loaded()
+    fireEvent.click(screen.getByRole('button', { name: 'Obsidian / CouchDB' }))
+    fireEvent.change(screen.getByLabelText('CouchDB database URL'), {
+      target: { value: 'https://notes.example/vault' },
+    })
+    fireEvent.change(screen.getByLabelText('CouchDB username'), { target: { value: 'user' } })
+    fireEvent.change(screen.getByLabelText('CouchDB password'), { target: { value: 'password' } })
+    fireEvent.change(screen.getByLabelText('LiveSync encryption passphrase'), {
+      target: { value: 'separate-passphrase' },
+    })
+    expect(screen.getByLabelText('LiveSync encryption passphrase')).toHaveAttribute(
+      'type',
+      'password',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await screen.findByText('Connection saved.')
+    expect(save).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        transport: 'couchdb',
+        url: 'https://notes.example/vault',
+        env: {
+          COUCHDB_USERNAME: 'user',
+          COUCHDB_PASSWORD: 'password',
+          LIVESYNC_PASSPHRASE: 'separate-passphrase',
+        },
+      }),
+    )
+    expect(screen.queryByDisplayValue('separate-passphrase')).toBeNull()
+  })
+
+  it('preserves stored native secrets when editing blank fields', async () => {
+    vi.spyOn(window.api.connections, 'list').mockResolvedValue([
+      { ...connection, transport: 'fastmail', secretKeys: ['env:API_TOKEN'] },
+    ])
+    const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
+    await loaded()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit connection' }))
+    expect(screen.getByLabelText('Fastmail API token')).toHaveValue('')
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await screen.findByText('Connection saved.')
+    expect(save.mock.calls[0]![0]).not.toHaveProperty('env')
+  })
+
+  it('clears typed secrets when switching connector types', async () => {
+    const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
+    await loaded()
+    fireEvent.click(screen.getByRole('button', { name: 'Fastmail', exact: true }))
+    fireEvent.change(screen.getByLabelText('Fastmail API token'), {
+      target: { value: 'do-not-forward' },
+    })
+    fireEvent.change(screen.getByLabelText('Connection type'), { target: { value: 'couchdb' } })
+    fireEvent.change(screen.getByLabelText('CouchDB database URL'), {
+      target: { value: 'https://notes.example/vault' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await screen.findByText('Connection saved.')
+    expect(JSON.stringify(save.mock.calls)).not.toContain('do-not-forward')
+  })
+
   it('offers an editable Gmail and Calendar preset without running or saving anything', async () => {
     const save = vi.spyOn(window.api.connections, 'save')
     const connect = vi.spyOn(window.api.connections, 'connect')
@@ -46,7 +130,7 @@ describe('MCP connection settings', () => {
       'aria-selected',
       'true',
     )
-    expect(await screen.findByRole('button', { name: 'Add server' })).toBeVisible()
+    expect(await screen.findByRole('button', { name: 'Add connection' })).toBeVisible()
   })
 
   it('reports load failure and lets the user retry', async () => {
@@ -66,7 +150,7 @@ describe('MCP connection settings', () => {
     vi.spyOn(window.api.connections, 'list').mockResolvedValue([connection])
     const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
     await loaded()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit connection' }))
     const secrets = screen.getByLabelText('Environment variables (JSON object)')
     expect(secrets).toHaveAttribute('type', 'password')
     expect(secrets).toHaveValue('')
@@ -74,7 +158,7 @@ describe('MCP connection settings', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
       target: { value: 'Renamed mail' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
     await screen.findByText('Connection saved.')
     expect(save).toHaveBeenCalledExactlyOnceWith({
       id: 'mail',
@@ -90,7 +174,7 @@ describe('MCP connection settings', () => {
   it('rejects invalid argument JSON without discarding the draft', async () => {
     const save = vi.spyOn(window.api.connections, 'save')
     await loaded()
-    fireEvent.click(screen.getByRole('button', { name: 'Add server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add connection' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Mail' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Command' }), {
       target: { value: 'mail-mcp' },
@@ -98,19 +182,19 @@ describe('MCP connection settings', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Arguments (JSON array)' }), {
       target: { value: '[false]' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Arguments must be a JSON array of strings.',
     )
     expect(save).not.toHaveBeenCalled()
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Mail')
-    expect(screen.getByRole('button', { name: 'Save server' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save connection' })).toBeEnabled()
   })
 
   it('saves HTTP headers only on explicit entry and clears the credential editor afterward', async () => {
     const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
     await loaded()
-    fireEvent.click(screen.getByRole('button', { name: 'Add server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add connection' }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
       target: { value: 'Calendar' },
     })
@@ -123,7 +207,7 @@ describe('MCP connection settings', () => {
     fireEvent.change(screen.getByLabelText('Request headers (JSON object)'), {
       target: { value: '{"Authorization":"Bearer test-token"}' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save server' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
     await screen.findByText('Connection saved.')
     expect(save).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({

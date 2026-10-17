@@ -8,13 +8,14 @@ type Draft = {
   id: string
   name: string
   enabled: boolean
-  transport: 'stdio' | 'http'
+  transport: McpConnectionConfig['transport']
   command: string
   args: string
   url: string
   secrets: string
   secretKeys: string[]
   googlePreset: boolean
+  credentials: Record<string, string>
 }
 const newDraft = (): Draft => ({
   id: crypto.randomUUID(),
@@ -27,6 +28,7 @@ const newDraft = (): Draft => ({
   secrets: '',
   secretKeys: [],
   googlePreset: false,
+  credentials: {},
 })
 
 export function ConnectionsTab(): JSX.Element {
@@ -96,6 +98,7 @@ export function ConnectionsTab(): JSX.Element {
       args: JSON.stringify(connection.args ?? []),
       url: connection.url ?? '',
       secrets: '',
+      credentials: {},
       secretKeys: connection.secretKeys,
       googlePreset: connection.args?.includes('workspace-mcp') ?? false,
     })
@@ -139,9 +142,13 @@ export function ConnectionsTab(): JSX.Element {
         config.command = current.command.trim()
         config.args = args
         if (secrets !== undefined) config.env = secrets
-      } else {
+      } else if (current.transport === 'http') {
         config.url = current.url.trim()
         if (secrets !== undefined) config.headers = secrets
+      } else {
+        if (current.transport === 'couchdb') config.url = current.url.trim()
+        const entries = Object.entries(current.credentials).filter(([, value]) => value !== '')
+        if (entries.length) config.env = Object.fromEntries(entries)
       }
       await window.api.connections.save(config)
       if (alive.current) {
@@ -171,6 +178,24 @@ export function ConnectionsTab(): JSX.Element {
       {loading && <p role="status">{t('connections.loading')}</p>}
       {!draft && (
         <div className="connections__buttons">
+          {(['fastmail', 'couchdb'] as const).map((transport) => (
+            <button
+              key={transport}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setDraft({
+                  ...newDraft(),
+                  transport,
+                  name: transport === 'fastmail' ? 'Fastmail' : 'Obsidian LiveSync',
+                })
+                setError(null)
+                setNotice(null)
+              }}
+            >
+              {t(`connections.${transport}`)}
+            </button>
+          ))}
           <button
             type="button"
             disabled={busy}
@@ -233,7 +258,7 @@ export function ConnectionsTab(): JSX.Element {
               {t('connections.name')}
               <input
                 required
-                maxLength={200}
+                maxLength={100}
                 value={draft.name}
                 onChange={(event) => patch({ name: event.target.value })}
                 autoFocus
@@ -244,11 +269,20 @@ export function ConnectionsTab(): JSX.Element {
               <select
                 value={draft.transport}
                 onChange={(event) =>
-                  patch({ transport: event.target.value as Draft['transport'], secrets: '' })
+                  patch({
+                    transport: event.target.value as Draft['transport'],
+                    secrets: '',
+                    credentials: {},
+                    url: '',
+                    googlePreset: false,
+                    secretKeys: [],
+                  })
                 }
               >
                 <option value="stdio">{t('connections.stdio')}</option>
                 <option value="http">{t('connections.http')}</option>
+                <option value="fastmail">{t('connections.fastmail')}</option>
+                <option value="couchdb">{t('connections.couchdb')}</option>
               </select>
             </label>
             {draft.transport === 'stdio' ? (
@@ -273,9 +307,9 @@ export function ConnectionsTab(): JSX.Element {
                   />
                 </label>
               </>
-            ) : (
+            ) : draft.transport !== 'fastmail' ? (
               <label>
-                {t('connections.url')}
+                {t(draft.transport === 'couchdb' ? 'connections.databaseUrl' : 'connections.url')}
                 <input
                   required
                   type="url"
@@ -285,19 +319,59 @@ export function ConnectionsTab(): JSX.Element {
                   spellCheck={false}
                 />
               </label>
+            ) : null}
+            {draft.transport === 'fastmail' || draft.transport === 'couchdb' ? (
+              <>
+                <p>{t(`connections.${draft.transport}Setup`)}</p>
+                {draft.transport === 'fastmail' && (
+                  <a
+                    href="https://app.fastmail.com/settings/security/tokens"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {t('connections.fastmailTokens')}
+                  </a>
+                )}
+                {(draft.transport === 'fastmail'
+                  ? ['API_TOKEN']
+                  : ['COUCHDB_USERNAME', 'COUCHDB_PASSWORD', 'LIVESYNC_PASSPHRASE']
+                ).map((key) => (
+                  <label key={key}>
+                    {t(`connections.${key}`)}
+                    <input
+                      type={key === 'COUCHDB_USERNAME' ? 'text' : 'password'}
+                      value={draft.credentials[key] ?? ''}
+                      onChange={(event) =>
+                        patch({ credentials: { ...draft.credentials, [key]: event.target.value } })
+                      }
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={8192}
+                      aria-describedby="connection-credentials-hint"
+                    />
+                  </label>
+                ))}
+              </>
+            ) : (
+              <label>
+                {t(draft.transport === 'stdio' ? 'connections.env' : 'connections.headers')}
+                <input
+                  type="password"
+                  value={draft.secrets}
+                  onChange={(event) => patch({ secrets: event.target.value })}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  aria-describedby="connection-credentials-hint"
+                />
+              </label>
             )}
-            <label>
-              {t(draft.transport === 'stdio' ? 'connections.env' : 'connections.headers')}
-              <input
-                type="password"
-                value={draft.secrets}
-                onChange={(event) => patch({ secrets: event.target.value })}
-                autoComplete="new-password"
-                spellCheck={false}
-                aria-describedby="connection-credentials-hint"
-              />
-            </label>
-            <p id="connection-credentials-hint">{t('connections.secretsHint')}</p>
+            <p id="connection-credentials-hint">
+              {t(
+                draft.transport === 'fastmail' || draft.transport === 'couchdb'
+                  ? 'connections.nativeSecretsHint'
+                  : 'connections.secretsHint',
+              )}
+            </p>
             {draft.secretKeys.length > 0 && (
               <p>{t('connections.secretKeys', { keys: draft.secretKeys.join(', ') })}</p>
             )}

@@ -74,16 +74,54 @@ export function validateConfig(
   if (value.enabled !== undefined && typeof value.enabled !== 'boolean')
     throw new Error('MCP_INVALID: Enabled must be boolean.')
   const enabled = value.enabled ?? previous?.enabled ?? false
-  if (value.transport !== 'stdio' && value.transport !== 'http')
+  if (!['stdio', 'http', 'fastmail', 'couchdb'].includes(String(value.transport)))
     throw new Error('MCP_INVALID: Unsupported transport.')
-  const config: McpConnectionConfig = { id, name, enabled, transport: value.transport }
-  if (value.transport === 'stdio') {
+  const config: McpConnectionConfig = {
+    id,
+    name,
+    enabled,
+    transport: value.transport as McpConnectionConfig['transport'],
+  }
+  if (value.transport === 'fastmail' || value.transport === 'couchdb') {
+    const previousEnv = previous?.transport === value.transport ? previous.env : undefined
+    const supplied = value.env === undefined ? undefined : secrets(value.env, false)
+    config.env =
+      supplied === undefined
+        ? { ...previousEnv }
+        : Object.keys(supplied).length
+          ? { ...previousEnv, ...supplied }
+          : {}
+    const allowed =
+      value.transport === 'fastmail'
+        ? ['API_TOKEN']
+        : ['COUCHDB_USERNAME', 'COUCHDB_PASSWORD', 'LIVESYNC_PASSPHRASE']
+    if (Object.keys(config.env).some((key) => !allowed.includes(key)))
+      throw new Error('Invalid connector credential field.')
+    if (value.transport === 'fastmail') {
+      config.url = 'https://api.fastmail.com/jmap/session'
+      if (value.url !== undefined && value.url !== config.url)
+        throw new Error('Fastmail uses its official JMAP endpoint.')
+    } else {
+      const url = validateConfig({ id, name, transport: 'http', url: value.url }).url!
+      const parsed = new URL(url)
+      if (parsed.search || !parsed.pathname.replace(/\/+$/, '') || parsed.pathname === '/')
+        throw new Error(
+          'Enter a CouchDB database URL, including the database name and no query string.',
+        )
+      config.url = url.replace(/\/+$/, '')
+      if (config.env.COUCHDB_USERNAME?.includes(':'))
+        throw new Error('CouchDB username cannot contain a colon.')
+    }
+  } else if (value.transport === 'stdio') {
     config.command = string(value.command, 4096, 'server command')
     const args = value.args ?? []
     if (!Array.isArray(args) || args.length > 64)
       throw new Error('MCP_INVALID: Invalid command arguments.')
     config.args = args.map((arg) => string(arg, 8192, 'command argument', true))
-    config.env = value.env === undefined ? { ...previous?.env } : secrets(value.env, false)
+    config.env =
+      value.env === undefined
+        ? { ...(previous?.transport === 'stdio' ? previous.env : {}) }
+        : secrets(value.env, false)
   } else {
     const raw = string(value.url, 8192, 'server URL')
     let url: URL
@@ -105,7 +143,9 @@ export function validateConfig(
       )
     config.url = url.toString()
     config.headers =
-      value.headers === undefined ? { ...previous?.headers } : secrets(value.headers, true)
+      value.headers === undefined
+        ? { ...(previous?.transport === 'http' ? previous.headers : {}) }
+        : secrets(value.headers, true)
   }
   if (Buffer.byteLength(JSON.stringify(config)) > LIMITS.configBytes)
     throw new Error('MCP_INVALID: Connection configuration is too large.')
@@ -126,6 +166,15 @@ export function redact(text: string, config: McpConnectionConfig): string {
     /^(?:proxy-)?authorization$/i.test(key) ? [value.replace(/^\S+\s+/, '')] : [],
   )
   const values = [
+    ...(config.transport === 'couchdb' &&
+    config.env?.COUCHDB_USERNAME &&
+    config.env.COUCHDB_PASSWORD
+      ? [
+          Buffer.from(`${config.env.COUCHDB_USERNAME}:${config.env.COUCHDB_PASSWORD}`).toString(
+            'base64',
+          ),
+        ]
+      : []),
     ...Object.values(config.env ?? {}),
     ...Object.values(config.headers ?? {}),
     ...authorizationTokens,

@@ -3,7 +3,7 @@ export interface McpConnectionConfig {
   id: string
   name: string
   enabled: boolean
-  transport: 'stdio' | 'http'
+  transport: 'stdio' | 'http' | 'fastmail' | 'couchdb'
   command?: string
   args?: string[]
   env?: Record<string, string>
@@ -23,7 +23,7 @@ export interface SkillTool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
-  source: 'organizer' | 'mcp'
+  source: 'organizer' | 'mcp' | 'connection'
   connectionId?: string
   effect: 'read' | 'write' | 'external'
 }

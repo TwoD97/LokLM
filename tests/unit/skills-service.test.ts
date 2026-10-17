@@ -183,26 +183,30 @@ describe('personal assistant tools and durable approval', () => {
     expect((await f.organizer.list()).tasks).toHaveLength(1)
   })
 
-  it('never sends mail while planning; approval records running before a single external invocation', async () => {
-    const f = fixture([
-      plan('mcp:mail:nonce:send', {
-        to: 'person@example.com',
-        subject: 'Meeting',
-        body: 'Tomorrow?',
-      }),
-    ])
-    const action = await f.proposal('Email person@example.com about tomorrow')
-    expect(action.effect).toBe('external')
-    expect(f.connections.call).not.toHaveBeenCalled()
-    f.connections.call.mockImplementationOnce(async () => {
-      expect(f.actions()[0]!.status).toBe('running')
-      return 'Sent 42'
-    })
-    expect(
-      (await f.service.apply(f.store, { ...reference, actionId: action.id }, signal())).result,
-    ).toBe('Sent 42')
-    expect(f.connections.call).toHaveBeenCalledOnce()
-  })
+  it.each(['mcp', 'connection'] as const)(
+    'never sends %s mail while planning; approval records running before a single external invocation',
+    async (source) => {
+      const f = fixture([
+        plan('mcp:mail:nonce:send', {
+          to: 'person@example.com',
+          subject: 'Meeting',
+          body: 'Tomorrow?',
+        }),
+      ])
+      f.tool.source = source
+      const action = await f.proposal('Email person@example.com about tomorrow')
+      expect(action.effect).toBe('external')
+      expect(f.connections.call).not.toHaveBeenCalled()
+      f.connections.call.mockImplementationOnce(async () => {
+        expect(f.actions()[0]!.status).toBe('running')
+        return 'Sent 42'
+      })
+      expect(
+        (await f.service.apply(f.store, { ...reference, actionId: action.id }, signal())).result,
+      ).toBe('Sent 42')
+      expect(f.connections.call).toHaveBeenCalledOnce()
+    },
+  )
 
   it('retains the running marker if the tool succeeded but receipt persistence failed, preventing replay', async () => {
     const f = fixture([plan('organizer.saveNote', { title: 'Draft', body: 'Saved content' })])

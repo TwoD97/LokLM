@@ -350,7 +350,7 @@ export class SkillsService {
       result = {
         ...running,
         status: 'failed',
-        error: `${message(error)}${tool.source === 'mcp' ? ' The external operation may have run. Check the service before requesting it again.' : ''}`,
+        error: `${message(error)}${tool.source !== 'organizer' ? ' The external operation may have run. Check the service before requesting it again.' : ''}`,
       }
     }
     try {
