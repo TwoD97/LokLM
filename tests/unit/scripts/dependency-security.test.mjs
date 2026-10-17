@@ -250,18 +250,26 @@ describe('resolved dependency security and compatibility', () => {
     })
 
     it('guards the real entry point before spawn and preserves explicit opt-in', async () => {
-      const options = { binary: 'loklm-nonexistent-security-probe' }
-      for (const flag of ['--receive-p', '--exe']) {
-        await expect(createGit(options).raw(['push', `${flag}=synthetic-command`])).rejects.toThrow(
-          /allowUnsafePack/,
-        )
-        // No binary exists, so explicit opt-in can only reach safe ENOENT.
-        await expect(
-          createGit({ ...options, unsafe: { allowUnsafePack: true } }).raw([
-            'push',
-            `${flag}=synthetic-command`,
-          ]),
-        ).rejects.toThrow(/ENOENT/)
+      const directory = await mkdtemp(join(tmpdir(), 'loklm-git-security-'))
+      const root = await realpath(directory)
+      // An absolute path in an owned empty directory cannot resolve a host
+      // executable or fail on inaccessible PATH entries (for example in WSL).
+      const options = { binary: join(root, 'missing-git') }
+      try {
+        for (const flag of ['--receive-p', '--exe']) {
+          await expect(
+            createGit(options).raw(['push', `${flag}=synthetic-command`]),
+          ).rejects.toThrow(/allowUnsafePack/)
+          // No binary exists, so explicit opt-in can only reach safe ENOENT.
+          await expect(
+            createGit({ ...options, unsafe: { allowUnsafePack: true } }).raw([
+              'push',
+              `${flag}=synthetic-command`,
+            ]),
+          ).rejects.toThrow(/ENOENT/)
+        }
+      } finally {
+        await removeOwnedTemporaryDirectory(directory, root)
       }
     })
   })

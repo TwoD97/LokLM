@@ -27,7 +27,7 @@ describe('MCP connection settings', () => {
     const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
     const connect = vi.spyOn(window.api.connections, 'connect')
     await loaded()
-    fireEvent.click(screen.getByRole('button', { name: 'Fastmail', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fastmail' }))
     const token = screen.getByLabelText('Fastmail API token')
     expect(token).toHaveAttribute('type', 'password')
     expect(screen.queryByLabelText('Command')).toBeNull()
@@ -94,7 +94,7 @@ describe('MCP connection settings', () => {
   it('clears typed secrets when switching connector types', async () => {
     const save = vi.spyOn(window.api.connections, 'save').mockResolvedValue(connection)
     await loaded()
-    fireEvent.click(screen.getByRole('button', { name: 'Fastmail', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fastmail' }))
     fireEvent.change(screen.getByLabelText('Fastmail API token'), {
       target: { value: 'do-not-forward' },
     })

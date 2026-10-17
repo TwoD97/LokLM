@@ -27,7 +27,9 @@ describe('workspace vector lifecycle (SQLite + LanceDB)', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
-  async function seed(n: number): Promise<{ wsId: number; docId: number; chunkIds: number[] }> {
+  async function seed(
+    n: number,
+  ): Promise<{ wsId: number; wsDir: string; docId: number; chunkIds: number[] }> {
     const ws = await auth.getWorkspaceStore().create('W')
     const db = await auth.getWorkspaceDb(ws.id)
     const doc = await db.addDocument({ title: 'Doc', sourcePath: '/d.txt', status: 'ready' })
@@ -41,7 +43,7 @@ describe('workspace vector lifecycle (SQLite + LanceDB)', () => {
         tokenCount: 2,
       })),
     )
-    return { wsId: ws.id, docId: doc.id, chunkIds }
+    return { wsId: ws.id, wsDir: ws.dir, docId: doc.id, chunkIds }
   }
 
   it('vectors in Lance + embedded marker in SQLite; search hydrates from SQLite', async () => {
@@ -80,7 +82,7 @@ describe('workspace vector lifecycle (SQLite + LanceDB)', () => {
   }, 60_000)
 
   it('recovers from a corrupt Lance store: no content loss, vectors re-scheduled', async () => {
-    const { wsId, docId, chunkIds } = await seed(3)
+    const { wsId, wsDir, docId, chunkIds } = await seed(3)
     const db = await auth.getWorkspaceDb(wsId)
     const vsvc = new WorkspaceVectorService(auth)
     await vsvc.upsert(
@@ -91,7 +93,7 @@ describe('workspace vector lifecycle (SQLite + LanceDB)', () => {
     await auth.lock() // persists the encrypted Lance store + SQLite
 
     // corrupt a byte in the workspace's encrypted Lance tree
-    const encDir = join(userDataDir, 'workspaces', `ws-${wsId}`, 'enc')
+    const encDir = join(userDataDir, 'workspaces', wsDir, 'enc')
     const findFile = async (d: string): Promise<string | null> => {
       for (const e of await readdir(d, { withFileTypes: true })) {
         const p = join(d, e.name)
