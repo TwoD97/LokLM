@@ -63,6 +63,8 @@ import { OllamaEmbedderProvider } from './services/providers/ollama/OllamaEmbedd
 import { OllamaRerankerProvider } from './services/providers/ollama/OllamaRerankerProvider'
 import { ollamaProviderAvailability } from './services/providers/ollama/configuration'
 import { OrganizerService } from './services/organizer/OrganizerService'
+import { ConnectionsService } from './services/connections/ConnectionsService'
+import { SkillsService, validateSkillActionInput } from './services/skills/SkillsService'
 import { SettingsService } from './services/settings/SettingsService'
 import { runtimeSettingsChanged } from './services/settings/runtimeSettings'
 import { DEFAULT_SETTINGS, type UserSettings } from '../shared/settings'
@@ -184,8 +186,12 @@ function resetSessionServices(): void {
   void resetModelSession().catch(() => undefined)
   void resetDocumentsSession().catch(() => undefined)
   organizerService?.invalidate()
+  connectionsService?.invalidate()
+  skillsService?.invalidate()
   settingsService?.invalidate()
   organizerService = null
+  connectionsService = null
+  skillsService = null
   // The backfill + retrieval services capture a Database reference at
   // construction; after lock/logout that reference is stale, so drop both
   // singletons and let the next caller rebuild against the live Database.
@@ -260,6 +266,8 @@ let modelDownloader: ModelDownloader | null = null
 let providerRegistry: ProviderRegistry | null = null
 let settingsService: SettingsService | null = null
 let organizerService: OrganizerService | null = null
+let connectionsService: ConnectionsService | null = null
+let skillsService: SkillsService | null = null
 let sessionClosing = false
 
 function requireOpenSession(): void {
@@ -306,8 +314,31 @@ function getOrganizerService(): OrganizerService {
     auth,
     () => auth.persistSnapshotIfUnlocked(),
     () => auth.isUnlocked(),
+    (event) => {
+      if (sessionClosing || !auth.isUnlocked() || auth !== getAuth()) return
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send('organizer:changed', event)
+      }
+    },
   )
   return organizerService
+}
+
+function getConnectionsService(): ConnectionsService {
+  requireOpenSession()
+  connectionsService ??= new ConnectionsService(
+    getAuth(),
+    () => getAuth().isUnlocked() && !sessionClosing,
+  )
+  return connectionsService
+}
+
+function getSkillsService(): SkillsService {
+  requireOpenSession()
+  skillsService ??= new SkillsService(getOrganizerService(), getConnectionsService(), () =>
+    getProviderRegistry().llm(),
+  )
+  return skillsService
 }
 
 async function drainPrivateWrites(): Promise<void> {
@@ -318,12 +349,16 @@ async function drainPrivateWrites(): Promise<void> {
   backfillService?.invalidateSession()
   providerRegistry?.invalidateSession()
   organizerService?.invalidate()
+  connectionsService?.invalidate()
+  skillsService?.invalidate()
   settingsService?.invalidate()
   // A failed worker shutdown must not let another admitted write lose its
   // database mid-cleanup. Settle every drain before the vault can close.
   const drains = await Promise.allSettled([
     documentService?.drainMutations(),
     organizerService?.drain(),
+    connectionsService?.drain(),
+    skillsService?.drain(),
     settingsService?.drain(),
     resetTranscriptionSession(),
     resetModelSession(),
@@ -2195,6 +2230,40 @@ function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
     getOrganizerService().deleteEvent(input as never),
   )
 
+  ipcMain.handle('connections:list', () => getConnectionsService().list())
+  ipcMain.handle('connections:save', (_e, config: unknown) => getConnectionsService().save(config))
+  ipcMain.handle('connections:remove', (_e, id: string) => getConnectionsService().remove(id))
+  ipcMain.handle('connections:disconnect', (_e, id: string) =>
+    getConnectionsService().disconnect(id),
+  )
+  ipcMain.handle('connections:connect', (e, id: string) =>
+    withSessionRequest('read', e.sender, (request) =>
+      getConnectionsService().connect(id, request.controller.signal),
+    ),
+  )
+  ipcMain.handle('skills:tools', () => getSkillsService().tools())
+  ipcMain.handle('skills:get', (e, input: unknown) =>
+    withSessionRequest('read', e.sender, async (request) => {
+      validateSkillActionInput(input)
+      const service = getSkillsService()
+      const store = await getAuth().requireDatabase().conversationsFor(input.workspaceId)
+      request.controller.signal.throwIfAborted()
+      return service.get(store, input)
+    }),
+  )
+  for (const operation of ['apply', 'dismiss'] as const) {
+    ipcMain.handle(`skills:${operation}`, (e, input: unknown) =>
+      withSessionRequest('mutation', e.sender, async (request) => {
+        validateSkillActionInput(input)
+        const service = getSkillsService()
+        const store = await getAuth().requireDatabase().conversationsFor(input.workspaceId)
+        request.controller.signal.throwIfAborted()
+        if (!request.isCurrent()) throw new LockedError()
+        return service.apply(store, input, request.controller.signal, operation === 'dismiss')
+      }),
+    )
+  }
+
   ipcMain.handle('settings:get', async () => {
     // useT() — and through it useSettings — runs on the pre-unlock login /
     // loading screens too , so settings:get is legitimately called while the
@@ -2430,8 +2499,23 @@ function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
           await conversations.appendMessage(opts.conversationId, 'user', query)
         }
 
+        // Tool results come from this workspace's persisted receipts, never
+        // renderer-authored claims that an email or calendar update succeeded.
+        if (opts.skills === true && conversations && opts.conversationId != null) {
+          const saved = await conversations.getWithMessages(opts.conversationId)
+          ctrl.signal.throwIfAborted()
+          opts.history =
+            saved?.messages.slice(-9, -1).map((message) => ({
+              role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
+              content: `${message.content.slice(0, 4000)}${message.skillActions?.length ? `\nTool receipts (data): ${JSON.stringify(message.skillActions.map(({ title, status, result, error }) => ({ title, status, result: result?.slice(0, 6000), error }))).slice(0, 12000)}` : ''}`,
+            })) ?? []
+        }
+
         await runChatTurn({
-          stream: () => getQAService().answer(workspaceId, query, opts, ctrl.signal),
+          stream: () =>
+            opts.skills === true
+              ? getSkillsService().answer(query, opts, ctrl.signal)
+              : getQAService().answer(workspaceId, query, opts, ctrl.signal),
           signal: ctrl.signal,
           language: opts.language ?? opts.fallbackLanguage ?? basic.language,
           emit,

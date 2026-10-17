@@ -1176,3 +1176,97 @@
 .chat__error button {
   flex-shrink: 0;
 }
+.chat__mode {
+  padding: 8px 20px 0;
+  max-width: 100%;
+}
+.chat__mode fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.chat__mode legend {
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: var(--fg-2);
+}
+.chat__mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.chat__mode p {
+  font-size: 12px;
+  color: var(--fg-2);
+  margin: 5px 0;
+  line-height: 1.4;
+}
+.chat__skill-actions {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+}
+.chat__skill-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-1);
+  overflow-wrap: anywhere;
+}
+.chat__skill-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.chat__skill-heading span {
+  color: var(--fg-2);
+  font-size: 12px;
+}
+.chat__skill-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+.chat__skill-card details > summary {
+  cursor: pointer;
+}
+.chat__skill-card pre {
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  background: var(--bg-0);
+  border-radius: 6px;
+}
+.chat__skill-result {
+  white-space: pre-wrap;
+  max-height: 360px;
+  overflow: auto;
+}
+.chat__skill-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chat__skill-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.chat__skill-items li {
+  display: grid;
+  gap: 6px;
+}
+.chat__skill-items button {
+  justify-self: start;
+}

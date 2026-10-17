@@ -38,6 +38,38 @@ const TEST_SETTINGS: UserSettings = {
 }
 
 const stub: Api = {
+  connections: {
+    list: async () => [],
+    save: async (config) => ({
+      ...config,
+      secretKeys: [],
+      status: 'disconnected' as const,
+      toolCount: 0,
+    }),
+    remove: async () => {},
+    connect: async (id) => ({
+      id,
+      name: id,
+      enabled: true,
+      transport: 'http' as const,
+      secretKeys: [],
+      status: 'connected' as const,
+      toolCount: 0,
+    }),
+    disconnect: async () => {},
+  },
+  skills: {
+    tools: async () => [],
+    get: async () => {
+      throw new Error('No tool action in test fixture')
+    },
+    apply: async () => {
+      throw new Error('No tool action in test fixture')
+    },
+    dismiss: async () => {
+      throw new Error('No tool action in test fixture')
+    },
+  },
   auth: {
     status: () =>
       Promise.resolve({
@@ -455,6 +487,7 @@ const stub: Api = {
       }),
   },
   organizer: {
+    onChanged: () => () => undefined,
     list: async () => ({ notes: [], tasks: [], events: [] }),
     saveNote: async (input) => ({
       ...input,

@@ -1,15 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type {
   OrganizerApi,
   OrganizerSnapshot,
   SaveNoteInput,
   SaveTaskInput,
   SaveEventInput,
+  OrganizerChangedEvent,
 } from '@shared/organizer'
 import { OrganizerView } from './OrganizerView'
 import { dateKey } from './organizerDates'
 import { organizerDict } from '../i18n/dict_organizer'
+import { openOrganizerItem, clearOrganizerNavigation } from './organizerNavigation'
 
 vi.mock('../i18n', () => ({
   useT:
@@ -32,6 +34,7 @@ vi.mock('../settings/useSettings', () => ({
 let snapshot: OrganizerSnapshot
 let api: OrganizerApi
 let counter = 0
+let changed: (event: OrganizerChangedEvent) => void
 const today = dateKey(new Date())
 const metadata = (id: string) => ({
   id,
@@ -44,6 +47,10 @@ beforeEach(() => {
   snapshot = { notes: [], tasks: [], events: [] }
   counter = 0
   api = {
+    onChanged: vi.fn((callback) => {
+      changed = callback
+      return vi.fn()
+    }),
     list: vi.fn(async () => structuredClone(snapshot)),
     saveNote: vi.fn(async (input: SaveNoteInput) => {
       const note = {
@@ -86,6 +93,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  clearOrganizerNavigation()
   vi.restoreAllMocks()
 })
 
@@ -330,4 +338,156 @@ describe('organizer workspace', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a valid date')
     expect(api.saveEvent).not.toHaveBeenCalled()
   })
+})
+
+it('updates tasks and calendar together after a change from chat without remounting', async () => {
+  const view = render(<OrganizerView view="todos" />)
+  await opened()
+  snapshot.tasks = [
+    { ...metadata('chat-task'), title: 'Review from chat', completed: false, dueDate: today },
+  ]
+  act(() => changed({ kind: 'tasks', id: 'chat-task', operation: 'saved' }))
+  expect(await screen.findByRole('button', { name: 'Review from chat' })).toBeVisible()
+  view.rerender(<OrganizerView view="calendar" />)
+  expect(screen.getByRole('checkbox', { name: 'Review from chat' })).toBeVisible()
+})
+
+it('keeps note edits and focus while showing refreshed saved data', async () => {
+  snapshot.notes = [{ ...metadata('n1'), title: 'Reference', body: 'Original' }]
+  render(<OrganizerView view="notes" />)
+  await opened()
+  fireEvent.click(screen.getByRole('button', { name: /Reference Original/ }))
+  const body = screen.getByLabelText('Note', { exact: true })
+  fireEvent.change(body, { target: { value: 'Unsaved local text' } })
+  body.focus()
+  snapshot.notes = [{ ...metadata('n1'), revision: 2, title: 'Reference', body: 'Updated in chat' }]
+  act(() => changed({ kind: 'notes', id: 'n1', operation: 'saved' }))
+  await screen.findByRole('button', { name: /Reference Updated in chat/ })
+  expect(body).toHaveValue('Unsaved local text')
+  expect(body).toHaveFocus()
+  expect(body).toBeVisible()
+  expect(screen.getByText(/This item changed elsewhere. Your draft is kept/)).toBeVisible()
+})
+
+it.each(['completed', 'deleted'] as const)(
+  'keeps an edited task visible when chat marks it %s',
+  async (operation) => {
+    snapshot.tasks = [
+      { ...metadata('t1'), title: 'Original task', completed: false, dueDate: null },
+    ]
+    render(<OrganizerView view="todos" />)
+    await opened()
+    fireEvent.click(screen.getByRole('button', { name: 'Original task' }))
+    const title = screen.getByLabelText('To-do title')
+    fireEvent.change(title, { target: { value: 'My unfinished edits' } })
+    title.focus()
+    snapshot.tasks =
+      operation === 'deleted' ? [] : [{ ...snapshot.tasks[0]!, revision: 2, completed: true }]
+    act(() =>
+      changed({
+        kind: 'tasks',
+        id: 't1',
+        operation: operation === 'deleted' ? 'deleted' : 'saved',
+      }),
+    )
+    await screen.findByText(
+      operation === 'deleted'
+        ? /This item was deleted elsewhere/
+        : /This item changed elsewhere. Your draft is kept/,
+    )
+    expect(title).toHaveValue('My unfinished edits')
+    expect(title).toHaveFocus()
+    expect(title).toBeVisible()
+    expect(api.saveTask).not.toHaveBeenCalled()
+  },
+)
+
+it('keeps a calendar draft when its saved event changes elsewhere', async () => {
+  snapshot.events = [
+    {
+      ...metadata('e1'),
+      title: 'Review',
+      date: today,
+      startTime: null,
+      endTime: null,
+      details: '',
+    },
+  ]
+  render(<OrganizerView view="calendar" />)
+  await opened()
+  fireEvent.click(screen.getByRole('button', { name: /All day Review/ }))
+  const title = screen.getByLabelText('Event title')
+  fireEvent.change(title, { target: { value: 'Unfinished agenda' } })
+  title.focus()
+  snapshot.events = [
+    { ...snapshot.events[0]!, revision: 2, title: 'Moved in chat', date: '2027-01-04' },
+  ]
+  act(() => changed({ kind: 'events', id: 'e1', operation: 'saved' }))
+  await screen.findByText(/This item changed elsewhere. Your draft is kept/)
+  expect(title).toHaveValue('Unfinished agenda')
+  expect(title).toHaveFocus()
+  expect(screen.getByLabelText('Date', { exact: true })).toHaveValue(today)
+})
+
+it('opens a queued chat link after lazy mounting and protects drafts on later links', async () => {
+  snapshot.notes = [
+    { ...metadata('n1'), title: 'First', body: 'One' },
+    { ...metadata('n2'), title: 'Second', body: 'Two' },
+  ]
+  openOrganizerItem({ kind: 'notes', id: 'n1' })
+  render(<OrganizerView view="notes" />)
+  await waitFor(() => expect(screen.getByLabelText('Note title')).toHaveValue('First'))
+  fireEvent.change(screen.getByLabelText('Note', { exact: true }), {
+    target: { value: 'Keep this draft' },
+  })
+  act(() => openOrganizerItem({ kind: 'notes', id: 'n2' }))
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }))
+  expect(screen.getByLabelText('Note', { exact: true })).toHaveValue('Keep this draft')
+  act(() => openOrganizerItem({ kind: 'notes', id: 'n2' }))
+  fireEvent.click(
+    within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard changes' }),
+  )
+  expect(screen.getByLabelText('Note title')).toHaveValue('Second')
+  expect(screen.getByLabelText('Note', { exact: true })).toHaveValue('Two')
+})
+
+it('keeps the editor usable when a live refresh fails', async () => {
+  render(<OrganizerView view="notes" />)
+  await opened()
+  fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Keep working' } })
+  vi.mocked(api.list).mockRejectedValueOnce(new Error('IPC unavailable'))
+  act(() => changed({ kind: 'notes', id: 'n1', operation: 'saved' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Latest changes could not be loaded')
+  expect(screen.getByLabelText('Note title')).toBeVisible()
+  expect(screen.getByLabelText('Note title')).toHaveValue('Keep working')
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+  expect(screen.getByLabelText('Note title')).toHaveValue('Keep working')
+})
+
+it('opens a completed task from chat even while the Open filter is selected', async () => {
+  snapshot.tasks = [
+    { ...metadata('t1'), title: 'Finished from chat', completed: true, dueDate: today },
+  ]
+  openOrganizerItem({ kind: 'tasks', id: 't1' })
+  render(<OrganizerView view="todos" />)
+  expect(await screen.findByLabelText('To-do title')).toHaveValue('Finished from chat')
+  expect(screen.getByLabelText('To-do title')).toBeVisible()
+})
+
+it('opens a linked event on its own calendar date', async () => {
+  snapshot.events = [
+    {
+      ...metadata('e1'),
+      title: 'Next year',
+      date: '2027-01-04',
+      startTime: '09:00',
+      endTime: '10:00',
+      details: 'Planning',
+    },
+  ]
+  openOrganizerItem({ kind: 'events', id: 'e1' })
+  render(<OrganizerView view="calendar" />)
+  expect(await screen.findByLabelText('Event title')).toHaveValue('Next year')
+  expect(screen.getByLabelText('Date', { exact: true })).toHaveValue('2027-01-04')
 })

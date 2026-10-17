@@ -1,19 +1,24 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, ListTodo } from 'lucide-react'
 import { ORGANIZER_LIMITS, type OrganizerTask } from '@shared/organizer'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import { dateKey, localDate } from './organizerDates'
-import { OrganizerError } from './OrganizerShared'
+import { OrganizerChangedNotice, OrganizerError } from './OrganizerShared'
+import type { OrganizerNavigationTarget } from './organizerNavigation'
 import { useDiscardGuard, useOrganizerAction } from './useOrganizerActions'
 import type { OrganizerStore } from './useOrganizer'
 
 export function TodosView({
   store,
   locale,
+  navigation = null,
+  onNavigated,
 }: {
   store: OrganizerStore
   locale: string
+  navigation?: OrganizerNavigationTarget | null
+  onNavigated?: () => void
 }): JSX.Element {
   const t = useT()
   const [title, setTitle] = useState('')
@@ -26,18 +31,33 @@ export function TodosView({
   const [announcement, setAnnouncement] = useState<string | null>(null)
   const newTitleRef = useRef<HTMLInputElement>(null)
   const action = useOrganizerAction()
+  const { clearError } = action
   const guard = useDiscardGuard()
+  const checkDiscard = guard.guard
   const today = dateKey(new Date())
   const dateFormat = useMemo(
     () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }),
     [locale],
   )
   const dirty = !!editing && (editTitle !== editing.title || editDue !== (editing.dueDate ?? ''))
+  const latest = editing ? store.data.tasks.find((task) => task.id === editing.id) : null
+  useEffect(() => {
+    if (!editing || dirty || action.busy || !latest || latest.revision === editing.revision) return
+    setEditing(latest)
+    setEditTitle(latest.title)
+    setEditDue(latest.dueDate ?? '')
+  }, [editing, latest, dirty, action.busy])
   const tasks = useMemo(
     () =>
-      store.data.tasks
+      [
+        ...store.data.tasks,
+        ...(editing && !store.data.tasks.some((task) => task.id === editing.id) ? [editing] : []),
+      ]
         .filter(
-          (task) => filter === 'all' || (filter === 'completed' ? task.completed : !task.completed),
+          (task) =>
+            task.id === editing?.id ||
+            filter === 'all' ||
+            (filter === 'completed' ? task.completed : !task.completed),
         )
         .sort(
           (a, b) =>
@@ -45,16 +65,26 @@ export function TodosView({
             (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') ||
             b.createdAt.localeCompare(a.createdAt),
         ),
-    [store.data.tasks, filter],
+    [store.data.tasks, filter, editing],
   )
   const open = store.data.tasks.filter((task) => !task.completed).length
-  const choose = (task: OrganizerTask | null) =>
-    guard.guard(dirty, () => {
-      setEditing(task)
-      setEditTitle(task?.title ?? '')
-      setEditDue(task?.dueDate ?? '')
-      action.clearError()
-    })
+  const choose = useCallback(
+    (task: OrganizerTask | null) =>
+      checkDiscard(dirty, () => {
+        setEditing(task)
+        setEditTitle(task?.title ?? '')
+        setEditDue(task?.dueDate ?? '')
+        clearError()
+      }),
+    [checkDiscard, clearError, dirty],
+  )
+  useEffect(() => {
+    if (!navigation || action.busy) return
+    const task = store.data.tasks.find((item) => item.id === navigation.id)
+    if (!task) return
+    onNavigated?.()
+    choose(task)
+  }, [navigation, action.busy, store.data.tasks, onNavigated, choose])
   return (
     <div className="organizer__todos">
       <form
@@ -221,6 +251,9 @@ export function TodosView({
                   })
                 }}
               >
+                {(!latest || latest.revision !== editing.revision) && (
+                  <OrganizerChangedNotice removed={!latest} />
+                )}
                 <label className="organizer__field organizer__grow">
                   {t('organizer.taskTitle')}
                   <input

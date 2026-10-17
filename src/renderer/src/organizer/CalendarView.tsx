@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import {
   ORGANIZER_LIMITS,
@@ -10,7 +10,8 @@ import {
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 import { dateKey, localDate, monthDays, moveDate, moveMonth } from './organizerDates'
-import { OrganizerError } from './OrganizerShared'
+import { OrganizerChangedNotice, OrganizerError } from './OrganizerShared'
+import type { OrganizerNavigationTarget } from './organizerNavigation'
 import { useDiscardGuard, useOrganizerAction } from './useOrganizerActions'
 import type { OrganizerStore } from './useOrganizer'
 
@@ -30,10 +31,14 @@ export function CalendarView({
   store,
   locale,
   weekStartsOn,
+  navigation = null,
+  onNavigated,
 }: {
   store: OrganizerStore
   locale: string
   weekStartsOn: 0 | 1
+  navigation?: OrganizerNavigationTarget | null
+  onNavigated?: () => void
 }): JSX.Element {
   const t = useT()
   const today = dateKey(new Date())
@@ -46,10 +51,20 @@ export function CalendarView({
   const [saved, setSaved] = useState(false)
   const addEventRef = useRef<HTMLButtonElement>(null)
   const action = useOrganizerAction()
+  const { clearError } = action
   const { guard, confirmation } = useDiscardGuard()
   const id = useId()
   const days = useMemo(() => monthDays(month, weekStartsOn), [month, weekStartsOn])
   const dirty = draft != null && JSON.stringify(draft) !== JSON.stringify(original)
+  const latest = draft?.id ? store.data.events.find((event) => event.id === draft.id) : null
+  useEffect(() => {
+    if (!draft?.id || dirty || action.busy || !latest || latest.revision === draft.revision) return
+    const next = fields(latest)
+    setDraft(next)
+    setOriginal(next)
+    setSelectedDay(latest.date)
+    setMonth(latest.date.slice(0, 7))
+  }, [draft, latest, dirty, action.busy])
   const events = useMemo(
     () =>
       store.data.events
@@ -102,18 +117,32 @@ export function CalendarView({
       if (focus) requestAnimationFrame(() => document.getElementById(`${id}-${day}`)?.focus())
     })
   }
-  function edit(event: OrganizerEvent | null) {
-    guard(dirty, () => {
-      const initial = event
-        ? fields(event)
-        : { title: '', date: selectedDay, startTime: null, endTime: null, details: '' }
-      setOriginal(initial)
-      setDraft(initial)
-      setValidation(null)
-      setSaved(false)
-      action.clearError()
-    })
-  }
+  const edit = useCallback(
+    (event: OrganizerEvent | null) => {
+      guard(dirty, () => {
+        const initial = event
+          ? fields(event)
+          : { title: '', date: selectedDay, startTime: null, endTime: null, details: '' }
+        setOriginal(initial)
+        setDraft(initial)
+        if (event) {
+          setSelectedDay(event.date)
+          setMonth(event.date.slice(0, 7))
+        }
+        setValidation(null)
+        setSaved(false)
+        clearError()
+      })
+    },
+    [clearError, dirty, guard, selectedDay],
+  )
+  useEffect(() => {
+    if (!navigation || action.busy) return
+    const event = store.data.events.find((item) => item.id === navigation.id)
+    if (!event) return
+    onNavigated?.()
+    edit(event)
+  }, [navigation, action.busy, store.data.events, onNavigated, edit])
   function patch(next: Partial<SaveEventInput>) {
     setDraft((current) => (current ? { ...current, ...next } : null))
     setValidation(null)
@@ -241,6 +270,9 @@ export function CalendarView({
           </button>
         </div>
         <OrganizerError error={action.error} />
+        {draft?.id && (!latest || latest.revision !== draft.revision) && (
+          <OrganizerChangedNotice removed={!latest} />
+        )}
         {saved && (
           <p role="status" className="organizer__muted">
             {t('organizer.eventSaved')}

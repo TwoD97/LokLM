@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
 
@@ -20,14 +20,19 @@ export function useOrganizerAction() {
       setBusy(false)
     }
   }
-  return { busy, error, clearError: () => setError(null), run }
+  const clearError = useCallback(() => setError(null), [])
+  return { busy, error, clearError, run }
 }
 
 export function useDiscardGuard() {
   const [pending, setPending] = useState<(() => void) | null>(null)
   const t = useT()
+  const guard = useCallback(
+    (dirty: boolean, next: () => void) => (dirty ? setPending(() => next) : next()),
+    [],
+  )
   return {
-    guard: (dirty: boolean, next: () => void) => (dirty ? setPending(() => next) : next()),
+    guard,
     confirmation: pending ? (
       <ConfirmModal
         title={t('organizer.discardTitle')}

@@ -1,5 +1,14 @@
 import { useT } from '../i18n'
 
+export function OrganizerChangedNotice({ removed }: { removed: boolean }): JSX.Element {
+  const t = useT()
+  return (
+    <p className="organizer__error" role="status">
+      {t(removed ? 'organizer.removedElsewhere' : 'organizer.changedElsewhere')}
+    </p>
+  )
+}
+
 export function OrganizerError({
   error,
   context = 'save',

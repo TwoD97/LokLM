@@ -1,4 +1,5 @@
 import type { AuthService } from '../auth/AuthService'
+import type { SkillAction } from '../../../shared/connections'
 import type { WorkspaceStore } from './WorkspaceStore'
 import type {
   WorkspaceDb,
@@ -343,8 +344,24 @@ class ConversationsApi {
     content: string,
     metrics?: { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number | null },
     pipeline?: PipelineStep[] | null,
+    skillActions?: SkillAction[] | null,
   ): Promise<MessageRow> {
-    return this.active().appendMessage(conversationId, role, content, metrics, pipeline)
+    return this.active().appendMessage(
+      conversationId,
+      role,
+      content,
+      metrics,
+      pipeline,
+      skillActions,
+    )
+  }
+  async replaceSkillAction(
+    conversationId: number,
+    messageId: number,
+    action: SkillAction,
+    expectedStatus: SkillAction['status'],
+  ): Promise<void> {
+    return this.active().replaceSkillAction(conversationId, messageId, action, expectedStatus)
   }
   async persistCitations(
     messageId: number,

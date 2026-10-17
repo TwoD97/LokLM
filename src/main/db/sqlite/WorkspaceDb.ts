@@ -7,6 +7,7 @@ import type {
   PipelineStep,
 } from '../../../shared/documents'
 import { validateDeleteConversationTurn } from '../../../shared/conversationTurn'
+import type { SkillAction } from '../../../shared/connections'
 import type {
   QuizDeck,
   QuizDeckStatus,
@@ -116,6 +117,7 @@ export interface MessageRow {
   /** Persisted inline pipeline; absent when the column is null (user/system
    *  rows, legacy rows, or turns with no visible stage). */
   pipeline?: PipelineStep[]
+  skillActions?: SkillAction[]
 }
 
 export interface CitationRow {
@@ -231,6 +233,9 @@ export class WorkspaceDb {
       )
       if (!messageCols.has('pipeline')) {
         db.exec(`ALTER TABLE messages ADD COLUMN pipeline TEXT`)
+      }
+      if (!messageCols.has('skill_actions')) {
+        db.exec(`ALTER TABLE messages ADD COLUMN skill_actions TEXT`)
       }
       const documentCols = new Set(
         (db.prepare(`PRAGMA table_info(documents)`).all() as Array<{ name: string }>).map(
@@ -1484,7 +1489,7 @@ export class WorkspaceDb {
     }
     this.db.transaction(() => {
       const latest = this.rows(
-        `SELECT id, role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 2`,
+        `SELECT id, role, skill_actions FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 2`,
         [input.conversationId],
       )
       if (
@@ -1495,6 +1500,9 @@ export class WorkspaceDb {
         latest[1]!.id !== input.userMessageId
       ) {
         throw new Error('Conversation changed; reload it before regenerating')
+      }
+      if (latest[0]!.skill_actions != null) {
+        throw new Error('Turns with tool actions cannot be regenerated; send a new message')
       }
       this.run(`DELETE FROM messages WHERE id = ?`, [input.assistantMessageId])
       this.run(`DELETE FROM messages WHERE id = ?`, [input.userMessageId])
@@ -1510,6 +1518,7 @@ export class WorkspaceDb {
      *  progress dropdown survives a reload. Omit / null for user turns and
      *  turns with no visible stage. */
     pipeline?: PipelineStep[] | null,
+    skillActions?: SkillAction[] | null,
   ): Promise<MessageRow> {
     // Loud guard for the store-routing class (same as persistChunks): the parent
     // conversation must live in this store, else the caller wrote to the wrong
@@ -1522,9 +1531,9 @@ export class WorkspaceDb {
       )
     }
     const row = this.one(
-      `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count, pipeline)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline`,
+      `INSERT INTO messages (conversation_id, role, content, ttft_ms, tokens_per_sec, token_count, pipeline, skill_actions)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline, skill_actions`,
       [
         conversationId,
         role,
@@ -1533,9 +1542,38 @@ export class WorkspaceDb {
         metrics?.tokensPerSec ?? null,
         metrics?.tokenCount ?? null,
         pipeline && pipeline.length > 0 ? JSON.stringify(pipeline) : null,
+        skillActions?.length ? JSON.stringify(skillActions) : null,
       ],
     )
     return this.toMessage(row!)
+  }
+
+  async replaceSkillAction(
+    conversationId: number,
+    messageId: number,
+    action: SkillAction,
+    expectedStatus: SkillAction['status'],
+  ): Promise<void> {
+    // Compare-and-set is synchronous inside one SQLite transaction. Persist the
+    // running state BEFORE invoking a tool; a crash never makes it retryable.
+    this.db.transaction(() => {
+      const row = this.one(
+        `SELECT skill_actions FROM messages WHERE id = ? AND conversation_id = ? AND role = 'assistant'`,
+        [messageId, conversationId],
+      )
+      const actions = row?.skill_actions
+        ? (JSON.parse(String(row.skill_actions)) as SkillAction[])
+        : []
+      const index = actions.findIndex((item) => item.id === action.id)
+      if (index < 0 || actions[index]!.status !== expectedStatus) {
+        throw new Error('Action changed or no longer exists; reload the conversation')
+      }
+      actions[index] = action
+      this.run('UPDATE messages SET skill_actions = ? WHERE id = ?', [
+        JSON.stringify(actions),
+        messageId,
+      ])
+    })()
   }
 
   async persistCitations(
@@ -1565,7 +1603,7 @@ export class WorkspaceDb {
     if (!c || c.id == null) return null
     const conversation = this.toConversation(c, Number(c.last_activity_at), Number(c.message_count))
     const messages: MessageWithCitations[] = this.rows(
-      `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline
+      `SELECT id, conversation_id, role, content, created_at, ttft_ms, tokens_per_sec, token_count, pipeline, skill_actions
          FROM messages WHERE conversation_id = ? ORDER BY id`,
       [conversationId],
     ).map((r) => ({ ...this.toMessage(r), citations: [] as CitationRow[] }))
@@ -1670,6 +1708,9 @@ export class WorkspaceDb {
       tokenCount: row.token_count == null ? null : Number(row.token_count),
       ...(row.pipeline != null
         ? { pipeline: JSON.parse(String(row.pipeline)) as PipelineStep[] }
+        : {}),
+      ...(row.skill_actions != null
+        ? { skillActions: JSON.parse(String(row.skill_actions)) as SkillAction[] }
         : {}),
     }
   }

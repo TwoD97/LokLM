@@ -17,6 +17,7 @@ import { useSettings } from '../settings/useSettings'
 import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 import './chat.css'
+import type { SkillAction } from '@shared/connections'
 
 type StreamMetrics = {
   ttftMs: number | null
@@ -38,6 +39,7 @@ type LocalMessage =
   | { id: string; role: 'user'; content: string }
   | {
       id: string
+      messageId?: number
       role: 'assistant'
       content: string
       streaming: boolean
@@ -48,6 +50,7 @@ type LocalMessage =
       pipeline?: StageRow[]
       /** Supplied passage allow-list, reconciled against the final answer. */
       citations?: Array<{ documentId: number; chunkId: number }>
+      skillActions?: SkillAction[]
     }
 
 function newMessageId(): string {
@@ -65,6 +68,7 @@ function restoredMessages(messages: ConversationWithMessages['messages']): Local
       message.ttftMs != null || message.tokensPerSec != null || (message.tokenCount ?? 0) > 0
     return {
       id: newMessageId(),
+      messageId: message.id,
       role: 'assistant',
       content: message.content,
       streaming: false,
@@ -73,6 +77,7 @@ function restoredMessages(messages: ConversationWithMessages['messages']): Local
         chunkId: citation.chunkId,
       })),
       ...(message.pipeline?.length ? { pipeline: message.pipeline } : {}),
+      ...(message.skillActions?.length ? { skillActions: message.skillActions } : {}),
       ...(hasMetrics
         ? {
             metrics: {
@@ -107,6 +112,7 @@ export function ChatView({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [busy, setBusy] = useState(false)
+  const [assistantMode, setAssistantMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const sendPending = useRef(false)
   const regeneratePending = useRef(false)
@@ -199,6 +205,7 @@ export function ChatView({
   useEffect(() => {
     navigation.current++
     setMessages([])
+    setAssistantMode(false)
     setConversations([])
     setConfirmDelete(null)
     setSourceViewer(null)
@@ -212,7 +219,7 @@ export function ChatView({
   }, [workspaceId, refresh])
 
   const openConversation = useCallback(
-    async (id: number, preserveError = false) => {
+    async (id: number, preserveError = false, restoreMode = false) => {
       const request = ++navigation.current
       navigationTarget.current = id
       // AP-9 Konv.-Wechsel: on an actual switch, tell main we're leaving the
@@ -235,6 +242,8 @@ export function ChatView({
       currentIdRef.current = id
       onConversationChange(id, data.conversation.activeDocumentIds)
       setMessages(restoredMessages(data.messages))
+      if (restoreMode)
+        setAssistantMode(data.messages.some((message) => message.skillActions?.length))
     },
     [onConversationChange, t],
   )
@@ -246,10 +255,26 @@ export function ChatView({
     setError(null)
     onConversationChange(null, [])
     setMessages([])
+    setAssistantMode(false)
   }, [onConversationChange])
 
+  const onSkillUpdate = useCallback((id: string, action: SkillAction) => {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === id && message.role === 'assistant'
+          ? {
+              ...message,
+              skillActions: (message.skillActions ?? []).map((item) =>
+                item.id === action.id ? action : item,
+              ),
+            }
+          : message,
+      ),
+    )
+  }, [])
+
   const onSelectConversation = useCallback(
-    (id: number) => void openConversation(id),
+    (id: number) => void openConversation(id, false, true),
     [openConversation],
   )
 
@@ -381,6 +406,7 @@ export function ChatView({
                 role: 'assistant',
                 content: ev.full_text,
                 streaming: false,
+                ...(ev.skillActions ? { skillActions: ev.skillActions } : {}),
                 citations: (ev.citations ?? []).map((c) => ({
                   documentId: c.doc_id,
                   chunkId: c.chunk_id,
@@ -408,6 +434,14 @@ export function ChatView({
               ...last,
               content: last.content + ev.text,
               metrics: { ttftMs, tokensPerSec, tokenCount },
+            }
+          } else if (ev.type === 'skill') {
+            const actions = last.skillActions ?? []
+            next[index] = {
+              ...last,
+              skillActions: actions.some((action) => action.id === ev.action.id)
+                ? actions.map((action) => (action.id === ev.action.id ? ev.action : action))
+                : [...actions, ev.action],
             }
           } else if (ev.type === 'citation') {
             const citations = last.citations ?? []
@@ -451,6 +485,7 @@ export function ChatView({
           } else if (ev.type === 'error') {
             next[index] = {
               ...last,
+              ...(ev.skillActions ? { skillActions: ev.skillActions } : {}),
               content: ev.full_text ?? last.content,
               citations: ev.citations
                 ? ev.citations.map((c) => ({ documentId: c.doc_id, chunkId: c.chunk_id }))
@@ -460,6 +495,7 @@ export function ChatView({
           } else if (ev.type === 'done') {
             next[index] = {
               ...last,
+              ...(ev.skillActions ? { skillActions: ev.skillActions } : {}),
               content: ev.full_text,
               citations: ev.citations.map((c) => ({ documentId: c.doc_id, chunkId: c.chunk_id })),
               streaming: false,
@@ -482,6 +518,7 @@ export function ChatView({
           rerank: true,
           contextualize: true,
           activeDocumentIds: idsForSend,
+          skills: assistantMode,
         })
         // The invoke result carries the exact terminal event too: Electron's
         // event and invoke channels can arrive in either order. Apply it through
@@ -547,6 +584,7 @@ export function ChatView({
       onConversationChange,
       t,
       beginGeneration,
+      assistantMode,
     ],
   )
 
@@ -590,6 +628,7 @@ export function ChatView({
         data.conversation.id !== conversationId ||
         user?.role !== 'user' ||
         assistant?.role !== 'assistant' ||
+        (assistant.skillActions?.length ?? 0) > 0 ||
         data.messages.length !== visibleHistory.length ||
         data.messages.some(
           (message, index) =>
@@ -709,8 +748,40 @@ export function ChatView({
           keepPipelineVisible={keepPipelineVisible}
           onCopy={onCopyMessage}
           documents={documents}
+          assistantMode={assistantMode}
+          actionContext={
+            currentConversationId != null
+              ? { workspaceId, conversationId: currentConversationId }
+              : undefined
+          }
+          onSkillUpdate={onSkillUpdate}
           {...(busy ? {} : { onRegenerate: () => void onRegenerate() })}
         />
+        <div className="chat__mode">
+          <fieldset disabled={busy}>
+            <legend>{t('skills.mode')}</legend>
+            <label>
+              <input
+                type="radio"
+                name={`chat-mode-${workspaceId}`}
+                checked={!assistantMode}
+                onChange={() => setAssistantMode(false)}
+              />
+              {t('skills.documents')}
+            </label>
+            <label>
+              <input
+                type="radio"
+                name={`chat-mode-${workspaceId}`}
+                checked={assistantMode}
+                onChange={() => setAssistantMode(true)}
+              />
+              {t('skills.assistant')}
+            </label>
+          </fieldset>
+          <p>{t(assistantMode ? 'skills.assistantHint' : 'skills.documentsHint')}</p>
+          {assistantMode && <p>{t('skills.connectionsHint')}</p>}
+        </div>
         <ChatInput
           onSend={onSendForInput}
           busy={busy}

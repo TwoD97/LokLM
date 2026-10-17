@@ -9,6 +9,13 @@ export const organizerDict = {
     'organizer.todosDescription': 'Capture the next step, choose a due date, and mark it done.',
     'organizer.loading': 'Opening your organizer…',
     'organizer.retry': 'Try again',
+    'organizer.refreshError':
+      'Latest changes could not be loaded. Your current items and drafts are kept. Try again.',
+    'organizer.itemUnavailable': 'This item is no longer available. Your current draft is kept.',
+    'organizer.changedElsewhere':
+      'This item changed elsewhere. Your draft is kept. Select the saved item again to load the latest version.',
+    'organizer.removedElsewhere':
+      'This item was deleted elsewhere. Your text is kept here so you can copy it before closing the editor.',
     'organizer.loadError':
       'Your organizer could not be opened. Try again to load your saved items.',
     'organizer.saveError': 'This change could not be saved. Your draft is kept. Try again.',
@@ -92,6 +99,14 @@ export const organizerDict = {
     'organizer.deleteEvent': 'Delete event?',
   },
   de: {
+    'organizer.refreshError':
+      'Die neuesten Änderungen konnten nicht geladen werden. Deine Einträge und Entwürfe bleiben erhalten. Versuche es erneut.',
+    'organizer.itemUnavailable':
+      'Dieser Eintrag ist nicht mehr verfügbar. Dein aktueller Entwurf bleibt erhalten.',
+    'organizer.changedElsewhere':
+      'Dieser Eintrag wurde an anderer Stelle geändert. Dein Entwurf bleibt erhalten. Wähle den gespeicherten Eintrag erneut, um die aktuelle Version zu laden.',
+    'organizer.removedElsewhere':
+      'Dieser Eintrag wurde an anderer Stelle gelöscht. Dein Text bleibt hier erhalten, damit du ihn vor dem Schließen des Editors kopieren kannst.',
     'organizer.calendar': 'Kalender',
     'organizer.notes': 'Notizen',
     'organizer.todos': 'Aufgaben',

@@ -14,6 +14,9 @@ Embeddings und Reranking auswählen. Ein Server auf einem anderen Rechner benöt
 die ausdrückliche Freigabe seiner Zieladresse; Inhalte für die dort ausgewählten
 Funktionen werden an diesen Server gesendet. Übersetzung nutzt ebenfalls das
 ausgewählte Sprachmodell.
+Optional verbundene MCP-Dienste können für E-Mail und Kalender auf externe
+Anbieter zugreifen. Ihre Aufrufe werden im Assistant-Chat vor der Ausführung
+angezeigt und bestätigt.
 
 Vault, Arbeitsbereichs-Datenbanken und erzeugte Texte sind verschlüsselt.
 Vektorindizes sind standardmäßig verschlüsselt gespeichert und nutzen während
@@ -24,6 +27,10 @@ von LokLM verschlüsselt.
 
 Architektur-Entscheidungen sind in [docs/adr/](docs/adr/) dokumentiert;
 Feature-Specs in [docs/specs/](docs/specs/).
+
+Chat, Kalender, Aufgaben und Notizen lassen sich im Assistant-Modus gemeinsam nutzen.
+Die Einrichtung von E-Mail- und Kalenderdiensten über MCP steht in
+[Assistant & Connections](docs/assistant-connections.md).
 
 ## Editionen
 

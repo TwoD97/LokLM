@@ -6,6 +6,7 @@ import {
   isOrganizerTime,
   type DeleteOrganizerInput,
   type OrganizerApi,
+  type OrganizerChangedEvent,
   type OrganizerEvent,
   type OrganizerNote,
   type OrganizerSnapshot,
@@ -34,7 +35,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * queue so callers cannot observe a mutation before its encrypted vault write
  * succeeds. The caller must invalidate/drain this service before explicit lock
  * and discard it on every lock/logout; a later login gets a fresh instance. */
-export class OrganizerService implements OrganizerApi {
+export class OrganizerService implements Omit<OrganizerApi, 'onChanged'> {
   private queue: Promise<void> = Promise.resolve()
   private invalidated = false
 
@@ -42,6 +43,7 @@ export class OrganizerService implements OrganizerApi {
     private readonly kv: OrganizerKv,
     private readonly persistSnapshot: () => Promise<void>,
     private readonly isUnlocked: () => boolean,
+    private readonly onChanged?: (event: OrganizerChangedEvent) => void,
   ) {}
 
   invalidate(): void {
@@ -161,6 +163,7 @@ export class OrganizerService implements OrganizerApi {
         items[index] = saved
       }
       await this.commit(snapshot)
+      this.publish({ kind, id: saved.id, operation: 'saved' })
       return saved
     })
   }
@@ -177,7 +180,17 @@ export class OrganizerService implements OrganizerApi {
       if (!previous || previous.revision !== revision) conflict()
       items.splice(index, 1)
       await this.commit(snapshot)
+      this.publish({ kind, id, operation: 'deleted' })
     })
+  }
+
+  private publish(event: OrganizerChangedEvent): void {
+    if (this.invalidated || !this.isUnlocked()) return
+    try {
+      this.onChanged?.(event)
+    } catch {
+      // A closed renderer must not turn a durable commit into a failed save.
+    }
   }
 
   private async commit(snapshot: OrganizerSnapshot): Promise<void> {

@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS messages (
   -- to existing DBs via the guarded ALTER in WorkspaceDb.open (no migration
   -- runner; CREATE…IF NOT EXISTS can't add columns to an existing table).
   pipeline        TEXT,
+  skill_actions   TEXT,
   created_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);
