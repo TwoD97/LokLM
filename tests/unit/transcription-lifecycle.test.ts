@@ -56,8 +56,8 @@ function fixture() {
   }
   const service = new TranscriptionService(whisper as never, diar as never, dir)
   const events: TranscriptionEvent[] = []
-  const stage = async (): Promise<string> => {
-    const id = service.stager.begin()
+  const stage = async (owner?: number): Promise<string> => {
+    const id = service.stager.begin(owner)
     await service.stager.chunk(id, new Uint8Array([0, 0, 0, 0]))
     await service.stager.commit(id)
     return id
@@ -75,6 +75,27 @@ function fixture() {
 }
 
 describe('transcription cancellation and session isolation', () => {
+  it('discards an abandoned stage only for its owner', async () => {
+    const f = fixture()
+    const id = await f.stage(11)
+    await expect(f.service.discardStage(id, 12)).rejects.toThrow()
+    expect(f.service.stager.pathFor(id)).toBeTruthy()
+    await f.service.discardStage(id, 11)
+    expect(readdirSync(dir)).toEqual([])
+  })
+
+  it('keeps active PCM until native work settles even after cancellation', async () => {
+    const f = fixture()
+    const id = await f.stage(11)
+    const run = f.service.run('stream', id, options, (event) => f.events.push(event))
+    f.service.cancel('stream')
+    await expect(f.service.discardStage(id, 11)).rejects.toThrow('already being transcribed')
+    expect(f.service.stager.pathFor(id)).toBeTruthy()
+    f.transcription.resolve(result)
+    await run
+    expect(readdirSync(dir)).toEqual([])
+  })
+
   it.each(['resolve', 'reject'] as const)(
     'drops late progress/content when cancelled before the native call %s',
     async (outcome) => {

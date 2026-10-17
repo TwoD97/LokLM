@@ -528,6 +528,8 @@ const api = {
       ipcRenderer.invoke('transcription:stageChunk', audioId, bytes),
     stageCommit: (audioId: string, durationSec: number): Promise<StagedAudio> =>
       ipcRenderer.invoke('transcription:stageCommit', audioId, durationSec),
+    discardStage: (audioId: string): Promise<void> =>
+      ipcRenderer.invoke('transcription:discardStage', audioId),
     run: (streamId: string, audioId: string, opts: TranscriptionOptions): Promise<void> =>
       ipcRenderer.invoke('transcription:run', streamId, audioId, opts),
     cancel: (streamId: string): Promise<void> =>

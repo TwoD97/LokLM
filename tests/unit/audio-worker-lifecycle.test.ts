@@ -85,6 +85,22 @@ describe.each(variants)('$name process lifecycle', ({ create, request }) => {
     expect(progress).not.toHaveBeenCalled()
   })
 
+  it('terminates a late spawn when the first kill was rejected before a pid existed', async () => {
+    const fixture = childFixture(false)
+    const client = create()
+    const pending = request(client)
+    const rejected = expect(pending).rejects.toThrow('stopped')
+    await vi.waitFor(() => expect(mocks.fork).toHaveBeenCalledOnce())
+    fixture.child.kill.mockReturnValueOnce(false)
+    const reset = client.reset()
+    expect(fixture.child.kill).toHaveBeenCalledOnce()
+    fixture.child.emit('spawn')
+    await Promise.all([reset, rejected])
+    expect(fixture.child.kill).toHaveBeenCalledTimes(2)
+    expect(fixture.child.postMessage).not.toHaveBeenCalled()
+    expect(fixture.child.listenerCount('spawn')).toBe(0)
+  })
+
   it('suppresses a completed result if reset wins its final continuation', async () => {
     const fixture = childFixture()
     const client = create()
@@ -166,10 +182,43 @@ it('skips a cancelled queued audio call without entering native code', async () 
   const next = client.transcribe({ streamId: 'next' } as never)
   await vi.waitFor(() => expect(fixture.child.postMessage).toHaveBeenCalledOnce())
   controller.abort()
+  // Cancellation must finish before the active native operation responds.
+  await cancelled
+  expect(fixture.child.postMessage).toHaveBeenCalledOnce()
   fixture.respond({ segments: [] })
   await Promise.all([active, cancelled])
   await vi.waitFor(() => expect(fixture.child.postMessage).toHaveBeenCalledTimes(2))
   expect(fixture.child.postMessage.mock.calls[1]?.[0].payload.streamId).toBe('next')
+  fixture.respond({ segments: [] })
+  await next
+  await client.shutdown()
+})
+
+it('keeps an active native call and its audio alive until completion after cancellation', async () => {
+  const fixture = childFixture()
+  const client = new TranscriptionWorkerClient()
+  const controller = new AbortController()
+  const active = client.transcribe({ streamId: 'active' } as never, controller.signal)
+  let settled = false
+  void active.then(
+    () => {
+      settled = true
+    },
+    () => {
+      settled = true
+    },
+  )
+  const cancelled = expect(active).rejects.toThrow(/abort/i)
+  const next = client.transcribe({ streamId: 'next' } as never)
+  await vi.waitFor(() => expect(fixture.child.postMessage).toHaveBeenCalledOnce())
+  controller.abort()
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(settled).toBe(false)
+  expect(fixture.child.postMessage).toHaveBeenCalledOnce()
+  fixture.respond({ segments: [] })
+  await cancelled
+  await vi.waitFor(() => expect(fixture.child.postMessage).toHaveBeenCalledTimes(2))
   fixture.respond({ segments: [] })
   await next
   await client.shutdown()

@@ -4,6 +4,7 @@ import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 type StagedStream = {
+  owner: number | undefined
   ws: WriteStream
   path: string
   closed: Promise<void>
@@ -19,16 +20,17 @@ export class AudioStager {
   private streams = new Map<string, StagedStream>()
 
   constructor(private readonly dir: string) {
-    mkdirSync(dir, { recursive: true })
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
 
-  begin(): string {
+  begin(owner?: number): string {
     // Multiple app instances share the temp directory. Never overwrite another
     // instance's in-flight recording or a file left by an interrupted session.
     const id = `aud-${randomUUID()}`
     const path = join(this.dir, `${id}.f32`)
-    const ws = createWriteStream(path, { flags: 'wx' })
+    const ws = createWriteStream(path, { flags: 'wx', mode: 0o600 })
     const stream: StagedStream = {
+      owner,
       ws,
       path,
       error: null,
@@ -44,6 +46,17 @@ export class AudioStager {
     })
     this.streams.set(id, stream)
     return id
+  }
+
+  /** Renderer-facing staging calls may only access their own upload. */
+  assertOwner(id: string, owner: number): void {
+    if (this.get(id).owner !== owner) throw new Error('Audio staging belongs to another window.')
+  }
+
+  async cleanupOwned(id: string, owner: number): Promise<void> {
+    if (!this.streams.has(id)) return
+    this.assertOwner(id, owner)
+    await this.cleanup(id)
   }
 
   async chunk(id: string, bytes: Uint8Array): Promise<void> {

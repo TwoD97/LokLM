@@ -1972,23 +1972,29 @@ function registerIpcHandlers(ipcMain: Pick<Electron.IpcMain, 'handle'>): void {
   // renderer decodes/resamples audio to 16 kHz mono and streams the PCM to a
   // temp file via stageChunk; run() drives transcribe → (diarize → align) and
   // forwards events on transcription:event:<streamId>.
-  ipcMain.handle('transcription:stageBegin', () => {
+  ipcMain.handle('transcription:stageBegin', (e) => {
     requireOpenSession()
-    return transcriptionService.stager.begin()
+    return transcriptionService.stager.begin(e.sender.id)
   })
-  ipcMain.handle('transcription:stageChunk', async (_e, audioId: string, bytes: Uint8Array) => {
+  ipcMain.handle('transcription:stageChunk', async (e, audioId: string, bytes: Uint8Array) => {
     requireOpenSession()
+    transcriptionService.stager.assertOwner(audioId, e.sender.id)
     await transcriptionService.stager.chunk(audioId, bytes)
   })
-  ipcMain.handle('transcription:stageCommit', async (_e, audioId: string, durationSec: number) => {
+  ipcMain.handle('transcription:stageCommit', async (e, audioId: string, durationSec: number) => {
     requireOpenSession()
+    transcriptionService.stager.assertOwner(audioId, e.sender.id)
     await transcriptionService.stager.commit(audioId)
     return { audioId, durationSec }
   })
+  ipcMain.handle('transcription:discardStage', (e, audioId: string) =>
+    transcriptionService.discardStage(audioId, e.sender.id),
+  )
   ipcMain.handle(
     'transcription:run',
     async (e, streamId: string, audioId: string, opts: TranscriptionOptions) => {
       requireOpenSession()
+      transcriptionService.stager.assertOwner(audioId, e.sender.id)
       const key = `${e.sender.id}:${streamId}`
       const cancel = (): void => transcriptionService.cancel(key)
       e.sender.once('destroyed', cancel)

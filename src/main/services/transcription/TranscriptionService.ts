@@ -34,6 +34,12 @@ export class TranscriptionService {
     this.aborts.get(streamId)?.abort()
   }
 
+  /** Abandoned uploads may be removed, but active native calls still own PCM. */
+  async discardStage(audioId: string, owner: number): Promise<void> {
+    if (this.audioOwners.has(audioId)) throw new Error('Audio is already being transcribed.')
+    await this.stager.cleanupOwned(audioId, owner)
+  }
+
   /** Vault boundaries terminate native audio work instead of retaining a prior
    * session's PCM/model memory. Overlapping lock/reset hooks share this drain. */
   resetSession(): Promise<void> {

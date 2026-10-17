@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AudioStager } from '@main/services/transcription/AudioStager'
@@ -28,6 +28,32 @@ describe('AudioStager', () => {
     await stager.cleanup(id)
     expect(() => readFileSync(tempPath)).toThrow()
   })
+
+  it('rejects another window while allowing the owner to discard an unfinished upload', async () => {
+    const stager = new AudioStager(dir)
+    const id = stager.begin(17)
+    await stager.chunk(id, new Uint8Array([1, 2, 3, 4]))
+    expect(() => stager.assertOwner(id, 42)).toThrow('another window')
+    await expect(stager.cleanupOwned(id, 42)).rejects.toThrow('another window')
+    expect(() => stager.assertOwner(id, 17)).not.toThrow()
+    expect(readdirSync(dir)).toHaveLength(1)
+    await stager.cleanupOwned(id, 17)
+    expect(readdirSync(dir)).toEqual([])
+    // A late finally may clean up again after session teardown.
+    await stager.cleanupOwned(id, 17)
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'restricts temporary PCM files to their owner',
+    async () => {
+      const stager = new AudioStager(dir)
+      const id = stager.begin(17)
+      await stager.chunk(id, new Uint8Array([1, 2]))
+      const { tempPath } = await stager.commit(id)
+      expect(statSync(tempPath).mode & 0o777).toBe(0o600)
+      await stager.cleanupOwned(id, 17)
+    },
+  )
 
   it('throws for an unknown audioId', async () => {
     const stager = new AudioStager(dir)

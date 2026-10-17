@@ -30,14 +30,17 @@ export abstract class AudioWorkerClient<Push> {
   protected abstract workerStopped(): void
 
   protected async send<T>(op: string, payload?: unknown, signal?: AbortSignal): Promise<T> {
+    signal?.throwIfAborted()
     const epoch = this.epoch
     const previous = audioWork
     let release!: () => void
     audioWork = new Promise<void>((resolve) => {
       release = resolve
     })
+    let admitted = false
     try {
-      await previous
+      await waitForAudioSlot(previous, signal)
+      admitted = true
       if (this.stopped) throw new Error(`${this.name} worker is shutting down.`)
       if (epoch !== this.epoch) throw new Error(`${this.name} worker was stopped.`)
       if (failedAudioStops.size)
@@ -47,10 +50,17 @@ export abstract class AudioWorkerClient<Push> {
       signal?.throwIfAborted()
       return await this.dispatchRequest<T>(op, payload, epoch, signal)
     } finally {
-      // A reset rejects its caller immediately, but native code still owns the
-      // audio slot until the OS confirms termination (or the failure gate trips).
-      if (epoch !== this.epoch && this.stopping) await this.stopping.catch(() => undefined)
-      release()
+      // A canceled queued request has never entered native code, so its caller
+      // can clean up immediately. Keep its place in the shared queue until the
+      // preceding operation finishes; releasing now would admit overlapping work.
+      if (!admitted) {
+        void previous.then(release)
+      } else {
+        // A reset rejects its caller immediately, but native code still owns the
+        // audio slot until the OS confirms termination (or the failure gate trips).
+        if (epoch !== this.epoch && this.stopping) await this.stopping.catch(() => undefined)
+        release()
+      }
     }
   }
 
@@ -158,20 +168,27 @@ export abstract class AudioWorkerClient<Push> {
     const child = this.child
     if (!child) return
     const stopping = new Promise<void>((resolve, reject) => {
+      const terminate = (): void => {
+        try {
+          child.kill()
+        } catch {
+          // Exit confirms termination even when kill throws or is rejected.
+        }
+      }
       const timer = setTimeout(() => {
         failedAudioStops.add(child)
         reject(new Error(`${this.name} worker did not exit.`))
       }, 2000)
       child.once('exit', () => {
+        child.removeListener('spawn', terminate)
         clearTimeout(timer)
         resolve()
       })
-      try {
-        child.kill()
-      } catch {
-        // Wait for exit (which may already be pending); never start a second
-        // native worker while an old one still owns audio/model memory.
-      }
+      // Electron can reject kill before assigning a pid. Retain ownership of
+      // that spawn and terminate it when it becomes killable, even after the
+      // bounded stop reports failure. Never dispatch the retired request.
+      child.once('spawn', terminate)
+      terminate()
     })
     this.stopping = stopping
     await stopping
@@ -182,4 +199,17 @@ export abstract class AudioWorkerClient<Push> {
     this.stopped = true
     await this.reset()
   }
+}
+
+function waitForAudioSlot(previous: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return previous
+  return new Promise<void>((resolve, reject) => {
+    const abort = (): void => reject(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) abort()
+    void previous.then(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    })
+  })
 }

@@ -225,7 +225,9 @@ export class SummarizationService {
     try {
       const embedder = this.registry.embedder()
       if (embedder.isReady() && embedder.isResident?.() !== false) {
-        const vecs = await embedder.embed([summary])
+        const vecs = opts.abortSignal
+          ? await embedder.embed([summary], { abortSignal: opts.abortSignal })
+          : await embedder.embed([summary])
         opts.abortSignal?.throwIfAborted()
         const vec = vecs[0]
         if (vec && vec.length > 0) {
