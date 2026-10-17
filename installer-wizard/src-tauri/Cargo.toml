@@ -23,7 +23,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 # Native directory picker on Windows ( IFileDialog COM via dialog plugin )
 tauri-plugin-dialog = "2"
-# Used for spawn_blocking around the install ( robocopy / powershell can
+# Used for spawn_blocking around the install ( file copying / powershell can
 # block multiple seconds ) so the UI thread stays responsive.
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "fs", "io-util", "time"] }
 serde = { version = "1", features = ["derive"] }
@@ -69,7 +69,7 @@ windows = { version = "0.57", features = ["Win32_Foundation", "Win32_Graphics_Dx
 [target.'cfg(target_os = "macos")'.dependencies]
 # Reserved for mac-only deps. The mac install backend currently uses
 # out-of-process shellouts ( ditto , pkill , open , launchctl-via-plist )
-# the same way windows.rs uses robocopy / taskkill / explorer ; if we
+# the same way windows.rs uses powershell / registry tools / explorer ; if we
 # need typed plist serialization later , add `plist = "1"` here.
 
 [dev-dependencies]

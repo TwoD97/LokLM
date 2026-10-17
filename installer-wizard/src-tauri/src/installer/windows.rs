@@ -1,8 +1,8 @@
 // Windows install backend : registry-based uninstall entry , PowerShell
-// COM .lnk shortcuts , robocopy file copy , Run-key autostart.
+// COM .lnk shortcuts , native payload copying , Run-key autostart.
 //
 // All external-tool invocations go through cmd() / cmd_path() helpers
-// so the CREATE_NO_WINDOW flag is set on every reg.exe / robocopy /
+// so the CREATE_NO_WINDOW flag is set on every reg.exe /
 // powershell spawn — otherwise the user sees 20+ console flashes
 // during install.
 
@@ -51,7 +51,7 @@ fn default_install_dir() -> PathBuf {
 
 // Where the download-stub wizard puts the downloaded payload + cuda
 // archives while it's working. install() extracts both into here ; then
-// robocopy mirrors from staging\win-unpacked\ into the user-chosen install
+// native copying prepares a transaction beside the user-chosen install
 // dir ; then the entire staging tree is best-effort-cleaned at the end.
 fn staging_dir() -> PathBuf {
     let temp = std::env::var("TEMP")
@@ -399,59 +399,6 @@ fn apply_options(options: &InstallOptions, app_exe_path: &Path) -> std::io::Resu
 }
 
 // ----------------------------------------------------------------
-// Robocopy : recursive copy of payload to install dir
-// ----------------------------------------------------------------
-
-fn robocopy_dir(source: &Path, dest: &Path) -> std::io::Result<()> {
-    let robocopy = std::env::var("SystemRoot")
-        .map(|sr| PathBuf::from(sr).join("System32").join("robocopy.exe"))
-        .unwrap_or_else(|_| PathBuf::from("robocopy.exe"));
-    // /MIR mirrors source→dest and PURGES anything in dest that's not in
-    // source. The payload ( win-unpacked ) has no models/ dir , so on a
-    // re-install /MIR would delete the GGUFs the previous install
-    // downloaded — then the download phase re-fetches multi-GB files for
-    // nothing. /XD excludes the models dir from the purge so existing
-    // models survive and download_all's existing_complete() skip kicks in.
-    // We also exclude the tier-marker so a re-install doesn't wipe it
-    // before write_tier_marker rewrites it ( harmless either way , but
-    // tidy ). loklm-tier.json sits at the install-dir root.
-    let models_dir = dest.join("models");
-    let out = cmd_path(robocopy)
-        .args([
-            source.to_str().unwrap_or_default(),
-            dest.to_str().unwrap_or_default(),
-            "/MIR",
-            "/COPY:DAT",
-            // Low retry budget : we already stop_running_app() before this ,
-            // so a still-locked file is an anomaly we want to surface fast
-            // rather than grind through ( /R:3 /W:2 was ~6s per locked file ,
-            // looked frozen when the whole app was running ).
-            "/R:1",
-            "/W:1",
-            "/XD",
-            models_dir.to_str().unwrap_or_default(),
-            "/XF",
-            "loklm-tier.json",
-            "/NJH",
-            "/NJS",
-            "/NDL",
-            "/NFL",
-            "/NC",
-            "/NS",
-            "/NP",
-        ])
-        .output()?;
-    let code = out.status.code().unwrap_or(-1);
-    if code < 0 || code >= 8 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("robocopy failed : exit {}", code),
-        ));
-    }
-    Ok(())
-}
-
-// ----------------------------------------------------------------
 // Public API : install , get_state , get_license , launch
 // ----------------------------------------------------------------
 
@@ -574,9 +521,8 @@ where
     }
 
     // ---- Phase 3+ : the existing install flow ----------------------------
-    // payload_dir() now resolves to the staging\win-unpacked\ directory the
-    // two phases above just populated ; the dev fallback is preserved for
-    // running the wizard out of cargo target against a local payload build.
+    // Bundled payloads take precedence over downloaded staging. When CUDA was
+    // downloaded separately, include its packages in the same transaction.
     let source = payload_dir()
         .ok_or("payload nicht gefunden nach Download — staging layout korrupt ?")?;
     let install_dir = if options.install_dir.is_empty() {
@@ -593,9 +539,11 @@ where
     progress(ProgressEvent { step: "preparing-folder".into(), percent: 30 });
     super::ensure_application_closed(&app_exe_path)?;
     progress(ProgressEvent { step: "copying-files".into(), percent: 32 });
+    let cuda_source = (options.download_cuda && bundle.cuda.is_some())
+        .then(|| staging.join("win-unpacked"));
     let mut update = super::transaction::PayloadUpdate::prepare(
         &install_dir, Path::new(APP_EXE), true,
-        |staged| robocopy_dir(&source, staged),
+        |staged| super::payload_copy::copy_windows_payload(&source, staged, cuda_source.as_deref()),
     ).map_err(|e| format!("Preparing application update: {e}"))?;
     super::ensure_application_closed(&app_exe_path)?;
     update.activate().map_err(|e| format!("Replacing application payload: {e}"))?;
@@ -637,7 +585,7 @@ where
 
     progress(ProgressEvent { step: "done".into(), percent: 100 });
 
-    // Best-effort cleanup of the staging tree. Robocopy already mirrored
+    // Best-effort cleanup of the staging tree. The transaction has committed
     // everything into install_dir ; the extracted copy at staging\ is just
     // disk waste from here on. Delete the parent so partial archives ,
     // staging tree , and any leftover .partial sidecars all go in one shot.
