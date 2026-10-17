@@ -11,7 +11,7 @@
          its initial getState() + getLicense() round-trips. Reuses the
          brand design from splash.html ; fades out once <body> picks up
          the .is-booted class ( set from renderer.js after data is in ). -->
-    <div id="boot-splash" class="boot-splash" aria-hidden="true">
+    <div id="boot-splash" class="boot-splash">
       <div class="boot-splash__inner">
         <div class="boot-splash__logo">
           <svg viewBox="0 0 64 64" width="64" height="64" fill="none">
@@ -57,12 +57,16 @@
         </div>
         <p class="boot-splash__eyebrow">Local AI knowledge assistant</p>
         <h1 class="boot-splash__brand">LokLM</h1>
-        <p class="boot-splash__hint">
+        <p id="boot-hint" class="boot-splash__hint" role="status">
           <span>loading</span>
           <span class="boot-splash__dots" aria-hidden="true">
             <span></span><span></span><span></span>
           </span>
         </p>
+        <p id="boot-error" role="alert" hidden></p>
+        <button id="boot-retry" class="btn btn-primary" type="button" data-i18n="nav.retry" hidden>
+          Retry
+        </button>
       </div>
     </div>
 
@@ -98,7 +102,7 @@
         </button>
       </div>
     </header>
-    <main class="installer-shell">
+    <main class="installer-shell" inert>
       <aside class="brand-panel" aria-label="LokLM">
         <div class="lang-switch" role="group" aria-label="Sprache">
           <button type="button" class="lang-switch__btn" data-locale="de">DE</button>

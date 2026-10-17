@@ -28,6 +28,7 @@ let hardwareProbeFailed = false
 // Default to standard so the install flow has a sane tier even before the
 // user opens the hardware page ( edge-case : Next-spammed past it ).
 let selectedTier = 'standard'
+let tierManuallySelected = false
 
 // Per-file download state — updated by every model-progress event so the
 // install page can show which model is currently downloading.
@@ -63,6 +64,11 @@ const els = {
   finishAutostart: document.getElementById('finish-autostart'),
   titlebarMin: document.getElementById('titlebar-min'),
   titlebarClose: document.getElementById('titlebar-close'),
+  bootSplash: document.getElementById('boot-splash'),
+  bootHint: document.getElementById('boot-hint'),
+  bootError: document.getElementById('boot-error'),
+  bootRetry: document.getElementById('boot-retry'),
+  shell: document.querySelector('.installer-shell'),
 }
 
 els.titlebarMin?.addEventListener('click', () => void window.installer.minimize())
@@ -351,7 +357,7 @@ function startHardwareProbe() {
       // Auto-select the recommended tier ( user can still override ). Honour
       // an earlier manual pick if the user clicked a card before the probe
       // resolved — selectedTier was already set in that case.
-      if (profile?.recommendedTier && selectedTier === 'standard') {
+      if (profile?.recommendedTier && !tierManuallySelected) {
         selectedTier = profile.recommendedTier
       }
       // Default the CUDA checkbox on for detected NVIDIA Pascal+ ;
@@ -419,13 +425,15 @@ function applyLicenseBodyText() {
   if (licenseBodyState !== 'loaded') {
     els.licenseBody.textContent = licenseText
     licenseBodyState = 'loaded'
-    // Some users get a license shorter than the pre's max-height — no scroll
-    // needed, unlock immediately.
-    if (isLicenseFullyRevealed()) licenseScrolled = true
   }
 }
 
 function applyLicenseAcceptLock() {
+  // Hidden pages report zero dimensions. Measure only after the license page
+  // is visible, otherwise bootstrap would mark every license as already read.
+  if (pages[pageIndex] === 'license' && licenseBodyState === 'loaded' && isLicenseFullyRevealed()) {
+    licenseScrolled = true
+  }
   // Lock the accept row until the user has scrolled to the bottom of the
   // loaded license. While the text is still loading or errored we also keep
   // the row locked — nothing meaningful to accept yet.
@@ -575,8 +583,14 @@ els.autostart.addEventListener('change', render)
 els.ollamaConnector?.addEventListener('change', render)
 
 for (const radio of els.tierRadios) {
+  // Clicking the already-selected default does not fire change, but still
+  // expresses a choice that a pending probe must preserve.
+  radio.addEventListener('click', () => {
+    tierManuallySelected = true
+  })
   radio.addEventListener('change', () => {
     if (radio.checked) {
+      tierManuallySelected = true
       selectedTier = radio.value
       render()
     }
@@ -604,24 +618,42 @@ applyStaticTranslations()
 // the two IPC bootstrap calls AND a small minimum-visible delay so
 // the splash doesn't flicker on fast machines ( both calls can
 // resolve in <50ms and the user wouldn't see anything ).
-const licensePromise = window.installer.getLicense().then((text) => {
-  licenseText = text
-  licenseLoaded = true
-  render()
-})
-
-const statePromise = window.installer.getState().then((state) => {
-  installerState = state
-  els.installDir.value = state.defaultInstallDir
-  if (!state.payloadReady) {
-    els.installError.textContent = t('install.payloadMissing')
-    els.installError.hidden = false
-  }
-  render()
-})
-
 const minVisible = new Promise((resolve) => setTimeout(resolve, 800))
 
-Promise.all([licensePromise, statePromise, minVisible]).then(() => {
-  document.body.classList.add('is-booted')
-})
+async function bootstrap() {
+  els.bootRetry.disabled = true
+  els.bootRetry.hidden = true
+  els.bootError.hidden = true
+  els.bootHint.hidden = false
+  try {
+    const [text, state] = await Promise.all([
+      window.installer.getLicense(),
+      window.installer.getState(),
+      minVisible,
+    ])
+    if (!text) throw new Error(t('license.loadError'))
+    licenseText = text
+    licenseLoaded = true
+    installerState = state
+    els.installDir.value = state.defaultInstallDir
+    if (!state.payloadReady) {
+      els.installError.textContent = t('install.payloadMissing')
+      els.installError.hidden = false
+    }
+    render()
+    document.body.classList.add('is-booted')
+    els.bootSplash.setAttribute('aria-hidden', 'true')
+    els.shell.removeAttribute('inert')
+    els.next.focus()
+  } catch (err) {
+    els.bootHint.hidden = true
+    els.bootError.textContent = `${t('boot.loadError')} ${err instanceof Error ? err.message : String(err)}`
+    els.bootError.hidden = false
+    els.bootRetry.disabled = false
+    els.bootRetry.hidden = false
+    els.bootRetry.focus()
+  }
+}
+
+els.bootRetry.addEventListener('click', () => void bootstrap())
+void bootstrap()
