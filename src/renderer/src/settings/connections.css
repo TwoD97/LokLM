@@ -1,0 +1,76 @@
+.connections {
+  display: grid;
+  gap: 14px;
+}
+.connections p {
+  margin: 0;
+  line-height: 1.5;
+}
+.connections__privacy {
+  color: var(--fg-1);
+}
+.connections__error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--error);
+}
+.connections__editor fieldset {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.connections__editor label {
+  display: grid;
+  gap: 6px;
+}
+.connections__editor input,
+.connections__editor textarea,
+.connections__editor select {
+  width: 100%;
+  min-width: 0;
+}
+.connections__editor .connections__enabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.connections__enabled input {
+  width: auto;
+}
+.connections__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.connections__list,
+.connections__catalog ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.connections__list > li,
+.connections__catalog li {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.connections__list > li > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+}
+.connections__catalog {
+  display: grid;
+  gap: 12px;
+}
+.connections small {
+  color: var(--fg-2);
+}

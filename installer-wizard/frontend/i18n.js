@@ -13,6 +13,10 @@
 ;(function (root) {
   const DICT = {
     de: {
+      boot: {
+        loadError:
+          'Das Installationsprogramm konnte nicht gestartet werden. Bitte versuche es erneut.',
+      },
       brand: {
         eyebrow: 'Lokaler KI-Wissensassistent',
         title: 'LokLM installieren',
@@ -108,7 +112,8 @@
         autostartTitle: 'Mit Windows starten',
         autostartDesc: 'LokLM startet automatisch, sobald du dich anmeldest.',
         cudaTitle: 'NVIDIA GPU-Beschleunigung herunterladen',
-        cudaDesc: 'Etwa 680 MB zusätzlicher Download. Aktiviert CUDA auf NVIDIA-Karten für deutlich schnellere Verarbeitung — Sprachmodell und Dokumentübersetzung.',
+        cudaDesc:
+          'Etwa 680 MB zusätzlicher Download. Aktiviert CUDA auf NVIDIA-Karten für deutlich schnellere Verarbeitung — Sprachmodell und Dokumentübersetzung.',
         cudaHelpNvidia: 'Empfohlen für deine NVIDIA-Karte ({gpu}).',
         cudaHelpOther: 'Nicht erforderlich für deine GPU ({gpu} — Vulkan ist bereits enthalten).',
         cudaHelpNoGpu: 'Keine GPU erkannt; CUDA wird nicht benötigt.',
@@ -141,6 +146,7 @@
         autostartOff: 'Nein',
       },
       nav: {
+        retry: 'Erneut versuchen',
         back: 'Zurück',
         next: 'Weiter',
         install: 'Installieren',
@@ -169,6 +175,7 @@
       },
     },
     en: {
+      boot: { loadError: 'The installer could not start. Please try again.' },
       brand: {
         eyebrow: 'Local AI knowledge assistant',
         title: 'Install LokLM',
@@ -207,9 +214,9 @@
       hardware: {
         kicker: 'Hardware',
         title: 'Which edition fits your machine?',
-        copy: "We took a quick look at your hardware. The recommended edition is marked , but you can pick a different one any time.",
+        copy: 'We took a quick look at your hardware. The recommended edition is marked , but you can pick a different one any time.',
         probing: 'Probing hardware …',
-        probeFailed: "Hardware probe failed — you can still pick an edition manually.",
+        probeFailed: 'Hardware probe failed — you can still pick an edition manually.',
         recommended: 'Recommended',
         gpu: 'GPU',
         cpu: 'CPU',
@@ -263,7 +270,8 @@
         autostartTitle: 'Start with Windows',
         autostartDesc: 'LokLM launches automatically when you sign in.',
         cudaTitle: 'Download NVIDIA GPU acceleration',
-        cudaDesc: 'About 680 MB extra download. Enables CUDA on NVIDIA cards for much faster processing — both the language model and document translation.',
+        cudaDesc:
+          'About 680 MB extra download. Enables CUDA on NVIDIA cards for much faster processing — both the language model and document translation.',
         cudaHelpNvidia: 'Recommended for your NVIDIA card ({gpu}).',
         cudaHelpOther: 'Not needed for your GPU ({gpu} — Vulkan is already included).',
         cudaHelpNoGpu: 'No GPU detected; CUDA is not required.',
@@ -296,6 +304,7 @@
         autostartOff: 'No',
       },
       nav: {
+        retry: 'Retry',
         back: 'Back',
         next: 'Next',
         install: 'Install',

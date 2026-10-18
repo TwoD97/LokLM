@@ -295,17 +295,24 @@ class RegistryLlmProvider implements LlmProvider {
   }
 
   async ask(q: string, hits: RetrievalHit[], opts: AskOptions): Promise<string> {
+    let publishedText = false
     const guardedOpts: AskOptions = {
       ...opts,
       ...(opts.onChunk && {
         onChunk: (text: string, count: number) => {
-          if (this.session.active && !opts.abortSignal?.aborted) opts.onChunk!(text, count)
+          if (this.session.active && !opts.abortSignal?.aborted) {
+            if (text.length > 0) publishedText = true
+            opts.onChunk!(text, count)
+          }
         },
       }),
     }
     return this.withFallback(
       (provider, abortSignal) => provider.ask(q, hits, { ...guardedOpts, abortSignal }),
       opts.abortSignal,
+      // A second provider's answer would be appended to the visible partial
+      // response. Let QA mark that answer incomplete instead of mixing them.
+      () => !publishedText,
     )
   }
 
@@ -345,6 +352,7 @@ class RegistryLlmProvider implements LlmProvider {
   private withFallback<T>(
     operation: (provider: LlmProvider, signal: AbortSignal) => Promise<T>,
     signal?: AbortSignal,
+    canFallback?: () => boolean,
   ): Promise<T> {
     return this.session.run(async (abortSignal) => {
       const active = this.active()
@@ -361,7 +369,7 @@ class RegistryLlmProvider implements LlmProvider {
         return result
       } catch (err) {
         this.session.assertActive(signal)
-        if (active === this.bundled || !isFallbackable(err)) throw err
+        if (active === this.bundled || !isFallbackable(err) || canFallback?.() === false) throw err
         const reason = err instanceof Error ? err.message : String(err)
         if (this.fallback.settle(attempt, reason)) this.deps.onFallback?.({ kind: 'llm', reason })
         this.session.assertActive(signal)

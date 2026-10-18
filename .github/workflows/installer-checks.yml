@@ -64,7 +64,7 @@ jobs:
       - name: Install native transcription build tools and Vulkan loader
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils makeself
+          sudo apt-get install -y build-essential cmake git python3 libvulkan-dev binutils makeself xvfb libnss3 libasound2 libgtk-3-0 libgbm1
       - name: Record and enforce the supported native runtime
         run: |
           getconf GNU_LIBC_VERSION
@@ -81,6 +81,16 @@ jobs:
         run: |
           command -v makeself
           pnpm exec vitest run --project scripts tests/unit/scripts/build-installer-stub-linux.test.mjs
+      - name: Build the real document worker with offline OCR data
+        run: |
+          pnpm tessdata
+          pnpm build
+      # Node-only parser tests cannot catch Electron/libvips symbol conflicts.
+      # This exercises real concurrent OCR requests and orderly worker shutdown.
+      - name: Verify document OCR in an Electron utility process
+        env:
+          LOKLM_NATIVE_DOCUMENTS_OCR: '1'
+        run: xvfb-run -a pnpm exec playwright test --config tests/e2e/playwright.config.ts tests/e2e/documents-worker-ocr.spec.ts --retries=0 --reporter=list
 
   transcription-mac:
     name: Native transcription (${{ matrix.arch }})

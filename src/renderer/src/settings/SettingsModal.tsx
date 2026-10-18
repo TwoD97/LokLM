@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Cpu,
   X,
+  Plug,
 } from 'lucide-react'
 import { useT } from '../i18n'
 import { useModalFocus } from '../ui/useModalFocus'
@@ -27,11 +28,15 @@ const AdvancedTab = lazy(() =>
   import('./AdvancedTab').then((module) => ({ default: module.AdvancedTab })),
 )
 const AboutTab = lazy(() => import('./AboutTab').then((module) => ({ default: module.AboutTab })))
+const ConnectionsTab = lazy(() =>
+  import('./ConnectionsTab').then((module) => ({ default: module.ConnectionsTab })),
+)
 
 const SECTIONS = [
   { id: 'basic', title: 'prefs.general', hint: 'prefs.generalHint', Icon: SettingsIcon },
   { id: 'modules', title: 'prefs.modules', hint: 'prefs.modulesHint', Icon: LayoutGrid },
   { id: 'system', title: 'prefs.system', hint: 'prefs.systemHint', Icon: Cpu },
+  { id: 'connections', title: 'connections.title', hint: 'connections.hint', Icon: Plug },
   {
     id: 'advanced',
     title: 'settings.tab.advanced',
@@ -174,6 +179,7 @@ function SettingsDialog({
                   />
                 )}
                 {tab === 'advanced' && <AdvancedTab />}
+                {tab === 'connections' && <ConnectionsTab />}
                 {tab === 'profile' && <ProfileTab />}
                 {tab === 'about' && <AboutTab />}
               </Suspense>

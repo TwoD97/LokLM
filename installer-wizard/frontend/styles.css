@@ -557,7 +557,7 @@ input[type='text']:focus {
   display: grid;
   place-items: center;
   text-align: center;
-  pointer-events: none;
+  pointer-events: auto;
   background:
     radial-gradient(circle at 22% 18%, rgba(59, 130, 246, 0.32), transparent 38%),
     radial-gradient(circle at 80% 92%, rgba(20, 184, 166, 0.22), transparent 36%),
@@ -570,6 +570,10 @@ input[type='text']:focus {
 body.is-booted .boot-splash {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
+}
+.boot-splash [hidden] {
+  display: none;
 }
 .boot-splash__inner {
   display: flex;

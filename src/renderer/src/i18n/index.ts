@@ -27,8 +27,10 @@ import { organizerDict } from './dict_organizer'
 import { statusDict } from '../status/dict_status'
 import { startupDict } from './dict_startup'
 import { preferencesDict } from './dict_preferences'
+import { skillsDict } from './dict_skills'
 
 const DOMAINS = [
+  skillsDict,
   statusDict,
   startupDict,
   organizerDict,

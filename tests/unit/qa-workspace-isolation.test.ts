@@ -53,7 +53,9 @@ function fixture() {
   const embedder = {
     isReady: vi.fn(() => false),
     identity: () => 'fixture',
-    embed: vi.fn(async () => [new Float32Array([1, 0])]),
+    embed: vi.fn<
+      (texts: string[], opts?: { abortSignal?: AbortSignal }) => Promise<Float32Array[]>
+    >(async () => [new Float32Array([1, 0])]),
   }
   const registry = { llm: () => llm, embedder: () => embedder }
   const summarize = new SummarizationService(db as never, registry as never)
@@ -205,6 +207,62 @@ describe('workspace ownership across RAG and summary awaits', () => {
     write.resolve()
     await rejected
   })
+
+  it('cancels the optional summary embedding request without waiting for its response', async () => {
+    const f = fixture()
+    f.embedder.isReady.mockReturnValue(true)
+    f.embedder.embed.mockImplementation(
+      (_texts, opts) =>
+        new Promise((_resolve, reject) => {
+          opts?.abortSignal?.addEventListener('abort', () => reject(opts.abortSignal?.reason), {
+            once: true,
+          })
+        }),
+    )
+    const ctrl = new AbortController()
+    const running = f.summarize.summarize(1, { abortSignal: ctrl.signal })
+    const rejected = expect(running).rejects.toMatchObject({ name: 'AbortError' })
+    await vi.waitFor(() => expect(f.embedder.embed).toHaveBeenCalledOnce())
+    ctrl.abort()
+    await rejected
+    expect(f.original.setSummaryEmbedding).not.toHaveBeenCalled()
+  })
+
+  it.each(['embed', 'embedQuery'] as const)(
+    'cancels an in-flight corpus %s request without running a literal fallback',
+    async (method) => {
+      const f = fixture()
+      f.embedder.isReady.mockReturnValue(true)
+      const embed = vi.fn(
+        (_texts: string[], opts?: { abortSignal?: AbortSignal }) =>
+          new Promise<Float32Array[]>((_resolve, reject) => {
+            opts?.abortSignal?.addEventListener('abort', () => reject(opts.abortSignal?.reason), {
+              once: true,
+            })
+          }),
+      )
+      Object.assign(f.embedder, { [method]: embed })
+      const ctrl = new AbortController()
+      const qa = new QAService(f.db as never, {} as never, f.registry as never, f.summarize)
+      const events: Array<{ type: string }> = []
+      const running = (async () => {
+        for await (const event of qa.answer(
+          3,
+          'How many documents about chemistry?',
+          { language: 'en' },
+          ctrl.signal,
+        ))
+          events.push(event)
+      })()
+      await vi.waitFor(() => expect(embed).toHaveBeenCalledOnce())
+      ctrl.abort()
+      await running
+      expect(f.original.searchDocumentsByTheme).not.toHaveBeenCalled()
+      expect(
+        events.some((event) => ['done', 'refusal', 'token', 'error'].includes(event.type)),
+      ).toBe(false)
+    },
+  )
 
   it('does not begin theme embedding when canceled during summary-vector admission', async () => {
     const f = fixture()

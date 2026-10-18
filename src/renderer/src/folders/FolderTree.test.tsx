@@ -97,3 +97,37 @@ describe('FolderTree drag-and-drop targeting', () => {
     expect(onMove).toHaveBeenCalledWith(10, 2)
   })
 })
+
+describe('FolderTree keyboard actions', () => {
+  it('opens the compact actions menu with Shift+F10 and returns focus on Escape', () => {
+    const folder: Folder = { id: 1, parentId: null, name: 'Research', createdAt: 0 }
+    const toggle = vi.fn()
+    render(
+      <FolderTree
+        nodes={buildFolderTree([folder], [], [])}
+        expanded={new Set()}
+        onToggleExpand={toggle}
+        onCreateFolder={NOOP}
+        onRenameFolder={NOOP}
+        onDeleteFolder={NOOP}
+        onMoveDocument={NOOP}
+        compact
+        renderFile={() => null}
+      />,
+    )
+    const row = screen.getByRole('treeitem', { name: 'Research' })
+    row.focus()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(toggle).toHaveBeenCalledExactlyOnceWith('folder:1')
+    fireEvent.keyDown(row, { key: 'F10', shiftKey: true })
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(items[0]!, { key: 'End' })
+    expect(items[2]).toHaveFocus()
+    fireEvent.keyDown(items[2]!, { key: 'ArrowDown' })
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(items[0]!, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(row).toHaveFocus()
+  })
+})

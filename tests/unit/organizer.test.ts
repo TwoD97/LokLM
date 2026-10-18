@@ -35,12 +35,14 @@ function fixture() {
   const persist = vi.fn(async () => {
     disk = new Map(memory)
   })
-  const service = new OrganizerService(kv, persist, () => unlocked)
+  const onChanged = vi.fn()
+  const service = new OrganizerService(kv, persist, () => unlocked, onChanged)
   return {
     service,
     kv,
     memory,
     persist,
+    onChanged,
     disk: () => disk,
     lock: () => {
       unlocked = false
@@ -121,9 +123,15 @@ describe('OrganizerService durable encrypted-vault adapter', () => {
     })
     await Promise.resolve()
     expect(saved).toBe(false)
+    expect(f.onChanged).not.toHaveBeenCalled()
     expect(read).toBe(false)
     write.resolve()
     expect((await saving).title).toBe('Draft')
+    expect(f.onChanged).toHaveBeenCalledWith({
+      kind: 'notes',
+      id: expect.any(String),
+      operation: 'saved',
+    })
     expect((await reading).notes).toHaveLength(1)
   })
 
@@ -152,6 +160,7 @@ describe('OrganizerService durable encrypted-vault adapter', () => {
     await expect(f.service.saveNote({ title: 'Unsaved', body: '' })).rejects.toThrow('Disk is full')
     expect(f.memory.get(ORGANIZER_KEY)).toBeUndefined()
     expect(f.memory.get('settings')).toBe('unchanged')
+    expect(f.onChanged).not.toHaveBeenCalled()
     expect(await f.service.list()).toEqual({ notes: [], tasks: [], events: [] })
     await f.service.saveTask(newTask)
     expect((await f.reopen().list()).tasks).toHaveLength(1)
@@ -202,6 +211,7 @@ describe('OrganizerService durable encrypted-vault adapter', () => {
     await Promise.all([savingResult, queuedResult, f.service.drain()])
     expect(f.persist).toHaveBeenCalledTimes(1)
     f.lock()
+    expect(f.onChanged).not.toHaveBeenCalled()
     f.unlock()
     await expect(f.service.list()).rejects.toThrow('ORGANIZER_LOCKED')
   })
@@ -263,6 +273,23 @@ describe('OrganizerService durable encrypted-vault adapter', () => {
       f.service.deleteEvent(event),
     ])
     expect(await f.reopen().list()).toEqual({ notes: [], tasks: [], events: [] })
+    expect(f.onChanged.mock.calls.map(([event]) => event)).toEqual([
+      { kind: 'notes', id: note.id, operation: 'saved' },
+      { kind: 'tasks', id: task.id, operation: 'saved' },
+      { kind: 'events', id: event.id, operation: 'saved' },
+      { kind: 'notes', id: note.id, operation: 'deleted' },
+      { kind: 'tasks', id: task.id, operation: 'deleted' },
+      { kind: 'events', id: event.id, operation: 'deleted' },
+    ])
+  })
+
+  it('does not report a committed change as failed if its notification cannot be delivered', async () => {
+    const f = fixture()
+    f.onChanged.mockImplementation(() => {
+      throw new Error('window closed')
+    })
+    const note = await f.service.saveNote({ title: 'Durable', body: '' })
+    expect((await f.reopen().list()).notes).toEqual([note])
   })
 })
 

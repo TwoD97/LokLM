@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { secureWipe } from '../auth/secureMemory'
 import { createWorkspaceKey, unwrapWorkspaceKey } from '../auth/workspaceKeys'
@@ -80,13 +81,14 @@ export class WorkspaceStore {
   private readonly pendingMetaDbs = new Map<number, Promise<WorkspaceDb>>()
   private readonly deleting = new Set<number>()
   private vectorOperations: Promise<void> = Promise.resolve()
+  private manifestOperations: Promise<void> = Promise.resolve()
   private closed = false
   private closing: Promise<void> | null = null
 
   constructor(deps: WorkspaceStoreDeps) {
     this.baseDir = deps.baseDir
     this.masterDek = deps.masterDek
-    this.manifest = deps.manifest
+    this.manifest = structuredClone(deps.manifest)
     // Retired background jobs can still carry their workspace ID until they
     // observe cancellation. Do not give that ID to another workspace this session.
     this.nextWorkspaceId =
@@ -97,7 +99,7 @@ export class WorkspaceStore {
 
   list(): WorkspaceManifestEntry[] {
     this.assertOpen()
-    return this.manifest.workspaces
+    return structuredClone(this.manifest.workspaces)
   }
 
   getDefaultWorkspaceId(): number | null {
@@ -184,51 +186,47 @@ export class WorkspaceStore {
    *  meta.db is still encrypted under the WDEK either way. */
   async create(name: string, opts: { encrypted?: boolean } = {}): Promise<WorkspaceManifestEntry> {
     this.assertOpen()
-    const id = this.nextWorkspaceId++
-    const { wdek, wrapped } = createWorkspaceKey(this.masterDek)
-    secureWipe(wdek) // not opening yet; the wrapped form is what we persist
-    const entry: WorkspaceManifestEntry = {
-      id,
-      name,
-      createdAt: Math.floor(Date.now() / 1000),
-      encryptionLevel: opts.encrypted === false ? 'none' : 'full',
-      type: DEFAULT_WORKSPACE_TYPE,
-      dir: `ws-${id}`,
-      wrappedKey: wrapped,
-      vectorCount: 0,
-      indexConfig: suggestIndexConfig(this.dims, 0),
-    }
-    this.manifest.workspaces.push(entry)
-    if (this.manifest.defaultWorkspaceId == null) this.manifest.defaultWorkspaceId = id
-    await this.persistManifest(this.manifest)
-    return entry
+    return this.mutateManifest((candidate) => {
+      const id = this.nextWorkspaceId++
+      const entry = this.newEntry(id, name, opts.encrypted !== false)
+      candidate.workspaces.push(entry)
+      candidate.defaultWorkspaceId ??= id
+      return entry
+    })
   }
 
-  /** Ensures a manifest entry with the given id exists (mirroring an app
-   *  workspace from the relational DB), minting a WDEK on first sight. Idempotent
-   *  — only persists when it actually creates the entry. Returns the entry. */
+  /** Ensures an entry exists, publishing its new key only after persistence. */
   async ensure(id: number, name: string): Promise<WorkspaceManifestEntry> {
     this.assertOpen(id)
-    const existing = this.manifest.workspaces.find((w) => w.id === id)
-    if (existing) return existing
-    this.nextWorkspaceId = Math.max(this.nextWorkspaceId, id + 1)
+    return this.mutateManifest((candidate) => {
+      this.assertOpen(id)
+      const existing = candidate.workspaces.find((w) => w.id === id)
+      if (existing) return existing
+      this.nextWorkspaceId = Math.max(this.nextWorkspaceId, id + 1)
+      const entry = this.newEntry(id, name, true)
+      candidate.workspaces.push(entry)
+      candidate.defaultWorkspaceId ??= id
+      return entry
+    })
+  }
+
+  private newEntry(id: number, name: string, encrypted: boolean): WorkspaceManifestEntry {
     const { wdek, wrapped } = createWorkspaceKey(this.masterDek)
     secureWipe(wdek)
-    const entry: WorkspaceManifestEntry = {
+    return {
       id,
       name,
       createdAt: Math.floor(Date.now() / 1000),
-      encryptionLevel: 'full',
+      encryptionLevel: encrypted ? 'full' : 'none',
       type: DEFAULT_WORKSPACE_TYPE,
-      dir: `ws-${id}`,
+      // A failed post-delete cleanup can leave old encrypted bytes behind.
+      // Numeric IDs may repeat in a later session; their new key must never
+      // open the prior workspace's orphan directory. Existing dirs stay valid.
+      dir: `ws-${id}-${randomUUID()}`,
       wrappedKey: wrapped,
       vectorCount: 0,
       indexConfig: suggestIndexConfig(this.dims, 0),
     }
-    this.manifest.workspaces.push(entry)
-    if (this.manifest.defaultWorkspaceId == null) this.manifest.defaultWorkspaceId = id
-    await this.persistManifest(this.manifest)
-    return entry
   }
 
   /** Opens (cheap) a workspace's encrypted SQLite store WITHOUT materialising its
@@ -322,7 +320,11 @@ export class WorkspaceStore {
         // Corrupt enc store was quarantined; vectors will be re-embedded from the
         // workspace's chunk text (WorkspaceVectorService.reconcileOnOpen). Reset the
         // cached count so the manifest reflects the empty-then-rebuilt store.
-        entry.vectorCount = 0
+        await this.mutateManifest((candidate) => {
+          const current = candidate.workspaces.find((workspace) => workspace.id === id)
+          if (current) current.vectorCount = 0
+        })
+        this.assertOpen(id)
         console.warn(`[workspace ${id}] recovered from a corrupt vector store`)
       }
       store = new LanceWorkspaceStore({
@@ -370,33 +372,35 @@ export class WorkspaceStore {
    *  No-op if there's no entry yet (it'll pick up the name on first ensure). */
   async rename(id: number, name: string): Promise<void> {
     this.assertOpen(id)
-    const entry = this.manifest.workspaces.find((w) => w.id === id)
-    if (!entry || entry.name === name) return
-    entry.name = name
-    await this.persistManifest(this.manifest)
+    await this.mutateManifest((candidate) => {
+      this.assertOpen(id)
+      const entry = candidate.workspaces.find((w) => w.id === id)
+      if (entry) entry.name = name
+    })
   }
 
-  /** Sets a workspace's type (ADR-0006). Called after folder-sync classification
-   *  flips a workspace to 'codebase', or when the user overrides it. Also retunes
-   *  the recorded index config to the type's embedding dimension (jina-code 896 vs
-   *  BGE-M3 1024); the on-disk Lance table dim is inferred from the actual vectors,
-   *  so this only keeps the manifest's index params honest. */
+  /** Updates workspace type and its index configuration in one durable mutation. */
   async setType(id: number, type: WorkspaceType): Promise<void> {
     this.assertOpen(id)
-    const entry = this.requireEntry(id)
-    if (entry.type === type) return
-    entry.type = type
-    const dim = type === 'codebase' ? CODE_EMBEDDING_DIM : this.dims
-    entry.indexConfig = suggestIndexConfig(dim, entry.vectorCount)
-    await this.persistManifest(this.manifest)
+    await this.mutateManifest((candidate) => {
+      this.assertOpen(id)
+      this.requireEntry(id)
+      const entry = candidate.workspaces.find((w) => w.id === id)!
+      if (entry.type === type) return
+      entry.type = type
+      const dim = type === 'codebase' ? CODE_EMBEDDING_DIM : this.dims
+      entry.indexConfig = suggestIndexConfig(dim, entry.vectorCount)
+    })
   }
 
   /** Sets the auto-load default workspace. */
   async setDefault(id: number | null): Promise<void> {
     this.assertOpen(id ?? undefined)
-    if (id != null) this.requireEntry(id)
-    this.manifest.defaultWorkspaceId = id
-    await this.persistManifest(this.manifest)
+    await this.mutateManifest((candidate) => {
+      this.assertOpen(id ?? undefined)
+      if (id != null) this.requireEntry(id)
+      candidate.defaultWorkspaceId = id
+    })
   }
 
   /** The open workspace's store, or null when none is open. */
@@ -412,11 +416,9 @@ export class WorkspaceStore {
     if (!a) return
     this.active = null
     const errors: unknown[] = []
+    let vectorCount: number | undefined
     try {
-      if (!opts.discard) {
-        const entry = this.manifest.workspaces.find((w) => w.id === a.id)
-        if (entry) entry.vectorCount = await a.store.count()
-      }
+      if (!opts.discard) vectorCount = await a.store.count()
     } catch (error) {
       errors.push(error)
     }
@@ -431,7 +433,12 @@ export class WorkspaceStore {
       errors.push(error)
     }
     if (errors.length) throw new AggregateError(errors, 'Workspace deactivation failed.')
-    if (!opts.discard) await this.persistManifest(this.manifest)
+    if (!opts.discard && vectorCount !== undefined) {
+      await this.mutateManifest((candidate) => {
+        const entry = candidate.workspaces.find((w) => w.id === a.id)
+        if (entry) entry.vectorCount = vectorCount
+      }, true)
+    }
   }
 
   /** Full teardown (lock/logout): deactivate the vector store and close every
@@ -440,10 +447,12 @@ export class WorkspaceStore {
     if (this.closing) return this.closing
     // Close admission synchronously, before any native/FS await. A fresh login
     // creates a new WorkspaceStore; this instance can never reopen old keys.
+    // Queued mutations reject at admission; writes already begun are drained.
     this.closed = true
     this.selectedWorkspaceId = null
     this.closing = (async () => {
       await this.vectorOperations
+      await this.manifestOperations
       await Promise.allSettled(this.pendingMetaDbs.values())
       const errors: unknown[] = []
       try {
@@ -476,7 +485,7 @@ export class WorkspaceStore {
     try {
       await this.enqueueVectorOperation(async () => {
         await this.pendingMetaDbs.get(id)?.catch(() => undefined)
-        if (this.active?.id === id) await this.deactivate({ discard: true })
+        if (this.active?.id === id) await this.deactivate()
         const meta = this.metaDbs.get(id)
         if (meta) {
           try {
@@ -486,10 +495,13 @@ export class WorkspaceStore {
           }
           this.metaDbs.delete(id)
         }
+        // Never remove files while a failed vault write could leave their key
+        // and manifest entry live. Native data has already been persisted above.
+        await this.mutateManifest((candidate) => {
+          candidate.workspaces = candidate.workspaces.filter((w) => w.id !== id)
+          if (candidate.defaultWorkspaceId === id) candidate.defaultWorkspaceId = null
+        }, true)
         await fs.rm(join(this.baseDir, entry.dir), { recursive: true, force: true })
-        this.manifest.workspaces = this.manifest.workspaces.filter((w) => w.id !== id)
-        if (this.manifest.defaultWorkspaceId === id) this.manifest.defaultWorkspaceId = null
-        await this.persistManifest(this.manifest)
       })
     } finally {
       this.deleting.delete(id)
@@ -500,14 +512,42 @@ export class WorkspaceStore {
    *  config (call after a bulk load). */
   async buildActiveIndex(): Promise<void> {
     this.assertOpen()
-    const a = this.active
-    if (!a) return
-    const entry = this.manifest.workspaces.find((w) => w.id === a.id)
-    const rows = await a.store.count()
-    const config = suggestIndexConfig(this.dims, rows)
-    if (entry) entry.indexConfig = config
-    await a.store.buildIndex(config)
-    if (entry) await this.persistManifest(this.manifest)
+    await this.enqueueVectorOperation(async () => {
+      const a = this.active
+      if (!a) return
+      const rows = await a.store.count()
+      const config = suggestIndexConfig(this.dims, rows)
+      await a.store.buildIndex(config)
+      await this.mutateManifest((candidate) => {
+        const entry = candidate.workspaces.find((w) => w.id === a.id)
+        if (entry) entry.indexConfig = config
+      })
+    })
+  }
+
+  /** Capture each candidate after the preceding commit. Failed writes never
+   * become visible to readers or leak into a later unrelated vault snapshot. */
+  private mutateManifest<T>(
+    mutation: (candidate: VaultManifest) => T,
+    duringClose = false,
+  ): Promise<T> {
+    const run = this.manifestOperations.then(async () => {
+      if (!duringClose) this.assertOpen()
+      const candidate = structuredClone(this.manifest)
+      const result = mutation(candidate)
+      // ensure/rename/default calls are often idempotent; avoid vault writes
+      // when their candidate contains no change.
+      if (JSON.stringify(candidate) !== JSON.stringify(this.manifest)) {
+        await this.persistManifest(candidate)
+        this.manifest = candidate
+      }
+      return structuredClone(result)
+    })
+    this.manifestOperations = run.then(
+      () => {},
+      () => {},
+    )
+    return run
   }
 
   private requireEntry(id: number): WorkspaceManifestEntry {

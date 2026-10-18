@@ -277,11 +277,35 @@ function TreeRow({
         style={{ paddingLeft: depth * INDENT + PAD }}
         role="treeitem"
         aria-expanded={open}
+        aria-label={node.name}
+        aria-level={depth + 1}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          // Nested checkboxes, rename inputs and action buttons own their keys.
+          if (event.target !== event.currentTarget) return
+          if (
+            event.key === 'Enter' ||
+            event.key === ' ' ||
+            (event.key === 'ArrowRight' && !open) ||
+            (event.key === 'ArrowLeft' && open)
+          ) {
+            event.preventDefault()
+            ctx.toggleExpand(node.key)
+          } else if (
+            ctx.compact &&
+            (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
+          ) {
+            event.preventDefault()
+            const bounds = event.currentTarget.getBoundingClientRect()
+            setMenu({ x: bounds.left, y: bounds.bottom, align: 'left' })
+          }
+        }}
         onClick={() => ctx.toggleExpand(node.key)}
         onContextMenu={
           ctx.compact
             ? (e) => {
                 e.preventDefault()
+                e.currentTarget.focus()
                 setMenu({ x: e.clientX, y: e.clientY, align: 'left' })
               }
             : undefined
@@ -487,23 +511,35 @@ function FolderMenu({
   t: TFn
 }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<HTMLElement | null>(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    openerRef.current = opener
+    ref.current?.querySelector<HTMLButtonElement>('button')?.focus()
     const onDown = (e: PointerEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (ref.current && !ref.current.contains(e.target as Node)) closeRef.current()
     }
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        closeRef.current()
+        if (opener?.isConnected) opener.focus()
+      }
     }
     document.addEventListener('pointerdown', onDown, true)
     document.addEventListener('keydown', onKey, true)
     // Capture-phase so a scroll inside the sidebar (not just window) closes it.
-    window.addEventListener('scroll', onClose, true)
+    const onScroll = () => closeRef.current()
+    window.addEventListener('scroll', onScroll, true)
     return () => {
       document.removeEventListener('pointerdown', onDown, true)
       document.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('scroll', onClose, true)
+      window.removeEventListener('scroll', onScroll, true)
     }
-  }, [onClose])
+  }, [])
 
   const rawLeft = align === 'right' ? x - MENU_WIDTH : x
   const left = Math.max(8, Math.min(rawLeft, window.innerWidth - MENU_WIDTH - 8))
@@ -516,6 +552,23 @@ function FolderMenu({
       className="folder-menu"
       style={{ left, top, width: MENU_WIDTH }}
       role="menu"
+      onKeyDown={(event) => {
+        const buttons = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+        let next: number | undefined
+        if (event.key === 'ArrowDown') next = (index + 1) % buttons.length
+        else if (event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length
+        else if (event.key === 'Home') next = 0
+        else if (event.key === 'End') next = buttons.length - 1
+        else if (event.key === 'Tab') {
+          openerRef.current?.focus()
+          onClose()
+        }
+        if (next !== undefined) {
+          event.preventDefault()
+          buttons[next]?.focus()
+        }
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <button type="button" role="menuitem" className="folder-menu__item" onClick={onNewSubfolder}>

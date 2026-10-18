@@ -29,6 +29,9 @@ patchedDependencies:
   node-llama-cpp:
     hash: c23a97dfe9680785f37f73eef21569377c83fc8c1f10f67ab93059ec6dad77a3
     path: patches/node-llama-cpp.patch
+  sharp@0.35.5:
+    hash: 63cb7815fce3f7f7c83099c5c2415dda66827ee3e0f15337ef550a8f47067889
+    path: patches/sharp@0.35.5.patch
   sprintf-js@1.0.3:
     hash: a96158eede358598c150fb126730f976db1e711d0b16e7d60c5d7830032b8cc8
     path: patches/sprintf-js@1.0.3.patch
@@ -40,6 +43,9 @@ importers:
 
   .:
     dependencies:
+      '@img/sharp-wasm32':
+        specifier: 0.35.5
+        version: 0.35.5
       '@kutalia/whisper-node-addon':
         specifier: ^1.1.0
         version: 1.1.0(patch_hash=3e4193479d7440691d11764423fe95b58999fbe16bb619d1fe486675c2f7f78b)
@@ -111,7 +117,7 @@ importers:
         version: 6.0.0
       sharp:
         specifier: ^0.35.5
-        version: 0.35.5(@types/node@24.13.2)
+        version: 0.35.5(patch_hash=63cb7815fce3f7f7c83099c5c2415dda66827ee3e0f15337ef550a8f47067889)(@types/node@24.13.2)
       sherpa-onnx-node:
         specifier: ^1.13.2
         version: 1.13.2
@@ -5010,7 +5016,6 @@ snapshots:
   '@emnapi/runtime@1.11.3':
     dependencies:
       tslib: 2.8.1
-    optional: true
 
   '@epic-web/invariant@1.0.0': {}
 
@@ -5252,7 +5257,6 @@ snapshots:
   '@img/sharp-wasm32@0.35.5':
     dependencies:
       '@emnapi/runtime': 1.11.3
-    optional: true
 
   '@img/sharp-webcontainers-wasm32@0.35.5':
     dependencies:
@@ -8981,7 +8985,7 @@ snapshots:
 
   setimmediate@1.0.5: {}
 
-  sharp@0.35.5(@types/node@24.13.2):
+  sharp@0.35.5(patch_hash=63cb7815fce3f7f7c83099c5c2415dda66827ee3e0f15337ef550a8f47067889)(@types/node@24.13.2):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2

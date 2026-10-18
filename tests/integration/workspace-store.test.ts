@@ -68,8 +68,8 @@ describe('WorkspaceStore (LanceDB + per-workspace encryption)', () => {
     await store.close()
 
     // at rest: enc/ exists with content, work/ is gone, bytes are not plaintext
-    const encDir = join(baseDir, 'ws-1', 'enc')
-    const workDir = join(baseDir, 'ws-1', 'work')
+    const encDir = join(baseDir, ws.dir, 'enc')
+    const workDir = join(baseDir, ws.dir, 'work')
     expect(await fs.stat(encDir).then((s) => s.isDirectory())).toBe(true)
     await expect(fs.stat(workDir)).rejects.toThrow() // wiped
     expect(saved?.workspaces[0]?.vectorCount).toBe(40)
@@ -125,7 +125,7 @@ describe('WorkspaceStore (LanceDB + per-workspace encryption)', () => {
     await store.delete(a.id)
     expect(saved?.workspaces.map((w) => w.id)).toEqual([2])
     expect(saved?.defaultWorkspaceId).toBeNull()
-    await expect(fs.stat(join(baseDir, 'ws-1'))).rejects.toThrow()
+    await expect(fs.stat(join(baseDir, a.dir))).rejects.toThrow()
   })
 
   it('openDefault resolves to the configured default workspace', async () => {

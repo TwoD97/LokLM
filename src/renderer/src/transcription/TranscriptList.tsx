@@ -14,10 +14,14 @@ export function TranscriptList({
   rows,
   workspaceId,
   onClear,
+  onCancel,
+  cancelling = false,
 }: {
   rows: QueueRow[]
   workspaceId: number | null
   onClear: () => void
+  onCancel?: () => void
+  cancelling?: boolean
 }): JSX.Element {
   const t = useT()
   const [saved, setSaved] = useState<Set<string>>(new Set())
@@ -35,6 +39,7 @@ export function TranscriptList({
     transcribing: t('tx.transcribing'),
     done: t('tx.complete'),
     error: t('common.error'),
+    cancelled: t('tx.cancelled'),
   }
 
   const save = async (index: number): Promise<void> => {
@@ -68,6 +73,11 @@ export function TranscriptList({
   return (
     <div className="transcription__result">
       <div className="transcription__actions">
+        {working && onCancel && (
+          <button className="transcription__btn" onClick={onCancel} disabled={cancelling}>
+            {t(cancelling ? 'tx.stopping' : 'tx.cancel')}
+          </button>
+        )}
         <button
           className="transcription__btn"
           onClick={() => void saveAll()}

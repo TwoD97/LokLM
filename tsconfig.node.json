@@ -28,6 +28,7 @@
     }
   },
   "include": [
+    "package.json",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",

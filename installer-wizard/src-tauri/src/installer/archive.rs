@@ -1,5 +1,5 @@
 // Single-pass tar.zst extraction. Used to expand the payload + cuda
-// archives the wizard downloads into the staging dir before robocopy /
+// archives the wizard downloads into the staging dir before native copying /
 // cp -r / ditto copies them to the install location.
 //
 // Preserve framework symlinks without allowing writes through them. Entries

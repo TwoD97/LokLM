@@ -16,6 +16,8 @@ import type {
   DeleteOrganizerInput,
 } from '../shared/organizer'
 import type { UserSettings } from '../shared/settings'
+import type { ConnectionsApi, SkillsApi } from '../shared/connections'
+import type { OrganizerChangedEvent } from '../shared/organizer'
 import type {
   TranscriptionOptions,
   TranscriptionEvent,
@@ -97,7 +99,26 @@ export interface SyncProgressEvent {
 }
 
 const api = {
+  connections: {
+    list: () => ipcRenderer.invoke('connections:list'),
+    save: (config) => ipcRenderer.invoke('connections:save', config),
+    remove: (id) => ipcRenderer.invoke('connections:remove', id),
+    connect: (id) => ipcRenderer.invoke('connections:connect', id),
+    disconnect: (id) => ipcRenderer.invoke('connections:disconnect', id),
+  } satisfies ConnectionsApi,
+  skills: {
+    tools: () => ipcRenderer.invoke('skills:tools'),
+    get: (input) => ipcRenderer.invoke('skills:get', input),
+    apply: (input) => ipcRenderer.invoke('skills:apply', input),
+    dismiss: (input) => ipcRenderer.invoke('skills:dismiss', input),
+  } satisfies SkillsApi,
   organizer: {
+    onChanged: (callback: (event: OrganizerChangedEvent) => void) => {
+      const listener = (_event: IpcRendererEvent, change: OrganizerChangedEvent): void =>
+        callback(change)
+      ipcRenderer.on('organizer:changed', listener)
+      return () => ipcRenderer.removeListener('organizer:changed', listener)
+    },
     list: () => ipcRenderer.invoke('organizer:list'),
     saveNote: (input: SaveNoteInput) => ipcRenderer.invoke('organizer:saveNote', input),
     deleteNote: (input: DeleteOrganizerInput) => ipcRenderer.invoke('organizer:deleteNote', input),
@@ -528,6 +549,8 @@ const api = {
       ipcRenderer.invoke('transcription:stageChunk', audioId, bytes),
     stageCommit: (audioId: string, durationSec: number): Promise<StagedAudio> =>
       ipcRenderer.invoke('transcription:stageCommit', audioId, durationSec),
+    discardStage: (audioId: string): Promise<void> =>
+      ipcRenderer.invoke('transcription:discardStage', audioId),
     run: (streamId: string, audioId: string, opts: TranscriptionOptions): Promise<void> =>
       ipcRenderer.invoke('transcription:run', streamId, audioId, opts),
     cancel: (streamId: string): Promise<void> =>

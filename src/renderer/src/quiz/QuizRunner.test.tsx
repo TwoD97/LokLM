@@ -118,6 +118,96 @@ describe('QuizRunner', () => {
     expect(screen.getByText('Question 1 / 1')).toBeInTheDocument()
   })
 
+  it('keeps answers after a scoring failure and retries the same attempt', async () => {
+    const { finishSpy } = setupApiSpies({ questions: [makeQuestion(1, 1)] })
+    finishSpy.mockRejectedValueOnce(new Error('disk unavailable'))
+    vi.spyOn(window.api.quiz, 'listAttempts').mockResolvedValue([])
+    render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByText('q1-correct'))
+    fireEvent.click(screen.getByText('Finish'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your answers are kept')
+    expect(finishSpy).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Results')).toBeVisible()
+    expect(finishSpy).toHaveBeenCalledTimes(2)
+    expect(finishSpy.mock.calls[1]).toEqual(finishSpy.mock.calls[0])
+    expect(window.api.quiz.startAttempt).toHaveBeenCalledOnce()
+  })
+
+  it('recovers a committed score after a lost reply without submitting it twice', async () => {
+    const { finishSpy } = setupApiSpies({ questions: [makeQuestion(1, 1)] })
+    finishSpy.mockRejectedValueOnce(new Error('reply lost'))
+    vi.spyOn(window.api.quiz, 'listAttempts').mockResolvedValue([
+      {
+        ...makeAttempt(),
+        finishedAt: NOW,
+        score: 1,
+        answers: [{ questionId: 1, selectedIndex: 1, correct: true }],
+      },
+    ])
+    render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByText('q1-correct'))
+    fireEvent.click(screen.getByText('Finish'))
+    await screen.findByRole('alert')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Results')).toBeVisible()
+    expect(finishSpy).toHaveBeenCalledOnce()
+  })
+
+  it('starts a fresh scoring request when the deck changes after a retry', async () => {
+    const questions = [makeQuestion(1, 1)]
+    const { finishSpy } = setupApiSpies({ questions })
+    finishSpy.mockRejectedValueOnce(new Error('reply lost'))
+    const attempts = vi.spyOn(window.api.quiz, 'listAttempts').mockResolvedValue([])
+    const view = render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByText('q1-correct'))
+    fireEvent.click(screen.getByText('Finish'))
+    await screen.findByRole('alert')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await screen.findByText('Results')
+    // Results also reads the attempt history after retry reconciliation.
+    attempts.mockClear()
+
+    const next = makeDeck(questions)
+    next.deck.id = 2
+    vi.mocked(window.api.quiz.getDeck).mockResolvedValue(next)
+    vi.mocked(window.api.quiz.startAttempt).mockResolvedValue({
+      ...makeAttempt(1000001),
+      deckId: 2,
+    })
+    attempts.mockRejectedValue(new Error('history unavailable'))
+    view.rerender(<QuizRunner deckId={2} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByText('q1-correct'))
+    expect(attempts).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Finish'))
+    expect(await screen.findByText('Results')).toBeVisible()
+    expect(finishSpy).toHaveBeenCalledTimes(3)
+    expect(attempts).toHaveBeenCalledOnce()
+  })
+
+  it('does not start an attempt when a deck read finishes after leaving the runner', async () => {
+    let resolve!: (deck: QuizDeckWithQuestions) => void
+    vi.spyOn(window.api.quiz, 'getDeck').mockReturnValue(
+      new Promise((done) => {
+        resolve = done
+      }),
+    )
+    const start = vi.spyOn(window.api.quiz, 'startAttempt')
+    const { unmount } = render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    unmount()
+    await act(async () => resolve(makeDeck([makeQuestion(1, 0)])))
+    expect(start).not.toHaveBeenCalled()
+  })
+
+  it('does not use Enter on another control to advance a revealed answer', async () => {
+    setupApiSpies({ questions: [makeQuestion(1, 1), makeQuestion(2, 0)] })
+    render(<QuizRunner deckId={1} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByText('q1-correct'))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'View source' }), { key: 'Enter' })
+    expect(screen.getByText('Q1')).toBeVisible()
+    expect(screen.queryByText('Q2')).toBeNull()
+  })
+
   it('clicking an option reveals the answer and shows Next/Finish', async () => {
     setupApiSpies({ questions: [makeQuestion(1, 1), makeQuestion(2, 0)] })
     render(<QuizRunner deckId={1} onClose={() => undefined} />)

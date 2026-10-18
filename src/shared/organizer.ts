@@ -45,6 +45,13 @@ export interface OrganizerSnapshot {
   events: OrganizerEvent[]
 }
 
+/** Metadata only: subscribers read the latest durable snapshot in their own session. */
+export interface OrganizerChangedEvent {
+  kind: keyof OrganizerSnapshot
+  id: string
+  operation: 'saved' | 'deleted'
+}
+
 /** Omit id/revision to create; supply both to update a specific revision. */
 interface SaveOrganizerRecord {
   id?: string
@@ -76,6 +83,7 @@ export interface DeleteOrganizerInput {
 }
 
 export interface OrganizerApi {
+  onChanged(callback: (event: OrganizerChangedEvent) => void): () => void
   list(): Promise<OrganizerSnapshot>
   saveNote(input: SaveNoteInput): Promise<OrganizerNote>
   deleteNote(input: DeleteOrganizerInput): Promise<void>

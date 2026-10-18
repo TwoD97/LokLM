@@ -16,6 +16,8 @@ pub mod archive;
 pub mod download;
 pub mod hardware;
 pub mod models;
+#[cfg(any(target_os = "windows", test))]
+mod payload_copy;
 pub mod payload_manifest;
 pub mod transaction;
 pub use hardware::{HardwareProfile, Tier};

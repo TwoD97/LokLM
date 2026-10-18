@@ -1,5 +1,6 @@
 import { reconcileCitations } from '../../../shared/citationMarkers'
 import type { PipelineStep, StreamEvent } from '../../../shared/documents'
+import type { SkillAction } from '../../../shared/connections'
 
 type TurnCitation = { doc_id: number; chunk_id: number; score: number }
 type Metrics = { ttftMs: number | null; tokensPerSec: number | null; tokenCount: number }
@@ -11,6 +12,7 @@ export interface ChatTurnResult {
   error?: string
   metrics: Metrics
   pipeline: PipelineStep[]
+  skillActions?: SkillAction[]
 }
 
 interface ChatTurnOptions {
@@ -55,6 +57,7 @@ export async function runChatTurn(options: ChatTurnOptions): Promise<ChatTurnRes
   const tokens: string[] = []
   const provided: TurnCitation[] = []
   const pipeline: PipelineStep[] = []
+  const skillActions = new Map<string, SkillAction>()
   let done: Extract<StreamEvent, { type: 'done' }> | undefined
   let refusal: string | undefined
   let failure: string | undefined
@@ -71,7 +74,9 @@ export async function runChatTurn(options: ChatTurnOptions): Promise<ChatTurnRes
           failure = event.message
           break
         }
-        if (event.type === 'token') {
+        if (event.type === 'skill') {
+          skillActions.set(event.action.id, event.action)
+        } else if (event.type === 'token') {
           tokens.push(event.text)
           firstTokenAt ??= performance.now()
           tokenCount += event.count ?? 1
@@ -124,6 +129,7 @@ export async function runChatTurn(options: ChatTurnOptions): Promise<ChatTurnRes
       tokenCount,
     },
     pipeline,
+    ...(skillActions.size ? { skillActions: [...skillActions.values()] } : {}),
   }
   let persisted = false
   try {
@@ -145,8 +151,15 @@ export async function runChatTurn(options: ChatTurnOptions): Promise<ChatTurnRes
           full_text: turn.content,
           citations: turn.citations,
           persisted,
+          ...(turn.skillActions ? { skillActions: turn.skillActions } : {}),
         }
-      : { type: 'done', full_text: turn.content, citations: turn.citations, outcome: turn.outcome }
+      : {
+          type: 'done',
+          full_text: turn.content,
+          citations: turn.citations,
+          outcome: turn.outcome,
+          ...(turn.skillActions ? { skillActions: turn.skillActions } : {}),
+        }
   try {
     emit(terminal)
   } catch {
@@ -155,7 +168,7 @@ export async function runChatTurn(options: ChatTurnOptions): Promise<ChatTurnRes
   return turn
 }
 
-/** Existing encrypted conversation store API; no message schema change needed. */
+/** The action metadata is saved with its assistant row before approval is possible. */
 interface TurnStore {
   appendMessage(
     conversationId: number,
@@ -163,6 +176,7 @@ interface TurnStore {
     content: string,
     metrics: Metrics,
     pipeline: PipelineStep[] | null,
+    skillActions?: SkillAction[] | null,
   ): Promise<{ id: number }>
   persistCitations(
     messageId: number,
@@ -182,6 +196,7 @@ export async function persistChatTurn(
     turn.content,
     turn.metrics,
     turn.pipeline.length ? turn.pipeline : null,
+    ...(turn.skillActions?.length ? [turn.skillActions] : []),
   )
   try {
     if (turn.citations.length) await store.persistCitations(message.id, turn.citations)

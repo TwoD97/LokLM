@@ -1,0 +1,42 @@
+diff --git a/dist/sharp.cjs b/dist/sharp.cjs
+index bea6c6afb571715e3489640477e3c36231b1da27..de6aa8f2c6f129c835eb8eb29fa3fcede2c1ab57 100644
+--- a/dist/sharp.cjs
++++ b/dist/sharp.cjs
+@@ -21,8 +21,15 @@ const runtimePlatform = runtimePlatformArch();
+ 
+ let sharp;
+ const errors = [];
++// LokLM: Electron on Linux exposes system GLib symbols that conflict with
++// libvips and can crash the documents utility process (electron/electron#46323).
++// Select the matching upstream WASM build before loading any native libvips.
++// Fail closed if it is absent: falling back to native would reintroduce a crash.
++if (process.platform === "linux" && process.versions.electron) {
++  sharp = require("@img/sharp-wasm32/sharp.node");
++}
+ try {
+-  sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
++  if (!sharp) sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
+ } catch (err) {
+   errors.push(err);
+ }
+diff --git a/dist/sharp.mjs b/dist/sharp.mjs
+index df4acb42ba5c4406eb57955f620244d8519c71a9..44ebd0574bf100c2592e6b8685179b890cebf6b9 100644
+--- a/dist/sharp.mjs
++++ b/dist/sharp.mjs
+@@ -21,8 +21,15 @@ const runtimePlatform = runtimePlatformArch();
+ 
+ let sharp;
+ const errors = [];
++// LokLM: Electron on Linux exposes system GLib symbols that conflict with
++// libvips and can crash the documents utility process (electron/electron#46323).
++// Select the matching upstream WASM build before loading any native libvips.
++// Fail closed if it is absent: falling back to native would reintroduce a crash.
++if (process.platform === "linux" && process.versions.electron) {
++  sharp = require("@img/sharp-wasm32/sharp.node");
++}
+ try {
+-  sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
++  if (!sharp) sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
+ } catch (err) {
+   errors.push(err);
+ }

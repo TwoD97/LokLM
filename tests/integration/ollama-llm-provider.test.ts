@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { OllamaLlmProvider } from '@main/services/providers/ollama/OllamaLlmProvider'
 import { OllamaError } from '@main/services/providers/ollama/OllamaClient'
 
@@ -153,6 +153,57 @@ describe('OllamaLlmProvider', () => {
     expect(await provider.generateRaw('Optional title', {})).toBe('')
   })
 
+  it.each(['chat', 'complete', 'schema'] as const)(
+    'distinguishes thinking-only completion for a required %s answer without retrying',
+    async (mode) => {
+      const client = mkClient([
+        mode === 'chat'
+          ? { message: { thinking: 'Internal reasoning' } }
+          : { thinking: 'Internal reasoning' },
+        { done: true },
+      ])
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      const result =
+        mode === 'chat'
+          ? provider.ask('Question', [], {})
+          : provider.generateRaw(
+              'Question',
+              mode === 'complete' ? { requireComplete: true } : { jsonSchema: { type: 'object' } },
+            )
+      await expect(result).rejects.toMatchObject({
+        kind: 'server',
+        message: 'Ollama completed thinking without producing an answer.',
+      })
+      expect(client.postNdjson).toHaveBeenCalledOnce()
+    },
+  )
+
+  it('preserves optional empty output even when the model only produced thinking', async () => {
+    const client = mkClient([{ thinking: 'Internal reasoning', done: true }])
+    const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+    expect(await provider.generateRaw('Optional title', {})).toBe('')
+  })
+
+  it('streams only answer text when thinking and content share a chat event', async () => {
+    const client = mkClient([
+      { message: { thinking: 'Internal reasoning' } },
+      { message: { thinking: 'More reasoning', content: 'Answer.' }, done: true },
+    ])
+    const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+    const onChunk = vi.fn()
+    expect(await provider.ask('Question', [], { onChunk })).toBe('Answer.')
+    expect(onChunk.mock.calls.map(([text]) => text).join('')).toBe('Answer.')
+  })
+
+  it('accepts complete raw answer text after thinking', async () => {
+    const client = mkClient([
+      { thinking: 'Internal reasoning' },
+      { response: 'Answer.', done: true },
+    ])
+    const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+    expect(await provider.generateRaw('Question', { requireComplete: true })).toBe('Answer.')
+  })
+
   it('does not send raw generation after cancellation', async () => {
     const client = mkClient([{ response: 'Result', done: true }])
     const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
@@ -251,5 +302,84 @@ describe('OllamaLlmProvider', () => {
     const p = new OllamaLlmProvider(client as never, 'qwen3:8b')
     await p.ask('q', [], { onChunk: (c) => chunks.push(c) })
     expect(chunks.join('')).toBe('ab')
+  })
+
+  describe('optional titles', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    function stalledClient() {
+      return {
+        postNdjson: vi.fn(async function* (_path: string, _body: unknown, signal: AbortSignal) {
+          yield { thinking: 'Still reasoning' }
+          await new Promise<never>((_resolve, reject) => {
+            if (signal.aborted) reject(signal.reason)
+            else signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+          })
+        }),
+      }
+    }
+
+    it('bounds generation, disables thinking, and isolates title instructions', async () => {
+      const client = mkClient([{ response: 'Library opening times\nExtra line', done: true }])
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      expect(await provider.generateTitle('When does it open?', 'At nine.')).toBe(
+        'Library opening times',
+      )
+      expect(client.postNdjson).toHaveBeenCalledExactlyOnceWith(
+        '/api/generate',
+        expect.objectContaining({
+          think: false,
+          system: 'Write only a short conversation title in the requested language.',
+          options: { num_ctx: provider.contextWindowTokens(), num_predict: 48, temperature: 0 },
+        }),
+        expect.any(AbortSignal),
+      )
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('aborts a stalled title after 30 seconds and releases its deadline', async () => {
+      const client = stalledClient()
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      const title = provider.generateTitle('Question', 'Answer')
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(await title).toBeNull()
+      expect(client.postNdjson).toHaveBeenCalledOnce()
+      expect(client.postNdjson.mock.calls[0]![2].aborted).toBe(true)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('forwards caller cancellation before the title deadline', async () => {
+      const client = stalledClient()
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      const controller = new AbortController()
+      const title = provider.generateTitle('Question', 'Answer', {
+        abortSignal: controller.signal,
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      controller.abort()
+      expect(await title).toBeNull()
+      expect(client.postNdjson.mock.calls[0]![2].aborted).toBe(true)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('does not dispatch a title cancelled before generation', async () => {
+      const client = mkClient([{ response: 'Title', done: true }])
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      const controller = new AbortController()
+      controller.abort()
+      expect(
+        await provider.generateTitle('Question', 'Answer', { abortSignal: controller.signal }),
+      ).toBeNull()
+      expect(client.postNdjson).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('keeps server failures optional and clears the title deadline', async () => {
+      const client = mkClient([{ error: 'model runner exited' }])
+      const provider = new OllamaLlmProvider(client as never, 'qwen3:8b')
+      expect(await provider.generateTitle('Question', 'Answer')).toBeNull()
+      expect(vi.getTimerCount()).toBe(0)
+    })
   })
 })

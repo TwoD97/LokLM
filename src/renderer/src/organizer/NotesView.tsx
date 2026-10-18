@@ -1,19 +1,24 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Search, FileText, Trash2, Save } from 'lucide-react'
 import type { OrganizerNote } from '@shared/organizer'
 import { ORGANIZER_LIMITS } from '@shared/organizer'
 import { ConfirmModal } from '../chat/ConfirmModal'
 import { useT } from '../i18n'
-import { OrganizerError } from './OrganizerShared'
+import { OrganizerChangedNotice, OrganizerError } from './OrganizerShared'
+import type { OrganizerNavigationTarget } from './organizerNavigation'
 import { useDiscardGuard, useOrganizerAction } from './useOrganizerActions'
 import type { OrganizerStore } from './useOrganizer'
 
 export function NotesView({
   store,
   locale,
+  navigation = null,
+  onNavigated,
 }: {
   store: OrganizerStore
   locale: string
+  navigation?: OrganizerNavigationTarget | null
+  onNavigated?: () => void
 }): JSX.Element {
   const t = useT()
   const [query, setQuery] = useState('')
@@ -24,8 +29,18 @@ export function NotesView({
   const [deleting, setDeleting] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   const action = useOrganizerAction()
+  const { busy, clearError } = action
   const { guard, confirmation } = useDiscardGuard()
   const dirty = title !== (selected?.title ?? '') || body !== (selected?.body ?? '')
+  const latest = selected ? store.data.notes.find((note) => note.id === selected.id) : null
+  useEffect(() => {
+    if (!selected || dirty || action.busy || !latest || latest.revision === selected.revision)
+      return
+    setSelected(latest)
+    setTitle(latest.title)
+    setBody(latest.body)
+    setSaved(false)
+  }, [selected, latest, dirty, action.busy])
   const dateFormat = useMemo(
     () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }),
     [locale],
@@ -47,17 +62,28 @@ export function NotesView({
     [notes],
   )
 
-  function choose(note: OrganizerNote | null) {
-    if (action.busy) return
-    guard(dirty, () => {
-      setSelected(note)
-      setTitle(note?.title ?? '')
-      setBody(note?.body ?? '')
-      setSaved(false)
-      action.clearError()
-      titleRef.current?.focus()
-    })
-  }
+  const choose = useCallback(
+    (note: OrganizerNote | null, reveal = false) => {
+      if (busy) return
+      guard(dirty, () => {
+        setSelected(note)
+        setTitle(note?.title ?? '')
+        setBody(note?.body ?? '')
+        setSaved(false)
+        if (reveal) setQuery('')
+        clearError()
+        titleRef.current?.focus()
+      })
+    },
+    [busy, clearError, dirty, guard],
+  )
+  useEffect(() => {
+    if (!navigation || action.busy) return
+    const note = store.data.notes.find((item) => item.id === navigation.id)
+    if (!note) return
+    onNavigated?.()
+    choose(note, true)
+  }, [navigation, action.busy, store.data.notes, onNavigated, choose])
   const save = () => {
     if (!title.trim() || !dirty) return
     void action.run(async () => {
@@ -105,8 +131,8 @@ export function NotesView({
                 onClick={() => choose(note)}
                 disabled={action.busy}
               >
-                <strong>{note.title}</strong>
-                <span>{previews.get(note.id) || t('organizer.emptyNote')}</span>
+                <strong>{note.title}</strong>{' '}
+                <span>{previews.get(note.id) || t('organizer.emptyNote')}</span>{' '}
                 <time dateTime={note.updatedAt}>{dateFormat.format(new Date(note.updatedAt))}</time>
               </button>
             ))
@@ -145,6 +171,9 @@ export function NotesView({
           </span>
         </div>
         <OrganizerError error={action.error} />
+        {selected && (!latest || latest.revision !== selected.revision) && (
+          <OrganizerChangedNotice removed={!latest} />
+        )}
         <label className="organizer__field">
           {t('organizer.noteTitle')}
           <input

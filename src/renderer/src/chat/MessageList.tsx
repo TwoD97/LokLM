@@ -13,6 +13,8 @@ import { transformCitationMarkers } from '@shared/citationMarkers'
 import { MessageBubble } from './MessageBubble'
 import { TranslationPanel } from './TranslationPanel'
 import { useT, type TFn } from '../i18n'
+import type { SkillAction } from '@shared/connections'
+import { SkillActions } from './SkillActions'
 
 type StreamMetrics = {
   ttftMs: number | null
@@ -31,6 +33,7 @@ type LocalMessage =
   | { id: string; role: 'user'; content: string }
   | {
       id: string
+      messageId?: number
       role: 'assistant'
       content: string
       streaming: boolean
@@ -39,9 +42,13 @@ type LocalMessage =
       pipeline?: StageRow[]
       /** Supplied passage allow-list, reconciled against the final answer. */
       citations?: Array<{ documentId: number; chunkId: number }>
+      skillActions?: SkillAction[]
     }
 
 type Props = {
+  assistantMode?: boolean
+  actionContext?: { workspaceId: number; conversationId: number } | undefined
+  onSkillUpdate?: (messageId: string, action: SkillAction) => void
   onPrompt?: (text: string) => void
   messages: LocalMessage[]
   onCitationClick: (m: { documentId: number; chunkId: number; messageText: string }) => void
@@ -240,6 +247,7 @@ function GroundingBadge({
               type="button"
               className="chat__sources-pop-item"
               role="menuitem"
+              aria-label={`${s.index} ${s.name}`}
               tabIndex={-1}
               title={s.path ?? s.name}
               onClick={() => {
@@ -357,6 +365,9 @@ export function MessageList({
   onCopy,
   onRegenerate,
   documents,
+  actionContext,
+  onSkillUpdate,
+  assistantMode = false,
 }: Props): JSX.Element {
   const t = useT()
   const ref = useRef<HTMLDivElement>(null)
@@ -399,11 +410,30 @@ export function MessageList({
       <div className="chat__messages" ref={ref} onScroll={onScroll}>
         <div className="chat__messages-empty">
           <FileText size={28} strokeWidth={1.5} aria-hidden="true" />
-          <h2>{t(documents.length > 0 ? 'ux.chatHeading' : 'ux.chatEmptyHeading')}</h2>
-          <p>{t(documents.length > 0 ? 'ux.chatDescription' : 'ux.chatEmptyDescription')}</p>
-          {documents.length > 0 && onPrompt && (
+          <h2>
+            {t(
+              assistantMode
+                ? 'skills.emptyHeading'
+                : documents.length > 0
+                  ? 'ux.chatHeading'
+                  : 'ux.chatEmptyHeading',
+            )}
+          </h2>
+          <p>
+            {t(
+              assistantMode
+                ? 'skills.emptyDescription'
+                : documents.length > 0
+                  ? 'ux.chatDescription'
+                  : 'ux.chatEmptyDescription',
+            )}
+          </p>
+          {(assistantMode || documents.length > 0) && onPrompt && (
             <div className="chat__prompts">
-              {['ux.promptSummary', 'ux.promptCompare', 'ux.promptQuestions'].map((key) => (
+              {(assistantMode
+                ? ['skills.promptCalendar', 'skills.promptTasks', 'skills.promptNotes']
+                : ['ux.promptSummary', 'ux.promptCompare', 'ux.promptQuestions']
+              ).map((key) => (
                 <button type="button" key={key} onClick={() => onPrompt(t(key))}>
                   {t(key)}
                   <ChevronRight size={16} aria-hidden="true" />
@@ -466,6 +496,15 @@ export function MessageList({
                   onCitationClick={onCitationClick}
                 />
               )}
+              {m.role === 'assistant' && m.skillActions && m.skillActions.length > 0 && (
+                <SkillActions
+                  actions={m.skillActions}
+                  workspaceId={actionContext?.workspaceId}
+                  conversationId={actionContext?.conversationId}
+                  messageId={m.messageId}
+                  onUpdate={(action) => onSkillUpdate?.(m.id, action)}
+                />
+              )}
               {m.role === 'assistant' && !m.streaming && m.content.length > 0 && (
                 <div className="chat__msg-actions" role="toolbar">
                   <button
@@ -486,7 +525,7 @@ export function MessageList({
                   >
                     <Languages size={14} aria-hidden="true" />
                   </button>
-                  {idx === lastFinishedAssistantIdx && onRegenerate && (
+                  {idx === lastFinishedAssistantIdx && onRegenerate && !m.skillActions?.length && (
                     <button
                       type="button"
                       className="chat__msg-action"

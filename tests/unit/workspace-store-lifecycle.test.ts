@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkspaceStore } from '@main/services/storage/WorkspaceStore'
-import { emptyManifest } from '@shared/workspaceStorage'
+import { emptyManifest, type VaultManifest } from '@shared/workspaceStorage'
 import { deferred } from './fixtures/retrievalHarness'
 
 const fake = vi.hoisted(() => ({
@@ -13,6 +13,7 @@ const fake = vi.hoisted(() => ({
     open: ReturnType<typeof vi.fn>
     close: ReturnType<typeof vi.fn>
     count: ReturnType<typeof vi.fn>
+    buildIndex: ReturnType<typeof vi.fn>
   }>,
   decrypt: vi.fn(),
   vectorOpen: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock('@main/services/storage/LanceWorkspaceStore', () => ({
     open = fake.vectorOpen
     close = vi.fn(async () => {})
     count = vi.fn(async () => 0)
+    buildIndex = vi.fn(async () => {})
     constructor() {
       fake.vectors.push(this)
     }
@@ -46,6 +48,7 @@ vi.mock('@main/services/storage/LanceWorkspaceStore', () => ({
 
 function fixture() {
   const keys: Buffer[] = []
+  const persist = vi.fn<(manifest: VaultManifest) => Promise<void>>(async () => {})
   fake.unwrap.mockImplementation(() => {
     const key = Buffer.alloc(32, 7)
     keys.push(key)
@@ -55,9 +58,9 @@ function fixture() {
     baseDir: 'D:/fixture-workspaces',
     masterDek: Buffer.alloc(32, 5),
     manifest: emptyManifest(),
-    persistManifest: async () => {},
+    persistManifest: persist,
   })
-  return { store, keys }
+  return { store, keys, persist }
 }
 
 beforeEach(() => {
@@ -72,6 +75,99 @@ beforeEach(() => {
 })
 
 describe('workspace session lifecycle admission', () => {
+  it('publishes metadata only after persistence and does not carry a failed create into the next commit', async () => {
+    const { store, persist } = fixture()
+    const writing = deferred<void>()
+    persist.mockReturnValueOnce(writing.promise)
+    const first = store.create('Failed creation')
+    const rejected = expect(first).rejects.toThrow('disk full')
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    expect(store.list()).toEqual([])
+    expect(store.getDefaultWorkspaceId()).toBeNull()
+    const second = store.create('Successful creation')
+    writing.reject(new Error('disk full'))
+    await rejected
+    const created = await second
+    expect(created.id).toBe(2)
+    expect(store.list().map((entry) => entry.name)).toEqual(['Successful creation'])
+    expect(persist.mock.calls[1]![0].workspaces.map((entry) => entry.name)).toEqual([
+      'Successful creation',
+    ])
+    await store.close()
+  })
+
+  it.each(['rename', 'type', 'default'] as const)(
+    'keeps a failed %s change out of live state and later commits',
+    async (change) => {
+      const { store, persist } = fixture()
+      const first = await store.create('First')
+      const second = await store.create('Second')
+      const before = store.list()
+      persist.mockRejectedValueOnce(new Error('disk full'))
+      const mutation =
+        change === 'rename'
+          ? store.rename(first.id, 'Uncommitted')
+          : change === 'type'
+            ? store.setType(first.id, 'codebase')
+            : store.setDefault(second.id)
+      await expect(mutation).rejects.toThrow('disk full')
+      expect(store.list()).toEqual(before)
+      expect(store.getDefaultWorkspaceId()).toBe(first.id)
+      await store.rename(second.id, 'Committed second')
+      expect(persist.mock.calls.at(-1)![0].workspaces[0]).toEqual(before[0])
+      expect(persist.mock.calls.at(-1)![0].defaultWorkspaceId).toBe(first.id)
+      await store.close()
+    },
+  )
+
+  it('coalesces concurrent ensure mutations into one durable workspace key', async () => {
+    const { store, persist } = fixture()
+    const [first, second] = await Promise.all([
+      store.ensure(7, 'Library'),
+      store.ensure(7, 'Library'),
+    ])
+    expect(first).toEqual(second)
+    expect(store.list()).toHaveLength(1)
+    expect(persist).toHaveBeenCalledOnce()
+    // Neither a returned entry nor list() grants mutation rights to the store.
+    first.name = 'External mutation'
+    store.list()[0]!.indexConfig.dims = 3
+    expect(store.list()[0]).toMatchObject({ name: 'Library', indexConfig: { dims: 1024 } })
+    await store.close()
+  })
+
+  it('drains an admitted manifest write on close and rejects queued mutations', async () => {
+    const { store, persist } = fixture()
+    const writing = deferred<void>()
+    persist.mockReturnValueOnce(writing.promise)
+    const first = store.create('Admitted')
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledOnce())
+    const queued = store.create('Queued')
+    const rejected = expect(queued).rejects.toThrow('session is closed')
+    let closed = false
+    const closing = store.close().then(() => {
+      closed = true
+    })
+    await Promise.resolve()
+    expect(closed).toBe(false)
+    writing.resolve()
+    await Promise.all([first, rejected, closing])
+    expect(persist).toHaveBeenCalledOnce()
+  })
+
+  it('keeps workspace files and its manifest when deletion cannot be persisted', async () => {
+    const { store, persist } = fixture()
+    const workspace = await store.create('Preserve me')
+    await store.open(workspace.id)
+    persist.mockRejectedValueOnce(new Error('disk full'))
+    await expect(store.delete(workspace.id)).rejects.toThrow('disk full')
+    expect(fake.rm).not.toHaveBeenCalled()
+    expect(fake.dirs[0]!.close).toHaveBeenCalledWith({})
+    expect(store.list().map((entry) => entry.id)).toEqual([workspace.id])
+    await store.open(workspace.id)
+    await store.close()
+  })
+
   it('deduplicates concurrent SQLite opens and wipes exactly the one retained key on close', async () => {
     const { store, keys } = fixture()
     const ws = await store.create('Library')
@@ -223,6 +319,25 @@ describe('workspace session lifecycle admission', () => {
     operation.resolve()
     expect(await write).toBe('written')
     await activation
+    expect(fake.vectors[0]!.close).toHaveBeenCalledOnce()
+    expect(store.activeWorkspaceId()).toBe(second.id)
+    await store.close()
+  })
+
+  it('holds a workspace open until its native index build finishes before switching vectors', async () => {
+    const { store } = fixture()
+    const first = await store.create('First')
+    const second = await store.create('Second')
+    await store.open(first.id)
+    const build = deferred<void>()
+    fake.vectors[0]!.buildIndex.mockReturnValueOnce(build.promise)
+    const indexing = store.buildActiveIndex()
+    await vi.waitFor(() => expect(fake.vectors[0]!.buildIndex).toHaveBeenCalledOnce())
+    const switching = store.open(second.id)
+    await Promise.resolve()
+    expect(fake.vectors[0]!.close).not.toHaveBeenCalled()
+    build.resolve()
+    await Promise.all([indexing, switching])
     expect(fake.vectors[0]!.close).toHaveBeenCalledOnce()
     expect(store.activeWorkspaceId()).toBe(second.id)
     await store.close()

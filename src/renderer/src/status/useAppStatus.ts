@@ -81,17 +81,19 @@ export function useAppStatus(refreshAudio = false) {
   }, [recordRead])
   useEffect(() => {
     let mounted = true
+    let request = 0
     const readAudio = () => {
+      const currentRequest = ++request
       void window.api.transcription
         .modelStatus()
         .then((models) => {
-          if (mounted) {
+          if (mounted && currentRequest === request) {
             recordRead('audio', false)
             setAudio(models)
           }
         })
         .catch(() => {
-          if (mounted) recordRead('audio', true)
+          if (mounted && currentRequest === request) recordRead('audio', true)
         })
     }
     readAudio()

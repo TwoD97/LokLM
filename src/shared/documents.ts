@@ -396,6 +396,7 @@ export type StageName =
   | 'prefill'
 
 export type StreamEvent =
+  | { type: 'skill'; action: import('./connections').SkillAction }
   | {
       type: 'token'
       text: string
@@ -428,6 +429,7 @@ export type StreamEvent =
       citations?: Array<{ doc_id: number; chunk_id: number; score: number }>
       /** True only when the final partial answer was successfully persisted. */
       persisted?: boolean
+      skillActions?: import('./connections').SkillAction[]
     }
   | {
       type: 'done'
@@ -435,9 +437,12 @@ export type StreamEvent =
       citations: Array<{ doc_id: number; chunk_id: number; score: number }>
       /** Omitted by internal QA producers; normalized by the chat transport. */
       outcome?: 'completed' | 'cancelled'
+      skillActions?: import('./connections').SkillAction[]
     }
 
 export interface AnswerOptions {
+  /** Explicit Assistant mode; document chat does not expose connected tools. */
+  skills?: boolean
   topK?: number
   refusalThreshold?: number
   language?: 'de' | 'en'
@@ -551,6 +556,7 @@ export interface Message {
    *  dropdown survives a reload. Absent on user/system rows, legacy assistant
    *  rows persisted before this column, and turns that ran no visible stage. */
   pipeline?: PipelineStep[]
+  skillActions?: import('./connections').SkillAction[]
 }
 
 export interface Citation {

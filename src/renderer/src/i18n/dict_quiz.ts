@@ -25,6 +25,8 @@ export const quizDict: DomainDict = {
     'quiz.runner.progress': 'Question {current} / {total}',
     'quiz.runner.elapsedTime': 'Elapsed time',
     'quiz.runner.scoring': 'Scoring…',
+    'quiz.runner.scoreFailed':
+      'The result could not be saved. Your answers are kept here; retry or return to the quiz list.',
     'quiz.runner.finish': 'Finish',
     'quiz.runner.modeAria': 'Quiz mode',
     'quiz.runner.modePractice': 'Practice',
@@ -111,6 +113,8 @@ export const quizDict: DomainDict = {
     'quiz.runner.progress': 'Frage {current} / {total}',
     'quiz.runner.elapsedTime': 'Verstrichene Zeit',
     'quiz.runner.scoring': 'Auswertung…',
+    'quiz.runner.scoreFailed':
+      'Das Ergebnis konnte nicht gespeichert werden. Deine Antworten bleiben hier erhalten; versuche es erneut oder kehre zur Quizliste zurück.',
     'quiz.runner.finish': 'Abschließen',
     'quiz.runner.modeAria': 'Quiz-Modus',
     'quiz.runner.modePractice': 'Üben',

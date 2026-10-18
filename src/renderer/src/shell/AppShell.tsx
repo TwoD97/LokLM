@@ -20,6 +20,11 @@ import { ModelActivityOverlay } from '../generation/ModelActivityOverlay'
 import { isModuleVisible, type AppView as ViewKind } from '@shared/settings'
 import { useSettings } from '../settings/useSettings'
 import { ErrorBoundary } from '../ErrorBoundary'
+import {
+  ORGANIZER_NAVIGATE_EVENT,
+  clearOrganizerNavigation,
+  type OrganizerNavigationTarget,
+} from '../organizer/organizerNavigation'
 const LibraryView = lazy(() =>
   import('../library/LibraryView').then((module) => ({ default: module.LibraryView })),
 )
@@ -78,6 +83,24 @@ export function AppShell(): JSX.Element {
     activeWorkspaceId != null &&
     (activatedRevision !== selection.revision || deletingWorkspaceId === activeWorkspaceId)
   const [activeView, setActiveView] = useState<ViewKind>('library')
+  // A reviewed result can open its destination even when that optional module
+  // is hidden from the sidebar. The exception ends with the next navigation.
+  const [resultView, setResultView] = useState<ViewKind | null>(null)
+  useEffect(() => {
+    const openOrganizer = (event: Event) => {
+      const target = (event as CustomEvent<OrganizerNavigationTarget>).detail
+      const view = { notes: 'notes', tasks: 'todos', events: 'calendar' } as const
+      if (target && Object.hasOwn(view, target.kind)) {
+        setResultView(view[target.kind])
+        setActiveView(view[target.kind])
+      }
+    }
+    window.addEventListener(ORGANIZER_NAVIGATE_EVENT, openOrganizer)
+    return () => {
+      window.removeEventListener(ORGANIZER_NAVIGATE_EVENT, openOrganizer)
+      clearOrganizerNavigation()
+    }
+  }, [])
   const { settings } = useSettings()
   const initialViewApplied = useRef(false)
   const lastOrganizerView = useRef<'calendar' | 'notes' | 'todos'>('calendar')
@@ -90,10 +113,10 @@ export function AppShell(): JSX.Element {
       initialViewApplied.current = true
       const start = settings.basic.startView ?? 'library'
       setActiveView(isModuleVisible(settings.basic.modules, start) ? start : 'library')
-    } else if (!isModuleVisible(settings.basic.modules, activeView)) {
+    } else if (activeView !== resultView && !isModuleVisible(settings.basic.modules, activeView)) {
       setActiveView('library')
     }
-  }, [settings, activeView])
+  }, [settings, activeView, resultView])
   const [pinned, togglePin] = usePinnedSidebar()
   // Navigation stays in place across views. Only an explicit user action
   // changes its width, so moving the pointer never shifts the working area.
@@ -406,7 +429,10 @@ export function AppShell(): JSX.Element {
         onRequestDeleteWorkspace={setConfirmDeleteWorkspace}
         defaultWorkspaceId={defaultWorkspaceId}
         onSetDefaultWorkspace={(id) => void handleSetDefaultWorkspace(id)}
-        onViewChange={setActiveView}
+        onViewChange={(view) => {
+          setResultView(null)
+          setActiveView(view)
+        }}
         onTogglePin={togglePin}
         chatViewActive={activeView === 'chat' && !activating}
         workspaceDocs={activating ? [] : workspaceDocs}

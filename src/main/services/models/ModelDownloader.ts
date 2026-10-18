@@ -226,22 +226,36 @@ export class ModelDownloader {
     }
 
     let resumeAt = 0
+    let prefixSnapshot: Stats | undefined
     if (existsSync(partial)) {
-      resumeAt = statSync(partial).size
+      prefixSnapshot = statSync(partial)
+      resumeAt = prefixSnapshot.size
       // Sanity: if the partial already exceeds the expected size something is
       // very wrong — restart fresh rather than serve up a frankenfile.
       if (resumeAt >= entry.sizeBytes) {
         unlinkSync(partial)
         resumeAt = 0
+        prefixSnapshot = undefined
       }
     }
 
-    // Resume + SHA verify can't coexist cleanly — we'd need to re-hash the
-    // partial bytes from disk first. For now, when a SHA is pinned we always
-    // start fresh; size-only verify supports resume.
+    // Hash the saved prefix before requesting the remainder. Pinned multi-GB
+    // models can resume without trusting old bytes or downloading them again.
+    let hash = entry.sha256 ? createHash('sha256') : null
     if (resumeAt > 0 && entry.sha256) {
-      unlinkSync(partial)
-      resumeAt = 0
+      this.emit({
+        id: entry.id,
+        phase: 'verifying',
+        bytesReceived: resumeAt,
+        totalBytes: entry.sizeBytes,
+        bytesPerSec: null,
+        message: null,
+      })
+      signal.throwIfAborted()
+      for await (const chunk of createReadStream(partial, { signal })) hash!.update(chunk)
+      signal.throwIfAborted()
+      if (!sameModelFile(prefixSnapshot!, statSync(partial)))
+        throw new Error('Partial model changed while preparing to resume. Retry the download.')
     }
 
     const headers: Record<string, string> = {}
@@ -249,15 +263,43 @@ export class ModelDownloader {
 
     const res = await fetch(entry.url, { signal, headers, redirect: 'follow' })
     if (!res.ok && res.status !== 206) {
+      void res.body?.cancel().catch(() => undefined)
       throw new Error(`HTTP ${res.status} ${res.statusText}`)
     }
     if (!res.body) throw new Error('Response had no body.')
 
     // Server didn't honor the range — fall back to a full re-download.
     const honoredRange = res.status === 206
+    // Appending a different byte range can produce a same-size corrupt model
+    // when no digest is available. Reject it before changing the saved prefix.
+    const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(res.headers.get('content-range') ?? '')
+    if (
+      honoredRange &&
+      (!range ||
+        !range.slice(1).every((value) => Number.isSafeInteger(Number(value))) ||
+        Number(range[1]) !== resumeAt ||
+        Number(range[2]) < resumeAt ||
+        Number(range[2]) !== Number(range[3]) - 1)
+    ) {
+      void res.body.cancel().catch(() => undefined)
+      throw new Error('Server returned an invalid resume range. Retry the download.')
+    }
     if (resumeAt > 0 && !honoredRange) {
-      unlinkSync(partial)
       resumeAt = 0
+      prefixSnapshot = undefined
+      hash = entry.sha256 ? createHash('sha256') : null
+    }
+
+    // The network await may outlive a manual partial-file replacement. Do not
+    // append to bytes different from the prefix that seeded our digest.
+    if (prefixSnapshot) {
+      try {
+        if (!sameModelFile(prefixSnapshot, statSync(partial)))
+          throw new Error('Partial model changed while preparing to resume. Retry the download.')
+      } catch (error) {
+        void res.body.cancel().catch(() => undefined)
+        throw error
+      }
     }
 
     // Resolve the total byte count: prefer Content-Range (when resuming),
@@ -272,7 +314,6 @@ export class ModelDownloader {
       totalBytes = resumeAt + parseInt(contentLength, 10)
     }
 
-    const hash = entry.sha256 ? createHash('sha256') : null
     const out = createWriteStream(partial, { flags: resumeAt > 0 ? 'a' : 'w' })
     // A write stream with no 'error' listener turns a failed write (disk full,
     // EACCES, EISDIR) into an uncaught exception that crashes the process — and
@@ -366,6 +407,19 @@ export class ModelDownloader {
       message: null,
     })
     signal.throwIfAborted()
+    const completed = statSync(partial)
+    if (
+      completed.size !== received ||
+      (prefixSnapshot &&
+        (completed.dev !== prefixSnapshot.dev || completed.ino !== prefixSnapshot.ino))
+    ) {
+      throw new Error('Partial model changed during download. Retry the download.')
+    }
+    if (honoredRange && received !== Number(range![3])) {
+      throw new Error(
+        'Resume response ended before its declared range was complete. Retry the download.',
+      )
+    }
     if (hash && entry.sha256) {
       const actual = hash.digest('hex').toLowerCase()
       if (actual !== entry.sha256.toLowerCase()) {

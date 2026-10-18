@@ -1,11 +1,11 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TranscriptionOptions, TranscriptSegment } from '@shared/transcription'
 import { decodeToMono16k } from '../audio/decode'
 import { useGeneration } from '../generation/GenerationContext'
 
 const CHUNK = 4 * 1024 * 1024 // 4 MB IPC chunks
 
-export type TxPhase = 'idle' | 'decoding' | 'transcribing' | 'done' | 'error'
+export type TxPhase = 'idle' | 'decoding' | 'transcribing' | 'done' | 'error' | 'cancelled'
 
 export interface TxState {
   phase: TxPhase
@@ -31,45 +31,75 @@ async function runOne(
   bytes: ArrayBuffer,
   opts: TranscriptionOptions,
   onEvent: (phase: TxPhase, partial: TranscriptSegment[], progress: TxState['progress']) => void,
-  onStart?: (streamId: string) => void,
+  signal: AbortSignal,
 ): Promise<TranscriptSegment[]> {
   let decoded
   try {
     decoded = await decodeToMono16k(bytes)
   } catch {
+    signal.throwIfAborted()
     throw new Error('tx.decodeError')
   }
+  signal.throwIfAborted()
   onEvent('transcribing', [], null)
 
-  const audioId = await window.api.transcription.stageBegin()
-  for (let off = 0; off < decoded.pcm.byteLength; off += CHUNK) {
-    await window.api.transcription.stageChunk(audioId, decoded.pcm.subarray(off, off + CHUNK))
-  }
-  await window.api.transcription.stageCommit(audioId, decoded.durationSec)
+  let audioId: string | null = null
+  let handedOff = false
+  try {
+    audioId = await window.api.transcription.stageBegin()
+    signal.throwIfAborted()
+    for (let off = 0; off < decoded.pcm.byteLength; off += CHUNK) {
+      await window.api.transcription.stageChunk(audioId, decoded.pcm.subarray(off, off + CHUNK))
+      signal.throwIfAborted()
+    }
+    await window.api.transcription.stageCommit(audioId, decoded.durationSec)
+    signal.throwIfAborted()
 
-  const streamId = `tx-${++streamSeq}`
-  onStart?.(streamId)
-  const acc: TranscriptSegment[] = []
-  return new Promise<TranscriptSegment[]>((resolve, reject) => {
+    const streamId = `tx-${++streamSeq}`
+    const acc: TranscriptSegment[] = []
+    let result: TranscriptSegment[] | null = null
+    let failure: string | null = null
     const off = window.api.transcription.onEvent(streamId, (ev) => {
+      if (signal.aborted) return
       if (ev.type === 'segment') {
         acc.push(ev.segment)
         onEvent('transcribing', [...acc], null)
       } else if (ev.type === 'progress') {
         onEvent('transcribing', [...acc], { stage: ev.stage, done: ev.done, total: ev.total })
       } else if (ev.type === 'done') {
-        off()
-        resolve(ev.segments)
+        result = ev.segments
       } else if (ev.type === 'error') {
-        off()
-        reject(new Error(ev.message))
+        failure = ev.message
       }
     })
-    void window.api.transcription.run(streamId, audioId, opts).catch((err) => {
+    const abort = (): void => {
       off()
-      reject(err instanceof Error ? err : new Error(String(err)))
-    })
-  })
+      void window.api.transcription.cancel(streamId).catch(() => undefined)
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    try {
+      signal.throwIfAborted()
+      handedOff = true
+      // The run IPC settles after its terminal event and native cleanup. Keep
+      // the batch pending until then; cancellation cannot interrupt native PCM reads.
+      await window.api.transcription.run(streamId, audioId, opts)
+      signal.throwIfAborted()
+      if (failure) throw new Error(failure)
+      if (result == null) throw new Error('Transcription ended without a result.')
+      return result
+    } catch (error) {
+      // Admission can reject before the service takes ownership. Its discard
+      // contract refuses to delete audio that is still being read by a worker.
+      await window.api.transcription.discardStage(audioId).catch(() => undefined)
+      throw error
+    } finally {
+      off()
+      signal.removeEventListener('abort', abort)
+    }
+  } finally {
+    if (audioId && !handedOff)
+      await window.api.transcription.discardStage(audioId).catch(() => undefined)
+  }
 }
 
 const setRow = (q: QueueRow[], i: number, patch: Partial<QueueRow>): QueueRow[] =>
@@ -78,6 +108,7 @@ const setRow = (q: QueueRow[], i: number, patch: Partial<QueueRow>): QueueRow[] 
 export function useTranscription(): {
   state: TxState
   queue: QueueRow[]
+  cancelling: boolean
   transcribe: (bytes: ArrayBuffer, opts: TranscriptionOptions) => Promise<void>
   transcribeMany: (files: File[], opts: TranscriptionOptions) => Promise<void>
   cancel: () => void
@@ -85,14 +116,26 @@ export function useTranscription(): {
 } {
   const [state, setState] = useState<TxState>(IDLE)
   const [queue, setQueue] = useState<QueueRow[]>([])
-  const streamIdRef = useRef<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const controller = useRef<AbortController | null>(null)
+  const alive = useRef(true)
   const inFlight = useRef(false)
   const { begin: beginGeneration } = useGeneration()
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      controller.current?.abort()
+    }
+  }, [])
 
   const transcribe = useCallback(
     async (bytes: ArrayBuffer, opts: TranscriptionOptions) => {
-      if (inFlight.current) return
+      if (inFlight.current || !alive.current) return
       inFlight.current = true
+      const request = new AbortController()
+      controller.current = request
+      setCancelling(false)
       setQueue([])
       setState({ ...IDLE, phase: 'decoding' })
       const endGeneration = beginGeneration('transcription')
@@ -100,20 +143,27 @@ export function useTranscription(): {
         const segments = await runOne(
           bytes,
           opts,
-          (phase, partial, progress) =>
-            setState((s) => ({ ...s, phase, segments: partial, progress })),
-          (id) => (streamIdRef.current = id),
+          (phase, partial, progress) => {
+            if (alive.current) setState((s) => ({ ...s, phase, segments: partial, progress }))
+          },
+          request.signal,
         )
-        setState({ phase: 'done', segments, progress: null, error: null })
+        if (alive.current) setState({ phase: 'done', segments, progress: null, error: null })
       } catch (err) {
-        setState((s) => ({
-          ...s,
-          phase: 'error',
-          error: err instanceof Error ? err.message : String(err),
-        }))
+        if (alive.current)
+          setState((s) => ({
+            ...s,
+            phase: request.signal.aborted ? 'cancelled' : 'error',
+            error: request.signal.aborted
+              ? 'tx.cancelled'
+              : err instanceof Error
+                ? err.message
+                : String(err),
+          }))
       } finally {
         inFlight.current = false
-        streamIdRef.current = null
+        controller.current = null
+        if (alive.current) setCancelling(false)
         endGeneration()
       }
     },
@@ -122,8 +172,11 @@ export function useTranscription(): {
 
   const transcribeMany = useCallback(
     async (files: File[], opts: TranscriptionOptions) => {
-      if (inFlight.current) return
+      if (inFlight.current || !alive.current) return
       inFlight.current = true
+      const request = new AbortController()
+      controller.current = request
+      setCancelling(false)
       setState(IDLE)
       setQueue(files.map((f) => ({ name: f.name, phase: 'idle', segments: [], error: null })))
       // One job for the whole batch — files are transcribed sequentially on the
@@ -132,28 +185,44 @@ export function useTranscription(): {
       const endGeneration = beginGeneration('transcription')
       try {
         for (let i = 0; i < files.length; i++) {
+          if (request.signal.aborted) break
           setQueue((q) => setRow(q, i, { phase: 'decoding' }))
           try {
             const bytes = await files[i]!.arrayBuffer()
+            request.signal.throwIfAborted()
             const segments = await runOne(
               bytes,
               opts,
-              (phase) => setQueue((q) => setRow(q, i, { phase })),
-              (id) => (streamIdRef.current = id),
+              (phase) => {
+                if (alive.current) setQueue((q) => setRow(q, i, { phase }))
+              },
+              request.signal,
             )
-            setQueue((q) => setRow(q, i, { phase: 'done', segments }))
+            if (alive.current) setQueue((q) => setRow(q, i, { phase: 'done', segments }))
           } catch (err) {
-            setQueue((q) =>
-              setRow(q, i, {
-                phase: 'error',
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            )
+            if (alive.current)
+              setQueue((q) =>
+                setRow(q, i, {
+                  phase: request.signal.aborted ? 'cancelled' : 'error',
+                  error: request.signal.aborted
+                    ? null
+                    : err instanceof Error
+                      ? err.message
+                      : String(err),
+                }),
+              )
           }
         }
       } finally {
         inFlight.current = false
-        streamIdRef.current = null
+        controller.current = null
+        if (alive.current) {
+          setCancelling(false)
+          if (request.signal.aborted)
+            setQueue((rows) =>
+              rows.map((row) => (row.phase === 'idle' ? { ...row, phase: 'cancelled' } : row)),
+            )
+        }
         endGeneration()
       }
     },
@@ -161,10 +230,9 @@ export function useTranscription(): {
   )
 
   const cancel = useCallback(() => {
-    if (streamIdRef.current)
-      void window.api.transcription.cancel(streamIdRef.current).catch((err: unknown) => {
-        setState((s) => ({ ...s, error: String(err) }))
-      })
+    if (!controller.current || controller.current.signal.aborted) return
+    setCancelling(true)
+    controller.current.abort()
   }, [])
 
   const reset = useCallback(() => {
@@ -173,5 +241,5 @@ export function useTranscription(): {
     setQueue([])
   }, [])
 
-  return { state, queue, transcribe, transcribeMany, cancel, reset }
+  return { state, queue, cancelling, transcribe, transcribeMany, cancel, reset }
 }

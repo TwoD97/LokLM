@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Document } from '@shared/documents'
 import { useGeneration } from '../generation/GenerationContext'
 import { useT } from '../i18n'
 import type { TFn } from '../i18n'
+import { useModalFocus } from '../ui/useModalFocus'
 
 type SummaryState =
   | { kind: 'loading' }
@@ -24,6 +25,9 @@ export function SummaryModal({
   const t = useT()
   const { begin: beginGeneration } = useGeneration()
   const [state, setState] = useState<SummaryState>({ kind: 'loading' })
+  const [attempt, setAttempt] = useState(0)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useModalFocus(modalRef, true)
 
   useEffect(() => {
     let cancelled = false
@@ -46,11 +50,11 @@ export function SummaryModal({
     return () => {
       cancelled = true
     }
-  }, [doc.id, t, beginGeneration])
+  }, [doc.id, t, beginGeneration, attempt])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -59,8 +63,11 @@ export function SummaryModal({
   return (
     <div className="library__summary-overlay" onClick={onClose}>
       <div
+        ref={modalRef}
         className="library__summary-modal"
         role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
         aria-label={t('library.summaryTitle', { title: doc.title })}
         onClick={(e) => e.stopPropagation()}
       >
@@ -78,10 +85,25 @@ export function SummaryModal({
         </div>
         <div className="library__summary-body">
           {state.kind === 'loading' && (
-            <span className="library__summary-loading">{t('library.summarizing')}</span>
+            <span className="library__summary-loading" role="status">
+              {t('library.summarizing')}
+            </span>
           )}
           {state.kind === 'error' && (
-            <span className="library__summary-error">{state.message}</span>
+            <div className="library__summary-error" role="alert">
+              <p>{state.message}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  // Retry removes this button; leave focus on the persistent
+                  // close control while the next summary is loading.
+                  modalRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+                  setAttempt((value) => value + 1)
+                }}
+              >
+                {t('common.retry')}
+              </button>
+            </div>
           )}
           {state.kind === 'ready' && <p className="library__summary-text">{state.text}</p>}
         </div>

@@ -226,8 +226,13 @@ export class QAService {
               if (hasVectors) {
                 const texts = [route.themeTokens.join(' ')]
                 const vecs = embedder.embedQuery
-                  ? await embedder.embedQuery(texts, { codebase: false })
-                  : await embedder.embed(texts)
+                  ? await embedder.embedQuery(texts, {
+                      codebase: false,
+                      ...(abortSignal ? { abortSignal } : {}),
+                    })
+                  : abortSignal
+                    ? await embedder.embed(texts, { abortSignal })
+                    : await embedder.embed(texts)
                 const v = vecs[0]
                 if (v && v.length > 0) themeEmbedding = Array.from(v)
               }

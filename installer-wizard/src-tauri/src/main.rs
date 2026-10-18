@@ -5,7 +5,7 @@
 // tauri-bridge.js shim.
 //
 // Install logic : installer/ submodule dispatches by target_os to
-// installer/windows.rs or installer/linux.rs ( robocopy + powershell ,
+// installer/windows.rs or installer/linux.rs ( native copy + powershell ,
 // or cp -a + .desktop files ). Tauri commands in commands.rs are thin
 // wrappers that bridge to the renderer.
 

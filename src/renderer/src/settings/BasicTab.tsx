@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { useSettings } from './useSettings'
+import { SettingsLoadState } from './SettingsLoadState'
 import { Segmented } from './Segmented'
 import { useT } from '../i18n'
 export function BasicTab(): JSX.Element {
@@ -15,7 +16,7 @@ export function BasicTab(): JSX.Element {
       setError(true)
     }
   }
-  if (!settings) return <div>{t('settings.loading')}</div>
+  if (!settings) return <SettingsLoadState />
 
   return (
     <div>

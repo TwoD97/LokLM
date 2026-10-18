@@ -75,7 +75,7 @@ export function DocumentTree({
       }
       return changed ? next : prev
     })
-  }, [topKeys])
+  }, [topKeys, resetKey])
 
   const toggle = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -174,8 +174,21 @@ function FolderRow({
       style={{ paddingLeft: depth * INDENT + PAD }}
       role="treeitem"
       aria-expanded={open}
+      aria-level={depth + 1}
+      tabIndex={0}
       title={node.fullPath ?? undefined}
       onClick={() => onToggle(node.key)}
+      onKeyDown={(event) => {
+        if (
+          event.key === 'Enter' ||
+          event.key === ' ' ||
+          (event.key === 'ArrowRight' && !open) ||
+          (event.key === 'ArrowLeft' && open)
+        ) {
+          event.preventDefault()
+          onToggle(node.key)
+        }
+      }}
     >
       {open ? (
         <ChevronDown size={14} aria-hidden="true" className="library__tree-chevron" />
@@ -216,6 +229,7 @@ function TreeFileRowImpl({
       // Extra INDENT so the file icon clears the folder's chevron column.
       style={{ paddingLeft: depth * INDENT + PAD + INDENT }}
       role="treeitem"
+      aria-level={depth + 1}
       onDoubleClick={() => actions.onRead(doc)}
     >
       <File size={15} aria-hidden="true" className="library__tree-fileicon" />
@@ -230,7 +244,14 @@ function TreeFileRowImpl({
         {doc.pinned && (
           <Pin size={12} aria-label={t('library.pinned')} className="library__row-pinned-icon" />
         )}
-        <span className="library__tree-title-text">{doc.title}</span>
+        <button
+          type="button"
+          className="library__document-link library__tree-title-text"
+          onClick={() => actions.onRead(doc)}
+          title={doc.title}
+        >
+          {doc.title}
+        </button>
         {doc.language && <LanguageBadge language={doc.language} t={t} />}
       </span>
       <StatusBadge status={status} />

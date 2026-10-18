@@ -6,14 +6,18 @@ import { fetchGitHubData, type GitHubData } from './github'
 
 const REPO = 'TwoD97/LokLM'
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status })
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
 const rawContributor = (login: string, contributions: number) => ({
   login,
   avatar_url: `https://avatars/${login}`,
   html_url: `https://github.com/${login}`,
   contributions,
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 /**
@@ -105,6 +109,36 @@ describe('fetchGitHubData (no cache)', () => {
     const result = await fetchGitHubData(REPO, { useCache: false })
     expect(result.stars).toBeNull()
   })
+
+  it('starts independent requests together and bounds stalled response bodies', async () => {
+    vi.useFakeTimers()
+    const requests: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, { signal }: RequestInit) => {
+        requests.push(url)
+        return {
+          ok: true,
+          json: () =>
+            new Promise((_, reject) => {
+              signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+            }),
+        }
+      }),
+    )
+    const result = fetchGitHubData(REPO, { useCache: false, requestTimeoutMs: 100 })
+    expect(requests).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(100)
+    await expect(result).resolves.toEqual({ stars: null, contributors: [], extraContributors: 0 })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('ignores malformed contributor records and negative star counts', async () => {
+    playbackFetch(json({ stargazers_count: -1 }), json([null, {}, rawContributor('alice', 1)]))
+    const result = await fetchGitHubData(REPO, { useCache: false })
+    expect(result.stars).toBeNull()
+    expect(result.contributors.map((person) => person.login)).toEqual(['alice'])
+  })
 })
 
 describe('fetchGitHubData disk cache', () => {
@@ -126,7 +160,7 @@ describe('fetchGitHubData disk cache', () => {
 
   const seedCache = (fetchedAt: number, data: GitHubData) => {
     mkdirSync('.cache', { recursive: true })
-    writeFileSync(cachePath, JSON.stringify({ fetchedAt, data }))
+    writeFileSync(cachePath, JSON.stringify({ repo: REPO, fetchedAt, data }))
   }
 
   it('persists successful results to the cache file', async () => {
@@ -199,5 +233,32 @@ describe('fetchGitHubData disk cache', () => {
 
     // an all-error result carries no data worth persisting
     expect(() => readFileSync(cachePath, 'utf-8')).toThrow()
+  })
+
+  it.each([
+    {
+      repo: 'someone/else',
+      fetchedAt: Date.now(),
+      data: { stars: 99, contributors: [], extraContributors: 0 },
+    },
+    { repo: REPO, data: { stars: 99, contributors: [], extraContributors: 0 } },
+    { repo: REPO, fetchedAt: Date.now(), data: { stars: 99, contributors: null } },
+    {
+      repo: REPO,
+      fetchedAt: Date.now() + 86400_000,
+      data: { stars: 99, contributors: [], extraContributors: 0 },
+    },
+  ])('ignores cache entries for the wrong repo or with invalid content: %j', async (cached) => {
+    mkdirSync('.cache', { recursive: true })
+    writeFileSync(cachePath, JSON.stringify(cached))
+    playbackFetch(json({ stargazers_count: 8 }), json([]))
+    expect((await fetchGitHubData(REPO, { cachePath })).stars).toBe(8)
+  })
+
+  it('creates the correct directory for an absolute cache path', async () => {
+    const absolutePath = join(sandbox, 'nested', 'github.json')
+    playbackFetch(json({ stargazers_count: 8 }), json([]))
+    await fetchGitHubData(REPO, { cachePath: absolutePath })
+    expect(JSON.parse(readFileSync(absolutePath, 'utf-8')).repo).toBe(REPO)
   })
 })

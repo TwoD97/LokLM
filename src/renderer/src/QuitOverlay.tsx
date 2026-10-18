@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useT } from './i18n'
+import { useModalFocus } from './ui/useModalFocus'
 
 /**
  * Full-screen overlay shown while the main process drains in-flight indexing
@@ -14,6 +15,12 @@ export function QuitOverlay(): JSX.Element | null {
   const t = useT()
   const [quitting, setQuitting] = useState(false)
   const [locking, setLocking] = useState(false)
+  const overlay = useRef<HTMLDivElement>(null)
+  const active = quitting || locking
+  useModalFocus(overlay, active)
+  useEffect(() => {
+    if (active) overlay.current?.focus()
+  }, [active])
 
   useEffect(() => {
     const offQuit = window.api.window.onQuitting(() => setQuitting(true))
@@ -24,13 +31,22 @@ export function QuitOverlay(): JSX.Element | null {
     }
   }, [])
 
-  if (!quitting && !locking) return null
+  if (!active) return null
   return (
-    <div className="quit-overlay" role="status" aria-live="polite">
+    <div
+      ref={overlay}
+      className="quit-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t(quitting ? 'shell.quitting' : 'shell.locking')}
+      tabIndex={-1}
+    >
       <div className="quit-overlay__spinner" aria-hidden="true" />
       {/* quitting wins: if a quit lands mid-lock-drain the process is exiting,
           so the message must not flip back to "locking". */}
-      <span>{t(quitting ? 'shell.quitting' : 'shell.locking')}</span>
+      <span role="status" aria-live="polite">
+        {t(quitting ? 'shell.quitting' : 'shell.locking')}
+      </span>
     </div>
   )
 }

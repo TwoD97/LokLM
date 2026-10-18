@@ -31,6 +31,7 @@ export class WritingService {
     mode: WritingMode,
     opts: { abortSignal?: AbortSignal } = {},
   ): Promise<WriteResult> {
+    opts.abortSignal?.throwIfAborted()
     const trimmed = text.trim()
     if (trimmed.length === 0) throw new WritingError('Nothing to rewrite.', 'empty')
 
@@ -40,6 +41,7 @@ export class WritingService {
     }
 
     const language = await detectResponseLanguage(trimmed.slice(0, 2000))
+    opts.abortSignal?.throwIfAborted()
 
     // Budget: leave room for the rewrite (~input length , generous for the
     // expand mode) plus the instruction text inside the context window.
@@ -54,11 +56,13 @@ export class WritingService {
     const prompt = buildWritePrompt(language, mode, trimmed)
     const raw = await llm.generateRaw(prompt, {
       maxTokens,
+      requireComplete: true,
       // No reasoning segment — we want the rewrite , not the model thinking out
       // loud. generateRaw already strips <think> blocks; this skips them.
       noThink: true,
       ...(opts.abortSignal ? { abortSignal: opts.abortSignal } : {}),
     })
+    opts.abortSignal?.throwIfAborted()
 
     const out = cleanOutput(raw)
     if (out.length === 0) throw new WritingError('The model returned nothing.', 'failed')

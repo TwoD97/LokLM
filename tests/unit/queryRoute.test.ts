@@ -621,7 +621,7 @@ describe('QAService corpus route', () => {
   it('embeds the theme and passes it through when the embedder is ready', async () => {
     const { qa, searchDocumentsByTheme, embed } = buildFakes({ corpusDocs, embedderReady: true })
     await collect(qa, 'wie viele dokumente habe ich zu strom?')
-    expect(embed).toHaveBeenCalledWith(['strom'])
+    expect(embed).toHaveBeenCalledWith(['strom'], { abortSignal: expect.any(AbortSignal) })
     expect(searchDocumentsByTheme).toHaveBeenCalledWith(1, ['strom'], {
       activeDocumentIds: null,
       themeEmbedding: [expect.closeTo(0.1, 5), expect.closeTo(0.2, 5), expect.closeTo(0.3, 5)],
@@ -655,7 +655,10 @@ describe('QAService corpus route', () => {
       queryEmbedding: true,
     })
     await collect(qa, 'wie viele dokumente habe ich zu strom?')
-    expect(embedQuery).toHaveBeenCalledWith(['strom'], { codebase: false })
+    expect(embedQuery).toHaveBeenCalledWith(['strom'], {
+      codebase: false,
+      abortSignal: expect.any(AbortSignal),
+    })
     expect(embed).not.toHaveBeenCalled()
   })
 

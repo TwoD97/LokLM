@@ -78,6 +78,25 @@ describe('QuestionCard', () => {
     expect(onSelect).toHaveBeenCalledWith(2)
   })
 
+  it('does not intercept typing or modified shortcuts in another control', () => {
+    const onSelect = vi.fn()
+    render(
+      <>
+        <input aria-label="Other input" />
+        <QuestionCard
+          question={QUESTION}
+          selectedIndex={null}
+          revealed={false}
+          onSelect={onSelect}
+          onCite={() => undefined}
+        />
+      </>,
+    )
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: '3' })
+    fireEvent.keyDown(window, { key: '3', ctrlKey: true })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('disables option buttons after reveal', () => {
     render(
       <QuestionCard

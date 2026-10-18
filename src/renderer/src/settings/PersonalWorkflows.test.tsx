@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { DEFAULT_SETTINGS } from '@shared/settings'
 import { ProfileTab } from './ProfileTab'
 import { Segmented } from './Segmented'
@@ -136,5 +136,43 @@ describe('Personal settings workflows', () => {
     await act(async () => first({ ok: true, version: 'old', models: [] }))
     expect(screen.queryByText(/Connected · Ollama vold/)).toBeNull()
     expect(screen.getByText(/Connected · Ollama vnew/)).toBeVisible()
+  })
+
+  it.each(['Base URL', 'Bearer token'])(
+    'preserves newer %s edits while an earlier save commits',
+    async (label) => {
+      const update = vi.fn(async () => {})
+      const view = render(<OllamaSection settings={DEFAULT_SETTINGS} update={update} />)
+      const field = screen.getByLabelText(label)
+      const first = label === 'Base URL' ? 'http://localhost:11435' : 'first-token'
+      const later = label === 'Base URL' ? 'http://localhost:11436' : 'newer-token'
+      fireEvent.change(field, { target: { value: first } })
+      fireEvent.blur(field)
+      fireEvent.change(field, { target: { value: later } })
+      const committed = structuredClone(DEFAULT_SETTINGS)
+      if (label === 'Base URL') committed.advanced.ollama.baseUrl = first
+      else committed.advanced.ollama.bearerToken = first
+      view.rerender(<OllamaSection settings={committed} update={update} />)
+      expect(field).toHaveValue(later)
+    },
+  )
+
+  it('supports arrow navigation and a single tab stop in the Ollama model picker', async () => {
+    vi.spyOn(window.api.ollama, 'probe').mockResolvedValue({
+      ok: true,
+      version: 'test',
+      models: ['first-model', 'second-model'],
+    })
+    const update = vi.fn(async () => {})
+    render(<OllamaSection settings={DEFAULT_SETTINGS} update={update} />)
+    const group = await screen.findByRole('radiogroup', { name: 'LLM model' })
+    const first = within(group).getByRole('radio', { name: 'first-model' })
+    const second = within(group).getByRole('radio', { name: 'second-model' })
+    expect(first).toHaveAttribute('tabindex', '0')
+    expect(second).toHaveAttribute('tabindex', '-1')
+    first.focus()
+    fireEvent.keyDown(first, { key: 'ArrowRight' })
+    expect(second).toHaveFocus()
+    expect(update).toHaveBeenCalledWith({ advanced: { ollama: { llmModel: 'second-model' } } })
   })
 })

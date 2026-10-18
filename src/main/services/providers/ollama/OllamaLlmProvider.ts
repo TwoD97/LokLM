@@ -17,7 +17,7 @@ import {
 } from '../../llm/citationAliases'
 
 interface ChatChunk {
-  message?: { content?: string }
+  message?: { content?: string; thinking?: string }
   done?: boolean
   error?: string
 }
@@ -80,6 +80,7 @@ export class OllamaLlmProvider implements LlmProvider {
 
     let acc = ''
     let completed = false
+    let hadThinking = false
     try {
       for await (const chunk of this.client.postNdjson<ChatChunk>(
         '/api/chat',
@@ -104,6 +105,7 @@ export class OllamaLlmProvider implements LlmProvider {
       )) {
         opts.abortSignal?.throwIfAborted()
         if (chunk.error) throw new OllamaError('server', chunk.error)
+        hadThinking ||= Boolean(chunk.message?.thinking?.trim())
         const piece = chunk.message?.content ?? ''
         if (piece) {
           acc += piece
@@ -119,7 +121,13 @@ export class OllamaLlmProvider implements LlmProvider {
       }
       opts.abortSignal?.throwIfAborted()
       if (!completed) throw new OllamaError('server', 'Ollama answer ended before completion.')
-      if (!acc.trim()) throw new OllamaError('server', 'Ollama returned no answer text.')
+      if (!acc.trim())
+        throw new OllamaError(
+          'server',
+          hadThinking
+            ? 'Ollama completed thinking without producing an answer.'
+            : 'Ollama returned no answer text.',
+        )
       return citationOutput.final(acc)
     } catch (error) {
       opts.abortSignal?.throwIfAborted()
@@ -160,6 +168,7 @@ export class OllamaLlmProvider implements LlmProvider {
     opts.abortSignal?.throwIfAborted()
     let acc = ''
     let completed = false
+    let hadThinking = false
     const body: Record<string, unknown> = { model: this.model, prompt, stream: true }
     if (opts.systemPrompt != null) body.system = opts.systemPrompt
     if (opts.jsonSchema != null) body.format = opts.jsonSchema
@@ -175,12 +184,14 @@ export class OllamaLlmProvider implements LlmProvider {
     try {
       for await (const chunk of this.client.postNdjson<{
         response?: string
+        thinking?: string
         done?: boolean
         done_reason?: string
         error?: string
       }>('/api/generate', body, opts.abortSignal)) {
         opts.abortSignal?.throwIfAborted()
         if (chunk.error) throw new OllamaError('server', chunk.error)
+        hadThinking ||= Boolean(chunk.thinking?.trim())
         if (chunk.response) acc += chunk.response
         if (chunk.done) {
           completed = true
@@ -214,7 +225,12 @@ export class OllamaLlmProvider implements LlmProvider {
     if (!completed) throw new OllamaError('server', 'Ollama generation ended before completion.')
     const result = acc.trim()
     if (!result && (opts.requireComplete || opts.jsonSchema != null))
-      throw new OllamaError('server', 'Ollama generation returned no output.')
+      throw new OllamaError(
+        'server',
+        hadThinking
+          ? 'Ollama completed thinking without producing an answer.'
+          : 'Ollama generation returned no output.',
+      )
     return result
   }
 
@@ -230,10 +246,21 @@ export class OllamaLlmProvider implements LlmProvider {
       `Benutzer: ${user.slice(0, 1200)}\n\n` +
       `Assistent: ${assistant.slice(0, 1200)}\n\n` +
       `Titel:`
+    // Match the bundled provider's bounded, optional title task. A streaming
+    // server can keep its inactivity timeout alive without ever finishing.
+    const timeout = new AbortController()
+    const timer = setTimeout(() => timeout.abort(), 30_000)
+    const abortSignal = opts?.abortSignal
+      ? AbortSignal.any([opts.abortSignal, timeout.signal])
+      : timeout.signal
     try {
-      const rawOpts: { abortSignal?: AbortSignal } = {}
-      if (opts?.abortSignal) rawOpts.abortSignal = opts.abortSignal
-      const out = await this.generateRaw(prompt, rawOpts)
+      const out = await this.generateRaw(prompt, {
+        abortSignal,
+        maxTokens: 48,
+        noThink: true,
+        temperature: 0,
+        systemPrompt: 'Write only a short conversation title in the requested language.',
+      })
       const first = out
         .split(/\r?\n/)
         .find((l) => l.trim().length > 0)
@@ -241,6 +268,8 @@ export class OllamaLlmProvider implements LlmProvider {
       return first && first.length > 0 ? first.slice(0, 64) : null
     } catch {
       return null
+    } finally {
+      clearTimeout(timer)
     }
   }
 
