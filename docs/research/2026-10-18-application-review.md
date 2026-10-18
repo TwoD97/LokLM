@@ -103,18 +103,62 @@ generation. Formatting passes for the complete renderer directory and changed
 installer/website files. Exact pinned dependency CI is not certified by this
 environment.
 
+## Follow-up with full tool access
+
+The earlier restricted-environment results above are historical. A fresh
+`pnpm install --frozen-lockfile` restored the exact application dependencies.
+Linux build prerequisites were installed, and the native Whisper source build
+and relocation verification completed successfully on the local Ubuntu 26.04
+host. SQLite/Argon2 were rebuilt for Electron after the Node test runs.
+
+- Full application/test TypeScript and the production application build pass.
+  Full ESLint reports zero errors and the same two cleanup-ref warnings.
+- Full unit run: **4,999 passed, two skipped across 315 files**. Corrected the
+  connection tests' invalid Testing Library options and isolated the Git
+  security probe from inaccessible host PATH entries.
+- Full integration/TX run: **350 passed, eight skipped across 53 files**, with
+  OCR language data installed. The corruption-recovery fixture now uses the
+  stored workspace directory rather than assuming the old `ws-ID` layout.
+- Native Windows installer: **78 tests passed**; the optimized release build
+  compiles. The build is a compilation check with the repository's development
+  payload manifest, not a redistributable release installer.
+- Replaced Robocopy with native transaction staging; separately downloaded CUDA
+  packages are included with bundled base payloads. Added long-path, fresh
+  install, locked-file, model-preservation, and rollback regression coverage.
+- Resumed downloads now validate Content-Range and body length before publishing,
+  reject non-file success responses, and restart once after HTTP 416. Invalid
+  ranges leave the saved prefix untouched. This does not establish content
+  identity for model entries without a pinned digest.
+- Native LanceDB persistence and relocation verification pass.
+- Website: typecheck, 54-page build, **254 tests**, and **67 browser tests** pass.
+  Local browser checks used Playwright's Ubuntu 24.04 browser on Ubuntu 26.04;
+  the supported GitHub runner's website job also passed independently.
+- Desktop startup/settings/organizer/accessibility: **seven passed, two skipped**.
+  Separate authentication, codebase-scope, and utility-IPC checks: **five passed**.
+  These are real Electron checks with isolated synthetic profiles.
+- Real document-worker OCR initially crashed on Linux before returning text.
+  Sharp documents an [Electron/GLib conflict](https://sharp.pixelplumbing.com/install/#electron-and-linux).
+  Selecting Sharp's matching upstream WebAssembly backend for Linux Electron
+  fixes the reproduced crash while retaining the native backend elsewhere.
+  The concurrent scanned-PDF worker test then passed, including recognized text,
+  per-request progress, shutdown acknowledgement, and clean exit. An additional
+  **93 parser/OCR/dependency/archive tests** passed under Electron as Node. The
+  real OCR worker test is now required in the Ubuntu 22.04 installer checks.
+
+These results cover the changes described; live Fastmail/LiveSync replication,
+GPU model quality/performance, and complete release installation remain separate
+validation requirements. GitHub supported-platform checks are tracked in
+[PR #49](https://github.com/TwoD97/LokLM/pull/49). No release or website download
+has been published by this review.
+
 ## Remaining validation and follow-ups
 
-- Run the repository's normal install, typecheck, lint, application/integration/TX
-  tests, website build/browser checks, and native installer CI on supported
-  dependencies. Linux socket binding, native SQLite/Lance/Argon2, Electron,
-  Whisper, Rust, and GPU execution are unavailable here. No fresh application
-  screenshots, screen-reader certification, or VRAM/latency benchmark is claimed.
-- Rust `download.rs` accepts HTTP 206 without validating `Content-Range` and
-  rejects HTTP 416 repeatedly. Some installer models lack pinned hashes, making
-  exact range validation significant. Platform failure paths also discard
-  resumable partials after transient retries. These need Rust download tests and
-  platform validation before changing the installer transport.
+- Complete supported-platform CI and fresh release installation checks. Local
+  checks now cover the native and browser paths listed above; screen-reader
+  certification, VRAM/latency benchmarks, and live account tests are not claimed.
+- Some installer models lack pinned hashes. Platform failure paths also discard
+  resumable model partials after transient retries. Range validation and bounded
+  HTTP 416 recovery are fixed, but these additional transport issues remain.
 - Tier marker writes are outside parts of the payload transaction, particularly
   on macOS. Atomic marker publication/rollback should be tested with interrupted
   install and commit failures. Archive traversal checks and journal ownership,

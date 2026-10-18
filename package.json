@@ -128,6 +128,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@img/sharp-wasm32": "0.35.5",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@lancedb/lancedb": "0.30.0",
     "@napi-rs/canvas": "^0.1.100",
@@ -273,7 +274,8 @@
       "node-llama-cpp": "patches/node-llama-cpp.patch",
       "@simple-git/argv-parser@2.0.1": "patches/@simple-git__argv-parser@2.0.1.patch",
       "sprintf-js@1.0.3": "patches/sprintf-js@1.0.3.patch",
-      "sprintf-js@1.1.3": "patches/sprintf-js@1.1.3.patch"
+      "sprintf-js@1.1.3": "patches/sprintf-js@1.1.3.patch",
+      "sharp@0.35.5": "patches/sharp@0.35.5.patch"
     }
   }
 }
