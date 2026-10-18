@@ -119,6 +119,10 @@ host. SQLite/Argon2 were rebuilt for Electron after the Node test runs.
 - Full integration/TX run: **350 passed, eight skipped across 53 files**, with
   OCR language data installed. The corruption-recovery fixture now uses the
   stored workspace directory rather than assuming the old `ws-ID` layout.
+- A final combined run under Electron as Node passes **5,349 tests, with ten
+  skipped across 368 files**. The MCP subprocess fixture now explicitly selects
+  Electron's Node runtime when needed; production environment filtering remains
+  unchanged. This combined result includes the unit and integration counts above.
 - Native Windows installer: **78 tests passed**; the optimized release build
   compiles. The build is a compilation check with the repository's development
   payload manifest, not a redistributable release installer.
@@ -136,6 +140,10 @@ host. SQLite/Argon2 were rebuilt for Electron after the Node test runs.
 - Desktop startup/settings/organizer/accessibility: **seven passed, two skipped**.
   Separate authentication, codebase-scope, and utility-IPC checks: **five passed**.
   These are real Electron checks with isolated synthetic profiles.
+- A fresh packaged Linux app passes the encrypted organizer/generated-source
+  persistence test across restart and shuts down cleanly. Production Electron
+  fuses remain enabled. This local Ubuntu 26.04 bundle is validation evidence,
+  not a supported-floor release artifact or a complete installer test.
 - Real document-worker OCR initially crashed on Linux before returning text.
   Sharp documents an [Electron/GLib conflict](https://sharp.pixelplumbing.com/install/#electron-and-linux).
   Selecting Sharp's matching upstream WebAssembly backend for Linux Electron

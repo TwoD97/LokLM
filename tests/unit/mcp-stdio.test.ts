@@ -7,8 +7,13 @@ import { LIMITS } from '@main/services/connections/validation'
 
 type Rpc = Record<string, unknown>
 const tool = { name: 'echo', description: 'Echo input', inputSchema: { type: 'object' } }
+// The test runner can use Electron's Node runtime to match SQLite's ABI. Its
+// executable needs this explicit flag when launched with the minimal MCP env.
+const childRuntimeEnv: Record<string, string> = process.versions.electron
+  ? { ELECTRON_RUN_AS_NODE: '1' }
+  : {}
 const spawnProbe = spawnSync(process.execPath, ['-e', ''], {
-  env: { PATH: process.env.PATH, HOME: process.env.HOME },
+  env: { PATH: process.env.PATH, HOME: process.env.HOME, ...childRuntimeEnv },
 })
 const subprocessDenied =
   spawnProbe.error !== undefined &&
@@ -296,6 +301,7 @@ describe('MCP stdio transport', () => {
           enabled: false,
           command: process.execPath,
           args: ['-e', script],
+          env: childRuntimeEnv,
         })
         expect(await service.connect('smoke')).toMatchObject({ status: 'connected', toolCount: 1 })
         expect(child?.pid).toBeTypeOf('number')
