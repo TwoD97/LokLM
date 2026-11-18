@@ -1,0 +1,9 @@
+/target/
+/dist/
+/artifacts/
+/scratch/
+/*.log
+/desktop/gen/
+/deployment/.env
+/deployment/secrets/
+
