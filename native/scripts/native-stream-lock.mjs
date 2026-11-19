@@ -14,10 +14,10 @@ assert.ok(process.env.LOKLM_TEST_MODELS_DIR,'Explicit model directory required')
 const profile=await mkdtemp(resolve('native/artifacts/native-ui-stream-lock-'))
 await cp(join(source,'vault'),join(profile,'vault'),{recursive:true,errorOnExist:true,force:false})
 const child=spawn(resolve('native/artifacts/loklm-native-ui-test.exe'),[],{windowsHide:true,stdio:'ignore',env:{...process.env,LOKLM_NATIVE_DATA_DIR:join(profile,'vault'),LOKLM_NATIVE_TEST_MODELS_DIR:process.env.LOKLM_TEST_MODELS_DIR,WEBVIEW2_USER_DATA_FOLDER:join(profile,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'}})
-let browser,page
+let browser,page,failure
 try{
  let port;const deadline=Date.now()+30000
- while(Date.now()<deadline){try{port=Number((await readFile(join(profile,'webview/EBWebView/DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{}await new Promise(r=>setTimeout(r,50))}
+ while(Date.now()<deadline){try{port=Number((await readFile(join(profile,'webview/EBWebView/DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{/* The test-only CDP file appears asynchronously. */}await new Promise(r=>setTimeout(r,50))}
  assert.ok(port)
  browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);page=browser.contexts()[0].pages()[0]
  await page.getByLabel('Password',{exact:true}).fill('Replacement-desktop-49!')
@@ -44,9 +44,11 @@ try{
  await expect(page.locator('.doc')).toHaveCount(1)
  await writeFile('native/artifacts/native-stream-lock.json',JSON.stringify({passed:true,synthetic:true,scope:'Actual Windows Qwen4B CPU stream observed, lock cleared UI and revoked source IPC, no late source text, unlock preserved copied document; only own model unloaded.'},null,2))
  console.log('Native actual-generation lock/revocation passed')
+}catch(error){failure=error
 }finally{
  if(page)await page.evaluate(()=>window.__TAURI__.core.invoke('dispatch',{input:{action:'close'}})).catch(()=>{})
  if(child.exitCode===null)await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,10000))])
  await browser?.close().catch(()=>{})
- if(child.exitCode===null){child.kill();throw new Error('Native did not close gracefully')}
+ if(child.exitCode===null){child.kill();failure??=new Error('Native did not close gracefully')}
 }
+if(failure)throw failure

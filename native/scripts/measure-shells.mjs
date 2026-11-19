@@ -15,22 +15,25 @@ async function nativeRun(){
  await rm(join(nativeProfile,'EBWebView','DevToolsActivePort'),{force:true})
  const started=performance.now()
  const child=spawn(resolve('native/target/release/loklm-native.exe'),[],{windowsHide:true,env:{...process.env,LOKLM_NATIVE_DATA_DIR:join(profile,'native-vault'),WEBVIEW2_USER_DATA_FOLDER:nativeProfile,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'},stdio:'ignore'})
- let browser,page
+ let browser,page,result,failure
  try{
   let port;const deadline=Date.now()+30000
-  while(Date.now()<deadline){try{port=Number((await readFile(join(nativeProfile,'EBWebView','DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{}await new Promise(r=>setTimeout(r,20))}
+  while(Date.now()<deadline){try{port=Number((await readFile(join(nativeProfile,'EBWebView','DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{/* The test-only CDP file appears asynchronously. */}await new Promise(r=>setTimeout(r,20))}
   if(!port)throw new Error('Native CDP endpoint missing')
   browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`)
   page=browser.contexts()[0].pages()[0]
   await page.getByLabel('Password',{exact:true}).waitFor()
   const readyMs=performance.now()-started
-  return await sample('native',child.pid,readyMs,await browser.version())
+  result=await sample('native',child.pid,readyMs,await browser.version())
+ }catch(error){failure=error
  }finally{
   if(page)await page.evaluate(()=>window.__TAURI__.core.invoke('dispatch',{input:{action:'close'}})).catch(()=>{})
   if(child.exitCode===null)await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,5000))])
   await browser?.close().catch(()=>{})
-  if(child.exitCode===null){child.kill();throw new Error('Native failed graceful close')}
+  if(child.exitCode===null){child.kill();failure??=new Error('Native failed graceful close')}
  }
+ if(failure)throw failure
+ return result
 }
 async function electronRun(){
  const env={...process.env,NODE_ENV:'test',LOKLM_DATA_DIR:join(profile,'electron-vault')}

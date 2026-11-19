@@ -25,7 +25,7 @@ await db.persistCitations(answer.id,[{chunk_id:ids[0]!,score:0.75}])
 // Preserve unknown/extra settings and all SQLite tables in roundtrip tests.
 await auth.setKv('native-fixture', JSON.stringify({ text: 'Grüße Berlin', retained: true }))
 await auth.lock()
-const { readFile, copyFile } = await import('node:fs/promises')
+const { copyFile } = await import('node:fs/promises')
 await copyFile(join(root, 'loklm.vault'), join(out, 'original-v6.vault'))
 await copyFile(join(root, 'workspaces', ws.dir, 'meta.db'), join(out, 'original-meta.db'))
 const pageTexts = ['Berlin ist die Hauptstadt. English content.', 'Alpha. '.repeat(700), 'x'.repeat(4100)]
