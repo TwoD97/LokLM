@@ -188,9 +188,10 @@ match 227 original calls, including grapheme and numeric boundaries, fixed rejec
 categories and same-occurrence display spans. These pure helpers remain separate
 from the current basic answer flow until the complete structured-QA plan is ported.
 
-A normal Windows release executable at `3758800` (before the arithmetic-interpreter
-commit) was built separately from ui-test, and passed five actual PDF/DOCX worker
-checks. It is 14,175,232 bytes; exact SHA-256 and scope are in
+A normal Windows release executable at `4c577e3` was built separately from
+ui-test, and passed nine actual PDF/DOCX worker checks, including inherited,
+default and style-linked numbering rejection. It is 14,208,000 bytes;
+exact SHA-256 and scope are in
 `evidence/windows-normal-executable.json`. This is an executable artifact, not an
 installer comparison or a completed/signed replacement.
 

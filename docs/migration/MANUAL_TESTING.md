@@ -72,6 +72,8 @@ ui-test` and `node native/scripts/native-ui.mjs` from the repository root. That
 build substitutes a test file for the OS picker. Never distribute it as the
 normal application. The harness enables a temporary loopback-only WebView CDP
 endpoint for its own process; production startup does not enable that endpoint.
+Node/TypeScript in these scripts runs the original compatibility fixtures and
+test driver only; the native application does not load a Node backend.
 For optional real CPU model tests, set `LOKLM_TEST_MODELS_DIR` to the directory
 containing the existing canonical GGUF files and `LOKLM_TEST_GENERATION=1`.
 Allow several minutes and adequate free RAM; do not overlap other model jobs.
