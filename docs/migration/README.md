@@ -50,7 +50,7 @@ Do not require the desktop app for agent operation. Unraid is currently offline.
 | Sync | `FolderSyncService.ts`, ignore policies, changed/missing/replaced source handling | Pending |
 | Embedding | `EmbeddingService.ts`, backfill/identity, batched validation and resource planner | Native CPU BGE-M3 tested in Windows UI; hash/runtime identity and resumable encrypted checkpoints; complete resource planner pending |
 | Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; actual-Qwen DE/EN source correctness and BGE reranker UI pass; combined model residency passes; full routing/calibration pending |
-| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Prompts/budgets and pure quote provenance pass original TS fixtures; actual Windows CPU DE/EN answers and cited-source opening pass; runtime quote/advanced-route integration pending |
+| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Prompts/budgets, pure quote provenance and bounded citation rendering pass original TS fixtures; actual Windows CPU DE/EN answers and cited-source opening pass; runtime quote/advanced-route integration pending |
 | Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Atomic revocation, authentication cancellation, real streamed-answer cancel/lock, isolated parser cancel/lock tested; complete resource planner pending |
 | Models | llama.cpp via node-llama-cpp; manifests/checksums/downloads; bounded residency; optional explicitly authorized Ollama | Explicit checksum-verified CPU loading/unload and RAM guard; original installer/download/resource planner parity pending |
 | Voice | Whisper native addon, sherpa-onnx diarization, workers, audio staging/alignment | Pending |
@@ -95,6 +95,13 @@ retrieval. Separate model weights/VRAM and embedding/reranking/generation time.
 Include WebView processes and shared runtime prerequisite in footprint disclosures.
 
 ## Current validation boundary
+
+The latest pure citation scanner and source-linked record renderer match 5,108
+recorded calls from 261 original/synthetic tests, including fixed rejection
+categories and UTF-16 marker positions. See [CITATION_RENDERING.md](CITATION_RENDERING.md).
+These helpers enforce presentation and supplied identities, not claim support,
+and are not yet integrated into desktop structured generation. Existing executable
+and model evidence retains its exact earlier source/artifact provenance.
 
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
