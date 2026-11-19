@@ -142,7 +142,13 @@ From `deploy/knowledge`:
    (at least 24 random characters). Set file permissions for the container UID;
    keep `.env` and secrets out of logs, Git and chat. These are fresh-install
    secrets, never credentials taken from another application.
-3. `docker compose build knowledge livesync couchdb`. The multi-stage Rust production
+3. Run `python3 preflight.py` on the Linux host from this directory before startup.
+   It uses Compose's existing `.env` interpolation, checks separate existing bind
+   directories, non-root service identities and secret-file presence/permissions,
+   and never prints resolved credentials or starts services. Pass the same `-f`
+   overlays and `--env-file` you will use with Compose. Fix reported issues first;
+   a pass does not prove container mount permissions, indexing or synchronization.
+   Then `docker compose build knowledge livesync couchdb`. The multi-stage Rust production
    image runs tests and uses locked dependencies. First Lance builds are large
    and slow; allow substantial build disk/RAM. Weights are never copied into it.
 4. `docker compose up -d couchdb`, then
