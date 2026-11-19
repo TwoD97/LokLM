@@ -18,7 +18,7 @@ async function phase(name){phases.push(name);await writeFile(join(out,'native-ui
 async function launch(){
   await rm(join(profile,'webview','EBWebView','DevToolsActivePort'),{force:true})
   const start=performance.now()
-  child=spawn(resolve('native/target/release/loklm-native.exe'),[],{windowsHide:true,env:{...process.env,LOKLM_NATIVE_DATA_DIR:join(profile,'vault'),LOKLM_NATIVE_TEST_PICK_FILE:fixture,LOKLM_NATIVE_TEST_MODELS_DIR:process.env.LOKLM_TEST_MODELS_DIR??'',WEBVIEW2_USER_DATA_FOLDER:join(profile,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'},stdio:'ignore'})
+  child=spawn(resolve(process.env.LOKLM_TEST_EXE??'native/target/release/loklm-native.exe'),[],{windowsHide:true,env:{...process.env,LOKLM_NATIVE_DATA_DIR:join(profile,'vault'),LOKLM_NATIVE_TEST_PICK_FILE:fixture,LOKLM_NATIVE_TEST_MODELS_DIR:process.env.LOKLM_TEST_MODELS_DIR??'',WEBVIEW2_USER_DATA_FOLDER:join(profile,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'},stdio:'ignore'})
   const deadline=Date.now()+45000;let port;
   while(Date.now()<deadline){try{port=Number((await readFile(join(profile,'webview','EBWebView','DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break}catch{}await new Promise(r=>setTimeout(r,100))}
   if(!port)throw new Error('WebView2 debugging endpoint did not start')
@@ -118,6 +118,35 @@ try{
     await expect(page.getByRole('status')).toContainText('Preview models unloaded')
     await phase('native-embedding-index-reranker-passed')
   }
+  if(process.env.LOKLM_TEST_GENERATION==='1'){
+    if(!process.env.LOKLM_TEST_MODELS_DIR)throw new Error('Generation requires explicit synthetic model test directory')
+    await page.getByRole('button',{name:'Load Qwen3.5-4B',exact:true}).click()
+    await expect(page.getByRole('status')).toContainText('Model ready',{timeout:120000})
+    const answers=[]
+    for(const [language,question] of [['en','What is the library access code? Answer in one sentence.'],['de','Wie lautet der Bibliothekscode ALPHA? Antworte in einem Satz.']]){
+      await page.getByLabel('Answer language').selectOption(language)
+      await page.getByLabel('Search documents').fill(question)
+      await page.getByRole('button',{name:'Ask with sources',exact:true}).click()
+      await expect(page.getByRole('button',{name:'Ask with sources',exact:true})).toBeEnabled({timeout:240000})
+      await expect(page.getByRole('alert')).toHaveCount(0)
+      await expect(page.locator('.answer')).toContainText('ALPHA-47')
+      const citation=page.locator('.answer button').first()
+      await expect(citation).toBeVisible()
+      await citation.click()
+      await expect(page.locator('pre.source')).toContainText('ALPHA-47')
+      answers.push({language,question,answer:await page.locator('.answer').innerText()})
+    }
+    await writeFile(join(out,'native-ui-answers.json'),JSON.stringify({synthetic:true,answers},null,2))
+    await phase('native-cited-answers-de-en-passed')
+    await page.getByLabel('Search documents').fill('Explain the library access code ALPHA in detail with citations.')
+    await page.getByRole('button',{name:'Ask with sources',exact:true}).click()
+    await expect(page.locator('.answer')).toContainText('Provisional',{timeout:240000})
+    await page.getByRole('button',{name:'Cancel',exact:true}).click()
+    await expect(page.locator('.answer')).toHaveCount(0)
+    await page.waitForTimeout(2000)
+    await expect(page.locator('.answer')).toHaveCount(0)
+    await phase('native-stream-cancel-passed')
+  }
   await page.getByRole('button',{name:'Lock vault'}).click()
   await expect(page.getByLabel('Password',{exact:true})).toBeVisible()
   if((await page.locator('body').innerText()).includes('ALPHA-47'))throw new Error('Source remains visible after lock')
@@ -154,7 +183,7 @@ try{
   await page.getByLabel('Search documents').fill('Berlin');await page.getByRole('button',{name:'Search',exact:true}).click();await expect(page.locator('.hit').first()).toContainText('Hauptstadt')
   await phase('reopened-search-passed')
   if(errors.length)throw new Error('WebView errors: '+errors.join('; '))
-  await writeFile(join(out,'native-ui-result.json'),JSON.stringify({passed:true,readyMs,phases,errors,pdfTest,embeddingTest:!!process.env.LOKLM_TEST_MODELS_DIR,generationTest:false,scope:'Actual Windows executable with compile-time ui-test picker adapter. Text/Markdown or text-layer PDF (pdfTest) import, atomic PDF failure/duplicate checks, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional sequential real BGE embedding/index and reranker test identified by embeddingTest. Combined model residency is not covered. OS picker and answer generation/streaming not included.'},null,2))
+  await writeFile(join(out,'native-ui-result.json'),JSON.stringify({passed:true,readyMs,phases,errors,pdfTest,embeddingTest:!!process.env.LOKLM_TEST_MODELS_DIR,generationTest:process.env.LOKLM_TEST_GENERATION==='1',scope:'Actual Windows executable with compile-time ui-test picker adapter. Text/Markdown or text-layer PDF (pdfTest) import, atomic PDF failure/duplicate checks, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional sequential real BGE embedding/index and reranker test identified by embeddingTest. Combined model residency is not covered. OS picker not included; optional actual answer generation/streaming identified by generationTest.'},null,2))
 }catch(error){
   if(page&&!page.isClosed()){
     await writeFile(join(out,'native-failure.json'),JSON.stringify({phase:phases.at(-1),error:String(error),alerts:await page.getByRole('alert').allTextContents(),status:await page.getByRole('status').allTextContents()},null,2)).catch(()=>{})

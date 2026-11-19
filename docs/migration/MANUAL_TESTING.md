@@ -18,7 +18,7 @@ Set-Location native
 $env:CARGO_TARGET_DIR = Join-Path (Get-Location) 'target-wasm'
 trunk build --release
 Remove-Item Env:CARGO_TARGET_DIR
-cargo test -p loklm-core -p loklm-inference
+cargo test -p loklm-core -p loklm-inference -p loklm-documents
 cargo build --release -p loklm-native
 ```
 
@@ -72,6 +72,16 @@ ui-test` and `node native/scripts/native-ui.mjs` from the repository root. That
 build substitutes a test file for the OS picker. Never distribute it as the
 normal application. The harness enables a temporary loopback-only WebView CDP
 endpoint for its own process; production startup does not enable that endpoint.
+For optional real CPU model tests, set `LOKLM_TEST_MODELS_DIR` to the directory
+containing the existing canonical GGUF files and `LOKLM_TEST_GENERATION=1`.
+Allow several minutes and adequate free RAM; do not overlap other model jobs.
+`LOKLM_TEST_PDF=1` selects the simple PDF fixture workflow. If testing a saved
+ui-test executable after building the normal executable, set `LOKLM_TEST_EXE`
+to that explicit test binary. Never distribute the ui-test build.
+
+`native-stream-lock.mjs` requires the completed synthetic UI fixture and a saved
+`native/artifacts/loklm-native-ui-test.exe`. It copies that test vault before
+checking real generation lock/revocation. No personal vault is discovered or used.
 
 ## Copy-only migration / rollback
 

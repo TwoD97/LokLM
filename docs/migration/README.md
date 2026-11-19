@@ -50,8 +50,8 @@ Do not require the desktop app for agent operation. Unraid is currently offline.
 | Sync | `FolderSyncService.ts`, ignore policies, changed/missing/replaced source handling | Pending |
 | Embedding | `EmbeddingService.ts`, backfill/identity, batched validation and resource planner | Native CPU BGE-M3 tested in Windows UI; hash/runtime identity and resumable encrypted checkpoints; complete resource planner pending |
 | Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; fixed actual-Qwen DE/EN source correctness passed; native BGE reranker smoke passed, combined UI/routing/calibration pending |
-| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Exact canonical bilingual prompt snapshots, budgets and source-identity checks pass TS fixtures; generation integration under validation; advanced routes pending |
-| Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Atomic epoch revocation and authentication cancellation tested; generation/active parsing cancellation and full planner pending |
+| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Canonical prompts/budgets pass TS fixtures; actual Windows CPU DE/EN answers and cited-source opening passed; advanced routes pending |
+| Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Atomic revocation, authentication cancellation, real streamed-answer cancel/lock, isolated parser cancel/lock tested; complete resource planner pending |
 | Models | llama.cpp via node-llama-cpp; manifests/checksums/downloads; bounded residency; optional explicitly authorized Ollama | Explicit checksum-verified CPU loading/unload and RAM guard; original installer/download/resource planner parity pending |
 | Voice | Whisper native addon, sherpa-onnx diarization, workers, audio staging/alignment | Pending |
 | Productivity | Translation, summarization, quiz, writing, organizer | Pending |
@@ -86,7 +86,8 @@ Do not require the desktop app for agent operation. Unraid is currently offline.
 
 ## Performance evidence
 
-No replacement performance claims yet. Baseline must use this checkout's release
+The first limited locked-shell comparison is in [PERFORMANCE.md](PERFORMANCE.md).
+Full replacement performance acceptance still requires this checkout's release
 build on this machine, isolated empty/synthetic data, same window size and model
 state. Capture process-tree RSS/private bytes, idle CPU, first-render/ready timing,
 warm launches (cold cache not implied by first launch), import throughput and p50/p95
@@ -103,7 +104,8 @@ locked IPC denial, wrong password, recovery and restart. It used a compile-time
 The normal OS file picker was not automated (native automation helper unavailable).
 The revised test subsequently passed native window close/reopen, Tauri stream
 channel argument handling, no-evidence refusal and missing-model errors. Actual
-generation/streaming still needs model execution. All 16 core and 3 inference
+generation/streaming was initially RAM-gated; later native Qwen4B execution passed
+the synthetic canonical cited-answer fixture. All 16 core and 3 inference
 unit/integration tests passed, including encrypted derived-index isolation and
 restart checkpoints. One additional actual-vector test then passed all 16 DE/EN
 queries against the 32-row Qwen fixture, including exact source text after reopen.
@@ -119,10 +121,20 @@ offers this model, keeps the original 2800 UTF-16-unit passage cap, and applies
 the original 0.2 relevance floor. Unlike the full original QA pipeline, this
 preview refuses an entirely weak slate and propagates reranker failures. It
 does not implement the original structured factual-verification routes. The
-combined UI inference test reached embedding/checkpoints but could not load the
+first combined UI inference test reached embedding/checkpoints but could not load the
 reranker on this shared low-memory host; a second run captured the explicit RAM
-admission error. No reranker UI or combined-model success is claimed. The
-model-free Windows workflow passed again after this change.
+admission error. After RAM headroom became available, sequential embedding/index
+and reranker UI tests passed, including an unrelated-question refusal. Concurrent
+embedding+reranker+generation residency remains unverified.
+
+The actual Windows UI subsequently passed real Qwen4B English and German cited
+answers and opened the correct source, then cancelled a streamed answer without
+late republishing. A separate test locked during real generation on a copy of the
+synthetic vault: source IPC was revoked, no answer/source text reappeared, and
+unlock preserved the document. Only the preview's own model was unloaded. Exact
+synthetic results are committed in `evidence/native-ui-answers.json`,
+`native-ui-model-workflow.json` and `native-stream-lock.json`. This is basic QA
+and identity validation, not factual entailment or complete original QA parity.
 
 Vault persistence now prepares the encrypted backup before replacing the
 primary. A fault test confirms an unwritable backup leaves both the previous
@@ -150,9 +162,11 @@ original fixture generator and `read-native-with-original.ts` provide both
 compatibility directions without opening personal data.
 
 BGE-M3 Windows native CPU inference produced real 1024-dimensional normalized
-DE/EN embeddings. The larger Qwen3.5-4B generation smoke was terminated by its
-own host-memory watchdog below 768 MiB available, before an answer. No generation
-success is claimed. The native loader now requires GGUF size plus 2 GiB of
+DE/EN embeddings. The first Qwen3.5-4B generation smoke was terminated by its
+own host-memory watchdog below 768 MiB available, before an answer. A later
+CPU-only run with sufficient available RAM returned the correct synthetic code
+and canonical citation in 20 stream fragments; its fixture is committed under
+`evidence/native-qwen-answer.json`. The native loader requires GGUF size plus 2 GiB of
 available memory for generation (1 GiB for embedding), and generation checks a
 768 MiB floor between evaluation batches. These are conservative admission
 guards, not a replacement for the original complete resource planner.
@@ -168,7 +182,9 @@ This is not an installer size and excludes shared WebView2. A single automated
 startup observed 427 ms, but it ran during builds and is not a comparative result.
 Electron's five preliminary launches also ran under contention; invalid CPU
 samples and unmatched conditions prohibit a speed/memory claim. A quiet paired
-benchmark, package inventory and cold-cache protocol remain release gates.
+startup benchmark, package inventory and cold-cache protocol remain release gates.
+The later corrected process-tree memory/CPU samples are reported separately in
+PERFORMANCE.md, with the initial PID-reuse-contaminated pass discarded.
 
 The default model remains the current installer's Qwen3.5-4B Q4_K_M. Its manifest
 contains an Xet hash rather than a SHA-256. The canonical local 2,740,937,888-byte
