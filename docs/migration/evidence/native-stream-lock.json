@@ -1,0 +1,5 @@
+{
+  "passed": true,
+  "synthetic": true,
+  "scope": "Actual Windows Qwen4B CPU stream observed, lock cleared UI and revoked source IPC, no late source text, unlock preserved copied document; only own model unloaded."
+}

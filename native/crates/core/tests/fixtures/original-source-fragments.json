@@ -1,0 +1,10570 @@
+{
+  "runtime": {
+    "node": "24.17.0",
+    "icu": "78.3",
+    "unicode": "17.0"
+  },
+  "cases": [
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          82,
+          69,
+          74,
+          69,
+          67,
+          84,
+          69,
+          68,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          82,
+          69,
+          74,
+          69,
+          67,
+          84,
+          69,
+          68,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          82,
+          69,
+          74,
+          69,
+          67,
+          84,
+          69,
+          68,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          65,
+          66,
+          83,
+          69,
+          78,
+          84
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          65,
+          66,
+          83,
+          69,
+          78,
+          84
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          65,
+          66,
+          83,
+          69,
+          78,
+          84
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          83,
+          79,
+          85,
+          82,
+          67,
+          69,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": true
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": true
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": true
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          110,
+          117,
+          109,
+          98,
+          101,
+          114,
+          32,
+          105,
+          115,
+          32,
+          52,
+          50,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          52,
+          50
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 14,
+        "end": 16,
+        "text": "42",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          67,
+          111,
+          108,
+          111,
+          117,
+          114,
+          58,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          59,
+          32,
+          97,
+          110,
+          111,
+          116,
+          104,
+          101,
+          114,
+          32,
+          99,
+          111,
+          108,
+          111,
+          117,
+          114,
+          58,
+          32,
+          98,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 8,
+        "end": 13,
+        "text": "amber",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          86,
+          97,
+          108,
+          117,
+          101,
+          32,
+          50,
+          46,
+          55,
+          53,
+          32,
+          108,
+          105,
+          116,
+          114,
+          101,
+          115,
+          32,
+          105,
+          115,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          50,
+          46,
+          55,
+          53,
+          32,
+          108,
+          105,
+          116,
+          114,
+          101,
+          115
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 6,
+        "end": 17,
+        "text": "2.75 litres",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          115,
+          32,
+          97,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 8,
+        "text": "Dr. Vega",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          70,
+          111,
+          114,
+          32,
+          101,
+          120,
+          97,
+          109,
+          112,
+          108,
+          101,
+          44,
+          32,
+          101,
+          46,
+          103,
+          46,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          32,
+          114,
+          101,
+          109,
+          97,
+          105,
+          110,
+          115,
+          32,
+          97,
+          108,
+          108,
+          111,
+          119,
+          101,
+          100,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          101,
+          46,
+          103,
+          46,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 13,
+        "end": 23,
+        "text": "e.g. amber",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          100,
+          97,
+          116,
+          101,
+          32,
+          105,
+          115,
+          32,
+          50,
+          48,
+          52,
+          55,
+          45,
+          48,
+          50,
+          45,
+          49,
+          57,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          50,
+          48,
+          52,
+          55,
+          45,
+          48,
+          50,
+          45,
+          49,
+          57
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 22,
+        "text": "2047-02-19",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          105,
+          103,
+          110,
+          101,
+          100,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          8722,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          8722,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 20,
+        "end": 22,
+        "text": "−5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          32,
+          110,
+          111,
+          110,
+          45,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103,
+          32,
+          100,
+          114,
+          97,
+          102,
+          116,
+          32,
+          101,
+          120,
+          105,
+          115,
+          116,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          110,
+          111,
+          110,
+          45,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103,
+          32,
+          100,
+          114,
+          97,
+          102,
+          116
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 2,
+        "end": 19,
+        "text": "non-binding draft",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          108,
+          105,
+          109,
+          105,
+          116,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 17,
+        "end": 18,
+        "text": "5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          45,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          10,
+          45,
+          32,
+          98,
+          108,
+          117,
+          101
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 2,
+        "end": 7,
+        "text": "amber",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          66,
+          111,
+          97,
+          114,
+          100,
+          32,
+          97,
+          114,
+          99,
+          104,
+          105,
+          118,
+          101,
+          32,
+          8212,
+          32,
+          69,
+          97,
+          115,
+          116,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 16,
+        "end": 27,
+        "text": "East record",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          32,
+          8212,
+          32,
+          66,
+          111,
+          97,
+          114,
+          100,
+          32,
+          97,
+          114,
+          99,
+          104,
+          105,
+          118,
+          101
+        ]
+      },
+      "value": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 11,
+        "text": "East record",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          98,
+          111,
+          117,
+          110,
+          100,
+          32,
+          105,
+          115,
+          32,
+          8804,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          8804,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 13,
+        "end": 15,
+        "text": "≤5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          98,
+          111,
+          117,
+          110,
+          100,
+          32,
+          105,
+          115,
+          32,
+          62,
+          61,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          62,
+          61,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 13,
+        "end": 16,
+        "text": ">=5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          114,
+          101,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          105,
+          115,
+          104
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          45,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          45,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          110,
+          111,
+          110
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          32,
+          45,
+          32,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          32,
+          45,
+          32,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          110,
+          111,
+          110
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          109,
+          101,
+          109,
+          98,
+          101,
+          114,
+          8217,
+          115
+        ]
+      },
+      "value": {
+        "units": [
+          109,
+          101,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          109,
+          101,
+          109,
+          98,
+          101,
+          114,
+          8217,
+          115
+        ]
+      },
+      "value": {
+        "units": [
+          115
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          50,
+          46,
+          53,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          49,
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          50,
+          46,
+          53,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          53,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          46,
+          53,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          53,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          44,
+          53,
+          48,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          53,
+          48,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          32,
+          44,
+          32,
+          53,
+          48,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          53,
+          48,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          32,
+          44,
+          32,
+          53,
+          48,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          49
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          1643,
+          50,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          1643,
+          50,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          50,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          32,
+          1643,
+          32,
+          50,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          50,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          8239,
+          53,
+          48,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          53,
+          48,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          8239,
+          53,
+          48,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          51
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          50,
+          48,
+          52,
+          55,
+          45,
+          48,
+          50,
+          45,
+          49,
+          57
+        ]
+      },
+      "value": {
+        "units": [
+          50,
+          48,
+          52,
+          55
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          50,
+          48,
+          52,
+          55,
+          45,
+          48,
+          50,
+          45,
+          49,
+          57
+        ]
+      },
+      "value": {
+        "units": [
+          48,
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          50,
+          48,
+          52,
+          55,
+          45,
+          48,
+          50,
+          45,
+          49,
+          57
+        ]
+      },
+      "value": {
+        "units": [
+          49,
+          57
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          56,
+          8211,
+          49,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          49,
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          56,
+          32,
+          8211,
+          32,
+          49,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          56
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          56,
+          32,
+          8211,
+          32,
+          49,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          49,
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          32,
+          8212,
+          32,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          49
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          32,
+          8212,
+          32,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          8212,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          8212,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          69,
+          97,
+          115,
+          116,
+          32,
+          8212,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          114,
+          101,
+          99,
+          111,
+          114,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          8722,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          43,
+          32,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          36,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          32,
+          37
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65291,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65123,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          65123,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          8804,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          62,
+          61,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          62,
+          61,
+          32,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          53,
+          32,
+          60,
+          32,
+          56
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          8776,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          42,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          32,
+          94,
+          32,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          53
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          48,
+          58,
+          51,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          49,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          48,
+          32,
+          58,
+          32,
+          51,
+          48
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          48
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          54,
+          47,
+          50
+        ]
+      },
+      "value": {
+        "units": [
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          50,
+          215,
+          51
+        ]
+      },
+      "value": {
+        "units": [
+          51
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          49,
+          50,
+          32,
+          8901,
+          32,
+          51
+        ]
+      },
+      "value": {
+        "units": [
+          51
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          50,
+          58,
+          51
+        ]
+      },
+      "value": {
+        "units": [
+          50
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          108,
+          112,
+          104,
+          97,
+          95,
+          98,
+          101,
+          116,
+          97
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          108,
+          112,
+          104,
+          97
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          233,
+          99,
+          108,
+          97,
+          105,
+          114
+        ]
+      },
+      "value": {
+        "units": [
+          99,
+          108,
+          97,
+          105,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "value": {
+        "units": [
+          99,
+          97,
+          102,
+          101
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          8205,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          8204,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56397,
+          55356,
+          57341
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56397
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55356,
+          56811,
+          55356,
+          56823
+        ]
+      },
+      "value": {
+        "units": [
+          55356,
+          56811
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          114,
+          101,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": true
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          114,
+          101,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          59,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 12,
+        "end": 20,
+        "text": "approved",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": []
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": []
+      },
+      "value": {
+        "units": []
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          32
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          32
+        ]
+      },
+      "value": {
+        "units": [
+          32
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          32,
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          32,
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "value": {
+        "units": [
+          32,
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          10,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          10,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          10,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          13,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          13,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          13,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          8232,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          8232,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          8232,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          8233,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          8233,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          8233,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          59
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          59
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          59
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          58
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          58
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          58
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          44
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          44
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          44
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          12290
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          12290
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          12290
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33,
+          32,
+          66,
+          108,
+          117,
+          101
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          0,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          0,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          0,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          97,
+          8238,
+          98
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          8238,
+          98
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          8238,
+          98
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          55296
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55296
+        ]
+      },
+      "value": {
+        "units": [
+          55296
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          56320
+        ]
+      },
+      "max": 160,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          56320
+        ]
+      },
+      "value": {
+        "units": [
+          56320
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          114,
+          101,
+          112,
+          111,
+          114,
+          116,
+          46,
+          109,
+          100
+        ]
+      },
+      "max": 64,
+      "title": true,
+      "expected": true
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          77,
+          101,
+          101,
+          116,
+          105,
+          110,
+          103,
+          32,
+          78,
+          111,
+          116,
+          101,
+          115,
+          46,
+          112,
+          100,
+          102
+        ]
+      },
+      "max": 64,
+      "title": true,
+      "expected": true
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          77,
+          101,
+          101,
+          116,
+          105,
+          110,
+          103,
+          32,
+          78,
+          111,
+          116,
+          101,
+          115,
+          46,
+          118,
+          50,
+          46,
+          112,
+          100,
+          102
+        ]
+      },
+      "max": 64,
+      "title": true,
+      "expected": true
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          77,
+          101,
+          101,
+          116,
+          105,
+          110,
+          103,
+          32,
+          78,
+          111,
+          116,
+          101,
+          115,
+          46,
+          112,
+          100,
+          102
+        ]
+      },
+      "max": 64,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          114,
+          101,
+          112,
+          111,
+          114,
+          116,
+          46,
+          109,
+          100
+        ]
+      },
+      "max": 64,
+      "title": false,
+      "expected": false
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          84,
+          119,
+          111,
+          32,
+          115,
+          101,
+          110,
+          116,
+          101,
+          110,
+          99,
+          101,
+          115,
+          46,
+          32,
+          77,
+          111,
+          114,
+          101
+        ]
+      },
+      "max": 64,
+      "title": true,
+      "expected": false
+    },
+    {
+      "kind": "display",
+      "value": {
+        "units": [
+          84,
+          119,
+          111,
+          32,
+          115,
+          101,
+          110,
+          116,
+          101,
+          110,
+          99,
+          101,
+          115,
+          46,
+          32,
+          77,
+          111,
+          114,
+          101,
+          46,
+          112,
+          100,
+          102
+        ]
+      },
+      "max": 64,
+      "title": true,
+      "expected": false
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          60,
+          116,
+          97,
+          103,
+          62,
+          32,
+          91,
+          100,
+          111,
+          99,
+          58,
+          52,
+          44,
+          32,
+          99,
+          104,
+          117,
+          110,
+          107,
+          58,
+          56,
+          93,
+          32,
+          36,
+          120,
+          36,
+          32,
+          96,
+          108,
+          105,
+          116,
+          101,
+          114,
+          97,
+          108,
+          96
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          60,
+          116,
+          97,
+          103,
+          62,
+          32,
+          91,
+          100,
+          111,
+          99,
+          58,
+          52,
+          44,
+          32,
+          99,
+          104,
+          117,
+          110,
+          107,
+          58,
+          56,
+          93,
+          32,
+          36,
+          120,
+          36,
+          32,
+          96,
+          108,
+          105,
+          116,
+          101,
+          114,
+          97,
+          108,
+          96
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 48,
+        "text": "👩‍💻 café <tag> [doc:4, chunk:8] $x$ `literal`",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          99,
+          97,
+          102,
+          233
+        ]
+      },
+      "value": {
+        "units": [
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 320,
+        "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 36,
+          "text": "The service interval is not 14 days.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 35,
+          "text": "The service interval is not 14 days",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 35,
+        "text": "The service interval is not 14 days",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          115,
+          101,
+          114,
+          118,
+          105,
+          99,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 37,
+          "text": "If approved, the interval is 14 days.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 36,
+          "text": "If approved, the interval is 14 days",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 36,
+        "text": "If approved, the interval is 14 days",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          73,
+          102,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          44,
+          32,
+          116,
+          104,
+          101,
+          32,
+          105,
+          110,
+          116,
+          101,
+          114,
+          118,
+          97,
+          108,
+          32,
+          105,
+          115,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 17,
+          "text": "The value is 3.5.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 16,
+          "text": "The value is 3.5",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 16,
+        "text": "The value is 3.5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 4,
+          "text": "3.5.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 3,
+          "text": "3.5",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 3,
+        "text": "3.5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 24,
+          "text": "Dr. Vega recorded amber.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 23,
+          "text": "Dr. Vega recorded amber",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 23,
+        "text": "Dr. Vega recorded amber",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97,
+          32,
+          114,
+          101,
+          99,
+          111,
+          114,
+          100,
+          101,
+          100,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 28,
+          "text": "Die Frist ist nicht 14 Tage.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 27,
+          "text": "Die Frist ist nicht 14 Tage",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 27,
+        "text": "Die Frist ist nicht 14 Tage",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          105,
+          101,
+          32,
+          70,
+          114,
+          105,
+          115,
+          116,
+          32,
+          105,
+          115,
+          116,
+          32,
+          110,
+          105,
+          99,
+          104,
+          116,
+          32,
+          49,
+          52,
+          32,
+          84,
+          97,
+          103,
+          101,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 31,
+          "text": "👩‍💻 café bleibt unverändert.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 30,
+          "text": "👩‍💻 café bleibt unverändert",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 30,
+        "text": "👩‍💻 café bleibt unverändert",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769,
+          32,
+          98,
+          108,
+          101,
+          105,
+          98,
+          116,
+          32,
+          117,
+          110,
+          118,
+          101,
+          114,
+          228,
+          110,
+          100,
+          101,
+          114,
+          116,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 26,
+          "text": "The illustration is 👩‍💻.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 25,
+          "text": "The illustration is 👩‍💻",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 25,
+        "text": "The illustration is 👩‍💻",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          105,
+          108,
+          108,
+          117,
+          115,
+          116,
+          114,
+          97,
+          116,
+          105,
+          111,
+          110,
+          32,
+          105,
+          115,
+          32,
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          51,
+          46,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 3,
+        "text": "3.5",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          51,
+          46,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 3,
+          "text": "3.5",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 3,
+          "text": "3.5",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "value": {
+        "units": [
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 11,
+        "text": "not 14 days",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "value": {
+        "units": [
+          110,
+          111,
+          116,
+          32,
+          49,
+          52,
+          32,
+          100,
+          97,
+          121,
+          115
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 11,
+          "text": "not 14 days",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 11,
+          "text": "not 14 days",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 13,
+        "text": "amber coating",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          32,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 13,
+          "text": "amber coating",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 13,
+          "text": "amber coating",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 8,
+        "text": "Dr. Vega",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46,
+          32,
+          86,
+          101,
+          103,
+          97
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 8,
+          "text": "Dr. Vega",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 8,
+          "text": "Dr. Vega",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "fragment",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "start": 0,
+        "end": 11,
+        "text": "👩‍💻 café",
+        "ambiguous": false
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          32,
+          99,
+          97,
+          102,
+          101,
+          769
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 11,
+          "text": "👩‍💻 café",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 11,
+          "text": "👩‍💻 café",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8230
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8230
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          46,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          46,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          12290
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          12290
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          63,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          33,
+          32,
+          66,
+          108,
+          117,
+          101,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          32,
+          65,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          32,
+          65,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          32,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          32,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          10,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          10,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8232,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8232,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          0,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          0,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8238,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          65,
+          109,
+          98,
+          101,
+          114,
+          8238,
+          99,
+          111,
+          97,
+          116,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55296,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55296,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          68,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          68,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          117,
+          116,
+          104,
+          111,
+          114,
+          32,
+          105,
+          115,
+          32,
+          68,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          117,
+          116,
+          104,
+          111,
+          114,
+          32,
+          105,
+          115,
+          32,
+          68,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          85,
+          115,
+          101,
+          32,
+          101,
+          46,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          85,
+          115,
+          101,
+          32,
+          101,
+          46,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          90,
+          117,
+          109,
+          32,
+          66,
+          101,
+          105,
+          115,
+          112,
+          105,
+          101,
+          108,
+          32,
+          122,
+          46,
+          32,
+          66,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          90,
+          117,
+          109,
+          32,
+          66,
+          101,
+          105,
+          115,
+          112,
+          105,
+          101,
+          108,
+          32,
+          122,
+          46,
+          32,
+          66,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          117,
+          116,
+          104,
+          111,
+          114,
+          32,
+          105,
+          115,
+          32,
+          65,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          117,
+          116,
+          104,
+          111,
+          114,
+          32,
+          105,
+          115,
+          32,
+          65,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          108,
+          97,
+          98,
+          101,
+          108,
+          32,
+          105,
+          115,
+          32,
+          65,
+          66,
+          67,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          108,
+          97,
+          98,
+          101,
+          108,
+          32,
+          105,
+          115,
+          32,
+          65,
+          66,
+          67,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          79,
+          116,
+          104,
+          101,
+          114,
+          32,
+          105,
+          116,
+          101,
+          109,
+          115,
+          32,
+          101,
+          116,
+          99,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          79,
+          116,
+          104,
+          101,
+          114,
+          32,
+          105,
+          116,
+          101,
+          109,
+          115,
+          32,
+          101,
+          116,
+          99,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          87,
+          101,
+          105,
+          116,
+          101,
+          114,
+          101,
+          32,
+          80,
+          117,
+          110,
+          107,
+          116,
+          101,
+          32,
+          117,
+          115,
+          119,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          87,
+          101,
+          105,
+          116,
+          101,
+          114,
+          101,
+          32,
+          80,
+          117,
+          110,
+          107,
+          116,
+          101,
+          32,
+          117,
+          115,
+          119,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          100,
+          100,
+          114,
+          101,
+          115,
+          115,
+          32,
+          105,
+          115,
+          32,
+          76,
+          111,
+          110,
+          103,
+          32,
+          83,
+          116,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          97,
+          100,
+          100,
+          114,
+          101,
+          115,
+          115,
+          32,
+          105,
+          115,
+          32,
+          76,
+          111,
+          110,
+          103,
+          32,
+          83,
+          116,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          51,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          45,
+          51,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          45,
+          51,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          102,
+          105,
+          108,
+          101,
+          32,
+          105,
+          115,
+          32,
+          114,
+          101,
+          112,
+          111,
+          114,
+          116,
+          46,
+          109,
+          100,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          102,
+          105,
+          108,
+          101,
+          32,
+          105,
+          115,
+          32,
+          114,
+          101,
+          112,
+          111,
+          114,
+          116,
+          46,
+          109,
+          100,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46,
+          32,
+          53
+        ]
+      },
+      "value": {
+        "units": [
+          84,
+          104,
+          101,
+          32,
+          118,
+          97,
+          108,
+          117,
+          101,
+          32,
+          105,
+          115,
+          32,
+          51,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          51,
+          46,
+          53,
+          46,
+          54
+        ]
+      },
+      "value": {
+        "units": [
+          51,
+          46,
+          53,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46,
+          112,
+          100,
+          102
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46,
+          46,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          114,
+          101,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          110,
+          111,
+          110,
+          45,
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          98,
+          105,
+          110,
+          100,
+          105,
+          110,
+          103,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56425,
+          8205,
+          55357,
+          56507,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56507,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56397,
+          55356,
+          57341,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55356,
+          57341,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "boundary"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          59,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 7,
+          "end": 13,
+          "text": "amber.",
+          "ambiguous": true
+        },
+        "display": {
+          "start": 7,
+          "end": 12,
+          "text": "amber",
+          "ambiguous": true
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          59,
+          32,
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          109,
+          98,
+          101,
+          114,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 7,
+          "end": 13,
+          "text": "amber.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 7,
+          "end": 12,
+          "text": "amber",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          114,
+          101,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46,
+          32,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46,
+          32,
+          117,
+          110,
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          97,
+          112,
+          112,
+          114,
+          111,
+          118,
+          101,
+          100,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 12,
+          "end": 21,
+          "text": "approved.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 12,
+          "end": 20,
+          "text": "approved",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          70,
+          82,
+          65,
+          71,
+          77,
+          69,
+          78,
+          84
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          70,
+          82,
+          65,
+          71,
+          77,
+          69,
+          78,
+          84,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          70,
+          82,
+          65,
+          71,
+          77,
+          69,
+          78,
+          84
+        ]
+      },
+      "value": {
+        "units": [
+          80,
+          82,
+          73,
+          86,
+          65,
+          84,
+          69,
+          95,
+          70,
+          82,
+          65,
+          71,
+          77,
+          69,
+          78,
+          84,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "missing"
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": {
+        "selected": {
+          "start": 0,
+          "end": 319,
+          "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀.",
+          "ambiguous": false
+        },
+        "display": {
+          "start": 0,
+          "end": 318,
+          "text": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+          "ambiguous": false
+        }
+      },
+      "rejection": null
+    },
+    {
+      "kind": "excerpt",
+      "source": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          46
+        ]
+      },
+      "value": {
+        "units": [
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          55357,
+          56832,
+          46
+        ]
+      },
+      "max": 160,
+      "expected": null,
+      "rejection": "display"
+    }
+  ]
+}

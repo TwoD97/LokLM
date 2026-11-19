@@ -1,0 +1,58 @@
+{
+  "sourceCommit": "7012117a2dea16c437497a76d6829d1a6e99be6f",
+  "uiSourceCommit": "d58835d",
+  "coreCitationCommit": "49c4f7e",
+  "executable": "native/artifacts/loklm-native-citation-ui-test.exe",
+  "sha256": "8dbd646b6886783a4b64ba2efb85af2b8b9db41331ca1695575a22883e1f6467",
+  "bytes": 15419392,
+  "build": "Windows x64 release, ui-test picker adapter, Rust/WASM rebuilt from d58835d",
+  "modelSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "cpuThreads": 2,
+  "gpuLayers": 0,
+  "nativeTests": 50,
+  "strictClippyIncludingUi": true,
+  "result": {
+    "passed": true,
+    "readyMs": 752.7366,
+    "phases": [
+      "ready",
+      "selecting-synthetic-fixture",
+      "imported",
+      "native-cited-answers-de-en-passed",
+      "native-stream-cancel-passed",
+      "native-generator-stream-lock-passed",
+      "recovery-preserved-documents",
+      "reopened-search-passed"
+    ],
+    "errors": [],
+    "pdfTest": false,
+    "docxTest": false,
+    "combinedModels": false,
+    "generatorOnly": true,
+    "embeddingTest": false,
+    "generationTest": true,
+    "scope": "Actual Windows executable with compile-time ui-test picker adapter. Text/Markdown, text-layer PDF (pdfTest) or DOCX (docxTest) import, atomic document failure/duplicate checks, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional real BGE embedding/index and reranker test identified by embeddingTest. Combined residency is covered only when combinedModels is true; stream lock is covered when combinedModels or generatorOnly is true. OS picker not included; optional actual answer generation/streaming identified by generationTest."
+  },
+  "answers": {
+    "synthetic": true,
+    "answers": [
+      {
+        "language": "en",
+        "question": "What is the library access code? Answer in one sentence.",
+        "answer": "Answer\nThe synthetic access code for the library is ALPHA-47 [doc:1, chunk:1]."
+      },
+      {
+        "language": "de",
+        "question": "Wie lautet der Bibliothekscode ALPHA? Antworte in einem Satz.",
+        "answer": "Answer\nDer synthetische Zugangscode für die Bibliothek lautet ALPHA-47 [doc:1, chunk:1]."
+      }
+    ]
+  },
+  "limitations": [
+    "Real basic streaming answer path; structured desktop route remains pending",
+    "Generator only: no embedding/reranking or combined residency in this run",
+    "OS picker replaced by compile-time test adapter",
+    "UI harness readyMs is not a matched startup benchmark",
+    "Canonical 4B hash is a local compatibility pin, not an upstream authenticity claim"
+  ]
+}

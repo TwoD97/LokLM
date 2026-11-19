@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "5c3de0bd39001a11adf0cf965708f65f06b9561d",
+  "executable": "native/target/release/examples/checked.exe",
+  "sha256": "e7909f74fdf87fc4fc9fc5be395c857c2e1580b23cb4b1ea7f7cef0a2f3d6cc6",
+  "bytes": 6639104,
+  "build": "Windows x64 release CPU-only; llama-cpp-2 0.1.161 common; no GPU",
+  "rustTests": 47,
+  "strictClippy": true,
+  "admittedOriginalSchemas": 196,
+  "vocabulary": {
+    "greedy_mask": true,
+    "invalid_documents": 6,
+    "model_sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "runtime": "qwen-chatml-gbnf-typed-comparison-v32-1",
+    "synthetic": true,
+    "tensor_weights_loaded": false,
+    "valid_documents": 4
+  },
+  "model": {
+    "basic_answer": "The synthetic library access code is ALPHA-47 [doc:7, chunk:11].",
+    "basic_stream_matches_final": true,
+    "cancel_elapsed_ms": 1305,
+    "cancelled": true,
+    "cpu_threads": 2,
+    "gpu_layers": 0,
+    "language_mismatch_rejected": true,
+    "lock_elapsed_ms": 1288,
+    "lock_revoked": true,
+    "model_sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "results": [
+      {
+        "elapsed_ms": 46870,
+        "language": "en",
+        "output_tokens": 88,
+        "parsed": {
+          "answer": "The library access code is ALPHA-47. [doc:7, chunk:11]",
+          "derivations": [],
+          "displaySpans": [],
+          "mode": "answered",
+          "spans": []
+        },
+        "prompt_tokens": 731
+      },
+      {
+        "elapsed_ms": 48465,
+        "language": "de",
+        "output_tokens": 93,
+        "parsed": {
+          "answer": "Der Bibliothekscode lautet ALPHA-47. [doc:7, chunk:11]",
+          "derivations": [],
+          "displaySpans": [],
+          "mode": "answered",
+          "spans": []
+        },
+        "prompt_tokens": 754
+      }
+    ],
+    "runtime": "qwen-chatml-gbnf-typed-comparison-v32-1",
+    "synthetic": true,
+    "validation": "typed envelope and source identity/provenance; no full semantic QA guarantee"
+  },
+  "limitations": [
+    "Synthetic adapter smoke, not full desktop checked-route or semantic acceptance validation",
+    "Per-request elapsed values include native context creation and evaluation, not controlled comparative benchmark",
+    "Other user applications remained running; no shared services or GPU touched",
+    "Canonical Qwen4B hash is a local compatibility pin; no upstream authenticity claim"
+  ]
+}

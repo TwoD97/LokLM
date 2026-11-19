@@ -1,0 +1,1 @@
+Answer instructions: Follow the requested answer format. Write each answer record's text first, then select all supporting supplied passage IDs in sources; select only passage IDs for comparison mode too. The program displays comparison passages in full and creates citation links; do not write markers in answer text. If the requested fact is missing, say so.

@@ -13,7 +13,9 @@ concurrency:
 jobs:
   tests:
     name: Application (types + unit + integration + tx)
-    runs-on: ubuntu-latest
+    # The locked Playwright 1.60.0 browser build supports Ubuntu 24.04, not
+    # the Ubuntu 26.04 image now selected by ubuntu-latest.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +67,7 @@ jobs:
 
   website:
     name: Website (types + tests + build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,31 @@
+{
+  "sourceCommit": "5c3de0bd39001a11adf0cf965708f65f06b9561d",
+  "uiSourceCommit": "7d927b6",
+  "sha256": "022bd06ef8d7e41dcb001533163a59208a4a746784d81b09377e9c02fa501358",
+  "bytes": 14215680,
+  "build": "Windows x64 release CPU-only, ui-test picker adapter",
+  "result": {
+    "passed": true,
+    "readyMs": 889.5112999999999,
+    "phases": [
+      "ready",
+      "selecting-synthetic-fixture",
+      "imported",
+      "recovery-preserved-documents",
+      "reopened-search-passed"
+    ],
+    "errors": [],
+    "pdfTest": false,
+    "docxTest": false,
+    "combinedModels": false,
+    "embeddingTest": false,
+    "generationTest": false,
+    "scope": "Actual Windows executable with compile-time ui-test picker adapter. Text/Markdown, text-layer PDF (pdfTest) or DOCX (docxTest) import, atomic document failure/duplicate checks, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional sequential real BGE embedding/index and reranker test identified by embeddingTest. Combined model residency and stream lock are covered only when combinedModels is true. OS picker not included; optional actual answer generation/streaming identified by generationTest."
+  },
+  "limitations": [
+    "OS picker not exercised",
+    "No models loaded in this GUI run; grammar model adapter is separately recorded",
+    "Desktop checked route not activated",
+    "readyMs is a harness observation, not a matched startup benchmark"
+  ]
+}

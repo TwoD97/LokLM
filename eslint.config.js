@@ -21,6 +21,11 @@ export default tseslint.config(
       '**/.playwright-report/**',
       '**/.astro/**',
       'installer-wizard/src-tauri/target/**',
+      'native/**/target/**',
+      'native/target-wasm/**',
+      'native/artifacts/**',
+      'native/scratch/**',
+      'native/desktop/gen/**',
       'sidecars/**/build/**',
       '_reference/**',
       '.tsbuildinfo-*/**',
@@ -54,6 +59,7 @@ export default tseslint.config(
       'src/preload/**/*.ts',
       'src/shared/**/*.ts',
       'scripts/**/*.{js,mjs,cjs,ts}',
+      'native/scripts/**/*.{js,mjs,cjs,ts}',
       'tests/**/*.{js,mjs,cjs,ts}',
       '*.{ts,js,mjs,cjs}',
     ],
@@ -65,6 +71,11 @@ export default tseslint.config(
   {
     files: ['**/*.cjs'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // These test callbacks are serialized into the local WebView by Playwright.
+    files: ['native/scripts/native-ui.mjs', 'native/scripts/native-stream-lock.mjs', 'native/scripts/measure-shells.mjs'],
+    languageOptions: { globals: { window: 'readonly' } },
   },
 
   {

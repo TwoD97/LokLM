@@ -1,0 +1,10 @@
+/target/
+/target-wasm/
+/dist/
+/artifacts/
+/scratch/
+/*.log
+/desktop/gen/
+/deployment/.env
+/deployment/secrets/
+
