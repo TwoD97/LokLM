@@ -230,6 +230,31 @@ pub fn build_prompt(
     pinned: &[Passage],
     preamble: Option<&str>,
 ) -> String {
+    build_prompt_with_output(
+        question,
+        hits,
+        history,
+        language,
+        pinned,
+        preamble,
+        CitationOutput::Markers,
+    )
+}
+#[derive(Debug, Clone, Copy)]
+pub enum CitationOutput {
+    Markers,
+    StructuredSources,
+    StructuredSummary,
+}
+pub fn build_prompt_with_output(
+    question: &str,
+    hits: &[Passage],
+    history: &[HistoryMessage],
+    language: Language,
+    pinned: &[Passage],
+    preamble: Option<&str>,
+    output: CitationOutput,
+) -> String {
     let render = |list: &[Passage]| {
         list.iter()
             .map(|h| render_passage(h, language))
@@ -273,10 +298,18 @@ pub fn build_prompt(
         sections.push(format!("Context:\n{}", blocks.join("\n\n---\n\n")));
     }
     sections.push(format!("Question: {question}"));
-    if hits.iter().chain(pinned).any(|h| !h.text.trim().is_empty()) {
-        sections.push(match language {
-            Language::De=>"Antwortvorgabe: Beachte das gewünschte Antwortformat. Belege Tatsachenbehauptungen mit dem exakten Quellenmarker der passenden Passage im bereitgestellten Context. Fehlt die gesuchte Information, sage das, ohne einen Quellenmarker zu erfinden.",
-            Language::En=>"Answer instructions: Follow the requested answer format. Cite factual claims with the supporting passage's exact source marker from the supplied Context. If the requested fact is missing, say so without inventing a citation.",
+    if hits
+        .iter()
+        .chain(pinned)
+        .any(|h| !h.text.trim_matches(crate::citation_markers::ws).is_empty())
+    {
+        sections.push(match (language, output) {
+            (Language::De, CitationOutput::Markers)=>"Antwortvorgabe: Beachte das gewünschte Antwortformat. Belege Tatsachenbehauptungen mit dem exakten Quellenmarker der passenden Passage im bereitgestellten Context. Fehlt die gesuchte Information, sage das, ohne einen Quellenmarker zu erfinden.",
+            (Language::En, CitationOutput::Markers)=>"Answer instructions: Follow the requested answer format. Cite factual claims with the supporting passage's exact source marker from the supplied Context. If the requested fact is missing, say so without inventing a citation.",
+            (Language::De, CitationOutput::StructuredSources)=>include_str!("qa_prompts/checked-de-full-instructions.txt"),
+            (Language::En, CitationOutput::StructuredSources)=>include_str!("qa_prompts/checked-en-full-instructions.txt"),
+            (Language::De, CitationOutput::StructuredSummary)=>include_str!("qa_prompts/checked-de-summary-instructions.txt"),
+            (Language::En, CitationOutput::StructuredSummary)=>include_str!("qa_prompts/checked-en-summary-instructions.txt"),
         }.into());
     }
     sections.join("\n\n")

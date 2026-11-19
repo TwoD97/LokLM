@@ -23,3 +23,11 @@ Raw stream text remains provisional. No-results should return `refusal` without
 calling a model. Citation aliases, structured checked answers, claim verification,
 comparison units, whole-corpus routing and cached-summary orchestration are not
 implemented by this module and must remain explicit integration gates.
+
+The `checked-*.txt` files are the four complete original checked system contracts
+and their four instruction footers, captured with
+`pnpm exec vitest run --config native/scripts/checked-prompt-fixtures.config.ts`.
+`checked_answer::ContextBundle` pairs them with the immutable comparison plan and
+original arithmetic annotations. Structured generation/routing remains pending;
+these assets do not activate a model path or prove factual support. See
+`docs/migration/CHECKED_PROMPTS.md` for fixture coverage and remaining boundaries.

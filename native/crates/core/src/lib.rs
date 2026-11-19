@@ -1,5 +1,6 @@
 //! Platform-independent knowledge and encrypted storage core. No network listener.
 pub mod answer_format;
+pub mod checked_answer;
 pub mod chunking;
 pub mod citation_markers;
 pub mod comparison_answer;
