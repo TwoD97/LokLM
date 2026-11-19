@@ -67,6 +67,14 @@ path = "../core/tests/source_quantities_compat.rs"
 name = "shared_source_calculations_compatibility"
 path = "../core/tests/source_calculations_compat.rs"
 
+[[test]]
+name = "shared_source_units_compatibility"
+path = "../core/tests/source_units_compat.rs"
+
+[[test]]
+name = "shared_source_fragments_compatibility"
+path = "../core/tests/source_fragments_compat.rs"
+
 [dev-dependencies]
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }

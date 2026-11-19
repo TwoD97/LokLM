@@ -90,6 +90,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Exact source-quote provenance | Shared `source_quote` module integrated with original TS fixture tests (24 anchors/contexts, 11 catalogs); available for checked-QA integration, not automatically applied to generated answers |
 | Exact source quantities | Shared `source_quantities::annotate` with original rational-string values and UTF-16 spans; 307 original TS fixture cases; available for future checked-QA integration, not automatically applied to generated answers |
 | Source calculations | Shared bounded `source_calculations::annotate` interpreter, 364 original TS outputs/spans; never executes document JavaScript; not yet applied to generated answers |
+| Source display units/fragments | Shared immutable `source_units` catalog and `source_fragments` matcher; 102 original catalogs and 227 exact excerpt/boundary cases; preserves UTF-16 spans and graphemes, not yet wired into generated-answer validation |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |
 
 Not yet parity: original title/language/recency/short-hit boosts and no-reranker

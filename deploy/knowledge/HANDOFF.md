@@ -7,7 +7,8 @@ No merge or production deployment has been performed or requested.
 
 The independently owned paths are `native/crates/knowledge` and
 `deploy/knowledge`. The desktop owner retains core/inference/documents/UI/Tauri.
-The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e, c418292, 3758800 and 0fef42f are integrated
+The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e, c418292,
+3758800, 0fef42f, baf9cfb and 4b143e9 are integrated
 without enabling desktop storage. The daemon crate is a standalone workspace
 with a relative dependency on `../core`, never a dependency on another worktree.
 Both owners use the same chunking, instruction/normalization/fingerprint, RRF,
@@ -23,6 +24,10 @@ The bounded calculation interpreter adds 364 original output/span cases. Its
 JSON float-roundtrip feature changes the headless numeric transport contract:
 regenerate embedding/reranker aliases and rebuild into a new index directory.
 No generated-answer arithmetic or entailment guarantee is enabled by these helpers.
+Immutable source units and exact display fragments now add 102 and 227 original
+fixture cases. ICU4X 2.4.0 uses compiled data only, with no LSTM/auto feature;
+only the direct core dependency edge was added to the existing Lance graph.
+These remain pure building blocks, not an enabled structured-answer pipeline.
 
 Implemented and tested: portable files/IDs/attachments, actual official encrypted
 LiveSync exchange, checkpoint/cache/FTS/Lance indexing, guarded source citations,
@@ -45,7 +50,9 @@ Next acceptance work, in order:
    desktop owner and already fixed the observed website Playwright failure.
 2. Expand answer-quality coverage beyond the now-passed actual CPU smoke:
    20 checks cover Qwen embedding, BGE reranking, DE/EN Qwen3.5-4B answers and
-   source identity, cancellation, scope and dedup. See `evidence/models-cpu.json`.
+   source identity, cancellation, scope and dedup. The latest numeric-contract
+   run is `evidence/models-cpu-numeric.json`; release dense LiveSync validation is
+   `evidence/livesync-release-dense.json`.
    The test ran after headroom recovered in a coordinated window. The answer
    adapter remains opt-in, buffered, checks tokenizer budgets/citation identity
    and rejects literal ChatML markers; it is not an entailment or checked-answer
