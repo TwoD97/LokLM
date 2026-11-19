@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 pub struct Hit {
     pub chunk_id: i64,
     pub source_id: String,
+    pub source_hash: String,
     pub path: String,
     pub anchor: String,
     pub heading_path: Vec<String>,
@@ -475,8 +476,18 @@ impl Index {
         {
             let db = self.db.lock().unwrap();
             for h in ranked {
-                let row=db.query_row("SELECT c.id,c.source,s.path,c.anchor,c.heading,c.text,c.ordinal FROM chunks c JOIN sources s ON s.id=c.source WHERE c.id=?1",[h.chunk_id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?,r.get::<_,String>(5)?,r.get::<_,usize>(6)?))).optional()?;
-                if let Some((chunk_id, source_id, path, anchor, heading, text, ordinal)) = row {
+                let row=db.query_row("SELECT c.id,c.source,s.path,c.anchor,c.heading,c.text,c.ordinal,s.hash FROM chunks c JOIN sources s ON s.id=c.source WHERE c.id=?1",[h.chunk_id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?,r.get::<_,String>(5)?,r.get::<_,usize>(6)?,r.get::<_,String>(7)?))).optional()?;
+                if let Some((
+                    chunk_id,
+                    source_id,
+                    path,
+                    anchor,
+                    heading,
+                    text,
+                    ordinal,
+                    source_hash,
+                )) = row
+                {
                     if !scope.is_empty() && !scope.contains(&source_id) {
                         continue;
                     }
@@ -495,6 +506,7 @@ impl Index {
                     candidates.push(Hit {
                         chunk_id,
                         source_id,
+                        source_hash,
                         path,
                         anchor,
                         heading_path: heading_path.unwrap_or_default(),

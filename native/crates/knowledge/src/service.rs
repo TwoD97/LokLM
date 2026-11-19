@@ -51,6 +51,18 @@ impl App {
             .map(|_| "reconcile_failed".to_string());
         result
     }
+    fn verify_evidence(&self, hits: &[crate::index::Hit]) -> anyhow::Result<()> {
+        let mut seen = std::collections::HashSet::new();
+        for hit in hits {
+            if seen.insert(&hit.source_id) {
+                anyhow::ensure!(
+                    crate::digest(self.vault.read(&hit.path)?) == hit.source_hash,
+                    "source changed since indexing; reconcile first"
+                );
+            }
+        }
+        Ok(())
+    }
 }
 pub fn router(app: Arc<App>) -> Router {
     Router::new()
@@ -146,6 +158,7 @@ async fn run_query(app: Arc<App>, input: Search, answer: bool) -> Response {
                 .index
                 .search(&input.query, &input.source_ids, input.limit, &cancel)
                 .await?;
+            app.verify_evidence(&hits)?;
             if answer {
                 let result = app
                     .index
@@ -160,6 +173,7 @@ async fn run_query(app: Arc<App>, input: Search, answer: bool) -> Response {
                         &cancel,
                     )
                     .await?;
+                app.verify_evidence(&hits)?;
                 Ok::<_, anyhow::Error>(json!({"api_version":1,"request_id":id,"result":result}))
             } else {
                 Ok(json!({"api_version":1,"request_id":id,"hits":hits}))

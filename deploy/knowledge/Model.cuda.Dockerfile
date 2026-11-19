@@ -1,6 +1,6 @@
 # Optional NVIDIA runtime preparation; not built or exercised on user hardware.
 FROM nvidia/cuda:12.8.1-devel-ubuntu24.04 AS build
-RUN apt-get update && apt-get install -y --no-install-recommends git cmake ninja-build build-essential ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git cmake ninja-build build-essential ca-certificates libssl-dev libcurl4-openssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 # Same llama.cpp source tag as the tested CPU archive, resolved to an exact commit.
 RUN git init && git remote add origin https://github.com/ggml-org/llama.cpp.git && git fetch --depth 1 origin b1b770d90d94cad9e9ea5b993bdbc383a522fb28 && git checkout --detach FETCH_HEAD

@@ -13,5 +13,5 @@ COPY --from=build /src/node_modules ./node_modules
 COPY --from=build /src/src/apps/cli/dist ./dist
 COPY --from=build /src/LICENSE ./LIVESYNC-LICENSE
 USER 1000:1000
-ENTRYPOINT ["node","/app/dist/index.cjs","/state","--settings","/state/settings.json"]
-CMD ["daemon","--vault","/vault"]
+ENTRYPOINT ["node","/app/dist/index.cjs","/state","--settings","/state/settings.json","--vault","/vault"]
+CMD ["daemon"]

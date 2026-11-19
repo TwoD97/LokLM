@@ -9,7 +9,7 @@ def main():
     root=Path(tempfile.mkdtemp(prefix=prefix+'-'));root.chmod(0o777)
     try:
         run('network','create','--internal',network)
-        run('run','-d','--name',qdrant,'--network',network,'--cpus','2','--memory','2g','-v',str(root/'qdrant')+':/qdrant/storage','qdrant/qdrant:v1.20.0')
+        run('run','-d','--name',qdrant,'--network',network,'--cpus','2','--memory','2g','-v',str(root/'qdrant')+':/qdrant/storage','qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2')
         time.sleep(3)
         for backend in ['lance','qdrant']:
             target='/bench/lance' if backend=='lance' else 'http://'+qdrant+':6334'

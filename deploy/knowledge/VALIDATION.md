@@ -9,7 +9,7 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 2 file tests + 4 integration tests pass |
+| Windows knowledge crate | 2 file tests + 5 integration tests pass, including inspectable backlinks/ambiguous references |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
 | Shared pure core | 5 unit + 2 original cipher/chunker compatibility + 2 original QA fixture tests pass; storage feature disabled |
 | Linux container with Lance | Build and 3 file + 4 integration tests pass before the final QA/status changes; final rebuild recorded below when complete |

@@ -1,5 +1,5 @@
 """Test fresh setup against disposable CouchDB; never uses user configuration."""
-import json,os,secrets,subprocess,tempfile,uuid,time,shutil
+import json,os,secrets,subprocess,tempfile,uuid,time,shutil,urllib.request,urllib.error,base64
 from pathlib import Path
 
 def run(*args,check=True):
@@ -30,8 +30,19 @@ def main():
         settings=state/'settings.json';before=settings.read_bytes();data=json.loads(before)
         assert data['encrypt'] and data['couchDB_USER']=='loklm-sync'
         assert settings.stat().st_mode&0o777==0o600
+        ip=json.loads(run('inspect',couch).stdout)[0]['NetworkSettings']['Networks'][network]['IPAddress']
+        def status(path,username=None,password=None,method='GET'):
+            headers={}
+            if username is not None:headers['Authorization']='Basic '+base64.b64encode((username+':'+password).encode()).decode()
+            request=urllib.request.Request('http://'+ip+':5984/'+path,headers=headers,method=method)
+            try:
+                with urllib.request.urlopen(request,timeout=5) as response:return response.status
+            except urllib.error.HTTPError as e:return e.code
+        assert status('_up')==200 and status('loklm-knowledge') in [401,403]
+        assert status('loklm-knowledge',data['couchDB_USER'],data['couchDB_PASSWORD'])==200
+        assert status('_users',data['couchDB_USER'],data['couchDB_PASSWORD']) in [401,403]
         second=setup();assert second.returncode!=0 and settings.read_bytes()==before
-        print('PASS fresh official LiveSync setup, encryption, private settings, repeat refuses without overwrite')
+        print('PASS fresh official LiveSync setup, encryption, private settings, anonymous denial, nonadmin isolation, repeat refuses without overwrite')
     finally:
         run('rm','-f',couch,check=False);run('network','rm',network,check=False)
         if root.parent==Path(tempfile.gettempdir()) and root.name.startswith(prefix+'-'):shutil.rmtree(root)

@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import urllib.error
 import uuid
 
 PREFIX = 'loklm-test-' + uuid.uuid4().hex[:12]
@@ -64,7 +65,7 @@ def main():
     docker('network', 'create', '--internal', NETWORK)
     containers.append(COUCH)
     docker('run', '-d', '--name', COUCH, '--network', NETWORK,
-           '--env-file', str(envfile), '--memory', '512m', '--cpus', '1', 'couchdb:3.5.0')
+           '--env-file', str(envfile), '--memory', '512m', '--cpus', '1', 'loklm-test-couchdb:3.5.0')
     ip = json.loads(docker('inspect', COUCH).stdout)[0]['NetworkSettings']['Networks'][NETWORK]['IPAddress']
     auth = base64.b64encode(('test-admin:' + admin).encode()).decode()
     def http(path, method='GET', body=None, user_auth=auth):
@@ -81,7 +82,9 @@ def main():
     else:
         raise RuntimeError('disposable CouchDB did not become ready')
     for name in ['_users', '_replicator', '_global_changes', 'knowledge']:
-        http(name, 'PUT')
+        try:http(name, 'PUT')
+        except urllib.error.HTTPError as error:
+            if error.code!=412 or name=='knowledge':raise
     http('_users/org.couchdb.user:peer', 'PUT', {'name':'peer','password':password,'roles':[],'type':'user'})
     http('knowledge/_security', 'PUT', {'admins':{'names':['test-admin'],'roles':[]},'members':{'names':['peer'],'roles':[]}})
     for peer in ['a','b']:
@@ -149,9 +152,9 @@ def main():
         clean=ROOT/peer/'mirror';clean.mkdir();os.chown(clean,1000,1000)
     def start_daemon(peer):
         name=PREFIX+'-daemon-'+peer;containers.append(name)
-        docker('run','-d','--name',name,'--network',NETWORK,'--entrypoint','node',
+        docker('run','-d','--name',name,'--network',NETWORK,'--cpus','1','--memory','1g','--pids-limit','128',
                '-v',str(ROOT/peer/'state')+':/state','-v',str(ROOT/peer/'mirror')+':/vault',
-               IMAGE,'/app/dist/index.cjs','/state','--settings','/state/settings.json','--vault','/vault','--interval','2','daemon')
+               IMAGE,'--interval','2','daemon')
         return name
     da=start_daemon('a');db=start_daemon('b')
     def wait_for(predicate,label):

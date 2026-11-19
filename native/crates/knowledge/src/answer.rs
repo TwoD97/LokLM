@@ -53,6 +53,19 @@ impl AnswerClient {
         depth: Depth,
         cancel: &CancellationToken,
     ) -> Result<Value> {
+        // The HTTP runtime tokenizes rendered ChatML. Until literal-control-token
+        // escaping is verified end to end, fail closed on untrusted role markers.
+        // Search still returns these documents verbatim; only generation is gated.
+        ensure!(
+            !question.contains("<|"),
+            "literal model control marker in question"
+        );
+        ensure!(
+            hits.iter().all(|h| !h.text.contains("<|")
+                && !h.path.contains("<|")
+                && h.heading_path.iter().all(|s| !s.contains("<|"))),
+            "literal model control marker in evidence"
+        );
         if hits.is_empty() {
             return Ok(
                 json!({"answer":qa::refusal(language),"citations":[],"validation":"no_evidence","prompt_version":qa::PROMPT_VERSION}),
@@ -144,7 +157,7 @@ impl AnswerClient {
         }
         let cited = qa::validate_citations(answer, &packed)?;
         let citations:Vec<_>=cited.iter().map(|p|{let h=hits.iter().find(|h|h.chunk_id==p.chunk_id).expect("validated supplied chunk");
-            json!({"marker":qa::marker(p),"source_id":h.source_id,"anchor":h.anchor,"path":h.path,"open_uri":h.open_uri})}).collect();
+            json!({"marker":qa::marker(p),"source_id":h.source_id,"source_hash":h.source_hash,"anchor":h.anchor,"path":h.path,"open_uri":h.open_uri})}).collect();
         Ok(
             json!({"answer":answer,"citations":citations,"validation":"citation_identity_only","semantic_entailment_checked":false,
             "full_loklm_qa_parity":false,"prompt_version":qa::PROMPT_VERSION,"model_fingerprint":self.fingerprint}),

@@ -28,6 +28,10 @@ answers only after validation. **It is experimental basic QA, not full LokLM
 checked-answer/comparison/router parity or proof of factual entailment.** Its
 transport/cancellation tests use a synthetic provider; actual model answer
 validation remains a gate. See [VALIDATION.md](VALIDATION.md) for measured coverage.
+Until literal ChatML escaping is validated end to end, the answer adapter rejects
+questions/evidence containing `<|` control-marker syntax. Retrieval still exposes
+the original document. This protects role boundaries; it does not claim to solve
+semantic prompt injection or factual entailment.
 
 ## Canonical authority and file contract
 
@@ -50,6 +54,11 @@ and an `obsidian://open?file=...` URI. The content hash is **not** an inserted
 Obsidian block ID. Open URIs target the current Obsidian vault; with multiple
 vaults use the returned path in the intended vault. Old anchors have no revision
 archive in this service: source backups/LiveSync revisions provide history.
+Search and answer citations include the indexed source hash. The HTTP layer
+rechecks returned files against that hash before publishing (and after answer
+generation); an edit/rename before reconciliation causes rejection rather than
+presenting stale evidence as the current file. This is optimistic validation,
+not a lock on external editors after the response is sent.
 
 The daemon reads its vault mount read-only. Only upstream LiveSync mirrors
 remote edits into that directory. Editors and LiveSync are the file writers;
@@ -202,7 +211,10 @@ The token owns one entire vault instance. `source_ids` is a retrieval filter,
 **not a per-user ACL**. For separate trust domains deploy separate vault/index/
 LiveSync DB/user/token instances. HTTP bodies are capped at 16 KiB.
 
-* `GET /v1/status`, `GET /v1/sources` (UUID/path/hash/outgoing wiki-link references).
+* `GET /v1/status`, `GET /v1/sources` (UUID/path/hash, outgoing wiki-links,
+  resolved incoming source IDs, unresolved/ambiguous links). Resolution uses exact
+  relative paths or unique basenames; it does not claim complete Obsidian resolver
+  equivalence. The link inventory is capped at 100,000 references.
 * `POST /v1/search`: `{"query":"Solarstrom","limit":8,"source_ids":[]}`.
   Primary hits can be followed by bounded same-source neighbour hits, so the
   returned count can exceed `limit` (at most three times the limit).
@@ -260,6 +272,7 @@ From repository root on Linux/WSL with Docker access:
 ```sh
 docker build -f deploy/knowledge/LiveSync.Dockerfile -t loklm-test-livesync:1.0.51 deploy/knowledge
 docker build -f deploy/knowledge/Model.Dockerfile -t loklm-test-model:b12359 deploy/knowledge
+docker build -f deploy/knowledge/CouchDB.Dockerfile -t loklm-test-couchdb:3.5.0 deploy/knowledge
 docker build --target test-runtime -f deploy/knowledge/Dockerfile -t loklm-test-knowledge:dev .
 python3 deploy/knowledge/test_provision.py
 LOKLM_TEST_MODELS=/absolute/read-only/model-cache python3 deploy/knowledge/test_livesync.py
