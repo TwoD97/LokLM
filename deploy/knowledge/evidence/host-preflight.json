@@ -1,0 +1,20 @@
+{
+  "scope": "Read-only fresh Linux host configuration validation; no containers started",
+  "tests": {
+    "windows_unittest": {"run": 8, "passed": 7, "skipped_unix_permissions": 1},
+    "wsl_ubuntu_unittest": {"run": 8, "passed": 8},
+    "real_compose_config": {
+      "passed": true,
+      "fixture": "Temporary synthetic env, isolated vault/index/state directories and secret files; removed afterward",
+      "command": "python3 preflight.py",
+      "initial_failure": "Compose omitted the setup-only vault_passphrase secret without the setup profile",
+      "fix": "Resolve config with --profile setup; does not run setup",
+      "final_exit_code": 0
+    }
+  },
+  "limits": [
+    "Only secret-file presence/permissions checked; credential contents never read by the validator",
+    "No actual Unraid host validation",
+    "No container UID mount-access, indexing, model, CouchDB authentication or LiveSync readiness claim"
+  ]
+}

@@ -1,0 +1,38 @@
+PASS actual gateway overlay passes read-only preflight
+PASS only ephemeral loopback HTTPS port; no direct backend publications
+PASS trusted certificate and hostname reach HTTPS CouchDB health
+PASS knowledge API still enforces its own bearer token on the private backend
+PASS untrusted CA refused by normal TLS verification
+PASS unknown TLS server name refused
+PASS anonymous database access denied through HTTPS
+PASS incorrect CouchDB credentials denied through HTTPS
+PASS client-supplied proxy-auth headers cannot bypass CouchDB authentication
+PASS dedicated non-admin sync credentials remain authoritative
+PASS peer gateway excludes database security administration
+PASS blocked security update preserves exact backend policy
+PASS gateway excludes administrative or unrelated route /_utils/
+PASS gateway excludes administrative or unrelated route /_all_dbs
+PASS gateway excludes administrative or unrelated route /_users
+PASS gateway excludes administrative or unrelated route /_node/_local/_config
+PASS gateway excludes administrative or unrelated route /v1/status
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/../_users
+PASS gateway excludes administrative or unrelated route /%5futils/
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/%2e%2e/_users
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/_security/
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/%5fsecurity
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/_purge
+PASS gateway excludes administrative or unrelated route /loklm-knowledge/_compact
+PASS CouchDB session auth works with Secure HttpOnly cookie
+PASS configured Obsidian CORS origin preserved
+PASS Obsidian-origin authenticated-request CORS preflight passes
+PASS unconfigured CORS origin is not granted
+PASS actual upstream LiveSync rejects untrusted gateway certificate
+PASS actual encrypted LiveSync Unicode note roundtrip through HTTPS
+PASS actual encrypted LiveSync 256 KiB attachment roundtrip through HTTPS
+PASS CouchDB wire payload retains upstream content encryption
+PASS continuous changes heartbeat arrives without proxy buffering
+PASS gateway restart preserves trusted HTTPS readiness
+PASS operator-style certificate replacement and gateway recreation preserve trust
+PASS recreated gateway serves renewed certificate instead of stale bind inode
+PASS bidirectional note and attachment retrieval survive restart and certificate renewal
+PASS gateway logs contain no credentials, note content or request paths

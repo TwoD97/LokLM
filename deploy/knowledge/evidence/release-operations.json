@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-19",
+  "acceptance_source_commit": "ec32d2a68814ebc2df17f9d22bed7fdb7f7145c0",
+  "runtime_source_commit": "e7b6010",
+  "base_source_commit": "ff63d7c",
+  "root_preflight_preserved": "08b12bf",
+  "environment": "Windows host, Ubuntu WSL root for local Docker socket, Docker 29.9.3 / Compose 5.7.1",
+  "commands": [
+    "docker build --target production -f deploy/knowledge/Dockerfile -t loklm-knowledge:u01-release .",
+    "LOKLM_TEST_SOURCE_COMMIT=ec32d2a68814ebc2df17f9d22bed7fdb7f7145c0 python3 deploy/knowledge/test_compose.py",
+    "LOKLM_KNOWLEDGE_TEST_IMAGE=loklm-knowledge:u01-release python3 deploy/knowledge/test_livesync.py",
+    "python3 -m unittest discover -s deploy/knowledge -p 'test_*.py'",
+    "python -m unittest discover -s deploy/knowledge -p 'test_*.py'",
+    "docker ps -a --format '{{.ID}} {{.Names}} {{.Status}}'",
+    "docker network ls --filter name=loklm-accept --format '{{.Name}}'",
+    "docker network ls --filter name=loklm-test --format '{{.Name}}'"
+  ],
+  "results": {
+    "production_build_exit_code": 0,
+    "linux_lance_rust_tests_passed": 23,
+    "compose_fixture_exit_code": 0,
+    "compose_checks_passed": 32,
+    "compose_elapsed_seconds_before_final_cleanup": 78.27,
+    "livesync_fixture_exit_code": 0,
+    "actual_livesync_checks_passed": 30,
+    "linux_python_tests_passed": 17,
+    "windows_python_tests_passed": 16,
+    "windows_python_tests_skipped": 1,
+    "windows_skip_reason": "Unix file permissions",
+    "rust_max_build_jobs": 2,
+    "cached_rust_test_build_seconds": 42.94,
+    "cached_rust_release_build_seconds": 45.14
+  },
+  "resource_observations": {
+    "windows_free_physical_gib_before_fixture": 5.59,
+    "wsl_available_mib_before_fixture": 22401,
+    "wsl_used_mib_before_fixture": 1632,
+    "lexical_compose_docker_memory_sample_mib": {
+      "knowledge": 15.43,
+      "livesync": 72.93,
+      "couchdb": 63.82
+    },
+    "scope": "Single observations during a tiny synthetic fixture; not peak, production capacity or model-serving limits"
+  },
+  "cleanup": {
+    "docker_ps_a_output": "06a7ef96aa41 mika-home-assistant Up 22 hours",
+    "loklm_accept_network_output": "",
+    "loklm_test_network_output": "",
+    "fixture_temporary_bind_roots_removed": true,
+    "unrelated_home_assistant_restarted_or_modified": false,
+    "exclusive_docker_cpu_slot_released": true
+  },
+  "limitations": {
+    "unraid_host_tested": false,
+    "obsidian_ui_tested": false,
+    "gpu_tested": false,
+    "new_model_inference_run": false,
+    "full_checked_answer_parity": false,
+    "rollback_scope": "Retained derived index directory under the same candidate runtime; no arbitrary cross-version schema downgrade claim",
+    "model_evidence": "Historical f39eff1 dense/model reports retained with original source/image; current aliases match prior 2fbb284 production image"
+  },
+  "artifacts": [
+    "release-build-output.txt",
+    "compose-startup-failure.json",
+    "compose-release-acceptance.json",
+    "compose-release-output.txt",
+    "livesync-release-recovery.json",
+    "livesync-release-recovery-output.txt",
+    "release-provenance.json"
+  ]
+}

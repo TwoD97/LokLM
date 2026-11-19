@@ -44,3 +44,7 @@ jobs:
         run: python -m unittest discover -s deploy/knowledge -p test_backup.py
       - name: New vault preparation tests
         run: python -m unittest discover -s deploy/knowledge -p test_prepare_vault.py
+      - name: Host preflight and operational check tests
+        run: |
+          python -m unittest discover -s deploy/knowledge -p test_preflight.py
+          python -m unittest discover -s deploy/knowledge -p test_manage.py

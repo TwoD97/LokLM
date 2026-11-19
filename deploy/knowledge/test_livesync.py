@@ -15,9 +15,10 @@ import time
 import urllib.request
 import urllib.error
 import uuid
+from manage import conflict_rows
 
 PREFIX = 'loklm-test-' + uuid.uuid4().hex[:12]
-ROOT = Path(tempfile.mkdtemp(prefix=PREFIX + '-')).resolve()
+ROOT = None  # Importing unittest discovery must not allocate fixture resources.
 NETWORK = PREFIX + '-net'
 COUCH = PREFIX + '-couch'
 IMAGE = os.environ.get('LOKLM_LIVESYNC_TEST_IMAGE', 'loklm-test-livesync:1.0.51')
@@ -54,6 +55,8 @@ def expect(condition, label):
     print('PASS ' + label, flush=True)
 
 def main():
+    global ROOT
+    ROOT = Path(tempfile.mkdtemp(prefix=PREFIX + '-')).resolve()
     admin = secrets.token_urlsafe(32)
     password = secrets.token_urlsafe(32)
     phrase = secrets.token_urlsafe(32)
@@ -140,6 +143,8 @@ def main():
     cli('a','sync');cli('b','sync');cli('a','sync')
     info = json.loads(cli('a','info',path).stdout)
     expect(info['conflicts'] != 'N/A','concurrent offline edits preserve CouchDB conflict revisions')
+    inventory = conflict_rows(cli('a','ls').stdout.decode())
+    expect(any(row['path']==path for row in inventory['conflicts']), 'operational conflict inventory detects actual upstream offline branches')
     # Review both branches using upstream pull-rev before explicitly resolving.
     cli('a','pull-rev',path,'/vault/winning.md',info['revision'])
     conflict_rev=info['conflicts'].split()[0]
@@ -147,6 +152,7 @@ def main():
     branches={(ROOT/'a/vault/winning.md').read_text(),(ROOT/'a/vault/conflicting.md').read_text()}
     expect(branches=={edited+'\nOffline branch A\n',edited+'\nOffline branch B\n'},'both conflicting file versions remain recoverable')
     cli('a','resolve',path,info['revision']);cli('a','sync');cli('b','sync')
+    expect(not conflict_rows(cli('a','ls').stdout.decode())['conflicts'], 'explicit upstream resolution clears operational conflict inventory')
     # Separate empty filesystem mirrors prevent import fixture paths becoming notes.
     for peer in ['a','b']:
         clean=ROOT/peer/'mirror';clean.mkdir();os.chown(clean,1000,1000)
@@ -240,9 +246,24 @@ def main():
     unavailable=cli('a','sync',check=False,timeout=30)
     expect(unavailable.returncode!=0,'unavailable CouchDB fails without modifying original source fixture')
     expect((ROOT/'a/vault/input.md').read_text()==content,'original source survives CouchDB outage')
+    # Recovery must prove replication of a new queued change, not just /_up.
+    recovery_path='Recovery/After outage.md'
+    cli('a','push','/vault/input.md',recovery_path)
+    docker('start',COUCH)
+    def couch_ready():
+        try:return http('_up')['status']=='ok'
+        except Exception:return False
+    wait_for(couch_ready,'CouchDB restarts from the same persisted database')
+    settings['couchDB_PASSWORD']=password;settings_path.write_text(json.dumps(settings))
+    cli('a','sync');cli('b','sync');cli('b','pull',recovery_path,'/vault/recovered.md')
+    expect((ROOT/'b/vault/recovered.md').read_text()==content,'queued change replicates after outage and credential recovery')
+    cli('b','pull',attachment,'/vault/recovered.bin')
+    expect((ROOT/'b/vault/recovered.bin').read_bytes()==binary,'attachment survives database outage and recovery')
     report={'livesync_commit':'5b57324bc72a6c7a330c280b876ae9c6f8e83221',
             'commonlib_version':'0.6.0 (upstream npm lock integrity)','checks':checks,
             'knowledge_image_id':json.loads(docker('image','inspect',os.environ.get('LOKLM_KNOWLEDGE_TEST_IMAGE','loklm-test-knowledge:dev')).stdout)[0]['Id'],
+            'livesync_image_id':json.loads(docker('image','inspect',IMAGE).stdout)[0]['Id'],
+            'couchdb_image_id':json.loads(docker('image','inspect','loklm-test-couchdb:3.5.0').stdout)[0]['Id'],
             'dense_model_fingerprint':fingerprint if model_args else None,
             'obsidian_ui_tested':False,'rust_dense_model_tested':bool(model_args),'attachment_sha256':hashlib.sha256(binary).hexdigest()}
     out=Path(__file__).parent/'reports';out.mkdir(exist_ok=True)
@@ -257,5 +278,5 @@ if __name__ == '__main__':
         docker('network','rm',NETWORK,check=False)
         # Delete only this script's verified unique tempfile root.
         import shutil
-        if ROOT.parent == Path(tempfile.gettempdir()).resolve() and ROOT.name.startswith(PREFIX+'-'):
+        if ROOT is not None and ROOT.parent == Path(tempfile.gettempdir()).resolve() and ROOT.name.startswith(PREFIX+'-'):
             shutil.rmtree(ROOT)

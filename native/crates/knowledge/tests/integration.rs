@@ -225,6 +225,105 @@ async fn auth_bounds_lock_and_instance_isolation() -> Result<()> {
 }
 
 #[tokio::test]
+async fn readiness_requires_current_process_success_and_recovers_after_bad_files() -> Result<()> {
+    let notes = tempfile::tempdir()?;
+    let state = tempfile::tempdir()?;
+    let vault = Vault::open(notes.path())?;
+    vault.import("good.md", "# Ready\nSynthetic readiness fixture")?;
+    let app = App::new(
+        Index::open(state.path(), None).await?,
+        vault,
+        "a".repeat(32),
+    );
+    let api = router(app.clone());
+    let request = |path: &str, authenticated: bool| {
+        Request::builder()
+            .uri(path)
+            .header(
+                "authorization",
+                if authenticated {
+                    format!("Bearer {}", "a".repeat(32))
+                } else {
+                    String::new()
+                },
+            )
+            .body(Body::empty())
+            .unwrap()
+    };
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/v1/ready", false))
+            .await?
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/healthz", false))
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/v1/ready", true))
+            .await?
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    app.reconcile().await?;
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/v1/ready", true))
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    std::fs::write(notes.path().join("bad.md"), "No managed UUID")?;
+    assert!(app.reconcile().await.is_err());
+    assert_eq!(app.index.status()?.sources, 1);
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/v1/ready", true))
+            .await?
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/healthz", false))
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    std::fs::remove_file(notes.path().join("bad.md"))?;
+    app.reconcile().await?;
+    assert_eq!(
+        api.clone()
+            .oneshot(request("/v1/ready", true))
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    drop(api);
+    drop(app);
+    let app = App::new(
+        Index::open(state.path(), None).await?,
+        Vault::open(notes.path())?,
+        "a".repeat(32),
+    );
+    assert_eq!(app.index.status()?.sources, 1);
+    assert_eq!(
+        router(app)
+            .oneshot(request("/v1/ready", true))
+            .await?
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn inspectable_backlinks_preserve_ambiguous_references() -> Result<()> {
     let notes = tempfile::tempdir()?;
     let state = tempfile::tempdir()?;

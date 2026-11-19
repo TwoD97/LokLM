@@ -1,4 +1,4 @@
-import io,tarfile,tempfile,unittest
+import io,os,stat,tarfile,tempfile,unittest
 from pathlib import Path
 from backup import backup,verify
 
@@ -12,6 +12,10 @@ class BackupTest(unittest.TestCase):
             self.assertEqual(verify(archive),2)
             restore=root/'restore';self.assertEqual(verify(archive,restore),2)
             self.assertEqual((restore/'attachment.bin').read_bytes(),bytes(range(256)))
+            if os.name=='posix':
+                self.assertEqual(stat.S_IMODE(archive.stat().st_mode),0o600)
+                self.assertEqual(stat.S_IMODE(restore.stat().st_mode),0o700)
+                self.assertEqual(stat.S_IMODE((restore/'attachment.bin').stat().st_mode),0o600)
             with self.assertRaises(FileExistsError):verify(archive,restore)
     def test_traversal_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -5,6 +5,87 @@ Docker 29.9.3 / Compose 5.7.1. All knowledge content used in tests is synthetic.
 No production server/vault was contacted. No GPU, LoRA, training, shared model unloading
 or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
+## Release operations acceptance, 2026-11-19
+
+Runtime/source change `e7b6010` and acceptance extension `ec32d2a` preserve the
+existing shared core, index, embedding/reranking and answer implementations.
+The exact Compose startup found a release blocker: YAML flow lists split
+unquoted tmpfs commas into a separate `mode=1777` mount. Compose configuration
+resolution had passed, but Docker rejected container creation. All base/model/
+answer entries are now quoted, and preflight rejects non-absolute tmpfs entries.
+The observed failure is retained in `evidence/compose-startup-failure.json`.
+
+| Executed on this candidate | Result |
+|---|---|
+| Production Docker build with Lance, locked Cargo, max two jobs | 23 Rust tests pass, including current-process readiness/failure/recovery and existing cancellation/provider/shared-core fixtures |
+| Actual base Compose plus setup profile | 32 checks pass in 78.27 seconds before final cleanup: first run, repeated setup refusal, anonymous/authenticated boundaries, invalid scan preserves checkpoint, remote outage/recovery, restart, source backup, isolated fresh DB/index restore, candidate-index rebuild, retained-index rollback and lock |
+| Actual upstream encrypted LiveSync with new Rust image | 30 checks pass: Unicode notes, 256 KiB attachment, bidirectional edits, rename/delete, both offline conflict branches recovered, operational conflict inventory before/after explicit resolution, actual daemon mirrors and Rust indexing, bad credentials, queued change plus attachment recovery after outage |
+| Host-script tests | Linux 17 pass; Windows 16 pass plus one Unix-permission test skipped |
+| All Compose overlays resolved together | tmpfs remains one valid entry per service; local overlay ports bind 127.0.0.1; model/answer/GPU services were **not started** |
+| Model fingerprints | Embedding, reranker and answer aliases equal the prior `2fbb284` production image; no model inference rerun in this acceptance window |
+
+`/healthz` remains anonymous process liveness. New authenticated `/v1/ready`
+requires a successful scan in this process less than 90 seconds old; failures
+and stale scans return 503, lock returns 423. The runtime regression proves a
+persisted checkpoint alone is insufficient after restart. `manage.py doctor`
+separately probes authenticated remote access without opening PouchDB or printing
+secrets. Its success does not prove peer convergence; actual convergence is
+covered by the two-peer LiveSync fixture. `manage.py conflicts` refuses a running
+daemon and uses upstream revision markers on its stopped local database.
+
+Reports and command outputs:
+
+* `evidence/compose-release-acceptance.json` and `compose-release-output.txt`.
+* `evidence/livesync-release-recovery.json` and `livesync-release-recovery-output.txt`.
+* `evidence/release-provenance.json`: exact image digests, source-file hashes,
+  model aliases and license inventory; `release-build-output.txt` retains the
+  actual Cargo test/build output.
+* `evidence/release-operations.json`: commands, resource observations and cleanup.
+
+The local candidate is `loklm-knowledge:u01-release`, image ID
+`sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4`,
+476,173,778 bytes. Its daemon is 242,576,560 bytes, SHA-256
+`53f1ed56a25c25869c8c08c3b2a70ed1d19bfbdba702d22e86f6d7859cf17986`.
+These are local artifacts, not a claim of registry publication. The prior
+`loklm-knowledge:0.1.0` image was retained unchanged. The production image contains
+518 resolved Cargo package inventory entries and their collected notices; the
+sidecar retains upstream's MIT notice and dependency package files. Existing
+[MODEL-AUDIT.md](MODEL-AUDIT.md) covers optional weight/runtime notices.
+
+Windows free physical RAM measured 5.59 GiB after the build and before fixtures;
+WSL reported 22,401 MiB available, 1,632 MiB used. At one lexical Compose sample,
+Docker reported knowledge 15.43 MiB, LiveSync 72.93 MiB and CouchDB 63.82 MiB.
+These are observations of a tiny synthetic fixture, not capacity recommendations.
+Cached Rust test compilation took 42.94 seconds and release compilation 45.14
+seconds; these do not replace the earlier cold-build measurements.
+
+All UUID-named fixture containers/networks and temporary bind directories were
+removed; final `docker ps -a` listed only the pre-existing Home Assistant container
+`06a7ef96aa41`, left running throughout. No public ports, models, GPU, host cache
+eviction or production database initialization were used. The backup tool now
+creates mode-0600 archives/files and a mode-0700 restore root on Unix.
+
+The restore test used separate fresh CouchDB storage and credentials; the rollback
+test switched derived index directories with the same candidate image. It is not
+an arbitrary cross-version database downgrade guarantee. Actual Unraid, real
+Obsidian UI/two-device setup, gateway configuration, GPU operation and broader QA
+quality remain the external gates below. Historical dense/model results retain
+their original image/source identity; they are not relabelled as current-image
+model inference runs.
+
+Reproduce this candidate (with the exclusive Docker/CPU slot and images built):
+
+```sh
+LOKLM_KNOWLEDGE_TEST_IMAGE=loklm-knowledge:u01-release python3 deploy/knowledge/test_compose.py
+LOKLM_KNOWLEDGE_TEST_IMAGE=loklm-knowledge:u01-release python3 deploy/knowledge/test_livesync.py
+python3 -m unittest discover -s deploy/knowledge -p 'test_*.py'
+```
+
+When WSL cannot resolve Windows worktree Git metadata, set
+`LOKLM_TEST_SOURCE_COMMIT` to the exact `git rev-parse HEAD` result obtained on
+Windows before `test_compose.py`. Only that nonsecret commit ID crosses the
+environment; fixture credentials stay in disposable private files.
+
 ## Executed checks
 
 | Check | Observed result |
@@ -231,3 +312,13 @@ Later-head CI results remain tracked on draft
 6. Stop sync/editors; back up, verify, restore to a new directory and rebuild a new
    index. Notes and attachment hashes must match. Never test restore over a live
    vault or reconnect a restored snapshot to an existing remote without review.
+7. Run the current `test_compose.py` with `LOKLM_KNOWLEDGE_TEST_IMAGE` pointing to
+   the newly built production image (and `LOKLM_TEST_SOURCE_COMMIT` when WSL
+   cannot resolve the worktree). Expect 32 passing checks and cleanup of its two
+   unique projects. It deliberately tests an invalid UUID scan: `/healthz` stays
+   200 while authenticated `/v1/ready` is 503, then becomes ready after correction.
+8. On a disposable stack run `manage.py conflicts` while LiveSync is running;
+   expect refusal. Stop only that project's LiveSync, inspect/recover both offline
+   branches with upstream CLI, explicitly resolve, sync and inspect again; expect
+   no conflicts. Keep recovered files outside the canonical vault and restart
+   LiveSync afterward. Follow OPERATIONS for secret-file and restore setup.

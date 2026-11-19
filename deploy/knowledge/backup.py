@@ -15,7 +15,7 @@ def backup(vault:Path,archive:Path):
     manifest={}
     total=0
     # exclusive create avoids replacing an existing backup
-    with archive.open('xb') as output, tarfile.open(fileobj=output,mode='w:gz') as tar:
+    with os.fdopen(os.open(archive,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'wb') as output, tarfile.open(fileobj=output,mode='w:gz') as tar:
         for root,dirs,files in os.walk(vault,followlinks=False):
             for name in dirs+files:
                 if (Path(root)/name).is_symlink():raise ValueError('symlink excluded')
@@ -38,7 +38,7 @@ def backup(vault:Path,archive:Path):
     verify(archive)
 
 def verify(archive:Path,target:Path|None=None):
-    if target is not None:target.mkdir(parents=False,exist_ok=False)
+    if target is not None:target.mkdir(parents=False,exist_ok=False,mode=0o700)
     with tarfile.open(archive,'r:gz') as tar:
         manifest={};actual={};seen=set();total=0
         for member in tar:
@@ -55,7 +55,8 @@ def verify(archive:Path,target:Path|None=None):
                 manifest=json.load(stream);continue
             h=hashlib.sha256();count=0;out=None
             if target is not None:
-                dest=target.joinpath(*path.parts);dest.parent.mkdir(parents=True,exist_ok=True);out=dest.open('xb')
+                dest=target.joinpath(*path.parts);dest.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+                out=os.fdopen(os.open(dest,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'wb')
             try:
                 while block:=stream.read(1024*1024):
                     h.update(block);count+=len(block)

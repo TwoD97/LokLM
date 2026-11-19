@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-19",
+  "runtime_source_commit": "de669f9",
+  "base_preserved": "93c8465",
+  "runtime_report": "gateway-acceptance.json",
+  "actual_command_output": "gateway-acceptance-output.txt",
+  "commands": [
+    "docker pull nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598",
+    "LOKLM_TEST_SOURCE_COMMIT=$(git rev-parse HEAD) python3 deploy/knowledge/test_gateway.py",
+    "python3 -m unittest discover -s deploy/knowledge -p 'test_*.py'",
+    "python -m unittest discover -s deploy/knowledge -p 'test_*.py'",
+    "docker ps -a --format '{{.ID}} {{.Names}} {{.Status}}'",
+    "docker network ls --filter name=loklm-tls --format '{{.Name}}'"
+  ],
+  "execution": {
+    "gateway_fixture_exit_code": 0,
+    "actual_gateway_checks_passed": 38,
+    "elapsed_seconds_before_cleanup": 49.69,
+    "linux_host_script_tests_passed": 24,
+    "windows_host_script_tests_passed": 22,
+    "windows_host_script_tests_skipped": 2,
+    "skip_reason": "Unix permission tests",
+    "nginx_version_output": "nginx version: nginx/1.30.7",
+    "package_version": "nginx-1.30.7-r1"
+  },
+  "observed_negative_outcomes": [
+    {
+      "case": "Initial synthetic test CA",
+      "result": "Python 3.14 strict verification refused the CA because it lacked a certificate-signing key-usage extension",
+      "exact_error": "certificate verify failed: CA cert does not include key usage extension",
+      "resolution": "Fixture CA and leaf now carry explicit X509 constraints, key usages and key identifiers; no verifier settings were relaxed"
+    },
+    {
+      "case": "Valid non-admin PUT /loklm-knowledge/_security in the disposable CouchDB fixture",
+      "gateway_http_status": 500,
+      "direct_backend_http_status": 500,
+      "request_body": {"admins": {"names": [], "roles": []}, "members": {"names": [], "roles": []}},
+      "base_couchdb_image_id": "sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9",
+      "interpretation": "Not accepted as a correct authorization-status result and not attributed to TLS/proxy behavior",
+      "final_gateway_behavior": "Named security/revision/purge/compaction administration routes are excluded with 404; final acceptance verifies exact backend security policy remains unchanged",
+      "remaining_gate": "Investigate direct CouchDB administration error/status handling separately; no backend policy, image or configuration was changed in this task"
+    },
+    {
+      "case": "Final client negatives",
+      "result": "Untrusted CA and unknown server name refused; actual upstream LiveSync also rejects untrusted CA; anonymous/wrong credentials and spoofed proxy-auth headers denied; admin/encoded bypass paths return 404"
+    }
+  ],
+  "trust_boundary": {
+    "client_to_gateway": "Verified HTTPS with server hostname validation",
+    "gateway_to_couchdb": "HTTP on the existing private Docker network",
+    "authentication": "Existing CouchDB non-admin Basic/session auth; separate knowledge bearer token unchanged and not routed by gateway",
+    "synthetic_client_ca_scope": "Python SSL context and per-process Node NODE_EXTRA_CA_CERTS",
+    "global_trust_or_dns_changed": false,
+    "operator_certificate_or_domain_used": false,
+    "private_keys_retained": false
+  },
+  "resource_observations": {
+    "windows_free_physical_gib_before_pull": 12.12,
+    "wsl_available_mib_before_pull": 22414,
+    "wsl_used_mib_before_pull": 1620,
+    "single_docker_memory_sample_mib": {"gateway": 2.969, "knowledge": 7.477, "couchdb": 75.35},
+    "scope": "Single tiny-fixture observations, not peaks or production capacity",
+    "models_loaded": false,
+    "gpu_used": false
+  },
+  "cleanup": {
+    "final_docker_ps_a": "06a7ef96aa41 mika-home-assistant Up 23 hours",
+    "remaining_loklm_tls_networks": [],
+    "remaining_loklm_tls_temporary_directories": 0,
+    "unrelated_service_modified": false,
+    "exclusive_docker_slot_released": true
+  },
+  "pending_external_acceptance": [
+    "Fresh Unraid host, intended private LAN/VPN interface and firewall",
+    "Operator certificate issuance/renewal, DNS and device CA enrollment",
+    "Actual Obsidian desktop/mobile UI and two-device interoperability",
+    "Representative vault size and attachments beyond the tested 256 KiB fixture"
+  ]
+}
