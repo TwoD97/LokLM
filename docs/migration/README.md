@@ -171,7 +171,7 @@ of that native vault. The original Mammoth parser agrees on normalized fixture
 words and the common heading, not formatting or all DOCX content. See
 [DOCX import limits](DOCX_IMPORT.md) and `evidence/native-docx-workflow.json`.
 
-All 34 Rust unit/integration tests passed across core, documents and inference;
+All 36 Rust unit/integration tests passed across core, documents and inference;
 strict Clippy passes for those crates and the desktop. The pure shared quote
 module also matches 24 original anchor cases and 11 source catalogs, including
 UTF-16 offsets, whitespace and ambiguous quotations. These helpers are not yet
@@ -182,6 +182,11 @@ The pure original quantity annotation and numeric-interpreter helpers also match
 pending runtime integration are recorded in [SOURCE_QUANTITIES.md](SOURCE_QUANTITIES.md)
 and [SOURCE_CALCULATIONS.md](SOURCE_CALCULATIONS.md). The latter enabled precise
 JSON floating-point roundtrips after an edge fixture exposed default-decoder loss.
+The immutable [source-unit catalog](SOURCE_UNITS.md) matches 102 original catalogs
+using pinned Rust ICU4X sentence data. [Exact fragments and excerpts](SOURCE_FRAGMENTS.md)
+match 227 original calls, including grapheme and numeric boundaries, fixed rejection
+categories and same-occurrence display spans. These pure helpers remain separate
+from the current basic answer flow until the complete structured-QA plan is ported.
 
 A normal Windows release executable at `3758800` (before the arithmetic-interpreter
 commit) was built separately from ui-test, and passed five actual PDF/DOCX worker

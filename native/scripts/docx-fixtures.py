@@ -50,6 +50,7 @@ def write_fixture(kind):
         entries['word/numbering.xml'] = f'<w:numbering xmlns:w="{WORD}"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:pStyle w:val="Heading1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum></w:numbering>'
     if 'word/numbering.xml' in entries:
         entries['word/_rels/document.xml.rels'] = entries['word/_rels/document.xml.rels'].replace('</Relationships>', '<Relationship Id="numbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>')
+        entries['[Content_Types].xml'] = entries['[Content_Types].xml'].replace('</Types>', '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>')
     folder = Path('native/crates/documents/tests/fixtures')
     folder.mkdir(parents=True, exist_ok=True)
     with ZipFile(folder / f'{kind}.docx', 'w') as archive:
