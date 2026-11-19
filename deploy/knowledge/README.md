@@ -306,6 +306,17 @@ containers if physical memory falls below 2 GiB. Results go to ignored
 `deploy/knowledge/reports/models.json`. It checks small factual examples and
 transport behavior, not general answer quality or full desktop QA parity.
 
+The desktop-owned pure source-quote and quantity helpers have standalone
+compatibility targets in this crate, independent of the desktop workspace:
+
+```sh
+cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --test shared_source_quote_compatibility --test shared_source_quantities_compatibility
+```
+
+These compare the original TypeScript outputs and source offsets. The helpers
+are available for later checked-QA integration; generated answers currently
+validate citation identity only, without automatic quote or quantity checking.
+
 ## Upstream and licenses
 
 LokLM code is MIT; the shared core is coordinated with the desktop migration.
