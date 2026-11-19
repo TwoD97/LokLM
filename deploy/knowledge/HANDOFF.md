@@ -32,12 +32,13 @@ Next acceptance work, in order:
 1. Observe the final draft PR's Linux/Windows knowledge checks and existing
    application checks. The isolated Ubuntu runner pin is coordinated with the
    desktop owner and already fixed the observed website Playwright failure.
-2. With an explicitly coordinated memory/CPU window, test the actual headless
-   BGE reranker and Qwen3.5-4B answer transport. Only ~1.9–2.3 GiB host RAM was
-   available after builds; do not unload a shared voice/model session to force
-   these tests. The current answer adapter is opt-in, buffered, checks tokenizer
-   budgets/citation identity and rejects literal ChatML markers; it is not an
-   entailment or checked-answer implementation.
+2. Expand answer-quality coverage beyond the now-passed actual CPU smoke:
+   20 checks cover Qwen embedding, BGE reranking, DE/EN Qwen3.5-4B answers and
+   source identity, cancellation, scope and dedup. See `evidence/models-cpu.json`.
+   The test ran after headroom recovered in a coordinated window. The answer
+   adapter remains opt-in, buffered, checks tokenizer budgets/citation identity
+   and rejects literal ChatML markers; it is not an entailment or checked-answer
+   implementation. Do not unload shared models to make room for further tests.
 3. Integrate further desktop-owned QA/parser helpers through versioned pure-core
    interfaces when ready. Do not duplicate them or add a Macro/Zero connector.
    Attachments are synchronized intact; v1 parses Markdown only.

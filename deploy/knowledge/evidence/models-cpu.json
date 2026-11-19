@@ -1,0 +1,133 @@
+{
+  "checks": [
+    "at least 10 GiB physical headroom before own model loads",
+    "actual BGE rerank HTTP response: Wie viele Solarmodule hat Helios?",
+    "BGE ranks relevant synthetic passage above distractor: Wie viele Solarmodule hat Helios?",
+    "actual BGE rerank HTTP response: How many solar panels does Helios have?",
+    "BGE ranks relevant synthetic passage above distractor: How many solar panels does Helios have?",
+    "actual Qwen template disables thinking with pinned suffix",
+    "release daemon indexes with actual Qwen embeddings",
+    "release hybrid retrieval and actual BGE rerank preserve correct source",
+    "daemon converts raw BGE logits to original LokLM sigmoid score domain",
+    "actual buffered Qwen answer transport: en",
+    "synthetic answer preserves known count without reasoning markup: en",
+    "actual answer citations map to original UUID/hash/Unicode location: en",
+    "actual buffered Qwen answer transport: de",
+    "synthetic answer preserves known count without reasoning markup: de",
+    "actual answer citations map to original UUID/hash/Unicode location: de",
+    "empty scope refuses without generating unsupported evidence",
+    "literal ChatML role marker rejected before generation",
+    "actual model pipeline cancels bounded request",
+    "unchanged full-model reconcile embeds zero chunks",
+    "physical-memory guard did not trigger"
+  ],
+  "runtime": "llama.cpp-b12359",
+  "gpu_layers": 0,
+  "threads_per_model": 2,
+  "model_fingerprints": {
+    "embed": "9899f70458e9a04e8ed6912e24f3e002e05d670cae06985c172f456b9c0a2164",
+    "rerank": "23b7ceedb5a8f2e8110b2ff97070594b56f09f5e9aaf676ea9d6588f2765a5f9",
+    "answer": "c42eb618e4382fd846ea89871ae511e831009519bee1920654e5c20d84c98946"
+  },
+  "rerank": [
+    {
+      "query": "Wie viele Solarmodule hat Helios?",
+      "raw_logits_by_index": {
+        "1": 7.2692365646362305,
+        "0": -10.995468139648438
+      }
+    },
+    {
+      "query": "How many solar panels does Helios have?",
+      "raw_logits_by_index": {
+        "1": 6.893634796142578,
+        "0": -10.973209381103516
+      }
+    }
+  ],
+  "search_hits": [
+    {
+      "chunk_id": 1,
+      "source_id": "238bc76b-550c-4386-8e6e-2da2b42ed3cc",
+      "source_hash": "d0fc41887c72b71c265ab6d6133252b1b7ef02f72be3d3a38e0528047582719d",
+      "path": "Grüße – Solar.md",
+      "anchor": "9928a4527552479f841787ac-1",
+      "heading_path": [
+        "Solarprojekt Helios"
+      ],
+      "text": "# Solarprojekt Helios\n\nDas synthetische Solarprojekt Helios besitzt genau 42 Solarmodule. Die Wartung findet dienstags statt.\nThe synthetic Helios solar project has exactly 42 solar panels. Maintenance takes place on Tuesdays.",
+      "ordinal": 0,
+      "score": 0.9972903286330808,
+      "open_uri": "obsidian://open?file=Gr%C3%BC%C3%9Fe+%E2%80%93+Solar.md%23Solarprojekt+Helios",
+      "origin": "primary"
+    },
+    {
+      "chunk_id": 2,
+      "source_id": "7706fd77-9ee7-40ab-b96f-37815132c3fc",
+      "source_hash": "49b5e39a3739f64483ac1eaea4c03e71d38e1f5fce71903b2c93797b0ddec25d",
+      "path": "Orchard.md",
+      "anchor": "1533533f9bfe6946bf9d551c-1",
+      "heading_path": [
+        "Orchard"
+      ],
+      "text": "# Orchard\n\nThe orchard grows apples and pears. No solar installation is described.",
+      "ordinal": 0,
+      "score": 0.0004188126392960146,
+      "open_uri": "obsidian://open?file=Orchard.md%23Orchard",
+      "origin": "primary"
+    }
+  ],
+  "answers": [
+    {
+      "language": "en",
+      "query": "How many solar panels does the Helios project have?",
+      "result": {
+        "answer": "The Helios project has exactly 42 solar panels [doc:1, chunk:1].",
+        "citations": [
+          {
+            "marker": "[doc:1, chunk:1]",
+            "source_id": "238bc76b-550c-4386-8e6e-2da2b42ed3cc",
+            "source_hash": "d0fc41887c72b71c265ab6d6133252b1b7ef02f72be3d3a38e0528047582719d",
+            "anchor": "9928a4527552479f841787ac-1",
+            "path": "Grüße – Solar.md",
+            "open_uri": "obsidian://open?file=Gr%C3%BC%C3%9Fe+%E2%80%93+Solar.md%23Solarprojekt+Helios"
+          }
+        ],
+        "validation": "citation_identity_only",
+        "semantic_entailment_checked": false,
+        "full_loklm_qa_parity": false,
+        "prompt_version": "loklm-0.7.4-canonical-v1",
+        "model_fingerprint": "c42eb618e4382fd846ea89871ae511e831009519bee1920654e5c20d84c98946"
+      },
+      "elapsed_seconds_descriptive_only": 40.13753447700219
+    },
+    {
+      "language": "de",
+      "query": "Wie viele Solarmodule besitzt das Projekt Helios?",
+      "result": {
+        "answer": "Das Projekt Helios besitzt genau 42 Solarmodule [doc:1, chunk:1].",
+        "citations": [
+          {
+            "marker": "[doc:1, chunk:1]",
+            "source_id": "238bc76b-550c-4386-8e6e-2da2b42ed3cc",
+            "source_hash": "d0fc41887c72b71c265ab6d6133252b1b7ef02f72be3d3a38e0528047582719d",
+            "anchor": "9928a4527552479f841787ac-1",
+            "path": "Grüße – Solar.md",
+            "open_uri": "obsidian://open?file=Gr%C3%BC%C3%9Fe+%E2%80%93+Solar.md%23Solarprojekt+Helios"
+          }
+        ],
+        "validation": "citation_identity_only",
+        "semantic_entailment_checked": false,
+        "full_loklm_qa_parity": false,
+        "prompt_version": "loklm-0.7.4-canonical-v1",
+        "model_fingerprint": "c42eb618e4382fd846ea89871ae511e831009519bee1920654e5c20d84c98946"
+      },
+      "elapsed_seconds_descriptive_only": 51.72013574000084
+    }
+  ],
+  "general_quality_or_entailment_validated": false,
+  "image_ids": {
+    "loklm-knowledge:0.1.0": "sha256:48e8585aece2a11e2c9f56be4c938267fdc9f9c50d331c03c7372b2ef63184a2",
+    "loklm-test-model:b12359": "sha256:0f92c2eaf8d50f43ed34b9e2ae0bdd218058218682ed8aff039395d0f9a4c238"
+  }
+}

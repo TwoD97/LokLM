@@ -26,8 +26,9 @@ The optional `/v1/answer` adapter uses the desktop owner's exact bilingual core
 prompts, passage budgets and citation identity validator. It returns buffered
 answers only after validation. **It is experimental basic QA, not full LokLM
 checked-answer/comparison/router parity or proof of factual entailment.** Its
-transport/cancellation tests use a synthetic provider; actual model answer
-validation remains a gate. See [VALIDATION.md](VALIDATION.md) for measured coverage.
+transport/cancellation tests include a synthetic provider plus an actual CPU
+Qwen4B/BGE integration smoke with DE/EN cited answers. Broader answer quality and
+full QA parity remain gates. See [VALIDATION.md](VALIDATION.md) for coverage.
 Until literal ChatML escaping is validated end to end, the answer adapter rejects
 questions/evidence containing `<|` control-marker syntax. Retrieval still exposes
 the original document. This protects role boundaries; it does not claim to solve
