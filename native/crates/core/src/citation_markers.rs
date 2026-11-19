@@ -338,6 +338,20 @@ pub fn has_unmasked_citation_syntax(text: &str) -> bool {
         .find_iter(text)
         .any(|m| !mask[m.start()])
 }
+/// Every visible source-label prefix must be a complete safe-ID marker.
+/// Inspect the original literal mask: replacing a valid marker with spaces
+/// first can accidentally turn the rest of its line into indented code.
+pub(crate) fn has_invalid_citation_syntax(text: &str) -> bool {
+    let mask = literal_mask(text, true);
+    let valid_starts: HashSet<_> = raw_matches(text)
+        .iter()
+        .filter(|m| m.marker().is_some())
+        .map(|m| m.start)
+        .collect();
+    rx!(r"(?i)\[doc\s*:")
+        .find_iter(text)
+        .any(|m| !mask[m.start()] && !valid_starts.contains(&m.start()))
+}
 pub fn has_active_html_syntax(text: &str) -> bool {
     let mask = literal_mask(text, false);
     // The second alternative's lookahead is checked explicitly (linear regex).

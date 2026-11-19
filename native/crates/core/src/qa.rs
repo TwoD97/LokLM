@@ -334,7 +334,8 @@ pub fn build_prompt_with_output(
     sections.join("\n\n")
 }
 
-/// Resolves only exact current-context canonical markers; never invents sources.
+/// Resolves only visible, exact current-context canonical markers. Source-like
+/// text inside code, links, flow math or escaped literals does not count as evidence.
 /// This checks identity, NOT whether a cited passage entails a model's claim.
 /// The caller must treat raw streaming text as provisional until validation.
 pub fn validate_citations(answer: &str, supplied: &[Passage]) -> Result<Vec<Passage>> {
@@ -342,26 +343,39 @@ pub fn validate_citations(answer: &str, supplied: &[Passage]) -> Result<Vec<Pass
         || Error::Invalid("Answer has missing, ambiguous or unknown source markers".into());
     let mut identities = HashSet::new();
     for h in supplied {
-        if h.document_id <= 0 || h.chunk_id <= 0 || !identities.insert((h.document_id, h.chunk_id))
+        if !(1..=9_007_199_254_740_991).contains(&h.document_id)
+            || !(1..=9_007_199_254_740_991).contains(&h.chunk_id)
+            || !identities.insert((h.document_id, h.chunk_id))
         {
             return Err(invalid());
         }
     }
-    let mut tail = answer;
+    if crate::citation_markers::has_invalid_citation_syntax(answer) {
+        return Err(invalid());
+    }
+    let units: Vec<_> = answer.encode_utf16().collect();
     let mut seen = HashSet::new();
     let mut citations = Vec::new();
-    while let Some(start) = tail.find("[doc:") {
-        tail = &tail[start..];
-        let end = tail.find(']').ok_or_else(invalid)?;
-        let token = &tail[..=end];
+    for matched in crate::citation_markers::find_citation_matches(answer) {
         let h = supplied
             .iter()
-            .find(|h| marker(h) == token)
+            .find(|h| {
+                h.document_id as u64 == matched.marker.document_id
+                    && h.chunk_id as u64 == matched.marker.chunk_id
+            })
             .ok_or_else(invalid)?;
+        // Preserve this adapter's canonical spelling requirement even though
+        // the shared display matcher also recognizes flexible whitespace.
+        if !units[matched.start..matched.end]
+            .iter()
+            .copied()
+            .eq(marker(h).encode_utf16())
+        {
+            return Err(invalid());
+        }
         if seen.insert((h.document_id, h.chunk_id)) {
             citations.push(h.clone());
         }
-        tail = &tail[end + 1..];
     }
     if citations.is_empty() {
         return Err(invalid());
