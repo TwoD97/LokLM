@@ -55,6 +55,10 @@ path = "../core/tests/compatibility.rs"
 name = "shared_qa_compatibility"
 path = "../core/tests/qa_compatibility.rs"
 
+[[test]]
+name = "shared_source_quote_compatibility"
+path = "../core/tests/source_quote_compat.rs"
+
 [dev-dependencies]
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }

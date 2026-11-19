@@ -1,5 +1,6 @@
 // Frozen outputs from the actual original pure provenance helpers, no models.
 import {writeFile} from 'node:fs/promises'
+import console from 'node:console'
 import {anchorSourceQuote,expandSourceQuoteContext} from '../../src/main/services/qa/sourceQuote'
 import {createSourceQuoteResolver} from '../../src/main/services/qa/sourceQuoteResolver'
 const pairs:[string,string][]=[

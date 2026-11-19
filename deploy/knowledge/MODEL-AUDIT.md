@@ -85,6 +85,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Reranking | Pinned BGE model, shared original 2800-UTF-16-unit passage cap without splitting a scalar; raw HTTP logits converted once with the original node-llama-cpp sigmoid; fail-closed on provider failure |
 | Source selection | Round-robin diversity, primary per-source cap 6, short documents <=8 chunks, otherwise +/-1 neighbour; bounded expansion |
 | Citations | Original file UUID/path/headings + deterministic content anchor; request-local numeric aliases only when building shared QA prompts |
+| Exact source-quote provenance | Shared `source_quote` module integrated with original TS fixture tests (24 anchors/contexts, 11 catalogs); available for checked-QA integration, not automatically applied to generated answers |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |
 
 Not yet parity: original title/language/recency/short-hit boosts and no-reranker

@@ -7,11 +7,14 @@ No merge or production deployment has been performed or requested.
 
 The independently owned paths are `native/crates/knowledge` and
 `deploy/knowledge`. The desktop owner retains core/inference/documents/UI/Tauri.
-The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673 and e40721e are integrated
+The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e and c418292 are integrated
 without enabling desktop storage. The daemon crate is a standalone workspace
 with a relative dependency on `../core`, never a dependency on another worktree.
 Both owners use the same chunking, instruction/normalization/fingerprint, RRF,
 QA prompt/citation and UTF-16 reranker preparation helpers.
+The source-quote provenance module and original TypeScript compatibility fixtures
+are also available under the standalone daemon lock. It is not yet wired into
+generated-answer validation; that endpoint still promises citation identity only.
 
 Implemented and tested: portable files/IDs/attachments, actual official encrypted
 LiveSync exchange, checkpoint/cache/FTS/Lance indexing, guarded source citations,
