@@ -1,0 +1,6 @@
+{
+  "identifier":"main-local",
+  "description":"Only the bundled local main window. No shell, network, arbitrary filesystem, or remote URL access.",
+  "windows":["main"],
+  "permissions":[]
+}

@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use unicode_normalization::UnicodeNormalization;
+use zeroize::Zeroize;
 use zeroize::Zeroizing;
 
 const MAGIC: &[u8; 8] = b"LOKLM06\0";
@@ -46,6 +47,20 @@ pub struct Vault {
     pub loaded_from_backup: bool,
 }
 
+impl Drop for Vault {
+    fn drop(&mut self) {
+        fn wipe(value: &mut Value) {
+            match value {
+                Value::String(s) => s.zeroize(),
+                Value::Array(a) => a.iter_mut().for_each(wipe),
+                Value::Object(o) => o.values_mut().for_each(wipe),
+                _ => {}
+            }
+        }
+        wipe(&mut self.body);
+    }
+}
+
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -71,6 +86,71 @@ pub fn backup_path(path: &Path) -> PathBuf {
 }
 
 impl Vault {
+    /// Recovery is a credential rotation, not a new vault. Preserve DEK/body,
+    /// invalidate used recovery entries, and create a fresh recovery phrase.
+    pub fn reset_copy(path: &Path, phrase: &[u8], password: &[u8]) -> Result<(Self, String)> {
+        validate_password(password)?;
+        let mut vault = Self::decode(&read_limited(path)?, phrase, true)?;
+        let salt = crypto::random::<32>();
+        let kek = crypto::derive(password, &salt)?;
+        vault.header.password_salt = crypto::encode(&salt);
+        vault.header.password_wrapped_dek = crypto::wrap(&kek, &vault.dek)?;
+        // Retain history but cap it to the existing bounded envelope size.
+        for entry in &mut vault.header.recovery_entries {
+            if entry.used_at.is_none() {
+                entry.used_at = Some(now_ms());
+            }
+        }
+        if vault.header.recovery_entries.len() >= 32 {
+            return Err(Error::Invalid(
+                "Recovery history is full; explicit maintenance required".into(),
+            ));
+        }
+        let new_phrase = Self::new_recovery_phrase();
+        let salt = crypto::random::<32>();
+        let kek = crypto::derive(new_phrase.as_bytes(), &salt)?;
+        vault.header.recovery_entries.push(RecoveryEntry {
+            salt: crypto::encode(&salt),
+            wrapped_dek: crypto::wrap(&kek, &vault.dek)?,
+            created_at: now_ms(),
+            used_at: None,
+        });
+        vault.header.recovery_lang = "en".into();
+        Ok((vault, new_phrase))
+    }
+    pub fn new_recovery_phrase() -> String {
+        let words = include_str!("recovery-words.txt")
+            .lines()
+            .collect::<Vec<_>>();
+        assert_eq!(words.len(), 2048);
+        let bytes = crypto::random::<36>();
+        bytes
+            .chunks_exact(2)
+            .map(|b| words[usize::from(u16::from_be_bytes([b[0], b[1]]) & 2047)])
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+    pub fn add_workspace(&mut self, name: &str) -> Result<u64> {
+        if name.trim().is_empty() || name.len() > 200 {
+            return Err(Error::Invalid("Workspace name".into()));
+        }
+        let entries = self.body["manifest"]["workspaces"]
+            .as_array_mut()
+            .ok_or(Error::Authentication)?;
+        let id = entries
+            .iter()
+            .filter_map(|e| e["id"].as_u64())
+            .max()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or(Error::Authentication)?;
+        let key = Zeroizing::new(crypto::random::<32>());
+        entries.push(json!({"id":id,"name":name.trim(),"createdAt":now_ms()/1000,"encryptionLevel":"full","type":"library","dir":format!("ws-{id}"),"wrappedKey":crypto::wrap(&self.dek,key.as_ref())?,"vectorCount":0,"indexConfig":{"metric":"cosine","dims":1024,"numPartitions":1,"numSubVectors":0}}));
+        if self.body["manifest"]["defaultWorkspaceId"].is_null() {
+            self.body["manifest"]["defaultWorkspaceId"] = json!(id);
+        }
+        Ok(id)
+    }
     pub fn open(path: &Path, password: &[u8]) -> Result<Self> {
         let primary = read_limited(path).and_then(|b| Self::decode(&b, password, false));
         match primary {

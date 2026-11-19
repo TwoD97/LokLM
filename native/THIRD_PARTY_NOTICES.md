@@ -1,0 +1,26 @@
+# Native preview dependencies
+
+LokLM is MIT licensed; retain the repository LICENSE. Application/backend logic
+and the Leptos UI are Rust. This does not mean every dependency is written in Rust.
+
+- Tauri uses the operating system webview (WebView2 on Windows) and generated
+  IPC JavaScript. Microsoft WebView2 is a separately licensed shared prerequisite;
+  its installed footprint must be counted separately from the app executable.
+- Leptos/wasm-bindgen generate WebAssembly plus JavaScript loading/interop glue.
+  There is no bundled Electron, Node, React or JavaScript inference backend.
+- `rusqlite` calls the SQLite C API. `crates/core/vendor/sqlite3mc` contains the
+  original app's pinned SQLite3 Multiple Ciphers 2.3.4 amalgamation. Its LICENSE
+  and embedded cryptography notices must travel with distributions. SQLite is
+  public domain; the encryption extension is MIT. This is the original encryption
+  framing, not a conversion to stock SQLCipher.
+- `llama-cpp-2 = 0.1.161` is MIT OR Apache-2.0; its bundled llama.cpp C/C++ runtime
+  is MIT. The preview enables CPU only, no CUDA/Vulkan/OpenMP download or runtime
+  listener. Model weights are separate files with their own licenses. Preserve
+  the existing repository THIRD_PARTY_NOTICES and model-manifest provenance.
+- Build-only tools include Rust, MSVC, CMake, libclang and Trunk. A local verified
+  libclang wheel was used for binding generation; it is not copied into the app.
+
+`Cargo.lock` pins the resolved Rust dependency graph. A complete distributable
+license-text inventory and signed installer remain release gates; this notice is
+not a claim that distribution/signing review is complete. Headless LiveSync's
+Node sidecar belongs to the separate deployment target, not this desktop binary.

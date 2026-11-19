@@ -1,0 +1,3 @@
+*.c -text -whitespace linguist-vendored=true
+*.h -text -whitespace linguist-vendored=true
+LICENSE text eol=lf

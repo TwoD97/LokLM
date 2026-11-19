@@ -74,7 +74,12 @@ fn original_vault_and_database_are_readable_without_conversion() {
     let sessions = Sessions::default();
     sessions.publish(sessions.epoch()).unwrap();
     let db = Store::open(&path, &key, false).unwrap();
-    assert!(db.list(&sessions.ticket().unwrap()).unwrap().is_empty());
+    let ticket = sessions.ticket().unwrap();
+    assert_eq!(db.list(&ticket).unwrap().len(), 1);
+    let hits = db.search("Berlin", 5, &ticket).unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].page_from, Some(2));
+    assert!(hits[0].text.contains("ALPHA-47"));
     let recovered = Vault::decode(
         include_bytes!("fixtures/original-v6.vault"),
         f["recovery"].as_str().unwrap().as_bytes(),

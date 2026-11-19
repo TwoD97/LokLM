@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/core", "crates/ui", "crates/inference", "desktop"]
+default-members = ["crates/core"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

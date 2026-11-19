@@ -162,10 +162,10 @@ pub fn marker(hit: &Passage) -> String {
 }
 pub fn render_passage(hit: &Passage, language: Language) -> String {
     let mut loc = String::new();
-    if let Some(h) = &hit.heading_path {
-        if !h.is_empty() {
-            loc.push_str(&format!(", § {}", h.join(" › ")));
-        }
+    if let Some(h) = &hit.heading_path
+        && !h.is_empty()
+    {
+        loc.push_str(&format!(", § {}", h.join(" › ")));
     }
     if let Some(from) = hit.page_from {
         let range = match hit.page_to {
@@ -182,10 +182,12 @@ pub fn render_passage(hit: &Passage, language: Language) -> String {
         ));
     }
     let lang = if language == Language::De { "de" } else { "en" };
-    if let Some(l) = &hit.language {
-        if !l.is_empty() && l != "other" && l != lang {
-            loc.push_str(&format!(", lang:{l}"));
-        }
+    if let Some(l) = &hit.language
+        && !l.is_empty()
+        && l != "other"
+        && l != lang
+    {
+        loc.push_str(&format!(", lang:{l}"));
     }
     format!(
         "{} ({}{})\n{}",

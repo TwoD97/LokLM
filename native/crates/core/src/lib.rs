@@ -1,6 +1,8 @@
 //! Platform-independent knowledge and encrypted storage core. No network listener.
 pub mod chunking;
 pub mod crypto;
+#[cfg(feature = "storage")]
+pub mod migration;
 pub mod models;
 pub mod qa;
 pub mod retrieval;
