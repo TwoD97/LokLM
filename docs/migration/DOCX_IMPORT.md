@@ -24,6 +24,14 @@ other rich content currently fail explicitly. This is limited DOCX support, not
 Word layout or full Mammoth/OCR parity. The original file is preserved, and a
 failure never publishes a partial document or overwrites an existing revision.
 
+List rejection also follows inherited/default paragraph styles and paragraph
+style associations in numbering definitions. This prevents importing numbered
+items as ordinary paragraphs with missing markers. These relationships are part
+of the [WordprocessingML style hierarchy](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.basedon)
+and [numbering-level style association](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.paragraphstyleidinlevel).
+The preview conservatively rejects these cases rather than resolving a complete
+Word numbering/layout model.
+
 The synthetic fixture generator is `native/scripts/docx-fixtures.py`. Rust tests
 cover Unicode, inherited headings, table rows, literal Markdown, DTDs, revisions,
 lists, images with case-varied part names and custom header references.
@@ -42,7 +50,8 @@ formatting. Dependencies are documented in THIRD_PARTY_NOTICES.md.
    with `England`. Import `literal.docx` and verify its literal `#` paragraph
    stays text, with heading metadata inherited from Word styles.
 3. Import the `dtd.docx`, `revision.docx`, `list.docx`, `image.docx`,
-   `uppercase-media.docx` and `header-reference.docx` fixtures.
+   `uppercase-media.docx`, `header-reference.docx`, `inherited-list.docx`,
+   `default-list.docx` and `style-linked-list.docx` fixtures.
    Expect visible rejection and no partially imported document. No external
    resource should be fetched. The earlier source IDs and text must survive.
 4. Reimport the unchanged successful file; expect no duplicate. Close/reopen and

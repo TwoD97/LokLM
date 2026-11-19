@@ -24,6 +24,8 @@ def write_fixture(kind):
         body += '<w:p><w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>Numbered content</w:t></w:r></w:p>'
     if kind == 'header-reference':
         body += '<w:sectPr><w:headerReference xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="customHeader"/></w:sectPr>'
+    if kind == 'inherited-list':
+        body += paragraph('Inherited numbered item', 'InheritedList')
     declaration = '<?xml version="1.0" encoding="UTF-8"?>'
     if kind == 'dtd':
         declaration += '<!DOCTYPE w:document [<!ENTITY external SYSTEM "file:///synthetic-must-not-be-read">]>'
@@ -40,6 +42,14 @@ def write_fixture(kind):
         entries['word/media/synthetic.png'] = b'not a real image; detection must not decode it'
     if kind == 'uppercase-media':
         entries['word/Media/synthetic.png'] = b'unsupported content cannot hide behind case variants'
+    if kind in ['inherited-list', 'default-list']:
+        default = ' w:default="1"' if kind == 'default-list' else ''
+        entries['word/styles.xml'] = STYLES.replace('</w:styles>', '<w:style w:type="paragraph" w:styleId="NumberedParent"><w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr></w:style><w:style w:type="paragraph" w:styleId="InheritedList"'+default+'><w:basedOn w:val="NumberedParent"/></w:style></w:styles>')
+        entries['word/numbering.xml'] = f'<w:numbering xmlns:w="{WORD}"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>'
+    if kind == 'style-linked-list':
+        entries['word/numbering.xml'] = f'<w:numbering xmlns:w="{WORD}"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:pStyle w:val="Heading1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum></w:numbering>'
+    if 'word/numbering.xml' in entries:
+        entries['word/_rels/document.xml.rels'] = entries['word/_rels/document.xml.rels'].replace('</Relationships>', '<Relationship Id="numbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>')
     folder = Path('native/crates/documents/tests/fixtures')
     folder.mkdir(parents=True, exist_ok=True)
     with ZipFile(folder / f'{kind}.docx', 'w') as archive:
@@ -49,5 +59,5 @@ def write_fixture(kind):
             archive.writestr(item, value.encode('utf-8') if isinstance(value, str) else value)
 
 if __name__ == '__main__':
-    for name in ['synthetic', 'table', 'revision', 'list', 'dtd', 'image', 'literal', 'uppercase-media', 'header-reference']:
+    for name in ['synthetic', 'table', 'revision', 'list', 'dtd', 'image', 'literal', 'uppercase-media', 'header-reference', 'inherited-list', 'default-list', 'style-linked-list']:
         write_fixture(name)

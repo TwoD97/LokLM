@@ -54,7 +54,7 @@ try{
   await expect(page.locator('.doc')).toHaveCount(1,{timeout:180000})
   await phase('imported')
   if(docxTest){
-    for(const name of ['dtd','revision','list','image','uppercase-media','header-reference']){
+    for(const name of ['dtd','revision','list','image','uppercase-media','header-reference','inherited-list','default-list','style-linked-list']){
       await writeFile(fixture,await readFile(`native/crates/documents/tests/fixtures/${name}.docx`))
       await page.getByRole('button',{name:'Import document',exact:true}).click()
       await expect(page.getByRole('alert')).toBeVisible({timeout:40000})

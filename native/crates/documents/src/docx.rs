@@ -88,15 +88,64 @@ fn declaration(event: &quick_xml::events::BytesDecl<'_>) -> Result<()> {
 struct Style {
     heading: Option<usize>,
     parent: Option<String>,
+    numbered: bool,
 }
-fn styles(bytes: Option<&Vec<u8>>) -> Result<HashMap<String, usize>> {
+#[derive(Default)]
+struct StyleCatalog {
+    headings: HashMap<String, usize>,
+    numbered: HashSet<String>,
+    default: Option<String>,
+    defaults_numbered: bool,
+}
+fn numbering_styles(bytes: Option<&Vec<u8>>) -> Result<HashSet<String>> {
+    let mut ids = HashSet::new();
     let Some(bytes) = bytes else {
-        return Ok(HashMap::new());
+        return Ok(ids);
+    };
+    let mut reader = xml(bytes)?;
+    let mut depth = 0usize;
+    loop {
+        let (ns, event) = reader.read_resolved_event().map_err(|_| invalid())?;
+        match event {
+            Event::Start(e) => {
+                depth += 1;
+                if depth > 128 {
+                    return Err(invalid());
+                }
+                if word(&ns)
+                    && e.local_name().as_ref() == "pStyle"
+                    && let Some(id) = attribute(&e, "val")?
+                {
+                    ids.insert(id);
+                }
+            }
+            Event::End(_) => depth = depth.checked_sub(1).ok_or_else(invalid)?,
+            Event::DocType(_) => return Err(invalid()),
+            Event::Decl(e) => declaration(&e)?,
+            Event::Eof => {
+                if depth != 0 {
+                    return Err(invalid());
+                }
+                break;
+            }
+            _ => {}
+        }
+    }
+    Ok(ids)
+}
+fn styles(bytes: Option<&Vec<u8>>, numbering: Option<&Vec<u8>>) -> Result<StyleCatalog> {
+    let mut catalog = StyleCatalog {
+        numbered: numbering_styles(numbering)?,
+        ..StyleCatalog::default()
+    };
+    let Some(bytes) = bytes else {
+        return Ok(catalog);
     };
     let mut reader = xml(bytes)?;
     let mut definitions = HashMap::<String, Style>::new();
     let mut current: Option<(String, Style)> = None;
     let mut depth = 0usize;
+    let mut defaults_depth = None;
     loop {
         let (ns, event) = reader.read_resolved_event().map_err(|_| invalid())?;
         match event {
@@ -109,14 +158,27 @@ fn styles(bytes: Option<&Vec<u8>>) -> Result<HashMap<String, usize>> {
                     continue;
                 }
                 match e.local_name().as_ref() {
+                    "docDefaults" => defaults_depth = Some(depth),
+                    "numPr" => {
+                        if let Some((_, style)) = current.as_mut() {
+                            style.numbered = true;
+                        } else if defaults_depth.is_some() {
+                            catalog.defaults_numbered = true;
+                        }
+                    }
                     "style" if attribute(&e, "type")?.as_deref() == Some("paragraph") => {
                         if current.is_some() {
                             return Err(invalid());
                         }
-                        current = Some((
-                            attribute(&e, "styleId")?.ok_or_else(invalid)?,
-                            Style::default(),
-                        ));
+                        let id = attribute(&e, "styleId")?.ok_or_else(invalid)?;
+                        if matches!(
+                            attribute(&e, "default")?.as_deref(),
+                            Some("1" | "true" | "on")
+                        ) && catalog.default.replace(id.clone()).is_some()
+                        {
+                            return Err(invalid());
+                        }
+                        current = Some((id, Style::default()));
                     }
                     "outlineLvl" => {
                         if let Some((_, style)) = current.as_mut() {
@@ -146,6 +208,9 @@ fn styles(bytes: Option<&Vec<u8>>) -> Result<HashMap<String, usize>> {
                 }
             }
             Event::End(e) => {
+                if defaults_depth == Some(depth) {
+                    defaults_depth = None;
+                }
                 depth = depth.checked_sub(1).ok_or_else(invalid)?;
                 if word(&ns)
                     && e.local_name().as_ref() == "style"
@@ -166,7 +231,6 @@ fn styles(bytes: Option<&Vec<u8>>) -> Result<HashMap<String, usize>> {
             _ => {}
         }
     }
-    let mut headings = HashMap::new();
     for id in definitions.keys() {
         let mut seen = HashSet::new();
         let mut next = Some(id.as_str());
@@ -178,13 +242,15 @@ fn styles(bytes: Option<&Vec<u8>>) -> Result<HashMap<String, usize>> {
                 break;
             };
             if let Some(level) = style.heading {
-                headings.insert(id.clone(), level);
-                break;
+                catalog.headings.entry(id.clone()).or_insert(level);
+            }
+            if style.numbered || catalog.numbered.contains(key) {
+                catalog.numbered.insert(id.clone());
             }
             next = style.parent.as_deref();
         }
     }
-    Ok(headings)
+    Ok(catalog)
 }
 pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
     if bytes.len() > INPUT_LIMIT {
@@ -228,7 +294,7 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
         {
             return Err(unsupported());
         }
-        if ["word/document.xml", "word/styles.xml"].contains(&name.as_str()) {
+        if ["word/document.xml", "word/styles.xml", "word/numbering.xml"].contains(&name.as_str()) {
             if entry.size() > PART_LIMIT as u64 {
                 return Err(invalid());
             }
@@ -240,7 +306,10 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
             parts.insert(name, data);
         }
     }
-    let headings = styles(parts.get("word/styles.xml"))?;
+    let styles = styles(
+        parts.get("word/styles.xml"),
+        parts.get("word/numbering.xml"),
+    )?;
     let mut reader = xml(parts.get("word/document.xml").ok_or_else(invalid)?)?;
     let mut depth = 0usize;
     let mut body = false;
@@ -249,6 +318,7 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
     let mut in_text = false;
     let mut paragraph = String::new();
     let mut heading = None;
+    let mut paragraph_style = None;
     let mut table = false;
     let mut cell = None::<String>;
     let mut row = Vec::new();
@@ -300,6 +370,8 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
                     "sym",
                     "sdt",
                     "subDoc",
+                    "contentPart",
+                    "control",
                 ]
                 .contains(&name)
                 {
@@ -319,10 +391,16 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
                         }
                         in_paragraph = true;
                         paragraph.clear();
-                        heading = None;
+                        paragraph_style = styles.default.clone();
+                        heading = paragraph_style
+                            .as_ref()
+                            .and_then(|id| styles.headings.get(id).copied());
                     }
                     "pStyle" if in_paragraph => {
-                        heading = attribute(&e, "val")?.and_then(|id| headings.get(&id).copied());
+                        paragraph_style = attribute(&e, "val")?;
+                        heading = paragraph_style
+                            .as_ref()
+                            .and_then(|id| styles.headings.get(id).copied());
                     }
                     "outlineLvl" if in_paragraph => {
                         heading = attribute(&e, "val")?
@@ -383,6 +461,13 @@ pub(crate) fn extract(bytes: &[u8]) -> Result<ParsedDocx> {
                 match e.local_name().as_ref() {
                     "t" => in_text = false,
                     "p" if in_paragraph => {
+                        if styles.defaults_numbered
+                            || paragraph_style
+                                .as_ref()
+                                .is_some_and(|id| styles.numbered.contains(id))
+                        {
+                            return Err(unsupported());
+                        }
                         in_paragraph = false;
                         if let Some(cell) = cell.as_mut() {
                             if !cell.is_empty() {
@@ -520,6 +605,9 @@ mod tests {
             include_bytes!("../tests/fixtures/image.docx"),
             include_bytes!("../tests/fixtures/uppercase-media.docx"),
             include_bytes!("../tests/fixtures/header-reference.docx"),
+            include_bytes!("../tests/fixtures/inherited-list.docx"),
+            include_bytes!("../tests/fixtures/default-list.docx"),
+            include_bytes!("../tests/fixtures/style-linked-list.docx"),
         ] {
             assert!(extract(bytes).is_err());
         }
