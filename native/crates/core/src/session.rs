@@ -8,8 +8,9 @@ use std::sync::{
 /// Workers must check before committing and the UI must reject late epochs.
 #[derive(Clone, Default)]
 pub struct Sessions {
-    epoch: Arc<AtomicU64>,
-    open: Arc<AtomicBool>,
+    // One atomic word: epoch in upper bits, unlocked in bit zero. A separate
+    // open flag could briefly resurrect an old unlock during revocation.
+    state: Arc<AtomicU64>,
 }
 #[derive(Clone)]
 pub struct Ticket {
@@ -19,23 +20,25 @@ pub struct Ticket {
 }
 impl Sessions {
     pub fn revoke(&self) {
-        self.open.store(false, Ordering::SeqCst);
-        self.epoch.fetch_add(1, Ordering::SeqCst);
+        let _ = self
+            .state
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |s| {
+                Some(((s >> 1).wrapping_add(1)) << 1)
+            });
     }
     pub fn epoch(&self) -> u64 {
-        self.epoch.load(Ordering::SeqCst)
+        self.state.load(Ordering::SeqCst) >> 1
     }
     pub fn publish(&self, expected: u64) -> Result<()> {
-        if self.epoch() != expected {
-            return Err(Error::Revoked);
-        }
-        self.open.store(true, Ordering::SeqCst);
-        // Paired with the admission check in ticket; never resurrect a stale epoch.
-        if self.epoch() != expected {
-            self.open.store(false, Ordering::SeqCst);
-            return Err(Error::Revoked);
-        }
-        Ok(())
+        self.state
+            .compare_exchange(
+                expected << 1,
+                (expected << 1) | 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .map(|_| ())
+            .map_err(|_| Error::Revoked)
     }
     pub fn ticket(&self) -> Result<Ticket> {
         let ticket = Ticket {
@@ -56,8 +59,7 @@ impl Ticket {
     }
     pub fn check(&self) -> Result<()> {
         if self.cancelled.load(Ordering::SeqCst)
-            || !self.sessions.open.load(Ordering::SeqCst)
-            || self.sessions.epoch() != self.epoch
+            || self.sessions.state.load(Ordering::SeqCst) != (self.epoch << 1) | 1
         {
             return Err(Error::Revoked);
         }
