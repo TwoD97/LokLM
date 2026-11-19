@@ -13,8 +13,8 @@ larger of 192 tokens or ten percent of the window. It does not silently clip the
 allowance to the old basic path's 2048 tokens. Content is still tokenized with
 special-token recognition disabled, while trusted role delimiters are separate.
 
-The pinned `llama-cpp-2 = 0.1.161` `common` feature supplies the C++ JSON Schema
-compiler. Only the program-owned comparison schema reaches it; no arbitrary
+The pinned `llama-cpp-2 = 0.1.161` `common` feature exposes the C++ JSON Schema
+compiler through its Rust API. Only the program-owned comparison schema reaches it; no arbitrary
 schema, remote reference or user GBNF input is exposed. Grammar precedes greedy
 selection. The binding's `sample()` already accepts the selected token, so the
 old redundant `accept()` has been removed from the shared generation loop.
@@ -47,8 +47,12 @@ embedding implementation are unchanged; the existing embedding fingerprint is
 not silently replaced or used to trigger reindexing. This is not evidence of a
 fresh embedding numerical or performance comparison.
 
-`common` adds static C++ helpers, including the schema converter and its JSON
-dependency. Its archive also builds HTTP/download helpers, which this app does
+The wrapper's new explicit `common` feature enables its Rust APIs. In this exact
+crate version, the `llama-cpp-sys-2` dependency already enables its own default
+`common` feature even when wrapper defaults are disabled; the C++ helper archive
+was therefore already built. This is not a new whole-archive footprint cost.
+That archive contains the schema converter and its JSON dependency, and also
+builds HTTP/download helpers, which this app does
 not invoke. The observed Windows CMake configuration has CUDA, server, tools,
 examples, app and CURL disabled. OpenSSL is auto-detected by upstream, **not**
 unconditionally disabled on Windows; it was not found in the validated build.

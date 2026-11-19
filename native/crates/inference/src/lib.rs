@@ -99,7 +99,7 @@ pub fn verify_qwen_template(path: &Path, ticket: &Ticket) -> Result<()> {
 
 pub const RUNTIME_ID: &str = "llama-cpp-2-0.1.161-cpu-v1";
 /// Generation provenance is separate from embedding/index identity. Enabling
-/// common adds the pinned C++ schema compiler; it does not select another model.
+/// common exposes the pinned C++ schema compiler; it does not select another model.
 pub const CHECKED_GENERATION_VERSION: &str = "qwen-chatml-gbnf-typed-comparison-v32-1";
 
 pub struct CheckedGeneration {

@@ -17,8 +17,10 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
   is MIT. The preview enables CPU only, no CUDA/Vulkan/OpenMP download or runtime
   listener. Model weights are separate files with their own licenses. Preserve
   the existing repository THIRD_PARTY_NOTICES and model-manifest provenance.
-  The `common` feature adds the upstream C++ JSON Schema compiler and helper
-  archive. Its vendored nlohmann/json and cpp-httplib dependencies are MIT;
+  The wrapper's explicit `common` feature exposes the upstream JSON Schema
+  compiler API. In this pinned version, the low-level crate already builds the
+  C++ common helper archive through its own default feature. Its vendored
+  nlohmann/json and cpp-httplib dependencies are MIT;
   sheredom/subprocess.h is Unlicense/public domain and its notice must also be
   retained with the archive. HTTP and
   download helpers are compiled upstream but not invoked by this application.
