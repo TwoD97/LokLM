@@ -9,10 +9,10 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 19 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 2 numeric-contract + 8 original shared compatibility fixtures under the daemon lock |
+| Windows knowledge crate | 21 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 2 numeric-contract + 10 original shared compatibility fixtures under the daemon lock |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
-| Shared pure core | 14 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote + 1 source-quantity + 1 source-calculation fixture tests; storage feature disabled |
-| Linux container with Lance | Optimized production build passes; 20 tests pass (Windows cases plus Unix symlink rejection), including numeric decoding, legacy-index refusal and shared original fixtures |
+| Shared pure core | 16 tests pass: 6 unit + 10 original compatibility fixture tests; storage feature disabled |
+| Linux container with Lance | Optimized production build passes; 22 tests pass (Windows cases plus Unix symlink rejection), including numeric decoding, legacy-index refusal and shared original fixtures |
 | Python source backup | 2 tests pass: Unicode/binary roundtrip, no overwrite, hostile archive traversal refused |
 | Python prepare-new-vault | 2 tests pass: original bytes preserved, CRLF/frontmatter and attachments, persistent IDs on repeat copy, duplicate ID rejection |
 | Fresh provisioning | Actual packaged CouchDB configuration + upstream CLI setup passes; settings mode0600, E2EE, nonadmin sync user, repeated initialization refused |
@@ -50,6 +50,22 @@ this does not establish universal compatibility. See `evidence/numeric-decoder.j
 The storage benchmarks retain their original measurement points. The optimized
 numeric-contract rebuild took 28m36s at two jobs; this is build cost, not an
 inference or storage latency measurement.
+
+Source-unit/fragment integration at `1ca488a` adds pure core snapshots `baf9cfb`
+and `4b143e9`: 102 complete original catalogs and 227 fragment/excerpt results
+with exact UTF-16 source spans, ambiguity and grapheme/numeric boundary checks.
+The standalone lock adds only the direct core edge to existing ICU4X 2.4.0;
+`cargo tree` verifies compiled data only, without auto/LSTM features. The four
+fixture generator/config files pass targeted ESLint. These helpers are not yet
+wired into generated-answer validation. The earlier `f39eff1` model and dense
+LiveSync reports retain their exact image/source identity; this pure-helper batch
+does not change model fingerprints or the answer transport.
+The final `2fbb284` image also removes redundant singleton string copies;
+strict Windows Clippy across all targets and the affected integration tests pass.
+The rebuilt Linux image passes all 22 tests and exposes the same three model
+fingerprints as `f39eff1`. Its ICU segmenter and data packages both include the
+Unicode-3.0 `LICENSE` in the generated inventory. Current artifact hashes and
+earlier actual-model image provenance are separate in `evidence/validation.json`.
 
 The actual model smoke uses pinned llama.cpp b12359, two CPU threads per
 dedicated provider, no GPU, a 10 GiB physical-memory admission check and a 2 GiB

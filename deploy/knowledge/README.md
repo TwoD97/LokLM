@@ -311,16 +311,18 @@ containers if physical memory falls below 2 GiB. Results go to ignored
 `deploy/knowledge/reports/models.json`. It checks small factual examples and
 transport behavior, not general answer quality or full desktop QA parity.
 
-The desktop-owned pure source-quote and quantity helpers have standalone
+The desktop-owned pure source provenance and annotation helpers have standalone
 compatibility targets in this crate, independent of the desktop workspace:
 
 ```sh
-cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --test shared_source_quote_compatibility --test shared_source_quantities_compatibility --test shared_source_calculations_compatibility
+cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --test shared_source_quote_compatibility --test shared_source_quantities_compatibility --test shared_source_calculations_compatibility --test shared_source_units_compatibility --test shared_source_fragments_compatibility
 ```
 
 These compare the original TypeScript outputs and source offsets. The helpers
 are available for later checked-QA integration; generated answers currently
-validate citation identity only, without automatic quote, quantity or calculation checking.
+validate citation identity only, without automatic quote, quantity, calculation
+or excerpt checking. The unit catalog preserves all original source characters;
+exact fragment membership alone does not establish semantic support.
 
 ## Upstream and licenses
 
