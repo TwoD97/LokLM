@@ -124,6 +124,12 @@ It retains the all-fed immutable catalog but does not perform final token admiss
 or activate native structured generation. The existing answer path remains the
 basic preview while context planning, constrained generation and routing are ported.
 
+Estimated context planning is now ported: 43 complete allocations/rejections from
+31 original/boundary tests retain metadata, history and the final immutable checked
+bundle. See [CONTEXT_BUDGET.md](CONTEXT_BUDGET.md). Native tokenizer/template admission,
+schema-constrained generation and desktop checked-route integration remain pending;
+estimated fit is not permission to evaluate or a claim of semantic acceptance.
+
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
 lexical search, indexed source opening, inert malicious text, no-results,
