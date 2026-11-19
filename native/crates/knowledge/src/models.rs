@@ -156,7 +156,7 @@ impl Reranker {
         );
         ensure!(!runtime.is_empty(), "reranker runtime revision required");
         let fingerprint = crate::digest(format!(
-            "e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673:{runtime}:bge-reranker-v2-m3"
+            "e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673:{runtime}:bge-reranker-v2-m3:raw-logit-sigmoid-v1:utf16-2800"
         ));
         Ok(Self {
             http: reqwest::Client::builder()
@@ -217,7 +217,11 @@ impl Reranker {
                     && row.relevance_score.is_finite(),
                 "invalid rerank result"
             );
-            scores[row.index] = Some(row.relevance_score);
+            // Pinned llama.cpp /v1/rerank emits raw logits. Original LokLM's
+            // node-llama-cpp rankAll converts these with logitToSigmoid; do it
+            // exactly once at this transport boundary, never infer the domain
+            // from whether one particular logit happens to lie in [0, 1].
+            scores[row.index] = Some(1.0 / (1.0 + (-row.relevance_score).exp()));
         }
         scores
             .into_iter()

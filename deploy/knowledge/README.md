@@ -289,6 +289,22 @@ restart, rename/delete, real Rust indexing, scope isolation and unchanged-conten
 dedup. **They do not run the Obsidian UI.** Benchmark instructions/results and
 remaining acceptance gates are in [VALIDATION.md](VALIDATION.md).
 
+For the optional actual embedding/reranker/answer transport smoke, first build the
+production image as `loklm-knowledge:0.1.0`, coordinate a CPU window and provide
+at least 10 GiB available physical memory:
+
+```sh
+LOKLM_TEST_MODELS=/absolute/read-only/model-cache \
+LOKLM_MODEL_TEST_IMAGE=loklm-test-model:b12359 \
+python3 deploy/knowledge/test_models.py
+```
+
+This test uses the same pinned models and synthetic DE/EN facts, validates source
+citations, runs CPU-only providers with two threads each, and stops only its own
+containers if physical memory falls below 2 GiB. Results go to ignored
+`deploy/knowledge/reports/models.json`. It checks small factual examples and
+transport behavior, not general answer quality or full desktop QA parity.
+
 ## Upstream and licenses
 
 LokLM code is MIT; the shared core is coordinated with the desktop migration.

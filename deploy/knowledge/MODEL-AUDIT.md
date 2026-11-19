@@ -82,7 +82,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Dense retrieval | Official LanceDB 0.41.0 cosine; strict model table namespace; SQLite exact reference path in small default development build |
 | Lexical retrieval | SQLite FTS5 unicode61 OR-prefix query, scoped before retrieval; no claim of original Lance tokenization equivalence |
 | Fusion | Shared `fuse_rrf`, k=60, one vote/list, merge before cap |
-| Reranking | Pinned BGE model, shared original 2800-UTF-16-unit passage cap without splitting a scalar; optional dedicated endpoint; fail-closed on provider failure |
+| Reranking | Pinned BGE model, shared original 2800-UTF-16-unit passage cap without splitting a scalar; raw HTTP logits converted once with the original node-llama-cpp sigmoid; fail-closed on provider failure |
 | Source selection | Round-robin diversity, primary per-source cap 6, short documents <=8 chunks, otherwise +/-1 neighbour; bounded expansion |
 | Citations | Original file UUID/path/headings + deterministic content anchor; request-local numeric aliases only when building shared QA prompts |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |
@@ -93,3 +93,11 @@ full checked-answer/entailment/comparison/alias/router flows, pinned history and
 complete codebase QA. No claim that RRF alone replaces those methods. These are
 release gates for a full desktop-equivalent knowledge agent, not hidden changes
 to LokLM's default model family.
+
+The actual b12359 `/v1/rerank` smoke returned raw logits (including negative
+values), unlike the original `node-llama-cpp` `LlamaRankingContext.rankAll`
+output. The daemon applies `1 / (1 + exp(-logit))` at this transport boundary.
+The reranker fingerprint versions both this score-domain contract and the
+UTF-16 passage limit; regenerate its alias after upgrading. This does not change
+embedding identity or require source re-embedding. These normalized scores are
+ranking weights, not calibrated probabilities or evidence of entailment.
