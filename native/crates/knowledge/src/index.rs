@@ -334,7 +334,9 @@ impl Index {
                 status.reused += 1;
                 Some(serde_json::from_str::<Vec<f32>>(&v)?)
             } else if let Some(model) = &self.model {
-                let mut batch = model.embed(&[c.text.clone()], false, cancel).await?;
+                let mut batch = model
+                    .embed(std::slice::from_ref(&c.text), false, cancel)
+                    .await?;
                 let v = batch.remove(0);
                 self.db.lock().unwrap().execute(
                     "INSERT OR IGNORE INTO embeddings VALUES(?1,?2,?3)",

@@ -98,7 +98,7 @@ async fn rename_edit_delete_reopen_and_source_scope() -> Result<()> {
     let first = index.reconcile(&vault, &cancel).await?;
     assert_eq!(first.sources, 2);
     let found = index
-        .search("Solarstrom", &[id.clone()], 8, &cancel)
+        .search("Solarstrom", std::slice::from_ref(&id), 8, &cancel)
         .await?;
     assert_eq!(found.len(), 2);
     assert_eq!(found[1].origin, "whole_doc");
