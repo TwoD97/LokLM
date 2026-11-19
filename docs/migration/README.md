@@ -110,6 +110,13 @@ mocked citation-finder failure is reproduced in a private fault-injection test.
 See [CONFLICT_REPORTING.md](CONFLICT_REPORTING.md) for precise limits. This remains
 a presentation grammar awaiting complete checked-QA integration, not entailment.
 
+The enclosing `typed-comparison-v32` plan now matches 199 catalog admissions and
+235 parse attempts captured by 175 original tests. It owns the immutable source
+catalog, exact ordered schema and arithmetic references, and dispatches to the
+bounded ordinary, short-conflict and complete-passage renderers. See
+[COMPARISON_PLAN.md](COMPARISON_PLAN.md). Native constrained generation, checked
+prompt budgeting, semantic acceptance and desktop routing remain integration gates.
+
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
 lexical search, indexed source opening, inert malicious text, no-results,
