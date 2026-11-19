@@ -28,6 +28,7 @@ struct Live {
     failures: Vec<Instant>,
     generator: Option<loklm_inference::Model>,
     embedder: Option<loklm_inference::Model>,
+    reranker: Option<loklm_inference::Model>,
 }
 struct Runtime {
     root: PathBuf,
@@ -145,6 +146,7 @@ impl Runtime {
             Request::Lock => {
                 live.generator = None;
                 live.embedder = None;
+                live.reranker = None;
                 live.store = None;
                 live.workspace = None;
                 live.vault = None;
@@ -349,10 +351,15 @@ impl Runtime {
                                     loklm_inference::ModelKind::Qwen3Embedding,
                                     "Qwen3-Embedding-0.6B-Q8_0.gguf",
                                 ),
+                                "reranker" => (
+                                    loklm_inference::ModelKind::BgeReranker,
+                                    "bge-reranker-v2-m3-Q4_K_M.gguf",
+                                ),
                                 _ => return Err(Error::Invalid("Unknown model profile".into())),
                             };
                             #[cfg(feature = "ui-test")]
                             let fixture = std::env::var_os("LOKLM_NATIVE_TEST_MODELS_DIR")
+                                .filter(|p| !p.is_empty())
                                 .map(|p| PathBuf::from(p).join(filename));
                             #[cfg(not(feature = "ui-test"))]
                             let fixture: Option<PathBuf> = None;
@@ -372,15 +379,21 @@ impl Runtime {
                                 // Release only our own idle slot; no shared service is contacted.
                                 if matches!(kind, loklm_inference::ModelKind::Qwen4B) {
                                     live.generator = None;
+                                } else if matches!(kind, loklm_inference::ModelKind::BgeReranker) {
+                                    live.reranker = None;
                                 } else {
                                     live.embedder = None;
                                 }
                                 let model = loklm_inference::Model::load(&path, kind, &ticket)?;
                                 if matches!(kind, loklm_inference::ModelKind::Qwen4B) {
                                     live.generator = Some(model);
+                                } else if matches!(kind, loklm_inference::ModelKind::BgeReranker) {
+                                    live.reranker = Some(model);
                                 } else {
                                     live.embedder = Some(model);
                                 }
+                            } else {
+                                return Ok(json!({"message":"Model selection cancelled"}));
                             }
                             Ok(
                                 json!({"message":"Model ready on CPU (2 threads)","generator":live.generator.is_some(),"embedder":live.embedder.is_some()}),
@@ -389,6 +402,7 @@ impl Runtime {
                         Request::UnloadModels => {
                             live.generator = None;
                             live.embedder = None;
+                            live.reranker = None;
                             Ok(json!({"message":"Preview models unloaded"}))
                         }
                         Request::Index => {
@@ -459,9 +473,9 @@ impl Runtime {
                                 let vector = model.embed(&query, true, false, &ticket)?;
                                 let dense = store.dense(&vector, &fingerprint, 16, &ticket)?;
                                 // A dense-only score is not a calibrated relevance gate.
-                                // Until the original reranker is ported, require lexical
-                                // overlap to admit an answer, and disclose preview mode.
-                                if !lexical.is_empty() {
+                                // Without a reranker require lexical overlap. Dense-only
+                                // candidates can enter the real reranker when loaded.
+                                if !lexical.is_empty() || live.reranker.is_some() {
                                     let lex = lexical
                                         .iter()
                                         .map(|h| RankedHit {
@@ -475,6 +489,27 @@ impl Runtime {
                                         .collect::<Result<Vec<_>>>()?;
                                 }
                                 mode = "hybrid-preview-no-reranker";
+                            }
+                            if let Some(reranker) = &live.reranker
+                                && !hits.is_empty()
+                            {
+                                let documents =
+                                    hits.iter().map(|h| h.text.clone()).collect::<Vec<_>>();
+                                let scores = reranker.rerank(&query, &documents, &ticket)?;
+                                for (hit, score) in hits.iter_mut().zip(scores) {
+                                    hit.score = score;
+                                }
+                                hits.sort_by(|a, b| {
+                                    b.score
+                                        .total_cmp(&a.score)
+                                        .then(a.chunk_id.cmp(&b.chunk_id))
+                                });
+                                // Original CHAT_RELEVANCE_FLOOR, applied only to actual
+                                // cross-encoder scores. Until checked QA is ported, a
+                                // completely weak slate refuses instead of keeping one
+                                // weak source for model-side refusal verification.
+                                hits.retain(|h| h.score >= 0.2);
+                                mode = "reranked-preview";
                             }
                             if hits.is_empty() {
                                 return Ok(
@@ -627,6 +662,7 @@ fn main() {
                     failures: vec![],
                     generator: None,
                     embedder: None,
+                    reranker: None,
                 }),
                 active: Mutex::new(None),
                 cancellations: AtomicU64::new(0),
@@ -666,6 +702,7 @@ fn main() {
                     live.store = None;
                     live.generator = None;
                     live.embedder = None;
+                    live.reranker = None;
                     live.vault = None;
                     live.workspace = None;
                 }

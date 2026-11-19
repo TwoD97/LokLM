@@ -113,6 +113,22 @@ and cancellation during authentication. Strict Clippy passed across core,
 inference and desktop targets. The automated outputs remain under ignored
 `native/artifacts`.
 
+Native BGE-reranker CPU execution passed a three-passage EN/DE synthetic smoke:
+the two relevant passages scored above the unrelated passage. The desktop now
+offers this model, keeps the original 2800 UTF-16-unit passage cap, and applies
+the original 0.2 relevance floor. Unlike the full original QA pipeline, this
+preview refuses an entirely weak slate and propagates reranker failures. It
+does not implement the original structured factual-verification routes. The
+combined UI inference test reached embedding/checkpoints but could not load the
+reranker on this shared low-memory host; a second run captured the explicit RAM
+admission error. No reranker UI or combined-model success is claimed. The
+model-free Windows workflow passed again after this change.
+
+Vault persistence now prepares the encrypted backup before replacing the
+primary. A fault test confirms an unwritable backup leaves both the previous
+primary and saved backup byte-identical. A primary replacement failure can leave
+the old primary and new backup; neither is deleted to conceal partial failure.
+
 The original TypeScript AuthService/sqlite3mc also opened a **copy** of the
 native-created vault after native password recovery and read its document. The
 original fixture generator and `read-native-with-original.ts` provide both

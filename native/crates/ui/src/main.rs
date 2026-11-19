@@ -276,7 +276,7 @@ fn App() -> impl IntoView {
                 </aside>
                 <main class="main">
                     <div class="top"><div><div class="eyebrow">"Your private library"</div><h1>"Find it. Read the source."</h1></div><span class="badge">"Local · Rust"</span></div>
-                    <p class="muted">"Native preview · Text and Markdown, local CPU models and source-linked answers. Reranking, advanced answer checks, PDF/OCR and voice are still being migrated."</p>
+                    <p class="muted">"Native preview · Text and Markdown, local CPU models and source-linked answers. Advanced answer checks, PDF/OCR and voice are still being migrated."</p>
                     <Show when=move||!ui.recovery.get().is_empty()>
                         <div class="recovery"><strong>"Save your recovery phrase privately"</strong><pre>{move||ui.recovery.get()}</pre><p class="muted">"Use this phrase to reset your password without losing documents. Keep it private and out of chat."</p><button on:click=move|_|ui.recovery.set(String::new())>"I saved the phrase"</button></div>
                     </Show>
@@ -286,6 +286,7 @@ fn App() -> impl IntoView {
                         <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"load_model","kind":"generator"}))>"Load Qwen3.5-4B"</button>
                         <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"load_model","kind":"bge"}))>"Load BGE-M3"</button>
                         <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"load_model","kind":"qwen_embedding"}))>"Load Qwen3 embedding"</button>
+                        <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"load_model","kind":"reranker"}))>"Load BGE reranker"</button>
                         <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"index"}))>"Index workspace"</button>
                         <button disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"unload_models"}))>"Unload preview models"</button>
                     </div></details>

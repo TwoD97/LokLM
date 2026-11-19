@@ -19,11 +19,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let kind = match args[0].as_str() {
         "embedding" => ModelKind::BgeM3,
+        "rerank" => ModelKind::BgeReranker,
         "generation" => ModelKind::Qwen4B,
         _ => return Err("Unknown mode".into()),
     };
     let model = Model::load(std::path::Path::new(&args[1]), kind, &ticket)?;
-    if args[0] == "embedding" {
+    if args[0] == "rerank" {
+        let documents = vec![
+            "Berlin is the capital of Germany.".to_string(),
+            "Bananas grow in tropical regions.".to_string(),
+            "Berlin ist die Hauptstadt von Deutschland.".to_string(),
+        ];
+        let scores = model.rerank("What is the capital of Germany?", &documents, &ticket)?;
+        if scores[0] <= scores[1] || scores[2] <= scores[1] {
+            return Err("Reranker did not separate synthetic relevant passages".into());
+        }
+        println!(
+            "{}",
+            serde_json::json!({"scores":scores,"documents":documents,"model_sha256":kind.sha(),"runtime":loklm_inference::RUNTIME_ID})
+        );
+    } else if args[0] == "embedding" {
         let a = model.embed(
             "Berlin ist die Hauptstadt von Deutschland.",
             false,

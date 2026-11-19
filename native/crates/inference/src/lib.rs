@@ -98,6 +98,7 @@ pub const RUNTIME_ID: &str = "llama-cpp-2-0.1.161-cpu-v1";
 // Original src/main/services/models/{manifest,installedManifest}.ts.
 pub const BGE_SHA: &str = "e251234fcb7d050991a6be491952f485bf5c641dd10c3272dc1301fd281ad50f";
 pub const QWEN_EMBED_SHA: &str = "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439";
+pub const RERANK_SHA: &str = "e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673";
 pub const LEGACY_LITE_SHA: &str =
     "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223";
 // Installer has no SHA pin for 4B. Measured read-only on the canonical repo's
@@ -109,6 +110,7 @@ pub const QWEN4B_LOCAL_SHA: &str =
 #[derive(Debug, Clone, Copy)]
 pub enum ModelKind {
     BgeM3,
+    BgeReranker,
     Qwen3Embedding,
     Qwen4B,
     LegacyLite,
@@ -117,6 +119,7 @@ impl ModelKind {
     pub fn sha(self) -> &'static str {
         match self {
             Self::BgeM3 => BGE_SHA,
+            Self::BgeReranker => RERANK_SHA,
             Self::Qwen3Embedding => QWEN_EMBED_SHA,
             Self::Qwen4B => QWEN4B_LOCAL_SHA,
             Self::LegacyLite => LEGACY_LITE_SHA,
@@ -205,6 +208,74 @@ pub struct Model {
     _verified_file: File,
 }
 impl Model {
+    /// Original node-llama-cpp LlamaRankingContext BGE input:
+    /// BOS + query + EOS + SEP + document + EOS; sigmoid of rank logit.
+    /// Context overflow is an error, never a silently truncated passage.
+    pub fn rerank(&self, query: &str, documents: &[String], ticket: &Ticket) -> Result<Vec<f64>> {
+        ticket.check()?;
+        if !matches!(self.kind, ModelKind::BgeReranker) {
+            return Err(fail("Selected model is not the BGE reranker"));
+        }
+        if query.len() > 4096 || documents.len() > 50 {
+            return Err(fail("Rerank request exceeds bounded candidate limits"));
+        }
+        let vocab = self.model.vocab();
+        let query = vocab.tokenize(query.as_bytes(), false, false);
+        let mut scores = Vec::new();
+        for document in documents {
+            ticket.check()?;
+            memory_guard(768 * 1024 * 1024)?;
+            // The original RetrievalService limits rank input to 2800 UTF-16
+            // units. Preserve the full stored source separately for citations.
+            let bounded = models::prepare_rerank_passage(document);
+            let mut tokens = Vec::new();
+            if vocab.bos().0 >= 0 {
+                tokens.push(vocab.bos());
+            }
+            tokens.extend_from_slice(&query);
+            if vocab.eos().0 >= 0 {
+                tokens.push(vocab.eos());
+            }
+            if vocab.sep().0 >= 0 {
+                tokens.push(vocab.sep());
+            }
+            tokens.extend(vocab.tokenize(bounded.as_bytes(), false, false));
+            if vocab.eos().0 >= 0 {
+                tokens.push(vocab.eos());
+            }
+            if tokens.len() >= 1024 {
+                return Err(fail("Reranker input exceeds original 1024-token context"));
+            }
+            let params = LlamaContextParams::default()
+                .with_n_ctx(NonZeroU32::new(1024))
+                .with_n_batch(1024)
+                .with_n_ubatch(1024)
+                .with_n_threads(2)
+                .with_n_threads_batch(2)
+                .with_embeddings(true)
+                .with_pooling_type(LlamaPoolingType::Rank);
+            let mut ctx = self
+                .model
+                .new_context(backend()?, params)
+                .map_err(|_| fail("Rerank context failed"))?;
+            let mut batch = LlamaBatch::new(1024, 1);
+            batch
+                .add_sequence(&tokens, 0, false)
+                .map_err(|_| fail("Rerank batch failed"))?;
+            ctx.decode(&mut batch)
+                .map_err(|_| fail("Rerank evaluation failed"))?;
+            ticket.check()?;
+            let rank = ctx
+                .embeddings_seq_ith(0)
+                .map_err(|_| fail("Missing rerank output"))?;
+            if rank.len() != 1 || !rank[0].is_finite() {
+                return Err(fail("Invalid rerank output"));
+            }
+            let score = 1.0 / (1.0 + (-f64::from(rank[0])).exp());
+            scores.push(score);
+        }
+        Ok(scores)
+    }
     pub fn embedding_fingerprint(&self, codebase: bool) -> Result<String> {
         let kind = match self.kind {
             ModelKind::BgeM3 => Embedder::BgeM3,

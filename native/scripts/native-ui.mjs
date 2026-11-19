@@ -84,9 +84,22 @@ try{
     await expect(page.getByRole('status')).toContainText('Indexed 0 passages',{timeout:60000})
     await page.getByRole('button',{name:'Ask with sources',exact:true}).click()
     await expect(page.getByRole('alert')).toContainText('Load the Qwen3.5-4B',{timeout:60000})
+    // Release only our embedder before testing the reranker on this low-memory
+    // shared host. Combined dense+rerank inference remains a separate gate.
     await page.getByRole('button',{name:'Unload preview models',exact:true}).click()
     await expect(page.getByRole('status')).toContainText('Preview models unloaded')
-    await phase('native-embedding-index-checkpoints-passed')
+    await page.getByRole('button',{name:'Load BGE reranker',exact:true}).click()
+    await expect(page.getByRole('status')).toContainText('Model ready',{timeout:60000})
+    await page.getByLabel('Search documents').fill('What is the capital of Germany?')
+    await page.getByRole('button',{name:'Ask with sources',exact:true}).click()
+    await expect(page.getByRole('alert')).toContainText('Load the Qwen3.5-4B',{timeout:60000})
+    await page.getByLabel('Search documents').fill('What are the banana export tariffs in Brazil?')
+    await page.getByRole('button',{name:'Ask with sources',exact:true}).click()
+    await expect(page.locator('.answer')).toContainText('enough information',{timeout:60000})
+    await page.getByLabel('Search documents').fill('Berlin')
+    await page.getByRole('button',{name:'Unload preview models',exact:true}).click()
+    await expect(page.getByRole('status')).toContainText('Preview models unloaded')
+    await phase('native-embedding-index-reranker-passed')
   }
   await page.getByRole('button',{name:'Lock vault'}).click()
   await expect(page.getByLabel('Password',{exact:true})).toBeVisible()
@@ -125,4 +138,9 @@ try{
   await phase('reopened-search-passed')
   if(errors.length)throw new Error('WebView errors: '+errors.join('; '))
   await writeFile(join(out,'native-ui-result.json'),JSON.stringify({passed:true,readyMs,phases,errors,embeddingTest:!!process.env.LOKLM_TEST_MODELS_DIR,generationTest:false,scope:'Actual Windows executable with compile-time ui-test picker adapter. UTF-8 Markdown import, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional real BGE embedding/index checkpoint test identified by embeddingTest. OS picker and answer generation/streaming not included.'},null,2))
+}catch(error){
+  if(page&&!page.isClosed()){
+    await writeFile(join(out,'native-failure.json'),JSON.stringify({phase:phases.at(-1),error:String(error),alerts:await page.getByRole('alert').allTextContents(),status:await page.getByRole('status').allTextContents()},null,2)).catch(()=>{})
+  }
+  throw error
 }finally{await close()}

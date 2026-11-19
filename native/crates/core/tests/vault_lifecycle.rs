@@ -3,6 +3,27 @@ use loklm_core::vault::{Vault, backup_path};
 use serde_json::json;
 
 #[test]
+fn backup_write_failure_preserves_authoritative_primary() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("loklm.vault");
+    let phrase = Vault::new_recovery_phrase();
+    let mut vault =
+        Vault::create("Synthetic", b"Synthetic-fixture-47!", phrase.as_bytes()).unwrap();
+    vault.persist(&path).unwrap();
+    let original = std::fs::read(&path).unwrap();
+    // All paths belong to this test's newly-created temporary directory.
+    std::fs::rename(backup_path(&path), root.path().join("saved-backup")).unwrap();
+    std::fs::create_dir(backup_path(&path)).unwrap();
+    vault.body["kv"]["next-generation"] = json!("must not replace primary on backup failure");
+    assert!(vault.persist(&path).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(
+        std::fs::read(root.path().join("saved-backup")).unwrap(),
+        original
+    );
+}
+
+#[test]
 fn recovery_rotates_credentials_preserves_records_and_rekeys_backup() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("loklm.vault");

@@ -59,8 +59,10 @@ cargo build --release -p loklm-native
 10. Ask a question containing `Berlin` in English and German. A provisional answer
     should stream; only validated current-source identities become source links.
     Open them and compare with the actual passage. Unknown/missing markers must
-    produce an error. This preview does not yet implement the original reranker
-    or structured factual-verification routes; source identity is not entailment.
+    produce an error. Optionally load BGE reranker with sufficient RAM and test
+    an unrelated question: if every score is below 0.2 it must refuse without
+    generating. A failed reranker must surface an error. The original structured
+    factual-verification routes remain pending; source identity is not entailment.
 11. Cancel during generation, then repeat and lock during generation. No late
     text or source should reappear. Lock unloads only this preview's own models.
     Reopen and verify that documents and completed index checkpoints remain.

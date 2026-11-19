@@ -284,17 +284,12 @@ impl Vault {
             ));
         }
         let bytes = self.encode()?;
-        atomic_write(path, &bytes)?;
-        if let Err(e) = atomic_write(&backup_path(path), &bytes) {
-            // Old wrapping credentials must not survive a re-key backup failure.
-            match fs::remove_file(backup_path(path)) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(e.into()),
-            }
-            return Err(e);
-        }
-        Ok(())
+        // Prepare the recoverable next generation before replacing the primary.
+        // Backup failure leaves the authoritative primary untouched. If the
+        // final primary rename fails, the old primary and new backup both
+        // remain recoverable; never delete a backup to hide partial failure.
+        atomic_write(&backup_path(path), &bytes)?;
+        atomic_write(path, &bytes)
     }
     pub fn workspace_key(&self, id: u64) -> Result<(String, Secret)> {
         let entry = self.body["manifest"]["workspaces"]
