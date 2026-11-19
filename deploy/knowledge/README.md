@@ -166,6 +166,10 @@ and admin. The daemon's `/healthz` means process alive, **not** successful index
 or remote synchronization. Authenticated `/v1/status` reports counts, generation,
 last successful reconcile timestamp, latest embed/cache counts and a sanitized
 reconcile error. Check upstream CLI sync/conflict status separately.
+For a detailed local reconciliation error, stop only the knowledge service and
+run `docker compose run --rm knowledge reconcile` with the same configuration,
+then restart it. The exclusive index lock prevents two owners. Keep detailed
+local errors private; the HTTP status deliberately omits file contents/paths.
 
 ## LokLM models
 
