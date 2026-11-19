@@ -1,0 +1,4 @@
+{
+  "passed": true,
+  "scope": "Original parseFile/mammoth versus Rust on synthetic text/headings; normalized words match. Style/formatting/table/OCR equivalence is not claimed."
+}

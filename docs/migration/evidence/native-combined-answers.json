@@ -1,0 +1,15 @@
+{
+  "synthetic": true,
+  "answers": [
+    {
+      "language": "en",
+      "question": "What is the library access code? Answer in one sentence.",
+      "answer": "Answer\nThe synthetic access code for the library is ALPHA-47 [doc:1, chunk:1]."
+    },
+    {
+      "language": "de",
+      "question": "Wie lautet der Bibliothekscode ALPHA? Antworte in einem Satz.",
+      "answer": "Answer\nDer synthetische Zugangscode für die Bibliothek lautet ALPHA-47 [doc:1, chunk:1]."
+    }
+  ]
+}

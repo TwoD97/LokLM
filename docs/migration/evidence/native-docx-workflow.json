@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "readyMs": 733.9938999999999,
+  "phases": [
+    "ready",
+    "selecting-synthetic-fixture",
+    "imported",
+    "docx-atomic-failures-and-duplicate-passed",
+    "recovery-preserved-documents",
+    "reopened-search-passed"
+  ],
+  "errors": [],
+  "pdfTest": false,
+  "docxTest": true,
+  "combinedModels": false,
+  "embeddingTest": false,
+  "generationTest": false,
+  "scope": "Actual Windows executable with compile-time ui-test picker adapter. Text/Markdown, text-layer PDF (pdfTest) or DOCX (docxTest) import, atomic document failure/duplicate checks, retrieval and source display, DE/EN, injection as inert text, no evidence, missing model, workspace scope, lock, cancelled authentication, recovery, graceful close/restart. Optional sequential real BGE embedding/index and reranker test identified by embeddingTest. Combined model residency and stream lock are covered only when combinedModels is true. OS picker not included; optional actual answer generation/streaming identified by generationTest."
+}

@@ -1,9 +1,10 @@
 //! Bounded PDF text-layer import. The desktop calls `parse_isolated`, never the
 //! parser in its vault process. No paths, keys, network or document logs in IPC.
 use loklm_core::{Error, Result, session::Ticket};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::io::{Read, Write};
+#[cfg(windows)]
 use std::{
-    io::{Read, Write},
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
@@ -12,6 +13,9 @@ use zeroize::Zeroizing;
 pub const INPUT_LIMIT: usize = 16 * 1024 * 1024;
 pub const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
 pub const WORKER_ARGUMENT: &str = "--loklm-pdf-worker-v1";
+pub const DOCX_WORKER_ARGUMENT: &str = "--loklm-docx-worker-v1";
+mod docx;
+pub use docx::ParsedDocx;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ParsedPdf {
     pub pages: Vec<(u32, String)>,
@@ -20,18 +24,24 @@ pub struct ParsedPdf {
 /// Worker output has fixed diagnostics, never third-party parser messages which
 /// might contain document text. JSON serialization is private piped IPC only.
 pub fn worker_main() -> i32 {
+    worker(extract)
+}
+pub fn docx_worker_main() -> i32 {
+    worker(docx::extract)
+}
+fn worker<T: Serialize>(parse: fn(&[u8]) -> Result<T>) -> i32 {
     std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(|| -> Result<ParsedPdf> {
+    let result = std::panic::catch_unwind(|| -> Result<T> {
         let mut bytes = Zeroizing::new(Vec::new());
         std::io::stdin()
             .take((INPUT_LIMIT + 1) as u64)
             .read_to_end(&mut bytes)?;
-        extract(&bytes)
+        parse(&bytes)
     });
-    let response: std::result::Result<ParsedPdf, String> = match result {
+    let response: std::result::Result<T, String> = match result {
         Ok(Ok(pdf)) => Ok(pdf),
         Ok(Err(Error::Unsupported(message))) => Err(message),
-        _ => Err("PDF parsing failed; no pages were imported".into()),
+        _ => Err("Document parsing failed; no content was imported".into()),
     };
     if serde_json::to_writer(std::io::stdout().lock(), &response).is_ok() {
         0
@@ -134,15 +144,21 @@ fn extract(bytes: &[u8]) -> Result<ParsedPdf> {
 /// Windows Job Object bounds committed memory to 512 MiB and one process; its
 /// close also kills the worker. Unsupported platforms refuse this preview path.
 pub fn parse_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedPdf> {
+    parse_worker(bytes, ticket, WORKER_ARGUMENT)
+}
+pub fn parse_docx_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedDocx> {
+    parse_worker(bytes, ticket, DOCX_WORKER_ARGUMENT)
+}
+fn parse_worker<T: DeserializeOwned>(bytes: &[u8], ticket: &Ticket, argument: &str) -> Result<T> {
     ticket.check()?;
     if bytes.len() > INPUT_LIMIT {
-        return Err(Error::Invalid("PDF exceeds 16 MiB".into()));
+        return Err(Error::Invalid("Document exceeds 16 MiB".into()));
     }
     #[cfg(not(windows))]
     {
-        let _ = bytes;
+        let _ = (bytes, argument);
         Err(Error::Unsupported(
-            "Isolated PDF worker is currently validated on Windows only".into(),
+            "Isolated document worker is currently validated on Windows only".into(),
         ))
     }
     #[cfg(windows)]
@@ -150,7 +166,7 @@ pub fn parse_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedPdf> {
         use std::os::windows::process::CommandExt;
         let mut command = Command::new(std::env::current_exe()?);
         command
-            .arg(WORKER_ARGUMENT)
+            .arg(argument)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -192,7 +208,7 @@ pub fn parse_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedPdf> {
             }
             if started.elapsed() > Duration::from_secs(30) {
                 break Err(Error::Invalid(
-                    "PDF parsing timed out; nothing imported".into(),
+                    "Document parsing timed out; nothing imported".into(),
                 ));
             }
             match child.try_wait() {
@@ -201,7 +217,7 @@ pub fn parse_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedPdf> {
                         Ok(())
                     } else {
                         Err(Error::Invalid(
-                            "PDF worker failed or exceeded its memory limit".into(),
+                            "Document worker failed or exceeded its memory limit".into(),
                         ))
                     };
                 }
@@ -219,7 +235,7 @@ pub fn parse_isolated(bytes: &[u8], ticket: &Ticket) -> Result<ParsedPdf> {
         finished?;
         written.map_err(|_| Error::Invalid("Parser input stopped".into()))??;
         let response = received.map_err(|_| Error::Invalid("Parser output stopped".into()))??;
-        let parsed: std::result::Result<ParsedPdf, String> = serde_json::from_slice(&response)?;
+        let parsed: std::result::Result<T, String> = serde_json::from_slice(&response)?;
         ticket.check()?;
         parsed.map_err(Error::Unsupported)
     }

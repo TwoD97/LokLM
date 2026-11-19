@@ -1,11 +1,25 @@
 //! Runs the production pipe/job/cancellation boundary without Tauri or models.
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some(loklm_documents::DOCX_WORKER_ARGUMENT) {
+        std::process::exit(loklm_documents::docx_worker_main());
+    }
     if std::env::args().nth(1).as_deref() == Some(loklm_documents::WORKER_ARGUMENT) {
         std::process::exit(loklm_documents::worker_main());
     }
     let sessions = loklm_core::session::Sessions::default();
     sessions.publish(sessions.epoch()).unwrap();
     let ticket = sessions.ticket().unwrap();
+    let docx = loklm_documents::parse_docx_isolated(
+        include_bytes!("../tests/fixtures/synthetic.docx"),
+        &ticket,
+    )
+    .unwrap();
+    assert!(docx.markdown.contains("Grüße aus Köln"));
+    assert!(docx.markdown.contains("# Reisen"));
+    assert!(
+        loklm_documents::parse_docx_isolated(include_bytes!("../tests/fixtures/dtd.docx"), &ticket)
+            .is_err()
+    );
     if std::env::args().nth(1).as_deref() == Some("--stress") {
         let bytes = std::fs::read(std::env::args().nth(2).expect("synthetic PDF path")).unwrap();
         let started = std::time::Instant::now();

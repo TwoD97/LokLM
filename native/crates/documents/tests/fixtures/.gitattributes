@@ -1,2 +1,3 @@
 # PDF xref byte offsets must survive Windows checkout unchanged.
 *.pdf -text -diff
+*.docx -text -diff

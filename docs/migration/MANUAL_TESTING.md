@@ -75,7 +75,12 @@ endpoint for its own process; production startup does not enable that endpoint.
 For optional real CPU model tests, set `LOKLM_TEST_MODELS_DIR` to the directory
 containing the existing canonical GGUF files and `LOKLM_TEST_GENERATION=1`.
 Allow several minutes and adequate free RAM; do not overlap other model jobs.
-`LOKLM_TEST_PDF=1` selects the simple PDF fixture workflow. If testing a saved
+`LOKLM_TEST_COMBINED=1` additionally keeps the embedding and reranking models
+loaded with generation and checks locking during streaming; use with the model
+directory and generation flags. `LOKLM_TEST_PDF=1` selects the simple PDF fixture
+workflow; `LOKLM_TEST_DOCX=1` selects DOCX instead. For format-specific manual
+fixtures and failure expectations, see [PDF_IMPORT.md](PDF_IMPORT.md) and
+[DOCX_IMPORT.md](DOCX_IMPORT.md). If testing a saved
 ui-test executable after building the normal executable, set `LOKLM_TEST_EXE`
 to that explicit test binary. Never distribute the ui-test build.
 

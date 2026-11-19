@@ -23,6 +23,9 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
   (MIT), pinned transitively by Cargo.lock. Parsing runs in a separate bounded
   process. The fonts/CMap and PostScript parsing dependencies' notices also
   belong in the eventual distributable license inventory.
+- DOCX ZIP/XML extraction uses `zip = 9.7.0` and `quick-xml = 0.42.0`, both MIT,
+  in the same isolated worker. Only stored/deflate ZIP entries are enabled;
+  bundled documents are not extracted to filesystem paths or sent to a server.
 
 `Cargo.lock` pins the resolved Rust dependency graph. A complete distributable
 license-text inventory and signed installer remain release gates; this notice is

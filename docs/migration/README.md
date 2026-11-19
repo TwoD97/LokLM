@@ -46,11 +46,11 @@ Do not require the desktop app for agent operation. Unraid is currently offline.
 | Workspace keys | `auth/workspaceKeys.ts`, manifest v1, individually wrapped WDEKs | Original format retained; Rust create/select scoped encrypted stores |
 | Relational/FTS | `db/sqlite/WorkspaceDb.ts`, SQLCipher via sqlite3mc; FTS5, content/source/metadata/citations/quiz | Exact sqlite3mc 2.3.4 C engine via rusqlite; populated original DB fixture readable; FTS import/search/reopen pass |
 | Vectors | LanceDB 0.30.0; 1024-d BGE-M3; index config in manifest; encrypted `enc/`, plaintext transient `work/`; opt-in unencrypted index | Pending |
-| Import | `documents/parser.ts`, chunker, markdown, PDF/pdfjs, DOCX/mammoth, HTML, codebase track; OCR/tesseract | UTF-8 text/Markdown and isolated simple text-layer PDF exercised in Windows UI; rich PDF/DOCX/code/OCR pending |
+| Import | `documents/parser.ts`, chunker, markdown, PDF/pdfjs, DOCX/mammoth, HTML, codebase track; OCR/tesseract | UTF-8 text/Markdown, isolated simple text-layer PDF and DOCX text/headings/tables implemented; Windows PDF/DOCX workflows pass; rich formats/HTML/code/OCR pending |
 | Sync | `FolderSyncService.ts`, ignore policies, changed/missing/replaced source handling | Pending |
 | Embedding | `EmbeddingService.ts`, backfill/identity, batched validation and resource planner | Native CPU BGE-M3 tested in Windows UI; hash/runtime identity and resumable encrypted checkpoints; complete resource planner pending |
-| Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; fixed actual-Qwen DE/EN source correctness passed; native BGE reranker smoke passed, combined UI/routing/calibration pending |
-| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Canonical prompts/budgets pass TS fixtures; actual Windows CPU DE/EN answers and cited-source opening passed; advanced routes pending |
+| Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; actual-Qwen DE/EN source correctness and BGE reranker UI pass; combined model residency passes; full routing/calibration pending |
+| Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Prompts/budgets and pure quote provenance pass original TS fixtures; actual Windows CPU DE/EN answers and cited-source opening pass; runtime quote/advanced-route integration pending |
 | Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Atomic revocation, authentication cancellation, real streamed-answer cancel/lock, isolated parser cancel/lock tested; complete resource planner pending |
 | Models | llama.cpp via node-llama-cpp; manifests/checksums/downloads; bounded residency; optional explicitly authorized Ollama | Explicit checksum-verified CPU loading/unload and RAM guard; original installer/download/resource planner parity pending |
 | Voice | Whisper native addon, sherpa-onnx diarization, workers, audio staging/alignment | Pending |
@@ -125,7 +125,13 @@ first combined UI inference test reached embedding/checkpoints but could not loa
 reranker on this shared low-memory host; a second run captured the explicit RAM
 admission error. After RAM headroom became available, sequential embedding/index
 and reranker UI tests passed, including an unrelated-question refusal. Concurrent
-embedding+reranker+generation residency remains unverified.
+embedding+reranker+generation residency subsequently passed the actual Windows
+workflow: all three models remained loaded for bilingual cited answers, source
+opening, stream cancellation and a second streamed answer interrupted by lock.
+No late text appeared; source IPC was denied and unlock preserved documents.
+See `evidence/native-combined-model-workflow.json` and
+`native-combined-answers.json`. This is functional coverage, not an active-memory
+benchmark or proof of complete resource-planner parity.
 
 The actual Windows UI subsequently passed real Qwen4B English and German cited
 answers and opened the correct source, then cancelled a streamed answer without
@@ -153,8 +159,24 @@ same synthetic fixture. This does not establish broad PDF equivalence. See
 expansion stream was rejected by the isolated worker; concurrent cancel and
 session lock tests stopped and reaped workers. Comprehensive parser fuzzing is
 still pending. The current UI-test executable
-is 13,897,216 bytes, excluding model weights and shared WebView2; this is not an
+at that revision was 13,897,216 bytes, excluding model weights and shared WebView2; this is not an
 installer or a matched Electron footprint comparison.
+
+The subsequent DOCX slice preserves paragraphs, inherited Word headings and
+ordinary table cells, without extracting ZIP entries to disk. Unsupported rich
+content, DTDs and external header references fail before document publication.
+Its Windows UI workflow passed import/search/source opening, atomic rejection,
+duplicate handling, recovery and close/reopen; the original engine opened a copy
+of that native vault. The original Mammoth parser agrees on normalized fixture
+words and the common heading, not formatting or all DOCX content. See
+[DOCX import limits](DOCX_IMPORT.md) and `evidence/native-docx-workflow.json`.
+
+All 32 Rust unit/integration tests passed across core, documents and inference;
+strict Clippy passes for those crates and the desktop. The pure shared quote
+module also matches 24 original anchor cases and 11 source catalogs, including
+UTF-16 offsets, whitespace and ambiguous quotations. These helpers are not yet
+wired into desktop checked QA and establish source membership, not entailment.
+See [source quote boundary](SOURCE_QUOTES.md). Repository ESLint passes locally.
 
 The original TypeScript AuthService/sqlite3mc also opened a **copy** of the
 native-created vault after native password recovery and read its document. The

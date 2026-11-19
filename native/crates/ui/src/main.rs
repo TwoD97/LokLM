@@ -275,7 +275,7 @@ fn App() -> impl IntoView {
                 </aside>
                 <main class="main">
                     <div class="top"><div><div class="eyebrow">"Your private library"</div><h1>"Find it. Read the source."</h1></div><span class="badge">"Local · Rust"</span></div>
-                    <p class="muted">"Native preview · Text, Markdown and simple text-layer PDFs. Local CPU models and source-linked answers. Rich PDF/OCR, advanced answer checks and voice are still being migrated."</p>
+                    <p class="muted">"Native preview · Text, Markdown, simple PDFs and DOCX. Local CPU models and source-linked answers. Rich document/OCR, advanced answer checks and voice are still being migrated."</p>
                     <Show when=move||!ui.recovery.get().is_empty()>
                         <div class="recovery"><strong>"Save your recovery phrase privately"</strong><pre>{move||ui.recovery.get()}</pre><p class="muted">"Use this phrase to reset your password without losing documents. Keep it private and out of chat."</p><button on:click=move|_|ui.recovery.set(String::new())>"I saved the phrase"</button></div>
                     </Show>

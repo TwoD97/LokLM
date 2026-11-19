@@ -294,8 +294,8 @@ impl Runtime {
                                 app.dialog()
                                     .file()
                                     .add_filter(
-                                        "Text, Markdown and text-layer PDF",
-                                        &["txt", "md", "markdown", "pdf"],
+                                        "Text, Markdown, PDF and DOCX",
+                                        &["txt", "md", "markdown", "pdf", "docx"],
                                     )
                                     .blocking_pick_file()
                                     .map(|p| p.into_path())
@@ -310,9 +310,11 @@ impl Runtime {
                                     .and_then(|s| s.to_str())
                                     .unwrap_or("")
                                     .to_lowercase();
-                                if !["txt", "md", "markdown", "pdf"].contains(&extension.as_str()) {
+                                if !["txt", "md", "markdown", "pdf", "docx"]
+                                    .contains(&extension.as_str())
+                                {
                                     return Err(Error::Unsupported(
-                                        "Select text, Markdown or a text-layer PDF".into(),
+                                        "Select text, Markdown, text-layer PDF or DOCX".into(),
                                     ));
                                 }
                                 let file = std::fs::File::open(&path)?;
@@ -337,6 +339,25 @@ impl Runtime {
                                         &hex::encode(Sha256::digest(&bytes)),
                                         &chunks,
                                         &ticket,
+                                    )?;
+                                } else if extension == "docx" {
+                                    use sha2::{Digest, Sha256};
+                                    let parsed =
+                                        loklm_documents::parse_docx_isolated(&bytes, &ticket)?;
+                                    let sections = parsed
+                                        .sections
+                                        .into_iter()
+                                        .map(|s| loklm_core::chunking::MarkdownSection {
+                                            heading_path: s.heading_path,
+                                            text: s.text,
+                                        })
+                                        .collect::<Vec<_>>();
+                                    let chunks =
+                                        loklm_core::chunking::chunk_markdown_sections(&sections);
+                                    live.store.as_mut().unwrap().import_chunks(
+                                        &path.to_string_lossy(), &title,
+                                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                        bytes.len(), &hex::encode(Sha256::digest(&bytes)), &chunks, &ticket,
                                     )?;
                                 } else {
                                     let text = std::str::from_utf8(&bytes).map_err(|_| {
@@ -663,6 +684,12 @@ async fn dispatch(
     .map_err(|e| e.to_string())
 }
 fn main() {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|a| a == loklm_documents::DOCX_WORKER_ARGUMENT)
+    {
+        std::process::exit(loklm_documents::docx_worker_main());
+    }
     if std::env::args_os()
         .nth(1)
         .is_some_and(|a| a == loklm_documents::WORKER_ARGUMENT)
