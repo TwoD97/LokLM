@@ -1,0 +1,59 @@
+{
+  "sourceCommit": "7012117a2dea16c437497a76d6829d1a6e99be6f",
+  "uiSourceCommit": "d58835d",
+  "coreCitationCommit": "49c4f7e",
+  "build": "release, normal (no ui-test feature), Windows x64, CPU-only",
+  "result": {
+    "executable": "native/artifacts/loklm-native-citation.exe",
+    "bytes": 15417344,
+    "sha256": "89e5db5e55ddc854327d654932a6f96d5d4988de21abcdc09c5cc67e57f75ed5",
+    "checks": [
+      {
+        "fixture": "synthetic.pdf",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "broken-page.pdf",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "synthetic.docx",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "table.docx",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "header-reference.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "uppercase-media.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "inherited-list.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "default-list.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "style-linked-list.docx",
+        "imported": false,
+        "passed": true
+      }
+    ],
+    "scope": "Normal executable private parser pipe modes; no GUI/model test or installer claim"
+  }
+}

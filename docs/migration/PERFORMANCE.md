@@ -54,3 +54,19 @@ generation/reranking latency, cancellation latency distributions, cold caches,
 installer/update footprint and other platforms remain unmeasured here. The
 headless agent's Lance/Qdrant storage microbenchmarks are separate evidence, not
 desktop or complete-RAG speed claims.
+
+## Later executable size observations
+
+These are normal, CPU-only Windows x64 release executables, excluding WebView2,
+model weights and an installer. They do not replace the older shell measurement:
+
+| Source | Bytes | Evidence |
+|---|---:|---|
+| `5c3de0b`, prior UI | 14,214,144 | [grammar snapshot](evidence/windows-grammar-executable.json) |
+| `7012117`, active citation gate and position-based UI | 15,417,344 | [citation snapshot](evidence/windows-citation-executable.json) |
+
+The latter is 1,203,200 bytes larger. It activates the full citation parser in
+the basic answer path and includes the rebuilt Rust/WASM UI; no per-component
+size attribution has been measured. The low-level llama common archive was
+already enabled through its dependency defaults. No new startup, RSS or package
+improvement is inferred from these builds or their functional UI smoke timings.

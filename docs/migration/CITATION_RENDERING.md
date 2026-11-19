@@ -82,3 +82,10 @@ boundary tests. For actual generator-only UI validation, use the existing
 real lexical retrieval, DE/EN Qwen4B answers, source-button opening and stream
 cancel/lock; it skips embedding/reranking and cannot combine with
 `LOKLM_TEST_COMBINED=1`. Synthetic import and vault lifecycle checks still run.
+
+Source `7012117` passed this actual generator-only Windows UI workflow, including
+DE/EN source-button opening, stream cancel/lock, recovery and reopen. The exact
+UI executable hash, model hash, outputs and scope are recorded in
+[native-citation-ui-model.json](evidence/native-citation-ui-model.json).
+The normal executable separately passed nine parser checks. This is the basic
+streaming path; the full structured desktop route remains pending.

@@ -138,6 +138,18 @@ and the distinction between structural validation and semantic QA. The original
 experimental evidence-assessment route is separate from normal checked QA;
 bounded private reasoning and full checked-route parity are still pending.
 
+At `7012117`, the basic answer path rejects literal-only/malformed citations and
+the Rust UI consumes backend-validated UTF-16 positions instead of scanning
+answer text. All 50 native tests and strict Clippy including the UI pass. An
+actual Qwen4B-only Windows UI run passed Markdown import, lexical retrieval,
+DE/EN answers, source opening, stream cancel/lock, recovery and reopen; see
+[native-citation-ui-model.json](evidence/native-citation-ui-model.json).
+This validates the basic streaming route, not activation of structured QA.
+The normal executable passed nine parser checks; its exact hash and size are
+in [windows-citation-executable.json](evidence/windows-citation-executable.json).
+Older shell/model/combined-residency measurements retain their original source
+and artifact points. No shared model or production app was changed.
+
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
 lexical search, indexed source opening, inert malicious text, no-results,
