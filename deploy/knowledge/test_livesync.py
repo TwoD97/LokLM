@@ -171,7 +171,9 @@ def main():
     model_args=[]
     if os.environ.get('LOKLM_TEST_MODELS'):
         embed=PREFIX+'-embed';containers.append(embed)
-        fingerprint='9899f70458e9a04e8ed6912e24f3e002e05d670cae06985c172f456b9c0a2164'
+        fingerprint=docker('run','--rm','--network','none',
+            os.environ.get('LOKLM_KNOWLEDGE_TEST_IMAGE','loklm-test-knowledge:dev'),
+            '--model-runtime','llama.cpp-b12359','fingerprint').stdout.decode().strip()
         docker('run','-d','--name',embed,'--network',NETWORK,'--cpus','2','--memory','2g',
                '-v',os.environ['LOKLM_TEST_MODELS']+':/models:ro','-e','LOKLM_MODEL_ALIAS='+fingerprint,
                'loklm-test-model:b12359')
@@ -240,6 +242,8 @@ def main():
     expect((ROOT/'a/vault/input.md').read_text()==content,'original source survives CouchDB outage')
     report={'livesync_commit':'5b57324bc72a6c7a330c280b876ae9c6f8e83221',
             'commonlib_version':'0.6.0 (upstream npm lock integrity)','checks':checks,
+            'knowledge_image_id':json.loads(docker('image','inspect',os.environ.get('LOKLM_KNOWLEDGE_TEST_IMAGE','loklm-test-knowledge:dev')).stdout)[0]['Id'],
+            'dense_model_fingerprint':fingerprint if model_args else None,
             'obsidian_ui_tested':False,'rust_dense_model_tested':bool(model_args),'attachment_sha256':hashlib.sha256(binary).hexdigest()}
     out=Path(__file__).parent/'reports';out.mkdir(exist_ok=True)
     (out/'livesync.json').write_text(json.dumps(report,indent=2))

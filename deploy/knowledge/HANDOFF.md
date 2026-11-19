@@ -7,7 +7,7 @@ No merge or production deployment has been performed or requested.
 
 The independently owned paths are `native/crates/knowledge` and
 `deploy/knowledge`. The desktop owner retains core/inference/documents/UI/Tauri.
-The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e, c418292 and 3758800 are integrated
+The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e, c418292, 3758800 and 0fef42f are integrated
 without enabling desktop storage. The daemon crate is a standalone workspace
 with a relative dependency on `../core`, never a dependency on another worktree.
 Both owners use the same chunking, instruction/normalization/fingerprint, RRF,
@@ -19,6 +19,10 @@ The exact source-quantity annotation helper and its 307 original TS cases are
 likewise integrated without enabling checked arithmetic in generated answers.
 The daemon keeps its standalone lock; no desktop workspace/storage dependencies
 were brought in with either helper.
+The bounded calculation interpreter adds 364 original output/span cases. Its
+JSON float-roundtrip feature changes the headless numeric transport contract:
+regenerate embedding/reranker aliases and rebuild into a new index directory.
+No generated-answer arithmetic or entailment guarantee is enabled by these helpers.
 
 Implemented and tested: portable files/IDs/attachments, actual official encrypted
 LiveSync exchange, checkpoint/cache/FTS/Lance indexing, guarded source citations,

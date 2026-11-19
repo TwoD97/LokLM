@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+/// JSON parsing is part of vector/scoring identity, alongside model/runtime.
+pub const JSON_NUMERIC_VERSION: &str = "serde-json-float-roundtrip-v1";
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum Profile {
@@ -49,7 +52,10 @@ impl ModelClient {
             !runtime_revision.is_empty(),
             "model runtime revision required"
         );
-        let fingerprint = crate::digest(format!("{}:{runtime_revision}", profile.fingerprint()));
+        let fingerprint = crate::digest(format!(
+            "{}:{runtime_revision}:{JSON_NUMERIC_VERSION}",
+            profile.fingerprint()
+        ));
         Ok(Self {
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(60))
@@ -156,7 +162,7 @@ impl Reranker {
         );
         ensure!(!runtime.is_empty(), "reranker runtime revision required");
         let fingerprint = crate::digest(format!(
-            "e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673:{runtime}:bge-reranker-v2-m3:raw-logit-sigmoid-v1:utf16-2800"
+            "e186a244ed455b4ab66ec64339ce7427a6ae13f5c0b5e544de96e50f0f8b3673:{runtime}:bge-reranker-v2-m3:raw-logit-sigmoid-v1:utf16-2800:{JSON_NUMERIC_VERSION}"
         ));
         Ok(Self {
             http: reqwest::Client::builder()

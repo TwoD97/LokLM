@@ -67,7 +67,9 @@ No Ollama/voice session is autodiscovered or repurposed.
 Embedding identity contains weight SHA, dimensions, shared instruction/version,
 normalization, task type and runtime revision. Current Standard +
 `llama.cpp-b12359` fingerprint is
-`9899f70458e9a04e8ed6912e24f3e002e05d670cae06985c172f456b9c0a2164`.
+`e7ecb6387255e0cc05f6937a25ff3271f97b919fc613ba3d365e642f37505083`.
+This includes `serde-json-float-roundtrip-v1`. Earlier benchmark/LiveSync
+reports retain their original `9899f704...` identity and measurement point.
 The client verifies the server catalog alias, response alias, vector count,
 ordering, finite values, dimension and L2 normalization. The alias is a deployment
 contract backed by the entrypoint's local file hash check, not remote attestation.
@@ -87,6 +89,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Citations | Original file UUID/path/headings + deterministic content anchor; request-local numeric aliases only when building shared QA prompts |
 | Exact source-quote provenance | Shared `source_quote` module integrated with original TS fixture tests (24 anchors/contexts, 11 catalogs); available for checked-QA integration, not automatically applied to generated answers |
 | Exact source quantities | Shared `source_quantities::annotate` with original rational-string values and UTF-16 spans; 307 original TS fixture cases; available for future checked-QA integration, not automatically applied to generated answers |
+| Source calculations | Shared bounded `source_calculations::annotate` interpreter, 364 original TS outputs/spans; never executes document JavaScript; not yet applied to generated answers |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |
 
 Not yet parity: original title/language/recency/short-hit boosts and no-reranker
@@ -109,3 +112,18 @@ version was already in the standalone daemon's dependency graph; integration
 only adds the direct core dependency. The production image's generated Cargo
 license inventory includes the regex notices. Patterns are fixed code over
 bounded passages; no document-supplied regular expressions are evaluated.
+
+The calculation helper enables Serde JSON `float_roundtrip`, which also changes
+the provider/checkpoint decoder through Cargo feature unification. Both embedding
+and reranker fingerprints therefore include `serde-json-float-roundtrip-v1`.
+Regenerate both server aliases and use a **new index directory**; an old dense
+index is rejected without being overwritten. Models, weights and core query
+instructions are unchanged. The current b12359 reranker alias is
+`25df2b3d20a6151a192df7a32b0876a2c1cf259199b71cdae536a19e9a3300d2`.
+
+A model-free probe found identical f32 bits for all 49,152 saved synthetic vector
+values before/after, with zero checkpoint roundtrip mismatches. Deliberate f32
+midpoint and f64 edge cases exposed the decoder change, so that corpus result is
+not used to assume universal bit compatibility. See numeric decoder evidence and
+the `numeric_decoder_probe` example. Original store timings remain historical
+measurements, not measurements of this new numeric transport contract.

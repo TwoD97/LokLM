@@ -199,6 +199,11 @@ the embedding fingerprint/chunker requires a **new index directory**, not silent
 mixing vectors. A full rebuild rereads files and re-embeds; ordinary restart
 reconstructs Lance from the checkpoint's cached vectors without model calls.
 
+The numeric-decoder upgrade (`serde-json-float-roundtrip-v1`) changes embedding
+and reranker aliases. Regenerate both fingerprints and select a new index
+directory when upgrading an older development stack. Keep the old index for
+rollback; canonical Markdown and model weights do not change.
+
 GPU preparation is optional and unverified: the tested model binary is CPU-only.
 `Model.cuda.Dockerfile` and `compose.gpu.yaml` prepare a separate NVIDIA build at
 the same exact source revision with explicit device reservations. Set
@@ -310,12 +315,12 @@ The desktop-owned pure source-quote and quantity helpers have standalone
 compatibility targets in this crate, independent of the desktop workspace:
 
 ```sh
-cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --test shared_source_quote_compatibility --test shared_source_quantities_compatibility
+cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --test shared_source_quote_compatibility --test shared_source_quantities_compatibility --test shared_source_calculations_compatibility
 ```
 
 These compare the original TypeScript outputs and source offsets. The helpers
 are available for later checked-QA integration; generated answers currently
-validate citation identity only, without automatic quote or quantity checking.
+validate citation identity only, without automatic quote, quantity or calculation checking.
 
 ## Upstream and licenses
 
