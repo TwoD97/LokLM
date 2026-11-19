@@ -160,6 +160,42 @@ policy requires it; this package never edits global trust stores.
    client trust. Test expiry/renewal, interrupted connection, large attachments
    and both devices' reconnect behavior before real migration.
 
-Local Docker/CLI evidence is recorded separately when executed. It is not an
-Unraid host, real Obsidian UI, mobile certificate enrollment, or Internet exposure
-acceptance claim.
+## Executed local acceptance
+
+On 2026-11-19, runtime source `de669f9` passed **38 actual Docker HTTPS checks**
+in 49.69 seconds before cleanup. The fixture uses the exact base Compose/setup
+profile plus the gateway overlay, not mocked sync or schema-only validation.
+It verified both trusted and rejected TLS clients, preserved authentication,
+session cookies and CORS preflight, blocked administration paths with unchanged
+backend policy, and actual encrypted upstream LiveSync Unicode Markdown plus a
+256 KiB attachment between two peers attached only to the gateway network.
+Continuous changes delivered an unbuffered heartbeat. Restart and atomic
+certificate replacement followed by gateway recreation both preserved trust;
+the served certificate fingerprint changed and bidirectional sync still passed.
+
+The gateway runtime reported `nginx/1.30.7`; its pinned image is 92,654,720 bytes.
+The source-file hashes, exact images, public synthetic certificate fingerprints,
+check labels and sanitized command output are in
+[gateway-acceptance.json](evidence/gateway-acceptance.json),
+[gateway-acceptance-output.txt](evidence/gateway-acceptance-output.txt) and
+[gateway-closure.json](evidence/gateway-closure.json).
+Linux host-script tests pass 24/24; Windows passes 22 with two Unix-permission
+tests skipped. No Rust/core/base Compose/CouchDB configuration was changed.
+
+Two earlier negative results are retained explicitly. Python 3.14 strict
+verification rejected the first synthetic CA's missing signing key usage; the
+fixture certificate was corrected without relaxing verification. A valid
+non-admin `PUT /loklm-knowledge/_security` returned HTTP 500 both directly from
+the packaged CouchDB and through the initial proxy. This was **not counted as a
+correct authorization-status result**. The final peer gateway excludes the named
+security/revision/purge/compaction administration routes and tests 404 plus exact
+policy preservation. Direct
+CouchDB administration error/status behavior remains a separate investigation;
+this task did not alter the underlying image or authorization policy.
+
+All unique fixture containers, networks and synthetic CA/key/data directories
+were removed. The only remaining container was the original Home Assistant
+instance, left running throughout; the exclusive validation slot was released.
+TLS trust was limited to fixture client processes, with no global trust/DNS or
+network configuration change. These results do not establish Unraid-host, real
+Obsidian UI/mobile enrollment, production-size or Internet-exposure acceptance.

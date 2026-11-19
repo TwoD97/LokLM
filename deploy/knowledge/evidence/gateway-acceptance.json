@@ -1,0 +1,98 @@
+{
+  "source_commit": "de669f96752df9ade7f5df876c6c0f81dfdf170a",
+  "checks": [
+    "actual gateway overlay passes read-only preflight",
+    "only ephemeral loopback HTTPS port; no direct backend publications",
+    "trusted certificate and hostname reach HTTPS CouchDB health",
+    "knowledge API still enforces its own bearer token on the private backend",
+    "untrusted CA refused by normal TLS verification",
+    "unknown TLS server name refused",
+    "anonymous database access denied through HTTPS",
+    "incorrect CouchDB credentials denied through HTTPS",
+    "client-supplied proxy-auth headers cannot bypass CouchDB authentication",
+    "dedicated non-admin sync credentials remain authoritative",
+    "peer gateway excludes database security administration",
+    "blocked security update preserves exact backend policy",
+    "gateway excludes administrative or unrelated route /_utils/",
+    "gateway excludes administrative or unrelated route /_all_dbs",
+    "gateway excludes administrative or unrelated route /_users",
+    "gateway excludes administrative or unrelated route /_node/_local/_config",
+    "gateway excludes administrative or unrelated route /v1/status",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/../_users",
+    "gateway excludes administrative or unrelated route /%5futils/",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/%2e%2e/_users",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/_security/",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/%5fsecurity",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/_purge",
+    "gateway excludes administrative or unrelated route /loklm-knowledge/_compact",
+    "CouchDB session auth works with Secure HttpOnly cookie",
+    "configured Obsidian CORS origin preserved",
+    "Obsidian-origin authenticated-request CORS preflight passes",
+    "unconfigured CORS origin is not granted",
+    "actual upstream LiveSync rejects untrusted gateway certificate",
+    "actual encrypted LiveSync Unicode note roundtrip through HTTPS",
+    "actual encrypted LiveSync 256 KiB attachment roundtrip through HTTPS",
+    "CouchDB wire payload retains upstream content encryption",
+    "continuous changes heartbeat arrives without proxy buffering",
+    "gateway restart preserves trusted HTTPS readiness",
+    "operator-style certificate replacement and gateway recreation preserve trust",
+    "recreated gateway serves renewed certificate instead of stale bind inode",
+    "bidirectional note and attachment retrieval survive restart and certificate renewal",
+    "gateway logs contain no credentials, note content or request paths"
+  ],
+  "elapsed_seconds": 49.69,
+  "images": {
+    "nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598": {
+      "id": "sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598",
+      "repo_digests": [
+        "nginx@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598"
+      ],
+      "bytes": 92654720
+    },
+    "loklm-test-couchdb:3.5.0": {
+      "id": "sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9",
+      "repo_digests": [
+        "loklm-test-couchdb@sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9"
+      ],
+      "bytes": 430515443
+    },
+    "loklm-test-livesync:1.0.51": {
+      "id": "sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394",
+      "repo_digests": [
+        "loklm-test-livesync@sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394"
+      ],
+      "bytes": 715920390
+    },
+    "loklm-knowledge:u01-release": {
+      "id": "sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4",
+      "repo_digests": [
+        "loklm-knowledge@sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4"
+      ],
+      "bytes": 476173778
+    }
+  },
+  "tls": {
+    "hostname": "vault.gateway.test",
+    "issuer": "disposable synthetic CA",
+    "ca_sha256": "d55e07cfef23b899ff448ae31bc493c66f43173b40a15b52576711ddcfb7a37e",
+    "certificate_sha256": "db7470a6a9d29dd88d221ad10775ea581af2aedd81b90e5ee3b2ce66e687bf99",
+    "initial_served_der_sha256": "6f9e8527dfbdf883cf6c7ce6b3599f89b138414d36c06a28ecd18e1c96738a1e",
+    "renewed_served_der_sha256": "19664dd695ff10df5ec335effc736e1c6c81ea96db0b20568719e220fe4746f1",
+    "trust_scope": "Python per-request SSL context and Node per-process NODE_EXTRA_CA_CERTS only",
+    "global_trust_changed": false
+  },
+  "attachment_sha256": "2312394bd99545d9de131c24efb781e765ac1aec243f2ed9347597a793a415e9",
+  "source_sha256": {
+    "compose.gateway.yaml": "75af2008bb5564e5d2680aff15aadf5f2f030fc00a18ee3ff659603685dfd558",
+    "gateway/start.sh": "96310dd302d377a2195a9a3c145b0a3f3ca0e0bc564a427a678adc630b9c9ccb",
+    "gateway/nginx.conf.template": "3ab8b996a5e521a7003ad920b8cc4bbf6ff662a1c31865e2301c56578279e5b4",
+    "gateway_preflight.py": "b72a9a5b4e62b175529e1c3f657b6f16e516a5c3ae712ebf313e2c6ce9f57738",
+    "test_gateway.py": "6ac23876c7911acac3365b4aaa8aca49887a1220cccd665a147a13fea21cfa73"
+  },
+  "host_bind": "127.0.0.1",
+  "unraid_tested": false,
+  "obsidian_ui_tested": false,
+  "models_loaded": false,
+  "livesync_commit": "5b57324bc72a6c7a330c280b876ae9c6f8e83221",
+  "cleanup": "unique project containers/networks and private synthetic keys/data removed"
+}
