@@ -148,7 +148,7 @@ def main():
             try:
                 conn.request(method, path, body=json.dumps(data) if data is not None else None, headers=request_headers)
                 response = conn.getresponse()
-                return response.status, response.read(), dict(response.getheaders())
+                return response.status, response.read(), {name.lower(): value for name, value in response.getheaders()}
             finally:
                 conn.close()
 
@@ -195,14 +195,14 @@ def main():
             expect(https(path, auth=auth)[0] == 404, 'gateway excludes administrative or unrelated route ' + path)
         code, _, headers = https('/_session', method='POST', data={'name': settings['couchDB_USER'],
                                                                 'password': settings['couchDB_PASSWORD']})
-        cookie = headers.get('Set-Cookie', '')
+        cookie = headers.get('set-cookie', '')
         expect(code == 200 and 'secure' in cookie.lower() and 'httponly' in cookie.lower() and
                https('/loklm-knowledge', headers={'Cookie': cookie.split(';')[0]})[0] == 200,
                'CouchDB session auth works with Secure HttpOnly cookie')
         _, _, headers = https('/loklm-knowledge', auth=auth, headers={'Origin': 'app://obsidian.md'})
-        expect(headers.get('Access-Control-Allow-Origin') == 'app://obsidian.md', 'configured Obsidian CORS origin preserved')
+        expect(headers.get('access-control-allow-origin') == 'app://obsidian.md', 'configured Obsidian CORS origin preserved')
         _, _, headers = https('/loklm-knowledge', auth=auth, headers={'Origin': 'https://untrusted.example.test'})
-        expect(not headers.get('Access-Control-Allow-Origin'), 'unconfigured CORS origin is not granted')
+        expect(not headers.get('access-control-allow-origin'), 'unconfigured CORS origin is not granted')
         # Both real upstream peers join only the gateway-facing network.
         settings.update(couchDB_URI='https://' + HOST + ':8443', liveSync=False, syncOnStart=False, syncOnSave=False)
         for peer, state in [('a', root / 'appdata/livesync'), ('b', root / 'b')]:
