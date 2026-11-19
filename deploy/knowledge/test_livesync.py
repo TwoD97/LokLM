@@ -246,9 +246,24 @@ def main():
     unavailable=cli('a','sync',check=False,timeout=30)
     expect(unavailable.returncode!=0,'unavailable CouchDB fails without modifying original source fixture')
     expect((ROOT/'a/vault/input.md').read_text()==content,'original source survives CouchDB outage')
+    # Recovery must prove replication of a new queued change, not just /_up.
+    recovery_path='Recovery/After outage.md'
+    cli('a','push','/vault/input.md',recovery_path)
+    docker('start',COUCH)
+    def couch_ready():
+        try:return http('_up')['status']=='ok'
+        except Exception:return False
+    wait_for(couch_ready,'CouchDB restarts from the same persisted database')
+    settings['couchDB_PASSWORD']=password;settings_path.write_text(json.dumps(settings))
+    cli('a','sync');cli('b','sync');cli('b','pull',recovery_path,'/vault/recovered.md')
+    expect((ROOT/'b/vault/recovered.md').read_text()==content,'queued change replicates after outage and credential recovery')
+    cli('b','pull',attachment,'/vault/recovered.bin')
+    expect((ROOT/'b/vault/recovered.bin').read_bytes()==binary,'attachment survives database outage and recovery')
     report={'livesync_commit':'5b57324bc72a6c7a330c280b876ae9c6f8e83221',
             'commonlib_version':'0.6.0 (upstream npm lock integrity)','checks':checks,
             'knowledge_image_id':json.loads(docker('image','inspect',os.environ.get('LOKLM_KNOWLEDGE_TEST_IMAGE','loklm-test-knowledge:dev')).stdout)[0]['Id'],
+            'livesync_image_id':json.loads(docker('image','inspect',IMAGE).stdout)[0]['Id'],
+            'couchdb_image_id':json.loads(docker('image','inspect','loklm-test-couchdb:3.5.0').stdout)[0]['Id'],
             'dense_model_fingerprint':fingerprint if model_args else None,
             'obsidian_ui_tested':False,'rust_dense_model_tested':bool(model_args),'attachment_sha256':hashlib.sha256(binary).hexdigest()}
     out=Path(__file__).parent/'reports';out.mkdir(exist_ok=True)

@@ -40,6 +40,10 @@ def run(command, *, check=True, timeout=180):
 
 
 def main():
+    source_commit = os.environ.get('LOKLM_TEST_SOURCE_COMMIT') or run(
+        ['git', '-C', str(REPO), 'rev-parse', 'HEAD'], check=False).stdout.decode().strip()
+    if len(source_commit) != 40 or any(c not in '0123456789abcdef' for c in source_commit):
+        raise RuntimeError('Set LOKLM_TEST_SOURCE_COMMIT to the exact checkout commit when Git metadata is unavailable across WSL')
     prefix = 'loklm-accept-' + uuid.uuid4().hex[:12]
     root = Path(tempfile.mkdtemp(prefix=prefix + '-')).resolve()
     root.chmod(0o755)
@@ -189,10 +193,29 @@ def main():
                json.loads((folder / 'sync/settings.json').read_text())['couchDB_PASSWORD'] !=
                json.loads((restored['folder'] / 'sync/settings.json').read_text())['couchDB_PASSWORD'],
                'restore uses separate project, database storage and sync credentials')
+        # Reversible derived-index migration without altering canonical files.
+        env = restored['folder'] / '.env'
+        original_env = env.read_text()
+        candidate_index = restored['folder'] / 'index-candidate'
+        candidate_index.mkdir()
+        os.chown(candidate_index, 1000, 1000)
+        run(restored['compose'] + ['stop', 'knowledge'])
+        env.write_text(original_env.replace('INDEX_PATH=' + str(restored['folder'] / 'index') + '\n',
+                                            'INDEX_PATH=' + str(candidate_index) + '\n'))
+        run(restored['compose'] + ['up', '--no-build', '--pull', 'never', '-d', 'knowledge'])
+        wait(lambda: doctor(restored['compose'])['operational'], 'candidate empty index rebuild reaches readiness')
+        expect(api(restored, '/v1/search', {'query': 'Solarstrom'})[1]['hits'][0]['source_id'] == note_id,
+               'candidate index preserves original source identity')
+        run(restored['compose'] + ['stop', 'knowledge'])
+        env.write_text(original_env)
+        run(restored['compose'] + ['up', '--no-build', '--pull', 'never', '-d', 'knowledge'])
+        wait(lambda: doctor(restored['compose'])['operational'], 'rollback to retained index completes a fresh scan')
+        expect(api(restored, '/v1/search', {'query': 'Solarstrom'})[1]['hits'][0]['source_id'] == note_id,
+               'rollback retrieval and canonical attachment remain intact')
         expect(api(restored, '/v1/lock', {})[0] == 204 and api(restored, '/v1/ready')[0] == 423,
                'locked service refuses readiness')
         report = {'checks': passed, 'elapsed_seconds': round(time.monotonic() - started, 2),
-                  'source_commit': run(['git', '-C', str(REPO), 'rev-parse', 'HEAD']).stdout.decode().strip(),
+                  'source_commit': source_commit,
                   'images': {}, 'models_loaded': False, 'unraid_tested': False, 'host_ports': [],
                   'attachment_sha256': hashlib.sha256(binary).hexdigest(), 'source_files_sha256': {}}
         for service, image in IMAGES.items():
