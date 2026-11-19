@@ -9,16 +9,25 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 13 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 4 original shared compatibility fixtures under the daemon lock |
+| Windows knowledge crate | 15 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 6 original shared compatibility fixtures under the daemon lock |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
-| Shared pure core | 6 unit + 2 original cipher/chunker compatibility + 2 original QA fixture tests pass; storage feature disabled |
-| Linux container with Lance | Optimized production build passes; 14 tests pass (Windows cases plus Unix symlink rejection), including shared reranker preparation and HTTP score normalization |
+| Shared pure core | 12 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote fixture tests; storage feature disabled |
+| Linux container with Lance | Optimized production build passes; 16 tests pass (Windows cases plus Unix symlink rejection), including shared reranker preparation, HTTP score normalization and source-quote fixtures |
 | Python source backup | 2 tests pass: Unicode/binary roundtrip, no overwrite, hostile archive traversal refused |
 | Python prepare-new-vault | 2 tests pass: original bytes preserved, CRLF/frontmatter and attachments, persistent IDs on repeat copy, duplicate ID rejection |
 | Fresh provisioning | Actual packaged CouchDB configuration + upstream CLI setup passes; settings mode0600, E2EE, nonadmin sync user, repeated initialization refused |
 | Compose | Base + models + experimental answer + GPU-preparation + local-access overlays validate with synthetic environment values; no deployment performed |
 | LiveSync end-to-end | 25 checks pass with actual Qwen3-Embedding GGUF and Rust/Lance debug process; another 25 pass with the release service, production CouchDB config and sidecar entrypoint in lexical mode; see separate evidence JSON |
 | Actual CPU model integration | 20 checks pass on release source `5e99843`: Qwen3 embedding, BGE reranking with original sigmoid scores, Qwen3.5-4B DE/EN answers and source identity, scope/refusal, literal role-marker rejection, bounded pipeline cancellation and unchanged dedup |
+
+Shared source-quote integration at `de07612` adds the desktop owner's pure
+`c418292` module and two tests covering 24 original anchor/context cases and
+11 catalogs, plus cache mutation and forged offsets. The generator passes a
+targeted ESLint check with an explicit Node console import. These helpers are
+available for future checked-QA integration; current generated answers still
+validate citation identity only. This integration loads no models and does not
+change the previously tested answer transport or model fingerprints. Its rebuilt
+image and the earlier actual-model image are recorded separately in the evidence.
 
 The actual model smoke uses pinned llama.cpp b12359, two CPU threads per
 dedicated provider, no GPU, a 10 GiB physical-memory admission check and a 2 GiB
