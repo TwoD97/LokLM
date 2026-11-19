@@ -2,6 +2,7 @@
 pub mod answer_format;
 pub mod chunking;
 pub mod citation_markers;
+pub mod comparison_answer;
 pub mod conflict_summary;
 pub mod crypto;
 #[cfg(feature = "storage")]

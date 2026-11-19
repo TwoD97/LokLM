@@ -370,7 +370,7 @@ fn supported_bindings(name: &str, parameters: &str) -> bool {
                     .is_some_and(|m| !reserved(&m[1]))
             }))
 }
-fn js_number(value: f64) -> String {
+pub(crate) fn js_number(value: f64) -> String {
     if value == 0.0 {
         return if value.is_sign_negative() { "-0" } else { "0" }.into();
     }
