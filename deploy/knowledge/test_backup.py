@@ -16,7 +16,8 @@ class BackupTest(unittest.TestCase):
     def test_traversal_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'hostile.tar.gz'
-            with tarfile.open(path,'w:gz') as tar:
-                info=tarfile.TarInfo('../escape');info.size=1;tar.addfile(info,io.BytesIO(b'x'))
-            with self.assertRaises(ValueError):verify(path)
+            for unsafe in ['../escape','safe//note.md','./safe.md']:
+                with tarfile.open(path,'w:gz') as tar:
+                    info=tarfile.TarInfo(unsafe);info.size=1;tar.addfile(info,io.BytesIO(b'x'))
+                with self.assertRaises(ValueError):verify(path)
 if __name__=='__main__':unittest.main()

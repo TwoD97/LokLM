@@ -9,15 +9,15 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 2 file tests + 5 integration tests pass, including inspectable backlinks/ambiguous references |
+| Windows knowledge crate | 12 tests pass: 2 file + 5 integration + 1 answer + 4 original shared compatibility fixtures under the daemon lock |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
-| Shared pure core | 5 unit + 2 original cipher/chunker compatibility + 2 original QA fixture tests pass; storage feature disabled |
-| Linux container with Lance | Build and 3 file + 4 integration tests pass before the final QA/status changes; final rebuild recorded below when complete |
+| Shared pure core | 6 unit + 2 original cipher/chunker compatibility + 2 original QA fixture tests pass; storage feature disabled |
+| Linux container with Lance | Optimized production build passes; 13 tests pass (Windows cases plus Unix symlink rejection), including final shared reranker helper |
 | Python source backup | 2 tests pass: Unicode/binary roundtrip, no overwrite, hostile archive traversal refused |
 | Python prepare-new-vault | 2 tests pass: original bytes preserved, CRLF/frontmatter and attachments, persistent IDs on repeat copy, duplicate ID rejection |
 | Fresh provisioning | Actual packaged CouchDB configuration + upstream CLI setup passes; settings mode0600, E2EE, nonadmin sync user, repeated initialization refused |
 | Compose | Base + models + experimental answer + GPU-preparation + local-access overlays validate with synthetic environment values; no deployment performed |
-| LiveSync end-to-end | 25 checks pass with actual Qwen3-Embedding GGUF and Rust/Lance process; see evidence JSON |
+| LiveSync end-to-end | 25 checks pass with actual Qwen3-Embedding GGUF and Rust/Lance debug process; another 25 pass with the release service, production CouchDB config and sidecar entrypoint in lexical mode; see separate evidence JSON |
 
 The LiveSync test uses pinned upstream commit
 `5b57324bc72a6c7a330c280b876ae9c6f8e83221` (1.0.51), its locked commonlib 0.6.0,
@@ -59,7 +59,35 @@ working-set comparison; the runner now retains its disposable collection until
 measurement/restart recovery is complete. Lance's initial on-disk bytes were
 336,301 including mutation versions. The test-runtime image was ~1.18 GB and
 the upstream Node sidecar image ~716 MB; debug image size is not release binary
-size. A production/optimized benchmark build is in progress at this checkpoint.
+size.
+
+Optimized measurements in the agreed CPU window, with both agents' model loads
+idle (two-CPU container limits, inference excluded):
+
+| Store | First query ms | Warm p50 / p95 ms | Filter p50 / p95 ms | Search under writes p50 / p95 ms |
+|---|---:|---:|---:|---:|
+| LanceDB 0.41.0 | 7.59 | 1.59 / 1.69 | 2.02 / 2.17 | 4.09 / 4.75 |
+| Qdrant 1.20.0 | 2.07 | 0.45 / 0.54 | 0.51 / 0.61 | 0.48 / 0.58 |
+
+Both again reach recall@5 = 1.0 and expected-source@1 = 1.0. Ingest: Lance
+6,009 rows/s, Qdrant 8,005 rows/s; these rates divide **only 32 rows** by a few
+milliseconds and must not be extrapolated to sustained ingest. Delete/reinsert
+one source: Lance 3.12/2.74 ms, Qdrant 0.87/0.97 ms. Client peak RSS: 92.7 MiB
+versus 6.6 MiB; Qdrant also used 27.45 MiB server memory at the post-write sample.
+Lance apparent index bytes: 336,302. Qdrant apparent storage directory bytes:
+205,588,910, including WAL/segment reservations; this is not pure vector payload
+or allocated-block measurement. Qdrant retained its collection for this sample,
+then restarted and answered from persisted storage in ~818 ms including Docker
+restart/readiness overhead. Lance new-handle/open/search took 5.78 ms; that is
+not an equivalent process restart test. Full reports are in `evidence/*-release.json`.
+
+Release binary bytes: daemon with Lance 242,392,872; standalone Lance benchmark
+234,582,600; Qdrant-only benchmark 6,051,016. The production Docker image was
+475,912,689 bytes at measurement, including runtime and copied dependency notices;
+benchmark image 805,666,687 bytes. The first optimized service build took
+37m54s at `-j 2`; cached code-only rebuild took ~30s. Store benchmarks now compile
+as separate binaries to avoid Cargo feature unification rebuilding the large
+Lance dependency graph and to expose each client's actual binary/RSS cost.
 
 No universal speed claim follows. In this tiny smoke test Qdrant was faster;
 Lance remains the initial embedded candidate pending larger corpus/quality and
@@ -96,7 +124,7 @@ never benchmark against a live appdata index.
   drill on the target SSD, network gateway and optional GPU build/runtime.
 * Actual BGE reranker and experimental Qwen generation transport/quality on this
   daemon; full shared checked-answer/router/entailment parity remains separate.
-* Larger representative synthetic corpus, release measurements, controlled
+* Larger representative synthetic corpus, controlled
   process/disk-cold distributions, sustained writes/compaction and crash injection
   during commits. Current restart recovery rebuilds all Lance rows from SQLite;
   it never re-embeds, but is not yet optimized for large vault startup.
@@ -104,6 +132,16 @@ never benchmark against a live appdata index.
   Existing arbitrary Obsidian notes need new-vault preparation; no live mass
   frontmatter rewrite is performed. Upstream-sidecar filesystem atomicity is not
   claimed solely from the daemon's own atomic import implementation.
+* Headless actual reranker/generator tests remain RAM-gated: host available RAM
+  was ~1.9 GiB after the build. No shared model was unloaded or global WSL/cache
+  setting changed. The desktop owner's independent BGE smoke is not counted as
+  this daemon's transport validation.
+
+The draft PR adds model-free Linux/Windows knowledge checks. Existing website CI
+initially failed before tests because locked Playwright 1.60.0 rejected the new
+`ubuntu-latest` Ubuntu 26.04 image. Isolated fix `f76db5e` pins Ubuntu 24.04;
+the website types/tests/build check then passed. Remaining CI results are tracked
+on draft [PR #50](https://github.com/TwoD97/LokLM/pull/50), not treated as already green.
 
 ## Manual testing
 

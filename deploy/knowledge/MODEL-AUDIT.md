@@ -4,6 +4,8 @@ Audited checkout: `TwoD97/LokLM` at
 `4651557a3567631d3a84a33c3e78e4f3032d718d`, v0.7.4 code. The old Notebook LoLM
 clone is not an input. Shared desktop core commits `b59c1d4` and `8b189ac`
 are integrated here without enabling desktop/vault-storage features.
+The later shared `e40721e` helper supplies exact UTF-16 reranker passage limits;
+session revocation and prompt-newline fixes are also integrated from that owner.
 
 Source authority: `src/main/services/models/manifest.ts`,
 `installer-wizard/model-manifest.json`, `models/paths.ts`,
@@ -80,7 +82,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Dense retrieval | Official LanceDB 0.41.0 cosine; strict model table namespace; SQLite exact reference path in small default development build |
 | Lexical retrieval | SQLite FTS5 unicode61 OR-prefix query, scoped before retrieval; no claim of original Lance tokenization equivalence |
 | Fusion | Shared `fuse_rrf`, k=60, one vote/list, merge before cap |
-| Reranking | Pinned BGE model, original 2800-character passage cap (scalar accounting); optional dedicated endpoint; fail-closed on provider failure |
+| Reranking | Pinned BGE model, shared original 2800-UTF-16-unit passage cap without splitting a scalar; optional dedicated endpoint; fail-closed on provider failure |
 | Source selection | Round-robin diversity, primary per-source cap 6, short documents <=8 chunks, otherwise +/-1 neighbour; bounded expansion |
 | Citations | Original file UUID/path/headings + deterministic content anchor; request-local numeric aliases only when building shared QA prompts |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |

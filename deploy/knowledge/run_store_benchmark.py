@@ -13,7 +13,7 @@ def main():
         time.sleep(3)
         for backend in ['lance','qdrant']:
             target='/bench/lance' if backend=='lance' else 'http://'+qdrant+':6334'
-            print(run('run','--rm','--network',network,'--cpus','2','--memory','4g','-e','LOKLM_BENCH_KEEP_DISPOSABLE=1','-v',str(a.corpus.resolve())+':/corpus.json:ro','-v',str(root)+':/bench','--entrypoint','stores_bench',a.image,backend,'/corpus.json',target,'/bench/'+backend+'.json'),flush=True)
+            print(run('run','--rm','--network',network,'--cpus','2','--memory','4g','-e','LOKLM_BENCH_KEEP_DISPOSABLE=1','-v',str(a.corpus.resolve())+':/corpus.json:ro','-v',str(root)+':/bench','--entrypoint',('stores_bench' if backend=='lance' else 'stores_bench_qdrant'),a.image,backend,'/corpus.json',target,'/bench/'+backend+'.json'),flush=True)
         stats=run('stats','--no-stream','--format','{{json .}}',qdrant)
         out=Path(__file__).parent/'reports';out.mkdir(exist_ok=True)
         for backend in ['lance','qdrant']:
@@ -22,10 +22,10 @@ def main():
                 data['server_docker_stats']=json.loads(stats)
                 data['server_storage_bytes']=sum(p.stat().st_size for p in (root/'qdrant').rglob('*') if p.is_file())
                 if data.get('collection'):
+                    start=time.perf_counter()
                     run('restart',qdrant)
                     ip=json.loads(run('inspect',qdrant))[0]['NetworkSettings']['Networks'][network]['IPAddress']
                     query=json.loads(a.corpus.read_text())['queries'][0]['vector']
-                    start=time.perf_counter()
                     for _ in range(60):
                         try:
                             request=urllib.request.Request('http://'+ip+':6333/collections/'+data['collection']+'/points/query',data=json.dumps({'query':query,'limit':5}).encode(),headers={'Content-Type':'application/json'})

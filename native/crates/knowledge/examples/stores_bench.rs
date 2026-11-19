@@ -1,7 +1,9 @@
 //! Same precomputed LokLM embeddings, source filters and exact cosine target.
 //! Never invokes a model; inference timings live in the input corpus separately.
 use anyhow::{Result, ensure};
+#[cfg(feature = "lance")]
 use loklm_knowledge::lance::LanceStore;
+#[cfg(feature = "qdrant-bench")]
 use qdrant_client::{
     Qdrant,
     qdrant::{
@@ -11,7 +13,9 @@ use qdrant_client::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use std::{collections::HashSet, path::PathBuf, time::Instant};
+#[cfg(feature = "lance")]
+use std::path::PathBuf;
+use std::{collections::HashSet, time::Instant};
 
 #[derive(Clone, Deserialize)]
 struct Row {
@@ -31,12 +35,15 @@ struct Corpus {
     queries: Vec<Query>,
 }
 enum Store {
+    #[cfg(feature = "lance")]
     Lance(LanceStore),
+    #[cfg(feature = "qdrant-bench")]
     Qdrant(Qdrant, String),
 }
 impl Store {
     async fn add(&self, rows: &[Row]) -> Result<()> {
         match self {
+            #[cfg(feature = "lance")]
             Self::Lance(s) => {
                 s.add(
                     rows.iter()
@@ -45,6 +52,7 @@ impl Store {
                 )
                 .await?
             }
+            #[cfg(feature = "qdrant-bench")]
             Self::Qdrant(c, n) => {
                 c.upsert_points(
                     UpsertPointsBuilder::new(
@@ -68,12 +76,14 @@ impl Store {
     }
     async fn query(&self, q: &[f32], scope: &[String]) -> Result<Vec<i64>> {
         Ok(match self {
+            #[cfg(feature = "lance")]
             Self::Lance(s) => s
                 .search(q, scope, 5)
                 .await?
                 .into_iter()
                 .map(|h| h.chunk_id)
                 .collect(),
+            #[cfg(feature = "qdrant-bench")]
             Self::Qdrant(c, n) => {
                 let mut req = QueryPointsBuilder::new(n).query(q.to_vec()).limit(5);
                 if !scope.is_empty() {
@@ -97,7 +107,9 @@ impl Store {
     }
     async fn delete_source(&self, source: &str) -> Result<()> {
         match self {
+            #[cfg(feature = "lance")]
             Self::Lance(s) => s.replace_source(source, vec![]).await?,
+            #[cfg(feature = "qdrant-bench")]
             Self::Qdrant(c, n) => {
                 c.delete_points(
                     DeletePointsBuilder::new(n)
@@ -138,17 +150,23 @@ async fn main() -> Result<()> {
         "empty corpus"
     );
     let start = Instant::now();
-    let store = if args[1] == "lance" {
-        Store::Lance(LanceStore::open(&PathBuf::from(&args[3]), &corpus.model_fingerprint).await?)
-    } else {
-        let c = Qdrant::from_url(&args[3]).build()?;
-        let n = format!("loklm_bench_{}", uuid::Uuid::new_v4().simple());
-        c.create_collection(
-            CreateCollectionBuilder::new(&n)
-                .vectors_config(VectorParamsBuilder::new(1024, Distance::Cosine)),
-        )
-        .await?;
-        Store::Qdrant(c, n)
+    let store = match args[1].as_str() {
+        #[cfg(feature = "lance")]
+        "lance" => Store::Lance(
+            LanceStore::open(&PathBuf::from(&args[3]), &corpus.model_fingerprint).await?,
+        ),
+        #[cfg(feature = "qdrant-bench")]
+        "qdrant" => {
+            let c = Qdrant::from_url(&args[3]).build()?;
+            let n = format!("loklm_bench_{}", uuid::Uuid::new_v4().simple());
+            c.create_collection(
+                CreateCollectionBuilder::new(&n)
+                    .vectors_config(VectorParamsBuilder::new(1024, Distance::Cosine)),
+            )
+            .await?;
+            Store::Qdrant(c, n)
+        }
+        _ => anyhow::bail!("backend not compiled into this benchmark binary"),
     };
     let open_ms = start.elapsed().as_secs_f64() * 1000.;
     let start = Instant::now();
@@ -262,6 +280,7 @@ async fn main() -> Result<()> {
     let mut report = report;
     let t = Instant::now();
     match &store {
+        #[cfg(feature = "lance")]
         Store::Lance(_) => {
             let reopened =
                 LanceStore::open(&PathBuf::from(&args[3]), &corpus.model_fingerprint).await?;
@@ -273,6 +292,7 @@ async fn main() -> Result<()> {
                 "reopen lost rows"
             );
         }
+        #[cfg(feature = "qdrant-bench")]
         Store::Qdrant(_, name) => {
             report["collection"] = json!(name);
             let reopened = Qdrant::from_url(&args[3]).build()?;
@@ -295,6 +315,8 @@ async fn main() -> Result<()> {
     });
     std::fs::write(&args[4], serde_json::to_vec_pretty(&report)?)?;
     println!("{}", serde_json::to_string(&report)?);
+    #[cfg(feature = "qdrant-bench")]
+    #[allow(irrefutable_let_patterns)]
     if let Store::Qdrant(c, n) = store {
         if std::env::var_os("LOKLM_BENCH_KEEP_DISPOSABLE").is_none() {
             c.delete_collection(n).await?;

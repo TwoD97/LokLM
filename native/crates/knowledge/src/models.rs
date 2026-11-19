@@ -189,7 +189,7 @@ impl Reranker {
         );
         let docs: Vec<String> = docs
             .iter()
-            .map(|t| t.chars().take(2800).collect())
+            .map(|t| models::prepare_rerank_passage(t).to_owned())
             .collect();
         let request = self
             .http

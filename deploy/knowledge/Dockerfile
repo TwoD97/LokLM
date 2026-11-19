@@ -15,7 +15,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
 FROM build-env AS debug-benchmark
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/native/crates/knowledge/target \
     cargo build --locked --manifest-path native/crates/knowledge/Cargo.toml --features bench --examples -j 2 && \
-    cp native/crates/knowledge/target/debug/examples/stores_bench /stores_bench
+    cp native/crates/knowledge/target/debug/examples/stores_bench /stores_bench && \
+    cargo build --locked --manifest-path native/crates/knowledge/Cargo.toml --features qdrant-bench --example stores_bench -j 2 && \
+    cp native/crates/knowledge/target/debug/examples/stores_bench /stores_bench_qdrant
 
 FROM build-env AS build
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/native/crates/knowledge/target \
@@ -26,7 +28,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,targe
 FROM build AS benchmark-build
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/native/crates/knowledge/target \
     cargo build --locked --release --manifest-path native/crates/knowledge/Cargo.toml --features bench --example stores_bench -j 2 && \
-    cp native/crates/knowledge/target/release/examples/stores_bench /stores_bench
+    cp native/crates/knowledge/target/release/examples/stores_bench /stores_bench && \
+    cargo build --locked --release --manifest-path native/crates/knowledge/Cargo.toml --features qdrant-bench --example stores_bench -j 2 && \
+    cp native/crates/knowledge/target/release/examples/stores_bench /stores_bench_qdrant
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS runtime-base
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
@@ -42,6 +46,7 @@ CMD ["serve"]
 FROM runtime-base AS test-runtime
 COPY --from=build-env /loklm-knowledge /usr/local/bin/loklm-knowledge
 COPY --from=debug-benchmark /stores_bench /usr/local/bin/stores_bench
+COPY --from=debug-benchmark /stores_bench_qdrant /usr/local/bin/stores_bench_qdrant
 
 FROM runtime-base AS production-base
 COPY --from=build /loklm-knowledge /usr/local/bin/loklm-knowledge
@@ -49,5 +54,6 @@ COPY --from=build /licenses /usr/share/licenses/loklm/dependencies
 
 FROM production-base AS benchmark
 COPY --from=benchmark-build /stores_bench /usr/local/bin/stores_bench
+COPY --from=benchmark-build /stores_bench_qdrant /usr/local/bin/stores_bench_qdrant
 
 FROM production-base AS production

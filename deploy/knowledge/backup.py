@@ -44,8 +44,10 @@ def verify(archive:Path,target:Path|None=None):
         for member in tar:
             path=PurePosixPath(member.name)
             if not member.isfile() or path.is_absolute() or '..' in path.parts or ':' in member.name or '\\' in member.name:raise ValueError('unsafe archive path/type')
-            if member.name in seen or len(seen)>MAX_FILES:raise ValueError('duplicate or excessive entries')
-            seen.add(member.name);total+=member.size
+            if not path.parts or path.as_posix()!=member.name:raise ValueError('noncanonical archive path')
+            key=member.name.casefold() if os.name=='nt' else member.name
+            if key in seen or len(seen)>MAX_FILES:raise ValueError('duplicate or excessive entries')
+            seen.add(key);total+=member.size
             if total>MAX_BYTES:raise ValueError('archive too large')
             stream=tar.extractfile(member)
             if member.name==MANIFEST:
