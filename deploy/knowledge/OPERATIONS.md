@@ -56,6 +56,12 @@ project or overlay, pass `--project-name NAME --env-file FILE -f compose.yaml
    and recovery. The supplied stack publishes no host ports; `compose.local.yaml`
    adds loopback-only access for local administration, not LAN access.
 
+For an optional maintained HTTPS peer endpoint, follow [GATEWAY.md](GATEWAY.md)
+with `compose.gateway.yaml`. It requires operator-selected hostname/certificate
+files, defaults to loopback, and provides a separate read-only gateway preflight.
+Use this overlay instead of direct-port `compose.local.yaml` when serving peers;
+actual target-host and device trust validation remain required.
+
 The Unraid `unraid.xml` template starts **only** the knowledge daemon. Build its
 image locally first, create the private Compose network and configure its paths
 and UID/GID to match the stack. Do not run both the template daemon and Compose's

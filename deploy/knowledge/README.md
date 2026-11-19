@@ -11,6 +11,11 @@ conflict recovery, isolated restore and update/rollback procedure. The host need
 Docker Compose and Python 3.11+; their availability on fresh Unraid is a target-host
 prerequisite, not something these scripts silently install.
 
+For optional CouchDB peer HTTPS, see [GATEWAY.md](GATEWAY.md). The separately
+selected `compose.gateway.yaml` uses a pinned Nginx image, operator-supplied TLS
+files and loopback binding by default. It preserves CouchDB authentication and
+does not expose the knowledge API or administration UI; the base stack is unchanged.
+
 ## What is implemented
 
 * Portable Markdown/frontmatter UUIDs, original paths, heading locations and
