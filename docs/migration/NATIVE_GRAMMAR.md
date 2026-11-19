@@ -32,8 +32,10 @@ ordering, citation, source-span and rendering checks.
 
 `CheckedGeneration` exposes only the parsed result and token counts. It does
 **not** establish relevance, entailment, completeness, correct conflict
-classification or governing authority. The original evidence assessment,
-semantic acceptance and routing remain integration gates. This method is not
+classification or governing authority. The original bounded private reasoning,
+experimental evidence-assessment route and desktop routing remain integration
+gates. The original default checked route is separate from that experiment and
+also does not mechanically certify semantic truth. This method is not
 yet wired into the desktop answer action; existing UI/model evidence describes
 the basic streaming path at the recorded older source/artifact points.
 
@@ -72,8 +74,9 @@ require validation. See `native/THIRD_PARTY_NOTICES.md`.
 3. Coordinate an idle model window and ensure at least 8 GiB available physical
    RAM before running the same executable with `generate <Qwen4B.gguf>`.
    It loads only its own CPU2 Qwen4B model, uses synthetic German/English facts
-   and checks cited code answers, mismatched language rejection and cancellation
-   during a further request. It prints synthetic parsed answers and counts,
+   and checks cited code answers, basic-stream preservation, mismatched language
+   rejection, cancellation and session revocation during further requests.
+   It prints synthetic parsed answers and counts,
    never the private raw JSON/check field. Allow CPU time; no GPU is used.
 4. Keep prior desktop executable, UI and performance evidence separate. Do not
    infer UI checked-QA parity or a speed improvement from this harness.
@@ -81,3 +84,15 @@ require validation. See `native/THIRD_PARTY_NOTICES.md`.
 The Qwen4B SHA is the existing local compatibility pin, not an upstream
 authenticity attestation. No personal vault, original app or shared model
 process is opened or changed by these tests.
+
+## Recorded validation
+
+Source `5c3de0b` passed the 47-test native suite and strict all-target Clippy.
+Its release adapter passed the pinned-vocabulary checks and actual CPU2 DE/EN
+Qwen4B answers, basic streaming, language mismatch, cancel and session revocation.
+Exact executable/model hashes and outputs are in
+[native-checked-generation.json](evidence/native-checked-generation.json).
+The two structured answers used 731/754 actual input tokens and 88/93 output
+tokens, respectively. Cancellation/revocation finished in 1305/1288 ms measured
+from request entry, with the request sent after 150 ms. No private JSON was
+published. These are synthetic smoke observations, not comparative latency data.

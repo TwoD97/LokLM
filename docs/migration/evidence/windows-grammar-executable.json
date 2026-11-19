@@ -1,0 +1,58 @@
+{
+  "sourceCommit": "5c3de0bd39001a11adf0cf965708f65f06b9561d",
+  "uiSourceCommit": "7d927b6",
+  "build": "release, normal (no ui-test feature), Windows x64, CPU-only",
+  "result": {
+    "executable": "native/artifacts/loklm-native-grammar.exe",
+    "bytes": 14214144,
+    "sha256": "8cc1def218334ced9fa0e5e83d7fc3bf49f7d0319c29d7dec8f92f2284484660",
+    "checks": [
+      {
+        "fixture": "synthetic.pdf",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "broken-page.pdf",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "synthetic.docx",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "table.docx",
+        "imported": true,
+        "passed": true
+      },
+      {
+        "fixture": "header-reference.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "uppercase-media.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "inherited-list.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "default-list.docx",
+        "imported": false,
+        "passed": true
+      },
+      {
+        "fixture": "style-linked-list.docx",
+        "imported": false,
+        "passed": true
+      }
+    ],
+    "scope": "Normal executable private parser pipe modes; no GUI/model test or installer claim"
+  }
+}

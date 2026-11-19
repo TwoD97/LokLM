@@ -114,21 +114,29 @@ The enclosing `typed-comparison-v32` plan now matches 199 catalog admissions and
 235 parse attempts captured by 175 original tests. It owns the immutable source
 catalog, exact ordered schema and arithmetic references, and dispatches to the
 bounded ordinary, short-conflict and complete-passage renderers. See
-[COMPARISON_PLAN.md](COMPARISON_PLAN.md). Native constrained generation, checked
-prompt budgeting, semantic acceptance and desktop routing remain integration gates.
+[COMPARISON_PLAN.md](COMPARISON_PLAN.md). Typed parsing establishes source and
+envelope constraints, not semantic acceptance; desktop routing remains a gate.
 
 The exact checked prompt/context bundle is now ported and covered by 81 reference
 calls from 20 original/boundary tests, including four complete DE/EN contracts,
 arithmetic annotations and the summary allowance. See [CHECKED_PROMPTS.md](CHECKED_PROMPTS.md).
-It retains the all-fed immutable catalog but does not perform final token admission
-or activate native structured generation. The existing answer path remains the
-basic preview while context planning, constrained generation and routing are ported.
+It retains the all-fed immutable catalog. The existing desktop answer action
+remains the basic preview while the checked route is integrated.
 
 Estimated context planning is now ported: 43 complete allocations/rejections from
 31 original/boundary tests retain metadata, history and the final immutable checked
-bundle. See [CONTEXT_BUDGET.md](CONTEXT_BUDGET.md). Native tokenizer/template admission,
-schema-constrained generation and desktop checked-route integration remain pending;
-estimated fit is not permission to evaluate or a claim of semantic acceptance.
+bundle. See [CONTEXT_BUDGET.md](CONTEXT_BUDGET.md). Estimated fit is not permission
+to evaluate or a claim of semantic acceptance.
+
+The native inference adapter now performs exact tokenizer/template admission and
+buffered schema-constrained generation against that final bundle. It rejects
+incomplete/invalid output and revocation, and preserves JSON string contents.
+All 47 native tests and strict all-target Clippy pass at source `5c3de0b`.
+The 196 admitted original comparison schemas compile with the pinned C++ helper.
+See [NATIVE_GRAMMAR.md](NATIVE_GRAMMAR.md) for the explicit synthetic model harness
+and the distinction between structural validation and semantic QA. The original
+experimental evidence-assessment route is separate from normal checked QA;
+bounded private reasoning and full checked-route parity are still pending.
 
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN

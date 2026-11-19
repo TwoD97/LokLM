@@ -90,6 +90,19 @@ to that explicit test binary. Never distribute the ui-test build.
 `native/artifacts/loklm-native-ui-test.exe`. It copies that test vault before
 checking real generation lock/revocation. No personal vault is discovered or used.
 
+## Native grammar adapter
+
+The native grammar adapter has a separate synthetic vocabulary/model harness in
+[NATIVE_GRAMMAR.md](NATIVE_GRAMMAR.md), with numbered setup and DE/EN, invalid
+source, UTF-8, cancellation and lock checks. Its results do not imply that the
+desktop answer action has switched to the checked route.
+
+After building the normal executable, run
+`python native/scripts/normal-workers.py native/target/release/loklm-native.exe`
+with Python 3.11 or later. Expect nine synthetic PDF/DOCX worker checks and an
+executable hash. This exercises private parser entry points without opening a
+GUI or a vault; the real UI workflow above remains separate.
+
 ## Copy-only migration / rollback
 
 `core::migration::copy_snapshot` stages and hash-verifies an entire closed vault
