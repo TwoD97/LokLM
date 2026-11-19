@@ -117,6 +117,13 @@ bounded ordinary, short-conflict and complete-passage renderers. See
 [COMPARISON_PLAN.md](COMPARISON_PLAN.md). Native constrained generation, checked
 prompt budgeting, semantic acceptance and desktop routing remain integration gates.
 
+The exact checked prompt/context bundle is now ported and covered by 81 reference
+calls from 20 original/boundary tests, including four complete DE/EN contracts,
+arithmetic annotations and the summary allowance. See [CHECKED_PROMPTS.md](CHECKED_PROMPTS.md).
+It retains the all-fed immutable catalog but does not perform final token admission
+or activate native structured generation. The existing answer path remains the
+basic preview while context planning, constrained generation and routing are ported.
+
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
 lexical search, indexed source opening, inert malicious text, no-results,
