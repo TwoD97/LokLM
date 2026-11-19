@@ -9,10 +9,10 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 15 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 6 original shared compatibility fixtures under the daemon lock |
+| Windows knowledge crate | 16 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 7 original shared compatibility fixtures under the daemon lock |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
-| Shared pure core | 12 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote fixture tests; storage feature disabled |
-| Linux container with Lance | Optimized production build passes; 16 tests pass (Windows cases plus Unix symlink rejection), including shared reranker preparation, HTTP score normalization and source-quote fixtures |
+| Shared pure core | 13 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote + 1 source-quantity fixture tests; storage feature disabled |
+| Linux container with Lance | Optimized production build passes; 17 tests pass (Windows cases plus Unix symlink rejection), including shared reranker preparation, HTTP score normalization and source-quote/quantity fixtures |
 | Python source backup | 2 tests pass: Unicode/binary roundtrip, no overwrite, hostile archive traversal refused |
 | Python prepare-new-vault | 2 tests pass: original bytes preserved, CRLF/frontmatter and attachments, persistent IDs on repeat copy, duplicate ID rejection |
 | Fresh provisioning | Actual packaged CouchDB configuration + upstream CLI setup passes; settings mode0600, E2EE, nonadmin sync user, repeated initialization refused |
@@ -28,6 +28,15 @@ available for future checked-QA integration; current generated answers still
 validate citation identity only. This integration loads no models and does not
 change the previously tested answer transport or model fingerprints. Its rebuilt
 image and the earlier actual-model image are recorded separately in the evidence.
+
+Quantity integration at `449ea7d` adds the pure `3758800` helper and one test
+comparing 307 complete original TypeScript outputs and exact UTF-16 spans.
+This covers DE/EN units, rational string values, ambiguous/currency/rate
+rejection, duplicate identities and resource limits. The standalone lock adds
+only a core dependency edge to already-pinned regex 1.13.2, without importing
+desktop storage. The fixture generator passes ESLint. Like source quotes, these
+annotations are not yet applied to generated-answer validation; no new arithmetic
+correctness, scope or entailment guarantee is claimed for that endpoint.
 
 The actual model smoke uses pinned llama.cpp b12359, two CPU threads per
 dedicated provider, no GPU, a 10 GiB physical-memory admission check and a 2 GiB
