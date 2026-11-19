@@ -5,6 +5,7 @@ pub mod models;
 pub mod qa;
 pub mod retrieval;
 pub mod session;
+pub mod source_calculations;
 pub mod source_quantities;
 pub mod source_quote;
 #[cfg(feature = "storage")]
