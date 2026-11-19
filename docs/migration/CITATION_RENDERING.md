@@ -39,8 +39,8 @@ regex backtracking are explicitly covered; simply using Rust's Unicode whitespac
 classes or a greedy escape scanner changed the original results.
 
 These are presentation/identity checks, **not claim-support, entailment or semantic
-prompt-injection checks**. They are not yet wired into desktop structured answer
-generation or the UI. The previously measured executable and actual-model evidence
+prompt-injection checks**. The complete structured route is not yet active in the
+desktop. The previously measured executable and actual-model evidence
 remain separate artifact points; no new inference or performance result is implied.
 
 ## Manual testing
@@ -53,4 +53,32 @@ remain separate artifact points; no new inference or performance result is impli
 3. Inspect the original source-linked test cases and corresponding fixture entries:
    a supplied plain-prose record receives a visible marker; an unknown source,
    unclosed code/math block or injected marker rejects. Literal examples retain
-   their bytes. This helper does not change the current desktop UI behavior.
+   their bytes. Structured generation is validated separately from UI wiring.
+
+## Basic answer gate and citation buttons
+
+Pure-core `49c4f7e` changes the preview's basic answer gate to use the existing
+literal mask. Inline code, escaped markers, link destinations, comments and
+flow-math blocks do not count as citations. Unknown markers in those literal
+regions remain text. Every visible marker must still use canonical spelling,
+safe positive IDs and an identity supplied to that turn. A malformed visible
+suffix must fail even after a valid marker; replacing the first marker with
+spaces before validation could incorrectly hide the suffix as indented code.
+The original 5,108 helper outputs are unchanged; 25 pure-core tests and strict
+Clippy pass. Inline-math behavior is not changed by this adapter.
+
+The desktop sends validated UTF-16 marker positions alongside final answers.
+The Rust UI uses only those positions and the returned source set for buttons.
+It no longer scans raw answer text for marker-looking substrings. Provisional
+streamed text has no buttons. Invalid IDs, missing sources, overlapping/out-of-
+range positions, split Unicode scalars or unexpected marker text cause a plain
+text fallback for the whole answer. Two Rust UI tests cover Unicode/literal
+prefixes and fail-closed metadata handling; they are included in native CI.
+
+Run `cargo test --locked -p loklm-ui --manifest-path native/Cargo.toml` for the UI
+boundary tests. For actual generator-only UI validation, use the existing
+`native-ui.mjs` harness with `LOKLM_TEST_GENERATOR_ONLY=1`,
+`LOKLM_TEST_GENERATION=1` and the explicit `LOKLM_TEST_MODELS_DIR`. It performs
+real lexical retrieval, DE/EN Qwen4B answers, source-button opening and stream
+cancel/lock; it skips embedding/reranking and cannot combine with
+`LOKLM_TEST_COMBINED=1`. Synthetic import and vault lifecycle checks still run.

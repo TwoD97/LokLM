@@ -21,7 +21,7 @@ jobs:
         run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt
       - name: Check formatting
         run: cargo +1.95.0 fmt --all --manifest-path native/Cargo.toml -- --check
-      - name: Test encrypted core and document parser
-        run: cargo +1.95.0 test --locked -p loklm-core -p loklm-documents --manifest-path native/Cargo.toml
+      - name: Test encrypted core, document parser and Rust UI citation boundaries
+        run: cargo +1.95.0 test --locked -p loklm-core -p loklm-documents -p loklm-ui --manifest-path native/Cargo.toml
       - name: Exercise isolated Windows parser
         run: cargo +1.95.0 run --locked -p loklm-documents --example isolated --manifest-path native/Cargo.toml

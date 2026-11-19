@@ -597,6 +597,8 @@ impl Runtime {
                                     stream.send(text.to_owned()).map_err(|_| Error::Revoked)
                                 })?;
                             let cited = qa::validate_citations(&answer, &supplied)?;
+                            let citations =
+                                loklm_core::citation_markers::find_citation_matches(&answer);
                             let sources = hits
                                 .into_iter()
                                 .filter(|h| {
@@ -606,7 +608,7 @@ impl Runtime {
                                 })
                                 .collect::<Vec<_>>();
                             Ok(
-                                json!({"answer":answer,"hits":sources,"mode":mode,"epoch":ticket.epoch()}),
+                                json!({"answer":answer,"citations":citations,"hits":sources,"mode":mode,"epoch":ticket.epoch()}),
                             )
                         }
                         Request::Source {

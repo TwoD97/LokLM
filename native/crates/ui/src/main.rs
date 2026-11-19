@@ -3,6 +3,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
+mod answer_parts;
 
 #[wasm_bindgen]
 unsafe extern "C" {
@@ -59,6 +60,7 @@ struct Ui {
     generation: RwSignal<u64>,
     message: RwSignal<String>,
     answer: RwSignal<String>,
+    answer_citations: RwSignal<Vec<Value>>,
     answering: RwSignal<bool>,
 }
 impl Ui {
@@ -69,6 +71,7 @@ impl Ui {
         self.recovery.set(String::new());
         self.message.set(String::new());
         self.answer.set(String::new());
+        self.answer_citations.set(vec![]);
         self.answering.set(false);
     }
     fn run(self, input: Value) {
@@ -78,6 +81,7 @@ impl Ui {
         let asking = input["action"] == "ask";
         if asking {
             self.answer.set(String::new());
+            self.answer_citations.set(vec![]);
             self.hits.set(vec![]);
             self.source.set(Value::Null);
             self.answering.set(true);
@@ -87,10 +91,9 @@ impl Ui {
                 request_stream(input, move |part| {
                     if self.generation.get_untracked() == generation
                         && self.answering.get_untracked()
+                        && let Some(part) = part.as_string()
                     {
-                        if let Some(part) = part.as_string() {
-                            self.answer.update(|s| s.push_str(&part));
-                        }
+                        self.answer.update(|s| s.push_str(&part));
                     }
                 })
                 .await
@@ -140,6 +143,8 @@ impl Ui {
                         self.recovery.set(r.into());
                     }
                     if let Some(answer) = value["answer"].as_str() {
+                        self.answer_citations
+                            .set(value["citations"].as_array().cloned().unwrap_or_default());
                         self.answer.set(answer.into());
                         self.message
                             .set("Answer — verify any claims against the linked sources.".into());
@@ -159,30 +164,15 @@ impl Ui {
         self.run(json!({"action":"lock"}));
     }
 }
-fn answer_view(answer: String, hits: Vec<Value>, ui: Ui) -> impl IntoView {
-    let mut parts = Vec::new();
-    let mut tail = answer.as_str();
-    while let Some(start) = tail.find("[doc:") {
-        parts.push(view! {<span>{tail[..start].to_string()}</span>}.into_any());
-        tail = &tail[start..];
-        let Some(end) = tail.find(']') else {
-            break;
-        };
-        let marker = tail[..=end].to_string();
-        if let Some(hit) = hits
-            .iter()
-            .find(|h| format!("[doc:{}, chunk:{}]", h["document_id"], h["chunk_id"]) == marker)
-        {
-            let id = hit["chunk_id"].as_i64().unwrap_or(0);
+fn answer_view(answer: String, citations: Vec<Value>, hits: Vec<Value>, ui: Ui) -> impl IntoView {
+    answer_parts::segments(&answer, &citations, &hits).into_iter().map(|part| {
+        if let Some(id) = part.chunk_id {
             let workspace = ui.status.get_untracked()["workspace"].as_u64().unwrap_or(0);
-            parts.push(view!{<button class="citation" on:click=move|_|ui.run(json!({"action":"source","chunk_id":id,"workspace":workspace}))>{marker}</button>}.into_any());
+            view!{<button class="citation" on:click=move|_|ui.run(json!({"action":"source","chunk_id":id,"workspace":workspace}))>{part.text}</button>}.into_any()
         } else {
-            parts.push(view! {<span>{marker}</span>}.into_any());
+            view! {<span>{part.text}</span>}.into_any()
         }
-        tail = &tail[end + 1..];
-    }
-    parts.push(view! {<span>{tail.to_string()}</span>}.into_any());
-    parts.collect_view()
+    }).collect_view()
 }
 #[component]
 fn App() -> impl IntoView {
@@ -197,6 +187,7 @@ fn App() -> impl IntoView {
         generation: RwSignal::new(0),
         message: RwSignal::new(String::new()),
         answer: RwSignal::new(String::new()),
+        answer_citations: RwSignal::new(vec![]),
         answering: RwSignal::new(false),
     };
     let name = RwSignal::new(String::new());
@@ -213,12 +204,13 @@ fn App() -> impl IntoView {
         if !ui.busy.get_untracked() && ui.status.get_untracked()["unlocked"] == true {
             let generation = ui.generation.get_untracked();
             spawn_local(async move {
-                if let Ok(s) = request(json!({"action":"status"})).await {
-                    if generation == ui.generation.get_untracked() && s["unlocked"] != true {
-                        ui.generation.update(|n| *n += 1);
-                        ui.clear();
-                        ui.status.set(s);
-                    }
+                if let Ok(s) = request(json!({"action":"status"})).await
+                    && generation == ui.generation.get_untracked()
+                    && s["unlocked"] != true
+                {
+                    ui.generation.update(|n| *n += 1);
+                    ui.clear();
+                    ui.status.set(s);
                 }
             });
         }
@@ -253,7 +245,7 @@ fn App() -> impl IntoView {
                 <p class="muted">"At least 10 characters; include 3 of uppercase, lowercase, numbers and symbols."</p>
                 <Show when=move||!ui.error.get().is_empty()><div class="error" role="alert">{move||ui.error.get()}</div></Show>
                 <button class="primary" disabled=move||ui.busy.get() on:click=authenticate>{move||if ui.busy.get(){"Opening…"}else if recovering.get(){"Reset password"}else if ui.status.get()["registered"]==true{"Unlock"}else{"Create encrypted vault"}}</button>
-                <Show when=move||ui.status.get()["registered"]==true><button on:click=move|_|{recovering.update(|v|*v=!*v);password.set(String::new());phrase.set(String::new());}>{move||if recovering.get(){"Back to unlock"}else{"Recover with saved phrase"}}</button></Show>
+                <Show when=move||ui.status.get()["registered"]==true><button on:click=move|_|{recovering.update(|v|*v = !*v);password.set(String::new());phrase.set(String::new());}>{move||if recovering.get(){"Back to unlock"}else{"Recover with saved phrase"}}</button></Show>
             </main>
         }>
             <div class="layout">
@@ -292,7 +284,7 @@ fn App() -> impl IntoView {
                     <div class="toolbar"><select aria-label="Answer language" style="width:150px" prop:value=move||language.get() on:change=move|e|language.set(event_target_value(&e))><option value="en">"English"</option><option value="de">"Deutsch"</option></select><button class="primary" disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"ask","query":query.get_untracked(),"language":language.get_untracked()}))>"Ask with sources"</button></div>
                     <Show when=move||!ui.error.get().is_empty()><div class="error" role="alert">{move||ui.error.get()}</div></Show>
                     <p class="status" role="status">{move||if ui.busy.get(){"Working…".into()}else{ui.message.get()}}</p>
-                    <Show when=move||!ui.answer.get().is_empty()><section class="panel answer"><h2>{move||if ui.answering.get(){"Provisional answer · checking citations"}else{"Answer"}}</h2><div class="source">{move||answer_view(ui.answer.get(),ui.hits.get(),ui)}</div></section></Show>
+                    <Show when=move||!ui.answer.get().is_empty()><section class="panel answer"><h2>{move||if ui.answering.get(){"Provisional answer · checking citations"}else{"Answer"}}</h2><div class="source">{move||answer_view(ui.answer.get(),ui.answer_citations.get(),ui.hits.get(),ui)}</div></section></Show>
                     <div class="columns"><section class="panel"><h2>"Source passages"</h2>
                         <Show when=move||!ui.hits.get().is_empty() fallback=||view!{<div class="empty">"Your sources will appear here."<br/>"Import a document and search its contents."</div>}>
                             {move||ui.hits.get().into_iter().enumerate().map(|(i,h)|{let id=h["chunk_id"].as_i64().unwrap_or(0);let workspace=ui.status.get_untracked()["workspace"].as_u64().unwrap_or(0);let title=format!("[{}] {}",i+1,h["title"].as_str().unwrap_or(""));let text=h["text"].as_str().unwrap_or("").chars().take(350).collect::<String>();view!{<button class="hit" on:click=move|_|ui.run(json!({"action":"source","chunk_id":id,"workspace":workspace}))><strong>{title}</strong><p>{text}</p></button>}}).collect_view()}

@@ -77,6 +77,10 @@ test driver only; the native application does not load a Node backend.
 For optional real CPU model tests, set `LOKLM_TEST_MODELS_DIR` to the directory
 containing the existing canonical GGUF files and `LOKLM_TEST_GENERATION=1`.
 Allow several minutes and adequate free RAM; do not overlap other model jobs.
+`LOKLM_TEST_GENERATOR_ONLY=1` with those same settings skips embedding/reranking
+and tests real lexical retrieval, bilingual generation, citation opening and
+stream cancel/lock using only the Qwen4B model. It cannot be combined with the
+combined-residency flag.
 `LOKLM_TEST_COMBINED=1` additionally keeps the embedding and reranking models
 loaded with generation and checks locking during streaming; use with the model
 directory and generation flags. `LOKLM_TEST_PDF=1` selects the simple PDF fixture
