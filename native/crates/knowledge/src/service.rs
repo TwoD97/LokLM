@@ -25,6 +25,8 @@ pub struct App {
     pub locked: AtomicBool,
     pub cancel: CancellationToken,
     pub last_error: Mutex<Option<String>>,
+    // Process-local: a restored checkpoint alone must never imply readiness.
+    ready_at: Mutex<Option<std::time::Instant>>,
     requests: Mutex<std::collections::HashMap<String, CancellationToken>>,
 }
 impl App {
@@ -37,6 +39,7 @@ impl App {
             locked: AtomicBool::new(false),
             cancel: CancellationToken::new(),
             last_error: Mutex::new(None),
+            ready_at: Mutex::new(None),
             requests: Mutex::new(std::collections::HashMap::new()),
         })
     }
@@ -44,12 +47,16 @@ impl App {
         let _guard = self.gate.lock().await;
         anyhow::ensure!(!self.locked.load(Ordering::Acquire), "locked");
         let result = self.index.reconcile(&self.vault, &self.cancel).await;
+        self.record_reconcile(&result).await;
+        result
+    }
+    async fn record_reconcile(&self, result: &anyhow::Result<crate::index::Status>) {
         // Detailed errors belong to a local administrator; HTTP never leaks paths/content.
         *self.last_error.lock().await = result
             .as_ref()
             .err()
             .map(|_| "reconcile_failed".to_string());
-        result
+        *self.ready_at.lock().await = result.as_ref().ok().map(|_| std::time::Instant::now());
     }
     fn verify_evidence(&self, hits: &[crate::index::Hit]) -> anyhow::Result<()> {
         let mut seen = std::collections::HashSet::new();
@@ -70,6 +77,7 @@ pub fn router(app: Arc<App>) -> Router {
         .merge(
             Router::new()
                 .route("/v1/status", get(status))
+                .route("/v1/ready", get(ready))
                 .route("/v1/search", post(search))
                 .route("/v1/answer", post(answer))
                 .route("/v1/cancel/{id}", post(cancel_request))
@@ -102,6 +110,29 @@ async fn status(State(app): State<Arc<App>>) -> Response {
         return (StatusCode::LOCKED, Json(json!({"locked":true}))).into_response();
     }
     match app.index.status(){Ok(s)=>Json(json!({"api_version":1,"index":s,"fingerprint":app.index.fingerprint,"dense":app.index.model.is_some(),"last_error":*app.last_error.lock().await})).into_response(),Err(_)=>StatusCode::SERVICE_UNAVAILABLE.into_response()}
+}
+async fn ready(State(app): State<Arc<App>>) -> Response {
+    if app.locked.load(Ordering::Acquire) {
+        return (
+            StatusCode::LOCKED,
+            Json(json!({"ready":false,"locked":true})),
+        )
+            .into_response();
+    }
+    let age = app.ready_at.lock().await.map(|at| at.elapsed().as_secs());
+    let ready = age.is_some_and(|seconds| seconds < 90);
+    (
+        if ready {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        },
+        Json(
+            json!({"ready":ready,"scope":"local_index","last_reconcile_age_seconds":age,
+            "sync_convergence":"not_measured","model_availability":"not_probed"}),
+        ),
+    )
+        .into_response()
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -220,10 +251,7 @@ async fn reconcile(State(app): State<Arc<App>>) -> Response {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let result = app.index.reconcile(&app.vault, &app.cancel).await;
-    *app.last_error.lock().await = result
-        .as_ref()
-        .err()
-        .map(|_| "reconcile_failed".to_string());
+    app.record_reconcile(&result).await;
     match result {
         Ok(s) => Json(s).into_response(),
         Err(_) => StatusCode::CONFLICT.into_response(),

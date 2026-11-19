@@ -1,0 +1,17 @@
+{
+  "observed_date": "2026-11-19",
+  "base_source_commit": "08b12bf",
+  "environment": "WSL Ubuntu, actual Docker Compose stack, synthetic disposable data",
+  "project": "loklm-accept-aa598884444c-first",
+  "command": "docker compose [isolated project/env/fixture image overrides] up --no-build --pull never -d knowledge livesync",
+  "sanitized_stderr_excerpt": [
+    "Container loklm-accept-aa598884444c-first-couchdb-1 Running",
+    "Container loklm-accept-aa598884444c-first-livesync-1 Creating",
+    "Container loklm-accept-aa598884444c-first-knowledge-1 Creating",
+    "Container loklm-accept-aa598884444c-first-livesync-1 Error response from daemon: invalid mount path: 'mode=1777' mount path must be absolute",
+    "Error response from daemon: invalid mount path: 'mode=1777' mount path must be absolute"
+  ],
+  "cause": "Unquoted commas in flow-style YAML tmpfs lists split mount options into a second list element; Compose config succeeded but actual container creation failed.",
+  "fix": "Quote full tmpfs entries in base, model and answer overlays; preflight rejects entries lacking an absolute mount path.",
+  "cleanup": "Fixture finally ran only its UUID project down --volumes --remove-orphans; subsequent docker ps listed only the pre-existing mika-home-assistant container 06a7ef96aa41."
+}

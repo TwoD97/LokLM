@@ -14,6 +14,13 @@ import subprocess
 def checks(config):
     issues = []
     services = config.get('services', {})
+    for name, service in services.items():
+        mounts = service.get('tmpfs', [])
+        if isinstance(mounts, str):
+            mounts = [mounts]
+        for mount in mounts:
+            if not isinstance(mount, str) or not mount.split(':', 1)[0].startswith('/'):
+                issues.append(name + ': tmpfs entries must start with an absolute mount path; quote comma-containing YAML values')
     directories = {}
     for service, target, label in (
         ('knowledge', '/knowledge', 'knowledge'), ('knowledge', '/index', 'index'),

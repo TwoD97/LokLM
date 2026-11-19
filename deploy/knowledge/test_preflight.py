@@ -72,6 +72,12 @@ class HostPreflightTests(unittest.TestCase):
         mounts.append(deepcopy(mounts[0]))
         self.assertIn('knowledge: missing unique bind mount', checks(self.config))
 
+    def test_yaml_split_tmpfs_options_are_rejected(self):
+        self.config['services']['knowledge']['tmpfs'] = ['/tmp:size=64m', 'mode=1777']
+        self.assertTrue(any('tmpfs entries must start' in issue for issue in checks(self.config)))
+        self.config['services']['knowledge']['tmpfs'] = ['/tmp:size=64m,mode=1777']
+        self.assertEqual(checks(self.config), [])
+
     @unittest.skipUnless(os.name == 'posix', 'Unix file modes')
     def test_public_secret_permissions(self):
         Path(self.config['secrets']['api_token']['file']).chmod(0o644)

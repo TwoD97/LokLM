@@ -6,6 +6,11 @@ session. It is a separate deployment from the desktop app and Macro/Zero.
 **Do not attach this development release to an existing production vault or DB.**
 The local tests exclusively use disposable databases and synthetic notes.
 
+Start with [OPERATIONS.md](OPERATIONS.md) for the first-run checklist, readiness,
+conflict recovery, isolated restore and update/rollback procedure. The host needs
+Docker Compose and Python 3.11+; their availability on fresh Unraid is a target-host
+prerequisite, not something these scripts silently install.
+
 ## What is implemented
 
 * Portable Markdown/frontmatter UUIDs, original paths, heading locations and
@@ -66,7 +71,10 @@ remote edits into that directory. Editors and LiveSync are the file writers;
 there is no second Rust-to-CouchDB sync path and no index-to-file writeback loop.
 Simultaneous remote edits follow upstream revision/conflict rules. The current
 winning file may be indexed while a conflicting branch is retained remotely;
-the Rust index does not itself expose every CouchDB conflict. Inspect upstream
+the Rust index does not itself expose every CouchDB conflict. Stop this stack's
+LiveSync daemon and run `python3 manage.py conflicts` for an upstream CLI conflict
+inventory; never open a second CLI process on the running daemon's PouchDB state.
+Inspect upstream
 `info PATH`, recover both versions using `pull-rev PATH DEST REV`, review, then
 explicitly `resolve PATH REV` and sync. Never resolve blindly or change a vault's
 encryption/sync settings on an established database.
@@ -159,6 +167,8 @@ From `deploy/knowledge`:
    **no host ports**. Without model settings, `/v1/status` reports `dense:false`.
    For local administration only add `-f compose.yaml -f compose.local.yaml`
    consistently; this publishes localhost ports 8787 and 5984 only.
+   Run `python3 manage.py doctor` with the same project/env/overlay options to
+   check local readiness and authenticated remote access without printing secrets.
 6. Connect Obsidian Self-hosted LiveSync using its supported configuration UI,
    the non-admin sync user from the local private `appdata/livesync/settings.json`,
    database `loklm-knowledge`, and the exact passphrase/options. For another device
@@ -170,7 +180,10 @@ From `deploy/knowledge`:
 `/_up` is the only anonymous CouchDB health route; all document routes require
 authentication. `_security` restricts the knowledge DB to the dedicated sync user
 and admin. The daemon's `/healthz` means process alive, **not** successful indexing
-or remote synchronization. Authenticated `/v1/status` reports counts, generation,
+or remote synchronization. Authenticated `/v1/ready` requires a successful scan
+in this process less than 90 seconds ago and reports 503 after scan failure or
+staleness (423 after lock); it does not probe models or prove sync convergence.
+Authenticated `/v1/status` reports counts, generation,
 last successful reconcile timestamp, latest embed/cache counts and a sanitized
 reconcile error. Check upstream CLI sync/conflict status separately.
 For a detailed local reconciliation error, stop only the knowledge service and
@@ -227,7 +240,8 @@ The token owns one entire vault instance. `source_ids` is a retrieval filter,
 **not a per-user ACL**. For separate trust domains deploy separate vault/index/
 LiveSync DB/user/token instances. HTTP bodies are capped at 16 KiB.
 
-* `GET /v1/status`, `GET /v1/sources` (UUID/path/hash, outgoing wiki-links,
+* `GET /v1/ready` (recent local reconciliation), `GET /v1/status`,
+  `GET /v1/sources` (UUID/path/hash, outgoing wiki-links,
   resolved incoming source IDs, unresolved/ambiguous links). Resolution uses exact
   relative paths or unique basenames; it does not claim complete Obsidian resolver
   equivalence. The link inventory is capped at 100,000 references.
@@ -293,6 +307,18 @@ docker build --target test-runtime -f deploy/knowledge/Dockerfile -t loklm-test-
 python3 deploy/knowledge/test_provision.py
 LOKLM_TEST_MODELS=/absolute/read-only/model-cache python3 deploy/knowledge/test_livesync.py
 ```
+
+For the exact production Compose/setup profile and isolated source-restore drill,
+use the newly built production image and existing pinned test sidecars (no models):
+
+```sh
+LOKLM_KNOWLEDGE_TEST_IMAGE=loklm-knowledge:0.1.0 python3 deploy/knowledge/test_compose.py
+python3 -m unittest discover -s deploy/knowledge -p 'test_*.py'
+```
+
+The first command starts only UUID-named disposable projects and publishes no
+host ports. The unittest command runs host-script unit tests; Docker integration
+scripts require their explicit commands and are not executed by discovery.
 
 Omit `LOKLM_TEST_MODELS` for explicitly lexical-only integration. Tests create
 UUID-prefixed resources and delete only those resources. They never use production
