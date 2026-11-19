@@ -55,6 +55,7 @@ http {
         location = /_up { proxy_pass http://couchdb_peer; }
         location = /_session { proxy_pass http://couchdb_peer; }
         # The existing initializer fixes this per-instance database name.
+        location ~ ^/loklm-knowledge/_(security|revs_limit|purge|compact|view_cleanup)(/|$) { return 404; }
         location = /loklm-knowledge { proxy_pass http://couchdb_peer; }
         location /loklm-knowledge/ { proxy_pass http://couchdb_peer; }
         # No Fauxton, server config, user DB, all-database listing or knowledge API.

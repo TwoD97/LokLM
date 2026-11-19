@@ -51,8 +51,9 @@ strips client-supplied CouchDB proxy-auth headers. Use the existing **non-admin
 `loklm-sync` credentials** and database `loklm-knowledge`. No new gateway password
 is created. Session cookies receive Secure/HttpOnly flags; CORS remains the existing
 CouchDB origin allowlist. Root server information, `/_up`, `/_session` and this
-database's routes are available; Fauxton, server configuration, `_users`, database
-listing and unrelated paths are blocked. Database authorization is still enforced
+database's replication routes are available; Fauxton, server configuration, `_users`,
+database listing, security/revision policy, purge/compaction and unrelated paths
+are blocked. Database authorization is still enforced
 by CouchDB; the path allowlist is not a replacement for its security policy.
 
 The knowledge API is not routed by this overlay. Its private bearer-token boundary

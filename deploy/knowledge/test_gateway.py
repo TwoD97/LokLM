@@ -192,17 +192,29 @@ def main():
         auth = base64.b64encode((settings['couchDB_USER'] + ':' + settings['couchDB_PASSWORD']).encode()).decode()
         expect(settings['couchDB_USER'] == 'loklm-sync' and https('/loklm-knowledge', auth=auth)[0] == 200,
                'dedicated non-admin sync credentials remain authoritative')
-        # Use a valid security object: malformed bodies can fail validation before
-        # authorization, which does not establish the non-admin permission boundary.
-        before_security = https('/loklm-knowledge/_security', auth=auth)[1]
-        security_status = https('/loklm-knowledge/_security', auth=auth, method='PUT', data={
-            'admins': {'names': [], 'roles': []}, 'members': {'names': [], 'roles': []}})[0]
-        expect(security_status in [401, 403],
-               'non-admin peer cannot change database security policy (HTTP ' + str(security_status) + ')')
-        expect(https('/loklm-knowledge/_security', auth=auth)[1] == before_security,
-               'denied security update preserves existing database policy')
+        couch_id = run(compose + ['ps', '-q', 'couchdb']).stdout.decode().strip()
+        couch_info = json.loads(run(['docker', 'inspect', couch_id]).stdout)[0]
+        couch_ip = next(iter(couch_info['NetworkSettings']['Networks'].values()))['IPAddress']
+        def read_private_policy():
+            direct = http.client.HTTPConnection(couch_ip, 5984, timeout=10)
+            try:
+                direct.request('GET', '/loklm-knowledge/_security', headers={'Authorization': 'Basic ' + auth})
+                response = direct.getresponse()
+                if response.status != 200:
+                    raise AssertionError('private read of fixture security policy')
+                return json.loads(response.read())
+            finally:
+                direct.close()
+        before_security = read_private_policy()
+        expect(before_security['members']['names'] == ['loklm-sync'] and
+               https('/loklm-knowledge/_security', auth=auth, method='PUT', data={
+                   'admins': {'names': [], 'roles': []}, 'members': {'names': [], 'roles': []}})[0] == 404,
+               'peer gateway excludes database security administration')
+        expect(read_private_policy() == before_security, 'blocked security update preserves exact backend policy')
         for path in ['/_utils/', '/_all_dbs', '/_users', '/_node/_local/_config', '/v1/status',
-                     '/loklm-knowledge/../_users', '/%5futils/', '/loklm-knowledge/%2e%2e/_users']:
+                     '/loklm-knowledge/../_users', '/%5futils/', '/loklm-knowledge/%2e%2e/_users',
+                     '/loklm-knowledge/_security/', '/loklm-knowledge/%5fsecurity',
+                     '/loklm-knowledge/_purge', '/loklm-knowledge/_compact']:
             expect(https(path, auth=auth)[0] == 404, 'gateway excludes administrative or unrelated route ' + path)
         code, _, headers = https('/_session', method='POST', data={'name': settings['couchDB_USER'],
                                                                 'password': settings['couchDB_PASSWORD']})
