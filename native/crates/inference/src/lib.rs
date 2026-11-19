@@ -8,8 +8,11 @@ use llama_cpp_2::{
     sampling::LlamaSampler,
 };
 use loklm_core::{
-    Error, Result,
+    Error, Result, checked_answer,
+    comparison_answer::{ComparisonPlan, ParsedAnswer},
+    context_budget::ContextPlan,
     models::{self, Embedder},
+    qa::Language,
     session::Ticket,
 };
 use sha2::{Digest, Sha256};
@@ -95,6 +98,59 @@ pub fn verify_qwen_template(path: &Path, ticket: &Ticket) -> Result<()> {
 }
 
 pub const RUNTIME_ID: &str = "llama-cpp-2-0.1.161-cpu-v1";
+/// Generation provenance is separate from embedding/index identity. Enabling
+/// common adds the pinned C++ schema compiler; it does not select another model.
+pub const CHECKED_GENERATION_VERSION: &str = "qwen-chatml-gbnf-typed-comparison-v32-1";
+
+pub struct CheckedGeneration {
+    pub parsed: ParsedAnswer,
+    pub prompt_tokens: usize,
+    /// Includes the EOG token; no private JSON or model check is exposed.
+    pub output_tokens: usize,
+}
+struct GenerationInput<'a> {
+    system: &'a str,
+    prompt: &'a str,
+    max_output: usize,
+    window: usize,
+    margin: usize,
+    grammar: Option<&'a str>,
+}
+struct Generated {
+    raw: Zeroizing<String>,
+    prompt_tokens: usize,
+    output_tokens: usize,
+}
+fn admit_tokens(prompt: usize, output: usize, window: usize, margin: usize) -> Result<()> {
+    if window == 0
+        || window > 8192
+        || output == 0
+        || prompt
+            .checked_add(output)
+            .and_then(|n| n.checked_add(margin))
+            .is_none_or(|n| n > window)
+    {
+        return Err(fail(
+            "Prompt plus answer exceeds model context; reduce supplied evidence",
+        ));
+    }
+    Ok(())
+}
+fn checked_grammar(plan: &ComparisonPlan) -> Result<String> {
+    // Only our immutable program-owned schema reaches the C++ compiler. This
+    // API never accepts user JSON Schema, remote references or arbitrary GBNF.
+    let schema = serde_json::to_string(plan.json_schema())
+        .map_err(|_| fail("Checked schema serialization failed"))?;
+    if schema.len() > 1_048_576 {
+        return Err(fail("Checked schema exceeds bounds"));
+    }
+    let grammar = llama_cpp_2::json_schema_to_grammar(&schema)
+        .map_err(|_| fail("Checked schema compilation failed"))?;
+    if grammar.is_empty() || grammar.len() > 2_097_152 {
+        return Err(fail("Checked grammar exceeds bounds"));
+    }
+    Ok(grammar)
+}
 // Original src/main/services/models/{manifest,installedManifest}.ts.
 pub const BGE_SHA: &str = "e251234fcb7d050991a6be491952f485bf5c641dd10c3272dc1301fd281ad50f";
 pub const QWEN_EMBED_SHA: &str = "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439";
@@ -376,21 +432,106 @@ impl Model {
         prompt: &str,
         max_output: usize,
         ticket: &Ticket,
-        mut emit: impl FnMut(&str) -> Result<()>,
+        emit: impl FnMut(&str) -> Result<()>,
     ) -> Result<String> {
+        let result = self.generate_inner(
+            GenerationInput {
+                system,
+                prompt,
+                max_output: max_output.clamp(1, 2048),
+                window: 8192,
+                margin: 0,
+                grammar: None,
+            },
+            ticket,
+            emit,
+        )?;
+        Ok(result.raw.to_string())
+    }
+
+    /// Buffered structured generation. Syntax constraints do not establish
+    /// relevance, completeness or entailment: the checked-QA orchestration must
+    /// still assess these before publishing this structurally validated answer.
+    /// The same final bundle owns the prompt, schema and source catalog.
+    pub fn generate_checked(
+        &self,
+        context: &ContextPlan,
+        language: Language,
+        ticket: &Ticket,
+    ) -> Result<CheckedGeneration> {
+        ticket.check()?;
+        if !matches!(self.kind, ModelKind::Qwen4B) {
+            return Err(fail(
+                "Checked generation requires the verified Qwen4B profile",
+            ));
+        }
+        if !context.fits() || context.context_tokens() > 8192 {
+            return Err(fail("Checked context does not fit this native model"));
+        }
+        let bundle = context
+            .checked_bundle()
+            .ok_or_else(|| fail("Checked context bundle is required"))?;
+        let plan = bundle
+            .comparison_plan()
+            .ok_or_else(|| fail("Checked source catalog is unavailable"))?;
+        if bundle.system_prompt() != checked_answer::system_prompt(language, plan.comparison_mode())
+        {
+            return Err(fail(
+                "Checked answer language differs from the planned prompt",
+            ));
+        }
+        let grammar = checked_grammar(plan)?;
+        ticket.check()?;
+        let generated = self.generate_inner(
+            GenerationInput {
+                system: bundle.system_prompt(),
+                prompt: bundle.prompt(),
+                max_output: context.max_tokens(),
+                window: context.context_tokens(),
+                margin: loklm_core::qa::CONTEXT_PACK_MARGIN_TOKENS
+                    .max(context.context_tokens().div_ceil(10)),
+                grammar: Some(&grammar),
+            },
+            ticket,
+            |_| Err(fail("Structured output must remain buffered")),
+        )?;
+        ticket.check()?;
+        let parsed = plan
+            .parse(
+                &generated.raw,
+                language,
+                checked_answer::answer_char_limit(context.max_tokens() as f64),
+            )
+            .map_err(|_| fail("Generated answer failed checked source validation"))?;
+        ticket.check()?;
+        Ok(CheckedGeneration {
+            parsed,
+            prompt_tokens: generated.prompt_tokens,
+            output_tokens: generated.output_tokens,
+        })
+    }
+
+    fn generate_inner(
+        &self,
+        input: GenerationInput<'_>,
+        ticket: &Ticket,
+        mut emit: impl FnMut(&str) -> Result<()>,
+    ) -> Result<Generated> {
         ticket.check()?;
         if !matches!(self.kind, ModelKind::Qwen4B | ModelKind::LegacyLite) {
             return Err(fail("Selected model is not a generator"));
         }
-        let tokens = chat_tokens(&self.model, system, prompt)?;
-        let max_output = max_output.clamp(1, 2048);
-        if tokens.len() + max_output > 8192 {
-            return Err(fail(
-                "Prompt plus answer exceeds model context; reduce supplied evidence",
-            ));
-        }
+        let tokens = chat_tokens(&self.model, input.system, input.prompt)?;
+        admit_tokens(tokens.len(), input.max_output, input.window, input.margin)?;
+        let mut sampler = if let Some(grammar) = input.grammar {
+            let constraint = LlamaSampler::grammar(&self.model, grammar, "root")
+                .map_err(|_| fail("Checked grammar initialization failed"))?;
+            LlamaSampler::chain([constraint, LlamaSampler::greedy()], true)
+        } else {
+            LlamaSampler::greedy()
+        };
         let params = LlamaContextParams::default()
-            .with_n_ctx(NonZeroU32::new(8192))
+            .with_n_ctx(NonZeroU32::new(input.window as u32))
             .with_n_batch(32)
             .with_n_ubatch(32)
             .with_n_threads(2)
@@ -414,37 +555,37 @@ impl Model {
             ctx.decode(&mut batch)
                 .map_err(|_| fail("Prompt evaluation failed"))?;
         }
-        let mut sampler = LlamaSampler::greedy();
-        let mut decoder = encoding_rs::UTF_8.new_decoder();
-        let mut answer = String::new();
+        let mut decoder = stream::Utf8Decoder::default();
+        let mut answer = Zeroizing::new(String::new());
         let mut filter = stream::ThinkFilter::default();
         let mut loops = stream::LoopDetector::default();
         let mut ended = false;
-        for _ in 0..max_output {
+        let mut output_tokens = 0;
+        for _ in 0..input.max_output {
             ticket.check()?;
             memory_guard(768 * 1024 * 1024)?;
             let token = sampler.sample(&ctx, batch.n_tokens() - 1);
-            sampler.accept(token);
+            // sample() already accepts once. Double acceptance corrupts the
+            // state of a grammar sampler (greedy alone previously hid this).
+            output_tokens += 1;
             if self.model.vocab().is_eog(token) {
+                decoder.decode(&[], true)?;
                 ended = true;
                 break;
             }
             let bytes = self.model.vocab().token_to_piece(token, true, None);
-            let mut part = String::with_capacity(
-                decoder
-                    .max_utf8_buffer_length(bytes.len())
-                    .ok_or_else(|| fail("Token decode capacity"))?,
-            );
-            let (_, read, broken) = decoder.decode_to_string(&bytes, &mut part, false);
-            if read != bytes.len() || broken {
-                return Err(fail("Invalid model UTF-8 output"));
-            }
-            let part = filter.feed(&part);
-            if loops.feed(&part) {
-                return Err(fail("Generation stopped because of a repetition loop"));
-            }
+            let mut part = decoder.decode(&bytes, false)?;
             ticket.check()?;
-            emit(&part)?;
+            if input.grammar.is_none() {
+                part = filter.feed(&part);
+                if loops.feed(&part) {
+                    return Err(fail("Generation stopped because of a repetition loop"));
+                }
+                emit(&part)?;
+            }
+            if answer.len().saturating_add(part.len()) > 1_048_576 {
+                return Err(fail("Generated answer exceeds byte bounds"));
+            }
             answer.push_str(&part);
             batch.clear();
             batch
@@ -461,7 +602,11 @@ impl Model {
                 "Answer reached the token limit; incomplete answer was not published",
             ));
         }
-        Ok(answer)
+        Ok(Generated {
+            raw: answer,
+            prompt_tokens: tokens.len(),
+            output_tokens,
+        })
     }
 }
 
@@ -469,6 +614,38 @@ impl Model {
 mod tests {
     use super::*;
     use loklm_core::session::Sessions;
+    #[test]
+    fn exact_admission_keeps_output_and_margin_without_overflow() {
+        assert!(admit_tokens(5196, 2176, 8192, 820).is_ok());
+        assert!(admit_tokens(5197, 2176, 8192, 820).is_err());
+        assert!(admit_tokens(1, 0, 8192, 0).is_err());
+        assert!(admit_tokens(1, 1, 8193, 0).is_err());
+        assert!(admit_tokens(usize::MAX, 1, 8192, 0).is_err());
+        assert!(admit_tokens(1, 1, 8192, usize::MAX).is_err());
+    }
+    #[test]
+    fn original_admitted_catalog_schemas_compile_with_pinned_cpp_converter() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../core/tests/fixtures/original-comparison-answer.json"
+        ))
+        .unwrap();
+        let mut modes = std::collections::HashSet::new();
+        let mut count = 0;
+        for case in fixture["plans"].as_array().unwrap() {
+            if case["admitted"] != true {
+                continue;
+            }
+            let sources: Vec<loklm_core::comparison_answer::ComparisonPassage> =
+                serde_json::from_value(case["input"].clone()).unwrap();
+            let plan = ComparisonPlan::new(case["question"].as_str().unwrap(), &sources).unwrap();
+            let grammar = checked_grammar(&plan).unwrap();
+            assert!(grammar.lines().any(|l| l.starts_with("root ::=")));
+            modes.insert(format!("{:?}", plan.comparison_mode()));
+            count += 1;
+        }
+        assert!(count > 150);
+        assert_eq!(modes.len(), 2);
+    }
     #[test]
     fn verifies_digest_and_revocation_without_loading_models() {
         let dir = tempfile::tempdir().unwrap();

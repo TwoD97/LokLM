@@ -17,6 +17,14 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
   is MIT. The preview enables CPU only, no CUDA/Vulkan/OpenMP download or runtime
   listener. Model weights are separate files with their own licenses. Preserve
   the existing repository THIRD_PARTY_NOTICES and model-manifest provenance.
+  The `common` feature adds the upstream C++ JSON Schema compiler and helper
+  archive. Its vendored nlohmann/json and cpp-httplib dependencies are MIT;
+  sheredom/subprocess.h is Unlicense/public domain and its notice must also be
+  retained with the archive. HTTP and
+  download helpers are compiled upstream but not invoked by this application.
+  Server/tools/app targets and CURL are disabled. OpenSSL detection is optional
+  upstream and was not found in the tested Windows build; linkage on other
+  platforms must be audited before distribution.
 - Build-only tools include Rust, MSVC, CMake, libclang and Trunk. A local verified
   libclang wheel was used for binding generation; it is not copied into the app.
 - PDF text extraction uses `pdf-extract = 0.12.1` (MIT) and `lopdf = 0.42.0`

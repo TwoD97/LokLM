@@ -1,4 +1,26 @@
 //! Streaming output guards. Never publish a partial thinking delimiter.
+/// A token can end in the middle of a Unicode scalar. EOG must flush the
+/// decoder, otherwise an incomplete final scalar would silently disappear.
+pub struct Utf8Decoder(encoding_rs::Decoder);
+impl Default for Utf8Decoder {
+    fn default() -> Self {
+        Self(encoding_rs::UTF_8.new_decoder_without_bom_handling())
+    }
+}
+impl Utf8Decoder {
+    pub fn decode(&mut self, bytes: &[u8], last: bool) -> crate::Result<String> {
+        let capacity = self
+            .0
+            .max_utf8_buffer_length(bytes.len())
+            .ok_or_else(|| crate::fail("Token decode capacity"))?;
+        let mut text = String::with_capacity(capacity);
+        let (_, read, broken) = self.0.decode_to_string(bytes, &mut text, last);
+        if read != bytes.len() || broken {
+            return Err(crate::fail("Invalid model UTF-8 output"));
+        }
+        Ok(text)
+    }
+}
 #[derive(Default)]
 pub struct ThinkFilter {
     buf: String,
@@ -83,6 +105,23 @@ impl LoopDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn decoder_preserves_bytes_and_rejects_incomplete_final_scalars() {
+        let text = "\u{feff}Grüße 👋 <think>literal evidence</think>";
+        for split in 0..=text.len() {
+            let mut decoder = Utf8Decoder::default();
+            let mut out = decoder.decode(&text.as_bytes()[..split], false).unwrap();
+            out.push_str(&decoder.decode(&text.as_bytes()[split..], false).unwrap());
+            out.push_str(&decoder.decode(&[], true).unwrap());
+            assert_eq!(out, text);
+        }
+        for bytes in [&b"\xf0\x9f"[..], &b"\xc3"[..], &b"\xe2\x82"[..]] {
+            let mut decoder = Utf8Decoder::default();
+            assert_eq!(decoder.decode(bytes, false).unwrap(), "");
+            assert!(decoder.decode(&[], true).is_err());
+        }
+        assert!(Utf8Decoder::default().decode(b"\xff", false).is_err());
+    }
     #[test]
     fn thinking_never_crosses_split_boundaries() {
         let text = "Grüße <think>private hidden</think>Berlin 👋";
