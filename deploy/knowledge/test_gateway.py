@@ -88,13 +88,17 @@ def main():
         key = root / 'certs/server.key'
         cert = root / 'certs/server.pem'
         run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-sha256',
-             '-subj', '/CN=Disposable LokLM Gateway Test CA', '-keyout', str(ca_key), '-out', str(ca)])
+             '-subj', '/CN=Disposable LokLM Gateway Test CA',
+             '-addext', 'basicConstraints=critical,CA:TRUE',
+             '-addext', 'keyUsage=critical,keyCertSign,cRLSign',
+             '-addext', 'subjectKeyIdentifier=hash', '-keyout', str(ca_key), '-out', str(ca)])
         ca_key.chmod(0o600)
         run(['openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes', '-sha256',
              '-subj', '/CN=' + HOST, '-keyout', str(key), '-out', str(root / 'server.csr')])
         extensions = root / 'server.ext'
         extensions.write_text('subjectAltName=DNS:' + HOST + '\nbasicConstraints=critical,CA:FALSE\n'
-                              'keyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n')
+                              'keyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n'
+                              'subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid,issuer\n')
         run(['openssl', 'x509', '-req', '-in', str(root / 'server.csr'), '-CA', str(ca), '-CAkey', str(ca_key),
              '-CAcreateserial', '-days', '1', '-sha256', '-extfile', str(extensions), '-out', str(cert)])
         key.chmod(0o400)
