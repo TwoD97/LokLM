@@ -1,0 +1,92 @@
+name: loklm-knowledge
+services:
+  knowledge:
+    build:
+      context: ../..
+      dockerfile: deploy/knowledge/Dockerfile
+      target: production
+    image: loklm-knowledge:0.1.0
+    user: "${LOKLM_UID:-1000}:${LOKLM_GID:-1000}"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 4g
+    cpus: 2
+    environment:
+      LOKLM_TOKEN_FILE: /run/secrets/api_token
+      LOKLM_PROFILE: ${LOKLM_PROFILE:-standard}
+      LOKLM_EMBED_ENDPOINT: ${LOKLM_EMBED_ENDPOINT:-}
+      LOKLM_MODEL_RUNTIME: ${LOKLM_MODEL_RUNTIME:-}
+      LOKLM_RERANK_ENDPOINT: ${LOKLM_RERANK_ENDPOINT:-}
+    secrets: [api_token]
+    volumes:
+      - ${KNOWLEDGE_PATH:?Set KNOWLEDGE_PATH}:/knowledge:ro
+      - ${INDEX_PATH:?Set INDEX_PATH}:/index
+    tmpfs: [/tmp:size=64m,mode=1777]
+    networks: [private]
+  livesync:
+    build:
+      context: .
+      dockerfile: LiveSync.Dockerfile
+    image: loklm-livesync:1.0.51
+    user: "${LOKLM_UID:-1000}:${LOKLM_GID:-1000}"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1
+    volumes:
+      - ${KNOWLEDGE_PATH:?Set KNOWLEDGE_PATH}:/vault
+      - ${APPDATA_PATH:?Set APPDATA_PATH}/livesync:/state
+    tmpfs: [/tmp:size=128m,mode=1777]
+    networks: [private]
+    depends_on:
+      couchdb: {condition: service_healthy}
+  couchdb:
+    build:
+      context: .
+      dockerfile: CouchDB.Dockerfile
+    image: loklm-couchdb:3.5.0
+    restart: unless-stopped
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER:?Set local CouchDB admin name}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:?Set local CouchDB admin password in .env}
+    volumes:
+      - ${APPDATA_PATH:?Set APPDATA_PATH}/couchdb:/opt/couchdb/data
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 256
+    networks: [private]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:5984/_up]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+  setup:
+    profiles: [setup]
+    image: loklm-livesync:1.0.51
+    entrypoint: [node,/setup/init.mjs]
+    user: "${LOKLM_UID:-1000}:${LOKLM_GID:-1000}"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER:?Set local CouchDB admin name}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:?Set local CouchDB admin password in .env}
+    volumes:
+      - ./init.mjs:/setup/init.mjs:ro
+      - ${APPDATA_PATH:?Set APPDATA_PATH}/livesync:/state
+    secrets: [vault_passphrase]
+    networks: [private]
+    depends_on:
+      couchdb: {condition: service_healthy}
+    restart: "no"
+secrets:
+  api_token:
+    file: ./secrets/api_token
+  vault_passphrase:
+    file: ./secrets/vault_passphrase
+networks:
+  private:
+    internal: true

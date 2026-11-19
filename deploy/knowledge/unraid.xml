@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>loklm-knowledge</Name>
+  <Repository>loklm-knowledge:0.1.0</Repository>
+  <Network>loklm-knowledge_private</Network>
+  <Privileged>false</Privileged>
+  <Overview>Headless LokLM file knowledge service. Build locally using deploy/knowledge/Dockerfile. Requires separately configured LiveSync and CouchDB. No public port mapping. Keep derived index on local SSD and outside the vault. Read deploy/knowledge/README.md before first installation.</Overview>
+  <ExtraParams>--read-only --cap-drop=ALL --security-opt=no-new-privileges:true --memory=4g --cpus=2 --pids-limit=128 --user=1000:1000 --tmpfs=/tmp:rw,size=64m</ExtraParams>
+  <Config Name="Knowledge files" Target="/knowledge" Default="/mnt/cache/loklm-knowledge" Mode="ro" Description="Canonical Markdown and attachments" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Local SSD index" Target="/index" Default="/mnt/cache/appdata/loklm/index" Mode="rw" Description="Derived private index, never SMB or LiveSync" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="API token file" Target="/run/secrets/api_token" Default="/mnt/cache/appdata/loklm/secrets/api_token" Mode="ro" Description="Private token file, not token text" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Token path" Target="LOKLM_TOKEN_FILE" Default="/run/secrets/api_token" Mode="" Description="Token mount path" Type="Variable" Display="advanced" Required="true" Mask="false"/>
+</Container>

@@ -1,0 +1,6 @@
+# Opt-in local administration only. Remote peers need an authenticated TLS/VPN gateway.
+services:
+  knowledge:
+    ports: ["127.0.0.1:8787:8787"]
+  couchdb:
+    ports: ["127.0.0.1:5984:5984"]

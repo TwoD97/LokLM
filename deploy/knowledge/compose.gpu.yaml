@@ -1,0 +1,31 @@
+# Optional preparation only: requires NVIDIA Container Toolkit and a dedicated
+# free device. Do not start against an active voice/model GPU session.
+services:
+  knowledge:
+    environment:
+      LOKLM_MODEL_RUNTIME: ${LOKLM_GPU_RUNTIME:?Set a distinct versioned GPU runtime and regenerate aliases}
+  embedder:
+    build:
+      context: .
+      dockerfile: Model.cuda.Dockerfile
+    image: loklm-model:llama-b12359-cuda
+    environment:
+      LOKLM_GPU_LAYERS: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${LOKLM_GPU_DEVICE:?Choose a dedicated GPU ID}"]
+              capabilities: [gpu]
+  reranker:
+    image: loklm-model:llama-b12359-cuda
+    environment:
+      LOKLM_GPU_LAYERS: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${LOKLM_GPU_DEVICE:?Choose a dedicated GPU ID}"]
+              capabilities: [gpu]

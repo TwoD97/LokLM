@@ -1,0 +1,28 @@
+# Experimental basic QA adapter. Full desktop QA/router parity remains a release gate.
+services:
+  answer:
+    image: loklm-model:llama-b12359
+    environment:
+      LOKLM_MODEL_PROFILE: answer
+      LOKLM_MODEL_ALIAS: ${LOKLM_ANSWER_ALIAS:?Generate answer-fingerprint with the daemon}
+    volumes:
+      - ${MODEL_PATH:?Set canonical model cache}:/models:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    cpus: 2
+    mem_limit: 5g
+    pids_limit: 128
+    networks: [private]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/health]
+      interval: 15s
+      timeout: 3s
+      retries: 20
+  knowledge:
+    environment:
+      LOKLM_ANSWER_ENDPOINT: http://answer:8080/
+      LOKLM_MODEL_RUNTIME: llama.cpp-b12359
+    depends_on:
+      answer: {condition: service_healthy}
