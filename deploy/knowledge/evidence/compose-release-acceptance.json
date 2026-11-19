@@ -1,0 +1,72 @@
+{
+  "checks": [
+    "first: host preflight on actual resolved Compose",
+    "first: no host ports",
+    "first: setup refuses repeated initialization without changing settings",
+    "first: authenticated local readiness and encrypted remote access",
+    "anonymous liveness and authenticated readiness boundary",
+    "fresh Compose indexes canonical UUID note",
+    "actual packaged retrieval returns canonical source",
+    "production image includes dependency license inventory",
+    "invalid source fails explicit reconciliation",
+    "process alive does not claim readiness after invalid scan",
+    "failed scan preserves checkpoint sources",
+    "corrected source reconciles again",
+    "operational check recovers after invalid source removal",
+    "CouchDB outage is separate from local index readiness",
+    "remote authentication recovers after CouchDB restart",
+    "Rust restart requires and completes a new local scan",
+    "restart and unchanged reconcile avoid embedding",
+    "upstream CLI inventories real Compose notes and attachment without competing DB owner",
+    "stopped canonical source backup verifies both files",
+    "restored: host preflight on actual resolved Compose",
+    "restored: no host ports",
+    "isolated restore preserves Markdown UUID and attachment bytes",
+    "restored: setup refuses repeated initialization without changing settings",
+    "restored: authenticated local readiness and encrypted remote access",
+    "fresh isolated CouchDB and empty derived index accept restored sources",
+    "restored retrieval rebuilds from portable sources",
+    "restore uses separate project, database storage and sync credentials",
+    "candidate empty index rebuild reaches readiness",
+    "candidate index preserves original source identity",
+    "rollback to retained index completes a fresh scan",
+    "rollback retrieval and canonical attachment remain intact",
+    "locked service refuses readiness"
+  ],
+  "elapsed_seconds": 78.27,
+  "source_commit": "ec32d2a68814ebc2df17f9d22bed7fdb7f7145c0",
+  "images": {
+    "knowledge": {
+      "tag": "loklm-knowledge:u01-release",
+      "id": "sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4",
+      "repo_digests": [
+        "loklm-knowledge@sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4"
+      ]
+    },
+    "livesync": {
+      "tag": "loklm-test-livesync:1.0.51",
+      "id": "sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394",
+      "repo_digests": [
+        "loklm-test-livesync@sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394"
+      ]
+    },
+    "couchdb": {
+      "tag": "loklm-test-couchdb:3.5.0",
+      "id": "sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9",
+      "repo_digests": [
+        "loklm-test-couchdb@sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9"
+      ]
+    }
+  },
+  "models_loaded": false,
+  "unraid_tested": false,
+  "host_ports": [],
+  "attachment_sha256": "2312394bd99545d9de131c24efb781e765ac1aec243f2ed9347597a793a415e9",
+  "source_files_sha256": {
+    "deploy/knowledge/compose.yaml": "3db834869df3f24cc383705b0822b5ea15fa800016aeffb3706c88499dc192d6",
+    "deploy/knowledge/init.mjs": "019fbe7e236057eea8ba8e70f8779a0af6a64c407e23b7bf4c41b241bfa6eec6",
+    "deploy/knowledge/manage.py": "c8140c7a14ba0c6ed5fb18982bd58b94cd76f41fcbf80bc1c2d1e672c4c1670b",
+    "deploy/knowledge/test_compose.py": "9bb074d97729b9c1546dec5ddcb25b8faaa65a4093d59c1d64c64fe762c93199",
+    "native/crates/knowledge/src/service.rs": "5449e2471bf17a99b6bc89efa26a979ba1aef99e6e1f739cadda0f96525d679c"
+  }
+}

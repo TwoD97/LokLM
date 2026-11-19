@@ -1,0 +1,32 @@
+PASS first: host preflight on actual resolved Compose
+PASS first: no host ports
+PASS first: setup refuses repeated initialization without changing settings
+PASS first: authenticated local readiness and encrypted remote access
+PASS anonymous liveness and authenticated readiness boundary
+PASS fresh Compose indexes canonical UUID note
+PASS actual packaged retrieval returns canonical source
+PASS production image includes dependency license inventory
+PASS invalid source fails explicit reconciliation
+PASS process alive does not claim readiness after invalid scan
+PASS failed scan preserves checkpoint sources
+PASS corrected source reconciles again
+PASS operational check recovers after invalid source removal
+PASS CouchDB outage is separate from local index readiness
+PASS remote authentication recovers after CouchDB restart
+PASS Rust restart requires and completes a new local scan
+PASS restart and unchanged reconcile avoid embedding
+PASS upstream CLI inventories real Compose notes and attachment without competing DB owner
+PASS stopped canonical source backup verifies both files
+PASS restored: host preflight on actual resolved Compose
+PASS restored: no host ports
+PASS isolated restore preserves Markdown UUID and attachment bytes
+PASS restored: setup refuses repeated initialization without changing settings
+PASS restored: authenticated local readiness and encrypted remote access
+PASS fresh isolated CouchDB and empty derived index accept restored sources
+PASS restored retrieval rebuilds from portable sources
+PASS restore uses separate project, database storage and sync credentials
+PASS candidate empty index rebuild reaches readiness
+PASS candidate index preserves original source identity
+PASS rollback to retained index completes a fresh scan
+PASS rollback retrieval and canonical attachment remain intact
+PASS locked service refuses readiness

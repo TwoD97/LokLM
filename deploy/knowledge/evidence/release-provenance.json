@@ -1,0 +1,113 @@
+{
+  "source_commit": "ec32d2a68814ebc2df17f9d22bed7fdb7f7145c0",
+  "runtime_source_commit": "e7b6010",
+  "date": "2026-11-19",
+  "models_loaded": false,
+  "unraid_tested": false,
+  "images": {
+    "loklm-knowledge:u01-release": {
+      "id": "sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4",
+      "bytes": 476173778,
+      "repo_digests": [
+        "loklm-knowledge@sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4"
+      ]
+    },
+    "loklm-test-livesync:1.0.51": {
+      "id": "sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394",
+      "bytes": 715920390,
+      "repo_digests": [
+        "loklm-test-livesync@sha256:d1f30b731e0c11872da330ff29941ef92ca9ee6572c2201f7b44e1fa6a785394"
+      ]
+    },
+    "loklm-test-couchdb:3.5.0": {
+      "id": "sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9",
+      "bytes": 430515443,
+      "repo_digests": [
+        "loklm-test-couchdb@sha256:4018c37018bd1308562e6e85d3d3be2ecb7da764420daaa03d4043f5f664fdb9"
+      ]
+    }
+  },
+  "fingerprints": {
+    "fingerprint": "e7ecb6387255e0cc05f6937a25ff3271f97b919fc613ba3d365e642f37505083",
+    "reranker-fingerprint": "25df2b3d20a6151a192df7a32b0876a2c1cf259199b71cdae536a19e9a3300d2",
+    "answer-fingerprint": "c42eb618e4382fd846ea89871ae511e831009519bee1920654e5c20d84c98946"
+  },
+  "source_sha256": {
+    "native/crates/knowledge/Cargo.lock": "fc75b0a90ed7c802a450752405624e12f18c67607048645b1824ae02dcd36b34",
+    "native/crates/knowledge/Cargo.toml": "16a010daf9536cf1a3f109be200e73edf73cb49254c9289b242cf820f172ab23",
+    "native/crates/knowledge/examples/numeric_decoder_probe.rs": "747801cd4f771c9303ea5af591721cdfbbfa99e8aca0354bca46151c3823388d",
+    "native/crates/knowledge/examples/stores_bench.rs": "a2e8c4401649a0e90c3175383b6a49c269747cefe05214a718dcbf94e03ed9b7",
+    "native/crates/knowledge/src/answer.rs": "3fd1baa10e3899d1bdee31448b929fdecba88fe568fbe2dcd07e0bfd2b9c7245",
+    "native/crates/knowledge/src/files.rs": "75411080588aa3c2286da0d33adfb88d9a6eaa681a817444615bfa7ad6c5a8f8",
+    "native/crates/knowledge/src/index.rs": "78e468847d122221c55cc8646137d46e82a9a535fcb0fca415e61cc8ffc72f54",
+    "native/crates/knowledge/src/lance.rs": "1d30ef67e33efb95dc8072100e9d583fb1b2ab720eda77a9544971b769bbb644",
+    "native/crates/knowledge/src/lib.rs": "872005b0be3ca9de1b769221a3b911fab1edbc18871a9fb4f1c1c25e946aeffc",
+    "native/crates/knowledge/src/main.rs": "ca80540786d00a05729ea3b699859622eded6f4d795b723b0f3f83a7becb6d5f",
+    "native/crates/knowledge/src/models.rs": "b9f15012bc01f354eb412bb115c1d6082f756492b0015e17f4f56d9a6b882a48",
+    "native/crates/knowledge/src/service.rs": "5449e2471bf17a99b6bc89efa26a979ba1aef99e6e1f739cadda0f96525d679c",
+    "native/crates/knowledge/tests/answer.rs": "056794c0b0e6968deca71aac39dc046ee8b66a159046f76780176cbfb8a5d01e",
+    "native/crates/knowledge/tests/integration.rs": "57395f6d25c715dccf285b5861d7476ca5e1962a1d9750db330e3f16e0100033",
+    "native/crates/knowledge/tests/numeric_contract.rs": "89837ef64489698b1cd1559a2272b8da405d9e64737eac9911c56b2943db5968",
+    "native/crates/knowledge/tests/reranker.rs": "452e959bcaffd462ed3dadff5c28246ffedea1a7fc9d36c83f8b163e703f17a3",
+    "native/crates/core/Cargo.toml": "af317f7f1222cc71a72d9fa8debd03c4fc14dd0d41340e1ea4a82e6d9a0a235e",
+    "native/crates/core/src/chunking.rs": "67c8f5694314dd8847228617445aa5499dc87e3d3b17fc4adc32afb374afd204",
+    "native/crates/core/src/crypto.rs": "8aa8ff15bc9b8d0de28e9333c1560198646fc699bbe2ae5b04791419ff68017d",
+    "native/crates/core/src/lib.rs": "b0ac6ae18563ea2a46707b566bf39951f95ff3d0f09651484cef15e282388859",
+    "native/crates/core/src/models.rs": "675ae630e514ae6d95d99e6840662f34a50b0445a071cb84dda026bd7301f5b0",
+    "native/crates/core/src/qa.rs": "cf9d5b02bac38fe5cd1af0fb94e676521a9cfd0a5434c4506ce2c6b95c0a94ad",
+    "native/crates/core/src/retrieval.rs": "24ddcd03ab65c311707990b0fd78073a15bcef0b677747767d3664ebfa909100",
+    "native/crates/core/src/session.rs": "54580eefde2e5de2010ac7d98feefad436f3fda9d8c8e0dfee2b1304c5b19a01",
+    "native/crates/core/src/source_calculations.rs": "4d8c1aca5ee589b8e672d347944dff79dc415210f8add8fa3db5989bc61107e2",
+    "native/crates/core/src/source_fragments.rs": "61f83aeaf12ef655062ef43d780948b9043a42c5a5dc45d506e5c86c18135bb5",
+    "native/crates/core/src/source_quantities.rs": "43ee605163339a983ab8e8d4bcb0f6e32026b61b0fbc126c1a83ba9580e4c5b6",
+    "native/crates/core/src/source_quote.rs": "44c8cdd24ceb11a2e3041e491cf9e223d8acf861b791b0e455fe894fa50268b4",
+    "native/crates/core/src/source_units.rs": "046824b14dfd1f3a6064d12580f45eaa7ebb16273418db55b205394da376858d",
+    "native/crates/core/src/store.rs": "0412c33a39211daac87a5a9973fd2976660f3aa01401a1051452cb395fa743a9",
+    "native/crates/core/src/vault.rs": "056dae7beaca0fb1f871b6408ca692d20776d653936cec943ab6df53ab51a951",
+    "native/crates/core/tests/compatibility.rs": "0ace1a98be2fd05b969aef1837372f18d031da2976bbb3e05a605ee34523caf1",
+    "native/crates/core/tests/qa_compatibility.rs": "5cd6a2def36acaad94da8df6f0822fec8f0aa884f091fd32413c2e71b8239432",
+    "native/crates/core/tests/source_calculations_compat.rs": "42365efeb6c2ecea8a92cb010ddce0072885b2b0767301fd9fa77bfe5d4084a1",
+    "native/crates/core/tests/source_fragments_compat.rs": "7347a3d61313d2552af04d7c81553a957aee5ad5bf20dccb2063908c8b8a0bdf",
+    "native/crates/core/tests/source_quantities_compat.rs": "1126d22c8318fbfb80281ca020d1ae17377233d54a7d3def1251061caacfc4bb",
+    "native/crates/core/tests/source_quote_compat.rs": "fc6677b1563e585c2fba9917c9af64d89ea0271fb3be291af474b9241eae06e3",
+    "native/crates/core/tests/source_units_compat.rs": "21473c52b4729002f27714bacf728cf22b89f21aed68a2ff3004eff05832272e",
+    "deploy/knowledge/Dockerfile": "e09aca9c2815fac08fd4608739ea23043241e6f5ab67d986f51e3ce089379c1f"
+  },
+  "binary_sha256": "53f1ed56a25c25869c8c08c3b2a70ed1d19bfbdba702d22e86f6d7859cf17986",
+  "binary_bytes": 242576560,
+  "cargo_notice_inventory_packages": 518,
+  "livesync_license_header": "MIT License\n\nCopyright (c) 2021 vorotamoroz",
+  "fingerprints_identical_to_prior_2fbb284_image": true,
+  "resolved_tmpfs": {
+    "answer": [
+      "/tmp:size=64m,mode=1777"
+    ],
+    "embedder": [
+      "/tmp:size=64m,mode=1777"
+    ],
+    "knowledge": [
+      "/tmp:size=64m,mode=1777"
+    ],
+    "livesync": [
+      "/tmp:size=128m,mode=1777"
+    ],
+    "reranker": [
+      "/tmp:size=64m,mode=1777"
+    ]
+  },
+  "resolved_ports": {
+    "couchdb": [
+      {
+        "host_ip": "127.0.0.1",
+        "published": "5984"
+      }
+    ],
+    "knowledge": [
+      {
+        "host_ip": "127.0.0.1",
+        "published": "8787"
+      }
+    ]
+  },
+  "overlay_validation_scope": "configuration only; model/answer/GPU services were not started"
+}

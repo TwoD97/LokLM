@@ -1,0 +1,30 @@
+PASS encrypted Markdown A to B, Unicode paths
+PASS chunked binary attachment A to B
+PASS edit B to A
+PASS restart and durable local replication checkpoint
+PASS CouchDB documents do not expose encrypted note plaintext
+PASS actual LiveSync metadata and chunk documents stored
+PASS rename preserves portable source ID
+PASS concurrent offline edits preserve CouchDB conflict revisions
+PASS operational conflict inventory detects actual upstream offline branches
+PASS both conflicting file versions remain recoverable
+PASS explicit upstream resolution clears operational conflict inventory
+PASS daemon mirrors actual Markdown into peer vault
+PASS Rust indexes actual encrypted LiveSync peer output
+PASS retrieval preserves original source ID and opening location
+PASS unchanged replicated content is never re-embedded
+PASS source scope excludes other documents
+PASS Rust restart recovers persisted index against LiveSync vault
+PASS filesystem edit watched and synced between daemon peers
+PASS watched filesystem rename propagates
+PASS Rust watcher updates renamed opening path without losing stable source ID
+PASS watched filesystem deletion propagates
+PASS Rust removes remotely deleted source from retrieval
+PASS LiveSync delete propagates
+PASS hostile path rejected by maintained CLI
+PASS wrong CouchDB credentials fail
+PASS unavailable CouchDB fails without modifying original source fixture
+PASS original source survives CouchDB outage
+PASS CouchDB restarts from the same persisted database
+PASS queued change replicates after outage and credential recovery
+PASS attachment survives database outage and recovery

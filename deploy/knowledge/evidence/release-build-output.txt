@@ -1,0 +1,201 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 3.93kB 0.1s done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/library/debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+#2 DONE 0.8s
+
+#3 [internal] load metadata for docker.io/library/rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 232B 0.1s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [build-env  1/10] FROM docker.io/library/rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+#6 resolve docker.io/library/rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+#6 resolve docker.io/library/rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 0.0s done
+#6 DONE 0.0s
+
+#7 [runtime-base 1/4] FROM docker.io/library/debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+#7 resolve docker.io/library/debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc 0.0s done
+#7 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 2.45MB 0.4s done
+#5 DONE 0.4s
+
+#8 [build-env  2/10] RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev clang cmake python3 && rm -rf /var/lib/apt/lists/*
+#8 CACHED
+
+#9 [build-env  3/10] WORKDIR /src
+#9 CACHED
+
+#10 [build-env  4/10] COPY native/crates/core native/crates/core
+#10 DONE 0.1s
+
+#11 [build-env  5/10] COPY native/crates/knowledge/Cargo.toml native/crates/knowledge/Cargo.lock native/crates/knowledge/
+#11 DONE 0.0s
+
+#12 [build-env  6/10] COPY native/crates/knowledge/src native/crates/knowledge/src
+#12 DONE 0.0s
+
+#13 [build-env  7/10] COPY native/crates/knowledge/tests native/crates/knowledge/tests
+#13 DONE 0.0s
+
+#14 [build-env  8/10] COPY native/crates/knowledge/examples native/crates/knowledge/examples
+#14 DONE 0.0s
+
+#15 [build-env  9/10] COPY deploy/knowledge/collect_licenses.py /collect_licenses.py
+#15 DONE 0.0s
+
+#16 [build-env 10/10] RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/native/crates/knowledge/target     cargo test --locked --manifest-path native/crates/knowledge/Cargo.toml --features "lance" -j 2 &&     cp native/crates/knowledge/target/debug/loklm-knowledge /loklm-knowledge
+#16 2.123    Compiling loklm-core v0.1.0 (/src/native/crates/core)
+#16 3.257    Compiling loklm-knowledge v0.1.0 (/src/native/crates/knowledge)
+#16 43.39     Finished `test` profile [unoptimized] target(s) in 42.94s
+#16 43.50      Running unittests src/lib.rs (native/crates/knowledge/target/debug/deps/loklm_knowledge-43dbab4e95d28744)
+#16 43.51 
+#16 43.51 running 3 tests
+#16 43.51 test files::tests::rejects_symlink ... ok
+#16 43.51 test files::tests::portable_id_and_safe_import ... ok
+#16 43.51 test files::tests::duplicates_and_hostile_input_fail_closed ... ok
+#16 43.51 
+#16 43.51 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+#16 43.51 
+#16 43.51      Running unittests src/main.rs (native/crates/knowledge/target/debug/deps/loklm_knowledge-5fa0c90bd22d28ba)
+#16 43.52 
+#16 43.52 running 0 tests
+#16 43.52 
+#16 43.52 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+#16 43.52 
+#16 43.52      Running tests/answer.rs (native/crates/knowledge/target/debug/deps/answer-bc8fcb2a17fca916)
+#16 43.54 
+#16 43.54 running 1 test
+#16 43.75 test shared_prompts_citation_mapping_refusal_and_http_cancellation ... ok
+#16 43.75 
+#16 43.75 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+#16 43.75 
+#16 43.75      Running tests/integration.rs (native/crates/knowledge/target/debug/deps/integration-9a2c18988be81f54)
+#16 43.82 
+#16 43.82 running 6 tests
+#16 43.87 test auth_bounds_lock_and_instance_isolation ... ok
+#16 43.88 test malformed_scan_never_deletes_checkpoint_and_cancel_is_respected ... ok
+#16 43.88 test readiness_requires_current_process_success_and_recovers_after_bad_files ... ok
+#16 43.89 test inspectable_backlinks_preserve_ambiguous_references ... ok
+#16 43.90 test rename_edit_delete_reopen_and_source_scope ... ok
+#16 44.14 test embedding_cache_strict_identity_and_changed_chunk_only ... ok
+#16 44.14 
+#16 44.14 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+#16 44.14 
+#16 44.15      Running tests/numeric_contract.rs (native/crates/knowledge/target/debug/deps/numeric_contract-f387aeca394398e5)
+#16 44.18 
+#16 44.18 running 2 tests
+#16 44.18 test provider_and_checkpoint_json_preserve_float_boundaries ... ok
+#16 44.27 test old_numeric_transport_index_is_rejected_without_overwrite ... ok
+#16 44.27 
+#16 44.27 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+#16 44.27 
+#16 44.28      Running tests/reranker.rs (native/crates/knowledge/target/debug/deps/reranker-52bec729665169c1)
+#16 44.29 
+#16 44.29 running 1 test
+#16 44.32 test raw_http_logits_match_original_rankall_score_domain ... ok
+#16 44.32 
+#16 44.32 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+#16 44.32 
+#16 44.32      Running ../core/tests/compatibility.rs (native/crates/knowledge/target/debug/deps/shared_compatibility-fcdc16b3c875e682)
+#16 44.32 
+#16 44.32 running 2 tests
+#16 44.32 test original_block_cipher_and_tamper_detection ... ok
+#16 44.32 test original_chunking_fixtures_match_text_and_provenance ... ok
+#16 44.32 
+#16 44.32 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+#16 44.32 
+#16 44.32      Running ../core/tests/qa_compatibility.rs (native/crates/knowledge/target/debug/deps/shared_qa_compatibility-ef99833514117f2d)
+#16 44.32 
+#16 44.32 running 2 tests
+#16 44.33 test source_identity_is_not_model_generated ... ok
+#16 44.33 test original_prompt_rendering_and_budgeting ... ok
+#16 44.33 
+#16 44.33 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+#16 44.33 
+#16 44.33      Running ../core/tests/source_calculations_compat.rs (native/crates/knowledge/target/debug/deps/shared_source_calculations_compatibility-bcaf32b62850e271)
+#16 44.33 
+#16 44.33 running 1 test
+#16 44.64 test original_numeric_interpretation_and_source_spans_match ... ok
+#16 44.64 
+#16 44.64 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+#16 44.64 
+#16 44.64      Running ../core/tests/source_fragments_compat.rs (native/crates/knowledge/target/debug/deps/shared_source_fragments_compatibility-4c20dbbdaec171b7)
+#16 44.65 
+#16 44.65 running 1 test
+#16 44.70 test original_exact_fragments_excerpts_and_rejection_categories_match ... ok
+#16 44.70 
+#16 44.70 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+#16 44.70 
+#16 44.70      Running ../core/tests/source_quantities_compat.rs (native/crates/knowledge/target/debug/deps/shared_source_quantities_compatibility-967091ebc6130cf9)
+#16 44.70 
+#16 44.70 running 1 test
+#16 44.78 test original_arithmetic_catalogs_and_utf16_spans_match ... ok
+#16 44.78 
+#16 44.78 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+#16 44.78 
+#16 44.79      Running ../core/tests/source_quote_compat.rs (native/crates/knowledge/target/debug/deps/shared_source_quote_compatibility-80c688cdd7143cb7)
+#16 44.79 
+#16 44.79 running 2 tests
+#16 44.79 test byte_offsets_and_cached_results_cannot_be_forged_by_mutation ... ok
+#16 44.86 test actual_original_quote_and_catalog_outputs_match ... ok
+#16 44.86 
+#16 44.86 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+#16 44.86 
+#16 44.86      Running ../core/tests/source_units_compat.rs (native/crates/knowledge/target/debug/deps/shared_source_units_compatibility-6c8f3a6a4252404d)
+#16 44.86 
+#16 44.86 running 1 test
+#16 45.04 test original_complete_units_and_exact_labelled_passages_match ... ok
+#16 45.04 
+#16 45.04 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+#16 45.04 
+#16 45.04    Doc-tests loklm_knowledge
+#16 45.28 
+#16 45.28 running 0 tests
+#16 45.28 
+#16 45.28 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+#16 45.28 
+#16 DONE 47.2s
+
+#17 [build 1/1] RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/native/crates/knowledge/target     cargo build --locked --release --manifest-path native/crates/knowledge/Cargo.toml --features "lance" -j 2 &&     cp native/crates/knowledge/target/release/loklm-knowledge /loklm-knowledge &&     python3 /collect_licenses.py native/crates/knowledge/Cargo.toml "lance" /licenses
+#17 1.152    Compiling loklm-core v0.1.0 (/src/native/crates/core)
+#17 3.111    Compiling loklm-knowledge v0.1.0 (/src/native/crates/knowledge)
+#17 45.41     Finished `release` profile [optimized] target(s) in 45.14s
+#17 DONE 47.2s
+
+#18 [runtime-base 3/4] COPY LICENSE /usr/share/licenses/loklm/LICENSE
+#18 CACHED
+
+#19 [runtime-base 2/4] RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+#19 CACHED
+
+#20 [runtime-base 4/4] COPY deploy/knowledge/MODEL-AUDIT.md /usr/share/licenses/loklm/MODEL-AUDIT.md
+#20 CACHED
+
+#21 [production-base 1/2] COPY --from=build /loklm-knowledge /usr/local/bin/loklm-knowledge
+#21 DONE 0.5s
+
+#22 [production-base 2/2] COPY --from=build /licenses /usr/share/licenses/loklm/dependencies
+#22 DONE 0.2s
+
+#23 exporting to image
+#23 exporting layers
+#23 exporting layers 8.4s done
+#23 exporting manifest sha256:5f0eafbc892758d6c51100ea48bee621fb51b27aec89c0ca2287c5df19355160 done
+#23 exporting config sha256:adaf0071315f0ee905fe7b133f81079bef73abe5bff4ee2e0a2b61e56bae5ee9 done
+#23 exporting attestation manifest sha256:6a7f4ffd319548504aea48df845e2df65b461b927830330b1bbbb37cf75a2a4e done
+#23 exporting manifest list sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4 done
+#23 naming to docker.io/library/loklm-knowledge:u01-release done
+#23 unpacking to docker.io/library/loklm-knowledge:u01-release
+#23 unpacking to docker.io/library/loklm-knowledge:u01-release 1.4s done
+#23 DONE 9.9s

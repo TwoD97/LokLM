@@ -5,6 +5,31 @@ Canonical repository: TwoD97/LokLM, original audited base
 `TwoD97/loklm-unraid-knowledge`; development [PR #50](https://github.com/TwoD97/LokLM/pull/50).
 No merge or production deployment has been performed or requested.
 
+Release follow-up is on `TwoD97/loklm-unraid-release`, based on `ff63d7c` plus
+root's read-only preflight `08b12bf`. Runtime commit `e7b6010` fixes actual Compose
+startup (quoted tmpfs options across overlays), adds authenticated local-index
+readiness and safe operational/conflict inspection, private Unix backup/restore
+permissions, and [OPERATIONS.md](OPERATIONS.md). Test extension `ec32d2a` proves
+queued replication recovery and isolated derived-index rollback. No core,
+embedding, reranking, answer, desktop or Macro implementation was changed.
+
+Current acceptance: production Lance build with 23 passing Rust tests; exact
+Compose/setup/restore/rollback fixture with 32 checks; actual upstream LiveSync
+with 30 checks, including recovered offline conflict branches and queued edits/
+attachments after outage; 17 Linux host-script tests. The current image is
+`loklm-knowledge:u01-release` at
+`sha256:bf1c6c43ed0572dd347a268af6c7a7680907da2663428391c1f6c9b25f753af4`.
+Prior production image/tag and historical dense/model evidence are preserved.
+See the first section of VALIDATION and `evidence/release-operations.json` for
+exact current scope, logs, source hashes, resource observations and cleanup.
+The exclusive Docker/CPU slot has been released; no own containers remain.
+
+This is a deployable locally validated candidate, not target-host acceptance.
+Fresh Unraid installation/permissions, real Obsidian UI/two-device configuration,
+TLS/VPN gateway and optional GPU remain external checks. Model/QA behavior still
+uses LokLM's existing contract; experimental basic answers are not full checked
+QA. Integration should preserve this distinction and the scoped commits.
+
 The independently owned paths are `native/crates/knowledge` and
 `deploy/knowledge`. The desktop owner retains core/inference/documents/UI/Tauri.
 The shared core commits b59c1d4, 8b189ac, 4223a86, 00e6673, e40721e, c418292,
