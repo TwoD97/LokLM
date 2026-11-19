@@ -113,6 +113,13 @@ only adds the direct core dependency. The production image's generated Cargo
 license inventory includes the regex notices. Patterns are fixed code over
 bounded passages; no document-supplied regular expressions are evaluated.
 
+Source display units and grapheme boundaries use `icu_segmenter = 2.4.0`
+with pinned `compiled_data` (Unicode-3.0). Automatic/LSTM segmentation is
+disabled. This exact version/data feature was already in the Lance dependency
+graph; integration adds its direct core edge. The generated image inventory
+preserves its license text. Original Node/ICU outputs are compatibility fixtures,
+not a retained Node runtime in the Rust core.
+
 The calculation helper enables Serde JSON `float_roundtrip`, which also changes
 the provider/checkpoint decoder through Cargo feature unification. Both embedding
 and reranker fingerprints therefore include `serde-json-float-roundtrip-v1`.

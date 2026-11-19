@@ -21,6 +21,7 @@ sha2 = "0.10"
 hex = "0.4"
 unicode-normalization = "0.1"
 regex = "=1.13.2"
+icu_segmenter = { version = "=2.4.0", default-features = false, features = ["compiled_data"] }
 tempfile = { version = "3", optional = true }
 rusqlite = { version = "0.37", optional = true, features = ["bundled-sqlcipher-vendored-openssl"] }
 

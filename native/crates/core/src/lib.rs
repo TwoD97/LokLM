@@ -8,6 +8,7 @@ pub mod session;
 pub mod source_calculations;
 pub mod source_quantities;
 pub mod source_quote;
+pub mod source_units;
 #[cfg(feature = "storage")]
 pub mod store;
 #[cfg(feature = "storage")]
