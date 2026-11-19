@@ -2,6 +2,20 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 pub const EMBEDDING_DIM: usize = 1024;
+pub const RERANK_PASSAGE_UTF16_LIMIT: usize = 2800;
+/// Ranking input only; retain the unmodified source for citations. Mirrors the
+/// original RetrievalService UTF-16 limit, backing off a dangling surrogate.
+/// Whitespace and control-marker text remain literal untrusted document data.
+pub fn prepare_rerank_passage(text: &str) -> &str {
+    let mut units = 0;
+    for (offset, character) in text.char_indices() {
+        units += character.len_utf16();
+        if units > RERANK_PASSAGE_UTF16_LIMIT {
+            return &text[..offset];
+        }
+    }
+    text
+}
 pub const CODE_QUERY_INSTRUCTION: &str = "Instruct: Given a question about a codebase, retrieve the source code file that answers it.\nQuery: ";
 pub const DOC_QUERY_INSTRUCTION: &str =
     "Instruct: Given a question, retrieve the document passage that best answers it.\nQuery: ";
@@ -63,6 +77,17 @@ pub fn fingerprint(sha256: &str, dims: usize, model: Embedder, codebase: bool) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rerank_limits_utf16_without_splitting_unicode_or_normalizing_source() {
+        assert_eq!(
+            prepare_rerank_passage("Grüße\n <|literal|>"),
+            "Grüße\n <|literal|>"
+        );
+        let text = format!("{}🦀tail", "x".repeat(2799));
+        assert_eq!(prepare_rerank_passage(&text), "x".repeat(2799));
+        let text = format!("{}🦀tail", "x".repeat(2798));
+        assert_eq!(prepare_rerank_passage(&text).encode_utf16().count(), 2800);
+    }
     #[test]
     fn instructions_and_vector_validation() {
         assert_eq!(
