@@ -1,5 +1,6 @@
 //! Platform-independent knowledge and encrypted storage core. No network listener.
 pub mod chunking;
+pub mod citation_markers;
 pub mod crypto;
 #[cfg(feature = "storage")]
 pub mod migration;
@@ -9,6 +10,7 @@ pub mod retrieval;
 pub mod session;
 pub mod source_calculations;
 pub mod source_fragments;
+pub mod source_linked_answer;
 pub mod source_quantities;
 pub mod source_quote;
 pub mod source_units;
