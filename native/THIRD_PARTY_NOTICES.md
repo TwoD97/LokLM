@@ -29,6 +29,9 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
 
 - Exact source-unit annotations use `regex = 1.13.2` (MIT OR Apache-2.0), with
   fixed bounded-input patterns and no user-supplied regular expressions.
+- Source display units use `icu_segmenter = 2.4.0` and its pinned compiled data
+  (Unicode-3.0). Automatic/LSTM segmentation is disabled. This is Rust ICU4X,
+  not a retained Node/Intl runtime; the original Node/ICU fixtures remain tests.
 
 `Cargo.lock` pins the resolved Rust dependency graph. A complete distributable
 license-text inventory and signed installer remain release gates; this notice is
