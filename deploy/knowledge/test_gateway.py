@@ -192,8 +192,15 @@ def main():
         auth = base64.b64encode((settings['couchDB_USER'] + ':' + settings['couchDB_PASSWORD']).encode()).decode()
         expect(settings['couchDB_USER'] == 'loklm-sync' and https('/loklm-knowledge', auth=auth)[0] == 200,
                'dedicated non-admin sync credentials remain authoritative')
-        expect(https('/loklm-knowledge/_security', auth=auth, method='PUT', data={})[0] in [401, 403],
-               'non-admin peer cannot change database security policy')
+        # Use a valid security object: malformed bodies can fail validation before
+        # authorization, which does not establish the non-admin permission boundary.
+        before_security = https('/loklm-knowledge/_security', auth=auth)[1]
+        security_status = https('/loklm-knowledge/_security', auth=auth, method='PUT', data={
+            'admins': {'names': [], 'roles': []}, 'members': {'names': [], 'roles': []}})[0]
+        expect(security_status in [401, 403],
+               'non-admin peer cannot change database security policy (HTTP ' + str(security_status) + ')')
+        expect(https('/loklm-knowledge/_security', auth=auth)[1] == before_security,
+               'denied security update preserves existing database policy')
         for path in ['/_utils/', '/_all_dbs', '/_users', '/_node/_local/_config', '/v1/status',
                      '/loklm-knowledge/../_users', '/%5futils/', '/loklm-knowledge/%2e%2e/_users']:
             expect(https(path, auth=auth)[0] == 404, 'gateway excludes administrative or unrelated route ' + path)
@@ -205,6 +212,12 @@ def main():
                'CouchDB session auth works with Secure HttpOnly cookie')
         _, _, headers = https('/loklm-knowledge', auth=auth, headers={'Origin': 'app://obsidian.md'})
         expect(headers.get('access-control-allow-origin') == 'app://obsidian.md', 'configured Obsidian CORS origin preserved')
+        code, _, headers = https('/loklm-knowledge', method='OPTIONS', headers={
+            'Origin': 'app://obsidian.md', 'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'authorization,content-type'})
+        expect(code in [200, 204] and headers.get('access-control-allow-origin') == 'app://obsidian.md' and
+               'authorization' in headers.get('access-control-allow-headers', '').lower(),
+               'Obsidian-origin authenticated-request CORS preflight passes')
         _, _, headers = https('/loklm-knowledge', auth=auth, headers={'Origin': 'https://untrusted.example.test'})
         expect(not headers.get('access-control-allow-origin'), 'unconfigured CORS origin is not granted')
         # Both real upstream peers join only the gateway-facing network.
