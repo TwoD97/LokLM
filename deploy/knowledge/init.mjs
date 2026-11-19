@@ -1,5 +1,6 @@
 // Fresh CouchDB/vault provisioning only. No reset, rebuild, or existing-db writes.
 // Runs inside the setup-profile container; does not print settings or credentials.
+/* global process, Buffer, fetch, AbortSignal, console */
 import {readFile,writeFile,access,chmod} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
