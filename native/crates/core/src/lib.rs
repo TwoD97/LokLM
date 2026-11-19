@@ -2,6 +2,7 @@
 pub mod chunking;
 pub mod crypto;
 pub mod models;
+pub mod qa;
 pub mod retrieval;
 pub mod session;
 #[cfg(feature = "storage")]
