@@ -201,7 +201,20 @@ pub fn hit_token_cost(hit: &Passage, language: Language) -> usize {
     estimate_tokens(&(render_passage(hit, language) + "\n\n---\n\n"))
 }
 pub fn pack_hits_to_budget(hits: &[Passage], budget: usize, language: Language) -> Vec<Passage> {
-    let primary = |h: &&Passage| h.origin.as_deref().is_none_or(|o| o == "primary");
+    pack_records_to_budget(hits, budget, language, |h| h)
+}
+pub(crate) fn pack_records_to_budget<T: Clone>(
+    hits: &[T],
+    budget: usize,
+    language: Language,
+    passage: impl Fn(&T) -> &Passage,
+) -> Vec<T> {
+    let primary = |h: &&T| {
+        passage(h)
+            .origin
+            .as_deref()
+            .is_none_or(|o| o.is_empty() || o == "primary")
+    };
     let mut seen = HashSet::new();
     let mut used = 0usize;
     let mut out = Vec::new();
@@ -210,10 +223,16 @@ pub fn pack_hits_to_budget(hits: &[Passage], budget: usize, language: Language) 
         .filter(primary)
         .chain(hits.iter().filter(|h| !primary(h)))
     {
-        if hit.text.trim().is_empty() || !seen.insert((hit.document_id, hit.chunk_id)) {
+        let source = passage(hit);
+        if source
+            .text
+            .trim_matches(crate::citation_markers::ws)
+            .is_empty()
+            || !seen.insert((source.document_id, source.chunk_id))
+        {
             continue;
         }
-        let cost = hit_token_cost(hit, language);
+        let cost = hit_token_cost(source, language);
         if cost > budget.saturating_sub(used) {
             continue;
         }

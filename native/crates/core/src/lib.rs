@@ -5,6 +5,7 @@ pub mod chunking;
 pub mod citation_markers;
 pub mod comparison_answer;
 pub mod conflict_summary;
+pub mod context_budget;
 pub mod crypto;
 #[cfg(feature = "storage")]
 pub mod migration;
