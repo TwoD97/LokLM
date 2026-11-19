@@ -231,3 +231,7 @@ tests/bench/*.log
 
 # PyTorch embedder sidecar (local experiment, not part of the app build)
 sidecars/embedder/
+
+# Standalone shared-core compatibility test build (desktop owns its workspace).
+/native/crates/core/target/
+/native/crates/core/Cargo.lock

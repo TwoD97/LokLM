@@ -1,0 +1,46 @@
+name: Knowledge checks
+
+on:
+  pull_request:
+    paths:
+      - 'native/crates/core/**'
+      - 'native/crates/knowledge/**'
+      - 'deploy/knowledge/**'
+      - '.github/workflows/knowledge-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-core:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --no-self-update
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/crates/knowledge/target
+          key: knowledge-${{ runner.os }}-rust195-${{ hashFiles('native/crates/knowledge/Cargo.lock') }}
+      - name: Rust daemon and shared compatibility tests (no model loads)
+        run: |
+          cargo +1.95.0 test --locked --manifest-path native/crates/knowledge/Cargo.toml -j 2
+      - name: Portable source backup tests
+        run: python -m unittest discover -s deploy/knowledge -p test_backup.py
+      - name: New vault preparation tests
+        run: python -m unittest discover -s deploy/knowledge -p test_prepare_vault.py

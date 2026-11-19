@@ -1,0 +1,23 @@
+{
+  "before_source_commit": "38dea4080848259d5581d01aae94c09ddaae291c",
+  "after_source_commit": "f39eff1335f9babab0e219bd368fb5c64f0c60c8",
+  "serde_json_version": "1.0.154",
+  "new_contract": "serde-json-float-roundtrip-v1",
+  "f64_input": "0.9999999999999999",
+  "f64_bits_before": "3ff0000000000000",
+  "f64_bits_after": "3fefffffffffffff",
+  "f32_input": "1.0000000596046448",
+  "f32_bits_before": "3f800000",
+  "f32_bits_after": "3f800001",
+  "synthetic_corpus_sha256": "d1b1a60687c17003af977d7e18316766e22f8e87a441058f430cb51d725c01bb",
+  "f32_values_compared": 49152,
+  "f32_bits_sha256_before": "fcfd484a7d2ae2158e15d937092a63ff3099fad93c996c9d8d4e586e0156e196",
+  "f32_bits_sha256_after": "fcfd484a7d2ae2158e15d937092a63ff3099fad93c996c9d8d4e586e0156e196",
+  "checkpoint_roundtrip_mismatches_before": 0,
+  "checkpoint_roundtrip_mismatches_after": 0,
+  "universal_bit_compatibility_claimed": false,
+  "new_standard_b12359_fingerprint": "e7ecb6387255e0cc05f6937a25ff3271f97b919fc613ba3d365e642f37505083",
+  "new_reranker_b12359_fingerprint": "25df2b3d20a6151a192df7a32b0876a2c1cf259199b71cdae536a19e9a3300d2",
+  "old_dense_index_rejected_without_overwrite_test_passed": true,
+  "models_loaded_for_probe": false
+}

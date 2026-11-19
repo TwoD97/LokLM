@@ -1,0 +1,12 @@
+**/node_modules
+**/target
+.git
+models
+native/scratch
+native/artifacts
+deploy/knowledge/secrets
+**/.env
+**/settings.json
+**/__pycache__
+native/*.log
+native/crates/core/Cargo.lock

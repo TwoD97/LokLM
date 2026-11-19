@@ -1,0 +1,5 @@
+.env
+secrets/
+settings.json
+reports/
+__pycache__/

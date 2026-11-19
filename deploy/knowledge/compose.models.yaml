@@ -1,0 +1,55 @@
+# Dedicated CPU services only. Never point this stack at an active voice session.
+services:
+  embedder:
+    build:
+      context: .
+      dockerfile: Model.Dockerfile
+    image: loklm-model:llama-b12359
+    environment:
+      LOKLM_MODEL_PROFILE: ${LOKLM_PROFILE:-standard}
+      LOKLM_MODEL_ALIAS: ${LOKLM_EMBED_ALIAS:?Generate fingerprint with the daemon}
+    volumes:
+      - ${MODEL_PATH:?Set read-only canonical model cache}:/models:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 128
+    restart: unless-stopped
+    networks: [private]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/health]
+      interval: 15s
+      timeout: 3s
+      retries: 20
+  reranker:
+    image: loklm-model:llama-b12359
+    environment:
+      LOKLM_MODEL_PROFILE: reranker
+      LOKLM_MODEL_ALIAS: ${LOKLM_RERANK_ALIAS:?Generate reranker-fingerprint with the daemon}
+    volumes:
+      - ${MODEL_PATH:?Set read-only canonical model cache}:/models:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 128
+    restart: unless-stopped
+    networks: [private]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/health]
+      interval: 15s
+      timeout: 3s
+      retries: 20
+  knowledge:
+    environment:
+      LOKLM_EMBED_ENDPOINT: http://embedder:8080/
+      LOKLM_RERANK_ENDPOINT: http://reranker:8080/
+      LOKLM_MODEL_RUNTIME: llama.cpp-b12359
+    depends_on:
+      embedder: {condition: service_healthy}
+      reranker: {condition: service_healthy}

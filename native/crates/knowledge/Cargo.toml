@@ -1,0 +1,91 @@
+[package]
+name = "loklm-knowledge"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.95"
+
+# Independent build root until the desktop workspace is integrated.
+[workspace]
+
+[features]
+default = []
+lance = ["dep:lancedb", "dep:arrow-array", "dep:arrow-schema", "dep:futures"]
+store-bench = []
+bench = ["lance", "store-bench"]
+qdrant-bench = ["dep:qdrant-client", "store-bench"]
+
+[dependencies]
+loklm-core = { path = "../core", default-features = false }
+anyhow = "1"
+axum = "0.8"
+cap-std = "3"
+clap = { version = "4", features = ["derive", "env"] }
+fs2 = "0.4"
+hex = "0.4"
+notify = "8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+walkdir = "2"
+lancedb = { version = "=0.41.0", optional = true, default-features = false }
+arrow-array = { version = "58", optional = true }
+arrow-schema = { version = "58", optional = true }
+futures = { version = "0.3", optional = true }
+qdrant-client = { version = "=1.20.0", optional = true }
+
+[[example]]
+name = "stores_bench"
+required-features = ["store-bench"]
+
+# Exercise the desktop-owned original fixtures under this service's exact lock,
+# without copying or editing the shared core or requiring its parent workspace.
+[[test]]
+name = "shared_compatibility"
+path = "../core/tests/compatibility.rs"
+
+[[test]]
+name = "shared_qa_compatibility"
+path = "../core/tests/qa_compatibility.rs"
+
+[[test]]
+name = "shared_source_quote_compatibility"
+path = "../core/tests/source_quote_compat.rs"
+
+[[test]]
+name = "shared_source_quantities_compatibility"
+path = "../core/tests/source_quantities_compat.rs"
+
+[[test]]
+name = "shared_source_calculations_compatibility"
+path = "../core/tests/source_calculations_compat.rs"
+
+[[test]]
+name = "shared_source_units_compatibility"
+path = "../core/tests/source_units_compat.rs"
+
+[[test]]
+name = "shared_source_fragments_compatibility"
+path = "../core/tests/source_fragments_compat.rs"
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+strip = true
+
+[lints.rust]
+# Shared fixture files also contain desktop-only tests; this crate never enables
+# that feature, but recognizes its cfg name without declaring storage support.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("storage"))'] }
