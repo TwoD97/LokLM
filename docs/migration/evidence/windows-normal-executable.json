@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "3758800",
+  "uiSourceCommit": "7d927b6",
+  "build": "release, normal (no ui-test feature), Windows x64, CPU-only",
+  "bytes": 14175232,
+  "sha256": "2ca9a219a1aba5210a13204dace6d4303d558d05ee37d25a1dfc6f084007ab17",
+  "parserChecks": 5,
+  "scope": "Actual normal executable worker modes: DOCX/PDF valid imports and unsupported-content failures; GUI workflows separately exercised via identical backend in ui-test build. No installer/signing claim."
+}

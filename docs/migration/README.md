@@ -171,12 +171,23 @@ of that native vault. The original Mammoth parser agrees on normalized fixture
 words and the common heading, not formatting or all DOCX content. See
 [DOCX import limits](DOCX_IMPORT.md) and `evidence/native-docx-workflow.json`.
 
-All 32 Rust unit/integration tests passed across core, documents and inference;
+All 34 Rust unit/integration tests passed across core, documents and inference;
 strict Clippy passes for those crates and the desktop. The pure shared quote
 module also matches 24 original anchor cases and 11 source catalogs, including
 UTF-16 offsets, whitespace and ambiguous quotations. These helpers are not yet
 wired into desktop checked QA and establish source membership, not entailment.
 See [source quote boundary](SOURCE_QUOTES.md). Repository ESLint passes locally.
+The pure original quantity annotation and numeric-interpreter helpers also match
+307 and 364 complete original output fixtures respectively. Their limits and
+pending runtime integration are recorded in [SOURCE_QUANTITIES.md](SOURCE_QUANTITIES.md)
+and [SOURCE_CALCULATIONS.md](SOURCE_CALCULATIONS.md). The latter enabled precise
+JSON floating-point roundtrips after an edge fixture exposed default-decoder loss.
+
+A normal Windows release executable at `3758800` (before the arithmetic-interpreter
+commit) was built separately from ui-test, and passed five actual PDF/DOCX worker
+checks. It is 14,175,232 bytes; exact SHA-256 and scope are in
+`evidence/windows-normal-executable.json`. This is an executable artifact, not an
+installer comparison or a completed/signed replacement.
 
 The original TypeScript AuthService/sqlite3mc also opened a **copy** of the
 native-created vault after native password recovery and read its document. The
