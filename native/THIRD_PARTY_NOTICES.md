@@ -27,6 +27,9 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
   in the same isolated worker. Only stored/deflate ZIP entries are enabled;
   bundled documents are not extracted to filesystem paths or sent to a server.
 
+- Exact source-unit annotations use `regex = 1.13.2` (MIT OR Apache-2.0), with
+  fixed bounded-input patterns and no user-supplied regular expressions.
+
 `Cargo.lock` pins the resolved Rust dependency graph. A complete distributable
 license-text inventory and signed installer remain release gates; this notice is
 not a claim that distribution/signing review is complete. Headless LiveSync's
