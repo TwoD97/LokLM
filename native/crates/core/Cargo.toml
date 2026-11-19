@@ -10,7 +10,7 @@ storage = ["dep:rusqlite", "dep:tempfile"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
 zeroize = { version = "1", features = ["derive"] }
 aes-gcm = { version = "0.10", features = ["zeroize"] }
