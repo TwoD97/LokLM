@@ -46,13 +46,13 @@ Do not require the desktop app for agent operation. Unraid is currently offline.
 | Workspace keys | `auth/workspaceKeys.ts`, manifest v1, individually wrapped WDEKs | Original format retained; Rust create/select scoped encrypted stores |
 | Relational/FTS | `db/sqlite/WorkspaceDb.ts`, SQLCipher via sqlite3mc; FTS5, content/source/metadata/citations/quiz | Exact sqlite3mc 2.3.4 C engine via rusqlite; populated original DB fixture readable; FTS import/search/reopen pass |
 | Vectors | LanceDB 0.30.0; 1024-d BGE-M3; index config in manifest; encrypted `enc/`, plaintext transient `work/`; opt-in unencrypted index | Pending |
-| Import | `documents/parser.ts`, chunker, markdown, PDF/pdfjs, DOCX/mammoth, HTML, codebase track; OCR/tesseract | UTF-8 text/Markdown implemented and exercised; other formats/code/OCR pending |
+| Import | `documents/parser.ts`, chunker, markdown, PDF/pdfjs, DOCX/mammoth, HTML, codebase track; OCR/tesseract | UTF-8 text/Markdown and isolated simple text-layer PDF exercised in Windows UI; rich PDF/DOCX/code/OCR pending |
 | Sync | `FolderSyncService.ts`, ignore policies, changed/missing/replaced source handling | Pending |
 | Embedding | `EmbeddingService.ts`, backfill/identity, batched validation and resource planner | Native CPU BGE-M3 tested in Windows UI; hash/runtime identity and resumable encrypted checkpoints; complete resource planner pending |
-| Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; fixed actual-Qwen DE/EN source correctness passed; reranker/routing/calibration pending |
+| Retrieval | `RetrievalService.ts`, FTS+dense, RRF k=60, routing, filters, evidence thresholds, query cache, reranking | RRF and bounded encrypted exact dense scan; fixed actual-Qwen DE/EN source correctness passed; native BGE reranker smoke passed, combined UI/routing/calibration pending |
 | Answers | QA checked/comparison/corpus/summary routes, citation aliases and quote resolution, streaming | Exact canonical bilingual prompt snapshots, budgets and source-identity checks pass TS fixtures; generation integration under validation; advanced routes pending |
-| Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Pending |
-| Models | llama.cpp via node-llama-cpp; manifests/checksums/downloads; bounded residency; optional explicitly authorized Ollama | Pending |
+| Session/cancel | `lifecycle/`, model/document worker protocols and GPU coordinator; lock must revoke late work | Atomic epoch revocation and authentication cancellation tested; generation/active parsing cancellation and full planner pending |
+| Models | llama.cpp via node-llama-cpp; manifests/checksums/downloads; bounded residency; optional explicitly authorized Ollama | Explicit checksum-verified CPU loading/unload and RAM guard; original installer/download/resource planner parity pending |
 | Voice | Whisper native addon, sherpa-onnx diarization, workers, audio staging/alignment | Pending |
 | Productivity | Translation, summarization, quiz, writing, organizer | Pending |
 | Settings | encrypted global KV, avatars, model tiers, workspace type/default, storage estimates | Pending |
@@ -128,6 +128,21 @@ Vault persistence now prepares the encrypted backup before replacing the
 primary. A fault test confirms an unwritable backup leaves both the previous
 primary and saved backup byte-identical. A primary replacement failure can leave
 the old primary and new backup; neither is deleted to conceal partial failure.
+
+All 26 Rust unit/integration tests and strict Clippy passed after adding isolated
+PDF text extraction. The actual Windows PDF UI workflow passed two-page import,
+DE/EN retrieval, page-number source opening, inert script-like source text,
+malformed/blank/image PDF rejection without partial rows, duplicate import,
+lock/authentication cancellation/recovery and close/reopen. The original engine
+then opened a **copy** of that native PDF vault. The original TypeScript PDF
+parser and native parser agree on normalized text and exact page numbers for the
+same synthetic fixture. This does not establish broad PDF equivalence. See
+[PDF import limits and tests](PDF_IMPORT.md). A synthetic compressed 512 MiB
+expansion stream was rejected by the isolated worker; concurrent cancel and
+session lock tests stopped and reaped workers. Comprehensive parser fuzzing is
+still pending. The current UI-test executable
+is 13,897,216 bytes, excluding model weights and shared WebView2; this is not an
+installer or a matched Electron footprint comparison.
 
 The original TypeScript AuthService/sqlite3mc also opened a **copy** of the
 native-created vault after native password recovery and read its document. The

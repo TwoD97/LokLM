@@ -203,6 +203,51 @@ impl Store {
             ));
         }
         let hash = hex::encode(Sha256::digest(text.as_bytes()));
+        let chunks =
+            if path.to_lowercase().ends_with(".md") || path.to_lowercase().ends_with(".markdown") {
+                crate::chunking::chunk_markdown(text)
+            } else {
+                crate::chunking::chunk_pages(&[(1, text.to_string())])
+            };
+        self.import_chunks(
+            path,
+            title,
+            "text/plain",
+            text.len(),
+            &hash,
+            &chunks,
+            ticket,
+        )
+    }
+    /// Atomic parsed-source import. The source hash covers original bytes,
+    /// independently of parser/chunker output. Old revisions are never replaced.
+    #[allow(clippy::too_many_arguments)]
+    pub fn import_chunks(
+        &mut self,
+        path: &str,
+        title: &str,
+        mime_type: &str,
+        byte_size: usize,
+        hash: &str,
+        chunks: &[crate::chunking::DocumentChunk],
+        ticket: &Ticket,
+    ) -> Result<i64> {
+        ticket.check()?;
+        if hash.len() != 64
+            || !hash.bytes().all(|b| b.is_ascii_hexdigit())
+            || byte_size > 16 * 1024 * 1024
+            || chunks.is_empty()
+            || chunks.len() > 50000
+            || chunks.iter().map(|c| c.text.len()).sum::<usize>() > 32 * 1024 * 1024
+            || chunks
+                .iter()
+                .enumerate()
+                .any(|(i, c)| c.ordinal != i || c.text.trim().is_empty())
+        {
+            return Err(Error::Invalid(
+                "Invalid parsed source or chunk budget".into(),
+            ));
+        }
         let existing: Option<(i64, Option<String>)> = self
             .db
             .query_row(
@@ -212,19 +257,13 @@ impl Store {
             )
             .optional()?;
         if let Some((id, old_hash)) = existing {
-            if old_hash.as_deref() == Some(&hash) {
+            if old_hash.as_deref() == Some(hash) {
                 return Ok(id);
             }
             return Err(Error::Invalid("Source changed; previous revision and citations are preserved. Revision import is not available yet".into()));
         }
-        let chunks =
-            if path.to_lowercase().ends_with(".md") || path.to_lowercase().ends_with(".markdown") {
-                crate::chunking::chunk_markdown(text)
-            } else {
-                crate::chunking::chunk_pages(&[(1, text.to_string())])
-            };
         let tx = self.db.transaction()?;
-        tx.execute("INSERT INTO documents(title,source_path,mime_type,byte_size,status,chunk_count,content_hash) VALUES(?1,?2,'text/plain',?3,'ready',?4,?5)", params![title,path,text.len() as i64,chunks.len() as i64,hash])?;
+        tx.execute("INSERT INTO documents(title,source_path,mime_type,byte_size,status,chunk_count,content_hash) VALUES(?1,?2,?3,?4,'ready',?5,?6)", params![title,path,mime_type,byte_size as i64,chunks.len() as i64,hash])?;
         let id = tx.last_insert_rowid();
         for c in chunks {
             ticket.check()?;

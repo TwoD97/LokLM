@@ -1,0 +1,27 @@
+name: Native Rust core
+
+on:
+  pull_request:
+    paths: ['native/**', '.github/workflows/native-core.yml']
+  push:
+    paths: ['native/**', '.github/workflows/native-core.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows-core:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt
+      - name: Check formatting
+        run: cargo +1.95.0 fmt --all --manifest-path native/Cargo.toml -- --check
+      - name: Test encrypted core and document parser
+        run: cargo +1.95.0 test --locked -p loklm-core -p loklm-documents --manifest-path native/Cargo.toml
+      - name: Exercise isolated Windows parser
+        run: cargo +1.95.0 run --locked -p loklm-documents --example isolated --manifest-path native/Cargo.toml

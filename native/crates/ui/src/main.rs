@@ -141,9 +141,8 @@ impl Ui {
                     }
                     if let Some(answer) = value["answer"].as_str() {
                         self.answer.set(answer.into());
-                        self.message.set(
-                            "Model answer — verify its claims against the linked sources.".into(),
-                        );
+                        self.message
+                            .set("Answer — verify any claims against the linked sources.".into());
                     }
                     if let Some(message) = value["message"].as_str() {
                         self.message.set(message.into());
@@ -276,7 +275,7 @@ fn App() -> impl IntoView {
                 </aside>
                 <main class="main">
                     <div class="top"><div><div class="eyebrow">"Your private library"</div><h1>"Find it. Read the source."</h1></div><span class="badge">"Local · Rust"</span></div>
-                    <p class="muted">"Native preview · Text and Markdown, local CPU models and source-linked answers. Advanced answer checks, PDF/OCR and voice are still being migrated."</p>
+                    <p class="muted">"Native preview · Text, Markdown and simple text-layer PDFs. Local CPU models and source-linked answers. Rich PDF/OCR, advanced answer checks and voice are still being migrated."</p>
                     <Show when=move||!ui.recovery.get().is_empty()>
                         <div class="recovery"><strong>"Save your recovery phrase privately"</strong><pre>{move||ui.recovery.get()}</pre><p class="muted">"Use this phrase to reset your password without losing documents. Keep it private and out of chat."</p><button on:click=move|_|ui.recovery.set(String::new())>"I saved the phrase"</button></div>
                     </Show>
@@ -293,7 +292,7 @@ fn App() -> impl IntoView {
                     <div class="toolbar"><select aria-label="Answer language" style="width:150px" prop:value=move||language.get() on:change=move|e|language.set(event_target_value(&e))><option value="en">"English"</option><option value="de">"Deutsch"</option></select><button class="primary" disabled=move||ui.busy.get() on:click=move|_|ui.run(json!({"action":"ask","query":query.get_untracked(),"language":language.get_untracked()}))>"Ask with sources"</button></div>
                     <Show when=move||!ui.error.get().is_empty()><div class="error" role="alert">{move||ui.error.get()}</div></Show>
                     <p class="status" role="status">{move||if ui.busy.get(){"Working…".into()}else{ui.message.get()}}</p>
-                    <Show when=move||!ui.answer.get().is_empty()><section class="panel answer"><h2>{move||if ui.answering.get(){"Provisional answer · checking citations"}else{"Model answer"}}</h2><div class="source">{move||answer_view(ui.answer.get(),ui.hits.get(),ui)}</div></section></Show>
+                    <Show when=move||!ui.answer.get().is_empty()><section class="panel answer"><h2>{move||if ui.answering.get(){"Provisional answer · checking citations"}else{"Answer"}}</h2><div class="source">{move||answer_view(ui.answer.get(),ui.hits.get(),ui)}</div></section></Show>
                     <div class="columns"><section class="panel"><h2>"Source passages"</h2>
                         <Show when=move||!ui.hits.get().is_empty() fallback=||view!{<div class="empty">"Your sources will appear here."<br/>"Import a document and search its contents."</div>}>
                             {move||ui.hits.get().into_iter().enumerate().map(|(i,h)|{let id=h["chunk_id"].as_i64().unwrap_or(0);let workspace=ui.status.get_untracked()["workspace"].as_u64().unwrap_or(0);let title=format!("[{}] {}",i+1,h["title"].as_str().unwrap_or(""));let text=h["text"].as_str().unwrap_or("").chars().take(350).collect::<String>();view!{<button class="hit" on:click=move|_|ui.run(json!({"action":"source","chunk_id":id,"workspace":workspace}))><strong>{title}</strong><p>{text}</p></button>}}).collect_view()}
@@ -301,6 +300,7 @@ fn App() -> impl IntoView {
                     </section><section class="panel"><h2>"Verify the source"</h2>
                         <Show when=move||!ui.source.get().is_null() fallback=||view!{<div class="empty">"Open a citation to read the indexed passage."<br/>"Document text is displayed as untrusted plain text."</div>}>
                             <div class="filename">{move||ui.source.get()["source_path"].as_str().unwrap_or("").to_string()}</div>
+                            <div class="source-page">{move||ui.source.get()["page_from"].as_u64().map(|p|format!("Page {p}")).unwrap_or_default()}</div>
                             <pre class="source">{move||ui.source.get()["text"].as_str().unwrap_or("").to_string()}</pre>
                         </Show>
                     </section></div>

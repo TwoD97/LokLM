@@ -293,7 +293,10 @@ impl Runtime {
                             } else {
                                 app.dialog()
                                     .file()
-                                    .add_filter("Text and Markdown", &["txt", "md", "markdown"])
+                                    .add_filter(
+                                        "Text, Markdown and text-layer PDF",
+                                        &["txt", "md", "markdown", "pdf"],
+                                    )
                                     .blocking_pick_file()
                                     .map(|p| p.into_path())
                                     .transpose()
@@ -307,9 +310,9 @@ impl Runtime {
                                     .and_then(|s| s.to_str())
                                     .unwrap_or("")
                                     .to_lowercase();
-                                if !["txt", "md", "markdown"].contains(&extension.as_str()) {
+                                if !["txt", "md", "markdown", "pdf"].contains(&extension.as_str()) {
                                     return Err(Error::Unsupported(
-                                        "Only UTF-8 text/Markdown in this slice".into(),
+                                        "Select text, Markdown or a text-layer PDF".into(),
                                     ));
                                 }
                                 let file = std::fs::File::open(&path)?;
@@ -320,16 +323,32 @@ impl Runtime {
                                         "Maximum import size is 16 MiB".into(),
                                     ));
                                 }
-                                let text = std::str::from_utf8(&bytes)
-                                    .map_err(|_| Error::Invalid("Source must be UTF-8".into()))?;
                                 ticket.check()?;
                                 let title = path.file_name().unwrap_or_default().to_string_lossy();
-                                live.store.as_mut().unwrap().import_text(
-                                    &path.to_string_lossy(),
-                                    &title,
-                                    text,
-                                    &ticket,
-                                )?;
+                                if extension == "pdf" {
+                                    use sha2::{Digest, Sha256};
+                                    let parsed = loklm_documents::parse_isolated(&bytes, &ticket)?;
+                                    let chunks = loklm_core::chunking::chunk_pages(&parsed.pages);
+                                    live.store.as_mut().unwrap().import_chunks(
+                                        &path.to_string_lossy(),
+                                        &title,
+                                        "application/pdf",
+                                        bytes.len(),
+                                        &hex::encode(Sha256::digest(&bytes)),
+                                        &chunks,
+                                        &ticket,
+                                    )?;
+                                } else {
+                                    let text = std::str::from_utf8(&bytes).map_err(|_| {
+                                        Error::Invalid("Source must be UTF-8".into())
+                                    })?;
+                                    live.store.as_mut().unwrap().import_text(
+                                        &path.to_string_lossy(),
+                                        &title,
+                                        text,
+                                        &ticket,
+                                    )?;
+                                }
                             }
                             Ok(json!({"documents":live.store.as_ref().unwrap().list(&ticket)?}))
                         }
@@ -644,6 +663,12 @@ async fn dispatch(
     .map_err(|e| e.to_string())
 }
 fn main() {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|a| a == loklm_documents::WORKER_ARGUMENT)
+    {
+        std::process::exit(loklm_documents::worker_main());
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {

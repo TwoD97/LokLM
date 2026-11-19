@@ -19,6 +19,10 @@ and the Leptos UI are Rust. This does not mean every dependency is written in Ru
   the existing repository THIRD_PARTY_NOTICES and model-manifest provenance.
 - Build-only tools include Rust, MSVC, CMake, libclang and Trunk. A local verified
   libclang wheel was used for binding generation; it is not copied into the app.
+- PDF text extraction uses `pdf-extract = 0.12.1` (MIT) and `lopdf = 0.42.0`
+  (MIT), pinned transitively by Cargo.lock. Parsing runs in a separate bounded
+  process. The fonts/CMap and PostScript parsing dependencies' notices also
+  belong in the eventual distributable license inventory.
 
 `Cargo.lock` pins the resolved Rust dependency graph. A complete distributable
 license-text inventory and signed installer remain release gates; this notice is

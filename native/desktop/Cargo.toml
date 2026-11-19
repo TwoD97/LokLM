@@ -16,6 +16,9 @@ tauri = "2"
 tauri-plugin-dialog = "2"
 loklm-core = { path = "../crates/core" }
 loklm-inference = { path = "../crates/inference" }
+loklm-documents = { path = "../crates/documents" }
+sha2 = "0.10"
+hex = "0.4"
 serde.workspace = true
 serde_json.workspace = true
 zeroize.workspace = true

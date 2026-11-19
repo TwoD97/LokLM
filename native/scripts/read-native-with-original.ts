@@ -16,7 +16,7 @@ try{
  const db=await auth.getWorkspaceDb(1)
  const docs=await db.listDocuments()
  assert.equal(docs.length,1)
- assert.equal(docs[0]!.title,'Überblick Berlin.md')
+ assert.equal(docs[0]!.title,basename(phase.fixture))
  await writeFile('native/artifacts/native-original-roundtrip.json',JSON.stringify({passed:true,documents:docs.length,scope:'Original AuthService and sqlite3mc read copied native-created v6 vault after native password recovery; synthetic data only.'},null,2))
  console.log('Original engine opened native-created vault and indexed document')
 }finally{await auth.lock()}
