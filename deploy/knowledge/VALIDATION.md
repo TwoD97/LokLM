@@ -9,16 +9,16 @@ or changes to the separate Macro/Zero tree. Unraid is unavailable and untested.
 
 | Check | Observed result |
 |---|---|
-| Windows knowledge crate | 16 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 7 original shared compatibility fixtures under the daemon lock |
+| Windows knowledge crate | 19 tests pass: 2 file + 5 integration + 1 answer + 1 reranker transport + 2 numeric-contract + 8 original shared compatibility fixtures under the daemon lock |
 | Basic QA adapter | 1 synthetic HTTP integration test passes: original core prompt use, actual-tokenizer request, citation-to-UUID mapping, unknown citations refused, no-evidence refusal, busy429, cancellation408 |
-| Shared pure core | 13 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote + 1 source-quantity fixture tests; storage feature disabled |
-| Linux container with Lance | Optimized production build passes; 17 tests pass (Windows cases plus Unix symlink rejection), including shared reranker preparation, HTTP score normalization and source-quote/quantity fixtures |
+| Shared pure core | 14 tests pass: 6 unit + 2 original cipher/chunker compatibility + 2 original QA + 2 source-quote + 1 source-quantity + 1 source-calculation fixture tests; storage feature disabled |
+| Linux container with Lance | Optimized production build passes; 20 tests pass (Windows cases plus Unix symlink rejection), including numeric decoding, legacy-index refusal and shared original fixtures |
 | Python source backup | 2 tests pass: Unicode/binary roundtrip, no overwrite, hostile archive traversal refused |
 | Python prepare-new-vault | 2 tests pass: original bytes preserved, CRLF/frontmatter and attachments, persistent IDs on repeat copy, duplicate ID rejection |
 | Fresh provisioning | Actual packaged CouchDB configuration + upstream CLI setup passes; settings mode0600, E2EE, nonadmin sync user, repeated initialization refused |
 | Compose | Base + models + experimental answer + GPU-preparation + local-access overlays validate with synthetic environment values; no deployment performed |
-| LiveSync end-to-end | 25 checks pass with actual Qwen3-Embedding GGUF and Rust/Lance debug process; another 25 pass with the release service, production CouchDB config and sidecar entrypoint in lexical mode; see separate evidence JSON |
-| Actual CPU model integration | 20 checks pass on release source `5e99843`: Qwen3 embedding, BGE reranking with original sigmoid scores, Qwen3.5-4B DE/EN answers and source identity, scope/refusal, literal role-marker rejection, bounded pipeline cancellation and unchanged dedup |
+| LiveSync end-to-end | 25 checks pass with the numeric-contract release `f39eff1`, actual Qwen3 embeddings, Lance and upstream encrypted peers; earlier debug-dense and release-lexical runs are retained separately |
+| Actual CPU model integration | 20 checks pass on release source `f39eff1`: Qwen3 embedding, BGE reranking with original sigmoid scores, Qwen3.5-4B DE/EN answers and source identity, scope/refusal, literal role-marker rejection, bounded pipeline cancellation and unchanged dedup |
 
 Shared source-quote integration at `de07612` adds the desktop owner's pure
 `c418292` module and two tests covering 24 original anchor/context cases and
@@ -38,12 +38,26 @@ desktop storage. The fixture generator passes ESLint. Like source quotes, these
 annotations are not yet applied to generated-answer validation; no new arithmetic
 correctness, scope or entailment guarantee is claimed for that endpoint.
 
+Calculation integration at `f39eff1` adds the pure `0fef42f` bounded interpreter
+and 364 complete original output/span fixtures. It never executes document
+JavaScript. Enabling the required JSON float-roundtrip decoder also changes the
+provider/checkpoint numeric contract: measured edge inputs change f64 and f32
+bits. Embedding and reranker fingerprints therefore include
+`serde-json-float-roundtrip-v1`; old dense indexes fail startup without overwrite.
+Regenerate provider aliases and build into a new index directory. All 49,152
+f32 values in the existing synthetic benchmark fixture remain bit-identical;
+this does not establish universal compatibility. See `evidence/numeric-decoder.json`.
+The storage benchmarks retain their original measurement points. The optimized
+numeric-contract rebuild took 28m36s at two jobs; this is build cost, not an
+inference or storage latency measurement.
+
 The actual model smoke uses pinned llama.cpp b12359, two CPU threads per
 dedicated provider, no GPU, a 10 GiB physical-memory admission check and a 2 GiB
 watchdog. The window was coordinated with the desktop owner after available RAM
 recovered; no shared model or global WSL/cache setting was changed. All own test
-containers were removed afterward. `evidence/models-cpu.json` records the actual
-synthetic answers, source hashes, model fingerprints and image identities.
+containers were removed afterward. `evidence/models-cpu-numeric.json` records the
+new numeric-contract run; `evidence/models-cpu.json` preserves the earlier run.
+Both record actual synthetic answers, source hashes, fingerprints and image IDs.
 
 Both answers correctly report 42 solar panels and cite the supplied Unicode
 Markdown source. The pinned template's disabled-thinking suffix was verified
@@ -65,6 +79,8 @@ the replicated vault, verifies source IDs/opening paths, source filtering and
 unchanged-content dedup, then checks hostile path, bad auth and CouchDB outage.
 The binary attachment SHA-256 is
 `2312394bd99545d9de131c24efb781e765ac1aec243f2ed9347597a793a415e9`.
+`evidence/livesync-release-dense.json` records the current dense release image
+and its dynamically derived embedding fingerprint.
 **No Obsidian UI was exercised. CLI/protocol compatibility is not UI parity.**
 
 ## Same-vector store benchmark
@@ -175,9 +191,9 @@ initially failed before tests because locked Playwright 1.60.0 rejected the new
 the website types/tests/build check then passed. The later Application check
 found missing Node-global declarations in our provisioning script; `24304e4`
 fixes those without disabling lint rules and passes a targeted ESLint run.
-Knowledge Linux/Windows and website checks pass at source `5e99843`.
-Remaining Application/final-head CI results are tracked
-on draft [PR #50](https://github.com/TwoD97/LokLM/pull/50), not treated as already green.
+Knowledge Linux/Windows, Application and Website checks pass at source `f39eff1`.
+Later-head CI results remain tracked on draft
+[PR #50](https://github.com/TwoD97/LokLM/pull/50).
 
 ## Manual testing
 
