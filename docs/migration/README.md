@@ -103,6 +103,13 @@ These helpers enforce presentation and supplied identities, not claim support,
 and are not yet integrated into desktop structured generation. Existing executable
 and model evidence retains its exact earlier source/artifact provenance.
 
+The subsequent pure conflict-reporting layer captures 529 calls from 95 original/
+boundary tests, including ordered schemas, DE/EN wording and original source spans.
+One invalid-surrogate case rejects at the Rust transport boundary; the original
+mocked citation-finder failure is reproduced in a private fault-injection test.
+See [CONFLICT_REPORTING.md](CONFLICT_REPORTING.md) for precise limits. This remains
+a presentation grammar awaiting complete checked-QA integration, not entailment.
+
 This is an incomplete migration, not a release candidate. The first actual
 Windows UI run passed encrypted registration, synthetic Markdown import, DE/EN
 lexical search, indexed source opening, inert malicious text, no-results,
