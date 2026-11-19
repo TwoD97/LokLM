@@ -86,6 +86,7 @@ server. The code never accepts a client-supplied model endpoint.
 | Source selection | Round-robin diversity, primary per-source cap 6, short documents <=8 chunks, otherwise +/-1 neighbour; bounded expansion |
 | Citations | Original file UUID/path/headings + deterministic content anchor; request-local numeric aliases only when building shared QA prompts |
 | Exact source-quote provenance | Shared `source_quote` module integrated with original TS fixture tests (24 anchors/contexts, 11 catalogs); available for checked-QA integration, not automatically applied to generated answers |
+| Exact source quantities | Shared `source_quantities::annotate` with original rational-string values and UTF-16 spans; 307 original TS fixture cases; available for future checked-QA integration, not automatically applied to generated answers |
 | Bilingual QA | Exact shared core templates, budgets plus server tokenizer check, identity validation; no unchecked streamed output |
 
 Not yet parity: original title/language/recency/short-hit boosts and no-reranker
@@ -102,3 +103,9 @@ The reranker fingerprint versions both this score-domain contract and the
 UTF-16 passage limit; regenerate its alias after upgrading. This does not change
 embedding identity or require source re-embedding. These normalized scores are
 ranking weights, not calibrated probabilities or evidence of entailment.
+
+The shared quantity helper pins `regex = 1.13.2` (MIT OR Apache-2.0). That
+version was already in the standalone daemon's dependency graph; integration
+only adds the direct core dependency. The production image's generated Cargo
+license inventory includes the regex notices. Patterns are fixed code over
+bounded passages; no document-supplied regular expressions are evaluated.
